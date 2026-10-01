@@ -1,0 +1,9 @@
+## Interface: 16001, 16000, 120005, 120007, 120010, 50504, 50505, 11509, 11508, 11507
+## Title: Olympus Probe
+## Notes: Records addon-API facts for the Olympus verification bot into SavedVariables. Read-only; type /olp for commands.
+## Version: 0.1.3
+## Author: Olympus
+## SavedVariables: OlympusProbeDB
+## X-Purpose: One-session probe of the Classic Forever beta client (build 1.60.1.69893); also loads on Classic Era 1.15.x, MoP Classic 5.5.x and Retail 12.0.x. Remove after the beta test.
+
+OlympusProbe.lua

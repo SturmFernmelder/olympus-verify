@@ -1,0 +1,21 @@
+/* Policy page only. System fonts and local styles; no remote dependencies. */
+.olympus-policy{font:1rem/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;background:#1e1f22;color:#e3e5e8;margin:0;overflow-wrap:anywhere}
+.olympus-policy *{box-sizing:border-box}
+.olympus-policy .policy-header,.olympus-policy main{max-width:48rem;margin:0 auto;padding:1.5rem 1.25rem}
+.olympus-policy .policy-header{display:flex;gap:1rem;align-items:center;justify-content:space-between;border-bottom:1px solid #3f4248}
+.olympus-policy .brand{font-weight:750;text-decoration:none;font-size:1.1rem}
+.olympus-policy nav{display:flex;gap:.25rem;flex-wrap:wrap}
+.olympus-policy nav a{padding:.5rem .65rem;border-radius:.35rem;text-decoration:none}
+.olympus-policy nav a[aria-current="page"]{background:#303239;color:#f2d772}
+.olympus-policy main{padding-top:2.5rem;padding-bottom:4rem}
+.olympus-policy h1{color:#f2d772;font-size:clamp(1.6rem,4vw,2rem);line-height:1.25;margin:0 0 .5rem}
+.olympus-policy h2{font-size:1.15rem;line-height:1.4;margin:2.25rem 0 .6rem;color:#f2f3f5}
+.olympus-policy p,.olympus-policy li{color:#c9cdd3}
+.olympus-policy code{background:#2b2d31;padding:.1em .35em;border-radius:4px;font-size:.9em;color:#e3e5e8}
+.olympus-policy .meta{color:#b5bac1;font-size:.9rem;margin:0 0 2rem}
+.olympus-policy .related{margin-top:2.5rem}
+.olympus-policy a{color:#f2d772;text-underline-offset:.18em}
+.olympus-policy a:focus-visible{outline:3px solid #f2d772;outline-offset:3px;border-radius:2px}
+.olympus-policy .skip-link{position:absolute;left:1rem;top:.5rem;background:#1e1f22;padding:.5rem .75rem;transform:translateY(-200%);z-index:1}
+.olympus-policy .skip-link:focus{transform:none}
+@media(max-width:35rem){.olympus-policy .policy-header{align-items:flex-start;flex-direction:column;gap:.5rem}.olympus-policy main{padding-top:2rem}.olympus-policy nav{gap:.1rem}.olympus-policy nav a{padding:.5rem .55rem}}

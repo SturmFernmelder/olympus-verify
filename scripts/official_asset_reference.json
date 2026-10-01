@@ -1,0 +1,933 @@
+{
+  "schema": "olympus-official-website-reference-v1",
+  "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
+  "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
+  "coverage_evidence_sha256": "c412cbcf02d3c6a56ce284c98da2c9ec3ad5dc8141275b70c1368f90243a284b",
+  "reference_source_head": "32f19b933de870131d8bbdf50fbf17b2d3fe029e",
+  "assets": [
+    {
+      "path": "worker/public/static/app.css",
+      "mode": "100644",
+      "bytes": 41219,
+      "sha256": "f0f99b82cc526813aa5092a79af4ce7a794822dabc807e7738bc9b1171f46fa7"
+    },
+    {
+      "path": "worker/public/static/app.js",
+      "mode": "100644",
+      "bytes": 178159,
+      "sha256": "cdfc05fb8ff5eaab2ebfad2f1b1aa1694189ba4d37ede8493e51a50be4f2930d"
+    },
+    {
+      "path": "worker/public/static/olympus-icon.png",
+      "mode": "100644",
+      "bytes": 58974,
+      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+    },
+    {
+      "path": "worker/public/static/policies.css",
+      "mode": "100644",
+      "bytes": 1903,
+      "sha256": "3dbc0135de75e775f25e2af197e23941ee3a20438eb6630591692935d2fecb59"
+    },
+    {
+      "path": "worker/public/static/rank-planner/app.js",
+      "mode": "100644",
+      "bytes": 15657,
+      "sha256": "28c6c610d643053cbcdca2ce559ffd8ac0d33b77bba94aa7ecdca5f08ed798b0"
+    },
+    {
+      "path": "worker/public/static/rank-planner/catalogue.js",
+      "mode": "100644",
+      "bytes": 19090,
+      "sha256": "748e695bf765b61a4c86e5224167db907964acbf01fbdb9378014c63e4eb5973"
+    },
+    {
+      "path": "worker/public/static/rank-planner/model.js",
+      "mode": "100644",
+      "bytes": 11826,
+      "sha256": "75db29eb93cfb3598633c79d0880bf5b8fe43f893f948dc0f8b49e2caecf5487"
+    },
+    {
+      "path": "worker/public/static/rank-planner/styles.css",
+      "mode": "100644",
+      "bytes": 15197,
+      "sha256": "5083615942fb989187cf428854fe421c0bf4f5579f9fb64b627de1e5aee9e425"
+    },
+    {
+      "path": "worker/public/static/wow/asset-provenance.json",
+      "mode": "100644",
+      "bytes": 62212,
+      "sha256": "098d187303b7fbdee9179b2fa8177185686ad9c373fe549dbd59764a28b54068"
+    },
+    {
+      "path": "worker/public/static/wow/assist.png",
+      "mode": "100644",
+      "bytes": 425,
+      "sha256": "b4208e88e4990c2debeb4deacecdcc69c2ef60d4dba7eb83fc138e1f08fdfeeb"
+    },
+    {
+      "path": "worker/public/static/wow/bullet.png",
+      "mode": "100644",
+      "bytes": 235,
+      "sha256": "280178f61063cda36c02b8ca4d0150f4357af457bca6570477105e0d76972e0d"
+    },
+    {
+      "path": "worker/public/static/wow/button-disabled.png",
+      "mode": "100644",
+      "bytes": 956,
+      "sha256": "9a8eeabe1e0dc0bee488392f3d716994162fc24aedbddec858d06da8d17861f7"
+    },
+    {
+      "path": "worker/public/static/wow/button-down.png",
+      "mode": "100644",
+      "bytes": 848,
+      "sha256": "a64d974b8f42cdfb5aa6c9c4d25350a9360a37c36e336f042138bd6975423dff"
+    },
+    {
+      "path": "worker/public/static/wow/button-hover.png",
+      "mode": "100644",
+      "bytes": 1681,
+      "sha256": "5f475ebcbae6055b946c493611aa66bc643de5785cbe500e1df2d89656badb46"
+    },
+    {
+      "path": "worker/public/static/wow/button-up.png",
+      "mode": "100644",
+      "bytes": 1229,
+      "sha256": "170fae7ca18f342912c89da3f277915896e3b194b2ff144f8b50ce89a01c81bf"
+    },
+    {
+      "path": "worker/public/static/wow/check-down.png",
+      "mode": "100644",
+      "bytes": 636,
+      "sha256": "5f99bd7621269a1105c0f9df787ed6791443f12fc8ed0be9a5bbc10356b09fa8"
+    },
+    {
+      "path": "worker/public/static/wow/check-highlight.png",
+      "mode": "100644",
+      "bytes": 442,
+      "sha256": "b96e0a6da550b39ee0eddb6854af574feb481d7e0ad73eb8607f581c97ca79c5"
+    },
+    {
+      "path": "worker/public/static/wow/check-mark-disabled.png",
+      "mode": "100644",
+      "bytes": 616,
+      "sha256": "dd184f333455fcd1f1f18eac301b2be48e124970d055a7d0a20f6717a730b384"
+    },
+    {
+      "path": "worker/public/static/wow/check-mark.png",
+      "mode": "100644",
+      "bytes": 524,
+      "sha256": "49073ec81460ed8a8bf34010fc4ec8696f71188157df13a95aa06ebc8e40a256"
+    },
+    {
+      "path": "worker/public/static/wow/check-up.png",
+      "mode": "100644",
+      "bytes": 366,
+      "sha256": "361d552b035aec1ce7690ffc0228617d76a2c384da8a5f5621b29a759150def9"
+    },
+    {
+      "path": "worker/public/static/wow/class-druid.png",
+      "mode": "100644",
+      "bytes": 4562,
+      "sha256": "9156bfbf56612055b87024683b3061c5ce7d80abb3d1695b3c6cdae08661eaa3"
+    },
+    {
+      "path": "worker/public/static/wow/class-hunter.png",
+      "mode": "100644",
+      "bytes": 3326,
+      "sha256": "4b418ca8f21b27e55f4acbaf19f1a62c810b1bbdcd319024519fae4f8de84dba"
+    },
+    {
+      "path": "worker/public/static/wow/class-mage.png",
+      "mode": "100644",
+      "bytes": 4313,
+      "sha256": "12fed74ab54d84c97fb20d19f7eabad0ece7ad5d054f786e1ffe645bb0836dba"
+    },
+    {
+      "path": "worker/public/static/wow/class-paladin.png",
+      "mode": "100644",
+      "bytes": 4688,
+      "sha256": "76c52f795f054e6f3cb66e8f706c256c3f95d4c12798ccf1377dd3befc64b92a"
+    },
+    {
+      "path": "worker/public/static/wow/class-priest.png",
+      "mode": "100644",
+      "bytes": 3949,
+      "sha256": "b84349be4180500c97b93c2f8c2fabd9f6334a8b80c277dbdff93af3e9701f25"
+    },
+    {
+      "path": "worker/public/static/wow/class-rogue.png",
+      "mode": "100644",
+      "bytes": 4385,
+      "sha256": "dc00fc3068c8c84c554a7641851ebfc36161fa0f02276eee6e73d31ff3d86ce4"
+    },
+    {
+      "path": "worker/public/static/wow/class-shaman.png",
+      "mode": "100644",
+      "bytes": 4269,
+      "sha256": "450dfcf81e60681688c46d3c8974db9a2958f67ac7091fa152da108a89ae4f84"
+    },
+    {
+      "path": "worker/public/static/wow/class-warlock.png",
+      "mode": "100644",
+      "bytes": 5315,
+      "sha256": "da11a14a9783f2c211ca70e4a33388e2432534135de7915c5b9a835ee174a686"
+    },
+    {
+      "path": "worker/public/static/wow/class-warrior.png",
+      "mode": "100644",
+      "bytes": 3905,
+      "sha256": "e586d4cbec26e81056469f7e1ce4920e261301fa65f7450961c037e756854b61"
+    },
+    {
+      "path": "worker/public/static/wow/close-down.png",
+      "mode": "100644",
+      "bytes": 414,
+      "sha256": "25157afa7dd8cbed59d540df5c9ae5eb98d840384dcb438609278e104d4de0b3"
+    },
+    {
+      "path": "worker/public/static/wow/close-highlight.png",
+      "mode": "100644",
+      "bytes": 844,
+      "sha256": "0e6a5dd804765ba564be3906f040bae81d1eb27e58fe47059681020e82921e47"
+    },
+    {
+      "path": "worker/public/static/wow/close-up.png",
+      "mode": "100644",
+      "bytes": 509,
+      "sha256": "0474684094b2e3ae65bb8b28d0abec554b228194dda82700b533dda4dc631c91"
+    },
+    {
+      "path": "worker/public/static/wow/divider.png",
+      "mode": "100644",
+      "bytes": 2543,
+      "sha256": "ca66a3efeb8a21fa2ee39232b28ea14857048c1d45b497a2648c202ba7c2f224"
+    },
+    {
+      "path": "worker/public/static/wow/frame-dialog.png",
+      "mode": "100644",
+      "bytes": 3260,
+      "sha256": "9cde521bcb9b61c454143b479b7ddb08a9cd74afd2273dc489fd784371e51df4"
+    },
+    {
+      "path": "worker/public/static/wow/frame-gold.png",
+      "mode": "100644",
+      "bytes": 3707,
+      "sha256": "bbb2000f8040c2f3d8391d8a253c3d9e955b9934f508b98359f86ebb5ce4e48f"
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-gold.png",
+      "mode": "100644",
+      "bytes": 507,
+      "sha256": "c0e5d0b77055527ad81622f45d79b5ca5b5bf14e042a94c04c1cca1df8fc09d4"
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-green.png",
+      "mode": "100644",
+      "bytes": 500,
+      "sha256": "08f0602ae749d81075b92366e86361ca7fa8b11f1907bcf76c31cb4a4b8aba78"
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-red.png",
+      "mode": "100644",
+      "bytes": 501,
+      "sha256": "820a6fe43ee40b4928659666ce10086b1a6c857cb58f72393300cf30b67a8328"
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip.png",
+      "mode": "100644",
+      "bytes": 457,
+      "sha256": "c9dfea298e74acb967073ef2d59c14ac0c5064ebf0df5a851f5b47b63ce6adce"
+    },
+    {
+      "path": "worker/public/static/wow/friz-quadrata.woff2",
+      "mode": "100644",
+      "bytes": 15112,
+      "sha256": "0b81818e6d999c463288926ec9f3afeb771d89c6712f2c2e1e2eee5c97df522d"
+    },
+    {
+      "path": "worker/public/static/wow/header.png",
+      "mode": "100644",
+      "bytes": 9394,
+      "sha256": "5158c6f30d98e0fcdf4af83234868729c484f71ec14ec0cbe81efc7c11b3fe44"
+    },
+    {
+      "path": "worker/public/static/wow/icon-apply.png",
+      "mode": "100644",
+      "bytes": 5327,
+      "sha256": "b755eb03f801d395ec0ca9901a088729eadb91288ca3fb93c03ef72ddc745d16"
+    },
+    {
+      "path": "worker/public/static/wow/icon-clock.png",
+      "mode": "100644",
+      "bytes": 6036,
+      "sha256": "0d9b1efcc99ec2926dbd32bc679aaa02502165fe055e3fb7d67191c1ba8cc3b3"
+    },
+    {
+      "path": "worker/public/static/wow/icon-friends.png",
+      "mode": "100644",
+      "bytes": 3528,
+      "sha256": "e5aede0dfd352d4b81b9de22d25e665c7b9c2dd5403f0b0ec8c41f59a85803ce"
+    },
+    {
+      "path": "worker/public/static/wow/icon-heal.png",
+      "mode": "100644",
+      "bytes": 4622,
+      "sha256": "a7ee4edb9bc7102798b2a4cdcf4d05d3730e8b1bb5d4d6c712733e2b0b58a1b1"
+    },
+    {
+      "path": "worker/public/static/wow/icon-launch.png",
+      "mode": "100644",
+      "bytes": 7004,
+      "sha256": "4dce911d73d3f4915eec606500c9945f78ce9caf9e2ac562fe211c16d7a2396c"
+    },
+    {
+      "path": "worker/public/static/wow/icon-names.png",
+      "mode": "100644",
+      "bytes": 4249,
+      "sha256": "59b9eac0607680bab08a5d0594a1fad4eceee440d1e304e76125944680af1cbb"
+    },
+    {
+      "path": "worker/public/static/wow/icon-pvp.png",
+      "mode": "100644",
+      "bytes": 6466,
+      "sha256": "98b5323f7e06971b27e1a3d26c54e3dd7dc63f3fd8e6d74e0d3e803d0f0fa477"
+    },
+    {
+      "path": "worker/public/static/wow/icon-shield.png",
+      "mode": "100644",
+      "bytes": 5476,
+      "sha256": "8440e2ac469adcba4b985b480d6cf9588f66175087864286088938c852bf7ea5"
+    },
+    {
+      "path": "worker/public/static/wow/icon-vote.png",
+      "mode": "100644",
+      "bytes": 5227,
+      "sha256": "e654aa6319b9be3af1d70dd0df0a45bf4dfb9f6e042cc30d1ab39ec334cd09d4"
+    },
+    {
+      "path": "worker/public/static/wow/icon-warning.png",
+      "mode": "100644",
+      "bytes": 4851,
+      "sha256": "620a4896f2132d07528d1cf9c399ad13e629d316ea0b2cdf98909f8514d3b1f2"
+    },
+    {
+      "path": "worker/public/static/wow/input.png",
+      "mode": "100644",
+      "bytes": 1057,
+      "sha256": "dc4fd0192ce5a9d27af942c8d8b87a8711a04f51b383c61f6115ed2fe1a2a627"
+    },
+    {
+      "path": "worker/public/static/wow/leader.png",
+      "mode": "100644",
+      "bytes": 319,
+      "sha256": "ca1e3f01f107b44b95fffd64ce39660898da888110a4dbb2adeb90c2a77ba97c"
+    },
+    {
+      "path": "worker/public/static/wow/looter.png",
+      "mode": "100644",
+      "bytes": 380,
+      "sha256": "a3cc16bce0057d6be5823e6aa651f06aa5445e028e146a2998828567730c038d"
+    },
+    {
+      "path": "worker/public/static/wow/molten-core.jpg",
+      "mode": "100644",
+      "bytes": 25997,
+      "sha256": "c5c827ebeb9c6e63e90ef32a0ee2d2d8b87586cf7b9fde31e37ddb86722025e8"
+    },
+    {
+      "path": "worker/public/static/wow/morpheus.woff2",
+      "mode": "100644",
+      "bytes": 17884,
+      "sha256": "ea845e2ac467f107eb1617c88b0d38acf6c8234bdf21675db710f90051409f3e"
+    },
+    {
+      "path": "worker/public/static/wow/not-ready.png",
+      "mode": "100644",
+      "bytes": 5480,
+      "sha256": "44f714aef98396a7b1aa365e2ab8cbbd3fdbe6d56b03c3e394c6ec0faf72a902"
+    },
+    {
+      "path": "worker/public/static/wow/parchment.jpg",
+      "mode": "100644",
+      "bytes": 18607,
+      "sha256": "14685ef2f7c49e8be2e9c0a91e26a2cf3417a594509e0c115a27184690efbd07"
+    },
+    {
+      "path": "worker/public/static/wow/pos-class_lead.png",
+      "mode": "100644",
+      "bytes": 5325,
+      "sha256": "84e57c96aa3ad5e0da75c88f24bd04de0324da2f2c9058214bf14c2c3466a487"
+    },
+    {
+      "path": "worker/public/static/wow/pos-co_gm.png",
+      "mode": "100644",
+      "bytes": 10810,
+      "sha256": "bfb7a8e6c86ff618e99af8302b6c46729b5742443c2421456b70c411ecc0a84a"
+    },
+    {
+      "path": "worker/public/static/wow/pos-community.png",
+      "mode": "100644",
+      "bytes": 4521,
+      "sha256": "743442774773d25787a93199cc290c20303f9e436c6e54d56593d702c2e1f772"
+    },
+    {
+      "path": "worker/public/static/wow/pos-guild_master.png",
+      "mode": "100644",
+      "bytes": 5513,
+      "sha256": "675a478915dfe3627315cb142bc722e3e6e4be20de8e8a91cb4abd8c7e5474ed"
+    },
+    {
+      "path": "worker/public/static/wow/pos-leveling.png",
+      "mode": "100644",
+      "bytes": 10683,
+      "sha256": "b5df619438a0d1babf32e870555ab9a044df5154a77eee9c732fa449517446d0"
+    },
+    {
+      "path": "worker/public/static/wow/pos-liaison.png",
+      "mode": "100644",
+      "bytes": 11942,
+      "sha256": "0ce6a1646968f444e143b5279c82962a9676fe980f1a1367efef0bf7906f21ac"
+    },
+    {
+      "path": "worker/public/static/wow/pos-loot_council.png",
+      "mode": "100644",
+      "bytes": 4407,
+      "sha256": "32e9751d155781ff56a32a0d6840a44bab8f3e70f6d760863a8e5eb4042a5eff"
+    },
+    {
+      "path": "worker/public/static/wow/pos-member.png",
+      "mode": "100644",
+      "bytes": 2341,
+      "sha256": "5b1dd403702ce81f6206b19a1b196019d11666b44823a58d4593617d1c3b7603"
+    },
+    {
+      "path": "worker/public/static/wow/pos-moderator.png",
+      "mode": "100644",
+      "bytes": 6095,
+      "sha256": "96949bda9703aba86ae3b1adc3540d63c3ade5152d6f981725dd992932d7df08"
+    },
+    {
+      "path": "worker/public/static/wow/pos-officer.png",
+      "mode": "100644",
+      "bytes": 5045,
+      "sha256": "3739dda60ab8a3b046160184564a5c8e542a2cde76712e2bdc81ef8ada80979a"
+    },
+    {
+      "path": "worker/public/static/wow/pos-professions.png",
+      "mode": "100644",
+      "bytes": 4870,
+      "sha256": "fc676d9d2bb0c15c24cd1eaf59a39a3248d2d7a9b1624a064306c1495e6d3f78"
+    },
+    {
+      "path": "worker/public/static/wow/pos-pvp_leader.png",
+      "mode": "100644",
+      "bytes": 6980,
+      "sha256": "60ead238947e055ab5546c39d4465f535e29ff39309f22236837fd5992d75486"
+    },
+    {
+      "path": "worker/public/static/wow/pos-pvp_team.png",
+      "mode": "100644",
+      "bytes": 12126,
+      "sha256": "f4b6e6f8f64756d231606cf5f1d92c2aa8bad4a3595ca8535a9749f132736e18"
+    },
+    {
+      "path": "worker/public/static/wow/pos-raid_assist.png",
+      "mode": "100644",
+      "bytes": 3112,
+      "sha256": "3e6fa5ce46112d8aeb8f9370aee8b5ec3067d746fa6fc00c628808ffc87282a9"
+    },
+    {
+      "path": "worker/public/static/wow/pos-raid_leader.png",
+      "mode": "100644",
+      "bytes": 4842,
+      "sha256": "ae64368624331f6dd6632d983d308883e674be9133b37d1e59e1b28499f62c5f"
+    },
+    {
+      "path": "worker/public/static/wow/pos-raider.png",
+      "mode": "100644",
+      "bytes": 4910,
+      "sha256": "d696ce46dd282f30c1947f049a28c14a5eaf14228a747b986dd961851b982132"
+    },
+    {
+      "path": "worker/public/static/wow/pos-recruitment.png",
+      "mode": "100644",
+      "bytes": 4028,
+      "sha256": "ff225a3bea3ab88cc05dbda73a83517765f82cdf820ca592e5093b635d1300cc"
+    },
+    {
+      "path": "worker/public/static/wow/pos-treasurer.png",
+      "mode": "100644",
+      "bytes": 5694,
+      "sha256": "2c31ccc2cd9136a1ccb61440d4bab65050494e86ee9dd175254f9d2e306300ee"
+    },
+    {
+      "path": "worker/public/static/wow/pos-unknown.png",
+      "mode": "100644",
+      "bytes": 2095,
+      "sha256": "bdcce683f73a6245b32ff294e93d89fa490c4b24a498330bcf9577ef0a310b92"
+    },
+    {
+      "path": "worker/public/static/wow/prof-alchemy.png",
+      "mode": "100644",
+      "bytes": 10926,
+      "sha256": "1b91f621f6a996c409e6e48594b877ea853f2743e8a6fa2bd1a3f4ff5f582dd0"
+    },
+    {
+      "path": "worker/public/static/wow/prof-blacksmithing.png",
+      "mode": "100644",
+      "bytes": 12006,
+      "sha256": "6c5e8d57f4cc55643703cbaea822169c84d6e59edc87f309320b0dfad8299023"
+    },
+    {
+      "path": "worker/public/static/wow/prof-cooking.png",
+      "mode": "100644",
+      "bytes": 10350,
+      "sha256": "71b4c4d0a9a975ebb36ff39e5ca16097f76d5dceef30f7c176ff7b6360c59101"
+    },
+    {
+      "path": "worker/public/static/wow/prof-enchanting.png",
+      "mode": "100644",
+      "bytes": 11425,
+      "sha256": "c012086196a75d838756937ec9c7447ce2954a6a7616c57cbd26d7c3e025bd35"
+    },
+    {
+      "path": "worker/public/static/wow/prof-engineering.png",
+      "mode": "100644",
+      "bytes": 10640,
+      "sha256": "4e090700253e8430ca144c1585c4a9778f618e4c5d459f8232efbdbbb5dc511d"
+    },
+    {
+      "path": "worker/public/static/wow/prof-first_aid.png",
+      "mode": "100644",
+      "bytes": 11514,
+      "sha256": "ffb8ee8b6a0c124b46e7d237b0f2f624249a02abe6d7dbe6a62e74b81c9561fc"
+    },
+    {
+      "path": "worker/public/static/wow/prof-fishing.png",
+      "mode": "100644",
+      "bytes": 9877,
+      "sha256": "044374a27ac6dbdb7e639875fdfeec3c8706bf7efab9c9d579c544f323ef1f5e"
+    },
+    {
+      "path": "worker/public/static/wow/prof-herbalism.png",
+      "mode": "100644",
+      "bytes": 10741,
+      "sha256": "36228080b03e61c6889e7618d059954abec735f6a8db8cd888b228a9de36c5e9"
+    },
+    {
+      "path": "worker/public/static/wow/prof-leatherworking.png",
+      "mode": "100644",
+      "bytes": 11631,
+      "sha256": "b3c9add202a09557e496089dfc0440ea91aa09b8637dc9a678302e7e5cbf6816"
+    },
+    {
+      "path": "worker/public/static/wow/prof-mining.png",
+      "mode": "100644",
+      "bytes": 9947,
+      "sha256": "fef891a8840a9d2870be99047d503e5d388d99a9a1139696bd46048ec5f061ff"
+    },
+    {
+      "path": "worker/public/static/wow/prof-skinning.png",
+      "mode": "100644",
+      "bytes": 11737,
+      "sha256": "c7cdc5e58aad725b21971ea30fafa7ff4a3dcf2cb884b48cf84ac8496f4bc35c"
+    },
+    {
+      "path": "worker/public/static/wow/prof-tailoring.png",
+      "mode": "100644",
+      "bytes": 11005,
+      "sha256": "40d55abdaff90db197eb104b16858a6989e560a75ceb56b8f561229abdecb936"
+    },
+    {
+      "path": "worker/public/static/wow/radio-highlight.png",
+      "mode": "100644",
+      "bytes": 170,
+      "sha256": "58642db95c8f7240a642275c0d4218b1bbcc80feee5ed30e68e0b5e80cc247a4"
+    },
+    {
+      "path": "worker/public/static/wow/radio-on.png",
+      "mode": "100644",
+      "bytes": 373,
+      "sha256": "79d275d121e20db0b56813fc8a07f647a68f2e33ac33c72c1c6cb37a94ecd330"
+    },
+    {
+      "path": "worker/public/static/wow/radio.png",
+      "mode": "100644",
+      "bytes": 269,
+      "sha256": "89802068564a84c2d2ebedbbfcc0c99d41631e8989de73b469db2ca4e8bcd56e"
+    },
+    {
+      "path": "worker/public/static/wow/ready.png",
+      "mode": "100644",
+      "bytes": 4161,
+      "sha256": "299239f03aa70630a12f81047d9f9556f964b004316b3f7c3c66e7cf7cb75368"
+    },
+    {
+      "path": "worker/public/static/wow/rock.jpg",
+      "mode": "100644",
+      "bytes": 20125,
+      "sha256": "984d97df82fd8482593f0297d66d22d2ede14c793f0d2a48f5bfd27963d80dad"
+    },
+    {
+      "path": "worker/public/static/wow/role-dps.png",
+      "mode": "100644",
+      "bytes": 6070,
+      "sha256": "07ae341ffe24d9a9915d28f51dd79156573d2638201852d458183f70fefca8e5"
+    },
+    {
+      "path": "worker/public/static/wow/role-flex.png",
+      "mode": "100644",
+      "bytes": 5658,
+      "sha256": "6bc7fe25e0cc92f76dace19bd123556b7dda5df93ee01368740a57ad58f61399"
+    },
+    {
+      "path": "worker/public/static/wow/role-guide.png",
+      "mode": "100644",
+      "bytes": 6434,
+      "sha256": "98f523a21b979b71b21acb8e52f29e51c12a9fdfc7854936b8855093d54db77f"
+    },
+    {
+      "path": "worker/public/static/wow/role-healer.png",
+      "mode": "100644",
+      "bytes": 5945,
+      "sha256": "962baffa60f6a3a75dbc40099899a4a66bea932e096ee98c198785bb6885448b"
+    },
+    {
+      "path": "worker/public/static/wow/role-tank.png",
+      "mode": "100644",
+      "bytes": 6343,
+      "sha256": "19435b5c091aa247da196d5cf6932a09aff80d13b31db542ac27c0030fb9880f"
+    },
+    {
+      "path": "worker/public/static/wow/search.png",
+      "mode": "100644",
+      "bytes": 278,
+      "sha256": "8610cc313d86f1bb607017326cbb27cde37123616813645b3bae158b6c6efe4d"
+    },
+    {
+      "path": "worker/public/static/wow/vote-against.png",
+      "mode": "100644",
+      "bytes": 5555,
+      "sha256": "666e9769e173a08aa577ee36bacc166fa9288b0038e51bdf9bb0f3ae57a46f02"
+    },
+    {
+      "path": "worker/public/static/wow/vote-for.png",
+      "mode": "100644",
+      "bytes": 5829,
+      "sha256": "d11e312bd36a741f29d9b9a4781536812d0c0ae562c05028de204d5597da73aa"
+    },
+    {
+      "path": "worker/public/static/wow/waiting.png",
+      "mode": "100644",
+      "bytes": 3581,
+      "sha256": "6edc22b92422d69192ca5556e776a3e41fe7936dd54ee1ee38128d59e34ec881"
+    }
+  ],
+  "official_paths": [
+    "worker/public/static/wow/assist.png",
+    "worker/public/static/wow/bullet.png",
+    "worker/public/static/wow/button-disabled.png",
+    "worker/public/static/wow/button-down.png",
+    "worker/public/static/wow/button-hover.png",
+    "worker/public/static/wow/button-up.png",
+    "worker/public/static/wow/check-down.png",
+    "worker/public/static/wow/check-highlight.png",
+    "worker/public/static/wow/check-mark-disabled.png",
+    "worker/public/static/wow/check-mark.png",
+    "worker/public/static/wow/check-up.png",
+    "worker/public/static/wow/class-druid.png",
+    "worker/public/static/wow/class-hunter.png",
+    "worker/public/static/wow/class-mage.png",
+    "worker/public/static/wow/class-paladin.png",
+    "worker/public/static/wow/class-priest.png",
+    "worker/public/static/wow/class-rogue.png",
+    "worker/public/static/wow/class-shaman.png",
+    "worker/public/static/wow/class-warlock.png",
+    "worker/public/static/wow/class-warrior.png",
+    "worker/public/static/wow/close-down.png",
+    "worker/public/static/wow/close-highlight.png",
+    "worker/public/static/wow/close-up.png",
+    "worker/public/static/wow/divider.png",
+    "worker/public/static/wow/frame-dialog.png",
+    "worker/public/static/wow/frame-gold.png",
+    "worker/public/static/wow/frame-tooltip-gold.png",
+    "worker/public/static/wow/frame-tooltip-green.png",
+    "worker/public/static/wow/frame-tooltip-red.png",
+    "worker/public/static/wow/frame-tooltip.png",
+    "worker/public/static/wow/friz-quadrata.woff2",
+    "worker/public/static/wow/header.png",
+    "worker/public/static/wow/icon-apply.png",
+    "worker/public/static/wow/icon-clock.png",
+    "worker/public/static/wow/icon-friends.png",
+    "worker/public/static/wow/icon-heal.png",
+    "worker/public/static/wow/icon-launch.png",
+    "worker/public/static/wow/icon-names.png",
+    "worker/public/static/wow/icon-pvp.png",
+    "worker/public/static/wow/icon-shield.png",
+    "worker/public/static/wow/icon-vote.png",
+    "worker/public/static/wow/icon-warning.png",
+    "worker/public/static/wow/input.png",
+    "worker/public/static/wow/leader.png",
+    "worker/public/static/wow/looter.png",
+    "worker/public/static/wow/molten-core.jpg",
+    "worker/public/static/wow/morpheus.woff2",
+    "worker/public/static/wow/not-ready.png",
+    "worker/public/static/wow/parchment.jpg",
+    "worker/public/static/wow/pos-class_lead.png",
+    "worker/public/static/wow/pos-co_gm.png",
+    "worker/public/static/wow/pos-community.png",
+    "worker/public/static/wow/pos-guild_master.png",
+    "worker/public/static/wow/pos-leveling.png",
+    "worker/public/static/wow/pos-liaison.png",
+    "worker/public/static/wow/pos-loot_council.png",
+    "worker/public/static/wow/pos-member.png",
+    "worker/public/static/wow/pos-moderator.png",
+    "worker/public/static/wow/pos-officer.png",
+    "worker/public/static/wow/pos-professions.png",
+    "worker/public/static/wow/pos-pvp_leader.png",
+    "worker/public/static/wow/pos-pvp_team.png",
+    "worker/public/static/wow/pos-raid_assist.png",
+    "worker/public/static/wow/pos-raid_leader.png",
+    "worker/public/static/wow/pos-raider.png",
+    "worker/public/static/wow/pos-recruitment.png",
+    "worker/public/static/wow/pos-treasurer.png",
+    "worker/public/static/wow/pos-unknown.png",
+    "worker/public/static/wow/prof-alchemy.png",
+    "worker/public/static/wow/prof-blacksmithing.png",
+    "worker/public/static/wow/prof-cooking.png",
+    "worker/public/static/wow/prof-enchanting.png",
+    "worker/public/static/wow/prof-engineering.png",
+    "worker/public/static/wow/prof-first_aid.png",
+    "worker/public/static/wow/prof-fishing.png",
+    "worker/public/static/wow/prof-herbalism.png",
+    "worker/public/static/wow/prof-leatherworking.png",
+    "worker/public/static/wow/prof-mining.png",
+    "worker/public/static/wow/prof-skinning.png",
+    "worker/public/static/wow/prof-tailoring.png",
+    "worker/public/static/wow/radio-highlight.png",
+    "worker/public/static/wow/radio-on.png",
+    "worker/public/static/wow/radio.png",
+    "worker/public/static/wow/ready.png",
+    "worker/public/static/wow/rock.jpg",
+    "worker/public/static/wow/role-dps.png",
+    "worker/public/static/wow/role-flex.png",
+    "worker/public/static/wow/role-guide.png",
+    "worker/public/static/wow/role-healer.png",
+    "worker/public/static/wow/role-tank.png",
+    "worker/public/static/wow/search.png",
+    "worker/public/static/wow/vote-against.png",
+    "worker/public/static/wow/vote-for.png",
+    "worker/public/static/wow/waiting.png"
+  ],
+  "native_paths": [
+    "worker/public/static/app.css",
+    "worker/public/static/app.js",
+    "worker/public/static/policies.css",
+    "worker/public/static/rank-planner/app.js",
+    "worker/public/static/rank-planner/catalogue.js",
+    "worker/public/static/rank-planner/model.js",
+    "worker/public/static/rank-planner/styles.css"
+  ],
+  "runtime_paths": [
+    "worker/public/static/app.css",
+    "worker/public/static/app.js",
+    "worker/public/static/policies.css",
+    "worker/public/static/rank-planner/app.js",
+    "worker/public/static/rank-planner/catalogue.js",
+    "worker/public/static/rank-planner/model.js",
+    "worker/public/static/rank-planner/styles.css",
+    "worker/src/backfill.ts",
+    "worker/src/bnet-retention.ts",
+    "worker/src/codes.ts",
+    "worker/src/community-context.ts",
+    "worker/src/community-departures.ts",
+    "worker/src/community-directory.ts",
+    "worker/src/community-events.ts",
+    "worker/src/community-names.ts",
+    "worker/src/community-refs.ts",
+    "worker/src/community-restrictions.ts",
+    "worker/src/community-routes.ts",
+    "worker/src/community-time.ts",
+    "worker/src/community-trials.ts",
+    "worker/src/db.ts",
+    "worker/src/discord.ts",
+    "worker/src/dm.ts",
+    "worker/src/env.ts",
+    "worker/src/guide.ts",
+    "worker/src/guildmap.ts",
+    "worker/src/index.ts",
+    "worker/src/ingest.ts",
+    "worker/src/interactions.ts",
+    "worker/src/intros.ts",
+    "worker/src/log.ts",
+    "worker/src/lookup.ts",
+    "worker/src/names.ts",
+    "worker/src/oauth.ts",
+    "worker/src/policies.ts",
+    "worker/src/policy-content.ts",
+    "worker/src/relays.ts",
+    "worker/src/restore.ts",
+    "worker/src/review.ts",
+    "worker/src/roles.ts",
+    "worker/src/roster.ts",
+    "worker/src/schema.ts",
+    "worker/src/site-admin.ts",
+    "worker/src/site-api.ts",
+    "worker/src/site-core.ts",
+    "worker/src/site-data.ts",
+    "worker/src/site-export.ts",
+    "worker/src/site-queue.ts",
+    "worker/src/site-ranks.ts",
+    "worker/src/site.ts",
+    "worker/src/unverified.ts"
+  ],
+  "runtime_prefixes": [
+    "/static/",
+    "/static/wow/",
+    "/static/wow",
+    "/static/rank-planner/"
+  ],
+  "required_documents": [
+    "LICENSE",
+    "README.md",
+    "CLAUDE.md",
+    "THIRD_PARTY_NOTICES.md",
+    "docs/source-provenance.md",
+    "docs/design.md",
+    "docs/deploy-checklist.md"
+  ],
+  "required_profile_paths": [
+    "worker/wrangler.toml",
+    "worker/wrangler.cutover.toml",
+    "scripts/cutover-config.sh",
+    "scripts/tests/cutover-config.test.sh",
+    "worker/tests/account_copy_test.cjs",
+    ".github/workflows/ci.yml"
+  ],
+  "provenance_path": "worker/public/static/wow/asset-provenance.json",
+  "banned_website_art_sha256": [
+    "04f9c43c084f97900199e9adb8a3c1b7fe57fe1841030fcb509db658c5d408ee",
+    "05819a13bd57d68effe897435ca709a52d8bbc82d414d244127ac22deedafc52",
+    "0f3db9b4447e8241b8b9d32a68346d78d04c087b3547f195bd14541fd2709c1c",
+    "0f63c9596e39244e1cb02b5fa5a6451e2e3f057c3fa595a4f898acac1debcc7f",
+    "1427d94a00325f668a00b698b5f3cd176dc8b9d8af37fc06d4fed8b944f8ee0d",
+    "1c4b51b91ff1eb6e1ded6e924b7e0cfead3213832050f93c0a1a804383084ca0",
+    "20984205b6580d4678742a07964760c1642bd6caa91cb70289cf307fbccf4380",
+    "22462b9309771b2babddd5199460bb47d3212fee6f13c12914fad428eb9a86f9",
+    "226f9bd68d178ef4e18e4631451070013bf36435e0fecad543eb1155d1a32592",
+    "265c0ed0bf4e2653cabfb64ccd21358088ec3b06fa0b5757b22a844eb869fcf5",
+    "298670f4966d08160c5574790c235554f44ca8faec8ba75475ae41153dd6c495",
+    "2cfb1926aed2dae441562d0f3e0aaeade350296778d2aa3d017dc18b4d72e588",
+    "2d3ada83058cfedd4471b9f6d000e8514d6ae416c9bd03d8a4e159082873c95d",
+    "2fb09dbdf12e5e1b627f801707bb4482dd03a5eeb12a6125cb444077fcf14fbb",
+    "35f8d9366374a3b5dcb22e4dd69ac374a607e82db2b7c0cb19f9414ec8b6a3a8",
+    "3966171b82a55997c8775b4162b3277d660d1f087438868e4a7a0f3403199b5d",
+    "3f413604024620e28d78f03574b683e5d4a9cf31ebe54d93d31e74e15c820c17",
+    "4aa14c265785e98460912d1efbf30dd87f41818d17f6e45a0d069211e6bbb5b3",
+    "4bcb8a38fd2eca56b1815093b4c2c85e5e4f199130d9191b5bddac6d6ec3497f",
+    "4dbc7e8fa2543942518f377d957165c1815a20a7955490bd4796b773e3f9671c",
+    "5d9aba253c6f97de0f9b5cae1a9fdd03039c95f1cbca0fb06ace780d80d58734",
+    "5ec863f34e2b3ef0cb0cd8f78793a44a29bbf6f37e7cbcecd322d5e1764d65fd",
+    "6075ea690a65fd5730ed518435b50f5932ee75f742b1f79f89a4ac5c3d8973a6",
+    "62b68fcc96cbfb2821ddeedd49d9fb5a46f6a2673fcd153ffd20a3316802f583",
+    "62c5f5628dbf9a7e430415687c15c7c589a0c09c92a168920c07b6b5fcca9d88",
+    "67fa86c367b4c04a0135a7a9d55b3b53a978315bb0e7bd38751881b0e3d09b6e",
+    "6c107878d75ad87ef08565feea8edd66202ffa96354e416285ab85efb073339a",
+    "74835e602dd534edac8322a23ef432491c11d527865b907521ef8baaccce4f2b",
+    "791ef90094a8931b92f5a9e4c0d1e41cde30c7d794dc7f1669c0819409b60ebc",
+    "82d4506dea7d965a34461ad12092f45f6c58fdcff88dbe2ecf219abcfe715a0d",
+    "83c41bf04e3b509aa74d8654d7445c7c8ccc96e3bd640abd1e6f9899fa255fb3",
+    "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66",
+    "8e6aed54a055277d2884990550bd4896a27a15a75f67101f70a52eaea8793c79",
+    "9165552d9d07ea9f889bfa490dbdcf5cf317046414dc648b0a923dd3b6ebafac",
+    "92c52625a2858c82243ed0fac11e4dec5e815ea8e44fd8597c1ab6cd5ca1012f",
+    "97bd1525ae12fd408ca34fc8a3f7b8efc0c59b20e5ba5d51bbe2b7a844582915",
+    "9a7bbd11cae3e786374dfe841c1f59f2229ba26c18ffc80e030555826e50a765",
+    "9dbf58eb3d2b74429396e534e501c4c55c31e1909a14811633d48eb22da6db82",
+    "9fa192f5547311fa4049182c595e67bbdf6b277d7f8be977cab73b8506e887fd",
+    "a1c3d215b55a31bba9f07bfd11baeeb135a9782758d0b7b1126d8bdfb1467560",
+    "a487889088ef6a208e87377823cfe0f1e6ae04d275410b6a3eaff32aeba89c08",
+    "a74fe03b2ec772388f7ef9465ea0fa9066090bbc2eaaa348eac05f9e178797bf",
+    "aea6a25de66c2dfae9cd2e6f0f4d29274b6eb845b458a6c5c2fddc9874afc57a",
+    "b25ebb76a50e673bf9bd6f56fe3a438e90571e357d53ff39a7bf0eb9d3dd07db",
+    "b95c3d475f776b09b3491eee5a27bbb7b172555b279cf95a63d018da3ec614c3",
+    "c10060e395e1bdaf1b696d081852a2b489dd5af53de598094e5c16ce7b1d5873",
+    "c2446dd55d595028ad4590e66773d5c561566268d884d527ec4f326cfefd8a03",
+    "c2d98f003c4a5b55815c48d62226efa88f8a504e984ba4797c2af0b52548786e",
+    "c3999c1b44e8e04b25ec3745aaaa9b0baa6448690b041c33dfc1a93e49a87783",
+    "c6321f9d8b55aadd0672df0dbfc9b027005e28da21647dc728118ae2ac15241f",
+    "cb052f6cc0f0b4c5c8eb465e749f0db3a50a93497b5a535e3dff6e2b5ebe1440",
+    "cb72d0d8f58b5e8f585fe4eedef1ff39060db72b65d43a0e36ea8a1aabe07965",
+    "cbe20e570f1f7a2703c253e8f9ba0a1c5e88aca08c8958937f44363f3d0ee586",
+    "d43a2fa07e6dce3dacfe3b2557e7e1221baf94bd38117d546c97b313104932d5",
+    "d66a036a2a3383ea21ed3a0ba92605a706d7bfba05f76cf0b911fdb49dee8107",
+    "d7a189569625321215ada52066fb6f5209835512141332cf55cc29c5a163f519",
+    "da9f419a9c348b9fa29324ce2c4d80ac589698e6bf16bb208b209fd9030fc710",
+    "df3f49951b423e1026d020eeab1326a0fc3d3a5b863b5183f739cc8ce6dd7958",
+    "e633ac76500a9312512957cc007a3be0f26a2a0bd3a38d986d1e58e1e75d38ae",
+    "ecac82916b44601f8b35f88fa3d15b227f7a33b40b494813961e1a40cd4cc4d1",
+    "ee6f351af6a94369288dc17bc0fcf7063a48738d3d1574f7c197abe99ec7a62e",
+    "f052461bcf566590575e1d90cb6c3c6e3df8233d9e024d08c90f186d6ec69127",
+    "f108abe256b68c9b3cf003fd08a9e6410a552efa2bebdf0e2a9bbb38aa724aa4",
+    "f40b4022e7b552e2086e8024247866c701cc10c784da7e8074136012eaa22710",
+    "f4eaee098b1a3f913250fee6d9df78f60e2267d9a324dd6ab063776a8e8b3dc9",
+    "f65d8e69282040231a1c6e3d2d9bd2cfb946431daf04da246f46eda4021a4425",
+    "f7946881001e1de7ba13af04fa5f2bb9a724fe3f34d955e5e53e96bed3fdb7c0",
+    "ff0808239c9a10db0b08c2d71494fdcc082381077979699a9addbb90ab1fd5b4"
+  ],
+  "approved_extractor": {
+    "path": "tools/build-site-assets.py",
+    "mode": "100644",
+    "bytes": 10518,
+    "sha256": "a40de488a25523fbff76b21d4e960cd530de9eb6ada8f1003f5333ff67902ff9"
+  },
+  "fixed_art_source_pins": [
+    {
+      "path": "worker/src/site-data.ts",
+      "bytes": 49034,
+      "sha256": "d741b7847e713539910c34b3b3d6758e297612982f511c59bd751a7d9bc26a53",
+      "mode": "100644"
+    },
+    {
+      "path": "worker/src/site-ranks.ts",
+      "bytes": 9250,
+      "sha256": "d8bb50cc6816a6a954a5f189bd2e163d29f5387f139610234ffec3f98bb3b2ab",
+      "mode": "100644"
+    },
+    {
+      "path": "worker/public/static/app.js",
+      "bytes": 362377,
+      "sha256": "191b9d46a1102ebb9a4b61dd32aff0bf22482543463130aa9124e0388ab66a39",
+      "mode": "100644"
+    },
+    {
+      "path": "worker/public/static/rank-planner/app.js",
+      "bytes": 15696,
+      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074",
+      "mode": "100644"
+    }
+  ],
+  "limitations": [
+    "Exact candidate bytes and recorded source references only; no publisher archive/client-build attestation or blanket redistribution rights.",
+    "Final runtime/native UI/profile/document hashes require externally reviewed source-bound pins, never scanner-generated approval.",
+    "Finite image helpers, server vocabulary and rank HTML are fixed as four full source files. Changes require a newly reviewed official-reference successor.",
+    "The scanner checks literal static/CSS references; it is not a JavaScript parser or proof against arbitrary changed dynamic code.",
+    "Known custom/generated website art is rejected by hash except the exact owner-approved Olympus crest at its sole brand/tab-icon path; generated cover and custom SVG artwork remain excluded from the website.",
+    "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published."
+  ],
+  "optional_profile_paths": [
+    "worker/wrangler.cutover.applied"
+  ],
+  "brand_exception": {
+    "asset": {
+      "path": "worker/public/static/olympus-icon.png",
+      "mode": "100644",
+      "bytes": 58974,
+      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+    },
+    "usage": "brand_and_tab_icon_only",
+    "owner_instruction": "Crest is the exception",
+    "instruction_date": "2026-10-01"
+  }
+}

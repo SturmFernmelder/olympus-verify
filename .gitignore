@@ -1,0 +1,38 @@
+# Secrets. Two files in this project already carry live credentials, and both are referred to in comments as
+# "gitignored" — which was not true until this file existed. If this tree is ever `git init`ed, that mistake would
+# have committed the bot token and the watcher token on the first `git add .`.
+.dev.vars
+.dev.vars.*
+worker/.dev.vars
+worker/.dev.vars.*
+!worker/.dev.vars.example
+watcher/config.json
+addon/OlympusVerify/Config.lua
+*.secret
+.env
+.env.*
+
+# Build / tooling
+node_modules/
+.wrangler/
+.check-worker/
+dist/
+__pycache__/
+*.pyc
+
+# Local output and scratch
+tools/out/
+watcher/state.json
+watcher/*.log
+watcher/*.tmp
+*.bak
+*.bak-*
+*.bak2
+
+# Added 2026-09-30 (consolidation baseline, Claude Code): local evidence and dumps that must not enter the repository
+artifacts/
+watcher/watcher-state*.json
+docs/probe-results/2026-*
+
+# Added 2026-10-01 (publication helpers, docs/source-provenance.md): the local additive snapshots the helpers build
+.publication/

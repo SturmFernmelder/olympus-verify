@@ -1,0 +1,17 @@
+# Every text file is LF (the whole tree already is; core.autocrlf is off in this checkout so bytes on disk equal the
+# committed blobs). Binaries are marked so no tool ever tries to normalize them.
+* text=auto eol=lf
+*.sh text eol=lf
+*.cmd text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.tga binary
+*.blp binary

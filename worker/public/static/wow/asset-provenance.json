@@ -1,0 +1,1791 @@
+{
+  "schema": "olympus-wow-client-assets-provenance-v1",
+  "source_head": "63a6483c82b1050548e30b883fba9a4f37d8acca",
+  "publisher": "Blizzard Entertainment (WoW interface imagery); font names/vendor data retained separately",
+  "source_set": "supplied wow-assets-2026-09-30 extraction with original Interface/ and Fonts/ paths",
+  "extractor": {
+    "path": "tools/build-site-assets.py",
+    "sha256": "a40de488a25523fbff76b21d4e960cd530de9eb6ada8f1003f5333ff67902ff9"
+  },
+  "proof_scope": "92 image pixel lineages and two font table lineages checked; publisher archive and client build attestations unavailable",
+  "primary_references": [
+    "https://news.blizzard.com/en-us/article/23090134/wow-classic-primer-for-new-players",
+    "https://worldofwarcraft.blizzard.com/en-us/game/classes",
+    "https://worldofwarcraft.blizzard.com/en-us/news/1550776/new-media-section"
+  ],
+  "images_and_fonts": [
+    {
+      "path": "worker/public/static/wow/assist.png",
+      "bytes": 425,
+      "sha256": "b4208e88e4990c2debeb4deacecdcc69c2ef60d4dba7eb83fc138e1f08fdfeeb",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/GroupFrame/UI-Group-AssistantIcon.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "f08740a43c69dde4d41fa14587624f38e3fc541475ba41076e0c88f3bdf1b875"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/bullet.png",
+      "bytes": 235,
+      "sha256": "280178f61063cda36c02b8ca4d0150f4357af457bca6570477105e0d76972e0d",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/QuestFrame/UI-Quest-BulletPoint.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "a504fc52fe0ece8c95b6d7dd37518392d48a98a4aabba6f83aa0927f4fb60f1f"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/button-disabled.png",
+      "bytes": 956,
+      "sha256": "9a8eeabe1e0dc0bee488392f3d716994162fc24aedbddec858d06da8d17861f7",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-Button-Disabled.png",
+        "transform": "Crop (0,0,80,23)"
+      },
+      "mapped_input_sha256": [
+        "2b40187f87c700589593cbb71b800183618b3a4d491a308bd197d1ee2460ad70"
+      ],
+      "width": 80,
+      "height": 23,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/button-down.png",
+      "bytes": 848,
+      "sha256": "a64d974b8f42cdfb5aa6c9c4d25350a9360a37c36e336f042138bd6975423dff",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-Button-Down.png",
+        "transform": "Crop (0,0,80,23)"
+      },
+      "mapped_input_sha256": [
+        "20eb50ee1bb2da8490648ee05a4f92a678c9c41353c2d461b30ffcc6bccd5921"
+      ],
+      "width": 80,
+      "height": 23,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/button-hover.png",
+      "bytes": 1681,
+      "sha256": "5f475ebcbae6055b946c493611aa66bc643de5785cbe500e1df2d89656badb46",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-Button-Up.png",
+        "transform": "Crop plus additive UI-Panel-Button-Highlight overlay",
+        "additional_path": "Interface/Buttons/UI-Panel-Button-Highlight.png"
+      },
+      "mapped_input_sha256": [
+        "f6938856a2946a50a64782063481457b23e3c94fd8844be3608b92b639a16239",
+        "324c0875ec303a8cb47f1f64816e9a84894d4ac33b2ce2dc4ca1aaaad15004fe"
+      ],
+      "width": 80,
+      "height": 23,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/button-up.png",
+      "bytes": 1229,
+      "sha256": "170fae7ca18f342912c89da3f277915896e3b194b2ff144f8b50ce89a01c81bf",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-Button-Up.png",
+        "transform": "Crop (0,0,80,23)"
+      },
+      "mapped_input_sha256": [
+        "f6938856a2946a50a64782063481457b23e3c94fd8844be3608b92b639a16239"
+      ],
+      "width": 80,
+      "height": 23,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/check-down.png",
+      "bytes": 636,
+      "sha256": "5f99bd7621269a1105c0f9df787ed6791443f12fc8ed0be9a5bbc10356b09fa8",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-CheckBox-Down.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "2a376e7ba7b33287090cc77ca6e5a30817617fe163ba3d25082649499db8eab9"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/check-highlight.png",
+      "bytes": 442,
+      "sha256": "b96e0a6da550b39ee0eddb6854af574feb481d7e0ad73eb8607f581c97ca79c5",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-CheckBox-Highlight.png",
+        "transform": "Game additive highlight converted to alpha"
+      },
+      "mapped_input_sha256": [
+        "47a05bd0e8c7bbb29c63439bfc8a7697bce208bbaad23ff403b52b6dded6be9b"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/check-mark-disabled.png",
+      "bytes": 616,
+      "sha256": "dd184f333455fcd1f1f18eac301b2be48e124970d055a7d0a20f6717a730b384",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-CheckBox-Check-Disabled.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "d739f6d926227ac4d26e6c9d2e5a5a984e29eab304574add6b0df95086ef058d"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/check-mark.png",
+      "bytes": 524,
+      "sha256": "49073ec81460ed8a8bf34010fc4ec8696f71188157df13a95aa06ebc8e40a256",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-CheckBox-Check.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "1126685bc3b824c17c138228794cf5078ad240cdcbf16b2d7a3a54dd032eea8f"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/check-up.png",
+      "bytes": 366,
+      "sha256": "361d552b035aec1ce7690ffc0228617d76a2c384da8a5f5621b29a759150def9",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-CheckBox-Up.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "2c0549781902391c2dbd337ef519e317785cb4b2986c98eae7e5751ab44f29a6"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-druid.png",
+      "bytes": 4562,
+      "sha256": "9156bfbf56612055b87024683b3061c5ce7d80abb3d1695b3c6cdae08661eaa3",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Druid.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "04ca61cb2fea1bff2ffefff703ade690feb8c8b2f08746a094ac3db4b4e9a853"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-hunter.png",
+      "bytes": 3326,
+      "sha256": "4b418ca8f21b27e55f4acbaf19f1a62c810b1bbdcd319024519fae4f8de84dba",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Hunter.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "f3e1e1b829f8e84b8f320cbd34afcff56cde979112478e8a8cd704d77c44aa1d"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-mage.png",
+      "bytes": 4313,
+      "sha256": "12fed74ab54d84c97fb20d19f7eabad0ece7ad5d054f786e1ffe645bb0836dba",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Mage.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "756e8a011e33a05417484ae2c3a82252cbf44ae6aed1f5309f225033b2854246"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-paladin.png",
+      "bytes": 4688,
+      "sha256": "76c52f795f054e6f3cb66e8f706c256c3f95d4c12798ccf1377dd3befc64b92a",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Paladin.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "efd174df49ff801dfbde55119f901bf1c11fc10e25e308065284f0478dfd92cf"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-priest.png",
+      "bytes": 3949,
+      "sha256": "b84349be4180500c97b93c2f8c2fabd9f6334a8b80c277dbdff93af3e9701f25",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Priest.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "063f20d45c2a3585cb2213a2954e1c948e0c03a407912634479ea15626cb49a4"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-rogue.png",
+      "bytes": 4385,
+      "sha256": "dc00fc3068c8c84c554a7641851ebfc36161fa0f02276eee6e73d31ff3d86ce4",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Rogue.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "9cbcae03c33992ef3063e320a746b31f4a165e73f435af35e89262bf765e2e7a"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-shaman.png",
+      "bytes": 4269,
+      "sha256": "450dfcf81e60681688c46d3c8974db9a2958f67ac7091fa152da108a89ae4f84",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Shaman.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7a8832dd7aa22a47b8c304f8f30457e84bcb7a5bdabdc6c69771c62a4af81415"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-warlock.png",
+      "bytes": 5315,
+      "sha256": "da11a14a9783f2c211ca70e4a33388e2432534135de7915c5b9a835ee174a686",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Warlock.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "a743553f143988db3a35b1724449d8c8fc0c69d3c400033c3b36d93ebc473bb7"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/class-warrior.png",
+      "bytes": 3905,
+      "sha256": "e586d4cbec26e81056469f7e1ce4920e261301fa65f7450961c037e756854b61",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/ClassIcon_Warrior.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "e02e1377f35f85b6f0eded419591ea204978f2993eb4a3efc3b52119b9d8937e"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/close-down.png",
+      "bytes": 414,
+      "sha256": "25157afa7dd8cbed59d540df5c9ae5eb98d840384dcb438609278e104d4de0b3",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-MinimizeButton-Down.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "111bddc0437b1910cd2510b211b868729f3cf8032909af65ff4691d34be10ae2"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/close-highlight.png",
+      "bytes": 844,
+      "sha256": "0e6a5dd804765ba564be3906f040bae81d1eb27e58fe47059681020e82921e47",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-MinimizeButton-Highlight.png",
+        "transform": "Game additive highlight converted to alpha"
+      },
+      "mapped_input_sha256": [
+        "08baf8370eccfe8e210e5aa5469a3aa71427fca258dfcb1d4382df7a6ead2873"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/close-up.png",
+      "bytes": 509,
+      "sha256": "0474684094b2e3ae65bb8b28d0abec554b228194dda82700b533dda4dc631c91",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-Panel-MinimizeButton-Up.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "0379b53803a01d823557d2b323e22094724156192d23d16e424f319f45732c9b"
+      ],
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/divider.png",
+      "bytes": 2543,
+      "sha256": "ca66a3efeb8a21fa2ee39232b28ea14857048c1d45b497a2648c202ba7c2f224",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/QuestFrame/UI-HorizontalBreak.png",
+        "transform": "Crop (23,7,233,25)"
+      },
+      "mapped_input_sha256": [
+        "01b6f3bf2c4f371c45dc10dcd2cf2aac0714f5f11d060f1995056ebdbbcce57a"
+      ],
+      "width": 210,
+      "height": 18,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-dialog.png",
+      "bytes": 3260,
+      "sha256": "9cde521bcb9b61c454143b479b7ddb08a9cd74afd2273dc489fd784371e51df4",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/DialogFrame/UI-DialogBox-Border.png",
+        "transform": "Eight-cell nine-slice rearrangement and edge rotation"
+      },
+      "mapped_input_sha256": [
+        "87ab427b0bb37a645e915155199c0110d39833ec6dd4cc54f81ce2502ba05ee1"
+      ],
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-gold.png",
+      "bytes": 3707,
+      "sha256": "bbb2000f8040c2f3d8391d8a253c3d9e955b9934f508b98359f86ebb5ce4e48f",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/DialogFrame/UI-DialogBox-Gold-Border.png",
+        "transform": "Eight-cell nine-slice rearrangement and edge rotation"
+      },
+      "mapped_input_sha256": [
+        "36367712e341ff11187e09ae9c4eba649e89fb7092fb9674bd3ca2293093c80c"
+      ],
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-gold.png",
+      "bytes": 507,
+      "sha256": "c0e5d0b77055527ad81622f45d79b5ca5b5bf14e042a94c04c1cca1df8fc09d4",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Tooltips/UI-Tooltip-Border.png",
+        "transform": "Nine-slice rearrangement and documented multiplicative game-style border tint"
+      },
+      "mapped_input_sha256": [
+        "02552241ca9b33bcbe447bb6cdaf03ba5ad4f787ae074f96f8ef4786b9b116f9"
+      ],
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-green.png",
+      "bytes": 500,
+      "sha256": "08f0602ae749d81075b92366e86361ca7fa8b11f1907bcf76c31cb4a4b8aba78",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Tooltips/UI-Tooltip-Border.png",
+        "transform": "Nine-slice rearrangement and documented multiplicative game-style border tint"
+      },
+      "mapped_input_sha256": [
+        "02552241ca9b33bcbe447bb6cdaf03ba5ad4f787ae074f96f8ef4786b9b116f9"
+      ],
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip-red.png",
+      "bytes": 501,
+      "sha256": "820a6fe43ee40b4928659666ce10086b1a6c857cb58f72393300cf30b67a8328",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Tooltips/UI-Tooltip-Border.png",
+        "transform": "Nine-slice rearrangement and documented multiplicative game-style border tint"
+      },
+      "mapped_input_sha256": [
+        "02552241ca9b33bcbe447bb6cdaf03ba5ad4f787ae074f96f8ef4786b9b116f9"
+      ],
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/frame-tooltip.png",
+      "bytes": 457,
+      "sha256": "c9dfea298e74acb967073ef2d59c14ac0c5064ebf0df5a851f5b47b63ce6adce",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Tooltips/UI-Tooltip-Border.png",
+        "transform": "Eight-cell nine-slice rearrangement and edge rotation"
+      },
+      "mapped_input_sha256": [
+        "02552241ca9b33bcbe447bb6cdaf03ba5ad4f787ae074f96f8ef4786b9b116f9"
+      ],
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/friz-quadrata.woff2",
+      "bytes": 15112,
+      "sha256": "0b81818e6d999c463288926ec9f3afeb771d89c6712f2c2e1e2eee5c97df522d",
+      "classification": "WoW client-supplied font, WOFF2 conversion",
+      "origin_evidence": {
+        "path": "Fonts/FRIZQT__.TTF",
+        "transform": "fontTools TTFont flavor=woff2"
+      },
+      "mapped_input_sha256": [
+        "73de74d5d63690f29c7f97a9225edc8bd6f89e5103806af3714e4d7bfb9474e9"
+      ],
+      "width": null,
+      "height": null,
+      "font_table_proof": "PASS matching name/cmap/hhea/maxp/OS2 and recorded untransformed tables; transformed glyph tables not independently decoded",
+      "font_names": [
+        {
+          "id": 1,
+          "value": "Friz Quadrata TT"
+        },
+        {
+          "id": 2,
+          "value": "Regular"
+        },
+        {
+          "id": 4,
+          "value": "Friz Quadrata TT"
+        },
+        {
+          "id": 6,
+          "value": "FrizQuadrataTT"
+        }
+      ],
+      "unchanged_font_tables": 10
+    },
+    {
+      "path": "worker/public/static/wow/header.png",
+      "bytes": 9394,
+      "sha256": "5158c6f30d98e0fcdf4af83234868729c484f71ec14ec0cbe81efc7c11b3fe44",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/DialogFrame/UI-DialogBox-Header.png",
+        "transform": "Crop (118,3,393,79)"
+      },
+      "mapped_input_sha256": [
+        "73ff684959fd75c63da2be45d5f065ce6bd6a33e1e9bd557083440d710b6325e"
+      ],
+      "width": 275,
+      "height": 76,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-apply.png",
+      "bytes": 5327,
+      "sha256": "b755eb03f801d395ec0ca9901a088729eadb91288ca3fb93c03ef72ddc745d16",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Note_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "8175f5495e742d2c727a671494a1f9090afb523b03f1d680070fa312ac983812"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-clock.png",
+      "bytes": 6036,
+      "sha256": "0d9b1efcc99ec2926dbd32bc679aaa02502165fe055e3fb7d67191c1ba8cc3b3",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_PocketWatch_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "5734cc3c3df7af84b89478c866aeb431df66678704df7ed4cb60994b7f4c8cc1"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-friends.png",
+      "bytes": 3528,
+      "sha256": "e5aede0dfd352d4b81b9de22d25e665c7b9c2dd5403f0b0ec8c41f59a85803ce",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Banner_02.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "c0b26af7366ec7ea7a91669e1251c192f5e81f7133be7865123e58df9a1c3f2b"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-heal.png",
+      "bytes": 4622,
+      "sha256": "a7ee4edb9bc7102798b2a4cdcf4d05d3730e8b1bb5d4d6c712733e2b0b58a1b1",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Spell_Holy_FlashHeal.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "8211d978ec6dcb79bfd7fc6356b8f60658c99977be69a2e922950fe2a3d4d8f7"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-launch.png",
+      "bytes": 7004,
+      "sha256": "4dce911d73d3f4915eec606500c9945f78ce9caf9e2ac562fe211c16d7a2396c",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Spell_Nature_TimeStop.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "c1033969ea049bc1a0b1bfbaa3e7286b6db4b5df81e564762305495311f2da65"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-names.png",
+      "bytes": 4249,
+      "sha256": "59b9eac0607680bab08a5d0594a1fad4eceee440d1e304e76125944680af1cbb",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Scroll_03.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "db8fa207fe04bf591c37304821d07f3ab2cac7c54279937bb802c00d698ad195"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-pvp.png",
+      "bytes": 6466,
+      "sha256": "98b5323f7e06971b27e1a3d26c54e3dd7dc63f3fd8e6d74e0d3e803d0f0fa477",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Achievement_PVP_A_A.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "2ce23cee4a3952ae3106f4dd1056ad3c1fc6a7075e3d7a9986f1b5b654099f9f"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-shield.png",
+      "bytes": 5476,
+      "sha256": "8440e2ac469adcba4b985b480d6cf9588f66175087864286088938c852bf7ea5",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Shield_06.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "b1cc7e90d82618f7c93d0e03eb6a8439012fcd213085d6bd08c34af749dacffb"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-vote.png",
+      "bytes": 5227,
+      "sha256": "e654aa6319b9be3af1d70dd0df0a45bf4dfb9f6e042cc30d1ab39ec334cd09d4",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Spell_Holy_PrayerOfFortitude.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "bc26d350c05a490364fd53952822fb7b4d29167d68735d490b75536efa424e54"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/icon-warning.png",
+      "bytes": 4851,
+      "sha256": "620a4896f2132d07528d1cf9c399ad13e629d316ea0b2cdf98909f8514d3b1f2",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Head_Dragon_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7354d8c334315dfef647ce1f6115037335646fbf66c5e1d2c5891d53cf762d49"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/input.png",
+      "bytes": 1057,
+      "sha256": "dc4fd0192ce5a9d27af942c8d8b87a8711a04f51b383c61f6115ed2fe1a2a627",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Common/Common-Input-Border.png",
+        "transform": "Crop (0,0,128,20)"
+      },
+      "mapped_input_sha256": [
+        "0158fb446a9b8cfebf867eb05c3018beb9309d1720347750ed722b89d767d081"
+      ],
+      "width": 128,
+      "height": 20,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/leader.png",
+      "bytes": 319,
+      "sha256": "ca1e3f01f107b44b95fffd64ce39660898da888110a4dbb2adeb90c2a77ba97c",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/GroupFrame/UI-Group-LeaderIcon.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7601cef76879eb0cbc078a865efa51528d33f1603103cab422c2e6835a0cefbe"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/looter.png",
+      "bytes": 380,
+      "sha256": "a3cc16bce0057d6be5823e6aa651f06aa5445e028e146a2998828567730c038d",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/GroupFrame/UI-Group-MasterLooter.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "044773d28b15203c49a2ab00ac926325613102e97468de1bd50fcb80d1377e32"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/molten-core.jpg",
+      "bytes": 25997,
+      "sha256": "c5c827ebeb9c6e63e90ef32a0ee2d2d8b87586cf7b9fde31e37ddb86722025e8",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Glues/LoadingScreens/LoadScreenMoltenCore.png",
+        "transform": "Crop (6,124,506,408) below logo; JPEG quality86 progressive"
+      },
+      "mapped_input_sha256": [
+        "7468c88785f682e28da37c366c5971b4887c33d7870deaca614413af6570027f"
+      ],
+      "width": 500,
+      "height": 284,
+      "mode": "RGB",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/morpheus.woff2",
+      "bytes": 17884,
+      "sha256": "ea845e2ac467f107eb1617c88b0d38acf6c8234bdf21675db710f90051409f3e",
+      "classification": "WoW client-supplied font, WOFF2 conversion",
+      "origin_evidence": {
+        "path": "Fonts/MORPHEUS.TTF",
+        "transform": "fontTools TTFont flavor=woff2"
+      },
+      "mapped_input_sha256": [
+        "0df28ca8a5e6fc14ee53de7b7f8ed7cf128108766b97d13d5ba60296cb517fd7"
+      ],
+      "width": null,
+      "height": null,
+      "font_table_proof": "PASS matching name/cmap/hhea/maxp/OS2 and recorded untransformed tables; transformed glyph tables not independently decoded",
+      "font_names": [
+        {
+          "id": 1,
+          "value": "Morpheus"
+        },
+        {
+          "id": 2,
+          "value": "Regular"
+        },
+        {
+          "id": 4,
+          "value": "Morpheus"
+        },
+        {
+          "id": 6,
+          "value": "Morpheus"
+        }
+      ],
+      "unchanged_font_tables": 9
+    },
+    {
+      "path": "worker/public/static/wow/not-ready.png",
+      "bytes": 5480,
+      "sha256": "44f714aef98396a7b1aa365e2ab8cbbd3fdbe6d56b03c3e394c6ec0faf72a902",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/RaidFrame/ReadyCheck-NotReady.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7425e1a1f9dcfafabab42bc92bed033e8aa9fa069da5ac10a4e2ddcdec9ddd38"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/parchment.jpg",
+      "bytes": 18607,
+      "sha256": "14685ef2f7c49e8be2e9c0a91e26a2cf3417a594509e0c115a27184690efbd07",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/AchievementFrame/UI-Achievement-Parchment-Horizontal.png",
+        "transform": "JPEG conversion quality80 progressive"
+      },
+      "mapped_input_sha256": [
+        "3853d227bb661708eee25ee3f4a4f8275c49c3ab440b0560a2b73527d4d1a185"
+      ],
+      "width": 512,
+      "height": 256,
+      "mode": "RGB",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/pos-class_lead.png",
+      "bytes": 5325,
+      "sha256": "84e57c96aa3ad5e0da75c88f24bd04de0324da2f2c9058214bf14c2c3466a487",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Book_09.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "5d1ccaba898371e1314a6cb76f64272fbb248a91600047474c597932fca9d4e6"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-co_gm.png",
+      "bytes": 10810,
+      "sha256": "bfb7a8e6c86ff618e99af8302b6c46729b5742443c2421456b70c411ecc0a84a",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Helmet_96.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "ce2f59a7ce7053c7b08e917ddd9bc88fec51501c469c7f2ea0a32b32c21ad960"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-community.png",
+      "bytes": 4521,
+      "sha256": "743442774773d25787a93199cc290c20303f9e436c6e54d56593d702c2e1f772",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Achievement_GuildPerk_EverybodysFriend.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "0f663c131de2634a52a54f8a3e72f57043ce79cffd589235db8236f6dedf0cf6"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-guild_master.png",
+      "bytes": 5513,
+      "sha256": "675a478915dfe3627315cb142bc722e3e6e4be20de8e8a91cb4abd8c7e5474ed",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Crown_02.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "d3c35c4d2302e700bc00defab0b4ce3601708a5d8a55f2fb23ca3170a399a499"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-leveling.png",
+      "bytes": 10683,
+      "sha256": "b5df619438a0d1babf32e870555ab9a044df5154a77eee9c732fa449517446d0",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Map02.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "f33bc6d9733fbd9105cf93af6a1809a28e93d6e9cf18a5ebfbe971fba1f4a42a"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-liaison.png",
+      "bytes": 11942,
+      "sha256": "0ce6a1646968f444e143b5279c82962a9676fe980f1a1367efef0bf7906f21ac",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Achievement_Reputation_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "3abb4258fd70c7660a4f0a36307637426e5b95a8bb4c27bac92d314ecafaaab8"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-loot_council.png",
+      "bytes": 4407,
+      "sha256": "32e9751d155781ff56a32a0d6840a44bab8f3e70f6d760863a8e5eb4042a5eff",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Bag_10.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "83e9f5fb7a7754e5eafaa26958cc4f07ecaac3a754327fb6caa32d0fc6780afe"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-member.png",
+      "bytes": 2341,
+      "sha256": "5b1dd403702ce81f6206b19a1b196019d11666b44823a58d4593617d1c3b7603",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_GroupLooking.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "d5702e578c6e041d263560822c70e271c5b1f44f364aa6aacd4a5dd618201081"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-moderator.png",
+      "bytes": 6095,
+      "sha256": "96949bda9703aba86ae3b1adc3540d63c3ade5152d6f981725dd992932d7df08",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Spell_Holy_SealOfWrath.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "d3f655b604aed5a5b36bf20a860392f7f54fa01fe55194107844e3b25bd6afbb"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-officer.png",
+      "bytes": 5045,
+      "sha256": "3739dda60ab8a3b046160184564a5c8e542a2cde76712e2bdc81ef8ada80979a",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Crown_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "b6e78a531ec3597ae739c3b26de7944fbcb178e6e7405188c92a039409ba66b4"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-professions.png",
+      "bytes": 4870,
+      "sha256": "fc676d9d2bb0c15c24cd1eaf59a39a3248d2d7a9b1624a064306c1495e6d3f78",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Engineering.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7f27b4c983d0d7c74ef1ff2dd13104e9400fdf96372a1a1cb8f4b81fa4fa9d6a"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-pvp_leader.png",
+      "bytes": 6980,
+      "sha256": "60ead238947e055ab5546c39d4465f535e29ff39309f22236837fd5992d75486",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_BannerPVP_02.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "a7862c0e180f1207eb55aa3106ba9f34d1766136e50221cb6d0ced0ac07d3ac1"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-pvp_team.png",
+      "bytes": 12126,
+      "sha256": "f4b6e6f8f64756d231606cf5f1d92c2aa8bad4a3595ca8535a9749f132736e18",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Jewelry_TrinketPVP_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "bc8e2e2ff3c72961530ed71a9ae0359ad94c3ba5b8231af1979d695284e171db"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-raid_assist.png",
+      "bytes": 3112,
+      "sha256": "3e6fa5ce46112d8aeb8f9370aee8b5ec3067d746fa6fc00c628808ffc87282a9",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_GroupNeedMore.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "1201bd0984ee99936bd053625246b38e66331af56fc0cdc04f25b9810a4f22ec"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-raid_leader.png",
+      "bytes": 4842,
+      "sha256": "ae64368624331f6dd6632d983d308883e674be9133b37d1e59e1b28499f62c5f",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Ability_Warrior_BattleShout.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "dee44ac9470dde15bd90f34d1136597dd3f33e4c1fde5eedc3c8e172ee69fbf7"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-raider.png",
+      "bytes": 4910,
+      "sha256": "d696ce46dd282f30c1947f049a28c14a5eaf14228a747b986dd961851b982132",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Sword_27.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "eb4c845dd838ffafe62727430d06f59f9fc315a9e8dc58d4de7a4ae25ed150a5"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-recruitment.png",
+      "bytes": 4028,
+      "sha256": "ff225a3bea3ab88cc05dbda73a83517765f82cdf820ca592e5093b635d1300cc",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Letter_15.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "043732950219dfebf8e4233ed40e850830a3cfb05a7a3e0e7f0c83cc11fb94c7"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-treasurer.png",
+      "bytes": 5694,
+      "sha256": "2c31ccc2cd9136a1ccb61440d4bab65050494e86ee9dd175254f9d2e306300ee",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Coin_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "381ebe51dccb7f32174ae2c63df22968d15474584218050aa0e7d0bba0194f9e"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/pos-unknown.png",
+      "bytes": 2095,
+      "sha256": "bdcce683f73a6245b32ff294e93d89fa490c4b24a498330bcf9577ef0a310b92",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_QuestionMark.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "b0f8eb94f56f81b6deaf94142e57c2d81d6bf2908a749742d835cd238aca903b"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-alchemy.png",
+      "bytes": 10926,
+      "sha256": "1b91f621f6a996c409e6e48594b877ea853f2743e8a6fa2bd1a3f4ff5f582dd0",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Alchemy.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "821472ff996e343f96ca957e842171075848ef18ebf6e8ef2ae7dc1824bf6f30"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-blacksmithing.png",
+      "bytes": 12006,
+      "sha256": "6c5e8d57f4cc55643703cbaea822169c84d6e59edc87f309320b0dfad8299023",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_BlackSmithing.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "d29caeca2f47192676156412016de8bc072e8a29853eeab0cdcc2b166b34c5f1"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-cooking.png",
+      "bytes": 10350,
+      "sha256": "71b4c4d0a9a975ebb36ff39e5ca16097f76d5dceef30f7c176ff7b6360c59101",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Food_15.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "fc0d581fca9b1771dd13e3980fedacac353b1c93dbd745afc9e6f609c477bc26"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-enchanting.png",
+      "bytes": 11425,
+      "sha256": "c012086196a75d838756937ec9c7447ce2954a6a7616c57cbd26d7c3e025bd35",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Engraving.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "3e0c3b6cf2d9e5e3c61552be214bc7be6104013b6bb59f4dca3b9bccd9188620"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-engineering.png",
+      "bytes": 10640,
+      "sha256": "4e090700253e8430ca144c1585c4a9778f618e4c5d459f8232efbdbbb5dc511d",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Engineering.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "7f27b4c983d0d7c74ef1ff2dd13104e9400fdf96372a1a1cb8f4b81fa4fa9d6a"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-first_aid.png",
+      "bytes": 11514,
+      "sha256": "ffb8ee8b6a0c124b46e7d237b0f2f624249a02abe6d7dbe6a62e74b81c9561fc",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Spell_Holy_SealOfSacrifice.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "9e5328a8ba523adfcf765788cd24ffc30652a04162097cce007d499554183cc6"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-fishing.png",
+      "bytes": 9877,
+      "sha256": "044374a27ac6dbdb7e639875fdfeec3c8706bf7efab9c9d579c544f323ef1f5e",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Fishing.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "a1cb250abafef130cd58f8ae35156dd0c2661792108a0b454b8bc399c2b9570f"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-herbalism.png",
+      "bytes": 10741,
+      "sha256": "36228080b03e61c6889e7618d059954abec735f6a8db8cd888b228a9de36c5e9",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Herbalism.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "b2dac99001f0a1045c6a62216afe79de9e14546fa2e585ebf320f82213ccbe4b"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-leatherworking.png",
+      "bytes": 11631,
+      "sha256": "b3c9add202a09557e496089dfc0440ea91aa09b8637dc9a678302e7e5cbf6816",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_LeatherWorking.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "34fbb3a5bfaebacabbfa71407942a16b442613da26cfdbb8698685eff07e1ad9"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-mining.png",
+      "bytes": 9947,
+      "sha256": "fef891a8840a9d2870be99047d503e5d388d99a9a1139696bd46048ec5f061ff",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Mining.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "642e9dec823f8fd29decb96100915d5f999c9fe35564f64a5638121fc77d81c9"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-skinning.png",
+      "bytes": 11737,
+      "sha256": "c7cdc5e58aad725b21971ea30fafa7ff4a3dcf2cb884b48cf84ac8496f4bc35c",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/INV_Misc_Pelt_Wolf_01.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "2f52f527181bed5282fb9c85a092ff4e924b88cfc8d989c42ea774c903a5c036"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/prof-tailoring.png",
+      "bytes": 11005,
+      "sha256": "40d55abdaff90db197eb104b16858a6989e560a75ceb56b8f561229abdecb936",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Icons/Trade_Tailoring.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "71b3470f5d1f767fe2921fcb2c719d6e92e75eb10d30e6e4e4357a43080223c9"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/radio-highlight.png",
+      "bytes": 170,
+      "sha256": "58642db95c8f7240a642275c0d4218b1bbcc80feee5ed30e68e0b5e80cc247a4",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-RadioButton.png",
+        "transform": "16-pixel cell crop; checked composite or additive-highlight alpha where applicable"
+      },
+      "mapped_input_sha256": [
+        "8d0639b8618b18cb25acf28011fc983654e2adce2dc4f84cc7467b3a17d0959b"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/radio-on.png",
+      "bytes": 373,
+      "sha256": "79d275d121e20db0b56813fc8a07f647a68f2e33ac33c72c1c6cb37a94ecd330",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-RadioButton.png",
+        "transform": "16-pixel cell crop; checked composite or additive-highlight alpha where applicable"
+      },
+      "mapped_input_sha256": [
+        "8d0639b8618b18cb25acf28011fc983654e2adce2dc4f84cc7467b3a17d0959b"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/radio.png",
+      "bytes": 269,
+      "sha256": "89802068564a84c2d2ebedbbfcc0c99d41631e8989de73b469db2ca4e8bcd56e",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Buttons/UI-RadioButton.png",
+        "transform": "16-pixel cell crop; checked composite or additive-highlight alpha where applicable"
+      },
+      "mapped_input_sha256": [
+        "8d0639b8618b18cb25acf28011fc983654e2adce2dc4f84cc7467b3a17d0959b"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/ready.png",
+      "bytes": 4161,
+      "sha256": "299239f03aa70630a12f81047d9f9556f964b004316b3f7c3c66e7cf7cb75368",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/RaidFrame/ReadyCheck-Ready.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "f40567323affc61812d61bc988164c630a61b57bdbdc860b6508234c4f67b403"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/rock.jpg",
+      "bytes": 20125,
+      "sha256": "984d97df82fd8482593f0297d66d22d2ede14c793f0d2a48f5bfd27963d80dad",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/FrameGeneral/UI-Background-Rock.png",
+        "transform": "JPEG conversion quality78 progressive"
+      },
+      "mapped_input_sha256": [
+        "f34c113f4084b7d98d1bb94b5f169dfe578f4eebc227f6bafaf276dc7f1d3039"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/role-dps.png",
+      "bytes": 6070,
+      "sha256": "07ae341ffe24d9a9915d28f51dd79156573d2638201852d458183f70fefca8e5",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/role-flex.png",
+      "bytes": 5658,
+      "sha256": "6bc7fe25e0cc92f76dace19bd123556b7dda5df93ee01368740a57ad58f61399",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/role-guide.png",
+      "bytes": 6434,
+      "sha256": "98f523a21b979b71b21acb8e52f29e51c12a9fdfc7854936b8855093d54db77f",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/role-healer.png",
+      "bytes": 5945,
+      "sha256": "962baffa60f6a3a75dbc40099899a4a66bea932e096ee98c198785bb6885448b",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/role-tank.png",
+      "bytes": 6343,
+      "sha256": "19435b5c091aa247da196d5cf6932a09aff80d13b31db542ac27c0030fb9880f",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/search.png",
+      "bytes": 278,
+      "sha256": "8610cc313d86f1bb607017326cbb27cde37123616813645b3bae158b6c6efe4d",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/Common/UI-Searchbox-Icon.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "88c87c52ab1ef9ab55ac0138bf7d5030339117d5f37a989667dc55512b2cf1ab"
+      ],
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": true
+    },
+    {
+      "path": "worker/public/static/wow/vote-against.png",
+      "bytes": 5555,
+      "sha256": "666e9769e173a08aa577ee36bacc166fa9288b0038e51bdf9bb0f3ae57a46f02",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/vote-for.png",
+      "bytes": 5829,
+      "sha256": "d11e312bd36a741f29d9b9a4781536812d0c0ae562c05028de204d5597da73aa",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/LFGFrame/UI-LFG-ICON-ROLES.png",
+        "transform": "67-pixel grid cell crop at pinned extractor coordinates"
+      },
+      "mapped_input_sha256": [
+        "2a4881544c8fe78fd709ab25bd3780137bfa1e36a4794f65c7d3d08e5f8c1b51"
+      ],
+      "width": 67,
+      "height": 67,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    },
+    {
+      "path": "worker/public/static/wow/waiting.png",
+      "bytes": 3581,
+      "sha256": "6edc22b92422d69192ca5556e776a3e41fe7936dd54ee1ee38128d59e34ec881",
+      "classification": "WoW client-derived image",
+      "origin_evidence": {
+        "path": "Interface/RaidFrame/ReadyCheck-Waiting.png",
+        "transform": "RGBA format conversion"
+      },
+      "mapped_input_sha256": [
+        "fe05b692e79b1f2e0fb29eecfc1c7ddae45a2cad3aa978d75c0f4d48065de6b0"
+      ],
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "pixel_lineage": "PASS",
+      "reencoded_bytes_match": false
+    }
+  ],
+  "rank_icon_keys": {
+    "gm": "pos-guild_master",
+    "cogm": "pos-co_gm",
+    "officer": "pos-officer",
+    "officeralt": "assist",
+    "treasurer": "pos-treasurer",
+    "raidlead": "pos-raid_leader",
+    "classlead": "pos-class_lead",
+    "recruiter": "pos-recruitment",
+    "moderator": "pos-moderator",
+    "lootcouncil": "pos-loot_council",
+    "eventofficer": "icon-clock",
+    "pvplead": "pos-pvp_leader",
+    "mentor": "role-guide",
+    "veteran": "leader",
+    "coreraider": "pos-raider",
+    "raider": "role-dps",
+    "trialraider": "role-flex",
+    "bench": "waiting",
+    "member": "pos-member",
+    "social": "pos-community",
+    "trial": "icon-apply",
+    "initiate": "pos-member",
+    "alt": "assist",
+    "crafter": "pos-professions",
+    "inactive": "waiting",
+    "muted": "not-ready"
+  },
+  "custom_crest_generated_cover_custom_svg_website_shipping": true,
+  "copyright_and_license_scope": "Source/provenance record only; no assertion that game imagery or fonts are licensed under the repository code license.",
+  "owner_approved_website_art_exception": {
+    "asset": {
+      "path": "worker/public/static/olympus-icon.png",
+      "mode": "100644",
+      "bytes": 58974,
+      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+    },
+    "usage": "brand_and_tab_icon_only",
+    "owner_instruction": "Crest is the exception",
+    "instruction_date": "2026-10-01",
+    "generated_cover_website_shipping": false,
+    "custom_svg_website_shipping": false,
+    "other_custom_website_art_shipping": false,
+    "scope": "The aggregate custom-art flag is true solely because the exact Olympus crest ships. All other interface artwork remains the existing official WoW set; this record grants no additional artwork rights."
+  }
+}
