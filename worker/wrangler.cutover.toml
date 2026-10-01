@@ -87,7 +87,7 @@ QUEUE_CLAIM_LIMIT = "25"                # most invites one officer's client hold
 QUEUE_CLAIM_PRIORITY_EXTRA = "10"       # reserved names an officer may hold on top of that, so they are never stuck behind held rows
 ROSTER_MIN_MEMBERS = "800"                # refuse to act on a roster export smaller than this (0 = no floor)
 UNVERIFIED_GRACE_DAYS = "3"            # an unverified member is offered for removal only this many days after the LATER of first appearing on the roster and VERIFY_OPEN_SINCE
-VERIFY_OPEN_SINCE = "2026-09-25"       # CUTOVER GATE (Codex, 1 Oct 04:36 UTC): set to the day the preferred verification path actually opens in Asmongold's server before deploying this configuration; the baseline (build .32) is kept here only as the placeholder
+VERIFY_OPEN_SINCE = "2026-10-02"       # cutover gate 6, met (Codex, 1 Oct 2026 20:09 UTC): the day after the planned 1 October opening of verification in Asmongold's server, so nobody there is offered for removal before UNVERIFIED_GRACE_DAYS after it; if the opening slips past 2 October, re-review this date forward before deploying
 ROSTER_MAX_SHRINK_PCT = "10"            # refuse to strip roles when an export is more than this % smaller than the last one (truncated-export guard, 18 Sep)
 PUBLIC_BASE_URL = "https://olympus-verify.roach-council.workers.dev"
 # .50 (1 Oct 2026): the Phase 3 profile-API vars are gone with the path (docs/design.md, "the ban lets go of the tag").
