@@ -1,0 +1,109 @@
+name: Review checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The Worker: typecheck, the shared code vectors, every node suite (real src/*.ts over SQLite), the two SQL suites
+  # in Python, the site script's syntax, the deploy script's argument contract, and a dry-run bundle.
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan repository history for secrets
+        run: bash scripts/scan-secrets.sh
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+        working-directory: worker
+      - name: Typecheck, code vectors and every Worker suite
+        run: npm run test:all
+        working-directory: worker
+      - name: SQL suites (real extracted SQL against SQLite)
+        run: |
+          python3 tests/unverified_sql_test.py
+          python3 tests/backfill_sql_test.py
+        working-directory: worker
+      - run: node --check public/static/app.js
+        working-directory: worker
+      - name: Deploy script argument contract (fake wrangler on PATH), the CI gate's own contract, the cutover configuration pair (.77), the publication helpers' smoke test
+        run: |
+          bash scripts/tests/deploy-commit.test.sh
+          bash scripts/tests/ci-gate.test.sh
+          bash scripts/tests/cutover-config.test.sh
+          bash scripts/tests/publication-helper.test.sh
+      - name: Package the Worker without deploying
+        run: npx wrangler deploy --dry-run --outdir ../.check-worker
+        working-directory: worker
+
+  # The officer-PC side: the watcher's unit tests and the relay script, plus the operator tools' tests. Standard library
+  # only, on the runner's Python 3.
+  watcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Watcher unit tests and the Discord relay cases
+        run: |
+          python3 tests/test_watcher.py
+          python3 tests/test_discord_relay.py
+        working-directory: watcher
+      - name: Operator tools (each test is a standalone script with a fake Worker on 127.0.0.1)
+        run: |
+          python3 tools/tests/test_backfill_roles.py
+          python3 tools/tests/test_review.py
+
+  # The addon's ten offline Lua suites, through Lupa's bundled LuaJIT 2.1: the same Lupa version as the local venv
+  # that runs them on this PC (2.8, observed 30 Sep 2026), so results are comparable.
+  addon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Lupa 2.8 (LuaJIT 2.1 runtime for the suites)
+        run: python3 -m pip install --user 'lupa==2.8'
+      - name: Addon suites
+        run: python3 addon/tests/run_lua_suites.py
+
+  # The one status a ruleset on main requires. It always runs (a skipped required job counts as PASSED for merging,
+  # per GitHub's status-check docs) and fails unless every job above reports exactly "success": failure, cancelled and
+  # skipped all fail (scripts/ci-gate.sh, tested by scripts/tests/ci-gate.test.sh). Codex reviews of 6de12d2 and
+  # c93fc0e: a required check covering the Worker job alone, or one that could be skipped, would let a watcher or
+  # addon regression merge.
+  check:
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: [worker, watcher, addon]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require every job to have succeeded
+        env:
+          WORKER: ${{ needs.worker.result }}
+          WATCHER: ${{ needs.watcher.result }}
+          ADDON: ${{ needs.addon.result }}
+        run: bash scripts/ci-gate.sh

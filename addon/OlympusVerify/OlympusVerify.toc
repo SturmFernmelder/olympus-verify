@@ -1,0 +1,15 @@
+## Interface: 16001, 16000, 11509
+## Title: Olympus Verify
+## Notes: Discord verification for the Olympus guild: whisper/mail code intake, queued invites, signed join confirmations, full roster export. /olv opens the panel.
+## Author: Olympus
+## Version: 0.6.4
+## SavedVariables: OlympusVerifyDB
+
+# Interface number: set to the Forever beta client's build (check /run print((select(4, GetBuildInfo()))) in game).
+Libs\OlympusHmac.lua
+Config.lua
+OlympusQueue.lua
+OlympusVerify.lua
+OlympusVerifyUI.lua
+OlympusVerifyPreview.lua
+OlympusVerifyRoster.lua

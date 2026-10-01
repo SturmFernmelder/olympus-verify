@@ -1,0 +1,118 @@
+name = "olympus-verify"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+# Build .41: the guild site gets its own custom domain, and the workers.dev address stays on: Discord's interactions
+# endpoint, the linked-role and Battle.net callbacks and the watcher all use it. workers_dev is written out because
+# adding a route must not switch it off.
+workers_dev = true
+routes = [{ pattern = "guild.roachcouncil.com", custom_domain = true }]
+# Build .49: no preview URLs (they would be a second public origin with the same bindings and secrets), and Workers
+# Logs on with query strings redacted (the OAuth callbacks carry ?code= and ?state=).
+preview_urls = false
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+redact_query_string = true
+
+# The guild site's stylesheet, script and images (public/static). Since .51 every request runs the Worker first
+# (run_worker_first): the host check in src/index.ts then covers the files too (an unknown or legacy host cannot fetch
+# them) and hands /static/* on the site host to the binding (Codex's review of .49, 1 Oct 00:04 UTC). A page view is
+# then one Worker request per file as well as for the page; the files are small and cached by the browser.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Every half hour: the invite-queue sweep, the Guild Member restore sweep, Discord-name refresh, reserved names into the
+# queue from launch, the replay-ledger purge (.47) and the Battle.net retention purge (.48).
+[triggers]
+crons = ["*/30 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "olympus-verify"
+database_id = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
+
+[vars]
+GUILD_ID = "1549537348516188200"
+DISCORD_APP_ID = "1550176895671341076"  # Olympus Verify application (public value; bot role 1550178134878584934)
+ROLE_GUILD_MEMBER = "1549581282227265566" # Guild Member
+ROLE_OFFICER = "1549581672272625734"    # Officer
+ROLE_MODERATOR = "1549581792015814676"  # Moderator
+ROLE_GUILD_LEADER = "1549581882549608579" # Guild Leader
+ROLE_GUILD_MASTER = "1549892601170108416" # Guild Master (top role) — same bot rights as Guild Leader; "" if unused
+ROLE_RAID_LEADER = "1549581447768186960" # Raid Leader — no bot rights; named so a departure line can say the person still has channel access
+CHANNEL_RECRUITMENT_REVIEW = "1549586960115433532"  # #recruitment-review
+CHANNEL_MOD_ALERTS = "1549586975407738891"          # #mod-alerts — ban cards and the officer-rank report ("" falls back to the review channel)
+CHANNEL_SERVER_LOG = "1549586995389538394"          # #server-log (leave "" to disable log lines)
+ADMISSION_MODE = "auto"                 # review | auto  (auto since 18 Sep: a confirmed code queues the invite; the Linked Role + code are the check, the key press stays)
+SET_NICKNAME = "true"                   # Discord nickname := character name on admission
+SET_GUILD_NOTE = "false"                # public note "D:<discord id>" — SetNote is forbidden for addons on the Forever beta; keep false
+OFFICER_CHARACTERS = "Fern Melder"     # shown in /verify instructions; the characters running the addon (two-part Forever name)
+LINKS_NOT_BEFORE = ""                  # launch day: set to "2026-11-04" (and deploy) before the first live roster export; older links then count only if their character ID matches
+REQUEST_CODES = "auto"                 # auto: Get my code hands out request codes once an officer's watcher reports addon 0.6.0+; "off" = ask for the character name instead; "on" = always
+OFFICER_RANK_NAMES = "Guild Master,Officer"  # in-game rank names that ought to hold the Discord Officer role, comma separated. The bot only REPORTS mismatches — it never grants the role.
+# Characters the officer-rank check never reports. The guild owner belongs here: a Discord server owner holds every
+# permission without the role, so the check would flag them on every export forever. Comma-separated, as in game.
+RANK_CHECK_EXEMPT = ""                 # CHARACTER names, as in game — not rank names
+CHANNEL_NOTICES = "1553117193863041034"                 # #bot-announcements channel ID. Empty = notices are audited and not posted. The bot NEVER DMs (Discord Developer Compliance, 25 Sep 2026)
+# .55: role ids whose holders never receive Guild Member and lose it while held (Asmongold: Quarantine 1399774654893133864,
+# Flagellant 1307420957140320297; set with the cutover config). "" = no blocking roles. roles.ts.
+BLOCKING_ROLE_IDS = ""
+# .55: the "Ban from Discord" button on the ban card needs the bot to hold Ban Members, which is a separate approval
+# (tracker D03); until then the card lists the account and the button is not shown.
+BAN_BUTTON_ENABLED = "false"
+ROLE_SWEEP_PER_RUN = "10"              # accounts one Guild Member sweep checks (every 5 min while the watcher runs, and every cron); 10 fits the free plan's 50 calls per request
+ROLE_CALL_BUDGET = "40"                # .90: Discord calls one role-writing run may make (the free plan allows 50 subrequests per invocation); a run that reaches it stops and the next one continues
+NOTICE_RATE_CAP = "10"                 # most notice posts per 60s; one roster sync posts once however many people it touches
+CHANNEL_VISITOR_CHAT = "1553135302195814450"            # #olympus-2-x: chat for Olympus 2 and later and anyone outside the main guild. The guide and /verify point there
+INVITE_MAX_ATTEMPTS = "6"               # refused invites tolerated before the row is retired and staff told
+QUEUE_CLAIM_TTL_MINUTES = "15"          # a second officer may take over a queued invite this long after the holder stops polling
+QUEUE_CLAIM_LIMIT = "25"                # most invites one officer's client holds at once
+QUEUE_CLAIM_PRIORITY_EXTRA = "10"       # reserved names an officer may hold on top of that, so they are never stuck behind held rows
+ROSTER_MIN_MEMBERS = "800"                # refuse to act on a roster export smaller than this (0 = no floor)
+UNVERIFIED_GRACE_DAYS = "3"            # an unverified member is offered for removal only this many days after the LATER of first appearing on the roster and VERIFY_OPEN_SINCE
+VERIFY_OPEN_SINCE = "2026-09-25"       # build .32: Battle.net no longer required, so verifying became possible again — nobody is held responsible for the outage before it
+ROSTER_MAX_SHRINK_PCT = "10"            # refuse to strip roles when an export is more than this % smaller than the last one (truncated-export guard, 18 Sep)
+PUBLIC_BASE_URL = "https://olympus-verify.roach-council.workers.dev"
+# .50 (1 Oct 2026): the Phase 3 profile-API vars are gone with the path (docs/design.md, "the ban lets go of the tag").
+
+# Build .39: the bot's pinned intro in each Olympus channel of Asmongold's server (src/intros.ts, /olympus-intros).
+# Verification keeps serving GUILD_ID above until the move (docs/asmongold-move.md); in this server the bot only runs
+# the intros command. Ids from docs/asmongold-category-2026-09-28.md. INTROS_GUILD_ID = "" switches it off.
+INTROS_GUILD_ID = "236932545793490944"  # Asmongold
+INTROS_ROLES = "1554262223038324840,1554261979684933742"  # Olympus Officer, Olympus Guild Leader (Administrators always may)
+# Build .41: the guild site (src/site*.ts) at SITE_HOST, for members of SITE_GUILD_ID. SITE_ADMINS see applications,
+# nomination results and the admin pages. The redirect https://guild.roachcouncil.com/auth/callback must be added in the
+# Developer Portal (OAuth2 -> Redirects) before anyone can sign in.
+SITE_HOST = "guild.roachcouncil.com"
+SITE_LEGACY_HOSTS = ""                 # .49: former site hosts (comma-separated); a GET there is a 301 to SITE_HOST. Filled at the hostname swap
+SITE_GUILD_ID = "236932545793490944"   # Asmongold's server: only its members can sign in
+SITE_ADMINS = "472099715253796864"     # Viktor (owner of the Olympus server); comma-separate to add more
+# .56: community modules ported from Olympus Forever, named here when switched on (directory, crafting, events,
+# attendance, trials, departures, contributions, privacy_intake, rights). "" = none; each lands behind this list.
+COMMUNITY_FEATURES = ""
+COMMUNITY_DIRECTORY_LIMIT = "2500"      # .57: listed profiles the directory holds (a guild has at most 1,000 characters); the 2,501st save is refused; .59: and the calendar's distinct members
+COMMUNITY_ORGANIZERS = ""               # .59: Discord ids who may create, edit and cancel events and record attendance (SITE_ADMINS always may); "" = admins only
+CONTRIBUTIONS_MODE = "off"              # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
+CONTRIBUTIONS_RETENTION_DAYS = ""       # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
+CONTRIBUTIONS_SCOPE = "olympus"         # .75: the guild scope ledger records carry
+PRIVACY_INTAKE_ENABLED = "false"        # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
+PRIVACY_INTAKE_MONITORED = "false"      # .82: set "true" only once an administrator actually reads the queue; new cases are refused otherwise
+PRIVACY_INTAKE_RETENTION_DAYS = ""      # .82: days a case is kept from its last activity (1..3650), fixed per case at creation; "" = no new cases
+OFFICER_DIGEST_ENABLED = "false"        # .85: "true" posts the daily officer digest (counts only) to CHANNEL_MOD_ALERTS (else the review channel) after 15:00 UTC
+SITE_JOIN_URL = ""                     # an invite link to Asmongold's server, shown to people who are not in it ("" = none)
+NAME_RESERVATION_AT = "2026-10-27T07:00:00Z"  # 27 Oct, 00:00 Pacific: Blizzard gave the date, not the hour. Set the hour on the site's admin page
+LAUNCH_AT = "1793833200"               # 4 Nov 2026, 3:00 p.m. PST: approved reserved names go to the top of the invite queue from then
+NAMES_PER_RUN = "5"                    # linked members whose Discord names the cron re-reads per run (names.ts); with the role sweep it stays well inside 50 calls
+# key=channel id for every channel an intro lives in or mentions; the keys are the {#key} placeholders in intros.ts
+INTROS_CHANNELS = "server-rules=1300107359242424350,olympus-info=1554264597912100914,join-olympus=1554264786055987200,olympus-notices=1554264944747216977,olympus-visitors=1554265065509756989,guild-announcements=1554265182379839669,guild-chat=1551253084536049714,looking-for-group=1554265340286861352,classes-and-builds=1554265517210996898,professions-and-trade=1554265690612039710,raid-announcements=1554265809952571422,raid-signups=1554266022444408872,raid-discussion=1554266160050995230,loot-and-raid-rules=1554266306952560762,the-tavern=1554267028074930256,dungeon-party-1=1554267180697264158,dungeon-party-2=1554267323546992650"
+
+# Secrets (wrangler secret put NAME):
+#   DISCORD_PUBLIC_KEY  DISCORD_BOT_TOKEN  DISCORD_CLIENT_SECRET   (DISCORD_APP_ID is a var above)
+#   VERIFY_SECRET   WATCHER_TOKEN       COOKIE_SECRET
+#   BNET_CLIENT_ID  BNET_CLIENT_SECRET  (REQUIRED since 18 Sep 2026: Discord stopped returning Battle.net
+#                                        connections to apps, so Blizzard's own login is the only way to read a
+#                                        BattleTag. Redirect URLs to register at develop.battle.net:
+#                                        <PUBLIC_BASE_URL>/bnet/link and, for Phase 3, /bnet/callback.)

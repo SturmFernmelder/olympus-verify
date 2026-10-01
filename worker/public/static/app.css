@@ -1,0 +1,686 @@
+/* Olympus guild site (build .46). A free, non-commercial fan site dressed in World of Warcraft's own interface art, like
+   olympus.roachcouncil.com/guild: the dialog, tooltip and header frames, the red panel buttons, check boxes, the edit
+   box, the quest parchment, class and role icons, and the Friz Quadrata and Morpheus interface fonts. Every image in
+   /static/wow is a crop or rearrangement of one texture from the game client (tools/build-site-assets.py); no game logo
+   is used. Frames are CSS border-image nine-slices of those textures. */
+@font-face { font-family: "Friz Quadrata"; src: url("/static/wow/friz-quadrata.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Morpheus"; src: url("/static/wow/morpheus.woff2") format("woff2"); font-display: swap; }
+
+:root {
+  color-scheme: dark;
+  --font: "Friz Quadrata", Georgia, "Times New Roman", serif;
+  --title: "Morpheus", "Friz Quadrata", Georgia, serif;
+  --text: #f2e5c5;
+  --muted: #c6bc9e;
+  --faint: #938a72;
+  --gold: #ffd100;          /* the game's normal (gold) text */
+  --gold-soft: #ffd56b;
+  --white: #ffffff;         /* the game's highlight text */
+  --green: #1eff00;
+  --green-soft: #7ee07e;
+  --red: #ff3b30;
+  --red-soft: #ff7b6e;
+  --blue: #71d5ff;          /* the game's link blue */
+  --grey: #9d9d9d;
+  --line: #5e533b;
+  --brass: #a18b5b;
+  --ink: #2c1a0d;           /* quest text on parchment */
+  --tooltip: rgba(8, 8, 22, 0.93); /* the game's tooltip background: dark navy */
+  --dialog: rgba(0, 0, 0, 0.87);   /* UI-DialogBox-Background-Dark: black at 87% */
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font: 15px/1.55 var(--font);
+  color: var(--text);
+  background-color: #0b0a08;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.5) 60rem, rgba(0, 0, 0, 0.62)), url("/static/wow/rock.jpg");
+  background-size: 100% 100%, 512px 512px;
+}
+a { color: var(--gold-soft); text-underline-offset: 2px; }
+a:hover { color: var(--white); }
+img { max-width: 100%; }
+h1, h2, h3 { font-family: var(--title); font-weight: 400; color: var(--gold); margin: 0 0 0.45em; line-height: 1.2; text-shadow: 1px 1px 0 #000; }
+h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.2rem; }
+p { margin: 0 0 0.85em; }
+b, strong { color: var(--white); font-weight: 400; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.small { font-size: 0.86rem; }
+.tiny { font-size: 0.76rem; }
+.nowrap { white-space: nowrap; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
+
+.boot-fallback { max-width: 40rem; margin: 20vh auto; text-align: center; padding: 0 16px; }
+
+/* ---------- layout ---------- */
+.shell { max-width: 1120px; margin: 0 auto; padding: 0 16px 40px; }
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: linear-gradient(#35382e, #191e18 60%, #10160f);
+  border-bottom: 4px ridge #91815a;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6);
+}
+.topbar-in { max-width: 1120px; margin: 0 auto; padding: 7px 16px; display: flex; align-items: center; gap: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; flex: none; }
+.brand img { width: 44px; height: 44px; flex: none; } /* .111: the Olympus crest (olympus-icon.png), the one non-game image, at the header size */
+.brand span { display: flex; flex-direction: column; line-height: 1; }
+.brand b { font-family: var(--title); font-size: 1.35rem; letter-spacing: 0.06em; color: var(--gold); text-shadow: 1px 1px 0 #000; }
+.brand small { font-size: 0.62rem; letter-spacing: 0.32em; color: var(--brass); margin-top: 3px; padding-left: 2px; }
+.nav { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
+.who { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+.who img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--brass); }
+.who .name { font-size: 0.9rem; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--white); }
+
+.notice { max-width: 1088px; margin: 16px auto 0; width: calc(100% - 32px); }
+/* "The site was updated": over the page just under the top bar (app.js sets `top`), solid so nothing shows through. */
+.reload-bar { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 32px), 1088px); margin: 0; z-index: 60; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.75)); }
+.reload-bar .notice-box.warn { background: #280606 padding-box; }
+
+/* ---------- frames ---------- */
+/* The game's dialog: stone border (UI-DialogBox-Border, laid out as a nine-slice) over black at 87%. The border image is
+   24px wide but the box's own border only 11px, so the background starts right under the rail's inner edge. */
+.frame {
+  position: relative;
+  border: 11px solid transparent;
+  border-image: url("/static/wow/frame-dialog.png") 32 / 24px / 0 round;
+  background: var(--dialog) padding-box;
+  padding: 18px 20px;
+  margin: 20px 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.frame.gold { border-image-source: url("/static/wow/frame-gold.png"); }
+/* A frame's title sits on the dialog header plaque (UI-DialogBox-Header). */
+.plaque {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  border: 12px solid transparent;
+  border-image: url("/static/wow/header.png") 22 fill / 12px / 0 stretch;
+  padding: 2px 10px;
+  margin: -6px -8px 16px;
+  min-height: 52px;
+}
+.plaque h1, .plaque h2, .plaque h3 { margin: 0; }
+.plaque .aside { font-size: 0.86rem; color: var(--muted); }
+.frame > h2:first-child, .frame > h3:first-child { margin-top: 0; }
+/* Tooltip-style boxes: the thin rounded tooltip border over the game's dark navy. */
+.card, .notice-box {
+  position: relative;
+  border: 5px solid transparent;
+  border-image: url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round;
+  background: var(--tooltip) padding-box;
+  padding: 12px 14px;
+}
+.card.gold, .notice-box.info { border-image-source: url("/static/wow/frame-tooltip-gold.png"); }
+.notice-box.warn { border-image-source: url("/static/wow/frame-tooltip-red.png"); background: rgba(40, 6, 6, 0.9) padding-box; }
+.notice-box.ok { border-image-source: url("/static/wow/frame-tooltip-green.png"); background: rgba(6, 26, 8, 0.9) padding-box; }
+.notice-box { display: flex; gap: 12px; align-items: flex-start; }
+.notice-box > .ico { margin-top: 2px; }
+.notice-box > div { flex: 1; min-width: 0; }
+.notice-box p:last-child { margin-bottom: 0; }
+.card h3 { margin-bottom: 0.3em; }
+.card .big { font-family: var(--font); font-size: 1.6rem; color: var(--white); line-height: 1.2; }
+a.card { display: block; text-decoration: none; color: inherit; transition: filter 0.15s; }
+a.card:hover { filter: brightness(1.2); }
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.card-head h3 { margin: 0; }
+
+/* The quest log's parchment, for text meant to be read. */
+.parchment {
+  background: #e3cc98 url("/static/wow/parchment.jpg") center / cover;
+  color: var(--ink);
+  border: 1px solid #4a3718;
+  box-shadow: inset 0 0 22px rgba(90, 58, 16, 0.5), 0 4px 16px rgba(0, 0, 0, 0.55);
+  padding: 16px 22px 16px 24px;
+  text-shadow: none;
+}
+.parchment h3, .parchment h4 { font-family: var(--title); color: #1d0f05; text-shadow: none; margin: 0 0 0.4em; font-weight: 400; }
+.parchment h4 { font-family: var(--font); font-size: 0.78rem; line-height: 1.35; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; margin-top: 1em; }
+.parchment b, .parchment strong { color: #000; }
+.parchment a { color: #5a1a08; }
+.parchment .muted { color: #5b4526; }
+.parchment ul { margin: 0 0 0.6em; padding-left: 22px; list-style: none; }
+.parchment li { position: relative; margin: 0 0 0.3em; }
+.parchment li::before { content: ""; position: absolute; left: -20px; top: 0.35em; width: 12px; height: 12px; background: url("/static/wow/bullet.png") center / 12px 12px no-repeat; }
+
+/* The quest log's ornamental break. */
+.rule { height: 18px; background: url("/static/wow/divider.png") center / 210px 18px no-repeat; border: 0; margin: 16px 0; }
+
+.grid { display: grid; gap: 16px; }
+.grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.shell > .grid { margin: 20px 0; }
+.grid > .frame { margin: 0; }
+.grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stack { display: grid; gap: 10px; }
+
+/* ---------- icons ---------- */
+.ico { width: 32px; height: 32px; flex: none; border: 1px solid #000; border-radius: 4px; box-shadow: 0 0 0 1px rgba(161, 139, 91, 0.55); vertical-align: middle; object-fit: cover; }
+.ico.s { width: 22px; height: 22px; border-radius: 3px; }
+.ico.l { width: 44px; height: 44px; border-radius: 5px; }
+.ico.xl { width: 56px; height: 56px; border-radius: 6px; }
+.role-ico { width: 24px; height: 24px; flex: none; vertical-align: middle; }
+.cls { white-space: nowrap; }
+.cls .ico.s { margin-right: 5px; }
+
+/* ---------- landing ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 26px; align-items: center; }
+.hero .art { border: 3px solid #000; box-shadow: 0 0 0 1px #6b5a2e, 0 10px 26px rgba(0, 0, 0, 0.7); width: 100%; height: auto; display: block; aspect-ratio: 500 / 284; object-fit: cover; }
+.hero .title { font-family: var(--title); font-size: clamp(2.6rem, 7vw, 4rem); color: var(--gold); line-height: 1; margin: 0 0 6px; text-shadow: 2px 2px 0 #000, 0 0 18px rgba(255, 170, 0, 0.25); }
+.hero .tag { color: var(--brass); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 14px; }
+.hero .lead { font-size: 1.05rem; margin-bottom: 18px; }
+.hero .small { margin-top: 12px; }
+.welcome { display: flex; align-items: center; gap: 14px; }
+.welcome img { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--brass); }
+.welcome h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); }
+
+/* ---------- countdown ---------- */
+.count { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 6px; }
+.count .unit {
+  min-width: 70px; text-align: center; padding: 6px 6px 4px;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip-gold.png") 16 / 14px / 0 round; background: var(--tooltip) padding-box;
+}
+.count .num { display: block; font-size: 1.9rem; color: var(--white); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.count .lab { font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.date-card { display: flex; gap: 14px; align-items: flex-start; }
+.date-card > div { min-width: 0; flex: 1; }
+
+/* ---------- buttons: the red panel button (UI-Panel-Button): normal, highlighted, pressed, greyed ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 36px; padding: 3px 16px;
+  border: 6px solid transparent;
+  border-image: url("/static/wow/button-up.png") 6 7 fill / 6px 7px / 0 stretch;
+  background: transparent;
+  color: var(--gold); font: 15px/1.2 var(--font); text-shadow: 1px 1px 0 #000; text-decoration: none; white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+.btn:hover { color: var(--white); border-image-source: url("/static/wow/button-hover.png"); }
+.btn:active:not(:disabled) { border-image-source: url("/static/wow/button-down.png"); padding-top: 5px; padding-bottom: 1px; }
+.btn:disabled, .btn[aria-disabled="true"] { border-image-source: url("/static/wow/button-disabled.png"); color: #7c7c7c; cursor: not-allowed; }
+.btn.small { min-height: 30px; padding: 1px 11px; font-size: 13px; }
+.btn.big { min-height: 48px; padding: 5px 24px; font-size: 17px; }
+.btn.danger { color: #ff8a66; }
+.btn.danger:hover { color: #ffd2c4; }
+.btn[aria-current="page"] { border-image-source: url("/static/wow/button-down.png"); color: var(--white); box-shadow: 0 0 0 1px rgba(255, 209, 0, 0.55), 0 0 12px rgba(255, 209, 0, 0.3); }
+.btn .ico { width: 20px; height: 20px; border-radius: 3px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.link { background: none; border: 0; padding: 0; font: inherit; color: var(--gold-soft); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.link:hover { color: var(--white); }
+.discord-mark { width: 20px; height: 20px; flex: none; }
+/* The small red close button (UI-Panel-MinimizeButton). */
+.x { width: 32px; height: 32px; flex: none; border: 0; padding: 0; cursor: pointer; background: url("/static/wow/close-up.png") center / 32px 32px no-repeat; position: relative; }
+.x:hover::after { content: ""; position: absolute; inset: 0; background: url("/static/wow/close-highlight.png") center / 32px 32px no-repeat; }
+.x:active { background-image: url("/static/wow/close-down.png"); }
+
+/* ---------- forms: the game's edit box, check box and radio button ---------- */
+label.field, .field { display: block; margin: 0 0 16px; }
+.field > .lab { display: block; color: var(--gold); margin-bottom: 4px; }
+.field > .hint, .hint { display: block; color: var(--muted); font-size: 0.86rem; margin: -2px 0 6px; }
+.req { color: var(--red); margin-left: 3px; }
+input[type="text"], input[type="search"], input[type="url"], input[type="number"], input[type="datetime-local"], input[type="password"], input[type="date"], select, textarea {
+  width: 100%; min-height: 40px; margin: 0;
+  font: 15px/1.4 var(--font); color: var(--white);
+  background: transparent;
+  border: 5px solid transparent;
+  border-image: url("/static/wow/input.png") 5 6 fill / 5px 6px / 0 stretch;
+  border-radius: 0; padding: 5px 7px;
+  -webkit-appearance: none; appearance: none;
+}
+input::placeholder, textarea::placeholder { color: #8d8674; opacity: 1; }
+textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+select {
+  padding-right: 30px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--gold) 50%), linear-gradient(135deg, var(--gold) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 7px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+select option, select optgroup { background: #14120e; color: var(--text); font-family: var(--font); }
+input[type="search"] { padding-left: 28px; background: url("/static/wow/search.png") 5px 50% / 16px 16px no-repeat; }
+input:focus, select:focus, textarea:focus { outline: none; filter: brightness(1.25); box-shadow: 0 0 0 1px rgba(255, 209, 0, 0.55), 0 0 10px rgba(255, 209, 0, 0.18); }
+input:disabled, textarea:disabled, select:disabled { opacity: 0.55; }
+.field.invalid input, .field.invalid select, .field.invalid textarea, .field.invalid .grid-avail { box-shadow: 0 0 0 1px var(--red), 0 0 10px rgba(255, 59, 48, 0.3); }
+.field .err { color: var(--red-soft); font-size: 0.88rem; margin-top: 5px; display: block; }
+.counter { text-align: right; font-size: 0.74rem; color: var(--faint); margin-top: 2px; }
+input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 32px; height: 32px; margin: -5px 0 -5px -5px; cursor: pointer; vertical-align: middle;
+  background: url("/static/wow/check-up.png") center / 32px 32px no-repeat;
+}
+input[type="checkbox"]:checked { background-image: url("/static/wow/check-mark.png"), url("/static/wow/check-up.png"); }
+input[type="checkbox"]:hover { background-image: url("/static/wow/check-highlight.png"), url("/static/wow/check-up.png"); }
+input[type="checkbox"]:checked:hover { background-image: url("/static/wow/check-mark.png"), url("/static/wow/check-highlight.png"), url("/static/wow/check-up.png"); }
+input[type="checkbox"]:active { background-image: url("/static/wow/check-down.png"), url("/static/wow/check-up.png"); }
+input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.6; }
+input[type="checkbox"]:checked:disabled { background-image: url("/static/wow/check-mark-disabled.png"), url("/static/wow/check-up.png"); }
+input[type="checkbox"]:focus-visible { outline-offset: -3px; }
+input[type="radio"] {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 16px; height: 16px; margin: 0; cursor: pointer;
+  background: url("/static/wow/radio.png") center / 16px 16px no-repeat;
+}
+input[type="radio"]:checked { background-image: url("/static/wow/radio-on.png"); }
+input[type="radio"]:hover { background-image: url("/static/wow/radio-highlight.png"), url("/static/wow/radio.png"); }
+input[type="radio"]:checked:hover { background-image: url("/static/wow/radio-highlight.png"), url("/static/wow/radio-on.png"); }
+.check, label.check.field { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.check > span { padding-top: 2px; }
+.check .hint { display: block; margin: 2px 0 0; }
+.inline { display: flex; gap: 10px; align-items: center; }
+.inline > input { flex: 1; min-width: 0; }
+img.av { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; margin-right: 8px; object-fit: cover; border: 1px solid #000; }
+h2 img.av, .plaque img.av { width: 32px; height: 32px; margin-right: 10px; }
+.id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.76rem; color: var(--faint); }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { padding: 0; }
+.group-label { font-family: var(--title); color: var(--gold); font-size: 1.05rem; margin: 16px 0 8px; text-shadow: 1px 1px 0 #000; }
+.section-title { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+.section-title h3 { margin: 0; }
+
+/* Position choices: tooltip cards with the role's icon. */
+.options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+.option {
+  position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 12px; align-items: start; align-content: start; cursor: pointer;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round; background: var(--tooltip) padding-box;
+  padding: 10px 12px 10px 10px;
+}
+.option .ico { grid-row: span 2; width: 36px; height: 36px; }
+.option input { position: absolute; top: 9px; right: 9px; }
+.option b { display: block; color: var(--white); padding-right: 20px; line-height: 1.3; }
+.option span { display: block; font-size: 0.82rem; color: var(--muted); line-height: 1.4; }
+.option:hover { filter: brightness(1.15); }
+.option.on { border-image-source: url("/static/wow/frame-tooltip-gold.png"); background: rgba(40, 30, 6, 0.93) padding-box; box-shadow: 0 0 14px rgba(255, 209, 0, 0.2); }
+.option.on b { color: var(--gold); }
+.backups { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* A role filled by appointment: greyed and not selectable, with who holds it under the gold ready tick. */
+.option.appointed { cursor: not-allowed; }
+.option.appointed:hover { filter: none; }
+.option.appointed .ico, .option.appointed b, .option.appointed > span:not(.appointed-by), .option.appointed input { opacity: 0.5; }
+.option .appointed-by { grid-column: 2; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--green-soft); }
+.tick { width: 16px; height: 16px; flex: none; }
+.appointed-line { display: flex; align-items: center; gap: 6px; color: var(--green-soft); margin: 4px 0 0; }
+.appointed-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
+.appointed-row { margin: 0; }
+.appointed-row .lab { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+
+/* ---------- the weekly availability grid ---------- */
+.avail-wrap { overflow-x: auto; }
+.grid-avail { border-collapse: separate; border-spacing: 3px; margin: 2px 0 4px; user-select: none; touch-action: manipulation; }
+.grid-avail th { font-weight: 400; color: var(--gold); font-size: 0.8rem; padding: 0 2px; text-align: center; white-space: nowrap; }
+.grid-avail th.t { text-align: right; color: var(--muted); padding-right: 6px; font-size: 0.76rem; }
+.grid-avail td { padding: 0; }
+.grid-avail button {
+  display: block; width: 46px; height: 28px; padding: 0; cursor: pointer;
+  border: 1px solid #3a3326; border-radius: 3px; background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.grid-avail button:hover { border-color: var(--brass); }
+.grid-avail button[aria-pressed="true"] { background: linear-gradient(#3fae45, #1f7a26); border-color: #8be28f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 6px rgba(80, 220, 90, 0.35); }
+.grid-avail.readonly button { cursor: default; }
+.grid-avail.readonly button:hover { border-color: #3a3326; }
+.avail-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.fit { display: inline-flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 0.86rem; color: var(--muted); }
+.fit b { color: var(--white); }
+.fit-compact { white-space: nowrap; color: var(--muted); font-size: 0.86rem; }
+.fit-compact b { color: var(--white); }
+select.narrow-select { max-width: 380px; }
+.fit .pips { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
+.fit .pips i { width: 7px; height: 11px; border-radius: 1px; background: #2a2518; border: 1px solid #000; }
+.fit .pips i.on { background: #3fae45; }
+.heat { border-collapse: separate; border-spacing: 2px; font-size: 0.72rem; }
+.heat th { font-weight: 400; color: var(--muted); padding: 0 4px 0 0; text-align: right; }
+.heat thead th { text-align: center; padding: 0; font-size: 0.66rem; }
+.heat td { min-width: 30px; height: 26px; border-radius: 2px; text-align: center; color: #000; font-size: 0.66rem; }
+
+/* ---------- people ---------- */
+.picker { position: relative; }
+.picker .list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30; max-height: 330px; overflow: auto;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round; background: rgba(8, 8, 22, 0.97) padding-box;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.7);
+}
+.picker .row { display: flex; align-items: center; gap: 10px; padding: 7px 9px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.picker .row:last-child { border-bottom: 0; }
+.picker .row[aria-selected="true"], .picker .row:hover { background: rgba(255, 209, 0, 0.12); }
+.picker .row[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.picker .row img { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+.picker .row .typed-icon { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #221e14; color: var(--gold); }
+.picker .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--white); }
+.picker .row .sub { color: var(--muted); font-size: 0.8rem; }
+.picker .state { padding: 10px 12px; color: var(--muted); font-size: 0.88rem; }
+.picker .list-tools { display: flex; gap: 8px; align-items: center; padding: 6px 9px; font-size: 0.8rem; color: var(--muted); border-bottom: 1px solid rgba(255, 209, 0, 0.2); cursor: pointer; user-select: none; }
+.badge {
+  display: inline-block; font-size: 0.72rem; line-height: 1.5; padding: 0 7px; border-radius: 3px; vertical-align: middle; white-space: nowrap;
+  border: 1px solid rgba(255, 209, 0, 0.45); color: var(--gold); background: rgba(0, 0, 0, 0.45);
+}
+.badge.green { color: var(--green-soft); border-color: rgba(30, 255, 0, 0.4); }
+.badge.red { color: var(--red-soft); border-color: rgba(255, 59, 48, 0.5); }
+.badge.blue { color: var(--blue); border-color: rgba(113, 213, 255, 0.45); }
+.badge.warn { color: #ffb347; border-color: rgba(255, 179, 71, 0.5); }
+.badge.muted { color: var(--grey); border-color: rgba(157, 157, 157, 0.4); }
+.person {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round; background: var(--tooltip) padding-box;
+}
+.person img, .person .typed-icon { width: 32px; height: 32px; border-radius: 50%; flex: none; }
+.person .typed-icon { display: grid; place-items: center; background: #221e14; color: var(--gold); }
+.person .nm { flex: 1; min-width: 0; }
+.person .nm b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person .nm small { color: var(--muted); }
+.person input[type="text"] { margin-top: 6px; min-height: 34px; font-size: 0.9rem; }
+
+/* ---------- the voting board ---------- */
+.board-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
+.role-list {
+  display: grid; gap: 2px; position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round; background: var(--tooltip) padding-box;
+  padding: 8px 6px;
+}
+.role-list .group-label { margin: 10px 0 4px 4px; font-size: 0.95rem; }
+.role-list .group-label:first-child { margin-top: 0; }
+.role-item {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 7px; text-decoration: none; color: var(--text);
+  border: 1px solid transparent; border-radius: 3px; font-size: 0.84rem; line-height: 1.2;
+}
+.role-item .ico { width: 22px; height: 22px; border-radius: 3px; }
+.role-item:hover { background: rgba(255, 209, 0, 0.08); color: var(--white); }
+.role-item[aria-current="page"] { background: rgba(255, 209, 0, 0.14); border-color: rgba(255, 209, 0, 0.45); color: var(--gold); }
+.role-item .n { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+.role-item .n.done { color: var(--green-soft); }
+.role-item .n .tick { display: block; }
+.role-item.appointed > span:not(.n) { opacity: 0.7; }
+.role-pick { display: none; }
+.board-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 12px; }
+.board-filters .field { margin: 0; flex: 1 1 150px; }
+.board-filters .check { flex: 0 1 auto; min-width: 0; padding-bottom: 8px; }
+.cand { display: grid; gap: 10px; }
+.cand-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.cand-head .avatar { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--brass); }
+.cand-name { font-size: 1.05rem; color: var(--white); overflow-wrap: anywhere; }
+.cand-meta { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; font-size: 0.86rem; color: var(--muted); margin-top: 3px; }
+.cand-meta > span { display: inline-flex; gap: 5px; align-items: center; }
+.votes { display: flex; gap: 8px; }
+.vote {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 64px; padding: 4px 0 3px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.35); border: 1px solid #3a3326; border-radius: 6px; color: var(--muted); font: 12px/1.2 var(--font);
+}
+.vote img { width: 40px; height: 40px; filter: grayscale(0.85) brightness(0.7); transition: filter 0.12s; }
+.vote:hover img { filter: none; }
+.vote:hover { color: var(--white); border-color: var(--brass); }
+.vote[aria-pressed="true"] { color: var(--white); }
+.vote[aria-pressed="true"] img { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35)); }
+.vote.for[aria-pressed="true"] { border-color: #5fd35f; background: rgba(30, 90, 30, 0.45); }
+.vote.against[aria-pressed="true"] { border-color: #ff6a5f; background: rgba(110, 20, 20, 0.45); }
+.vote:disabled { cursor: not-allowed; opacity: 0.5; }
+.vote:disabled img { filter: grayscale(1) brightness(0.6); }
+.answers { display: grid; gap: 4px; }
+.answers h4:first-child { margin-top: 0; }
+.answers .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.answers.clamped .text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.pager { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- ballots (write-in nominations) ---------- */
+.slot + .slot { margin-top: 10px; }
+.slot .slot-n { font-size: 0.74rem; color: var(--faint); margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.savebar {
+  position: sticky; bottom: 8px; z-index: 15; margin-top: 18px; padding: 10px 14px;
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip-gold.png") 16 / 14px / 0 round; background: rgba(8, 8, 22, 0.97) padding-box;
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+}
+.savebar.static { position: static; box-shadow: none; }
+.dirty { color: #ffb347; }
+
+/* ---------- status colours: the game's text colours ---------- */
+.status.submitted { color: var(--white); }
+.status.reviewing { color: var(--gold); }
+.status.accepted { color: var(--green); }
+.status.declined, .status.denied { color: var(--red); }
+.status.withdrawn { color: var(--grey); }
+
+/* ---------- tables (admin) ---------- */
+.table-wrap { overflow-x: auto; border: 1px solid #3a3326; background: rgba(0, 0, 0, 0.35); }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+table.data th, table.data td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); vertical-align: middle; white-space: nowrap; }
+table.data td.wrap { white-space: normal; min-width: 160px; }
+.table-wrap + p, .table-wrap + .pager { margin-top: 10px; }
+table.data th { font-weight: 400; color: var(--gold); background: rgba(25, 22, 14, 0.95); position: sticky; top: 0; white-space: nowrap; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; }
+table.data tr:hover td { background: rgba(255, 209, 0, 0.06); }
+table.data tr.clickable { cursor: pointer; }
+table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+.filters .field { margin: 0; min-width: 150px; flex: 1; }
+.filters .field.narrow { flex: 0 0 210px; }
+.filters .check { padding-bottom: 8px; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+.kv dt { color: var(--gold); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.bar { height: 8px; background: #1a1710; border: 1px solid #000; border-radius: 2px; overflow: hidden; min-width: 60px; }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, #7a5c14, var(--gold)); }
+.split { display: flex; height: 8px; min-width: 80px; border: 1px solid #000; border-radius: 2px; overflow: hidden; background: #1a1710; }
+.split .y { background: #2f9e44; }
+.split .n { background: #b3261e; }
+.tally-top { display: grid; gap: 3px; margin-top: 6px; }
+.tally-top div { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; }
+.tally-top div span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--white); }
+.yes { color: var(--green-soft); }
+.no { color: var(--red-soft); }
+
+/* ---------- toast, dialog ---------- */
+.toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 8px; width: min(92vw, 520px); }
+.toast {
+  border: 5px solid transparent; border-image: url("/static/wow/frame-tooltip-gold.png") 16 / 14px / 0 round; background: rgba(8, 8, 22, 0.97) padding-box;
+  padding: 10px 14px; color: var(--white); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.toast.bad { border-image-source: url("/static/wow/frame-tooltip-red.png"); color: #ffd6d0; }
+.toast.good { border-image-source: url("/static/wow/frame-tooltip-green.png"); }
+dialog {
+  color: var(--text); padding: 18px 20px; width: min(92vw, 560px); max-height: 88vh; overflow: auto;
+  border: 11px solid transparent; border-image: url("/static/wow/frame-dialog.png") 32 / 24px / 0 round; background: rgba(0, 0, 0, 0.94) padding-box;
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+dialog.wide { width: min(94vw, 880px); }
+dialog .x { position: absolute; top: 4px; right: 4px; }
+dialog h2 { padding-right: 30px; }
+
+/* ---------- what each role involves (.44): the Roles page, a choice's Details, above a role's board ---------- */
+/* On the application form the Details button sits over the card's bottom corner, beside the label rather than in it. */
+.option-cell { position: relative; display: flex; min-width: 0; }
+.option-cell > .option { flex: 1; min-width: 0; padding-bottom: 34px; }
+.option-cell > .more { position: absolute; right: 11px; bottom: 5px; padding: 4px 2px; font-size: 0.8rem; line-height: 1.4; } /* padded: a bigger target for a thumb */
+.role-info .about { margin-bottom: 0.7em; }
+.role-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; margin: 0 0 2px; font-size: 0.92rem; }
+.role-facts dt { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; padding-top: 3px; }
+.role-facts dd { margin: 0; }
+.role-dialog .parchment { margin-top: 10px; }
+.role-dialog .appointed-line { margin-bottom: 0; }
+.role-about { margin: 0 0 14px; }
+.role-about > p { margin-bottom: 6px; }
+.role-about summary { cursor: pointer; color: var(--gold-soft); font-size: 0.9rem; }
+.role-about summary:hover { color: var(--white); }
+.role-about .parchment { margin-top: 8px; }
+.shell > .group-label { font-size: 1.4rem; margin: 26px 0 10px; }
+.roles-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(460px, 100%), 1fr)); align-items: start; }
+.role-card { display: grid; gap: 10px; align-content: start; }
+.role-head { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; }
+.role-head h3 { margin: 0 0 4px; }
+.role-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.role-card .parchment { padding: 12px 16px 12px 20px; }
+.role-card .appointed-line { margin: 0; }
+.class-row { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.86rem; }
+.class-row .tick { margin-left: 4px; vertical-align: middle; }
+.role-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; line-height: 1.2; font-size: 0.84rem;
+  border: 1px solid rgba(255, 209, 0, 0.35); border-radius: 4px; background: rgba(0, 0, 0, 0.35); color: var(--text); text-decoration: none;
+}
+.chip:hover { color: var(--white); border-color: var(--gold); background: rgba(255, 209, 0, 0.08); }
+.chip .ico.s { width: 20px; height: 20px; }
+/* Arriving at "#/roles/<role>": that card glows once. */
+.role-card.flash { animation: role-flash 2.4s ease-out 1; }
+@keyframes role-flash { 0%, 35% { box-shadow: 0 0 0 2px rgba(255, 209, 0, 0.9), 0 0 26px rgba(255, 209, 0, 0.45); } 100% { box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .role-card.flash { animation: none; } }
+/* Narrow phones: the facts' labels go above their text, and the dialog keeps more of its width for the parchment. */
+@media (max-width: 480px) {
+  .role-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .role-facts dd { margin-bottom: 5px; }
+  dialog { padding: 16px 10px; }
+  .role-dialog .parchment, .role-card .parchment { padding: 12px 12px 12px 16px; }
+}
+@media (forced-colors: active) {
+  .role-card.flash { outline: 2px solid Highlight; }
+  .topbar { background: Canvas; } /* its gradient is dropped in forced colours, and the page would show through */
+}
+
+/* ---------- roles without a public vote, and professions (.45) ---------- */
+/* A role the leadership chooses without a vote carries the game's party-leader crown, in gold where appointed is green. */
+.option .novote-by { grid-column: 2; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--gold-soft); }
+.novote-line { display: flex; align-items: center; gap: 6px; color: var(--gold-soft); margin: 4px 0 0; }
+.role-card .novote-line { margin: 0; }
+.role-dialog .novote-line { margin-bottom: 0; }
+.appointed-grid > label.quiet-row { margin: 0; align-items: center; }
+.quiet-row .ico.s { margin-right: 2px; }
+/* The professions on the form: the game's profession icons as toggles, greyed until chosen. */
+.profs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.prof {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px 4px 5px; cursor: pointer;
+  border: 1px solid #3a3326; border-radius: 4px; background: rgba(0, 0, 0, 0.4); color: var(--muted); font: 14px/1.2 var(--font);
+}
+.prof img { width: 28px; height: 28px; flex: none; border: 1px solid #000; border-radius: 3px; filter: grayscale(0.7) brightness(0.75); }
+.prof .on-mark { display: none; width: 16px; height: 16px; border: 0; filter: none; }
+.prof:hover:not([aria-disabled="true"]) { color: var(--white); border-color: var(--brass); }
+.prof:hover:not([aria-disabled="true"]) img { filter: none; }
+.prof[aria-pressed="true"] { color: var(--white); border-color: var(--gold); background: rgba(40, 30, 6, 0.9); box-shadow: 0 0 10px rgba(255, 209, 0, 0.2); }
+.prof[aria-pressed="true"] img { filter: none; }
+.prof[aria-pressed="true"] .on-mark { display: block; }
+.prof[aria-disabled="true"] { cursor: not-allowed; opacity: 0.45; } /* two primary chosen: pressing it says why */
+.prof-group { display: flex; gap: 12px; align-items: baseline; margin: 6px 0; }
+.prof-kind { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.prof-tag { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; vertical-align: middle; }
+.prof-tag img { width: 20px; height: 20px; flex: none; border: 1px solid #000; border-radius: 3px; }
+@media (forced-colors: active) {
+  .prof { border: 2px solid ButtonText; }
+  .prof[aria-pressed="true"] { border-color: Highlight; } /* a border, so the focus outline stays its own */
+}
+
+/* ---------- footer ---------- */
+.footer { background: #10150f; border-top: 3px ridge #8d7a4e; color: var(--faint); font-size: 0.78rem; margin-top: 30px; }
+.footer-in { max-width: 1120px; margin: 0 auto; padding: 18px 16px 26px; display: flex; gap: 18px; align-items: flex-start; }
+.footer-in .brand b { font-size: 1.1rem; }
+.footer-in .brand img { width: 36px; height: 36px; }
+.footer-in p { margin: 0 0 0.4em; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 900px) {
+  .grid.three, .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .board-layout { grid-template-columns: minmax(0, 1fr); }
+  .role-list { display: none; }
+  .role-pick { display: block; margin: 0 0 12px; }
+}
+@media (max-width: 720px) {
+  .appointed-grid { grid-template-columns: minmax(0, 1fr); }
+  .grid.two, .grid.three, .grid.four, .backups, .hero { grid-template-columns: minmax(0, 1fr); }
+  .topbar-in { flex-wrap: wrap; gap: 8px 12px; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .nav .btn { flex: none; }
+  .who .name { display: none; }
+  .who a.btn { display: none; } /* signed out on a phone: the big button in the page is the one to press */
+  .frame { padding: 14px 10px; margin: 16px 0; }
+  .hero .tag { letter-spacing: 0.03em; font-size: 0.74rem; }
+  .shell > .grid { margin: 16px 0; }
+  .date-card > .ico { display: none; }
+  .count { gap: 5px; }
+  .board-filters .field { flex: 1 1 100%; }
+  .cand-head { align-items: start; }
+  .savebar .btn.big { min-height: 40px; font-size: 16px; padding: 3px 18px; }
+  .plaque { margin: -4px -4px 14px; }
+  .count .unit { min-width: 56px; padding: 4px 3px 3px; }
+  .count .num { font-size: 1.4rem; }
+  .count .lab { font-size: 0.6rem; letter-spacing: 0.08em; }
+  .kv { grid-template-columns: minmax(0, 1fr); }
+  .kv dd { margin-bottom: 6px; }
+  .filters .field.narrow { flex: 1 1 140px; }
+  .cand-head { grid-template-columns: 40px minmax(0, 1fr); }
+  .cand-head .avatar { width: 40px; height: 40px; }
+  .cand-head .votes { grid-column: 1 / -1; }
+  .vote { flex: 1; width: auto; flex-direction: row; justify-content: center; gap: 8px; padding: 4px 8px; font-size: 14px; }
+  .vote img { width: 30px; height: 30px; }
+  .grid-avail { border-spacing: 2px; }
+  .grid-avail button { width: 33px; height: 30px; }
+  .grid-avail th.t { font-size: 0.68rem; padding-right: 3px; }
+  .footer-in { flex-direction: column; gap: 8px; }
+}
+@media (max-width: 370px) {
+  .grid-avail button { width: 29px; }
+  .count .unit { min-width: 50px; }
+}
+@media (forced-colors: active) {
+  .frame, .card, .notice-box, .option, .person, dialog, .btn, input, select, textarea { border: 2px solid CanvasText; border-image: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- spacing helpers ---------- */
+.mt { margin-top: 16px; }
+.mt-s { margin-top: 8px; }
+details.zone { margin: 6px 0 8px; }
+details.zone summary { cursor: pointer; margin-bottom: 6px; }
+details.zone select { max-width: 360px; }
+.hero .tag span { display: block; }
+.field .hint.below { margin: 4px 0 0; }
+.badge-slot { flex: 0 0 132px; }
+@media (max-width: 720px) { .badge-slot { flex-basis: 118px; } .badge-slot .badge { white-space: normal; } }
+
+/* ---------- community (.93) ---------- */
+.footer-links { margin-top: 6px; }
+.footer-links a { color: var(--gold); }
+.card.member .kv, .card.message .kv { margin-top: 6px; }
+.card.message p { white-space: pre-wrap; margin: 4px 0 0; }
+.card.message.staff { border-image-source: url("/static/wow/frame-tooltip-gold.png"); }
+.messages { max-height: 60vh; overflow: auto; }
+code.case-value { font-size: 1.05rem; letter-spacing: 0.04em; word-break: break-all; }
+.rows .row { align-items: center; }
+.rows .row input[type="number"] { width: 90px; }
+.rows .row input[type="text"] { flex: 1 1 200px; }
+.err[role="alert"] { color: var(--red, #e86a6a); }
+
+/* ---------- community (.96): the calendar, the dues ---------- */
+.card.event .details { white-space: pre-wrap; margin: 4px 0 8px; }
+.card.event .card-head { flex-wrap: wrap; }
+.dues table.data td.wrap { min-width: 200px; }
+.dues .case-value { user-select: all; }
+
+/* ---------- community (.98): the organizer and staff pages ---------- */
+.card.muted-card { opacity: 0.8; }
+.filters .field textarea { min-width: 240px; }
+table.data select, table.data input { max-width: 180px; }
+
+/* ---------- .100 (F7): narrow screens: long headings, case values and messages wrap instead of overflowing ---------- */
+.plaque h2 { overflow-wrap: anywhere; min-width: 0; }
+.case-value { overflow-wrap: anywhere; }
+.card.message p { overflow-wrap: anywhere; }
+.ack { color: var(--green-soft); }
+
+/* ---------- .102 (F96-3): narrow screens never widen the page: grid and flex children may shrink, controls wrap, wide tables scroll inside their wrapper ---------- */
+.frame, .card, .stack, .grid > *, .notice-box, .plaque, .plaque > *, .frame > * { min-width: 0; }
+.plaque .btn-row { flex-wrap: wrap; min-width: 0; }
+.table-wrap { max-width: 100%; }
+.kv { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
+.kv dt { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .plaque { flex-direction: column; align-items: flex-start; }
+  .kv { grid-template-columns: minmax(0, 1fr); }
+  .kv dt { margin-top: 6px; }
+  .card.event .card-head h3 { overflow-wrap: anywhere; }
+}
+.receipt-bar { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 32px), 1088px); margin: 0; z-index: 60; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.75)); }
+
+/* .109 (self-review): a card head wraps its badges under the title on a narrow screen instead of widening the page; the
+   fixed reload notice and receipt bar are stacked by app.js (stackBars), so neither covers the other. */
+.card-head { flex-wrap: wrap; min-width: 0; }
+.card-head h3 { min-width: 0; overflow-wrap: anywhere; }

@@ -1,0 +1,10 @@
+# Copy to .dev.vars for `wrangler dev`; in production use `wrangler secret put`.
+DISCORD_APP_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+DISCORD_CLIENT_SECRET=
+VERIFY_SECRET=          # 32+ random chars; the SAME value goes into the addon Config.lua and the watcher config.json
+WATCHER_TOKEN=          # 32+ random chars; watcher config.json
+COOKIE_SECRET=          # 32+ random chars
+BNET_CLIENT_ID=
+BNET_CLIENT_SECRET=

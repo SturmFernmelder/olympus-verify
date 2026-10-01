@@ -1,0 +1,19 @@
+title = "Olympus Verify secret scanning"
+
+[extend]
+useDefault = true
+# Discord snowflakes (server, channel, role and application ids) identify things; they do not authenticate anything.
+# Bot-token and client-secret rules stay on.
+disabledRules = ["discord-client-id"]
+
+# .65 (1 Oct 2026; Codex's Gitleaks review of the .51 snapshot, 02:21 UTC): no broad allowlist. The offline suites'
+# deterministic test secrets trigger no default rule (verified with 8.30.1 over the whole tree), so they need none; the
+# one placeholder the default rules flag is the literal PASTE_TOKEN_HERE in a walkthrough's curl lines, allowed by its
+# exact text in that one file. A plausible value with an incidental word like "test" in it is never suppressed.
+[[allowlists]]
+description = "The walkthrough's curl examples carry the literal placeholder PASTE_TOKEN_HERE, never a token"
+targetRules = ["curl-auth-header"]
+condition = "AND"
+paths = ['''^docs/asmongold-move-walkthrough\.md$''']
+regexTarget = "match"
+regexes = ['''Authorization: Bearer PASTE_TOKEN_HERE"''']

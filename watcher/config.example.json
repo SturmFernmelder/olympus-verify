@@ -1,0 +1,13 @@
+{
+  "worker_url": "https://olympus-verify.roach-council.workers.dev",
+  "watcher_token": "REPLACE_WITH_THE_WORKER_SECRET_WATCHER_TOKEN",
+  "verify_secret": "REPLACE_WITH_THE_SHARED_SECRET_VERIFY_SECRET",
+  "wow_dir": "D:\\Program Files (x86)\\World of Warcraft\\_classic_beta_",
+  "account": "718735#1",
+  "officer_character": "Fern Melder",
+  "poll_seconds": 2,
+  "queue_poll_seconds": 30,
+  "state_file": "watcher-state.json",
+  "officer_id": "",
+  "report_presence": true
+}
