@@ -18,9 +18,9 @@
     "test:all": "npm run test && node tests/notices_test.cjs && node tests/restore_role_test.cjs && node tests/role_sweep_test.cjs && node tests/role_budget_test.cjs && node tests/tickets_guid_relays_test.cjs && node tests/verify_button_test.cjs && node tests/hardening_test.cjs && node tests/intros_test.cjs && node tests/site_test.cjs && node tests/interactions_hardening_test.cjs && node tests/bnet_retention_test.cjs && node tests/hosts_test.cjs && node tests/community_test.cjs && node tests/community_directory_test.cjs && node tests/community_events_test.cjs && node tests/community_trials_test.cjs && node tests/community_restrictions_test.cjs && node tests/community_departures_test.cjs && node tests/community_contributions_test.cjs && node tests/community_privacy_test.cjs && node tests/community_digest_test.cjs && node tests/account_copy_test.cjs && node tests/frontend_check.cjs && node tests/bundle_runtime_test.cjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260916.1",
+    "@cloudflare/workers-types": "^5.20260924.1",
     "typescript": "^5.6.0",
-    "wrangler": "^4.135.0"
+    "wrangler": "^4.139.0"
   },
   "overrides": {
     "miniflare@5.20260918.0-alpha": {
