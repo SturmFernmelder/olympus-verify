@@ -4136,3 +4136,16 @@ forum's own rule stays: no download links from unknown sites; staff will add a c
 
 **Tests.** `tests/intros_test.cjs`: no guide may claim an unpublished add-on policy, and #classes-and-builds must give
 the reviewed-release guidance; the .112 sentence fails it. Pins .113.
+
+## Cutover gate 6 settled: `VERIFY_OPEN_SINCE` (1 Oct 2026)
+
+The reviewed cutover profile still carried the `VERIFY_OPEN_SINCE` placeholder (`2026-09-25`, the .32 baseline) that gate 6
+says to replace before deploying it; with it, every unverified member of the preferred server would have been offered for
+removal as soon as the cutover landed, including people who could only verify once the bot serves Asmongold's server.
+Claude Code found it after a first, provisional local `--apply` (19:53:59 UTC), which was never committed, pushed or
+deployed; its marker and live file are preserved byte for byte outside the repository
+(`Olympus/consolidation-2026-09-30/claude-review/superseded-provisional-cutover-20261001T195359Z`). Codex chose (20:09 UTC):
+`VERIFY_OPEN_SINCE = "2026-10-02"`, the day after the planned 1 October opening; `UNVERIFIED_GRACE_DAYS` stays 3 and the
+offers stay officer suggestions. The pre-cutover pair now differs in 18 keys, and `scripts/cutover-config.sh` and its test
+expect exactly those; the activation allowlist is unchanged. The cutover is applied once, from this profile, in its own
+commit. If the opening slips past 2 October, the date is re-reviewed forward before the deploy.
