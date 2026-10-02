@@ -4184,3 +4184,112 @@ selects a version carrying the old, invalidated bot token (`319a1cd0`, `9357088f
 back at 2 October); the earlier versions of the rotated chain, `fdf41b8f` and `9827ab10`, are the only rollback
 candidates. The full record, the Discord-side steps and the observations still open before the launch counts as
 accepted are in `docs/launch-runbook.md` section 7.
+
+## Worker .114 — Viktor's requests of 2 Oct 2026 (header picture, footer, Battle.net switch, search names, rank planner, beta reset, forced renames, the I-X leadership directory) (2 Oct 2026)
+
+Viktor's ten items of 2 Oct about 17:25 UTC, with the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and
+Codex's provisional source review (18:47 UTC), built on keeper 06d39950 (live: .113, Cloudflare a18a10aa).
+
+**What changed, for members.**
+- **The top bar shows your own Discord picture again** next to your name and Sign out (`app.js ownAvatar`). Only an avatar
+  address on Discord's picture host passes (a profile picture, a server picture or Discord's default one, exactly the
+  addresses the Worker's `avatarUrl` produces); anything else, or a picture that fails to load, shows the official Member
+  icon. The page's CSP adds `https://cdn.discordapp.com` to `img-src` and nothing else. The other eight account pictures
+  stay game class icons. The footer says whose picture it is; the privacy policy says your browser loads it from Discord.
+- **The footer's policy links are for signed-in members.** Signed out, the footer keeps only "Private request" (the form is
+  for people who can no longer sign in with Discord). `/privacy` and `/terms` are unchanged and keep serving, so the Discord
+  application's links still work.
+- **People search shows every differing name**: the server nickname, the display name, then the @username
+  (`site-core.ts shownName`; e.g. "Fern · Fernmelder (@fernmelder)"). Until .114 a nickname hid a different display name.
+  Display only, in the pickers and the admin lookup search: the label a pick stores (`labelOf`) keeps its format.
+- **Battle.net sign-in is switched off** (`src/bnet-switch.ts`). The three routes (`/linked-role`, `/oauth/callback`,
+  `/bnet/link`) answer a short "switched off" page before any audit row, cookie, redirect or token exchange; the bind
+  writes the BattleTag only while the admin's setting is on inside the write itself, and reads the switch again before
+  Discord's record is touched and again between its DELETE and PUT (a row written just before a switch-off is taken back;
+  no cross-service atomicity is claimed).
+  `/verify-status` and the ban card say nothing about keeping a link while it is off. The 29-day purge of what earlier
+  links stored keeps running from the cron, unconditionally (Codex measured 264 member rows with older link fields on
+  2 Oct, log 19:12 UTC).
+- **The rank planner** (/admin/ranks) wears the site's dark look: rock background, the game's gold, dialog and tooltip
+  frames, the red panel buttons, always dark, and the crest in its masthead instead of the friends icon. Colours, frames and
+  backgrounds only; the model and the catalogue are untouched.
+- **Community → Leadership**: the Guild Master and officers of Olympus I to Olympus X, as the site's administrators list
+  them, for confirmed members (`confirmedGuildData`, read behind the community reader boundary `admittedRead`, so standing
+  lost before the read returns nothing), all ten empty at first. A listing is a record only: nothing reads it for any
+  permission. It links #council-info of the private Olympus I-X Council Codex created in Discord.
+- **Renames Blizzard required.** Admin → Renames lists the roster's renames (`roster.renamed`, last 120 days). Marking one as
+  required by Blizzard (typed REAPPLY) names exactly one current character (by the recorded GUID, else the recorded new
+  name with no GUID; anything else is refused for a person to sort out), unbinds it, sets the site application back to
+  withdrawn with a staff note, and removes Guild Member once and holds later grants (`roles.ts`) unless another current
+  member character of the account supports the role (a supporting character is one that NO open hold names, by key or
+  GUID, so two held characters never support each other). Approval needs both of Viktor's steps after the decision: the
+  member saved the application again, the leadership accepted it (a withdrawn application can no longer be accepted
+  directly), and the character was verified again in game, identified by its GUID exclusively when the hold recorded one
+  (a different character under a reused name does not count); the acceptance must be newer than the member's latest save,
+  and a save that races a staff decision no longer overwrites the decided application (409; an inherited race in
+  saveApplication, Codex 19:56 UTC); the check is part of the closing UPDATE. "Withdraw the decision" closes a
+  mistaken mark. The member reads why in `/verify-status` and on Home. Ordinary renames are unchanged: the link follows
+  the GUID.
+- **Wording.** No Olympus help channel exists: "open a ticket in the server's help channel" is gone from the site and the
+  policy. The unbind reply and the policy no longer say the roster takes the Guild Member role away after an unbind (it
+  never did). The pinned guide no longer promises Battle.net. The privacy policy and terms no longer describe the move to
+  Asmongold's server and to olympus.roachcouncil.com as future, nor #bot-announcements. The command descriptions in
+  `scripts/register.mjs` no longer promise a BattleTag (they reach Discord only with a re-registration, Codex's step).
+
+**What changed, for staff.**
+- Admin → Settings gains three blocks: **Battle.net sign-in** (status; the box is locked, with the reason, until the
+  secrets are present and the privacy policy carries the marked Battle.net section; switching on asks for a typed
+  ENABLE), the **Olympus I-X leadership** editor, and **End of the beta** (locked until an administrator records the moment
+  Blizzard closed the beta, which must be in the past; then a typed RESET saves the appointed roles as an explicit empty map,
+  so the default Treasurer does not come back, empties the directory and can set a notice; applications, votes, memberships
+  and history are kept; nothing runs on a timer). The reset runs once: its first statement admits it in SQL against the
+  closing moment the page showed and stores a once-only marker with a nonce that the other statements require, so a
+  replayed or stale request changes nothing and later appointments survive; the closing moment is fixed once it ran.
+- Admin → Renames, as above.
+- In .114 the Battle.net switch **cannot be switched on**: the policy has no Battle.net section on purpose (Viktor: no
+  retention text until Blizzard ships a World of Warcraft: Forever API). Switching it on needs a later reviewed release
+  that adds that section (marked `<!-- olympus:bnet-login-section -->`, which `scripts/build-policy-content.mjs` turns into
+  `PRIVACY_DESCRIBES_BNET_LOGIN`), then the box. A login that proves Forever characters needs new code once Blizzard
+  publishes that API; the identity login proves a BattleTag only.
+
+**Role writer contract.** `roles.ts` gains one remover, named in its header: `revokeForReapply` at the rename decision (the
+hold re-read after the member GET, at the effect), plus the hold re-read after a grant's PUT (a hold that landed while the
+PUT was in flight is undone, `role.revoked_after_hold`) and the held accounts joining the banned reconciliation in the
+sweep (`role.revoked_held`). The hold holds the role only while no OTHER current member character of the account (another
+key, not the same GUID) supports it (Codex, log 18:47 and 19:17 UTC); the renamed character is verified again and the
+member applies again either way.
+
+**Database.** New table `rename_holds` (schema.sql, src/schema.ts, migrations/2026-10-02-rename-holds.sql), created by the
+Worker itself; closed rows deleted thirty days after closing by the cron; bot data, so `queries/forget-member.sql` erases it
+and the member's copy lists it (without the administrators). New `site_settings` keys: `bnetLogin`, `leadership`,
+`betaClosedAt`, `betaResetAt` (outside `SiteSettings`, so never in `GET /api/public`). This is a migrating deploy: the
+runbook's fresh verified private backup comes first.
+
+**Config.** None: no `wrangler.toml` key changes, so `scripts/cutover-config.sh --check` is unaffected.
+
+**Rollout.** One deploy of the reviewed commit. After it, by Codex with Viktor's approval at the time: `/olympus-admin
+refresh-guide` (the guide without the Battle.net promise), the #join-olympus topic and the Discord app description without
+"optionally link Battle.net", and a command re-registration for the corrected descriptions. The policy mirror on GitHub
+Pages is refreshed with the publication step; Codex's reference successor updates the fixed-art pins (app.js,
+site-ranks.ts, and site-core.ts for the CSP seam) and the Pages reconciliation's generator pin
+(`scripts/build-policy-content.mjs` changed).
+
+**Rollback.** Every earlier version is .113 and has no Battle.net switch: with the secrets present, rolling back switches
+the old always-on login back on. .113 also ignores `rename_holds`: held accounts would be granted Guild Member again. The rollback rule in `docs/launch-runbook.md` section 7 names .114's own versions once they
+exist; a rollback below .114 is a decision about the login too.
+
+**Tests.** New `tests/owner_requests_test.cjs` (105 checks; in `test:all`): the switch off by default and fail-closed, each
+route refusing before any audit, cookie, redirect or exchange, the bind fenced at its write and before Discord, the admin's
+gates (ENABLE, secrets, policy marker, SITE_ADMINS), the watcher's /health, /verify-status off and on; the directory (ten
+entries, limits, members only, not public, counts-only audit); the reset (locked, past moment, typed RESET, explicit `{}`,
+counts-only audit, idempotent); renames (list, decision, unbind, application, removal, notice, Home, /verify-status, the
+copy, approval only after both steps, a withdrawn application not acceptable directly, a reused name with another GUID
+not counting, the per-character exception, two open holds not supporting each other (real SQL), the exact target and its
+refusals, the cron); the DELETE-to-PUT boundary; the once-only reset against a stale or replayed
+request; shown names, the CSP, the policy and terms texts, the planner page and stylesheet, the unbind
+reply, the command descriptions. `tests/restore_role_test.cjs` (+9): held grants, the PUT race, the at-effect re-read.
+`tests/frontend_check.cjs` (+21): the picture and its fallback and validator, the footer signed out and in, the leadership
+page, the three settings blocks driven through the page, the Renames tab (a refused early approval, a withdrawal) and the member's Home; `site_test.cjs` replaces "no account picture
+loads from Discord" with the header-only contract. `tests/bnet_retention_test.cjs`
+runs with the switch on; `tests/verify_button_test.cjs` checks the guide no longer promises Battle.net; `site_test.cjs` (360) and
+`hosts_test.cjs` pin .114 and check the shown names; site_test also races a save against a staff decision.

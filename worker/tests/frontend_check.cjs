@@ -259,7 +259,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   let page = await openPage(null);
   check("the boot carries the community context (features, no subject)", page.boot && page.boot.community && page.boot.community.subject === null && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === false);
   check("signed out: Roles only in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles" && !!byText(page.app, "a", "Sign in with Discord"));
-  check("the footer links the policies, Your data and the private request form", texts(page.app, ".footer-links a").join(",") === "Privacy Policy,Terms of Service,Your data,Private request" && page.app.querySelector('.footer-links a[href="/privacy"]') && page.app.querySelector('.footer-links a[href="/terms"]'));
+  // .114 (Viktor, 2 Oct 2026): signed out, the footer keeps only the private request form (its people cannot sign in)
+  check("signed out, the footer links only the private request form: no policy or data links (.114)", texts(page.app, ".footer-links a").join(",") === "Private request" && !page.app.querySelector('.footer-links a[href="/privacy"]') && !page.app.querySelector('.footer-links a[href="/terms"]') && !page.app.querySelector('.footer-links a[href="#/data"]'));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
   await page.go("#/data");
   check("Your data, signed out: the policies linked, sign-in offered for the copy, no download link", !!byText(page.app, "h2", "Your data") && !page.app.querySelector('a[href="/api/me/export"]') && !!byText(page.app, "a", "Sign in with Discord"));
@@ -1228,14 +1229,105 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const glyphs = (txt) => [...txt.matchAll(/["'`>]\s*([\u2190-\u21ff\u2300-\u27bf\u00d7\u2022\u2605\u2606\u2713\u2714\u2717\u2718])\s*[<"'`]/g)].map((m) => m[1]);
     check("(audit) no pictograph is the whole face of a control or a badge: the page script, the rank planner script and its page carry none", glyphs(APP_JS).length === 0 && glyphs(RANKS_JS).length === 0 && glyphs(RANKS_TS).length === 0, JSON.stringify([glyphs(APP_JS), glyphs(RANKS_JS), glyphs(RANKS_TS)]));
     check("  the rank planner's remove and close buttons wear the client's close button; its move buttons say Up and Down", RANKS_JS.includes("button('', 'close-button remove'") && RANKS_JS.includes("[['Up', -1, 'up'], ['Down', 1, 'down']]") && RANKS_TS.includes('class=\\"close-button\\" aria-label=\\"Close rank review\\"') && fs.readFileSync(path.join(root, "public", "static", "rank-planner", "styles.css"), "utf8").includes('url("/static/wow/close-up.png")'));
-    check("  the site's CSP takes images from this site only (no data:, no Discord)", CORE_TS.includes(`"img-src 'self'"`) && !CORE_TS.includes("img-src 'self' data:"));
+    check("  the site's CSP takes images from this site and, since .114, Discord's picture host only (no data:, no other host)", CORE_TS.includes(`"img-src 'self' https://cdn.discordapp.com"`) && !CORE_TS.includes("img-src 'self' data:"));
     // behaviour: a typed friend and the picker's add-by-name row show the official scroll icon; an image from another host is never set
     const typedPage = await openPage(MEMBER);
     await typedPage.go("#/");
     await waitFor(() => !!typedPage.app.querySelector("h2"), "the member's home");
-    const imgs = typedPage.document.body.querySelectorAll("img");
-    check("  every image the member's home draws comes from this site: the official wow/ set or the crest", imgs.length > 0 && imgs.every((im) => /^\/static\/(wow\/[a-z0-9_-]+\.(png|jpg)|olympus-icon\.png)$/.test(im.getAttribute("src") || "")), JSON.stringify(imgs.map((im) => im.getAttribute("src")).filter((x) => !/^\/static\//.test(x || ""))));
+    const own = typedPage.app.querySelector(".who img");
+    const imgs = typedPage.document.body.querySelectorAll("img").filter((im) => im !== own); // .114: the top bar's own Discord picture is the one exception, checked below
+    check("  every image the member's home draws comes from this site: the official wow/ set or the crest (the top bar's own picture aside)", imgs.length > 0 && imgs.every((im) => /^\/static\/(wow\/[a-z0-9_-]+\.(png|jpg)|olympus-icon\.png)$/.test(im.getAttribute("src") || "")), JSON.stringify(imgs.map((im) => im.getAttribute("src")).filter((x) => !/^\/static\//.test(x || ""))));
     check("  the image helper refuses another host for an img (the typed-name icon is the official scroll)", APP_JS.includes('k === "src" ? /^\\/(?!\\/)/.test(s)') && APP_JS.includes('src: art("icon-names"), alt: "", width: "32"') && !APP_JS.includes('text: "✎"'));
+  }
+
+  console.log("\n== .114: the owner's requests (2 Oct 2026) ==");
+  {
+    const p114 = await openPage(MEMBER);
+    await p114.go("#/");
+    await waitFor(() => !!p114.app.querySelector(".who img"), "the top bar");
+    const own = p114.app.querySelector(".who img");
+    const avatar = p114.boot.user && p114.boot.user.avatarUrl;
+    check("(.114) the top bar shows the member's own Discord picture: the address the Worker gave, on Discord's picture host", /^https:\/\/cdn\.discordapp\.com\//.test(avatar || "") && own.getAttribute("src") === avatar, avatar, own && own.getAttribute("src"));
+    own.dispatchEvent(new Event("error"));
+    check("  a picture that fails to load falls back to the official Member icon", own.getAttribute("src") === "/static/wow/pos-member.png");
+    check("  the footer says whose picture it is; signed in, it links the policies, Your data and the private request form", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && texts(p114.app, ".footer-links a").join(",") === "Privacy Policy,Terms of Service,Your data,Private request");
+    const AV = new Function("return " + APP_JS.match(/const DISCORD_AVATAR = (\/.*\/);/)[1])();
+    const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
+    const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];
+    check("  the picture rule admits only Discord's avatar addresses (profile, server, default) and nothing else", good.every((u) => AV.test(u)) && bad.every((u) => !AV.test(u)));
+    check("  the other eight account pictures stay game icons (accountArt), the top bar alone uses ownAvatar", (APP_JS.match(/ownAvatar\(/g) || []).length === 2 && (APP_JS.match(/accountArt\(/g) || []).length >= 9);
+
+    // the I-X leadership directory
+    await p114.go("#/community/leadership");
+    await waitFor(() => !!byText(p114.app, "h2", "Leadership of the Olympus guilds"), "the leadership page");
+    check("(.114) Community → Leadership for a confirmed member: ten guilds, none listed yet, and the Council's link", texts(p114.app, ".leadership-card h3").length === 10 && texts(p114.app, ".leadership-card h3")[0] === "Olympus I" && texts(p114.app, ".leadership-card h3")[9] === "Olympus X" && p114.app.textContent.includes("No guild leadership is listed yet") && !!p114.app.querySelector('a[href="https://discord.com/channels/236932545793490944/1555636857621188669"]'));
+    check("  the Community tabs offer it, and the page says a listing grants nothing", texts(p114.app, 'nav[aria-label="Community sections"] a').includes("Leadership") && p114.app.textContent.includes("A listing is a record only"));
+    const unconf114 = await openPage(STAFF);
+    await unconf114.go("#/community/leadership");
+    await settle();
+    check("  a member without a roster-confirmed character gets the standing notice, not the directory", unconf114.app.textContent.includes("roster export has confirmed") && !byText(unconf114.app, "h2", "Leadership of the Olympus guilds"));
+
+    // Admin → Settings: the Battle.net switch, the directory editor, the end of the beta
+    const adm = await openPage(STAFF);
+    await adm.go("#/admin/settings");
+    await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!adm.app.querySelector("#beta-closed-at"), "the .114 settings blocks");
+    const bx = adm.app.querySelector("#bnet-switch");
+    check("(.114) Admin → Settings: Battle.net sign-in is off, its box locked, with the reason (no policy section, no credentials here)", bx.checked === false && bx.disabled === true && /no Battle\.net client credentials|does not describe Battle\.net sign-in/.test(adm.app.textContent) && !!byText(adm.app, "h2", "Battle.net sign-in"));
+    adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
+    adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
+    byText(adm.app, "button", "Save the directory").click();
+    await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'leadership'"), "the directory save");
+    const saved = JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value);
+    check("  the directory editor saves the Guild Master and the officers, one per line", saved[0].gm === "Fern Melder" && saved[0].officers.join(",") === "Ana,Bo" && saved.length === 10);
+    await p114.go("#/community"); // the same address again would not re-render
+    await p114.go("#/community/leadership");
+    await waitFor(() => p114.app.textContent.includes("Fern Melder"), "the listing on the member's page");
+    check("  and a confirmed member sees it", p114.app.textContent.includes("Ana, Bo") && !p114.app.textContent.includes("No guild leadership is listed yet"));
+    check("  the end-of-beta reset is locked until the closing moment is recorded", byText(adm.app, "button", "Reset guild leadership").disabled === true && adm.app.textContent.includes("locked"));
+    const past = new Date(Date.now() - 3600 * 1000), pad = (x) => String(x).padStart(2, "0");
+    adm.app.querySelector("#beta-closed-at").value = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}T${pad(past.getHours())}:${pad(past.getMinutes())}`;
+    byText(adm.app, "button", "Record the closing moment").click();
+    await waitFor(() => { const b = byText(adm.app, "button", "Reset guild leadership"); return !!b && b.disabled === false; }, "the reset unlocked");
+    check("  recording a past closing moment unlocks it", !!one("SELECT 1 FROM site_settings WHERE key = 'betaClosedAt'") && byText(adm.app, "button", "Reset guild leadership").disabled === false);
+    byText(adm.app, "button", "Reset guild leadership").click();
+    await waitFor(() => !!adm.document.body.querySelector("dialog input"), "the RESET confirmation");
+    const dlgR = adm.document.body.querySelector("dialog"), inR = dlgR.querySelector("input");
+    check("  the reset asks for the typed word and names what it clears", dlgR.textContent.includes("Type RESET to confirm") && dlgR.textContent.includes("3 names"));
+    inR.value = "RESET"; fire(inR, "input");
+    byText(dlgR, "button", "Reset").click();
+    await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'betaResetAt'"), "the reset");
+    check("  typed RESET: the appointed roles become an explicit empty list and the directory empties", one("SELECT value FROM site_settings WHERE key = 'appointed'").value === "{}" && JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value).every((g) => !g.gm && !g.officers.length));
+
+    // Admin → Renames
+    db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.renamed', 'Oz Three', ?)").run(now - 600, JSON.stringify({ from: "Oz Two", discordId: OTHER, guid: "Player-1-0002" }));
+    db.prepare("UPDATE characters SET name_key = 'oz three', name = 'Oz Three' WHERE discord_id = ? AND name = 'Oz Two'").run(OTHER);
+    await adm.go("#/admin/renames");
+    await waitFor(() => !!byText(adm.app, "button", "Blizzard required this rename"), "the renames list");
+    check("(.114) Admin → Renames lists the roster's rename with the account and a button, nobody waiting yet", adm.app.textContent.includes("Oz Two") && adm.app.textContent.includes("Oz Three") && adm.app.textContent.includes("Nobody is waiting."));
+    byText(adm.app, "button", "Blizzard required this rename").click();
+    await waitFor(() => !!adm.document.body.querySelector("dialog input"), "the REAPPLY confirmation");
+    const dlgN = adm.document.body.querySelector("dialog"), inN = dlgN.querySelector("input");
+    check("  marking asks for the typed word and says an ordinary rename needs nothing", dlgN.textContent.includes("Type REAPPLY to confirm") && dlgN.textContent.includes("an ordinary rename keeps the link"));
+    inN.value = "REAPPLY"; fire(inN, "input");
+    byText(dlgN, "button", "Ask them to apply again").click();
+    await waitFor(() => !!one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'reapply'", OTHER), "the hold");
+    await waitFor(() => !!byText(adm.app, "button", "New application approved"), "the waiting list");
+    check("  the member appears under 'Members applying again' and the character is unbound", !!byText(adm.app, "button", "New application approved") && one("SELECT status FROM characters WHERE discord_id = ? AND name = 'Oz Three'", OTHER).status === "unbound");
+    const oz = await openPage(OTHER);
+    await oz.go("#/");
+    await waitFor(() => !!oz.app.querySelector("h1"), "OTHER's home");
+    check("  the member's Home says to apply again, with both names", oz.app.textContent.includes("Apply again.") && oz.app.textContent.includes("Oz Two") && oz.app.textContent.includes("Oz Three") && !!oz.app.querySelector('a[href="#/apply"]'));
+    byText(adm.app, "button", "New application approved").click();
+    await waitFor(() => !!adm.document.body.querySelector("dialog"), "the approve confirmation");
+    byText(adm.document.body.querySelector("dialog"), "button", "Approve").click();
+    await waitFor(() => !adm.document.body.querySelector("dialog") && !!byText(adm.app, "button", "New application approved"), "the list after the refused approval");
+    check("  approving before the new application and the fresh verification is refused: the hold stays open (Codex 19:17)", !!one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'reapply'", OTHER));
+    byText(adm.app, "button", "Withdraw the decision").click();
+    await waitFor(() => !!adm.document.body.querySelector("dialog"), "the withdraw confirmation");
+    byText(adm.document.body.querySelector("dialog"), "button", "Withdraw").click();
+    await waitFor(() => !!one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'cancelled'", OTHER), "the withdrawal");
+    check("  withdrawing a mistaken decision closes the hold", !one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'reapply'", OTHER));
+    db.prepare("UPDATE characters SET status = 'member', guid = 'Player-1-0002' WHERE discord_id = ? AND name = 'Oz Three'").run(OTHER); // the later checks need OTHER confirmed again
   }
 
   console.log("\n== standing and identity ==");

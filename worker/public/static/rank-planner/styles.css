@@ -162,3 +162,31 @@
 .olympus-rank-planner .close-button:hover:not(:disabled)::after{content:"";position:absolute;inset:0;background:url("/static/wow/close-highlight.png") center/28px 28px no-repeat}
 .olympus-rank-planner .close-button:active:not(:disabled){background-image:url("/static/wow/close-down.png")}
 .olympus-rank-planner .close-button:disabled{opacity:.45;cursor:default}
+/* .114 (Viktor, 2 Oct 2026: /admin/ranks "does not use the same World of Warcraft assets like the other pages do"): the
+   planner takes the guild site's look from app.css, always dark: the rock background, the game's gold text, the dialog
+   frame round the ladder and the review panel, tooltip frames round the rank cards, the red panel buttons, and the crest in
+   the masthead (site-ranks.ts). Colours, frames and backgrounds only; the layout, the model and the catalogue are
+   untouched. Every image is one this site already serves. */
+.olympus-rank-planner{color-scheme:dark;--bg:#0b0a08;--surface:rgba(8,8,22,.93);--soft:rgba(255,209,0,.08);--ink:#f2e5c5;--muted:#c6bc9e;--line:#5e533b;--gold:#ffd100;--gold-soft:rgba(255,209,0,.14);--green:#7ee07e;--green-soft:rgba(6,26,8,.9);--warn:#ffd56b;--warn-soft:rgba(40,30,6,.9);--red:#ff7b6e;--shadow:0 10px 30px rgba(0,0,0,.55)}
+.olympus-rank-planner{background-color:#0b0a08;background-image:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.5) 60rem,rgba(0,0,0,.62)),url("/static/wow/rock.jpg");background-size:100% 100%,512px 512px;background-attachment:fixed}
+.olympus-rank-planner h1,.olympus-rank-planner h2,.olympus-rank-planner h3{color:var(--gold);text-shadow:1px 1px 0 #000}
+.olympus-rank-planner a{color:#ffd56b}
+.olympus-rank-planner a:hover{color:#fff}
+.olympus-rank-planner .staff-nav a{color:#ffd56b}
+.olympus-rank-planner .brand-mark{border:0;border-radius:0;background:none;object-fit:contain}
+.olympus-rank-planner .draft-badge{background:rgba(0,0,0,.6);border-color:var(--line);color:var(--gold)}
+.olympus-rank-planner .scope-note{border:5px solid transparent;border-image:url("/static/wow/frame-tooltip-gold.png") 16 / 14px / 0 round;background:var(--surface) padding-box;border-radius:0;color:var(--muted)}
+.olympus-rank-planner .rank-card{border:5px solid transparent;border-image:url("/static/wow/frame-tooltip.png") 16 / 14px / 0 round;background:var(--surface) padding-box;border-radius:0}
+.olympus-rank-planner .rank-card.included{border-image-source:url("/static/wow/frame-tooltip-gold.png")}
+.olympus-rank-planner .ladder,.olympus-rank-planner .editor,.olympus-rank-planner dialog{border:11px solid transparent;border-image:url("/static/wow/frame-dialog.png") 32 / 24px / 0 round;background:rgba(0,0,0,.87) padding-box;border-radius:0;color:var(--ink)}
+.olympus-rank-planner dialog::backdrop{background:rgba(0,0,0,.7)}
+.olympus-rank-planner input[type=search],.olympus-rank-planner input[type=text],.olympus-rank-planner select,.olympus-rank-planner textarea{background:rgba(0,0,0,.65);border-color:var(--line);color:var(--ink)}
+.olympus-rank-planner .button{border:6px solid transparent;border-image:url("/static/wow/button-up.png") 6 7 fill / 6px 7px / 0 stretch;background:transparent;border-radius:0;color:var(--gold);text-shadow:1px 1px 0 #000}
+.olympus-rank-planner .button:hover:not(:disabled){color:#fff;border-image-source:url("/static/wow/button-hover.png");background:transparent}
+.olympus-rank-planner .button:active:not(:disabled){border-image-source:url("/static/wow/button-down.png")}
+.olympus-rank-planner .button:disabled{border-image-source:url("/static/wow/button-disabled.png");color:#7c7c7c;opacity:1}
+.olympus-rank-planner .button.primary{background:transparent;border-color:transparent;color:#fff}
+.olympus-rank-planner .button.primary:hover{background:transparent}
+.olympus-rank-planner .feedback{background:rgba(6,26,8,.95);color:#f2e5c5;border:1px solid #3c6b3c}
+.olympus-rank-planner .ladder-row.selected{background:var(--gold-soft)}
+.olympus-rank-planner footer{color:var(--muted)}

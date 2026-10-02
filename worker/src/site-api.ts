@@ -11,7 +11,7 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, rest } from "./discord";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, boardCountCache, choicesOf, currentUser, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, PAGE_VERSION, parseAnswers, rateLimited, readJson, ROLE_OF_FIRST, sameOrigin, searchMembers, UNDER_ROLE, type AppRow, type Found, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, boardCountCache, choicesOf, currentUser, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, PAGE_VERSION, parseAnswers, rateLimited, readJson, ROLE_OF_FIRST, sameOrigin, searchMembers, shownName, UNDER_ROLE, type AppRow, type Found, type SiteUser } from "./site-core";
 import {
   AVAIL_HEX,
   availBits,
@@ -52,6 +52,9 @@ import { handleAdmin } from "./site-admin";
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
+import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./community-context";
+import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
+import { openRenameHold } from "./rename-review";
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -75,6 +78,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/me") return apiJson(await meData(env, user));
   if (m === "GET" && path === "/api/me/export") return exportMyData(request, env, user); // .71: the member's own copy
   if (m === "GET" && path === "/api/search") return search(env, user, new URL(request.url), admin);
+  if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
   if (m === "GET" && (path === "/api/board" || path.startsWith("/api/board/"))) {
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
     // Asmongold's server (checked with Discord at most hourly, as for a save), and not read by a script at speed.
@@ -199,7 +203,24 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings) 
     nominatedFor: user.denied ? [] : nominated.results.map((r) => r.ballot).filter((b) => ballotOf(b) && boardOpenFor(s, b)),
     friends: friends.results,
     reserved: reservedOut(reserved.results),
+    // .114: a rename Blizzard required asks the member to apply again (rename-review.ts); Home says so and why
+    reapply: await openRenameHold(env, id),
   };
+}
+
+/**
+ * .114: the Olympus I-X leadership directory for members (site-leadership.ts). Confirmed Olympus members only, the
+ * community pages' own capability; a listing grants nothing anywhere. The Council link is only a Discord address.
+ */
+async function leadershipPage(request: Request, env: Env): Promise<Response> {
+  // read behind the community reader boundary (Codex, log 19:17 UTC): the standing is judged in the same batch as the row,
+  // so a session, membership or roster proof lost before the read returns nothing
+  const out = await admittedRead(env, await communityContext(env, request), "confirmedGuildData", [
+    env.DB.prepare("SELECT value, updated_at FROM site_settings WHERE key = ?1").bind(LEADERSHIP_KEY),
+  ]);
+  if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  const row = (out[0]?.results[0] ?? null) as { value: string; updated_at: number } | null;
+  return apiJson({ guilds: parseLeadership(row?.value), updatedAt: row?.updated_at ?? null, councilUrl: COUNCIL_INFO_URL });
 }
 
 // ---------- the application ----------
@@ -386,16 +407,21 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
   if (changed) a.answers = JSON.stringify(answers);
   const t = now();
   // board_at keeps the first time they agreed; an application with no voted leadership role left has nothing on the board.
-  await env.DB.prepare(
+  const saved = await env.DB.prepare(
     `INSERT INTO site_applications (discord_id, position, class_lead, backup1, backup2, fallback, character, char_key, class, role, region, avail, avail_tz, fit_na, fit_eu, board_at, answers, status, created_at, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, CASE WHEN ?16 = 1 THEN ?18 END, ?17, 'submitted', ?18, ?18)
      ON CONFLICT(discord_id) DO UPDATE SET position = ?2, class_lead = ?3, backup1 = ?4, backup2 = ?5, fallback = ?6, character = ?7, char_key = ?8,
        class = ?9, role = ?10, region = ?11, avail = ?12, avail_tz = ?13, fit_na = ?14, fit_eu = ?15,
        board_at = CASE WHEN ?16 = 1 THEN COALESCE(site_applications.board_at, ?18) END, answers = ?17, updated_at = ?18,
-       status = CASE WHEN site_applications.status = 'withdrawn' THEN 'submitted' ELSE site_applications.status END`,
+       status = CASE WHEN site_applications.status = 'withdrawn' THEN 'submitted' ELSE site_applications.status END
+     WHERE site_applications.status NOT IN ('accepted','declined')`,
   )
     .bind(user.discord_id, a.position, a.class_lead, a.backup1, a.backup2, a.fallback, a.character, a.char_key, a.class, a.role, a.region, a.avail, a.avail_tz, a.fit_na, a.fit_eu, a.board ? 1 : 0, a.answers, t)
     .run();
+  // .114 (Codex, log 19:56 UTC): a decision that landed while this save was being prepared (the read above, the reference
+  // labels) wins: the decided application is not overwritten with answers nobody reviewed, and the member is told so.
+  // A rename hold's approval relies on the accepted application being the one the member submitted (rename-review.ts).
+  if (!saved.meta.changes) return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
   forgetBoardCounts(); // this isolate's cached board counts: the applicant sees their own change at once
   await audit(env, user.discord_id, existing ? "site.application_updated" : "site.application_submitted", undefined, { position: a.position, backups: [a.backup1, a.backup2].filter(Boolean) });
   const row = await env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(user.discord_id).first<AppRow>();
@@ -787,6 +813,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
       displayName: f.displayName,
       nick: f.nick,
       label: labelOf(f),
+      shown: shownName(f), // .114: every differing name, for the result row; the label above is what a pick stores
       avatarUrl: avatarUrl(env, f.id, f.avatar),
       onSite: onSite.has(f.id),
       self: f.id === user.discord_id,

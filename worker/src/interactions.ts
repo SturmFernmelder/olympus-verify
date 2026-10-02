@@ -13,6 +13,8 @@ import { restoreMemberRole, restoreNote } from "./restore";
 import { relayStatus, ticketsReady, whisperInstructions } from "./relays";
 import { accountInfo, accountText, ownerOfCharacter } from "./lookup";
 import { BNET_TTL_S, bnetFresh, everLinked } from "./bnet-retention";
+import { bnetLoginOn } from "./bnet-switch";
+import { openRenameHold, reapplyText } from "./rename-review";
 
 /** The pinned guide is one of the bot's own messages, so no human account can edit it from the Discord UI — only
  *  the author can, and the author is the bot. Reposting leaves the stale pinned copy behind, so this finds the
@@ -199,14 +201,23 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
   // /verify-status and the guide's "My status" button are where people look when their access has gone missing.
   const restored = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "status"));
   if (restored) lines.push(restored);
+  // .114: a rename Blizzard required (rename-review.ts): the account applies again, and this is where the member reads why
+  const hold = await openRenameHold(env, user.id);
+  if (hold) lines.push(reapplyText(hold));
   // .48: a link is shown only while it is fresh (29 days from the last Battle.net login); the cron purges it after that.
-  if (member?.battletag && bnetFresh(member.linked_at)) {
+  // .114: and only while Battle.net sign-in is switched on (bnet-switch.ts): while it is off the bot says nothing about
+  // keeping a link (Viktor, 2 Oct 2026: no Battle.net retention text until there is a Battle.net login worth having).
+  const bnetOn = await bnetLoginOn(env);
+  if (bnetOn && member?.battletag && bnetFresh(member.linked_at)) {
     lines.push(`Battle.net: linked (${member.battletag}) \u2014 optional; kept until <t:${(member.linked_at ?? 0) + BNET_TTL_S}:d> unless you link again`);
   }
   // .50: builds before this one also copied the BattleTag into Discord's own record of the connection, where no purge
-  // of ours reaches it. Everyone who ever linked is told how it goes away; nobody else needs the line.
+  // of ours reaches it. Everyone who ever linked is told how it goes away; nobody else needs the line. .114: while the
+  // switch is off, linking again is no remedy, so the line names the one that is left.
   if (await everLinked(env, user.id)) {
-    lines.push("Discord's own record of this connection may still carry your BattleTag from an earlier link; linking again replaces it, and removing the connection in Discord's settings (Connections) clears it.");
+    lines.push(bnetOn
+      ? "Discord's own record of this connection may still carry your BattleTag from an earlier link; linking again replaces it, and removing the connection in Discord's settings (Connections) clears it."
+      : "Discord's own record of your earlier Battle.net link for this bot may still carry your BattleTag; removing the connection in Discord's settings (Connections) clears it.");
   }
   // While the guild is at its cap an invite simply cannot go out, and saying "queued" forever reads as broken.
   // Telling someone they are twelfth in line is the difference between waiting and being ignored.
@@ -312,8 +323,11 @@ async function describeUser(env: Env, userId: string): Promise<{ text: string; i
   // reported as linked with the day it goes, a stale one (not yet purged) as not linked. The officer lookups, which
   // answer ephemerally, still show a fresh tag.
   const fresh = !!m?.battletag && bnetFresh(m.linked_at);
+  // .114: while Battle.net sign-in is switched off, "not linked" is not worth a line; a still-fresh earlier link is shown until it expires
+  const bnetOn = await bnetLoginOn(env);
+  const bnetPart = fresh ? ` — Battle.net: linked (until <t:${(m!.linked_at ?? 0) + BNET_TTL_S}:d>)` : bnetOn ? " — Battle.net: not linked" : "";
   const lines = [
-    `<@${userId}> — Battle.net: ${fresh ? `linked (until <t:${(m!.linked_at ?? 0) + BNET_TTL_S}:d>)` : "not linked"}` +
+    `<@${userId}>${bnetPart}` +
       (m?.banned ? ` — **banned from verifying**${m.ban_reason ? ` (${m.ban_reason})` : ""}` : ""),
   ];
   for (const c of chars.results) lines.push(`• **${c.name}** — ${describeStatus(c)}`);
@@ -349,7 +363,7 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
         env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(key),
       ]);
       await audit(env, actor, "admin.unbind", row.name, { was: row.discord_id });
-      return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again; the Guild Member role is left as is (the next roster export reconciles it).`);
+      return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again. The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.`); // .114: roster exports manage bound characters only, so nothing takes the role away later
     }
     case "ban": {
       const target = option<string>(i, "user") ?? "";

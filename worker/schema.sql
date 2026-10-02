@@ -753,3 +753,30 @@ CREATE TABLE IF NOT EXISTS community_privacy_operations (
   created_at   INTEGER NOT NULL,
   PRIMARY KEY (case_id, op_id)
 );
+
+-- Build .114 (2 Oct 2026, Viktor's item 9): renames Blizzard required. The roster already follows a renamed character
+-- by its GUID and keeps the link (roster.ts moveBinding, audit 'roster.renamed'); nothing in the roster says WHY a
+-- character was renamed. When a site administrator marks a rename as required by Blizzard (rename-review.ts), that one
+-- character is unbound and verified again and the member applies again; Guild Member is removed and later grants are
+-- held (roles.ts) while a row here is in state 'reapply' and no other member character of the account supports the role,
+-- until an administrator approves ('approved', only after the new application was accepted and the character verified
+-- again) or withdraws the decision ('cancelled'). A closed row is deleted thirty days after it was closed (the cron). Bot data: erased by
+-- hand with queries/forget-member.sql, listed in the member's copy. Unix seconds. The Worker creates it itself
+-- (src/schema.ts); migrations/2026-10-02-rename-holds.sql is the record.
+CREATE TABLE IF NOT EXISTS rename_holds (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  discord_id  TEXT NOT NULL,
+  old_name    TEXT NOT NULL,
+  new_name    TEXT NOT NULL,
+  char_key    TEXT NOT NULL,     -- the renamed character's name key when decided (codes.ts normalizeCharacter)
+  guid        TEXT,              -- its in-game identifier, when the roster had pinned one
+  nonce       TEXT NOT NULL,     -- binds the decision's batch to its own row
+  audit_id    INTEGER,           -- the roster.renamed audit row the decision was made from
+  state       TEXT NOT NULL CHECK (state IN ('reapply', 'approved', 'cancelled')),
+  decided_by  TEXT NOT NULL,     -- the administrator's Discord id
+  decided_at  INTEGER NOT NULL,
+  closed_by   TEXT,
+  closed_at   INTEGER
+);
+CREATE INDEX IF NOT EXISTS rename_holds_account ON rename_holds(discord_id, state);
+CREATE UNIQUE INDEX IF NOT EXISTS rename_holds_audit ON rename_holds(audit_id) WHERE audit_id IS NOT NULL;

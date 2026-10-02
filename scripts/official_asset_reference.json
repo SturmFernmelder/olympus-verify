@@ -2,20 +2,20 @@
   "schema": "olympus-official-website-reference-v1",
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
-  "coverage_evidence_sha256": "c412cbcf02d3c6a56ce284c98da2c9ec3ad5dc8141275b70c1368f90243a284b",
-  "reference_source_head": "32f19b933de870131d8bbdf50fbf17b2d3fe029e",
+  "coverage_evidence_sha256": "f8c032da5059c3c138484736de9d0f6064cf4c0bec11cd39a63fb94a4ce64c66",
+  "reference_source_head": "1db740c8a98064e0a724db39a8ba650ac7affe03",
   "assets": [
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 41219,
-      "sha256": "f0f99b82cc526813aa5092a79af4ce7a794822dabc807e7738bc9b1171f46fa7"
+      "bytes": 43940,
+      "sha256": "d28aa82ccca75bf1e24ab276189901b2dd9c7443ca3464bfd792855121096e6a"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 178159,
-      "sha256": "cdfc05fb8ff5eaab2ebfad2f1b1aa1694189ba4d37ede8493e51a50be4f2930d"
+      "bytes": 380524,
+      "sha256": "2af0b6f38988c0c85c23baef1c386289a38543c84c3432146a3018df7acfd462"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -32,8 +32,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 15657,
-      "sha256": "28c6c610d643053cbcdca2ce559ffd8ac0d33b77bba94aa7ecdca5f08ed798b0"
+      "bytes": 15696,
+      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074"
     },
     {
       "path": "worker/public/static/rank-planner/catalogue.js",
@@ -50,8 +50,8 @@
     {
       "path": "worker/public/static/rank-planner/styles.css",
       "mode": "100644",
-      "bytes": 15197,
-      "sha256": "5083615942fb989187cf428854fe421c0bf4f5579f9fb64b627de1e5aee9e425"
+      "bytes": 19440,
+      "sha256": "e3bdfa2fa3d90822ac61dea6fcf12ce665b76e95088db03d79b2cf92fb62cc4d"
     },
     {
       "path": "worker/public/static/wow/asset-provenance.json",
@@ -891,14 +891,14 @@
     },
     {
       "path": "worker/src/site-ranks.ts",
-      "bytes": 9250,
-      "sha256": "d8bb50cc6816a6a954a5f189bd2e163d29f5387f139610234ffec3f98bb3b2ab",
+      "bytes": 9433,
+      "sha256": "e78a4413fbf94679f754346d39a2b79512508c8f712bad7067d22b3852e93441",
       "mode": "100644"
     },
     {
       "path": "worker/public/static/app.js",
-      "bytes": 362377,
-      "sha256": "191b9d46a1102ebb9a4b61dd32aff0bf22482543463130aa9124e0388ab66a39",
+      "bytes": 380524,
+      "sha256": "2af0b6f38988c0c85c23baef1c386289a38543c84c3432146a3018df7acfd462",
       "mode": "100644"
     },
     {
@@ -906,15 +906,22 @@
       "bytes": 15696,
       "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074",
       "mode": "100644"
+    },
+    {
+      "path": "worker/src/site-core.ts",
+      "bytes": 16825,
+      "sha256": "41afe7a282c1d64fb74b1ecc71ffa3d9971710769837e3322d8ec81188037fdc",
+      "mode": "100644"
     }
   ],
   "limitations": [
     "Exact candidate bytes and recorded source references only; no publisher archive/client-build attestation or blanket redistribution rights.",
     "Final runtime/native UI/profile/document hashes require externally reviewed source-bound pins, never scanner-generated approval.",
-    "Finite image helpers, server vocabulary and rank HTML are fixed as four full source files. Changes require a newly reviewed official-reference successor.",
+    "Finite image helpers, server vocabulary, rank HTML and the CSP/avatar producer are fixed as five full source files. Changes require a newly reviewed official-reference successor.",
     "The scanner checks literal static/CSS references; it is not a JavaScript parser or proof against arbitrary changed dynamic code.",
     "Known custom/generated website art is rejected by hash except the exact owner-approved Olympus crest at its sole brand/tab-icon path; generated cover and custom SVG artwork remain excluded from the website.",
-    "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published."
+    "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published.",
+    "The owner-approved signed-in own-header Discord identity picture is external identity data, not a bundled interface-art asset: exact producer/renderer/CSP source pins and the source-bound coverage receipt carry this narrow exception. Eight other account-image sites remain official game icons; the static scanner does not validate external image addresses or prove account ownership."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"

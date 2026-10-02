@@ -16,17 +16,15 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 1 October 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 2 October 2026</p>
 
 <p>Olympus Verify is a private bot run by the volunteer staff of the World of Warcraft guild &ldquo;Olympus&rdquo;. It
-serves the Olympus Discord server and the Olympus channels in Asmongold's Discord server, and it is not offered to the
-public or installed anywhere else. It exists to prove that a Discord account and an in-game character belong to the
+serves the Olympus channels in Asmongold's Discord server, and it is not offered to the public or installed anywhere
+else. It exists to prove that a Discord account and an in-game character belong to the
 same person, so guild channels can be opened to guild members without an officer checking every name by hand.</p>
 
 <h2>What it stores</h2>
-<p>Only what that check needs: your Discord user ID and display name; your BattleTag and Battle.net account ID, if you
-choose to link one (kept for 29 days from your last Battle.net sign-in and then deleted, as Blizzard's developer terms
-require &mdash; sign in with Battle.net again to keep them; linking is optional and nothing depends on it); the characters you verify, with where each stands (code confirmed, invite queued, sent or refused,
+<p>Only what that check needs: your Discord user ID and display name; the characters you verify, with where each stands (code confirmed, invite queued, sent or refused,
 joined or left) and when; the in-game guild roster as the officers' addon exports it &mdash; each member's character name,
 rank, level, class, public and officer notes and last-online time, and the date the name first appeared &mdash; kept as
 dated snapshots (where the officers have switched on the guild note, the public note the bot has the addon write when you
@@ -38,8 +36,8 @@ happen&rdquo;. It also keeps your Discord username and display name, as Discord 
 linked.</p>
 
 <h2>The guild site</h2>
-<p>The Olympus registration site (guild.roachcouncil.com, and olympus.roachcouncil.com once it moves there; the old
-address then forwards to the new one) signs you in with Discord and checks one thing about your
+<p>The Olympus registration site (olympus.roachcouncil.com; its old address, guild.roachcouncil.com, forwards to it)
+signs you in with Discord and checks one thing about your
 servers: whether you are a member of Asmongold's Discord server. For that it asks Discord for your identity and your
 membership in that one server. It stores your Discord user ID, username, display name, nickname and avatar in that
 server, when your Discord account was created and when you joined that server; what you enter &mdash; your application
@@ -47,12 +45,14 @@ server, when your Discord account was created and when you joined that server; w
 the times of the week you usually play (kept as hours of the week in UTC, with your time zone), your votes on the
 voting board, the people you write in for a role and why, the friends you list, and the character names you reserved
 &mdash; and when you signed in. It never receives your Discord password, your email address, your other servers or
-your messages, and it keeps no Discord access token after you are signed in.</p>
+your messages, and it keeps no Discord access token after you are signed in. The site's top bar shows you your own
+Discord picture: your browser loads it from Discord's picture server (cdn.discordapp.com), so Discord sees that request;
+the site shows that picture to no one else.</p>
 <p><strong>The voting board.</strong> Leadership roles are voted on, except those the guild's leadership chooses
 without a public vote (the site marks them); an application for only such roles is not shown on the board. If you
 apply for a role that is voted on and tick the box that shows your application on the voting board, every member
 signed in to the site can read it there, under each role you chose that is voted on then or later: your Discord display
-name and, as its picture, the game's own class icon for the class you gave (the site shows the game's icons, never your
+name and, as its picture, the game's own class icon for the class you gave (the board shows the game's icons, never your
 Discord picture; the avatar reference Discord gave at sign-in stays stored with your account record, as said above),
 your class, role and where you play from, which roles you chose (first choice or backup), how many NA and
 EU raid evenings a week you can make, and your answers to the four questions about your experience, why Olympus,
@@ -77,6 +77,10 @@ Discord user ID. A character name you enter is a label until it matches the offi
 bound to another account is refused. Officers may confirm or reject a claimed alt. A profile whose owner is no longer a
 confirmed member stops being shown at once and is deleted, with everything under it, by the scheduled cleanup from
 thirty days later.</p>
+<p><strong>The leadership directory.</strong> The site's administrators may list, for each Olympus guild (Olympus I to
+Olympus X), its Guild Master and officers by the names they type. Confirmed members can read it. A listing is a record
+only: it gives no powers in the bot, the site or Discord. It is cleared when the beta ends and is changed when the
+leadership changes.</p>
 <p><strong>Calendar and attendance.</strong> Organizers (the site's administrators and the members named as organizers)
 create events: a title, details, start, duration, capacity and the roles wanted. You answer yes, tentative or no with a
 character and a raid role, and you can give or change that answer only before the event starts, while the calendar is on
@@ -128,13 +132,21 @@ is in the world, and a timing measurement of the log file itself. By its code no
 on that officer's computer; this describes the software as written, not a guarantee about the game client.</p>
 
 <p><strong>If you are banned from verifying</strong>, the bot keeps your Discord user ID and the reason; the
-characters bound to that account stay bound to it. Nothing derived from your BattleTag is kept beyond the 29 days.</p>
-<p><strong>Discord's own copy.</strong> Linking sets a &ldquo;Battle.net linked&rdquo; mark on your Discord account's
-linked-role record for this bot. Links made since the bot's update of early October 2026 write the word
-&ldquo;linked&rdquo; there instead of your BattleTag; a BattleTag copied into that record by an earlier link stays
-there, under your Discord account, until you link again (which overwrites it) or remove the connection in Discord's
-settings (Connections). The bot holds nothing that
-could clear it for you, and <code>/verify-status</code> reminds everyone who ever linked of this.</p>
+characters bound to that account stay bound to it.</p>
+<p><strong>Battle.net.</strong> Battle.net sign-in is switched off: the bot offers no Battle.net link and receives
+nothing from Blizzard. A BattleTag and Battle.net account ID stored by an earlier link are deleted automatically within
+29 days of that link. If you linked before, Discord keeps its own linked-role record for this bot under your Discord
+account (a &ldquo;Battle.net linked&rdquo; mark, and for links made before early October 2026 your BattleTag); the bot
+cannot clear it, but you can, by removing the connection in Discord's settings (Connections).</p>
+<p><strong>Renames Blizzard required.</strong> When a roster export shows that a character bound to you was renamed (the
+same character under a new name), the link follows the character and the site's administrators see the old and new
+name. If an administrator marks the rename as required by Blizzard, the bot records that decision (your Discord user
+ID, both names, that character's key and in-game identifier, when it was decided, by whom, and when it was closed): the
+character is unbound and has to be verified again, your site application is set back so that you submit it again, your
+Guild Member role is removed and held unless another of your characters is in the guild, and <code>/verify-status</code>
+tells you why; an administrator approves once your new application was accepted and the character verified again, or
+withdraws the decision. The record is deleted thirty days after it was approved or withdrawn; while it is open it
+stays.</p>
 
 <h2>Where it goes</h2>
 <p>Data lives in a Cloudflare D1 database owned by the guild's officers, in Cloudflare's infrastructure, together with
@@ -145,7 +157,7 @@ ordinary work: it reads members' roles and nicknames, grants and removes the Gui
 is switched on, bans where an officer orders it, writes a short reason into Discord's own audit log for those changes,
 refreshes the Discord usernames and display names of linked members, re-checks a signed-in member's server membership
 about hourly after a save, and posts the notices and staff messages described below; Discord keeps its own records of all
-that under its terms. Blizzard is involved only in the Battle.net sign-in you initiate. Nothing is sold or used for
+that under its terms. While Battle.net sign-in is switched off, Blizzard receives nothing from this bot. Nothing is sold or used for
 advertising, training or analytics, and there are no third-party trackers on this page; beyond what this page describes,
 nothing is shared.</p>
 
@@ -158,8 +170,8 @@ they search for someone to write in or list as a friend), if you put a leadershi
 the board shows, and what you list for them on the community pages (your directory profile and crafting offers, your
 calendar answers), as those sections say; nothing else you entered. Everyone else in the server sees only what the bot
 shows in public: your server nickname, where the staff have switched that on, which it then sets to your character's
-name when you are admitted; and the short notices in the server's bot notices channel (#bot-announcements in the Olympus
-server; #olympus-notices once the bot serves Asmongold's server) that mention you when your access changes. The Terms of
+name when you are admitted; and the short notices in the server's bot notices channel (#olympus-notices) that mention you
+when your access changes. The Terms of
 Service list which notices those are; anything you might not want read out only says there is an update, and
 <code>/verify-status</code> shows the detail to you alone. The bot's log channel is private to staff.</p>
 <p>The site's administrators also use the staff pages of the community features: the directory's claims review,
@@ -172,15 +184,16 @@ rank-planning page keeps its draft in that administrator's own browser and store
 copy outlives signing out and any deletion on the server until the administrator clears their browser's data.</p>
 
 <h2>Getting rid of it</h2>
-<p>Ask any officer, or open a ticket in the server's help channel. For the bot, an officer unbinds your characters: each
-character row is marked unbound and loses its in-game identifier, your open code requests and queue entries are
-cancelled, and your Guild Member role follows the next roster export. The bot has no delete command: your member row
+<p>Ask any Olympus officer (or, if you can no longer reach Discord, use the private request form described below). For the
+bot, an officer unbinds your characters: each character row is marked unbound and loses its in-game identifier, and your
+open code requests and queue entries are cancelled; unbinding does not by itself remove your Guild Member role, which an
+officer removes in Discord where it should go. The bot has no delete command: your member row
 (your Discord user ID and, if you were banned from verifying, the ban and its reason), the unbound character rows and the
 dated log stay, and the officers handle a request to erase the bot's data about you by hand, in the database, as a
 separate request; unbinding alone is not erasure. Leaving the Discord server does none of this by itself. The guild's
 roster history is kept: it holds character names, ranks, notes and dates, and where the bot wrote your Discord user ID
 into a character's public note the exported note carries it; the history is not scrubbed of it.</p>
-<p>The same goes for the guild site: ask any officer, or open a ticket, and the site's administrators delete
+<p>The same goes for the guild site: ask any Olympus officer, and the site's administrators delete
 everything the site holds about you at once &mdash; your application, votes, write-ins, friends list and reserved names,
 the votes others cast on your application, and your account there. On request they also remove what other members
 entered about you: write-ins naming you, friends-list entries, and references to you in their applications, with any
@@ -189,8 +202,8 @@ denied, your account row is kept, emptied of your names, picture and account dat
 denial, its reason, when and by whom it was decided, and the row's operational state (whether you were in the server when
 last checked and when that was, and the sign-in counter the site uses to end old sessions; the sign-in dates set to the
 decision's moment), so the same account cannot simply sign up again.</p>
-<p><strong>If you can no longer reach Discord</strong>, the site has a private request form, when the staff have
-switched it on, that needs no sign-in: your browser makes a case number and a secret case code, you write what you ask
+<p><strong>If you can no longer reach Discord</strong>, the site has a private request form
+(olympus.roachcouncil.com/#/request), when the staff have switched it on, that needs no sign-in: your browser makes a case number and a secret case code, you write what you ask
 for (and, if you wish, a hint who you are or which character), and the administrators answer in that case. The case
 number is stored as it is: it names the case in the staff pages (their addresses included) and in the dated log, and the
 administrators open a case by its number through their own signed-in staff session, without your code. The code is stored
@@ -211,7 +224,7 @@ as the actor); an active restriction case with its watch-list and the member per
 run under, because the case is about the account and not about the site (an inactive case is deleted with your account;
 the period, whose dated renewal note the officers may read, survives only while one of your cases is still unresolved, and
 an ended period admits no new watch-list row and renews nothing); and the bot's own rows (your characters, your queue
-entries and your member row), which the officers handle as described above (unbinding through the bot; erasure by hand on
+entries, your member row and any rename record), which the officers handle as described above (unbinding through the bot; erasure by hand on
 request). The
 departure review's cleanup keeps one shared bookmark of where its last scan of the guild's departures stopped (a departure
 time and a character name key, never a Discord account ID); it is replaced on the next run and cleared when a run reaches
@@ -239,7 +252,7 @@ for you (the site's address followed by <code>/api/me/export</code>). It lists y
 named as references by the names you chose, not their accounts; your votes and friends by the labels you chose; your
 reserved names; the bot's view of you (whether you are banned from verifying, whether a Battle.net link is current
 &mdash; never the BattleTag &mdash;, the characters bound to you, your code requests without any code, your place in the
-invite queue); the dated actions that name your account, shown as their time and action name only (the earliest
+invite queue, and any rename record, without the administrators' identities); the dated actions that name your account, shown as their time and action name only (the earliest
 thousand, with a way to continue); and every community page's records about you. It leaves out staff notes and reasons,
 staff identities, the raw roster snapshots and the private details of recorded payments; your own labels and free text are
 copied as you wrote them, so they can name other people. Each copy, and each continuation of the dated actions, is read in
@@ -248,7 +261,8 @@ approximate). A private request case is not in it: cases are keyed by their numb
 with their code.</p>
 
 <h2>Contact</h2>
-<p>The guild's Discord staff, in the server's help channel. This bot is run by volunteers, not a company.</p>
+<p>Olympus's officers in Asmongold's Discord server, or the site's private request form if you can no longer reach Discord.
+This bot is run by volunteers, not a company.</p>
 
 <p class="meta" style="margin-top:2.5rem">See also the <a href="./terms.html">Terms of Service</a>.</p>
 </main>

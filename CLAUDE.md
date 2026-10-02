@@ -103,7 +103,10 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   arm a removal, never perform one; an export below `ROSTER_MIN_MEMBERS` or more than `ROSTER_MAX_SHRINK_PCT` smaller
   than the last one is stored but removes nobody. Links are pinned to character GUIDs. Since .55 `src/roles.ts` is the
   one writer: every grant goes through `grantMemberRole` (blocking-role guard, fail-closed config check); only the
-  sweep (`removeIfBlocked`), a roster departure and a ban remove the role. New modules never call `addRole`.
+  sweep (`removeIfBlocked`), a roster departure and a ban remove the role. New modules never call `addRole`. Since
+  .114 a rename Blizzard required (`src/rename-review.ts`) holds every grant while a `rename_holds` row is `reapply`
+  (`"held"`), and `revokeForReapply` is the one remover added since .55 (at the decision; the hold is re-read after the
+  member GET and after a grant's PUT, and held accounts join the sweep's banned reconciliation).
 - **The bot never DMs** (25 Sep 2026, Discord Developer Compliance). Notices go to `CHANNEL_NOTICES`; every command
   reply is ephemeral with `allowed_mentions: {parse: []}`.
 - **Battle.net is optional** for `/verify` since build .32 (25 Sep 2026): the in-game whisper is the proof of
@@ -111,9 +114,14 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   Battle.net login (`src/bnet-retention.ts`); read it only through `bnetFresh`, and never invent a `linked_at`. Since
   .50 the tag never enters a persistent Discord message (cards, log lines, the linked-role record) and nothing
   derived from it outlives it; read-only commands are not ledgered so a stored answer cannot outlive the record.
+  Since .114 the login is switched off (`src/bnet-switch.ts`): it is on only with the secrets, a privacy policy carrying
+  the marked Battle.net section (`PRIVACY_DESCRIBES_BNET_LOGIN`, generated) and the site admin's `bnetLogin` setting;
+  every route refuses before any audit, cookie, redirect or exchange, and the bind's write carries the setting. The purge
+  stays unconditional.
 - **The site** (`site.ts`, `site-core.ts`): HMAC-signed `__Host-olg` session cookie with a per-user
   `session_version`; every write needs the page's `X-Olympus` header and a same-origin `Origin`; CSP is self-only
-  for images too (.112: no Discord pictures, no `data:` images); `Cache-Control: no-store, no-transform` so Cloudflare injects nothing.
+  for images too (.112: no `data:` images), except Discord's picture host for the member's own picture in the top bar
+  (.114, `app.js ownAvatar`, avatar addresses only); `Cache-Control: no-store, no-transform` so Cloudflare injects nothing.
 - **The page script** (`public/static/app.js`, vanilla, one IIFE, no bundler): `h(tag, props, ...kids)` builds elements
   (text through `textContent`, never innerHTML; `value` is set as a property; `href` is set only for a fragment, a
   root-relative path or an `https:` URL, and `src` only for a root-relative path (.112: images come from this site:

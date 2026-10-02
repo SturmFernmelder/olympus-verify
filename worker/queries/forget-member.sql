@@ -15,6 +15,7 @@ DELETE FROM pending         WHERE discord_id = '000000000000000000';
 DELETE FROM invite_queue    WHERE discord_id = '000000000000000000';
 DELETE FROM bnet_characters WHERE discord_id = '000000000000000000';
 DELETE FROM characters      WHERE discord_id = '000000000000000000';
+DELETE FROM rename_holds    WHERE discord_id = '000000000000000000'; -- .114: renames Blizzard required (the reapply hold)
 DELETE FROM audit           WHERE actor = '000000000000000000' OR subject = '000000000000000000'
                                OR details LIKE '%"000000000000000000"%';
 DELETE FROM members         WHERE discord_id = '000000000000000000';
@@ -22,4 +23,5 @@ DELETE FROM members         WHERE discord_id = '000000000000000000';
 -- Should print nothing but zeros.
 SELECT (SELECT COUNT(*) FROM members WHERE discord_id = '000000000000000000')      AS members_left,
        (SELECT COUNT(*) FROM characters WHERE discord_id = '000000000000000000')   AS characters_left,
-       (SELECT COUNT(*) FROM invite_queue WHERE discord_id = '000000000000000000') AS queue_left;
+       (SELECT COUNT(*) FROM invite_queue WHERE discord_id = '000000000000000000') AS queue_left,
+       (SELECT COUNT(*) FROM rename_holds WHERE discord_id = '000000000000000000') AS rename_holds_left;

@@ -17,18 +17,23 @@
  *   GET  lookup?q, GET account/{id}
  *   GET  export/{applications|board|votes|friends|reserved|users}
  *   GET  audit
+ *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
+ *         POST beta-reset {confirm, notice}; GET renames, POST renames/forced {auditId, confirm}, POST renames/{id}/approve|cancel
  */
 import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, ROLE_OF_FIRST, searchMembers, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
 import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, type SiteSettings } from "./site-data";
 import { queueReserved, releaseReserved } from "./site-queue";
 import { accountInfo, ownerOfCharacter, referencesNaming } from "./lookup";
 import { communityEraseStatements } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
 import { rest } from "./discord";
+import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
+import { betaResetState, loadLeadership, recordBetaClosed, runBetaReset, saveLeadership } from "./site-leadership";
+import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -50,6 +55,48 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   if (parts[0] === "community") return handleCommunityAdmin(request, env, path, admin, body); // .57
   if (m === "GET" && parts[0] === "overview") return apiJson(await overview(env));
   if (m === "PUT" && parts[0] === "settings") return saveSettings(env, actor, body);
+  // .114: the Battle.net sign-in switch (bnet-switch.ts), the I-X leadership directory and the beta reset (site-leadership.ts), forced renames (rename-review.ts)
+  if (parts[0] === "bnet-switch" && !parts[1]) {
+    if (m === "GET") return apiJson(await bnetLoginState(env));
+    if (m === "PUT") {
+      const on = body.on === true;
+      if (on && body.confirm !== "ENABLE") return apiJson({ error: "confirm", message: "Type ENABLE to switch Battle.net sign-in on." }, 400);
+      const r = await setBnetSwitch(env, actor, on);
+      return r.ok ? apiJson({ ok: true, state: r.state }) : apiJson({ error: r.error, message: r.message }, 409);
+    }
+  }
+  if (parts[0] === "leadership" && !parts[1]) {
+    if (m === "GET") return apiJson(await loadLeadership(env));
+    if (m === "PUT") {
+      const r = await saveLeadership(env, actor, body);
+      return r.ok ? apiJson({ ok: true, guilds: r.guilds }) : apiJson({ error: "invalid", message: r.message }, 400);
+    }
+  }
+  if (parts[0] === "beta-reset") {
+    if (m === "GET" && !parts[1]) return apiJson(await betaResetState(env));
+    if (m === "PUT" && parts[1] === "closed") {
+      const r = await recordBetaClosed(env, actor, body.betaClosedAt);
+      return r.ok ? apiJson({ ok: true, state: await betaResetState(env) }) : apiJson({ error: r.status === 409 ? "reset_done" : "invalid", message: r.message }, r.status);
+    }
+    if (m === "POST" && !parts[1]) {
+      const r = await runBetaReset(env, actor, body);
+      return r.ok ? apiJson({ ok: true, cleared: r.cleared, state: await betaResetState(env) }) : apiJson({ error: "refused", message: r.message }, r.status);
+    }
+  }
+  if (parts[0] === "renames") {
+    if (m === "GET" && !parts[1]) return apiJson(await listRenames(env));
+    if (m === "POST" && parts[1] === "forced") {
+      if (body.confirm !== "REAPPLY") return apiJson({ error: "confirm", message: "Type REAPPLY to confirm." }, 400);
+      const auditId = typeof body.auditId === "number" && Number.isInteger(body.auditId) && body.auditId > 0 ? body.auditId : 0;
+      if (!auditId) return apiJson({ error: "bad_request" }, 400);
+      const r = await markForcedRename(env, actor, auditId);
+      return r.ok ? apiJson(r) : apiJson({ error: r.error, message: r.message }, r.status);
+    }
+    if (m === "POST" && /^\d{1,12}$/.test(parts[1] ?? "") && (parts[2] === "approve" || parts[2] === "cancel")) {
+      const r = await closeRenameHold(env, actor, Number(parts[1]), parts[2] === "approve" ? "approved" : "cancelled");
+      return r.ok ? apiJson({ ok: true }) : apiJson({ error: r.error, message: r.message, missing: r.missing }, r.status);
+    }
+  }
   if (m === "GET" && parts[0] === "applications" && !parts[1]) return listApplications(env, q);
   if (m === "GET" && parts[0] === "applications" && parts[1]) return applicationDetail(env, parts[1]);
   if (m === "POST" && parts[0] === "applications" && parts[2] === "status") return setStatus(env, actor, parts[1], body);
@@ -110,6 +157,7 @@ function userOut(env: Env, r: { discord_id: string; username: string | null; glo
     displayName: r.global_name,
     nick: r.nick,
     label: labelOf({ username: r.username, displayName: r.global_name, nick: r.nick }),
+    shown: shownName({ username: r.username, displayName: r.global_name, nick: r.nick }), // .114: every differing name, display only
     avatarUrl: avatarUrl(env, r.discord_id, r.avatar),
     accountCreated: r.account_created,
     serverJoined: r.server_joined,
@@ -306,8 +354,14 @@ async function setStatus(env: Env, actor: string, id: string, body: Record<strin
   const status = String(body.status ?? "");
   if (!STATUSES.has(status)) return apiJson({ error: "invalid", message: "Unknown status." }, 400);
   const note = body.note === undefined ? undefined : cleanText(body.note, 1000, true);
+  // .114 (Codex, log 19:17 UTC): a withdrawn application is the member's to submit again before anyone accepts it; this is
+  // what makes "a new application that the leadership reviews" real after a rename Blizzard required (rename-review.ts)
+  if (status === "accepted") {
+    const cur = await env.DB.prepare("SELECT status FROM site_applications WHERE discord_id = ?1").bind(id).first<{ status: string }>();
+    if (cur?.status === "withdrawn") return apiJson({ error: "withdrawn", message: "This application is withdrawn: the member has to submit it again before it can be accepted." }, 409);
+  }
   const r = await env.DB.prepare(
-    `UPDATE site_applications SET status = ?2, reviewed_by = ?3, reviewed_at = ?4${note === undefined ? "" : ", admin_note = ?5"} WHERE discord_id = ?1`,
+    `UPDATE site_applications SET status = ?2, reviewed_by = ?3, reviewed_at = ?4${note === undefined ? "" : ", admin_note = ?5"} WHERE discord_id = ?1 AND NOT (?2 = 'accepted' AND status = 'withdrawn')`,
   )
     .bind(...[id, status, actor, now(), ...(note === undefined ? [] : [note || null])])
     .run();
@@ -825,7 +879,7 @@ async function lookup(env: Env, q: URLSearchParams): Promise<Response> {
     if (env.DISCORD_BOT_TOKEN && /^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "")) {
       const out = await searchMembers(env, text);
       limited = !!out.limited;
-      discord = out.found.map((f) => ({ id: f.id, label: labelOf(f), avatarUrl: avatarUrl(env, f.id, f.avatar) }));
+      discord = out.found.map((f) => ({ id: f.id, label: shownName(f), avatarUrl: avatarUrl(env, f.id, f.avatar) })); // .114: every differing name (display only)
     }
   } catch (e) {
     console.error("admin lookup search", errorRef(e));

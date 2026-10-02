@@ -165,13 +165,12 @@ Two warnings again:
 - Lines marked **(member override — does not port)** apply to one specific person, not a role. You cannot set
   these until that person is in the new server.
 
-### 3.5 Turn on the Battle.net requirement
+### 3.5 (Superseded: do not do this) The Battle.net requirement
 
-**Server Settings -> Roles**, click your new Guild Member role, open the **Links** tab, and add the requirement
-`battlenet_linked` equals `1`.
-
-This is the setting that makes the whole verification system work. It is easy to forget because it lives in a tab
-most people never open.
+This walkthrough was written for build .25 (20 Sep 2026). Since build .32 the in-game whisper is the proof of control and
+Battle.net is optional; since .114 (2 Oct 2026) Battle.net sign-in is switched off. A `battlenet_linked` requirement on
+Guild Member would make the role impossible to get. Leave the role's **Links** tab empty. Codex checked on 2 Oct 2026
+that Olympus Guild Member in Asmongold's server has no such requirement (log 18:58 UTC).
 
 ### 3.6 Write down the new ID numbers
 

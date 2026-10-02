@@ -3,7 +3,7 @@ from pathlib import Path
 from html.parser import HTMLParser
 import argparse,hashlib,json,os,re,subprocess,sys
 ROOT=Path(__file__).resolve().parent
-V4_PINS={'stage_publication.py':'d06f6d56c9884f5cb9e7c07acde75ad5f812f0a77fe68589d49115ab68b358e9','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'fa3146e36fe51d86609441daa8d19988190982cd5df6593934376eee6ecbcccd','official_asset_reference.json':'25adf12020bcbcc2dc2fca24512821f2d0f91b2f453beb7ff877b43128571e66'}
+V4_PINS={'stage_publication.py':'d06f6d56c9884f5cb9e7c07acde75ad5f812f0a77fe68589d49115ab68b358e9','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'5c8f565034d353fa19bd07f386700e2289dedce17fc221752882ca6b196a312f','official_asset_reference.json':'4843504f58c5623bec87feafe4db7edce4ff520b8b69d97483920077c66e6bcb'}
 for name,pin in V4_PINS.items():
  p=ROOT/name
  if p.is_symlink() or p.is_junction() or hashlib.sha256(p.read_bytes()).hexdigest()!=pin:raise ValueError('unchanged_v4_helper_pin_mismatch')
@@ -20,7 +20,7 @@ URL='https://github.com/SturmFernmelder/olympus-verify.git'
 DISABLED='https://invalid.invalid/publication-disabled'
 MAPPING={'policies/index.html':'index.html','policies/privacy.html':'privacy.html','policies/terms.html':'terms.html'}
 POLICY_FILES=set(MAPPING)|{'worker/scripts/build-policy-content.mjs','worker/src/policy-content.ts','worker/src/policies.ts','worker/public/static/policies.css'}
-GENERATOR='fe7fb0637c17c9966528ff80d14642607e48f118f9885cb780451bac99ec7410'
+GENERATOR='a17d609b3b30987ade103934dbf3b0d385a2398d5c57178192e542133e9cd2ba'
 OLD_HASH={'index.html':'4589c64493c1a578a2f1683aa15ee24ac6b65cf05be0d3695e1ab9cd45f1fcd5','privacy.html':'e87a851d30d539edf3a58127bb9e33e3b03b149781c48b1ea94a807a36f33b62','terms.html':'3ee19ad76c8f8b8ecc7c044adc1859bf1dff65b2bb4d055c56013fc6fe180f72'}
 sha=lambda b:hashlib.sha256(b).hexdigest()
 def need(ok,code):

@@ -662,3 +662,51 @@ its original receipt, never doubling) or to check first whether it was stored; a
 its reason; a committed reply is acknowledged outside the conversation, so a later read that is refused or finds nothing
 clears what is stale without erasing what is true. The harness learnt the trick too (`page.drop`): it lets the Worker
 handle a request and throws the answer away, which is exactly the lost answer.
+
+## 2 Oct 2026 (.114): the owner's ten requests, and the choices behind them
+
+Viktor's items of 2 Oct about 17:25 UTC, the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and Codex's
+provisional source review (18:47 UTC). What the code does is in `docs/deploy-checklist.md` ("Worker .114"); this is why.
+
+**The header picture is an identity exception, not art.** The official-assets rule (.86, .111, .112) is about the site's
+interface: every frame, icon and font comes from the game client, the crest is the one non-game image. Viktor's own Discord
+picture in his own top bar is not interface art; it is who is signed in. So it gets its own narrow door: one CSP host,
+avatar paths only, header only, a game-icon fallback. Showing members' pictures to each other (the voting board, the
+pickers) would be a different decision with a different privacy text, and was not asked for.
+
+**The footer keeps "Private request" for strangers.** Viktor asked to hide the policy and data links from the public. The
+private request form exists for people who can no longer sign in with Discord, and nothing else on a signed-out page links
+it, so hiding it would hide the form from exactly its people. The policies stay at their addresses, which the Discord
+application links (Discord's developer terms want the notice reachable from the application, which it still is).
+
+**The Battle.net switch cannot get ahead of the policy.** Viktor wanted no retention text while the login is useless, and a
+login that is "ready, switched off in admin settings". Those two meet in one rule: switching on needs the privacy policy to
+describe the login again, detected at build time from a marker in policies/privacy.html. The .114 policy has no such
+section, so in .114 the switch can only be off; the next step is a reviewed release that adds the section, then the box.
+Codex asked (18:47 UTC) for an "on" policy variant served only while on; that would put a database read into the policy
+route, which .65 keeps free of state, and the Pages mirror could show only one variant, so the dependency on a later release
+is stated instead. The off state also had to be honest about the past: Codex measured 264 member rows still carrying older
+link fields (19:12 UTC), so the policy keeps one sentence that they are deleted automatically within 29 days of each link,
+and the purge stays unconditional. An immediate purge was not chosen: it cannot be undone and Viktor has not asked for it.
+
+**A rename Blizzard required is decided by a person, for one character.** The roster cannot tell a forced rename from any
+other, and an ordinary rename must keep the link (27 Sep: the link follows the GUID), so nothing is inferred. When an
+administrator marks one, Viktor's rule applies: the member applies again, with a new application and a fresh in-game
+verification, and approval waits for both to have actually happened (Codex, 19:17 UTC: accepting the old row or clearing the
+hold is not enough). The decision resolves exactly one current character by its GUID and refuses anything ambiguous. My
+first version held the whole account; Codex's review (18:47 and 19:17 UTC) asked that a legitimate other member character
+keep Guild Member, which is fairer to a member whose main is in the guild, so the role is held only where no other member
+character supports it. The hold sits in the one role writer (roles.ts) rather than in a new character status, which would
+have touched every status list; the one-time removal at the decision is the only new remover, and the grant path re-reads
+the hold after its PUT, as it re-reads the ban (.60), so a grant in flight cannot undo a hold.
+
+**The beta reset clears assignments, not history.** "All roles reset" was narrowed by Viktor to guild ranks and leadership
+assignments. The site holds two such things, the appointed roles and the new I-X directory, and the reset clears exactly
+those; applications and votes are evidence and stay. It is armed by a recorded closing moment in the past, because Blizzard
+gives a last day and no hour, and a timer would guess, and it runs once, admitted in SQL against the moment the page
+showed, so a stale or replayed request cannot wipe appointments made after it. Ranks in game and the Discord leadership roles are changed by people:
+the site cannot change game ranks, and the bot's role sits below those Discord roles on purpose (D03).
+
+**The I-X directory grants nothing.** It is a list of names for members to read. The Council in Discord is reached by roles
+given by hand after each person is reviewed; neither the directory nor the Council roles feed the bot's officer checks,
+SITE_ADMINS or COMMUNITY_ORGANIZERS, so leaders of later guilds never gain access to Olympus I's member records.

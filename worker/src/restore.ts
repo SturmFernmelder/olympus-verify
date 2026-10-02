@@ -17,7 +17,7 @@ import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
 import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, inventoryCalls, GRANT_CALLS } from "./roles";
 
-export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "failed" | "unknown";
+export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
 
 export async function restoreMemberRole(env: Env, userId: string, roles: string[] | undefined, source: string): Promise<RestoreResult> {
   const role = env.ROLE_GUILD_MEMBER;
@@ -43,6 +43,7 @@ export async function restoreMemberRole(env: Env, userId: string, roles: string[
     if (outcome === "misconfigured" || outcome === "unverified") return "failed";
     if (outcome === "banned") return "banned";
     if (outcome === "blocked") return "blocked";
+    if (outcome === "held") return "held"; // .114: a rename Blizzard required; /verify-status explains it (rename-review.ts)
     if (outcome === "not-in-server") return "unknown";
     if (outcome !== "granted") return "has-role";
   } catch (e) {
@@ -334,6 +335,9 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
   if (banned.revoked.length) {
     await logLine(env, `🚫 role sweep: Guild Member removed from ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);
+  }
+  if (banned.held.length) {
+    await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114
   }
   await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted });
   return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished };

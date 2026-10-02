@@ -664,6 +664,7 @@ export async function promote(env: Env, discordId: string, nameKey: string, name
       granted = outcome === "granted" || outcome === "has-role";
       blocked = outcome === "blocked";
       if (blocked) await logLine(env, `⛔ roster: **${name}** (<@${discordId}>) is on the roster, but a server restriction is on the account; Guild Member withheld until it is lifted.`);
+      else if (outcome === "held") await logLine(env, `⏸️ roster: **${name}** (<@${discordId}>) is on the roster, but the account must apply again after a rename Blizzard required; Guild Member withheld until an administrator approves it.`); // .114
       else if (outcome === "misconfigured") await logLine(env, `⚠️ roster: ROLE_GUILD_MEMBER is not a role of this server; no Guild Member granted for **${name}**.`);
       else if (outcome === "unverified" || outcome === "budget") await audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome }); // the sweep grants it once Discord answers, or on its next run (.90: the run's budget)
       else if (outcome === "banned") await audit(env, "system", "role.refused_banned", name, { discordId });

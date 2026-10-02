@@ -39,7 +39,7 @@ export function guideMessage(env: Env) {
         title: role ? "Join Olympus or restore your guild access" : "Join Olympus",
         color: GOLD,
         description: [
-          "For a character in, or applying to, the main Olympus guild. Battle.net linking and the website are optional for this verification flow.",
+          "For a character in, or applying to, the main Olympus guild. The website is optional for this verification flow.", // .114: no Battle.net promise while its sign-in is switched off (bnet-switch.ts)
           "",
           "**1. Get a code** — press **Get my code**. The bot shows the line to use in game. If the current officer relay needs a character name first, enter it exactly as it appears in game.",
           `**2. Send it from your character** — log in as the character you want linked, paste the shown line into the in-game chat box and press Enter. It whispers the code to an available officer (${officers}); the character that sends it is the one linked. Follow the bot's current instructions if no officer is online; mailing the code to an officer works too.`,

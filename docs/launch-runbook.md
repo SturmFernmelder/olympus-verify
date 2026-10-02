@@ -349,6 +349,15 @@ earlier, including the pre-cutover profile. Do not select `1e009521` either, bec
 rollback in the dashboard the live service is behind `main` and the keeper until a reviewed forward change is
 deployed. Records already written keep their own retention (`retain_until`), whatever the flags.
 
+**.114 changes the rollback rule (2 Oct 2026).** Every version before .114 is build .113, which has no Battle.net
+switch: with the two Blizzard secrets present, rolling back to `fdf41b8f`, `9827ab10` or any other .113 version switches
+the old always-on Battle.net login back on (anyone with the direct link could link again). Once .114 is live, its own
+version is the rollback floor for ordinary incidents; a rollback below it is also a decision to reopen the login, and the
+privacy policy served by .113 still describes that login. It also drops the rename holds: .113 does not know the
+`rename_holds` table, so it grants Guild Member to an account an administrator asked to apply again, and it does not clean
+closed holds; the rows stay and are honoured again once .114 or later is back. The exact .114 version ids are recorded
+here once deployed.
+
 **What is not yet accepted.** The live configuration is delivered and signed, but the following are still open, and the
 launch counts as accepted only once each is observed or explicitly named as a residual in both agents' final signatures:
 - an ordinary Discord account's view of the five channels and the guide's Get my code / My status;
@@ -357,3 +366,31 @@ launch counts as accepted only once each is observed or explicitly named as a re
 - an ordinary member's own pages on the site;
 - the first scheduled officer digest after 15:00 (counts only, in the private review channel);
 - both agents' signatures on the whole tool at one final commit.
+
+## 8. The end of the beta (from 22 October 2026; Viktor's item 8, build .114)
+
+Blizzard gives 21 October 2026 as the beta's last full day and no hour, and the launch as 4 November 2026. Viktor's scope,
+confirmed through Codex (log 17:42 and 17:57 UTC, 2 Oct): Olympus guild ranks and guild leadership assignments are chosen
+again from scratch for the full release; Asmongold's general roles, applications, votes and private records are not
+touched. Nothing runs on a timer; every step below is a person's.
+
+1. **Wait until the beta has actually closed.** Do not guess an hour.
+2. **Record the closing moment** on the site: Admin → Settings → End of the beta → "The beta closed at" → Record. It must
+   be in the past; the reset stays locked until it is recorded.
+3. **Reset**: same block → Reset guild leadership → type RESET. The appointed roles become an explicit empty list (the
+   default Treasurer appointment does not come back) and the Olympus I-X leadership directory empties. Optionally set a
+   notice such as "Guild roles are open again for the full release". Applications, votes, memberships, links, bans and the
+   dated log are kept. Suggested window: 22 to 26 October, so that applications and votes for the full release can finish
+   before 4 November.
+4. **In game**: the Guild Master (Viktor, or an approved GM) sets the ranks by hand from the new decisions. The website
+   cannot change game ranks; the rank planner only drafts.
+5. **In Discord** (a person with Manage Roles; the bot cannot, its role sits below these): remove Olympus Officer, Olympus
+   Guild Leader, Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. Keep
+   Viktor and at least one Olympus Guild Leader, or nobody can use /olympus-admin, /olympus-intros and the officer lookups.
+6. **Assign the new leaders**: Discord roles by hand, each named person reviewed first (the Council roles only after that
+   review), the site's appointed roles in Admin → Settings, the I-X directory in the same place.
+7. **Announce once**: a site notice and, if wanted, one staff post in #guild-announcements; no per-member mentions.
+
+Launch-day items that are not part of the reset and still need a reviewed path before 4 November: `LINKS_NOT_BEFORE` (it
+is not an activation key, so `scripts/cutover-config.sh` refuses it today) and a cutoff for invite-queue rows made during
+the beta (an invite to a beta name would reach whoever holds that name on live).

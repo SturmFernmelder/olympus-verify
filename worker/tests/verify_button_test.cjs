@@ -121,7 +121,7 @@ const check = (name, cond) => { n++; if (cond) ok++; console.log((cond ? "PASS "
   check("  with nicknames on, the nickname is described as staff-enabled", /When enabled by guild staff, your Discord nickname updates/.test(guideText({ ...env, SET_NICKNAME: "true" })));
   check("  with no role, no role sentence and the plain title", !/Guild Member/.test(guideText({ ...env, ROLE_GUILD_MEMBER: "" })) && /"title":"Join Olympus"/.test(guideText({ ...env, ROLE_GUILD_MEMBER: "" })));
   check("  under review mode an officer reviews before the invite queues; under auto it queues", /officer reviews the confirmed request before your invite enters the queue/.test(guideText({ ...env, ADMISSION_MODE: "review" })) && /your invite enters the queue; an officer sends it/.test(off));
-  check("  Battle.net and the website are called optional, codes private, no DM, and no #help-desk anywhere", /Battle\.net linking and the website are optional/.test(off) && /never sends you a DM/.test(off) && !/help-desk/.test(off) && !/olympus-2-x/.test(off));
+  check("  the website is called optional, Battle.net is not promised (.114: its sign-in is switched off), codes private, no DM, and no #help-desk anywhere", /The website is optional for this verification flow/.test(off) && !/Battle\.net/.test(off) && /never sends you a DM/.test(off) && !/help-desk/.test(off) && !/olympus-2-x/.test(off));
   check("  the overflow guilds are sent to the configured visitors channel", /<#555000000000000009>/.test(guideText({ ...env, CHANNEL_VISITOR_CHAT: "555000000000000009" })) && /the visitors channel/.test(off));
 
   console.log(`\n${ok}/${n} passed`);

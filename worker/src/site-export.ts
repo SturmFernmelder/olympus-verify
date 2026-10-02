@@ -74,13 +74,15 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser): 
     // .74: the member's own queue state, never the officer, the claim or the note; the actions naming them as subject OR actor, paged
     env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
     env.DB.prepare("SELECT ts, id, action FROM audit WHERE (subject = ?1 OR actor = ?1) AND (?3 = 0 OR ts > ?4 OR (ts = ?4 AND id > ?5)) ORDER BY ts, id LIMIT ?2").bind(id, ACTIONS_LIMIT + 1, cursor ? 1 : 0, cursor ? Number(cursor[1]) : 0, cursor ? Number(cursor[2]) : 0),
+    // .114: the account's rename records (rename-review.ts), without the administrators' identities
+    env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
   ]);
   if (out === FENCE_REFUSED) {
     const fresh = await communityContext(env, request);
     return fresh.subject ? apiJson({ error: "conflict", message: "Your session changed while the copy was being made. Try again." }, 409) : apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
   }
-  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, actions] = out;
+  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, actions, renames] = out;
   type Rec = Record<string, unknown>;
   const a = (account!.results[0] ?? null) as Rec | null;
   const m = (member!.results[0] ?? null) as Rec | null;
@@ -106,10 +108,11 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser): 
       discordNames: m ? { username: m.username, displayName: m.global_name, readAt: iso(m.names_at as number | null) } : null,
       characters: (characters!.results as Rec[]).map((c) => ({ name: c.name, status: c.status, boundAt: iso(c.bound_at as number), verifiedAt: iso(c.verified_at as number | null), memberSince: iso(c.member_since as number | null), leftAt: iso(c.left_at as number | null), source: c.source })),
       codeRequests: (requests!.results as Rec[]).map((p) => ({ character: p.name, createdAt: iso(p.created_at as number), expiresAt: iso(p.expires_at as number), usedAt: iso(p.consumed_at as number | null), usedThrough: p.consumed_source })),
+      renameRecords: (renames!.results as Rec[]).map((r) => ({ from: r.old_name, to: r.new_name, state: r.state, decidedAt: iso(r.decided_at as number), closedAt: iso(r.closed_at as number | null) })), // .114
       inviteQueue: (queue!.results as Rec[]).map((q) => ({ character: q.name, status: q.status, attempts: q.attempts, createdAt: iso(q.created_at as number), writtenAt: iso(q.written_at as number | null), invitedAt: iso(q.invited_at as number | null), joinedAt: iso(q.joined_at as number | null), retryAfter: iso(q.retry_after as number | null), lastRefusal: q.last_reason ? { reason: q.last_reason, at: iso(q.last_reason_at as number | null) } : null })),
     },
     actions: { entries: actionPage.map((r) => ({ at: secondsToIso(r.ts), action: r.action })), truncated: actionRows.length > ACTIONS_LIMIT, nextCursor: actionRows.length > ACTIONS_LIMIT && lastAction ? `${lastAction.ts}.${lastAction.id}` : null },
-    community: plan.shape(out.slice(12)), // .74: read in the same transaction as everything above
+    community: plan.shape(out.slice(13)), // .74: read in the same transaction as everything above (.114: after the rename records)
   };
   await audit(env, id, "site.copy_exported", id);
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });
