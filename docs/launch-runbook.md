@@ -4,7 +4,8 @@ The owner's steps, in order, from the jointly signed head to the public launch, 
 is the keeper's (Olympus Verify's) side; the donor's private phase (Olympus Forever on `olympusforever.roachcouncil.com`)
 follows Codex's private-phase contract and is referred to here only where it gates a keeper step. Written 1 October 2026
 on head .101 and revised on head .108 for Codex's 12:06 UTC review (R1-R4); every later build adds its section to
-`deploy-checklist.md`, not here, unless a step changes.
+`deploy-checklist.md`, not here, unless a step changes. The steps below were carried out on 1 and 2 October 2026;
+section 7 records what was done and what is live, and the procedural text is kept as it was written.
 
 Nothing below is an agent's step. The agents prepare exact commits and sign them in the task log
 (`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); Viktor runs the commands, or Codex where Viktor has authorized
@@ -311,3 +312,48 @@ to one of the four fixed files needs another reviewed successor before publicati
 - The daily digest, the sweeps and the retention purges run from the cron.
 - Every later change is a build: `BUILD` bumped, a "Worker .NN" section in `deploy-checklist.md`, both signatures, then
   its shipping commit on the public `main` (section 0), green CI on it, both signatures on it, and `deploy-commit.sh`.
+
+## 7. Launch record (1 and 2 October 2026)
+
+What was done, in order, and what is live. Every step below has both agents' signatures in the task log and a frozen
+receipt under `Olympus/consolidation-2026-09-30/evidence/root/` (named in brackets); a step is described here only to
+the extent those receipts show it. Times are UTC. The live code stayed build .113 throughout (one bundle, `index.js`
+`1c417f22…`); only the configuration changed between deploys.
+
+| When | What | Keeper commit / public `main` | Cloudflare version |
+|---|---|---|---|
+| 1 Oct 19:31 | Step 1: the keeper chain deployed to the current server | `eab8e48` / `90dbc94e` | `9357088f` |
+| 1 Oct 21:40 | Step 3: the cutover (`--apply` 20:36:18): Asmongold's server, `olympus.roachcouncil.com`, `guild.roachcouncil.com` answering 301 | `5bd1eef` / `84832fbc` | `319a1cd0` |
+| 1 Oct 23:22 | The owner rotated the Discord bot token and replaced the Worker secret in the dashboard (no code or profile change) | (none) | `1e009521` |
+| 2 Oct 02:42 | E2: `VERIFY_OPEN_SINCE` moved forward to 2026-10-09 (`--activate`, forward only) [`protective-date5ebf-postupload`] | `a76b3ee6` / `5ebf756c` | `9827ab10` |
+| 2 Oct 04:10 | E3, the first activation: the nine community features, the dues ledger (90 days), privacy-case retention 30 days, the officer digest; the private intake closed [`first-features-fc21-operating`] | `bc2ec08f` / `fc21f343` | `fdf41b8f` |
+| 2 Oct 05:01 | E4, the second activation: `PRIVACY_INTAKE_ENABLED` and `PRIVACY_INTAKE_MONITORED` true [`intake-e4-operating`] | `9e2628f9` / `364c5620` | `a18a10aa` |
+
+Live since 05:01:58 on 2 October: public `main` `364c5620` (profile `d3c318d0`) as version `a18a10aa` at 100%. The
+`main` commits between are tooling or reviewed carries only (`caafdcb0`: the undici override, never deployed on its own).
+
+**In Asmongold's server** (ROOT operated, both agents reviewed):
+- **Commands.** Six registered by operation `20261002b`, which kept the three existing command IDs and their staff overrides (`/olympus-intros`, `/olympus-lookup`, "Olympus linked characters": Olympus Guild Leader and Olympus Officer only) and added `/verify`, `/verify-status` and `/olympus-admin` [`command-registration113-20261002b-*`]. An earlier attempt `20261002a` stopped at its first read (403, no write).
+- **`/olympus-admin`.** Its default stays Manage Roles, and the two staff roles were given role overrides by the owner's decision [`admin-command-staff-applied`].
+- **The guide.** Posted once and pinned in #join-olympus [`discord113-guide-applied`]; the channel topic was saved and read back [`discord113-join-topic-readback`].
+- **The intros.** The twelve channel intros refreshed in place (three updated, nine current) [`discord113-intros-applied`].
+- **Channel visibility.** The owner approved five `@everyone` View changes from Deny to Passthrough: #olympus-info, #join-olympus, #olympus-notices and the two visitor channels [`discord113-public-five-inherit-applied`]. They inherit the server-level View, which roles such as Verified have and `@everyone` does not; Olympus Guild Members stay denied in the visitor channels.
+
+**On the site:** the staff pages were read in the site administrator's session [`staff-purpose-live-readonly-v1`]. The
+private inbox was viewed empty and paused before E4 and accepts new cases since; no case was created for a test.
+
+**Rollback.** Never select a version that carries the old, invalidated bot token: `319a1cd0`, `9357088f` or anything
+earlier, including the pre-cutover profile. Do not select `1e009521` either, because it moves the opening date back to
+2 October. If a rollback is ever needed, it is to an earlier version of the rotated-token chain that keeps the date:
+`fdf41b8f` (E3, intake closed) or `9827ab10` (E2, community off), all build .113 with every retention purge. After a
+rollback in the dashboard the live service is behind `main` and the keeper until a reviewed forward change is
+deployed. Records already written keep their own retention (`retain_until`), whatever the flags.
+
+**What is not yet accepted.** The live configuration is delivered and signed, but the following are still open, and the
+launch counts as accepted only once each is observed or explicitly named as a residual in both agents' final signatures:
+- an ordinary Discord account's view of the five channels and the guide's Get my code / My status;
+- the officer's current game client and a full roster export from it (realm, guild, rank);
+- the watcher run against that roster with its state preserved;
+- an ordinary member's own pages on the site;
+- the first scheduled officer digest after 15:00 (counts only, in the private review channel);
+- both agents' signatures on the whole tool at one final commit.
