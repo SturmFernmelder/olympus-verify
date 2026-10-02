@@ -8,3 +8,6 @@ activated_at = "2026-10-01T23:58:01Z"
 # Activation (scripts/cutover-config.sh --activate): only the activation keys changed (COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS OFFICER_DIGEST_ENABLED PRIVACY_INTAKE_RETENTION_DAYS); this is the profile now in force.
 activation_profile_sha256 = "56d580bec2e5b44825de41ca6fbf22f7b00c0e4e515da5e3bec3a2957903702e"
 activated_at = "2026-10-02T02:57:53Z"
+# Activation (scripts/cutover-config.sh --activate): only the activation keys changed (PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED); this is the profile now in force.
+activation_profile_sha256 = "d3c318d063ad11bd983d96663997077a4040cdbdf824197466277a60c237ce10"
+activated_at = "2026-10-02T04:20:15Z"

@@ -113,8 +113,8 @@ COMMUNITY_ORGANIZERS = ""               # .59: Discord ids who may create, edit 
 CONTRIBUTIONS_MODE = "ledger"           # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
 CONTRIBUTIONS_RETENTION_DAYS = "90"     # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
 CONTRIBUTIONS_SCOPE = "olympus"         # .75: the guild scope ledger records carry
-PRIVACY_INTAKE_ENABLED = "false"        # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
-PRIVACY_INTAKE_MONITORED = "false"      # .82: set "true" only once an administrator actually reads the queue; new cases are refused otherwise
+PRIVACY_INTAKE_ENABLED = "true"         # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
+PRIVACY_INTAKE_MONITORED = "true"       # .82: set "true" only once an administrator actually reads the queue; new cases are refused otherwise
 PRIVACY_INTAKE_RETENTION_DAYS = "30"    # .82: days a case is kept from its last activity (1..3650), fixed per case at creation; "" = no new cases
 OFFICER_DIGEST_ENABLED = "true"         # .85: "true" posts the daily officer digest (counts only) to CHANNEL_MOD_ALERTS (else the review channel) after 15:00 UTC
 SITE_JOIN_URL = ""                     # an invite link to Asmongold's server, shown to people who are not in it ("" = none)
