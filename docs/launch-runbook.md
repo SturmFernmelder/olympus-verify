@@ -153,7 +153,8 @@ and Flagellant), `SITE_HOST = "olympus.roachcouncil.com"` and `SITE_LEGACY_HOSTS
 old host gets a 301 to the new one; sign-in and OAuth paths restart at the new root with a 302, never a forward), and
 `VERIFY_OPEN_SINCE = "2026-10-02"` (gate 6: the day after the planned 1 October opening of verification in Asmongold's
 server, so nobody there is offered for removal before `UNVERIFIED_GRACE_DAYS` after it; if the opening slips past
-2 October, the date is re-reviewed forward before the deploy).
+2 October, the date is re-reviewed forward before the deploy; after the cutover that move is an activation, step 4, and
+the date only ever moves forward).
 
 Before the deploy the custom domain `olympus.roachcouncil.com` must be free (step 2) and added to the keeper Worker by the
 owner in the Cloudflare dashboard, or wrangler adds it from the routes on deploy; `guild.roachcouncil.com` stays bound.
@@ -175,9 +176,9 @@ the keeper keeps, which marker state the repository returns to, and the rollback
 pre-cutover commit (`bash scripts/deploy-commit.sh <pre-cutover-sha>`, whose `wrangler.toml` names the Olympus server and
 `guild.roachcouncil.com`) detaches `olympus.roachcouncil.com` from the keeper, and the host is then left unowned: it is
 never handed back to the donor. A later claim of the host repeats step 2's fresh readback. The marker commit stays in
-history and the marker is never removed. After the cutover only the seven activation keys change, through
-`cutover-config.sh --activate` (step 4), which appends a record and leaves the cutover's own `profile_sha256` and
-`applied_at` as they are; any other edit of either file fails `--check`.
+history and the marker is never removed. After the cutover only the eight activation keys change (the seven community
+keys and, forward only, `VERIFY_OPEN_SINCE`), through `cutover-config.sh --activate` (step 4), which appends a record and
+leaves the cutover's own `profile_sha256` and `applied_at` as they are; any other edit of either file fails `--check`.
 
 ## 4. Switching the community features on
 
@@ -186,9 +187,12 @@ Each switch is a reviewed configuration change committed and deployed like any b
 
 **How a switch is made after the cutover.** The keeper edits `worker/wrangler.cutover.toml`, changing only the activation
 keys (`COMMUNITY_FEATURES`, `CONTRIBUTIONS_MODE`, `CONTRIBUTIONS_RETENTION_DAYS`, `PRIVACY_INTAKE_ENABLED`,
-`PRIVACY_INTAKE_MONITORED`, `PRIVACY_INTAKE_RETENTION_DAYS`, `OFFICER_DIGEST_ENABLED`), commits nothing yet, and runs
-`bash scripts/cutover-config.sh --activate`. It refuses unless the marker exists, the live file is the profile the marker
-records last and is committed clean, and the profile differs from it in those keys and nothing else. It then copies the
+`PRIVACY_INTAKE_MONITORED`, `PRIVACY_INTAKE_RETENTION_DAYS`, `OFFICER_DIGEST_ENABLED`, and gate 6's `VERIFY_OPEN_SINCE`),
+commits nothing yet, and runs `bash scripts/cutover-config.sh --activate`. It refuses unless the marker exists, the live
+file is the profile the marker records last and is committed clean, and the profile differs from it in those keys and
+nothing else; a changed `VERIFY_OPEN_SINCE` must stay one `KEY = "YYYY-MM-DD"` line naming a real calendar day strictly
+later than the live one (an earlier, equal, empty, removed or malformed date is refused, so a member's grace before a
+removal may be offered is never shortened; an activation that leaves the date alone is not affected). It then copies the
 profile over the live file and appends one record (`activation_profile_sha256`, `activated_at`) to the marker. Both agents
 sign that keeper commit; its three changed files reach the public `main` as the same blobs by pull request (section 0);
 `--check` passes there; CI, both signatures on the resulting `main` commit, and `deploy-commit.sh` follow. Switching a
@@ -206,6 +210,14 @@ and `CONTRIBUTIONS_SCOPE` unchanged.
    `"false"`, so the staff inbox shows and no new case is accepted.
 2. **Second activation, once Viktor has actually read the staff queue** (he reviews it each working day; cases are kept
    30 days from their last activity): `PRIVACY_INTAKE_ENABLED = "true"`, `PRIVACY_INTAKE_MONITORED = "true"`.
+
+**The opening date** (Codex, 1 October 2026, 23:14 UTC). The command registration and the guide in Asmongold's server were
+not yet available late on 1 October, so the reviewed date moves forward to `VERIFY_OPEN_SINCE = "2026-10-09"`;
+`UNVERIFIED_GRACE_DAYS` stays 3, so nobody first seen before 9 October is offered for removal before 12 October 00:00 UTC.
+Counted from the cutover's 2 October, offers could start on 5 October 00:00 UTC; if the opening has not happened by then,
+the move is deployed before that time as its own date-only activation (the community keys unchanged), otherwise it may
+travel with the first activation. If the opening slips past 9 October too, the date moves forward again the same way.
+Moving it forward only lengthens the grace; the offers stay officer suggestions and nothing becomes automatic.
 
 Suggested order and prerequisites, flag by flag:
 

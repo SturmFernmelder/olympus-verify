@@ -5,7 +5,10 @@
 # route difference shown and no marker). The lifecycle (a partial application, identical files without the marker, the
 # real --apply, --check before and after its commit, a second apply refused, the profile or the live file edited after
 # the apply, a marker without a hash) runs in a synthetic owned repository whose pre-cutover pair this test BUILDS from
-# the expected keys, so it never depends on which state the repository is in. .77/.81/.84, 1 Oct 2026.
+# the expected keys, so it never depends on which state the repository is in. .77/.81/.84, 1 Oct 2026. After the
+# cutover the same repository checks --activate, the marker grammar and the forward-only VERIFY_OPEN_SINCE (every
+# earlier, equal, empty, removed, doubled, malformed or impossible date refused without a write; existing leap days, a
+# date-only move and a move beside a community key accepted; an activation leaving the date alone unaffected).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 fail() { echo "FAIL $1" >&2; exit 1; }
@@ -41,7 +44,10 @@ build() { # $1 = old|new
     echo 'main = "src/index.ts"'
     if [ "$1" = old ]; then echo 'routes = [{ pattern = "guild.example", custom_domain = true }]'; else echo 'routes = [{ pattern = "olympus.example", custom_domain = true }, { pattern = "guild.example", custom_domain = true }]  # both hosts'; fi
     echo '[vars]'
-    for k in $expected; do echo "$k = \"$1-$k\"  # comment"; done
+    for k in $expected; do
+      v="$1-$k"; [ "$k" != VERIFY_OPEN_SINCE ] || { v="2026-09-25"; [ "$1" = old ] || v="2026-10-02"; } # a real date: it only moves forward later
+      echo "$k = \"$v\"  # comment"
+    done
     echo 'UNRELATED = "same"'
     echo 'ROSTER_MIN_MEMBERS = "800"'
     echo 'COMMUNITY_FEATURES = ""'
@@ -141,4 +147,82 @@ printf '# a comment\n%s\n# another\n%s\nactivation_profile_sha256 = "%s"\n# betw
 run --check >/dev/null || fail "the marker grammar should accept comment lines anywhere in a valid chain"
 ( cd "$tmp" && git checkout -q -- worker/wrangler.cutover.applied )
 synthetic_contract "activated twice, restored"
-echo "PASS cutover-config.sh contract (the committed state, the lifecycle, --activate and the marker grammar in a synthetic pair)"
+# ---- VERIFY_OPEN_SINCE after the cutover: the eighth activation key, which only moves forward to one real calendar day
+# written YYYY-MM-DD. Every refusal must write nothing: the live file, the marker and the edited profile keep their bytes
+# and the first two stay committed. (Codex's 23:14 UTC request, 1 Oct 2026.)
+L="$tmp/worker/wrangler.toml"; P="$tmp/worker/wrangler.cutover.toml"
+records() { grep -c '^activation_profile_sha256 = ' "$M"; }
+commit() { ( cd "$tmp" && git -c user.name=t -c user.email=t@example.invalid add -A && git -c user.name=t -c user.email=t@example.invalid commit -qm "$1" ); }
+restore() { ( cd "$tmp" && git checkout -q -- worker/wrangler.toml worker/wrangler.cutover.toml worker/wrangler.cutover.applied ); }
+date_line() { ( cd "$tmp" && sed -i "s|^VERIFY_OPEN_SINCE = .*|$1|" worker/wrangler.cutover.toml ); } # $1 = the whole new line
+live_date() { sed -n 's/^VERIFY_OPEN_SINCE = "\([^"]*\)".*/\1/p' "$L"; }
+refuses() { # $1 = what, $2 = the refusal text expected on stderr; the profile is already edited
+  local before after out
+  before="$(sha256sum "$L" "$M" "$P" | cut -c1-64 | tr '\n' ' ')"
+  if out="$(run --activate 2>&1 >/dev/null)"; then fail "--activate should refuse $1"; fi
+  after="$(sha256sum "$L" "$M" "$P" | cut -c1-64 | tr '\n' ' ')"
+  [ "$before" = "$after" ] || fail "a refused --activate must write nothing ($1)"
+  [ -z "$(cd "$tmp" && git status --porcelain -- worker/wrangler.toml worker/wrangler.cutover.applied)" ] || fail "a refused --activate must leave the live file and the marker as committed ($1)"
+  case "$out" in *"$2"*) ;; *) fail "--activate should refuse $1 with \"$2\" (got: $out)" ;; esac
+  restore
+}
+[ "$(live_date)" = 2026-10-02 ] || fail "the synthetic applied state should open on 2026-10-02"
+n0="$(records)"
+NOT_LATER="only moves forward after the cutover"; NOT_DAY="is not a real calendar day written YYYY-MM-DD"; NOT_ONE="must stay exactly one KEY"
+date_line 'VERIFY_OPEN_SINCE = "2026-10-01"  # comment'; refuses "an earlier date" "$NOT_LATER (2026-10-02 -> 2026-10-01"
+date_line 'VERIFY_OPEN_SINCE = "2025-12-31"  # comment'; refuses "a date in an earlier year" "$NOT_LATER"
+date_line 'VERIFY_OPEN_SINCE="2026-10-02"  # the same day written differently'; refuses "the same date written differently" "$NOT_LATER (2026-10-02 -> 2026-10-02"
+date_line 'VERIFY_OPEN_SINCE = ""  # comment'; refuses "an empty date" "VERIFY_OPEN_SINCE = \"\" in worker/wrangler.cutover.toml $NOT_DAY"
+( cd "$tmp" && sed -i '/^VERIFY_OPEN_SINCE = /d' worker/wrangler.cutover.toml ); refuses "a removed date" "$NOT_ONE"
+date_line 'VERIFY_OPEN_SINCE = "2026-10-09"  # comment'; echo 'VERIFY_OPEN_SINCE = "2026-10-16"' >> "$P"; refuses "a doubled date" "$NOT_ONE"
+date_line "VERIFY_OPEN_SINCE = '2026-10-09'  # comment"; refuses "a single-quoted date" "$NOT_ONE"
+date_line 'VERIFY_OPEN_SINCE = 2026-10-09  # comment'; refuses "an unquoted date" "$NOT_ONE"
+for v in 2026-10-9 2026/10/09 20261009 1791331200 2026-10-09T00:00:00Z " 2026-10-09" "2026-10-09 " +2026-10-09; do
+  date_line "VERIFY_OPEN_SINCE = \"$v\"  # comment"; refuses "the malformed date \"$v\"" "$NOT_DAY"
+done
+for v in 2027-02-29 2100-02-29 2026-11-31 2026-04-31 2026-13-01 2026-00-10 2026-12-00 2026-12-32; do
+  date_line "VERIFY_OPEN_SINCE = \"$v\"  # comment"; refuses "the impossible calendar day $v" "$NOT_DAY"
+done
+date_line 'VERIFY_OPEN_SINCE = "2026-10-09"  # comment'; ( cd "$tmp" && sed -i 's/^ROSTER_MIN_MEMBERS = "800"/ROSTER_MIN_MEMBERS = "1"/' worker/wrangler.cutover.toml )
+refuses "a valid later date beside a key outside the activation set" "refusing: ROSTER_MIN_MEMBERS is not an activation key"
+date_line 'VERIFY_OPEN_SINCE = "2026-10-09"  # comment'; ( cd "$tmp" && sed -i 's/^GUILD_ID = "new-GUILD_ID"/GUILD_ID = "other"/' worker/wrangler.cutover.toml )
+refuses "a valid later date beside a changed cutover key" "refusing: GUILD_ID is not an activation key"
+[ "$(records)" = "$n0" ] || fail "no refusal may add a record"
+# leap days that exist are accepted (then put back, so the dates below stay in 2026)
+for v in 2028-02-29 2400-02-29; do
+  date_line "VERIFY_OPEN_SINCE = \"$v\"  # comment"; run --activate >/dev/null || fail "--activate should accept the leap day $v"
+  [ "$(live_date)" = "$v" ] || fail "the leap day $v should be in force"; restore
+done
+# a date-only move forward is a complete activation: one record, the cutover's own record untouched, --check passes
+date_line 'VERIFY_OPEN_SINCE = "2026-10-09"  # moved forward'
+run --activate >/dev/null || fail "--activate should accept a date-only move forward"
+[ "$(live_date)" = 2026-10-09 ] && cmp -s "$L" "$P" || fail "the later date should be in force in the live file"
+[ "$(records)" = $((n0 + 1)) ] || fail "a date-only move forward should append one record"
+[ "$(grep -E '^(profile_sha256|applied_at) = ' "$M")" = "$cutover_record" ] || fail "a date move must not rewrite the cutover's own record"
+tail -n 3 "$M" | grep -q '^# Activation .*(VERIFY_OPEN_SINCE)' || fail "the record's comment should name the date as the one changed key"
+run --check >/dev/null || fail "--check should pass after a date-only move forward"
+commit date1
+date_line 'VERIFY_OPEN_SINCE = "2026-10-02"  # comment'; refuses "a move back to the earlier date" "$NOT_LATER (2026-10-09 -> 2026-10-02"
+# an activation that leaves the date alone is unaffected; the date and a community key may also move together
+( cd "$tmp" && sed -i 's/^COMMUNITY_FEATURES = "directory,events"/COMMUNITY_FEATURES = "directory,events,trials"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "an activation that leaves the date alone should be accepted"
+[ "$(live_date)" = 2026-10-09 ] || fail "the date should stay as it was"; commit features3
+date_line 'VERIFY_OPEN_SINCE = "2026-10-16"  # comment'; ( cd "$tmp" && sed -i 's/^OFFICER_DIGEST_ENABLED = "true"/OFFICER_DIGEST_ENABLED = "false"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "a later date together with a community key should be accepted"
+[ "$(live_date)" = 2026-10-16 ] && [ "$(records)" = $((n0 + 3)) ] || fail "the later date and one more record should be in force"
+run --check >/dev/null || fail "--check should pass after the combined activation"
+commit date2
+synthetic_contract "after the date moves"
+# a live date that is not a calendar day (written by hand before this rule, e.g. unix seconds): moving it is refused,
+# while an activation that leaves it alone still works
+good="$(cd "$tmp" && git rev-parse HEAD)"
+( cd "$tmp" && sed -i 's/^VERIFY_OPEN_SINCE = .*/VERIFY_OPEN_SINCE = "1791331200"/' worker/wrangler.toml worker/wrangler.cutover.toml )
+printf 'activation_profile_sha256 = "%s"\nactivated_at = "%s"\n' "$(sha256sum "$P" | cut -c1-64)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$M"
+run --check >/dev/null || fail "a hand-built state with a unix-seconds date should still be a valid applied state"
+commit unixdate
+date_line 'VERIFY_OPEN_SINCE = "2026-10-23"  # comment'; refuses "a move from a date that is not a calendar day" "is not one YYYY-MM-DD calendar day"
+( cd "$tmp" && sed -i 's/^CONTRIBUTIONS_MODE = "ledger"/CONTRIBUTIONS_MODE = "off"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "an activation that leaves a non-calendar date alone should be accepted"
+( cd "$tmp" && git reset -q --hard "$good" )
+synthetic_contract "restored after the date checks"
+echo "PASS cutover-config.sh contract (the committed state, the lifecycle, --activate, the forward-only VERIFY_OPEN_SINCE and the marker grammar in a synthetic pair)"
