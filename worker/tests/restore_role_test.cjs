@@ -10,7 +10,7 @@ const stubs = {
   "./db": { audit: async (_env, _actor, action, subject, detail) => { AUDIT.push({ action, subject, detail }); }, now: () => 1790500000 },
   "./discord": {
     addRole: async (_env, userId, roleId, reason) => { if (FAIL_ADD) throw FAIL_ADD; ADDS.push({ userId, roleId, reason }); },
-    removeRole: async () => {},
+    removeRole: async (_env, userId, roleId) => { REMOVES.push({ userId, roleId }); },
     guildMember: async () => ({ roles: [] }),
     rest: async (_env, method, p) => { if (method === "GET" && /\/roles$/.test(p)) return [{ id: "1549581282227265566" }, { id: BLOCK }]; throw new Error("no REST in tests"); },
     logLine: async (_env, text) => { LOGS.push(text); },
@@ -26,10 +26,14 @@ const mod = { exports: {} };
 new Function("module", "exports", "require", js)(mod, mod.exports, (p) => stubs[p]);
 const { restoreMemberRole, restoreNote } = mod.exports;
 
-const DB = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => ROWS[id] ?? { n: 0, banned: null } }) }; } };
+// .114: the reapply hold (rename_holds) is answered from HELD; every other read from ROWS, as before
+let HELD = new Set();
+const held = (sql, id) => (/FROM rename_holds/.test(sql) ? (HELD.has(id) ? { held: 1 } : null) : undefined);
+const DB = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); return hh !== undefined ? hh : ROWS[id] ?? { n: 0, banned: null }; } }) }; } };
 const GM = "1549581282227265566", OTHER = "1549581447768186960";
 const env = (over = {}) => ({ DB, ROLE_GUILD_MEMBER: GM, GUILD_ID: "236932545793490944", BLOCKING_ROLE_IDS: BLOCK, ...over });
-const reset = () => { AUDIT = []; LOGS = []; ADDS = []; SQL = []; FAIL_ADD = null; ROWS = {}; };
+let REMOVES = [];
+const reset = () => { AUDIT = []; LOGS = []; ADDS = []; SQL = []; FAIL_ADD = null; ROWS = {}; HELD = new Set(); REMOVES = []; };
 let ok = 0, n = 0;
 const check = (name, cond) => { n++; if (cond) ok++; console.log((cond ? "PASS " : "FAIL ") + name); };
 const A = "111111111111111111", B = "222222222222222222";
@@ -101,8 +105,36 @@ const A = "111111111111111111", B = "222222222222222222";
   reset(); ROWS[A] = { n: 1, banned: 0 };
   let bannedAfterRead = false;
   stubs["./discord"].guildMember = async () => { bannedAfterRead = true; return { roles: [] }; };
-  const dbBanAware = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => (/^SELECT banned FROM members WHERE discord_id = \?1$/.test(sql) ? { banned: bannedAfterRead ? 1 : 0 } : (ROWS[id] ?? { n: 0, banned: null })) }) }; } };
+  const dbBanAware = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); if (hh !== undefined) return hh; return /^SELECT banned FROM members WHERE discord_id = \?1$/.test(sql) ? { banned: bannedAfterRead ? 1 : 0 } : (ROWS[id] ?? { n: 0, banned: null }); } }) }; } };
   check("a ban written while the member read was in flight is seen by the ban read that follows it: banned, nothing granted (.60)", (await restoreMemberRole(env({ DB: dbBanAware }), A, [OTHER], "status")) === "banned" && ADDS.length === 0);
+  stubs["./discord"].guildMember = async () => ({ roles: [] });
+
+  console.log("\n== the reapply hold: a rename Blizzard required (.114) ==");
+  reset(); ROWS[A] = { n: 1, banned: 0 }; HELD.add(A);
+  const rh = await restoreMemberRole(env(), A, [OTHER], "status");
+  check("an account under a reapply hold gets nothing back (held)", rh === "held" && ADDS.length === 0);
+  check("  audited as role.held_reapply", AUDIT.some((a) => a.action === "role.held_reapply" && a.subject === A));
+  check("  and the restore note stays silent (the /verify-status line explains the hold)", restoreNote(rh) === "");
+  reset(); ROWS[A] = { n: 1, banned: 1 }; HELD.add(A);
+  check("  banned still wins over held (checked first)", (await restoreMemberRole(env(), A, [OTHER], "status")) === "banned" && ADDS.length === 0);
+  // a hold stored (and its one-time removal done) while the grant's PUT was in flight: the PUT lands last, the writer undoes it
+  reset(); ROWS[A] = { n: 1, banned: 0 };
+  const savedAdd = stubs["./discord"].addRole;
+  stubs["./discord"].addRole = async (_env, userId, roleId, reason) => { ADDS.push({ userId, roleId, reason }); HELD.add(userId); };
+  const late = await rolesMod.exports.grantMemberRole(env(), A, "test", "sweep:test", [OTHER]);
+  check("a hold that lands while the PUT is in flight is seen after it: the role is removed again (held)", late === "held" && ADDS.length === 1 && REMOVES.length === 1 && REMOVES[0].userId === A && REMOVES[0].roleId === GM);
+  check("  audited as role.revoked_after_hold", AUDIT.some((a) => a.action === "role.revoked_after_hold" && a.subject === A));
+  stubs["./discord"].addRole = savedAdd;
+  // revokeForReapply re-reads the hold after its member read: a hold withdrawn meanwhile is not followed by a stale removal
+  reset(); HELD.add(A);
+  stubs["./discord"].guildMember = async () => { HELD.delete(A); return { roles: [GM] }; };
+  check("revokeForReapply: a hold withdrawn during the member read removes nothing (not-held)", (await rolesMod.exports.revokeForReapply(env(), A, "test")) === "not-held" && REMOVES.length === 0);
+  reset(); HELD.add(A);
+  stubs["./discord"].guildMember = async () => ({ roles: [GM] });
+  check("revokeForReapply: an open hold and the role held: removed and audited", (await rolesMod.exports.revokeForReapply(env(), A, "test")) === "removed" && REMOVES.length === 1 && AUDIT.some((a) => a.action === "role.revoked_reapply"));
+  reset(); HELD.add(A);
+  stubs["./discord"].guildMember = async () => ({ roles: [OTHER] });
+  check("revokeForReapply: no role held: nothing to remove (not-held)", (await rolesMod.exports.revokeForReapply(env(), A, "test")) === "not-held" && REMOVES.length === 0);
   stubs["./discord"].guildMember = async () => ({ roles: [] });
 
   console.log(`\n${ok}/${n} passed`);

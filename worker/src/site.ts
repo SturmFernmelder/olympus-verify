@@ -17,7 +17,8 @@
  *     older cookie. The Discord access token is used during sign-in and then dropped; nothing of it is stored.
  *   - Every state-changing call needs the page's own X-Olympus header and a same-origin Origin. A form or script on
  *     another site can send neither, and the cookie is SameSite=Lax on top.
- *   - The page's CSP allows scripts, styles and images from this origin only (.112: no Discord pictures), no frames. The script
+ *   - The page's CSP allows scripts, styles and images from this origin only (.112), no frames; .114: plus Discord's picture host for
+ *     the member's own picture in the top bar (site-core.ts CSP, app.js ownAvatar). The script
  *     renders everything people typed with textContent, never as HTML.
  *   - Tallies never leave site-admin.ts, which answers SITE_ADMINS only (checked on every call).
  */

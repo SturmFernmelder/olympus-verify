@@ -60,6 +60,22 @@
     const key = person.class || person.classKey || person.mainClass;
     return art(M().classes.some((c) => c.key === key) ? "class-" + key : "pos-member");
   };
+  // .114 (Viktor, 2 Oct 2026): the one exception to "images from this site only": the signed-in member's own Discord picture
+  // in the top bar. Only an avatar address on Discord's picture host passes (the Worker's avatarUrl: a profile picture, a
+  // server picture or Discord's default one; the page's CSP allows that host and no other). Anything else, or a picture that
+  // fails to load, shows the official Member icon. Set with setAttribute here on purpose: h() keeps its root-relative rule for
+  // every other image on the site, and the other eight account pictures stay game icons.
+  const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d{17,20}\/(?:a_)?[0-9a-f]{32}\.png\?size=64|guilds\/\d{17,20}\/users\/\d{17,20}\/avatars\/(?:a_)?[0-9a-f]{32}\.png\?size=64|embed\/avatars\/[0-5]\.png)$/;
+  function ownAvatar(user) {
+    const fallback = accountArt(user || {});
+    const img = h("img", { src: fallback, alt: "", referrerpolicy: "no-referrer" });
+    const url = user && typeof user.avatarUrl === "string" ? user.avatarUrl : "";
+    if (DISCORD_AVATAR.test(url)) {
+      img.addEventListener("error", () => { if (img.getAttribute("src") !== fallback) img.setAttribute("src", fallback); });
+      img.setAttribute("src", url);
+    }
+    return img;
+  }
   /** The icon for a position or role key: Class Lead shows its class, NA and EU raid roles share one. */
   function posIcon(key, cls = "") {
     if (key.startsWith("class_lead:")) return M().classes.some((c) => c.key === key.slice(11)) ? icon("class-" + key.slice(11), cls) : icon("pos-unknown", cls);
@@ -491,7 +507,7 @@
         const disabled = it.self || exclude(it);
         const row = h("div", { class: "row", role: "option", "aria-selected": i === active ? "true" : "false", "aria-disabled": disabled ? "true" : "false", id: `${id}-o${i}` },
           it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : h("img", { src: accountArt(it), alt: "", loading: "lazy", referrerpolicy: "no-referrer" }), // .112: the official scroll icon, not a pencil glyph
-          h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : null),
+          h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.shown || it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : null),
           it.self ? h("span", { class: "badge muted", text: "you" }) : null,
           !it.typed && it.onSite ? h("span", { class: "badge", text: "signed up" }) : null,
           !it.typed && it.linked ? h("span", { class: "badge green", text: "verified in game" }) : null,
@@ -506,7 +522,7 @@
     function build(res, q) {
       items = (res.results || [])
         .filter((r) => !onlySite.checked || r.onSite)
-        .map((r) => ({ kind: "discord", key: r.id, label: r.label, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked }));
+        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked })); // .114: shown = every differing name; label = what a pick stores
       const problem = typedProblem(q);
       if (allowTyped && !problem) items.push({ kind: "name", key: q.toLowerCase().replace(/\s+/g, " "), label: q.replace(/\s+/g, " "), typed: true });
       active = items.findIndex((it) => !it.self && !exclude(it));
@@ -576,7 +592,7 @@
       links.map(([href, text]) => h("a", { class: "btn small", href, text, "aria-current": (href === "#/" ? head === "" : head === href.slice(2)) ? "page" : false })));
     const who = S.signedIn && S.user
       ? h("div", { class: "who" },
-          h("img", { src: accountArt(S.user), alt: "", referrerpolicy: "no-referrer" }),
+          ownAvatar(S.user), // .114: the member's own Discord picture (header only)
           h("span", { class: "name", text: S.user.displayName || S.user.username || "" }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
@@ -589,6 +605,7 @@
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
           h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. All other interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."),
+          S.signedIn ? h("p", null, "The picture next to your name is your own Discord picture, loaded from Discord; nobody else sees it here.") : null, // .114
           footerLinks())));
   }
   async function signOut() {
@@ -785,6 +802,9 @@
     add(main, [
       h("section", { class: "welcome mt" }, h("img", { src: accountArt(S.user), alt: "", referrerpolicy: "no-referrer" }), h("h1", { text: `Welcome, ${S.user.displayName || S.user.username}` })),
       flash,
+      S.reapply ? h("div", { class: "mt" }, noticeBox("warn", "icon-warning", // .114: a rename Blizzard required (the Worker's rename_holds)
+        h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
+        h("p", null, "Open ", h("a", { href: "#/apply", text: "Apply" }), ` and save your application once more, and verify ${S.reapply.to} again in Discord with Get my code in #join-olympus. Unless another of your characters is in the guild, your Guild Member role is on hold until the leadership approves the new application.`))) : null,
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -812,7 +832,7 @@
   function deniedView(main) {
     add(main, frame("Registration denied", null,
       h("p", { text: S.deniedText || "Your registration with Olympus has been permanently denied." }),
-      h("p", { class: "muted", text: "If you want what this site holds about you removed, ask an officer or open a ticket in the Olympus channels in Asmongold's Discord." }),
+      h("p", { class: "muted", text: "If you want what this site holds about you removed, ask an Olympus officer, or send a private request." }),
       h("p", null, h("a", { href: "#/data", text: "Your data" }), ": download your copy, read the policies, or send a private request.")));
   }
 
@@ -1752,7 +1772,7 @@
   };
 
   function adminTabs(sub) {
-    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"]];
+    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"]]; // .114: Renames
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
       h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" })); // .86
@@ -1771,6 +1791,7 @@
       friends: adminFriends,
       lookup: (b) => adminLookup(b, dec(parts[1] || "")),
       settings: adminSettings,
+      renames: adminRenames, // .114
       community: (b) => adminCommunity(b, parts.slice(1)), // .98
     };
     await (own(views, sub) ? views[sub] : adminOverview)(body);
@@ -1983,6 +2004,128 @@
       h("div", { class: "group-label", text: "Leadership" }), quietGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), quietGrid("class"),
       h("div", { class: "btn-row mt" }, save)));
+    add(body, [await bnetSwitchFrame(), await leadershipFrame(), await betaResetFrame(body)]); // .114
+  }
+  const kv = (pairs) => h("dl", { class: "kv" }, pairs.map(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
+  /** .114: the Battle.net sign-in switch (the Worker's bnet-switch.ts). It cannot be switched on before the policy describes the login. */
+  async function bnetSwitchFrame() {
+    let st;
+    try { st = await api("GET", "/api/admin/bnet-switch"); } catch (e) { return frame("Battle.net sign-in", null, h("p", { class: "err small", text: explain(e, "The switch could not be read.") })); }
+    const reason = !st.configured ? "The Worker has no Battle.net client credentials." : !st.policyReady ? "The privacy policy does not describe Battle.net sign-in, so it cannot be switched on: a reviewed release has to add that section first." : "";
+    const locked = !!reason && !st.adminOn; // a switch that is somehow on can always be turned off
+    const box = h("input", { type: "checkbox", checked: st.adminOn, disabled: locked, id: "bnet-switch" });
+    const save = h("button", { class: "btn small", type: "button", text: "Save", disabled: locked });
+    save.addEventListener("click", async () => {
+      const on = box.checked;
+      if (on && !(await confirmBox("Switch Battle.net sign-in on?", "Members could then link a Battle.net account again through Discord's Linked Roles: the bot stores their BattleTag and Battle.net account ID for 29 days from their last Battle.net sign-in.", "Switch on", { typeToConfirm: "ENABLE" }))) { box.checked = st.adminOn; return; }
+      save.disabled = true;
+      try {
+        await api("PUT", "/api/admin/bnet-switch", on ? { on, confirm: "ENABLE" } : { on });
+        st.adminOn = on;
+        toast(on ? "Battle.net sign-in is on." : "Battle.net sign-in is off.", "good");
+      } catch (err) { box.checked = st.adminOn; toast(explain(err), "bad"); } finally { save.disabled = locked; }
+    });
+    return frame("Battle.net sign-in", h("span", { class: "badge " + (st.effective ? "green" : "muted"), text: st.effective ? "on" : "off" }),
+      h("p", { class: "muted small", text: "The optional Battle.net link through Discord's Linked Roles. While it is off, its pages refuse before anything is collected and the bot says nothing about Battle.net. What earlier links stored is still deleted automatically 29 days after each link. Switching it on proves a BattleTag only, not a World of Warcraft: Forever character." }),
+      kv([["Client credentials", st.configured ? "present" : "missing"], ["Privacy policy describes it", st.policyReady ? "yes" : "no"], ["Last changed", st.changedAt ? fmtDateTime(st.changedAt) : "never"]]),
+      h("label", { class: "check field", for: "bnet-switch" }, box, h("span", null, "Battle.net sign-in is switched on", reason ? h("span", { class: "hint", text: reason }) : null)),
+      h("div", { class: "btn-row" }, save));
+  }
+  /** .114: the Olympus I-X leadership directory (the Worker's site-leadership.ts). Names only; a listing grants nothing. */
+  async function leadershipFrame() {
+    let data;
+    try { data = await api("GET", "/api/admin/leadership"); } catch (e) { return frame("Olympus I–X leadership", null, h("p", { class: "err small", text: explain(e, "The directory could not be read.") })); }
+    const rows = data.guilds.map((g, i) => ({
+      g,
+      gm: h("input", { type: "text", maxlength: "40", value: g.gm, placeholder: "Not listed", autocomplete: "off", id: `lead-gm-${i}`, "aria-label": `${g.name}: Guild Master` }),
+      officers: h("textarea", { rows: "3", maxlength: "600", value: g.officers.join("\n"), id: `lead-off-${i}`, "aria-label": `${g.name}: officers, one per line` }),
+    }));
+    const save = h("button", { class: "btn", type: "button", text: "Save the directory" });
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await api("PUT", "/api/admin/leadership", { guilds: rows.map((r) => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map((x) => x.trim()).filter(Boolean) })) });
+        toast("Directory saved.", "good");
+      } catch (err) { toast(explain(err), "bad"); } finally { save.disabled = false; }
+    });
+    return frame("Olympus I–X leadership", null,
+      h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as confirmed members see them under Community → Leadership. Separate from the Olympus I staff channels and from the appointed roles above. A listing is a record only: it gives no powers in the bot, on this site or in Discord (the Council roles in Discord are given by hand). Up to twelve officers per guild, one per line." }),
+      h("div", { class: "grid two" }, rows.map((r) => h("div", { class: "card" },
+        h("h3", { text: r.g.name }),
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm),
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers)))),
+      h("div", { class: "btn-row mt" }, save));
+  }
+  /** .114: the end-of-beta reset (the Worker's site-leadership.ts): locked until the closing moment is recorded, then a typed confirmation. */
+  async function betaResetFrame(settingsBody) {
+    let st;
+    try { st = await api("GET", "/api/admin/beta-reset"); } catch (e) { return frame("End of the beta", null, h("p", { class: "err small", text: explain(e, "The reset could not be read.") })); }
+    const when = h("input", { type: "datetime-local", value: st.betaClosedAt ? toLocalInput(st.betaClosedAt) : "", id: "beta-closed-at" });
+    const record = h("button", { class: "btn small", type: "button", text: "Record the closing moment" });
+    record.addEventListener("click", async () => {
+      const t = fromLocalInput(when.value);
+      if (!t) return toast("Enter when the beta closed.", "bad");
+      record.disabled = true;
+      try { await api("PUT", "/api/admin/beta-reset/closed", { betaClosedAt: t }); toast("Recorded.", "good"); adminSettings(settingsBody); } catch (err) { toast(explain(err), "bad"); } finally { record.disabled = false; }
+    });
+    const notice = h("input", { type: "text", maxlength: "300", id: "beta-reset-notice", placeholder: "Optional, e.g. Guild roles are open again for the full release" });
+    const run = h("button", { class: "btn danger", type: "button", text: "Reset guild leadership", disabled: !st.armed });
+    run.addEventListener("click", async () => {
+      if (!(await confirmBox("Reset guild leadership for the full release?", `This clears the appointed roles (${plural(st.preview.appointed, "appointment")}) and the Olympus I–X directory (${plural(st.preview.directoryNames, "name")}). Applications, votes, memberships and history stay. Game ranks and Discord roles are changed by hand.`, "Reset", { danger: true, typeToConfirm: "RESET" }))) return;
+      run.disabled = true;
+      try { await api("POST", "/api/admin/beta-reset", { confirm: "RESET", notice: notice.value, closedAt: st.betaClosedAt }); toast("Guild leadership reset.", "good"); adminSettings(settingsBody); } catch (err) { toast(explain(err), "bad"); adminSettings(settingsBody); }
+    });
+    return frame("End of the beta", h("span", { class: "badge " + (st.armed ? "warn" : "muted"), text: st.resetDone ? "done" : st.armed ? "unlocked" : "locked" }),
+      h("p", { class: "muted small", text: "Blizzard gives 21 October 2026 as the beta's last full day and no hour. Once it has really closed, record the moment; the reset then unlocks. It clears the appointed roles and the Olympus I–X directory so every leadership role is chosen again for the full release. Nothing runs on a timer." }),
+      kv([["Beta closed", st.betaClosedAt ? fmtDateTime(st.betaClosedAt) : "not recorded"], ["Reset", st.lastResetAt ? `done ${fmtDateTime(st.lastResetAt)} (it runs once)` : "not yet"], ["Would clear", st.resetDone ? "nothing: the reset has run" : `${plural(st.preview.appointed, "appointment")}, ${plural(st.preview.directoryNames, "directory name")}`]]),
+      h("div", { class: "btn-row" }, h("label", { class: "field" }, h("span", { class: "lab", text: "The beta closed at" }), when), record),
+      h("label", { class: "field" }, h("span", { class: "lab", text: "Notice to show after the reset" }), notice),
+      h("div", { class: "btn-row" }, run),
+      h("p", { class: "muted small", text: "Then, by hand: set game ranks in game as Guild Master; in Discord remove Olympus Officer, Guild Leader, Raid Leader and the Council roles from everyone you do not keep (keep yourself and at least one Guild Leader); fill the directory and the appointments again." }));
+  }
+
+  // ---------- renames (.114) ----------
+  async function adminRenames(body) {
+    const data = await api("GET", "/api/admin/renames");
+    const who = (r) => r.displayName || (r.username ? "@" + r.username : r.discordId);
+    const STATE = { reapply: "applying again", approved: "approved", cancelled: "withdrawn" };
+    const mark = (r) => async () => {
+      if (!(await confirmBox(`Mark ${r.from} → ${r.to} as required by Blizzard?`, "The character is unbound, the account's site application is set back to withdrawn, its Guild Member role is removed and held unless another of their characters is in the guild, and the member is told privately to apply again and to verify the renamed character again. Only do this for a rename Blizzard required: an ordinary rename keeps the link and needs nothing.", "Ask them to apply again", { danger: true, typeToConfirm: "REAPPLY" }))) return;
+      try {
+        const out = await api("POST", "/api/admin/renames/forced", { auditId: r.auditId, confirm: "REAPPLY" });
+        toast(out.role === "failed" ? "Marked. The Guild Member role could not be removed: remove it by hand in Discord." : "Marked: the member applies again.", out.role === "failed" ? "bad" : "good");
+      } catch (err) { toast(explain(err), "bad"); }
+      adminRenames(body);
+    };
+    const close = (hold, what) => async () => {
+      const approve = what === "approve";
+      if (!(await confirmBox(approve ? "Approve the new application?" : "Withdraw the decision?", approve ? "The hold on Guild Member ends. The role comes back through the roster once the renamed character is verified again and in the guild." : "The hold ends. The character stays unbound and is verified again with a new code; the application stays withdrawn until the member saves it.", approve ? "Approve" : "Withdraw"))) return;
+      try { await api("POST", `/api/admin/renames/${hold.id}/${what}`); toast("Done.", "good"); } catch (err) { toast(explain(err), "bad"); }
+      adminRenames(body);
+    };
+    const holdsTable = h("div", { class: "table-wrap" }, h("table", { class: "data" },
+      h("thead", null, h("tr", null, ["Marked", "Rename", "Discord account", ""].map((t) => h("th", { text: t })))),
+      h("tbody", null, data.openHolds.map((hh) => h("tr", null,
+        h("td", { text: fmtShort(hh.decidedAt) }), h("td", { text: `${hh.from} → ${hh.to}` }), h("td", { text: hh.discordId }),
+        h("td", null, h("div", { class: "btn-row" },
+          h("button", { class: "btn small", type: "button", text: "New application approved", onclick: close(hh, "approve") }),
+          h("button", { class: "btn small", type: "button", text: "Withdraw the decision", onclick: close(hh, "cancel") }))))))));
+    const renamesTable = h("div", { class: "table-wrap" }, h("table", { class: "data" },
+      h("thead", null, h("tr", null, ["Seen", "Old name", "New name", "Account", ""].map((t) => h("th", { text: t })))),
+      h("tbody", null, data.renames.map((r) => h("tr", null,
+        h("td", { text: fmtShort(r.at) }), h("td", { text: r.from }), h("td", { text: r.to }), h("td", { text: who(r) }),
+        h("td", null, r.hold
+          ? h("span", { class: "badge " + (r.hold.state === "reapply" ? "warn" : "muted"), text: STATE[r.hold.state] || r.hold.state })
+          : h("button", { class: "btn small danger", type: "button", text: "Blizzard required this rename", onclick: mark(r) })))))));
+    clear(body);
+    add(body, [
+      frame("Members applying again", null,
+        h("p", { class: "muted small", text: "Accounts asked to apply again after a rename Blizzard required. Unless another of their characters is in the guild, their Guild Member role is held. Approve once the member has submitted the application again, you accepted it (Applications tab) and the character was verified again in game; or withdraw a mistaken decision." }),
+        data.openHolds.length ? holdsTable : h("p", { class: "muted small", text: "Nobody is waiting." })),
+      frame("Renames on the roster", null,
+        h("p", { class: "muted small", text: "Characters the officers' roster shows under a new name: the same character, followed by its in-game identifier, from the last 120 days. An ordinary rename keeps the link and needs nothing. The roster cannot tell why a character was renamed, so mark only a rename Blizzard required: that member applies again, with a new application and a fresh in-game verification." }),
+        data.renames.length ? renamesTable : h("p", { class: "muted small", text: "No renames recorded." })),
+    ]);
   }
 
   // ---------- applications ----------
@@ -2359,7 +2502,7 @@
         h("div", { class: "grid three" },
           section("In Asmongold's Discord", data.discord, (m) => { const r = personRow({ kind: "discord", key: m.id, label: m.label, avatarUrl: m.avatarUrl }); r.style.cursor = "pointer"; r.addEventListener("click", pick(m.id)); return r; }),
           section("Characters", data.characters, (c) => { const r = h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: c.name }), h("small", { text: c.status.startsWith("reserved:") ? `reserved name (${c.status.slice(9)})` : `linked (${c.status})` }))); r.style.cursor = "pointer"; r.addEventListener("click", pick(c.id)); return r; }),
-          section("Signed up here", data.site, (u) => { const r = personRow({ kind: "discord", key: u.id, label: u.label, avatarUrl: u.avatarUrl }); r.style.cursor = "pointer"; r.addEventListener("click", pick(u.id)); return r; })),
+          section("Signed up here", data.site, (u) => { const r = personRow({ kind: "discord", key: u.id, label: u.shown || u.label /* .114: every differing name */, avatarUrl: u.avatarUrl }); r.style.cursor = "pointer"; r.addEventListener("click", pick(u.id)); return r; })),
       ]);
     };
     go.addEventListener("click", run);
@@ -2469,9 +2612,14 @@
   const PUBLIC_ROUTES = new Set(["roles", "request", "data"]); // pages that need no sign-in
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
   function footerLinks() {
+    // .114 (Viktor, 2 Oct 2026): the policy and data links are for signed-in members. Signed out, the footer keeps only the
+    // private request form, whose people cannot sign in; /privacy and /terms stay at their addresses (the Discord
+    // application links them, and the pages that ask for data link them where they ask).
+    const request = feat("privacy_intake") ? h("a", { href: "#/request", text: "Private request" }) : null;
+    if (!S.signedIn) return request ? h("p", { class: "footer-links" }, request) : null;
     return h("p", { class: "footer-links" },
       h("a", { href: "/privacy", text: "Privacy Policy" }), " · ", h("a", { href: "/terms", text: "Terms of Service" }), " · ", h("a", { href: "#/data", text: "Your data" }),
-      feat("privacy_intake") ? [" · ", h("a", { href: "#/request", text: "Private request" })] : null);
+      request ? [" · ", request] : null);
   }
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
   async function refreshCommunity() {
@@ -2499,7 +2647,7 @@
               continuationForm())
           : noticeBox("info", "icon-shield", h("p", null, "Sign in to download your copy. "), h("p", null, signInButton(false)))),
       frame("Removing it", null,
-        h("p", null, "Ask any officer, or open a ticket in the server's help channel: the site's administrators delete what the site holds about you, and an officer unbinds your characters in the bot. The Privacy Policy says exactly what remains, and why."),
+        h("p", null, "Ask any Olympus officer: the site's administrators delete what the site holds about you, and an officer unbinds your characters in the bot. The Privacy Policy says exactly what remains, and why."),
         feat("privacy_intake") ? h("p", null, "If you can no longer reach Discord, use the ", h("a", { href: "#/request", text: "private request form" }), "; it needs no sign-in.") : null),
     ]);
   };
@@ -2524,7 +2672,7 @@
       h("p", null, "For anyone who can no longer reach Discord: ask the site's administrators about your data here, without signing in. Your browser makes a case number and a secret code; keep both, because they are the only way back to the conversation. A case proves access to that conversation, not who owns an account: the administrators verify that in the conversation before acting through the site's own tools."),
       h("p", { class: "muted small" }, "What is stored, and how a case is kept: the ", h("a", { href: "/privacy", text: "Privacy Policy" }), ".")));
     if (!feat("privacy_intake")) {
-      add(main, noticeBox("warn", "icon-warning", h("p", { text: "The private request form is not switched on. Ask any officer, or open a ticket in the server's help channel." })));
+      add(main, noticeBox("warn", "icon-warning", h("p", { text: "The private request form is not switched on. Ask any Olympus officer." })));
       return;
     }
     const box = h("div", { class: "stack" });
@@ -2775,6 +2923,7 @@
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
     if (feat("trials")) tabs.push(["trial", "My trial"]);
     if (feat("contributions")) tabs.push(["dues", "My dues"]);
+    tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
     return h("nav", { class: "btn-row", "aria-label": "Community sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
   }
   function standingNotice() {
@@ -2797,6 +2946,7 @@
     if (sub === "trial" && feat("trials")) return communityTrial(body);
     if (sub === "dues" && feat("contributions")) return communityDues(body);
     if (!can("confirmedGuildData")) { add(body, standingNotice()); return; }
+    if (sub === "leadership") return communityLeadership(body); // .114
     if (sub === "directory" && feat("directory")) return communityDirectory(body);
     if (sub === "profile" && feat("directory")) return communityProfile(body);
     if (sub === "calendar" && feat("events")) {
@@ -2817,8 +2967,30 @@
     if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. Confirmed guild members only.` })));
     if (feat("trials")) cards.push(h("a", { class: "card", href: "#/community/trial" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "My trial" })), h("p", { class: "muted small", text: "Your trial period as the officers recorded it: the review date and the outcome." })));
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
+    cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. Confirmed guild members only." }))); // .114
     cards.push(h("a", { class: "card", href: "#/data" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "Your data" })), h("p", { class: "muted small", text: "Download your copy, read the policies, or send a private request." })));
     add(body, [can("confirmedGuildData") ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
+  }
+  /** .114: the leadership of every Olympus guild, as the site's administrators list it. A record only: it grants nothing. */
+  async function communityLeadership(body) {
+    let data;
+    try {
+      data = await api("GET", "/api/leadership");
+    } catch (e) {
+      if (e && e.status === 403) refreshCommunity();
+      add(body, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The leadership directory could not be read.") })));
+      return;
+    }
+    const listed = data.guilds.filter((g) => g.gm || g.officers.length).length;
+    add(body, frame("Leadership of the Olympus guilds", null,
+      h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as the site's administrators list them. A listing is a record only: it gives no powers on this site, in the bot or in Discord." }),
+      listed ? null : noticeBox("info", "icon-clock", h("p", { text: "No guild leadership is listed yet. The leaders for the full release are chosen after the beta ends." })),
+      h("div", { class: "grid two" }, data.guilds.map((g) => h("div", { class: "card leadership-card" },
+        h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: g.name })),
+        h("dl", { class: "kv" },
+          h("dt", { text: "Guild Master" }), h("dd", { text: g.gm || "Not listed" }),
+          h("dt", { text: "Officers" }), h("dd", { text: g.officers.length ? g.officers.join(", ") : "None listed" }))))),
+      data.councilUrl ? h("p", { class: "muted small" }, "The Guild Masters and officers of every Olympus guild meet in the private ", h("a", { href: data.councilUrl, rel: "noopener", target: "_blank", text: "Olympus I–X Council" }), " in Asmongold's Discord; its roles are given by hand.") : null));
   }
   const proofBadge = (source) => (source === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : h("span", { class: "badge muted", text: "self-labelled" }));
   const altBadge = (a) => (a.status === "officer_confirmed" ? h("span", { class: "badge green", text: "officer-confirmed" }) : a.proof === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : a.status === "rejected" ? h("span", { class: "badge red", text: "rejected" }) : h("span", { class: "badge muted", text: "claimed" }));

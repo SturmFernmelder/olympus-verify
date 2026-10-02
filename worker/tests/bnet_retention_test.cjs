@@ -48,6 +48,9 @@ function freshDb(schemaPath = path.join(root, "schema.sql")) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(fs.readFileSync(schemaPath, "utf8"));
+  // .114: this suite exercises the login while it is switched ON (bnet-switch.ts: the admin's setting here, the secrets in
+  // env() and the policy marker below); tests/bnet_switch_test.cjs covers the switch itself and the OFF state
+  db.exec("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('bnetLogin', '1', 0, NULL)");
   return db;
 }
 
@@ -101,6 +104,7 @@ function load(name) {
   return mod.exports;
 }
 const retention = load("./bnet-retention"), oauth = load("./oauth"), lookup = load("./lookup"), interactions = load("./interactions"), indexMod = load("./index");
+load("./bnet-switch").setPolicyReadyForTests(true); // .114: as if the privacy policy carried the Battle.net section
 
 let T = 1790500000;
 const RealDate = Date;
@@ -111,7 +115,7 @@ globalThis.Date = class extends RealDate {
 const DAY = 86400;
 const OFFICER = "1549581672272625734", GUILD = "1549537348516188200";
 let db = freshDb();
-const env = () => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", ROLE_OFFICER: OFFICER, ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "" });
+const env = () => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", ROLE_OFFICER: OFFICER, ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", BNET_CLIENT_ID: "bnet-client-for-tests", BNET_CLIENT_SECRET: "bnet-secret-for-tests" });
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
@@ -341,7 +345,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the cron purges", m("100000000000000015").battletag === null);
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health carries the retention line: nothing overdue, build .113", health.build.includes(".113") && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
+  check("/health carries the retention line: nothing overdue, build .114", health.build.includes(".114") && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");

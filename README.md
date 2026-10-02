@@ -105,11 +105,10 @@ checks its latest roster snapshot and grants Guild Member straight away — no r
    `402738180`; Embed Links is what the pinned guide needs, and Ban Members backs the Guild-Leader-only "Ban from Discord"
    button on the #mod-alerts card — the Worker never needs Administrator). Put the bot's role **above Guild Member** in the
    role list.
-4. Server Settings → Roles → create (or pick) the role that the Linked Role should grant, e.g. `Battle.net Linked`
-   → **Links** → add the app → requirement `Battle.net linked = true`. The role is a visible marker, not a gate:
-   `/verify` refuses a Discord account with no stored BattleTag on its own, and since 18 Sep nobody posts in
-   #join-guild at all — it is read-only and the pinned guide's buttons need no posting right. Do **not** gate
-   viewing the public channels on it — visitors need the instructions before they have anything linked.
+4. (Historical, superseded.) Until build .32 (25 Sep 2026) a Linked Role required `Battle.net linked = true` and
+   `/verify` refused an account without a stored BattleTag. Since .32 the in-game whisper is the proof and Battle.net is
+   optional; since .114 (2 Oct 2026) Battle.net sign-in is switched off (`src/bnet-switch.ts`). Do **not** put a
+   Battle.net requirement on Guild Member or on any channel.
 
 ### 2. Worker
 ```
@@ -124,7 +123,8 @@ for s in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CLIENT_SECR
 npm run deploy
 DISCORD_APP_ID=… DISCORD_BOT_TOKEN=… npm run register   # role-connection metadata + guild slash commands
 ```
-`BNET_CLIENT_ID` and `BNET_CLIENT_SECRET` are required, not a fallback: `/linked-role` no longer asks Discord for the
+(Historical: since .114 Battle.net sign-in is also gated by the admin's switch and the privacy policy, `src/bnet-switch.ts`.)
+`BNET_CLIENT_ID` and `BNET_CLIENT_SECRET` were required, not a fallback: `/linked-role` no longer asks Discord for the
 `connections` scope at all and goes straight to Battle.net's own login, because Discord stopped returning Battle.net
 connections to apps — new ones since August 2026, existing ones from 22 September 2026, with no replacement
 (Discord developer changelog, 14 Aug 2026). `npm run register` reads `DISCORD_BOT_TOKEN` from the environment or,

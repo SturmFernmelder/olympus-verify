@@ -28,6 +28,8 @@ import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
 import { sweepMemberRoles } from "./restore";
 import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
+import { bnetLoginState } from "./bnet-switch";
+import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
 import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
@@ -136,6 +138,7 @@ export default {
     ctx.waitUntil(purgeSeenInteractions(env)); // .47: the replay ledger keeps an hour
     // .48: Battle.net-derived data not refreshed within 29 days goes (Blizzard's 30-day limit); counts only in the log.
     ctx.waitUntil(purgeBattleNetData(env).catch((e) => console.error("bnet retention failed", errorRef(e))));
+    ctx.waitUntil(sweepRenameHolds(env).catch((e) => console.error("rename holds sweep failed", errorRef(e)))); // .114: closed reapply holds thirty days after closing
     // .57: community profiles whose owner stopped qualifying start a 30-day clock and go when it runs out; runs with the feature off too.
     ctx.waitUntil(sweepCommunityProfiles(env).catch((e) => console.error("community sweep failed", errorRef(e))));
     ctx.waitUntil(sweepCommunityEvents(env).catch((e) => console.error("community events sweep failed", errorRef(e)))); // .59: events 30 days past their end
@@ -357,7 +360,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-01.113 intros add-on wording";
+const BUILD = "2026-10-02.114 owner requests";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
@@ -396,6 +399,14 @@ async function health(env: Env, full: boolean) {
   } catch (e) {
     legacyApi = `error: ${errorRef(e)}`;
   }
+  // .114: the Battle.net sign-in switch (bnet-switch.ts): whether it is configured, whether the policy allows it, the admin's setting, the result
+  let bnetSwitch: { policyReady: boolean; adminOn: boolean; effective: boolean } | string;
+  try {
+    const st = await bnetLoginState(env);
+    bnetSwitch = { policyReady: st.policyReady, adminOn: st.adminOn, effective: st.effective };
+  } catch (e) {
+    bnetSwitch = `error: ${errorRef(e)}`;
+  }
   // .55: the configured roles against the guild (ids and booleans only); null when Discord could not be asked.
   let roles: Awaited<ReturnType<typeof rolesStatus>> | string;
   try {
@@ -403,5 +414,5 @@ async function health(env: Env, full: boolean) {
   } catch (e) {
     roles = `error: ${errorRef(e)}`;
   }
-  return { ok: true, build: BUILD, mode: env.ADMISSION_MODE, bnetRetention, legacyApi, roles, rosterGuard: { minMembers: env.ROSTER_MIN_MEMBERS, maxShrinkPct: env.ROSTER_MAX_SHRINK_PCT }, linksNotBefore: env.LINKS_NOT_BEFORE || null, relays, appId: env.DISCORD_APP_ID, baseUrl: env.PUBLIC_BASE_URL, secrets: present, d1, bnetLogin: !!(env.BNET_CLIENT_ID && env.BNET_CLIENT_SECRET), intros: { guild: env.INTROS_GUILD_ID || null, channels: Object.keys(parseChannels(env.INTROS_CHANNELS)).length, intros: INTROS.length }, site: { host: siteHost(env) || null, guild: env.SITE_GUILD_ID || null, admins: siteAdmins(env).size } };
+  return { ok: true, build: BUILD, mode: env.ADMISSION_MODE, bnetRetention, legacyApi, roles, rosterGuard: { minMembers: env.ROSTER_MIN_MEMBERS, maxShrinkPct: env.ROSTER_MAX_SHRINK_PCT }, linksNotBefore: env.LINKS_NOT_BEFORE || null, relays, appId: env.DISCORD_APP_ID, baseUrl: env.PUBLIC_BASE_URL, secrets: present, d1, bnetLogin: !!(env.BNET_CLIENT_ID && env.BNET_CLIENT_SECRET), bnetSwitch, intros: { guild: env.INTROS_GUILD_ID || null, channels: Object.keys(parseChannels(env.INTROS_CHANNELS)).length, intros: INTROS.length }, site: { host: siteHost(env) || null, guild: env.SITE_GUILD_ID || null, admins: siteAdmins(env).size } };
 }

@@ -37,6 +37,10 @@ audit (below) refuses any of those names in a snapshot regardless of content.
   custom crest until build .111 brought it back as the website's one owner-approved exception: the brand and tab icon
   `worker/public/static/olympus-icon.png` (Viktor's decision of 1 October 2026), pinned by path and hash in the
   publication reference.
+- On 2 October 2026 the owner separately requested their own Discord picture in the signed-in top bar. This is
+  external identity data loaded from `https://cdn.discordapp.com`, not a new bundled interface-art asset: the producer,
+  renderer and CSP are source-pinned. Other eight account-picture sites keep official game icons. It does not relax
+  the crest usage, local artwork/font paths, extractor or static/CSS guards, and grants no image ownership or licence.
 
 ## Ported modules
 
@@ -49,7 +53,14 @@ the owner's document "Forever Guild Rank Codex.html".
 
 ## The publication helpers (`scripts/`)
 
-Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. Current bundle (Codex's
+Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. The .114 successor
+was prepared from keeper `1db740c8a98064e0a724db39a8ba650ac7affe03` (tree `13dc7c1a921df5a4eb31130b9c2a741d4c159e65`): reference
+`4843504f58c5623bec87feafe4db7edce4ff520b8b69d97483920077c66e6bcb`, `official_assets.py`
+`5c8f565034d353fa19bd07f386700e2289dedce17fc221752882ca6b196a312f`, and `reconcile_public_root.py`
+`1f1bffc10ffbecb79f4b82fe51e2c35a70fab66cefd0a7babaf8494ec6a4d57f`. Its external source-reference coverage receipt is
+`f8c032da5059c3c138484736de9d0f6064cf4c0bec11cd39a63fb94a4ce64c66`; it retains the original official asset/map evidence and pins five full art-sensitive source files.
+This records source identity, not helper execution, publication readiness, browser acceptance or either final signature.
+Prior .112 bundle (Codex's
 reviewed successor `publication-reference-crest112-v1`, integrated byte for byte after both reviews on 1 Oct 2026): `official_asset_reference.json`
 `25adf12020bcbcc2dc2fca24512821f2d0f91b2f453beb7ff877b43128571e66` (the four fixed files at `32f19b9`, the crest as the one owner-approved
 exception at `worker/public/static/olympus-icon.png`, `867aafaa…`, brand and tab icon only), `official_assets.py`
@@ -66,7 +77,7 @@ consolidation log with the hashes before and after):
 |---|---|
 | `publication_audit.py` | bounded, redacted scan of a repository's tracked Git objects and commit messages: credential-shaped tokens, credential-literal assignments (placeholders excepted), private file names, runtime or person-identifier shapes; hardened Git environment (no replace objects, hooks, global config or credential variables; file protocol only); reports rules and lines, never excerpts |
 | `public_history.py` | builds the public parent as a NEW local repository from exactly the reachable objects of the pinned public head, and refuses any keeper ancestry in it |
-| `official_assets.py` | the exact byte and reference gate for the website: the pinned reference (`official_asset_reference.json`), the 94 official image and font files, the native CSS/JS, the provenance record, the required documents, the deployment-profile files, the approved extractor, the banned custom-art hashes, the four fixed art-sensitive source files, and the static reference scan of every runtime file |
+| `official_assets.py` | the exact byte and reference gate for the website: the pinned reference (`official_asset_reference.json`), the 94 official image and font files, the native CSS/JS, the provenance record, the required documents, the deployment-profile files, the approved extractor, the banned custom-art hashes, the five fixed art-sensitive source files (including the CSP/avatar producer), and the static reference scan of every runtime file |
 | `stage_publication.py` | stages the keeper head ADDITIVELY onto the public parent with Git plumbing (no filters, no fetch, no commit, no push; the push URL of the new repository is disabled), refusing collisions with public-parent files, unclassified blocking findings and non-additive diffs, and running the asset gate over the complete result, the staged tree and the worktree; writes a manifest that always says `readyForPublication: false` |
 | `validate_publication.py` | re-derives all of it independently from the manifest |
 | `official_asset_reference.json` | the pinned reference the gate loads (its hash is in `official_assets.py`) |
@@ -75,9 +86,9 @@ The gate requires seven documents at pinned bytes (`LICENSE`, `README.md`, `CLAU
 `docs/source-provenance.md`, `docs/design.md`, `docs/deploy-checklist.md`), six deployment-profile files
 (`worker/wrangler.toml`, `worker/wrangler.cutover.toml`, `scripts/cutover-config.sh`,
 `scripts/tests/cutover-config.test.sh`, `worker/tests/account_copy_test.cjs`, `.github/workflows/ci.yml`) and the one
-optional marker `worker/wrangler.cutover.applied`. Four source files that carry image helpers, server vocabulary and rank
-artwork (`worker/public/static/app.js`, `worker/public/static/rank-planner/app.js`, `worker/src/site-data.ts`,
-`worker/src/site-ranks.ts`) are fixed to a reviewed reference: changing one needs a newly reviewed reference successor,
+optional marker `worker/wrangler.cutover.applied`. Five source files that carry image helpers, server vocabulary, rank
+artwork and the CSP/avatar producer (`worker/public/static/app.js`, `worker/public/static/rank-planner/app.js`,
+`worker/src/site-data.ts`, `worker/src/site-ranks.ts`, `worker/src/site-core.ts`) are fixed to a source-bound reference: changing one needs a newly reviewed reference successor,
 never a recalculated hash. The asset contract and the asset manifest the helpers take are externally reviewed files
 whose SHA-256 values both agents know; they are not in this repository until the final head is chosen.
 
@@ -117,7 +128,7 @@ loads at its pinned hash; the canonical fixture tests stay with the candidate.
 
 Two more files beside the six, copied byte for byte from the reviewed candidate
 `Olympus/consolidation-2026-09-30/candidates/pages-policy-reconciliation-v2` (Codex's 10:39 UTC handoff): `scripts/reconcile_public_root.py`
-(now the successor's `d2751f76fb211b4480f394a84e8cb31fdb7c2176ff2cd52e120374c538e88dae`, 28,094 bytes, LF, pinning the current bundle and the
+(the prior successor's `d2751f76fb211b4480f394a84e8cb31fdb7c2176ff2cd52e120374c538e88dae`, 28,094 bytes, LF, pinning that bundle and the
 future origin; the v2 bytes `a091d12cc1fad672b781438a854099a7708fe2bfdf96e1709268a79545b26dcb`, 28,103 bytes, are history) and `scripts/pages_network_guard.cjs`
 (SHA-256 `58d40e687a62d1a43bf8eabb90a9431ce84994db1e810651a919dc9b58ab4f13`, 350 bytes, LF). The helper is the exact
 pre-commit reconciliation of the public repository's three root HTML files (`index.html`, `privacy.html`, `terms.html`)
@@ -126,7 +137,9 @@ native policy generator and checks parity, keeps the additive V4 staging and val
 and writes only into a separately prepared owner namespace outside every repository, bound by an owner marker and two
 externally attributed review receipts; its result stays `ready=false`, it never commits, pushes, approves or publishes,
 and its push origin is disabled. Running it beyond `--help` is the owner's step, like the other helpers. The guard is a
-Node preload that refuses every unmapped network call while the helper's native generator runs.
+Node preload that refuses every unmapped network call while the helper's native generator runs. The .114 successor above
+changes only the two V4 consumer pins and its `GENERATOR` pin to the exact `worker/scripts/build-policy-content.mjs`
+`a17d609b3b30987ade103934dbf3b0d385a2398d5c57178192e542133e9cd2ba`; the guard, approvals, origins, private-history checks and output gates are unchanged.
 
 ## What "publication" means here
 

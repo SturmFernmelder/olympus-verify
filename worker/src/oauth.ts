@@ -10,11 +10,16 @@
  * no replacement (Discord developer changelog, 14 Aug 2026). The connections round trip was removed on 18 Sep 2026 —
  * asking for a scope we cannot use only added a permission to the consent screen and a way for the flow to dead-end.
  * The role's requirement in Server Settings -> Roles -> Links is the app metadata `battlenet_linked = 1`.
+ *
+ * .114 (2 Oct 2026): every route here, and the bind itself, answers only while the Battle.net switch is on
+ * (bnet-switch.ts: the secrets, a policy that describes the login, and the site admin's setting); otherwise a short
+ * "switched off" page, with nothing collected or exchanged.
  */
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { purgeBattleNetData } from "./bnet-retention";
+import { BNET_SWITCH_KEY, bnetLoginOn, bnetSwitchedOffPage } from "./bnet-switch";
 
 const SCOPES = "identify role_connections.write";
 
@@ -26,6 +31,8 @@ async function hmacHex(secret: string, data: string): Promise<string> {
 }
 
 export async function startLinkedRole(env: Env): Promise<Response> {
+  // .114: while the Battle.net switch is off (bnet-switch.ts) nothing starts: no audit row, no state cookie, no redirect to Discord.
+  if (!(await bnetLoginOn(env))) return bnetSwitchedOffPage();
   // The one row that makes this funnel measurable.
   //
   // Every other step is already audited, but the first audit point used to be link.bnet_login_started, which is
@@ -56,6 +63,8 @@ export async function startLinkedRole(env: Env): Promise<Response> {
 }
 
 export async function linkedRoleCallback(env: Env, request: Request): Promise<Response> {
+  // .114: switched off: refused before the Discord token exchange; the state cookie is cleared.
+  if (!(await bnetLoginOn(env))) return bnetSwitchedOffPage({ "Set-Cookie": "olv_state=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax" });
   const u = new URL(request.url);
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state") ?? "";
@@ -120,6 +129,8 @@ const BNET_OAUTH = "https://oauth.battle.net";
 
 /** Battle.net sends the user back here after its own login; the sealed cookie carries the Discord identity and token. */
 export async function bnetLinkCallback(env: Env, request: Request): Promise<Response> {
+  // .114: switched off: refused before the Blizzard token exchange; the sealed cookie (which carries the Discord token) is cleared.
+  if (!(await bnetLoginOn(env))) return bnetSwitchedOffPage({ "Set-Cookie": "olv_bnet=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax" });
   const u = new URL(request.url);
   const code = u.searchParams.get("code") ?? "";
   const state = u.searchParams.get("state") ?? "";
@@ -177,13 +188,16 @@ export async function bindBattletag(
   connId: string,
   source: string,
 ): Promise<Response> {
+  // .114: the switch is read again here, at the effect: one turned off while this person was at Blizzard's login stores
+  // nothing and pushes nothing to Discord (the cron's purge still covers what earlier links stored).
+  if (!(await bnetLoginOn(env))) return bnetSwitchedOffPage();
   // Build .48: Battle.net data older than 29 days is purged by the cron; purging here too means a stale namesake row
   // (the cron ran late) can never block a fresh link, and a stale row is never read as current.
   await purgeBattleNetData(env);
   const existing = await env.DB.prepare("SELECT discord_id, banned FROM members WHERE battletag = ?1").bind(battletag).first<{ discord_id: string; banned: number }>();
   if (existing && existing.discord_id !== me.id) {
     await audit(env, me.id, "link.battletag_taken", battletag, { boundTo: existing.discord_id, source });
-    return page("BattleTag already linked", `${battletag} is linked to another Discord account. One BattleTag per member — ask an officer in #help-desk if you changed Discord accounts.`, 200);
+    return page("BattleTag already linked", `${battletag} is linked to another Discord account. One BattleTag per member — ask an Olympus officer if you changed Discord accounts.`, 200);
   }
   const self = await env.DB.prepare("SELECT banned FROM members WHERE discord_id = ?1").bind(me.id).first<{ banned: number }>();
   if (self?.banned || existing?.banned) {
@@ -191,12 +205,25 @@ export async function bindBattletag(
     return page("Not available", "This account cannot link. Contact an officer.", 200);
   }
 
-  await env.DB.prepare(
-    `INSERT INTO members (discord_id, discord_name, battletag, bnet_conn_id, linked_at) VALUES (?1, ?2, ?3, ?4, ?5)
+  // .114 (Codex, log 18:47 UTC): the admin's switch is part of the write itself, so a switch turned off during the awaits
+  // above stores nothing (the secrets and the policy marker are fixed for this Worker version; only the setting can change)
+  const linkedAt = now();
+  const stored = await env.DB.prepare(
+    `INSERT INTO members (discord_id, discord_name, battletag, bnet_conn_id, linked_at)
+     SELECT ?1, ?2, ?3, ?4, ?5 WHERE EXISTS (SELECT 1 FROM site_settings WHERE key = ?6 AND value = '1')
      ON CONFLICT(discord_id) DO UPDATE SET discord_name = ?2, battletag = ?3, bnet_conn_id = ?4, linked_at = ?5`,
   )
-    .bind(me.id, me.global_name ?? me.username, battletag, connId, now())
+    .bind(me.id, me.global_name ?? me.username, battletag, connId, linkedAt, BNET_SWITCH_KEY)
     .run();
+  if (!stored.meta.changes) return bnetSwitchedOffPage();
+  // and read once more right before the remote effects on Discord: switched off in between, the row just written is taken
+  // back and nothing is pushed. Two providers are still two steps; a switch turned off during the PUT itself is not undone
+  // remotely, and the purge removes the stored row on its schedule. No cross-service atomicity is claimed.
+  const takeBack = async () => {
+    await env.DB.prepare("UPDATE members SET battletag = NULL, bnet_conn_id = NULL, linked_at = NULL WHERE discord_id = ?1 AND battletag = ?2 AND linked_at = ?3").bind(me.id, battletag, linkedAt).run();
+    return bnetSwitchedOffPage();
+  };
+  if (!(await bnetLoginOn(env))) return takeBack();
 
   // The linked-role record Discord keeps for this member and this application. Until .50 the BattleTag was copied into
   // it as platform_username: a second copy of Blizzard's data where the 29-day purge cannot reach it (Discord holds it
@@ -209,6 +236,9 @@ export async function bindBattletag(
   // connection in Discord's settings; /verify-status tells everyone who ever linked (bnet-retention.ts everLinked).
   const connection = `${API}/users/@me/applications/${env.DISCORD_APP_ID}/role-connection`;
   const cleared = await credentialFetch(connection, { method: "DELETE", headers: auth }).then((r) => r.ok || r.status === 404, () => false);
+  // .114 (Codex, log 19:17 UTC): and once more between the DELETE and the PUT: switched off in between, nothing is written
+  // to Discord (the deletion itself only removes the member's own record) and the stored row is taken back
+  if (!(await bnetLoginOn(env))) return takeBack();
   const push = await credentialFetch(connection, {
     method: "PUT",
     headers: { ...auth, "Content-Type": "application/json" },

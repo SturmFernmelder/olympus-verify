@@ -649,4 +649,22 @@ export const SITE_SCHEMA = [
    )`,
   "CREATE INDEX IF NOT EXISTS community_contribution_decisions_member ON community_contribution_decisions(guild_scope, discord_id)",
   "CREATE INDEX IF NOT EXISTS community_contribution_decisions_retain ON community_contribution_decisions(retain_until)",
+  // .114 (2 Oct 2026): renames Blizzard required (rename-review.ts). Same as migrations/2026-10-02-rename-holds.sql.
+  `CREATE TABLE IF NOT EXISTS rename_holds (
+     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+     discord_id  TEXT NOT NULL,
+     old_name    TEXT NOT NULL,
+     new_name    TEXT NOT NULL,
+     char_key    TEXT NOT NULL,
+     guid        TEXT,
+     nonce       TEXT NOT NULL,
+     audit_id    INTEGER,
+     state       TEXT NOT NULL CHECK (state IN ('reapply', 'approved', 'cancelled')),
+     decided_by  TEXT NOT NULL,
+     decided_at  INTEGER NOT NULL,
+     closed_by   TEXT,
+     closed_at   INTEGER
+   )`,
+  "CREATE INDEX IF NOT EXISTS rename_holds_account ON rename_holds(discord_id, state)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS rename_holds_audit ON rename_holds(audit_id) WHERE audit_id IS NOT NULL",
 ];

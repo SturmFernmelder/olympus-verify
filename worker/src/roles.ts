@@ -9,6 +9,14 @@
  * pass once the restriction is lifted. A ban (interactions.ts) is the only other remover. New feature modules read
  * membership facts; they never call addRole or removeRole.
  *
+ * .114 (2 Oct 2026, Viktor's item 9): a rename Blizzard required. When a site administrator marks one (rename-review.ts),
+ * the member applies again and the character is verified again: revokeForReapply takes Guild Member away once, at that
+ * decision (the one remover added since .55, named here so the contract stays complete), and every grant is held ("held")
+ * while the account has a rename_holds row in state 'reapply', until an administrator approves the new application or
+ * withdraws the decision; both only where no other current member character of the account supports the role
+ * (reapplyHeld). A grant's PUT that lands after a hold is undone like one after a ban, and held accounts join the sweep's
+ * banned reconciliation.
+ *
  * Fail closed on configuration (.58, Codex's role-boundary probes, 1 Oct 01:35 UTC): the guild's roles are read and
  * kept ten minutes per isolate, keyed by the guild and the configured role ids, so a changed configuration is read
  * afresh; when ROLE_GUILD_MEMBER is not among them no grant is attempted ("misconfigured"); when the read itself fails
@@ -44,7 +52,7 @@ export function heldBlockingRole(env: Env, roles: readonly string[]): string | n
   return null;
 }
 
-export type GrantOutcome = "granted" | "has-role" | "blocked" | "banned" | "not-in-server" | "no-role" | "misconfigured" | "unverified" | "budget";
+export type GrantOutcome = "granted" | "has-role" | "blocked" | "banned" | "held" | "not-in-server" | "no-role" | "misconfigured" | "unverified" | "budget";
 
 /**
  * .90 (P-20, 1 Oct 2026): the Discord calls one role-writing RUN may make: a sweep, a roster export's promotions, a manual
@@ -139,6 +147,11 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   if (m.roles.includes(role)) return "has-role";
   // .60: the ban is read AFTER the member await, as the last thing before the write
   if (await isBanned(env, userId)) return "banned";
+  // .114: and the reapply hold (a rename Blizzard required), from D1 with the ban
+  if (await reapplyHeld(env, userId)) {
+    await audit(env, "system", "role.held_reapply", userId, { source });
+    return "held";
+  }
   // .95: the PUT and the removal it may owe, reserved together before the PUT
   if (!affords(budget, 2) || !takeCall(budget)) return budgetExhausted(env, budget!, source);
   await addRole(env, userId, role, reason, budget);
@@ -148,11 +161,71 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
     await revokeForBan(env, userId, role, `${source}:after-grant`, budget);
     return "banned";
   }
+  // .114 (Codex, log 18:47 UTC): the reapply hold the same way: a hold stored, and its one-time removal done, while this PUT
+  // was in flight would otherwise be undone by the PUT landing last. The sweep's reconciliation (reconcileBanned) covers a
+  // removal that fails here.
+  if (await reapplyHeld(env, userId)) {
+    takeMandatory(budget); // the same reserved removal; only one of the two can be needed
+    await revokeHeld(env, userId, role, `${source}:after-grant`, budget);
+    return "held";
+  }
   return "granted";
 }
 
 const isBanned = async (env: Env, userId: string): Promise<boolean> =>
   !!(await env.DB.prepare("SELECT banned FROM members WHERE discord_id = ?1").bind(userId).first<{ banned: number }>())?.banned;
+
+/**
+ * .114: an account an administrator asked to apply again after a rename Blizzard required (rename-review.ts), whose Guild
+ * Member no other character supports: held while a hold is open and none of the account's OTHER characters (another name
+ * key, and not the same GUID) is a current member (Codex, log 18:47 and 19:17 UTC: a legitimate member character keeps
+ * the role; the renamed one still has to be verified again and the member still applies again).
+ */
+export const reapplyHeld = async (env: Env, userId: string): Promise<boolean> =>
+  !!(await env.DB.prepare(
+    // a supporting character is a current member that NO open hold of the account names, by key or by GUID (Codex, log
+    // 19:51 UTC: two held characters must not count as each other's support); either match excludes it, the cautious side
+    `SELECT 1 AS held FROM rename_holds h WHERE h.discord_id = ?1 AND h.state = 'reapply'
+       AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.discord_id = ?1 AND c.status IN ('member','left_pending')
+                       AND NOT EXISTS (SELECT 1 FROM rename_holds h2 WHERE h2.discord_id = ?1 AND h2.state = 'reapply'
+                                       AND (c.name_key = h2.char_key OR (h2.guid IS NOT NULL AND c.guid = h2.guid))))
+     LIMIT 1`,
+  ).bind(userId).first<{ held: number }>());
+
+/**
+ * .114: take Guild Member away at the moment an administrator marks a rename as required by Blizzard. Called once by
+ * rename-review.ts after the hold is stored, so no grant can follow it. A member without the role, or outside the server,
+ * needs nothing; a failed removal is recorded (`role.revoke_pending`) and reported to the administrator, who removes the
+ * role by hand: the account may have no roster character left for the sweep to visit, and the hold keeps it from coming back.
+ */
+export async function revokeForReapply(env: Env, userId: string, source: string): Promise<"removed" | "not-held" | "failed"> {
+  const role = env.ROLE_GUILD_MEMBER;
+  if (!role) return "not-held";
+  let m: Awaited<ReturnType<typeof guildMember>>;
+  try {
+    m = await guildMember(env, userId);
+  } catch (e) {
+    await audit(env, "system", "role.revoke_pending", userId, { source, error: e instanceof DiscordError ? `read ${e.status}` : "read failed" });
+    return "failed";
+  }
+  if (!m || !m.roles.includes(role)) return "not-held";
+  // .114 (Codex, log 18:47 and 19:17 UTC): the hold is read again after the member GET, at the effect: a hold withdrawn,
+  // or another member character confirmed, while that read was in flight is not followed by a stale removal
+  if (!(await reapplyHeld(env, userId))) return "not-held";
+  return (await revokeHeld(env, userId, role, source)) ? "removed" : "failed";
+}
+
+/** .114: remove Guild Member from an account under a reapply hold; a failure is recorded as pending for the sweep's reconciliation. */
+async function revokeHeld(env: Env, userId: string, role: string, source: string, budget?: CallBudget): Promise<boolean> {
+  try {
+    await removeRole(env, userId, role, "olympus-verify: a rename Blizzard required; the account applies again", budget, true);
+    await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_hold" : "role.revoked_reapply", userId, { source });
+    return true;
+  } catch (e) {
+    await audit(env, "system", "role.revoke_pending", userId, { source, error: e instanceof DiscordError ? `remove ${e.status}` : "remove failed" });
+    return false;
+  }
+}
 
 /**
  * .60: take Guild Member away from a banned account. A failed removal is recorded as pending; the sweep's banned
@@ -180,11 +253,16 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
-export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget): Promise<{ checked: string[]; revoked: string[]; failed: string[]; cursor: string }> {
+export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string }> {
   const role = env.ROLE_GUILD_MEMBER;
-  const out = { checked: [] as string[], revoked: [] as string[], failed: [] as string[], cursor: after };
+  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after };
   if (!role) return out;
-  const rows = await env.DB.prepare("SELECT m.discord_id FROM members m WHERE m.banned = 1 AND m.discord_id > ?1 ORDER BY m.discord_id LIMIT ?2").bind(after, limit).all<{ discord_id: string }>();
+  // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
+  // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
+  const rows = await env.DB.prepare(
+    `SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply')
+      WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
+  ).bind(after, limit).all<{ discord_id: string }>();
   let stopped = false;
   for (const r of rows.results) {
     // .90: a look and possibly a removal: stop before an account the run's budget cannot finish, the cursor at the last one done
@@ -203,9 +281,16 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
     }
     out.checked.push(r.discord_id);
     if (!member || !member.roles.includes(role)) continue;
-    if (!(await isBanned(env, r.discord_id))) continue; // .63: unbanned while the member read was in flight: nothing to take away
-    takeMandatory(budget); // counted (the reservation above covers it and its retry); a removal for a ban is never skipped
-    if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget)) out.revoked.push(r.discord_id);
+    if (await isBanned(env, r.discord_id)) {
+      takeMandatory(budget); // counted (the reservation above covers it and its retry); a removal for a ban is never skipped
+      if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget)) out.revoked.push(r.discord_id);
+      else out.failed.push(r.discord_id);
+      continue;
+    }
+    // .63: unbanned while the member read was in flight: nothing to take away for a ban; .114: unless a reapply hold is open
+    if (!(await reapplyHeld(env, r.discord_id))) continue;
+    takeMandatory(budget);
+    if (await revokeHeld(env, r.discord_id, role, "sweep:held", budget)) out.held.push(r.discord_id);
     else out.failed.push(r.discord_id);
   }
   if (!stopped && rows.results.length < limit) out.cursor = ""; // wrap at the end

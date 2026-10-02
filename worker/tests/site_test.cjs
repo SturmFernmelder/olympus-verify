@@ -9,6 +9,7 @@ const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
 // ---------- D1 over SQLite: a batch is one transaction; SELECTs in a batch return their rows ----------
+let PREPARE_HOOK = null; // .114: a test may act when a statement is prepared (between a handler's read and its write)
 function d1(db) {
   const exec = (sql, params) => {
     const st = db.prepare(sql);
@@ -17,6 +18,7 @@ function d1(db) {
     return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
   };
   const stmt = (sql) => {
+    PREPARE_HOOK?.(sql);
     let params = [];
     const api = {
       bind: (...p) => {
@@ -290,8 +292,8 @@ const bootOf = async (res) => {
       require("node:crypto").createHash("sha256").update(png).digest("hex") === "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66" &&
       fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8").includes('src: "/static/olympus-icon.png"') && JSON.stringify(imagesOutsideWow) === JSON.stringify(["static/olympus-icon.png"]), JSON.stringify(imagesOutsideWow));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
-    check("  no account picture loads from Discord any more: every rendering goes through accountArt (class icon or the Member icon)",
-      !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/accountArt\(/g) || []).length === 9 && !appJs.includes("DISCORD_SVG"));
+    check("  .114: the member's own Discord picture shows in the top bar only (ownAvatar, Discord's avatar addresses only); the other eight account pictures stay accountArt (class icon or the Member icon)",
+      !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 2 && (appJs.match(/accountArt\(/g) || []).length === 9 && appJs.includes(String.raw`const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/`) && !appJs.includes("DISCORD_SVG"));
   }
   res = await call("POST", "/interactions", { body: {} });
   check("bot routes are not served on the site host", res.status === 404);
@@ -451,6 +453,13 @@ const bootOf = async (res) => {
   check("withdraw", res.status === 200 && (await J(res)).application.status === "withdrawn");
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: memberBody });
   check("  and applying again reopens it", (await J(res)).application.status === "submitted");
+  // .114 (Codex, log 19:56 UTC): staff decide while a save is in flight (after its read, before its write): the decision wins
+  const answersBefore = db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000002'").get().answers;
+  PREPARE_HOOK = (sql) => { if (/^\s*INSERT INTO site_applications/.test(sql)) db.prepare("UPDATE site_applications SET status = 'accepted', reviewed_at = ? WHERE discord_id = '300000000000000002'").run(T); };
+  res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, answers: { ...memberBody.answers, why: "Changed while staff were deciding." } } });
+  PREPARE_HOOK = null;
+  check("  a save racing a staff decision does not overwrite the decided application (409 decided; answers unchanged)", res.status === 409 && (await J(res)).error === "decided" && db.prepare("SELECT answers, status FROM site_applications WHERE discord_id = '300000000000000002'").get().answers === answersBefore);
+  db.prepare("UPDATE site_applications SET status = 'submitted', reviewed_at = NULL WHERE discord_id = '300000000000000002'").run(); // back to open for the checks below
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, position: "pvp_team", backups: ["raider"] } });
   out = await J(res);
   check("PvP Team (.44) is a way in like Raider: no leadership answers or board consent, and Raider as its backup",
@@ -945,6 +954,7 @@ const bootOf = async (res) => {
   out = await J(res);
   check("member search finds Alice, flagged as signed up", out.results.length === 1 && out.results[0].id === "300000000000000001" && out.results[0].onSite === true && out.results[0].label === "Alice of Olympus (@alice)");
   check("  a member does not see who is verified in game", !("linked" in out.results[0]));
+  check("  .114: each result also carries the names it is SHOWN with: nickname, display name and @username; the stored label unchanged", out.results[0].shown === "Alice of Olympus · Alice A (@alice)" && out.results[0].label === "Alice of Olympus (@alice)"); // the server nickname no longer hides the display name
   const before = D.calls.filter((c) => c.includes("/members/search")).length;
   await call("GET", "/api/search?q=AL", { who: "300000000000000002" });
   check("  the same query again is served from the cache", D.calls.filter((c) => c.includes("/members/search")).length === before);
@@ -1301,7 +1311,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".113") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".114") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

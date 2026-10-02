@@ -42,7 +42,10 @@ export const CSP = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
-  "img-src 'self'", // .112: images from this site only (the official game art and the crest); no embedded images, no Discord pictures
+  // .112: images from this site only (the official game art and the crest); no embedded images. .114 (Viktor, 2 Oct 2026): one
+  // exception, the signed-in member's own Discord picture in the top bar, from Discord's picture host and nowhere else (the
+  // page's script accepts only an avatar address there, app.js ownAvatar)
+  "img-src 'self' https://cdn.discordapp.com",
   "font-src 'self'",
   "connect-src 'self'",
   "form-action 'self'",
@@ -314,6 +317,26 @@ export async function searchMembers(env: Env, q: string): Promise<{ found: Found
 export const labelOf = (f: { username: string | null; displayName: string | null; nick?: string | null }) => {
   const shown = f.nick || f.displayName || f.username || "";
   return (shown && f.username && shown.toLowerCase() !== f.username.toLowerCase() ? `${shown} (@${f.username})` : `@${f.username ?? shown}`).slice(0, LIMITS.label);
+};
+
+/**
+ * .114 (Viktor, 2 Oct 2026: "show both their display name and username"): how a found member is SHOWN in a search: every
+ * name that differs, the server nickname, the display name, then the @username, e.g. "Fern · Fernmelder (@fernmelder)".
+ * Until .114 a nickname hid a different display name. Display only: labelOf stays the label a pick stores (votes,
+ * friends and references keep the format they were saved with).
+ */
+export const shownName = (f: { username: string | null; displayName: string | null; nick?: string | null }) => {
+  const user = f.username ?? "";
+  const seen = new Set([user.toLowerCase()]);
+  const names: string[] = [];
+  for (const n of [f.nick, f.displayName]) {
+    const v = (n ?? "").trim();
+    if (v && !seen.has(v.toLowerCase())) {
+      seen.add(v.toLowerCase());
+      names.push(v);
+    }
+  }
+  return (names.length ? `${names.join(" · ")} (@${user})` : `@${user}`).slice(0, 140);
 };
 
 /** A JSON object body, {} when empty, or null when it is not one (or over 64 KB). */
