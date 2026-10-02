@@ -11,8 +11,10 @@
 #     the one the marker records last, so an edit of either file after that fails the check and forces a re-review.
 #
 # After the cutover, the community features are switched on (docs/launch-runbook.md step 4) only by --activate: the
-# profile may then differ from the live file in the seven activation keys and nothing else; --activate copies it over
-# the live file and APPENDS an activation record to the marker. The marker has one grammar, read line by line: comment
+# profile may then differ from the live file in the eight activation keys and nothing else (the seven community switches
+# and lifetimes, and gate 6's VERIFY_OPEN_SINCE, which only moves forward: one real calendar day written YYYY-MM-DD,
+# strictly later than the live one, never earlier, empty, malformed or removed); --activate copies it over the live file
+# and APPENDS an activation record to the marker. The marker has one grammar, read line by line: comment
 # lines (starting with #) anywhere; otherwise exactly one cutover record, profile_sha256 = "<64 hex>" then
 # applied_at = "<YYYY-MM-DDTHH:MM:SSZ>", followed by zero or more complete activation records,
 # activation_profile_sha256 = "<64 hex>" then activated_at = "<YYYY-MM-DDTHH:MM:SSZ>", each time no earlier than the one
@@ -37,8 +39,9 @@ usage() { echo "usage: scripts/cutover-config.sh [--check|--apply|--activate]" >
 digest() { sha256sum "$1" | cut -c1-64; }
 # the files without comments and blank lines: what wrangler actually reads
 strip() { sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"; }
-# the only keys --activate may change after the cutover (the community switches and their lifetimes)
-activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED"
+# the only keys --activate may change after the cutover: the community switches and their lifetimes, and gate 6's
+# VERIFY_OPEN_SINCE, forward only (forward_date below; Codex's review of the first activation, 1 Oct 2026 23:14 UTC)
+activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED VERIFY_OPEN_SINCE"
 expected="routes GUILD_ID ROLE_GUILD_MEMBER ROLE_OFFICER ROLE_MODERATOR ROLE_GUILD_LEADER ROLE_GUILD_MASTER ROLE_RAID_LEADER CHANNEL_RECRUITMENT_REVIEW CHANNEL_MOD_ALERTS CHANNEL_SERVER_LOG SET_NICKNAME CHANNEL_NOTICES BLOCKING_ROLE_IDS CHANNEL_VISITOR_CHAT SITE_HOST SITE_LEGACY_HOSTS VERIFY_OPEN_SINCE"
 changed="$( (diff <(strip "$live") <(strip "$cut") || true) | sed -n 's/^[<>][[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)[[:space:]]*=.*/\1/p' | sort -u | tr '\n' ' ')"
 other="$( (diff <(strip "$live") <(strip "$cut") || true) | grep -E '^[<>]' | grep -Ev '^[<>][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=' || true)"
@@ -74,6 +77,36 @@ parse_marker() {
   [ "$state" = 2 ] || { echo "refusing: $marker ends inside a record (a partial cutover or activation record)" >&2; return 1; }
   printf '%s %s\n' "$hash" "$last"
 }
+# One real calendar day written YYYY-MM-DD (Gregorian leap years); not a time of day, not unix seconds.
+calendar_day() {
+  local re='^([0-9]{4})-([0-9]{2})-([0-9]{2})$' y m d max
+  [[ $1 =~ $re ]] || return 1
+  y=$((10#${BASH_REMATCH[1]})); m=$((10#${BASH_REMATCH[2]})); d=$((10#${BASH_REMATCH[3]}))
+  case "$m" in
+    1|3|5|7|8|10|12) max=31 ;;
+    4|6|9|11) max=30 ;;
+    2) if (( (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 )); then max=29; else max=28; fi ;;
+    *) return 1 ;;
+  esac
+  (( d >= 1 && d <= max ))
+}
+# VERIFY_OPEN_SINCE as wrangler reads it from a file: exactly one KEY = "value" line (comments ignored), else status 1.
+open_since() {
+  local lines re='^[[:space:]]*VERIFY_OPEN_SINCE[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$'
+  lines="$(strip "$1" | grep -E '^[[:space:]]*VERIFY_OPEN_SINCE[[:space:]]*=' || true)"
+  [ -n "$lines" ] && [ "$(printf '%s\n' "$lines" | wc -l | tr -d ' ')" = 1 ] && [[ $lines =~ $re ]] || return 1
+  printf '%s\n' "${BASH_REMATCH[1]}"
+}
+# Gate 6 after the cutover: the date verification opened for everyone only moves forward, so nobody's grace before a
+# removal may be offered (UNVERIFIED_GRACE_DAYS after it) is ever shortened. Checked only when the date is among the
+# changed keys; an activation that leaves it alone is not affected.
+forward_date() {
+  local old new
+  old="$(open_since "$live")" && calendar_day "$old" || { echo "refusing: VERIFY_OPEN_SINCE in $live is not one YYYY-MM-DD calendar day, so a forward move cannot be checked" >&2; return 1; }
+  new="$(open_since "$cut")" || { echo "refusing: VERIFY_OPEN_SINCE must stay exactly one KEY = \"YYYY-MM-DD\" line in $cut (not removed, doubled or differently quoted)" >&2; return 1; }
+  calendar_day "$new" || { echo "refusing: VERIFY_OPEN_SINCE = \"$new\" in $cut is not a real calendar day written YYYY-MM-DD" >&2; return 1; }
+  [[ "$new" > "$old" ]] || { echo "refusing: VERIFY_OPEN_SINCE only moves forward after the cutover ($old -> $new is not later)" >&2; return 1; }
+}
 check_applied() {
   local parsed recorded
   parsed="$(parse_marker)" || return 1
@@ -105,6 +138,7 @@ case "${1:-}" in
     [ -z "$other" ] || { echo "refusing: a difference outside a key = value line:" >&2; echo "$other" >&2; exit 1; }
     [ -n "$changed" ] || { echo "refusing: only comments differ; there is nothing to activate" >&2; exit 1; }
     for k in $changed; do case " $activation " in *" $k "*) ;; *) echo "refusing: $k is not an activation key (only: $activation)" >&2; exit 1 ;; esac; done
+    case " $changed " in *" VERIFY_OPEN_SINCE "*) forward_date || exit 1 ;; esac
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     [[ "$now" < "$last" ]] && { echo "refusing: the clock ($now) is earlier than the marker's last record ($last)" >&2; exit 1; }
     cp "$cut" "$live"

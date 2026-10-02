@@ -4149,3 +4149,17 @@ deployed; its marker and live file are preserved byte for byte outside the repos
 offers stay officer suggestions. The pre-cutover pair now differs in 18 keys, and `scripts/cutover-config.sh` and its test
 expect exactly those; the activation allowlist is unchanged. The cutover is applied once, from this profile, in its own
 commit. If the opening slips past 2 October, the date is re-reviewed forward before the deploy.
+
+## `VERIFY_OPEN_SINCE` moves forward after the cutover (1 Oct 2026)
+
+The cutover (applied 20:36:18 UTC, deployed 21:40 UTC) left gate 6's "re-reviewed forward" without a path: the marker
+refuses a second `--apply`, and `--activate` accepted only the seven community keys. Claude Code found it while preparing
+the first activation; Codex asked for the minimal extension (23:14 UTC). `scripts/cutover-config.sh --activate` now also
+accepts `VERIFY_OPEN_SINCE`, the eighth activation key, but only forward: when it is among the changed keys, the profile
+must hold exactly one `VERIFY_OPEN_SINCE = "YYYY-MM-DD"` line naming a real calendar day (Gregorian leap years) strictly
+later than the live one, and the live value must itself be such a day. An earlier, equal, empty, removed, doubled,
+differently quoted, malformed or impossible date is refused before anything is written; an activation that leaves the date
+alone is not affected. The marker grammar, the cutover's own record, `--apply`, `--check` and the 18 pre-cutover keys are
+unchanged; `scripts/tests/cutover-config.test.sh` covers the refusals (each without a write), existing leap days, a
+date-only move, a move beside a community key and an untouched non-calendar date. No Worker file changed (BUILD stays
+.113). The date itself moves to `2026-10-09` by its own reviewed activation (`docs/launch-runbook.md` step 4).

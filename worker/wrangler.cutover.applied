@@ -2,3 +2,6 @@
 # reviewed worker/wrangler.cutover.toml whose SHA-256 is recorded here; --check binds both files to it from now on.
 profile_sha256 = "ad5c2cf7e6bd67b0fd9bea541f3a2fed4c3038de8e5a1dbd1f0a8e0a42009fda"
 applied_at = "2026-10-01T20:36:18Z"
+# Activation (scripts/cutover-config.sh --activate): only the activation keys changed (VERIFY_OPEN_SINCE); this is the profile now in force.
+activation_profile_sha256 = "5cd2d12bd3fd60f370278284a5ece2b890122fcf48e71e1ad2220f98bd036d26"
+activated_at = "2026-10-01T23:58:01Z"
