@@ -4163,3 +4163,24 @@ alone is not affected. The marker grammar, the cutover's own record, `--apply`, 
 unchanged; `scripts/tests/cutover-config.test.sh` covers the refusals (each without a write), existing leap days, a
 date-only move, a move beside a community key and an untouched non-calendar date. No Worker file changed (BUILD stays
 .113). The date itself moves to `2026-10-09` by its own reviewed activation (`docs/launch-runbook.md` step 4).
+
+## Launch completed: cutover, E2, E3 and E4 live (1-2 Oct 2026)
+
+No build and no Worker file changed; this section records the configuration deploys that followed the cutover, all of
+build .113 (one bundle, `index.js` `1c417f22...`). Each was a keeper commit through `scripts/cutover-config.sh
+--activate` (one appended marker record), carried by protected pull request to the public `main`, green push CI, both
+agents' source signatures, a frozen pre-upload proof (live metadata, committed dry-run), one `deploy-commit.sh` upload
+and a frozen readback, with both agents' operating signatures:
+
+- E2, the protective opening date: keeper `a76b3ee6`, `main` `5ebf756c` (PR #6), version `9827ab10`, 2 Oct 02:42 UTC.
+  `VERIFY_OPEN_SINCE` 2026-10-09; nobody first seen before then is offered for removal before 12 October.
+- E3, the first activation: keeper `bc2ec08f`, `main` `fc21f343` (PR #7), version `fdf41b8f`, 04:10 UTC. The nine
+  community features, the dues ledger (90 days), privacy-case retention 30 days, the officer digest; the intake closed.
+- E4, the second activation: keeper `9e2628f9`, `main` `364c5620` (PR #8), version `a18a10aa`, 05:01 UTC. The private
+  request form accepts new cases; the site administrator reviews the inbox each working day.
+
+The marker `worker/wrangler.cutover.applied` holds the cutover record and these three activation records. Rollback never
+selects a version carrying the old, invalidated bot token (`319a1cd0`, `9357088f` or earlier) nor `1e009521` (the date
+back at 2 October); the earlier versions of the rotated chain, `fdf41b8f` and `9827ab10`, are the only rollback
+candidates. The full record, the Discord-side steps and the observations still open before the launch counts as
+accepted are in `docs/launch-runbook.md` section 7.
