@@ -107,16 +107,16 @@ SITE_GUILD_ID = "236932545793490944"   # Asmongold's server: only its members ca
 SITE_ADMINS = "472099715253796864"     # Viktor (owner of the Olympus server); comma-separate to add more
 # .56: community modules ported from Olympus Forever, named here when switched on (directory, crafting, events,
 # attendance, trials, departures, contributions, privacy_intake, rights). "" = none; each lands behind this list.
-COMMUNITY_FEATURES = ""
+COMMUNITY_FEATURES = "directory,crafting,events,attendance,trials,restrictions,departures,privacy_intake,contributions"
 COMMUNITY_DIRECTORY_LIMIT = "2500"      # .57: listed profiles the directory holds (a guild has at most 1,000 characters); the 2,501st save is refused; .59: and the calendar's distinct members
 COMMUNITY_ORGANIZERS = ""               # .59: Discord ids who may create, edit and cancel events and record attendance (SITE_ADMINS always may); "" = admins only
-CONTRIBUTIONS_MODE = "off"              # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
-CONTRIBUTIONS_RETENTION_DAYS = ""       # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
+CONTRIBUTIONS_MODE = "ledger"           # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
+CONTRIBUTIONS_RETENTION_DAYS = "90"     # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
 CONTRIBUTIONS_SCOPE = "olympus"         # .75: the guild scope ledger records carry
 PRIVACY_INTAKE_ENABLED = "false"        # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
 PRIVACY_INTAKE_MONITORED = "false"      # .82: set "true" only once an administrator actually reads the queue; new cases are refused otherwise
-PRIVACY_INTAKE_RETENTION_DAYS = ""      # .82: days a case is kept from its last activity (1..3650), fixed per case at creation; "" = no new cases
-OFFICER_DIGEST_ENABLED = "false"        # .85: "true" posts the daily officer digest (counts only) to CHANNEL_MOD_ALERTS (else the review channel) after 15:00 UTC
+PRIVACY_INTAKE_RETENTION_DAYS = "30"    # .82: days a case is kept from its last activity (1..3650), fixed per case at creation; "" = no new cases
+OFFICER_DIGEST_ENABLED = "true"         # .85: "true" posts the daily officer digest (counts only) to CHANNEL_MOD_ALERTS (else the review channel) after 15:00 UTC
 SITE_JOIN_URL = ""                     # an invite link to Asmongold's server, shown to people who are not in it ("" = none)
 NAME_RESERVATION_AT = "2026-10-27T07:00:00Z"  # 27 Oct, 00:00 Pacific: Blizzard gave the date, not the hour. Set the hour on the site's admin page
 LAUNCH_AT = "1793833200"               # 4 Nov 2026, 3:00 p.m. PST: approved reserved names go to the top of the invite queue from then
