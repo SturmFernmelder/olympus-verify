@@ -88,8 +88,13 @@ CREATE TABLE IF NOT EXISTS roster_snapshots (
   received_at    INTEGER NOT NULL,
   source         TEXT NOT NULL,      -- addon | api
   member_count   INTEGER NOT NULL,
-  content_hash   TEXT                -- fingerprint of who/rank/note; an identical export reuses this row instead of rewriting every member
+  content_hash   TEXT,               -- fingerprint of who/rank/note; an identical export reuses this row instead of rewriting every member
+  -- .115 (2 Oct 2026, item B; migrations/2026-10-03-news-and-seats.sql): what the seat count (guild-seats.ts) reads
+  trusted           INTEGER,         -- 1 trusted, 0 distrusted (judged against the last trusted export), NULL unchecked
+  complete          INTEGER,         -- NULL before .115, 0 while its member rows are written, 1 once all are in
+  first_received_at INTEGER          -- when this exact roster first arrived (received_at moves with identical re-exports)
 );
+CREATE INDEX IF NOT EXISTS roster_snapshots_first ON roster_snapshots(first_received_at);
 CREATE TABLE IF NOT EXISTS roster_members (
   snapshot_id    INTEGER NOT NULL REFERENCES roster_snapshots(id) ON DELETE CASCADE,
   name_key       TEXT NOT NULL,
@@ -110,6 +115,39 @@ CREATE TABLE IF NOT EXISTS roster_members (
 CREATE TABLE IF NOT EXISTS roster_first_seen (
   name_key   TEXT PRIMARY KEY,
   first_seen INTEGER NOT NULL
+);
+
+-- .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A; migrations/2026-10-03-roster-effects.sql): a roster
+-- export's member effects as a durable worklist (src/roster-effects.ts, src/roster.ts). A run is the diff of one complete
+-- snapshot: created with the snapshot's complete stamp (or after an identical export's refresh), with the snapshot its
+-- departures are judged against (prev_snapshot_id) and whether it may remove (removals: the ingest's own trust decision);
+-- derived_at once its pins, returns and first absences are applied and its items written; done_at once no item is left
+-- (the backlog is empty; a snapshot's `complete` only says its rows are stored); superseded_at when a newer run took over
+-- first. An item is one effect that needs Discord (a promotion, an officer's D: note, a confirmed departure), done when
+-- claimed in the transaction of its database change, and removed once its slice ends. Unix seconds. No index beyond the
+-- keys: every read is the newest run by id or one run's items by (run_id, seq).
+CREATE TABLE IF NOT EXISTS roster_effect_runs (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  snapshot_id      INTEGER NOT NULL,
+  prev_snapshot_id INTEGER,
+  removals         INTEGER NOT NULL,
+  created_at       INTEGER NOT NULL,
+  derived_at       INTEGER,
+  items            INTEGER,
+  done_at          INTEGER,
+  superseded_at    INTEGER
+);
+CREATE TABLE IF NOT EXISTS roster_effects (
+  run_id     INTEGER NOT NULL,
+  seq        INTEGER NOT NULL,
+  kind       TEXT NOT NULL CHECK (kind IN ('promote', 'note', 'depart')),
+  name_key   TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  discord_id TEXT NOT NULL,
+  guid       TEXT,
+  done_at    INTEGER,
+  claim      TEXT,
+  PRIMARY KEY (run_id, seq)
 );
 
 -- Officers' clients that can take a whisper right now. Each watcher reports on its /queue poll whether its game
@@ -780,3 +818,39 @@ CREATE TABLE IF NOT EXISTS rename_holds (
 );
 CREATE INDEX IF NOT EXISTS rename_holds_account ON rename_holds(discord_id, state);
 CREATE UNIQUE INDEX IF NOT EXISTS rename_holds_audit ON rename_holds(audit_id) WHERE audit_id IS NOT NULL;
+
+-- Build .115 (2 Oct 2026, Viktor's item A): News notices and their operation ledger (src/site-news.ts). A notice is plain
+-- text an administrator posts for the whole guild; it lives 1 to 90 days from posting (retain_until, judged by the
+-- database clock in every read and write) and the cron then deletes it. Each create is an operation whose id the page
+-- chose: its site_news_ops row is kept 120 days, also after the notice is deleted or expired, so a stale retry can never
+-- post it again (the tombstone); a row is never purged while its notice exists. created_by and updated_by are staff
+-- Discord ids, set to NULL when that account's site data is erased (the notices stay), and listed in that account's
+-- copy. No title or body ever enters the dated log. Unix seconds. The Worker creates both itself (src/schema.ts);
+-- migrations/2026-10-03-news-and-seats.sql is the record.
+CREATE TABLE IF NOT EXISTS site_news_notices (
+  id           TEXT PRIMARY KEY CHECK (length(id) = 22),   -- the creating operation's id
+  op_hash      TEXT NOT NULL,                               -- what the create wrote, hashed: a replay is compared with this
+  title        TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  body         TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 2000),
+  revision     INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
+  nonce        TEXT,                                        -- per write: admits the rest of its batch
+  created_by   TEXT,
+  created_at   INTEGER NOT NULL,
+  updated_by   TEXT,
+  updated_at   INTEGER NOT NULL,
+  retain_until INTEGER NOT NULL,
+  CHECK (retain_until > created_at AND retain_until <= created_at + 7776000)   -- 1 to 90 days
+);
+CREATE INDEX IF NOT EXISTS site_news_notices_order ON site_news_notices(created_at);
+CREATE INDEX IF NOT EXISTS site_news_notices_retain ON site_news_notices(retain_until);
+CREATE INDEX IF NOT EXISTS site_news_notices_created_by ON site_news_notices(created_by);
+CREATE INDEX IF NOT EXISTS site_news_notices_updated_by ON site_news_notices(updated_by);
+CREATE TABLE IF NOT EXISTS site_news_ops (
+  id          TEXT PRIMARY KEY CHECK (length(id) = 22),
+  nonce       TEXT NOT NULL,
+  created_by  TEXT,
+  created_at  INTEGER NOT NULL,
+  purge_after INTEGER NOT NULL CHECK (purge_after > created_at)
+);
+CREATE INDEX IF NOT EXISTS site_news_ops_purge ON site_news_ops(purge_after);
+CREATE INDEX IF NOT EXISTS site_news_ops_created_by ON site_news_ops(created_by);

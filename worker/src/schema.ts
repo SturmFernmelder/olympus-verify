@@ -7,6 +7,8 @@
  * hand; doing so first is harmless.
  */
 import type { Env } from "./env";
+import { now } from "./db";
+import { errorRef } from "./log";
 
 let ready: Promise<void> | null = null;
 
@@ -96,7 +98,61 @@ async function migrate(env: Env) {
   // migrations/2026-10-01-audit-actor-action.sql.
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action)").run();
   await migrateGuildSite(env);
+  await redactSettingsAudit(env);
 }
+
+/** .115 (item C): set once the historic site.settings audit rows have been rewritten to counts (redactSettingsAudit). */
+export const AUDIT_TYPED_NAMES_KEY = "auditTypedNames";
+
+/**
+ * .115 (Viktor's item C, 2 Oct 2026; the one-time rewrite confirmed by the owner, 3 Oct): the dated log outlives an
+ * erasure, so from .115 a settings save records the appointed roles' keys, how many names were saved and whether a notice
+ * was set (site-admin.ts settingsAuditDetails), never the typed names or the notice text. This gives the site.settings
+ * rows written before .115 the same shape, once: `appointed` (the JSON text of {roleKey: name}) becomes appointedRoles
+ * (the sorted keys of an object, [] for anything else) and appointedNames (their count, null when it was not an object),
+ * and a text `notice` becomes true or false. Rows whose details are not JSON, and every other action, are left alone.
+ *
+ * One batch, so the marker is written only together with the rewrite. Both UPDATEs match nothing once done, so two
+ * isolates racing here end up with the same rows. The marker leaves one primary-key read per isolate start; without it
+ * every start would scan the audit table, which has no index on the action alone. Every JSON function on a stored value
+ * sits behind a CASE on json_valid (CASE keeps its order; AND need not), so a malformed row cannot fail the statement.
+ *
+ * Irreversible: the fresh verified private backup comes before the deploy that runs it (docs/deploy-checklist.md).
+ * Not in migrations/2026-10-03-news-and-seats.sql: it changes rows, not the schema, and applied by hand ahead of the
+ * deploy it would set the marker while .114 still writes names into the log.
+ *
+ * A failure is logged (errorRef) and does not fail the schema check: nothing in this build reads these rows' shape, and
+ * holding the bot, the watcher and the site at 503 over a log rewrite would be the wrong trade. Without the marker the
+ * next isolate start tries again. So the deploy proves nothing: the counts-only read-back (the marker, no site.settings
+ * row still carrying `appointed` or a text `notice`, none that is not JSON) is a mandatory acceptance gate after every
+ * deploy, roll-forward and restore (docs/deploy-checklist.md, Worker .115, rollout step 7; Codex, 3 Oct 2026,
+ * 13:24 UTC). The marker records one run, not later rows: an older writer resumed after it writes the old shape again,
+ * and the owner then deletes the marker so that a later start rewrites what remains. A running isolate has checked already
+ * (`ready` above) and never looks again, so "a later start" is a fresh isolate: the runbook has the owner redeploy the same
+ * commit and request /health once (the second review round, 3 Oct 2026).
+ */
+async function redactSettingsAudit(env: Env) {
+  try {
+    if (await env.DB.prepare("SELECT 1 AS done FROM site_settings WHERE key = ?1").bind(AUDIT_TYPED_NAMES_KEY).first()) return;
+    await env.DB.batch([
+      env.DB.prepare(REDACT_APPOINTED),
+      env.DB.prepare(REDACT_NOTICE),
+      env.DB.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (?1, ?2, ?3, NULL) ON CONFLICT(key) DO NOTHING").bind(AUDIT_TYPED_NAMES_KEY, "115", now()),
+    ]);
+  } catch (e) {
+    console.error("settings audit rewrite failed", errorRef(e));
+  }
+}
+
+const APPOINTED_OF = "json_extract(details, '$.appointed')";
+const APPOINTED_IS_OBJECT = `CASE WHEN json_valid(${APPOINTED_OF}) THEN json_type(${APPOINTED_OF}) = 'object' ELSE 0 END`;
+const REDACT_APPOINTED = `UPDATE audit SET details = json_remove(json_set(details,
+     '$.appointedRoles', json(CASE WHEN ${APPOINTED_IS_OBJECT} THEN (SELECT json_group_array(key) FROM (SELECT key FROM json_each(${APPOINTED_OF}) ORDER BY key)) ELSE '[]' END),
+     '$.appointedNames', CASE WHEN ${APPOINTED_IS_OBJECT} THEN (SELECT COUNT(*) FROM json_each(${APPOINTED_OF})) ELSE NULL END),
+   '$.appointed')
+  WHERE action = 'site.settings' AND CASE WHEN json_valid(details) THEN json_type(details, '$.appointed') IS NOT NULL ELSE 0 END`;
+const REDACT_NOTICE = `UPDATE audit SET details = json_set(details, '$.notice', json(CASE WHEN length(json_extract(details, '$.notice')) > 0 THEN 'true' ELSE 'false' END))
+  WHERE action = 'site.settings' AND CASE WHEN json_valid(details) THEN json_type(details, '$.notice') = 'text' ELSE 0 END`;
 
 /**
  * 29 Sep 2026 (.41): the guild site on SITE_HOST (site.ts), the Discord names shown for linked members (names.ts), and
@@ -114,9 +170,11 @@ async function migrateGuildSite(env: Env) {
   // once done, and the position and ballot indexes make that a lookup, so they run with every isolate's check.
   await env.DB.batch([...SITE_SCHEMA, ...LEGACY_ROLES].map((sql) => env.DB.prepare(sql)));
   // The index needs invite_queue.priority, so it rides in the column batch: present columns, index made or kept.
+  // .115: so does the roster_snapshots.first_received_at index.
   const columnsAndIndex = () => [
     ...NEW_COLUMNS.map(([table, column]) => env.DB.prepare(`SELECT ${column} FROM ${table} LIMIT 0`)),
     env.DB.prepare(QUEUE_ORDER_INDEX),
+    env.DB.prepare(ROSTER_FIRST_INDEX),
   ];
   try {
     await env.DB.batch(columnsAndIndex());
@@ -126,9 +184,12 @@ async function migrateGuildSite(env: Env) {
   }
   for (const [table, column, type] of NEW_COLUMNS) await addColumn(env, table, column, type);
   await env.DB.prepare(QUEUE_ORDER_INDEX).run();
+  await env.DB.prepare(ROSTER_FIRST_INDEX).run();
 }
 
 const QUEUE_ORDER_INDEX = "CREATE INDEX IF NOT EXISTS invite_queue_order ON invite_queue(status, priority, id)";
+// .115 (2 Oct 2026, item B): when each exact roster first arrived; migrations/2026-10-03-news-and-seats.sql.
+const ROSTER_FIRST_INDEX = "CREATE INDEX IF NOT EXISTS roster_snapshots_first ON roster_snapshots(first_received_at)";
 
 const NEW_COLUMNS: Array<[string, string, string]> = [
   ["members", "username", "TEXT"],        // Discord username (the unique handle)
@@ -143,6 +204,11 @@ const NEW_COLUMNS: Array<[string, string, string]> = [
   ["site_applications", "fit_na", "INTEGER"],
   ["site_applications", "fit_eu", "INTEGER"],
   ["site_applications", "board_at", "INTEGER"],
+  // .115 (guild-seats.ts, site-news.ts): whether a roster export was trusted against the last trusted one, whether all
+  // of its member rows are in, and when that exact roster first arrived (roster.ts); migrations/2026-10-03-news-and-seats.sql.
+  ["roster_snapshots", "trusted", "INTEGER"],
+  ["roster_snapshots", "complete", "INTEGER"],
+  ["roster_snapshots", "first_received_at", "INTEGER"],
 ];
 
 /**
@@ -667,4 +733,58 @@ export const SITE_SCHEMA = [
    )`,
   "CREATE INDEX IF NOT EXISTS rename_holds_account ON rename_holds(discord_id, state)",
   "CREATE UNIQUE INDEX IF NOT EXISTS rename_holds_audit ON rename_holds(audit_id) WHERE audit_id IS NOT NULL",
+  // .115 (2 Oct 2026, Viktor's item A): News notices and their operation ledger (site-news.ts). Same as
+  // migrations/2026-10-03-news-and-seats.sql.
+  `CREATE TABLE IF NOT EXISTS site_news_notices (
+     id           TEXT PRIMARY KEY CHECK (length(id) = 22),
+     op_hash      TEXT NOT NULL,
+     title        TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+     body         TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 2000),
+     revision     INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
+     nonce        TEXT,
+     created_by   TEXT,
+     created_at   INTEGER NOT NULL,
+     updated_by   TEXT,
+     updated_at   INTEGER NOT NULL,
+     retain_until INTEGER NOT NULL,
+     CHECK (retain_until > created_at AND retain_until <= created_at + 7776000)
+   )`,
+  "CREATE INDEX IF NOT EXISTS site_news_notices_order ON site_news_notices(created_at)",
+  "CREATE INDEX IF NOT EXISTS site_news_notices_retain ON site_news_notices(retain_until)",
+  "CREATE INDEX IF NOT EXISTS site_news_notices_created_by ON site_news_notices(created_by)",
+  "CREATE INDEX IF NOT EXISTS site_news_notices_updated_by ON site_news_notices(updated_by)",
+  `CREATE TABLE IF NOT EXISTS site_news_ops (
+     id          TEXT PRIMARY KEY CHECK (length(id) = 22),
+     nonce       TEXT NOT NULL,
+     created_by  TEXT,
+     created_at  INTEGER NOT NULL,
+     purge_after INTEGER NOT NULL CHECK (purge_after > created_at)
+   )`,
+  "CREATE INDEX IF NOT EXISTS site_news_ops_purge ON site_news_ops(purge_after)",
+  "CREATE INDEX IF NOT EXISTS site_news_ops_created_by ON site_news_ops(created_by)",
+  // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): a roster export's member effects as a durable
+  // worklist (roster-effects.ts, roster.ts). Same as migrations/2026-10-03-roster-effects.sql.
+  `CREATE TABLE IF NOT EXISTS roster_effect_runs (
+     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+     snapshot_id      INTEGER NOT NULL,
+     prev_snapshot_id INTEGER,
+     removals         INTEGER NOT NULL,
+     created_at       INTEGER NOT NULL,
+     derived_at       INTEGER,
+     items            INTEGER,
+     done_at          INTEGER,
+     superseded_at    INTEGER
+   )`,
+  `CREATE TABLE IF NOT EXISTS roster_effects (
+     run_id     INTEGER NOT NULL,
+     seq        INTEGER NOT NULL,
+     kind       TEXT NOT NULL CHECK (kind IN ('promote', 'note', 'depart')),
+     name_key   TEXT NOT NULL,
+     name       TEXT NOT NULL,
+     discord_id TEXT NOT NULL,
+     guid       TEXT,
+     done_at    INTEGER,
+     claim      TEXT,
+     PRIMARY KEY (run_id, seq)
+   )`,
 ];

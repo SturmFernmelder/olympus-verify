@@ -26,6 +26,12 @@ import { cleanText } from "./site-data";
 import { b64u } from "./site-core";
 
 export const LEADERSHIP_KEY = "leadership";
+/**
+ * .115 (Viktor's item C, 2 Oct 2026): what an administrator types in place of a name removed on request. In the appointed
+ * roles it keeps the role appointed (its board and applications stay closed, where clearing the name would reopen it); in
+ * the directory it keeps the place filled. Typing it, or clearing a name, needs no consent check: it adds no one.
+ */
+export const NAME_WITHHELD = "Name withheld";
 export const GUILD_COUNT = 10;
 export const OFFICERS_MAX = 12;
 export const GUILD_NAMES = ["Olympus I", "Olympus II", "Olympus III", "Olympus IV", "Olympus V", "Olympus VI", "Olympus VII", "Olympus VIII", "Olympus IX", "Olympus X"] as const;
@@ -79,14 +85,42 @@ export async function loadLeadership(env: Env): Promise<{ guilds: GuildLeadershi
 
 const namesIn = (guilds: GuildLeadership[]) => guilds.reduce((n, g) => n + (g.gm ? 1 : 0) + g.officers.length, 0);
 
-/** Admin save. Audited with counts only: the names are in the row, and the dated log outlives an erasure. */
-export async function saveLeadership(env: Env, actor: string, body: Record<string, unknown>): Promise<{ ok: true; guilds: GuildLeadership[] } | { ok: false; message: string }> {
+/**
+ * Admin save. Audited with counts only: the names are in the row, and the dated log outlives an erasure.
+ * .115 (Viktor's item C, 2 Oct 2026): a name is listed only after that person agreed, so a save that adds a name to a
+ * guild (one not already listed for that same guild, other than NAME_WITHHELD) needs the administrator's namesConfirmed;
+ * removing, keeping or moving a name within its guild does not. The server can check only that the box was ticked, not
+ * the agreement itself. The log records that it was ticked, never the names.
+ */
+export async function saveLeadership(env: Env, actor: string, body: Record<string, unknown>): Promise<{ ok: true; guilds: GuildLeadership[] } | { ok: false; error: "invalid" | "confirm_names" | "stale_directory"; message: string }> {
   const guilds = cleanLeadership(body.guilds);
-  if (!guilds) return { ok: false, message: `The directory could not be read: it needs ${GUILD_COUNT} guilds, each with at most ${OFFICERS_MAX} officers.` };
-  await put(env, LEADERSHIP_KEY, JSON.stringify(guilds), now(), actor).run();
-  await audit(env, actor, "site.leadership", undefined, { names: namesIn(guilds) });
+  if (!guilds) return { ok: false, error: "invalid", message: `The directory could not be read: it needs ${GUILD_COUNT} guilds, each with at most ${OFFICERS_MAX} officers.` };
+  const prior = await setting(env, LEADERSHIP_KEY);
+  const confirmed = body.namesConfirmed === true;
+  if (!confirmed) {
+    const cur = parseLeadership(prior?.value);
+    const adds = guilds.some((g, i) => {
+      const had = new Set([cur[i]?.gm ?? "", ...(cur[i]?.officers ?? [])].filter(Boolean));
+      return [g.gm, ...g.officers].some((who) => !!who && who !== NAME_WITHHELD && !had.has(who));
+    });
+    if (adds) return { ok: false, error: "confirm_names", message: "Confirm that each person you list agreed to be listed." };
+  }
+  // Compare the exact value read, including an absent row, inside the write itself. A concurrent removal/replacement
+  // wins over this stale save even when its consent box was ticked; a reload must read the latest directory first.
+  const saved = await env.DB.prepare(
+    `INSERT INTO site_settings (key, value, updated_at, updated_by)
+     SELECT ?1, ?2, ?3, ?4 WHERE (SELECT value FROM site_settings WHERE key = ?1) IS ?5
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+  ).bind(LEADERSHIP_KEY, JSON.stringify(guilds), now(), actor, prior?.value ?? null).run();
+  if ((saved.meta?.changes ?? 0) === 0) {
+    return { ok: false, error: "stale_directory", message: "The directory changed while this save was pending. Nothing was saved. Reload the page before editing again." };
+  }
+  await audit(env, actor, "site.leadership", undefined, confirmed ? { names: namesIn(guilds), namesConfirmed: true } : { names: namesIn(guilds) });
   return { ok: true, guilds };
 }
+
+/** .115 (Viktor's item A, 2 Oct 2026): News shows when the directory last changed, never its names; site-news.ts runs this inside its admitted read. */
+export const leadershipStampStatement = (env: Env) => env.DB.prepare("SELECT updated_at FROM site_settings WHERE key = ?1").bind(LEADERSHIP_KEY);
 
 // ---------- the beta reset ----------
 

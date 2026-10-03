@@ -1273,12 +1273,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!adm.app.querySelector("#beta-closed-at"), "the .114 settings blocks");
     const bx = adm.app.querySelector("#bnet-switch");
     check("(.114) Admin → Settings: Battle.net sign-in is off, its box locked, with the reason (no policy section, no credentials here)", bx.checked === false && bx.disabled === true && /no Battle\.net client credentials|does not describe Battle\.net sign-in/.test(adm.app.textContent) && !!byText(adm.app, "h2", "Battle.net sign-in"));
+    const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
+    check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
+      adm.app.textContent.includes("Each person named here agreed to be named. Appointed names are public on the open web, signed in or not.") && adm.app.textContent.includes("Each person listed here agreed to be listed. Confirmed members can read the directory.") &&
+      adm.app.textContent.includes("type Name withheld (the role stays appointed) or clear it (the role reopens)"));
     adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
     adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
+    byText(adm.app, "button", "Save the directory").click();
+    await waitFor(() => adm.document.body.textContent.includes("Confirm that each person you list agreed to be listed."), "the consent refusal");
+    check("  (.115) without the tick the directory save is refused, shown in words, and nothing is stored", !one("SELECT 1 FROM site_settings WHERE key = 'leadership'"));
+    leadOk.checked = true;
     byText(adm.app, "button", "Save the directory").click();
     await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'leadership'"), "the directory save");
     const saved = JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value);
     check("  the directory editor saves the Guild Master and the officers, one per line", saved[0].gm === "Fern Melder" && saved[0].officers.join(",") === "Ana,Bo" && saved.length === 10);
+    check("  (.115) the save carried the tick (the log records it, with a count and no names), and the box is cleared for the next save", (() => { const d = JSON.parse(one("SELECT details FROM audit WHERE action = 'site.leadership' ORDER BY id DESC LIMIT 1").details); return d.namesConfirmed === true && d.names === 3; })() && leadOk.checked === false);
     await p114.go("#/community"); // the same address again would not re-render
     await p114.go("#/community/leadership");
     await waitFor(() => p114.app.textContent.includes("Fern Melder"), "the listing on the member's page");
@@ -1328,6 +1337,399 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'cancelled'", OTHER), "the withdrawal");
     check("  withdrawing a mistaken decision closes the hold", !one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'reapply'", OTHER));
     db.prepare("UPDATE characters SET status = 'member', guid = 'Player-1-0002' WHERE discord_id = ? AND name = 'Oz Three'").run(OTHER); // the later checks need OTHER confirmed again
+  }
+
+  console.log("\n== .115: Olympus I's seats, News and the role copy (Viktor's items A, B and D, 2 Oct 2026) ==");
+  {
+    const NEWBIE = "300000000000000115", READER = "300000000000000116";
+    siteUser(NEWBIE, { global_name: "Nia" }); // signed in, no roster-confirmed character
+    siteUser(READER, { global_name: "Rae" }); character(READER, "Rae Five", "Player-1-0007");
+    const VISITORS = { CHANNEL_VISITOR_CHAT: "1554265065509756989" };
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const frameOf = (pg, title) => { const t = byText(pg.app, "h2", title); return t ? t.closest("section") : null; };
+    const seatBox = (pg) => pg.app.querySelectorAll(".notice-box").find((b) => b.textContent.includes("Olympus I is full right now")) || null;
+    const home = async (who, over) => { const pg = await openPage(who, over); await pg.go("#/"); await waitFor(() => !!pg.app.querySelector("h1"), "the home page"); return pg; };
+
+    // ---- B: the seat state (a complete, trusted export of 1000 an hour ago; MEMBER's second character waits in the queue)
+    const snap = Number(db.prepare("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', 1000, 'fe115', 1, 1, ?)").run(now - 3600, now - 3600, now - 3600).lastInsertRowid);
+    const queueRow = Number(db.prepare("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('mia alt', 'Mia Alt', ?, 'queued', ?)").run(MEMBER, now - 7200).lastInsertRowid);
+    const queued = await home(MEMBER, VISITORS);
+    const qb = seatBox(queued);
+    check("(.115) a confirmed member with a character in the invite queue: Home says Olympus I is full, gives their own place and links the visitors channel", !!qb && qb.textContent.includes("Mia Alt is #1 in line for a seat.") && qb.textContent.includes("officers may remove inactive characters") && qb.textContent.includes("reserved names from the site go first") && qb.textContent.includes("never costs you an invite attempt") && !!qb.querySelector('a[href="https://discord.com/channels/1549537348516188200/1554265065509756989"]') && !!qb.querySelector('img[src="/static/wow/icon-clock.png"]'), qb && qb.textContent);
+    check("  the boot carries the member's own places and the member view of the seats (the hour only, no reason or exact time)", JSON.stringify(queued.boot.myQueue) === JSON.stringify([{ name: "Mia Alt", position: 1 }]) && queued.boot.seats.asOf % 3600 === 0 && !("reason" in queued.boot.seats) && !("rosterAt" in queued.boot.seats));
+    const newbie = await home(NEWBIE);
+    const nb = seatBox(newbie);
+    check("  an account without a confirmed character and no queue rows: the export's hour and count, verifying still works; without the channel id the channel name is plain text", !!nb && nb.textContent.includes("the officers' roster export of about") && nb.textContent.includes("counts 1000 of 1000 members") && nb.textContent.includes("Verifying in Discord still works") && nb.textContent.includes("#olympus-visitors in Asmongold's Discord") && !nb.querySelector("a"), nb && nb.textContent);
+    await newbie.go("#/apply");
+    await waitFor(() => !!newbie.app.querySelector("h2"), "the Apply page");
+    check("  the Apply page shows the same notice above everything else", !!seatBox(newbie) && seatBox(newbie).textContent.includes("counts 1000 of 1000 members") && newbie.app.querySelector("main").firstChild.textContent.includes("Olympus I is full right now"));
+    check("  a confirmed member without queue rows sees no seat notice", !seatBox(await home(OTHER)));
+    const adm5 = await openPage(STAFF);
+    const overviewLine = async () => {
+      await adm5.go("#/admin/lookup");
+      await adm5.go("#/admin");
+      await waitFor(() => !!adm5.app.querySelector("#overview-seats"), "the overview's seat line");
+      return adm5.app.querySelector("#overview-seats").textContent;
+    };
+    let line = await overviewLine();
+    check("  Admin overview: one staff line above the tiles, full by the roster export, with the count and the queue", line.startsWith("Olympus I: full, 1000 of 1000 on the latest roster export of ") && line.endsWith(" · 1 waiting in the invite queue.") && adm5.app.querySelector("#overview-seats").className === "muted small", line);
+    db.prepare("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?").run(snap);
+    line = await overviewLine();
+    check("  open: the free seats", line.startsWith("5 seats free on Olympus I (995 of 1000, latest roster export of "), line);
+    check("  while there is room nobody sees the notice", !seatBox(await home(NEWBIE)));
+    db.prepare("UPDATE roster_snapshots SET exported_at = ?, received_at = ? WHERE id = ?").run(now - 7200, now - 7200, snap);
+    const refusal = Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')").run(now - 600).lastInsertRowid);
+    line = await overviewLine();
+    check("  full by an invite refused for space after that export", line.startsWith("Olympus I: full (an invite was refused for space "), line);
+    const rb = seatBox(await home(NEWBIE));
+    check("  the member's notice gives the refusal and no count", !!rb && rb.textContent.includes("the last invite was refused for lack of space (about ") && !rb.textContent.includes("of 1000"), rb && rb.textContent);
+    db.prepare("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?").run(snap);
+    db.prepare("DELETE FROM audit WHERE id = ?").run(refusal);
+    line = await overviewLine();
+    check("  unknown: the reason in words", line.startsWith("Olympus I room: unknown (the latest export is not trusted: run /olympus-admin sync if the guild really shrank)"), line);
+    db.prepare("UPDATE roster_snapshots SET trusted = NULL, complete = 0, first_received_at = ? WHERE id = ?").run(now - 3600, snap);
+    line = await overviewLine();
+    check("  left unfinished (still complete 0 an hour after it arrived; review of 3 Oct 2026): the reason in words", line.startsWith("Olympus I room: unknown (the latest export was left unfinished; the addon's next export writes it again)"), line);
+    db.prepare("UPDATE roster_snapshots SET complete = 1 WHERE id = ?").run(snap);
+    db.prepare("UPDATE roster_snapshots SET trusted = 1, member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?").run(now - 3600, now - 3600, snap); // full again for News
+
+    // ---- A: News, off until an administrator switches it on
+    const calls = [];
+    const off5 = await openPage(MEMBER);
+    off5.delay((p) => { calls.push(p); return 0; });
+    await off5.go("#/community");
+    await waitFor(() => !!byText(off5.app, "h3", "Leadership"), "the community overview");
+    check("(.115) News is off by default: no News tab and no News card for a confirmed member", !texts(off5.app, 'nav[aria-label="Community sections"] a').includes("News") && !byText(off5.app, "h3", "News"));
+    await off5.go("#/community/news");
+    await settle();
+    check("  and #/community/news is no page while it is off: the page asks the Worker nothing", off5.app.textContent.includes("There is no such community page") && !calls.some((p) => p.startsWith("/api/news")));
+    const adm6 = await openPage(STAFF);
+    await adm6.go("#/admin/news");
+    await waitFor(() => !!byText(adm6.app, "h2", "New notice"), "Admin → News");
+    check("  Admin → News while off: the tab, the switch's state, that nothing can be posted, the form locked", texts(adm6.app, 'nav[aria-label="Admin sections"] a').includes("News") && adm6.app.textContent.includes("News is switched off (Admin → Settings); notices cannot be posted while it is off.") && byText(adm6.app, "button", "Post notice").disabled === true && adm6.app.querySelector("#f-news-title").disabled === true);
+    await adm6.go("#/admin/settings");
+    await waitFor(() => !!adm6.app.querySelector("#news-on"), "the News switch");
+    check("  Admin → Settings has the News switch beside the others, unticked", adm6.app.querySelector("#news-on").checked === false && adm6.app.textContent.includes("News page: confirmed members can read Community → News"));
+    adm6.app.querySelector("#news-on").checked = true;
+    byText(adm6.app, "button", "Save settings").click();
+    await waitFor(() => (one("SELECT value FROM site_settings WHERE key = 'newsOn'") || {}).value === "1", "the switch saved");
+    check("  ticking it and saving stores newsOn '1'; the log records the switch", JSON.parse(one("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id DESC LIMIT 1").details).newsOn === "1");
+    // ---- C: a typed name needs the consent tick (review of 3 Oct 2026: the page's refusal and the box cleared after a save)
+    const appointedNow = () => (one("SELECT value FROM site_settings WHERE key = 'appointed'") || {}).value || "";
+    const apInput = adm6.app.querySelectorAll('input[placeholder="Open"]')[0];
+    const apBefore = appointedNow();
+    apInput.value = "Tess Appointee";
+    byText(adm6.app, "button", "Save settings").click();
+    await waitFor(() => adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named."), "the confirm_names refusal");
+    check("(.115) an appointed name saved without the consent tick: the Worker's 400 confirm_names is shown in words and nothing is stored", adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named. Appointed names are public on the open web.") && appointedNow() === apBefore && !appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false);
+    adm6.app.querySelector("#appointed-names-ok").checked = true;
+    byText(adm6.app, "button", "Save settings").click();
+    await waitFor(() => appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false, "the saved name and the cleared box");
+    const apAudit = JSON.parse(one("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id DESC LIMIT 1").details);
+    check("  with the tick it saves, the box is unticked again for the next save, and the log keeps a count and the tick, never the name", appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false && apAudit.appointedNames >= 1 && apAudit.namesConfirmed === true && !JSON.stringify(apAudit).includes("Tess"));
+    apInput.value = "";
+    byText(adm6.app, "button", "Save settings").click();
+    await waitFor(() => !appointedNow().includes("Tess Appointee"), "the name cleared again");
+    check("  clearing the name again needs no tick", !appointedNow().includes("Tess Appointee"));
+    const unc = await openPage(NEWBIE);
+    const ucalls = [];
+    unc.delay((p) => { ucalls.push(p); return 0; });
+    await unc.go("#/community/news");
+    await settle();
+    check("  a member without a confirmed character gets the standing notice and no News request", unc.app.textContent.includes("roster export has confirmed") && !ucalls.some((p) => p.startsWith("/api/news")));
+    const EV = "news115upcomingEventAA";
+    db.prepare("INSERT INTO community_events (id, op_id, title, starts_at, duration_min, ends_at, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, ?, 120, ?, ?, ?, ?, ?)").run(EV, EV, "Zul'Gurub", now + 900, now + 900 + 7200, OTHER, now, now, now + 900 + 7200 + 30 * 86400);
+    const news = await openPage(MEMBER);
+    await news.go("#/community");
+    await waitFor(() => !!byText(news.app, "h3", "News"), "the News card");
+    const card = byText(news.app, "h3", "News").closest("a");
+    check("  switched on: the News tab and the overview card with the official launch icon", texts(news.app, 'nav[aria-label="Community sections"] a').includes("News") && card.getAttribute("href") === "#/community/news" && !!card.querySelector('img[src="/static/wow/icon-launch.png"]'));
+    await news.go("#/community/news");
+    await waitFor(() => !!byText(news.app, "h2", "Site updates"), "the News page");
+    check("  the News page: no notices yet; Olympus I full by the export of about the hour; no figures yet; the directory link; the beta's last day and the launch", frameOf(news, "Notices").textContent.includes("No notices right now.") && frameOf(news, "Olympus I").textContent.includes("Olympus I is full: the officers' roster export of about") && frameOf(news, "Olympus I").textContent.includes("counts 1000 of 1000 members") && frameOf(news, "The guild in figures").textContent.includes("No figures yet") && !!frameOf(news, "Leadership directory").querySelector('a[href="#/community/leadership"]') && /October/.test(frameOf(news, "The road to launch").textContent) && frameOf(news, "The road to launch").textContent.includes("21") && !!frameOf(news, "The road to launch").querySelector('[role="timer"]'));
+    const rel = load("./site-news").RELEASE_NOTES[0];
+    check("  the newest release note from the Worker, line by line", texts(frameOf(news, "Site updates"), "li").includes(rel.lines[0]) && frameOf(news, "Site updates").textContent.includes(`build ${rel.build}`));
+    const want = db.prepare("SELECT id FROM community_events WHERE status = 'scheduled' AND starts_at > ? AND starts_at < ? ORDER BY starts_at, id LIMIT 5").all(nowS(), nowS() + 14 * 86400).map((r) => `#/community/calendar/${r.id}`);
+    const upcoming = frameOf(news, "Coming up");
+    check("  Coming up: the next scheduled events in 14 days, each a link to its calendar page, title and time only", !!upcoming && upcoming.querySelectorAll("a").map((a) => a.getAttribute("href")).join() === want.join() && want[0] === `#/community/calendar/${EV}` && upcoming.textContent.includes("Zul'Gurub · ") && upcoming.textContent.includes("120 minutes"), want);
+    const noEv = await openPage(MEMBER, { COMMUNITY_FEATURES: "directory" });
+    await noEv.go("#/community/news");
+    await waitFor(() => !!byText(noEv.app, "h2", "Site updates"), "News without the calendar");
+    check("  with the events feature off there is no Coming up frame", !frameOf(noEv, "Coming up") && !!frameOf(noEv, "Notices"));
+    const lateOff = await openPage(MEMBER);
+    db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'").run(); // switched off after the page loaded
+    await lateOff.go("#/community/news");
+    await waitFor(() => lateOff.app.textContent.includes("The News page is switched off."), "the news_off refusal");
+    check("  switched off after the page loaded: the Worker's 404 news_off is said in words and nothing is shown", lateOff.app.textContent.includes("The News page is switched off.") && !frameOf(lateOff, "Notices"));
+    db.prepare("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'").run();
+    // review of 3 Oct 2026: the member's other seat words, an empty calendar window and a directory never changed
+    const newsFrameText = async (title) => { const pg = await openPage(MEMBER); await pg.go("#/community/news"); await waitFor(() => !!byText(pg.app, "h2", "Site updates"), "News"); const f = frameOf(pg, title); return f ? f.textContent : ""; };
+    db.prepare("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?").run(snap);
+    let seatWords = await newsFrameText("Olympus I");
+    check("(.115) News, Olympus I open: the free seats and the export's hour and count", seatWords.includes("Olympus I has 5 free seats: the officers' roster export of about") && seatWords.includes("counts 995 of 1000 members."), seatWords);
+    db.prepare("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?").run(snap);
+    seatWords = await newsFrameText("Olympus I");
+    check("  not trusted: 'not known right now', no count", seatWords.includes("Whether Olympus I has room is not known right now") && !seatWords.includes("of 1000"), seatWords);
+    db.prepare("UPDATE roster_snapshots SET trusted = 1, exported_at = ?, received_at = ? WHERE id = ?").run(now - 7200, now - 7200, snap);
+    const newsRefusal = Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')").run(nowS() - 600).lastInsertRowid);
+    seatWords = await newsFrameText("Olympus I");
+    check("  an invite refused for space after that export: full by the refusal, with its hour and no count", seatWords.includes("Olympus I is full: the last invite was refused for lack of space (about ") && !seatWords.includes("of 1000"), seatWords);
+    db.prepare("DELETE FROM audit WHERE id = ?").run(newsRefusal);
+    db.prepare("UPDATE roster_snapshots SET member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?").run(now - 3600, now - 3600, snap);
+    const soon = db.prepare("SELECT id FROM community_events WHERE status = 'scheduled' AND starts_at > ? AND starts_at < ?").all(nowS() - 60, nowS() + 15 * 86400).map((r) => r.id);
+    for (const id of soon) db.prepare("UPDATE community_events SET status = 'cancelled' WHERE id = ?").run(id);
+    const leadRow = one("SELECT key FROM site_settings WHERE key = 'leadership'");
+    if (leadRow) db.prepare("UPDATE site_settings SET key = 'leadership-kept-aside' WHERE key = 'leadership'").run();
+    const emptyNews = await openPage(MEMBER);
+    await emptyNews.go("#/community/news");
+    await waitFor(() => !!byText(emptyNews.app, "h2", "Site updates"), "News with nothing coming up");
+    check("  no scheduled event in the next 14 days: 'No events in the next 14 days.'; a directory never saved: 'Not changed yet.' and the link", frameOf(emptyNews, "Coming up").textContent.includes("No events in the next 14 days.") && frameOf(emptyNews, "Leadership directory").textContent.includes("Not changed yet.") && !!frameOf(emptyNews, "Leadership directory").querySelector('a[href="#/community/leadership"]'));
+    for (const id of soon) db.prepare("UPDATE community_events SET status = 'scheduled' WHERE id = ?").run(id);
+    if (leadRow) db.prepare("UPDATE site_settings SET key = 'leadership' WHERE key = 'leadership-kept-aside'").run();
+
+    // the administrators' notices
+    const issuedOf = (id) => Buffer.from(String(id).slice(0, 8), "base64url").readUIntBE(0, 6); // Codex's finding 5 (3 Oct 2026): the id's first eight characters are the time the Worker handed it out
+    const newsOpened = nowS();
+    await adm6.go("#/admin/news");
+    await waitFor(() => !!byText(adm6.app, "button", "Post notice") && byText(adm6.app, "button", "Post notice").disabled === false, "the unlocked form");
+    const fill = (t, b, d) => { adm6.app.querySelector("#f-news-title").value = t; adm6.app.querySelector("#f-news-body").value = b; if (d) adm6.app.querySelector("#f-news-days").value = String(d); };
+    const count = (title) => one("SELECT COUNT(*) AS k FROM site_news_notices WHERE title = ?", title).k;
+    const listed = (title) => { const t = byText(adm6.app, "h3", title); return t ? t.closest(".card") : null; };
+    const dialogOf = () => adm6.document.body.querySelector("dialog");
+    const kvOf = (root, label) => { const dt = root.querySelectorAll("dt").find((x) => x.textContent === label); if (!dt) return null; const kids = dt.parentNode.children; return kids[kids.indexOf(dt) + 1].textContent; };
+    check("  the form: title, text, Show for (30 days by default), and the line not to name members", adm6.app.querySelector("#f-news-days").value === "30" && byText(adm6.app, "h2", "New notice").closest("section").textContent.includes("Write for the whole guild; do not name members. A notice is deleted when its time is up, at most 90 days after posting."));
+    fill("Raid night moves", "First line\nsecond line\n\n<img src=x onerror=alert(1)>", 7);
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!listed("Raid night moves"), "the posted notice listed");
+    const n1 = one("SELECT id, body, revision, retain_until - created_at AS life FROM site_news_notices WHERE title = 'Raid night moves'");
+    check("  Post notice stores it through POST /api/admin/news: the text as typed, shown for 7 days; the list shows it and the form is fresh", !!n1 && n1.body === "First line\nsecond line\n\n<img src=x onerror=alert(1)>" && n1.life === 7 * 86400 && n1.revision === 1 && adm6.app.querySelector("#f-news-title").value === "" && !!byText(listed("Raid night moves"), "button", "Edit") && !!byText(listed("Raid night moves"), "button", "Delete"));
+    check("  (.115, Codex's finding 5) the page posts under the id the Worker handed out when Admin → News opened: its time is that moment's", !!n1 && issuedOf(n1.id) >= newsOpened && issuedOf(n1.id) <= nowS(), n1 && issuedOf(n1.id), newsOpened);
+    await news.go("#/community");
+    await news.go("#/community/news");
+    await waitFor(() => !!byText(news.app, "h3", "Raid night moves"), "the notice on News");
+    const nCard = byText(news.app, "h3", "Raid night moves").closest(".card");
+    check("  a confirmed member reads it: two paragraphs, the single line break kept, the markup as plain text, no image made", nCard.querySelectorAll("p").length === 3 && nCard.querySelectorAll("br").length === 1 && nCard.textContent.includes("<img src=x onerror=alert(1)>") && nCard.textContent.includes("Posted ") && frameOf(news, "Notices").querySelectorAll("img").length === 0);
+    byText(listed("Raid night moves"), "button", "Edit").click();
+    check("  Edit fills the form with the notice and its period", byText(adm6.app, "h2", "Change a notice") && adm6.app.querySelector("#f-news-title").value === "Raid night moves" && adm6.app.querySelector("#f-news-days").value === "7" && !!byText(adm6.app, "button", "Save changes") && !!byText(adm6.app, "button", "Cancel editing"));
+    adm6.app.querySelector("#f-news-title").value = "Raid night moved";
+    byText(adm6.app, "button", "Save changes").click();
+    await waitFor(() => !!dialogOf(), "the save confirmation");
+    check("  Save changes asks first, naming the time it will be shown until", dialogOf().textContent.includes("Save the changes to this notice?") && dialogOf().textContent.includes("counted from when it was first posted"));
+    byText(dialogOf(), "button", "Save changes").click();
+    await waitFor(() => !!listed("Raid night moved"), "the changed notice listed");
+    const n1b = one("SELECT revision, retain_until - created_at AS life FROM site_news_notices WHERE id = ?", n1.id);
+    check("  then POST /api/admin/news/update with the revision: revision 2, the period kept", n1b.revision === 2 && n1b.life === 7 * 86400 && listed("Raid night moved").textContent.includes("revision 2"));
+    byText(listed("Raid night moved"), "button", "Edit").click();
+    db.prepare("UPDATE site_news_notices SET revision = revision + 1 WHERE id = ?").run(n1.id); // another administrator changed it meanwhile
+    adm6.app.querySelector("#f-news-body").value = "Changed text";
+    byText(adm6.app, "button", "Save changes").click();
+    await waitFor(() => !!dialogOf(), "the save confirmation");
+    byText(dialogOf(), "button", "Save changes").click();
+    await waitFor(() => adm6.app.textContent.includes("Someone changed this notice first"), "the stale refusal");
+    check("  a stale revision is refused in words (409 stale_revision), the list reloaded, the other change intact", adm6.app.textContent.includes("Someone changed this notice first: reload it. The list below has been reloaded.") && one("SELECT body FROM site_news_notices WHERE id = ?", n1.id).body !== "Changed text" && listed("Raid night moved").textContent.includes("revision 3"));
+    db.prepare("UPDATE site_news_notices SET created_at = created_at - 3 * 86400, updated_at = updated_at - 3 * 86400 WHERE id = ?").run(n1.id); // posted three days ago
+    byText(listed("Raid night moved"), "button", "Edit").click();
+    adm6.app.querySelector("#f-news-days").value = "1";
+    byText(adm6.app, "button", "Save changes").click();
+    await waitFor(() => !!dialogOf(), "the save confirmation");
+    byText(dialogOf(), "button", "Save changes").click();
+    await waitFor(() => adm6.app.textContent.includes("That period has already passed"), "the period refusal");
+    check("  a period that has already passed since posting is refused in words (400 period_passed); nothing changed", adm6.app.querySelectorAll('[role="alert"]').some((e) => !e.hidden && e.textContent.includes("That period has already passed since the notice was posted.")) && one("SELECT revision FROM site_news_notices WHERE id = ?", n1.id).revision === 3);
+    byText(adm6.app, "button", "Cancel editing").click();
+    await waitFor(() => !!byText(adm6.app, "h2", "New notice"), "the fresh form");
+    fill("x".repeat(81), "Too long a title", 3);
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => adm6.app.textContent.includes("The title needs 1 to 80 characters."), "the title refusal");
+    check("  an 81-character title is refused in words (400), nothing cut and nothing stored", count("x".repeat(81)) === 0 && count("x".repeat(80)) === 0 && adm6.app.querySelector("#f-news-title").disabled === false);
+    fill("Delete me", "Soon gone", 3);
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!listed("Delete me"), "the second notice");
+    const del = one("SELECT id FROM site_news_notices WHERE title = 'Delete me'");
+    byText(listed("Delete me"), "button", "Delete").click();
+    await waitFor(() => !!dialogOf(), "the delete confirmation");
+    check("  Delete asks first and states the real boundary (Codex's finding 5, 3 Oct 2026): a page opened earlier cannot post it again, a page posts only within 30 days of being opened, the id is kept 120 days from its first posting", dialogOf().textContent.includes("Delete this notice?") && dialogOf().textContent.includes("A page opened earlier cannot post it again: a page posts only within 30 days of being opened, and this notice's id is kept for 120 days from its first posting.") && !dialogOf().textContent.includes("cannot come back") && load("./site-news").NEWS_LIMITS.opIssueMaxAgeS === 30 * 86400 && load("./site-news").NEWS_LIMITS.opsKeepS === 120 * 86400);
+    byText(dialogOf(), "button", "Delete").click();
+    await waitFor(() => !listed("Delete me"), "the deletion");
+    check("  then POST /api/admin/news/delete: the notice is gone, its operation record stays as the tombstone", count("Delete me") === 0 && !!one("SELECT 1 FROM site_news_ops WHERE id = ?", del.id));
+    db.prepare("UPDATE site_news_notices SET retain_until = ? WHERE id = ?").run(nowS() - 1, n1.id); // its time is up; the cron has not run
+    await adm6.go("#/admin/settings");
+    await adm6.go("#/admin/news");
+    await waitFor(() => !!byText(adm6.app, "h2", "New notice"), "Admin → News again");
+    check("  a notice past its time leaves the list at once and is counted as awaiting the cleanup", !listed("Raid night moved") && kvOf(frameOf(adm6, "News"), "Past their time, awaiting the cleanup") === "1");
+
+    // lost answers: the operation is frozen; Retry the same or Check, never a second notice
+    fill("Lost answer", "Body", 3);
+    adm6.drop((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the lost-answer notice");
+    check("  a lost answer to Post notice: Retry the same and Check, the form locked, the Worker stored it once", !!byText(adm6.app, "button", "Check whether it was stored") && adm6.app.querySelector("#f-news-title").disabled === true && count("Lost answer") === 1);
+    adm6.drop(null);
+    byText(adm6.app, "button", "Check whether it was stored").click();
+    await waitFor(() => !byText(adm6.app, "button", "Retry the same") && !!listed("Lost answer"), "the check");
+    check("  Check whether it was stored reports it, and the page moves on with one row", adm6.document.body.textContent.includes("It was stored.") && count("Lost answer") === 1);
+    fill("Retried", "Body", 3);
+    adm6.drop((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the second lost answer");
+    adm6.drop(null);
+    byText(adm6.app, "button", "Retry the same").click();
+    await waitFor(() => !byText(adm6.app, "button", "Retry the same") && !!listed("Retried"), "the retry");
+    check("  Retry the same is answered with the stored notice (a replay), never a second one", adm6.document.body.textContent.includes("This notice was already posted from this page.") && count("Retried") === 1);
+    fill("Gone meanwhile", "Body", 3);
+    adm6.drop((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the third lost answer");
+    adm6.drop(null);
+    db.prepare("DELETE FROM site_news_notices WHERE title = 'Gone meanwhile'").run(); // another administrator deleted it; its operation record stays
+    byText(adm6.app, "button", "Check whether it was stored").click();
+    await waitFor(() => adm6.document.body.textContent.includes("No live notice is shown under this form's id"), "the deleted notice absent from the live list");
+    check("  a deleted notice absent from the live list proves no historical absence: the exact retry and locked payload stay", !!byText(adm6.app, "button", "Retry the same") && adm6.app.querySelector("#f-news-title").disabled === true && adm6.app.querySelector("#f-news-title").value === "Gone meanwhile" && !adm6.document.body.textContent.includes("Nothing was stored under this form's id"));
+    byText(adm6.app, "button", "Retry the same").click();
+    await waitFor(() => adm6.app.textContent.includes("it is not posted again"), "the deleted refusal");
+    check("  a retry after the notice was deleted is refused in words (409 deleted) and posts nothing; a fresh form follows", adm6.app.textContent.includes("That notice was deleted or its time ran out; it is not posted again.") && count("Gone meanwhile") === 0 && adm6.app.querySelector("#f-news-title").value === "" && !byText(adm6.app, "button", "Retry the same"));
+    fill("Conflicted", "Body", 3);
+    adm6.drop((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the fourth lost answer");
+    adm6.drop(null);
+    db.prepare("UPDATE site_news_notices SET op_hash = 'another' WHERE title = 'Conflicted'").run(); // the id now holds a different notice
+    byText(adm6.app, "button", "Retry the same").click();
+    await waitFor(() => adm6.app.textContent.includes("A different notice was already posted under this operation"), "the conflict refusal");
+    check("  a retry whose id holds a different notice is refused in words (409 op_conflict); still one row", count("Conflicted") === 1);
+    // review of 3 Oct 2026: the change and delete paths when an answer is lost or refused, a create lost BEFORE the Worker,
+    // and a retry after the notice's time ran out; from a second administrator's page, so the first one's write limit (20 a
+    // minute, on the real clock here) is left for the checks below
+    const ADMIN2 = "472099715253796866";
+    siteUser(ADMIN2, { global_name: "Ada" });
+    const adm7 = await openPage(ADMIN2, { SITE_ADMINS: `${STAFF},${ADMIN2}` });
+    const listed7 = (title) => { const t = byText(adm7.app, "h3", title); return t ? t.closest(".card") : null; };
+    const dialog7 = () => adm7.document.body.querySelector("dialog");
+    const fill7 = (t, b, d) => { adm7.app.querySelector("#f-news-title").value = t; adm7.app.querySelector("#f-news-body").value = b; if (d) adm7.app.querySelector("#f-news-days").value = String(d); };
+    const reopenNews = async () => { await adm7.go("#/admin/settings"); await adm7.go("#/admin/news"); await waitFor(() => !!byText(adm7.app, "h2", "New notice"), "Admin → News again"); };
+    const confirmSave = async () => { byText(adm7.app, "button", "Save changes").click(); await waitFor(() => !!dialog7(), "the save confirmation"); byText(dialog7(), "button", "Save changes").click(); };
+    await reopenNews();
+    byText(listed7("Retried"), "button", "Edit").click();
+    adm7.app.querySelector("#f-news-body").value = "Retried, then changed";
+    adm7.drop((p) => p === "/api/admin/news/update");
+    await confirmSave();
+    await waitFor(() => adm7.app.textContent.includes("The answer was lost, so the notices were re-read"), "the lost change");
+    adm7.drop(null);
+    const retried = one("SELECT revision, body FROM site_news_notices WHERE title = 'Retried'");
+    check("  a lost answer to Save changes: the notices are re-read, the page says to check before changing again, the form is fresh; the Worker saved it once", retried.revision === 2 && retried.body === "Retried, then changed" && listed7("Retried").textContent.includes("revision 2") && adm7.app.querySelector("#f-news-title").value === "" && !!byText(adm7.app, "h2", "New notice"));
+    await reopenNews();
+    byText(listed7("Retried"), "button", "Delete").click();
+    await waitFor(() => !!dialog7(), "the delete confirmation");
+    adm7.drop((p) => p === "/api/admin/news/delete");
+    byText(dialog7(), "button", "Delete").click();
+    await waitFor(() => adm7.app.textContent.includes("The answer was lost, so the notices were re-read") && !listed7("Retried"), "the lost delete");
+    adm7.drop(null);
+    check("  a lost answer to Delete: the same words, and the re-read list shows it gone (the Worker deleted it once)", count("Retried") === 0);
+    await reopenNews();
+    db.prepare("UPDATE site_news_notices SET revision = revision + 1 WHERE title = 'Lost answer'").run(); // another administrator changed it
+    byText(listed7("Lost answer"), "button", "Delete").click();
+    await waitFor(() => !!dialog7(), "the delete confirmation");
+    byText(dialog7(), "button", "Delete").click();
+    await waitFor(() => adm7.app.textContent.includes("Someone changed this notice first: reload it. The list below has been reloaded."), "the refused delete");
+    check("  a refused delete (409 stale_revision) is said in words, the list reloaded with the current revision, the notice kept", count("Lost answer") === 1 && listed7("Lost answer").textContent.includes("revision 2"));
+    byText(listed7("Lost answer"), "button", "Edit").click();
+    db.prepare("DELETE FROM site_news_notices WHERE title = 'Lost answer'").run(); // another administrator deleted it meanwhile
+    adm7.app.querySelector("#f-news-body").value = "Too late";
+    await confirmSave();
+    await waitFor(() => adm7.app.textContent.includes("That notice no longer exists. The list below has been reloaded."), "the not_found refusal");
+    check("  saving a notice deleted meanwhile (404 not_found) is said in words and the list reloaded without it", !listed7("Lost answer") && count("Lost answer") === 0);
+    fill7("Never sent", "Body", 3);
+    adm7.before((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm7.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm7.app, "button", "Retry the same"), "the create lost before the Worker");
+    adm7.before(null);
+    byText(adm7.app, "button", "Check whether it was stored").click();
+    await waitFor(() => adm7.document.body.textContent.includes("No live notice is shown under this form's id"), "the live-list check without historical proof");
+    check("  a create lost before it reached the Worker: the live-list check preserves uncertainty and the locked exact retry", count("Never sent") === 0 && !!byText(adm7.app, "button", "Retry the same") && adm7.app.querySelector("#f-news-title").disabled === true && adm7.app.querySelector("#f-news-title").value === "Never sent");
+    byText(adm7.app, "button", "Retry the same").click();
+    await waitFor(() => !!listed7("Never sent"), "the notice sent again");
+    check("  sent again from the same form, it is posted once", count("Never sent") === 1);
+    fill7("Expiring", "Body", 1);
+    adm7.drop((p, init) => p === "/api/admin/news" && init.method === "POST");
+    byText(adm7.app, "button", "Post notice").click();
+    await waitFor(() => !!byText(adm7.app, "button", "Retry the same"), "the lost answer before the expiry");
+    adm7.drop(null);
+    db.prepare("UPDATE site_news_notices SET created_at = created_at - 86400, updated_at = updated_at - 86400, retain_until = ? WHERE title = 'Expiring'").run(nowS() - 1); // its time ran out before the retry
+    byText(adm7.app, "button", "Retry the same").click();
+    await waitFor(() => adm7.app.textContent.includes("That notice's time is up; it is no longer shown."), "the expired refusal");
+    check("  a retry after the notice's time ran out is refused in words (409 expired): the page reloads for a new notice and nothing is posted again", adm7.app.textContent.includes("The page has been reloaded for a new notice.") && count("Expiring") === 1 && adm7.app.querySelector("#f-news-title").value === "" && !byText(adm7.app, "button", "Retry the same"));
+    // Codex's finding 5 (3 Oct 2026): a form whose id the Worker handed out 31 days ago. The request is rewritten on its way
+    // to the Worker into exactly what such a page sends (its id's time 31 days back); the Worker stores nothing and the
+    // page starts again with a fresh id.
+    fill7("From an old form", "Body", 3);
+    const oldStamp = (() => { const b = Buffer.alloc(6); b.writeUIntBE(nowS() - 31 * 86400, 0, 6); return b.toString("base64url"); })();
+    let sentId = null;
+    adm7.before((p, init) => { if (p === "/api/admin/news" && init.method === "POST") { const b = JSON.parse(init.body); b.id = oldStamp + b.id.slice(8); sentId = b.id; init.body = JSON.stringify(b); } return false; });
+    byText(adm7.app, "button", "Post notice").click();
+    await waitFor(() => adm7.app.textContent.includes("This form can no longer post"), "the stale_page refusal");
+    adm7.before(null);
+    check("  (.115) a form older than 30 days is refused in words (409 stale_page): nothing stored under its id, and the page reloads for a new notice", adm7.app.textContent.includes("This form can no longer post: a form posts only within 30 days of being opened. Nothing was posted. The page has been reloaded for a new notice.") && !!sentId && count("From an old form") === 0 && !one("SELECT 1 FROM site_news_ops WHERE id = ?", sentId) && adm7.app.querySelector("#f-news-title").value === "" && !byText(adm7.app, "button", "Retry the same"));
+    fill7("From the fresh form", "Body", 3);
+    byText(adm7.app, "button", "Post notice").click();
+    await waitFor(() => !!listed7("From the fresh form"), "the post from the reloaded form");
+    const freshRow = one("SELECT id FROM site_news_notices WHERE title = 'From the fresh form'");
+    check("  the reloaded form posts once, under a new id handed out just now", count("From the fresh form") === 1 && !!freshRow && freshRow.id.slice(8) !== sentId.slice(8) && nowS() - issuedOf(freshRow.id) <= 5 && issuedOf(freshRow.id) <= nowS());
+    const filler = [];
+    for (let i = one("SELECT COUNT(*) AS k FROM site_news_notices WHERE retain_until > ?", nowS()).k; i < 20; i++) {
+      const id = `filler${i}`.padEnd(22, "x");
+      filler.push(id);
+      db.prepare("INSERT INTO site_news_notices (id, op_hash, title, body, revision, created_at, updated_at, retain_until) VALUES (?, 'h', ?, 'b', 1, ?, ?, ?)").run(id, `Filler ${i}`, now, now, now + 86400);
+    }
+    fill("One too many", "Body", 3);
+    byText(adm6.app, "button", "Post notice").click();
+    await waitFor(() => adm6.app.textContent.includes("At most 20 notices can be shown at once"), "the too_many refusal");
+    check("  a 21st live notice is refused in words (409 too_many); nothing stored", count("One too many") === 0);
+    for (const id of filler) db.prepare("DELETE FROM site_news_notices WHERE id = ?").run(id);
+
+    // the figures, the countdown's end, a lapsed standing and the read limit
+    const figures = (roster, since) => db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify({ v: 1, asOf: now - 600, latestId: snap, dayBaseId: null, weekBaseId: null, countingSince: since, roster, applications: { day: { firstSaved: "few", decided: 0 }, week: { firstSaved: 6, decided: "few" } } }), now);
+    figures({ day: null, week: null }, now - 5000);
+    const fig1 = await openPage(MEMBER);
+    await fig1.go("#/community/news");
+    await waitFor(() => !!byText(fig1.app, "h2", "The guild in figures"), "the figures");
+    const fBox = frameOf(fig1, "The guild in figures");
+    check("  the figures before a day of roster history: 'Not enough roster history yet; counting began', applications with 'fewer than 5' for 1 to 4", fBox.textContent.includes("Not enough roster history yet; counting began") && kvOf(fBox, "Last day") === "fewer than 5" && fBox.textContent.includes("New applications (first saved)") && fBox.textContent.includes("Decisions saved") && fBox.querySelectorAll("dd").map((x) => x.textContent).join() === "fewer than 5,6,0,fewer than 5" && fBox.textContent.includes("As of "));
+    figures({ day: { joined: 2, left: 1 }, week: null }, now - 90000);
+    const fig2 = await openPage(MEMBER);
+    await fig2.go("#/community/news");
+    await waitFor(() => !!byText(fig2.app, "h2", "The guild in figures"), "the figures again");
+    check("  with a day of history: joined and left for the last day; the week says it has not enough history yet", kvOf(frameOf(fig2, "The guild in figures"), "Last day") === "2 joined, 1 left" && kvOf(frameOf(fig2, "The guild in figures"), "Last 7 days") === "not enough history yet");
+    const launchRow = one("SELECT value FROM site_settings WHERE key = 'launchAt'");
+    db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('launchAt', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(now - 60), now);
+    const live5 = await openPage(MEMBER);
+    await live5.go("#/community/news");
+    await waitFor(() => !!byText(live5.app, "h2", "The road to launch"), "the road to launch");
+    check("  after the launch the countdown shows its done text", frameOf(live5, "The road to launch").textContent.includes("Live now"));
+    if (launchRow) db.prepare("UPDATE site_settings SET value = ? WHERE key = 'launchAt'").run(launchRow.value); else db.prepare("DELETE FROM site_settings WHERE key = 'launchAt'").run();
+    const lapse = await openPage(READER);
+    db.prepare("UPDATE characters SET status = 'unbound' WHERE discord_id = ?").run(READER); // the roster no longer confirms the character after the page loaded
+    await lapse.go("#/community/news");
+    await waitFor(() => lapse.app.textContent.includes("roster export has confirmed"), "the standing notice after the refusal");
+    check("  a confirmation lost after the page loaded: the 403 re-reads the community context and the page shows the standing notice, no News", lapse.app.textContent.includes("roster export has confirmed") && !byText(lapse.app, "h2", "Notices"));
+    db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(READER);
+    const readerCookie = await cookieFor(READER);
+    for (let i = 0; i < 30; i++) await indexMod.default.fetch(new Request("https://guild.example/api/news", { headers: { Cookie: readerCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), env(), ctx);
+    const slow = await openPage(READER);
+    await slow.go("#/community/news");
+    await waitFor(() => slow.app.textContent.includes("Too many pages in one minute"), "the read limit");
+    check("  too many reads in a minute (429) are said in words", slow.app.textContent.includes("Too many pages in one minute. Wait a moment, then carry on.") && !byText(slow.app, "h2", "Notices"));
+
+    // ---- the role copy, as the Roles page shows it. .115's rewrite of the lines was withdrawn on 3 Oct 2026 (the owner's
+    // answer 6: the in-game ladder is the ten ranks the .46 lines describe); the check of the page path stays.
+    const roles5 = await openPage(null);
+    await roles5.go("#/roles");
+    await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
+    const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
+    const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
+    check("(.115) the Roles page shows each role's In game fact as site-data.ts has it: the Treasurer and Raider ranks; Class Lead has no rank of its own", ["treasurer", "raider", "class_lead"].every((k) => fact(k) === gameLine(k)) && fact("treasurer").startsWith("The Treasurer rank") && fact("raider").startsWith("The Raider rank") && fact("class_lead").startsWith("No rank of its own"), fact("treasurer"), fact("raider"));
+
+    db.prepare("DELETE FROM invite_queue WHERE id = ?").run(queueRow);
+    db.prepare("DELETE FROM roster_snapshots WHERE id = ?").run(snap);
+    db.prepare("DELETE FROM community_events WHERE id = ?").run(EV);
   }
 
   console.log("\n== standing and identity ==");

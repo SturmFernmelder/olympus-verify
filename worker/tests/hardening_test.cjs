@@ -5,7 +5,7 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
-// ---------- a D1-shaped wrapper over SQLite (a batch is one transaction, and reports { meta } per statement) ----------
+// ---------- a D1-shaped wrapper over SQLite (one transaction; reads keep rows, writes keep metadata) ----------
 function d1(db) {
   const stmt = (sql) => {
     let params = [];
@@ -14,7 +14,12 @@ function d1(db) {
       first: async () => db.prepare(sql).get(...params) ?? null,
       all: async () => ({ results: db.prepare(sql).all(...params) }),
       run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-      _exec: () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+      _exec: () => {
+        const st = db.prepare(sql);
+        if (st.columns().length) return { results: st.all(...params), meta: { changes: 0 } };
+        const r = st.run(...params);
+        return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+      },
     };
     return api;
   };
@@ -106,6 +111,8 @@ crypto.getRandomValues = (arr) => {
   const one = (sql, ...p) => db.prepare(sql).get(...p);
   const all = (sql, ...p) => db.prepare(sql).all(...p);
   const snapshot = (members, exportedAt) => roster.ingestRoster(env, exportedAt, members, "addon");
+  const batchRead = await env.DB.batch([env.DB.prepare("SELECT ?1 AS valid").bind(1)]);
+  check("the SQLite D1 shim preserves the binding SELECT in an atomic batch", batchRead[0].results[0].valid === 1 && batchRead[0].meta.changes === 0);
   const bind = (key, name, did, status, extra = {}) => {
     db.prepare("INSERT INTO members (discord_id) VALUES (?1) ON CONFLICT DO NOTHING").run(did);
     db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")

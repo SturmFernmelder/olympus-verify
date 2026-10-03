@@ -1,11 +1,12 @@
 # Launch runbook (the keeper's side)
 
-The owner's steps, in order, from the jointly signed head to the public launch, and what is checked between them. This
+The owner's steps, in order, from the release-qualified head to the public launch, and what is checked between them. This
 is the keeper's (Olympus Verify's) side; the donor's private phase (Olympus Forever on `olympusforever.roachcouncil.com`)
 follows Codex's private-phase contract and is referred to here only where it gates a keeper step. Written 1 October 2026
 on head .101 and revised on head .108 for Codex's 12:06 UTC review (R1-R4); every later build adds its section to
 `deploy-checklist.md`, not here, unless a step changes. The steps below were carried out on 1 and 2 October 2026;
-section 7 records what was done and what is live, and the procedural text is kept as it was written.
+section 7 records what was done and what is live. The prospective qualification and restore rules below were corrected
+on 3 Oct 2026 under the owner's Codex takeover instruction; historical signatures retain their original scope.
 
 Nothing below is an agent's step. The agents prepare exact commits and sign them in the task log
 (`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); Viktor runs the commands, or Codex where Viktor has authorized
@@ -15,19 +16,23 @@ secret put`, `db:init` against the remote database, `register`, the watcher agai
 
 ## 0. What "signed" means
 
-A step takes a commit only when the task log holds, on that exact SHA, the author's signature and the other agent's
-countersignature (a scoped countersignature counts for the scope it names; a whole-head signature for a deploy). Both
-agents' final same-head signatures are the last gate before the launch deploy. The keeper checkout has no remote and its
+Before 3 Oct 2026 the procedure required the author's signature and the other agent's countersignature on the same SHA.
+Viktor then instructed Codex to take over after Claude's usage limit and finish without dual sign-off. For new actions,
+the task log must hold Codex's own release qualification on the exact final commit/tree, with independent peer evidence
+and the applicable source, tests, bundle, policies/assets, CI and actual-version/live gates or expressly named residuals.
+No new Claude signature is required or implied. The interrupted .115 checkpoint
+`568c76d958eeee2f2786798bd959b0b2ae8ec299` preserves work only; it is not qualified for release.
+The keeper checkout has no remote and its
 history stays private, so hosted CI runs only on the public repository: a deploy takes the shipping commit below, and the
 push-to-`main` CI run on exactly that commit must be green (`scripts/ci-gate.sh`: the worker, watcher and addon jobs all
 `success`).
 
-**The shipping commit.** A deploy takes the public `main` commit P that carries a jointly signed keeper commit K, never K
+**The shipping commit.** A deploy takes the public `main` commit P that carries a release-qualified keeper commit K, never K
 itself and never a working folder. P carries K when P's root tree holds exactly K's root entries with the same object
 IDs, plus `index.html`, `privacy.html` and `terms.html`, which are the same blobs as `policies/index.html`,
 `policies/privacy.html` and `policies/terms.html`; then `worker/`, `addon/`, `watcher/`, `scripts/`, `docs/` and every
 other entry are byte-identical to K. The check is `git ls-tree <P>` in the public clone against `git ls-tree <K>` in the
-keeper. Both agents sign P (the final tuple is regenerated on P), its push-to-`main` CI run is green, and the owner
+keeper. Codex qualifies P under this section (the final tuple is regenerated on P), its push-to-`main` CI run is green, and the owner
 deploys it from a clean clone of the public repository (`npm ci` in that clone's `worker/`, then
 `bash scripts/deploy-commit.sh <P>`); the dry-run bundles of P and of K (`--dry-run --outdir`) have a byte-identical
 `index.js` (the source map and wrangler's README name the temporary export folder and differ). If P reaches `main`
@@ -43,7 +48,7 @@ head and its tree; the policies served at `/privacy` and `/terms` from that head
 the source; the official asset tuple (the reviewed asset contract and manifest); the required documents; the reviewed
 literal classifications regenerated for that head; the deployment profile (`worker/wrangler.toml`,
 `worker/wrangler.cutover.toml`) and, after step 3, the opening marker (`worker/wrangler.cutover.applied` and its commit);
-the aggregate CI result on that head; and both agents' exact final signatures. Throughout, these stay as reviewed: the
+the aggregate CI result on that head; and Codex's exact final qualification with attributable peer evidence. Throughout, these stay as reviewed: the
 bot's stable Interactions endpoint on the workers.dev host, the 18 cutover keys and nothing else, the donor's private
 database and owner limiter (its own contract), the sign-in callback restart on the legacy host, and every community flag
 off until step 4.
@@ -77,10 +82,135 @@ at boot (`src/schema.ts`: new tables and columns, and `DROP INDEX IF EXISTS comm
    (`npx wrangler d1 time-travel info <keeper database>`);
 2. validates the restore on a PRIVATE scratch database, never the live one: import the export there and compare the row
    counts of the core tables (`members`, `characters`, `site_users`, `site_applications`, `invite_queue`) with the live
-   ones read at export time; the backup counts as verified only when they match;
-3. keeps both (the export and the bookmark) until the launch is accepted.
+   ones read at export time; the backup counts as verified only when they match. The scratch database is a full copy
+   too, so it is deleted once the counts are recorded, and its deletion is recorded in the task log: for a D1 scratch
+   database its name or UUID, the time of the deletion and a `npx wrangler d1 list` taken afterwards that no longer
+   shows it (a database has no SHA-256); for a local file its time and SHA-256, as for an export (step 4);
+3. keeps only the newest verified export and its bookmark (the owner's answer of 3 Oct 2026): once a new export has
+   been verified (step 2), the previous one is destroyed; the bookmark ages out with Cloudflare's point-in-time window;
+4. destroys the last export once the launch release is accepted, and from then on destroys each export once its own
+   release is accepted; every destruction is recorded in the task log: the time and the SHA-256 of the destroyed
+   file, never its path. The privacy policy of .115 states exactly this rule. .115's own export also still holds the
+   settings audit rows as they were before the one-time rewrite, until it is destroyed under this rule.
 
-No restore is authorized by this runbook; restoring the live database is a separate decision of the owner.
+**The newest-only rule is accepted on receipts, not on the instruction** (Codex, 3 Oct 2026 13:24 UTC). A release whose
+policy states it is accepted only after this check (for .115: `docs/deploy-checklist.md`, "Worker .115", rollout step
+9): after the newest export was verified, the owner gives the exact inventory of the private copies (every export file
+by its time and SHA-256, every scratch database a verification restored into by its creation time and its name or UUID,
+or for a local file its SHA-256; never a path); it holds exactly that newest export, and the task log holds a
+destruction receipt for every earlier export (time and SHA-256) and every scratch database (as step 2 above says: a D1
+database by its name or UUID, the deletion time and the listing without it; a file by time and SHA-256). Cloudflare's
+point-in-time history (Time Travel) is a separate
+facility: it is not a private export and not in this inventory, this rule neither reads nor destroys it, and it ages out
+by itself within its window.
+
+No restore is authorized by this runbook; restoring the live database is a separate decision of the owner. Since .115
+(3 Oct 2026) the privacy policy binds that decision: if the owner ever restores an export or a point in time, the site
+is closed from just before the restore until the steps below are done, and the owner repeats on the restored database
+every deletion recorded since the copy was taken. They are read beforehand, by subject and time and never by content,
+from the audit log of the database being replaced: the account erasures (`site.data_deleted`, `site.mentions_deleted`)
+and the community deletions each module audits; the News notices have a file of their own (step 1 below). Lifetimes need
+no replay step of their own: the retention purges delete what has run out when maintenance resumes after safe reopening.
+
+**Restore refusal unless actual quiescence is proved (3 Oct 2026).** Before the final private capture, every
+preservation-critical writer must be identified, new admissions excluded, and all previously admitted operations
+proved completed or definitively canceled, including pending SQL and associated post-response work on every serving
+or retiring version. Cover Settings/Leadership writes and their audit seams, News, and relevant bot/cron/admin-SQL
+writers or deletion records. Keep that exclusion through replacement, schema recovery, replay and read-back.
+No finite longest lifetime for an admitted HTTP save has been established. A fixed wait, two or more equal captures,
+asking staff to stop, closing a browser tab, website WAF closure or an ordinary redeploy does not supply this proof.
+Equal captures are a cross-check only; an admitted writer can still be waiting before its commit.
+If actual quiescence cannot be proved and maintained, **refuse the restore before the final capture or replacement**.
+This runbook supplies no provider cancel-all operation or current runtime barrier.
+
+A future authoritative maintenance epoch would have to fence every preservation-critical commit and its audit,
+survive database replacement, cover old versions, and reject stale admitted writers after reopening. That epoch barrier
+is **not implemented**; it must not be assumed from proposed .116 work or a deployment receipt.
+
+**What a restore must keep** (Codex, 3 Oct 2026 13:26 UTC; the second review round of 3 Oct 2026). The deletion replay
+cannot carry two kinds of change, because their audit entries hold no content, on purpose:
+
+- **Typed names.** The appointed roles and the Olympus I-X directory are two `site_settings` rows, `appointed` and
+  `leadership`, and their audit entries (`site.settings`, `site.leadership`) record counts only, never a name (section
+  9). So the replay cannot tell which names were removed or corrected on request since the copy was taken. The owner
+  puts back those two rows exactly as they stood right before the restore, privately, never through the audit.
+- **News notices.** A notice changed on request since the copy (a name taken out, say) would come back with its earlier
+  text, and a notice posted since the copy has neither a row nor its operation record on the copy, so an administrator
+  page opened before the restore could post it again with "Retry the same" (its id is still inside its 30 days). The
+  audit has each notice's id and the time it was posted, changed or deleted (`site.news_notice`, never a title or a
+  text), and that is enough: every restored notice changed or deleted since the copy is deleted, so none comes back in
+  an earlier form (a notice changed since is posted again by an administrator if it is still wanted), and every notice
+  posted since the copy gets its operation record back, the tombstone, kept 120 days from its posting like the original,
+  so a stale retry is answered "deleted".
+
+The steps, in order:
+
+0. **Close new admissions and prove quiescence; keep both conditions through step 5.** The Worker serves the restored database the moment it is in
+   place and has no maintenance switch, so a restored name or notice would be public, crawlers included, until the
+   statements below ran. The owner therefore first blocks the site's host (`SITE_HOST`) in the Cloudflare dashboard
+   with a custom rule (Security, WAF, custom rules: hostname equals the site's host, action Block) and checks that the
+   site's front page answers with Cloudflare's block page; the legacy hosts only redirect there. This blocks new website
+   admissions, not saves admitted earlier. The bot host (`PUBLIC_BASE_URL`), cron and direct SQL must be assessed as
+   writers of preservation-critical state, regardless of whether their answers show names. The task log records the
+   exclusion's scope, actual terminal-state evidence for admitted work and when each relevant gate closed/reopened.
+   Telling administrators not to save is an additional precaution only. If exclusion or actual quiescence cannot be
+   established and maintained, nothing is restored; no wait or capture-equality shortcut advances to step 1.
+1. **After the quiescence evidence, right before restoring**, the owner reads from the database being replaced, into private files outside every
+   repository, kept like an export, the statements that write the typed names back (SQLite's `quote()` writes each
+   value as a literal, so an apostrophe or any other character in a name survives) and the statements for the News
+   notices (`<since>` is the copy's time in Unix seconds less 300: the export's start, or the Time Travel timestamp; the
+   margin only adds statements that change nothing or delete a notice changed just before the copy), and turns each
+   result into a SQL file:
+
+   ```bash
+   npx wrangler d1 execute <keeper database> --remote --json --command "SELECT CASE WHEN s.key IS NULL THEN 'DELETE FROM site_settings WHERE key = ' || quote(k.key) || ';' ELSE 'INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (' || quote(s.key) || ', ' || quote(s.value) || ', ' || quote(s.updated_at) || ', ' || quote(s.updated_by) || ') ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by;' END AS stmt FROM (SELECT 'appointed' AS key UNION ALL SELECT 'leadership') AS k LEFT JOIN site_settings AS s ON s.key = k.key ORDER BY k.key" > <private dir>/typed-names.json
+   node -e "const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')); process.stdout.write(r[0].results.map((x) => x.stmt).join('\n') + '\n')" <private dir>/typed-names.json > <private dir>/typed-names.sql
+   npx wrangler d1 execute <keeper database> --remote --json --command "SELECT stmt FROM (SELECT 1 AS o, subject AS id, 'DELETE FROM site_news_notices WHERE id = ' || quote(subject) || ';' AS stmt FROM audit WHERE action = 'site.news_notice' AND ts >= <since> AND CASE WHEN json_valid(details) THEN json_extract(details, '$.op') END IN ('edited', 'deleted') GROUP BY subject UNION ALL SELECT 2, subject, 'INSERT OR IGNORE INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (' || quote(subject) || ', ''restored'', NULL, ' || MIN(ts) || ', ' || (MIN(ts) + 10368000) || ');' FROM audit WHERE action = 'site.news_notice' AND ts >= <since> AND CASE WHEN json_valid(details) THEN json_extract(details, '$.op') END = 'created' GROUP BY subject) ORDER BY o, id" > <private dir>/news.json
+   node -e "const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')); process.stdout.write(r[0].results.map((x) => x.stmt).join('\n') + '\n')" <private dir>/news.json > <private dir>/news.sql
+   ```
+
+   The typed-names file holds exactly two statements. A key without a row gives a DELETE: no `appointed` row means the
+   default Treasurer appointment (`site-data.ts DEFAULT_APPOINTED`), so the restored database must not keep one either.
+   The News file holds a DELETE for each notice changed or deleted since the copy and an `INSERT OR IGNORE` of the
+   operation record (no author, its posting time, 120 days = 10368000 seconds) for each notice posted since; it holds
+   ids and times only, never a title or a text. The owner also runs the settings-audit read-back
+   (`docs/deploy-checklist.md`, "Worker .115", rollout step 7) on the database being replaced and records its three
+   numbers. The marker is never copied (step 4 says why).
+2. **The restore.** The site stays blocked.
+3. **Fresh isolates, then the files.** A running isolate checks the schema once (`schema.ts ensureSchema`) and does not
+   look again after a restore, so it would neither create a table or column the copy lacks (a copy taken before .115 has
+   no News tables) nor rewrite the copy's older settings rows, for as long as it lives. So the owner first redeploys the
+   version that is live, the same qualified commit (`bash scripts/deploy-commit.sh <the live P>`, section 1; nothing else
+   changes), and uses a separately reviewed schema-recovery entry point that maintains exclusion of ordinary writers.
+   A request served by a new isolate runs the schema check: tables, columns and the one-time rewrite. Redeployment
+   does not prove every old invocation ended; a generic bot `/health` request must not reopen bot/cron writers merely
+   to reach recovery. If recovery cannot be performed while the quiescence/exclusion precondition remains true, stop.
+   A counts-only read
+   then confirms the News tables are there (`SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name IN
+   ('site_news_notices', 'site_news_ops')` gives 2). Then the owner runs the two files, then the deletion replay:
+   `npx wrangler d1 execute <keeper database> --remote --file <private dir>/typed-names.sql`, the same for
+   `news.sql`. Each statement stands alone and each file can be run again with the same result; they go through no
+   Worker route, so the dated log never receives a name. Reading the two settings rows again (`SELECT key, value,
+   updated_at, updated_by FROM site_settings WHERE key IN ('appointed', 'leadership')`) must give exactly what the file
+   wrote; the owner compares privately.
+4. **The settings-audit read-back runs on the restored database**, after step 3's fresh isolates. A copy taken before
+   the .115 rewrite holds the old shape and no marker, so the new isolate's schema check rewrites it; copying the marker
+   over would stop that, which is why it is never copied. A copy that carries the marker but still holds a named field
+   (a save a .114 isolate made after the marker) is handled as rollout step 7 says: the marker is deleted, the same
+   commit is redeployed once more for a fresh isolate (as in step 3), and the read is repeated.
+5. **The site opens again** (the block removed) only when actual exclusion/quiescence has been maintained, no old
+   admitted writer can resume after reopening, step 3 compared equal and both files ran, the read-back
+   passes (marker 1, residual 0, unreadable 0) and the deletion replay is done. Comparison equality is not a drain proof.
+   Then the private `.json` and `.sql`
+   files are destroyed; the task log records the time and SHA-256 of each file when it was made and when it was
+   destroyed, how many appointed roles and directory names were put back, and how many notices were deleted and
+   operation records put back, never a path, a name or a text.
+
+If the two settings rows or the News audit cannot be read before the restore, the restored site stays closed until the
+owner and Codex have qualified how the changes made on request are carried over, with attributable peer review.
+Missing quiescence still refuses replacement; missing capture evidence is never permission to reopen. Rehearse steps 1 and 3 on the
+private scratch database an export verification uses (the backup's step 2 above), before it is deleted: the commands
+are the owner's, and the `node` lines read wrangler's `--json` output as one result whose `results` hold the rows.
 
 **Rollback: to a pinned, reviewed rollback-compatibility point, not to any older build.** The schema changes of the chain
 are not all additive: .66 drops the index `community_trials_open` that .61's boot creates, so a build from .61 to .65
@@ -137,9 +267,9 @@ bash scripts/cutover-config.sh --check    # the "applied" state: live file ident
 ```
 
 The marker records the time of the apply, so the apply happens once, in the keeper, and is never repeated in the public
-clone. Both agents sign that keeper commit; the owner carries its two files, as the exact same blobs, to a pull request
+clone. Codex qualifies that keeper commit under section 0; the owner carries its two files, as the exact same blobs, to a pull request
 on the public `main` (the shipping-commit rule of section 0); `--check` passes there too, the push-to-`main` CI run is
-green, and both agents sign the resulting public commit. Then, in the public clone:
+green, and Codex qualifies the resulting public commit under section 0. Then, in the public clone:
 
 ```bash
 bash scripts/deploy-commit.sh <cutover P>
@@ -194,9 +324,9 @@ file is the profile the marker records last and is committed clean, and the prof
 nothing else; a changed `VERIFY_OPEN_SINCE` must stay one `KEY = "YYYY-MM-DD"` line naming a real calendar day strictly
 later than the live one (an earlier, equal, empty, removed or malformed date is refused, so a member's grace before a
 removal may be offered is never shortened; an activation that leaves the date alone is not affected). It then copies the
-profile over the live file and appends one record (`activation_profile_sha256`, `activated_at`) to the marker. Both agents
-sign that keeper commit; its three changed files reach the public `main` as the same blobs by pull request (section 0);
-`--check` passes there; CI, both signatures on the resulting `main` commit, and `deploy-commit.sh` follow. Switching a
+profile over the live file and appends one record (`activation_profile_sha256`, `activated_at`) to the marker. Codex
+qualifies that keeper commit; its three changed files reach the public `main` as the same blobs by pull request (section 0);
+`--check` passes there; CI, exact-commit qualification under section 0, and `deploy-commit.sh` follow. Switching a
 flag back off is the same step.
 
 **The decided activation** (Codex's proposal of 1 October 2026; the two operating choices answered by Viktor the same
@@ -238,7 +368,7 @@ what the feature does, checked on that head's policy (not on an earlier build's 
 
 ## 5. Publication (the public repository)
 
-The repository `olympus-verify` is published as a snapshot by the owner, on the final jointly signed head, BEFORE the
+The repository `olympus-verify` is published as a snapshot by the owner, on the final release-qualified head, BEFORE the
 first deploy of step 1: the published commit is the first shipping commit (section 0), the only commit hosted CI can
 test. Every input below belongs to that same final head and tree; nothing is taken from an earlier build or a prepared
 candidate. The rename (item 8) comes before item 3, because the helpers require the renamed origin.
@@ -266,7 +396,8 @@ to one of the four fixed files needs another reviewed successor before publicati
    `worker/src/site-data.ts`), the native CSS/JS, and the crest `worker/public/static/olympus-icon.png` as the single
    owner-approved exception (a recalculated hash is never a substitute for that review); the reviewed literal
    classifications regenerated for that head
-   (`Olympus/consolidation-2026-09-30/claude-review/literal-classifications-<head>.json`, its hash posted by Claude Code);
+   (an exact-head literal-classification artifact and hash, attributed to its actual author; historical Claude
+   artifacts remain in `Olympus/consolidation-2026-09-30/claude-review/`);
    the native policy generator parity receipt for that head's policies.
 3. **The audit.** `python <runner>/scripts/publication_audit.py --repo <keeper checkout> --head <final-sha> --out
    <runner>/out/audit-<final-sha>.json --current-only`; the only blocking findings allowed are test fixtures listed in
@@ -277,12 +408,14 @@ to one of the four fixed files needs another reviewed successor before publicati
    <contract> --asset-contract-sha256 <hash> --asset-manifest <manifest> --asset-manifest-sha256 <hash>`, then
    `python <runner>/scripts/validate_publication.py` on its manifest. This output is not edited afterwards; its tree,
    manifest and validator receipt are pinned by hash and revalidated during the reconciliation.
-5. **The owner namespace and the two receipts.** Codex (root) prepares, outside the keeper, the public clone and the
+5. **The owner namespace and exact-head review receipts.** Codex (root) prepares, outside the keeper, the public clone and the
    additive output, a separately owned Pages namespace with its `.pages-reconciliation-owner.json` marker (schema
-   `olympus-pages-owned-output-root-v1`, `prepared_by` `root_codex`); both reviewers then post their separately
-   attributed review receipts for the exact three-root policy source and pre-commit reconciliation (`reviewer_role`
-   `root_codex` and `actual_claude_code`, each bound to the request's hash, the final head and tree, the policy source
-   pins, the parity receipt and the namespace, each with the hash of its own task-log entry).
+   `olympus-pages-owned-output-root-v1`, `prepared_by` `root_codex`). The currently pinned constructor's two-receipt
+   vocabulary (`root_codex` and `actual_claude_code`) predates the takeover; a new-head receipt must never fabricate
+   Claude approval. Before new use, a reviewed exact-head constructor successor must implement section 0's Codex
+   qualification with separately attributable peer evidence. Its receipts bind the request's hash, final head/tree,
+   policy source pins, parity receipt, namespace and each author's own task-log entry. This documentation batch does
+   not change the constructor or supply such receipts.
 6. **The reconciliation.** `python <runner>/scripts/reconcile_public_root.py prepare --arguments <arguments.json>
    --arguments-sha256 <hash>` with the request (schema `olympus-pages-exact-policy-reconciliation-v2`, the final head,
    `stageable: true`), the additive manifest and validator receipt from step 4, the asset tuple, the two receipts and a
@@ -291,7 +424,7 @@ to one of the four fixed files needs another reviewed successor before publicati
    validate` on its pinned pre-commit receipt with the same keeper and public repositories. The helper verifies the
    bundle's V4 files and its network guard by SHA-256 before importing anything and never commits, pushes or approves.
 7. **Still `ready=false`.** Every receipt above says `readyForPublication: false`, and stays so until the real public
-   commit exists with its ref and object closure, its history scan has passed, both agents have signed that publication
+   commit exists with its ref and object closure, its history scan has passed, Codex has qualified that publication
    head, and the owner has authorized the push.
 8. **The rename.** `olympus-verify-policies` becomes `olympus-verify` only with the reviewed bundle whose
    `stage_publication.py` AND `reconcile_public_root.py` both name `https://github.com/SturmFernmelder/olympus-verify.git`, and whose Pages dependency pins match the
@@ -310,8 +443,8 @@ to one of the four fixed files needs another reviewed successor before publicati
   the agents) points at `PUBLIC_BASE_URL`, unchanged by the cutover.
 - The addon exports the roster as before; roles follow the roster (`roles.ts`, one writer).
 - The daily digest, the sweeps and the retention purges run from the cron.
-- Every later change is a build: `BUILD` bumped, a "Worker .NN" section in `deploy-checklist.md`, both signatures, then
-  its shipping commit on the public `main` (section 0), green CI on it, both signatures on it, and `deploy-commit.sh`.
+- Every later change is a build: `BUILD` bumped, a "Worker .NN" section in `deploy-checklist.md`, exact-head qualification
+  under section 0, then its shipping commit on the public `main`, green CI and its qualification, and `deploy-commit.sh`.
 
 ## 7. Launch record (1 and 2 October 2026)
 
@@ -358,14 +491,21 @@ privacy policy served by .113 still describes that login. It also drops the rena
 closed holds; the rows stay and are honoured again once .114 or later is back. The exact .114 version ids are recorded
 here once deployed.
 
+**.114 live, and .115's rule (3 Oct 2026).** .114 was deployed on 2 October (task log 21:54 UTC) from public `main`
+`6f462d2` as Cloudflare version `59f6dc91`, and accepted, bounded, by both agents at 22:19 and 22:20 UTC. Once .115 is
+live, `59f6dc91` is the only rollback target, under the conditions in `docs/deploy-checklist.md` ("Worker .115",
+Rollback): the News rows deleted by the owner, no Settings saves while .114 runs, a forward-fix policy pull request
+or a same-day roll-forward, and after the roll-forward the settings-audit read-back again (section 9, item 5). Every
+.113 version stays excluded.
+
 **What is not yet accepted.** The live configuration is delivered and signed, but the following are still open, and the
-launch counts as accepted only once each is observed or explicitly named as a residual in both agents' final signatures:
+launch counts as accepted only once each is observed or explicitly named as a residual in Codex's final qualification:
 - an ordinary Discord account's view of the five channels and the guide's Get my code / My status;
 - the officer's current game client and a full roster export from it (realm, guild, rank);
 - the watcher run against that roster with its state preserved;
 - an ordinary member's own pages on the site;
 - the first scheduled officer digest after 15:00 (counts only, in the private review channel);
-- both agents' signatures on the whole tool at one final commit.
+- Codex's whole-tool qualification on one final commit under section 0, with attributable independent peer evidence.
 
 ## 8. The end of the beta (from 22 October 2026; Viktor's item 8, build .114)
 
@@ -383,7 +523,9 @@ touched. Nothing runs on a timer; every step below is a person's.
    dated log are kept. Suggested window: 22 to 26 October, so that applications and votes for the full release can finish
    before 4 November.
 4. **In game**: the Guild Master (Viktor, or an approved GM) sets the ranks by hand from the new decisions. The website
-   cannot change game ranks; the rank planner only drafts.
+   cannot change game ranks; the rank planner only drafts. The in-game ladder decision changed on 3 Oct 2026 (owner
+   answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its planner preset and in-game
+   steps come in a later release.
 5. **In Discord** (a person with Manage Roles; the bot cannot, its role sits below these): remove Olympus Officer, Olympus
    Guild Leader, Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. Keep
    Viktor and at least one Olympus Guild Leader, or nobody can use /olympus-admin, /olympus-intros and the officer lookups.
@@ -394,3 +536,68 @@ touched. Nothing runs on a timer; every step below is a person's.
 Launch-day items that are not part of the reset and still need a reviewed path before 4 November: `LINKS_NOT_BEFORE` (it
 is not an activation key, so `scripts/cutover-config.sh` refuses it today) and a cutoff for invite-queue rows made during
 the beta (an invite to a beta name would reach whoever holds that name on live).
+
+## 9. Typed names (from build .115)
+
+Two places on the site hold names an administrator types, tied to no Discord account: the appointed roles (Admin →
+Settings; public on the open web, signed in or not) and the Olympus I-X leadership directory (confirmed members). The
+privacy policy promises consent and removal on request, so:
+
+1. **Ask first.** Type a name only after that person agreed to be named there. The page's consent box must be ticked to
+   add a name or give a role another holder; the server checks that it was ticked, not that the person agreed, so the
+   asking is the administrator's.
+2. **Remove on request, at once.** For an appointed role, type Name withheld in place of the name (the role stays
+   appointed, its board and applications closed) or clear it (the role reopens for applications). In the directory,
+   clear the entry or type Name withheld. Neither needs the box. A request may come to any Olympus officer or through
+   the private request form; it does not need the person's Discord account.
+3. **Correct on request** the same way, with the box ticked for the corrected name.
+4. **The dated log records counts only**: which roles were appointed, how many names were saved, whether the notice was
+   set and the box ticked; never a name. Since .115 the older log rows get the same shape: .115 rewrites them once at an
+   isolate start, and a failure is logged and tried again at a later start, so the deploy is accepted only after the
+   read-back in item 5. Search engines and web archives may have copied a public name; removal here cannot recall their
+   copies, and the policy says so.
+5. **The rewrite's read-back, and the rollback boundary** (Codex, 3 Oct 2026 13:24 UTC). The marker `auditTypedNames`
+   records that the rewrite ran once; it says nothing about rows written after it. An older writer resumed after the
+   marker writes the old shape again (the appointed names and the notice's text): a .114 isolate that finishes a
+   Settings save during a deploy, or .114 itself after a rollback. .115 does not rewrite again while the marker stands,
+   and neither a rollback, a roll-forward nor a mixed-version window ever counts as having rerun it. So administrators
+   save no Settings from the start of a deploy or rollback until the read-back passes, and after the .115 deploy, after
+   any roll-forward to .115 and after a restore the owner runs the counts-only settings-audit read-back
+   (`docs/deploy-checklist.md`, "Worker .115", rollout step 7). It must give marker 1, residual 0 and unreadable 0. If
+   residual is above 0, the owner deletes the marker (`DELETE FROM site_settings WHERE key = 'auditTypedNames'`) and
+   starts a fresh isolate, whose schema check rewrites the remaining old-shape rows (only those): running isolates have
+   checked their schema already and do not look again, so the owner redeploys the same commit (`bash
+   scripts/deploy-commit.sh <the same P>`, section 1) and requests the bot host's `/health` once; then the read is
+   repeated until it passes (the second review round, 3 Oct 2026). If unreadable is above 0, acceptance waits while the
+   owner inspects the rows privately and Codex qualifies the remedy with attributable peer evidence. The task log
+   records the three numbers, never a row. During a restore, section 1's recovery path must maintain actual
+   quiescence/exclusion; an ordinary bot health request is not permission to reopen writers.
+6. **Across a restore**, section 1 first requires actual write quiescence, maintained exclusion and proof that no old
+   admitted writer can resume after reopening; without them, refuse the restore. Under those conditions the owner
+   preserves the two rows privately after the terminal-state evidence and writes them back before the site opens
+   again ("What a restore must keep"), never through the audit. Website closure or equal captures alone is insufficient.
+
+## 10. When the roster is refused (from build .115)
+
+An officer's steps, from the server log; nothing here needs the owner. The roster still decides Guild Member, so while
+an export is refused nothing the roster drives changes: no promotion, no departure (a member who left keeps Guild Member
+and the private channels until an export is applied again) and the seat line turns "unknown" once the last applied
+export is 48 hours old. Fail closed, by design (Codex, 3 Oct 2026 13:15 UTC, finding 2; the second review round).
+
+1. **"an export of N members was refused: A / a, ... the same name more than once, ignoring case and realm"**
+   (`roster.duplicate_names`, logged once every six hours while it lasts). The bot tells characters apart by the name
+   without its realm and ignoring case, so two characters whose names differ only there cannot both be on one export,
+   and every export is refused until each name appears once. Rename or remove one character of each pair the line names
+   (or ask its owner to), then let the addon export again (`/olv sync`); the first export without a collision is applied
+   as usual. Do not edit the export by hand: the next one from the addon would bring the pair back.
+2. **"an export of N members was refused: only M of its member rows were stored"** (`roster.ingest_unusable`). Nothing
+   was applied and the last export stands. It has no known cause in the officers' hands: tell Codex in the task
+   log (the counts, never a name); the next export is tried afresh.
+3. **`/olympus-admin sync` answers "Nothing applied"**: the latest snapshot is still being written (run it again in a
+   few minutes), or it stores fewer member rows than its export listed. In the second case the reply names the
+   snapshot, #N; wait until `/olympus-admin roster` shows a snapshot newer than #N (an identical export may first only
+   mark #N unfinished; the export after it is written in full), then run sync again.
+4. **A large export is applied over several exports** (the third review round, 3 Oct 2026; Codex 16:48 UTC, finding A).
+   When many linked characters reach the roster at once (launch day), one export applies what fits in its own request
+   and the rest follows with the next exports and the cron every 30 minutes; nothing is refused and nothing is needed
+   from anyone. `/olympus-admin sync` does the same and says "Not applied yet (N)": run it again until that line is gone.

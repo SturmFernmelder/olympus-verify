@@ -5,6 +5,7 @@
  *   GET  overview                          counts, the professions of open applications, settings
  *   PUT  settings                          reservation time and whether it is confirmed, launch, the open/closed switches,
  *                                          the appointed roles {roleKey: name}, the roles without a public vote [roleKey]
+ *                                          (.115: namesConfirmed when a typed name is added or changed)
  *   GET  applications?position&backups&profession&status&q&offset, GET applications/{id}
  *   POST applications/{id}/status          {status, note}
  *   POST users/{id}/deny {reason}, POST users/{id}/undeny, POST users/{id}/delete {mentions} (everything the site holds)
@@ -17,23 +18,27 @@
  *   GET  lookup?q, GET account/{id}
  *   GET  export/{applications|board|votes|friends|reserved|users}
  *   GET  audit
- *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
+ *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds, namesConfirmed (.115)}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
  *         POST beta-reset {confirm, notice}; GET renames, POST renames/forced {auditId, confirm}, POST renames/{id}/approve|cancel
+ *   .115: GET news, POST news {id,title,body,days}, POST news/update {id,revision,title,body,days}, POST news/delete {id,revision}
+ *         (site-news.ts); settings.newsOn
  */
 import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
 import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
-import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, type SiteSettings } from "./site-data";
+import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, settingsFrom, type SiteSettings } from "./site-data";
 import { queueReserved, releaseReserved } from "./site-queue";
+import { guildSeats } from "./guild-seats";
 import { accountInfo, ownerOfCharacter, referencesNaming } from "./lookup";
 import { communityEraseStatements } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
 import { rest } from "./discord";
 import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
-import { betaResetState, loadLeadership, recordBetaClosed, runBetaReset, saveLeadership } from "./site-leadership";
+import { betaResetState, loadLeadership, NAME_WITHHELD, recordBetaClosed, runBetaReset, saveLeadership } from "./site-leadership";
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
+import { handleNewsAdmin } from "./site-news";
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -69,9 +74,10 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
     if (m === "GET") return apiJson(await loadLeadership(env));
     if (m === "PUT") {
       const r = await saveLeadership(env, actor, body);
-      return r.ok ? apiJson({ ok: true, guilds: r.guilds }) : apiJson({ error: "invalid", message: r.message }, 400);
+      return r.ok ? apiJson({ ok: true, guilds: r.guilds }) : apiJson({ error: r.error, message: r.message }, r.error === "stale_directory" ? 409 : 400);
     }
   }
+  if (parts[0] === "news") return handleNewsAdmin(request, env, parts.slice(1), admin, body); // .115: News notices (site-news.ts)
   if (parts[0] === "beta-reset") {
     if (m === "GET" && !parts[1]) return apiJson(await betaResetState(env));
     if (m === "PUT" && parts[1] === "closed") {
@@ -199,12 +205,15 @@ async function overview(env: Env) {
     professions: profs.results.filter((r) => professionOf(r.profession)),
     reserved: reserved.results,
     queue: { waiting: queue?.waiting ?? 0, reserved: queue?.reserved ?? 0 },
+    seats: (await guildSeats(env)).seats, // .115 (item B): exact, staff only (guild-seats.ts)
     settings: await loadSettings(env),
   };
 }
 
 async function saveSettings(env: Env, actor: string, body: Record<string, unknown>): Promise<Response> {
-  const cur = await loadSettings(env);
+  const read = await env.DB.prepare("SELECT key, value FROM site_settings").all<{ key: string; value: string }>();
+  const cur = settingsFrom(env, read.results);
+  const storedValues = new Map(read.results.map((r) => [r.key, r.value]));
   const next: Partial<Record<keyof SiteSettings, string>> = {};
   const time = (k: "namesOpenAt" | "launchAt") => {
     if (body[k] === undefined) return true;
@@ -215,32 +224,79 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   };
   if (!time("namesOpenAt")) return apiJson({ error: "invalid", field: "namesOpenAt", message: "That reservation time could not be read." }, 400);
   if (!time("launchAt")) return apiJson({ error: "invalid", field: "launchAt", message: "That launch time could not be read." }, 400);
-  for (const k of ["namesTimeConfirmed", "namesOpen", "autoQueue", "applicationsOpen", "votingOpen"] as const) {
+  // .115: newsOn switches the members' News page (site-news.ts); saved and audited like the other switches
+  for (const k of ["namesTimeConfirmed", "namesOpen", "autoQueue", "applicationsOpen", "votingOpen", "newsOn"] as const) {
     if (body[k] !== undefined) next[k] = body[k] === true ? "1" : "0";
   }
   if (body.notice !== undefined) next.notice = cleanText(body.notice, 300);
+  let appointedObj: Record<string, string> | null = null; // .115: the cleaned map itself, for the consent check and the audit's role keys
   if (body.appointed !== undefined) {
-    const appointed = cleanAppointed(body.appointed);
-    if (!appointed) return apiJson({ error: "invalid", field: "appointed", message: "The appointed roles could not be read." }, 400);
-    next.appointed = JSON.stringify(appointed);
+    appointedObj = cleanAppointed(body.appointed);
+    if (!appointedObj) return apiJson({ error: "invalid", field: "appointed", message: "The appointed roles could not be read." }, 400);
+    next.appointed = JSON.stringify(appointedObj);
   }
   if (body.noVote !== undefined) {
     const noVote = cleanNoVote(body.noVote);
     if (!noVote) return apiJson({ error: "invalid", field: "noVote", message: "The roles without a public vote could not be read." }, 400);
     next.noVote = JSON.stringify(noVote);
   }
+  // .115 (Viktor's item C, 2 Oct 2026): an appointed name is public on the open web, so it is typed only after that person
+  // agreed. A name added, or changed for a role, needs the administrator's namesConfirmed; keeping a name, clearing one
+  // (the role reopens) or typing NAME_WITHHELD (the role stays appointed) does not. The comparison is with what is stored
+  // now, read above; the atomic expected-value guard below also refuses a removal/replacement after this read. Refused
+  // before anything is written: the whole save waits for the tick. The server checks the tick, not the agreement itself.
+  if (appointedObj) {
+    const stored = cur.appointed;
+    const changed = Object.entries(appointedObj).filter(([key, who]) => who !== NAME_WITHHELD && !(Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === who));
+    if (changed.length > 0 && body.namesConfirmed !== true) {
+      return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names are public on the open web." }, 400);
+    }
+  }
   const entries = Object.entries(next) as Array<[string, string]>;
   if (!entries.length) return apiJson({ ok: true, settings: cur });
   const t = now();
-  await env.DB.batch(
-    entries.map(([k, v]) =>
-      env.DB.prepare(
-        "INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3, updated_by = ?4",
-      ).bind(k, v, t, actor),
-    ),
-  );
-  await audit(env, actor, "site.settings", undefined, next);
+  const expected = Object.fromEntries(entries.map(([k]) => [k, storedValues.get(k) ?? null]));
+  // Materialize admission before any target row changes: either EVERY submitted key still has its exact stored value
+  // (including absence), or no key is written. One statement prevents an appointed/notice removal from being undone
+  // between the consent comparison and the write, and prevents a stale save from partially applying other switches.
+  const saved = await env.DB.prepare(
+    `INSERT INTO site_settings (key, value, updated_at, updated_by)
+     WITH admission AS MATERIALIZED (
+       SELECT 1 WHERE NOT EXISTS (
+         SELECT 1 FROM json_each(?2) expected LEFT JOIN site_settings current ON current.key = expected.key
+          WHERE current.value IS NOT expected.value
+       )
+     )
+     SELECT next.key, next.value, ?3, ?4 FROM json_each(?1) next, admission WHERE 1
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+  ).bind(JSON.stringify(next), JSON.stringify(expected), t, actor).run();
+  if ((saved.meta?.changes ?? 0) === 0) {
+    return apiJson({ error: "stale_settings", message: "Settings changed while this save was pending. Nothing was saved. Reload the page before editing again." }, 409);
+  }
+  await audit(env, actor, "site.settings", undefined, settingsAuditDetails(next, appointedObj, body.namesConfirmed === true));
   return apiJson({ ok: true, settings: await loadSettings(env) });
+}
+
+/**
+ * What the dated log keeps of a settings save. .115 (Viktor, item C, 2 Oct 2026): the dated log outlives an erasure, so
+ * typed names and the notice text are counted, never written. The appointed map becomes its role keys (sorted, from the
+ * cleaned map, never from its JSON text) and how many names were saved; the notice becomes whether a non-empty one was
+ * saved, as the beta reset records it (site-leadership.ts); namesConfirmed is recorded only when it was sent. The
+ * switches, newsOn, the roles without a public vote and the times are kept as before. schema.ts redactSettingsAudit
+ * rewrites the rows written before .115 to the same shape once, at an isolate start (marker auditTypedNames; a failure is
+ * logged and a fresh isolate tries again), and the counts-only read-back of docs/deploy-checklist.md .115 rollout step 7
+ * is the acceptance gate that it did (Codex, 3 Oct 2026 13:24 UTC; the second review round).
+ */
+function settingsAuditDetails(next: Partial<Record<keyof SiteSettings, string>>, appointed: Record<string, string> | null, namesConfirmed: boolean): Record<string, unknown> {
+  const { appointed: _names, notice, ...rest } = next;
+  const out: Record<string, unknown> = { ...rest };
+  if (notice !== undefined) out.notice = notice !== "";
+  if (appointed) {
+    out.appointedRoles = Object.keys(appointed).sort();
+    out.appointedNames = Object.keys(appointed).length;
+  }
+  if (namesConfirmed) out.namesConfirmed = true;
+  return out;
 }
 
 // ---------- applications ----------

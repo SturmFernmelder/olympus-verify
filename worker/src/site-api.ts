@@ -11,6 +11,7 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, rest } from "./discord";
+import { guildSeats, memberSeats } from "./guild-seats";
 import { apiJson, appOut, avatarUrl, BOARD_COUNTS, boardCountCache, choicesOf, currentUser, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, PAGE_VERSION, parseAnswers, rateLimited, readJson, ROLE_OF_FIRST, sameOrigin, searchMembers, shownName, UNDER_ROLE, type AppRow, type Found, type SiteUser } from "./site-core";
 import {
   AVAIL_HEX,
@@ -55,6 +56,7 @@ import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
+import { newsPage } from "./site-news";
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -79,6 +81,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/me/export") return exportMyData(request, env, user); // .71: the member's own copy
   if (m === "GET" && path === "/api/search") return search(env, user, new URL(request.url), admin);
   if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
+  if (m === "GET" && path === "/api/news") return newsPage(request, env); // .115: News (site-news.ts), confirmed members, behind settings.newsOn
   if (m === "GET" && (path === "/api/board" || path.startsWith("/api/board/"))) {
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
     // Asmongold's server (checked with Discord at most hourly, as for a save), and not read by a script at speed.
@@ -189,6 +192,9 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings) 
   const board = await env.DB.prepare(MY_BOARD_VOTES).bind(id).all<{ rk: string; n: number }>();
   const boardVotes = board.results.filter((r) => boardOpenFor(s, r.rk)).reduce((n, r) => n + r.n, 0);
   const admin = isSiteAdmin(env, id);
+  // .115 (item B): one guarded batch; the viewer's own rows only; times rounded to the hour (guild-seats.ts memberSeats).
+  // A denied account gets neither. The signed-out boot and /api/public carry no seat state.
+  const seatInfo = user.denied ? null : await guildSeats(env, now(), id);
   return {
     signedIn: true,
     now: now(),
@@ -205,6 +211,8 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings) 
     reserved: reservedOut(reserved.results),
     // .114: a rename Blizzard required asks the member to apply again (rename-review.ts); Home says so and why
     reapply: await openRenameHold(env, id),
+    seats: seatInfo && memberSeats(env, seatInfo.seats),
+    myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [],
   };
 }
 

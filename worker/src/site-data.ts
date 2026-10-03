@@ -624,6 +624,7 @@ export interface SiteSettings {
   notice: string;             // a short announcement shown on every page ("" = none)
   appointed: Record<string, string>; // roles filled by appointment: role key -> who holds it, as members see it
   noVote: string[];           // roles that take applications but are chosen without a public vote (.45)
+  newsOn: boolean;            // .115: the members' News page (site-news.ts); off until an administrator switches it on
 }
 
 /**
@@ -712,6 +713,7 @@ export function settingsFrom(env: Env, rows: Array<{ key: string; value: string 
     notice: (m.get("notice") ?? "").slice(0, 300),
     appointed: parseAppointed(m.get("appointed")),
     noVote: parseNoVote(m.get("noVote")),
+    newsOn: bool(m.get("newsOn"), false), // .115: a missing row means off (fail closed)
   };
 }
 

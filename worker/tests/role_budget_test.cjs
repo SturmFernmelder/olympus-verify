@@ -39,6 +39,7 @@ const discord = load("discord.ts", stubs);
 stubs["./discord"] = discord;
 const roles = load("roles.ts", stubs);
 stubs["./roles"] = roles;
+stubs["./scheduled-budget"] = load("scheduled-budget.ts", stubs); // .115: restore.ts reads its per-run caps from it (the scheduled D1 budget)
 const restore = load("restore.ts", stubs);
 const backfill = load("backfill.ts", stubs);
 

@@ -7,6 +7,7 @@ import { onVerified } from "./review";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { demote, guidOf, ingestRoster, isCurrentRoster, latestRosterEntry, onLatestRoster, promote, ROSTER_PIN_WITHIN, type RosterMemberIn } from "./roster";
 import { callBudget } from "./roles"; // .90 (P-20): the join events' promotions share one Discord-call budget per batch
+import { guildSeats, seatsStaffLine } from "./guild-seats";
 
 /** The shortest WATCHER_TOKEN accepted: README asks for 32+ random characters, and an empty secret must never be a key. */
 export const WATCHER_TOKEN_MIN = 32;
@@ -561,7 +562,11 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
 export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[] }): Promise<Response> {
   if (!Array.isArray(body.members) || !body.exportedAt) return json({ error: "exportedAt and members[] required" }, 400);
   const summary = await ingestRoster(env, body.exportedAt, body.members, "addon");
-  return json(summary);
+  // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export refused for duplicate names is a 422, which
+  // the watcher takes as final (watcher.py Worker.call: a 4xx is not retried, since sending it again changes nothing).
+  // The review of 3 Oct 2026 added "unusable" (every batch committed, and the stored rows still fell short of the count):
+  // final for the same reason, so it never holds the watcher's later posts behind it as a retried 500 would.
+  return json(summary, "refused" in summary ? 422 : 200);
 }
 
 /**
@@ -638,9 +643,9 @@ export async function getQueue(env: Env, officer = ""): Promise<Response> {
   //
   // getQueue claims a slice (ORDER BY id LIMIT QUEUE_CLAIM_LIMIT), so with two officers running the addon the
   // second one's first row is globally somewhere past the first one's last claim. Numbering the returned array
-  // would hand every officer their own "1", and /verify-status already quotes waitlistPosition() -- the global
-  // number -- straight to the applicant. Two surfaces disagreeing about someone's place in line is a support
-  // ticket, so both count the same rows the same way.
+  // would hand every officer their own "1", and /verify-status already quotes the global number straight to the
+  // applicant (waitlistPosition's count; since .115 read for the account's own rows in guild-seats.ts). Two surfaces
+  // disagreeing about someone's place in line is a support ticket, so both count the same rows the same way.
   //
   // That means counting WITHOUT the retry_after filter, exactly as waitlistPosition does: a row backing off after
   // a refusal is still ahead of you and still gets served first, so it still occupies a place.
@@ -688,12 +693,6 @@ export async function postQueueWritten(env: Env, body: { ids: number[]; officer?
     n += r.meta.changes ?? 0;
   }
   return json({ marked: n });
-}
-
-/** True when the officer's client reported a full guild recently enough to still be true. */
-export async function guildIsFull(env: Env, withinSeconds = 6 * 3600): Promise<boolean> {
-  const row = await env.DB.prepare("SELECT ts FROM audit WHERE action = 'guild.full' ORDER BY id DESC LIMIT 1").first<{ ts: number }>();
-  return !!row && now() - row.ts < withinSeconds;
 }
 
 /**
@@ -781,6 +780,8 @@ async function noticeGuildFull(env: Env, e: EventIn): Promise<void> {
   const lines = [
     `\u{1F6D1} **The guild is full.** Invites are being refused, and ${waiting?.n ?? 0} verified applicant(s) are waiting for a seat.`,
   ];
+  // .115 (item B): the count the members are shown (guild-seats.ts), so staff read the same state they do.
+  lines.push(seatsStaffLine((await guildSeats(env)).seats));
   if (e.candidates?.length) {
     lines.push("", "The addon's suggestions, longest away first \u2014 **nobody has been removed**:");
     for (const c of e.candidates.slice(0, 5)) {

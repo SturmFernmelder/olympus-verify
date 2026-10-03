@@ -710,3 +710,337 @@ the site cannot change game ranks, and the bot's role sits below those Discord r
 **The I-X directory grants nothing.** It is a list of names for members to read. The Council in Discord is reached by roles
 given by hand after each person is reviewed; neither the directory nor the Council roles feed the bot's officer checks,
 SITE_ADMINS or COMMUNITY_ORGANIZERS, so leaders of later guilds never gain access to Olympus I's member records.
+
+## 3 Oct 2026 (.115): a full guild said plainly, News from what the Worker already knows, and typed names
+
+**Takeover qualification (3 Oct 2026).** The owner instructed Codex to finish after Claude's usage limit without dual
+sign-off. Interrupted .115 work is preserved at local checkpoint `568c76d958eeee2f2786798bd959b0b2ae8ec299`.
+Descriptions, cost figures and recorded checks below retain that work's history; they are not a new source freeze,
+deployment or final-version acceptance. Codex must qualify the final commit/tree with attributable peer evidence and
+the same applicable release/live gates. This batch changes no budget figures or caps pending the roster author's result.
+
+Viktor's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct (about 02:30 UTC, log 02:34 UTC), built from a
+plan that three adversarial reviews went over. What the code does is in `docs/deploy-checklist.md` ("Worker .115"); this
+is why.
+
+**Only the latest snapshot decides whether Olympus I is full.** An older trusted export that read 1000 says nothing
+about today once a newer export is distrusted, unfinished or unchecked; skipping back to it would announce "full" from
+evidence the house itself has stopped believing. So the latest row decides or nothing does, and "unknown" makes no
+claim. The officer's view says why it is unknown, in words, with the remedy where there is one.
+
+**Trust is judged against the last trusted export, and a refresh never raises it.** The roster guard compares each
+export with the previous one, which is right for removals but not for a count: after 1000 and a distrusted 850, an 851
+is a 0.1% change from its predecessor and would be trusted, although the guild never proved it shrank. Seats and figures
+therefore read a `trusted` column judged against the last trusted, complete export, and an identical re-export (which
+only moves `received_at`) can lower it but never raise it. The person who says the shrink is real is the officer who
+runs `/olympus-admin sync`, which is already the house's remedy for a large shrink; it now vouches for the export and
+audits that it did. The ingest's own decision still alone decides removals.
+
+The review of 3 Oct 2026 closed two gaps in that rule. The base is applied whenever the previous row is not itself
+trusted, which includes a row from before .115 and an unfinished one, not only a distrusted one; and rows from before
+.115 are re-judged in order (a row the ingest never distrusted counts only when it is within the limit of the base
+before it), so a chain such as 1000, 850 (distrusted), 851, 852 written before .115 cannot make the 852 look like a
+trusted count. The base is also kept to exports on or after `LINKS_NOT_BEFORE`: the beta's last 1000 is no evidence
+about live, and as a base it would distrust every export of the launch ramp below 900 and leave News without a roster
+base. With no base after the cut, the ingest's own decision (the floor, and the shrink against the previous row) is what
+the row records.
+
+**A snapshot counts only once all of it is in.** The snapshot row is written before its member rows, in batches; a
+reader between two batches would see a 1000-member export with 300 members stored. The row is born `complete = 0` and
+stamped `complete = 1` with its trust inside the last member batch (the review of 3 Oct 2026: a stamp of its own could
+fail after every row was in, leave the row unfinished for as long as the roster stayed the same, which in a full guild
+is long, and tell the watcher the export had succeeded). A failed last batch now takes the snapshot back out and the
+watcher retries. A row still unfinished ten minutes after it arrived was left by an isolate that stopped between
+batches; it reads "stuck", the next export writes the roster again in full even when it is identical, and sync vouches
+for it once all its member rows are there. A row from before .115 is back-filled once, from its own `roster.distrusted`
+audit and a member count, and a failed count leaves it distrusted: no row becomes trusted without evidence. Since
+Codex's finding 2 (3 Oct 2026, 13:15 UTC) a failed count also leaves it unfinished (complete 0, at once "stuck"), and the
+stamp in the last member batch proves inside that transaction that the stored rows number `member_count`: complete 1
+always means every member row is there, so the seat count can never rest on an inflated count.
+
+**Sync decides before it acts** (Codex, 3 Oct 2026 13:15 UTC, finding 1). `/olympus-admin sync` removes the role from
+every member character missing from the latest snapshot, so a sync over a snapshot whose rows were still arriving, or
+were never all stored, would strip people who are in the guild and merely absent from the unwritten part. It used to
+apply first and refuse to vouch afterwards, which protected the seat count and nobody's role. Admission is now decided on
+the exact rows the sync would apply, before any link, character or role effect: still being written, or fewer rows than
+the export listed, applies nothing. The override the command exists for stays: a fully stored export that is distrusted
+for its size is applied when an officer says so, because the officer is the evidence that the guild really shrank.
+
+**Duplicate names are refused, not collapsed** (Codex, 3 Oct 2026 13:15 UTC, finding 2). The bot tells characters apart
+by the normalised name everywhere (the roster's key, `characters.name_key`), so an export naming one key twice is a roster
+it cannot represent. Collapsing it would keep one row while `member_count` counted both, and choosing which of the two
+GUIDs is "the" character would be a guess the identity rules would then act on. So the whole export is refused before
+anything is read or written, as final (a 422 the watcher does not retry), and the last export stands: fail closed. The
+cost is that roster-driven changes stop for the whole guild until each name appears once, which is why staff are told
+every six hours and the runbook gives the officers' remedy (section 10). The second review round (3 Oct 2026) made a
+stamp that still finds the rows short after every batch committed the same kind of final refusal: sending the same
+export again would store the same rows, and a 500 would make the watcher hold every later post behind it.
+
+**A full guild's export is bounded in the conservative accounting model** (the second review round, 3 Oct 2026).
+.115 charges every source-level statement attempt, including each batch element, against its 1,000 accounting ceiling;
+it initially bounded only the cron. One INSERT per member made a changed 1,000-member export 1,007 accounted attempts,
+over that ceiling exactly when the guild is near its cap. Each member batch
+is now one `INSERT ... SELECT` over `json_each` of its 50 members (the house pattern of the departure intake), in the
+same batches with the stamp still last, so such an export is a few dozen accounted attempts. This is a deliberately
+conservative source/test bound, not a provider-confirmed aggregate-batch accounting claim; batch atomicity is unchanged.
+
+**A full guild's effects are a worklist, admitted before they start** (Codex, 3 Oct 2026 16:48 UTC, finding A; his
+child's review115/provisional-9fed-backend.md, section 2). The storage fix bounded only the rows. The diff after it still
+applied every member's effect in the same invocation: a promotion is a character and queue batch, the role writer's
+reads and audits, role.deferred and roster.member, and the role writer's call budget bounds Discord requests, not
+statements. A complete roster of 1,000 links that had all just verified (launch day) with ROLE_CALL_BUDGET 4 needed about
+4,000 statement attempts and failed partway, after the snapshot was already stamped complete, so some effects were
+applied and nothing said which. A per-member check inside the loop would not do: it stops a loop that is already
+mutating. So the effects became a durable worklist (`src/roster-effects.ts`, `src/roster.ts`):
+- A run is the diff of one complete snapshot, made in the transaction of the snapshot's complete stamp, with the
+  snapshot its departures are judged against and the ingest's own trust decision. A complete snapshot always has its
+  run; a refused stamp leaves neither.
+- The run is derived in a bounded number of statements, one batch: the GUID pins, the returns and the first absences in
+  bulk with their audit rows (a statement per 500 members), and every effect that needs Discord (a promotion, an
+  officer's D: note, a confirmed departure) written as an item. Those three kinds can be derived again from the newest
+  roster and the current links at any time; a first absence cannot (it needs the snapshot before), which is why it is
+  applied inside the derivation and never left as an item.
+- Items are applied in slices. Every statement attempt of the invocation is counted, and before each item its kind's
+  worst case (promote 15, note 17, departure 6, a deferred grant's promotion 11; measured one item apart on their
+  costliest paths) is admitted against what the invocation has left after what it still needs. An item is claimed in
+  the transaction of its database change, so a fault before that commit leaves it pending and one after it never
+  repeats it; what follows the change (the grant through the one role writer, the audits, the welcome) is best effort as
+  before, and a grant it defers is the role sweep's.
+- Every export (changed, identical or the same one retried, which no longer just answers "older") and every cron run
+  applies a slice; the cron's is a line of the scheduled budget (40), so a backlog is worked off between exports too.
+  /ingest/roster may spend the 700 target less a cold schema check, /olympus-admin sync 20 less again, and a sync says
+  how many effects are "not applied yet" and continues where the last one stopped when it is run again.
+- A newer run supersedes an older one: every derivation statement and every claim requires its run to be the newest
+  and its snapshot the newest stored, so nothing of an older export is applied once a newer snapshot exists, even one
+  still being written, and the newer run derives whatever is still due. A link no longer on the newer roster is never
+  promoted from the older one.
+- `roster_effect_runs.done_at` records that the backlog is empty. A snapshot's `complete` still means only that its
+  rows are stored, and the fingerprint only that an identical export needs no new rows.
+- A stop between the stamp and the derivation is resumed by a later export (after the ten-minute grace, when no other
+  export can still be deriving it), and a newer export judges departures against the last snapshot whose diff was
+  applied, so the first absence that snapshot saw is armed rather than lost (the previous code would have compared it
+  with the stopped snapshot and armed nobody).
+- The identity rules are admitted the same way: each release and rename at its worst case, the rest held exactly as
+  they are for the next export or sync, and the namesake sightings of a realm move written in bulk.
+The worklist holds the same data as the bot's own verification rows (a name key, a name, an account, a GUID), only while
+an item is pending: a slice removes the items it finished, a newer run removes an older run's, and finished runs keep
+counts and times for 14 days.
+
+**Forty-eight hours for a count, twelve for a presence.** `ROSTER_SEATS_FOR` sits beside `ROSTER_CURRENT_FOR` because
+they answer different questions: one person's presence changes from hour to hour, a seat count only when someone joins
+or leaves, so a count up to two days old still describes the guild's room. The age is taken from the earlier of the
+export and arrival times, so an officer's clock running ahead cannot make a roster look newer. `LINKS_NOT_BEFORE` is
+kept: the beta's last export is no evidence about the live guild.
+
+**A refused invite counts only when it is newer than a roster that decides.** An invite refused for space at 14:00 is
+answered by an export at 15:00 that counts 995; the reverse order means the guild filled after the export. When the
+latest export does not decide (none, unfinished, unchecked, distrusted, before `LINKS_NOT_BEFORE` or stale), a refusal
+of the last six hours on or after `LINKS_NOT_BEFORE` stands on its own, whatever its order against that export. Six
+hours is how long the old `guildIsFull` already believed a refusal. On `/verify-status` a refusal recorded on the
+account's own queue row says "full" only while the seat state does not say open: a later trusted roster with free seats
+outranks it.
+
+**The cap can only make the bot more careful.** `GUILD_MEMBER_CAP` accepts 900 to 1000; anything else is reported as
+invalid and the game's 1000 is used, so a typo ("10", "1e3") can never announce a full guild. An invalid value is not
+"unknown" (the review of 3 Oct 2026 asked; the plan's rule stands): with 1000 the guild can be called full only at the
+game's own limit, and the bearer `/health` shows `capConfigured: "invalid"`, so the typo is visible while the seat line
+counts against 1000. It lives outside both wrangler files because the applied profile is bound by hash and the key is
+not an activation key.
+
+**Members see the hour, staff see the minute.** An exact export time tells everyone when the officer was online.
+Members' times are rounded down to the hour; staff views keep exact times, as they keep exact times everywhere. A place
+in line reaches only its own account, computed from that account's own queue rows, never from another account's row that
+carries the same name.
+
+**The texts promise only what the bot does.** Being full costs no invite attempt (a refusal for space is a free miss in
+the ingest), the bot removes nobody, and officers may remove inactive characters, so the paragraph says exactly that and
+says reserved names go first. It does not say that a code stays valid, nor that nobody leaves the guild (officers may
+remove characters), and it does not promise a date.
+
+**News is site content behind a switch the owner holds.** It is kept by `SITE_ADMINS`, like the leadership directory, so
+it is a `site-*` module with `site_*` tables on the community primitives (the fence, the nonce, the data registry)
+rather than a community feature behind `COMMUNITY_FEATURES`, a wrangler key that needs a reviewed deploy to change. The
+switch, `SiteSettings.newsOn`, is off by default and a missing row is off, so the deploy itself shows nothing new; the
+owner turns it on in Admin → Settings at action time. Every write judges the switch inside its statement, and since the
+review of 3 Oct 2026 the members' read judges it inside its admitted batch too, so a page read racing "switch off"
+receives nothing. Since Codex's finding 4 (3 Oct 2026, 13:15 UTC) that includes the cron's own write: the figures'
+compare-and-set carries the switch, so a run that read "on" and is switched off before it writes stores nothing
+("superseded"), and "off" means no new figures from that moment, not from the next run. Codex reviews this placement
+with the source.
+
+**What News shows is what the Worker already knows, as counts.** Release notes from source, the seat state on the hour,
+event titles and times, when the directory changed (never its names, and on the hour like every staff-activity time
+members see), roster joined and left counts, application counts and the beta's dates. No officer digest state appears:
+its meaning to members was ambiguous, and the owner's daily issue stays private (log 23:41). Application counts from one
+to four are shown as "fewer than 5": in a guild this size "one decision today" can point at a person. The labels say
+what is counted ("first saved", "decision last saved") because an application is one row per account that is saved
+again, and no audit row marks a first save.
+
+**A deleted notice cannot come back.** The site's lost-answer pattern (.100) freezes the exact bytes of a create and
+lets the administrator "Retry the same". Without a record of the operation, a retry after a delete or after expiry would
+insert the notice again. Every create therefore leaves a row in `site_news_ops`, kept 120 days after posting and never
+deleted while its notice exists; a retry meets it and is told "deleted" or "expired". A record kept for ever would grow
+without end, and a finite one alone is not enough (Codex, 3 Oct 2026 13:15 UTC, finding 5): once the cleanup had removed
+it, a page left open longer could post the notice again under the same id. So the id itself carries the time it was
+handed out (`GET /api/admin/news`, the database clock) and creates only within 30 days of it. A create is never earlier
+than its id and its record lives 120 days from the create, so every id still accepted meets the record of any earlier
+create under it, and an id old enough for its record to be gone is refused for its age. That pair of numbers, not the
+record alone, is the boundary the policy states. A replay of the same text by the same author is answered as a replay
+only after `communityStaff` is checked again, so standing lost since the first try is not bypassed. A stale delete of a
+notice whose time is up answers with its id and revision only (finding 3): past its time a notice is gone from every
+read, and a refusal must not be the one door through which its text still comes back.
+
+**Lifetimes are computed by the database.** A notice lives 1 to 90 days from the time the database gave its operation
+record, `retain_until = created_at + days * 86400` in SQL, with a CHECK that it is later than `created_at` and at most
+90 days after; every read compares with the database clock. An administrator's clock running fast or slow cannot stretch
+or shorten what the policy states.
+
+**The figures are cached and throttled.** The scheduled run already makes about forty D1 round trips with every
+community feature on. The figures run at most every three hours, only while News is on, and the anti-joins run only when
+the snapshot ids they compare have moved; the switch and the cached row are read in the cleanup's own batch, so a run
+while News is off or the cache is fresh adds no round trip of its own. The write is a compare-and-set on the row read
+and on the switch (finding 4 above), so neither a concurrent run nor a switch-off during the run is overwritten. The measured cost is in the deploy checklist, and
+Codex confirms the account's per-invocation limit against it.
+
+**The scheduled run has one conservative statement-attempt budget** (Codex's finding of 3 Oct 2026 13:26 UTC).
+The source/test model charges every attempted statement, each batch element included, and composes the schema check,
+cron and all jobs it starts into one budget. It does not establish the provider's aggregate-batch counting rule.
+Round trips alone were an insufficient bound: with a large backlog the weekly obligation opener alone could
+issue 1,201 accounted attempts and the profile cleanup 604; a composed run over the accounting ceiling cannot be qualified.
+So every workload that grows with the data is capped per run in one table, `src/scheduled-budget.ts`, beside each job's
+worst case counted from its source (failed audits and a cold schema check with every column missing included), and the
+caps keep the sum at or below 700 of the Paid plan's 1,000 (it is 694 with the roster effects' slice of 40 since the
+third review round; 652 before): a margin for later changes, not measured provider-internal retry accounting.
+These interrupted-work figures need final exact-head requalification after the roster correction.
+A cap spreads work over more runs and never drops it: each capped job continues in a fixed order on the next
+run, every 30 minutes, which the policy's sentence about bounded batches already covers. The opener checks the policy
+once per run instead of once per account, and its scan leaves out an account id it cannot use, so such an id never
+holds a slot. A new job, a new column or a raised cap changes the table first; `tests/scheduled_budget_test.cjs` holds
+the real run to it.
+
+**Typed names are counted, never written into the log.** The dated log outlives an erasure, so a name typed into the
+settings and copied into the audit would survive the request that removed it. The settings audit now records role keys,
+a count and booleans; the older rows are rewritten to the same shape once (the owner's answer 4), behind a marker, and
+the private pre-deploy export keeps the old rows only until it is destroyed (the owner keeps only the newest verified
+export until the launch is accepted, answer of 3 Oct 2026). Consent is an attestation:
+the server checks that the box was ticked, not that the person agreed, which is why the runbook says to ask first. "Name
+withheld" exists so that removing a name on request does not reopen a role the guild has filled.
+
+**The rewrite is checked after the deploy, not assumed from it** (Codex, 3 Oct 2026 13:24 UTC). It runs at an isolate
+start, and a failure only logs and leaves the marker unset for a later start: holding the bot, the watcher and the site
+at 503 over a log rewrite would be the wrong trade. The price is that installing .115 proves nothing about the rows, so
+the policy says the owner checks, and the checklist makes a counts-only read (the marker, rows still carrying a named
+`appointed` field or a notice's text, rows that are not JSON) a mandatory acceptance gate. The marker records one run,
+not the shape of later rows: an older writer resumed after it (a .114 isolate finishing a save during the deploy, or a
+rollback to .114) writes the old shape again, and nothing reruns the rewrite until the owner deletes the marker. So that
+read follows every deploy, roll-forward and restore, and Settings are not saved in between. The backup comes before the
+deploy because the rewrite is irreversible and that export is then the only copy of the older rows.
+
+**A restore puts the typed names back as they stood** (Codex, 3 Oct 2026 13:26 UTC). The policy promises that deletions
+made since a backup are repeated before a restored site is used, and the runbook replays them from the audit. Typed
+names cannot be replayed that way: their audit is counts only, by the rule above, and writing the names into it so that
+a replay could find them would undo that rule. They live in two `site_settings` rows, so the bounded mechanism is to
+keep those two rows privately after actual write-quiescence evidence and write them back, through no Worker route and
+so through no audit, before the site is used. That preserves the latest requests only if all prior critical writers
+have completed or been definitively canceled and exclusion remains through replacement/replay/read-back/reopening.
+Without that proof the restore is refused; unchanged captures do not establish it. The statements are made
+by SQLite's `quote()` from the rows themselves, so no hand-typed literal can garble a name; a missing row becomes a
+DELETE, because a missing `appointed` row means the default appointment. The marker is not copied: a copy from before
+the rewrite needs the rewrite, and the read-back decides.
+
+**News notices across a restore** (the second review round, 3 Oct 2026). The replay re-ran only the deleted notices, so
+a notice changed on request since the copy (a name taken out) came back with its earlier text, and a notice posted and
+deleted since the copy had neither a row nor its operation record there: a page opened before the restore, holding a
+frozen "Retry the same" inside its 30 days, would post it again. Keeping the live notices privately and writing them
+back was the other way; it was not taken, because it would put notice texts into a private file and a restore does not
+need them. The audit already holds each notice's id and the time it was posted, changed or deleted, never its text, and
+that is enough: every restored notice changed or deleted since the copy is deleted (one changed since is posted again by
+an administrator if it is still wanted), and every notice posted since gets its record back with its posting time and
+the same 120 days, so a stale retry meets a record and is answered "deleted". The record carries no author: it guards
+the id, and no copy of anyone's data needs it.
+
+**A restore refuses without separately proved write quiescence** (Codex's 3 Oct 2026 restore-drain qualification,
+carried forward under the owner's takeover instruction). Closing the website prevents restored names/notices from
+being public during replay and excludes new website admissions, but it does not freeze previously admitted saves.
+A valid Settings or Leadership save may still be waiting for its body; equal captures may precede its later commit.
+No finite requestwide drain time is established, and neither a fixed wait nor ordinary redeployment supplies one.
+
+Every preservation-critical writer must be covered: Settings/Leadership and their separate audits, News, relevant
+bot/cron/admin-SQL work, pending SQL/post-response work and old serving versions. Obtain actual completed-or-canceled
+evidence before the final capture and maintain exclusion through database replacement, recovery and read-back.
+The site's block remains until replay and all reads pass and no old admitted writer can resume after reopening.
+If these conditions cannot be proved, restoration remains unavailable. Capture equality and asking staff to stop
+are cross-checks/precautions only, never terminal-state proof.
+
+`ensureSchema` still checks once per isolate, so recovery needs the newly served version's schema path; a redeploy
+receipt is not cancellation evidence for old invocations. A recovery request must preserve writer exclusion, rather
+than silently reopening the bot host or cron. A future authoritative epoch must fence commits and audit seams,
+survive replacement, cover old versions and refuse stale work after reopening. That runtime epoch barrier is
+**not implemented**; proposed .116 work supplies no current guarantee.
+
+**"Never your name" belongs to the figures, not the notices** (Codex, 3 Oct 2026 13:24 UTC). The figures are computed
+by the Worker from counts and times, so the policy can promise they carry no name. A notice is free text an
+administrator types, and the server cannot judge whether a text names someone; the policy therefore promises what the
+staff do (name a member only with that member's agreement) and the remedy (changed or deleted on request, through any
+officer or the private request form), as it does for typed names. Admin -> News keeps its stricter line, "do not name
+members".
+
+The second review of 3 Oct 2026 found the same gap one step further: the list of figures also named "the title and time
+of the next events", and an event's title is free text too, typed by its organizer (an administrator or a member named
+as an organizer; up to 80 characters). News adds no audience for it, since confirmed members read the same title on the
+Calendar, so the page keeps it; the policy now lists the events outside the figures, as start times with the titles
+their organizers gave them, shown as the calendar shows them. Showing only a count and the times would have kept the
+promise by making the page less useful, for no privacy gain over the Calendar.
+
+**Members never see a notice's id** (the second review of 3 Oct 2026). The id is the create's operation id, and its first
+eight characters are the database second at which an administrator opened Admin -> News. That is a staff-activity time
+to the second, while every such time members see is on the hour. The members' page never used the id, so `GET
+/api/news` leaves it out; the staff views and the administrator's own copy keep it. The exact posting time stays: it is
+what a notice says about itself.
+
+**The id's time is a bound, not a signature.** The prefix is not signed, so it proves nothing about where an id came
+from: a staff client could build one with the current time. That is harmless on a staff-only route (such an id has no
+record yet, so it can only post a new notice, which its own record then guards). What the prefix gives is the one
+property the promise needs: a FIXED id, frozen in a page opened long ago, stops creating after 30 days, before its
+120-day record can be gone.
+
+**A retention promise is accepted on receipts** (Codex, 3 Oct 2026 13:24 UTC). The policy says the owner keeps only the
+newest verified export; the owner's answer is the instruction, and a release that publishes it is accepted only once
+the owner's inventory of private copies holds that one export and the task log holds a destruction receipt for each
+earlier one (time and SHA-256) and for each scratch database a verification restored into, which is a full copy too.
+A D1 scratch database has no SHA-256, so its receipt is its name or UUID, the time it was deleted and a listing taken
+afterwards without it (the second review round, 3 Oct 2026). Cloudflare's point-in-time history is a different facility
+with its own window and is not part of that inventory.
+
+**The in-game ladder waits for a later release.** The in-game ladder decision changed on 3 Oct 2026 (owner answer 6:
+ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its planner preset and in-game steps come in
+a later release. Answer 6 supersedes answer 1 (a seven-rank ladder), for which this build first rewrote the role copy
+and added a planner button; a later commit of this build withdrew both, so the role copy (the .46 lines of 30
+September, which describe the same ten ranks) and every planner file are as .114 had them.
+
+**The release-note rule is relaxed until Codex agrees.** `site_news_test` checks that the newest release note is not
+newer than `BUILD`; the stricter rule (the newest note is exactly `BUILD`'s) waits for Codex's agreement to the
+convention.
+
+### .115 takeover corrections, 3 October 2026
+
+The owner's takeover instruction removes the prospective Claude source reservation and countersignature. The
+interrupted source is preserved at `568c76d958eeee2f2786798bd959b0b2ae8ec299`; it is not a release approval.
+The roster now reserves SQL still owed by every buffered notice before admitting another effect, keeps underived
+exports retryable, and refuses partial snapshots. An identical legacy refresh proves completeness with its existing
+`UPDATE ... RETURNING` before creating a run. Worklist consumption checks both the completion flag and the stored
+member count. Each rename/release checks the exact binding, snapshot and applicable unfinished run inside its atomic
+database batch. Manual sync retains its existing deliberate full-row legacy/stuck override. External Discord effects
+remain outside those database transactions; no external atomicity is claimed.
+
+Settings and Leadership compare the exact raw values they read, including absent rows, inside their write statements.
+A concurrent removal or replacement therefore makes an old save fail with 409, even when its consent box was checked.
+The Settings guard admits the complete submitted packet or none of it. Refusals add no success audit or typed names.
+For an uncertain News create, absence from the live-notice list cannot prove the operation never existed: deleted and
+expired notices may have tombstones. The form keeps the same frozen operation available for retry/status resolution.
+
+The statement model remains conservative: 164 cold-schema attempts, 536 available for roster ingestion, 516 for
+manual sync, 40 for the cron roster slice, and 694 for the composed scheduled worst case under the 700 target.
+Cloudflare's current batch documentation does not establish aggregate batch metering. Numeric limits have not changed.
+Restore refusal when actual preservation-critical writer quiescence cannot be proved remains mandatory; the future
+runtime restoration epoch is not implemented. Exact-head test, art, publication, backup and live receipts are separate.

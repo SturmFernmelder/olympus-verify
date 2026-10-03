@@ -88,6 +88,7 @@ import {
   obligationKey,
   periodStart,
 } from "./community-contribution-policy";
+import { SCHEDULED_CAPS } from "./scheduled-budget";
 
 const SOURCES = ["officer_manual", "mail", "bank_log"] as const;
 const STATUSES = ["matched", "unmatched", "disputed", "rejected"] as const;
@@ -246,12 +247,18 @@ const bumpMemberFor = (env: Env, guildScope: string, id: string, at: number, opN
      ON CONFLICT(guild_scope, discord_id) DO UPDATE SET revision = revision + 1, updated_at = ?3`,
   ).bind(guildScope, id, at, randomToken(), opNonce);
 
+type ObligationInput = { guildScope: string; discordId: string; periodStart: number; eligible: boolean; policy?: ContributionPolicy; fence?: SessionFence; proof?: { firstLogin: number; sessionVersion: number } };
+
 /** One obligation per member and week under a pinned policy version; an existing week is returned unchanged. */
-export async function createObligation(
-  env: Env,
-  input: { guildScope: string; discordId: string; periodStart: number; eligible: boolean; policy?: ContributionPolicy; fence?: SessionFence; proof?: { firstLogin: number; sessionVersion: number } },
-  at = now(),
-): Promise<{ id: number; created: boolean }> {
+export async function createObligation(env: Env, input: ObligationInput, at = now()): Promise<{ id: number; created: boolean }> {
+  return openObligation(env, input, at, () => ensurePolicy(env, input.policy ?? DEFAULT_CONTRIBUTION_POLICY, at));
+}
+
+/**
+ * createObligation's body. `ensure` stores or checks the policy at the point createObligation always did (after the
+ * input checks, before the insert); the weekly opener passes one that runs once per run (.115, its D1 budget).
+ */
+async function openObligation(env: Env, input: ObligationInput, at: number, ensure: () => Promise<void>): Promise<{ id: number; created: boolean }> {
   requireWritable(env);
   const policy = input.policy ?? DEFAULT_CONTRIBUTION_POLICY;
   scope(input.guildScope);
@@ -261,7 +268,7 @@ export async function createObligation(
   const retainUntil = input.periodStart + WEEK + retentionS(env);
   if (retainUntil <= at) throw new ContributionError("past_retention");
   if (Math.max(retainUntil, input.periodStart + WEEK + policy.graceHours * HOUR) > DATE_LIMIT) throw new ContributionError("invalid_period");
-  await ensurePolicy(env, policy, at);
+  await ensure();
   const opNonce = randomToken();
   // .78: the opener's captured facts, re-stated at the insert: the account's row as read (its incarnation) and a roster-confirmed character now;
   // .88: and the eligibility it writes, recomputed from the member's CURRENT roster-confirmed characters (the earliest `member_since` plus the
@@ -1009,24 +1016,38 @@ export async function mailReference(env: Env, guildScope: string, id: string): P
  * signed in here (the keeper rule) and has none yet; eligible once the new-member exemption counted from the keeper's own
  * `member_since` has passed (firstEligiblePeriod), else recorded as exempt-by-age (eligible = 0); bounded per run. A
  * record only: nothing here notifies anyone or changes a role.
+ *
+ * .115 (Codex, 3 Oct 2026 13:26 UTC): the run shares one invocation's D1 statement limit with every other cron job, and
+ * at 200 accounts and six statements each this opener alone could pass it (1,201). So a run opens at most
+ * SCHEDULED_CAPS.obligationsPerRun weeks (30; `limit` can only lower it), in Discord id order among the accounts without
+ * this week's row: a created row drops out of the scan, so the next run continues with the next accounts (a guild of
+ * 1,000 is opened within about 17 hours of the week's start; nothing is due before the week ends). The policy is stored or
+ * checked once per run, before the first account, instead of once per account (two statements an account fewer; the
+ * policy rows never change). An id the loop would skip is left out by the scan itself (the same 17 to 20 digits as
+ * DISCORD_ID), so it can never hold one of the run's slots.
  */
-export async function openWeeklyObligations(env: Env, at = now(), limit = 200): Promise<number> {
+export async function openWeeklyObligations(env: Env, at = now(), limit: number = SCHEDULED_CAPS.obligationsPerRun): Promise<number> {
   if (!contributionsWritable(env)) return 0;
+  const cap = Math.max(0, Math.min(SCHEDULED_CAPS.obligationsPerRun, Math.floor(limit)));
+  if (!cap) return 0;
   const policy = DEFAULT_CONTRIBUTION_POLICY;
   const guildScope = contributionScope(env);
   const start = periodStart(at, policy);
   const rows = await env.DB.prepare(
     `SELECT c.discord_id, MIN(c.member_since) AS joined, u.first_login, u.session_version FROM characters c JOIN site_users u ON u.discord_id = c.discord_id
      WHERE c.status = 'member' AND typeof(c.member_since) = 'integer' AND c.member_since > 0
+       AND length(c.discord_id) BETWEEN 17 AND 20 AND c.discord_id NOT GLOB '*[^0-9]*'
        AND NOT EXISTS (SELECT 1 FROM ${T}obligations o WHERE o.guild_scope = ?1 AND o.discord_id = c.discord_id AND o.period_start = ?2)
      GROUP BY c.discord_id ORDER BY c.discord_id LIMIT ?3`,
-  ).bind(guildScope, start, limit).all<{ discord_id: string; joined: number; first_login: number; session_version: number }>();
+  ).bind(guildScope, start, cap).all<{ discord_id: string; joined: number; first_login: number; session_version: number }>();
+  let policyOnce: Promise<void> | null = null;
+  const ensureOnce = () => (policyOnce ??= ensurePolicy(env, policy, at));
   let n = 0;
   for (const r of rows.results) {
-    if (!DISCORD_ID.test(r.discord_id)) continue;
+    if (!DISCORD_ID.test(r.discord_id)) continue; // kept as a second guard; the scan above already leaves these out
     try {
       // .78: the account's incarnation as read and a roster-confirmed character NOW are re-stated at the insert (the .76 departures pattern)
-      const { created } = await createObligation(env, { guildScope, discordId: r.discord_id, periodStart: start, eligible: firstEligiblePeriod(r.joined, policy) <= start, policy, proof: { firstLogin: r.first_login, sessionVersion: r.session_version } }, at);
+      const { created } = await openObligation(env, { guildScope, discordId: r.discord_id, periodStart: start, eligible: firstEligiblePeriod(r.joined, policy) <= start, policy, proof: { firstLogin: r.first_login, sessionVersion: r.session_version } }, at, ensureOnce);
       if (created) n++;
     } catch (e) {
       if (!(e instanceof ContributionError && e.code === "proof_changed")) throw e; // the account was erased/recreated or lost its roster proof since the scan: nothing recorded

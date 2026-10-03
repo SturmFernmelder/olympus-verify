@@ -13,6 +13,7 @@ import type { Env } from "./env";
 import { intVar } from "./env";
 import { now } from "./db";
 import { DiscordError, rest } from "./discord";
+import { SCHEDULED_CAPS } from "./scheduled-budget";
 
 export interface DiscordNames { id: string; username?: string | null; global_name?: string | null }
 
@@ -36,7 +37,7 @@ export async function recordNames(env: Env, user: DiscordNames | undefined | nul
 /** Never throws: a names refresh is housekeeping and must not cost anything else in the same run. */
 export async function refreshNames(env: Env, limit = intVar(env.NAMES_PER_RUN, 5)): Promise<{ refreshed: number; gone: number }> {
   const out = { refreshed: 0, gone: 0 };
-  const n = Math.max(0, Math.min(20, limit));
+  const n = Math.max(0, Math.min(SCHEDULED_CAPS.namesPerRun, limit)); // 20, counted in the cron's D1 budget (.115, scheduled-budget.ts)
   if (!n || !env.DISCORD_BOT_TOKEN) return out;
   try {
     const rows = await env.DB.prepare(

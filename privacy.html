@@ -16,7 +16,7 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 2 October 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 3 October 2026</p>
 
 <p>Olympus Verify is a private bot run by the volunteer staff of the World of Warcraft guild &ldquo;Olympus&rdquo;. It
 serves the Olympus channels in Asmongold's Discord server, and it is not offered to the public or installed anywhere
@@ -28,7 +28,11 @@ same person, so guild channels can be opened to guild members without an officer
 joined or left) and when; the in-game guild roster as the officers' addon exports it &mdash; each member's character name,
 rank, level, class, public and officer notes and last-online time, and the date the name first appeared &mdash; kept as
 dated snapshots (where the officers have switched on the guild note, the public note the bot has the addon write when you
-join is <code>D:</code> followed by your Discord user ID, and every later export carries it); and a dated log of actions
+join is <code>D:</code> followed by your Discord user ID, and every later export carries it), each also recording when that
+exact roster first arrived, whether all of it was stored, and whether it passed the bot's size checks (not much smaller
+than the last export that passed them and not below a set minimum, or an officer vouched for it); a rank is the one the
+guild gives in game and can reflect a staff decision (for example a probation rank, where the guild uses one), and the
+snapshots keep it as it was exported; and a dated log of actions
 taken (role granted, role removed, application approved or denied, a character unbound, a ban), each entry naming who
 acted, whom or what it concerned and the fixed details that action records (a denial or ban reason as the officer typed
 it; for an unbind, the account the character was bound to before), so officers can answer &ldquo;why did this
@@ -61,6 +65,24 @@ schedule and the last free-text box are never shown there. An application leaves
 once the leadership has decided it. Votes on the board and people written in for a role are counted and seen only by
 the site's administrators; nobody else, including the applicants and the people written in, sees how anyone voted or
 any counts. Someone you write in is told the role the next time they sign in, never by whom.</p>
+<p><strong>Appointed roles.</strong> The site's administrators may fill a role by appointment instead of the board and
+type the holder's name (up to 40 characters, tied to no Discord account), and they type a name only after that person
+agreed. An appointed name is public: anyone, signed in or not, sees it on the Roles page and wherever the site names the
+role, the site's public settings carry it, and search engines and web archives on the open web may copy it; removing it
+here cannot recall their copies. An appointment gives no powers in the bot, the site or Discord, and an administrator
+clears it after the beta has closed. The dated log records which roles were appointed and how many names were saved,
+never the names (and whether the site-wide notice was set, never its text). Build .115 rewrites the entries written
+before it the same way, once, when it first starts; if that fails, the failure is logged and the rewrite is tried again
+at a later start, and after installing it the owner checks that the rewrite is recorded as done and that no such entry
+still holds a name or a notice's text.</p>
+<p><strong>A full guild.</strong> While Olympus I is full (the officers' latest roster export counts the member limit,
+when that export is complete, passed the size checks and is less than two days old; or an invite was just refused for
+lack of space), <code>/verify-status</code> says so, with the hour of that export or refusal, to an account waiting on an
+invite, and the site's Home and Apply pages say so to an account waiting in the invite queue (with its place) or without
+a confirmed character (with that hour). Your own characters' places in the invite queue are shown to you, and only you.
+No other member sees your place. Officers see the invite queue itself (the character names, the accounts and their
+order) in their staff commands, and the bot's private staff channels record each confirmation (the character and the
+account, never a code) and, while the guild is full, how many are waiting.</p>
 
 <h2>The community pages</h2>
 <p>The site has community pages that the guild's staff switch on one at a time; a page that is off shows nothing and
@@ -78,9 +100,32 @@ bound to another account is refused. Officers may confirm or reject a claimed al
 confirmed member stops being shown at once and is deleted, with everything under it, by the scheduled cleanup from
 thirty days later.</p>
 <p><strong>The leadership directory.</strong> The site's administrators may list, for each Olympus guild (Olympus I to
-Olympus X), its Guild Master and officers by the names they type. Confirmed members can read it. A listing is a record
-only: it gives no powers in the bot, the site or Discord. It is cleared when the beta ends and is changed when the
-leadership changes.</p>
+Olympus X), its Guild Master and officers by the names they type, and they list a name only after that person agreed.
+Confirmed members can read it. A listing is a record only: it gives no powers in the bot, the site or Discord. An
+administrator clears it after the beta has closed and changes it when the leadership changes. Anyone listed there or
+appointed to a role (see the guild site, above) can ask any Olympus officer, or use the private request form, to have
+the name removed or corrected, and an administrator does it at once: the name is cleared, or replaced by &ldquo;Name
+withheld&rdquo;, which keeps an appointed role appointed.</p>
+<p><strong>News.</strong> When the site's administrators switch it on (it is off until they do), confirmed members can
+read a News page. It shows notices the administrators post for the whole guild, and figures the site works out by
+itself: whether Olympus I has room, with the hour of the roster export or refused invite that says so; how many characters
+joined and left the guild in the last day and the last seven days, compared between complete roster exports that passed
+the size checks; how many applications were first saved and how many decisions were saved in the same periods, where a
+count from one to four is shown only as &ldquo;fewer than 5&rdquo;; when the leadership directory last changed, never its
+names; the beta's dates; and the site's release notes. The figures are counts and times, never a name or anyone's place
+in line, and are worked out at most every three hours, only while the page is on. The page also lists the next events
+by their start times and the titles their organizers gave them; a title is free text, shown exactly as the calendar
+already shows it to confirmed members (see Calendar and attendance). A notice is different: it is free text an
+administrator writes for the whole guild, shown as plain text,
+and the site does not check what it says. The administrators name a member in a notice only with that member's
+agreement, and anyone a notice names can ask any Olympus officer, or use the private request form, to have it changed or
+deleted, and an administrator does it at once. A notice is shown for the period the administrator chose, from 1 to 90
+days after it was first posted (judged by the database's own clock in every read), and then deleted by the scheduled
+cleanup; an administrator may change or delete it sooner. Members see when a notice was posted and last changed, not who
+wrote it: the administrator who posted it and the one who last changed it are recorded for the staff only. A notice that
+was deleted or ran out leaves behind only its id, who posted it and when, until 120 days after it was posted, and a page
+can post a new notice only within 30 days of being opened, so a page opened earlier cannot post it again. The dated log
+records that a notice was posted, changed or deleted and how many are shown, never a title or a text.</p>
 <p><strong>Calendar and attendance.</strong> Organizers (the site's administrators and the members named as organizers)
 create events: a title, details, start, duration, capacity and the roles wanted. You answer yes, tentative or no with a
 character and a raid role, and you can give or change that answer only before the event starts, while the calendar is on
@@ -168,15 +213,21 @@ you applied on the guild site, for which role and how far it got, and the charac
 administrators can see everything you entered on the site. Other members can see that you have signed up there (when
 they search for someone to write in or list as a friend), if you put a leadership application on the voting board, what
 the board shows, and what you list for them on the community pages (your directory profile and crafting offers, your
-calendar answers), as those sections say; nothing else you entered. Everyone else in the server sees only what the bot
-shows in public: your server nickname, where the staff have switched that on, which it then sets to your character's
-name when you are admitted; and the short notices in the server's bot notices channel (#olympus-notices) that mention you
+calendar answers), as those sections say; nothing else you entered. Confirmed members can also read the News page while
+it is on: the figures the site works out by itself, which are counts and times and never your name or your place in the
+invite queue; the next events with the titles their organizers gave them, as the calendar shows them; and the notices
+the administrators write for the whole guild, which name a member only with that member's agreement (see News, above,
+to have one changed or deleted). If you hold an appointed role, anyone, signed in or not,
+sees your name as its holder, as said under the guild site. Beyond that, everyone else in the server sees only what the
+bot shows in public: your server nickname, where the staff
+have switched that on, which it then sets to your character's name when you are admitted; and the short notices in the server's bot notices channel (#olympus-notices) that mention you
 when your access changes. The Terms of
 Service list which notices those are; anything you might not want read out only says there is an update, and
 <code>/verify-status</code> shows the detail to you alone. The bot's log channel is private to staff.</p>
 <p>The site's administrators also use the staff pages of the community features: the directory's claims review,
 trials, cases and their watch-lists, departure items, the dues ledger with the payer names and sources of recorded
-payments, the private request cases, and two staff views that change nothing: a coverage report (the latest roster export
+payments, the private request cases, the News notices with who posted and last changed each, and two staff views that
+change nothing: a coverage report (the latest roster export
 next to what the bot and the site already know about each bound account) and the counts behind the officer digest. Every
 change a staff member makes is recorded in the dated log under their Discord user ID; reading is not. Once a day the bot
 may post to a staff channel how many things wait for an officer, as counts only, never a name or an ID. A staff
@@ -202,6 +253,10 @@ denied, your account row is kept, emptied of your names, picture and account dat
 denial, its reason, when and by whom it was decided, and the row's operational state (whether you were in the server when
 last checked and when that was, and the sign-in counter the site uses to end old sessions; the sign-in dates set to the
 decision's moment), so the same account cannot simply sign up again.</p>
+<p><strong>Names the administrators typed.</strong> The holders of appointed roles and the names in the leadership
+directory are typed by the administrators and tied to no Discord account, so they are not in your copy and deleting your
+site data does not find them. They are removed or corrected on request instead, as said under the leadership directory:
+ask any Olympus officer, or use the private request form.</p>
 <p><strong>If you can no longer reach Discord</strong>, the site has a private request form
 (olympus.roachcouncil.com/#/request), when the staff have switched it on, that needs no sign-in: your browser makes a case number and a secret case code, you write what you ask
 for (and, if you wish, a hint who you are or which character), and the administrators answer in that case. The case
@@ -233,18 +288,37 @@ posted, a nonce, the day, a lease and the outcome), about no account. Private re
 all: they are keyed by their number; you reach yours only with its code, the administrators reach them through their
 admitted staff session; so deleting your site data does not touch them, and closing or deleting a case touches nothing
 else. An administrator whose own account is erased is removed as the reviewer,
-approver, recorder or setter from every record the site keeps such a pointer in; the dated log keeps its actor IDs as
-said, Discord keeps its own messages, and free text someone else wrote that happens to name them is not searched.</p>
-<p>Where a record has a stated lifetime &mdash; a trial, a case, a departure item, a dues record, a private request case
-&mdash; no page shows it and no new copy contains it from the moment the lifetime ends, judged by the database's own clock
-inside each read, with the one exception stated above for the dues ledger (the minimum accounting of an expired payment,
-its kind, the amount it paid, the part retired, its date and status and which week, stays with a week that is itself
-still within its period); the physical deletion follows in the scheduled cleanup, which works in bounded batches, so it may take
+approver, recorder, setter or author from every record the site keeps such a pointer in (a News notice they posted stays
+up for its period, without them as its author); the dated log keeps its actor IDs as said, Discord keeps its own
+messages, and free text someone else wrote that happens to name them is not searched.</p>
+<p>Where a record has a stated lifetime &mdash; a trial, a case, a departure item, a dues record, a private request case,
+a News notice &mdash; no page shows it and no new copy contains it from the moment the lifetime ends, judged by the
+database's own clock inside each read, with the one exception stated above for the dues ledger (the minimum accounting of
+an expired payment, its kind, the amount it paid, the part retired, its date and status and which week, stays with a week
+that is itself still within its period) and one for News: an administrator's own copy lists the notices they posted or
+last changed, and the records left by their deleted ones, until the cleanup deletes them, each with the time its period
+ends or ended; the physical deletion follows in the scheduled cleanup, which works in bounded batches, so it may take
 several runs, and waits while the Worker's schema check fails. Profiles and events follow their own rule, stated above,
 not a deadline inside each read: a profile stops being shown as soon as its owner no longer qualifies and is deleted by
 that cleanup thirty days later; an event, its answers and attendance remain as the calendar shows them until that cleanup
 deletes them thirty days after it ended. None of this recalls a copy already downloaded, the officers' local working
 copies, or what Discord holds in its own messages and logs.</p>
+<p><strong>Backups.</strong> Lifetimes and deletions apply to the live database at once. They do not reach two copies
+kept only to recover the database: the private export of the whole database that the owner takes before a deploy, and
+Cloudflare's own point-in-time history of the database, which it keeps for up to 30 days. The owner keeps only the
+newest export that has been checked by restoring it privately: an older one is destroyed once a newer one has been
+checked, the last one is destroyed once the game's launch release is accepted, and after that each export is destroyed
+once its own release is accepted. The export taken before build .115 therefore still holds the dated log as it was before the
+rewrite described under appointed roles, until it is destroyed. Neither copy is read in ordinary work; a deletion reaches
+them when they are destroyed or age out. If one were ever restored, the site would be closed to everyone from just before
+the restore until the owner has done the following on it: repeated the deletions made since it was taken; deleted every
+News notice changed or deleted since then and put back the record of every notice posted since then, so that no notice
+comes back in an earlier form (one changed since is deleted, and the administrators post it again if it is still wanted)
+and none can be posted again; and put back the names the administrators typed (the appointed roles and the leadership
+directory) exactly as they stood just before the restore, so that a name removed or corrected on request stays removed or
+corrected. For the names the owner takes a private copy of just those two settings right before restoring and destroys
+it once they are back; the dated log never receives the names. The owner also checks the restored database for the
+rewrite described under appointed roles, as after installing build .115.</p>
 
 <h2>Your copy</h2>
 <p>While signed in to the site you can download a copy of what it and the bot hold about your Discord account, curated
@@ -253,8 +327,11 @@ named as references by the names you chose, not their accounts; your votes and f
 reserved names; the bot's view of you (whether you are banned from verifying, whether a Battle.net link is current
 &mdash; never the BattleTag &mdash;, the characters bound to you, your code requests without any code, your place in the
 invite queue, and any rename record, without the administrators' identities); the dated actions that name your account, shown as their time and action name only (the earliest
-thousand, with a way to continue); and every community page's records about you. It leaves out staff notes and reasons,
-staff identities, the raw roster snapshots and the private details of recorded payments; your own labels and free text are
+thousand, with a way to continue); and every community page's records about you, which for an administrator include the
+News notices they posted or last changed (each notice's id, title and dates) and the ids and dates of the notices they
+posted that are gone. It leaves out staff notes and reasons, staff identities, the raw roster snapshots and the private
+details of recorded payments; names the administrators typed (appointed roles, the leadership directory) are tied to no
+account and are not in it, as said under getting rid of it; your own labels and free text are
 copied as you wrote them, so they can name other people. Each copy, and each continuation of the dated actions, is read in
 one go at the moment it states, and the Worker allows about five copies an hour (a limit it keeps in memory, so
 approximate). A private request case is not in it: cases are keyed by their number, not by any account, and are read only

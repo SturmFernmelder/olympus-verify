@@ -4,8 +4,9 @@ import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicke
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
 import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, focusedOption, hasAnyRole, type Interaction, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
-import { syncFromLatest } from "./roster";
-import { explainRefusal, guildIsFull, waitlistPosition } from "./ingest";
+import { SNAPSHOT_WRITE_GRACE_S, syncFromLatest } from "./roster";
+import { explainRefusal } from "./ingest";
+import { guildSeats, seatsStaffLine, seatsText } from "./guild-seats";
 import { approvePending, denyPending } from "./review";
 import { GUIDE_FIELD, GUIDE_MODAL, GUIDE_STATUS, GUIDE_VERIFY, guideMessage, verifyModal, visitorChat } from "./guide";
 import { unverifiedReport } from "./unverified";
@@ -195,6 +196,9 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
   const pend = await env.DB.prepare("SELECT name, expires_at FROM pending WHERE discord_id = ?1 AND consumed_at IS NULL AND expires_at > ?2")
     .bind(user.id, now())
     .all<{ name: string; expires_at: number }>();
+  // .115 (item B): whether Olympus I has room, and this account's own places in line, in one guarded batch (guild-seats.ts;
+  // never throws: a failure is "unknown" and the reply simply has no full-guild paragraph).
+  const { seats, places } = await guildSeats(env, now(), user.id);
   // Battle.net is optional now, so its absence is not worth a line; showing it when present keeps the older
   // links meaningful for anyone who already did it.
   const lines: string[] = [];
@@ -204,6 +208,10 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
   // .114: a rename Blizzard required (rename-review.ts): the account applies again, and this is where the member reads why
   const hold = await openRenameHold(env, user.id);
   if (hold) lines.push(reapplyText(hold));
+  // .115 (item B): the full-guild paragraph, early so it survives the 1890 cut, and only for an account that is waiting
+  // on an invite (a character queued or verified, or an open code). Ephemeral like every reply here; no notice, no DM.
+  const waitingHere = chars.results.some((c) => c.status === "queued" || c.status === "verified") || pend.results.length > 0;
+  if (seats.full && waitingHere) lines.push(seatsText(env, seats));
   // .48: a link is shown only while it is fresh (29 days from the last Battle.net login); the cron purges it after that.
   // .114: and only while Battle.net sign-in is switched on (bnet-switch.ts): while it is off the bot says nothing about
   // keeping a link (Viktor, 2 Oct 2026: no Battle.net retention text until there is a Battle.net login worth having).
@@ -225,7 +233,7 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
   // another guild waits forever, and this is the only place they can find out why. The addon whispers them as it
   // happens, which reaches whoever is online at that moment; DMs are barred while the app is flagged. A slash
   // command reaches everyone, so the reason is read off the queue row rather than guessed at from the status.
-  const full = await guildIsFull(env);
+  const full = seats.full; // .115: the latest-snapshot seat state (guild-seats.ts), not only the last refusal
   const qrows = await env.DB.prepare(
     "SELECT name_key, status AS qstatus, last_reason, attempts FROM invite_queue " +
       "WHERE discord_id = ?1 AND status IN ('queued','written','invited','expired','declined') ORDER BY id DESC",
@@ -252,11 +260,16 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
         `Run \`/verify ${c.name}\` once that is sorted and you go straight back in the queue`;
     } else if (q && q.last_reason && q.last_reason !== "guild_full" && q.last_reason !== "other") {
       extra = ` \u2014 ${why(q.last_reason)}`;
-    } else if ((full || q?.last_reason === "guild_full") && (c.status === "queued" || c.status === "verified")) {
-      const pos = await waitlistPosition(env, normalizeCharacter(c.name));
+    } else if ((full || (q?.last_reason === "guild_full" && seats.state !== "open")) && (c.status === "queued" || c.status === "verified")) {
+      // .115: the place comes from this account's own rows (guild-seats.ts), never from another account's row that
+      // happens to carry the same name. A refusal for space on the queue row says "full" only while the seat state does
+      // not say open (review of 3 Oct 2026): a later trusted roster with free seats outranks an old refusal.
+      const pos = places.find((p) => p.nameKey === normalizeCharacter(c.name))?.position ?? 0;
       extra = pos > 0
         ? ` \u2014 the guild is currently **full**; you are **#${pos}** in line for a seat`
         : " \u2014 the guild is currently **full**, so the invite waits for a seat";
+    } else if (q?.last_reason === "guild_full" && (c.status === "queued" || c.status === "verified")) {
+      extra = " \u2014 the last invite was refused for lack of space; seats have opened since, so the next invite goes out in queue order";
     }
     lines.push(
       `\u2022 ${c.name}: ${c.status === "left_pending" ? "in the guild (pending a roster re-check)" : c.status}${c.member_since ? ` since <t:${c.member_since}:d>` : ""}${extra}`,
@@ -445,7 +458,11 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       const q = await env.DB.prepare(
         "SELECT name, discord_id, status, created_at, claimed_by, priority FROM invite_queue WHERE status IN ('queued','written','invited') ORDER BY priority DESC, id",
       ).all<{ name: string; discord_id: string; status: string; created_at: number; claimed_by: string | null; priority: number | null }>();
-      if (q.results.length === 0) return reply("Invite queue is empty.");
+      // .115 (item B): the reply starts with whether Olympus I has room (exact times: staff only) and how many wait. An
+      // invited row has had its invite and waits on the player, so it is not counted (review of 3 Oct 2026): the count is
+      // the admin overview's and the guild-full notice's, queued and written only.
+      const seatLine = seatsStaffLine((await guildSeats(env)).seats, q.results.filter((r) => r.status !== "invited").length);
+      if (q.results.length === 0) return reply(`${seatLine}\nInvite queue is empty.`);
       // claimed_by matters once a second officer runs the addon: it says whose client is going to send each invite.
       // Build .41: reserved names from the guild site go first and are marked; the reply is capped like /roster's,
       // because a long queue would pass Discord's 2000-character limit and read as a timeout.
@@ -455,14 +472,15 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       );
       let body = "";
       let shown = 0;
+      const budget = 1850 - seatLine.length - 1; // the seat line goes in front, so the list gets what is left
       for (const l of lines) {
-        if (body.length + l.length + 1 > 1850) break;
+        if (body.length + l.length + 1 > budget) break;
         body += (body ? "\n" : "") + l;
         shown++;
       }
       if (shown < lines.length) body += `\n\u2026 and ${lines.length - shown} more (${lines.length} in all).`;
       if (q.results.some((r) => r.priority)) body += "\n\u2b50 = reserved name from the guild site (top of the queue).";
-      return reply(body);
+      return reply(`${seatLine}\n${body}`);
     }
     case "roster": {
       const s = await env.DB.prepare("SELECT id, exported_at, received_at, source, member_count FROM roster_snapshots ORDER BY id DESC LIMIT 1")
@@ -515,8 +533,12 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
           `${names.slice(0, SHOWN).join(", ")}` +
           (names.length > SHOWN ? `, \u2026 and ${names.length - SHOWN} more` : "")
         : "Not verified: none \u2014 every character on the roster is linked.";
+      // .115 (item B): the same seat line as the queue's, read from the latest snapshot like "Last roster" below.
+      const seatLine = seatsStaffLine((await guildSeats(env)).seats);
       const body =
-        `Last roster: ${s.member_count} members, exported <t:${s.exported_at}:R> (${s.source}), received <t:${s.received_at}:R>.\n` +
+        `${seatLine}\n` +
+        // the snapshot number since the review of 3 Oct 2026: the sync's "incomplete" refusal names the snapshot to wait past
+        `Last roster: ${s.member_count} members (snapshot #${s.id}), exported <t:${s.exported_at}:R> (${s.source}), received <t:${s.received_at}:R>.\n` +
         rankLine +
         unlinkedLine +
         rankNote;
@@ -545,14 +567,50 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
     case "sync": {
       const out = await syncFromLatest(env);
       if (!out) return reply("No roster export has been received yet, so there is nothing to sync from.");
-      await audit(env, actor, "admin.sync", String(out.snapshot), { promoted: out.promoted.length, stripped: out.stripped.length, released: out.released.length, renamed: out.renamed.length });
+      if ("refused" in out) {
+        // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 1): refused before any link, character or role
+        // change (roster.ts SyncRefused), never vouched for, and audited with the counts only.
+        await audit(env, actor, "admin.sync_refused", String(out.snapshot), { reason: out.refused, memberCount: out.memberCount, stored: out.stored });
+        return reply(
+          out.refused === "writing"
+            ? `Nothing applied: roster snapshot #${out.snapshot} is still being written${out.firstReceivedAt ? ` (it arrived <t:${out.firstReceivedAt}:R>)` : ""}, ` +
+                "so it cannot say yet who is in the guild. No role or link was changed. Run sync again in a few minutes."
+            : // Review of 3 Oct 2026: the snapshot number, not "a newer export": an identical export first only marks a row
+              // from before .115 unfinished (it keeps its number and moves its export time), and the export after that is
+              // written in full as a new snapshot, so the time alone would send the officer back to the same refusal.
+              `Nothing applied: roster snapshot #${out.snapshot} stores ${out.stored} of the ${out.memberCount} members its export listed, so it cannot say who left. ` +
+                `No role or link was changed. The addon's next exports write the roster again in full as a new snapshot (an identical export may first only mark #${out.snapshot} unfinished); ` +
+                `run sync once \`/olympus-admin roster\` shows a snapshot newer than #${out.snapshot}.`,
+        );
+      }
+      // .115 (item B): an officer applying the export also vouches for it as the seat count (roster.ts keeps a large
+      // shrink distrusted until a person says so; this is the house's own remedy). A pre-.115 row counts only when
+      // its member rows are all there; a row still being written (complete 0) is left alone until SNAPSHOT_WRITE_GRACE_S
+      // has passed, and then (review of 3 Oct 2026) counts like a pre-.115 row, once every member row is there. Codex's
+      // review of f975 (3 Oct 2026, 13:15 UTC, finding 2): a complete but distrusted row is vouched for only on the same
+      // count, so a member count larger than the rows stored can never become a trusted seat count; first_received_at is
+      // read as seatsFrom reads it (NULL as 0).
+      const vouched = await env.DB.prepare(
+        `UPDATE roster_snapshots SET trusted = 1, complete = 1
+          WHERE id = ?1 AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count
+            AND ((complete = 1 AND trusted = 0) OR complete IS NULL
+                 OR (complete = 0 AND COALESCE(first_received_at, 0) <= ?2 - ${SNAPSHOT_WRITE_GRACE_S}))`,
+      )
+        .bind(out.snapshot, now())
+        .run();
+      const trustedSet = (vouched.meta?.changes ?? 0) > 0;
+      await audit(env, actor, "admin.sync", String(out.snapshot), { promoted: out.promoted.length, stripped: out.stripped.length, released: out.released.length, renamed: out.renamed.length, deferred: out.deferred, trustedSet });
       const body =
         `Re-applied roster snapshot #${out.snapshot}.\n` +
+        (trustedSet ? "This export now counts for the seat count.\n" : "") +
         `Granted (${out.promoted.length}): ${out.promoted.join(", ") || "\u2014"}\n` +
         `Removed (${out.stripped.length}): ${out.stripped.join(", ") || "\u2014"}` +
         (out.renamed.length ? `\nRenamed, link kept (${out.renamed.length}): ${out.renamed.join(", ")}` : "") +
         (out.released.length ? `\nLinks released \u2014 not the character that was linked (${out.released.length}): ${out.released.join(", ")}` : "") +
-        (out.held ? `\nLeft for an officer (${out.held}): characters that appear to have swapped names \u2014 see the server log.` : "");
+        (out.held ? `\nLeft for an officer (${out.held}): characters that appear to have swapped names \u2014 see the server log.` : "") +
+        // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): one sync applies only what fits in its
+        // invocation's statement budget (roster.ts syncFromLatest); a repeat applies only what is still due
+        (out.deferred ? `\nNot applied yet (${out.deferred}): more than one sync can change in one go. Run sync again to apply the rest.` : "");
       return reply(body.length > 1900 ? body.slice(0, 1890) + "\u2026" : body);
     }
     case "refresh-guide": {

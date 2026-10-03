@@ -134,7 +134,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".114"));
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".115"));
   res = await get("https://guild.example/");
   check("the site host serves the site", res.status === 200 && (await res.text()).includes("Guild Registration"));
   res = await get("https://guild.example/health");
@@ -245,7 +245,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  a thrown string, object or null is 'thrown', never printed", logMod.errorRef("Bearer abc.def.ghi") === "thrown" && logMod.errorRef({ message: "Tag#1234", name: "K7Q2M9", toString: () => "cookie=abc.def.ghi" }) === "thrown" && logMod.errorRef(null) === "thrown" && logMod.errorRef(undefined) === "thrown");
   check("  every answer above is one of the allowed forms", [poisoned, new discord.DiscordError(500, "/", ""), new Error("D1_EXEC_ERROR"), "s", 42n, Symbol("x")].map((v) => logMod.errorRef(v)).every(isRef));
   check("  a custom_id is logged by its namespace only", logMod.idNamespace("ban:discord:123456789012345678") === "ban" && logMod.idNamespace(undefined) === "");
-  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts"];
+  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts", "guild-seats.ts", "site-news.ts", "schema.ts"]; // .115: the seat state and News; schema.ts since its first console call (redactSettingsAudit; review of 3 Oct 2026)
   const bareConsole = srcs.flatMap((f) => (fs.readFileSync(path.join(root, "src", f), "utf8").match(/console\.(error|warn|log)\([^\n]*/g) || []).filter((l) => !/errorRef\(/.test(l)).map((l) => `${f}: ${l.slice(0, 80)}`));
   check("no console call in src/ prints an error object or message (every one goes through errorRef)", bareConsole.length === 0, bareConsole.join("\n    "));
 

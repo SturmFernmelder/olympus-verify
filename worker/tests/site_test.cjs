@@ -753,7 +753,8 @@ const bootOf = async (res) => {
     T += 61;
     const A = "300000000000000001", B = "300000000000000002", C = "300000000000000003";
     const me = async (who) => J(await call("GET", "/api/me", { who }));
-    const setAppointed = (appointed) => call("PUT", "/api/admin/settings", { who: VIKTOR, body: { appointed } });
+    // .115 (item C): a typed name added or changed needs the administrator's consent tick (owner_requests_test.cjs covers the refusal)
+    const setAppointed = (appointed) => call("PUT", "/api/admin/settings", { who: VIKTOR, body: { appointed, namesConfirmed: true } });
     check("until the list is first saved, the Treasurer is appointed (Fernmelder)", (await me(A)).settings.appointed.treasurer === "Fernmelder");
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, position: "treasurer", backups: [] } });
     out = await J(res);
@@ -802,6 +803,10 @@ const bootOf = async (res) => {
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, position: "liaison", backups: [] } });
     check("  and an appointed Liaison takes no applications", res.status === 400 && (await J(res)).field === "position");
     await setAppointed({ treasurer: "Fernmelder" });
+    const settingsRows = db.prepare("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id").all();
+    const lastSettings = JSON.parse(settingsRows.at(-1).details);
+    check("(.115) the dated log keeps the appointed roles' keys and how many names, never the names", lastSettings.appointedNames === 1 && JSON.stringify(lastSettings.appointedRoles) === '["treasurer"]' && lastSettings.namesConfirmed === true && !("appointed" in lastSettings) &&
+      settingsRows.every((r) => !/Kryptiiq|Nomad|Someone/.test(r.details)), lastSettings);
   }
 
   {
@@ -1311,7 +1316,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".114") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".115") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

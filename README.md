@@ -210,7 +210,13 @@ handbook's admission model); `auto` queues the invite the moment the code is con
 `SET_GUILD_NOTE` are independent. `ROSTER_MIN_MEMBERS` and `ROSTER_MAX_SHRINK_PCT` (10 by default) are the
 truncated-export guards: a snapshot below the floor, or more than that percentage smaller than the one before it, is
 stored but removes no roles and leaves a warning in the server log — `/olympus-admin sync` is how you re-apply the
-latest snapshot once you are satisfied it is good. `ROLE_GUILD_MASTER` and `ROLE_RAID_LEADER` name the two roles
+latest snapshot once you are satisfied it is good. Since .115 two exports are refused whole (HTTP 422, nothing stored,
+the last export still stands, one server-log line every six hours while it lasts): one that names a character twice
+once case, spaces and a realm after a hyphen are ignored (`roster.duplicate_names`; every export is refused until each
+name appears once, so rename or remove one character of each pair the log names, `docs/launch-runbook.md` section
+10), and one whose member rows were not all stored (`roster.ingest_unusable`). And `/olympus-admin sync` refuses,
+changing nothing, a snapshot still being written or storing fewer member rows than its export listed ("Nothing
+applied", `admin.sync_refused`): run it again once `/olympus-admin roster` shows a newer snapshot number. `ROLE_GUILD_MASTER` and `ROLE_RAID_LEADER` name the two roles
 added to the staff gates on 18 Sep, and `CHANNEL_MOD_ALERTS` is where the ban card and the officer-rank report go.
 `OFFICER_RANK_NAMES` lists the in-game ranks that count as officers: when a roster export shows someone at one of
 them without the Discord Officer role, the bot reports the mismatch to #mod-alerts. It never grants the role, and
@@ -299,7 +305,9 @@ and leaves the decision to a person. The ranking is longest-away-first with a lo
 excludes anyone currently online, anyone at or above `protectRankIndex` (Guild Master and Officer by default), anyone
 whose public or officer note contains the `holdNote` word, and anyone seen more recently than `minDaysOffline`. Those
 guards matter more than the sort: `GetGuildRosterLastOnline` returns a *duration* and reads zero for anyone online, so
-an unguarded "longest offline" list puts the people playing right now at the top of it.
+an unguarded "longest offline" list puts the people playing right now at the top of it. The in-game ladder decision
+changed on 3 Oct 2026 (owner answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its
+planner preset and in-game steps come in a later release.
 
 The shortlist appears in the officer panel with the evidence beside each name, and each removal takes two clicks — the
 first arms it, the second performs it — so one hardware event performs one `Uninvite`. The same shortlist is posted to
@@ -313,6 +321,17 @@ in the notices channel saying there is an update for them (the bot never DMs, si
 them the guild filled up and nothing is held against them). Meanwhile anyone verified and waiting is told where they stand:
 `/verify-status` and the guide's **My status** button report "the guild is currently full; you are #N in line" instead
 of a queue entry that silently never moves.
+
+Since build .115 (3 Oct 2026) the Worker also reads a full guild from the roster itself (`worker/src/guild-seats.ts`):
+the guild counts as full when the latest roster export is complete, trusted against the last trusted export, from on or
+after `LINKS_NOT_BEFORE`, less than 48 hours old, and counts at least `GUILD_MEMBER_CAP` members (unset: 1000; only 900
+to 1000 is accepted, anything else counts as 1000); or when an invite was refused for space within the last six hours
+(on or after `LINKS_NOT_BEFORE`) and, when that export decides, after it. `/verify-status`, Home and Apply then say so
+plainly, with the hour of that evidence and the member's own places in line (computed from their own queue rows); the
+staff commands, the admin overview and the watcher's `/health` show the state with exact times. Anything less certain is
+"unknown", and nothing is claimed. The state is informational only: it changes no queue row, code, role or invite
+attempt. After a genuine large shrink the latest export stays distrusted until an officer runs `/olympus-admin sync`,
+which also vouches for it as the seat count.
 
 ## Tests already run (17–18 Sep 2026)
 - `worker`: `tsc --noEmit` clean; `wrangler deploy --dry-run` bundles; `npm test` and `npm run check:vectors` pass.

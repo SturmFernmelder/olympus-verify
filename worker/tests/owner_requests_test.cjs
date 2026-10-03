@@ -12,17 +12,21 @@
 //   - renames Blizzard required (rename-review.ts): the list from the roster's record, the decision (unbound, application
 //     withdrawn, Guild Member removed and held, a private notice), /verify-status and the site's Home, approval, the copy,
 //     the thirty-day cleanup;
-//   - the search's shown names, the CSP's one picture host, the policy texts, the rank planner's page.
+//   - the search's shown names, the CSP's one picture host, the policy texts, the rank planner's page;
+//   - .115 (item C, typed names): the consent tick for a name added to the appointed roles or the directory, removal by
+//     "Name withheld" (the role stays appointed) or by clearing it, the counts-only settings audit, and the one-time,
+//     marker-gated rewrite of the settings rows written before .115 (schema.ts redactSettingsAudit).
 // Run from the worker folder:  node tests/owner_requests_test.cjs
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
-let HOOK = null; // (sql, phase) => void: a test may act when a statement is prepared ("prepare") or after a write ran ("ran")
+let HOOK = null; // a test may act at prepare/ran, or await a real competing HTTP save after a read captured its answer
 function d1(db) {
   const exec = (sql, params) => {
     const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
+    // SQLite's statement metadata distinguishes a WITH ... INSERT from a read; its leading keyword does not.
+    if (st.columns().length > 0) return { results: st.all(...params), meta: { changes: 0 } };
     const r = st.run(...params);
     HOOK?.(sql, "ran");
     return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
@@ -38,8 +42,8 @@ function d1(db) {
         params = p;
         return api;
       },
-      first: async () => db.prepare(sql).get(...params) ?? null,
-      all: async () => ({ results: db.prepare(sql).all(...params) }),
+      first: async () => { const r = db.prepare(sql).get(...params) ?? null; await HOOK?.(sql, "read"); return r; },
+      all: async () => { const results = db.prepare(sql).all(...params); await HOOK?.(sql, "read"); return { results }; },
       run: async () => exec(sql, params),
       _exec: () => exec(sql, params),
     };
@@ -101,7 +105,7 @@ function load(name) {
   new Function("module", "exports", "require", transpile(path.join(root, "src", name.replace("./", "") + ".ts")))(mod, mod.exports, (p) => load(p));
   return mod.exports;
 }
-const indexMod = load("./index"), oauth = load("./oauth"), sw = load("./bnet-switch"), siteCore = load("./site-core"), siteData = load("./site-data"), roles = load("./roles"), renames = load("./rename-review"), interactions = load("./interactions"), policy = load("./policy-content");
+const indexMod = load("./index"), oauth = load("./oauth"), sw = load("./bnet-switch"), siteCore = load("./site-core"), siteData = load("./site-data"), roles = load("./roles"), renames = load("./rename-review"), interactions = load("./interactions"), policy = load("./policy-content"), leadership = load("./site-leadership"), schema = load("./schema");
 
 let T = 1790960000; // 2 Oct 2026, 16:53 UTC
 const RealDate = Date;
@@ -233,7 +237,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("  so are more than twelve officers", res.status === 400);
   res = await http("PUT", "/api/admin/leadership", { who: PLAIN, body: { guilds: ten() } });
   check("  and a member who is not a site admin (403)", res.status === 403);
-  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 0: { gm: "  Fern   Melder ", officers: ["Ana", "", "Ana", "Bo"] } }) } });
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 0: { gm: "  Fern   Melder ", officers: ["Ana", "", "Ana", "Bo"] } }), namesConfirmed: true } }); // .115: names added need the tick
   out = await J(res);
   check("the admin saves it: names cleaned, blanks and repeats dropped", res.status === 200 && out.guilds[0].gm === "Fern Melder" && out.guilds[0].officers.join(",") === "Ana,Bo");
   check("  audited with a count, never the names (the dated log outlives an erasure)", JSON.parse(audits("site.leadership").at(-1).details).names === 3 && !audits("site.leadership").at(-1).details.includes("Fern"));
@@ -247,6 +251,9 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   out = await J(await http("GET", "/api/public"));
   check("the public settings carry neither the directory nor the Battle.net switch", !JSON.stringify(out).includes("Fern Melder") && !("leadership" in out.settings) && !("bnetLogin" in out.settings));
   check("a listing is read by nothing that decides anything: only the directory's module and the members' page name the row", fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && !["site-leadership.ts", "site-api.ts"].includes(f)).every((f) => !fs.readFileSync(path.join(root, "src", f), "utf8").includes("LEADERSHIP_KEY")) && (fs.readFileSync(path.join(root, "src", "site-api.ts"), "utf8").match(/LEADERSHIP_KEY/g) || []).length === 2);
+  const stampUsers = fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && fs.readFileSync(path.join(root, "src", f), "utf8").includes("leadershipStampStatement")).sort();
+  const stamp = load("./site-leadership").leadershipStampStatement({ DB: { prepare: (sql) => ({ bind: (...p) => ({ sql, p }) }) } });
+  check("  .115: News reads only when the directory last changed, through leadershipStampStatement (exactly the updated_at select), which only site-news.ts imports", stampUsers.join() === "site-leadership.ts,site-news.ts" && stamp.sql === "SELECT updated_at FROM site_settings WHERE key = ?1" && stamp.p.length === 1 && stamp.p[0] === "leadership" && /import \{[^}]*\bleadershipStampStatement\b[^}]*\} from "\.\/site-leadership"/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")), stampUsers, stamp);
 
   console.log("\n== the end-of-beta reset (.114, item 8) ==");
   res = await http("GET", "/api/admin/beta-reset", { who: ADMIN });
@@ -274,7 +281,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("  the directory is empty again and the notice is set", (await J(await http("GET", "/api/admin/leadership", { who: ADMIN }))).guilds.every((g) => !g.gm && !g.officers.length) && (await siteData.loadSettings(env())).notice === "Guild roles are open again for the full release");
   check("  the dated log has counts only", (() => { const d = JSON.parse(audits("site.beta_reset").at(-1).details); return d.appointed === 1 && d.directoryNames === 3 && d.notice === true; })());
   // new appointments after the reset survive a replayed or second reset: it runs once (Codex 19:17)
-  await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "New Treasurer" } } });
+  await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "New Treasurer" }, namesConfirmed: true } }); // .115: a new name needs the tick
   res = await http("POST", "/api/admin/beta-reset", { who: ADMIN, body: { confirm: "RESET", closedAt: T - 60 } });
   check("the reset runs once: a second or replayed request is refused (409) and later appointments survive", res.status === 409 && JSON.parse(one("SELECT value FROM site_settings WHERE key = 'appointed'").value).treasurer === "New Treasurer");
   res = await http("PUT", "/api/admin/beta-reset/closed", { who: ADMIN, body: { betaClosedAt: T - 30 } });
@@ -389,6 +396,303 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.renamed', 'Al Main', ?)").run(T - 121 * DAY, JSON.stringify({ from: "Al Ancient", discordId: ALT, guid: "Player-4613-0007" }));
   res = await http("POST", "/api/admin/renames/forced", { who: ADMIN, body: { auditId: one("SELECT id FROM audit WHERE details LIKE '%Al Ancient%'").id, confirm: "REAPPLY" } });
   check("  so is one older than the list's 120 days (409 too_old)", res.status === 409 && (await J(res)).error === "too_old");
+
+  console.log("\n== typed names (.115, item C) ==");
+  const NAME_WITHHELD = leadership.NAME_WITHHELD;
+  const settingsAudits = () => audits("site.settings");
+  const storedAppointed = () => one("SELECT value FROM site_settings WHERE key = 'appointed'")?.value ?? null;
+  const nobodyLogged = (re) => db.prepare("SELECT subject, details FROM audit").all().every((r) => !re.test(`${r.subject ?? ""} ${r.details ?? ""}`));
+  check("the placeholder is the one the policy and the editors name", NAME_WITHHELD === "Name withheld");
+  let auditsBefore = settingsAudits().length, appointedBefore = storedAppointed();
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Ana", "class_lead:priest": "Bo" }, votingOpen: false } });
+  out = await J(res);
+  check("a settings save that adds typed names without namesConfirmed is refused (400 confirm_names, field appointed), the reason in words", res.status === 400 && out.error === "confirm_names" && out.field === "appointed" && /agreed to be named/.test(out.message) && /open web/.test(out.message), out);
+  check("  and nothing is stored: not the names, not the switch sent with them, no audit row", storedAppointed() === appointedBefore && (await siteData.loadSettings(env())).votingOpen === true && settingsAudits().length === auditsBefore);
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Ana", "class_lead:priest": "Bo" }, namesConfirmed: "yes" } });
+  check("  only true is the tick (a string is refused)", res.status === 400 && (await J(res)).error === "confirm_names" && storedAppointed() === appointedBefore);
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Ana", "class_lead:priest": "Bo" }, notice: "Officer meeting at eight, Ana hosts", namesConfirmed: true } });
+  out = await J(res);
+  check("with namesConfirmed the admin appoints them", res.status === 200 && out.settings.appointed.treasurer === "Ana" && out.settings.appointed["class_lead:priest"] === "Bo");
+  let det = JSON.parse(settingsAudits().at(-1).details);
+  check("  the audit has the role keys (the map's sorted keys, not character positions of its JSON), the count and the tick", JSON.stringify(det.appointedRoles) === '["class_lead:priest","treasurer"]' && det.appointedNames === 2 && det.namesConfirmed === true && !("appointed" in det), det);
+  check("  the notice is a boolean: its text is not kept", det.notice === true, det);
+  check("  no audit row holds either name or the notice text", nobodyLogged(/\bAna\b|\bBo\b|Officer meeting/));
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Ana", "class_lead:priest": "Bo" }, notice: "" } });
+  det = JSON.parse(settingsAudits().at(-1).details);
+  check("saving the same names again needs no tick (nobody added); the cleared notice is false; no namesConfirmed when not sent", res.status === 200 && det.notice === false && det.appointedNames === 2 && !("namesConfirmed" in det), det);
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Bo", "class_lead:priest": "Bo" } } });
+  check("  changing who holds a role names someone anew: refused without the tick", res.status === 400 && (await J(res)).error === "confirm_names" && JSON.parse(storedAppointed()).treasurer === "Ana");
+
+  // the default Treasurer (site-data.ts DEFAULT_APPOINTED) names a person until the list is first saved; removed on request
+  const defaultHolder = siteData.DEFAULT_APPOINTED.treasurer;
+  db.prepare("DELETE FROM site_settings WHERE key = 'appointed'").run();
+  const signedOutBoot = async () => ((await (await http("GET", "/")).text()).match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/) || [])[1] || "";
+  const publicJson = async () => JSON.stringify(await J(await http("GET", "/api/public")));
+  const meJson = async () => JSON.stringify(await J(await http("GET", "/api/me", { who: MEMBER })));
+  check("(fixture) with no saved list the default Treasurer's name is public: /api/public, the signed-out page, /api/me", (await publicJson()).includes(defaultHolder) && (await signedOutBoot()).includes(defaultHolder) && (await meJson()).includes(defaultHolder));
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: NAME_WITHHELD } } });
+  out = await J(res);
+  check("removal on request: typing Name withheld needs no tick", res.status === 200 && out.settings.appointed.treasurer === NAME_WITHHELD && JSON.parse(settingsAudits().at(-1).details).appointedNames === 1);
+  check("  the name leaves /api/public, the signed-out page and /api/me", !(await publicJson()).includes(defaultHolder) && !(await signedOutBoot()).includes(defaultHolder) && !(await meJson()).includes(defaultHolder));
+  res = await http("GET", "/api/board/treasurer", { who: PLAIN });
+  out = await J(res);
+  check("  the role stays appointed: its board stays closed, held by Name withheld", res.status === 409 && out.error === "appointed" && out.appointed === NAME_WITHHELD, res.status, out);
+  res = await http("PUT", "/api/application", { who: PLAIN, body: { position: "treasurer" } });
+  out = await J(res);
+  check("  and an application to it is refused on the role", res.status === 400 && out.field === "position" && /appointed/.test(out.message), res.status, out);
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: {} } });
+  check("clearing the entry needs no tick either, and reopens the role", res.status === 200 && Object.keys((await J(res)).settings.appointed).length === 0 && (await http("GET", "/api/board/treasurer", { who: PLAIN })).status === 200);
+
+  // the I-X directory: a name added to a guild needs the tick; keeping, moving within its guild or removing one does not
+  const directory = () => one("SELECT value FROM site_settings WHERE key = 'leadership'").value;
+  let dirBefore = directory();
+  auditsBefore = audits("site.leadership").length;
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Cy", officers: ["Di"] } }) } });
+  out = await J(res);
+  check("a directory save that adds names without namesConfirmed is refused (400 confirm_names), the reason in words, nothing stored", res.status === 400 && out.error === "confirm_names" && /agreed to be listed/.test(out.message) && directory() === dirBefore && audits("site.leadership").length === auditsBefore, out);
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Cy", officers: ["Di"] } }), namesConfirmed: true } });
+  det = JSON.parse(audits("site.leadership").at(-1).details);
+  check("  with it the names are listed; the audit has the count and the tick, never the names", res.status === 200 && JSON.parse(directory())[2].gm === "Cy" && det.names === 2 && det.namesConfirmed === true && nobodyLogged(/\bCy\b|\bDi\b/), det);
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Di", officers: ["Cy"] } }) } });
+  check("  moving a name within its guild adds nobody: no tick needed, and none recorded", res.status === 200 && JSON.parse(directory())[2].gm === "Di" && !("namesConfirmed" in JSON.parse(audits("site.leadership").at(-1).details)));
+  dirBefore = directory();
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Di", officers: [] }, 3: { gm: "Cy", officers: [] } }) } });
+  check("  listing a name under another guild is listing it anew: refused without the tick", res.status === 400 && (await J(res)).error === "confirm_names" && directory() === dirBefore);
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: NAME_WITHHELD, officers: [] } }) } });
+  out = await J(await http("GET", "/api/admin/leadership", { who: ADMIN }));
+  check("removing names (one cleared, one replaced by Name withheld) needs no tick, and they leave the directory", res.status === 200 && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out).includes("Cy") && !/\bDi\b/.test(JSON.stringify(out)));
+  out = await J(await http("GET", "/api/leadership", { who: ALT }));
+  check("  a confirmed member's directory shows neither", out && Array.isArray(out.guilds) && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out.guilds).includes("Cy"), out);
+
+  console.log("\n== atomic typed-name saves: real competing HTTP requests after the read ==");
+  // The read hook captures A's real SQLite answer, runs B through index.fetch to completion at the SAME second, then
+  // releases A. A must not undo B, partially apply its other settings or append a successful-save audit.
+  for (const race of [
+    { label: "withheld", winner: { appointed: { treasurer: NAME_WITHHELD } }, confirmed: false },
+    { label: "cleared despite A's tick", winner: { appointed: {} }, confirmed: true },
+    { label: "replaced", winner: { appointed: { treasurer: "Race New" }, namesConfirmed: true }, confirmed: false },
+    { label: "absent row created", absent: true, winner: { appointed: { treasurer: "Race New" }, namesConfirmed: true }, confirmed: false },
+  ]) {
+    await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "Race Old" }, votingOpen: true, notice: "", namesConfirmed: true } });
+    if (race.absent) db.prepare("DELETE FROM site_settings WHERE key = 'appointed'").run();
+    const before = settingsAudits().length;
+    let winner;
+    HOOK = async (sql, phase) => {
+      if (phase !== "read" || sql !== "SELECT key, value FROM site_settings") return;
+      HOOK = null;
+      winner = await http("PUT", "/api/admin/settings", { who: ADMIN, body: race.winner });
+    };
+    try {
+      res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: race.absent ? {} : { treasurer: "Race Old" }, votingOpen: false, notice: "Stale notice", namesConfirmed: race.confirmed } });
+    } finally { HOOK = null; }
+    out = await J(res);
+    check(`settings ${race.label}: competing real route succeeds; stale route answers conflict/reload`, winner?.status === 200 && res.status === 409 && out.error === "stale_settings" && /Nothing was saved.*Reload/.test(out.message), out);
+    check(`  settings ${race.label}: the whole winning map survives, including empty/absent distinctions`, storedAppointed() === JSON.stringify(race.winner.appointed));
+    check(`  settings ${race.label}: no partial switches/notice or stale-save audit, despite the identical second`, (await siteData.loadSettings(env())).votingOpen === true && (await siteData.loadSettings(env())).notice === "" && settingsAudits().length === before + 1 && one("SELECT updated_at FROM site_settings WHERE key = 'appointed'").updated_at === T);
+  }
+  for (const race of [
+    { label: "withheld", winner: ten({ 2: { gm: NAME_WITHHELD, officers: [] } }), confirmed: false },
+    { label: "cleared despite A's tick", winner: ten(), confirmed: true },
+    { label: "replaced", winner: ten({ 2: { gm: "Race New GM", officers: [] } }), confirmed: false },
+    { label: "absent row created", absent: true, winner: ten({ 2: { gm: "Race New GM", officers: [] } }), confirmed: false },
+  ]) {
+    const old = ten({ 2: { gm: "Race Old GM", officers: ["Race Officer"] } });
+    await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: old, namesConfirmed: true } });
+    if (race.absent) db.prepare("DELETE FROM site_settings WHERE key = 'leadership'").run();
+    const before = audits("site.leadership").length;
+    let winner;
+    HOOK = async (sql, phase) => {
+      if (phase !== "read" || sql !== "SELECT value, updated_at, updated_by FROM site_settings WHERE key = ?1") return;
+      HOOK = null;
+      winner = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: race.winner, namesConfirmed: true } });
+    };
+    try {
+      res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: race.absent ? ten() : old, namesConfirmed: race.confirmed } });
+    } finally { HOOK = null; }
+    out = await J(res);
+    check(`directory ${race.label}: competing real route succeeds; stale route answers conflict/reload`, winner?.status === 200 && res.status === 409 && out.error === "stale_directory" && /Nothing was saved.*Reload/.test(out.message), out);
+    check(`  directory ${race.label}: the complete winning directory survives`, directory() === JSON.stringify(leadership.cleanLeadership(race.winner)));
+    check(`  directory ${race.label}: no stale-save audit, despite the identical second`, audits("site.leadership").length === before + 1 && one("SELECT updated_at FROM site_settings WHERE key = 'leadership'").updated_at === T);
+  }
+  check("interleaving audits remain counts only: no typed names or notice content", nobodyLogged(/Race Old|Race New|Race Officer|Stale notice/));
+
+  // the policy says what the code does (the served page, whitespace folded: the tracked HTML wraps its lines)
+  res = await http("GET", "/privacy");
+  const policyText = (await res.text()).replace(/\s+/g, " ");
+  check("the privacy policy covers typed names: appointed roles public on the open web, removal by Name withheld, not in your copy", res.status === 200 && ["<strong>Appointed roles.</strong>", "open web", "&ldquo;Name withheld&rdquo;", "removed or corrected", "not in your copy"].every((s) => policyText.includes(s)) && policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
+  check("  the length it states is the one the server keeps (site-data.ts cleanAppointed)", policyText.includes("(up to 40 characters, tied to no Discord account)") && Array.from(siteData.cleanAppointed({ treasurer: "é".repeat(45) }).treasurer).length === 40);
+  check("  names only after that person agreed, in both editors; the log keeps role keys and a count", /they type a name only after that person agreed/.test(policyText) && /they list a name only after that person agreed/.test(policyText) && /how many names were saved, never the names/.test(policyText));
+  // Codex, 3 Oct 2026 13:24 UTC: the rewrite is said as schema.ts redactSettingsAudit behaves (a failure logs and a later
+  // start retries), with the owner's check after installing; never "were rewritten when build .115 was installed".
+  check("  the older entries: rewritten once at a start, a failure logged and retried later, checked by the owner after installing", policyText.includes("Build .115 rewrites the entries written before it the same way, once, when it first starts; if that fails, the failure is logged and the rewrite is tried again at a later start, and after installing it the owner checks that the rewrite is recorded as done and that no such entry still holds a name or a notice's text.") && !/were rewritten the same way when build \.115 was installed/.test(policyText));
+  check("  an administrator clears the appointments and the directory after the beta has closed (a person's step, no timer)", (policyText.match(/clears it after the beta has closed/g) || []).length === 2 && !/cleared when the beta ends/.test(policyText));
+  check("  a rank can record a staff decision and the snapshots are kept as exported; the backups and their window are named", /can reflect a staff decision \(for example a probation rank, where the guild uses one\)/.test(policyText) && /<strong>Backups\.<\/strong> Lifetimes and deletions apply to the live database at once/.test(policyText) && /point-in-time history of the database, which it keeps for up to \d+ days/.test(policyText) && /export taken before build \.115 therefore still holds the dated log as it was before the rewrite/.test(policyText));
+  check("  only the newest checked export is kept until the launch is accepted (owner's answer of 3 Oct 2026)", /The owner keeps only the\s+newest export that has been checked by restoring it privately: an older one is destroyed once a newer one has been\s+checked, the last one is destroyed once the game's launch release is accepted/.test(policyText) && !/would be made again/.test(policyText));
+  // Codex, 3 Oct 2026 13:26 UTC: the restore replays deletions from the audit, which keeps no typed name; so the owner puts
+  // back the two typed-name rows as they stood right before the restore (docs/launch-runbook.md section 1), never through
+  // the audit, and checks the rewrite again.
+  // The second review round (3 Oct 2026): the site is closed for the whole restore (the runbook's step 0: no window in which
+  // a restored name shows), and News notices changed or deleted since the copy are deleted, the records of notices posted
+  // since are put back (site_news_test runs the runbook's statements over a simulated restore).
+  check("  a restore: the site closed throughout, the deletions repeated, the News notices changed or deleted since deleted and the records of those posted since put back, the typed names put back as they stood right before it from a private copy of the two settings, never into the dated log, the rewrite checked again", policyText.includes("If one were ever restored, the site would be closed to everyone from just before the restore until the owner has done the following on it: repeated the deletions made since it was taken; deleted every News notice changed or deleted since then and put back the record of every notice posted since then, so that no notice comes back in an earlier form (one changed since is deleted, and the administrators post it again if it is still wanted) and none can be posted again; and put back the names the administrators typed (the appointed roles and the leadership directory) exactly as they stood just before the restore, so that a name removed or corrected on request stays removed or corrected. For the names the owner takes a private copy of just those two settings right before restoring and destroys it once they are back; the dated log never receives the names. The owner also checks the restored database for the rewrite described under appointed roles, as after installing build .115.") && !/the deletions made since it was taken before the site is used again/.test(policyText) && !/then before the site is used again the owner would/.test(policyText));
+  // Website closure hides restored rows but proves no drain of admitted writes. The corrected runbook refuses before
+  // capture/replacement unless actual quiescence is proved; these text checks do not claim an implemented runtime barrier.
+  const restoreRunbook = fs.readFileSync(path.join(root, "..", "docs", "launch-runbook.md"), "utf8").replace(/\s+/g, " ");
+  check("  restore instructions refuse without actual quiescence; fixed waits/equality/redeploy are no drain proof and the future epoch is unimplemented", restoreRunbook.includes("refuse the restore before the final capture or replacement") && restoreRunbook.includes("proved completed or definitively canceled, including pending SQL and associated post-response work") && restoreRunbook.includes("A fixed wait, two or more equal captures") && restoreRunbook.includes("ordinary redeploy does not supply this proof") && restoreRunbook.includes("no old admitted writer can resume after reopening") && restoreRunbook.includes("That epoch barrier is **not implemented**") && restoreRunbook.includes("<private dir>/news.sql") && !restoreRunbook.includes("The block also freezes every Settings"));
+
+  console.log("\n== the one-time rewrite of the settings rows written before .115 ==");
+  const before115 = Object.fromEntries(db.prepare("SELECT id, details FROM audit").all().map((r) => [r.id, r.details]));
+  const putAudit = (action, details) => Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, ?, NULL, ?)").run(T - 9 * DAY, ADMIN, action, details).lastInsertRowid);
+  const fx = {
+    both: putAudit("site.settings", JSON.stringify({ votingOpen: "1", notice: "Raid at eight with Zed", appointed: JSON.stringify({ treasurer: "Zed", "class_lead:priest": "Quill" }) })),
+    onlyAppointed: putAudit("site.settings", JSON.stringify({ appointed: JSON.stringify({ officer: "Zed" }) })),
+    onlyNotice: putAudit("site.settings", JSON.stringify({ notice: "Zed says hello" })),
+    emptyNotice: putAudit("site.settings", JSON.stringify({ notice: "" })),
+    badAppointed: putAudit("site.settings", JSON.stringify({ launchAt: "1793833200", appointed: '{"treasurer":"Ze' })),
+    notAnObject: putAudit("site.settings", JSON.stringify({ appointed: JSON.stringify(["Zed"]) })),
+    badJson: putAudit("site.settings", "not json: Zed"),
+    noDetails: putAudit("site.settings", null),
+    otherAction: putAudit("site.leadership", JSON.stringify({ names: 1, appointed: JSON.stringify({ treasurer: "Zed" }), notice: "Zed" })),
+  };
+  const detOf = (id) => one("SELECT details FROM audit WHERE id = ?", id).details;
+  const marker = () => one("SELECT value, updated_at, updated_by FROM site_settings WHERE key = ?", schema.AUDIT_TYPED_NAMES_KEY);
+  check("(fixture) this database ran the rewrite at its first request: the marker is there", marker()?.value === "115");
+  db.prepare("DELETE FROM site_settings WHERE key = ?").run(schema.AUDIT_TYPED_NAMES_KEY); // as a database before the .115 deploy
+  // The settings-audit read-back, a MANDATORY acceptance gate since Codex's note of 3 Oct 2026 13:24 UTC: read from the
+  // .115 section of docs/deploy-checklist.md (rollout step 7) and run here exactly as the owner runs it. Its oracle counts
+  // the same rows in JS, so the documented query cannot drift from what the rewrite leaves behind.
+  const checklistText = fs.readFileSync(path.join(root, "..", "docs", "deploy-checklist.md"), "utf8");
+  const rbMatch = /```sql\n\s*(SELECT \(SELECT COUNT\(\*\) FROM site_settings WHERE key = '[^']+'\) AS marker, [^\n]*)\n\s*```/.exec(checklistText.slice(checklistText.indexOf("## Worker .115 ")));
+  const READ_BACK = rbMatch ? rbMatch[1].trim() : "";
+  const readBack = () => { const r = db.prepare(READ_BACK).get(); return { keys: Object.keys(r).join(), marker: r.marker, residual: r.residual, unreadable: r.unreadable }; };
+  const rbOracle = () => {
+    let residual = 0, unreadable = 0, appointedOnly = 0;
+    for (const { details } of db.prepare("SELECT details FROM audit WHERE action = 'site.settings'").all()) {
+      if (details === null) continue;
+      let d;
+      try { d = JSON.parse(details); } catch { unreadable++; continue; }
+      if (!d || typeof d !== "object" || Array.isArray(d)) continue;
+      const named = Object.prototype.hasOwnProperty.call(d, "appointed");
+      if (named) appointedOnly++;
+      if (named || typeof d.notice === "string") residual++;
+    }
+    return { marker: marker() ? 1 : 0, residual, unreadable, appointedOnly };
+  };
+  const outsideLiterals = (sql) => sql.replace(/'(?:[^']|'')*'/g, "''");
+  check("the read-back: the checklist's .115 section states it as one counts-only SELECT, on the marker key the code uses, writing nothing", READ_BACK.startsWith("SELECT (SELECT COUNT(*) FROM site_settings WHERE key = '" + schema.AUDIT_TYPED_NAMES_KEY + "') AS marker, ") && !/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|ATTACH|PRAGMA)\b/i.test(outsideLiterals(READ_BACK)) && !READ_BACK.includes(";"), READ_BACK);
+  let rb = readBack(), rbo = rbOracle();
+  check("  before the rewrite: marker 0, every old-shape row counted (the notice-only ones too, which a read of $.appointed alone missed), the row that is not JSON as unreadable", rb.keys === "marker,residual,unreadable" && rb.marker === 0 && rb.residual === rbo.residual && rb.residual >= 6 && rbo.residual - rbo.appointedOnly >= 2 && rb.unreadable === rbo.unreadable && rb.unreadable === 1, rb, rbo);
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  rb = readBack();
+  check("  after the rewrite: marker 1 and residual 0, and the row that is not JSON still keeps the gate shut (unreadable 1)", rb.marker === 1 && rb.residual === 0 && rb.unreadable === 1 && rb.residual === rbOracle().residual, rb);
+  check("both fields: appointed becomes its sorted role keys and their count, the notice a boolean; the switch is kept", detOf(fx.both) === JSON.stringify({ votingOpen: "1", notice: true, appointedRoles: ["class_lead:priest", "treasurer"], appointedNames: 2 }), detOf(fx.both));
+  check("  only appointed", detOf(fx.onlyAppointed) === JSON.stringify({ appointedRoles: ["officer"], appointedNames: 1 }), detOf(fx.onlyAppointed));
+  check("  only a notice: true for text, false for an empty one", detOf(fx.onlyNotice) === '{"notice":true}' && detOf(fx.emptyNotice) === '{"notice":false}', detOf(fx.onlyNotice), detOf(fx.emptyNotice));
+  check("  an appointed text that is not JSON is removed: no roles, no count (it may hold a name)", detOf(fx.badAppointed) === JSON.stringify({ launchAt: "1793833200", appointedRoles: [], appointedNames: null }), detOf(fx.badAppointed));
+  check("  JSON that is not an object gives no role keys (never positions)", detOf(fx.notAnObject) === JSON.stringify({ appointedRoles: [], appointedNames: null }), detOf(fx.notAnObject));
+  check("  details that are not JSON, no details, and other actions are left alone", detOf(fx.badJson) === "not json: Zed" && detOf(fx.noDetails) === null && JSON.parse(detOf(fx.otherAction)).notice === "Zed");
+  check("  rows already in the .115 shape are untouched", Object.entries(before115).every(([id, d]) => detOf(Number(id)) === d));
+  check("  the marker is set: '115', at the Worker's clock, by nobody", marker()?.value === "115" && marker().updated_at === T && marker().updated_by === null, marker());
+  const snapshot = () => JSON.stringify(db.prepare("SELECT id, details FROM audit ORDER BY id").all());
+  const after = snapshot();
+  let prepared = [];
+  HOOK = (sql, phase) => { if (phase === "prepare") prepared.push(sql); };
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  HOOK = null;
+  check("a second ensureSchema changes nothing; with the marker set it reads the marker and does not scan the log again", snapshot() === after && !prepared.some((q) => /UPDATE audit/.test(q)) && prepared.some((q) => /FROM site_settings WHERE key = \?1/.test(q)));
+  db.prepare("DELETE FROM site_settings WHERE key = ?").run(schema.AUDIT_TYPED_NAMES_KEY);
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  check("  run again without the marker (two isolates racing), the rewrite matches nothing more", snapshot() === after && marker()?.value === "115");
+  // a failure is logged and does not hold the Worker at 503; the next isolate start tries again
+  db.prepare("DELETE FROM site_settings WHERE key = ?").run(schema.AUDIT_TYPED_NAMES_KEY);
+  const late = putAudit("site.settings", JSON.stringify({ appointed: JSON.stringify({ treasurer: "Zed" }) }));
+  const errs = [], realError = console.error;
+  console.error = (...a) => { errs.push(a.join(" ")); };
+  HOOK = (sql, phase) => { if (phase === "prepare" && /^UPDATE audit SET details = json_remove/.test(sql.trim())) throw new Error("D1_ERROR: simulated"); };
+  schema.forgetSchemaCheck();
+  let schemaOk = true;
+  try { await schema.ensureSchema(env()); } catch { schemaOk = false; }
+  HOOK = null;
+  console.error = realError;
+  check("a failed rewrite does not fail the schema check: one log line through errorRef (the category only), no marker, the row as it was", schemaOk && errs.length === 1 && errs[0] === "settings audit rewrite failed d1" && !marker() && JSON.parse(detOf(late)).appointed === '{"treasurer":"Zed"}', errs);
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  check("  the next isolate start rewrites it and sets the marker", detOf(late) === JSON.stringify({ appointedRoles: ["treasurer"], appointedNames: 1 }) && marker()?.value === "115", detOf(late));
+  db.prepare("DELETE FROM audit WHERE id = ?").run(fx.badJson); // (fixture) the unreadable row settled by the owner's private inspection
+  rb = readBack();
+  check("the read-back passes only now: marker 1, residual 0, unreadable 0", rb.marker === 1 && rb.residual === 0 && rb.unreadable === 0, rb);
+  // the rollback boundary (docs/launch-runbook.md section 9): an older writer resumed after the marker writes the old shape
+  const resumed = putAudit("site.settings", JSON.stringify({ notice: "Quill leads tonight" }));
+  rb = readBack();
+  check("a save an older writer makes after the marker: the marker still reads 1, the residual catches it", rb.marker === 1 && rb.residual === 1 && rb.residual === rbOracle().residual, rb);
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  check("  a new isolate start does not rewrite it while the marker stands", JSON.parse(detOf(resumed)).notice === "Quill leads tonight" && readBack().residual === 1);
+  const othersOf = () => JSON.stringify(db.prepare("SELECT id, details FROM audit WHERE id != ? ORDER BY id").all(resumed));
+  const othersBefore = othersOf();
+  db.prepare("DELETE FROM site_settings WHERE key = ?").run(schema.AUDIT_TYPED_NAMES_KEY); // the runbook's remedy, by the owner
+  schema.forgetSchemaCheck();
+  await schema.ensureSchema(env());
+  rb = readBack();
+  check("  the documented remedy: the marker deleted, a later start rewrites only that row, and the read-back passes", detOf(resumed) === '{"notice":true}' && othersOf() === othersBefore && rb.marker === 1 && rb.residual === 0 && rb.unreadable === 0, rb);
+
+  console.log("\n== typed names across a restore (docs/launch-runbook.md section 1; Codex, 3 Oct 2026 13:26 UTC) ==");
+  // The audit of typed names is counts only, so a restore's replay cannot tell which names were removed on request; the
+  // runbook has the owner keep the two rows privately right before a restore and write them back right after it. Its
+  // statements are read from the runbook and run here as the owner would run them: the SELECT on the database being
+  // replaced, its `node` line over wrangler's --json shape, then the .sql file on the "restored" rows.
+  const runbookText = fs.readFileSync(path.join(root, "..", "docs", "launch-runbook.md"), "utf8");
+  const preserveMatch = /--command "(SELECT CASE WHEN s\.key IS NULL THEN [^"]*)"/.exec(runbookText);
+  const PRESERVE = preserveMatch ? preserveMatch[1] : "";
+  const nodeMatch = /node -e "([^"]*)" <private dir>\/typed-names\.json > <private dir>\/typed-names\.sql/.exec(runbookText);
+  const keysNamed = [...PRESERVE.matchAll(/\bSELECT '(\w+)'/g)].map((m) => m[1]);
+  check("the runbook's preserve statement is one read-only SELECT of site_settings naming exactly the two typed-name rows (appointed, the directory's key)", PRESERVE.startsWith("SELECT CASE WHEN s.key IS NULL") && !/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|ATTACH|PRAGMA)\b/i.test(outsideLiterals(PRESERVE)) && keysNamed.join() === ["appointed", leadership.LEADERSHIP_KEY].join() && siteData.settingsFrom(env(), [{ key: keysNamed[0], value: JSON.stringify({ treasurer: "Probe" }) }]).appointed.treasurer === "Probe" && !!nodeMatch, keysNamed);
+  const typedRows = () => db.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key IN ('appointed', ?) ORDER BY key").all(leadership.LEADERSHIP_KEY).map((r) => ({ ...r }));
+  const auditRows = () => one("SELECT COUNT(*) AS c FROM audit").c;
+  const os = require("os"), { execFileSync } = require("child_process");
+  const preserveFile = () => {
+    // wrangler d1 execute --json prints one result whose `results` hold the rows; the runbook's node line turns it into SQL
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "olympus-typed-names-"));
+    try {
+      fs.writeFileSync(path.join(tmp, "typed-names.json"), JSON.stringify([{ results: db.prepare(PRESERVE).all(), success: true, meta: {} }]));
+      return execFileSync(process.execPath, ["-e", nodeMatch[1], path.join(tmp, "typed-names.json")], { encoding: "utf8" });
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  };
+  // the state right before the restore, through the real routes: an apostrophe, quotes, letters beyond ASCII, a withheld name
+  res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: "D'Arcy Zoë", "class_lead:priest": NAME_WITHHELD }, namesConfirmed: true } });
+  const savedSettings = res.status === 200;
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 0: { gm: "Ó'Brien", officers: [NAME_WITHHELD, 'Tess "Two" Lane'] } }), namesConfirmed: true } });
+  const savedDirectory = res.status === 200;
+  const preserved = typedRows();
+  const auditAtPreserve = auditRows();
+  const sqlFile = preserveFile();
+  const fileLines = sqlFile.trim().split("\n");
+  check("right before the restore: a file of exactly two statements, in key order, each an upsert of the row as it stands", savedSettings && savedDirectory && preserved.length === 2 && fileLines.length === 2 && fileLines[0].startsWith("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('appointed', ") && fileLines[1].startsWith("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('leadership', ") && fileLines.every((l) => l.endsWith("ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by;")), fileLines);
+  // the restore brings back an older state: names since removed or corrected on request, an older time and editor
+  const restoreOlder = () => {
+    db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('appointed', ?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = ?1, updated_at = ?2, updated_by = ?3").run(JSON.stringify({ treasurer: "Quenby Old", "class_lead:priest": "Quenby Old" }), T - 20 * DAY, MEMBER);
+    db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3, updated_by = ?4").run(leadership.LEADERSHIP_KEY, JSON.stringify(ten({ 0: { gm: "Quenby Old", officers: ["Quenby Old"] } })), T - 20 * DAY, MEMBER);
+  };
+  restoreOlder();
+  check("(fixture) the restored rows hold the older names", (await publicJson()).includes("Quenby Old") && JSON.stringify(typedRows()).includes("Quenby Old"));
+  db.exec(sqlFile);
+  check("right after the restore the file puts both rows back exactly as preserved: value, time and editor, every character of every name intact", JSON.stringify(typedRows()) === JSON.stringify(preserved), typedRows());
+  out = await J(await http("GET", "/api/admin/leadership", { who: ADMIN }));
+  const publicNow = await publicJson();
+  check("  the site shows the names as they stood, not the restored ones", publicNow.includes("D'Arcy Zoë") && !publicNow.includes("Quenby") && out.guilds[0].gm === "Ó'Brien" && out.guilds[0].officers.includes('Tess "Two" Lane') && !JSON.stringify(out).includes("Quenby"), out && out.guilds && out.guilds[0]);
+  check("  through no Worker route: no audit row added, none holds a typed or a restored name", auditRows() === auditAtPreserve && nobodyLogged(/D'Arcy|Ó'Brien|Tess "Two"|Quenby/));
+  db.exec(sqlFile);
+  check("  the file run again changes nothing", JSON.stringify(typedRows()) === JSON.stringify(preserved));
+  db.prepare("DELETE FROM site_settings WHERE key = 'appointed'").run(); // no saved list right before the restore: the default Treasurer
+  const sqlFile2 = preserveFile();
+  check("a key without a row right before the restore is preserved as a DELETE (no row means the default appointment)", sqlFile2.trim().split("\n")[0] === "DELETE FROM site_settings WHERE key = 'appointed';" && sqlFile2.trim().split("\n")[1] === fileLines[1], sqlFile2);
+  restoreOlder();
+  db.exec(sqlFile2);
+  out = await J(await http("GET", "/api/public"));
+  check("  written back, the restored row is gone and the default appointment shows, not the restored name", !one("SELECT 1 AS x FROM site_settings WHERE key = 'appointed'") && JSON.stringify(out.settings.appointed) === JSON.stringify(siteData.DEFAULT_APPOINTED) && JSON.stringify(typedRows()) === JSON.stringify(preserved.slice(1)), out && out.settings && out.settings.appointed);
 
   console.log("\n== smaller changes ==");
   check("search shows every differing name: nickname, display name, @username", siteCore.shownName({ username: "greta", displayName: "Greta Grey", nick: "Gee" }) === "Gee · Greta Grey (@greta)");

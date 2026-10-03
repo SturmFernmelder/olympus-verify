@@ -53,12 +53,13 @@ the owner's document "Forever Guild Rank Codex.html".
 
 ## The publication helpers (`scripts/`)
 
-Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. The .114 successor
-was prepared from keeper `1db740c8a98064e0a724db39a8ba650ac7affe03` (tree `13dc7c1a921df5a4eb31130b9c2a741d4c159e65`): reference
-`4843504f58c5623bec87feafe4db7edce4ff520b8b69d97483920077c66e6bcb`, `official_assets.py`
-`5c8f565034d353fa19bd07f386700e2289dedce17fc221752882ca6b196a312f`, and `reconcile_public_root.py`
-`1f1bffc10ffbecb79f4b82fe51e2c35a70fab66cefd0a7babaf8494ec6a4d57f`. Its external source-reference coverage receipt is
-`f8c032da5059c3c138484736de9d0f6064cf4c0bec11cd39a63fb94a4ce64c66`; it retains the original official asset/map evidence and pins five full art-sensitive source files.
+Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. The .115 successor
+was prepared from keeper `da5076de690ede5254efa723c69df9f1ffd6ecd3` (tree `2a888b603e5851e13b70eb942c650a73e918b8dc`): reference
+`59cedafab72dd414c35fc54d846d2505df6d1d5d847dd553cd36e8c16abaabf1`, `official_assets.py`
+`c1ea7a2252d0e70602b7bb388700463411ba017b9f041417ced74ee6571103be`, and `reconcile_public_root.py`
+`581655a76146bd29373013254ad2b5ea52ce9f2ff41bc154be3d460a826b4434`. Its external source-reference coverage receipt is
+`ca2f59b40477122eafd43aeff927cb1baa0386127d5bbbd9384a96a0ee0f7f38`; it retains the original official asset/map evidence and pins five full art-sensitive source files.
+The .115 successor binds all 63 runtime files, including guild-seats.ts, site-news.ts, roster-effects.ts and scheduled-budget.ts. Only app.js and site-data.ts change among the five fixed art-sensitive pins; the rank planner remains at its reviewed baseline.
 This records source identity, not helper execution, publication readiness, browser acceptance or either final signature.
 Prior .112 bundle (Codex's
 reviewed successor `publication-reference-crest112-v1`, integrated byte for byte after both reviews on 1 Oct 2026): `official_asset_reference.json`
@@ -137,8 +138,8 @@ native policy generator and checks parity, keeps the additive V4 staging and val
 and writes only into a separately prepared owner namespace outside every repository, bound by an owner marker and two
 externally attributed review receipts; its result stays `ready=false`, it never commits, pushes, approves or publishes,
 and its push origin is disabled. Running it beyond `--help` is the owner's step, like the other helpers. The guard is a
-Node preload that refuses every unmapped network call while the helper's native generator runs. The .114 successor above
-changes only the two V4 consumer pins and its `GENERATOR` pin to the exact `worker/scripts/build-policy-content.mjs`
+Node preload that refuses every unmapped network call while the helper's native generator runs. The historical .114 successor
+changed only the two V4 consumer pins and its `GENERATOR` pin to the exact `worker/scripts/build-policy-content.mjs`
 `a17d609b3b30987ade103934dbf3b0d385a2398d5c57178192e542133e9cd2ba`; the guard, approvals, origins, private-history checks and output gates are unchanged.
 
 ## What "publication" means here
@@ -147,3 +148,7 @@ Making the repository public is the owner's action, after both agents have signe
 above have passed on a fresh snapshot of it. A passing gate is an integrity statement about bytes and references; it is
 not a licence, not a rights determination and not either agent's signature. The repository stays proprietary when
 public (`LICENSE`); `THIRD_PARTY_NOTICES.md` says what in it is not the owner's.
+
+## Owner-authorized takeover on 3 October 2026
+
+The owner asked Codex to finish the work after Claude Code reached its usage limit and explicitly removed the dual sign-off requirement. Historical joint reviews above remain historical records. New releases require an exact source identity, independent Codex review, passing required checks, and separately recorded publication and deployment evidence; no new Claude signature is required. Codex may perform the authorized publication steps. The helpers remain local preparation and validation tools and never publish by themselves.

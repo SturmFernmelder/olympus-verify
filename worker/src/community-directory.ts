@@ -59,6 +59,7 @@ import { admitted, admittedRead, fenceSql, FENCE_REFUSED, randomToken, refusal, 
 import { refAfter } from "./community-refs";
 import { communityKey, resolveCharacter, validateName } from "./community-names";
 import { secondsToIso } from "./community-time";
+import { SCHEDULED_CAPS } from "./scheduled-budget";
 
 export const PROFESSIONS = ["alchemy", "blacksmithing", "enchanting", "engineering", "herbalism", "leatherworking", "mining", "skinning", "tailoring", "cooking", "fishing", "first_aid"] as const;
 export type Profession = (typeof PROFESSIONS)[number];
@@ -661,6 +662,11 @@ export async function adminAltDecision(request: Request, env: Env, ctx: Communit
  * Cron step: start the departure clock for profiles whose owner no longer qualifies, clear it for those who do again,
  * and delete profiles thirty days departed (their professions, claims, offers and the member's ref with them). Runs
  * whatever COMMUNITY_FEATURES says: a feature switched off still keeps its retention promise.
+ *
+ * .115 (Codex, 3 Oct 2026 13:26 UTC): each erase is a 6-statement batch and the cron's whole run shares one invocation's
+ * D1 statement limit, so a run erases at most SCHEDULED_CAPS.profilesPerRun profiles (10; it was 100, up to 604
+ * statements), oldest departure first; an erased profile is gone, so the next run continues with the next ones. The
+ * policy already says the cleanup works in bounded batches and may take several runs.
  */
 export async function sweepCommunityProfiles(env: Env, at = now()): Promise<{ departed: number; returned: number; deleted: number }> {
   const qualifies = `EXISTS (SELECT 1 FROM site_users u WHERE u.discord_id = p.discord_id AND ${VISIBLE_OWNER})`;
@@ -668,7 +674,9 @@ export async function sweepCommunityProfiles(env: Env, at = now()): Promise<{ de
     env.DB.prepare(`UPDATE community_profiles AS p SET departed_at = ?1 WHERE departed_at IS NULL AND NOT ${qualifies}`).bind(at),
     env.DB.prepare(`UPDATE community_profiles AS p SET departed_at = NULL WHERE departed_at IS NOT NULL AND ${qualifies}`),
   ]);
-  const gone = await env.DB.prepare("SELECT discord_id FROM community_profiles WHERE departed_at IS NOT NULL AND departed_at <= ?1 LIMIT 100").bind(at - DEPARTED_RETENTION_S).all<{ discord_id: string }>();
+  const gone = await env.DB.prepare("SELECT discord_id FROM community_profiles WHERE departed_at IS NOT NULL AND departed_at <= ?1 ORDER BY departed_at, discord_id LIMIT ?2")
+    .bind(at - DEPARTED_RETENTION_S, SCHEDULED_CAPS.profilesPerRun)
+    .all<{ discord_id: string }>();
   let deleted = 0;
   for (const row of gone.results) {
     await env.DB.batch(eraseStatements(env, row.discord_id));
