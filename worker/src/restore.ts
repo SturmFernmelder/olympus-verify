@@ -16,6 +16,7 @@ import { intVar, type Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
 import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, inventoryCalls, GRANT_CALLS } from "./roles";
+import { SCHEDULED_CAPS } from "./scheduled-budget";
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
 
@@ -77,14 +78,16 @@ export function restoreNote(r: RestoreResult): string {
 
 /** Accounts one sweep may look at. Each costs a member lookup, plus a grant when the role is gone, so 10 keeps a
  *  sweep at about 22 Discord calls, inside the 50 a free-plan Worker may make per request. ROLE_SWEEP_PER_RUN
- *  raises it on a paid plan (at most 50). */
+ *  raises it on a paid plan, at most to SCHEDULED_CAPS.roleSweepAccounts (20; it was 50 until .115: each account may
+ *  cost up to seven D1 statements, and the cron's run shares one invocation's statement limit with every other job;
+ *  Codex, 3 Oct 2026 13:26 UTC, scheduled-budget.ts). */
 export const SWEEP_DEFAULT = 10;
 /** A fresh grant is left alone this long before it is checked: MEE6's stale write lands seconds to minutes later. */
 export const SETTLE_SECONDS = 180;
 /** The watcher polls /queue every 30 seconds; a sweep rides on those polls at most this often. */
 export const THROTTLE_SECONDS = 300;
-/** .60: banned accounts one sweep re-checks for a Guild Member role they should not hold. */
-export const BANNED_PER_RUN = 5;
+/** .60: banned accounts one sweep re-checks for a Guild Member role they should not hold (5; .115: read from scheduled-budget.ts, which counts them). */
+export const BANNED_PER_RUN = SCHEDULED_CAPS.roleSweepBanned;
 /** .99: member lookups Discord did not answer (403, 500, a network error) before a sweep stops: those accounts stay unfinished and are retried first next run. */
 export const LOOKUP_FAILURES_PER_RUN = 2;
 
@@ -164,7 +167,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1").bind(t - 86400).first<{ id: number | null }>();
     state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "" };
   }
-  const budget = Math.min(50, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT)));
+  const budget = Math.min(SCHEDULED_CAPS.roleSweepAccounts, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT))); // .115: the scheduled D1 budget's cap (scheduled-budget.ts)
   const calls = callBudget(env); // .90 (P-20): this run's Discord-call budget, shared with the banned reconciliation below
 
   // 1. Promotions since the last sweep, oldest first. `id > ?` walks the primary key, so only new rows are read.

@@ -15,8 +15,13 @@ function d1(db) {
       first: async () => db.prepare(sql).get(...params) ?? null,
       all: async () => ({ results: db.prepare(sql).all(...params) }),
       run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-      // like D1, a batch reports each statement as { meta: { changes, last_row_id } }
-      _exec: () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+      // Like D1, batch reads include results as well as metadata; the fenced identity transaction reads its binding.
+      _exec: () => {
+        const st = db.prepare(sql);
+        if (/^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
+        const r = st.run(...params);
+        return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+      },
     };
     return api;
   };
@@ -102,6 +107,9 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   const ticketRow = (discordId, nonce, createdAt = T) =>
     db.prepare("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce) VALUES (?1, '', '', ?2, ?3, ?4)").run(discordId, createdAt, createdAt + 86400, nonce);
   const snapshot = (members, exportedAt) => roster.ingestRoster(env, exportedAt, members, "addon");
+
+  const batchRead = await env.DB.batch([env.DB.prepare("SELECT ?1 AS valid").bind(1), env.DB.prepare("SELECT COUNT(*) AS n FROM characters")]);
+  check("the SQLite D1 shim preserves SELECT rows in each batch result", batchRead[0].results[0].valid === 1 && batchRead[0].meta.changes === 0 && batchRead[1].results[0].n === 0);
 
   // ================= request codes =================
   console.log("\n== a request code links whichever character whispers it ==");

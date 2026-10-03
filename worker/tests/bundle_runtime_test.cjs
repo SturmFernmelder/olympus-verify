@@ -71,6 +71,10 @@ const text = (v) => ({ type: "text", value: v });
     let applied = 0, schemaErr = "";
     try { for (const st of statements) { await d1.prepare(st).run(); applied++; } } catch (e) { schemaErr = String(e.message).slice(0, 200); }
     check(`schema.sql applies statement by statement to the real D1 (${statements.length} statements)`, applied === statements.length && !schemaErr, applied, schemaErr);
+    // .115 (item C): a settings row as .114 wrote it, for the Worker's one-time rewrite (schema.ts redactSettingsAudit) to
+    // meet in workerd's own SQLite at its first request; the CJS suites run it in node:sqlite only
+    await d1.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000000, JSON.stringify({ votingOpen: "1", notice: "Raid at eight", appointed: JSON.stringify({ treasurer: "Zed Holder", "class_lead:priest": "Quill Holder" }) })).run();
+    await d1.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000001, "not json").run();
 
     console.log("\n== the first minute after a deploy ==");
     let res = await get("https://nobody.example/health");
@@ -79,6 +83,11 @@ const text = (v) => ({ type: "text", value: v });
     let body = await res.json();
     check("the bot host answers /health publicly with ok, build and d1 only", res.status === 200 && body.ok === true && typeof body.build === "string" && Object.keys(body).sort().join(",") === "build,d1,ok", JSON.stringify(body));
     check("  d1 is ok: the schema applied itself to a fresh database in the real runtime", body.d1 === "ok", body.d1);
+    const rewritten = await d1.prepare("SELECT details FROM audit WHERE ts = ?1").bind(1790000000).first();
+    const marker = await d1.prepare("SELECT value FROM site_settings WHERE key = 'auditTypedNames'").first();
+    check("  (.115) the one-time rewrite ran in the real D1: the old settings row keeps role keys and counts, no names, and the marker is set",
+      rewritten && rewritten.details === JSON.stringify({ votingOpen: "1", notice: true, appointedRoles: ["class_lead:priest", "treasurer"], appointedNames: 2 }) && marker && marker.value === "115" &&
+      (await d1.prepare("SELECT details FROM audit WHERE ts = ?1").bind(1790000001).first()).details === "not json", rewritten, marker);
     res = await get("https://verify.example/health", { headers: { Authorization: `Bearer ${TOKEN}` } });
     body = await res.json();
     check("  with the watcher's bearer the inventory comes back, retention clean", res.status === 200 && body.bnetRetention && body.bnetRetention.overdue === 0 && body.secrets, JSON.stringify(body).slice(0, 200));

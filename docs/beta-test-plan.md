@@ -53,6 +53,26 @@ Items 11 and 12 were added on 18 September with the addon 0.3.0 changes and stil
    post it again without Thrall → role removed, log line in #server-log.
 6. `/olympus-admin roster` shows guild members with no verification (expected: everyone, on day one).
 
+## Worker .115 manual checks (3 Oct 2026; Discord and the site, no beta client needed)
+
+The suites cover each of these against the real Worker; these are the checks a person makes once on the live service,
+with a test account or as an administrator, when the situation arises (a full guild, a distrusted export) or after the
+owner switched News on. None is a deploy gate; the ones not made are named as residuals.
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | `/verify-status` and Home for an account with a queued character, while the latest trusted export reads 1000 | one "Olympus I is full" paragraph with the export's hour and "1000 of 1000", the account's own place ("#N in line"), the visitors line; ephemeral, no notice, no DM; a confirmed member with nothing queued sees no notice on Home |
+| 2 | `/olympus-admin queue` and `roster` after a distrusted shrink (an export more than `ROSTER_MAX_SHRINK_PCT` smaller), then `/olympus-admin sync` | before: "Olympus I room: unknown (the latest export is not trusted...)"; sync's reply adds "This export now counts for the seat count."; after: "N seats free" with the export's time |
+| 3 | Community → News while it is off, then on (Admin → Settings → News page), as a confirmed and as an unconfirmed member | off: no News tab or card, `/api/news` 404 `news_off`; on: the tab and the page for the confirmed member; the unconfirmed one gets the standing notice and no News request |
+| 4 | Admin → News: post, edit, let one expire (1 day), a stale edit from a second tab, and "Retry the same" after deleting | posted and shown as plain text; the edit changes the revision; the expired one disappears at once and the cleanup removes it; the stale edit is refused in words; the retry answers "deleted" and nothing is posted again |
+| 5 | The consent box and Name withheld (Admin → Settings appointed roles; the I-X directory) | a new name without the tick is refused with the message and nothing is saved; with it, it saves and the box clears; Name withheld removes the name from the public pages while the role stays appointed; the audit row has role keys and a count, no name |
+| 6 | `/olympus-admin sync` while an export is being written, or when the latest snapshot stores fewer member rows than its export listed (when it arises) | "Nothing applied: roster snapshot #N ..." with the stored and listed counts, "No role or link was changed."; nobody loses Guild Member; for the second case the reply names #N, and `/olympus-admin roster` ("Last roster: ... (snapshot #N)") shows when a newer snapshot is stored, after which sync applies it |
+| 7 | An export naming one character twice (two characters whose names differ only by case or realm; when it arises) | the export is refused: one server-log line naming the pairs, "nothing was stored and no role or link changed; the last export still stands"; the seat line keeps the last export; after renaming or removing one character of each pair and a new export (`/olv sync`), the export is applied as usual (`docs/launch-runbook.md` section 10) |
+| 8 | Admin → News left open for more than 30 days, then a new notice posted from it (when it arises) | refused in words ("a form posts only within 30 days of being opened"), nothing posted; the page reloads with a fresh form, which posts once |
+
+The in-game ladder decision changed on 3 Oct 2026 (owner answer 6: ten ranks, the Treasurer at index 2 right below
+Officer, no Probation), and its planner preset and in-game steps come in a later release.
+
 ## Cut-over checklist for Phase 3 (retired 1 Oct 2026, Worker .50)
 The profile-API path (`/verify-bnet`, `/bnet/start`, `/bnet/callback`, `syncRosterFromApi`) was removed in .50: never
 enabled, and it would have left API-derived copies outside the 29-day retention contract (`docs/deploy-checklist.md`,

@@ -2,8 +2,8 @@
   "schema": "olympus-official-website-reference-v1",
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
-  "coverage_evidence_sha256": "f8c032da5059c3c138484736de9d0f6064cf4c0bec11cd39a63fb94a4ce64c66",
-  "reference_source_head": "1db740c8a98064e0a724db39a8ba650ac7affe03",
+  "coverage_evidence_sha256": "ca2f59b40477122eafd43aeff927cb1baa0386127d5bbbd9384a96a0ee0f7f38",
+  "reference_source_head": "da5076de690ede5254efa723c69df9f1ffd6ecd3",
   "assets": [
     {
       "path": "worker/public/static/app.css",
@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 380524,
-      "sha256": "2af0b6f38988c0c85c23baef1c386289a38543c84c3432146a3018df7acfd462"
+      "bytes": 403507,
+      "sha256": "5ae56ed7596b33fcd7c94bf447db3ee51171dce9dcf0848fc0c2d69fa04c362b"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -739,12 +739,18 @@
     "worker/public/static/rank-planner/styles.css",
     "worker/src/backfill.ts",
     "worker/src/bnet-retention.ts",
+    "worker/src/bnet-switch.ts",
     "worker/src/codes.ts",
     "worker/src/community-context.ts",
+    "worker/src/community-contribution-policy.ts",
+    "worker/src/community-contributions-api.ts",
+    "worker/src/community-contributions.ts",
     "worker/src/community-departures.ts",
+    "worker/src/community-digest.ts",
     "worker/src/community-directory.ts",
     "worker/src/community-events.ts",
     "worker/src/community-names.ts",
+    "worker/src/community-privacy-intake.ts",
     "worker/src/community-refs.ts",
     "worker/src/community-restrictions.ts",
     "worker/src/community-routes.ts",
@@ -755,6 +761,7 @@
     "worker/src/dm.ts",
     "worker/src/env.ts",
     "worker/src/guide.ts",
+    "worker/src/guild-seats.ts",
     "worker/src/guildmap.ts",
     "worker/src/index.ts",
     "worker/src/ingest.ts",
@@ -767,16 +774,21 @@
     "worker/src/policies.ts",
     "worker/src/policy-content.ts",
     "worker/src/relays.ts",
+    "worker/src/rename-review.ts",
     "worker/src/restore.ts",
     "worker/src/review.ts",
     "worker/src/roles.ts",
+    "worker/src/roster-effects.ts",
     "worker/src/roster.ts",
+    "worker/src/scheduled-budget.ts",
     "worker/src/schema.ts",
     "worker/src/site-admin.ts",
     "worker/src/site-api.ts",
     "worker/src/site-core.ts",
     "worker/src/site-data.ts",
     "worker/src/site-export.ts",
+    "worker/src/site-leadership.ts",
+    "worker/src/site-news.ts",
     "worker/src/site-queue.ts",
     "worker/src/site-ranks.ts",
     "worker/src/site.ts",
@@ -885,33 +897,33 @@
   "fixed_art_source_pins": [
     {
       "path": "worker/src/site-data.ts",
-      "bytes": 49034,
-      "sha256": "d741b7847e713539910c34b3b3d6758e297612982f511c59bd751a7d9bc26a53",
-      "mode": "100644"
+      "mode": "100644",
+      "bytes": 49243,
+      "sha256": "89a636ddadf1b3b9b05dbcd06b163070532cdbd07d61b0ae72f65a889e1fe4a8"
     },
     {
       "path": "worker/src/site-ranks.ts",
+      "mode": "100644",
       "bytes": 9433,
-      "sha256": "e78a4413fbf94679f754346d39a2b79512508c8f712bad7067d22b3852e93441",
-      "mode": "100644"
+      "sha256": "e78a4413fbf94679f754346d39a2b79512508c8f712bad7067d22b3852e93441"
     },
     {
       "path": "worker/public/static/app.js",
-      "bytes": 380524,
-      "sha256": "2af0b6f38988c0c85c23baef1c386289a38543c84c3432146a3018df7acfd462",
-      "mode": "100644"
+      "mode": "100644",
+      "bytes": 403507,
+      "sha256": "5ae56ed7596b33fcd7c94bf447db3ee51171dce9dcf0848fc0c2d69fa04c362b"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
+      "mode": "100644",
       "bytes": 15696,
-      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074",
-      "mode": "100644"
+      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074"
     },
     {
       "path": "worker/src/site-core.ts",
+      "mode": "100644",
       "bytes": 16825,
-      "sha256": "41afe7a282c1d64fb74b1ecc71ffa3d9971710769837e3322d8ec81188037fdc",
-      "mode": "100644"
+      "sha256": "41afe7a282c1d64fb74b1ecc71ffa3d9971710769837e3322d8ec81188037fdc"
     }
   ],
   "limitations": [

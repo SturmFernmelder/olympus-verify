@@ -749,6 +749,32 @@
             h("p", { class: "muted small", text: `${fmtDateTime(s.launchAt)} (${fmtPacific(s.launchAt)}).` })))));
   }
   const warningBox = () => noticeBox("warn", "icon-warning", h("p", null, h("strong", { text: "Joke, troll or abusive applications are permanently denied." }), " That covers the account's votes, nominations and reserved names too, and it is not reconsidered."));
+  // .115 (Viktor's item B, 2 Oct 2026): whether Olympus I has room, as the Worker judges it (guild-seats.ts memberSeats: the latest
+  // complete and trusted roster export, or an invite just refused for space; the time rounded down to the hour). Shown only while
+  // the guild is full, and only to someone it concerns: an account with characters waiting in the invite queue (its own places,
+  // never anyone else's) or one without a roster-confirmed character. It promises nothing the bot does not do, and changes nothing.
+  const VISITORS_URL = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}$/; // the Worker's visitorsUrl; anything else is plain text
+  function visitorsLine(seats) {
+    const url = seats && typeof seats.visitorsUrl === "string" && VISITORS_URL.test(seats.visitorsUrl) ? seats.visitorsUrl : "";
+    return h("p", null, "Olympus 2 and the later Olympus guilds are welcome in ",
+      url ? h("a", { href: url, rel: "noopener", target: "_blank", text: "#olympus-visitors" }) : "#olympus-visitors",
+      " in Asmongold's Discord; this flow verifies the main Olympus guild.");
+  }
+  function seatsNotice() {
+    const s = S.seats;
+    const queue = Array.isArray(S.myQueue) ? S.myQueue : [];
+    if (!s || s.state !== "full" || !(queue.length || !can("confirmedGuildData"))) return null;
+    const when = `about ${fmtDateTime(s.asOf)}`;
+    const body = queue.length
+      ? [h("p", null, h("strong", { text: "Olympus I is full right now." })),
+          queue.map((q) => h("p", { text: `${q.name} is #${q.position} in line for a seat.` })),
+          h("p", { text: "Verified applicants wait in queue order (reserved names from the site go first). A full guild never costs you an invite attempt; the bot removes nobody, and officers may remove inactive characters to free seats." })]
+      : h("p", null, h("strong", { text: "Olympus I is full right now: " }),
+          s.source === "roster"
+            ? `the officers' roster export of ${when} counts ${s.members} of ${s.cap} members. Verifying in Discord still works and puts you in the invite queue.`
+            : `the last invite was refused for lack of space (${when}). Verifying in Discord still works and puts you in the invite queue.`);
+    return noticeBox("warn", "icon-clock", body, visitorsLine(s));
+  }
 
   ROUTES[""] = function home(main) {
     const flash = flashBox();
@@ -799,12 +825,14 @@
             h("p", null, h("strong", { text: "Add when you play. " }), "Your application was saved before the site asked for a weekly schedule, and the leadership plans the NA and EU raids with it."),
             h("p", null, h("a", { href: "#/apply", text: "Open your application" }), ", fill in the grid and save."))
         : null;
+    const seats = seatsNotice();
     add(main, [
       h("section", { class: "welcome mt" }, h("img", { src: accountArt(S.user), alt: "", referrerpolicy: "no-referrer" }), h("h1", { text: `Welcome, ${S.user.displayName || S.user.username}` })),
       flash,
       S.reapply ? h("div", { class: "mt" }, noticeBox("warn", "icon-warning", // .114: a rename Blizzard required (the Worker's rename_holds)
         h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
         h("p", null, "Open ", h("a", { href: "#/apply", text: "Apply" }), ` and save your application once more, and verify ${S.reapply.to} again in Discord with Get my code in #join-olympus. Unless another of your characters is in the guild, your Guild Member role is on hold until the leadership approves the new application.`))) : null,
+      seats ? h("div", { class: "mt" }, seats) : null, // .115: Olympus I is full (seatsNotice)
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -1006,6 +1034,8 @@
     const s = S.settings || {};
     const locked = a && (a.status === "accepted" || a.status === "declined");
     const status = a ? h("span", { class: "aside" }, "Status: ", h("span", { class: "status " + a.status, text: statusText(a.status) }), ` · updated ${ago(a.updatedAt)}`) : null;
+    const seats = seatsNotice(); // .115: above every branch, so a closed or decided application still learns Olympus I is full
+    if (seats) add(main, h("div", { class: "mt" }, seats));
     if (locked) {
       add(main, frame("Your application", status,
         h("p", { text: a.status === "accepted" ? "Your application was accepted. The guild's leadership will be in touch in Discord." : "Your application was not accepted this time. It can no longer be changed." }),
@@ -1772,7 +1802,7 @@
   };
 
   function adminTabs(sub) {
-    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"]]; // .114: Renames
+    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"]]; // .114: Renames; .115: News
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
       h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" })); // .86
@@ -1792,12 +1822,33 @@
       lookup: (b) => adminLookup(b, dec(parts[1] || "")),
       settings: adminSettings,
       renames: adminRenames, // .114
+      news: (b) => adminNews(b), // .115
       community: (b) => adminCommunity(b, parts.slice(1)), // .98
     };
     await (own(views, sub) ? views[sub] : adminOverview)(body);
   };
 
   // ---------- overview ----------
+  // .115 (item B): the staff's seat line, worded like the bot's (guild-seats.ts seatsStaffLine and its reasons), with exact times
+  const SEAT_REASONS = {
+    none: "no roster export has arrived yet",
+    writing: "the latest export is still being written",
+    stuck: "the latest export was left unfinished; the addon's next export writes it again",
+    unchecked: "the latest export has not been checked yet; the next export from the addon, or /olympus-admin sync, checks it",
+    distrusted: "the latest export is not trusted: run /olympus-admin sync if the guild really shrank",
+    before_links: "the latest export is from before LINKS_NOT_BEFORE",
+    stale: "the latest export is more than 48 hours old",
+    error: "the seat state could not be read",
+  };
+  function seatsStaffText(s, waiting) {
+    let line;
+    if (!s) line = `Olympus I room: unknown (${SEAT_REASONS.error})`;
+    else if (s.full && s.source === "roster") line = `Olympus I: full, ${s.members} of ${s.cap} on the latest roster export of ${fmtDateTime(s.rosterAt)}`;
+    else if (s.full) line = `Olympus I: full (an invite was refused for space ${fmtDateTime(s.refusedAt)})`;
+    else if (s.state === "open") line = `${plural(s.free, "seat")} free on Olympus I (${s.members} of ${s.cap}, latest roster export of ${fmtDateTime(s.rosterAt)})`;
+    else line = `Olympus I room: unknown (${SEAT_REASONS[s.reason] || SEAT_REASONS.error})`;
+    return `${line} · ${waiting} waiting in the invite queue.`;
+  }
   async function adminOverview(body) {
     const o = await api("GET", "/api/admin/overview");
     S.settings = o.settings;
@@ -1857,6 +1908,7 @@
     heatRole.addEventListener("change", () => { A.heat = heatRole.value; drawHeat(heatBox); });
     clear(body);
     add(body, [
+      h("p", { class: "muted small", id: "overview-seats", text: seatsStaffText(o.seats, (o.queue && o.queue.waiting) || 0) }), // .115 (item B)
       h("section", { class: "grid four" },
         tile("pos-member", "Signed up", c.users || 0, `${c.left || 0} left the server · ${c.denied || 0} denied`),
         tile("icon-apply", "Applications", totalApps, `${(byStatus.submitted || 0) + (byStatus.reviewing || 0)} open · ${byStatus.accepted || 0} accepted`),
@@ -1963,11 +2015,18 @@
     const [autoQueue, autoQueueRow] = box(s.autoQueue, "From launch, put approved reserved names at the top of the invite queue by themselves", "Checked every half hour. Off: use Queue on the Reserved names tab when you are ready.");
     const [appsOpen, appsOpenRow] = box(s.applicationsOpen, "Applications are open");
     const [votingOpen, votingOpenRow] = box(s.votingOpen, "Voting is open (the board and write-in nominations)");
+    // .115 (Viktor's item A, 2 Oct 2026): the members' News page is off until an administrator switches it on here (site-news.ts)
+    const [newsBox, newsRow] = box(!!s.newsOn, "News page: confirmed members can read Community → News", "Off: the page is hidden, no notice can be posted or changed and the figures stop; notices already posted keep their time and can still be deleted under Admin → News.");
+    newsBox.id = "news-on";
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
     const was = s.appointed || {};
     const appointed = M().ballots.map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
       h("label", { class: "field appointed-row" }, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input)));
+    // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
+    // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
+    const [namesOk, namesOkRow] = box(false, "Each person named here agreed to be named. Appointed names are public on the open web, signed in or not.");
+    namesOk.id = "appointed-names-ok";
     const quietWas = new Set(s.noVote || []);
     const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
     const quietGrid = (group) => h("div", { class: "appointed-grid" }, quiet.filter(([b]) => b.group === group).map(([b, input]) =>
@@ -1978,10 +2037,11 @@
       if (!a || !b) return toast("Both times are needed.", "bad");
       save.disabled = true;
       try {
-        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, notice: notice.value,
+        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, notice: notice.value,
           appointed: Object.fromEntries(appointed.map(([bb, input]) => [bb.key, input.value.trim()]).filter(([, who]) => who)),
-          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key) });
+          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked });
         S.settings = out.settings;
+        namesOk.checked = false;
         toast("Settings saved.", "good");
       } catch (err) { toast(err.message, "bad"); } finally { save.disabled = false; }
     });
@@ -1991,13 +2051,15 @@
         h("label", { class: "field" }, h("span", { class: "lab", text: "Name reservation opens" }), namesAt, namesPt),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Launch" }), launchAt, launchPt)),
       h("p", { class: "muted small", text: "Times are entered in your own time zone; the line under each shows the Pacific time Blizzard announces in." }),
-      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow,
+      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow,
       h("label", { class: "field" }, h("span", { class: "lab", text: "Notice" }), notice),
       h("div", { class: "rule" }),
       h("h3", { text: "Appointed roles" }),
       h("p", { class: "muted small", text: "A role with a name here is filled by appointment: it cannot be chosen on the Apply page, its voting board and write-ins close, and members see who holds it. Votes and write-ins it already had are kept, and count again if you open it. Leave a box empty to open the role." }),
       h("div", { class: "group-label", text: "Leadership" }), appointedGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), appointedGrid("class"),
+      namesOkRow,
+      h("p", { class: "muted small", text: "To remove a name on request, type Name withheld (the role stays appointed) or clear it (the role reopens)." }),
       h("div", { class: "rule" }),
       h("h3", { text: "Roles without a public vote" }),
       h("p", { class: "muted small", text: "A ticked role still takes applications, first choice or backup, but it has no voting board and no write-ins: the leadership reads its applications on the Applications tab and chooses. An application whose leadership choices are all such roles is not shown on the board. Board votes and write-ins a role already had are kept, and count again if you untick it. Unticking a role lists under it at once every application that chose it and agreed to the board for another role (the form told them it would be); applicants who chose only ticked roles appear once they save their application with the board box ticked (their Home page asks them to). An appointed role above is closed altogether, whatever is ticked here." }),
@@ -2040,11 +2102,14 @@
       gm: h("input", { type: "text", maxlength: "40", value: g.gm, placeholder: "Not listed", autocomplete: "off", id: `lead-gm-${i}`, "aria-label": `${g.name}: Guild Master` }),
       officers: h("textarea", { rows: "3", maxlength: "600", value: g.officers.join("\n"), id: `lead-off-${i}`, "aria-label": `${g.name}: officers, one per line` }),
     }));
+    // .115 (item C): as for the appointed roles, a name is listed only after that person agreed (400 confirm_names without the tick)
+    const namesOk = h("input", { type: "checkbox", id: "lead-names-ok" });
     const save = h("button", { class: "btn", type: "button", text: "Save the directory" });
     save.addEventListener("click", async () => {
       save.disabled = true;
       try {
-        await api("PUT", "/api/admin/leadership", { guilds: rows.map((r) => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map((x) => x.trim()).filter(Boolean) })) });
+        await api("PUT", "/api/admin/leadership", { guilds: rows.map((r) => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map((x) => x.trim()).filter(Boolean) })), namesConfirmed: namesOk.checked });
+        namesOk.checked = false;
         toast("Directory saved.", "good");
       } catch (err) { toast(explain(err), "bad"); } finally { save.disabled = false; }
     });
@@ -2054,6 +2119,8 @@
         h("h3", { text: r.g.name }),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers)))),
+      h("label", { class: "check field", for: "lead-names-ok" }, namesOk, h("span", { text: "Each person listed here agreed to be listed. Confirmed members can read the directory." })),
+      h("p", { class: "muted small", text: "To remove a name on request, clear it or type Name withheld in its place." }),
       h("div", { class: "btn-row mt" }, save));
   }
   /** .114: the end-of-beta reset (the Worker's site-leadership.ts): locked until the closing moment is recorded, then a typed confirmation. */
@@ -2125,6 +2192,147 @@
       frame("Renames on the roster", null,
         h("p", { class: "muted small", text: "Characters the officers' roster shows under a new name: the same character, followed by its in-game identifier, from the last 120 days. An ordinary rename keeps the link and needs nothing. The roster cannot tell why a character was renamed, so mark only a rename Blizzard required: that member applies again, with a new application and a fresh in-game verification." }),
         data.renames.length ? renamesTable : h("p", { class: "muted small", text: "No renames recorded." })),
+    ]);
+  }
+
+  // ---------- news (.115) ----------
+  /**
+   * .115 (Viktor's item A, 2 Oct 2026): the administrators' notices for Community → News (the Worker's site-news.ts). Plain
+   * text for the whole guild, shown 1 to 90 days and then deleted; the switch itself is in Settings. A new notice is an
+   * operation with an id this page made once: its lost answer freezes the exact payload and offers only "retry the same" or a
+   * check (.100/.103), and the Worker never posts a deleted or expired notice again. A change or a deletion carries the
+   * notice's revision, so a repeat after a lost answer is refused, never doubled; the page then re-reads the list.
+   */
+  const NEWS_LOST_CHANGE = "The answer was lost, so the notices were re-read: check the notice before changing it again (a repeated change with the old revision is refused, never doubled).";
+  async function adminNews(body, message = "") {
+    let d;
+    try {
+      d = await api("GET", "/api/admin/news");
+    } catch (e) {
+      clear(body);
+      add(body, frame("News", null, h("p", { class: "err small", role: "alert", text: explain(e, "The notices could not be read.") })));
+      if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
+      return;
+    }
+    const limits = d.limits || {};
+    const dayList = Array.isArray(limits.days) ? limits.days : [1, 3, 7, 14, 30, 60, 90];
+    const notices = Array.isArray(d.notices) ? d.notices : [];
+    const opId = d.opId; // fixed for this page's new notice: a retry after a lost answer replays the same creation. The Worker hands it out with its time in it and takes it for 30 days (Codex's finding 5, 3 Oct 2026)
+    let frozen = null; // .103: the exact payload whose answer was lost
+    let editing = null; // the notice being changed, or null for a new one
+    const title = h("input", { type: "text", maxlength: String(limits.titleMax || 80), autocomplete: "off" });
+    const text = h("textarea", { rows: "6", maxlength: String(limits.bodyMax || 2000) });
+    const daysSel = h("select", null, dayList.map((n) => h("option", { value: String(n), text: plural(n, "day"), selected: n === (limits.defaultDays || 30) })));
+    const formTitle = h("h2", { text: "New notice" });
+    const submit = h("button", { class: "btn", type: "button", text: "Post notice" });
+    const stopEdit = h("button", { class: "btn small", type: "button", text: "Cancel editing", hidden: true });
+    const err = errorLine(""); err.hidden = true;
+    const pending = h("div");
+    const touched = () => setDirty("admin-news", true);
+    title.addEventListener("input", touched);
+    text.addEventListener("input", touched);
+    const lock = (on) => { for (const el of [title, text, daysSel, submit, stopEdit]) el.disabled = on || !d.newsOn; };
+    const fail = (ex, fallback) => {
+      err.textContent = explain(ex, fallback);
+      err.hidden = false;
+      if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity();
+    };
+    const again = (note) => { setDirty("admin-news", false); return adminNews(body, note); };
+    const send = async (payload) => {
+      const out = await api("POST", "/api/admin/news", payload);
+      if (!out || !out.notice || out.notice.id !== payload.id) throw new ApiError(200, { error: "unreadable_answer" }); // the answer is THIS operation's notice before anything is shown as posted
+      toast(out.replay ? "This notice was already posted from this page." : "Posted.", "good");
+      await again();
+    };
+    const refusedCreate = async (ex) => {
+      // this page's operation is spent (its notice was deleted or ran out, another notice holds the id, or the id is too old to
+      // post): a fresh page gets a fresh id, and the old text is not left in the form to be posted again by a second click
+      if (["deleted", "expired", "op_conflict", "stale_page"].includes(codeOf(ex))) { await again(`${explain(ex)} The page has been reloaded for a new notice.`); return; }
+      lock(false);
+      fail(ex, "The notice could not be posted.");
+    };
+    const create = async () => {
+      const payload = { id: opId, title: title.value.trim(), body: text.value, days: Number(daysSel.value) };
+      lock(true);
+      try { await send(payload); } catch (ex) {
+        if (!uncertain(ex)) { await refusedCreate(ex); return; }
+        frozen = payload;
+        lostAnswer({ pending, lock, what: "The notice",
+          unprovenMessage: "No live notice is shown under this form's id. It may never have been stored, or it may have been deleted or expired. Retry the same operation to check its status.",
+          retry: async () => { try { await send(frozen); return "done"; } catch (ex2) { if (uncertain(ex2)) return "lost"; frozen = null; clear(pending); await refusedCreate(ex2); return "done"; } },
+          check: async () => {
+            try {
+              const l = await api("GET", "/api/admin/news");
+              if (l && Array.isArray(l.notices) && l.notices.some((x) => x.id === opId)) { toast("It was stored.", "good"); await again(); return "found"; }
+              // This list contains live notices only. Absence does not prove that the operation was never stored:
+              // its deleted/expired notice may still have a tombstone. Keep the frozen operation and its retry.
+              return "unproven";
+            } catch { return "lost"; }
+          } });
+      }
+    };
+    const change = async () => {
+      const n = editing, days = Number(daysSel.value);
+      if (!(await confirmBox("Save the changes to this notice?", `"${title.value.trim() || n.title}" changes on News at once. It is shown until ${fmtDay(n.postedAt + days * 86400)}, counted from when it was first posted.`, "Save changes"))) return;
+      lock(true);
+      try {
+        const out = await api("POST", "/api/admin/news/update", { id: n.id, revision: n.revision, title: title.value.trim(), body: text.value, days });
+        if (!out || !out.notice || out.notice.id !== n.id) throw new ApiError(200, { error: "unreadable_answer" });
+        toast("Saved.", "good");
+        await again();
+      } catch (ex) {
+        if (uncertain(ex)) { await again(NEWS_LOST_CHANGE); return; }
+        if (codeOf(ex) === "stale_revision" || codeOf(ex) === "not_found") { await again(`${explain(ex)} The list below has been reloaded.`); return; }
+        lock(false);
+        fail(ex, "The notice could not be changed.");
+      }
+    };
+    const remove = (n) => async () => {
+      if (!(await confirmBox("Delete this notice?", `"${n.title}" disappears from News at once. A page opened earlier cannot post it again: a page posts only within 30 days of being opened, and this notice's id is kept for 120 days from its first posting.`, "Delete", { danger: true }))) return;
+      try {
+        await api("POST", "/api/admin/news/delete", { id: n.id, revision: n.revision });
+        toast("Deleted.", "good");
+        await again();
+      } catch (ex) {
+        await again(uncertain(ex) ? NEWS_LOST_CHANGE : `${explain(ex, "The notice could not be deleted.")} The list below has been reloaded.`);
+        if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity();
+      }
+    };
+    const edit = (n) => () => {
+      editing = n;
+      formTitle.textContent = "Change a notice";
+      title.value = n.title;
+      text.value = n.body;
+      const was = Math.round((n.until - n.postedAt) / 86400);
+      daysSel.value = String(dayList.includes(was) ? was : limits.defaultDays || 30);
+      submit.textContent = "Save changes";
+      stopEdit.hidden = false;
+      err.hidden = true;
+    };
+    submit.addEventListener("click", () => { if (frozen) return; err.hidden = true; return editing ? change() : create(); });
+    stopEdit.addEventListener("click", () => again());
+    lock(false);
+    const list = notices.map((n) => h("div", { class: "card" },
+      h("h3", { text: n.title }),
+      h("p", { class: "small", text: n.body.length > 200 ? `${n.body.slice(0, 200)}…` : n.body }),
+      h("p", { class: "muted small", text: `Posted ${fmtDateTime(n.postedAt)}${n.editedAt ? ` · changed ${fmtDateTime(n.editedAt)}` : ""} · shown until ${fmtDateTime(n.until)} · revision ${n.revision}` }),
+      h("div", { class: "btn-row" },
+        h("button", { class: "btn small", type: "button", text: "Edit", disabled: !d.newsOn, onclick: edit(n) }),
+        h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: remove(n) }))));
+    clear(body);
+    add(body, [
+      message ? noticeBox("warn", "icon-warning", h("p", { text: message })) : null,
+      frame("News", h("span", { class: "badge " + (d.newsOn ? "green" : "muted"), text: d.newsOn ? "on" : "off" }),
+        h("p", { class: "muted small", text: "Community → News for confirmed members: your notices, whether Olympus I has room, the guild in figures (counts only), the next events, when the leadership directory changed, the road to launch and the site's updates. Switch it in Admin → Settings." }),
+        d.newsOn ? null : noticeBox("info", "icon-clock", h("p", { text: "News is switched off (Admin → Settings); notices cannot be posted while it is off." })),
+        kv([["Shown now", `${notices.length} of ${limits.liveMax || 20}`], ["Past their time, awaiting the cleanup", String(d.awaitingCleanup || 0)], ["Operation records kept (120 days each)", String(d.operationRecords || 0)]])),
+      frame("Notices shown now", null, list.length ? list : h("p", { class: "muted small", text: "No notice is shown right now." })),
+      frame(formTitle, null,
+        h("p", { class: "muted small", text: "Write for the whole guild; do not name members. A notice is deleted when its time is up, at most 90 days after posting." }),
+        fieldBox("news-title", "Title", title, { required: true, hint: `Up to ${limits.titleMax || 80} characters.` }),
+        fieldBox("news-body", "Text", text, { required: true, hint: `Up to ${limits.bodyMax || 2000} characters. A blank line starts a new paragraph.` }),
+        fieldBox("news-days", "Show for", daysSel),
+        err, h("div", { class: "btn-row" }, submit, stopEdit), pending),
     ]);
   }
 
@@ -2917,12 +3125,14 @@
   }
 
   // ---------- the community pages ----------
+  const newsOn = () => !!(S.settings && S.settings.newsOn); // .115: SiteSettings.newsOn, off unless an administrator switched it on
   function communityTabs(sub) {
     const tabs = [["", "Overview"]];
     if (feat("directory")) tabs.push(["directory", "Directory"], ["profile", "My profile"]);
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
     if (feat("trials")) tabs.push(["trial", "My trial"]);
     if (feat("contributions")) tabs.push(["dues", "My dues"]);
+    if (newsOn()) tabs.push(["news", "News"]); // .115: only while an administrator has News switched on
     tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
     return h("nav", { class: "btn-row", "aria-label": "Community sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
   }
@@ -2946,6 +3156,7 @@
     if (sub === "trial" && feat("trials")) return communityTrial(body);
     if (sub === "dues" && feat("contributions")) return communityDues(body);
     if (!can("confirmedGuildData")) { add(body, standingNotice()); return; }
+    if (sub === "news" && newsOn()) return communityNews(body); // .115
     if (sub === "leadership") return communityLeadership(body); // .114
     if (sub === "directory" && feat("directory")) return communityDirectory(body);
     if (sub === "profile" && feat("directory")) return communityProfile(body);
@@ -2967,6 +3178,7 @@
     if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. Confirmed guild members only.` })));
     if (feat("trials")) cards.push(h("a", { class: "card", href: "#/community/trial" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "My trial" })), h("p", { class: "muted small", text: "Your trial period as the officers recorded it: the review date and the outcome." })));
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
+    if (newsOn()) cards.push(h("a", { class: "card", href: "#/community/news" }, h("div", { class: "card-head" }, icon("icon-launch"), h("h3", { text: "News" })), h("p", { class: "muted small", text: "Notices from the site's administrators, whether Olympus I has room, the guild in figures and what is coming up. Confirmed guild members only." }))); // .115
     cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. Confirmed guild members only." }))); // .114
     cards.push(h("a", { class: "card", href: "#/data" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "Your data" })), h("p", { class: "muted small", text: "Download your copy, read the policies, or send a private request." })));
     add(body, [can("confirmedGuildData") ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
@@ -2991,6 +3203,82 @@
           h("dt", { text: "Guild Master" }), h("dd", { text: g.gm || "Not listed" }),
           h("dt", { text: "Officers" }), h("dd", { text: g.officers.length ? g.officers.join(", ") : "None listed" }))))),
       data.councilUrl ? h("p", { class: "muted small" }, "The Guild Masters and officers of every Olympus guild meet in the private ", h("a", { href: data.councilUrl, rel: "noopener", target: "_blank", text: "Olympus I–X Council" }), " in Asmongold's Discord; its roles are given by hand.") : null));
+  }
+  /**
+   * .115 (Viktor's item A, 2 Oct 2026): News for confirmed members while an administrator has it switched on (the Worker's
+   * site-news.ts). Counts and times only, never a member's name; a notice is the administrators' plain text, put on the page
+   * through text nodes (a blank line starts a paragraph, a single line break stays one).
+   */
+  const isoDay = (iso) => { const t = Date.parse(`${iso}T00:00:00Z`); return Number.isFinite(t) ? new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(t)) : String(iso || ""); };
+  const fewer = (v) => (v === "few" ? "fewer than 5" : String(v)); // the Worker never sends a count from 1 to 4: it could point at a person
+  const noticeText = (body) => String(body || "").split(/\n[ \t]*\n/).filter((p) => p.trim()).map((p) => h("p", null, p.split("\n").map((line, i) => [i ? h("br") : null, line])));
+  /** The seat state as members read it (guild-seats.ts memberSeats: the hour of the deciding evidence, never a reason or an exact time). */
+  function memberSeatsText(s) {
+    const when = s && s.asOf ? `about ${fmtDateTime(s.asOf)}` : "";
+    if (s && s.state === "full" && s.source === "roster") return `Olympus I is full: the officers' roster export of ${when} counts ${s.members} of ${s.cap} members.`;
+    if (s && s.state === "full") return `Olympus I is full: the last invite was refused for lack of space (${when}).`;
+    if (s && s.state === "open") return `Olympus I has ${plural(s.free, "free seat")}: the officers' roster export of ${when} counts ${s.members} of ${s.cap} members.`;
+    return "Whether Olympus I has room is not known right now: the officers' latest roster export does not give a current, checked count.";
+  }
+  async function communityNews(body) {
+    let d;
+    try {
+      d = await api("GET", "/api/news");
+    } catch (e) {
+      if (e && (e.status === 403 || e.status === 503)) refreshCommunity(); // .100 (F5): the shell follows what the Worker admits now
+      add(body, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "News could not be read.") })));
+      return;
+    }
+    const notices = Array.isArray(d.notices) ? d.notices : [];
+    const f = d.figures;
+    const moved = (w) => (w ? `${w.joined} joined, ${w.left} left` : "not enough history yet");
+    const pair = (w) => [["Last day", w.day], ["Last 7 days", w.week]];
+    const figures = !f
+      ? h("p", { class: "muted", text: "No figures yet: they are counted from the officers' roster exports every few hours while News is on." })
+      : [
+          f.roster.day || f.roster.week
+            ? kv(pair(f.roster).map(([k, w]) => [k, moved(w)]))
+            : h("p", { text: `Not enough roster history yet; ${f.countingSince ? `counting began ${fmtDay(f.countingSince)}` : "counting begins with the next checked roster export"}.` }),
+          h("h4", { text: "New applications (first saved)" }),
+          kv(pair({ day: f.applications.day.firstSaved, week: f.applications.week.firstSaved }).map(([k, v]) => [k, fewer(v)])),
+          h("h4", { text: "Decisions saved" }),
+          kv(pair({ day: f.applications.day.decided, week: f.applications.week.decided }).map(([k, v]) => [k, fewer(v)])),
+          h("p", { class: "muted small", text: `As of ${fmtDateTime(f.asOf)}. Joined and left compare complete, checked roster exports, so a rename counts as one of each. Applications count the accounts whose application was first saved in that time, and the decisions (accepted or declined) last saved in it.` }),
+        ];
+    const launchAt = d.beta && d.beta.launchAt;
+    add(body, [
+      frame("Notices", null,
+        h("p", { class: "muted small", text: "From the site's administrators, for the whole guild. Each notice is shown for a set time and then deleted." }),
+        notices.length
+          ? notices.map((n) => h("div", { class: "card" },
+              h("h3", { text: n.title }),
+              noticeText(n.body),
+              h("p", { class: "muted small", text: `Posted ${fmtDateTime(n.postedAt)}${n.editedAt ? ` · changed ${fmtDateTime(n.editedAt)}` : ""} · shown until ${fmtDay(n.until)}` })))
+          : h("p", { class: "muted", text: "No notices right now." })),
+      frame("Olympus I", null, h("p", { text: memberSeatsText(d.seats) })),
+      frame("The guild in figures", null, figures),
+      Array.isArray(d.events)
+        ? frame("Coming up", null, d.events.length
+            ? h("ul", null, d.events.map((e) => h("li", null, h("a", { href: eventHref(e.id), text: e.title }), ` · ${fmtDateTime(e.startsAt)} · ${plural(e.durationMin, "minute")}`)))
+            : h("p", { class: "muted", text: "No events in the next 14 days." }))
+        : null,
+      frame("Leadership directory", null, h("p", null,
+        d.leadership && d.leadership.updatedAt ? `Last changed ${fmtDay(d.leadership.updatedAt)}. ` : "Not changed yet. ",
+        h("a", { href: "#/community/leadership", text: "Open Community → Leadership" }))),
+      frame("The road to launch", null,
+        h("p", { text: `Blizzard gives ${isoDay(d.beta && d.beta.lastFullDay)} as the beta's last full day.` }),
+        launchAt
+          ? h("div", { class: "date-card" }, icon("icon-launch", "l"), h("div", null,
+              h("h3", { text: nowSec() >= launchAt ? "World of Warcraft: Forever" : "World of Warcraft: Forever launches in" }),
+              countdown(launchAt, { doneText: "Live now" }),
+              h("p", { class: "muted small", text: `${fmtDateTime(launchAt)} (${fmtPacific(launchAt)}).` })))
+          : null),
+      Array.isArray(d.releases) && d.releases.length
+        ? frame("Site updates", null, d.releases.map((r) => h("div", null,
+            h("h3", { text: `${isoDay(r.date)} (build ${r.build})` }),
+            h("ul", null, (r.lines || []).map((l) => h("li", { text: l }))))))
+        : null,
+    ]);
   }
   const proofBadge = (source) => (source === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : h("span", { class: "badge muted", text: "self-labelled" }));
   const altBadge = (a) => (a.status === "officer_confirmed" ? h("span", { class: "badge green", text: "officer-confirmed" }) : a.proof === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : a.status === "rejected" ? h("span", { class: "badge red", text: "rejected" }) : h("span", { class: "badge muted", text: "claimed" }));
@@ -3488,7 +3776,8 @@
    * .103 (the F1 rule of .100 for every operation keyed by an id the form made once): the answer to a write was lost, so
    * the outcome is unknown. The caller froze the exact payload; this locks the form and offers the only two ways out:
    * retry THOSE bytes (the Worker answers a stored operation with its original result, never doubling) or check whether
-   * it was stored. `retry()` and `check()` answer "done" | "lost" | "found" | "absent"; nothing is edited or re-sent on its own.
+   * it was stored. `retry()` and `check()` answer "done" | "lost" | "found" | "absent" | "unproven";
+   * an unproven absence keeps the frozen operation locked. Nothing is edited or re-sent on its own.
    */
   /** Why a committed write's re-read showed nothing: the Worker's `withheld` codes, in words. */
   const WITHHELD_WORDS = {
@@ -3515,7 +3804,7 @@
     stackBars();
     window.addEventListener("hashchange", () => { bar.remove(); stackBars(); }, { once: true }); // a deliberate navigation ends it; a redraw of the same page does not
   }
-  function lostAnswer({ pending, lock, retry, check, what }) {
+  function lostAnswer({ pending, lock, retry, check, what, unprovenMessage }) {
     clear(pending);
     lock(true);
     const retryBtn = h("button", { class: "btn small", type: "button", text: "Retry the same" });
@@ -3529,6 +3818,7 @@
       checkBtn.disabled = true;
       const r = await check();
       if (r === "absent") { clear(pending); lock(false); toast("Nothing was stored under this form's id; you may change it and send again."); }
+      else if (r === "unproven") { toast(unprovenMessage || "The current list does not establish whether this operation was stored. Retry the same operation to check its status."); checkBtn.disabled = false; }
       else if (r === "lost") { toast("The check did not answer.", "bad"); checkBtn.disabled = false; }
     });
     pending.appendChild(noticeBox("warn", "icon-warning",

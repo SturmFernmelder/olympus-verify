@@ -16,6 +16,14 @@ export function visitorChat(env: Env): string {
 }
 
 /**
+ * Olympus has overflow guilds (Olympus 2 and later) that this server does not verify. Saying so stops their members
+ * applying to the main guild's queue by mistake, and tells them where they are welcome. .115 (item B, 2 Oct 2026): one
+ * sentence shared by the guide and the full-guild paragraph of /verify-status (guild-seats.ts); the guide's posted
+ * text is unchanged.
+ */
+export const visitorLine = (env: Env) => `Olympus 2 and the later Olympus guilds are welcome in ${visitorChat(env)}; this flow verifies the main Olympus guild.`;
+
+/**
  * .52 (1 Oct 2026): the copy is Codex's reviewed content candidate (evidence/discord-content-candidate.json, 00:37 UTC),
  * conditioned on effective config: the role sentence only when ROLE_GUILD_MEMBER is set, the nickname only when
  * SET_NICKNAME is on, officer review only under ADMISSION_MODE=review, and no channel named that may not exist (the
@@ -49,9 +57,7 @@ export function guideMessage(env: Env) {
             ? "Already a member? Use the same steps. **My status** shows your progress and can restore a missing role when your membership proof is current and no access restriction prevents it."
             : "Already in the guild? Use the same steps; there is nothing to approve, and **My status** shows your progress.",
           "",
-          // Olympus has overflow guilds (Olympus 2 and later) that this server does not verify. Saying so here stops
-          // their members applying to the main guild's queue by mistake, and tells them where they are welcome.
-          `Olympus 2 and the later Olympus guilds are welcome in ${visitorChat(env)}; this flow verifies the main Olympus guild.`,
+          visitorLine(env), // the overflow guilds (Olympus 2 and later) are not verified here; see visitorLine
           "Keep your verification code private. Never post passwords, authenticator codes, payment details or personal documents. The bot never sends you a DM.",
         ].join("\n"),
         footer: { text: "Olympus Verify · My status for progress · Ask an Olympus officer for account help" },

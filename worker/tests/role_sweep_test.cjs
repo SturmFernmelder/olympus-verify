@@ -53,6 +53,10 @@ const rolesJs = ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", "s
 const rolesMod = { exports: {} };
 new Function("module", "exports", "require", rolesJs)(rolesMod, rolesMod.exports, (p) => stubs[p]);
 stubs["./roles"] = rolesMod.exports;
+// .115: restore.ts reads its per-run caps from the real scheduled-budget.ts (the scheduled D1 budget; Codex, 3 Oct 2026 13:26 UTC)
+const budgetMod = { exports: {} };
+new Function("module", "exports", "require", ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", "src", "scheduled-budget.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(budgetMod, budgetMod.exports, () => ({}));
+stubs["./scheduled-budget"] = budgetMod.exports;
 const mod = { exports: {} };
 new Function("module", "exports", "require", js)(mod, mod.exports, (p) => stubs[p]);
 const { sweepMemberRoles, forgetLocalThrottle, SETTLE_SECONDS, THROTTLE_SECONDS } = mod.exports;

@@ -27,6 +27,7 @@ import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepIn
 import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
 import { sweepMemberRoles } from "./restore";
+import { continueRosterEffects } from "./roster";
 import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
@@ -50,6 +51,8 @@ import { openWeeklyObligations, sweepCommunityContributions } from "./community-
 import { sweepCommunityPrivacy } from "./community-privacy-intake";
 import { runOfficerDigest } from "./community-digest";
 import { communityFeatures } from "./community-context";
+import { guildSeats } from "./guild-seats";
+import { newsCron } from "./site-news";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -125,6 +128,9 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // .115 (Codex, 3 Oct 2026 13:26 UTC): one invocation, so the schema check and every job below share one D1 statement
+    // limit (each statement of a batch counts). Each job's worst case and the per-run caps are in scheduled-budget.ts; a
+    // new job here gets its line there first (tests/scheduled_budget_test.cjs holds this run to it).
     try {
       await ensureSchema(env);
     } catch (e) {
@@ -133,6 +139,9 @@ export default {
     }
     ctx.waitUntil(sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones
     ctx.waitUntil(sweepMemberRoles(env, "cron")); // gives Guild Member back to members who lost it (restore.ts)
+    // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): a slice of the roster's pending member effects, so a
+    // backlog an export could not finish in its own invocation is worked off between exports too (roster.ts, roster-effects.ts)
+    ctx.waitUntil(continueRosterEffects(env));
     ctx.waitUntil(refreshNames(env)); // a few linked members' Discord names for the officers' roster window (names.ts)
     ctx.waitUntil(autoQueueReserved(env)); // from launch: approved reserved names to the top of the invite queue
     ctx.waitUntil(purgeSeenInteractions(env)); // .47: the replay ledger keeps an hour
@@ -151,6 +160,9 @@ export default {
     if (communityFeatures(env).has("contributions")) ctx.waitUntil(openWeeklyObligations(env).catch((e) => console.error("community contributions opener failed", errorRef(e))));
     ctx.waitUntil(sweepCommunityContributions(env).catch((e) => console.error("community contributions sweep failed", errorRef(e))));
     ctx.waitUntil(sweepCommunityPrivacy(env).catch((e) => console.error("community privacy intake sweep failed", errorRef(e)))); // .82: expired private cases, always
+    // .115: notices and their operation records past their time, always, whatever the switch says; then the News counts, at
+    // most every 3 h, only while News is switched on, from the switch and cache the cleanup's batch read (site-news.ts newsCron)
+    ctx.waitUntil(newsCron(env));
     ctx.waitUntil(runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
   },
 };
@@ -360,7 +372,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-02.114 owner requests";
+const BUILD = "2026-10-03.115 news and seats";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
@@ -407,6 +419,14 @@ async function health(env: Env, full: boolean) {
   } catch (e) {
     bnetSwitch = `error: ${errorRef(e)}`;
   }
+  // .115 (item B): whether Olympus I has room, as the staff commands see it (exact times: this view is the watcher's).
+  let seats: { state: string; source: string | null; reason: string | null; members: number | null; cap: number; capConfigured: string; rosterAt: number | null; refusedAt: number | null } | string;
+  try {
+    const s = (await guildSeats(env)).seats;
+    seats = { state: s.state, source: s.source, reason: s.reason, members: s.members, cap: s.cap, capConfigured: s.capConfigured, rosterAt: s.rosterAt, refusedAt: s.refusedAt };
+  } catch (e) {
+    seats = `error: ${errorRef(e)}`;
+  }
   // .55: the configured roles against the guild (ids and booleans only); null when Discord could not be asked.
   let roles: Awaited<ReturnType<typeof rolesStatus>> | string;
   try {
@@ -414,5 +434,5 @@ async function health(env: Env, full: boolean) {
   } catch (e) {
     roles = `error: ${errorRef(e)}`;
   }
-  return { ok: true, build: BUILD, mode: env.ADMISSION_MODE, bnetRetention, legacyApi, roles, rosterGuard: { minMembers: env.ROSTER_MIN_MEMBERS, maxShrinkPct: env.ROSTER_MAX_SHRINK_PCT }, linksNotBefore: env.LINKS_NOT_BEFORE || null, relays, appId: env.DISCORD_APP_ID, baseUrl: env.PUBLIC_BASE_URL, secrets: present, d1, bnetLogin: !!(env.BNET_CLIENT_ID && env.BNET_CLIENT_SECRET), bnetSwitch, intros: { guild: env.INTROS_GUILD_ID || null, channels: Object.keys(parseChannels(env.INTROS_CHANNELS)).length, intros: INTROS.length }, site: { host: siteHost(env) || null, guild: env.SITE_GUILD_ID || null, admins: siteAdmins(env).size } };
+  return { ok: true, build: BUILD, mode: env.ADMISSION_MODE, bnetRetention, legacyApi, roles, rosterGuard: { minMembers: env.ROSTER_MIN_MEMBERS, maxShrinkPct: env.ROSTER_MAX_SHRINK_PCT }, linksNotBefore: env.LINKS_NOT_BEFORE || null, seats, relays, appId: env.DISCORD_APP_ID, baseUrl: env.PUBLIC_BASE_URL, secrets: present, d1, bnetLogin: !!(env.BNET_CLIENT_ID && env.BNET_CLIENT_SECRET), bnetSwitch, intros: { guild: env.INTROS_GUILD_ID || null, channels: Object.keys(parseChannels(env.INTROS_CHANNELS)).length, intros: INTROS.length }, site: { host: siteHost(env) || null, guild: env.SITE_GUILD_ID || null, admins: siteAdmins(env).size } };
 }

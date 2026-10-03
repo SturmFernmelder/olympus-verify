@@ -6,9 +6,14 @@
 > deploy` from a working folder and `npm run register`. None of that is repeated. The keeper Worker, its D1 database
 > `olympus-verify` with its data, and its secrets already exist: no current step runs an initializer, creates a
 > database, or resets the database or the secrets. The current procedure is `docs/launch-runbook.md`: the owner takes
-> and verifies a private D1 backup before a deploy that migrates the database, then deploys an exact jointly signed
+> and verifies a private D1 backup before a deploy that migrates the database, then deploys an exact release-qualified
 > commit from its `git archive` with `bash scripts/deploy-commit.sh <sha>`; the never-run list in `CLAUDE.md` applies
 > to agents throughout. Each dated section below records what was true and done on its date.
+>
+> **Current qualification (3 Oct 2026):** the owner instructed Codex to take over after Claude's usage limit and finish
+> without dual sign-off. Prospective actions use Codex's exact-commit qualification, attributable peer evidence and
+> the unchanged substantive source/live/owner gates (`docs/launch-runbook.md` section 0). Historical dual signatures
+> remain records of their actual scopes; this instruction is not new Claude approval.
 
 Two things stay with you by design: secrets (bot token, client secret, the shared secrets) and the Cloudflare login.
 Everything else in the Discord Developer Portal and on the server is done or scripted.
@@ -4293,3 +4298,480 @@ page, the three settings blocks driven through the page, the Renames tab (a refu
 loads from Discord" with the header-only contract. `tests/bnet_retention_test.cjs`
 runs with the switch on; `tests/verify_button_test.cjs` checks the guide no longer promises Battle.net; `site_test.cjs` (360) and
 `hosts_test.cjs` pin .114 and check the shown names; site_test also races a save against a staff decision.
+
+## Worker .115 — Viktor's requests of 2 Oct 2026 (a full guild said plainly, News and typed names) (3 Oct 2026)
+
+**Interrupted work preserved; not release-qualified.** Local non-release checkpoint
+`568c76d958eeee2f2786798bd959b0b2ae8ec299` preserves the interrupted .115 changes after the owner's Codex takeover.
+The earlier author descriptions, figures and test totals below are retained as history, not a fresh final-head result.
+No budget values/caps change in this document batch pending the roster author's final result. Codex must qualify the
+actual successor commit/tree; no new Claude countersignature is required or claimed.
+
+**Current restore refusal.** The second-round text below attributed a save freeze to the website block. That guarantee
+is withdrawn: WAF blocks new admissions only, and no fixed wait/equal-capture/redeploy procedure proves completion or
+cancellation of admitted writes. `docs/launch-runbook.md` section 1 requires actual quiescence before final capture,
+coverage of every preservation-critical writer/version/SQL/post-response operation, maintained exclusion through
+replacement/replay/read-back, and no stale writer after reopening. If that cannot be proved, refuse restoration.
+The future commit-time maintenance epoch surviving restore is **not implemented**; no .116 barrier is assumed.
+
+Viktor's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct about 02:30 UTC (log 02:34 UTC): the one-time
+rewrite of the older settings audit rows in scope; the seven-rank ladder of answer 1, with the in-game steps that went
+with it, is superseded by answer 6 (about 12:50 UTC; "Withdrawn" below). The other questions took the plan's defaults:
+News under Community, a 48 h freshness window, application counts below 5 masked, at most 20 live notices of 1 to 90
+days (default 30), no new `/verify` line, no seat state for signed-out visitors, the planner's default unchanged. Built
+on keeper 58abea31 (live: .114, Cloudflare 59f6dc91) in six commits: seats, News, typed names, the pinned pages and
+copy, the policies, and the build and docs; then four commits for the review of the .115 head (3 Oct 2026, "Review
+fixes" below), one for the owner's answer on the exports, and one withdrawing the role copy and the planner's ladder
+(b142be9); then four for Codex's findings on that head (3 Oct 2026, 13:15, 13:24 and 13:26 UTC: ac9156f the roster,
+7c98d69 News, c6f1081 the scheduled budget, 6f21a73 the policies and docs; "Roster and News review fixes", "The
+scheduled invocation's statement budget" and "Policy and docs review fixes" below); then five for the second review
+round over those four ("Second review round" below); then one for Codex's finding A of 16:48 UTC, the roster's member
+effects ("Third review round" below).
+
+**What changed, for members.**
+- **A full guild is said plainly** (`src/guild-seats.ts`). While Olympus I is full, `/verify-status` and the guide's My
+  status button give one paragraph: the officers' latest roster export and its count ("1000 of 1000 members"), or the
+  last invite refused for lack of space, each with its hour; that being full never costs an invite attempt; that the bot
+  removes nobody (officers may remove inactive characters to free seats); that an officer sends the next invite when a
+  seat opens, in queue order, reserved names from the site first; and the visitors line. It goes only to an account that
+  waits on an invite (a character queued or verified, or an open code), ephemeral, with no notice and no DM, and each
+  waiting character's place comes from the account's own queue rows. Home (after the rename notice) and the top of Apply
+  show a full-guild notice while full, to an account with its own queue rows ("NAME is #N in line for a seat") or
+  without a roster-confirmed character; a confirmed member with nothing queued sees no notice. Times shown to members
+  are rounded down to the hour. "Full" means: the latest roster snapshot is complete, trusted, exported on or after
+  `LINKS_NOT_BEFORE`, less than 48 h old (the earlier of its export and arrival times) and counts at least the cap; or
+  the officer's addon reported an invite refused for space in the last 6 h, on or after `LINKS_NOT_BEFORE` (and after
+  that roster when the roster decides). Anything else is "unknown", and nothing is claimed.
+- **Community → News**, once an administrator switches it on (off by default), for confirmed members only: the
+  administrators' notices (plain text, shown as text), Olympus I's state on the hour, the guild in figures (joined and
+  left over the last day and week from the trusted roster history; applications first saved and decisions saved, a count
+  from one to four shown as "fewer than 5"; refreshed at most every three hours), the next scheduled events in 14 days
+  (title and time, with the calendar feature), when the leadership directory last changed (never its names), the beta's
+  last full day (21 October 2026) with the launch countdown, and the site's release notes.
+- **The privacy policy and terms** (last updated 3 October 2026) describe News, a full guild, appointed and listed names
+  (consent, the open web, removal on request), what a roster snapshot now records, and the backups, including
+  Cloudflare's point-in-time history of the database ("up to 30 days"; Codex confirmed the figure at 13:15 UTC). Since
+  the policy review of 3 Oct 2026 (Codex, 13:24 and 13:26 UTC; "Policy and docs review fixes" below): "never your name"
+  covers only News's automatic figures, while a notice is free text that names a member only with that member's
+  agreement and is changed or deleted on request; the rewrite of the older log rows is said as it behaves (once at a
+  start, a failure retried at a later start, checked by the owner); and a restore puts back the typed names as they
+  stood just before it.
+
+**What changed, for staff.**
+- **The seat line.** Admin → Overview (one muted line above the tiles), the first line of `/olympus-admin queue` and
+  `roster`, and the guild-full staff notice give the seat state with exact times: full by the roster, full by a refusal,
+  "N seats free", or "unknown" with the reason in words (no export yet; still being written; left unfinished, "the
+  addon's next export writes it again"; not yet checked; not trusted, "run /olympus-admin sync if the guild really
+  shrank"; before `LINKS_NOT_BEFORE`; more than 48 hours old), and how many wait in the invite queue (queued and written
+  rows; an invited row has had its invite).
+- **`/olympus-admin sync`** also vouches for the applied export as the seat count, since a large shrink stays distrusted
+  until a person says so, and for an export left unfinished for more than ten minutes once all its member rows are
+  there. Its `admin.sync` audit gains `trustedSet`, and the reply says "This export now counts for the seat count." when
+  it changed something. Since Codex's finding 1 (3 Oct 2026, 13:15 UTC) it first refuses, changing no link, character
+  or role and vouching for nothing, a snapshot still being written (complete 0 inside ten minutes) or storing fewer
+  member rows than its export listed: "Nothing applied: roster snapshot #N ...", with the stored and listed counts,
+  and an `admin.sync_refused` audit with the counts only. For the second case the reply names the snapshot to wait past,
+  and `/olympus-admin roster` now shows the snapshot number ("Last roster: N members (snapshot #N)"; the second review
+  round).
+- **A roster export that names one character twice** (once normalised: case, spaces, a realm after a hyphen) is refused
+  whole, a 422, before anything is read or written (no snapshot, member rows, first-seen dates, link, character or role
+  change; the watcher does not retry a 4xx): one server-log line naming the pairs and a `roster.duplicate_names` audit,
+  again only after six hours while the same names collide. Every later export is refused the same way until each name
+  appears once; the officers' remedy (rename or remove one character of each pair, then export again) is
+  `docs/launch-runbook.md` section 10. Since the second review round, an export whose stored rows fall short of its
+  count after every batch committed is refused the same way (`roster.ingest_unusable`, told once in six hours) instead
+  of a retried 500 that would hold the watcher's later posts.
+- **News.** Admin → Settings gains the News page switch (saved and audited like the other switches). Admin → News shows
+  the switch (posting and editing locked while it is off; deleting still works), how many notices are shown (of 20), how
+  many are past their time awaiting the cleanup and how many operation records are kept, the live notices with Edit and
+  Delete (both confirmed), and the form: a title of up to 80 characters, a text of up to 2000, "Show for" 1, 3, 7, 14,
+  30 (the default), 60 or 90 days, and "Write for the whole guild; do not name members." A new notice is an operation
+  under an id the server hands out when Admin → News opens (`opId` in `GET /api/admin/news`, the database's time in its
+  first eight characters; Codex's finding 5): a lost answer freezes it with "Retry the same" and "Check whether it was
+  stored"; a form posts only within 30 days of being opened, and an older one is refused in words (409 `stale_page`,
+  nothing stored) and the page reloads for a fresh id; a deleted or expired notice can never be posted again by a retry.
+  Edits and deletions carry the revision; a stale one is refused in words, and a stale delete of a notice whose time is
+  up answers with its id and revision only, never its text (Codex's finding 3).
+- **Typed names need consent.** Under the appointed roles and under the Olympus I-X directory there is an unticked box:
+  a save that adds a name, or gives a role another holder, is refused without the tick (`confirm_names`) before anything
+  is written. To remove a name on request, type Name withheld (an appointed role stays appointed, its board and
+  applications closed) or clear it (the role reopens); neither needs the tick. The settings audit records which roles
+  were appointed, how many names were saved, whether the site notice was set and the tick, never a name or the notice's
+  text.
+- **Beyond the owner's list:** the bearer `GET /health` gains `seats` (state, source, reason, members, cap,
+  capConfigured, rosterAt, refusedAt; exact times, a staff diagnostic). The public answer stays `ok`/`build`/`d1`.
+
+**Database.** `roster_snapshots` gains `trusted` (1, 0, or NULL while unchecked), `complete` (NULL before .115, 0 while
+its member rows are written, 1 once all are in, set in the same batch as the last of them) and `first_received_at`, with
+the index `roster_snapshots_first`; new tables `site_news_notices` and `site_news_ops` with six indexes and the lifetime
+CHECKs (47 to 49 tables). All three places (schema.sql, src/schema.ts, migrations/2026-10-03-news-and-seats.sql); the
+Worker creates them itself. The third review round adds `roster_effect_runs` and `roster_effects` (49 to 51 tables, no
+index beyond their keys; all three places again, `migrations/2026-10-03-roster-effects.sql`). New `site_settings` keys: `newsOn` (a `SiteSettings` switch, so its boolean reaches `GET
+/api/public`), `newsFigures` (the cron's cache: counts and snapshot ids, never sent) and `auditTypedNames` (the marker
+of the rewrite). At an isolate's first request, until it has succeeded once, the Worker rewrites every older
+`site.settings` audit row (appointed names to role keys and a count, the notice text to true/false) in one batch with
+the marker; a failure is logged (`errorRef`, the category only), does not fail the schema check, and a later isolate
+start tries again (`schema.ts redactSettingsAudit`). So the deploy itself proves nothing about the rewrite: the
+settings-audit read-back of rollout step 7 is a mandatory acceptance gate (Codex, 3 Oct 2026 13:24 UTC). The rewrite
+cannot be undone, so the runbook's fresh verified private backup (rollout step 5) comes before the deploy that runs it;
+that export is then the only copy of the older rows and keeps them until it is destroyed (when a newer verified export
+replaces it, or once the launch is accepted). Until the
+officer's first roster export after the deploy the latest snapshot is a pre-.115 row and the seat state reads "unknown"
+(not yet checked); that export settles it when every member row of that row is stored (identical, it back-fills the
+row; changed, it writes a new snapshot). A pre-.115 row with member rows missing is back-filled as unfinished instead
+(complete 0, at once "stuck", never a complete stamp over missing rows; Codex's finding 2), and the export after that
+writes the roster again in full and settles it. News's day figures appear about a day after the first
+complete .115 snapshot, the week figures about a week after.
+
+**Config.** Optional `GUILD_MEMBER_CAP`: unset means 1000 (the game's limit); a value from 900 to 1000 is used as given;
+anything else is reported as `invalid` and 1000 is used. It is in neither wrangler file: the applied profile is bound by
+hash to the cutover marker and the key is not an activation key, so it can be set only as an owner secret or through a
+separately reviewed profile change. None is needed. `OFFICER_RANK_NAMES` stays `"Guild Master,Officer"`;
+`scripts/cutover-config.sh --check` is unaffected.
+
+**D1 cost.** A signed-in `GET /api/me` gains one batch of three indexed statements; `GET /api/news` is one admitted
+batch. In the small fixture of `tests/site_news_test.cjs` (every community feature on) the .115 lines add 2 round trips
+(5 statements) to a throttled scheduled run and 5 (15) to a computing one, the figures reading the switch and their
+cache in the cleanup's batch (review of 3 Oct 2026; it was 3 and 6); that whole run is 45 round trips (183 statements)
+throttled and 48 (193) computing, against 43 without the .115 lines. At most eight computing runs a day, each reading at
+most about 8,000 rows. A roster export that follows an untrusted row during the transition from pre-.115 rows also
+re-reads those rows once (`roster.ts seatBase`, at most 1,000).
+
+**The scheduled invocation's conservative statement-attempt budget** (Codex's finding of 3 Oct 2026 13:26 UTC).
+The source/test model charges every attempted statement, each batch element included, and composes the cron's schema
+check and all eighteen jobs into one budget against the recorded Workers Paid limit of 1,000. The account/limit receipt
+does not establish a provider-confirmed aggregate-batch counting rule. That small fixture was
+no bound: with a large backlog the weekly obligation opener alone could issue 1,201 statements (1 + 6 x 200) and the
+profile cleanup 604. Now `src/scheduled-budget.ts` holds every job's worst case and the per-run caps the jobs read: the
+role sweep checks at most 20 accounts (`ROLE_SWEEP_PER_RUN` is clamped to it; configured 10, the clamp was 50), the
+names refresh at most 20 (unchanged), the profile cleanup erases at most 10 profiles a run (was 100, oldest departure
+first), and the opener opens at most 30 weeks a run (was 200, in Discord id order) and checks the policy once per run
+instead of once per account; each capped job continues on the next run, every 30 minutes, so nothing is dropped. A guild
+of 1,000 has its week's obligations within about 17 hours of the week's start (nothing is due before the week ends), and
+a backlog of expired profiles goes at 480 a day (the policy already says the cleanup works in bounded batches and may
+take several runs). The table's sum, counting failed audits and a cold schema check with every column missing, is **652
+statements** against a target of 700 (**694** since the third review round: the roster effects' slice of 40 and the
+schema check's two new tables). Measured by `tests/scheduled_budget_test.cjs` through the real `scheduled()`, with
+every community feature on and every capped workload past its cap: **402 statements warm, 526 on a cold isolate, 564
+cold with every column reported missing** (each job alone equals its line; the role sweep, whose line counts failed
+audits, measured 83 and 86 against 170; since the third review round, with 60 pending promotions in the fixture, 435,
+561 and 599). The same suite run over the sources before this fix measured 940, 1,064 and
+1,102. Since the second review round (3 Oct 2026) the suite also takes the role sweep's line apart, because 83 and 86
+bound it only loosely: its fixed reads (7) and exactly 5 statements an account on the success path, 7 on the failure
+path and 4 for a held account in the banned reconciliation, each the difference between two runs one account apart; the
+call budget (at most 50 requests) stops a failure run at 11 accounts, so the line's 7 x 20 is the account cap's bound.
+The rule is not the cron's alone: `/ingest/roster` wrote one statement per member, so a changed export of 1,000 members
+after a full one sent 1,007 statements; its member rows now go in one `json_each` statement per batch of 50, and that
+export measures 27 statements (29 when the trust base is read; 33 and 35 since the third review round, with its effects
+run, its derivation batch and the newest run read with the newest snapshot), held to 40 (`roster.ts`
+`ROSTER_INGEST_STATEMENTS_FULL_GUILD`, `tests/guild_seats_test.cjs`). **Gate:** before release qualification Codex
+records the account's current per-invocation limit against `D1_STATEMENTS_PER_INVOCATION` (1,000), using the applicable
+account and authoritative documentation evidence. The accounting continues to charge each source-level attempt and
+batch element conservatively; do not present the earlier 13:15 note as provider confirmation of aggregate batching.
+If the actual limit is lower, caps and target must be re-derived and measured before deploy. All figures above remain
+recorded interrupted-work figures until the roster correction and fresh final-head qualification; they are not a
+provider meter or a current acceptance receipt.
+
+**In game.** The in-game ladder decision changed on 3 Oct 2026 (owner answer 6: ten ranks, the Treasurer at index 2
+right below Officer, no Probation), and its planner preset and in-game steps come in a later release.
+
+**Rollout.** As the reviewed order of work has it:
+1. Author evidence on the product head (the publication audit, a fresh literal-classification file, the author tuple,
+   the dry-run `index.js` SHA-256, the `test:all` totals), then the SOURCE FROZEN entry. Codex's source review; findings
+   are fixed in new commits and the head is frozen again.
+2. Codex's four-file successor on the frozen head (`scripts/official_asset_reference.json`, `official_assets.py`
+   `REFERENCE_SHA256`, the `reconcile_public_root.py` V4 pins, `docs/source-provenance.md`) for the two pinned files
+   .115 changes (`app.js`, and `site-data.ts`, which changes only by the `SiteSettings.newsOn` switch; `site-core.ts`,
+   `site-ranks.ts` and every rank-planner file, `app.js` included, are byte-identical to 58abea31), with its coverage
+   receipt. Codex integrates the bytes exactly and qualifies the integrated head with attributable peer review.
+3. Codex's byte-gate contract with the asset manifest (63 runtime files, `guild-seats.ts`, `site-news.ts`,
+   `roster-effects.ts` and `scheduled-budget.ts` among them: 56 under `worker/src` and 7 static; the earlier count was
+   62 before the roster-effects module) and the content approval of the privacy, terms and index root rows, with an attributable
+   independent peer review. Re-derive the tuple on the final successor; historical counts are not a current freeze.
+4. Before the carry: the policy published by the merge says the owner keeps only the newest verified export until the
+   launch is accepted (the owner's answer of 3 Oct 2026). Codex's read-only inventories of 3 Oct 2026 (15:51 and 16:19
+   UTC, the task log) found more copies than the two exports first named: three SQL exports (1 Oct 15:13, 1 Oct 19:15
+   and 2 Oct 20:08 UTC), two local restore SQLite files of 2 Oct, and three Cloudflare D1 recovery scratch databases
+   (created 1 Oct 15:15, 1 Oct 19:16 and 2 Oct 20:10 UTC), with private log and other-root copies still being
+   reconciled. Once the fresh .115 export of step 5 is verified, the owner destroys every one of them (a D1 scratch
+   database is deleted, never assumed empty), so that the .115 export is the only copy. The task log records the time
+   and SHA-256 (or, for a D1 database, its name or UUID) of each destruction, never a path. Then a new finite forward
+   carry of the integrated head onto public `main` 6f462d2, its review and exact-commit Codex qualification, the protected
+   pull request, green CI and the merge.
+5. Before the deploy: a fresh verified private backup (`docs/launch-runbook.md` section 1: exported, then restored
+   privately with matching counts), a Time Travel bookmark and a 47-table count baseline. The backup precedes the deploy
+   because the deploy runs the irreversible settings-audit rewrite at its first isolate start: this export is the only
+   copy of the older rows afterwards, and a deploy without it waits. Codex's deploy qualification on the merged public `main`
+   SHA, with the remote D1 import qualification named OPEN. Deploy promptly: the Pages mirror shows the .115 policy from
+   the merge on.
+6. `bash scripts/deploy-commit.sh <public main sha>` (Viktor, or Codex where Viktor authorized it in the log). Nothing
+   is deployed from the keeper. No command registration and no guide refresh: the guide's text is unchanged.
+7. Read-only read-back: the public `/health` names .115 and the bearer one carries `seats`; the static files equal the
+   integrated head's; `/privacy` and `/terms` equal the Pages copies; the owner's counts-only read finds 51 tables
+   (`worker/schema.sql`: 47 live .114 tables plus the two News and two roster-effects tables); the
+   Overview seat line agrees with `/olympus-admin roster`. Named as residuals, not checks: R2, R5 for an ordinary
+   account, a queued test account's `/verify-status`, and News as an ordinary confirmed member.
+
+   **The settings-audit read-back: a MANDATORY acceptance gate** (Codex, 3 Oct 2026 13:24 UTC). The rewrite runs at an
+   isolate start and a failure only logs and waits for a later start, so the deploy proves nothing about it, and the
+   policy says the owner checks it. A marker alone is not enough either: a Settings save that a .114 isolate finished
+   during the deploy writes the old shape after the marker, and nothing rewrites it while the marker stands. So
+   administrators save no Settings from the start of step 6 until this gate passes, and once `/health` names .115 the
+   owner runs this counts-only read (in bash, `npx wrangler d1 execute <keeper database> --remote --command "<the
+   query>"`):
+
+   ```sql
+   SELECT (SELECT COUNT(*) FROM site_settings WHERE key = 'auditTypedNames') AS marker, (SELECT COUNT(*) FROM audit WHERE action = 'site.settings' AND CASE WHEN json_valid(details) THEN json_type(details, '$.appointed') IS NOT NULL OR json_type(details, '$.notice') = 'text' ELSE 0 END) AS residual, (SELECT COUNT(*) FROM audit WHERE action = 'site.settings' AND json_valid(details) = 0) AS unreadable
+   ```
+
+   It passes only with **marker 1, residual 0 and unreadable 0**; the task log records the three numbers and the time,
+   never a row. `residual` counts settings rows that still carry a named `appointed` field or a notice's text. If it is
+   above 0, the owner deletes the marker (`DELETE FROM site_settings WHERE key = 'auditTypedNames'`) and starts a fresh
+   isolate, whose schema check rewrites once more (both UPDATEs touch only rows still in the old shape): a running
+   isolate has checked its schema already and does not look again, so the owner redeploys the same commit (`bash
+   scripts/deploy-commit.sh <the same public main sha>`, nothing else changes) and requests the bot host's `/health`
+   once (the second review round, 3 Oct 2026); then the read is repeated until it passes. `unreadable` counts settings rows whose details are not JSON, which the rewrite leaves alone and no build
+   writes; if it is above 0, acceptance waits while the owner inspects those rows privately and Codex qualifies the remedy, with
+   no name in the log. `tests/owner_requests_test.cjs` runs this exact query, read from this section, over rows in the
+   old shape, after the rewrite, after a later old-shape save and over a row that is not JSON.
+8. At action time, carry out the owner's already recorded News authorization (Admin → Settings) once its release/live
+   gates are met; optionally post one notice only after the owner approves its exact text.
+9. **Acceptance gates.** .115 is not accepted, and no live acceptance or overall signature counts for it, until both of
+   these hold:
+   - the settings-audit read-back of step 7 has passed (marker 1, residual 0, unreadable 0, in the task log);
+   - the newest-only promise is true (Codex, 3 Oct 2026 13:24 UTC; the owner's answer of 3 Oct 2026 is the instruction,
+     not the evidence). After the fresh .115 export of step 5 was verified, the owner gives the exact inventory of the
+     private copies of the database: every export file (its time and SHA-256, never a path) and every scratch database a
+     verification restored into (its creation time, and its name or UUID, or for a local file its SHA-256). It must hold
+     exactly one copy, the .115 export, and the task log must hold the owner's destruction receipts: the time and the
+     SHA-256 of the destroyed file for each earlier export (1 Oct 15:13, 1 Oct 19:15 and 2 Oct 20:08 UTC), timed after
+     the .115 export was verified (step 4); and one for each scratch database (the two local restore files of 2 Oct and
+     the three D1 recovery databases of 1 Oct 15:15, 1 Oct 19:16 and 2 Oct 20:10 UTC, and any other copy the
+     reconciliation finds), which for a D1 database (it has no SHA-256)
+     is its name or UUID, the time it was deleted and a `npx wrangler d1 list` taken afterwards that no longer shows it,
+     and for a local file its time and SHA-256 (the second review round, 3 Oct 2026; `docs/launch-runbook.md` section
+     1). A plan or an instruction to destroy is not a receipt. Cloudflare's Time Travel history is a separate facility: it is not a private export and not in this
+     inventory, nothing here reads or destroys it, and it ages out by itself within its window (30 days on this plan).
+
+   Then Codex's bounded live acceptance and final exact-commit qualification for .115, with attributable peer evidence
+   and an explicit statement of how the .114 overall scope is superseded, with residuals listed. The .115 export stays
+   as the newest verified export until a
+   newer one replaces it or the launch is accepted (`docs/launch-runbook.md` section 1).
+
+**Rollback.** Fix forward first. A rollback goes only to .114 (Cloudflare 59f6dc91), never to .113: every .113 version
+switches the always-on Battle.net login back on (the secrets are present) and ignores `rename_holds`. .114 ignores the
+new columns and tables: it writes snapshots without `complete`, `trusted` or `first_received_at` (once .115 is back,
+those rows read "not yet checked" until the next export and are never a figures base), and it neither shows nor sweeps
+News notices. A rollback to .114 therefore needs all of these:
+- the owner deletes every row of `site_news_notices` and `site_news_ops` (counts recorded, no text), because .114 would
+  keep notices past the lifetime the policy states; after the roll-forward, administrators reload Admin → News before
+  posting, since a frozen retry from before the rollback no longer meets its tombstone: from a page opened within the
+  30 days before it, it would post its notice again (a page opened earlier is refused for its age, 409 `stale_page`);
+- administrators do not save Settings while .114 runs (it writes appointed names into the settings audit again);
+- a forward-fix policy pull request or a same-day roll-forward, because the published policy describes .115;
+- the rewritten audit rows, the three columns and the two tables stay (harmless under .114). The rollback boundary
+  (Codex, 3 Oct 2026 13:24 UTC; `docs/launch-runbook.md` section 9): .114 writes the old shape, the appointed names and
+  the notice's text, with every settings save, and the marker keeps .115 from rewriting again, so neither the rollback
+  nor the roll-forward nor a mixed-version window ever counts as having rerun the rewrite. Before the roll-forward the
+  owner runs the settings-audit read-back of step 7; if a settings save under .114 (or one a .114 isolate finished
+  during either deploy) left a residual, the owner deletes the marker row (`DELETE FROM site_settings WHERE key =
+  'auditTypedNames'`) so that .115 rewrites once more at the first isolate start after the roll-forward, which is a
+  deploy and so starts fresh isolates (both UPDATEs touch only rows still in the old shape), and after the roll-forward
+  the read-back must pass again (marker 1, residual 0, unreadable 0) before .115 counts as accepted again; should it not,
+  the step-7 remedy (the marker deleted, the same commit redeployed) applies. A `GUILD_MEMBER_CAP` secret, if one was set, is ignored by .114.
+The roster effects' two tables (third review round) stay as well, and .114 ignores them: its own diff applies every
+promotion and departure due at its next export, the old way in one invocation, which is what finding A is about, so a
+rollback while a large backlog is pending (`roster_effect_runs.done_at` empty on the newest run) is a risk to weigh; after
+the roll-forward the next export derives a new run that supersedes whatever was left.
+
+**Review fixes (3 Oct 2026).** The review of the .115 head changed, in four commits: the completion stamp rides in the
+last member batch (a failed last batch takes the snapshot back out and the watcher retries; `roster.stamp_failed` is
+gone), and a row left unfinished for ten minutes is "stuck", written again by the next export and vouched for by sync
+once all its member rows are there; the trust base applies after any row that is not itself trusted, re-judges pre-.115
+rows in order and is kept to `LINKS_NOT_BEFORE` (with no base there the ingest's own decision stands); `/olympus-admin
+queue` counts queued and written rows only; `/verify-status` lets a trusted roster with room outrank an old refusal on
+the queue row; `GET /api/news` judges the switch inside its admitted batch and sends the directory's time on the hour;
+the cron's figures read the switch from the cleanup's batch; the privacy policy's full-guild and Backups wording; the
+roll-forward and read-back counts for the settings audit above; the destruction of the earlier exports before the carry;
+the runbook's export and restore steps; the planner's comment cites the logged answer (withdrawn since, below). An
+invalid `GUILD_MEMBER_CAP` stays 1000, not "unknown" (the plan's rule; `docs/design.md`). The commit body of `1d1ee42`
+says "27 suites": `test:all` ran 28 scripts at that commit (corrected here, never by amending).
+
+**Policy and docs review fixes (3 Oct 2026; Codex 13:24 and 13:26 UTC, `review115/policy-review.md`).** One commit, no
+code, schema, `BUILD` or page change (the comment in `schema.ts` names the read-back's notice field too):
+- **Who can see News** (privacy, "Who can see it"): "never your name" now covers only the figures the site works out by
+  itself (counts and times, never a name or a place in line). A notice is free text an administrator writes for the
+  whole guild, and the site does not check what it says, so the News paragraph says the administrators name a member in
+  a notice only with that member's agreement and that anyone it names can ask any Olympus officer, or use the private
+  request form, to have it changed or deleted, which an administrator does at once (the route the leadership directory
+  already gives typed names). Admin -> News keeps its stricter line, "do not name members" (`app.js` unchanged).
+- **The rewrite of the older settings rows** is said as it behaves, in the policy ("Appointed roles"), `docs/design.md`,
+  the runbook (section 9) and above (Database): once at an isolate start, a failure logged and retried at a later start,
+  and checked by the owner. Rollout step 7's read-back now also counts a notice's text and rows that are not JSON and is
+  a mandatory acceptance gate; step 5 says why the fresh verified backup must come first; the rollback bullet and the
+  runbook (section 9, item 5) state the boundary: an older writer resumed after the marker writes the old shape again,
+  and only deleting the marker makes .115 rewrite it.
+- **The newest-only promise is accepted on receipts** (rollout step 9 and the runbook, section 1): the owner's inventory
+  of every private copy after the .115 export was verified, holding only that export, and a destruction receipt (time
+  and SHA-256) in the task log for each earlier export and each scratch database a verification restored into. Time
+  Travel is a separate facility, outside that inventory.
+- **Typed names across a restore** (the runbook, section 1; the policy's Backups paragraph): right before any restore
+  the owner keeps the `appointed` and `leadership` rows privately as the two statements that write them back (made by
+  SQLite's `quote()`; a missing row becomes a DELETE), runs them right after the restore and before the site is used,
+  through no Worker route and so never into the audit, runs the read-back on the restored database (the marker is never
+  copied), and destroys the private files afterwards, the task log recording their times and SHA-256 and two counts.
+- Beyond the four findings, from the same review: the appointments and the directory are cleared by an administrator
+  after the beta has closed (runbook section 8), not "when the beta ends", which read as a timer.
+
+**Roster and News review fixes (3 Oct 2026; Codex 13:15 UTC, findings 1-5).** Carried here by the second review round
+(the commit bodies of ac9156f and 7c98d69 recorded these notes as owed; 6f21a73 added only the CLAUDE.md part):
+- **Sync decides before it acts** (finding 1, ac9156f): `/olympus-admin sync` reads the latest snapshot's completion and
+  arrival and refuses, before any link, character or role effect, "writing" (complete 0 inside ten minutes) and
+  "incomplete" (fewer member rows stored than `member_count`, whatever the completion state), audited as
+  `admin.sync_refused` with the counts; the human override stays for a fully stored, genuinely smaller distrusted
+  export and for a row left unfinished whose rows are all there. The vouch proves the row count in every branch.
+- **Duplicate names are refused, not collapsed** (finding 2, ac9156f): an export whose names collide once normalised is
+  a 422 before any read or write, `roster.duplicate_names` audited and logged once in six hours; what staff do is in
+  runbook section 10. The completion stamp in the last member batch also proves, in that transaction, that the stored
+  rows number `member_count`, and the pre-.115 back-fill's stamp proves the same count: a pre-.115 row with rows missing
+  becomes complete 0 ("stuck", written again by the next export), so complete 1 always means every member row is stored.
+- **A stale delete never answers with an expired notice's text** (finding 3, 7c98d69): the refusal's read selects the
+  title and text only through CASE on the notice being live; past its time a stale delete gets `{id, revision}` only.
+  The current revision still deletes after expiry and keeps the tombstone.
+- **The figures' compare-and-set carries the switch** (finding 4, 7c98d69): a run already past its reads when News is
+  switched off writes nothing (the INSERT ... SELECT and the UPDATE both carry `NEWS_ON_SQL`), and the outcome is
+  "superseded", as when another run wrote first.
+- **The operation id expires before its record** (finding 5, 7c98d69): `GET /api/admin/news` hands out `opId` with the
+  database's time in its first eight characters; a create is accepted only while that time is within 30 days of the
+  database clock and not ahead of it, inside the same INSERT as the fence. The record lives 120 days from the create, so
+  a stale "Retry the same" meets it or is refused for its age (409 `stale_page`); the time is not signed, which is
+  harmless on this staff-only route (the second review round).
+
+**Second review round (3 Oct 2026; over the four commits above, Codex 13:15, 13:24 and 13:26 UTC).** Five commits:
+- **The roster** (79815cc): each member batch is one `INSERT ... SELECT` over `json_each` of its 50 members, so a
+  changed export of 1,000 members after a full one sends 27 statements (29 when the trust base is read; it was 1,007,
+  over D1's per-invocation 1,000 under the rule .115 adopted), held to 40 (`ROSTER_INGEST_STATEMENTS_FULL_GUILD`); a
+  completion stamp that finds the rows short after every batch committed is a final 422 (`roster.ingest_unusable`, told
+  once in six hours), never a 500 that would hold the watcher's outbox (a failing batch is still retried); the sync's
+  "incomplete" refusal names the snapshot to wait past and `/olympus-admin roster` shows the number.
+- **The scheduled budget** (77d1904): the role sweep's per-account costs measured exactly (5 on the success path, 7 on
+  the failure path, 4 for a held account; the call budget stops a failure run at 11 accounts, so the line's 7 x 20 is
+  the cap's bound); tied departures erased in Discord id order by test; the D1 gate above asks the counting rule and a
+  limit of at least 1,000.
+- **News** (3585bae): the policy lists the next events outside the figures that carry no name, with the titles their
+  organizers typed, as the calendar shows them; it states the 30-day posting window inside the 120-day record; members
+  get no notice id (its first characters are the second an administrator opened Admin → News); the id's time is called
+  a bound, not a signature; the vocabulary guard covers every `worker/src` file .115 changes.
+- **The restore** (661bfa1; `docs/launch-runbook.md` section 1): the site is closed at Cloudflare from before the read
+  until after the read-back (no window in which a restored name is public; the block is also the freeze of Settings,
+  Leadership and News saves); after the restore a redeploy of the same commit starts fresh isolates, so the schema check
+  creates what a pre-.115 copy lacks and rewrites its older settings rows before the read-back; a second private file
+  deletes every restored notice changed or deleted since the copy and puts back the record of every notice posted since
+  (ids and times from the audit, never a text); a D1 scratch database is receipted by name or UUID, deletion time and a
+  listing without it. The same fresh-isolate remedy replaces "a later isolate start" in rollout step 7 and the rollback.
+- **These notes** (this commit): the items above owed by ac9156f and 7c98d69, the sync and News bullets, the Database
+  paragraph's back-fill, the rollback's 30-day boundary, the runtime file count (62), the Tests paragraph's counts,
+  design.md's reasons for findings 1-5, CLAUDE.md and README on the two refusals, runbook section 10, the test plan's
+  rows 6 to 8, and the `site-admin.ts` comment on the rewrite.
+
+**Third review round (3 Oct 2026; Codex 16:48 UTC, finding A, and review115/provisional-9fed-backend.md section 2).**
+One commit: the roster's member effects as a durable, resumable worklist (`src/roster-effects.ts`, `src/roster.ts`;
+`docs/design.md` gives the reasons). The diff after a complete snapshot used to apply every member's effect in the
+export's own invocation; a complete roster of 1,000 links that had all just verified needed about 4,000 statement
+attempts with ROLE_CALL_BUDGET 4, failed partway and after the complete stamp.
+- **A run per snapshot, made with its stamp.** The stamp's batch also inserts the snapshot's run (only when the stamp
+  held), with the snapshot departures are judged against (the last one whose diff was applied) and the ingest's trust
+  decision; an identical export starts a new run of its snapshot, or resumes one never derived.
+- **The derivation is bounded.** One batch: the GUID pins, the returns and the first absences in bulk with their audit
+  rows, and every promotion, D: note and confirmed departure stored as an item in `roster_effects` (a statement per 500
+  members, never one per member); older runs are superseded and their items dropped in the same batch.
+- **Slices, admitted before each item.** Every statement attempt of the invocation is counted, and each item is admitted
+  at its kind's worst case (`EFFECT_WORST`: promote 15, note 17, departure 6; 11 and 13 once the run's call budget cannot
+  afford a grant) against `ROSTER_INGEST_STATEMENTS` (the 700 target less a cold schema check, 536); the claim rides in
+  the transaction of the item's database change. Role grants go through the one role writer, within the run's call
+  budget; a grant it defers is the role sweep's, as before.
+- **Continuation.** Every `/ingest/roster` applies a slice, including an older or repeated export (it still answers
+  "older", and now resumes the newest run first); the cron applies one more as a new line of `src/scheduled-budget.ts`
+  (`continueRosterEffects`, 40 statements). A run records `done_at` when no item is left; `complete` and the fingerprint
+  say nothing about effects.
+- **Supersession.** Every derivation statement and claim requires its run to be the newest and its snapshot the newest
+  stored, so a slice still running when a newer export is stored applies none of its remaining items, and a newer
+  snapshot still being written stops an older run's slice.
+- **The identity rules and sync.** Each release and rename is admitted too (the rest held for the next export or sync);
+  a realm move's namesake sightings are written in bulk. `/olympus-admin sync` counts and admits the same way against
+  `ROSTER_SYNC_STATEMENTS` (516) and answers "Not applied yet (N)" when it stopped short; running it again continues.
+- **Small rosters as before.** An export whose effects fit its invocation applies them all at once, grants and welcomes
+  included, and its run is done in the same request.
+The summary the watcher receives and `roster.ingested` gain `effects` (the run, its items, what this slice applied,
+whether any are pending; counts only); `roster.effects_failed` records a slice stopped by a failure (counts and an error
+category). Not changed by this commit: the join events of `/ingest/events` still promote and remove per event in their
+own invocation (a separate path, bounded by the watcher's batches).
+
+**Withdrawn (owner answer 6, 3 Oct 2026).** The owner's answer 6 makes the in-game ladder ten ranks, the planner's
+existing recommended order, and supersedes answer 1; so one commit takes out what .115 had built for answer 1: the role
+copy's rewrite (`src/site-data.ts` is 58abea31's text again apart from the `newsOn` switch, and the members' release
+note drops its line about it) and the planner's "Use the permission ladder" button (`rank-planner/app.js` is
+58abea31's bytes again), with their checks, and the in-game steps for answer 1 here, in the runbook (its former section
+10; section 10 is now the roster refusals), README and the test plan. The new preset's details come in .116.
+
+**Tests.** New, in `test:all` before `owner_requests_test`: `tests/guild_seats_test.cjs` (122 checks: the cap, the
+latest snapshot only, trust and sync, a probe between member batches, the stamp in the last batch and that batch
+failing, an export with no members, an unfinished row inside and past the ten minutes, the trust base over pre-.115 and
+unfinished rows, the launch ramp after `LINKS_NOT_BEFORE` with News finding its base, the pre-.115 back-fill, the
+refusal order, `/verify-status` (an old refusal outranked by room), own rows only, `/verify`, `getQueue` and attempts
+unchanged while full, `/api/me`, the staff views (an invited row not counted), fault injection, the policy texts),
+`tests/site_news_test.cjs` (131: the switch, access, the switch flipped inside the read's seam, the field rules,
+lifetimes by the database clock, edit refusals, replay, the tombstone, counts-only audit, the cleanup, erasure and
+copies, the figures (no round trip given the cleanup's rows), the real scheduled run's D1 round trips, events, the
+directory's time on the hour, release notes not newer than `BUILD`, the policy texts, a digest-only vocabulary guard
+over the files .115 changes (every `worker/src` file since the second review round, the page script, the planner and
+the policies), README.md, CLAUDE.md, the runbook and the .115 sections, the schema in all three places)
+and `tests/rank_planner_test.cjs` (20: every page script parses, every planner file equals its pin, the planner's own
+buttons over a stub DOM). Changed: `owner_requests_test.cjs` (146: typed names, the one-time rewrite, the policy
+sentences), `frontend_check.cjs` (268: the consent boxes and refusal, a .115 section for every new path, lost and
+refused News changes included, and the Roles page's In game facts as `site-data.ts` has them), `site_test.cjs` (361:
+the tick, the counts-only log), `bundle_runtime_test.cjs` (20: the rewrite in workerd's own D1), `hosts_test.cjs` (89:
+the two new modules and `schema.ts` in the bare-console scan). The three build pins (`site_test`, `hosts_test`,
+`bnet_retention_test`) read .115. `npm run test:all` 2354/2354 over 28 suites, the bundle in workerd among them.
+Codex's findings 1-5 (3 Oct 2026, 13:15 UTC) then grew `guild_seats_test.cjs` 122 -> 160 (the roster fixes, ac9156f:
+2392/2392) and `site_news_test.cjs` 131 -> 152 with `frontend_check.cjs` 268 -> 271 (the News fixes, 7c98d69:
+2416/2416). The scheduled budget (3 Oct 2026, Codex 13:26 UTC) adds `tests/scheduled_budget_test.cjs` after
+`site_news_test` (54: the
+table against `scheduled()`'s jobs, each job alone at its line with its workload past its cap, the schema cold and warm,
+the whole run warm, cold and cold worst, the capped jobs' continuation over successive runs, the opener's unusable ids);
+`role_budget_test`, `role_sweep_test` and `restore_role_test` load the real `scheduled-budget.ts` beside `restore.ts`.
+`npm run test:all` with it: 2470/2470 over 29 suites. The policy and docs review fixes change `owner_requests_test.cjs`
+(146 -> 165: the settings-audit read-back read from rollout step 7 and run over rows in the old shape, after the
+rewrite, over a row that is not JSON, and over a save an older writer made after the marker, with the documented remedy;
+the runbook's typed-name statements read from section 1 and run through its `node` line and a simulated restore, an
+apostrophe, quotes, letters beyond ASCII, a withheld name and a missing row included, with no audit row added; the new
+policy sentences) and `site_news_test.cjs` (152 -> 153: "never your name" for the figures only, and a notice's agreement
+and removal route). `npm run test:all`: 2490/2490 over 29 suites. The second review round: `guild_seats_test.cjs` 160 ->
+171 (the json_each batches and their fields, the full-guild ingest bound, the final 422 for a short stamp with the next
+verification delivered, the refusal's snapshot number, every audit read guarded), `scheduled_budget_test.cjs` 54 -> 60
+(the sweep's exact per-account costs, tied departures), `site_news_test.cjs` 153 -> 155 -> 167 (no id for members, event
+titles and the 30-day sentence in the policy, the guard over 28 files; a simulated restore with the runbook's News
+statements) and `owner_requests_test.cjs` 165 -> 166 (the restore sentence and the runbook's block and fresh isolates).
+The .115 suites now count `guild_seats_test` 171, `site_news_test` 167, `scheduled_budget_test` 60,
+`owner_requests_test` 166, `frontend_check` 271 and `rank_planner_test` 20. `npm run test:all`: 2522/2522 over 29
+suites. The third review round adds `tests/roster_effects_test.cjs` after `scheduled_budget_test` (45: the 1,000-link
+counterexample with ROLE_CALL_BUDGET 4 worked off over 11 exports and 10 cron runs, each invocation within the 700
+target with its cold schema check (at most 588), every link promoted, deferred and welcomed exactly once, the run done
+only at the end; a fault before an item's commit and one after it, then the resume; supersession by a newer export while
+a cron slice runs and by a newer snapshot still being written; the stamp's own batch making the run, a refused stamp, a
+stop between the stamp and the derivation resumed after the grace and a newer export judging against the last applied
+snapshot; small rosters applied whole; each kind's worst case one item apart; a 1,000-member sync over repeated syncs;
+a realm move of 300 sighted in bulk and released over admitted syncs) and changes `scheduled_budget_test.cjs` 60 -> 65
+(the new line, the cron's slice on its success, failure and deferred paths, the backlog in the whole run, the schema
+check's 126 and 129), `guild_seats_test.cjs` (171: the last member batch carries the stamp and then the run) and
+`site_news_test.cjs` (167: 51 tables, the vocabulary guard over 29 files with `roster-effects.ts`). `npm run test:all`:
+2572/2572 over 30 suites.
+
+**Takeover correction (3 October 2026; not a deployment receipt).** The owner removed the prospective dual-signature
+requirement after Claude's usage limit. Codex repaired cumulative notice-debt admission, retry retention, legacy/partial
+snapshot completeness, exact-binding atomic rename/release fences, Settings/Leadership stale-save races and the News
+form's unproven-absence handling. The focused roster suite now has 87 checks, seats 171, scheduler 65, tickets 59 and
+owner requests 191. The final exact-head full-suite receipt supersedes those focused counts; no test of an earlier
+source qualifies a later freeze. The statement allowances and 694/700 scheduled model remain unchanged. The official-art
+successor must close exactly 63 runtime paths; its four shipping files and actual candidate acceptance remain separate
+from source checks. Rollout, backup validation, typed-audit readback and exact-copy cleanup gates above still apply.

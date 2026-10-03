@@ -23,6 +23,7 @@ export interface Env {
   QUEUE_CLAIM_PRIORITY_EXTRA?: string; // reserved names (priority rows) an officer may hold on top of that (ingest.ts getQueue, default 10)
   ROSTER_MIN_MEMBERS: string;         // refuse to act on a roster export smaller than this (0 = no floor)
   ROSTER_MAX_SHRINK_PCT: string;      // refuse to strip roles when an export shrank by more than this percentage
+  GUILD_MEMBER_CAP?: string;          // .115: roster count at which Olympus I counts as full for the status texts (guild-seats.ts); 900..1000, anything else = 1000; informational only. Set only as an owner secret or through a reviewed profile change
   ADMISSION_MODE: "review" | "auto";  // review = officer clicks Approve; auto = valid code queues an invite
   SET_NICKNAME: "true" | "false";     // set Discord nickname to the character name on admission
   SET_GUILD_NOTE: "true" | "false";   // addon writes the Discord ID into the public note — forbidden for addons on the Forever beta (1.60.1.69893); keep false there
