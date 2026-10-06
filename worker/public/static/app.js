@@ -697,7 +697,7 @@
     const main = h("main", { class: "shell", id: "main" });
     app.appendChild(main);
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
-    if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // the Roles page, Your data and the private request form are open to everyone (.93)
+    if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // the Roles page and the saved account/contact fragment redirects need no sign-in
     else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView; // .93: a denied identity keeps its copy and the request form
     if (head === "admin" && !(S.user && S.user.isAdmin)) view = ROUTES[""];
     try {
@@ -861,7 +861,7 @@
     add(main, frame("Registration denied", null,
       h("p", { text: S.deniedText || "Your registration with Olympus has been permanently denied." }),
       h("p", { class: "muted", text: "If you want what this site holds about you removed, ask an Olympus officer, or send a private request." }),
-      h("p", null, h("a", { href: "#/data", text: "Your data" }), ": download your copy, read the policies, or send a private request.")));
+      h("p", null, h("a", { href: "/privacy/account", text: "Account data controls" }), ": download your curated copy or contact the privacy inbox.")));
   }
 
   // ---------- reserved names (on Home) ----------
@@ -1921,7 +1921,7 @@
         h("div", { class: "filters" }, h("label", { class: "field" }, h("span", { class: "sr", text: "Which applications" }), heatRole)),
         heatBox),
       frame("Downloads", null,
-        h("p", { class: "muted small", text: "Spreadsheet files (CSV) of the site's six core record families: applications, board votes, write-ins, friends, reserved names and accounts. They contain people's answers and Discord ids: keep them private. The community modules, a member's own copy (Your data) and the private request cases are not in these files; they have their own pages and routes." }), // .105: what the six files are, not "everything"
+        h("p", { class: "muted small", text: "Spreadsheet files (CSV) of the site's six core record families: applications, board votes, write-ins, friends, reserved names and accounts. They contain people's answers and Discord ids: keep them private. The community modules, a member's curated copy (Account data controls) and the private request cases are not in these files; they have their own pages and routes." }), // .105: what the six files are, not "everything"
         h("div", { class: "btn-row" }, exportLink("applications", "Applications"), exportLink("board", "Board votes"), exportLink("votes", "Write-ins"), exportLink("friends", "Friends"), exportLink("reserved", "Reserved names"), exportLink("users", "Accounts"))),
       frame("Recent activity", null, showActivity, activity),
     ]);
@@ -2073,24 +2073,24 @@
   async function bnetSwitchFrame() {
     let st;
     try { st = await api("GET", "/api/admin/bnet-switch"); } catch (e) { return frame("Battle.net sign-in", null, h("p", { class: "err small", text: explain(e, "The switch could not be read.") })); }
-    const reason = !st.configured ? "The Worker has no Battle.net client credentials." : !st.policyReady ? "The privacy policy does not describe Battle.net sign-in, so it cannot be switched on: a reviewed release has to add that section first." : "";
-    const locked = !!reason && !st.adminOn; // a switch that is somehow on can always be turned off
-    const box = h("input", { type: "checkbox", checked: st.adminOn, disabled: locked, id: "bnet-switch" });
+    const reason = "Enable records a request only. Collection stays OFF until a reviewed same-version ON policy, suitable Forever API and recovery plan are released.";
+    const locked = false; // a switch that is somehow on can always be turned off
+    const box = h("input", { type: "checkbox", checked: st.enableRequested, disabled: locked, id: "bnet-switch" });
     const save = h("button", { class: "btn small", type: "button", text: "Save", disabled: locked });
     save.addEventListener("click", async () => {
       const on = box.checked;
-      if (on && !(await confirmBox("Switch Battle.net sign-in on?", "Members could then link a Battle.net account again through Discord's Linked Roles: the bot stores their BattleTag and Battle.net account ID for 29 days from their last Battle.net sign-in.", "Switch on", { typeToConfirm: "ENABLE" }))) { box.checked = st.adminOn; return; }
+      if (on && !(await confirmBox("Request future Battle.net enablement?", "This records an enable request only. It cannot turn collection on in the current OFF release.", "Record request", { typeToConfirm: "ENABLE" }))) { box.checked = st.enableRequested; return; }
       save.disabled = true;
       try {
         await api("PUT", "/api/admin/bnet-switch", on ? { on, confirm: "ENABLE" } : { on });
-        st.adminOn = on;
-        toast(on ? "Battle.net sign-in is on." : "Battle.net sign-in is off.", "good");
-      } catch (err) { box.checked = st.adminOn; toast(explain(err), "bad"); } finally { save.disabled = locked; }
+        st.enableRequested = on;
+        toast(on ? "Enable request recorded; collection remains off." : "Battle.net sign-in paused.", "good");
+      } catch (err) { box.checked = st.enableRequested; toast(explain(err), "bad"); } finally { save.disabled = locked; }
     });
     return frame("Battle.net sign-in", h("span", { class: "badge " + (st.effective ? "green" : "muted"), text: st.effective ? "on" : "off" }),
-      h("p", { class: "muted small", text: "The optional Battle.net link through Discord's Linked Roles. While it is off, its pages refuse before anything is collected and the bot says nothing about Battle.net. What earlier links stored is still deleted automatically 29 days after each link. Switching it on proves a BattleTag only, not a World of Warcraft: Forever character." }),
+      h("p", { class: "muted small", text: "The optional connector stays in its released OFF profile. Pausing is immediate; a reviewed policy release is needed to change the static OFF/ON profile. Legacy-data cleanup continues while off. Local unlink is separate from removing a connection in Discord." }),
       kv([["Client credentials", st.configured ? "present" : "missing"], ["Privacy policy describes it", st.policyReady ? "yes" : "no"], ["Last changed", st.changedAt ? fmtDateTime(st.changedAt) : "never"]]),
-      h("label", { class: "check field", for: "bnet-switch" }, box, h("span", null, "Battle.net sign-in is switched on", reason ? h("span", { class: "hint", text: reason }) : null)),
+      h("label", { class: "check field", for: "bnet-switch" }, box, h("span", null, "Request future enablement (uncheck to pause)", reason ? h("span", { class: "hint", text: reason }) : null)),
       h("div", { class: "btn-row" }, save));
   }
   /** .114: the Olympus I-X leadership directory (the Worker's site-leadership.ts). Names only; a listing grants nothing. */
@@ -2816,6 +2816,7 @@
     unreadable_answer: "The answer could not be read, so the outcome is unknown.",
   };
   const codeOf = (e) => (e && e.data && e.data.error) || (e && e.code) || "";
+  const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
   const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)] || (e && e.message) || fallback || "Something went wrong.";
   const PUBLIC_ROUTES = new Set(["roles", "request", "data"]); // pages that need no sign-in
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
@@ -2823,10 +2824,10 @@
     // .114 (Viktor, 2 Oct 2026): the policy and data links are for signed-in members. Signed out, the footer keeps only the
     // private request form, whose people cannot sign in; /privacy and /terms stay at their addresses (the Discord
     // application links them, and the pages that ask for data link them where they ask).
-    const request = feat("privacy_intake") ? h("a", { href: "#/request", text: "Private request" }) : null;
+    const request = feat("privacy_intake") ? h("a", { href: "/privacy/contact", text: "Private request" }) : null;
     if (!S.signedIn) return request ? h("p", { class: "footer-links" }, request) : null;
     return h("p", { class: "footer-links" },
-      h("a", { href: "/privacy", text: "Privacy Policy" }), " · ", h("a", { href: "/terms", text: "Terms of Service" }), " · ", h("a", { href: "#/data", text: "Your data" }),
+      h("a", { href: "/privacy", text: "Privacy Policy" }), " · ", h("a", { href: "/terms", text: "Terms of Service" }), " · ", h("a", { href: "/privacy/account", text: "Account data controls" }),
       request ? [" · ", request] : null);
   }
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
@@ -2842,287 +2843,12 @@
   const CASE_ID = /^[A-Za-z0-9_-]{22}$/, CASE_CODE = /^[A-Za-z0-9_-]{43}$/;
   const errorLine = (text) => h("p", { class: "err small", role: "alert", text });
 
-  // ---------- your data ----------
-  ROUTES.data = function data(main) {
-    add(main, [
-      frame("Your data", null,
-        h("p", null, "What Olympus Verify and this site hold about your Discord account, and what you can do about it. The ", h("a", { href: "/privacy", text: "Privacy Policy" }), " says what is stored and for how long; the ", h("a", { href: "/terms", text: "Terms of Service" }), " say how the bot tells you about your access."),
-        S.signedIn
-          ? h("div", { class: "stack" },
-              h("p", null, h("a", { class: "btn", href: "/api/me/export", download: "olympus-my-data.json", text: "Download your copy (JSON)" })),
-              h("p", { class: "muted small", text: "A copy curated for you: your account, your application, votes and friends by the labels you chose, your reserved names, the bot's view of you, the dated actions naming your account (the earliest thousand) and every community page's records about you. It leaves out staff notes and identities, raw roster snapshots and the private details of recorded payments. About five copies an hour." }),
-              S.denied ? h("p", { class: "muted small", text: "Your registration is denied; your copy is still yours to download, and the private request form is open to you." }) : null,
-              continuationForm())
-          : noticeBox("info", "icon-shield", h("p", null, "Sign in to download your copy. "), h("p", null, signInButton(false)))),
-      frame("Removing it", null,
-        h("p", null, "Ask any Olympus officer: the site's administrators delete what the site holds about you, and an officer unbinds your characters in the bot. The Privacy Policy says exactly what remains, and why."),
-        feat("privacy_intake") ? h("p", null, "If you can no longer reach Discord, use the ", h("a", { href: "#/request", text: "private request form" }), "; it needs no sign-in.") : null),
-    ]);
-  };
-  function continuationForm() {
-    const input = h("input", { type: "text", maxlength: "40", placeholder: "actions.nextCursor from your copy", "aria-label": "Continuation cursor" });
-    const link = h("a", { class: "btn small", href: "#", text: "Download the next actions", hidden: true });
-    input.addEventListener("input", () => {
-      const v = input.value.trim();
-      const ok = /^\d{1,12}\.\d{1,12}$/.test(v);
-      link.hidden = !ok;
-      if (ok) link.setAttribute("href", `/api/me/export?actions=${encodeURIComponent(v)}`);
-    });
-    return h("details", { class: "zone" }, h("summary", { text: "More than a thousand dated actions?" }),
-      h("p", { class: "muted small", text: "Your copy carries actions.nextCursor when more exist. Paste it here for the next page; every page is a fresh snapshot, so the first file is never all of the history." }),
-      h("div", { class: "btn-row" }, input, link));
-  }
+  // .116 (6 Oct 2026): account controls belong to the bottom policy surface; retain saved fragment compatibility.
+  ROUTES.data = function data() { location.replace("/privacy/account"); };
 
   // ---------- the private request form (no sign-in) ----------
   const REQUEST_KINDS = [["access", "Access: a copy of what is held about me"], ["deletion", "Deletion: remove what is held about me"], ["correction", "Correction: something stored is wrong"], ["objection", "Objection: stop using something"], ["other", "Something else"]];
-  ROUTES.request = async function request(main) {
-    add(main, frame("Private request", null,
-      h("p", null, "For anyone who can no longer reach Discord: ask the site's administrators about your data here, without signing in. Your browser makes a case number and a secret code; keep both, because they are the only way back to the conversation. A case proves access to that conversation, not who owns an account: the administrators verify that in the conversation before acting through the site's own tools."),
-      h("p", { class: "muted small" }, "What is stored, and how a case is kept: the ", h("a", { href: "/privacy", text: "Privacy Policy" }), ".")));
-    if (!feat("privacy_intake")) {
-      add(main, noticeBox("warn", "icon-warning", h("p", { text: "The private request form is not switched on. Ask any Olympus officer." })));
-      return;
-    }
-    const box = h("div", { class: "stack" });
-    add(main, box);
-    let config;
-    try {
-      config = await api("GET", "/api/privacy/config");
-    } catch (e) {
-      add(box, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The form could not be reached.") })));
-      return;
-    }
-    add(box, [
-      config.enabled
-        ? newCasePanel(config)
-        : frame("New case", null, noticeBox("info", "icon-clock", h("p", { text: config.monitoringConfirmed ? "New cases are not being accepted right now." : "New cases are not being accepted right now: nobody is reading the queue yet." }), h("p", { class: "muted small", text: "An existing case can still be read and answered below." }))),
-      existingCasePanel(config),
-    ]);
-  };
-  /** .100 (F1): an operation whose answer was lost (the network failed, or no readable answer): the outcome is unknown, so nothing is edited, regenerated or re-sent on its own. */
-  const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
-  function newCasePanel(config) {
-    // the number and the code are made ONCE for this form, so a retry after a lost answer finds its own receipt (an exact retry is answered with the original)
-    const caseId = b64url(16), caseCode = b64url(32);
-    const kind = selectOf(REQUEST_KINDS.map(([key, label]) => ({ key, label })), "access", { placeholder: "Choose what you ask for…" });
-    const details = h("textarea", { rows: "6", maxlength: String(config.maxDetailsLength), required: true, placeholder: "What do you ask for? Say which account or character it concerns if you can." });
-    const subjectHint = h("input", { type: "text", maxlength: "64", placeholder: "optional: who you are (a Discord name, a BattleTag without numbers…)" });
-    const characterHint = h("input", { type: "text", maxlength: "64", placeholder: "optional: a character name" });
-    const website = h("input", { type: "text", name: "website", class: "sr", tabindex: "-1", autocomplete: "off", "aria-hidden": "true" }); // honeypot: stays empty
-    const err = errorLine(""); err.hidden = true;
-    const pending = h("div"); // .100 (F1): the lost-answer state, with the only two actions it allows
-    const send = h("button", { class: "btn", type: "submit", text: "Open the case" });
-    const panel = frame("New case", h("span", { class: "badge muted", text: `kept ${plural(config.retentionDays, "day")} from its last activity` }));
-    const form = h("form", { class: "stack", novalidate: true },
-      fieldBox("kind", "What you ask for", kind, { required: true }),
-      fieldBox("details", "Your request", details, { required: true, counter: withCounter(details, config.maxDetailsLength), hint: "Only what the administrators need to find and act on your records. Never a password, a token or a code from elsewhere." }),
-      fieldBox("subject", "Who you are (optional)", subjectHint),
-      fieldBox("character", "A character (optional)", characterHint),
-      website, err, pending, h("div", { class: "btn-row" }, send));
-    let frozen = null; // .100 (F1): the exact body of the request whose answer was lost; a retry sends these bytes and nothing else
-    const lock = (on) => { for (const f of [kind, details, subjectHint, characterHint]) f.disabled = on; send.disabled = on; };
-    const sendBody = async (body) => {
-      const receipt = await api("POST", "/api/privacy/requests", body);
-      // .104 (F100-1): the receipt must be the one this form asked for before anything is shown as done
-      if (!receipt || receipt.caseId !== caseId || typeof receipt.createdAt !== "string") throw new ApiError(200, { error: "unreadable_answer" });
-      panel.replaceWith(receiptPanel(receipt, caseCode));
-    };
-    // a definitive refusal: the form is editable again (the ids stay: the Worker holds nothing under them, or the retry of an identical request is answered with the original)
-    const refused = (ex) => {
-      frozen = null; clear(pending); lock(false);
-      err.textContent = explain(ex, "The case could not be opened.");
-      err.hidden = false;
-    };
-    const checkStored = async (e) => {
-      e.currentTarget.disabled = true;
-      try {
-        const data = await api("POST", "/api/privacy/requests/read", { caseId, caseCode });
-        // .107 (Codex's .104 review, group 1): the read must be THIS case, in the read route's shape, before a receipt is made from it; anything else is an unknown outcome and the frozen request stays
-        if (!data || data.caseId !== caseId || typeof data.status !== "string" || typeof data.createdAt !== "string" || typeof data.retentionDeadline !== "string" || !Array.isArray(data.messages)) throw new ApiError(200, { error: "unreadable_answer" });
-        panel.replaceWith(receiptPanel({ caseId, status: data.status, createdAt: data.createdAt, retentionDeadline: data.retentionDeadline }, caseCode)); // it was stored: the receipt, from the case itself
-      } catch (ex) {
-        if (codeOf(ex) === "case_not_found") { frozen = null; clear(pending); lock(false); err.textContent = "Nothing is stored under this number: you may change your request and send it again."; err.hidden = false; return; }
-        toast(explain(ex, "The check did not answer."), "bad");
-        e.currentTarget.disabled = false;
-      }
-    };
-    const retry = async (e) => {
-      e.currentTarget.disabled = true;
-      try { await sendBody(frozen); } catch (ex) {
-        if (uncertain(ex)) { toast("The answer was lost again. Try once more, or check whether it was stored.", "bad"); e.currentTarget.disabled = false; return; }
-        refused(ex);
-      }
-    };
-    const lost = () => {
-      clear(pending);
-      pending.appendChild(noticeBox("warn", "icon-warning",
-        h("p", null, h("strong", { text: "The answer was lost. " }), "Your request may have been stored. Nothing is changed, made anew or sent again on its own: retry the SAME request (a stored one is answered with its original receipt, never doubled), or check first whether a case with this number exists."),
-        h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Retry the same request", onclick: retry }), h("button", { class: "btn small", type: "button", text: "Check whether it was stored", onclick: checkStored }))));
-    };
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      err.hidden = true;
-      if (frozen) return; // an unresolved lost answer: only the two buttons act
-      const text = details.value.trim();
-      if (!kind.value) { err.textContent = "Choose what you ask for."; err.hidden = false; return; }
-      if (text.length < 1) { err.textContent = "Write what you ask for."; err.hidden = false; details.focus(); return; }
-      const body = { caseId, caseCode, kind: kind.value, details: text, website: website.value };
-      if (subjectHint.value.trim()) body.subjectHint = subjectHint.value.trim();
-      if (characterHint.value.trim()) body.characterHint = characterHint.value.trim();
-      lock(true);
-      try { await sendBody(body); } catch (ex) {
-        if (uncertain(ex)) { frozen = body; lost(); return; }
-        refused(ex);
-      }
-    });
-    add(panel, form);
-    return panel;
-  }
-  function copyButton(value, label) {
-    return h("button", { class: "btn small", type: "button", text: label, onclick: async (e) => {
-      try { await navigator.clipboard.writeText(value); e.currentTarget.textContent = "Copied"; } catch { e.currentTarget.textContent = "Select and copy it by hand"; }
-    } });
-  }
-  function receiptPanel(receipt, caseCode) {
-    return frame("Your case is open", h("span", { class: "badge green", text: CASE_STATUS[receipt.status] || receipt.status }),
-      noticeBox("warn", "icon-warning", h("p", null, h("strong", { text: "Write these down now. " }), "The code is shown only here: it is never stored in a readable form, never sent in a link, and nobody can look it up for you.")),
-      h("dl", { class: "kv" },
-        h("dt", { text: "Case number" }), h("dd", null, h("code", { class: "case-value", text: receipt.caseId }), " ", copyButton(receipt.caseId, "Copy number")),
-        h("dt", { text: "Case code" }), h("dd", null, h("code", { class: "case-value", text: caseCode }), " ", copyButton(caseCode, "Copy code")),
-        h("dt", { text: "Opened" }), h("dd", { text: fmtDateTime(Math.floor(Date.parse(receipt.createdAt) / 1000)) }),
-        h("dt", { text: "Kept until" }), h("dd", { text: fmtDateTime(Math.floor(Date.parse(receipt.retentionDeadline) / 1000)) + " (longer while the conversation continues)" })),
-      h("p", { class: "muted small", text: "Come back to this page, enter the number and the code under “Open an existing case”, and read the administrators' answer there. Closing a case deletes nothing by itself; the administrators act through the site's own tools and tell you in the case." }));
-  }
-  function existingCasePanel(config) {
-    const idInput = h("input", { type: "text", maxlength: "22", autocomplete: "off", spellcheck: "false", placeholder: "22 characters" });
-    const codeInput = h("input", { type: "password", maxlength: "43", autocomplete: "off", placeholder: "43 characters" });
-    const err = errorLine(""); err.hidden = true;
-    const read = h("button", { class: "btn", type: "submit", text: "Open the case" });
-    const ack = h("p", { class: "small ack", hidden: true }); // .100 (F3): a committed reply is acknowledged here, whatever a later read answers
-    const held = h("div"); // .104 (F100-2): where a reply waiting for a lost answer is named when another case is opened
-    const thread = h("div", { class: "stack mt" });
-    // .104 (F100-2): ONE reply whose answer was lost, kept for ITS case only (number, code, message id and text, in memory): every
-    // re-read of that case restores it as the same locked operation; a read of another case never carries it over
-    let pendingOp = null, readGen = 0; // .107 (group 4): every read is bound to the case the inputs named when it started
-    const form = h("form", { class: "stack", novalidate: true },
-      fieldBox("case-id", "Case number", idInput, { required: true }),
-      fieldBox("case-code", "Case code", codeInput, { required: true, hint: "Entered here only; it travels in the request and is never stored in a readable form." }),
-      err, h("div", { class: "btn-row" }, read));
-    const unavailable = (message) => { clear(thread); thread.appendChild(noticeBox("warn", "icon-warning", h("p", { text: message }))); };
-    const showHeld = () => {
-      clear(held);
-      if (!pendingOp) return;
-      held.appendChild(noticeBox("warn", "icon-warning",
-        h("p", { text: `A reply to case ${pendingOp.caseId} is still waiting for a lost answer. It stays with that case and is not sent to any other: open that case again to retry it, or discard it.` }),
-        h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Discard that reply", onclick: () => { pendingOp = null; clear(held); } }))));
-    };
-    const show = async () => {
-      err.hidden = true;
-      const caseId = idInput.value.trim(), caseCode = codeInput.value.trim();
-      if (!CASE_ID.test(caseId) || !CASE_CODE.test(caseCode)) { err.textContent = "The number has 22 characters and the code 43; check both."; err.hidden = false; return; }
-      const gen = ++readGen;
-      read.disabled = true;
-      try {
-        const data = await api("POST", "/api/privacy/requests/read", { caseId, caseCode });
-        if (gen !== readGen) return; // .107 (group 4): a newer read replaced this one; its thread belongs to a case the inputs no longer name
-        if (!data || data.caseId !== caseId || !Array.isArray(data.messages)) throw new ApiError(200, { error: "unreadable_answer" }); // .107 (group 1): the read is this case, in the read route's shape
-        clear(thread);
-        const mine = pendingOp && pendingOp.caseId === caseId ? pendingOp : null;
-        if (pendingOp && !mine) showHeld(); else clear(held);
-        thread.appendChild(conversation(data, caseId, caseCode, config, show, {
-          onSent: (line) => { ack.textContent = line; ack.hidden = false; },
-          pending: mine,
-          // .107 (group 3): a clear is bound to the operation's own identity (its message id): another conversation's success,
-          // refusal or discard never clears a reply that waits for a lost answer
-          setPending: (op, ownId) => { if (op) { pendingOp = op; return; } if (pendingOp && pendingOp.messageId === ownId) { pendingOp = null; clear(held); } },
-          otherPending: () => !!pendingOp && pendingOp.caseId !== caseId, // .107 (group 3): while another case's reply waits, a competing write here is refused, not raced
-        }));
-      } catch (ex) {
-        if (gen !== readGen) return; // a newer read replaced this one: its refusal is not this page's state
-        err.textContent = explain(ex, "The case could not be read.");
-        err.hidden = false;
-        // .100 (F3): a fresh read that is refused or finds nothing leaves no stale conversation on the page
-        if (codeOf(ex) === "case_not_found") unavailable("This case is no longer available on this page: it is past its deadline, or the number and code no longer match. What was shown before is gone from this page; nothing you sent is changed by that.");
-        else if (thread.firstChild) unavailable(explain(ex, "The case could not be re-read; what was shown before is not current."));
-        if (pendingOp) showHeld(); // the waiting reply is still named, and still only for its own case
-      } finally { if (gen === readGen) read.disabled = false; }
-    };
-    form.addEventListener("submit", (e) => { e.preventDefault(); show(); });
-    return frame("Open an existing case", null, form, ack, held, thread);
-  }
-  const CASE_STATUS = { received: "Received", in_review: "In review", needs_verification: "Needs verification", completed: "Completed", declined: "Declined" };
-  function conversation(data, caseId, caseCode, config, reload, { onSent = () => {}, pending = null, setPending = () => {}, otherPending = () => false } = {}) {
-    const closed = data.status === "completed" || data.status === "declined";
-    const msg = (m) => h("div", { class: "card message " + m.from }, h("div", { class: "muted small", text: `${m.from === "you" ? "You" : "Staff"} · ${fmtDateTime(Math.floor(Date.parse(m.at) / 1000))}` }), h("p", { text: m.text }));
-    const list = h("div", { class: "stack messages" }, data.messages.map(msg));
-    const older = data.hasMore ? h("button", { class: "btn small", type: "button", text: "Load older messages", onclick: async (e) => {
-      e.currentTarget.disabled = true;
-      try {
-        const more = await api("POST", "/api/privacy/requests/read", { caseId, caseCode, before: data.messages[0].messageId });
-        const head = list.firstChild;
-        for (const m of more.messages) list.insertBefore(msg(m), head);
-        data.messages = more.messages.concat(data.messages);
-        if (!more.hasMore) e.currentTarget.remove(); else e.currentTarget.disabled = false;
-      } catch (ex) { toast(explain(ex), "bad"); e.currentTarget.disabled = false; }
-    } }) : null;
-    // one id per attempt: an exact retry is the same message, never a second one; .104: a reply waiting for a lost answer keeps ITS id across re-reads
-    let messageId = pending ? pending.messageId : b64url(16);
-    let frozenText = pending ? pending.text : null; // .100 (F1): the reply whose answer was lost: a retry sends this text and nothing else
-    const text = h("textarea", { rows: "4", maxlength: String(config.maxMessageLength), placeholder: closed ? "This case is closed." : "Your answer to the administrators", disabled: closed });
-    text.value = closed ? "" : (pending ? pending.text : "");
-    const err = errorLine(""); err.hidden = true;
-    const pendingBox = h("div");
-    const send = h("button", { class: "btn", type: "submit", text: "Send", disabled: closed });
-    const reply = h("form", { class: "stack", novalidate: true }, fieldBox("reply", "Reply", text, { counter: withCounter(text, config.maxMessageLength) }), err, pendingBox, h("div", { class: "btn-row" }, send));
-    const lock = (on) => { text.disabled = on || closed; send.disabled = on || closed; };
-    const settled = () => { frozenText = null; clear(pendingBox); setPending(null, messageId); lock(false); }; // .107 (group 3): clears only this operation's own identity
-    const post = async (body) => {
-      const out = await api("POST", "/api/privacy/requests/reply", { caseId, caseCode, messageId, text: body });
-      // .104 (F100-1): a success whose receipt cannot be read or used is an UNKNOWN outcome: nothing is cleared or renumbered before the receipt is validated
-      if (!out || typeof out.at !== "string" || out.messageId !== messageId) throw new ApiError(200, { error: "unreadable_answer" });
-      settled();
-      messageId = b64url(16);
-      text.value = ""; text.dispatchEvent(new Event("input")); // .100 (F3): the sent text is cleared; the acknowledgement stays outside this conversation
-      onSent(`Your reply to case ${caseId} was sent at ${fmtDateTime(Math.floor(Date.parse(out.at) / 1000))}.`); // .109 (Codex 12:25): the acknowledgement names its case, so it never reads as another case's
-      toast("Sent.", "good");
-      await reload();
-    };
-    const refused = (ex) => { settled(); err.textContent = explain(ex, "The reply could not be sent."); err.hidden = false; };
-    const arrived = () => data.messages.some((m) => m.from === "you" && m.messageId === messageId); // .107 (group 2): the stored list shows THIS reply by its id (the read route exposes it), never an older message with the same words
-    const lost = () => {
-      lock(true);
-      setPending({ caseId, caseCode, messageId, text: frozenText });
-      clear(pendingBox);
-      pendingBox.appendChild(noticeBox("warn", "icon-warning",
-        h("p", null, h("strong", { text: "The answer was lost. " }), arrived() ? "The messages above already show this reply, so it was stored: discard the draft below rather than sending it again." : "Your reply may have been stored. Retry the SAME reply (a stored one is answered, never doubled), or re-read the case to see whether it arrived; your text is kept with this case either way."),
-        h("div", { class: "btn-row" },
-          arrived() ? null : h("button", { class: "btn small", type: "button", text: "Retry the same reply", onclick: async (ev) => {
-            ev.currentTarget.disabled = true;
-            try { await post(frozenText); } catch (ex2) { if (uncertain(ex2)) { toast("The answer was lost again.", "bad"); ev.currentTarget.disabled = false; } else refused(ex2); }
-          } }),
-          h("button", { class: "btn small", type: "button", text: "Re-read the case", onclick: () => reload() }),
-          h("button", { class: "btn small", type: "button", text: "Discard the draft", onclick: () => { settled(); text.value = ""; text.dispatchEvent(new Event("input")); messageId = b64url(16); } }))));
-    };
-    reply.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      err.hidden = true;
-      if (frozenText !== null) return; // an unresolved lost answer: only the buttons act
-      const body = text.value.trim();
-      if (!body) { err.textContent = "Write something first."; err.hidden = false; return; }
-      // .107 (group 3): one waiting reply at a time, and it belongs to its own case: a write to another case is refused until that one is retried or discarded
-      if (otherPending()) { err.textContent = "A reply to another case is still waiting for a lost answer (named above). Retry or discard it first; nothing is sent to this case meanwhile."; err.hidden = false; return; }
-      lock(true);
-      try { await post(body); } catch (ex) {
-        if (!uncertain(ex)) { refused(ex); return; }
-        frozenText = body;
-        lost();
-      }
-    });
-    if (frozenText !== null && !closed) lost(); // .104 (F100-2): the re-read conversation restores the waiting reply as the same locked operation
-    return frame(`Case ${caseId}`, h("span", { class: "badge " + (closed ? "muted" : "green"), text: CASE_STATUS[data.status] || data.status }),
-      h("p", { class: "muted small", text: `Opened ${fmtDateTime(Math.floor(Date.parse(data.createdAt) / 1000))} · last activity ${fmtDateTime(Math.floor(Date.parse(data.updatedAt) / 1000))} · kept until ${fmtDateTime(Math.floor(Date.parse(data.retentionDeadline) / 1000))}${closed ? " (closed: the deadline is fixed)" : " (extended by each message)"}` }),
-      older, list, reply);
-  }
+  ROUTES.request = async function request() { location.replace("/privacy/contact"); };
 
   // ---------- the community pages ----------
   const newsOn = () => !!(S.settings && S.settings.newsOn); // .115: SiteSettings.newsOn, off unless an administrator switched it on
@@ -3180,7 +2906,6 @@
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
     if (newsOn()) cards.push(h("a", { class: "card", href: "#/community/news" }, h("div", { class: "card-head" }, icon("icon-launch"), h("h3", { text: "News" })), h("p", { class: "muted small", text: "Notices from the site's administrators, whether Olympus I has room, the guild in figures and what is coming up. Confirmed guild members only." }))); // .115
     cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. Confirmed guild members only." }))); // .114
-    cards.push(h("a", { class: "card", href: "#/data" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "Your data" })), h("p", { class: "muted small", text: "Download your copy, read the policies, or send a private request." })));
     add(body, [can("confirmedGuildData") ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
   /** .114: the leadership of every Olympus guild, as the site's administrators list it. A record only: it grants nothing. */

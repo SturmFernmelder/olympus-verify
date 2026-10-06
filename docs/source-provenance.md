@@ -31,11 +31,11 @@ audit (below) refuses any of those names in a snapshot regardless of content.
   (`wow-assets-2026-09-30`, with the client's own `Interface/` and `Fonts/` paths); it is not in the repository. The
   script is kept at its exact reviewed bytes and is never run automatically. `worker/public/static/wow/asset-provenance.json`
   records every derived file (SHA-256, dimensions, client path, transform, the input's hash) and the proof's scope:
-  pixel lineage against that extraction, not a publisher archive or client build attestation. Viktor's instruction of
+  pixel lineage against that extraction, not a publisher archive or client build attestation. the owner's instruction of
   1 October 2026 governs the selection: generated and custom artwork belongs to the Discord application only; the
   website uses official World of Warcraft assets. The generated mountains left the site in build .86, and so did the
   custom crest until build .111 brought it back as the website's one owner-approved exception: the brand and tab icon
-  `worker/public/static/olympus-icon.png` (Viktor's decision of 1 October 2026), pinned by path and hash in the
+  `worker/public/static/olympus-icon.png` (the owner's decision of 1 October 2026), pinned by path and hash in the
   publication reference.
 - On 2 October 2026 the owner separately requested their own Discord picture in the signed-in top bar. This is
   external identity data loaded from `https://cdn.discordapp.com`, not a new bundled interface-art asset: the producer,

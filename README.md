@@ -279,8 +279,8 @@ still presses the key for each invite, and the player still whispers their code 
 Since .43 the site wears the game's own interface art and fonts, made from the local client's textures by
 `tools/build-site-assets.py` (a free, non-commercial fan site, like olympus.roachcouncil.com/guild; the footer credits
 Blizzard and says the site is not affiliated with it); since .86 account pictures are class icons and every image and
-font is from the game client (Viktor's instruction of 1 Oct 2026), with one exception since .111: the brand and tab icon
-are the Olympus crest `olympus-icon.png` again, the logo of guild.roachcouncil.com (Viktor's decision of 1 Oct 2026). The privacy
+font is from the game client (the owner's instruction of 1 Oct 2026), with one exception since .111: the brand and tab icon
+are the Olympus crest `olympus-icon.png` again, the logo of guild.roachcouncil.com (the owner's decision of 1 Oct 2026). The privacy
 policy and terms are the tracked `policies/privacy.html` and `policies/terms.html`: since .65 the Worker serves them
 itself at `/privacy` and `/terms` (on the site host and the bot host, public, no sign-in; `worker/src/policy-content.ts`
 is generated from them by `worker/scripts/build-policy-content.mjs`, and `npm run check:policies` fails when it is
@@ -359,7 +359,7 @@ what never to run, conventions, ownership and the owner gates. The task log is
   tools tests `python tools/tests/*.py`; the addon suites through the lupa venv (`addon/tests/run_lua_suites.py`).
   `.github/workflows/ci.yml` runs all of that, plus a Gitleaks history scan and a dry-run bundle, once the repository
   is on GitHub.
-- **Deploys** are Viktor's, from an exact commit both agents signed: `bash scripts/deploy-commit.sh <sha>` from the
+- **Deploys** are the owner's, from an exact commit both agents signed: `bash scripts/deploy-commit.sh <sha>` from the
   repository root exports that commit and runs the project's wrangler against the export, so the working folder is
   never uploaded. `/health` then names the build (since .49 the public answer is `ok`, `build` and `d1` only; the
   inventory of secrets, config and online officers needs the watcher's bearer). `npm run deploy` still exists but

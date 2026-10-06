@@ -1,5 +1,7 @@
 # Moving Olympus to Asmongold's Discord — plain-English walkthrough
 
+> Local paths below are examples. Replace `C:/path/to`, `C:\path\to` or `<your-user>` with your own checkout or account before running a command.
+
 Written 20 September 2026. Follow top to bottom. Parts 1 and 2 change nothing and can be done today. Nothing is
 irreversible until Part 4.
 
@@ -17,7 +19,7 @@ names, so **nothing in this document requires touching WoW or restarting the wat
 
 ### 1.1 Open PowerShell in the right folder
 
-Open File Explorer, go to `C:\Users\vikto\OneDrive\Apps\Olympus\olympus-verify\worker`, click the address bar at
+Open File Explorer, go to `C:\path\to\olympus-verify\worker`, click the address bar at
 the top, type `powershell`, press Enter. A blue window opens already pointing at that folder.
 
 ### 1.2 Update the Worker
@@ -45,7 +47,7 @@ In the wall of text look for `"build":"2026-09-20.26 role-backfill"`. If it show
 
 It prints a summary line, then tells you where it wrote two files. Open this one:
 
-`C:\Users\vikto\OneDrive\Apps\Olympus\olympus-verify\tools\out\guild-map.md`
+`C:\path\to\olympus-verify\tools\out\guild-map.md`
 
 Any text editor works. It is a plain text file.
 
@@ -72,7 +74,7 @@ fewer channels than you actually have, the bot cannot see some private ones, and
 
 You need one password-like string first. Open:
 
-`C:\Users\vikto\OneDrive\Apps\Olympus\olympus-verify\watcher\config.json`
+`C:\path\to\olympus-verify\watcher\config.json`
 
 Find the line starting `"watcher_token"`. Copy the value between the quotes. **Do not paste it into a chat, an
 email, or anywhere public.** It is a key to your own Worker.

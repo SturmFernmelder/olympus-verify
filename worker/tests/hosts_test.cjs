@@ -108,10 +108,10 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://old.example/api/application", env(), { method: "POST", body: "{}" });
   check("a POST on a legacy host is refused, never forwarded", res.status === 404);
   res = await get("https://old.example/auth/callback?code=secret-code&state=signed-state");
-  check("an OAuth callback on a legacy host is a restart at the site's front page: 302, no query forwarded, nothing cached (.51)", res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store", res.status, res.headers.get("Location"));
+  check("an OAuth callback on a legacy host is a restart at the site's front page: 302, no query forwarded, nothing cached (.51)", res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("Referrer-Policy") === "no-referrer" && !res.headers.has("Set-Cookie") && (await res.text()) === "", res.status, res.headers.get("Location"));
   for (const p of ["/auth/login?consent=1", "/auth/logout", "/oauth/callback?code=x&state=y", "/bnet/link?code=x", "/linked-role"]) {
     res = await get(`https://old.example${p}`);
-    check(`  ${p.split("?")[0]} too`, res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store", res.status);
+    check(`  ${p.split("?")[0]} too`, res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("Referrer-Policy") === "no-referrer" && !res.headers.has("Set-Cookie") && (await res.text()) === "", res.status);
   }
   res = await get("https://old.example/authors?x=1");
   check("  while a path that merely starts with the letters gets the ordinary 301 with its query", res.status === 301 && res.headers.get("Location") === "https://guild.example/authors?x=1");
@@ -134,7 +134,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".115"));
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".116"));
   res = await get("https://guild.example/");
   check("the site host serves the site", res.status === 200 && (await res.text()).includes("Guild Registration"));
   res = await get("https://guild.example/health");
@@ -160,8 +160,8 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("POST is 405 with Allow: GET, HEAD", res.status === 405 && res.headers.get("Allow") === "GET, HEAD");
   res = await get("http://guild.example/privacy");
   check("plain http on the site host is upgraded to https first", res.status === 301 && res.headers.get("Location") === "https://guild.example/privacy", res.status, res.headers.get("Location"));
-  res = await get("https://old.example/privacy");
-  check("a legacy host keeps its 301 to the site (the policy is answered there)", res.status === 301 && res.headers.get("Location") === "https://guild.example/privacy");
+  touched = 0; res = await get("https://old.example/privacy?code=secret-code&state=signed-state", trappedDb());
+  check("a legacy privacy route restarts at the site front page: 302, query dropped, exact current cache/referrer headers, no cookie/body/database", res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("Referrer-Policy") === "no-referrer" && !res.headers.has("Set-Cookie") && (await res.text()) === "" && touched === 0, res.status, res.headers.get("Location"), touched);
   res = await get("https://nobody.example/privacy", trappedDb());
   check("an unknown host still gets nothing", res.status === 404 && touched === 0);
   res = await get("https://verify.example/static/policies.css");

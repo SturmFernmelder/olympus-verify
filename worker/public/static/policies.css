@@ -19,3 +19,23 @@
 .olympus-policy .skip-link{position:absolute;left:1rem;top:.5rem;background:#1e1f22;padding:.5rem .75rem;transform:translateY(-200%);z-index:1}
 .olympus-policy .skip-link:focus{transform:none}
 @media(max-width:35rem){.olympus-policy .policy-header{align-items:flex-start;flex-direction:column;gap:.5rem}.olympus-policy main{padding-top:2rem}.olympus-policy nav{gap:.1rem}.olympus-policy nav a{padding:.5rem .55rem}}
+/* .116b3 finite local official-font successor. Mirrors remain self-contained with their existing inline styles. */
+@font-face{font-family:OlympusFriz;src:url('/static/wow/friz-quadrata.woff2') format('woff2');font-display:swap}
+@font-face{font-family:OlympusMorpheus;src:url('/static/wow/morpheus.woff2') format('woff2');font-display:swap}
+.olympus-policy{font-family:OlympusFriz,Georgia,serif;background:#0b0a08;color:#e7dcc4}
+.olympus-policy .policy-header{border-bottom:1px solid #6a5125}
+.olympus-policy .brand{display:flex;align-items:center;gap:.65rem;font-family:OlympusMorpheus,Georgia,serif;font-size:1.6rem}
+.olympus-policy .brand img{object-fit:contain}
+.olympus-policy h1,.olympus-policy h2{color:#e5bc64}
+.olympus-policy h1{font-family:OlympusMorpheus,Georgia,serif}
+.olympus-policy p,.olympus-policy li{color:#d4c7ac}
+.olympus-policy form{margin:1.5rem 0;padding:1.25rem;border:1px solid #6a5125;background:#14110c;border-radius:.4rem}
+.olympus-policy label{display:block;margin:.85rem 0}
+.olympus-policy input,.olympus-policy textarea,.olympus-policy select{display:block;width:100%;margin-top:.35rem;padding:.65rem;border:1px solid #806538;background:#080705;color:#eee0c4;font:inherit;border-radius:.25rem}
+.olympus-policy button{min-height:44px;padding:.6rem 1rem;border:1px solid #bd914a;border-radius:.25rem;background:#352812;color:#ffe2a0;font:inherit;cursor:pointer}
+.olympus-policy input:focus-visible,.olympus-policy textarea:focus-visible,.olympus-policy select:focus-visible,.olympus-policy button:focus-visible{outline:3px solid #e5bc64;outline-offset:3px}
+.olympus-policy .receipt,.olympus-policy .data-controls{margin:1.5rem 0;padding:1rem;border:1px solid #6a5125;border-radius:.4rem}
+.olympus-policy .receipt h2,.olympus-policy .data-controls h2{margin-top:0}
+.olympus-policy .preserve-text{white-space:pre-wrap}
+.olympus-policy .case-messages{padding-left:1.25rem}
+.olympus-policy .case-messages li{padding:.5rem 0;border-bottom:1px solid #433821}

@@ -1,10 +1,9 @@
-// Build .93 (1 Oct 2026): the page script (public/static/app.js) run for real, against the REAL Worker: a minimal DOM in
-// this process, the boot taken from the real "/" page, every fetch answered by index.fetch over the real schema in SQLite
-// (Discord's HTTP side stubbed). Covers the shell (navigation by capability, the footer links, the public and identity
-// routes), "Your data", the private request form end to end (config, a new case and its receipt, reading, replying), the
-// member directory with its profile editor (consent, main, professions, alts, offers; a save through PUT; the listing seen
-// by another member; the crafting search), and the standing notices. Run from the worker folder:
-// node tests/frontend_check.cjs
+// .116: the current app runs against the real Worker and SQLite, with a minimal DOM for current community/staff UI.
+// Saved data/request fragments exercise actual replacement navigation. Current private forms are exercised as
+// script-free HTTP: genuine issued credentials/cookies/HMAC tokens, read/reply replay and tuple-bound refusals.
+// Removed requester-SPA Retry/Discard/concurrent-view button oracles are explicitly retired in the candidate coverage map;
+// unrelated staff, community, art, consent and account tests remain. No provider or native D1 qualification.
+// Run from the worker folder: node tests/frontend_check.cjs
 const fs = require("fs"), path = require("path"), ts = require("typescript"), vm = require("vm");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
@@ -130,6 +129,7 @@ function makeWindow(bootJson) {
     set hash(v) { const next = v && !String(v).startsWith("#") ? "#" + v : String(v || ""); if (next === hash) return; hash = next; setTimeout(() => window.dispatchEvent(new Event("hashchange")), 0); },
     get href() { return "https://guild.example/" + hash; },
     set href(v) { location.navigated = v; },
+    replace(v) { location.navigated = v; location.replaced = true; },
     reload() { location.reloaded = true; },
     navigated: null, reloaded: false,
   };
@@ -248,6 +248,50 @@ async function openPage(who, over = {}) {
   await settle();
   return { ...w, boot: m ? JSON.parse(m[1]) : null, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
 }
+// .116: current script-free policy forms, through the real Worker and genuine cookies/tokens.
+// This is a finite HTML field reader for these server templates, not a DOM or transport replacement.
+const POLICY_CLIENTS = Object.freeze({ contact: "192.0.2.116", reconcile: "192.0.2.117", bound: "192.0.2.118", twoCase: "192.0.2.119", account: "192.0.2.120" });
+const policyHTML = async (pathname, { method = "GET", fields, cookie, who, over = {}, headers = {}, client = "contact" } = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(POLICY_CLIENTS, client)) throw new Error("unissued policy fixture client");
+  const h = new Headers(headers);
+  h.set("CF-Connecting-IP", POLICY_CLIENTS[client]);
+  const session = who ? await cookieFor(who) : "";
+  if (cookie || session) h.set("Cookie", [cookie, session].filter(Boolean).join("; "));
+  if (method === "POST") {
+    h.set("Origin", "https://guild.example");
+    h.set("Content-Type", "application/x-www-form-urlencoded");
+  }
+  const response = await indexMod.default.fetch(new Request("https://guild.example" + pathname, { method, headers: h, ...(fields ? { body: new URLSearchParams(fields).toString() } : {}) }), env(over), ctx);
+  return { response, client, text: await response.text(), cookie: response.headers.get("Set-Cookie")?.split(";")[0] || cookie || "" };
+};
+const policyFields = (page, action) => {
+  const forms = Array.from(page.text.matchAll(/<form method="post" action="([^"]+)">([\s\S]*?)<\/form>/g)).filter((m) => m[1] === action);
+  if (forms.length !== 1) throw new Error("one actual policy form required: " + action);
+  const fields = Object.create(null);
+  for (const m of forms[0][2].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
+    if (Object.prototype.hasOwnProperty.call(fields, m[1]) || !/^[A-Za-z0-9_.:-]+$/.test(m[2])) throw new Error("unexpected policy hidden field");
+    fields[m[1]] = m[2];
+  }
+  return fields;
+};
+const policyPost = (page, action, fields = {}, options = {}) => policyHTML(action, { method: "POST", cookie: page.cookie, client: page.client, fields: { ...policyFields(page, action), ...fields }, ...options });
+const policyCase = async (c, over = {}, client = c.client || "contact") => {
+  const page = await policyHTML("/privacy/case", { over, client });
+  return policyPost(page, "/privacy/case", { caseId: c.caseId, caseCode: c.caseCode }, { over });
+};
+const policyReply = async (c, text, client = c.client || "contact") => {
+  const page = await policyCase(c, {}, client);
+  return { page, fields: { ...policyFields(page, "/privacy/case/reply"), text } };
+};
+const submitPolicyReply = (r) => policyHTML("/privacy/case/reply", { method: "POST", cookie: r.page.cookie, client: r.page.client, fields: r.fields });
+const createPolicyCase = async (details, kind = "access", client = "contact") => {
+  const page = await policyHTML("/privacy/contact", { client }), fields = policyFields(page, "/privacy/contact");
+  const receipt = await policyPost(page, "/privacy/contact", { kind, details, subjectHint: "", characterHint: "" });
+  return { caseId: fields.caseId, caseCode: fields.caseCode, client, status: receipt.response.status, page, receipt };
+};
+const scriptFreePolicy = (page) => /script-src 'none'/.test(page.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\son[a-z]+\s*=/i.test(page.text);
+
+
 const texts = (root, sel) => root.querySelectorAll(sel).map((e) => e.textContent.trim());
 const byText = (root, sel, text) => root.querySelectorAll(sel).find((e) => e.textContent.trim() === text) || null;
 const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
@@ -263,57 +307,43 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("signed out, the footer links only the private request form: no policy or data links (.114)", texts(page.app, ".footer-links a").join(",") === "Private request" && !page.app.querySelector('.footer-links a[href="/privacy"]') && !page.app.querySelector('.footer-links a[href="/terms"]') && !page.app.querySelector('.footer-links a[href="#/data"]'));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
   await page.go("#/data");
-  check("Your data, signed out: the policies linked, sign-in offered for the copy, no download link", !!byText(page.app, "h2", "Your data") && !page.app.querySelector('a[href="/api/me/export"]') && !!byText(page.app, "a", "Sign in with Discord"));
+  check("saved Your data fragment uses the actual replacement navigation to account controls", page.location.navigated === "/privacy/account" && page.location.replaced === true);
+  const anonymousAccount = await policyHTML("/privacy/account");
+  check("signed-out account controls are script-free, explain the current session requirement and link the private inbox", anonymousAccount.response.status === 200 && scriptFreePolicy(anonymousAccount) && anonymousAccount.text.includes("Account data controls") && anonymousAccount.text.includes("no current site session") && anonymousAccount.text.includes('href="/privacy/contact"') && !anonymousAccount.text.includes('action="/privacy/account/export"'));
   await page.go("#/request");
-  await waitFor(() => !!byText(page.app, "h2", "New case"), "the request form");
-  check("the private request page needs no sign-in: the intro, a new-case form (the form is enabled) and the existing-case form", !!byText(page.app, "h2", "Private request") && !!byText(page.app, "h2", "New case") && !!byText(page.app, "h2", "Open an existing case") && !!byText(page.app, "button", "Open the case"));
-  check("  the honeypot field is present and empty", !!page.app.querySelector('input[name="website"]') && page.app.querySelector('input[name="website"]').value === "");
+  check("saved private-request fragment redirects to the canonical contact form", page.location.navigated === "/privacy/contact" && page.location.replaced === true);
+  const contact = await policyHTML("/privacy/contact"), contactFields = policyFields(contact, "/privacy/contact");
+  check("the real contact form needs no sign-in, has bounded message fields and pre-issued credentials, and executes no script", contact.response.status === 200 && scriptFreePolicy(contact) && contact.text.includes("Save these before submitting") && contact.text.includes('name="details" required maxlength="2000"') && /^[A-Za-z0-9_-]{22}$/.test(contactFields.caseId) && /^[A-Za-z0-9_-]{43}$/.test(contactFields.caseCode));
+  check("case credentials are private body fields, with a genuine secure HttpOnly Strict nonce cookie and no address query", contact.cookie.startsWith("__Host-olg_privacy_form=") && /Secure; HttpOnly; SameSite=Strict/.test(contact.response.headers.get("Set-Cookie") || "") && contact.text.includes('action="/privacy/contact"') && !/action="[^"]*\?/.test(contact.text));
 
-  console.log("\n== the private request form, end to end ==");
-  const newForm = byText(page.app, "h2", "New case").closest("section");
-  newForm.querySelector("select").value = "deletion";
-  const details = newForm.querySelector("textarea");
-  details.value = "Please delete what you hold about me. I lost my Discord account.";
-  fire(details, "input");
-  byText(newForm, "button", "Open the case").click();
-  await waitFor(() => !!byText(page.app, "h2", "Your case is open"), "the receipt");
-  const receipt = byText(page.app, "h2", "Your case is open");
-  const values = receipt ? receipt.closest("section").querySelectorAll("code.case-value").map((c) => c.textContent) : ["", ""];
-  check("a new case: the receipt shows the number (22) and the code (43) once, with copy buttons and the deadline", !!receipt && values.length === 2 && /^[A-Za-z0-9_-]{22}$/.test(values[0]) && /^[A-Za-z0-9_-]{43}$/.test(values[1]) && !!byText(receipt.closest("section"), "button", "Copy code") && receipt.closest("section").textContent.includes("Kept until"), values, newForm.querySelector(".err") ? newForm.querySelector(".err").textContent : "(no error shown)");
-  const stored = one("SELECT case_id, kind, status FROM community_privacy_cases WHERE case_id = ?", values[0] || "-");
-  check("  the Worker stored the case (the number plain, the code only as a hash)", !!stored && stored.kind === "deletion" && !one("SELECT 1 FROM community_privacy_cases WHERE code_hash = ?", values[1] || "-"));
-  const existing = byText(page.app, "h2", "Open an existing case").closest("section");
-  const inputs = existing.querySelectorAll("input");
-  inputs[0].value = values[0]; inputs[1].value = values[1];
-  byText(existing, "button", "Open the case").click();
-  await waitFor(() => !!byText(page.app, "h2", `Case ${values[0]}`), "the conversation");
-  const convo = byText(page.app, "h2", `Case ${values[0]}`).closest("section");
-  check("reading the case with the number and the code: the status, the deadline, the first message", !!convo && convo.textContent.includes("Received") && convo.textContent.includes("kept until") && convo.querySelectorAll(".message").length === 1 && convo.textContent.includes("I lost my Discord account"));
-  const replyBox = convo.querySelector("textarea");
-  replyBox.value = "I also used the name Mia Two.";
-  fire(replyBox, "input");
-  byText(convo, "button", "Send").click();
-  await waitFor(() => (byText(page.app, "h2", `Case ${values[0]}`) || { closest: () => ({ querySelectorAll: () => [] }) }).closest("section").querySelectorAll(".message").length === 2, "the reply shown");
-  check("  a reply is sent and the conversation re-read: two messages", one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === 2 && byText(page.app, "h2", `Case ${values[0]}`).closest("section").querySelectorAll(".message").length === 2);
-  inputs[1].value = "x".repeat(43);
-  byText(existing, "button", "Open the case").click();
-  await waitFor(() => existing.querySelector('.err[role="alert"]') && !existing.querySelector('.err[role="alert"]').hidden, "the refusal");
-  check("  a wrong code is 'no case with that number and code' (the same answer as a missing case)", existing.querySelector('.err[role="alert"]').textContent.includes("No case with that number and code"));
+  console.log("\n== the current script-free private form, end to end ==");
+  const values = [contactFields.caseId, contactFields.caseCode], originalCase = { caseId: values[0], caseCode: values[1] };
+  const createFields = { ...contactFields, kind: "deletion", details: "Please delete what you hold about me. I lost my Discord account.", subjectHint: "", characterHint: "" };
+  const receipt = await policyHTML("/privacy/contact", { method: "POST", cookie: contact.cookie, fields: createFields });
+  check("the real form receipt identifies the saved case and inactivity deadline without claiming an account action", receipt.response.status === 201 && scriptFreePolicy(receipt) && receipt.text.includes(values[0]) && receipt.text.includes("Inactivity deadline") && receipt.text.includes("No account was exported, erased or granted access"));
+  const stored = one("SELECT case_id, kind, status FROM community_privacy_cases WHERE case_id = ?", values[0]);
+  check("the Worker stores the case number and only the code hash", !!stored && stored.kind === "deletion" && !one("SELECT 1 FROM community_privacy_cases WHERE code_hash = ?", values[1]));
+  const caseRead = await policyCase(originalCase);
+  check("saved case credentials read its real private conversation and deadline", caseRead.response.status === 200 && scriptFreePolicy(caseRead) && caseRead.text.includes(values[0]) && caseRead.text.includes("received") && caseRead.text.includes("I lost my Discord account") && caseRead.text.includes("Inactivity deadline"));
+  const firstReply = await policyReply(originalCase, "I also used the name Mia Two."), replyReceipt = await submitPolicyReply(firstReply);
+  check("a genuine case-bound reply writes one message and rereads the conversation", replyReceipt.response.status === 200 && replyReceipt.text.includes("I also used the name Mia Two.") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === 2);
+  const wrongCode = await policyCase({ caseId: values[0], caseCode: "x".repeat(43) }), missingCase = await policyCase({ caseId: "Q".repeat(22), caseCode: "x".repeat(43) });
+  check("wrong code and missing case share the actual unavailable response, exposing no conversation", wrongCode.response.status === 404 && missingCase.response.status === 404 && wrongCode.text.includes("missing, expired or the code is incorrect") && missingCase.text.includes("missing, expired or the code is incorrect") && !wrongCode.text.includes("I lost my Discord account"));
   const off = await openPage(null, { COMMUNITY_FEATURES: "directory" });
   await off.go("#/request");
-  await settle();
-  check("with the intake flag off the page says the form is not switched on; the footer drops the link", off.app.textContent.includes("not switched on") && !off.app.querySelector('.footer-links a[href="#/request"]'));
-  const paused = await openPage(null, { PRIVACY_INTAKE_ENABLED: "false" });
-  await paused.go("#/request");
-  await waitFor(() => paused.app.textContent.includes("not being accepted"), "the paused notice");
-  check("with new cases paused the existing-case form stays usable", paused.app.textContent.includes("not being accepted") && !!byText(paused.app, "h2", "Open an existing case") && !byText(paused.app, "button", "Open the case").closest("section").textContent.includes("What you ask for"));
+  const offContact = await policyHTML("/privacy/contact", { over: { COMMUNITY_FEATURES: "directory" } }), offRead = await policyHTML("/privacy/case", { over: { COMMUNITY_FEATURES: "directory" } });
+  check("intake feature off drops the canonical footer link; contact refuses while the read-form route remains available", off.location.navigated === "/privacy/contact" && !off.app.querySelector('.footer-links a[href="/privacy/contact"]') && offContact.response.status === 503 && !offContact.text.includes('action="/privacy/contact"') && offRead.response.status === 200 && offRead.text.includes('action="/privacy/case"'));
+  const pausedContact = await policyHTML("/privacy/contact", { over: { PRIVACY_INTAKE_ENABLED: "false" } }), pausedRead = await policyCase(originalCase, { PRIVACY_INTAKE_ENABLED: "false" });
+  check("paused new intake honestly refuses contact and preserves actual existing-case read access", pausedContact.response.status === 503 && pausedContact.text.includes("New requests are paused") && pausedRead.response.status === 200 && pausedRead.text.includes(values[0]));
+
+
 
   console.log("\n== the shell: a confirmed member, the directory and the profile editor ==");
   page = await openPage(MEMBER);
   check("a confirmed member sees Community in the top bar, and the boot says confirmedGuildData", texts(page.app, "nav.nav a").includes("Community") && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
   await waitFor(() => !!byText(page.app, "h3", "Member directory"), "the overview");
-  check("the overview: directory, profile and your-data cards, the member badge", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !!byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member"));
+  check("the overview keeps directory, profile and member badge, with account controls in the canonical footer instead of an old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && texts(page.app, '.footer-links a[href="/privacy/account"]').includes("Account data controls"));
   await page.go("#/community/directory");
   await waitFor(() => page.app.textContent.includes("Nobody is listed yet"), "the empty directory");
   check("the empty directory says so and invites the member to list themselves", page.app.textContent.includes("Nobody is listed yet"));
@@ -579,30 +609,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== .100: the eight .93 repairs (Codex, 09:23) ==");
   const APP_CSS = fs.readFileSync(path.join(root, "public", "static", "app.css"), "utf8");
-  const rq = await openPage(null);
-  await rq.go("#/request");
-  await waitFor(() => !!byText(rq.app, "h2", "Open an existing case"), "the request page");
-  const ex2 = byText(rq.app, "h2", "Open an existing case").closest("section");
-  const ins2 = ex2.querySelectorAll("input"); ins2[0].value = values[0]; ins2[1].value = values[1];
-  byText(ex2, "button", "Open the case").click();
-  await waitFor(() => !!byText(rq.app, "h2", `Case ${values[0]}`), "the conversation");
-  let conv = byText(rq.app, "h2", `Case ${values[0]}`).closest("section");
+  // The removed requester SPA no longer has Retry/Discard buttons. Reconcile a lost form answer by a genuine read.
+  const heldFormReply = await policyReply(originalCase, "Did this arrive?", "reconcile");
   const msgsBefore = one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k;
-  rq.drop((p) => p === "/api/privacy/requests/reply"); // the Worker answers, the browser never sees it
-  conv.querySelector("textarea").value = "Did this arrive?"; fire(conv.querySelector("textarea"), "input");
-  byText(conv, "button", "Send").click();
-  await waitFor(() => !!byText(rq.app, "button", "Retry the same reply"), "the lost-answer notice");
-  check("F1: a reply whose answer was lost shows the lost-answer notice (Retry the same reply, Re-read the case); the textarea is locked; the Worker had stored it once", !!byText(rq.app, "button", "Retry the same reply") && conv.querySelector("textarea").disabled === true && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === msgsBefore + 1);
-  rq.drop(null);
-  byText(rq.app, "button", "Retry the same reply").click();
-  await waitFor(() => ex2.textContent.includes("Your reply to case") && !!byText(rq.app, "h2", `Case ${values[0]}`) && byText(rq.app, "h2", `Case ${values[0]}`).closest("section").querySelectorAll(".message").length === msgsBefore + 1, "the acknowledged, re-read conversation");
-  check("  retrying the SAME reply is answered with the original: one message, not two; the textarea cleared; the Sent acknowledgement kept outside the conversation", one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === msgsBefore + 1 && ex2.textContent.includes("Your reply to case") && byText(rq.app, "h2", `Case ${values[0]}`).closest("section").querySelector("textarea").value === "");
-  check("F2: the case_conflict wording is factual: no claim that a new number was made, the check-first path named", APP_JS.includes("A different case already holds this number") && !APP_JS.includes("A new number was made"));
+  const deliberatelyUnseenReply = await submitPolicyReply(heldFormReply); // actual response retained; simulate that the user did not receive it
+  check("a submitted reply whose answer is not used is stored once, without any fabricated rollback", deliberatelyUnseenReply.response.status === 200 && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === msgsBefore + 1);
+  const sameFormReplay = await submitPolicyReply(heldFormReply), afterLostRead = await policyCase(originalCase, {}, "reconcile");
+  check("resubmitting the exact original form replays one message and the real case read reconciles the lost answer", sameFormReplay.response.status === 200 && afterLostRead.text.includes("Did this arrive?") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === msgsBefore + 1);
+  check("case access and submission uncertainty are explicitly distinguished from account authority", afterLostRead.text.includes("does not verify an account or authorise deletion") && contact.text.includes("not an automatic export or deletion"));
   db.prepare("DELETE FROM community_privacy_messages WHERE case_id = ?").run(values[0]);
   db.prepare("DELETE FROM community_privacy_cases WHERE case_id = ?").run(values[0]);
-  byText(ex2, "button", "Open the case").click();
-  await waitFor(() => ex2.textContent.includes("no longer available"), "the unavailable notice");
-  check("F3: a fresh read that finds nothing clears the old conversation and says the case is no longer available; the Sent acknowledgement stays", ex2.textContent.includes("no longer available") && !byText(rq.app, "h2", `Case ${values[0]}`) && ex2.textContent.includes("Your reply to case"));
+  const unavailableRead = await policyCase(originalCase, {}, "reconcile");
+  check("a fresh read after case removal is unavailable and contains no old conversation", unavailableRead.response.status === 404 && unavailableRead.text.includes("missing, expired or the code is incorrect") && !unavailableRead.text.includes("Did this arrive?"));
+
   const pf = await openPage(MEMBER);
   await pf.go("#/community/profile");
   await waitFor(() => !!byText(pf.app, "button", "Save"), "the profile form");
@@ -694,9 +713,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const bwl = one("SELECT id FROM community_events WHERE title = 'Blackwing Lair'");
   check("  Retry the same is answered with the original event (one row), and the page moves to it", one("SELECT COUNT(*) AS k FROM community_events WHERE title = 'Blackwing Lair'").k === 1 && org2.location.hash === `#/community/calendar/${bwl.id}`);
   // a private case for the inbox (the slice-1 case is gone), sent as nobody through the real form route
-  const pc = { caseId: token22(), caseCode: Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url") };
-  r = await (async () => { const res = await indexMod.default.fetch(new Request("https://guild.example/api/privacy/requests", { method: "POST", headers: { Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ caseId: pc.caseId, caseCode: pc.caseCode, kind: "access", details: "What do you hold about me?", website: "" }) }), env(), ctx); return { status: res.status, body: await res.json().catch(() => ({})) }; })();
-  check("(fixture) a new private case through the public route", r.status === 200 || r.status === 201, r.status, JSON.stringify(r.body).slice(0, 120));
+  const pc = await createPolicyCase("What do you hold about me?", "access", "bound");
+  check("(fixture) a new private case through the genuine current contact form", pc.status === 201 && scriptFreePolicy(pc.receipt) && !!one("SELECT 1 FROM community_privacy_cases WHERE case_id = ?", pc.caseId), pc.status, pc.receipt.text.slice(0, 120));
   const adm4 = await openPage(STAFF);
   await adm4.go("#/admin/community/inbox");
   await waitFor(() => !!byText(adm4.app, "button", "Open"), "the inbox");
@@ -714,32 +732,17 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  Retry the same is answered with the original result: one staff message, the status in review", one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ? AND author = 'staff'", pc.caseId).k === 1 && one("SELECT status FROM community_privacy_cases WHERE case_id = ?", pc.caseId).status === "in_review");
 
   console.log("\n== .104: the three .100 repairs (Codex, 10:37) ==");
-  const rq3 = await openPage(null);
-  await rq3.go("#/request");
-  await waitFor(() => !!byText(rq3.app, "h2", "Open an existing case"), "the request page");
-  const ex3 = byText(rq3.app, "h2", "Open an existing case").closest("section");
-  const openPc = async () => { const ins = ex3.querySelectorAll("input"); ins[0].value = pc.caseId; ins[1].value = pc.caseCode; byText(ex3, "button", "Open the case").click(); await waitFor(() => !!byText(rq3.app, "h2", `Case ${pc.caseId}`) && !!byText(rq3.app, "h2", `Case ${pc.caseId}`).closest("section").querySelector("textarea"), "the conversation"); return byText(rq3.app, "h2", `Case ${pc.caseId}`).closest("section"); };
-  let conv3 = await openPc();
-  const before3 = one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k;
-  rq3.garble((p) => p === "/api/privacy/requests/reply"); // the Worker stores the reply and answers 201; the browser receives an unreadable page
-  conv3.querySelector("textarea").value = "Garbled answer?"; fire(conv3.querySelector("textarea"), "input");
-  byText(conv3, "button", "Send").click();
-  await waitFor(() => !!byText(rq3.app, "button", "Retry the same reply"), "the lost-answer notice");
-  check("F100-1: a successful reply whose answer is unreadable is an UNKNOWN outcome: the notice, the text kept and locked, no clearing, the Worker stored it once", !!byText(rq3.app, "button", "Retry the same reply") && conv3.querySelector("textarea").value === "Garbled answer?" && conv3.querySelector("textarea").disabled === true && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1 && !ex3.textContent.includes("Your reply to case"));
-  rq3.garble(null);
-  // F100-2: the ordinary Open the case for the SAME case keeps the waiting reply as the same locked operation
-  byText(ex3, "button", "Open the case").click();
-  await waitFor(() => !!byText(rq3.app, "h2", `Case ${pc.caseId}`) && !!byText(rq3.app, "button", "Discard the draft") && byText(rq3.app, "h2", `Case ${pc.caseId}`).closest("section").querySelectorAll(".message").length === before3 + 1, "the re-read conversation with the waiting reply");
-  conv3 = byText(rq3.app, "h2", `Case ${pc.caseId}`).closest("section");
-  check("F100-2: an ordinary re-read of the same case restores the waiting reply (its text, locked) and, since the messages now show it, says so and offers Discard rather than resend", conv3.querySelector("textarea").value === "Garbled answer?" && conv3.querySelector("textarea").disabled === true && conv3.textContent.includes("already show this reply") && !!byText(conv3, "button", "Discard the draft") && !byText(conv3, "button", "Retry the same reply") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1, conv3.textContent.slice(0, 200));
-  const ins3 = ex3.querySelectorAll("input"); ins3[0].value = "Q".repeat(22); ins3[1].value = "x".repeat(43);
-  byText(ex3, "button", "Open the case").click();
-  await waitFor(() => ex3.textContent.includes("stays with that case"), "the held notice for another case");
-  check("  opening ANOTHER case names the waiting reply as kept for its own case and never carries it over (the other number is not found)", ex3.textContent.includes("stays with that case") && ex3.textContent.includes(pc.caseId) && ex3.querySelector('.err[role="alert"]').textContent.includes("No case with that number") && !byText(rq3.app, "h2", `Case ${"Q".repeat(22)}`));
-  conv3 = await openPc();
-  check("  back in its own case the waiting reply is still there, locked, with Discard", conv3.querySelector("textarea").value === "Garbled answer?" && !!byText(conv3, "button", "Discard the draft"));
-  byText(conv3, "button", "Discard the draft").click();
-  check("  Discard clears it deliberately; the one stored message stays", conv3.querySelector("textarea").value === "" && conv3.querySelector("textarea").disabled === false && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1);
+  const boundReply = await policyReply(pc, "Garbled answer?", "bound"), before3 = one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k;
+  const actualGarbledSourceReply = await submitPolicyReply(boundReply); // test transport may discard a response; no source result is overwritten
+  check("an unread response cannot imply rollback: the real reply is stored once", actualGarbledSourceReply.response.status === 200 && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1);
+  const boundReplyRead = await policyCase(pc, {}, "bound");
+  check("a genuine read reconciles the original reply under its own case and never manufactures a new write", boundReplyRead.response.status === 200 && boundReplyRead.text.includes("Garbled answer?") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1);
+  const beforeForeignReply = one("SELECT COUNT(*) AS k FROM community_privacy_messages").k;
+  const foreignReply = await policyHTML("/privacy/case/reply", { method: "POST", cookie: boundReply.page.cookie, client: "bound", fields: { ...boundReply.fields, caseId: "Q".repeat(22), caseCode: "x".repeat(43) } });
+  check("a genuine reply token cannot migrate to another case tuple", foreignReply.response.status === 403 && foreignReply.text.includes("form_expired") && one("SELECT COUNT(*) AS k FROM community_privacy_messages").k === beforeForeignReply);
+  const boundReplay = await submitPolicyReply(boundReply);
+  check("the original tuple and message id still replay exactly once after a failed foreign attempt", boundReplay.response.status === 200 && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1);
+
   // F100-3: a late crafting reply under a new query
   const cr = await openPage(MEMBER);
   await cr.go("#/community/directory");
@@ -827,79 +830,32 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(STAFF);
 
   console.log("\n== .107: Codex's five .104 groups (11:32) ==");
-  const newCase = async (details) => { const c = { caseId: token22(), caseCode: Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url") }; const res = await indexMod.default.fetch(new Request("https://guild.example/api/privacy/requests", { method: "POST", headers: { Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ caseId: c.caseId, caseCode: c.caseCode, kind: "access", details, website: "" }) }), env(), ctx); c.status = res.status; return c; };
+  const newCase = async (details) => createPolicyCase(details, "access", "twoCase");
   const caseA = await newCase("Case A for the .107 checks."), caseB = await newCase("Case B for the .107 checks.");
-  check("(fixture) two private cases through the public route", (caseA.status === 200 || caseA.status === 201) && (caseB.status === 200 || caseB.status === 201));
-  const rq7 = await openPage(null);
-  await rq7.go("#/request");
-  await waitFor(() => !!byText(rq7.app, "h2", "Open an existing case"), "the request page");
-  const ex7 = byText(rq7.app, "h2", "Open an existing case").closest("section");
-  const openCase7 = async (c) => { const ins = ex7.querySelectorAll("input"); ins[0].value = c.caseId; ins[1].value = c.caseCode; byText(ex7, "button", "Open the case").click(); await waitFor(() => !!byText(rq7.app, "h2", `Case ${c.caseId}`) && !!byText(rq7.app, "h2", `Case ${c.caseId}`).closest("section").querySelector("textarea"), `case ${c.caseId.slice(0, 4)}`); return byText(rq7.app, "h2", `Case ${c.caseId}`).closest("section"); };
+  check("(fixture) two private cases are genuinely issued and submitted through the current script-free public form", caseA.status === 201 && caseB.status === 201 && caseA.caseId !== caseB.caseId && caseA.caseCode !== caseB.caseCode);
   const msgs = (c) => one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", c.caseId).k;
-  // group 2: a reply with the SAME words as an older stored message, lost before the Worker saw it: not "arrived"
-  let convA = await openCase7(caseA);
-  convA.querySelector("textarea").value = "Same words."; fire(convA.querySelector("textarea"), "input");
-  byText(convA, "button", "Send").click();
-  await waitFor(() => msgs(caseA) === 2 && !!byText(rq7.app, "h2", `Case ${caseA.caseId}`) && byText(rq7.app, "h2", `Case ${caseA.caseId}`).closest("section").querySelectorAll(".message").length === 2, "the first reply stored and re-read");
-  convA = byText(rq7.app, "h2", `Case ${caseA.caseId}`).closest("section");
-  rq7.before((p) => p === "/api/privacy/requests/reply"); // the second, identical reply never reaches the Worker
-  convA.querySelector("textarea").value = "Same words."; fire(convA.querySelector("textarea"), "input");
-  byText(convA, "button", "Send").click();
-  await waitFor(() => convA.textContent.includes("The answer was lost."), "the lost-answer notice");
-  check("(2) a lost reply whose words equal an older stored message is NOT taken as arrived: the notice offers Retry the same reply (the stored list is matched by this reply's id, not by its text); nothing stored", !!byText(convA, "button", "Retry the same reply") && convA.textContent.includes("may have been stored") && !convA.textContent.includes("already show this reply") && msgs(caseA) === 2);
-  rq7.before(null);
-  byText(convA, "button", "Retry the same reply").click();
-  await waitFor(() => msgs(caseA) === 3, "the retried reply stored");
-  check("  Retry the same reply sends it: three messages, two with the same words", msgs(caseA) === 3);
-  await waitFor(() => !!byText(rq7.app, "h2", `Case ${caseA.caseId}`) && byText(rq7.app, "h2", `Case ${caseA.caseId}`).closest("section").querySelectorAll(".message").length === 3, "the re-read conversation");
-  // group 3: a reply to A waits for a lost answer; a write to B is refused, and A's waiting reply is not cleared by anything B does
-  convA = byText(rq7.app, "h2", `Case ${caseA.caseId}`).closest("section");
-  rq7.drop((p) => p === "/api/privacy/requests/reply");
-  convA.querySelector("textarea").value = "Lost in A."; fire(convA.querySelector("textarea"), "input");
-  byText(convA, "button", "Send").click();
-  await waitFor(() => !!byText(convA, "button", "Re-read the case"), "A's lost-answer notice");
-  rq7.drop(null);
-  check("(fixture) A's reply waits for a lost answer (the Worker stored it once)", !!byText(convA, "button", "Re-read the case") && msgs(caseA) === 4);
-  // group 4: A's slow re-read against a newer read of B: the inputs name B, B's thread must stay
-  rq7.delay((p, init) => (p === "/api/privacy/requests/read" && typeof init.body === "string" && init.body.includes(caseA.caseId) ? 200 : 0));
-  byText(convA, "button", "Re-read the case").click(); // A, slow
-  await settle();
-  const ins7 = ex7.querySelectorAll("input"); ins7[0].value = caseB.caseId; ins7[1].value = caseB.caseCode;
-  fire(ex7.querySelector("form"), "submit"); // B, fast (Enter in the field submits while the button is disabled)
-  await waitFor(() => !!byText(rq7.app, "h2", `Case ${caseB.caseId}`), "B's thread");
-  await new Promise((r) => setTimeout(r, 450));
-  check("(4) the late answer to A's re-read is discarded: the thread shows case B (the case the inputs name), not A; Open the case enabled again", !!byText(rq7.app, "h2", `Case ${caseB.caseId}`) && !byText(rq7.app, "h2", `Case ${caseA.caseId}`) && byText(ex7, "button", "Open the case").disabled === false);
-  rq7.delay(null);
-  let convB = byText(rq7.app, "h2", `Case ${caseB.caseId}`).closest("section");
-  check("  A's waiting reply is named as held for its own case while B is open", ex7.textContent.includes("stays with that case") && ex7.textContent.includes(caseA.caseId));
-  convB.querySelector("textarea").value = "Hello from B."; fire(convB.querySelector("textarea"), "input");
-  byText(convB, "button", "Send").click();
-  await settle(); await settle();
-  check("(3) a write to B while A's reply waits is refused in words, nothing is sent to B, and A's waiting reply is still held (not cleared by B)", convB.textContent.includes("still waiting for a lost answer") && msgs(caseB) === 1 && ex7.textContent.includes("stays with that case") && ex7.textContent.includes(caseA.caseId) && convB.querySelector("textarea").disabled === false);
-  byText(ex7, "button", "Discard that reply").click();
-  byText(convB, "button", "Send").click();
-  await waitFor(() => msgs(caseB) === 2, "B's reply stored after the discard");
-  check("  after Discard that reply, B's reply is sent; nothing was ever added to A by it", msgs(caseB) === 2 && msgs(caseA) === 4 && !ex7.textContent.includes("stays with that case"));
-  // group 1a: the requester's stored-check with a wrong readable answer manufactures no receipt
-  const nc7 = byText(rq7.app, "h2", "New case").closest("section");
-  nc7.querySelector("select").value = "access";
-  nc7.querySelector("textarea").value = "Check me before you trust me."; fire(nc7.querySelector("textarea"), "input");
-  rq7.drop((p) => p === "/api/privacy/requests");
-  byText(nc7, "button", "Open the case").click();
-  await waitFor(() => !!byText(nc7, "button", "Check whether it was stored"), "the new case's lost-answer notice");
-  rq7.drop(null);
-  rq7.answer((p) => (p === "/api/privacy/requests/read" ? {} : null)); // a readable 200 that is not this case
-  byText(nc7, "button", "Check whether it was stored").click();
-  await new Promise((r) => setTimeout(r, 150));
-  check("(1) the stored-check answered with an empty object makes no receipt: the notice stays with Retry and Check, the request frozen", !byText(rq7.app, "h2", "Your case is open") && !!byText(nc7, "button", "Retry the same request") && !!byText(nc7, "button", "Check whether it was stored") && nc7.querySelector("textarea").disabled === true && !!one("SELECT 1 FROM community_privacy_messages WHERE text = 'Check me before you trust me.'"));
-  rq7.answer((p) => (p === "/api/privacy/requests/read" ? { caseId: "Q".repeat(22), status: "received", createdAt: new Date().toISOString(), retentionDeadline: new Date().toISOString(), messages: [] } : null)); // another case's shape
-  byText(nc7, "button", "Check whether it was stored").click();
-  await new Promise((r) => setTimeout(r, 150));
-  check("  a well-formed read of ANOTHER case number makes no receipt either", !byText(rq7.app, "h2", "Your case is open") && !!byText(nc7, "button", "Check whether it was stored"));
-  rq7.answer(null);
-  byText(nc7, "button", "Check whether it was stored").click();
-  await waitFor(() => !!byText(rq7.app, "h2", "Your case is open"), "the receipt from the real read");
-  check("  the real read makes the receipt, with the stored case's number", !!byText(rq7.app, "h2", "Your case is open") && byText(rq7.app, "h2", "Your case is open").closest("section").textContent.includes(one("SELECT case_id FROM community_privacy_messages WHERE text = 'Check me before you trust me.'").case_id));
+  const sameWordsA1 = await policyReply(caseA, "Same words."), sameWordsA1Receipt = await submitPolicyReply(sameWordsA1);
+  check("a first case A reply is a real form submission, identified by its issued message id", sameWordsA1Receipt.response.status === 200 && msgs(caseA) === 2);
+  const sameWordsA2 = await policyReply(caseA, "Same words.");
+  check("equal text in a fresh genuine reply form receives a distinct operation id before submission", sameWordsA2.fields.messageId !== sameWordsA1.fields.messageId && msgs(caseA) === 2);
+  const sameWordsA2Receipt = await submitPolicyReply(sameWordsA2);
+  check("submitting equal words under the second id stores a separate message", sameWordsA2Receipt.response.status === 200 && msgs(caseA) === 3);
+  const unseenA = await policyReply(caseA, "Lost in A."), unseenAReceipt = await submitPolicyReply(unseenA);
+  check("case A's submitted reply retains its original response and is stored once before reconciliation", unseenAReceipt.response.status === 200 && msgs(caseA) === 4);
+  const caseBRead = await policyCase(caseB), caseARead = await policyCase(caseA);
+  check("independent script-free reads name their actual tuple and never merge A's thread into B", caseBRead.response.status === 200 && caseBRead.text.includes(caseB.caseId) && !caseBRead.text.includes("Lost in A.") && caseARead.text.includes("Lost in A."));
+  const rejectedMoveToB = await policyHTML("/privacy/case/reply", { method: "POST", cookie: unseenA.page.cookie, client: "twoCase", fields: { ...unseenA.fields, caseId: caseB.caseId, caseCode: caseB.caseCode } });
+  check("an original A token refuses migration to B before any B message is written", rejectedMoveToB.response.status === 403 && msgs(caseA) === 4 && msgs(caseB) === 1);
+  const ownB = await policyReply(caseB, "Hello from B."), ownBReceipt = await submitPolicyReply(ownB);
+  check("B's own separately issued reply is admitted without changing A's custody or rows", ownBReceipt.response.status === 200 && ownBReceipt.text.includes(caseB.caseId) && msgs(caseB) === 2 && msgs(caseA) === 4);
+  const genuineAReplay = await submitPolicyReply(unseenA);
+  check("A's original form remains replayable exactly once after B's independent operation", genuineAReplay.response.status === 200 && msgs(caseA) === 4 && msgs(caseB) === 2);
+  const notSeenCreate = await createPolicyCase("Check me before you trust me.", "access", "twoCase");
+  const exactCreateReplay = await policyHTML("/privacy/contact", { method: "POST", cookie: notSeenCreate.page.cookie, client: "twoCase", fields: { ...policyFields(notSeenCreate.page, "/privacy/contact"), kind: "access", details: "Check me before you trust me.", subjectHint: "", characterHint: "" } });
+  const genuineStoredRead = await policyCase(notSeenCreate);
+  check("pre-issued create credentials reconcile an unused response and exact resubmission never duplicates the case/message", notSeenCreate.status === 201 && exactCreateReplay.response.status === 200 && genuineStoredRead.response.status === 200 && genuineStoredRead.text.includes(notSeenCreate.caseId) && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", notSeenCreate.caseId).k === 1);
+  check("script-free case pages expose no client retry/draft/concurrency state and preserve strict CSP", scriptFreePolicy(genuineStoredRead) && !genuineStoredRead.text.includes("<script") && !genuineStoredRead.text.includes("Retry the same reply"));
+
   // group 1b: the keyed staff creates: an empty object or an array is no receipt; the frozen operation and Retry stay
   const adm7 = await openPage(STAFF);
   await adm7.go("#/admin/community/trials");
@@ -1018,7 +974,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await waitFor(() => adm8.document.body.textContent.includes("The answer was lost, so the list was re-read"), "the re-read after an unreadable action answer");
   adm8.answer(null);
   check("(receipt siblings) a restriction action answered with an object that is not its case's receipt is an unknown outcome: no success toast, the list re-read, the Worker applied it once", one("SELECT revision FROM community_restriction_cases WHERE discord_id = ?", U6).revision === rev6 + 1 && !adm8.document.body.textContent.includes("Continued;"));
-  check("  the other sibling receipts check their identity: the claims decision names its claim, the trial and departure updates their record, the organizer check its event", APP_JS.includes("out.claim.ref !== e.ref") && APP_JS.includes("out.trial.id !== t.id") && APP_JS.includes("out.departure.id !== d.id") && APP_JS.includes("d.event.id === opId") && (APP_JS.match(/out\.case\.caseId !== payload\.caseId/g) || []).length >= 2);
+  check("  the other sibling receipts check their identity: the claims decision names its claim, the trial and departure updates their record, the organizer check its event", APP_JS.includes("out.claim.ref !== e.ref") && APP_JS.includes("out.trial.id !== t.id") && APP_JS.includes("out.departure.id !== d.id") && APP_JS.includes("d.event.id === opId") && (APP_JS.match(/out\.case\.caseId !== payload\.caseId/g) || []).length >= 1);
   // the inbox: the selected detail and the refreshed list
   const in8 = await openPage(STAFF);
   await in8.go("#/admin/community/inbox");
@@ -1106,10 +1062,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("(organizer receipts) a lost answer to an event change re-reads the event and says so: the change stored once, the form redrawn from the fresh event (its new revision), the message shown", onyNow.title === "Onyxia (lost answer)" && org8b.app.textContent.includes("The answer was lost, so the event was re-read") && org8b.app.textContent.includes(`Revision ${onyNow.revision}.`) && byText(org8b.app, "button", "Save changes").closest("form").querySelector('input[type="text"]').value === "Onyxia (lost answer)");
 
   console.log("\n== .109: Codex's acknowledgement item (12:25) and the rest of my self-review ==");
-  // Codex 12:25: the requester's acknowledgement names the case it belongs to
-  { const ins = ex7.querySelectorAll("input"); ins[0].value = caseA.caseId; ins[1].value = caseA.caseCode; byText(ex7, "button", "Open the case").click(); }
-  await waitFor(() => !!byText(rq7.app, "h2", `Case ${caseA.caseId}`), "case A on the requester's page");
-  check("(Codex 12:25) the reply acknowledgement names its case: B's stays, labelled as B's, while case A is open", ex7.textContent.includes(`Your reply to case ${caseB.caseId} was sent at`) && !!byText(rq7.app, "h2", `Case ${caseA.caseId}`) && !/Your reply was sent/.test(ex7.textContent));
+  const acknowledgementA = await policyCase(caseA), acknowledgementB = await policyCase(caseB);
+  check("each current form response names its own case, while stored B replies remain confined to B", acknowledgementA.text.includes(caseA.caseId) && !acknowledgementA.text.includes("Hello from B.") && acknowledgementB.text.includes(caseB.caseId) && acknowledgementB.text.includes("Hello from B."));
+
   // names: a dialog by its heading; the trials member field by its visible label; the inbox filter without an empty choice
   const adm9 = await openPage(STAFF);
   await adm9.go("#/admin/community/cases");
@@ -1250,7 +1205,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("(.114) the top bar shows the member's own Discord picture: the address the Worker gave, on Discord's picture host", /^https:\/\/cdn\.discordapp\.com\//.test(avatar || "") && own.getAttribute("src") === avatar, avatar, own && own.getAttribute("src"));
     own.dispatchEvent(new Event("error"));
     check("  a picture that fails to load falls back to the official Member icon", own.getAttribute("src") === "/static/wow/pos-member.png");
-    check("  the footer says whose picture it is; signed in, it links the policies, Your data and the private request form", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && texts(p114.app, ".footer-links a").join(",") === "Privacy Policy,Terms of Service,Your data,Private request");
+    check("  the footer says whose picture it is; signed in, it links the policies, Your data and the private request form", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && texts(p114.app, ".footer-links a").join(",") === "Privacy Policy,Terms of Service,Account data controls,Private request");
     const AV = new Function("return " + APP_JS.match(/const DISCORD_AVATAR = (\/.*\/);/)[1])();
     const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
     const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];
@@ -1272,7 +1227,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await adm.go("#/admin/settings");
     await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!adm.app.querySelector("#beta-closed-at"), "the .114 settings blocks");
     const bx = adm.app.querySelector("#bnet-switch");
-    check("(.114) Admin → Settings: Battle.net sign-in is off, its box locked, with the reason (no policy section, no credentials here)", bx.checked === false && bx.disabled === true && /no Battle\.net client credentials|does not describe Battle\.net sign-in/.test(adm.app.textContent) && !!byText(adm.app, "h2", "Battle.net sign-in"));
+    check("Admin settings expose future enable intent while collection remains immutable OFF", bx.checked === false && bx.disabled === false && adm.app.textContent.includes("Enable records a request only. Collection stays OFF") && adm.app.textContent.includes("Request future enablement") && !!byText(adm.app, "h2", "Battle.net sign-in"));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
     check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
       adm.app.textContent.includes("Each person named here agreed to be named. Appointed names are public on the open web, signed in or not.") && adm.app.textContent.includes("Each person listed here agreed to be listed. Confirmed members can read the directory.") &&
@@ -1740,12 +1695,17 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const denied = await openPage(DENIED);
   await denied.go("#/data");
   await settle();
-  check("a denied identity still reaches Your data: the download link and the private request form are theirs", !!denied.app.querySelector('a[href="/api/me/export"]') && denied.app.textContent.includes("Your registration is denied") && !!denied.app.querySelector('a[href="#/request"]'));
+  check("a denied identity retains the actual account-controls redirect", denied.location.navigated === "/privacy/account" && denied.location.replaced === true);
+  const deniedControls = await policyHTML("/privacy/account", { who: DENIED, client: "account" });
+  check("a denied existing session receives its genuine copy form and private inbox link without a guild access grant", deniedControls.response.status === 200 && scriptFreePolicy(deniedControls) && deniedControls.text.includes('action="/privacy/account/export"') && deniedControls.text.includes("including when its account is denied") && deniedControls.text.includes('href="/privacy/contact"'));
+  const deniedCopy = await policyPost(deniedControls, "/privacy/account/export", { actions: "" }, { who: DENIED, client: "account" });
+  check("the denied account's genuine purpose-bound form retrieves only its curated copy", deniedCopy.response.status === 200 && /application\/json/.test(deniedCopy.response.headers.get("Content-Type") || "") && deniedCopy.text.includes(DENIED));
+
   await denied.go("#/community");
   await settle();
   check("  but the community pages stay the denied view", denied.app.textContent.includes("Registration denied") && !byText(denied.app, "h2", "Community"));
   const nothing = await openPage(MEMBER, { COMMUNITY_FEATURES: "" });
-  check("with every community flag off: no Community in the top bar, no private-request link", !texts(nothing.app, "nav.nav a").includes("Community") && !nothing.app.querySelector('.footer-links a[href="#/request"]'));
+  check("with every community flag off: no Community in the top bar, no private-request link", !texts(nothing.app, "nav.nav a").includes("Community") && !nothing.app.querySelector('.footer-links a[href="/privacy/contact"]'));
   await nothing.go("#/community");
   await settle();
   check("  and the Community page says it is not switched on", nothing.app.textContent.includes("not switched on yet"));

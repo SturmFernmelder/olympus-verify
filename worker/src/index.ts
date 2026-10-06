@@ -32,6 +32,7 @@ import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
+import { POLICY_ASSETS, policyHeaders } from "./policy-render";
 import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
@@ -68,7 +69,7 @@ export default {
       // .51: a sign-in or OAuth path is never forwarded (Codex's review of .49, 1 Oct 00:04 UTC): the state cookie it
       // depends on belongs to the old host, and its query carries ?code= and ?state=. The browser is sent to start
       // again at the site's front page, with nothing from the old request and nothing a cache may keep.
-      if (AUTH_PATHS.test(path)) return new Response(null, { status: 302, headers: { Location: `https://${siteHost(env)}/`, "Cache-Control": "no-store" } });
+      if (AUTH_PATHS.test(path)) return new Response(null, { status: 302, headers: { Location: `https://${siteHost(env)}/`, "Cache-Control": "no-store, no-transform", "Referrer-Policy": "no-referrer" } });
       // A former site host: a browser GET is sent to the same page on the current host (path and query kept; the
       // fragment never leaves the browser, so #/roles/<key> links survive); anything else is refused. Cacheable a day.
       if (request.method === "GET" || request.method === "HEAD") {
@@ -76,19 +77,19 @@ export default {
       }
       return new Response("not found", { status: 404 });
     }
-    // .65: the public policies and their one stylesheet need no database or session; the host check above still applies.
+    // .116b3: policies and their finite local CSS/crest/font closure need no database/session; host check still applies.
     const policy = policyResponse(request, path);
     if (policy) {
       // the site's HTTP-to-HTTPS upgrade (site.ts), kept for these paths too
       if (host === "site" && url.protocol === "http:" && url.hostname !== "localhost") {
         url.protocol = "https:";
-        return Response.redirect(url.toString(), 301);
+        const headers = policyHeaders(); headers.set("Location", url.toString()); return new Response(null, { status: 301, headers });
       }
       return policy;
     }
-    if (path === "/static/policies.css") {
+    if ((POLICY_ASSETS as readonly string[]).includes(path)) {
       if (request.method === "GET" || request.method === "HEAD") return env.ASSETS.fetch(request);
-      return new Response("method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
+      const headers = policyHeaders(); headers.set("Allow", "GET, HEAD"); return new Response("method not allowed", { status: 405, headers });
     }
     // .51: the site's static files. Every request reaches this code (run_worker_first in wrangler.toml), so the host
     // check above covers them too: on the site host they go to the assets binding; on any other host they get that
@@ -223,7 +224,7 @@ export async function purgeSeenInteractions(env: Env, at = now()): Promise<void>
 }
 
 /** .51: paths a legacy host answers with a restart on the site rather than a forward (see fetch). */
-const AUTH_PATHS = /^\/(auth|oauth|bnet|linked-role)(\/|$)/;
+const AUTH_PATHS = /^\/(auth|oauth|bnet|linked-role|privacy)(\/|$)/;
 
 const hostOf = (u: string | undefined) => {
   try {
@@ -372,7 +373,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-03.115 news and seats";
+const BUILD = "2026-10-06.116 privacy and contact";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

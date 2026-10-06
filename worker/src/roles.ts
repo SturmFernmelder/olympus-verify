@@ -353,7 +353,9 @@ async function rolesSnapshot(env: Env, budget?: CallBudget): Promise<{ state: Ro
 
 /** For the watcher's /health: the configured roles against the guild, ids and booleans only. */
 export async function rolesStatus(env: Env): Promise<{ guildMember: boolean | null; blocking: string[]; blockingMissing: string[] }> {
-  const snap = await rolesSnapshot(env);
   const blocking = blockingRoleIds(env);
+  // No configured role is being checked: preserve unknown rather than ask Discord for an unused inventory.
+  if (!env.ROLE_GUILD_MEMBER && !env.ROLE_OFFICER && !env.ROLE_MODERATOR && !env.ROLE_GUILD_LEADER && !env.ROLE_GUILD_MASTER && !env.ROLE_RAID_LEADER && !blocking.length) return { guildMember: null, blocking, blockingMissing: [] };
+  const snap = await rolesSnapshot(env);
   return { guildMember: snap.state === "unknown" ? null : snap.state === "ok", blocking, blockingMissing: snap.ids ? blocking.filter((id) => !snap.ids!.has(id)) : [] };
 }

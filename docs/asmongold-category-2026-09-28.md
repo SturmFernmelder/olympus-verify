@@ -65,7 +65,7 @@ empty and admin-only). Decide whether to delete them.
 
 ## Olympus Verify in this server (29 Sep 2026)
 
-- Added by Viktor from the desktop app's Add App window: scopes `bot applications.commands`, server permission View
+- Added by the owner from the desktop app's Add App window: scopes `bot applications.commands`, server permission View
   Channels only. Managed role **Olympus Verify**; the bot user is Olympus Verify#0000 (discriminator withheld; bots keep one). Wick left it alone.
 - It posts only the Olympus intros for now (`/olympus-intros`, Worker build .39; verification still serves the beta
   server until the move in `asmongold-move.md`).
@@ -78,7 +78,7 @@ empty and admin-only). Decide whether to delete them.
   - #guild-chat is therefore no longer synced with the category; that is expected.
 - Integrations → Olympus Verify → `/olympus-intros`: allowed for Olympus Officer and Olympus Guild Leader (the command
   is otherwise Administrator-only). Command id `1554292331924946995`.
-- Intros live since 29 Sep 00:56 UTC (7:56 PM on 28 Sep in Houston; Viktor's refresh): one pinned bot message in each of the ten text channels and a
+- Intros live since 29 Sep 00:56 UTC (7:56 PM on 28 Sep in the local time zone; the owner's refresh): one pinned bot message in each of the ten text channels and a
   pinned "Read first" post in each forum. Text: `worker/src/intros.ts`.
 
 ## Launch checklist

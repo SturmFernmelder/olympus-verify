@@ -196,6 +196,13 @@ const receipt = (row: CaseRow, status = 200) => apiJson({ caseId: row.case_id, s
 
 /** GET /api/privacy/config, POST /api/privacy/requests[/read|/reply]: the public side, no session. */
 export async function handlePrivacyIntake(request: Request, env: Env, path: string): Promise<Response> {
+  return privacyDispatch(request, env, path, false);
+}
+/** Trusted SSR adapter after its origin/CSRF/bounds checks. This is not a separately routable endpoint. */
+export async function handlePrivacyIntakeForm(request: Request, env: Env, path: string): Promise<Response> {
+  return privacyDispatch(request, env, path, true);
+}
+async function privacyDispatch(request: Request, env: Env, path: string, contactForm: boolean): Promise<Response> {
   if (!communityFeatures(env).has("privacy_intake")) return featureOff();
   const m = request.method;
   if (m === "GET" && path === "/api/privacy/config") return privacyConfig(env);
@@ -203,7 +210,7 @@ export async function handlePrivacyIntake(request: Request, env: Env, path: stri
   const over = limited(request, path);
   if (over) return over;
   try {
-    if (path === "/api/privacy/requests") return await privacyCreate(request, env);
+    if (path === "/api/privacy/requests") return await privacyCreate(request, env, contactForm);
     if (path === "/api/privacy/requests/read") return await privacyRead(request, env);
     if (path === "/api/privacy/requests/reply") return await privacyReply(request, env);
     return apiJson({ error: "not_found" }, 404);
@@ -218,7 +225,7 @@ function privacyConfig(env: Env): Response {
 }
 
 /** POST /api/privacy/requests {caseId, caseCode, kind, details, subjectHint?, characterHint?} — open a case. Exact retries return the existing receipt, even while intake is paused. */
-async function privacyCreate(request: Request, env: Env): Promise<Response> {
+async function privacyCreate(request: Request, env: Env, contactForm: boolean): Promise<Response> {
   requireSameOriginJson(request);
   const body = await readBody(request);
   const { caseId, caseCode } = credential(body);
@@ -240,6 +247,9 @@ async function privacyCreate(request: Request, env: Env): Promise<Response> {
   };
   const retry = await existing();
   if (retry) return retry;
+  // Existing JSON cases/read/replies and exact lost-answer creation replays remain actionable.
+  // Fresh cases use the tested short form, whose CSRF admission precedes this adapter.
+  if (!contactForm) return apiJson({ error: "use_contact_form", contactUrl: "https://olympus.roachcouncil.com/privacy/contact", existingCaseUrl: "https://olympus.roachcouncil.com/privacy/case", message: "Open the short contact form to start a new private case. Existing cases and exact submission retries still work." }, 410);
   const days = intakeRetentionDays(env);
   if (!intakeOpen(env) || days === null) return apiJson({ error: "intake_unavailable" }, 503);
   // admission, the case and its first message in one transaction; every cap is checked inside the INSERT, the rolling hour and the
