@@ -741,6 +741,84 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const idx = fs.readFileSync(path.join(root, "src", "index.ts"), "utf8");
   check("the cron line: newsCron, the sweep always, then the figures behind their own switch, each step's failure logged through errorRef", /ctx\.waitUntil\(newsCron\(env\)\);/.test(idx) && src.includes('console.error("site news sweep failed", errorRef(e));') && src.includes('console.error("news figures failed", errorRef(e));') && /known = \(await sweepSiteNews\(env\)\)\.settings;[\s\S]*?await refreshNewsFigures\(env, now\(\), known\);/.test(src));
 
+  // .116 News policy regression: real account forms, current curated export and held self-service actions.
+  // These requests use the actual index and original native signing/verification, never a policy/profile override.
+  {
+    const savedDb = db, savedT = T, savedHook = HOOK, savedBefore = BEFORE_BATCH, savedAfter = AFTER_BATCH, savedCount = COUNT;
+    let controlDb = null;
+    try {
+      controlDb = new DatabaseSync(":memory:"); db = controlDb;
+      db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+      T = realNow() - 7200; HOOK = null; BEFORE_BATCH = null; AFTER_BATCH = null; resetCount();
+      const controlLoad = makeLoader(), controlIndex = controlLoad("./index"), controlCore = controlLoad("./site-core");
+      controlLoad("./schema").forgetSchemaCheck(); people();
+      const liveId = "N".repeat(22), goneId = "G".repeat(22), otherId = "F".repeat(22);
+      const putNotice = (id, author, title) => run("INSERT INTO site_news_notices (id, op_hash, title, body, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'fixture-only', ?, 'Fixture notice body', ?, ?, ?, ?, ?)", id, title, author, T, author, T, T + 30 * DAY);
+      putNotice(liveId, ADMIN2, "Own fixture notice"); putNotice(otherId, ADMIN, "Other fixture notice");
+      run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'fixture-only', ?, ?, ?)", goneId, ADMIN2, T, T + 120 * DAY);
+      const sessionFor = async (who, version = 1) => (await controlCore.sessionCookie(env(), who, version)).split(";")[0];
+      const sendAccount = async (method, route, { session = "", nonce = "", fields, origin = "https://guild.example" } = {}) => {
+        const headers = new Headers();
+        if (session || nonce) headers.set("Cookie", [session, nonce].filter(Boolean).join("; "));
+        if (method === "POST") { headers.set("Origin", origin); headers.set("Content-Type", "application/x-www-form-urlencoded"); }
+        const result = await controlIndex.default.fetch(new Request("https://guild.example" + route, { method, headers, body: fields === undefined ? undefined : new URLSearchParams(fields).toString() }), env(), ctx);
+        const text = await result.text(); let body = null;
+        try { body = JSON.parse(text); } catch { /* script-free HTML */ }
+        return { status: result.status, headers: result.headers, text, body };
+      };
+      const formFor = (text, action) => {
+        const form = (text.match(new RegExp('<form method="post" action="' + action + '">([\\s\\S]*?)</form>')) || [])[1] || "";
+        return (form.match(/name="csrf" value="([^"]+)"/) || [])[1] || "";
+      };
+      const recordTables = ["site_users", "site_news_notices", "site_news_ops"];
+      const recordsSnapshot = () => JSON.stringify(recordTables.map(table => all("SELECT * FROM " + table + " ORDER BY 1")));
+      const auditRecords = () => all("SELECT * FROM audit ORDER BY id");
+      const snapshot = () => JSON.stringify([recordsSnapshot(), auditRecords()]);
+      const priorAudit = auditRecords(), recordsBefore = recordsSnapshot();
+      const expectedCopyAudits = (actors) => {
+        const rows = auditRecords(), added = rows.slice(priorAudit.length);
+        return rows.length === priorAudit.length + actors.length && JSON.stringify(rows.slice(0, priorAudit.length)) === JSON.stringify(priorAudit)
+          && added.every((row, i) => keys(row) === "action,actor,details,id,subject,ts" && Number.isSafeInteger(row.id) && row.id > 0 && row.ts === T && row.actor === actors[i] && row.subject === actors[i] && row.action === "site.copy_exported" && row.details === null);
+      };
+      const before = snapshot(), adminSession = await sessionFor(ADMIN2), memberSession = await sessionFor(MEMBER);
+      let page = await sendAccount("GET", "/privacy/account");
+      check("current account page without a site session offers no copy form and states that automatic deletion/unlink are unavailable", page.status === 200 && !page.text.includes('action="/privacy/account/export"') && page.text.includes("Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.") && snapshot() === before);
+      page = await sendAccount("GET", "/privacy/account", { session: adminSession });
+      const nonce = (page.headers.get("Set-Cookie") || "").split(";")[0], csrf = formFor(page.text, "/privacy/account/export");
+      check("the actual account page issues an original signed session-bound export form and a private one-hour nonce cookie", page.status === 200 && /^__Host-olg_privacy_form=[A-Za-z0-9_-]{43}$/.test(nonce) && /Secure; HttpOnly; SameSite=Strict; Max-Age=3600/.test(page.headers.get("Set-Cookie") || "") && /^\d{10}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(csrf) && page.text.includes("existing limited copy capability") && snapshot() === before);
+      let response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, fields: { csrf } });
+      check("the actual export form refuses a missing nonce cookie without changing stored News/account records", response.status === 403 && response.text.includes("form_expired") && snapshot() === before);
+      response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf }, origin: "https://other.example" });
+      check("the actual export form retains its same-origin admission guard without changing stored records", response.status === 403 && response.text.includes("bad_origin") && snapshot() === before);
+      response = await sendAccount("POST", "/privacy/account/export", { session: memberSession, nonce, fields: { csrf } });
+      check("the actual export CSRF token cannot be used with another account's genuine site session", response.status === 403 && response.text.includes("form_expired") && snapshot() === before);
+      response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf, actions: "bad.cursor" } });
+      check("the actual export form retains its finite continuation-cursor shape check before making a copy", response.status === 400 && response.text.includes("invalid_form") && snapshot() === before);
+      response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf } });
+      const ownNews = response.body?.community?.news;
+      check("a valid actual SSR export contains only the account's authored/edited News and deleted-notice metadata with original exact field lists", response.status === 200 && ownNews?.notices.length === 1 && ownNews.notices[0].id === liveId && keys(ownNews.notices[0]) === "editedAt,id,keptUntil,postedAt,title" && ownNews.deletedNotices.length === 1 && ownNews.deletedNotices[0].id === goneId && keys(ownNews.deletedNotices[0]) === "id,keptUntil,postedAt" && !JSON.stringify(ownNews).includes(otherId) && recordsSnapshot() === recordsBefore && expectedCopyAudits([ADMIN2]), ownNews);
+      check("the actual SSR copy states curated partial coverage and completeErasure false, with a genuine database capture time and no-referrer response", response.status === 200 && response.body?.coverage?.kind === "curated_partial" && response.body.coverage.ownAccountOnly === true && response.body.coverage.completeErasure === false && response.body.coverage.excluded.includes("private recovery backups") && Math.abs(Date.parse(response.body.generatedAt) / 1000 - realNow()) < 30 && response.headers.get("Referrer-Policy") === "no-referrer");
+      const memberPage = await sendAccount("GET", "/privacy/account", { session: memberSession }), memberNonce = (memberPage.headers.get("Set-Cookie") || "").split(";")[0], memberCsrf = formFor(memberPage.text, "/privacy/account/export");
+      response = await sendAccount("POST", "/privacy/account/export", { session: memberSession, nonce: memberNonce, fields: { csrf: memberCsrf } });
+      check("a valid member SSR export preserves the registered empty News lists rather than exposing another author's notices", response.status === 200 && JSON.stringify(response.body?.community?.news) === JSON.stringify({ notices: [], deletedNotices: [] }) && recordsSnapshot() === recordsBefore && expectedCopyAudits([ADMIN2, MEMBER]));
+      const postCopies = snapshot();
+      for (const action of ["site-erase", "full-erase", "bnet-unlink"]) {
+        const token = formFor(page.text, "/privacy/account/" + action);
+        response = await sendAccount("POST", "/privacy/account/" + action, { session: adminSession, nonce, fields: { csrf: token } });
+        check("the actual " + action + " form returns not performed and leaves News authors/account rows untouched", response.status === 503 && response.text.includes("not performed") && response.text.includes("No rows were deleted, no roles changed and no remote connection removed.") && snapshot() === postCopies);
+      }
+      run("UPDATE site_users SET session_version = 2 WHERE discord_id = ?", ADMIN2);
+      const changed = snapshot(), newerSession = await sessionFor(ADMIN2, 2);
+      response = await sendAccount("POST", "/privacy/account/export", { session: newerSession, nonce, fields: { csrf } });
+      check("the actual export token is bound to the site-session version and refuses a freshly signed replacement version", response.status === 403 && response.text.includes("form_expired") && snapshot() === changed);
+      response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf } });
+      check("the actual export form refuses an invalidated old site session without deleting its News/account records", response.status === 401 && response.text.includes("Session unavailable") && snapshot() === changed);
+    } finally {
+      controlDb?.close(); db = savedDb; T = savedT; HOOK = savedHook; BEFORE_BATCH = savedBefore; AFTER_BATCH = savedAfter; COUNT = savedCount;
+    }
+  }
+
+
   // The policy pages say what this module does; the numbers they state are read from NEWS_LIMITS, so neither can drift
   // alone. The served pages, whitespace folded (the tracked HTML wraps its lines).
   const folded = async (p) => { const r = await http("GET", p); return { status: r.status, text: String(r.text || "").replace(/\s+/g, " ") }; };
@@ -748,7 +826,8 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const L = news.NEWS_LIMITS;
   check("the privacy policy has a News paragraph: switched on by the administrators, confirmed members only, counts and times never a name", priv.status === 200 && priv.text.includes("<strong>News.</strong> When the site's administrators switch it on (it is off until they do), confirmed members can read a News page.") && priv.text.includes("The figures are counts and times, never a name or anyone's place in line"));
   check("  its numbers are the code's: 1 to 90 days, the tombstone's 120 days, a count below five masked, figures at most every three hours", L.days[0] === 1 && L.days[L.days.length - 1] === 90 && priv.text.includes(`from ${L.days[0]} to ${L.days[L.days.length - 1]} days after it was first posted`) && L.opsKeepS === 120 * DAY && priv.text.includes(`until ${L.opsKeepS / DAY} days after it was posted`) && priv.text.includes("shown only as &ldquo;fewer than 5&rdquo;") && L.figuresEveryS === 3 * 3600 && priv.text.includes("at most every three hours"));
-  check("  the author is staff-only, forgotten at erasure, listed in the admin's copy; the log keeps counts only; a notice is a record with a lifetime", priv.text.includes("recorded for the staff only") && priv.text.includes("setter or author") && priv.text.includes("without them as its author") && priv.text.includes("the ids and dates of the notices they posted that are gone") && priv.text.includes("never a title or a text") && priv.text.includes("a private request case, a News notice &mdash;") && priv.text.includes("Confirmed members can also read the News page while it is on"));
+  check("  current policy keeps News authors staff-only, clears registered attribution in staff site cleanup, lists retained notices in the curated admin copy, and states that the copy is partial",
+    priv.text.includes("recorded for the staff only") && priv.text.includes("The site cleanup removes the staff-actor pointers its registered cleanup covers, including attribution on News notices") && priv.text.includes("an administrator's own copy lists the notices they posted or last changed, and the records left by their deleted ones, until the cleanup deletes them, each with the time its period ends or ended") && priv.text.includes("This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.") && priv.text.includes("never a title or a text") && priv.text.includes("a private request case, a News notice &mdash;") && priv.text.includes("Confirmed members can also read the News page while it is on"));
   // Codex, 3 Oct 2026 13:24 UTC: "never your name" belongs to the figures the Worker computes; a notice is free text an
   // administrator types (createNotice stores any title and text), so the policy states the staff's practice and the remedy.
   check("  'never your name' covers only the automatic figures; a notice is free text, names a member only with agreement, and is changed or deleted on request through any officer or the private request form", priv.text.includes("Confirmed members can also read the News page while it is on: the figures the site works out by itself, which are counts and times and never your name or your place in the invite queue; the next events with the titles their organizers gave them, as the calendar shows them; and the notices the administrators write for the whole guild, which name a member only with that member's agreement (see News, above, to have one changed or deleted).") && priv.text.includes("A notice is different: it is free text an administrator writes for the whole guild, shown as plain text, and the site does not check what it says. The administrators name a member in a notice only with that member's agreement, and anyone a notice names can ask any Olympus officer, or use the private request form, to have it changed or deleted, and an administrator does it at once.") && !priv.text.includes("the administrators' notices and the counts it shows, never your name") && !priv.text.includes("a notice that names someone is changed or deleted on request"));
