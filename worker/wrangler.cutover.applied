@@ -11,3 +11,6 @@ activated_at = "2026-10-02T02:57:53Z"
 # Activation (scripts/cutover-config.sh --activate): only the activation keys changed (PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED); this is the profile now in force.
 activation_profile_sha256 = "d3c318d063ad11bd983d96663997077a4040cdbdf824197466277a60c237ce10"
 activated_at = "2026-10-02T04:20:15Z"
+# Reviewed source update of INTROS_CHANNELS only; not produced by --activate and not proof of provider deployment.
+activation_profile_sha256 = "6967b157f88bea40aebcd32c7dc1d214aacb36cca9c9b2d6647b36a5c5a2638c"
+activated_at = "2026-10-06T22:08:00Z"
