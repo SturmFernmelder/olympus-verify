@@ -118,7 +118,19 @@ const confirm = (id, name, guid = null) => {
   db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?, ?, ?, 'member', ?, ?)").run(name.toLowerCase().split("-")[0], name, id, T, guid);
 };
 const ON = { COMMUNITY_FEATURES: "directory,crafting" };
-const cookieFor = async (id, version = 1) => (await siteCore.sessionCookie(env(), id, version)).split(";")[0];
+// Normal feature requests need a session current to both the actor and the real SQL clock.
+// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
+const cookieFor = async (id, version = 1) => {
+  const actorTime = T;
+  let issued;
+  try {
+    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
+    issued = siteCore.sessionCookie(env(), id, version);
+  } finally {
+    T = actorTime;
+  }
+  return (await issued).split(";")[0];
+};
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
   const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
@@ -129,6 +141,32 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 (async () => {
   siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Fern" }); confirm(MEMBER, "Fern Melder", "Player-1-0001"); siteUser(MEMBER2, { global_name: "Bea" }); confirm(MEMBER2, "Bea Stormer", "Player-1-0002");
   siteUser(BANNED); confirm(BANNED, "Bad Actor"); db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(BANNED); siteUser(STAFF);
+
+  console.log("\n== cookie issuance and the genuine database clock ==");
+  const clockActor = T, clockRealBefore = Math.floor(RealDate.now() / 1000);
+  const clockCookie = await cookieFor(MEMBER);
+  const clockEnv = env(ON);
+  const clockRequest = new Request("https://guild.example/clock-fixture", { headers: { Cookie: clockCookie } });
+  const clockSession = await siteCore.readSession(clockEnv, clockRequest);
+  check("fresh feature-cookie issuance restores the actor clock and retains the original signed seven-day session", T === clockActor && clockSession?.u === MEMBER && clockSession.v === 1 && clockSession.e >= Math.max(clockActor, clockRealBefore) + 7 * 86400 && clockSession.e <= Math.max(clockActor, Math.floor(RealDate.now() / 1000)) + 7 * 86400);
+  const clockContext = await context.communityContext(clockEnv, clockRequest);
+  const clockBeforeRead = statements;
+  const clockRead = await context.admittedRead(clockEnv, clockContext, "confirmedGuildData", [clockEnv.DB.prepare("SELECT 1 AS marker")]);
+  check("a freshly signed feature session reaches one genuine SQLite admission batch and releases the read payload", T === clockActor && statements === clockBeforeRead + 1 && clockRead !== context.FENCE_REFUSED && clockRead[0]?.results[0]?.marker === 1);
+  // Deliberately bypass cookieFor: use the original signer at an issuance time already expired to SQLite.
+  let clockExpiredIssued;
+  try {
+    T = Math.floor(RealDate.now() / 1000) - 7 * 86400 - 60;
+    clockExpiredIssued = siteCore.sessionCookie(clockEnv, MEMBER, 1);
+  } finally {
+    T = clockActor;
+  }
+  const clockExpiredCookie = (await clockExpiredIssued).split(";")[0];
+  const clockExpiredRequest = new Request("https://guild.example/clock-fixture", { headers: { Cookie: clockExpiredCookie } });
+  const clockExpiredContext = await context.communityContext(clockEnv, clockExpiredRequest);
+  const clockBeforeExpiredRead = statements;
+  const clockExpiredRead = await context.admittedRead(clockEnv, clockExpiredContext, "confirmedGuildData", [clockEnv.DB.prepare("SELECT 1 AS marker")]);
+  check("an original signed cookie valid to the actor is still refused inside a genuine SQLite batch when expired to the database", T === clockActor && clockExpiredContext.capabilities.confirmedGuildData && clockExpiredContext.subject.expiresAt > clockActor && clockExpiredContext.subject.expiresAt < Math.floor(RealDate.now() / 1000) && statements === clockBeforeExpiredRead + 1 && clockExpiredRead === context.FENCE_REFUSED);
 
   console.log("\n== flags and the guild-only gate ==");
   let r = await call("GET", "/api/community/profile", MEMBER, undefined, { COMMUNITY_FEATURES: "" });

@@ -113,7 +113,19 @@ const siteUser = (id, over = {}) => {
   db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.in_server, row.denied, row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "trials", SITE_ADMINS: `${STAFF},${STAFF2}` };
-const cookieFor = async (id, version = 1) => (await siteCore.sessionCookie(env(), id, version)).split(";")[0];
+// Normal feature requests need a session current to both the actor and the real SQL clock.
+// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
+const cookieFor = async (id, version = 1) => {
+  const actorTime = T;
+  let issued;
+  try {
+    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
+    issued = siteCore.sessionCookie(env(), id, version);
+  } finally {
+    T = actorTime;
+  }
+  return (await issued).split(";")[0];
+};
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
   const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);

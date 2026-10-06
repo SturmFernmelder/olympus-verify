@@ -111,7 +111,19 @@ const siteUser = (id, over = {}) => {
   db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.in_server, row.denied, row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "privacy_intake", PRIVACY_INTAKE_ENABLED: "true", PRIVACY_INTAKE_MONITORED: "true", PRIVACY_INTAKE_RETENTION_DAYS: "90", SITE_ADMINS: `${STAFF},${STAFF2}` };
-const cookieFor = async (id, version = 1) => (await siteCore.sessionCookie(env(), id, version)).split(";")[0];
+// Normal feature requests need a session current to both the actor and the real SQL clock.
+// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
+const cookieFor = async (id, version = 1) => {
+  const actorTime = T;
+  let issued;
+  try {
+    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
+    issued = siteCore.sessionCookie(env(), id, version);
+  } finally {
+    T = actorTime;
+  }
+  return (await issued).split(";")[0];
+};
 /** A signed-in call (staff and member routes). */
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -119,13 +131,20 @@ const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   return { status: res.status, body: await res.json().catch(() => ({})), headers: res.headers };
 };
 let ipCounter = 0;
-/** A public call: no cookie; a fresh client address unless given, same origin and JSON unless overridden. */
-const pub = async (path, body, { over = ON, headers = {}, raw } = {}) => {
-  const h = { Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", "CF-Connecting-IP": `203.0.113.${++ipCounter % 250}`, ...headers }; // the site's own page sends its version header; a cross-site form cannot (site-core sameOrigin)
+/** Legacy inner-case-engine compatibility fixtures; this adapter selection is NOT the shipping public create route.
+ * Only exact POST /api/privacy/requests uses the actual trusted form adapter. Other paths use the actual index.
+ * New boundary controls below choose actual-public and exercise the real SSR form admission independently. */
+const pub = async (path, body, { over = ON, headers = {}, raw, routeProfile = "legacy-engine" } = {}) => {
+  if (routeProfile !== "legacy-engine" && routeProfile !== "actual-public") throw new Error("unknown privacy fixture route profile");
+  const h = { Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", "CF-Connecting-IP": `203.0.113.${++ipCounter % 250}`, ...headers };
   for (const k of Object.keys(h)) if (h[k] === null) delete h[k];
-  const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method: body === undefined && raw === undefined ? "GET" : "POST", headers: h, body: raw !== undefined ? raw : body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
+  const request = new Request("https://guild.example" + path, { method: body === undefined && raw === undefined ? "GET" : "POST", headers: h, body: raw !== undefined ? raw : body === undefined ? undefined : JSON.stringify(body) });
+  const res = routeProfile === "legacy-engine" && path === "/api/privacy/requests" && request.method === "POST"
+    ? await intake.handlePrivacyIntakeForm(request, env(over), path)
+    : await indexMod.default.fetch(request, env(over), ctx);
   return { status: res.status, body: await res.json().catch(() => ({})), headers: res.headers };
 };
+
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const DAY = 86400;
@@ -135,6 +154,61 @@ const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
 
 (async () => {
   siteUser(MEMBER, { global_name: "Mia" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
+
+  console.log("\n== current public JSON and actual SSR contact boundaries ==");
+  const privacyLegacyDb = db;
+  db = freshDb();
+  try {
+    const publicCreate = { caseId: id22("q"), caseCode: code43("g"), kind: "other", details: "A current public JSON request." };
+    let boundary = await pub("/api/privacy/requests", publicCreate, { routeProfile: "actual-public" });
+    check("current public JSON fresh creation returns 410 use_contact_form with canonical links and no stored case/message", boundary.status === 410 && boundary.body.error === "use_contact_form" && boundary.body.contactUrl === "https://olympus.roachcouncil.com/privacy/contact" && boundary.body.existingCaseUrl === "https://olympus.roachcouncil.com/privacy/case" && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0 && one("SELECT COUNT(*) AS n FROM community_privacy_messages").n === 0);
+    boundary = await pub("/api/privacy/requests", publicCreate, { routeProfile: "actual-public", over: { ...ON, COMMUNITY_FEATURES: "" } });
+    check("the actual public JSON route still honours the privacy feature OFF fence", boundary.status === 503 && boundary.body.error === "feature_disabled" && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    boundary = await pub("/api/privacy/requests", publicCreate, { routeProfile: "actual-public", over: { ...ON, PRIVACY_INTAKE_ENABLED: "false" } });
+    check("an intake setting cannot restore the retired public JSON creation path", boundary.status === 410 && boundary.body.error === "use_contact_form" && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    const contactGet = await indexMod.default.fetch(new Request("https://guild.example/privacy/contact"), env(ON), ctx);
+    const contactHtml = await contactGet.text(), contactSetCookie = contactGet.headers.get("Set-Cookie") ?? "";
+    const contactFields = Object.fromEntries(["csrf", "caseId", "caseCode"].map((name) => [name, new RegExp('name="' + name + '" value="([^"]*)"').exec(contactHtml)?.[1] ?? ""]));
+    const contactCookie = contactSetCookie.split(";")[0];
+    check("the actual contact GET issues a finite signed CSRF token and private form cookie with generated case credentials", contactGet.status === 200 && /^text\/html/.test(contactGet.headers.get("Content-Type") ?? "") && /^__Host-olg_privacy_form=[A-Za-z0-9_-]{43}$/.test(contactCookie) && /Secure/.test(contactSetCookie) && /HttpOnly/.test(contactSetCookie) && /SameSite=Strict/.test(contactSetCookie) && /^\d{10}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(contactFields.csrf) && /^[A-Za-z0-9_-]{22}$/.test(contactFields.caseId) && /^[A-Za-z0-9_-]{43}$/.test(contactFields.caseCode));
+    const contactPayload = { ...contactFields, kind: "correction", details: "Please correct my guild label.", subjectHint: "", characterHint: "" };
+    const formPost = async (payload, headers = {}) => {
+      const response = await indexMod.default.fetch(new Request("https://guild.example/privacy/contact", { method: "POST", headers: { Origin: "https://guild.example", "Content-Type": "application/x-www-form-urlencoded", Cookie: contactCookie, "CF-Connecting-IP": "198.51.100.91", ...headers }, body: typeof payload === "string" ? payload : new URLSearchParams(payload).toString() }), env(ON), ctx);
+      return { status: response.status, text: await response.text() };
+    };
+    let formResult = await formPost(contactPayload, { Cookie: "" });
+    check("the actual contact POST refuses a missing form cookie before storing any case", formResult.status === 403 && formResult.text.includes("form_expired") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    formResult = await formPost({ ...contactPayload, csrf: "invalid" });
+    check("the actual contact POST refuses an invalid CSRF token before storing any case", formResult.status === 403 && formResult.text.includes("form_expired") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    formResult = await formPost(contactPayload, { Origin: "https://evil.example" });
+    check("the actual contact POST retains the same-origin form guard", formResult.status === 403 && formResult.text.includes("bad_origin") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    const changedCode = (contactFields.caseCode[0] === "a" ? "b" : "a") + contactFields.caseCode.slice(1);
+    formResult = await formPost({ ...contactPayload, caseCode: changedCode });
+    check("the actual contact CSRF token is bound to the generated case credentials", formResult.status === 403 && formResult.text.includes("form_expired") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    const duplicateFields = new URLSearchParams(contactPayload); duplicateFields.append("csrf", contactFields.csrf);
+    formResult = await formPost(duplicateFields.toString());
+    check("the actual finite form parser refuses duplicate fields before intake", formResult.status === 400 && formResult.text.includes("invalid_form") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    formResult = await formPost({ ...contactPayload, details: "x".repeat(8200) });
+    check("the actual contact form retains its 8 KiB streamed body budget before intake", formResult.status === 413 && formResult.text.includes("body_too_large") && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 0);
+    formResult = await formPost(contactPayload);
+    const contactCase = one("SELECT retention_days, retain_until, code_hash FROM community_privacy_cases WHERE case_id = ?", contactFields.caseId);
+    check("a valid actual contact form creates one case through genuine CSRF admission with its original lifetime and only the code hash", formResult.status === 201 && formResult.text.includes("Private request received") && contactCase?.retention_days === 90 && contactCase.retain_until === T + 90 * DAY && contactCase.code_hash.length === 64 && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 1 && one("SELECT COUNT(*) AS n FROM community_privacy_messages").n === 1 && !JSON.stringify(db.prepare("SELECT * FROM community_privacy_cases").all()).includes(contactFields.caseCode));
+    const replayPayload = { caseId: contactFields.caseId, caseCode: contactFields.caseCode, kind: contactPayload.kind, details: contactPayload.details, subjectHint: "", characterHint: "" };
+    boundary = await pub("/api/privacy/requests", replayPayload, { routeProfile: "actual-public", over: { ...ON, PRIVACY_INTAKE_ENABLED: "false" } });
+    check("the actual public JSON path still returns an exact existing-case receipt while new intake is paused", boundary.status === 200 && boundary.body.caseId === contactFields.caseId && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 1 && one("SELECT COUNT(*) AS n FROM community_privacy_messages").n === 1);
+    boundary = await pub("/api/privacy/requests/read", { caseId: contactFields.caseId, caseCode: contactFields.caseCode }, { routeProfile: "actual-public" });
+    check("the actual public existing-case read releases the SSR-created conversation with the correct code", boundary.status === 200 && boundary.body.messages.length === 1 && boundary.body.messages[0].text === contactPayload.details && boundary.body.messages[0].from === "you");
+    boundary = await pub("/api/privacy/requests/read", { caseId: contactFields.caseId, caseCode: changedCode }, { routeProfile: "actual-public" });
+    check("the actual public existing-case read refuses a wrong code without revealing the conversation", boundary.status === 404 && boundary.body.error === "case_not_found" && !("messages" in boundary.body));
+    boundary = await pub("/api/privacy/requests", { ...replayPayload, details: "A different payload." }, { routeProfile: "actual-public" });
+    check("the actual public existing-case retry remains conflict-checked rather than silently redirected or overwritten", boundary.status === 409 && boundary.body.error === "case_conflict" && one("SELECT COUNT(*) AS n FROM community_privacy_messages").n === 1);
+    boundary = await pub("/api/privacy/requests", publicCreate, { routeProfile: "actual-public" });
+    check("the successful SSR case does not reopen fresh creation through the actual public JSON path", boundary.status === 410 && boundary.body.error === "use_contact_form" && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 1);
+  } finally {
+    const privacyBoundaryDb = db;
+    db = privacyLegacyDb;
+    privacyBoundaryDb.close();
+  }
 
   console.log("\n== the flag and the three switches ==");
   let r = await pub("/api/privacy/config", undefined, { over: { ...ON, COMMUNITY_FEATURES: "" } });

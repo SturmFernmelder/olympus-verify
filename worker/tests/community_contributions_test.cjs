@@ -123,7 +123,19 @@ const character = (id, name, memberSince, guid = null) => {
   db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, 'member', ?, ?, ?)").run(name.toLowerCase().split("-")[0], name, id, memberSince, guid, memberSince);
 };
 const ON = { COMMUNITY_FEATURES: "contributions,restrictions", CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", SITE_ADMINS: `${STAFF},${STAFF2}` };
-const cookieFor = async (id, version = 1) => (await siteCore.sessionCookie(env(), id, version)).split(";")[0];
+// Normal feature requests need a session current to both the actor and the real SQL clock.
+// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
+const cookieFor = async (id, version = 1) => {
+  const actorTime = T;
+  let issued;
+  try {
+    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
+    issued = siteCore.sessionCookie(env(), id, version);
+  } finally {
+    T = actorTime;
+  }
+  return (await issued).split(";")[0];
+};
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
   const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
