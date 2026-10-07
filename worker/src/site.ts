@@ -27,6 +27,8 @@ import { audit, now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { recordNames } from "./names";
 import { policyResponse } from "./policies";
+import { handlePolicyForms } from "./policy-forms";
+import { policyHeaders } from "./policy-render";
 import { loadSettings, meta, snowflakeTime } from "./site-data";
 import { handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sessionCookie, sign, verify, SESSION_COOKIE } from "./site-core";
@@ -53,8 +55,11 @@ export async function handleSite(
   // Cloudflare serves the custom domain over HTTPS; a plain-HTTP request only reaches here if nothing upgraded it.
   if (url.protocol === "http:" && url.hostname !== "localhost") {
     url.protocol = "https:";
-    return Response.redirect(url.toString(), 301);
+    const headers = policyHeaders(); headers.set("Location", url.toString());
+    return new Response(null, { status: 301, headers });
   }
+  const privacyForms = await handlePolicyForms(request, env, path, schemaReady);
+  if (privacyForms) return privacyForms;
   // .90 (P-17): the sign-in routes are the site's unauthenticated entry points that do work (a state cookie, a token exchange):
   // limited per client address, in memory (approximate per isolate; a first filter in front of the zone's own rules)
   if ((path === "/auth/login" || path === "/auth/callback") && rateLimited(`auth:${path}:${request.headers.get("CF-Connecting-IP") ?? ""}`, AUTH_PER_MINUTE, 60)) {
@@ -277,4 +282,3 @@ function simple(text: string, status: number): Response {
   const h = securityHeaders(new Headers({ "Content-Type": "text/plain; charset=utf-8" }));
   return new Response(text, { status, headers: h });
 }
-

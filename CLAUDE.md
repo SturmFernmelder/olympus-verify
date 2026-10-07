@@ -1,10 +1,12 @@
 # CLAUDE.md
 
+> Local paths below are examples. Replace `C:/path/to`, `C:\path\to` or `<your-user>` with your own checkout or account before running a command.
+
 Guidance for the AI coding agents working in this repository (Claude Code reads this file; ChatGPT Codex reads
 `AGENTS.md`, which points here). It describes how the code is built and the rules that are easy to break. For what is
 deployed and what is open, read the tail of the task log (below) and `docs/deploy-checklist.md` (newest build last).
 
-**Current owner instruction (3 Oct 2026):** Claude Code reached its weekly usage limit; Viktor instructed Codex to
+**Current owner instruction (3 Oct 2026):** Claude Code reached its weekly usage limit; the owner instructed Codex to
 "Take over from here and finish the task yourself without a dual sign off." The interrupted .115 work is preserved
 at local non-release checkpoint `568c76d958eeee2f2786798bd959b0b2ae8ec299`; it is not a release qualification.
 Codex now carries implementation and exact-commit release qualification under the collaboration rules below.
@@ -57,7 +59,7 @@ bash scripts/tests/cutover-config.test.sh    # the cutover configuration differs
 bash scripts/cutover-config.sh               # show that difference (--check in CI; --apply only as the final cutover step, after the gates; --activate after it, activation keys only)
 bash scripts/tests/publication-helper.test.sh # the publication helpers compile, answer --help and load their pinned reference (docs/source-provenance.md)
 # addon suites: no system Lua; use the lupa/LuaJIT venv
-"C:/Users/vikto/OneDrive/Apps/Olympus Forever/.local-tools/lua-attestation/Scripts/python.exe" addon/tests/run_lua_suites.py
+"C:/path/to/Olympus Forever/.local-tools/lua-attestation/Scripts/python.exe" addon/tests/run_lua_suites.py
 ```
 
 CI (`.github/workflows/ci.yml`) runs three jobs (worker: Gitleaks history scan, `npm ci` in `worker/`, `test:all`,
@@ -68,7 +70,7 @@ required job as passed, so the gate fails on a skipped, cancelled, failed or mis
 the ruleset on `main` requires. There is no ESLint or Prettier;
 `.editorconfig` sets the style (2 spaces, LF, final newline; Python 4 spaces).
 
-**Never run:** `npm run deploy` or `wrangler deploy` (Viktor deploys, from an exact commit with
+**Never run:** `npm run deploy` or `wrangler deploy` (the owner deploys, from an exact commit with
 `bash scripts/deploy-commit.sh <sha>`); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
 against the remote database (it re-applies `schema.sql`; the Worker migrates itself in `src/schema.ts`);
 `npm run register` / `register:intros` (owner, they rewrite the guild's command list); the watcher against the live
@@ -131,7 +133,7 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   .114 a rename Blizzard required (`src/rename-review.ts`) holds every grant while a `rename_holds` row is `reapply`
   (`"held"`), and `revokeForReapply` is the one remover added since .55 (at the decision; the hold is re-read after the
   member GET and after a grant's PUT, and held accounts join the sweep's banned reconciliation).
-- **Seats** (`src/guild-seats.ts`, .115, Viktor's item B of 2 Oct 2026): whether Olympus I has room is read from the
+- **Seats** (`src/guild-seats.ts`, .115, the owner's item B of 2 Oct 2026): whether Olympus I has room is read from the
   LATEST roster snapshot only, and only when it is complete (stamped in the same batch as its last member rows; a row
   still unfinished `SNAPSHOT_WRITE_GRACE_S` after it arrived is "stuck" and the next export writes it again), trusted
   (judged against the last export that counts, on or after `LINKS_NOT_BEFORE`, pre-.115 rows re-judged in order
@@ -242,7 +244,7 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   section to `docs/design.md`.
 - **Tests with every change**, in the house style: a `.cjs` script that transpiles the real source, runs the real
   schema, fakes only Discord, prints `PASS`/`FAIL` per check and exits non-zero on any failure; add it to `test:all`.
-- **Comments say why**, and cite the decision and its date ("Viktor's decision (2026-09-25)", "build .47").
+- **Comments say why**, and cite the decision and its date ("the owner's decision (2026-09-25)", "build .47").
 - **Schema changes** go into `schema.sql`, `src/schema.ts` (idempotent, `CREATE ... IF NOT EXISTS` / `addColumn`) and
   a dated file under `migrations/`, all three.
 - Bound every D1 value; SQL text interpolates only compile-time fragments. Keep bound parameters per statement under
@@ -264,8 +266,8 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   A subagent review is separately attributable peer evidence, never a fabricated Claude countersignature.
 - **Historical attribution:** the 30 Sep ownership split and earlier dual signatures remain records of their own
   scopes and versions; do not rewrite them or infer that Claude is still running after the confirmed usage limit.
-- **Owner gates (Viktor):** deploys, secrets, live Discord/Cloudflare/GitHub/Battle.net changes, permission changes,
-  the domain and repository renames, account deletion, new dependencies. Agents prepare exact steps; Viktor runs
-  them, or Codex where Viktor has authorized it in the log.
+- **Owner gates (the owner):** deploys, secrets, live Discord/Cloudflare/GitHub/Battle.net changes, permission changes,
+  the domain and repository renames, account deletion, new dependencies. Agents prepare exact steps; the owner runs
+  them, or Codex where the owner has authorized it in the log.
 - **Never** type or print a secret; never DM a member; never `git push --force`; never switch branches in this shared
   checkout (use a worktree elsewhere for anything not on `main`).

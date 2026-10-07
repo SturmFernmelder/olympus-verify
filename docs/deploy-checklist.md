@@ -633,7 +633,7 @@ go to /guild or to the separate /discord channel.
 
 Discord side: the person linking needs Manage Channels, View Channel and Send Messages on the channel. The channel must
 be a text channel and not age-restricted; private channels are allowed.
-- Viktor (server owner) can link any channel.
+- the owner (server owner) can link any channel.
 - Asmongold (Guild Master role) can link #guild-chat specifically: the Guild Master role holds exactly those three
   permissions there. That is why #guild-chat is out of sync with GUILD HALL. **Never "Sync Now" #guild-chat** — it
   deletes that overwrite. guild-map.py now records this as intentional instead of warning.
@@ -720,7 +720,7 @@ vectors), `python ..\watcher\tests\test_discord_relay.py` (14).
 
 The 25 Sep review turned MEE6's Administrator off because guild-map.py flagged it CRITICAL and claimed MEE6's other
 permissions were "already set explicitly". That claim was wrong, and the change reversed an explicit owner decision:
-on 16 Sep Viktor chose Administrator for MEE6 and had it restored after Codex removed it (owner handbook, "MEE6
+on 16 Sep the owner chose Administrator for MEE6 and had it restored after Codex removed it (owner handbook, "MEE6
 Administrator is an explicit owner decision"). Administrator skips every overwrite, and several MEE6 jobs depended on
 that:
 
@@ -736,7 +736,7 @@ that:
 - **The Contact staff button in #help-desk.** Opening a ticket means MEE6 creating a channel, which needs Manage
   Channels. It now fails. SUPPORT TICKETS was already due to be retired.
 
-**Decided 25 Sep (Viktor): Administrator back on.** Done in the browser the same day; tickets, moderation commands,
+**Decided 25 Sep (the owner): Administrator back on.** Done in the browser the same day; tickets, moderation commands,
 logging and the Twitch alerts work again. guild-map.py records it in `ADMIN_BY_DECISION`, so the check reports it as
 INFO with the reason instead of CRITICAL. The two channel overwrites above stay: harmless with Administrator, and
 they keep both jobs working if it ever comes off again.
@@ -804,7 +804,7 @@ from addon/tests.
 
 ## Visitors and members, 25 Sep 2026 — the guild channels close to non-members on 28 Sep
 
-Viktor's design: someone with no role sees **START HERE** and **VISITORS** only. The **Guild Member** role, which the
+the owner's design: someone with no role sees **START HERE** and **VISITORS** only. The **Guild Member** role, which the
 bot grants once a character in the main Olympus guild is verified and on the roster, opens **GUILD HALL** and **WAR
 ROOM**. From 22 to 25 Sep those two categories were open to everyone; this reverses that. Only the main Olympus guild
 is verified. Olympus 2 and the later Olympus guilds get their own visitor space.
@@ -1070,7 +1070,7 @@ from the client's format strings. All other suites pass.
 
 ## Addon 0.5.5 and watcher: applicants in another guild leave the queue; nobody is whispered unless they whispered first (26 Sep 2026)
 
-Viktor: "If people are already in a guild, I want to remove them from the queue (also to ensure I don't whisper
+the owner: "If people are already in a guild, I want to remove them from the queue (also to ensure I don't whisper
 people unless they whisper me first)." 0.5.4 had whispered the "leave your guild" notice to ten applicants between
 02:06 and 02:11 UTC.
 
@@ -1095,7 +1095,7 @@ Watcher: test_watcher 18/18 (new: note to self trusted, forged note dropped) and
 
 ## Addon 0.5.6 — nobody in another guild is whispered, at all (26 Sep 2026)
 
-Viktor: "It still whispers people who are in other guilds, it shouldn't do that, it should just take them off." In
+the owner: "It still whispers people who are in other guilds, it shouldn't do that, it should just take them off." In
 0.5.5 someone found in another guild was still told how to leave it if they had whispered you before, and most
 applicants have: that is how they sent their code. 0.5.6 drops that whisper entirely, both when /who finds them and
 when an invite is refused with "already in a guild". The row just comes off the queue. Their code, whispered after
@@ -1108,7 +1108,7 @@ suites pass.
 
 ## Addon 0.5.7 — "checking 2 at the same time": the server's /who refusal (26 Sep 2026)
 
-Viktor: "It keeps checking 2 at the same time and the check next number going up again next time." In game each
+the owner: "It keeps checking 2 at the same time and the check next number going up again next time." In game each
 press printed "checking Charles Milksteak…" and then "Derkaderka Muhamedjihad: offline (answer came late)". The
 whoTrace saved at 02:27 UTC shows the cause. When a /who goes out less than 5 seconds after the previous one (4.4 to
 4.8 s were refused, 5.07 s was answered), the server replies "You must wait a moment longer before using /who
@@ -1133,7 +1133,7 @@ pass. **/reload to load it.**
 
 ## Addon 0.5.8 — "0 in another guild" next to people taken off for being in one (26 Sep 2026)
 
-Viktor: "It says they are in another guild but then it says 0 in another guild." Recent in the panel listed four
+the owner: "It says they are in another guild but then it says 0 in another guild." Recent in the panel listed four
 applicants "taken off the queue — in <OLYMPUS VII>" (and XXIV, VIII, XXV), while the text in the empty list read
 "121 not checked, 50 offline, 0 in another guild". Both were right. The count covered only people still waiting, and
 since 0.5.6 nobody found in a guild is kept waiting, so it was always 0. Side by side they read as a contradiction.
@@ -1212,7 +1212,7 @@ harness, status 14, presence 231, unverified 53, launcher 41, UI 73, signed note
 
 ## Addon 0.6.1 and watcher 0.6.1 — what the first run of 0.6.0 measured (27 Sep 2026)
 
-Read from the chat log, SavedVariables and the watcher's state after Viktor's steps (15:00–15:10 UTC):
+Read from the chat log, SavedVariables and the watcher's state after the owner's steps (15:00–15:10 UTC):
 - **The chat-log flush did not work.** A code whispered at 15:03:34 and `/w Fern Melder hi` at 15:04:54 reached
   `WoWChatLog.txt` only at 15:09:16, with the next 48 KiB batch; the watcher measured 40 s to 6 min per line. The
   addon had turned logging off and on in the same frame, and the client wrote nothing. 0.6.1 turns it back on a fifth
@@ -1243,7 +1243,7 @@ and `/reload` once more.
 
 ## Addon 0.6.2 and watcher 0.6.2 — every note to self went to "Fern" (27 Sep 2026)
 
-Read after Viktor's 0.6.1 steps (17:41–17:43 UTC):
+Read after the owner's 0.6.1 steps (17:41–17:43 UTC):
 - **No note to self was ever sent.** SavedVariables said `lastCharacter = "Fern"`: on this client `UnitName("player")`
   gives only the first part of the name (the 17 Sep probe had "Fern Melder", and the 18 Sep log test reached
   "To Fern Melder:"). Every note since the 0.6.0 reload went to "Fern", and the chat log has "No player named 'Fern' is
@@ -1314,7 +1314,7 @@ by the Worker itself (`schema.ts`); `migrations/2026-09-29-intro-posts.sql` is t
 
 **Rollout.**
 1. Add the bot to Asmongold's server: scopes `bot applications.commands`, server permission View Channels only
-   (`permissions=1024`); everything else comes from channel overwrites (step 4). Done 29 Sep by Viktor from the
+   (`permissions=1024`); everything else comes from channel overwrites (step 4). Done 29 Sep by the owner from the
    desktop app's Add App window; Wick left the bot alone.
 2. `npm run deploy`; `/health` shows build `2026-09-29.39 asmongold-intros` and an `intros` block. Done 29 Sep
    (version 56e7fe3d).
@@ -1343,7 +1343,7 @@ make; the old pin route; a channel moved in the config. Typecheck, vectors and e
 (notices 22, restore 16, role sweep 21, tickets and GUIDs 52, Verify button 18, review fixes 64; SQL 5 and 12).
 
 **Result, 29 Sep 2026 (build .39).** Overwrites saved and read back on all twelve channels; the two roles allowed under
-Integrations; Viktor's `/olympus-intros refresh` in #olympus-info answered "12 changed": ten channel messages and two
+Integrations; the owner's `/olympus-intros refresh` in #olympus-info answered "12 changed": ten channel messages and two
 forum posts, all pinned, the posts tagged Other and Guide. Both forum checklists now show 4 of 5 (the fifth is the
 recommended-permissions step, left alone on purpose). The LFG post guidelines' example was corrected to 13–18.
 
@@ -1358,7 +1358,7 @@ them alone; the two forum posts are edited in place. Rollout: `npm run deploy`, 
 
 ## Health check, 29 Sep 2026 — and addon 0.6.3: the automatic chat-log flush is off
 
-Viktor: "Check everything to ensure everything is current, up to date, and working properly." Read on 29 Sep between
+the owner: "Check everything to ensure everything is current, up to date, and working properly." Read on 29 Sep between
 01:04 and 01:20 UTC:
 - **Worker:** the live build is `2026-09-29.40 intro-previews`, the same as `src/index.ts`, so .40 is deployed. D1 is
   ok, all six secrets are set, `requestCodes` is true, and the intros guild is configured (17 channels, 12 intros).
@@ -1404,7 +1404,7 @@ Steps:
 **What it is.** `https://guild.roachcouncil.com`, served by this Worker (`SITE_HOST`). Sign in with Discord; only
 members of Asmongold's server (`SITE_GUILD_ID`) get in. Members apply for a position, nominate people for the senior
 roles (results for `SITE_ADMINS` only), list friends, and from the day Blizzard's name reservation opens enter up to
-three reserved names. The Admin tab (Viktor) has applications, nomination tallies, reserved names, friends, a lookup
+three reserved names. The Admin tab (the owner) has applications, nomination tallies, reserved names, friends, a lookup
 of any Discord member's characters, settings and CSV downloads. Original look, no Blizzard assets. Design notes:
 `docs/design.md`, "29 September".
 
@@ -1421,7 +1421,7 @@ Also in this build:
   verified or not in the list, with Discord names, filters and sorting.
 
 **Config** (`wrangler.toml`, all set): `routes` (the custom domain), `[assets]` (`public/`), `SITE_HOST`,
-`SITE_GUILD_ID`, `SITE_ADMINS` (Viktor), `SITE_JOIN_URL` (empty), `NAME_RESERVATION_AT` (27 Oct 00:00 Pacific; the hour
+`SITE_GUILD_ID`, `SITE_ADMINS` (the owner), `SITE_JOIN_URL` (empty), `NAME_RESERVATION_AT` (27 Oct 00:00 Pacific; the hour
 is set on the admin Settings page once Blizzard announces it), `LAUNCH_AT`, `NAMES_PER_RUN` (5),
 `QUEUE_CLAIM_PRIORITY_EXTRA` (10). No new secrets: sign-in uses `DISCORD_CLIENT_SECRET` and `COOKIE_SECRET`, which are
 already set. The Worker creates its new tables and columns itself (`schema.ts`); `migrations/2026-09-29-guild-site.sql`
@@ -1779,7 +1779,7 @@ and addon suites through Lupa 2.8, and one aggregate `check` job that always run
 exactly `success` (`scripts/ci-gate.sh`; GitHub counts a skipped required job as passed, so the gate must never be
 skipped), which is the status a ruleset on `main` requires; Dependabot; a PR template), `SECURITY.md` (secret
 locations, rotation order for the three-copy `VERIFY_SECRET`, leak response, a D1 restore that merges
-`seen_interactions` back), `LICENSE` (the same proprietary notice as Forever's, with the policies excepted; Viktor's
+`seen_interactions` back), `LICENSE` (the same proprietary notice as Forever's, with the policies excepted; the owner's
 to change), `CLAUDE.md` + `AGENTS.md` (the agents' rules).
 
 **Rollout.** Nothing to deploy. Once the GitHub repository exists (owner step: rename `olympus-verify-policies` to
@@ -1820,7 +1820,7 @@ all of it. .48 was never deployed, so no database has the column.
 Not covered, by design of the platform: the `battlenet_linked = 1` role-connection metadata pushed to Discord at link
 time lives with the member's own Discord account (Discord shows it as their connection); the Worker holds no token that
 could clear it and Discord updates it only when the member links again. The privacy policy says what is kept and for
-how long (`policies/privacy.html`, "What it stores" and the ban paragraph; Viktor uploads it to GitHub Pages as before).
+how long (`policies/privacy.html`, "What it stores" and the ban paragraph; the owner uploads it to GitHub Pages as before).
 
 **Database.** `members.bnet_hash TEXT`, added by the Worker itself at first request (`src/schema.ts`);
 `migrations/2026-09-30-bnet-retention.sql` is the same statement. No backfill: existing rows keep their `linked_at`,
@@ -2078,7 +2078,7 @@ owns, by editing in place: the same registry key and message ids, so `/olympus-i
    application grants no beta access; the reservation field says three characters and that the planning list reserves
    nothing; the add-on paragraph drops the claim that Blizzard has published no policy and points at the reviewed
    release and the vendor's rules; the facts footer is dated 1 October 2026.
-Not in this build: the channel topics (channel settings, Codex proposes, Viktor saves) and the portal embed, which the
+Not in this build: the channel topics (channel settings, Codex proposes, the owner saves) and the portal embed, which the
 candidate itself gates on five acceptances that are not met yet.
 
 **Rollout.** Deploy; then an officer runs `/olympus-admin refresh-guide` in the join channel and `/olympus-intros
@@ -3023,7 +3023,7 @@ and the member's words kept; the capture wording. Pins .76.
    the legacy host and both routed. The live `wrangler.toml` is unchanged, so every deploy of `main` before the cutover
    still serves the current server; `--check` (CI) proves the pair differs in exactly the 16 keys and the routes;
    `--apply` is the authorized final source/config step (applied once, committed, rechecked, signed by both agents on
-   that exact commit, then deployed by Viktor; never an uncommitted override) and refuses a dirty live file.
+   that exact commit, then deployed by the owner; never an uncommitted override) and refuses a dirty live file.
 
 **The cutover's preconditions** (Codex's eight gates, 04:36 UTC), all owner or live actions, none performed by an agent:
 1. the donor's canonical move: `olympus.roachcouncil.com` released by Olympus Forever (to `olympusforever.roachcouncil.com`)
@@ -3066,7 +3066,7 @@ Redeploy .76. C02: no write path added or removed.
    (`proof_changed`, swallowed by the opener).
 5. Constant policy reads (`ensurePolicy`, the default policy) stay as initialization; every private read stays admitted.
 6. **Cutover wording** (Codex 05:19): the apply step is the authorized final source/config step performed by the agents,
-   committed, rechecked and signed on the exact commit before Viktor deploys it; never an uncommitted override.
+   committed, rechecked and signed on the exact commit before the owner deploys it; never an uncommitted override.
    `CLAUDE.md`, the script, the cutover file's header and .77's checklist entry say so.
 
 **Database / config.** None. **Rollout.** With .51-.77 (the ledger stays off). **Rollback.** Redeploy .77. C02 unchanged.
@@ -3285,7 +3285,7 @@ switched off and moved; the cron wiring; the coverage report's four unavailable 
 
 **What changed.** Codex's candidate `official-wow-website-p73` (manifest `36384be7…`, prepared on .73) as a MINIMAL overlay
 on the current head; the four targets were unchanged since .73 except the test pin (`git diff --stat 63a6483..HEAD`).
-Viktor's instruction of 1 Oct 2026 (relayed by Codex 04:44): generated and custom artwork is for the Discord application
+the owner's instruction of 1 Oct 2026 (relayed by Codex 04:44): generated and custom artwork is for the Discord application
 only; the websites use official World of Warcraft assets.
 1. `public/static/app.js`: `accountArt(person)` renders every account picture (header, welcome, candidate cards, pickers,
    admin lists and tables: nine call sites) as the member's class icon or the official Member icon; Discord's avatar fields
@@ -3438,7 +3438,7 @@ findings left on the head are the offline test fixtures, to be classified at the
    A roster export's promotions (`ingestRosterInner`), the manual sync and a batch of join events (`postEventsInner`) share
    one budget each; a promotion whose grant cannot be afforded is `role.deferred` with `reason: budget` and the sweep
    restores it. A single interaction's grant carries no budget.
-2. **P-19, `src/dm.ts`:** `PUBLIC_KINDS` is `welcome` only (Viktor's V7 for an 81,000-member server): a return to the invite
+2. **P-19, `src/dm.ts`:** `PUBLIC_KINDS` is `welcome` only (the owner's V7 for an 81,000-member server): a return to the invite
    queue and a freed seat are posted as "there is an update, run /verify-status", like every other kind. The terms say so
    (regenerated `policy-content.ts` in the same commit).
 3. **P-17, `src/site.ts`, `src/index.ts`:** `/auth/login` and `/auth/callback` on the site host, and `/linked-role`,
@@ -4069,9 +4069,9 @@ lost at B's next redraw. The durable receipt, the redraw guard and the resend co
 held before the page sees it). A's payment completed and held, the page moved to B and B's source id typed, A's answer
 released, B redrawn: B's source id survives; A's payment is stored once. Pins .110.
 
-## Worker .111 — the Olympus crest returns as the website's one non-game image (Viktor, 1 Oct 2026) (1 Oct 2026)
+## Worker .111 — the Olympus crest returns as the website's one non-game image (the owner, 1 Oct 2026) (1 Oct 2026)
 
-**What changed.** Viktor's decision in the Claude Code session (1 Oct 2026, about 13:25 UTC): guild.roachcouncil.com is the
+**What changed.** the owner's decision in the Claude Code session (1 Oct 2026, about 13:25 UTC): guild.roachcouncil.com is the
 guide for the website's look, with its logo; asked whether the crest conflicts with "only official World of Warcraft
 assets", he chose "the crest is the exception": everything else stays the official client set.
 1. `public/static/olympus-icon.png` is restored byte for byte from the .46 baseline: the 250x250 crest live on
@@ -4097,9 +4097,9 @@ C02 unchanged.
 **Tests.** `site_test.cjs`: the tab icon and brand are the crest, the file is the live 250x250 one by sha256, and it is
 the only image outside `public/static/wow/`; account pictures still never load from Discord. `test:all` green. Pins .111.
 
-## Worker .112 — the official-assets audit (Viktor's rule: official World of Warcraft assets only, the crest the one exception) (1 Oct 2026)
+## Worker .112 — the official-assets audit (the owner's rule: official World of Warcraft assets only, the crest the one exception) (1 Oct 2026)
 
-**What changed.** An independent audit of the site against Viktor's rule (six angles: every runtime image name resolved
+**What changed.** An independent audit of the site against the owner's rule (six angles: every runtime image name resolved
 against `wow/`; the files against the pinned reference and the provenance; foreign or generated art and the CSP;
 pictographs used as icons; the server-rendered pages; the publication gate's scan; each finding tested by three
 refuters, then a completeness critic). All 94 official files match the reference; every image the site requests exists
@@ -4190,9 +4190,9 @@ back at 2 October); the earlier versions of the rotated chain, `fdf41b8f` and `9
 candidates. The full record, the Discord-side steps and the observations still open before the launch counts as
 accepted are in `docs/launch-runbook.md` section 7.
 
-## Worker .114 — Viktor's requests of 2 Oct 2026 (header picture, footer, Battle.net switch, search names, rank planner, beta reset, forced renames, the I-X leadership directory) (2 Oct 2026)
+## Worker .114 — the owner's requests of 2 Oct 2026 (header picture, footer, Battle.net switch, search names, rank planner, beta reset, forced renames, the I-X leadership directory) (2 Oct 2026)
 
-Viktor's ten items of 2 Oct about 17:25 UTC, with the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and
+the owner's ten items of 2 Oct about 17:25 UTC, with the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and
 Codex's provisional source review (18:47 UTC), built on keeper 06d39950 (live: .113, Cloudflare a18a10aa).
 
 **What changed, for members.**
@@ -4227,7 +4227,7 @@ Codex's provisional source review (18:47 UTC), built on keeper 06d39950 (live: .
   name with no GUID; anything else is refused for a person to sort out), unbinds it, sets the site application back to
   withdrawn with a staff note, and removes Guild Member once and holds later grants (`roles.ts`) unless another current
   member character of the account supports the role (a supporting character is one that NO open hold names, by key or
-  GUID, so two held characters never support each other). Approval needs both of Viktor's steps after the decision: the
+  GUID, so two held characters never support each other). Approval needs both of the owner's steps after the decision: the
   member saved the application again, the leadership accepted it (a withdrawn application can no longer be accepted
   directly), and the character was verified again in game, identified by its GUID exclusively when the hold recorded one
   (a different character under a reused name does not count); the acceptance must be newer than the member's latest save,
@@ -4251,7 +4251,7 @@ Codex's provisional source review (18:47 UTC), built on keeper 06d39950 (live: .
   closing moment the page showed and stores a once-only marker with a nonce that the other statements require, so a
   replayed or stale request changes nothing and later appointments survive; the closing moment is fixed once it ran.
 - Admin → Renames, as above.
-- In .114 the Battle.net switch **cannot be switched on**: the policy has no Battle.net section on purpose (Viktor: no
+- In .114 the Battle.net switch **cannot be switched on**: the policy has no Battle.net section on purpose (the owner: no
   retention text until Blizzard ships a World of Warcraft: Forever API). Switching it on needs a later reviewed release
   that adds that section (marked `<!-- olympus:bnet-login-section -->`, which `scripts/build-policy-content.mjs` turns into
   `PRIVACY_DESCRIBES_BNET_LOGIN`), then the box. A login that proves Forever characters needs new code once Blizzard
@@ -4272,7 +4272,7 @@ runbook's fresh verified private backup comes first.
 
 **Config.** None: no `wrangler.toml` key changes, so `scripts/cutover-config.sh --check` is unaffected.
 
-**Rollout.** One deploy of the reviewed commit. After it, by Codex with Viktor's approval at the time: `/olympus-admin
+**Rollout.** One deploy of the reviewed commit. After it, by Codex with the owner's approval at the time: `/olympus-admin
 refresh-guide` (the guide without the Battle.net promise), the #join-olympus topic and the Discord app description without
 "optionally link Battle.net", and a command re-registration for the corrected descriptions. The policy mirror on GitHub
 Pages is refreshed with the publication step; Codex's reference successor updates the fixed-art pins (app.js,
@@ -4299,7 +4299,7 @@ loads from Discord" with the header-only contract. `tests/bnet_retention_test.cj
 runs with the switch on; `tests/verify_button_test.cjs` checks the guide no longer promises Battle.net; `site_test.cjs` (360) and
 `hosts_test.cjs` pin .114 and check the shown names; site_test also races a save against a staff decision.
 
-## Worker .115 — Viktor's requests of 2 Oct 2026 (a full guild said plainly, News and typed names) (3 Oct 2026)
+## Worker .115 — the owner's requests of 2 Oct 2026 (a full guild said plainly, News and typed names) (3 Oct 2026)
 
 **Interrupted work preserved; not release-qualified.** Local non-release checkpoint
 `568c76d958eeee2f2786798bd959b0b2ae8ec299` preserves the interrupted .115 changes after the owner's Codex takeover.
@@ -4314,7 +4314,7 @@ coverage of every preservation-critical writer/version/SQL/post-response operati
 replacement/replay/read-back, and no stale writer after reopening. If that cannot be proved, refuse restoration.
 The future commit-time maintenance epoch surviving restore is **not implemented**; no .116 barrier is assumed.
 
-Viktor's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct about 02:30 UTC (log 02:34 UTC): the one-time
+the owner's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct about 02:30 UTC (log 02:34 UTC): the one-time
 rewrite of the older settings audit rows in scope; the seven-rank ladder of answer 1, with the in-game steps that went
 with it, is superseded by answer 6 (about 12:50 UTC; "Withdrawn" below). The other questions took the plan's defaults:
 News under Community, a 48 h freshness window, application counts below 5 masked, at most 20 live notices of 1 to 90
@@ -4504,7 +4504,7 @@ right below Officer, no Probation), and its planner preset and in-game steps com
    copy of the older rows afterwards, and a deploy without it waits. Codex's deploy qualification on the merged public `main`
    SHA, with the remote D1 import qualification named OPEN. Deploy promptly: the Pages mirror shows the .115 policy from
    the merge on.
-6. `bash scripts/deploy-commit.sh <public main sha>` (Viktor, or Codex where Viktor authorized it in the log). Nothing
+6. `bash scripts/deploy-commit.sh <public main sha>` (the owner, or Codex where the owner authorized it in the log). Nothing
    is deployed from the keeper. No command registration and no guide refresh: the guide's text is unchanged.
 7. Read-only read-back: the public `/health` names .115 and the bearer one carries `seats`; the static files equal the
    integrated head's; `/privacy` and `/terms` equal the Pages copies; the owner's counts-only read finds 51 tables
@@ -4775,3 +4775,25 @@ owner requests 191. The final exact-head full-suite receipt supersedes those foc
 source qualifies a later freeze. The statement allowances and 694/700 scheduled model remain unchanged. The official-art
 successor must close exactly 63 runtime paths; its four shipping files and actual candidate acceptance remain separate
 from source checks. Rollout, backup validation, typed-audit readback and exact-copy cleanup gates above still apply.
+
+## Worker .116 - anonymous policy and contact candidate (6 October 2026)
+
+This source candidate targets the standalone .115 keeper, not the separate unfinished producer composite. The policy
+pages retain anonymous PolicyV5 wording and use the finite script-free shell, immutable Battle.net OFF release profile
+and canonical contact/case/account forms. Account controls move from the Community card to the bottom policy surface;
+saved #/data links redirect to /privacy/account. The existing current-site-session curated copy remains available to
+valid denied, departed or banned identities. Case credentials, read/reply, inactivity cutoffs and exact retries remain.
+
+The canonical privacy snapshot and case-context mechanics are dormant references. Production identify-only sign-in,
+automatic site/full erasure and local Battle.net unlink remain unavailable. No generation tables, cron, account/session
+producer, role writer, recovery protocol or configuration switch is added or activated. This is not full erasure or
+full generation safety, and does not recall external or downloaded copies.
+
+Before any release ROOT must check the exact final source, generator and three mirrors; run the standalone compiler,
+policy/contact/session-copy suites with actual .115 schema and closed-route DB/provider tripwires; parse the real page
+script; and inspect signed-out, member and denied views in the current browser, including official policy assets and
+footer placement. Bundle/deploy/private backup/owner publication and provider readback gates remain separate. Historical
+71/75 receipts qualify their earlier source only. No current tests, deployment or publication are claimed here.
+
+Rollback is the separately retained exact ec0250d9 keeper source; applying rollback is the owner's reviewed operation,
+not an automated database restore. This candidate changes no schema. Retain recovery/drain and typed-audit gates above.

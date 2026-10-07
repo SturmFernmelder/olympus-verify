@@ -9,7 +9,7 @@ section 7 records what was done and what is live. The prospective qualification 
 on 3 Oct 2026 under the owner's Codex takeover instruction; historical signatures retain their original scope.
 
 Nothing below is an agent's step. The agents prepare exact commits and sign them in the task log
-(`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); Viktor runs the commands, or Codex where Viktor has authorized
+(`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); the owner runs the commands, or Codex where the owner has authorized
 it in the log. The never-run list in `CLAUDE.md` stands throughout: `wrangler deploy` from a working folder, `wrangler
 secret put`, `db:init` against the remote database, `register`, the watcher against the live Worker, `cutover-config.sh
 --apply` before its gates, the publication helpers beyond `--help`.
@@ -17,7 +17,7 @@ secret put`, `db:init` against the remote database, `register`, the watcher agai
 ## 0. What "signed" means
 
 Before 3 Oct 2026 the procedure required the author's signature and the other agent's countersignature on the same SHA.
-Viktor then instructed Codex to take over after Claude's usage limit and finish without dual sign-off. For new actions,
+the owner then instructed Codex to take over after Claude's usage limit and finish without dual sign-off. For new actions,
 the task log must hold Codex's own release qualification on the exact final commit/tree, with independent peer evidence
 and the applicable source, tests, bundle, policies/assets, CI and actual-version/live gates or expressly named residuals.
 No new Claude signature is required or implied. The interrupted .115 checkpoint
@@ -329,7 +329,7 @@ qualifies that keeper commit; its three changed files reach the public `main` as
 `--check` passes there; CI, exact-commit qualification under section 0, and `deploy-commit.sh` follow. Switching a
 flag back off is the same step.
 
-**The decided activation** (Codex's proposal of 1 October 2026; the two operating choices answered by Viktor the same
+**The decided activation** (Codex's proposal of 1 October 2026; the two operating choices answered by the owner the same
 day). Limits and lists stay as they are: `COMMUNITY_DIRECTORY_LIMIT = "2500"`, `COMMUNITY_ORGANIZERS = ""`, `SITE_ADMINS`
 and `CONTRIBUTIONS_SCOPE` unchanged.
 1. **First activation, after the cutover:** `COMMUNITY_FEATURES =
@@ -339,7 +339,7 @@ and `CONTRIBUTIONS_SCOPE` unchanged.
    `PRIVACY_INTAKE_RETENTION_DAYS = "30"`, `OFFICER_DIGEST_ENABLED = "true"` (counts only, to the private review channel
    `CHANNEL_MOD_ALERTS`). The private intake stays closed: `PRIVACY_INTAKE_ENABLED` and `PRIVACY_INTAKE_MONITORED` stay
    `"false"`, so the staff inbox shows and no new case is accepted.
-2. **Second activation, once Viktor has actually read the staff queue** (he reviews it each working day; cases are kept
+2. **Second activation, once the owner has actually read the staff queue** (he reviews it each working day; cases are kept
    30 days from their last activity): `PRIVACY_INTAKE_ENABLED = "true"`, `PRIVACY_INTAKE_MONITORED = "true"`.
 
 **The opening date** (Codex, 1 October 2026, 23:14 UTC). The command registration and the guide in Asmongold's server were
@@ -507,9 +507,9 @@ launch counts as accepted only once each is observed or explicitly named as a re
 - the first scheduled officer digest after 15:00 (counts only, in the private review channel);
 - Codex's whole-tool qualification on one final commit under section 0, with attributable independent peer evidence.
 
-## 8. The end of the beta (from 22 October 2026; Viktor's item 8, build .114)
+## 8. The end of the beta (from 22 October 2026; the owner's item 8, build .114)
 
-Blizzard gives 21 October 2026 as the beta's last full day and no hour, and the launch as 4 November 2026. Viktor's scope,
+Blizzard gives 21 October 2026 as the beta's last full day and no hour, and the launch as 4 November 2026. the owner's scope,
 confirmed through Codex (log 17:42 and 17:57 UTC, 2 Oct): Olympus guild ranks and guild leadership assignments are chosen
 again from scratch for the full release; Asmongold's general roles, applications, votes and private records are not
 touched. Nothing runs on a timer; every step below is a person's.
@@ -522,13 +522,13 @@ touched. Nothing runs on a timer; every step below is a person's.
    notice such as "Guild roles are open again for the full release". Applications, votes, memberships, links, bans and the
    dated log are kept. Suggested window: 22 to 26 October, so that applications and votes for the full release can finish
    before 4 November.
-4. **In game**: the Guild Master (Viktor, or an approved GM) sets the ranks by hand from the new decisions. The website
+4. **In game**: the Guild Master (the owner, or an approved GM) sets the ranks by hand from the new decisions. The website
    cannot change game ranks; the rank planner only drafts. The in-game ladder decision changed on 3 Oct 2026 (owner
    answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its planner preset and in-game
    steps come in a later release.
 5. **In Discord** (a person with Manage Roles; the bot cannot, its role sits below these): remove Olympus Officer, Olympus
    Guild Leader, Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. Keep
-   Viktor and at least one Olympus Guild Leader, or nobody can use /olympus-admin, /olympus-intros and the officer lookups.
+   the owner and at least one Olympus Guild Leader, or nobody can use /olympus-admin, /olympus-intros and the officer lookups.
 6. **Assign the new leaders**: Discord roles by hand, each named person reviewed first (the Council roles only after that
    review), the site's appointed roles in Admin → Settings, the I-X directory in the same place.
 7. **Announce once**: a site notice and, if wanted, one staff post in #guild-announcements; no per-member mentions.

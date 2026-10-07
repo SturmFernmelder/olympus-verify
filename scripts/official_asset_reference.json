@@ -737,6 +737,8 @@
     "worker/public/static/rank-planner/catalogue.js",
     "worker/public/static/rank-planner/model.js",
     "worker/public/static/rank-planner/styles.css",
+    "worker/src/account-generation-contracts.ts",
+    "worker/src/account-privacy-generations.ts",
     "worker/src/backfill.ts",
     "worker/src/bnet-retention.ts",
     "worker/src/bnet-switch.ts",
@@ -770,9 +772,18 @@
     "worker/src/log.ts",
     "worker/src/lookup.ts",
     "worker/src/names.ts",
+    "worker/src/network-profile.ts",
     "worker/src/oauth.ts",
     "worker/src/policies.ts",
     "worker/src/policy-content.ts",
+    "worker/src/policy-form-core.ts",
+    "worker/src/policy-forms.ts",
+    "worker/src/policy-release.ts",
+    "worker/src/policy-render.ts",
+    "worker/src/privacy-bnet-unlink.ts",
+    "worker/src/privacy-identity.ts",
+    "worker/src/privacy-provider-body.ts",
+    "worker/src/privacy-rights-hooks.ts",
     "worker/src/relays.ts",
     "worker/src/rename-review.ts",
     "worker/src/restore.ts",
@@ -910,8 +921,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 403507,
-      "sha256": "5ae56ed7596b33fcd7c94bf447db3ee51171dce9dcf0848fc0c2d69fa04c362b"
+      "bytes": 379151,
+      "sha256": "ec6ac1fb6ac2bed6ac7ceea5b0e1905e11e1f5bade95878c8668cf66bc42a266"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",

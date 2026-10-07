@@ -3,8 +3,9 @@
  * Codex's countersigned delivery candidate, manifest 5519466c…, 02:31 UTC, integrated on .64): public GET/HEAD 200 HTML
  * at /privacy and /terms and every alias that ever served or redirected them, on the site host and the bot host, with
  * no Location, no cookie, no database and no session (index.ts calls this right after the host check, before the
- * schema check), a strict self-only CSP with scripts disabled, and one local stylesheet (/static/policies.css, the only
- * static file the bot host serves). Other methods are 405.
+ * schema check), a strict self-only CSP with scripts disabled, and the finite local stylesheet/crest/font closure
+ * declared by policy-render.ts. Other methods are 405. The .116b3 shell/slots and authorised OFF retention omission
+ * are a separately reviewed source successor; no session-dependent or ON fragment is generated here.
  *
  * The text is src/policy-content.ts, GENERATED from the tracked policies/privacy.html and policies/terms.html by
  * scripts/build-policy-content.mjs (`npm run check:policies` fails when stale), so the Worker's copy and the GitHub Pages
@@ -14,8 +15,9 @@
  */
 import { securityHeaders } from "./site-core";
 import { policyDocument } from "./policy-content";
+import { STATIC_POLICY_CSP } from "./policy-render";
 
-export const POLICY_CSP = ["default-src 'none'", "script-src 'none'", "style-src 'self'", "font-src 'self'", "img-src 'none'", "connect-src 'none'", "form-action 'none'", "base-uri 'none'", "frame-ancestors 'none'"].join("; ");
+export const POLICY_CSP = STATIC_POLICY_CSP;
 
 /** The policy a path names as a complete response, or null when the path is not a policy address. */
 export function policyResponse(request: Request, path: string): Response | null {
@@ -23,6 +25,7 @@ export function policyResponse(request: Request, path: string): Response | null 
   if (document === null) return null;
   const headers = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }));
   headers.set("Content-Security-Policy", POLICY_CSP);
+  headers.set("Referrer-Policy", "no-referrer");
   if (request.method !== "GET" && request.method !== "HEAD") {
     headers.set("Allow", "GET, HEAD");
     headers.set("Content-Type", "text/plain; charset=utf-8");

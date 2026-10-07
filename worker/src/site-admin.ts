@@ -27,7 +27,7 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, readSession, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
 import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, settingsFrom, type SiteSettings } from "./site-data";
 import { queueReserved, releaseReserved } from "./site-queue";
 import { guildSeats } from "./guild-seats";
@@ -64,9 +64,12 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   if (parts[0] === "bnet-switch" && !parts[1]) {
     if (m === "GET") return apiJson(await bnetLoginState(env));
     if (m === "PUT") {
+      if (request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({ error: "reload" }, 409);
+      const session = await readSession(env, request);
+      if (!session || session.u !== actor) return apiJson({ error: "signed_out" }, 401);
       const on = body.on === true;
-      if (on && body.confirm !== "ENABLE") return apiJson({ error: "confirm", message: "Type ENABLE to switch Battle.net sign-in on." }, 400);
-      const r = await setBnetSwitch(env, actor, on);
+      if (on && body.confirm !== "ENABLE") return apiJson({ error: "confirm", message: "Type ENABLE to record a future enable request. Collection stays off until its reviewed release gates pass." }, 400);
+      const r = await setBnetSwitch(env, actor, on, { sessionVersion: session.v, expiresAt: session.e });
       return r.ok ? apiJson({ ok: true, state: r.state }) : apiJson({ error: r.error, message: r.message }, 409);
     }
   }

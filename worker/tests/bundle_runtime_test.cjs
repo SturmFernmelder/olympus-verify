@@ -105,7 +105,7 @@ const text = (v) => ({ type: "text", value: v });
     res = await get("https://old.example/?tab=vote", { redirect: "manual" });
     check("a legacy host is a 301 to the site", res.status === 301 && res.headers.get("Location") === "https://guild.example/?tab=vote", res.status, res.headers.get("Location"));
     res = await get("https://old.example/auth/callback?code=x&state=y", { redirect: "manual" });
-    check("  and an OAuth callback there restarts at the front page, uncached", res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store", res.status);
+    check("  and an OAuth callback there restarts at the front page with exact privacy headers, empty body and no cookie", res.status === 302 && res.headers.get("Location") === "https://guild.example/" && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("Referrer-Policy") === "no-referrer" && !res.headers.has("Set-Cookie") && (await res.text()) === "", res.status);
     const ping = JSON.stringify({ type: 1, id: "900000000000000001", application_id: "1550176895671341076", token: "t" });
     const ts = String(Math.floor(Date.now() / 1000));
     res = await get("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00".repeat(64), "X-Signature-Timestamp": ts }, body: ping });

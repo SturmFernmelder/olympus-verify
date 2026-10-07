@@ -271,6 +271,87 @@ export const INTROS: Intro[] = [
       description: "Olympus has no standing guild-wide loot system yet. Each raid leader publishes or links the rules for that raid before sign-ups close: loot eligibility, reserves or priorities, tie-breaks, bench treatment and how disputes are handled.\nRead them and ask before you join. Loot disputes go privately to the raid leader or an officer, not into public channels.",
     }],
   },
+  {
+    key: "council-info",
+    channel: "council-info",
+    embeds: [{
+      title: "Olympus I–X Council",
+      color: GOLD,
+      description: [
+        "Shared coordination for Guild Masters and officers across Olympus I–X. These Council channels retain private access. The separate Olympus Council GM and Olympus Council Officer roles remain unassigned.",
+        "",
+        "**Provisional until the Council charter is ratified.** The governance documents are drafts; no ratification or appointments under those drafts have been recorded. Existing Olympus I leadership and permissions remain separate.",
+        "",
+        "Council roles are given by hand after review. They provide access to these Council channels and grant no website, bot or in-game authority.",
+        "",
+        "Use {#council-chat} for discussion and {#council-decisions} for short notes of what was agreed. Voice: Olympus I–X Council.",
+        "",
+        "**Private is not confidential:** server administrators and bots with Administrator can access these channels. Keep member case files, appeals, personal data and credentials out of Council channels. Use the existing private staff tools or contact an officer.",
+        "",
+        "When restricting an account, remove its Council roles and review its other roles: a Council role allow or Administrator access can override restrictions.",
+      ].join("\n"),
+    }],
+  },
+  {
+    key: "council-chat",
+    channel: "council-chat",
+    embeds: [{
+      title: "Council discussion",
+      color: GOLD,
+      description: [
+        "Discussion and coordination between the Guild Masters and officers of Olympus I–X. Keep the topic clear; record short agreed notes in {#council-decisions}.",
+        "",
+        "Council arrangements remain provisional until the charter is ratified. Discussion here does not appoint anyone or grant website, bot or in-game authority.",
+        "",
+        "No personal reports, appeals, member case details or credentials. Use the existing private staff tools or contact an officer. Server administrators and bots with Administrator can read this channel.",
+      ].join("\n"),
+    }],
+  },
+  {
+    key: "council-decisions",
+    channel: "council-decisions",
+    embeds: [{
+      title: "Council agreed notes",
+      color: GOLD,
+      description: [
+        "Short factual notes of what the Council agreed: the topic, affected guilds, practical next step and anything still unresolved. Refer to {#council-chat} for the discussion where useful.",
+        "",
+        "The Council charter and governance documents remain drafts. How binding decisions are made is set by the charter once ratified. A note here does not ratify a draft, appoint anyone or grant website, bot or in-game authority.",
+        "",
+        "Keep personal data, member case files, appeals and credentials out of these notes. Use the existing private staff tools or contact an officer.",
+      ].join("\n"),
+    }],
+  },
+  {
+    key: "addon-development",
+    channel: "addon-development",
+    embeds: [{
+      title: "Olympus addon development",
+      color: GOLD,
+      description: [
+        "For Olympus leadership and the developers of the community census addon **Olympus** (CurseForge project **olympus-guild**). Share design notes, reproducible bugs and proposed improvements.",
+        "",
+        "The addon and its signed lists are maintained by its author outside the guild bot and website code. Discussion here is collaboration, not approval of a release or a grant of access.",
+        "",
+        "Do not post credentials, passwords, authenticator codes, tokens or member case records. Use sample data for bug reports and remove personal details from screenshots and logs. Private channel access does not make this a confidential case inbox.",
+      ].join("\n"),
+    }],
+  },
+  {
+    key: "guild-suggestions",
+    channel: "guild-suggestions",
+    embeds: [{
+      title: "Suggestions for Olympus",
+      color: GOLD,
+      description: [
+        "**Proposal, reason, affected guilds, practical next step.** Explain what you would change, why it helps, which Olympus guilds are affected and how to begin.",
+        "",
+        "A suggestion is a request, not a promise. Keep discussion constructive and focused on the idea.",
+        "",
+        "Personal reports, appeals and anything about an individual belong with an officer or in the existing private staff tools, not in this channel. Do not post credentials, passwords, authenticator codes or tokens.",
+      ].join("\n"),
+    }],
+  },
 ];
 
 // ---------- rendering ----------

@@ -1,22 +1,7 @@
-// Build .114 (2 Oct 2026): Viktor's requests of 2 Oct 17:25 UTC, through the REAL src/*.ts (transpiled by TypeScript
-// itself) against the REAL schema in SQLite (node:sqlite), every HTTP request through the real index.ts fetch. Discord's
-// and Blizzard's HTTP sides are stubbed; nothing leaves the process. Covers:
-//   - the Battle.net sign-in switch (bnet-switch.ts): off by default and fail-closed; the three routes refuse before any
-//     audit row, cookie, redirect or token exchange; a switch turned off during a sign-in stores nothing and pushes nothing
-//     (at the conditional write, and again right before Discord); switching on needs the secrets, the policy marker and a
-//     typed ENABLE from a site admin; the watcher's /health reports it; /verify-status says nothing of Battle.net while off;
-//   - the Olympus I-X leadership directory (site-leadership.ts): ten empty entries, admin save, confirmed members only,
-//     never in /api/public, no names in the dated log;
-//   - the end-of-beta reset: locked until a past closing moment is recorded, a typed RESET, the appointed roles saved as an
-//     explicit empty map (the default Treasurer does not come back), the directory emptied, counts only in the log;
-//   - renames Blizzard required (rename-review.ts): the list from the roster's record, the decision (unbound, application
-//     withdrawn, Guild Member removed and held, a private notice), /verify-status and the site's Home, approval, the copy,
-//     the thirty-day cleanup;
-//   - the search's shown names, the CSP's one picture host, the policy texts, the rank planner's page;
-//   - .115 (item C, typed names): the consent tick for a name added to the appointed roles or the directory, removal by
-//     "Name withheld" (the role stays appointed) or by clearing it, the counts-only settings audit, and the one-time,
-//     marker-gated rewrite of the settings rows written before .115 (schema.ts redactSettingsAudit).
-// Run from the worker folder:  node tests/owner_requests_test.cjs
+// Current P1 repository Owner test: immutable Battle.net OFF/enable intent, durable fixture clock, native Responses,
+// bounded policy wording and the unchanged documented transformer subprocess. Historical .114 enabled-provider cases remain
+// in the untouched parent; leadership, beta, rename, typed-name and rewrite/restore assertions below are retained.
+// No provider, native D1, live restore, generation fence, publication or legal completeness qualification.
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
@@ -80,7 +65,7 @@ const realDiscord = (() => {
 const stubs = {
   "./discord": {
     ...realDiscord,
-    json: (body, status = 200) => ({ status, body, json: async () => body }),
+    json: (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } } ),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
     verifyInteraction: async () => true,
     logLine: async (_env, text) => { LOGS.push(text); },
@@ -107,7 +92,7 @@ function load(name) {
 }
 const indexMod = load("./index"), oauth = load("./oauth"), sw = load("./bnet-switch"), siteCore = load("./site-core"), siteData = load("./site-data"), roles = load("./roles"), renames = load("./rename-review"), interactions = load("./interactions"), policy = load("./policy-content"), leadership = load("./site-leadership"), schema = load("./schema");
 
-let T = 1790960000; // 2 Oct 2026, 16:53 UTC
+let T = Math.floor(Date.now() / 1000) - 2 * 86400; // Synthetic JS clock two days behind the actual SQLite clock; ordinary five-day cookies still valid.
 const RealDate = Date;
 globalThis.Date = class extends RealDate {
   constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
@@ -147,84 +132,61 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   siteUser(PLAIN, { global_name: "Pat" });
   character(MEMBER, "Mia One", "Player-4613-0001");
 
-  console.log("\n== the Battle.net sign-in switch (.114, item 6) ==");
-  check("the .114 privacy policy carries no Battle.net section, so the build's marker is false", policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
+  console.log("\n== immutable OFF Battle.net release and future enable intent (current P1) ==");
+  check("the current release has no active Battle.net collection marker", policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
   let st = await sw.bnetLoginState(env(SECRETS));
-  check("with no setting row the switch is off (and not effective), even with the secrets", st.adminOn === false && st.effective === false && st.configured === true && st.policyReady === false, JSON.stringify(st));
-  const broken = { prepare: () => ({ bind: () => ({ first: async () => { throw new Error("D1 down"); } }) }) };
-  check("  an unreadable setting is off (fail closed)", (await sw.bnetLoginState({ ...env(SECRETS), DB: broken })).adminOn === false);
-
-  FETCHES = [];
-  let res = await http("GET", "https://verify.example/linked-role", { over: SECRETS });
-  let text = await res.text();
-  check("off: /linked-role answers the switched-off page, with no redirect and no cookie", res.status === 200 && !res.headers.get("Location") && !res.headers.get("Set-Cookie") && /switched off/.test(text) && res.headers.get("Cache-Control") === "no-store");
-  check("  and writes no audit row (no link.started)", audits("link.started").length === 0);
-  res = await http("GET", "https://verify.example/oauth/callback?code=c1&state=s1", { headers: { Cookie: "olv_state=s1.x" }, over: SECRETS });
-  check("off: /oauth/callback refuses before the Discord token exchange and clears the state cookie", res.status === 200 && FETCHES.length === 0 && /olv_state=;\s*Max-Age=0/.test(res.headers.get("Set-Cookie") || ""));
-  res = await http("GET", "https://verify.example/bnet/link?code=c2&state=s2", { headers: { Cookie: "olv_bnet=abc" }, over: SECRETS });
-  check("off: /bnet/link refuses before the Blizzard token exchange and clears the sealed cookie", res.status === 200 && FETCHES.length === 0 && /olv_bnet=;\s*Max-Age=0/.test(res.headers.get("Set-Cookie") || ""));
-  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000050", username: "late" }, { Authorization: "Bearer x" }, "Late#50", "c50", "test");
-  check("off: a bind reached anyway stores nothing and pushes nothing to Discord", /switched off/.test(await res.text()) && !one("SELECT 1 FROM members WHERE discord_id = '100000000000000050'") && FETCHES.length === 0);
-
-  res = await http("GET", "/api/admin/bnet-switch", { who: ADMIN, over: SECRETS });
+  check("no setting row: OFF release, configured secrets do not activate collection", st.adminOn === false && st.effective === false && st.configured === true && st.policyReady === false && st.releaseProfile === "OFF" && st.enableRequested === false, st);
+  const broken = { prepare: () => ({ bind: () => ({ all: async () => { throw new Error("D1 down"); } }) }) };
+  check("an unreadable setting stays off", (await sw.bnetLoginState({ ...env(SECRETS), DB: broken })).effective === false);
+  const ordinaryT = T; let expiredCookie;
+  try { T = ordinaryT - 8 * DAY; expiredCookie = await cookieFor(ADMIN); } finally { T = ordinaryT; }
+  check("an explicitly expired five-day session is rejected without weakening the real cookie lifetime", await siteCore.readSession(env(), new Request("https://guild.example/api/me", { headers: { Cookie: expiredCookie } })) === null);
+  const switchRowsBeforeExpired = JSON.stringify(db.prepare("SELECT key, value FROM site_settings WHERE key IN ('bnetLogin', 'bnetEnableIntent') ORDER BY key").all()), switchAuditBeforeExpired = audits("bnet.switch").length;
+  let res = await http("PUT", "/api/admin/bnet-switch", { headers: { Cookie: expiredCookie }, body: { on: true, confirm: "ENABLE" }, over: SECRETS });
   let out = await J(res);
-  check("the admin reads the switch: configured, no policy, off", res.status === 200 && out.configured === true && out.policyReady === false && out.adminOn === false && out.effective === false);
-  res = await http("PUT", "/api/admin/bnet-switch", { who: PLAIN, body: { on: true, confirm: "ENABLE" }, over: SECRETS });
-  check("a member who is not a site admin cannot touch it (403)", res.status === 403);
-  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true }, over: SECRETS });
-  check("switching on needs the typed ENABLE (400)", res.status === 400 && (await J(res)).error === "confirm");
-  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true, confirm: "ENABLE" } });
-  check("switching on is refused without the Blizzard secrets (409 not_configured)", res.status === 409 && (await J(res)).error === "not_configured");
-  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true, confirm: "ENABLE" }, over: SECRETS });
-  check("  and refused while the policy does not describe the login (409 policy_not_ready): it cannot get ahead of the policy", res.status === 409 && (await J(res)).error === "policy_not_ready" && !one("SELECT 1 FROM site_settings WHERE key = 'bnetLogin'"));
-  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: false }, over: SECRETS });
-  check("switching off is always allowed, and audited", res.status === 200 && one("SELECT value FROM site_settings WHERE key = 'bnetLogin'").value === "0" && audits("bnet.switch").length === 1);
-
-  // as if a later reviewed release carried the marked policy section
-  sw.setPolicyReadyForTests(true);
-  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true, confirm: "ENABLE" }, over: SECRETS });
-  out = await J(res);
-  check("with the secrets and a policy that describes it, the admin switches it on", res.status === 200 && out.state.effective === true && one("SELECT updated_by FROM site_settings WHERE key = 'bnetLogin'").updated_by === ADMIN);
-  check("  audited as bnet.switch {on: true}, with nothing else in it", JSON.parse(audits("bnet.switch").at(-1).details).on === true && Object.keys(JSON.parse(audits("bnet.switch").at(-1).details)).length === 1);
+  check("expired ordinary public admin request cannot record enable intent", res.status === 401 && JSON.stringify(db.prepare("SELECT key, value FROM site_settings WHERE key IN ('bnetLogin', 'bnetEnableIntent') ORDER BY key").all()) === switchRowsBeforeExpired && audits("bnet.switch").length === switchAuditBeforeExpired, out);
+  FETCHES = [];
   res = await http("GET", "https://verify.example/linked-role", { over: SECRETS });
-  check("on: /linked-role starts the Discord authorization as before", res.status === 302 && /discord\.com\/oauth2\/authorize/.test(res.headers.get("Location") || "") && audits("link.started").length === 1);
-  res = await http("GET", "https://verify.example/linked-role");
-  check("  but never without the secrets, whatever the setting says", res.status === 200 && !res.headers.get("Location"));
-
-  // turned off while someone is at Blizzard's login: the write itself carries the setting
-  FETCHES = [];
-  HOOK = (sql, phase) => { if (phase === "prepare" && /^SELECT banned FROM members WHERE discord_id = \?1$/.test(sql.trim())) db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'bnetLogin'").run(); };
-  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000051", username: "mid" }, { Authorization: "Bearer x" }, "Mid#51", "c51", "test");
-  HOOK = null;
-  check("turned off after the bind's first check but before its write: nothing stored, nothing pushed", /switched off/.test(await res.text()) && !one("SELECT battletag FROM members WHERE discord_id = '100000000000000051' AND battletag IS NOT NULL") && FETCHES.length === 0);
-  db.prepare("UPDATE site_settings SET value = '1' WHERE key = 'bnetLogin'").run();
-  HOOK = (sql, phase) => { if (phase === "ran" && /INSERT INTO members \(discord_id, discord_name, battletag/.test(sql)) db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'bnetLogin'").run(); };
-  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000052", username: "late2" }, { Authorization: "Bearer x" }, "Mid#52", "c52", "test");
-  HOOK = null;
-  check("turned off right after the write: the row is taken back and nothing is pushed to Discord", /switched off/.test(await res.text()) && one("SELECT battletag FROM members WHERE discord_id = '100000000000000052'").battletag === null && FETCHES.length === 0);
-  db.prepare("UPDATE site_settings SET value = '1' WHERE key = 'bnetLogin'").run();
-  // turned off between Discord's DELETE and the PUT: the PUT never happens and the row is taken back
-  FETCHES = [];
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init = {}) => { const r = await realFetch(url, init); if (init.method === "DELETE") db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'bnetLogin'").run(); return r; };
-  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000054", username: "mid3" }, { Authorization: "Bearer x" }, "Mid#54", "c54", "test");
-  globalThis.fetch = realFetch;
-  check("turned off between Discord's DELETE and PUT: no PUT, the row taken back (Codex 19:17)", /switched off/.test(await res.text()) && FETCHES.map((f) => f.method).join(",") === "DELETE" && one("SELECT battletag FROM members WHERE discord_id = '100000000000000054'").battletag === null);
-  db.prepare("UPDATE site_settings SET value = '1' WHERE key = 'bnetLogin'").run();
-  FETCHES = [];
-  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000053", username: "on" }, { Authorization: "Bearer x" }, "On#53", "c53", "test");
-  check("on throughout: the link completes as before (stored, then DELETE, PUT and GET on Discord's record)", /Linked/.test(await res.text()) && one("SELECT battletag FROM members WHERE discord_id = '100000000000000053'").battletag === "On#53" && FETCHES.filter((f) => f.url.includes("/role-connection")).map((f) => f.method).join(",") === "DELETE,PUT,GET");
-  res = await http("GET", "https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" }, over: SECRETS });
-  out = await J(res);
-  check("the watcher's /health reports the switch (policy, setting, result); the public answer does not", out.bnetSwitch && out.bnetSwitch.effective === true && out.bnetSwitch.adminOn === true && !("bnetSwitch" in (await J(await http("GET", "https://verify.example/health")))));
-  check("  /verify-status, switched on, still shows a fresh link with its day", /Battle\.net: linked \(On#53\)/.test(await status("100000000000000053", SECRETS)));
-  db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'bnetLogin'").run();
+  let text = await res.text();
+  check("OFF linked-role page has no redirect/cookie and the current policy no-store headers", res.status === 200 && !res.headers.get("Location") && !res.headers.get("Set-Cookie") && /switched off/.test(text) && res.headers.get("Cache-Control") === "no-store, no-transform");
+  check("OFF start writes no link.started row", audits("link.started").length === 0);
+  res = await http("GET", "https://verify.example/oauth/callback?code=c1&state=s1", { headers: { Cookie: "olv_state=s1.x" }, over: SECRETS });
+  check("OFF Discord callback clears state before any provider exchange", res.status === 200 && FETCHES.length === 0 && /olv_state=;\s*Max-Age=0/.test(res.headers.get("Set-Cookie") || ""));
+  res = await http("GET", "https://verify.example/bnet/link?code=c2&state=s2", { headers: { Cookie: "olv_bnet=abc" }, over: SECRETS });
+  check("OFF Blizzard callback clears its cookie before any provider exchange", res.status === 200 && FETCHES.length === 0 && /olv_bnet=;\s*Max-Age=0/.test(res.headers.get("Set-Cookie") || ""));
+  res = await oauth.bindBattletag(env(SECRETS), { id: "100000000000000050", username: "late" }, { Authorization: "Bearer x" }, "Late#50", "c50", "test");
+  check("direct bind while OFF stores nothing and sends nothing", /switched off/.test(await res.text()) && !one("SELECT 1 FROM members WHERE discord_id = '100000000000000050'") && FETCHES.length === 0);
+  res = await http("GET", "/api/admin/bnet-switch", { who: ADMIN, over: SECRETS }); out = await J(res);
+  check("admin sees immutable OFF and no effective collection", res.status === 200 && out.configured === true && out.policyReady === false && out.adminOn === false && out.effective === false && out.releaseProfile === "OFF");
+  res = await http("PUT", "/api/admin/bnet-switch", { who: PLAIN, body: { on: true, confirm: "ENABLE" }, over: SECRETS });
+  check("ordinary member cannot record admin intent", res.status === 403);
+  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true }, over: SECRETS });
+  check("future enable intent still requires exact typed ENABLE", res.status === 400 && (await J(res)).error === "confirm");
+  const auditBeforeIntent = audits("bnet.switch").length;
+  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true, confirm: "ENABLE" } }); out = await J(res);
+  check("without provider secrets, typed intent is recorded but collection remains OFF", res.status === 200 && out.state.enableRequested === true && out.state.configured === false && out.state.effective === false && out.state.adminOn === false && out.state.releaseProfile === "OFF" && one("SELECT value FROM site_settings WHERE key = 'bnetEnableIntent'")?.value === "1" && !one("SELECT 1 FROM site_settings WHERE key = 'bnetLogin'"), out);
+  check("intent audit records only requested intent and collection-disabled fact", audits("bnet.switch").length === auditBeforeIntent + 1 && audits("bnet.switch").at(-1).details === JSON.stringify({ enableRequested: true, collectionEnabled: false }));
+  sw.setPolicyReadyForTests(true); // Existing compatibility override is deliberately a no-op in this release.
+  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: true, confirm: "ENABLE" }, over: SECRETS }); out = await J(res);
+  check("compatibility override plus secrets plus typed intent still cannot activate immutable OFF", res.status === 200 && out.state.configured === true && out.state.policyReady === false && out.state.effective === false && out.state.adminOn === false && out.state.enableRequested === true && out.state.releaseProfile === "OFF", out);
+  db.prepare("INSERT INTO site_settings (key,value,updated_at) VALUES ('bnetLogin','1',?) ON CONFLICT(key) DO UPDATE SET value='1'").run(T); // Synthetic legacy switch residue, not a new source control.
+  st = await sw.bnetLoginState(env(SECRETS));
+  check("legacy adminOn residue is reported without activating immutable OFF", st.adminOn === true && st.effective === false && st.policyReady === false && st.releaseProfile === "OFF");
+  for (const url of ["https://verify.example/linked-role", "https://verify.example/oauth/callback?code=still-off&state=x", "https://verify.example/bnet/link?code=still-off&state=x"]) {
+    res = await http("GET", url, { over: SECRETS });
+    check("legacy residue route remains OFF: " + new URL(url).pathname, res.status === 200 && !res.headers.get("Location") && /switched off/.test(await res.text()) && FETCHES.length === 0 && audits("link.started").length === 0);
+  }
+  res = await http("GET", "https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" }, over: SECRETS }); out = await J(res);
+  check("watcher health reports only the exact three OFF switch fields; public health omits switch state", out.bnetSwitch && Object.keys(out.bnetSwitch).sort().join("|") === "adminOn|effective|policyReady" && out.bnetSwitch.policyReady === false && out.bnetSwitch.adminOn === true && out.bnetSwitch.effective === false && !("bnetSwitch" in (await J(await http("GET", "https://verify.example/health")))));
+  res = await http("PUT", "/api/admin/bnet-switch", { who: ADMIN, body: { on: false }, over: SECRETS }); out = await J(res);
+  check("pause clears legacy switch and future intent, without enabling collection", res.status === 200 && out.state.effective === false && out.state.adminOn === false && out.state.enableRequested === false && one("SELECT value FROM site_settings WHERE key='bnetLogin'")?.value === "0" && one("SELECT value FROM site_settings WHERE key='bnetEnableIntent'")?.value === "0");
+  check("pause audit has exactly the two bounded OFF fields", audits("bnet.switch").at(-1).details === JSON.stringify({ enableRequested: false, collectionEnabled: false }));
   sw.setPolicyReadyForTests(null);
   db.prepare("INSERT INTO audit (ts, actor, action, subject) VALUES (?, '100000000000000053', 'link.ok', 'On#53')").run(T);
   text = await status("100000000000000053", SECRETS);
-  check("switched off: /verify-status says nothing about keeping a link", !/kept until/.test(text) && !/Battle\.net: linked/.test(text), text);
-  check("  and tells someone who once linked the one remedy left (Discord's Connections), not 'link again'", /removing the connection in Discord's settings \(Connections\) clears it/.test(text) && !/linking again replaces it/.test(text));
-  check("the cron's 29-day purge runs whatever the switch says (index.ts scheduled is unconditional)", /ctx\.waitUntil\(purgeBattleNetData\(env\)/.test(fs.readFileSync(path.join(root, "src", "index.ts"), "utf8")));
+  check("OFF verify-status never claims link freshness or keep-until retention", !/kept until/.test(text) && !/Battle\.net: linked/.test(text), text);
+  check("legacy linked audit retains only the Discord Connections remedy", /removing the connection in Discord's settings \(Connections\) clears it/.test(text) && !/linking again replaces it/.test(text));
+  check("cron's legacy purge remains unconditional (source check only)", /ctx\.waitUntil\(purgeBattleNetData\(env\)/.test(fs.readFileSync(path.join(root, "src", "index.ts"), "utf8")));
 
   console.log("\n== the Olympus I-X leadership directory (.114, item 10) ==");
   res = await http("GET", "/api/admin/leadership", { who: ADMIN });
@@ -526,7 +488,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   // start retries), with the owner's check after installing; never "were rewritten when build .115 was installed".
   check("  the older entries: rewritten once at a start, a failure logged and retried later, checked by the owner after installing", policyText.includes("Build .115 rewrites the entries written before it the same way, once, when it first starts; if that fails, the failure is logged and the rewrite is tried again at a later start, and after installing it the owner checks that the rewrite is recorded as done and that no such entry still holds a name or a notice's text.") && !/were rewritten the same way when build \.115 was installed/.test(policyText));
   check("  an administrator clears the appointments and the directory after the beta has closed (a person's step, no timer)", (policyText.match(/clears it after the beta has closed/g) || []).length === 2 && !/cleared when the beta ends/.test(policyText));
-  check("  a rank can record a staff decision and the snapshots are kept as exported; the backups and their window are named", /can reflect a staff decision \(for example a probation rank, where the guild uses one\)/.test(policyText) && /<strong>Backups\.<\/strong> Lifetimes and deletions apply to the live database at once/.test(policyText) && /point-in-time history of the database, which it keeps for up to \d+ days/.test(policyText) && /export taken before build \.115 therefore still holds the dated log as it was before the rewrite/.test(policyText));
+  check("a rank records staff decisions; the policy distinguishes read cutoffs, bounded physical cleanup and independent recovery copies", /can reflect a staff decision \(for example a probation rank, where the guild uses one\)/.test(policyText) && /<strong>Backups\.<\/strong> The live service applies the stated read cutoffs and processes physical deletions through bounded cleanup or staff action\./.test(policyText) && !/Lifetimes and deletions apply to the live database at once/.test(policyText) && /point-in-time history of the database, which it keeps for up to \d+ days/.test(policyText) && /export taken before build \.115 therefore still holds the dated log as it was before the rewrite/.test(policyText));
   check("  only the newest checked export is kept until the launch is accepted (owner's answer of 3 Oct 2026)", /The owner keeps only the\s+newest export that has been checked by restoring it privately: an older one is destroyed once a newer one has been\s+checked, the last one is destroyed once the game's launch release is accepted/.test(policyText) && !/would be made again/.test(policyText));
   // Codex, 3 Oct 2026 13:26 UTC: the restore replays deletions from the audit, which keeps no typed name; so the owner puts
   // back the two typed-name rows as they stood right before the restore (docs/launch-runbook.md section 1), never through
@@ -534,7 +496,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   // The second review round (3 Oct 2026): the site is closed for the whole restore (the runbook's step 0: no window in which
   // a restored name shows), and News notices changed or deleted since the copy are deleted, the records of notices posted
   // since are put back (site_news_test runs the runbook's statements over a simulated restore).
-  check("  a restore: the site closed throughout, the deletions repeated, the News notices changed or deleted since deleted and the records of those posted since put back, the typed names put back as they stood right before it from a private copy of the two settings, never into the dated log, the rewrite checked again", policyText.includes("If one were ever restored, the site would be closed to everyone from just before the restore until the owner has done the following on it: repeated the deletions made since it was taken; deleted every News notice changed or deleted since then and put back the record of every notice posted since then, so that no notice comes back in an earlier form (one changed since is deleted, and the administrators post it again if it is still wanted) and none can be posted again; and put back the names the administrators typed (the appointed roles and the leadership directory) exactly as they stood just before the restore, so that a name removed or corrected on request stays removed or corrected. For the names the owner takes a private copy of just those two settings right before restoring and destroys it once they are back; the dated log never receives the names. The owner also checks the restored database for the rewrite described under appointed roles, as after installing build .115.") && !/the deletions made since it was taken before the site is used again/.test(policyText) && !/then before the site is used again the owner would/.test(policyText));
+  check("restore wording is an attended requirement, with closed site, deletion replay, News replay, private typed-name preservation and rewrite check; no automatic erasure claim", ["The following is an attended recovery requirement, not an automatic restore or erasure feature.", "site must remain closed to everyone from just before the restore", "repeated the deletions made since it was taken", "deleted every News notice changed or deleted since then", "put back the record of every notice posted since then", "put back the names the administrators typed", "exactly as they stood just before the restore", "private copy of just those two settings", "destroys it once they are back", "dated log never receives the names", "owner also checks the restored database for the rewrite"].every(s => policyText.includes(s)) && !/If one were ever restored, the site would be closed/.test(policyText));
   // Website closure hides restored rows but proves no drain of admitted writes. The corrected runbook refuses before
   // capture/replacement unless actual quiescence is proved; these text checks do not claim an implemented runtime barrier.
   const restoreRunbook = fs.readFileSync(path.join(root, "..", "docs", "launch-runbook.md"), "utf8").replace(/\s+/g, " ");
@@ -701,7 +663,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("the site's CSP allows images from this site and Discord's picture host, nothing else", siteCore.CSP.includes("img-src 'self' https://cdn.discordapp.com;") && !/img-src[^;]*data:/.test(siteCore.CSP));
   res = await http("GET", "/privacy");
   text = await res.text();
-  check("the privacy policy: Battle.net sign-in switched off, no 'sign in with Battle.net again to keep them'", /Battle\.net sign-in is switched off/.test(text) && !/sign in with Battle\.net again to keep them/.test(text));
+  check("the privacy policy: Battle.net sign-in switched off, no 'sign in with Battle.net again to keep them'", /Battle\.net sign-in is currently switched off/.test(text) && !/sign in with Battle\.net again to keep them/.test(text));
   check("  no stale server, address or channel wording", !/serves the Olympus Discord server/.test(text) && !/once it moves there/.test(text) && !/#bot-announcements/.test(text) && !/open a ticket/.test(text) && !/help channel/.test(text));
   check("  it names the top bar's picture, the leadership directory and the rename records", /cdn\.discordapp\.com/.test(text) && /The leadership directory/.test(text) && /Renames Blizzard required/.test(text));
   check("  and says unbinding does not by itself remove the Guild Member role", /unbinding does not by itself remove your Guild Member role/.test(text));

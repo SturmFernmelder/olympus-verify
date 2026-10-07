@@ -48,8 +48,8 @@ function freshDb(schemaPath = path.join(root, "schema.sql")) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(fs.readFileSync(schemaPath, "utf8"));
-  // .114: this suite exercises the login while it is switched ON (bnet-switch.ts: the admin's setting here, the secrets in
-  // env() and the policy marker below); tests/bnet_switch_test.cjs covers the switch itself and the OFF state
+  // .116 fixture only: legacy enabled behavior uses the named synthetic policy profile below, these in-memory
+  // settings and fake secrets. Real immutable OFF and owner-session/enable-intent guards remain separately tested.
   db.exec("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('bnetLogin', '1', 0, NULL)");
   return db;
 }
@@ -93,18 +93,48 @@ const stubs = {
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
   "./review": { onVerified: async () => {} },
 };
-const cache = {};
-function load(name) {
-  if (stubs[name]) return stubs[name];
-  if (cache[name]) return cache[name].exports;
-  const js = transpile(path.join(root, "src", name.replace("./", "") + ".ts"));
-  const mod = { exports: {} };
-  cache[name] = mod;
-  new Function("module", "exports", "require", js)(mod, mod.exports, (p) => load(p));
-  return mod.exports;
+// .116 test fixture only: each loader has its own module realm/cache. The ordinary loader reads
+// immutable production OFF source; named synthetic profiles alter only constant initializers in
+// transpiler input, never files, bnetLoginOn, its setting reads, or bnetReleasedOn's predicate.
+const POLICY_FIXTURES = Object.freeze({
+  enabled: { marker: true, profile: "ON", version: "matching", ownership: true, recovery: true },
+  markerOff: { marker: false, profile: "ON", version: "matching", ownership: true, recovery: true },
+  releaseOff: { marker: true, profile: "OFF", version: "matching", ownership: true, recovery: true },
+  versionMismatch: { marker: true, profile: "ON", version: "mismatch", ownership: true, recovery: true },
+  ownershipUnreviewed: { marker: true, profile: "ON", version: "matching", ownership: false, recovery: true },
+  recoveryUnreviewed: { marker: true, profile: "ON", version: "matching", ownership: true, recovery: false },
+});
+function replaceFixtureLiteral(source, before, after) {
+  if (source.split(before).length !== 2) throw new Error("test policy fixture source drift: " + before);
+  return source.replace(before, after);
 }
+function createLoader(fixtureName = null) {
+  const fixture = fixtureName === null ? null : POLICY_FIXTURES[fixtureName];
+  if (fixtureName !== null && !Object.hasOwn(POLICY_FIXTURES, fixtureName)) throw new Error("unknown test policy fixture");
+  const cache = {};
+  function load(name) {
+    if (stubs[name]) return stubs[name];
+    if (cache[name]) return cache[name].exports;
+    let source = fs.readFileSync(path.join(root, "src", name.replace("./", "") + ".ts"), "utf8");
+    if (fixture && name === "./policy-content") {
+      source = replaceFixtureLiteral(source, "export const PRIVACY_DESCRIBES_BNET_LOGIN = false;", "export const PRIVACY_DESCRIBES_BNET_LOGIN = " + fixture.marker + ";");
+    }
+    if (fixture && name === "./policy-release") {
+      source = replaceFixtureLiteral(source, 'profile: "OFF" as "OFF" | "ON",', 'profile: "' + fixture.profile + '" as "OFF" | "ON",');
+      source = replaceFixtureLiteral(source, "onPolicyVersion: null as string | null,", fixture.version === "matching" ? "onPolicyVersion: POLICY_SOURCE_DIGEST as string | null," : 'onPolicyVersion: "test-only-stale-policy-version" as string | null,');
+      source = replaceFixtureLiteral(source, "foreverOwnershipApiReviewed: false,", "foreverOwnershipApiReviewed: " + fixture.ownership + ",");
+      source = replaceFixtureLiteral(source, "recoveryPlanReviewed: false,", "recoveryPlanReviewed: " + fixture.recovery + ",");
+    }
+    const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const mod = { exports: {} };
+    cache[name] = mod;
+    new Function("module", "exports", "require", js)(mod, mod.exports, (p) => load(p));
+    return mod.exports;
+  }
+  return load;
+}
+const load = createLoader("enabled"); // Clearly synthetic ON profile, not a production release approval.
 const retention = load("./bnet-retention"), oauth = load("./oauth"), lookup = load("./lookup"), interactions = load("./interactions"), indexMod = load("./index");
-load("./bnet-switch").setPolicyReadyForTests(true); // .114: as if the privacy policy carried the Battle.net section
 
 let T = 1790500000;
 const RealDate = Date;
@@ -128,6 +158,68 @@ const admin = async (sub, opts, roles = [OFFICER]) => (await interactions.handle
 const status = async (id) => (await interactions.handleInteraction(env(), { type: 2, id: "2", token: "t", guild_id: GUILD, member: { user: { id, username: "u" }, roles: [] }, data: { name: "verify-status" } })).body?.data?.content ?? "";
 
 (async () => {
+  console.log("\n== real immutable OFF source and finite synthetic admission controls ==");
+  const ordinaryLoad = createLoader();
+  const ordinaryPolicy = ordinaryLoad("./policy-content"), ordinaryRelease = ordinaryLoad("./policy-release");
+  const ordinarySwitch = ordinaryLoad("./bnet-switch"), ordinaryOauth = ordinaryLoad("./oauth");
+  const offDb = freshDb();
+  try {
+    const offEnv = { ...env(), DB: d1(offDb), SITE_ADMINS: "100000000000000090" };
+    const untouched = () => JSON.stringify({
+      members: offDb.prepare("SELECT * FROM members").all(),
+      audit: offDb.prepare("SELECT * FROM audit").all(),
+      settings: offDb.prepare("SELECT * FROM site_settings ORDER BY key").all(),
+    });
+    const before = untouched();
+    check("ordinary source retains the inactive Battle.net policy marker", ordinaryPolicy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
+    check("ordinary same-version release remains frozen OFF and unreviewed", Object.isFrozen(ordinaryRelease.BNET_RELEASE) && ordinaryRelease.BNET_RELEASE.profile === "OFF" && ordinaryRelease.BNET_RELEASE.onPolicyVersion === null && ordinaryRelease.BNET_RELEASE.foreverOwnershipApiReviewed === false && ordinaryRelease.BNET_RELEASE.recoveryPlanReviewed === false && ordinaryRelease.bnetReleasedOn() === false);
+    ordinarySwitch.setPolicyReadyForTests(true);
+    const offState = await ordinarySwitch.bnetLoginState(offEnv);
+    check("historical setter plus configured secrets and legacy adminOn cannot activate real OFF source", offState.configured === true && offState.adminOn === true && offState.policyReady === false && offState.effective === false && offState.releaseProfile === "OFF", offState);
+    const refusedRoutes = [
+      ["start", () => ordinaryOauth.startLinkedRole(offEnv), null],
+      ["Discord callback", () => ordinaryOauth.linkedRoleCallback(offEnv, new Request("https://verify.example/oauth/callback?code=fake&state=fake", { headers: { Cookie: "olv_state=fake.fake" } })), "olv_state"],
+      ["Blizzard callback", () => ordinaryOauth.bnetLinkCallback(offEnv, new Request("https://verify.example/bnet/link?code=fake&state=fake", { headers: { Cookie: "olv_bnet=fake" } })), "olv_bnet"],
+      ["direct bind", () => ordinaryOauth.bindBattletag(offEnv, { id: "100000000000000091", username: "fixture-off" }, { Authorization: "Bearer fixture-only" }, "FixtureOff#91", "fixture-off", "test"), null],
+    ];
+    for (const [label, invoke, cookie] of refusedRoutes) {
+      const response = await invoke(), body = await response.text(), cleared = response.headers.get("Set-Cookie");
+      check("real OFF refuses " + label + " before provider effects", response.status === 200 && /switched off/.test(body) && !response.headers.has("Location") && (cookie ? cleared === cookie + "=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax" : cleared === null) && response.headers.get("Cache-Control") === "no-store, no-transform");
+    }
+    check("real OFF route controls leave rows, audit, settings and fake provider calls unchanged", untouched() === before && PUSHES.length === 0 && POSTS.length === 0 && LOGS.length === 0 && ROLE_REMOVES.length === 0);
+    const absentAdmission = await ordinarySwitch.setBnetSwitch(offEnv, "100000000000000090", true);
+    check("future enable intent needs admitted staff-session facts", absentAdmission.ok === false && absentAdmission.error === "admission_refused" && untouched() === before);
+    const expiredAdmission = await ordinarySwitch.setBnetSwitch(offEnv, "100000000000000090", true, { sessionVersion: 0, expiresAt: T - 1 });
+    check("expired direct enable-intent admission stores neither intent nor audit", expiredAdmission.ok === false && expiredAdmission.error === "admission_refused" && untouched() === before);
+    ordinarySwitch.setPolicyReadyForTests(null);
+  } finally { offDb.close(); }
+  const syntheticState = await load("./bnet-switch").bnetLoginState(env());
+  check("retention fixture explicitly admits synthetic same-version ON with real setting and secrets", syntheticState.configured === true && syntheticState.adminOn === true && syntheticState.policyReady === true && syntheticState.effective === true && syntheticState.releaseProfile === "ON" && syntheticState.releasePolicyVersion === load("./policy-content").POLICY_SOURCE_DIGEST && load("./policy-release").bnetReleasedOn() === true, syntheticState);
+  for (const fixtureName of ["markerOff", "releaseOff", "versionMismatch", "ownershipUnreviewed", "recoveryUnreviewed"]) {
+    const negativeLoad = createLoader(fixtureName), negativeDb = freshDb();
+    try {
+      const negativeEnv = { ...env(), DB: d1(negativeDb) }, state = await negativeLoad("./bnet-switch").bnetLoginState(negativeEnv);
+      check("synthetic policy guard refuses " + fixtureName, state.configured === true && state.adminOn === true && state.policyReady === false && state.effective === false, state);
+      const response = await negativeLoad("./oauth").bindBattletag(negativeEnv, { id: "100000000000000092", username: "fixture-negative" }, { Authorization: "Bearer fixture-only" }, "FixtureNegative#92", "fixture-negative", "test");
+      check("refused " + fixtureName + " binds no row and makes no fake provider call", response.status === 200 && /switched off/.test(await response.text()) && negativeDb.prepare("SELECT COUNT(*) AS n FROM members").get().n === 0 && negativeDb.prepare("SELECT COUNT(*) AS n FROM audit").get().n === 0 && PUSHES.length === 0);
+    } finally { negativeDb.close(); }
+  }
+  for (const fault of ["missingClient", "missingSecret", "adminOff", "settingReadFails"]) {
+    const guardedLoad = createLoader("enabled"), guardedDb = freshDb();
+    try {
+      let guardedEnv = { ...env(), DB: d1(guardedDb) };
+      if (fault === "missingClient") guardedEnv = { ...guardedEnv, BNET_CLIENT_ID: "" };
+      if (fault === "missingSecret") guardedEnv = { ...guardedEnv, BNET_CLIENT_SECRET: "" };
+      if (fault === "adminOff") guardedDb.prepare("UPDATE site_settings SET value='0' WHERE key='bnetLogin'").run();
+      if (fault === "settingReadFails") guardedEnv = { ...guardedEnv, DB: { prepare: () => ({ bind: () => ({ all: async () => { throw new Error("fixture settings unavailable"); } }) }) } };
+      const state = await guardedLoad("./bnet-switch").bnetLoginState(guardedEnv);
+      check("synthetic ON still needs actual secrets and readable enabled setting: " + fault, state.policyReady === true && state.effective === false && state.configured === !fault.startsWith("missing") && state.adminOn === fault.startsWith("missing"), state);
+      const response = await guardedLoad("./oauth").bindBattletag(guardedEnv, { id: "100000000000000093", username: "fixture-guard" }, { Authorization: "Bearer fixture-only" }, "FixtureGuard#93", "fixture-guard", "test");
+      check("refused " + fault + " binds no row and makes no fake provider call", response.status === 200 && /switched off/.test(await response.text()) && guardedDb.prepare("SELECT COUNT(*) AS n FROM members").get().n === 0 && guardedDb.prepare("SELECT COUNT(*) AS n FROM audit").get().n === 0 && PUSHES.length === 0);
+    } finally { guardedDb.close(); }
+  }
+
+
   console.log("\n== the rule ==");
   check("the TTL is 29 days, one day inside Blizzard's 30", retention.BNET_TTL_DAYS === 29 && retention.BNET_TTL_S === 29 * DAY && retention.BNET_BLIZZARD_LIMIT_S === 30 * DAY);
   check("a link refreshed 28 days ago is fresh", retention.bnetFresh(T - 28 * DAY));
@@ -345,7 +437,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the cron purges", m("100000000000000015").battletag === null);
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health carries the retention line: nothing overdue, build .115", health.build.includes(".115") && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
+  check("/health carries the retention line: nothing overdue, build .116", health.build.includes(".116") && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");

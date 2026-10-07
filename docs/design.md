@@ -1,6 +1,6 @@
 # Design — membership verification for Olympus (rev. 2026-09-29, Claude Cowork)
 
-This is the sketch Viktor brought on 17 September, checked against the current API documentation and rewritten
+This is the sketch the owner brought on 17 September, checked against the current API documentation and rewritten
 where it did not hold. The premise stands: zero-touch exists today only at the Battle.net-account level; the
 character level arrives when Blizzard adds Forever to the profile API; in between, the in-game step is made
 event-driven around one unavoidable fact — the only legitimate observer of in-game actions is a real client with an
@@ -337,10 +337,10 @@ two interface fonts (Friz Quadrata, Morpheus) as WOFF2. `tools/build-site-assets
 textures extracted from the local game client: crops, rearrangements and format changes only, nothing redrawn, no game
 logo. Like olympus.roachcouncil.com/guild, it is a free, non-commercial fan site; the footer says it is not affiliated
 with Blizzard and credits the art and fonts to Blizzard. Until .85 the brand was the Guild Hall's own logo
-(`olympus-icon.png`); since .86 (Viktor's instruction of 1 Oct 2026: generated and custom artwork for the Discord
+(`olympus-icon.png`); since .86 (the owner's instruction of 1 Oct 2026: generated and custom artwork for the Discord
 application only, the websites on official World of Warcraft assets) the brand and the tab icon were the game client's
 banner icon (`wow/icon-friends.png`, INV_Banner_02, 64 px); since .111 they are the crest again, the website's one exception
-(Viktor's decision of 1 Oct 2026: guild.roachcouncil.com is the guide, with its logo); every account picture is the member's class icon or the
+(the owner's decision of 1 Oct 2026: guild.roachcouncil.com is the guide, with its logo); every account picture is the member's class icon or the
 Member icon (`accountArt` in app.js; Discord's avatar fields stay in the API and the session, unrendered), and the sign-in
 glyph is the community icon. The staff rank planner (`src/site-ranks.ts`, `/admin/ranks`) is a read-only page behind the
 SITE_ADMINS gate whose draft lives in the administrator's browser; nothing is stored or changed on the server.
@@ -529,7 +529,7 @@ bank limits, not the treasury.
 
 ## 30 September, late: the interactions door (Worker .47, first consolidation batch)
 
-Olympus Verify and Olympus Forever are being merged into one application (Viktor's brief of 30 September; the task log
+Olympus Verify and Olympus Forever are being merged into one application (the owner's brief of 30 September; the task log
 is `Olympus/consolidation-2026-09-30/claude_code_x_codex.md`). Olympus Verify is the keeper; what Forever did better is
 brought over piece by piece, each as its own reviewed commit. This is the first piece, chosen because it changes nothing
 for valid traffic and closes a real gap: `verifyInteraction` checked the Ed25519 signature but not the timestamp it
@@ -565,7 +565,7 @@ The one wrinkle is the ban. "Their BattleTag stays on record" was how a ban stop
 back under a new Discord account, and a tag that must go after 29 days cannot do that job. A keyed fingerprint of the
 tag can: it is not the tag, it cannot be turned back into the tag, and it answers the only question the ban ever asked
 ("is this the same account?"). Whether Blizzard's terms count a one-way keyed digest as their data is a reading for
-Viktor; the code is written so that dropping the fingerprint is one statement if he reads it the other way.
+the owner; the code is written so that dropping the fingerprint is one statement if he reads it the other way.
 
 ## 30 September, late: the Worker knows which door a request came in by (Worker .49, third consolidation batch)
 
@@ -665,21 +665,21 @@ handle a request and throws the answer away, which is exactly the lost answer.
 
 ## 2 Oct 2026 (.114): the owner's ten requests, and the choices behind them
 
-Viktor's items of 2 Oct about 17:25 UTC, the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and Codex's
+the owner's items of 2 Oct about 17:25 UTC, the answers he gave through Codex (log 17:42, 17:57 and 18:26 UTC) and Codex's
 provisional source review (18:47 UTC). What the code does is in `docs/deploy-checklist.md` ("Worker .114"); this is why.
 
 **The header picture is an identity exception, not art.** The official-assets rule (.86, .111, .112) is about the site's
-interface: every frame, icon and font comes from the game client, the crest is the one non-game image. Viktor's own Discord
+interface: every frame, icon and font comes from the game client, the crest is the one non-game image. the owner's own Discord
 picture in his own top bar is not interface art; it is who is signed in. So it gets its own narrow door: one CSP host,
 avatar paths only, header only, a game-icon fallback. Showing members' pictures to each other (the voting board, the
 pickers) would be a different decision with a different privacy text, and was not asked for.
 
-**The footer keeps "Private request" for strangers.** Viktor asked to hide the policy and data links from the public. The
+**The footer keeps "Private request" for strangers.** the owner asked to hide the policy and data links from the public. The
 private request form exists for people who can no longer sign in with Discord, and nothing else on a signed-out page links
 it, so hiding it would hide the form from exactly its people. The policies stay at their addresses, which the Discord
 application links (Discord's developer terms want the notice reachable from the application, which it still is).
 
-**The Battle.net switch cannot get ahead of the policy.** Viktor wanted no retention text while the login is useless, and a
+**The Battle.net switch cannot get ahead of the policy.** the owner wanted no retention text while the login is useless, and a
 login that is "ready, switched off in admin settings". Those two meet in one rule: switching on needs the privacy policy to
 describe the login again, detected at build time from a marker in policies/privacy.html. The .114 policy has no such
 section, so in .114 the switch can only be off; the next step is a reviewed release that adds the section, then the box.
@@ -687,11 +687,11 @@ Codex asked (18:47 UTC) for an "on" policy variant served only while on; that wo
 route, which .65 keeps free of state, and the Pages mirror could show only one variant, so the dependency on a later release
 is stated instead. The off state also had to be honest about the past: Codex measured 264 member rows still carrying older
 link fields (19:12 UTC), so the policy keeps one sentence that they are deleted automatically within 29 days of each link,
-and the purge stays unconditional. An immediate purge was not chosen: it cannot be undone and Viktor has not asked for it.
+and the purge stays unconditional. An immediate purge was not chosen: it cannot be undone and the owner has not asked for it.
 
 **A rename Blizzard required is decided by a person, for one character.** The roster cannot tell a forced rename from any
 other, and an ordinary rename must keep the link (27 Sep: the link follows the GUID), so nothing is inferred. When an
-administrator marks one, Viktor's rule applies: the member applies again, with a new application and a fresh in-game
+administrator marks one, the owner's rule applies: the member applies again, with a new application and a fresh in-game
 verification, and approval waits for both to have actually happened (Codex, 19:17 UTC: accepting the old row or clearing the
 hold is not enough). The decision resolves exactly one current character by its GUID and refuses anything ambiguous. My
 first version held the whole account; Codex's review (18:47 and 19:17 UTC) asked that a legitimate other member character
@@ -700,7 +700,7 @@ character supports it. The hold sits in the one role writer (roles.ts) rather th
 have touched every status list; the one-time removal at the decision is the only new remover, and the grant path re-reads
 the hold after its PUT, as it re-reads the ban (.60), so a grant in flight cannot undo a hold.
 
-**The beta reset clears assignments, not history.** "All roles reset" was narrowed by Viktor to guild ranks and leadership
+**The beta reset clears assignments, not history.** "All roles reset" was narrowed by the owner to guild ranks and leadership
 assignments. The site holds two such things, the appointed roles and the new I-X directory, and the reset clears exactly
 those; applications and votes are evidence and stay. It is armed by a recorded closing moment in the past, because Blizzard
 gives a last day and no hour, and a timer would guess, and it runs once, admitted in SQL against the moment the page
@@ -719,7 +719,7 @@ Descriptions, cost figures and recorded checks below retain that work's history;
 deployment or final-version acceptance. Codex must qualify the final commit/tree with attributable peer evidence and
 the same applicable release/live gates. This batch changes no budget figures or caps pending the roster author's result.
 
-Viktor's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct (about 02:30 UTC, log 02:34 UTC), built from a
+the owner's request of 2 Oct (task log 23:41 UTC) and his answers of 3 Oct (about 02:30 UTC, log 02:34 UTC), built from a
 plan that three adversarial reviews went over. What the code does is in `docs/deploy-checklist.md` ("Worker .115"); this
 is why.
 
@@ -1044,3 +1044,21 @@ manual sync, 40 for the cron roster slice, and 694 for the composed scheduled wo
 Cloudflare's current batch documentation does not establish aggregate batch metering. Numeric limits have not changed.
 Restore refusal when actual preservation-critical writer quiescence cannot be proved remains mandatory; the future
 runtime restoration epoch is not implemented. Exact-head test, art, publication, backup and live receipts are separate.
+
+## 6 October 2026 - standalone anonymous policy/contact surface (.116 candidate)
+
+Anonymous PolicyV5 remains the wording basis; no individual controller name, email or location is introduced. Static
+policy documents use the reviewed v116 finite shell/slots generator with the Battle.net release profile immutable OFF.
+The bottom policy surface is titled Privacy and account data and links Account data controls. The Community card and
+old SPA erasure prose are removed; saved #/data addresses redirect without forwarding fragments or credentials.
+
+Contact/case forms retain the existing manually reviewed case engine. Conversation credentials establish conversation
+access only. A valid existing site session can request the narrower curated copy through the unchanged .115
+currentUser/communityContext/admittedRead authenticatedIdentity boundary. This path neither invokes nor claims P2
+account-generation authority. It does not admit a member, create an account or expose staff records.
+
+Four exact canonical helper dependencies are included only for dormant identity mechanics and safe primitive capture.
+Imports initialize constants/functions and one empty provider-pending set; they perform no DB, provider or RNG work.
+Production dispatch remains CLOSED before identity flow/session/provider work; prospective SQL/cleanup definitions
+are not attached to the schema or cron. Automated erasure and unlink controls remain 503 not-performed. No generation
+schema, normal session producer, restore fence or membership capability is activated by policy publication.
