@@ -953,6 +953,16 @@ export function contributionDeletionStatements(env: Env, id: string): D1Prepared
   ];
 }
 
+/** Own retained contribution decisions. This constructor executes nothing and grants no authority. */
+export function ownContributionDecisionStatements(env: Env, id: string, position: { high: number; seen: number; ts: number; id: number } | null): D1PreparedStatement[] {
+  const bounded = position ? 1 : 0, after = position && position.seen > 0 ? 1 : 0;
+  const own = "(discord_id=?1 OR actor='member:'||?1 OR actor='staff:'||?1)", live = `retain_until>${DB_NOW}`;
+  return [
+    env.DB.prepare(`SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR at>?5 OR (at=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM ${T}decisions WHERE ${own} AND ${live} AND (?2=0 OR id<=?3)`).bind(id, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
+    env.DB.prepare(`SELECT id,at,action,retain_until,(discord_id=?1) AS own_subject,(actor='member:'||?1 OR actor='staff:'||?1) AS own_actor FROM ${T}decisions WHERE ${own} AND ${live} AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM ${T}decisions WHERE ${own} AND ${live}) END AND (?4=0 OR at>?5 OR (at=?5 AND id>?6)) ORDER BY at,id LIMIT 1001`).bind(id, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
+  ];
+}
+
 /** The member's own records for the account copy (a .74 plan, read in the copy's one admitted batch): weeks with paid sums and contact dates, matched receipts with allocated/retired/open amounts; never who observed or recorded, payer names, source ids or others' receipts. */
 export function contributionExportPlan(env: Env, id: string): { statements: D1PreparedStatement[]; shape: (results: D1Result[]) => Record<string, unknown> } {
   return {

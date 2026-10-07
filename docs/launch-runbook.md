@@ -524,11 +524,17 @@ touched. Nothing runs on a timer; every step below is a person's.
    before 4 November.
 4. **In game**: the Guild Master (the owner, or an approved GM) sets the ranks by hand from the new decisions. The website
    cannot change game ranks; the rank planner only drafts. The in-game ladder decision changed on 3 Oct 2026 (owner
-   answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its planner preset and in-game
-   steps come in a later release.
-5. **In Discord** (a person with Manage Roles; the bot cannot, its role sits below these): remove Olympus Officer, Olympus
-   Guild Leader, Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. Keep
-   the owner and at least one Olympus Guild Leader, or nobody can use /olympus-admin, /olympus-intros and the officer lookups.
+   answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation). The current recommended preset is
+   already available in `worker/public/static/rank-planner/model.js`; it does not apply live changes. Its permission and
+   bank-limit fields remain draft values. Native rank and bank permissions still need the Guild Master's attended review
+   and setup; rank order alone does not establish withdrawal rights.
+5. **In Discord** (a person with Manage Roles performs this reset): remove Olympus Officer, Olympus Guild Leader,
+   Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. The approved bot
+   role position is below Olympus Guild Leader and above Olympus Officer. Hierarchy permits managing eligible lower roles
+   only with Manage Roles and a reviewed action path; the bot cannot manage Olympus Guild Leader or roles at or above its
+   own role. This position is not authorization to reset leadership, grant private-channel visibility or change game ranks
+   or bank permissions. Keep the owner and at least one Olympus Guild Leader, and preserve role-authorized access to
+   /olympus-admin, /olympus-intros and the officer lookups. New assignments and permission changes remain separate reviews.
 6. **Assign the new leaders**: Discord roles by hand, each named person reviewed first (the Council roles only after that
    review), the site's appointed roles in Admin → Settings, the I-X directory in the same place.
 7. **Announce once**: a site notice and, if wanted, one staff post in #guild-announcements; no per-member mentions.
