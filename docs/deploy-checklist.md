@@ -4868,3 +4868,31 @@ Rollback: stop qualification and preserve uncertain-command receipts. This chang
 exact prior source deployment is a separately admitted provider action. Do not restore a database, regenerate a
 continuation for a different session, reset a quota, reissue an uncertain upload or change a closed feature switch
 as an automatic rollback. Existing backup custody and preservation-critical writer-drain rules still apply.
+
+## Worker .120 - captured own contribution-decision history
+
+Change: a third curated partial range includes retained subject/member-actor/staff-actor contribution decisions,
+deduplicated when both links match. Only recognized action, time and own relation are returned. JSON downloads
+validate all three history datasets before their details-null copy audit; history views validate the selected range.
+Legacy actor-only aliases, counterpart identifiers, payment evidence and arbitrary stored text are not projected.
+
+Configuration: no schema/index/asset/dependency/binding/lifetime change. Existing identity-only sign-in, automatic
+erasure and unlink remain unavailable and Battle.net login stays OFF. The existing account POST accepts a strictly
+paired contribution_decisions selector/contributionDecisions field with a separate HMAC purpose and CSRF binding.
+The original action/event forms and API default JSON remain compatible; all views/downloads share the original
+approximate five-read account/hour limiter once per request. Resumption does not renew the original signed session.
+
+Validation before publication: ROOT must run typecheck/vectors, the actual policy generator/mirror check, account,
+frontend/News/owner/privacy/site/host/Battle.net and contribution regressions. The proposed additions cover live
+subject/actor/both and legacy exclusions; zero/1/1000/1001/2005 boundaries; tied timestamps/foreign interleaving;
+later/backdated insert exclusion; retained deletion/expiry/ownership/order changes; malformed stored/returned rows
+including lookahead; HMAC/account/session/version/expiry mismatch before payload; genuine DB-clock fences;
+strict dataset/field/mode/CSRF/origin pairing; real script-free Current/Next; shared quota/private429 and same-session
+later-window resumption. The 6001-own/100000-unrelated fixture records query plans/local timing without a D1 SLA.
+Actual test, native, asset, exact-commit CI, bundle/private parity and provider/browser receipts are separate gates.
+
+Rollout: only the owner-authorized exact-commit release path after those gates, preserving the verified newest
+private export and all uncertain-action receipts. Check actual version/bindings/policy/asset parity and the third
+script-free account form. No current candidate document is publication, adoption, provider or Claude acceptance.
+Rollback: separately admitted prior-source deployment, no automatic database restore, quota reset, uncertain upload
+retry, continuation reissue for another session or activation of a closed control.

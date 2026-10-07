@@ -1113,3 +1113,29 @@ and CSRF binding, and history or download mode. The original default action down
 Current/Next and rate-refusal continuations are POST-only and require the same original site session. All copy views
 and downloads share the unchanged approximate five-per-hour per-isolate limit, charged once per request. No schema,
 index, dependency, asset, retention, erasure, identity producer, Battle.net activation or guild authority changes.
+
+## 7 October 2026 - .120 captured own contribution-decision history
+
+The curated partial account copy gains a third retained history range. A decision is owned when its subject is the
+signed account, or its recorded actor is exactly member:<account> or staff:<account>. The OR predicate includes a
+row matching both once. Subject-owned rows remain included when their actor is legacy or unrecognized; raw/user
+actor-only aliases are unresolved and are not authority. Projection is action, time and subject/actor/both relation,
+never counterpart ids, payment evidence, guild scope, obligation id, revision, nonce or arbitrary actor text.
+
+Only the twelve current decision actions are accepted. Retain-until is checked by the genuine SQL clock inside the
+metadata/page queries. The admitted payload batch includes captured MAX(id), count, remaining count and 1,001 rows
+ordered by at/id. All returned rows, including lookahead, are shape/ownership/action/lifetime/order validated before
+any successful copy audit. Detectable deletion, expiry or position/count changes refuse with 409 rather than claim
+completion. Counts and positions do not authenticate equal-count content changes or an immutable snapshot.
+
+The existing action fourth argument and event fifth argument remain compatible; an optional sixth contribution
+continuation has its own HMAC purpose, dataset and signed session tuple. Downloads include all three history pages
+in the same admitted batch; continuing one freshly captures the other two. The fixed contribution_decisions selector
+is paired only with contributionDecisions in a form body and a dedicated CSRF binding. Current/Next, private saved
+continuations and valid 429 retry use the existing script-free POST route and original site session. Every view or
+download charges the unchanged approximate per-isolate five-read hour once. No quota reset/refund or TTL change.
+
+The output cap is not a SQL-work cap: the existing unindexed actor OR, MAX/COUNT and ordering may scan unrelated
+rows. A prospective real-SQLite plan/6001-own plus 100000-unrelated traversal diagnostic is local evidence, not a D1
+SLA. All-store completion, rights-only resumption, third-party policy decisions and other store gaps remain open.
+No schema, index, producer, retention, external route, guild role, identity, erase/unlink or Battle.net activation.

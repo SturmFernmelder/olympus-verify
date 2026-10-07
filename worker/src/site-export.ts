@@ -48,6 +48,7 @@ import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser 
 import { admittedReadAs, communityContext, communityExportPlan, FENCE_REFUSED, type CommunitySubject } from "./community-context";
 import { secondsToIso } from "./community-time";
 import { ownEventChangeStatements } from "./community-events";
+import { ownContributionDecisionStatements } from "./community-contributions";
 
 const ACTIONS_LIMIT = 1000;
 /** Integrity only: signed-session admission remains mandatory for every page. */
@@ -100,7 +101,7 @@ async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: st
   // Passed-user primitives are captured before awaiting; they never grant authority on their own.
   const callerId = user.discord_id, callerVersion = user.session_version;
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  if (["actions", "eventChanges", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
+  if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
@@ -179,7 +180,7 @@ async function prepareEventChanges(env: Env, s: CommunitySubject, raw?: string):
 async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
   const callerId = user.discord_id, callerVersion = user.session_version;
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  if (["actions", "eventChanges", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
+  if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
@@ -239,6 +240,104 @@ export async function exportMyEventChanges(request: Request, env: Env, user: Sit
   await audit(env, start.id, "site.copy_exported", start.id);
   return apiJson(body);
 }
+/** .120: separate retained contribution-decision collection, cursor purpose and minimal projection. */
+export const CONTRIBUTION_DECISION_CURSOR_LIMIT = 140;
+const CONTRIBUTION_DECISION_CURSOR = /^1\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.([A-Za-z0-9_-]{43})$/;
+export const contributionDecisionCursorShape = (raw: string): boolean => raw.length <= CONTRIBUTION_DECISION_CURSOR_LIMIT && CONTRIBUTION_DECISION_CURSOR.test(raw);
+export interface OwnContributionDecisionPage {
+  entries: { action: string; at: string; relation: "subject" | "actor" | "both" }[];
+  truncated: boolean; currentCursor: string; nextCursor: string | null;
+  capture: { kind: "retained_contribution_decision_range"; at: string; count: number; delivered: number; remaining: number; complete: boolean };
+}
+export interface OwnContributionDecisionHistoryView {
+  generatedAt: string;
+  coverage: { kind: "curated_partial"; ownAccountOnly: true; contributionDecisionsPageLimit: number; completeErasure: false };
+  contributionDecisions: OwnContributionDecisionPage;
+}
+const contributionDecisionData = (payload: string, s: CommunitySubject) => JSON.stringify(["site-session", "contribution_decisions", payload, s.discordId, s.sessionVersion, s.expiresAt]);
+async function contributionDecisionToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
+  const payload = historyPayload(p);
+  return `${payload}.${await sign(env.COOKIE_SECRET, "own-contribution-decisions", contributionDecisionData(payload, s))}`;
+}
+async function prepareContributionDecisions(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
+  let p: HistoryPosition | null = null;
+  if (raw !== undefined) {
+    if (raw.length > CONTRIBUTION_DECISION_CURSOR_LIMIT) return null;
+    const parts = CONTRIBUTION_DECISION_CURSOR.exec(raw); if (!parts) return null;
+    const nums = parts.slice(1, 8).map(Number); if (!nums.every(whole)) return null;
+    p = { high: nums[0]!, total: nums[1]!, seen: nums[2]!, ts: nums[3]!, id: nums[4]!, expires: nums[5]!, captured: nums[6]! };
+    if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
+        (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
+    const payload = historyPayload(p);
+    if (!await verify(env.COOKIE_SECRET, "own-contribution-decisions", contributionDecisionData(payload, s), parts[8]!)) return null;
+  }
+  return { position: p, statements: ownContributionDecisionStatements(env, s.discordId, p) };
+}
+async function beginContributionDecisions(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
+  const callerId = user.discord_id, callerVersion = user.session_version;
+  if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
+  const ctx = await communityContext(env, request), s = ctx.subject;
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+    return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const plan = await prepareContributionDecisions(env, subject, raw);
+  if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
+  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  return { ok: true, id: subject.discordId, subject, plan };
+}
+const CONTRIBUTION_DECISION_ACTIONS = new Set(["allocation_reversed", "receipt_voided", "removal_recorded", "state_open", "state_exempt", "state_disputed", "state_resolved", "contact_acknowledged", "contact_officer_contact", "contact_final_notice", "contact_final_acknowledged", "contact_final_officer_contact"]);
+async function finishContributionDecisions(env: Env, s: CommunitySubject, plan: HistoryPlan, at: number, metadata: D1Result | undefined, rows: D1Result | undefined): Promise<OwnContributionDecisionPage | null> {
+  if (!metadata || !Array.isArray(metadata.results) || metadata.results.length !== 1 || !rows || !Array.isArray(rows.results)) return null;
+  const rawMeta = metadata.results[0];
+  if (!rawMeta || typeof rawMeta !== "object" || Array.isArray(rawMeta)) return null;
+  const m = rawMeta as { high_water?: unknown; total_count?: unknown; remaining_count?: unknown };
+  if (!whole(m.high_water) || !whole(m.total_count) || !whole(m.remaining_count) || !whole(at) || at === 0 || at >= s.expiresAt) return null;
+  const old = plan.position;
+  if ((m.total_count === 0) !== (m.high_water === 0) || m.remaining_count > m.total_count ||
+      (old && (m.high_water !== old.high || m.total_count !== old.total || m.remaining_count !== old.total - old.seen || at < old.captured))) return null;
+  const initial: HistoryPosition = old ?? { high: m.high_water, total: m.total_count, seen: 0, ts: 0, id: 0, expires: s.expiresAt, captured: at };
+  if (rows.results.length !== Math.min(1001, m.remaining_count)) return null;
+  const projected: OwnContributionDecisionPage["entries"] = [];
+  let previous = initial.seen > 0 ? { ts: initial.ts, id: initial.id } : null;
+  let last: { ts: number; id: number } | null = null;
+  for (const [index, raw] of rows.results.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const r = raw as Record<string, unknown>;
+    if (!whole(r.at) || !whole(r.id) || r.id === 0 || r.id > initial.high || !whole(r.retain_until) || r.retain_until <= at || typeof r.action !== "string" || !CONTRIBUTION_DECISION_ACTIONS.has(r.action) ||
+        (r.own_subject !== 0 && r.own_subject !== 1) || (r.own_actor !== 0 && r.own_actor !== 1) || (r.own_subject !== 1 && r.own_actor !== 1) ||
+        (previous && (r.at < previous.ts || (r.at === previous.ts && r.id <= previous.id)))) return null;
+    previous = { ts: r.at, id: r.id };
+    if (index < 1000) {
+      last = previous;
+      projected.push({ action: r.action, at: secondsToIso(r.at), relation: r.own_subject === 1 ? r.own_actor === 1 ? "both" : "subject" : "actor" });
+    }
+  }
+  const delivered = initial.seen + projected.length, remaining = initial.total - delivered;
+  if (!whole(delivered) || remaining < 0 || (remaining > 0 && projected.length !== 1000)) return null;
+  return {
+    entries: projected, truncated: remaining > 0, currentCursor: await contributionDecisionToken(env, s, initial),
+    nextCursor: remaining > 0 && last ? await contributionDecisionToken(env, s, { ...initial, seen: delivered, ts: last.ts, id: last.id }) : null,
+    capture: { kind: "retained_contribution_decision_range", at: secondsToIso(initial.captured), count: initial.total, delivered, remaining, complete: remaining === 0 },
+  };
+}
+const contributionDecisionsChanged = () => apiJson({ error: "contribution_history_changed", message: "The retained contribution-decision range changed. Start a new capture; no completed history is claimed." }, 409);
+/** Internal own-session adapter only, not a public route or rights-only identity. */
+export async function exportMyContributionDecisions(request: Request, env: Env, user: SiteUser, cursor?: string): Promise<Response> {
+  const start = await beginContributionDecisions(request, env, user, cursor);
+  if (!start.ok) return start.response;
+  const out = await admittedReadAs(env, start.subject, "authenticatedIdentity", [env.DB.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at"), ...start.plan.statements]);
+  if (out === FENCE_REFUSED) return historyRefusal(env, request);
+  const clock = out[0]?.results?.[0] as { at?: unknown } | undefined;
+  if (!clock || !whole(clock.at)) return contributionDecisionsChanged();
+  const at = clock.at;
+  const contributionDecisions = await finishContributionDecisions(env, start.subject, start.plan, at, out[1], out[2]);
+  if (!contributionDecisions) return contributionDecisionsChanged();
+  const body: OwnContributionDecisionHistoryView = { generatedAt: secondsToIso(at), coverage: { kind: "curated_partial", ownAccountOnly: true, contributionDecisionsPageLimit: 1000, completeErasure: false }, contributionDecisions };
+  await audit(env, start.id, "site.copy_exported", start.id);
+  return apiJson(body);
+}
+
 /** .76: the member's application for their OWN copy: the parsed answers' references carry kind and label only (the key is another member's id). */
 function ownApplication(a: ReturnType<typeof appOut>) {
   const answers: Record<string, unknown> = { ...a.answers };
@@ -246,14 +345,15 @@ function ownApplication(a: ReturnType<typeof appOut>) {
   return { ...a, answers };
 }
 
-export async function exportMyData(request: Request, env: Env, user: SiteUser, actionCursor?: string, eventCursor?: string): Promise<Response> {
-  if (actionCursor !== undefined && eventCursor !== undefined) return apiJson({ error: "invalid_cursor" }, 400);
-  const start = eventCursor !== undefined ? await beginEventChanges(request, env, user, eventCursor) : await beginHistory(request, env, user, actionCursor);
+export async function exportMyData(request: Request, env: Env, user: SiteUser, actionCursor?: string, eventCursor?: string, contributionCursor?: string): Promise<Response> {
+  if ([actionCursor, eventCursor, contributionCursor].filter(cursor => cursor !== undefined).length > 1) return apiJson({ error: "invalid_cursor" }, 400);
+  const start = contributionCursor !== undefined ? await beginContributionDecisions(request, env, user, contributionCursor) : eventCursor !== undefined ? await beginEventChanges(request, env, user, eventCursor) : await beginHistory(request, env, user, actionCursor);
   if (!start.ok) return start.response;
   const { id, subject } = start;
-  const history = eventCursor !== undefined ? await prepareHistory(env, subject) : start.plan;
+  const history = eventCursor !== undefined || contributionCursor !== undefined ? await prepareHistory(env, subject) : start.plan;
   const eventHistory = eventCursor !== undefined ? start.plan : await prepareEventChanges(env, subject);
-  if (!history || !eventHistory) return apiJson({ error: "invalid_cursor" }, 400);
+  const decisionHistory = contributionCursor !== undefined ? start.plan : await prepareContributionDecisions(env, subject);
+  if (!history || !eventHistory || !decisionHistory) return apiJson({ error: "invalid_cursor" }, 400);
   const plan = communityExportPlan(env, id);
   const out = await admittedReadAs(env, subject, "authenticatedIdentity", [
     env.DB.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS at"), // .76: the capture instant, the database's clock inside this batch
@@ -270,12 +370,13 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
     ...history.statements,
     ...eventHistory.statements,
+    ...decisionHistory.statements,
     // .114: the account's rename records (rename-review.ts), without the administrators' identities
     env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
-  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, renames] = out;
+  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, decisionMeta, decisionRows, renames] = out;
   type Rec = Record<string, unknown>;
   const a = (account!.results[0] ?? null) as Rec | null;
   if (!a) return apiJson({ error: "conflict", message: "The account row was not present in the admitted copy. Try again." }, 409);
@@ -285,10 +386,12 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   if (!actionPage) return historyChanged();
   const eventPage = await finishEventChanges(env, subject, eventHistory, at, eventMeta!, eventRows!);
   if (!eventPage) return eventChangesChanged();
+  const decisionPage = await finishContributionDecisions(env, subject, decisionHistory, at, decisionMeta, decisionRows);
+  if (!decisionPage) return contributionDecisionsChanged();
   const body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
-    coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, completeErasure: false },
-    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions and actor-linked eventChanges are separately captured retained ranges with their own capture.at and continuation. Later inserts are excluded from each continued range. A download continuing one range captures the other dataset afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
+    coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
+    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions, actor-linked eventChanges and subject/actor-linked contributionDecisions are separately captured retained ranges with their own capture.at and continuation. Contribution decisions include only current recognized actions, time and your relation; payment evidence, counterpart identities and arbitrary actor text are omitted. Later inserts are excluded from each continued range. A download continuing one range captures its other history datasets afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
       : null,
@@ -311,7 +414,8 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     },
     actions: actionPage,
     eventChanges: eventPage,
-    community: plan.shape(out.slice(16)), // Both two-result history plans precede unchanged registry results.
+    contributionDecisions: decisionPage,
+    community: plan.shape(out.slice(18)), // Three two-result history plans precede unchanged registry results.
   };
   await audit(env, id, "site.copy_exported", id);
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });

@@ -265,7 +265,7 @@ const policyHTML = async (pathname, { method = "GET", fields, cookie, who, over 
   return { response, client, text: await response.text(), cookie: response.headers.get("Set-Cookie")?.split(";")[0] || cookie || "" };
 };
 const policyFields = (page, action, { collection = "actions", mode } = {}) => {
-  if (!["actions", "event_changes"].includes(collection) || (mode !== undefined && !["history", "download"].includes(mode))) throw new Error("unissued policy form selector");
+  if (!["actions", "event_changes", "contribution_decisions"].includes(collection) || (mode !== undefined && !["history", "download"].includes(mode))) throw new Error("unissued policy form selector");
   if (action !== "/privacy/account/export" && (collection !== "actions" || mode !== undefined)) throw new Error("dataset selector requires the account export path");
   const forms = Array.from(page.text.matchAll(/<form method="post" action="([^"]+)">([\s\S]*?)<\/form>/g)).filter(m => m[1] === action).map(m => {
     const fields = Object.create(null);
@@ -274,9 +274,9 @@ const policyFields = (page, action, { collection = "actions", mode } = {}) => {
       fields[field[1]] = field[2];
     }
     if (action === "/privacy/account/export") {
-      const dataset = fields.collection ?? "actions", control = dataset === "event_changes" ? "eventChanges" : "actions", other = dataset === "event_changes" ? "actions" : "eventChanges";
+      const dataset = fields.collection ?? "actions", control = dataset === "contribution_decisions" ? "contributionDecisions" : dataset === "event_changes" ? "eventChanges" : "actions";
       const names = Array.from(m[2].matchAll(/<input\b[^>]*\bname="([^"]+)"[^>]*>/g), field => field[1]);
-      if (!["actions", "event_changes"].includes(dataset) || names.filter(name => name === control).length !== 1 || names.includes(other) || (fields.mode !== undefined && !["history", "download"].includes(fields.mode))) throw new Error("unexpected account dataset form");
+      if (!["actions", "event_changes", "contribution_decisions"].includes(dataset) || names.filter(name => name === control).length !== 1 || ["actions","eventChanges","contributionDecisions"].some(other => other !== control && names.includes(other)) || (fields.mode !== undefined && !["history", "download"].includes(fields.mode))) throw new Error("unexpected account dataset form");
       if (dataset !== collection || (mode !== undefined && fields.mode !== mode)) return null;
     }
     return fields;
@@ -1760,6 +1760,34 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".119 the final Current form confirms one final projected row and captured-range completion within four genuine copy reads", finalEventCopy.response.status === 200 && finalPage.currentCursor === lastEventFields.eventChanges && finalPage.nextCursor === null && finalPage.capture.count === 1001 && finalPage.capture.delivered === 1001 && finalPage.capture.remaining === 0 && finalPage.capture.complete === true && finalPage.capture.at === currentPage.capture.at && JSON.stringify(finalPage.entries) === JSON.stringify(expected.slice(1000)) && copyAudits() === beforeRefusals + 4);
     const crossedEventCursor = await policyPost(eventControls, EXPORT, { actions: currentEventFields.eventChanges }, { cookie: formCookieFor(eventControls) });
     check(".119 an actual action form cannot authenticate the event cursor or create a fifth successful copy audit", crossedEventCursor.response.status === 400 && JSON.parse(crossedEventCursor.text).error === "invalid_cursor" && copyAudits() === beforeRefusals + 4);
+  }
+
+  // .120: the third actual form, current/next POST and the same signed site's identity; no quota reset.
+  {
+    const OWNER="300000000000000096", EXPORT="/privacy/account/export", FORM={collection:"contribution_decisions"};
+    siteUser(OWNER);
+    const expected=[],insert=db.prepare("INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until) VALUES(?,?,?,?,?,?,?,?,?)"),deadline=now+86400;
+    for(let i=0;i<1001;i++){
+      const at=now+Math.floor(i/700),action=i%2?"state_disputed":"contact_acknowledged",kind=i%3,subject=kind===2?OTHER:OWNER,actor=kind===0?"member:"+OWNER:kind===1?"user:"+OWNER:"staff:"+OWNER,relation=kind===0?"both":kind===1?"subject":"actor";
+      insert.run("hidden-scope",subject,77,action,actor,9,"hidden-nonce",at,deadline);insert.run("foreign",OTHER,78,"state_open","member:"+OTHER,9,"foreign",at,deadline);expected.push({action,at:new Date(at*1000).toISOString(),relation});
+    }
+    insert.run("unknown-alias",OTHER,79,"state_open","user:"+OWNER,9,"hidden-alias",now,deadline);insert.run("expired",OWNER,79,"state_open","member:"+OWNER,9,"expired",now,now-1);
+    const session=await cookieFor(OWNER),controls=await policyHTML("/privacy/account",{cookie:session,client:"account"}),join=page=>[session,page.cookie].filter(Boolean).join("; ");
+    const action=policyFields(controls,EXPORT),event=policyFields(controls,EXPORT,{collection:"event_changes"}),decision=policyFields(controls,EXPORT,FORM),copies=()=>db.prepare("SELECT actor,subject,details FROM audit WHERE actor=? AND action='site.copy_exported' ORDER BY id").all(OWNER);
+    check(".120 real three-form page separates datasets, body controls and genuine CSRF",controls.response.status===200 && scriptFreePolicy(controls) && decision.collection==="contribution_decisions" && new Set([action.csrf,event.csrf,decision.csrf]).size===3 && !Object.hasOwn(decision,"actions") && !Object.hasOwn(decision,"eventChanges"));
+    const before=copies().length,wrong=await policyPost(controls,EXPORT,{csrf:action.csrf,contributionDecisions:"",mode:"history"},{form:FORM,cookie:join(controls)}),paired=await policyPost(controls,EXPORT,{contributionDecisions:"",eventChanges:"",mode:"history"},{form:FORM,cookie:join(controls)});
+    check(".120 real third form cannot borrow action CSRF or pair another dataset's empty field",wrong.response.status===403 && paired.response.status===400 && paired.text.includes("invalid_form") && copies().length===before);
+    const first=await policyPost(controls,EXPORT,{contributionDecisions:"",mode:"history"},{form:FORM,cookie:join(controls)}),current=policyFields(first,EXPORT,{...FORM,mode:"download"}),next=policyFields(first,EXPORT,{...FORM,mode:"history"});
+    const items=page=>Array.from(page.text.matchAll(/<li>([\s\S]*?)<\/li>/g),row=>row[1]),project=rs=>rs.map(row=>`${row.at} · ${row.action} · ${row.relation}`);
+    const visible=Array.from(first.text.matchAll(/<textarea readonly rows="2" spellcheck="false" autocomplete="off">([^<]+)<\/textarea>/g),row=>row[1]);
+    check(".120 real contribution view is ordered/minimal and has readonly Current/Next body-only controls",first.response.status===200 && scriptFreePolicy(first) && JSON.stringify(items(first))===JSON.stringify(project(expected.slice(0,1000))) && JSON.stringify(visible)===JSON.stringify([current.contributionDecisions,next.contributionDecisions]) && first.text.includes("1000 of 1001 included records reached; 1 remain") && !first.text.includes("hidden-nonce") && !first.text.includes("hidden-scope") && !first.text.includes("?contributionDecisions="));
+    insert.run("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now-9000,deadline);insert.run("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now+9000,deadline);db.prepare("UPDATE site_users SET nick=? WHERE discord_id=?").run("Fresh decision-copy nickname",OWNER);
+    const copy=await policyPost(first,EXPORT,{}, {form:{...FORM,mode:"download"},cookie:join(first)}),body=JSON.parse(copy.text),page=body.contributionDecisions;
+    check(".120 actual Current JSON keeps captured decisions and freshly reads other sections",copy.response.status===200 && body.account.discordId===OWNER && body.account.nickname==="Fresh decision-copy nickname" && body.actions.capture.kind==="retained_action_range" && body.eventChanges.capture.kind==="retained_event_change_range" && page.currentCursor===current.contributionDecisions && page.nextCursor===next.contributionDecisions && page.capture.count===1001 && JSON.stringify(page.entries)===JSON.stringify(expected.slice(0,1000)) && page.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,relation"));
+    const last=await policyPost(first,EXPORT,{}, {form:{...FORM,mode:"history"},cookie:join(first)}),lastFields=policyFields(last,EXPORT,{...FORM,mode:"download"}),lastCopy=await policyPost(last,EXPORT,{}, {form:{...FORM,mode:"download"},cookie:join(last)}),lastBody=JSON.parse(lastCopy.text),final=lastBody.contributionDecisions;
+    check(".120 genuine Next/final Current completes only captured own decisions with four details-null self audits",last.response.status===200 && scriptFreePolicy(last) && JSON.stringify(items(last))===JSON.stringify(project(expected.slice(1000))) && lastCopy.response.status===200 && final.currentCursor===lastFields.contributionDecisions && final.nextCursor===null && final.capture.count===1001 && final.capture.delivered===1001 && final.capture.complete===true && final.capture.at===page.capture.at && JSON.stringify(final.entries)===JSON.stringify(expected.slice(1000)) && copies().length===before+4 && copies().every(row=>row.actor===OWNER && row.subject===OWNER && row.details===null));
+    const crossed=await policyPost(controls,EXPORT,{actions:current.contributionDecisions},{cookie:join(controls)});
+    check(".120 actual action form refuses contribution token before a fifth copy audit",crossed.response.status===400 && JSON.parse(crossed.text).error==="invalid_cursor" && copies().length===before+4);
   }
 
   await denied.go("#/community");

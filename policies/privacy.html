@@ -348,7 +348,14 @@ change kind, time, and the names of changed fields. It does not include arbitrar
 other people's changes to your events, or rows already removed by retention. The event-change controls have their own
 signed continuation and Current/Next view; action continuations cannot select this collection. A download using an
 event-change continuation freshly captures its action page and other sections, while retaining that event-change
-range. Both collections and downloads share the same approximate five-read hourly limit. A captured count and page
+range. Contribution-decision history is a third, separately paged retained range. It includes a decision once when
+its subject is your account or its recorded actor is explicitly your member/staff account. A subject-owned decision
+may have an unrecognized legacy actor; actor-only legacy aliases are not treated as an established account link.
+Only the recognized decision action, time and your relation (subject, actor or both) are copied. Counterpart identities,
+payment evidence, obligation identifiers, raw actor text and expired decisions are omitted. Its dedicated account form
+and signed continuation use the same original site session. Current/Next and private rate-window resume work without
+scripts or continuation URLs. A download continuing one range captures its other history collections afresh.
+All three collections and downloads share the same approximate five-read hourly limit. A captured count and page
 position detect certain retained-range changes; they do not authenticate equal-count content changes or provide an
 immutable snapshot. Keep any saved continuation private and use the same original site session before it expires.
 The copy excludes staff notes and

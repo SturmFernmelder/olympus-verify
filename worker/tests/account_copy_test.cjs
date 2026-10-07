@@ -535,6 +535,105 @@ const whereIs = (id) => {
           const time=T; try { T+=3601; const r=await eventPost(session,page.nextCursor,"download",await eventForm(session)); check(".119 rate-window resume keeps original signed event capture and fresh form",r.status===200 && r.body.eventChanges.capture.count===2005 && r.body.eventChanges.capture.delivered===2000 && r.body.eventChanges.capture.remaining===5 && r.body.eventChanges.capture.at===page.capture.at); } finally {T=time;}
         }
       }
+      console.log("\n== .120: captured own contribution decisions, not an all-store copy ==");
+      {
+        const decisionActions = ["allocation_reversed","receipt_voided","removal_recorded","state_open","state_exempt","state_disputed","state_resolved","contact_acknowledged","contact_officer_contact","contact_final_notice","contact_final_acknowledged","contact_final_officer_contact"];
+        const putDecision = db.prepare("INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until) VALUES(?,?,?,?,?,?,?,?,?)");
+        const realNow = () => Math.floor(RealDate.now()/1000);
+        const seedDecisions = (size, over={}) => {
+          const f=newAccount(0,over), expected=[], rowIds=[], deadline=realNow()+86400;
+          for(let i=0;i<size;i++) {
+            const at=T+3000+Math.floor(i/700), action=decisionActions[i%decisionActions.length], kind=i%4;
+            const subject=kind<2?f.id:OTHER, actor=kind===0?"member:"+f.id:kind===1?"user:"+f.id:kind===2?"member:"+f.id:"staff:"+f.id;
+            rowIds.push(Number(putDecision.run("private-scope",subject,999,action,actor,7,"private-nonce",at,deadline).lastInsertRowid));
+            expected.push({action,at:iso(at),relation:kind===0?"both":kind===1?"subject":"actor"});
+            putDecision.run("foreign-scope",OTHER,998,"state_open","staff:"+OTHER,8,"foreign-nonce",at,deadline);
+          }
+          // Explicitly unresolved actor-only aliases, an expired own record, and another person's row are not owned live decisions.
+          for(const actor of [f.id,"user:"+f.id,"erased"]) putDecision.run("alias-scope",OTHER,997,"state_open",actor,9,"alias-nonce",T,deadline);
+          putDecision.run("expired-scope",f.id,996,"state_open","member:"+f.id,10,"expired-nonce",T,realNow()-1);
+          return {...f,expected,rowIds,deadline};
+        };
+        const decisionForm = async session => {
+          const res=await indexMod.default.fetch(new Request("https://guild.example/privacy/account",{headers:{Cookie:session}}),env(ON),ctx), text=await res.text();
+          const form=[...text.matchAll(/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/g)].find(x=>x[1].includes('name="collection" value="contribution_decisions"'))?.[1]||"";
+          return {nonce:(res.headers.get("Set-Cookie")||"").split(";")[0],csrf:(form.match(/name="csrf" value="([^"]+)"/)||[])[1]||"",text};
+        };
+        const decisionPost = async (session,token="",mode="download",controls,extra={},headers={}) => {
+          const f=controls||await decisionForm(session), res=await indexMod.default.fetch(new Request("https://guild.example/privacy/account/export",{method:"POST",headers:{Cookie:[session,f.nonce].join("; "),Origin:"https://guild.example","Content-Type":"application/x-www-form-urlencoded",...headers},body:new URLSearchParams({csrf:f.csrf,collection:"contribution_decisions",contributionDecisions:token,mode,...extra}).toString()}),env(ON),ctx);
+          const text=await res.text();let body={};try{body=JSON.parse(text);}catch{/* Actual script-free view/refusal. */}return {status:res.status,text,body,headers:res.headers};
+        };
+        for(const size of [0,1,1000,1001,2005]) {
+          const f=seedDecisions(size), session=await cookieFor(f.id), first=await decisionPost(session), p=first.body.contributionDecisions;
+          check(`.120 ${size}: live subject/member/staff ownership deduplicates both and omits unresolved aliases/private fields`,first.status===200 && p.capture.kind==="retained_contribution_decision_range" && p.capture.count===size && p.entries.length===Math.min(size,1000) && p.capture.complete===(size<=1000) && first.body.coverage.contributionDecisionsPageLimit===1000 && first.body.coverage.completeErasure===false && p.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,relation") && !JSON.stringify(p).includes(OTHER) && !JSON.stringify(p).includes("private-"));
+          putDecision.run("later",f.id,999,"state_open","staff:"+f.id,11,"later",T-9000,f.deadline);putDecision.run("later",f.id,999,"state_open","staff:"+f.id,11,"later",T+9000,f.deadline);
+          const pages=[p];let token=p.nextCursor;
+          while(token){const next=await decisionPost(session,token);check(".120 real Next POST retains its contribution capture",next.status===200);pages.push(next.body.contributionDecisions);token=next.body.contributionDecisions.nextCursor;}
+          check(`.120 ${size}: identical-time order and interleaved foreign ids traverse exactly once; later/backdated inserts stay outside H`,JSON.stringify(pages.flatMap(x=>x.entries))===JSON.stringify(f.expected) && pages.every(x=>x.capture.count===size && x.capture.at===p.capture.at) && pages.at(-1).capture.complete===true && token===null);
+          if(size===1){const current=await decisionPost(session,p.currentCursor), original=await start(f.id,session);check(".120 Current contribution download and default JSON preserve separate action/event collections",current.status===200 && JSON.stringify(current.body.contributionDecisions.entries)===JSON.stringify(f.expected) && original.status===200 && original.body.actions.capture.kind==="retained_action_range" && original.body.eventChanges.capture.kind==="retained_event_change_range" && original.body.contributionDecisions.capture.count===3);}
+        }
+        for(const mutation of ["delivered-delete","remaining-delete","ownership-drop","tuple-drop","retention-expired"]) {
+          const f=seedDecisions(1001), session=await cookieFor(f.id), first=await decisionPost(session), token=first.body.contributionDecisions.nextCursor;
+          if(mutation==="ownership-drop") db.prepare("UPDATE community_contribution_decisions SET discord_id=?,actor=? WHERE id=?").run(OTHER,"staff:"+OTHER,f.rowIds[1000]);
+          else if(mutation==="tuple-drop") db.prepare("UPDATE community_contribution_decisions SET at=? WHERE id=?").run(T+2999,f.rowIds[1000]);
+          else if(mutation==="retention-expired") db.prepare("UPDATE community_contribution_decisions SET retain_until=? WHERE id=?").run(realNow()-1,f.rowIds[1000]);
+          else db.prepare("DELETE FROM community_contribution_decisions WHERE id=?").run(f.rowIds[mutation==="delivered-delete"?0:1000]);
+          const before=copies(f.id), response=await decisionPost(session,token);
+          check(".120 "+mutation+": changed captured membership/count/position refuses without completion or copy audit",response.status===409 && response.body.error==="contribution_history_changed" && !("contributionDecisions" in response.body) && !response.headers.get("Content-Disposition") && copies(f.id)===before);
+        }
+        for(const [name,patch] of [["unknown-action","action='unrecognized'"],["negative-time","at=-1"],["malformed-deadline","retain_until='not-a-number'"]]) {
+          const f=seedDecisions(3),session=await cookieFor(f.id);db.exec("UPDATE community_contribution_decisions SET "+patch+" WHERE id="+f.rowIds[1]);const before=copies(f.id),r=await decisionPost(session);
+          check(".120 stored "+name+" is refused rather than projected/completed/audited",r.status===409 && r.body.error==="contribution_history_changed" && copies(f.id)===before);
+        }
+        {
+          const f=seedDecisions(1001),session=await cookieFor(f.id);db.prepare("UPDATE community_contribution_decisions SET action='unknown-lookahead' WHERE id=?").run(f.rowIds[1000]);const before=copies(f.id),r=await decisionPost(session);
+          check(".120 malformed 1001st lookahead refuses before reporting a valid first page",r.status===409 && r.body.error==="contribution_history_changed" && copies(f.id)===before);
+        }
+        {
+          const f=seedDecisions(1),session=await cookieFor(f.id),user=await siteCore.currentUser(env(),new Request("https://guild.example/",{headers:{Cookie:session}}));
+          for(const corruption of ["missing-meta","non-array-meta","missing-rows","bad-flags","count-mismatch"]) {
+            const e=env(ON),base=e.DB,before=copies(f.id);let observed=0;e.DB={...base,batch:async stmts=>{const out=await base.batch(stmts);observed++;if(stmts.length!==4||out[0]?.results[0]?.ok!==1)throw Error("expected genuine admitted decision fixture batch");if(corruption==="missing-meta")out[2]=undefined;else if(corruption==="non-array-meta")out[2]={results:{}};else if(corruption==="missing-rows")out[3]=undefined;else if(corruption==="bad-flags")out[3].results[0].own_actor=2;else out[2].results[0].total_count++;return out;}};
+            const response=await exporter.exportMyContributionDecisions(new Request("https://guild.example/privacy/account/export",{method:"POST",headers:{Cookie:session}}),e,user), body=await response.json();
+            check(".120 returned D1 boundary "+corruption+" refuses after one genuine SQLite admission, without fake proofs/audit",response.status===409 && body.error==="contribution_history_changed" && observed===1 && copies(f.id)===before);
+          }
+        }
+        {
+          const f=seedDecisions(1001),session=await cookieFor(f.id),first=await decisionPost(session),token=first.body.contributionDecisions.nextCursor,form=await decisionForm(session),actionForm=await accountForm(session), actionFirst=await start(f.id,session);
+          const bad=token.split(".");bad[8]=(bad[8][0]==="A"?"B":"A")+bad[8].slice(1);const before=copies(f.id);let batches=0;BEFORE=()=>{batches++;};
+          for(const raw of [bad.join("."),actionFirst.body.actions.currentCursor,actionFirst.body.eventChanges.currentCursor,"01."+token.slice(2)]){const r=await decisionPost(session,raw,"download",form);check(".120 wrong domain/significant MAC/noncanonical grammar cannot admit a contribution payload",r.status===400 && batches===0 && copies(f.id)===before);}
+          for(const extra of [{actions:""},{eventChanges:""},{collection:"actions"},{collection:"unknown"},{collection:""},{mode:"unknown"}]){const r=await decisionPost(session,token,"history",form,extra);check(".120 mismatched collection/field/mode refuses with no cursor reflection or batch",r.status===400 && r.text.includes("invalid_form") && !r.text.includes(token) && batches===0 && copies(f.id)===before);}
+          const csrf=await decisionPost(session,token,"history",actionForm),origin=await decisionPost(session,token,"history",form,{}, {Origin:"https://other.example"});check(".120 real decision-bound CSRF and canonical origin cannot use action admission",csrf.status===403 && origin.status===403 && batches===0 && copies(f.id)===before);
+          for(const query of ["?contributionDecisions="+encodeURIComponent(token),"?collection=contribution_decisions"]){const r=await call("GET","/api/me/export"+query,f.id,undefined,ON,{Cookie:session});check(".120 GET addresses cannot select or resume contributions",r.status===400 && r.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);}
+          BEFORE=null;const other=seedDecisions(1),otherSession=await cookieFor(other.id);batches=0;BEFORE=()=>{batches++;};const cross=await decisionPost(otherSession,token);BEFORE=null;check(".120 another valid account cannot use the signed contribution capture",cross.status===400 && cross.body.error==="invalid_cursor" && batches===0 && copies(other.id)===0);
+          const payload=cookiePayload(session);for(const change of ["expiry","version"]){if(change==="version")db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(f.id);const replaced=await signedSession({...payload,...(change==="expiry"?{e:payload.e+60}:{v:2})});batches=0;BEFORE=()=>{batches++;};const r=await decisionPost(replaced,token);BEFORE=null;check(".120 replacement "+change+" cannot reinterpret a contribution continuation",r.status===400 && r.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);}
+        }
+        for(const standing of ["denied","departed","banned"]){const f=seedDecisions(1,{denied:standing==="denied"?1:0,in_server:standing==="departed"?0:1});if(standing==="banned")db.prepare("INSERT INTO members(discord_id,linked_at,banned) VALUES(?,?,1)").run(f.id,T);const r=await decisionPost(await cookieFor(f.id));check(".120 "+standing+": valid site identity retains own read without guild access",r.status===200 && r.body.account.discordId===f.id && r.body.contributionDecisions.capture.count===1 && r.body.coverage.completeErasure===false);}
+        {
+          const f=seedDecisions(1),session=await cookieFor(f.id),form=await decisionForm(session),before=copies(f.id),expired=await signedSession({...cookiePayload(session),e:realNow()-1});let batches=0;BEFORE=()=>{batches++;};const r=await decisionPost(expired,"","history",form);BEFORE=null;
+          check(".120 genuine DB-clock expiry refuses one attempted admitted batch and emits no history/audit",[401,409].includes(r.status) && batches===1 && !r.text.includes("Current contribution-decision page continuation") && copies(f.id)===before);
+          const user=await siteCore.currentUser(env(),new Request("https://guild.example/",{headers:{Cookie:session}}));batches=0;BEFORE=()=>{batches++;};const wrong=await exporter.exportMyContributionDecisions(new Request("https://guild.example/privacy/account/export",{method:"POST",headers:{Cookie:session}}),env(ON),{...user,discord_id:OTHER});BEFORE=null;
+          check(".120 passed-user primitives cannot substitute for the signed contribution subject",wrong.status===401 && batches===0 && copies(f.id)===before);
+          const mutable={...user};BEFORE=()=>{mutable.discord_id=OTHER;mutable.session_version=999;};const kept=await exporter.exportMyContributionDecisions(new Request("https://guild.example/privacy/account/export",{method:"POST",headers:{Cookie:session}}),env(ON),mutable);BEFORE=null;
+          check(".120 caller mutation after snapshot cannot redirect the admitted contribution capture",kept.status===200 && (await kept.json()).contributionDecisions.entries[0].relation==="both");
+        }
+        {
+          const f=seedDecisions(2005),session=await cookieFor(f.id),first=await decisionPost(session),p=first.body.contributionDecisions,form=await decisionForm(session),view=await decisionPost(session,p.currentCursor,"history",form);
+          check(".120 script-free Current/Next controls reveal only the projection and private body continuations",view.status===200 && view.text.includes("Current contribution-decision page continuation") && view.text.includes("Next contribution-decision page continuation") && view.text.includes('name="collection" value="contribution_decisions"') && view.text.includes('name="contributionDecisions" value="'+p.nextCursor+'"') && !view.text.includes('name="actions"') && !view.text.includes('name="eventChanges"') && !view.text.includes("<script") && !view.text.includes("?contributionDecisions=") && !view.text.includes("private-nonce"));
+          await postCopy(session);await decisionPost(session,p.currentCursor);await postCopy(session);const before=copies(f.id),limited=await decisionPost(session,p.nextCursor,"history",form);
+          check(".120 all three histories/downloads share the unchanged five reads; sixth preserves only the matching private continuation",limited.status===429 && limited.text.includes("Saved contribution-decision continuation") && limited.text.includes('name="contributionDecisions" value="'+p.nextCursor+'"') && limited.text.includes('name="collection" value="contribution_decisions"') && copies(f.id)===before);
+          const actorT=T;try{T+=3601;const resumed=await decisionPost(session,p.nextCursor,"download",await decisionForm(session));check(".120 later rate window resumes the same site session and captured contribution range",resumed.status===200 && resumed.body.contributionDecisions.capture.count===2005 && resumed.body.contributionDecisions.capture.delivered===2000 && resumed.body.contributionDecisions.capture.remaining===5 && resumed.body.contributionDecisions.capture.at===p.capture.at);}finally{T=actorT;}
+        }
+        {
+          const f=seedDecisions(6001),session=await cookieFor(f.id),unrelated=100000;db.exec("BEGIN");try{for(let i=0;i<unrelated;i++)putDecision.run("unrelated",OTHER,999,"state_open","staff:"+OTHER,1,"unrelated",T+i,f.deadline);db.exec("COMMIT");}catch(e){db.exec("ROLLBACK");throw e;}
+          const sqls=[],captureEnv={...env(ON),DB:{prepare:sql=>{const x={bind:(...params)=>{sqls.push({sql,params});return x;}};return x;}}},statementCount=statements;load("./community-contributions").ownContributionDecisionStatements(captureEnv,f.id,null);
+          check(".120 statement construction grants no authority and performs no reads",statements===statementCount && sqls.length===2);
+          const plans=sqls.map(x=>db.prepare("EXPLAIN QUERY PLAN "+x.sql).all(...x.params).map(row=>row.detail));console.log(".120 local SQLite contribution query-plan diagnostic",JSON.stringify({own:6001,unrelated,plans,notD1SLA:true}));
+          const started=RealDate.now(),pages=[];let token="";for(let i=0;i<5;i++){const r=await decisionPost(session,token);pages.push(r.body.contributionDecisions);token=r.body.contributionDecisions.nextCursor;}const before=copies(f.id),limited=await decisionPost(session,token,"history");
+          check(".120 6001/100k: first five pages reach 5000, sixth cannot complete/audit, remaining capture survives",pages.length===5 && pages.at(-1).capture.delivered===5000 && pages.at(-1).capture.remaining===1001 && limited.status===429 && limited.text.includes(token) && copies(f.id)===before);
+          const actorT=T;try{T+=3601;while(token){const r=await decisionPost(session,token,"download",await decisionForm(session));if(r.status!==200)throw Error("same-session contribution rate resume refused");pages.push(r.body.contributionDecisions);token=r.body.contributionDecisions.nextCursor;}}finally{T=actorT;}
+          check(".120 6001/100k: resumed pages form the exact owned union, not an all-store or SQL-work guarantee",JSON.stringify(pages.flatMap(p=>p.entries))===JSON.stringify(f.expected) && pages.at(-1).capture.complete===true && pages.every(p=>p.capture.count===6001 && p.capture.at===pages[0].capture.at));console.log(".120 local SQLite contribution traversal diagnostic",JSON.stringify({elapsedMs:RealDate.now()-started,own:6001,unrelated,notD1SLA:true}));
+        }
+      }
     } finally { BEFORE = savedBefore; AFTER = savedAfter; T = savedT; rangeDb?.close(); db = savedDb; }
   }
 

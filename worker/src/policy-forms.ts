@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { currentUser, PAGE_VERSION } from "./site-core";
 import { handlePrivacyIntakeForm, INTAKE_KINDS, intakeOpen, intakeRetentionDays } from "./community-privacy-intake";
 import { communityFeatures } from "./community-context";
-import { ACTION_CURSOR_LIMIT, actionCursorShape, EVENT_CHANGE_CURSOR_LIMIT, eventChangeCursorShape, exportMyData, exportMyHistory, exportMyEventChanges, type OwnActionHistoryView, type OwnEventChangeHistoryView } from "./site-export";
+import { ACTION_CURSOR_LIMIT, actionCursorShape, EVENT_CHANGE_CURSOR_LIMIT, eventChangeCursorShape, exportMyData, exportMyHistory, exportMyEventChanges, type OwnActionHistoryView, type OwnEventChangeHistoryView, CONTRIBUTION_DECISION_CURSOR_LIMIT, contributionDecisionCursorShape, exportMyContributionDecisions, type OwnContributionDecisionHistoryView } from "./site-export";
 import { escapeText as e, htmlResponse } from "./policy-render";
 import { field, FormError, formCookie, formNonce, formToken, hidden, randomCode, readForm, requireFormToken, type FormPurpose } from "./policy-form-core";
 import { privacyIdentityRoute } from "./privacy-identity";
@@ -84,6 +84,26 @@ async function showEventChanges(request: Request, env: Env, nonce: string, resul
   return htmlResponse(request, "Your event-change history", body + controls, 200, formCookie(nonce));
 }
 
+async function showContributionDecisions(request: Request, env: Env, nonce: string, result: Response, user: { discord_id: string; session_version: number }, resumeCursor?: string): Promise<Response> {
+  const data = await result.json() as OwnContributionDecisionHistoryView & { error?: string; message?: string };
+  const b = `${user.discord_id}:${user.session_version}:contribution_decisions`;
+  const post = async (mode: "history" | "download", cursor: string, label: string) =>
+    `<form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}${hidden("collection", "contribution_decisions")}${hidden("mode", mode)}${hidden("contributionDecisions", cursor)}<button type="submit">${e(label)}</button></form>`;
+  const saved = (cursor: string, label: string) => `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label>`;
+  const resumeHelp = `<p>Keep contribution-decision continuations privately. Reopen <a href="/privacy/account">Account data controls</a>, paste into Saved contribution-decision continuation, and use the contribution-decision buttons with the same original site session before it expires. Never put a continuation in an address or share it.</p>`;
+  if (!result.ok) {
+    let body = `<p>${e(data.error ?? "unconfirmed")}. ${e(data.message ?? "No contribution-decision completion is claimed. Reopen the account controls.")}</p>`;
+    if (result.status === 429 && resumeCursor && contributionDecisionCursorShape(resumeCursor)) body += resumeHelp + saved(resumeCursor, "Saved contribution-decision continuation") + await post("history", resumeCursor, "Retry this contribution-decision page after the rate window");
+    return htmlResponse(request, "Contribution-decision history not available", body + controls, result.status, formCookie(nonce));
+  }
+  const page = data.contributionDecisions, capture = page.capture;
+  let body = `<p>This curated partial view includes retained contribution decisions naming your account as subject or explicitly recording it as a member/staff actor. A row matching both appears once. Only action, time and your relation are included; payment evidence, counterpart identities, arbitrary actor text and expired records are omitted.</p><p>Captured range: ${e(capture.at)}. ${e(capture.delivered)} of ${e(capture.count)} included records reached; ${e(capture.remaining)} remain. This page was read at ${e(data.generatedAt)}.</p><ol>${page.entries.map(row => `<li>${e(row.at)} · ${e(row.action)} · ${e(row.relation)}</li>`).join("")}</ol><p>All history views and downloads share about five reads per hour. A JSON download reads other sections freshly; counts and positions do not authenticate equal-count content changes, an immutable snapshot or a complete all-store copy.</p>`;
+  body += resumeHelp + saved(page.currentCursor, "Current contribution-decision page continuation") + await post("download", page.currentCursor, "Download this contribution-decision page in my curated copy");
+  if (page.nextCursor) body += saved(page.nextCursor, "Next contribution-decision page continuation") + await post("history", page.nextCursor, "Next contribution-decision history page");
+  else body += "<p>The included retained contribution-decision range has been traversed. This does not claim an all-store copy.</p>";
+  return htmlResponse(request, "Your contribution-decision history", body + controls, 200, formCookie(nonce));
+}
+
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
   let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. The separate account connection for privacy requests is not available yet.</p>`;
@@ -91,6 +111,7 @@ async function accountPage(request: Request, env: Env, nonce: string): Promise<R
     const b = `${user.discord_id}:${user.session_version}`;
     body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
     body += `<h2>My event-change history</h2><p>Only retained changes recorded with your account as actor are included. These controls share the same five-read hourly budget with the action form above.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:event_changes`))}${hidden("collection", "event_changes")}<label>Saved event-change continuation (optional)<input name="eventChanges" maxlength="${EVENT_CHANGE_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my event-change page in curated copy</button><button name="mode" value="history" type="submit">View my event-change history</button></form>`;
+    body += `<h2>My contribution-decision history</h2><p>Retained decisions name your account as subject or explicitly record it as a member/staff actor. Only action, time and your relation are included. These controls share the same five-read hourly budget with the other account forms.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:contribution_decisions`))}${hidden("collection", "contribution_decisions")}<label>Saved contribution-decision continuation (optional)<input name="contributionDecisions" maxlength="${CONTRIBUTION_DECISION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my contribution-decision page in curated copy</button><button name="mode" value="history" type="submit">View my contribution-decision history</button></form>`;
   } else body += `<p>You have no current site session. <a href="/privacy/signin">Check identify-only sign-in availability</a>. You may contact the inbox without signing in.</p>`;
   body += `<h2>Deletion and unlink controls</h2><p>Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet. Contact the private inbox to request help from staff. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
   for (const [action, label] of [["site-erase", "Site-only erasure"], ["full-erase", "Full-tool erasure"], ["bnet-unlink", "Local Battle.net unlink"]] as const) {
@@ -143,24 +164,30 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       return showCase(request, env, nonce, c);
     }
     if (m === "POST" && path === "/privacy/account/export") {
-      const f = await readForm(request, ["csrf", "actions", "mode", "collection", "eventChanges"]);
-      const collection = Object.hasOwn(f, "collection") ? field(f, "collection", 13, true, true) : "actions";
-      if (collection !== "actions" && collection !== "event_changes") throw new FormError("invalid_form");
-      if ((collection === "actions" && Object.hasOwn(f, "eventChanges")) || (collection === "event_changes" && Object.hasOwn(f, "actions"))) throw new FormError("invalid_form");
+      const f = await readForm(request, ["csrf", "actions", "mode", "collection", "eventChanges", "contributionDecisions"]);
+      const collection = Object.hasOwn(f, "collection") ? field(f, "collection", 22, true, true) : "actions";
+      if (collection !== "actions" && collection !== "event_changes" && collection !== "contribution_decisions") throw new FormError("invalid_form");
+      const eventCollection = collection === "event_changes", decisionCollection = collection === "contribution_decisions";
+      const key = decisionCollection ? "contributionDecisions" : eventCollection ? "eventChanges" : "actions";
+      if (["actions", "eventChanges", "contributionDecisions"].some(other => other !== key && Object.hasOwn(f, other))) throw new FormError("invalid_form");
       const mode = field(f, "mode", 8, false, true) || "download";
       if (mode !== "history" && mode !== "download") throw new FormError("invalid_form");
       const user = await currentUser(env, request);
       if (!user) return htmlResponse(request, "Session unavailable", "<p>Your current site session is no longer valid. No copy was made.</p>" + controls, 401);
-      const id = String(user.discord_id), version = Number(user.session_version), eventCollection = collection === "event_changes";
-      await requireFormToken(env, request, field(f, "csrf", 160), "copy-export", `${id}:${version}${eventCollection ? ":event_changes" : ""}`);
-      const cursor = field(f, eventCollection ? "eventChanges" : "actions", eventCollection ? EVENT_CHANGE_CURSOR_LIMIT : ACTION_CURSOR_LIMIT, false, true);
-      if (cursor && !(eventCollection ? eventChangeCursorShape(cursor) : actionCursorShape(cursor))) throw new FormError("invalid_form");
-      const result = eventCollection
-        ? mode === "history" ? await exportMyEventChanges(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, cursor || undefined)
-        : mode === "history" ? await exportMyHistory(request, env, user, cursor || undefined) : await exportMyData(request, env, user, cursor || undefined);
-      if (mode === "history") return eventCollection
-        ? showEventChanges(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined)
-        : showHistory(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined);
+      const id = String(user.discord_id), version = Number(user.session_version);
+      await requireFormToken(env, request, field(f, "csrf", 160), "copy-export", `${id}:${version}${decisionCollection ? ":contribution_decisions" : eventCollection ? ":event_changes" : ""}`);
+      const cursor = field(f, key, decisionCollection ? CONTRIBUTION_DECISION_CURSOR_LIMIT : eventCollection ? EVENT_CHANGE_CURSOR_LIMIT : ACTION_CURSOR_LIMIT, false, true);
+      if (cursor && !(decisionCollection ? contributionDecisionCursorShape(cursor) : eventCollection ? eventChangeCursorShape(cursor) : actionCursorShape(cursor))) throw new FormError("invalid_form");
+      const result = decisionCollection
+        ? mode === "history" ? await exportMyContributionDecisions(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, undefined, cursor || undefined)
+        : eventCollection
+          ? mode === "history" ? await exportMyEventChanges(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, cursor || undefined)
+          : mode === "history" ? await exportMyHistory(request, env, user, cursor || undefined) : await exportMyData(request, env, user, cursor || undefined);
+      if (mode === "history") return decisionCollection
+        ? showContributionDecisions(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined)
+        : eventCollection
+          ? showEventChanges(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined)
+          : showHistory(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined);
       result.headers.set("Referrer-Policy", "no-referrer");
       return result;
     }
