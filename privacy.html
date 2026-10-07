@@ -343,7 +343,15 @@ captures a range of retained actions: later entries, including backdated entries
 are excluded. Its continuation is signed for the same site session and sent in a form body, never an address. If retained
 records change the captured count or page position, continuation is refused; start again for a fresh range. This is not
 an immutable multi-page database snapshot. Other account-copy sections are read afresh with each download, at that
-copy's generatedAt. The copy excludes staff notes and
+copy's generatedAt. The copy also contains a separately paged event-change range where your account was the recorded actor: event ID,
+change kind, time, and the names of changed fields. It does not include arbitrary event-history text, field values,
+other people's changes to your events, or rows already removed by retention. The event-change controls have their own
+signed continuation and Current/Next view; action continuations cannot select this collection. A download using an
+event-change continuation freshly captures its action page and other sections, while retaining that event-change
+range. Both collections and downloads share the same approximate five-read hourly limit. A captured count and page
+position detect certain retained-range changes; they do not authenticate equal-count content changes or provide an
+immutable snapshot. Keep any saved continuation private and use the same original site session before it expires.
+The copy excludes staff notes and
 reasons, staff identities, raw roster snapshots and private payment details. Typed appointment/directory names and
 privacy inbox conversations are not matched into this account copy; use the request conversation for those.
 This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.

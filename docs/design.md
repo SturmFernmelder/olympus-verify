@@ -1094,3 +1094,22 @@ history response preserves its validated submitted continuation with a same-mode
 controls refreshes the form for a pasted continuation, but does not renew the original signed session. COUNT and ordering can
 process more than the 1,000 returned rows, so the output cap is not a database-workload cap. No new schema, index,
 dependency, external route, privilege, identity producer, automatic erase/unlink control or Battle.net switch is added.
+
+
+## 7 October 2026 - captured own event-change history (.119)
+
+The curated account copy adds retained community_event_changes whose actor is the current signed account. It returns
+only the event ID, change kind, time and up to six known changed-field names. Event text, field values, other actors
+and removed records are excluded. Creator or organizer status does not grant access to another actor's history.
+
+Event history has a separate own-event-changes HMAC purpose and collection domain. Current/Next positions bind the
+original account, signed version and expiry, with the existing database-clock fence inside the metadata/page batch.
+The action and event ranges have independent captured high-water IDs/counts. Continuing one in a JSON download
+freshly captures the other and reads remaining sections in that batch. Observable range changes refuse completion;
+equal-count content replacement is not authenticated and the result remains a curated partial copy.
+
+The existing POST /privacy/account/export form admits only actions or event_changes, paired with its own body field
+and CSRF binding, and history or download mode. The original default action download remains available. Private
+Current/Next and rate-refusal continuations are POST-only and require the same original site session. All copy views
+and downloads share the unchanged approximate five-per-hour per-isolate limit, charged once per request. No schema,
+index, dependency, asset, retention, erasure, identity producer, Battle.net activation or guild authority changes.

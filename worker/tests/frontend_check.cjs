@@ -264,17 +264,31 @@ const policyHTML = async (pathname, { method = "GET", fields, cookie, who, over 
   const response = await indexMod.default.fetch(new Request("https://guild.example" + pathname, { method, headers: h, ...(fields ? { body: new URLSearchParams(fields).toString() } : {}) }), env(over), ctx);
   return { response, client, text: await response.text(), cookie: response.headers.get("Set-Cookie")?.split(";")[0] || cookie || "" };
 };
-const policyFields = (page, action) => {
-  const forms = Array.from(page.text.matchAll(/<form method="post" action="([^"]+)">([\s\S]*?)<\/form>/g)).filter((m) => m[1] === action);
+const policyFields = (page, action, { collection = "actions", mode } = {}) => {
+  if (!["actions", "event_changes"].includes(collection) || (mode !== undefined && !["history", "download"].includes(mode))) throw new Error("unissued policy form selector");
+  if (action !== "/privacy/account/export" && (collection !== "actions" || mode !== undefined)) throw new Error("dataset selector requires the account export path");
+  const forms = Array.from(page.text.matchAll(/<form method="post" action="([^"]+)">([\s\S]*?)<\/form>/g)).filter(m => m[1] === action).map(m => {
+    const fields = Object.create(null);
+    for (const field of m[2].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
+      if (Object.hasOwn(fields, field[1]) || !/^[A-Za-z0-9_.:-]+$/.test(field[2])) throw new Error("unexpected policy hidden field");
+      fields[field[1]] = field[2];
+    }
+    if (action === "/privacy/account/export") {
+      const dataset = fields.collection ?? "actions", control = dataset === "event_changes" ? "eventChanges" : "actions", other = dataset === "event_changes" ? "actions" : "eventChanges";
+      const names = Array.from(m[2].matchAll(/<input\b[^>]*\bname="([^"]+)"[^>]*>/g), field => field[1]);
+      if (!["actions", "event_changes"].includes(dataset) || names.filter(name => name === control).length !== 1 || names.includes(other) || (fields.mode !== undefined && !["history", "download"].includes(fields.mode))) throw new Error("unexpected account dataset form");
+      if (dataset !== collection || (mode !== undefined && fields.mode !== mode)) return null;
+    }
+    return fields;
+  }).filter(fields => fields !== null);
   if (forms.length !== 1) throw new Error("one actual policy form required: " + action);
-  const fields = Object.create(null);
-  for (const m of forms[0][2].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
-    if (Object.prototype.hasOwnProperty.call(fields, m[1]) || !/^[A-Za-z0-9_.:-]+$/.test(m[2])) throw new Error("unexpected policy hidden field");
-    fields[m[1]] = m[2];
-  }
-  return fields;
+  return forms[0];
 };
-const policyPost = (page, action, fields = {}, options = {}) => policyHTML(action, { method: "POST", cookie: page.cookie, client: page.client, fields: { ...policyFields(page, action), ...fields }, ...options });
+const policyPost = (page, action, fields = {}, options = {}) => {
+  const { form, ...transport } = options;
+  return policyHTML(action, { method: "POST", cookie: page.cookie, client: page.client, fields: { ...policyFields(page, action, form), ...fields }, ...transport });
+};
+
 const policyCase = async (c, over = {}, client = c.client || "contact") => {
   const page = await policyHTML("/privacy/case", { over, client });
   return policyPost(page, "/privacy/case", { caseId: c.caseId, caseCode: c.caseCode }, { over });
@@ -1700,6 +1714,53 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("a denied existing session receives its genuine copy form and private inbox link without a guild access grant", deniedControls.response.status === 200 && scriptFreePolicy(deniedControls) && deniedControls.text.includes('action="/privacy/account/export"') && deniedControls.text.includes("including when the account is denied") && deniedControls.text.includes('href="/privacy/contact"'));
   const deniedCopy = await policyPost(deniedControls, "/privacy/account/export", { actions: "" }, { who: DENIED, client: "account" });
   check("the denied account's genuine purpose-bound form retrieves only its curated copy", deniedCopy.response.status === 200 && /application\/json/.test(deniedCopy.response.headers.get("Content-Type") || "") && deniedCopy.text.includes(DENIED));
+
+  // .119: both actual account forms, genuine dataset-bound CSRF and one unchanged signed session.
+  {
+    const EVENT_OWNER = "300000000000000099", EXPORT = "/privacy/account/export", EVENT_FORM = { collection: "event_changes" };
+    siteUser(EVENT_OWNER);
+    const expected = [], insertChange = db.prepare("INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)");
+    for (let i = 0; i < 1001; i++) {
+      const eventId = "T" + String(i).padStart(21, "0"), at = now + Math.floor(i / 700), action = i === 0 ? "created" : i === 1000 ? "cancelled" : "updated", changedFieldNames = action === "updated" ? ["title", "capacity"] : [];
+      insertChange.run(eventId, action, EVENT_OWNER, at, JSON.stringify(changedFieldNames));
+      insertChange.run("X" + String(i).padStart(21, "0"), "updated", OTHER, at, '["details"]');
+      expected.push({ eventId, action, at: new Date(at * 1000).toISOString(), changedFieldNames });
+    }
+    const eventSession = await cookieFor(EVENT_OWNER), eventControls = await policyHTML("/privacy/account", { cookie: eventSession, client: "account" });
+    const formCookieFor = page => [eventSession, page.cookie].filter(Boolean).join("; ");
+    const actionFields = policyFields(eventControls, EXPORT), eventFields = policyFields(eventControls, EXPORT, EVENT_FORM);
+    const copyAudits = () => Number(one("SELECT COUNT(*) AS n FROM audit WHERE actor=? AND subject=? AND action='site.copy_exported'", EVENT_OWNER, EVENT_OWNER).n);
+    const items = page => Array.from(page.text.matchAll(/<li>([\s\S]*?)<\/li>/g), row => row[1]);
+    const expectedItems = rows => rows.map(row => `${row.at} · ${row.eventId} · ${row.action} · ${row.changedFieldNames.join(", ") || "no changed field names"}`);
+    check(".119 the real account page has separate action/event forms and genuinely distinct dataset-bound CSRF", eventControls.response.status === 200 && scriptFreePolicy(eventControls) && actionFields.collection === undefined && eventFields.collection === "event_changes" && actionFields.csrf !== eventFields.csrf && !Object.hasOwn(actionFields, "eventChanges") && !Object.hasOwn(eventFields, "actions"));
+    const actualActionForm = Array.from(eventControls.text.matchAll(/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/g)).find(form => /<input\b[^>]*\bname="actions"/.test(form[1]))[0];
+    let duplicateRefused = false;
+    try { policyFields({ ...eventControls, text: eventControls.text + actualActionForm }, EXPORT); } catch (error) { duplicateRefused = error instanceof Error && error.message === "one actual policy form required: " + EXPORT; }
+    check(".119 the helper refuses two matching actual forms instead of choosing the first", duplicateRefused);
+    const beforeRefusals = copyAudits();
+    const wrongDatasetCsrf = await policyPost(eventControls, EXPORT, { csrf: actionFields.csrf, eventChanges: "", mode: "history" }, { form: EVENT_FORM, cookie: formCookieFor(eventControls) });
+    const wrongDatasetField = await policyPost(eventControls, EXPORT, { eventChanges: "", actions: "", mode: "history" }, { form: EVENT_FORM, cookie: formCookieFor(eventControls) });
+    check(".119 real event POST refuses action CSRF and even an empty mismatched action field without a copy audit", wrongDatasetCsrf.response.status === 403 && wrongDatasetField.response.status === 400 && wrongDatasetField.text.includes("invalid_form") && copyAudits() === beforeRefusals);
+    const firstEvent = await policyPost(eventControls, EXPORT, { eventChanges: "", mode: "history" }, { form: EVENT_FORM, cookie: formCookieFor(eventControls) });
+    const currentEventFields = policyFields(firstEvent, EXPORT, { collection: "event_changes", mode: "download" }), nextEventFields = policyFields(firstEvent, EXPORT, { collection: "event_changes", mode: "history" });
+    check(".119 genuine event-history HTML shows exactly the first thousand actor-owned rows in tie/insertion order", firstEvent.response.status === 200 && scriptFreePolicy(firstEvent) && JSON.stringify(items(firstEvent)) === JSON.stringify(expectedItems(expected.slice(0, 1000))) && firstEvent.text.includes("1000 of 1001 included records reached; 1 remain") && !firstEvent.text.includes("X" + "0".repeat(21)));
+    let unselectedModesRefused = false;
+    try { policyFields(firstEvent, EXPORT, EVENT_FORM); } catch (error) { unselectedModesRefused = error instanceof Error && error.message === "one actual policy form required: " + EXPORT; }
+    const visible = Array.from(firstEvent.text.matchAll(/<textarea readonly rows="2" spellcheck="false" autocomplete="off">([^<]+)<\/textarea>/g), field => field[1]);
+    check(".119 Current and Next require distinct actual modes and retain their private readonly POST continuations", unselectedModesRefused && currentEventFields.mode === "download" && nextEventFields.mode === "history" && currentEventFields.eventChanges !== nextEventFields.eventChanges && JSON.stringify(visible) === JSON.stringify([currentEventFields.eventChanges, nextEventFields.eventChanges]) && !firstEvent.text.includes("?eventChanges="));
+    insertChange.run("Y".repeat(22), "updated", EVENT_OWNER, now - 9000, '["title"]');
+    insertChange.run("Z".repeat(22), "updated", EVENT_OWNER, now + 9000, '["details"]');
+    db.prepare("UPDATE site_users SET nick=? WHERE discord_id=?").run("Fresh event-copy nickname", EVENT_OWNER);
+    const currentEventCopy = await policyPost(firstEvent, EXPORT, {}, { form: { collection: "event_changes", mode: "download" }, cookie: formCookieFor(firstEvent) }), currentBody = JSON.parse(currentEventCopy.text), currentPage = currentBody.eventChanges;
+    check(".119 the actual Current form downloads the same event page with fresh account data and only the bounded own projection", currentEventCopy.response.status === 200 && /application\/json/.test(currentEventCopy.response.headers.get("Content-Type") || "") && currentBody.account.discordId === EVENT_OWNER && currentBody.account.nickname === "Fresh event-copy nickname" && currentBody.coverage.kind === "curated_partial" && currentBody.coverage.completeErasure === false && currentPage.currentCursor === currentEventFields.eventChanges && currentPage.nextCursor === nextEventFields.eventChanges && currentPage.capture.count === 1001 && currentPage.capture.delivered === 1000 && currentPage.capture.remaining === 1 && currentPage.capture.complete === false && JSON.stringify(currentPage.entries) === JSON.stringify(expected.slice(0, 1000)) && currentPage.entries.every(row => Object.keys(row).sort().join(",") === "action,at,changedFieldNames,eventId"));
+    const nextEvent = await policyPost(firstEvent, EXPORT, {}, { form: { collection: "event_changes", mode: "history" }, cookie: formCookieFor(firstEvent) });
+    const lastEventFields = policyFields(nextEvent, EXPORT, { collection: "event_changes", mode: "download" });
+    check(".119 the actual Next form finishes only the retained own range and excludes later/backdated/foreign changes", nextEvent.response.status === 200 && scriptFreePolicy(nextEvent) && JSON.stringify(items(nextEvent)) === JSON.stringify(expectedItems(expected.slice(1000))) && nextEvent.text.includes("1001 of 1001 included records reached; 0 remain") && nextEvent.text.includes("The included retained event-change range has been traversed") && !nextEvent.text.includes('name="mode" value="history"') && !nextEvent.text.includes("Y".repeat(22)) && !nextEvent.text.includes("Z".repeat(22)) && !nextEvent.text.includes("X" + "0".repeat(21)));
+    const finalEventCopy = await policyPost(nextEvent, EXPORT, {}, { form: { collection: "event_changes", mode: "download" }, cookie: formCookieFor(nextEvent) }), finalPage = JSON.parse(finalEventCopy.text).eventChanges;
+    check(".119 the final Current form confirms one final projected row and captured-range completion within four genuine copy reads", finalEventCopy.response.status === 200 && finalPage.currentCursor === lastEventFields.eventChanges && finalPage.nextCursor === null && finalPage.capture.count === 1001 && finalPage.capture.delivered === 1001 && finalPage.capture.remaining === 0 && finalPage.capture.complete === true && finalPage.capture.at === currentPage.capture.at && JSON.stringify(finalPage.entries) === JSON.stringify(expected.slice(1000)) && copyAudits() === beforeRefusals + 4);
+    const crossedEventCursor = await policyPost(eventControls, EXPORT, { actions: currentEventFields.eventChanges }, { cookie: formCookieFor(eventControls) });
+    check(".119 an actual action form cannot authenticate the event cursor or create a fifth successful copy audit", crossedEventCursor.response.status === 400 && JSON.parse(crossedEventCursor.text).error === "invalid_cursor" && copyAudits() === beforeRefusals + 4);
+  }
 
   await denied.go("#/community");
   await settle();

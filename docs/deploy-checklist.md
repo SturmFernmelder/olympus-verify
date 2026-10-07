@@ -4836,3 +4836,35 @@ separate release gates. The official website assets and existing app.js pin are 
 configuration change; it uses the retained verified release backup. Rollback is the accepted .117 source, with no
 automatic database restore. Release evidence must identify the exact commit and actual checks; this section is a plan,
 not a deployment receipt.
+
+
+## Worker .119 - captured own event-change history
+
+Change: the curated copy now includes a separate captured and paged actor-owned event-change range. Each row exposes
+only event ID, change kind, time and distinct known changed-field names. It does not return stored values, event
+details or other actors. Current/Next continuations use a separate HMAC purpose/collection and genuine current
+account-version/expiry admission. JSON downloads validate both datasets before their copy audit; history views validate the selected dataset. A selected JSON range is
+resumed while other sections are freshly read; all-store and immutable-content completion are not claimed.
+
+Configuration: no schema, index, asset, dependency, lifetime, role or production switch changes. Identity-only
+sign-in, automated erasure and Battle.net unlink stay unavailable; Battle.net login remains OFF. The existing exact
+account export POST route is reused with strict dataset/body-field/CSRF pairing. All views/downloads share the
+unchanged approximate five-read hourly budget. Private rate-window continuation keeps the original signed session.
+
+Validation before publication: typecheck, policy generation and exact mirror/digest check, shared vectors, existing
+account/News/frontend/host/site/Battle.net and community event suites, plus new real SQLite/session/form/HMAC fixtures
+covering zero and multi-page ranges, ties/foreign interleaving, later/backdated inserts, deletions/actor/tuple changes,
+malformed stored projections, cross-dataset/account/expiry/version tokens, strict empty-field pairing, CSRF/origin
+and shared-limit/private-resume behavior. Qualify the exact commit/tree, bundle runtime and official-asset parity;
+required main CI and current-version/provider/browser receipts remain separate gates. Test counts and receipts belong
+to actual executions, not this checklist.
+
+Rollout: use the current owner-authorized exact-commit publication/deployment path after those gates. Preserve the
+verified newest private export. Confirm deployed version and unchanged bindings, typed-name audit marker1/residual0/
+unreadable0, policy/assets parity, then the normal signed-account action and event history forms without putting
+private continuations in URLs. Any necessary firewall exception requires its separate exact action-time approval.
+
+Rollback: stop qualification and preserve uncertain-command receipts. This change has no schema replacement; an
+exact prior source deployment is a separately admitted provider action. Do not restore a database, regenerate a
+continuation for a different session, reset a quota, reissue an uncertain upload or change a closed feature switch
+as an automatic rollback. Existing backup custody and preservation-critical writer-drain rules still apply.

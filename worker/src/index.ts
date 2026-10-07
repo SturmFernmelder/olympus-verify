@@ -373,7 +373,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-07.118 captured action history";
+const BUILD = "2026-10-07.119 captured event-change history";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

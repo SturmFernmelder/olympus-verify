@@ -794,6 +794,15 @@ export async function myAttendance(request: Request, env: Env, ctx: CommunityCon
   }
 }
 
+/** Own retained event-change statements only. Construction executes nothing and grants no authority. */
+export function ownEventChangeStatements(env: Env, actor: string, position: { high: number; seen: number; ts: number; id: number } | null): D1PreparedStatement[] {
+  const bounded = position ? 1 : 0, after = position && position.seen > 0 ? 1 : 0;
+  return [
+    env.DB.prepare("SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR at>?5 OR (at=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM community_event_changes WHERE actor=?1 AND (?2=0 OR id<=?3)").bind(actor, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
+    env.DB.prepare("SELECT id,event_id,action,at,fields FROM community_event_changes WHERE actor=?1 AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM community_event_changes WHERE actor=?1) END AND (?4=0 OR at>?5 OR (at=?5 AND id>?6)) ORDER BY at,id LIMIT 1001").bind(actor, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
+  ];
+}
+
 // ---------- retention, erasure, export ----------
 /** Cron step: events past their retention deadline go with their answers, attendance and history; bounded per run. */
 export async function sweepCommunityEvents(env: Env, at = now(), limit = 100): Promise<number> {
