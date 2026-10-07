@@ -135,6 +135,19 @@ const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
   return { status: res.status, body: await res.json().catch(() => ({})), headers: res.headers };
 };
+// .118: real same-path form requests; continuation never travels in a query string.
+const accountForm = async (session, over = ON) => {
+  const res = await indexMod.default.fetch(new Request("https://guild.example/privacy/account", { headers: { Cookie: session } }), env(over), ctx);
+  const text = await res.text(), form = (text.match(/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/) || [])[1] || "";
+  return { nonce: (res.headers.get("Set-Cookie") || "").split(";")[0], csrf: (form.match(/name="csrf" value="([^"]+)"/) || [])[1] || "" };
+};
+const postCopy = async (session, actions = "", mode = "download", controls, over = ON) => {
+  const f = controls || await accountForm(session, over);
+  const res = await indexMod.default.fetch(new Request("https://guild.example/privacy/account/export", { method: "POST", headers: { Cookie: [session, f.nonce].filter(Boolean).join("; "), Origin: "https://guild.example", "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ csrf: f.csrf, actions, mode }).toString() }), env(over), ctx);
+  const text = await res.text(); let body = {};
+  try { body = JSON.parse(text); } catch { /* Script-free history/refusal HTML. */ }
+  return { status: res.status, headers: res.headers, text, body };
+};
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 /** Every (table, column) of the whole schema holding `id` as a value, as "table.column". */
@@ -195,17 +208,18 @@ const whereIs = (id) => {
   for (let i = 0; i < 1005; i++) noise.run(T + 1000 + i, i % 2 ? MEMBER : "system", i % 2 ? "something" : MEMBER);
 
   console.log("\n== the member's own copy ==");
-  r = await call("GET", "/api/me/export", MEMBER);
+  const copySession = await cookieFor(MEMBER);
+  r = await call("GET", "/api/me/export", MEMBER, undefined, ON, { Cookie: copySession });
   const copy = r.body, text = JSON.stringify(copy);
   check("GET /api/me/export answers the signed-in account's copy as a JSON attachment", r.status === 200 && r.headers.get("Content-Disposition") === 'attachment; filename="olympus-my-data.json"' && /no-store/.test(r.headers.get("Cache-Control") || "") && typeof copy.generatedAt === "string", r.status, JSON.stringify(copy).slice(0, 200));
   check("the account section: Discord names, sign-ins, standing", copy.account.discordId === MEMBER && copy.account.displayName === "Mia" && copy.account.nickname === "Mia the Mage" && copy.account.firstSignIn === iso(T) && copy.account.inServer === true && copy.account.denied === false);
   check("the site section: the application (the member's view), votes and friends by the labels chosen, board votes by role, reserved names", copy.site.application && copy.site.application.position === "officer" && copy.site.votes.length === 1 && copy.site.votes[0].nominee.label === "Oz" && copy.site.boardVotes.length === 1 && copy.site.boardVotes[0].role === "officer" && copy.site.friends[0].label === "Oz" && copy.site.reserved[0].name === "Mia Three" && copy.site.reserved[0].status === "approved", JSON.stringify(copy.site).slice(0, 400));
   check("the verification section: not banned, a current Battle.net link without the tag, the bound characters, the code requests without any code", copy.verification.bannedFromVerifying === false && copy.verification.battleNet.linked === true && !("battletag" in copy.verification.battleNet) && copy.verification.characters.length === 3 && copy.verification.characters.some((c) => c.name === "Mia Old" && c.status === "left") && copy.verification.codeRequests.length === 1 && copy.verification.codeRequests[0].usedThrough === "whisper" && !/code":/.test(text));
-  check("the actions: fixed action names with their time, nothing else; .74: the earliest 1000 naming the account as subject OR actor, with a continuation when more exist", copy.actions.entries.some((a) => a.action === "roster.member") && copy.actions.entries.every((a) => Object.keys(a).sort().join() === "action,at") && copy.actions.entries.length === 1000 && copy.actions.truncated === true && /^\d+\.\d+$/.test(copy.actions.nextCursor), copy.actions.entries.length, copy.actions.nextCursor);
+  check("the actions: fixed action names with their time, nothing else; .74: the earliest 1000 naming the account as subject OR actor, with a continuation when more exist", copy.actions.entries.some((a) => a.action === "roster.member") && copy.actions.entries.every((a) => Object.keys(a).sort().join() === "action,at") && copy.actions.entries.length === 1000 && copy.actions.truncated === true && (typeof copy.actions.nextCursor === "string" && copy.actions.nextCursor.length > 0 && copy.actions.nextCursor.length <= 140 && copy.actions.capture.kind === "retained_action_range"), copy.actions.entries.length, copy.actions.nextCursor);
   check("  .74: no structural reference to another Discord account: the nominee's and the friend's `kind` are gone, the labels the member chose stay", !("kind" in copy.site.votes[0].nominee) && copy.site.votes[0].nominee.label === "Oz" && copy.site.friends.length === 1 && !("kind" in copy.site.friends[0]) && copy.site.friends[0].label === "Oz");
   check("  .74: the member's own queue state: character, status, attempts, dates and the fixed refusal reason; never the officer, the claim or the note", copy.verification.inviteQueue.length === 1 && copy.verification.inviteQueue[0].character === "Mia One" && copy.verification.inviteQueue[0].status === "invited" && copy.verification.inviteQueue[0].attempts === 1 && copy.verification.inviteQueue[0].lastRefusal.reason === "offline" && copy.verification.inviteQueue[0].invitedAt === iso(T - 80) && !text.includes("officer-watcher-1") && !text.includes("note set by the addon"), JSON.stringify(copy.verification.inviteQueue));
-  r = await call("GET", "/api/me/export?actions=" + copy.actions.nextCursor, MEMBER);
-  check("  .74: the continuation answers the next bounded page of actions after the cursor, the rest of the copy as before", r.status === 200 && r.body.account.discordId === MEMBER && r.body.actions.entries.length >= 5 && r.body.actions.entries.length <= 1000 && r.body.actions.truncated === false && r.body.actions.nextCursor === null && r.body.actions.entries.every((a) => a.at >= copy.actions.entries.at(-1).at) && r.body.actions.entries.some((a) => a.action === "test.noise"), r.body.actions && r.body.actions.entries.length);
+  r = await postCopy(copySession, copy.actions.nextCursor);
+  check("  .118: the same-path POST continuation answers the next bounded page of retained actions and a fresh own-account copy", r.status === 200 && r.body.account.discordId === MEMBER && r.body.actions.entries.length >= 5 && r.body.actions.entries.length <= 1000 && r.body.actions.truncated === false && r.body.actions.nextCursor === null && r.body.actions.entries.every((a) => a.at >= copy.actions.entries.at(-1).at) && r.body.actions.entries.some((a) => a.action === "test.noise"), r.body.actions && r.body.actions.entries.length);
   r = await call("GET", "/api/me/export?actions=zzz", MEMBER);
   check("  .74: a malformed continuation is 400 invalid_cursor (and counts as no copy)", r.status === 400 && r.body.error === "invalid_cursor");
   check("  .74/.76: the about text says how the copy was captured (one database transaction), no more", copy.about.includes("read together in one database transaction at generatedAt"));
@@ -213,7 +227,7 @@ const whereIs = (id) => {
   check("  .76/.77: the application saved through the normal writer carries its references as kind and label only in the own copy (the stored row keeps the key for the site's own use); the member's own words stay", copy.site.application.answers.references.length === 2 && copy.site.application.answers.references.every((x) => !("key" in x)) && copy.site.application.answers.references[0].label === "Oz (@u04)" && copy.site.application.answers.references[1].kind === "name" && copy.site.application.answers.why === "Oz said I should apply" && JSON.parse(one("SELECT answers FROM site_applications WHERE discord_id = ?", MEMBER).answers).references[0].key === OTHER);
   check("every community feature's section is present through the registry", ["directory", "events", "trials", "restrictions", "departures", "contributions"].every((k) => k in copy.community) && copy.community.contributions.obligations.length === 1 && copy.community.contributions.receipts.length === 1 && !("payerName" in copy.community.contributions.receipts[0]) && copy.community.directory.main.name === "Mia One" && copy.community.events.signups.length === 1 && copy.community.trials.trials.length === 1 && copy.community.restrictions.cases.length === 1 && copy.community.restrictions.watchList.length === 2 && copy.community.departures.departures.length === 1, Object.keys(copy.community).join());
   check("MINIMIZATION: no other member's Discord id and no staff id anywhere in the copy (the organizer, the sponsor, the admin, the nominee, the candidate, the friend)", !text.includes(ORG) && !text.includes(OTHER) && !text.includes(STAFF) && !text.includes(STAFF2), text.match(/\d{17,20}/g));
-  check("  no free text written by staff (the ban reason, review notes) and no tokens or hashes", !/admin_note|ban_reason|reviewed_by|added_by|sponsor|incarnation|nonce|write_nonce/.test(text));
+  check("  no staff notes/reasons/identities or private verification/code hashes; only the intentional continuation integrity MAC is present", !/admin_note|ban_reason|reviewed_by|added_by|sponsor|incarnation|nonce|write_nonce/.test(text));
   check("the copy is audited as site.copy_exported with no details", one("SELECT details FROM audit WHERE action = 'site.copy_exported' AND actor = ?", MEMBER).details === null);
   for (let i = 0; i < 3; i++) await call("GET", "/api/me/export", MEMBER); // two copies above (the first and the continuation), three here
   r = await call("GET", "/api/me/export", MEMBER);
@@ -237,7 +251,7 @@ const whereIs = (id) => {
   AFTER = (i) => { if (i === 1) db.prepare("UPDATE site_users SET session_version = 3 WHERE discord_id = ?").run(OTHER); if (i >= 2) late = true; };
   r = await call("GET", "/api/me/export", OTHER);
   AFTER = null;
-  check("the session invalidated right after the batch: the copy read in that transaction is answered whole (nothing is queried afterwards) and labelled complete", r.status === 200 && late === false && "restrictions" in r.body.community && r.body.about.startsWith("A copy of what"), JSON.stringify(r.body).slice(0, 120));
+  check("the session invalidated right after the batch: the whole admitted transaction is answered without a later database read or all-store completion claim", r.status === 200 && late === false && "restrictions" in r.body.community && r.body.about.startsWith("A curated partial copy about your own Discord account"), JSON.stringify(r.body).slice(0, 120));
   db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(OTHER);
   check("(no hook left armed)", BEFORE === null && AFTER === null);
 
@@ -256,6 +270,165 @@ const whereIs = (id) => {
   const staffAllowed = ["audit.actor", "audit.subject", "characters.discord_id", "members.discord_id"];
   check("an erased staff member is anonymized everywhere they acted (the application's reviewer, the reservation's approver, the denial, the trial's creator, the case's setter, the watch-list's adder, the queue row's approver) and remains only in the dated log and the bot's own rows", staffBefore.length > staffAfter.length && staffAfter.every((h) => staffAllowed.includes(h)), staffAfter.filter((h) => !staffAllowed.includes(h)).join(" ") || "(no unexpected hit)");
   check("  the case shows no setter, the reservation no approver, the denial no admin", one("SELECT set_by FROM community_restriction_cases WHERE id = ?", "R".repeat(22)).set_by === "erased" && one("SELECT approved_by FROM site_reserved WHERE name = 'Oz Res'").approved_by === null && one("SELECT denied_by FROM site_users WHERE discord_id = ?", OTHER).denied_by === null);
+
+  console.log("\n== .118: a retained own-action range, signed to one genuine session ==");
+  {
+    const savedDb = db, savedT = T, savedBefore = BEFORE, savedAfter = AFTER;
+    let rangeDb = null;
+    try {
+      rangeDb = freshDb(); db = rangeDb; BEFORE = null; AFTER = null;
+      load("./schema").forgetSchemaCheck();
+      const exporter = load("./site-export");
+      let serial = 0;
+      const newAccount = (size = 0, over = {}) => {
+        const id = String(310000000000000000n + BigInt(++serial)); siteUser(id, over);
+        const expected = [], rowIds = [];
+        const insert = db.prepare("INSERT INTO audit (ts,actor,action,subject,details) VALUES (?,?,?,?,NULL)");
+        for (let i = 0; i < size; i++) {
+          const at = T + 1000 + Math.floor(i / 700), action = i === 0 ? "site.copy_exported" : "range." + String(i).padStart(5, "0");
+          // One row matching both actor and subject counts ONCE; foreign rows interleave their ids.
+          const result = insert.run(at, i % 3 === 0 || i % 3 === 1 ? id : "system", action, i % 3 === 0 || i % 3 === 2 ? id : "not-an-account");
+          rowIds.push(Number(result.lastInsertRowid)); expected.push({ at: iso(at), action });
+          insert.run(at, OTHER, "foreign." + i, OTHER);
+        }
+        return { id, expected, rowIds };
+      };
+      const start = async (id, session) => call("GET", "/api/me/export", id, undefined, ON, { Cookie: session });
+      const copies = id => one("SELECT COUNT(*) AS n FROM audit WHERE actor=? AND action='site.copy_exported'", id).n;
+      const cookiePayload = session => JSON.parse(Buffer.from(session.slice(session.indexOf("=") + 1).split(".")[0], "base64url").toString("utf8"));
+      const signedSession = async payload => {
+        const encoded = siteCore.b64u(new TextEncoder().encode(JSON.stringify(payload)));
+        return "__Host-olg=" + encoded + "." + await siteCore.sign(env().COOKIE_SECRET, "session", encoded);
+      };
+      const internal = async (session, user, cursor) => {
+        const res = await exporter.exportMyData(new Request("https://guild.example/api/me/export", { headers: { Cookie: session } }), env(ON), user, cursor);
+        return { status: res.status, body: await res.json() };
+      };
+
+      for (const size of [1001, 2005]) {
+        const f = newAccount(size), session = await cookieFor(f.id), first = await start(f.id, session), a = first.body.actions;
+        check(`.118 ${size}: initial page captures all own rows once, bounded to 1000 including actor/subject double matches`, first.status === 200 && a.entries.length === 1000 && a.capture.kind === "retained_action_range" && a.capture.count === size && a.capture.delivered === 1000 && a.capture.remaining === size - 1000 && a.capture.complete === false && a.truncated === true && typeof a.currentCursor === "string" && typeof a.nextCursor === "string");
+        db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)").run(T - 100000, f.id, "after.capture.backdated", f.id);
+        db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)").run(T + 100000, f.id, "after.capture.future", f.id);
+        db.prepare("UPDATE site_users SET nick='Fresh nickname after capture' WHERE discord_id=?").run(f.id);
+        const pages = [a]; let next = a.nextCursor, finalResponse = first;
+        for (let pageNumber = 1; pageNumber <= 2 && next; pageNumber++) {
+          finalResponse = await postCopy(session, next); pages.push(finalResponse.body.actions);
+          if (finalResponse.status !== 200 || !finalResponse.body.actions) break;
+          next = finalResponse.body.actions.nextCursor;
+        }
+        const entries = pages.flatMap(p => p?.entries || []);
+        check(`.118 ${size}: exact chronological traversal across tied timestamps has no duplicate, missing or foreign actions`, finalResponse.status === 200 && JSON.stringify(entries) === JSON.stringify(f.expected) && new Set(entries.map(x => x.action)).size === size && pages.map(p => p.entries.length).join() === (size === 1001 ? "1000,1" : "1000,1000,5"));
+        check(`.118 ${size}: capture time/count persist; postcapture inserts and newly generated copy audits cannot enter the range`, pages.every((p,i) => p.capture.at === a.capture.at && p.capture.count === size && p.capture.delivered === Math.min((i+1)*1000,size) && p.capture.remaining === Math.max(size-(i+1)*1000,0) && p.capture.complete === (i === pages.length-1)) && !entries.some(x => x.action.startsWith("after.capture.")) && entries.filter(x => x.action === "site.copy_exported").length === 1 && pages.at(-1).nextCursor === null && pages.at(-1).truncated === false);
+        const same = await postCopy(session, a.currentCursor);
+        check(`.118 ${size}: downloading the current page repeats its retained actions while other copy sections are freshly read`, same.status === 200 && JSON.stringify(same.body.actions.entries) === JSON.stringify(a.entries) && same.body.actions.capture.at === a.capture.at && same.body.actions.capture.count === size && same.body.account.nickname === "Fresh nickname after capture" && same.body.about.includes("Other sections are freshly read") && same.body.coverage.completeErasure === false);
+      }
+
+      {
+        const f = newAccount(), session = await cookieFor(f.id);
+        db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)").run(T, OTHER, "foreign.only", OTHER);
+        const first = await start(f.id, session), again = await postCopy(session, first.body.actions.currentCursor);
+        check(".118 an empty captured own range remains complete and empty after its first copy audit is inserted", first.status === 200 && again.status === 200 && first.body.actions.capture.count === 0 && again.body.actions.capture.count === 0 && again.body.actions.entries.length === 0 && again.body.actions.capture.complete === true && again.body.actions.nextCursor === null);
+      }
+      for (const change of ["delivered-delete", "remaining-delete", "membership-drop", "remaining-order-drop", "delete-at-batch"]) {
+        const f = newAccount(1001), session = await cookieFor(f.id), first = await start(f.id, session);
+        const mutate = () => change === "remaining-order-drop" ? db.prepare("UPDATE audit SET ts=? WHERE id=?").run(T+999,f.rowIds[1000]) : change === "membership-drop"
+          ? db.prepare("UPDATE audit SET actor=?,subject=? WHERE id=?").run(OTHER,OTHER,f.rowIds[1000])
+          : db.prepare("DELETE FROM audit WHERE id=?").run(f.rowIds[change === "delivered-delete" ? 0 : 1000]);
+        if (change !== "delete-at-batch") mutate();
+        const beforeCopies = copies(f.id);
+        const form = await accountForm(session); let batches = 0;
+        BEFORE = () => { batches++; if(change === "delete-at-batch") { BEFORE = null; mutate(); } };
+        const response = await postCopy(session, first.body.actions.nextCursor, "download", form); BEFORE = null;
+        check(`.118 ${change}: changed captured membership/count is 409 without a completed payload or export audit`, response.status === 409 && response.body.error === "history_changed" && !("actions" in response.body) && !("account" in response.body) && !response.headers.get("Content-Disposition") && copies(f.id) === beforeCopies && batches === 1);
+      }
+
+      {
+        const f = newAccount(1001), session = await cookieFor(f.id), first = await start(f.id, session), token = first.body.actions.nextCursor;
+        const user = await siteCore.currentUser(env(), new Request("https://guild.example/", { headers: { Cookie: session } }));
+        const parts = token.split("."), altered = [];
+        for (let i = 1; i <= 7; i++) { const p = parts.slice(); p[i] = String(Number(p[i]) + 1); altered.push(p.join(".")); }
+        const mac = parts.slice(); mac[8] = (mac[8][0] === "A" ? "B" : "A") + mac[8].slice(1); altered.push(mac.join("."));
+        for (const raw of ["0", "-1", "01", "1000000000000", "9007199254740992"]) { const p = parts.slice(); p[1] = raw; altered.push(p.join(".")); }
+        const beforeCopies = copies(f.id); let batches = 0; BEFORE = () => { batches++; };
+        for (let i=0;i<altered.length;i++) {
+          const response = await internal(session, user, altered[i]);
+          check(`.118 altered cursor field/MAC/canonical bound ${i+1}: refused before any admitted payload batch`, response.status === 400 && response.body.error === "invalid_cursor" && !("actions" in response.body) && batches === 0 && copies(f.id) === beforeCopies);
+        }
+        BEFORE = null;
+        for (const query of [token, "1.2", ""]) {
+          let attempted = 0; BEFORE = () => { attempted++; };
+          const response = await call("GET", "/api/me/export?actions=" + encodeURIComponent(query), f.id, undefined, ON, { Cookie: session }); BEFORE = null;
+          check(".118 signed, unsigned and empty API cursor queries all refuse before payload admission", response.status === 400 && response.body.error === "invalid_cursor" && response.body.message.includes("account form") && attempted === 0 && copies(f.id) === beforeCopies);
+        }
+        const other = newAccount(), otherSession = await cookieFor(other.id), otherForm = await accountForm(otherSession);
+        let attempted = 0; BEFORE = () => { attempted++; };
+        const crossed = await postCopy(otherSession, token, "download", otherForm); BEFORE = null;
+        check(".118 another account's own genuine CSRF/session cannot consume the captured token", crossed.status === 400 && crossed.body.error === "invalid_cursor" && attempted === 0 && copies(other.id) === 0);
+        const replace = async (payload, passedVersion) => {
+          const replacement = await signedSession(payload), form = await accountForm(replacement); let count = 0; BEFORE = () => { count++; };
+          const response = await postCopy(replacement, token, "download", form); BEFORE = null;
+          return response.status === 400 && response.body.error === "invalid_cursor" && count === 0 && copies(f.id) === beforeCopies && payload.v === passedVersion;
+        };
+        const payload = cookiePayload(session);
+        check(".118 a fresh valid session with a different signed expiry cannot reuse the old cursor", await replace({ ...payload, e: payload.e + 60 }, 1));
+        db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(f.id);
+        check(".118 a fresh valid replacement session version cannot reuse the old cursor", await replace({ ...payload, v: 2 }, 2));
+        db.prepare("UPDATE site_users SET session_version=1 WHERE discord_id=?").run(f.id);
+        for (const wrongUser of [{ ...user, discord_id: other.id }, { ...user, session_version: 2 }]) {
+          let count = 0; BEFORE = () => { count++; }; const response = await internal(session, wrongUser, token); BEFORE = null;
+          check(".118 passed-user id/version cannot substitute for the original signed context", response.status === 401 && response.body.error === "signed_out" && count === 0 && !("actions" in response.body));
+        }
+      }
+      {
+        const f = newAccount(1), session = await cookieFor(f.id), form = await accountForm(session), payload = cookiePayload(session);
+        const originalTime = T, beforeCopies = copies(f.id); let batches = 0;
+        try { T = payload.e + 1; BEFORE = () => { batches++; }; const response = await postCopy(session, "", "download", form);
+          check(".118 actor-clock expiry refuses the saved real form before any payload batch", response.status === 401 && response.text.includes("Session unavailable") && batches === 0 && copies(f.id) === beforeCopies);
+        } finally { T = originalTime; BEFORE = null; }
+        const expired = await signedSession({ ...payload, e: Math.floor(RealDate.now()/1000)-1 }); batches = 0; BEFORE = () => { batches++; };
+        const response = await start(f.id, expired); BEFORE = null;
+        check(".118 genuine SQLite-clock expiry refuses an attempted admitted API batch without any payload or export audit", [401,409].includes(response.status) && ["signed_out","conflict"].includes(response.body.error) && batches === 1 && !("account" in response.body) && !("actions" in response.body) && copies(f.id) === beforeCopies);
+      }
+      for (const standing of ["denied", "departed", "banned"]) {
+        const f = newAccount(1, { denied: standing === "denied" ? 1 : 0, in_server: standing === "departed" ? 0 : 1 });
+        if (standing === "banned") db.prepare("INSERT INTO members(discord_id,linked_at,banned) VALUES(?,?,1)").run(f.id,T);
+        const session = await cookieFor(f.id), response = await start(f.id,session);
+        check(`.118 ${standing}: a genuine valid session retains only its own partial-copy authority`, response.status === 200 && response.body.account.discordId === f.id && response.body.actions.capture.count === 1 && response.body.coverage.completeErasure === false && !JSON.stringify(response.body).includes(OTHER) && (standing !== "denied" || response.body.account.denied === true) && (standing !== "departed" || response.body.account.inServer === false) && (standing !== "banned" || response.body.verification.bannedFromVerifying === true));
+      }
+      {
+        const f = newAccount(1001), session = await cookieFor(f.id), first = await start(f.id,session), form = await accountForm(session);
+        const results = [first, await postCopy(session,first.body.actions.currentCursor,"history",form), await postCopy(session,first.body.actions.currentCursor,"download",form), await postCopy(session,first.body.actions.nextCursor,"history",form), await postCopy(session,first.body.actions.nextCursor,"download",form)];
+        const sixth = await postCopy(session,first.body.actions.currentCursor,"history",form);
+        check(".118 initial API download, history views and JSON downloads share five copy reads per hour", results.every(x => x.status === 200) && sixth.status === 429 && sixth.text.includes("slow_down") && sixth.text.includes("Five copy views or downloads") && copies(f.id) === 6); // one seeded pre-capture audit plus five accepted reads
+      }
+      // .118 representative local SQL load: diagnostics only, no timing SLA or query-plan efficiency assertion.
+      {
+        const originalTime=T, times=[]; let f;
+        db.exec("BEGIN");
+        try {
+          f=newAccount(6001);
+          const unrelated=db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)");
+          for(let i=0;i<100000;i++) unrelated.run(T,OTHER,"unrelated.bulk",OTHER);
+          db.exec("COMMIT");
+        } catch(error) { db.exec("ROLLBACK"); throw error; }
+        const session=await cookieFor(f.id), pages=[];
+        const timed=async(label,operation)=>{const at=performance.now();try{return await operation();}finally{times.push({label,ms:Math.round((performance.now()-at)*100)/100});}};
+        try {
+          let response=await timed("page1",()=>start(f.id,session)); pages.push(response.body.actions);
+          let next=response.body.actions.nextCursor;
+          for(let i=2;i<=5;i++) { response=await timed("page"+i,()=>postCopy(session,next)); pages.push(response.body.actions); next=response.body.actions.nextCursor; }
+          check(".118 6001 own rows amid 100000 unrelated rows: five bounded reads reach 5000 and truthfully retain 1001", response.status===200 && pages.length===5 && pages.every((p,i)=>p.entries.length===1000 && p.capture.count===6001 && p.capture.delivered===(i+1)*1000 && p.capture.complete===false) && pages.at(-1).capture.remaining===1001 && pages.at(-1).nextCursor===next && next!==null);
+          const beforeLimited=copies(f.id), limited=await timed("limited-page6",()=>postCopy(session,next,"history"));
+          check(".118 the sixth large-range read is 429 without a false completed payload or a new export audit", limited.status===429 && limited.text.includes("slow_down") && !("actions" in limited.body) && copies(f.id)===beforeLimited);
+          T+=3601; const fresh=await accountForm(session);
+          for(let i=6;i<=7;i++) { response=await timed("resumed-page"+i,()=>postCopy(session,next,"download",fresh)); pages.push(response.body.actions); next=response.body.actions.nextCursor; }
+          const entries=pages.flatMap(p=>p.entries);
+          check(".118 after the shared rate window the same signed cookie/continuation resumes to exact range completion", response.status===200 && pages.map(p=>p.entries.length).join()==="1000,1000,1000,1000,1000,1000,1" && JSON.stringify(entries)===JSON.stringify(f.expected) && new Set(entries.map(x=>x.action)).size===6001 && pages.every(p=>p.capture.at===pages[0].capture.at && p.capture.count===6001) && pages.at(-1).capture.delivered===6001 && pages.at(-1).capture.remaining===0 && pages.at(-1).capture.complete===true && next===null && entries.filter(x=>x.action==="site.copy_exported").length===1 && copies(f.id)===beforeLimited+2);
+        } finally { T=originalTime; console.log(".118 local read elapsed milliseconds (diagnostic only; scan/index cost is not guaranteed): "+JSON.stringify(times)); }
+      }
+    } finally { BEFORE = savedBefore; AFTER = savedAfter; T = savedT; rangeDb?.close(); db = savedDb; }
+  }
 
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

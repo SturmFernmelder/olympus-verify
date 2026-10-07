@@ -1697,7 +1697,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await settle();
   check("a denied identity retains the actual account-controls redirect", denied.location.navigated === "/privacy/account" && denied.location.replaced === true);
   const deniedControls = await policyHTML("/privacy/account", { who: DENIED, client: "account" });
-  check("a denied existing session receives its genuine copy form and private inbox link without a guild access grant", deniedControls.response.status === 200 && scriptFreePolicy(deniedControls) && deniedControls.text.includes('action="/privacy/account/export"') && deniedControls.text.includes("including when its account is denied") && deniedControls.text.includes('href="/privacy/contact"'));
+  check("a denied existing session receives its genuine copy form and private inbox link without a guild access grant", deniedControls.response.status === 200 && scriptFreePolicy(deniedControls) && deniedControls.text.includes('action="/privacy/account/export"') && deniedControls.text.includes("including when the account is denied") && deniedControls.text.includes('href="/privacy/contact"'));
   const deniedCopy = await policyPost(deniedControls, "/privacy/account/export", { actions: "" }, { who: DENIED, client: "account" });
   check("the denied account's genuine purpose-bound form retrieves only its curated copy", deniedCopy.response.status === 200 && /application\/json/.test(deniedCopy.response.headers.get("Content-Type") || "") && deniedCopy.text.includes(DENIED));
 

@@ -1,6 +1,6 @@
 /**
  * .71 (1 Oct 2026): the member's own copy, consolidation batch 7 of Codex's adapter map (the donor's src/rights.ts, made
- * the keeper's way). GET /api/me/export answers, to the signed-in account alone, everything this Worker holds about it:
+ * the keeper's way). GET /api/me/export answers, to the signed-in account alone, selected retained records about it:
  * the site account, their application, votes, board votes, friends and reserved names; the bot's view (whether they are
  * banned from verifying, whether a Battle.net link is current, the characters bound to them, their code requests, and
  * the dated actions that name them); and every community feature's rows through the registry (community-context.ts
@@ -32,17 +32,114 @@
  * body's later preparation time; and the application's parsed answers carry their references as kind and label only in
  * the OWN copy (the structural account key is another member's id; appOut, the forms and the member's free text are
  * untouched everywhere else).
+ *
+ * .118 (7 Oct 2026, Codex): captured-history slice; the dated notes above describe previous cursor behaviour.
+ * Initial GET still returns a curated partial JSON copy. Continuation tokens are accepted only through
+ * the existing account POST form and internal argument, never in an address. Actions bind an admitted
+ * high-water/count to the signed session claims; later/backdated inserts and new copy-audit entries
+ * cannot enter that retained range. A script-free history view and JSON download share five reads/hour.
+ * Non-action sections are fresh for each JSON download. Traversing retained actions is not an immutable
+ * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
 import { audit } from "./db";
 import { bnetFresh } from "./bnet-retention";
-import { apiJson, appOut, rateLimited, type AppRow, type SiteUser } from "./site-core";
-import { admittedRead, communityContext, communityExportPlan, FENCE_REFUSED } from "./community-context";
+import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
+import { admittedReadAs, communityContext, communityExportPlan, FENCE_REFUSED, type CommunitySubject } from "./community-context";
 import { secondsToIso } from "./community-time";
 
 const ACTIONS_LIMIT = 1000;
-/** `?actions=<ts>.<id>`: continue the dated actions after that row (the previous page's `nextCursor`). */
-const ACTION_CURSOR = /^(\d{1,12})\.(\d{1,12})$/;
+/** Integrity only: signed-session admission remains mandatory for every page. */
+export const ACTION_CURSOR_LIMIT = 140;
+const HISTORY_MAX = 999999999999;
+const HISTORY_CURSOR = /^1\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.([A-Za-z0-9_-]{43})$/;
+export const actionCursorShape = (raw: string): boolean => raw.length <= ACTION_CURSOR_LIMIT && HISTORY_CURSOR.test(raw);
+const whole = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= HISTORY_MAX;
+interface HistoryPosition { high: number; total: number; seen: number; ts: number; id: number; expires: number; captured: number; }
+interface HistoryPlan { position: HistoryPosition | null; statements: D1PreparedStatement[]; }
+export interface OwnActionHistoryPage {
+  entries: { at: string; action: string }[]; truncated: boolean; currentCursor: string; nextCursor: string | null;
+  capture: { kind: "retained_action_range"; at: string; count: number; delivered: number; remaining: number; complete: boolean };
+}
+export interface OwnActionHistoryView {
+  generatedAt: string;
+  coverage: { kind: "curated_partial"; ownAccountOnly: true; actionsPageLimit: number; completeErasure: false };
+  actions: OwnActionHistoryPage;
+}
+const historyData = (payload: string, s: CommunitySubject) => JSON.stringify([payload, s.discordId, s.sessionVersion, s.expiresAt]);
+const historyPayload = (p: HistoryPosition) => `1.${p.high}.${p.total}.${p.seen}.${p.ts}.${p.id}.${p.expires}.${p.captured}`;
+async function historyToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
+  const payload = historyPayload(p);
+  return `${payload}.${await sign(env.COOKIE_SECRET, "own-actions", historyData(payload, s))}`;
+}
+async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
+  let p: HistoryPosition | null = null;
+  if (raw !== undefined) {
+    if (raw.length > ACTION_CURSOR_LIMIT) return null;
+    const parts = HISTORY_CURSOR.exec(raw); if (!parts) return null;
+    const nums = parts.slice(1, 8).map(Number); if (!nums.every(whole)) return null;
+    p = { high: nums[0]!, total: nums[1]!, seen: nums[2]!, ts: nums[3]!, id: nums[4]!, expires: nums[5]!, captured: nums[6]! };
+    if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
+        (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
+    const payload = historyPayload(p);
+    if (!await verify(env.COOKIE_SECRET, "own-actions", historyData(payload, s), parts[8]!)) return null;
+  }
+  const bounded = p ? 1 : 0, after = p && p.seen > 0 ? 1 : 0;
+  // These two statements run behind the original probe in the SAME batch. First-page SQL derives its own high-water.
+  const meta = env.DB.prepare(
+    "SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR ts>?5 OR (ts=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM audit WHERE (subject=?1 OR actor=?1) AND (?2=0 OR id<=?3)"
+  ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0);
+  const rows = env.DB.prepare(
+    "SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM audit WHERE subject=?1 OR actor=?1) END AND (?4=0 OR ts>?5 OR (ts=?5 AND id>?6)) ORDER BY ts,id LIMIT ?7"
+  ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0, ACTIONS_LIMIT + 1);
+  return { position: p, statements: [meta, rows] };
+}
+type HistoryStart = { ok: true; id: string; subject: CommunitySubject; plan: HistoryPlan } | { ok: false; response: Response };
+async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
+  // Passed-user primitives are captured before awaiting; they never grant authority on their own.
+  const callerId = user.discord_id, callerVersion = user.session_version;
+  if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  if (new URL(request.url).searchParams.has("actions")) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
+  const ctx = await communityContext(env, request), s = ctx.subject;
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+    return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const plan = await prepareHistory(env, subject, raw);
+  if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
+  if (rateLimited(`cx:${subject.discordId}`, 5, 3600))
+    return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  return { ok: true, id: subject.discordId, subject, plan };
+}
+async function finishHistory(env: Env, s: CommunitySubject, plan: HistoryPlan, at: number, metadata: D1Result, rows: D1Result): Promise<OwnActionHistoryPage | null> {
+  const m = metadata.results[0] as { high_water?: unknown; total_count?: unknown; remaining_count?: unknown } | undefined;
+  if (!m || !whole(m.high_water) || !whole(m.total_count) || !whole(m.remaining_count) || !whole(at) || at === 0 || at >= s.expiresAt) return null;
+  const old = plan.position;
+  if ((m.total_count === 0) !== (m.high_water === 0) || m.remaining_count > m.total_count ||
+      (old && (m.high_water !== old.high || m.total_count !== old.total || m.remaining_count !== old.total - old.seen || at < old.captured))) return null;
+  const initial: HistoryPosition = old ?? { high: m.high_water, total: m.total_count, seen: 0, ts: 0, id: 0, expires: s.expiresAt, captured: at };
+  if (rows.results.length !== Math.min(ACTIONS_LIMIT + 1, m.remaining_count)) return null;
+  const r = rows.results as { ts: number; id: number; action: string }[];
+  let previous = initial.seen > 0 ? { ts: initial.ts, id: initial.id } : null;
+  for (const row of r) {
+    if (!whole(row.ts) || !whole(row.id) || row.id === 0 || row.id > initial.high || typeof row.action !== "string" ||
+        (previous && (row.ts < previous.ts || (row.ts === previous.ts && row.id <= previous.id)))) return null;
+    previous = row;
+  }
+  const page = r.slice(0, ACTIONS_LIMIT), delivered = initial.seen + page.length, remaining = initial.total - delivered;
+  if (!whole(delivered) || remaining < 0 || (remaining > 0 && page.length !== ACTIONS_LIMIT)) return null;
+  const last = page.at(-1);
+  return {
+    entries: page.map(row => ({ at: secondsToIso(row.ts), action: row.action })), truncated: remaining > 0,
+    currentCursor: await historyToken(env, s, initial),
+    nextCursor: remaining > 0 && last ? await historyToken(env, s, { ...initial, seen: delivered, ts: last.ts, id: last.id }) : null,
+    capture: { kind: "retained_action_range", at: secondsToIso(initial.captured), count: initial.total, delivered, remaining, complete: remaining === 0 },
+  };
+}
+const historyChanged = () => apiJson({ error: "history_changed", message: "The retained action range changed. Start a new capture; no completed history is claimed." }, 409);
+async function historyRefusal(env: Env, request: Request): Promise<Response> {
+  const fresh = await communityContext(env, request);
+  return fresh.subject ? apiJson({ error: "conflict", message: "Your session changed while the copy was being made. Try again." }, 409) : apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
+}
 const iso = (s: number | null | undefined) => (typeof s === "number" ? secondsToIso(s) : null);
 
 /** .76: the member's application for their OWN copy: the parsed answers' references carry kind and label only (the key is another member's id). */
@@ -52,15 +149,12 @@ function ownApplication(a: ReturnType<typeof appOut>) {
   return { ...a, answers };
 }
 
-export async function exportMyData(request: Request, env: Env, user: SiteUser): Promise<Response> {
-  const id = user.discord_id;
-  const rawCursor = new URL(request.url).searchParams.get("actions");
-  const cursor = rawCursor === null ? null : ACTION_CURSOR.exec(rawCursor);
-  if (rawCursor !== null && !cursor) return apiJson({ error: "invalid_cursor" }, 400);
-  if (rateLimited(`cx:${id}`, 5, 3600)) return apiJson({ error: "slow_down", message: "Five copies an hour. Try again later." }, 429);
-  const ctx = await communityContext(env, request);
-  const plan = communityExportPlan(env, id); // .74: every community section's statements, in this same batch
-  const out = await admittedRead(env, ctx, "authenticatedIdentity", [
+export async function exportMyData(request: Request, env: Env, user: SiteUser, actionCursor?: string): Promise<Response> {
+  const start = await beginHistory(request, env, user, actionCursor);
+  if (!start.ok) return start.response;
+  const { id, subject, plan: history } = start;
+  const plan = communityExportPlan(env, id);
+  const out = await admittedReadAs(env, subject, "authenticatedIdentity", [
     env.DB.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS at"), // .76: the capture instant, the database's clock inside this batch
     env.DB.prepare("SELECT discord_id, username, global_name, nick, avatar, account_created, server_joined, first_login, last_login, checked_at, in_server, denied, denied_at FROM site_users WHERE discord_id = ?1").bind(id),
     env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id),
@@ -73,25 +167,24 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser): 
     env.DB.prepare("SELECT name, created_at, expires_at, consumed_at, consumed_source FROM pending WHERE discord_id = ?1 ORDER BY created_at").bind(id),
     // .74: the member's own queue state, never the officer, the claim or the note; the actions naming them as subject OR actor, paged
     env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
-    env.DB.prepare("SELECT ts, id, action FROM audit WHERE (subject = ?1 OR actor = ?1) AND (?3 = 0 OR ts > ?4 OR (ts = ?4 AND id > ?5)) ORDER BY ts, id LIMIT ?2").bind(id, ACTIONS_LIMIT + 1, cursor ? 1 : 0, cursor ? Number(cursor[1]) : 0, cursor ? Number(cursor[2]) : 0),
+    ...history.statements,
     // .114: the account's rename records (rename-review.ts), without the administrators' identities
     env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
   ]);
-  if (out === FENCE_REFUSED) {
-    const fresh = await communityContext(env, request);
-    return fresh.subject ? apiJson({ error: "conflict", message: "Your session changed while the copy was being made. Try again." }, 409) : apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
-  }
-  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, actions, renames] = out;
+  if (out === FENCE_REFUSED) return historyRefusal(env, request);
+  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, renames] = out;
   type Rec = Record<string, unknown>;
   const a = (account!.results[0] ?? null) as Rec | null;
+  if (!a) return apiJson({ error: "conflict", message: "The account row was not present in the admitted copy. Try again." }, 409);
   const m = (member!.results[0] ?? null) as Rec | null;
-  const actionRows = actions!.results as { ts: number; id: number; action: string }[];
-  const actionPage = actionRows.slice(0, ACTIONS_LIMIT), lastAction = actionPage.at(-1);
+  const at = (clock!.results[0] as { at: number }).at;
+  const actionPage = await finishHistory(env, subject, history, at, historyMeta!, historyRows!);
+  if (!actionPage) return historyChanged();
   const body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
     coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, completeErasure: false },
-    about: "A copy of what Olympus Verify and the Olympus guild site hold about your Discord account, curated for you (no staff notes, reasons or identities, no raw roster snapshots, no private details of recorded payments; your own labels and free text as you wrote them), read together in one database transaction at generatedAt (the database's clock inside that read). The dated actions are the earliest 1000 naming your account (as their subject or their actor) from the point you asked for, as their time and action name; when more exist, actions.nextCursor is where to continue (?actions=).",
+    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions are one page of the retained own-account range captured at actions.capture.at; later inserts are excluded. Other sections are freshly read for this download, not frozen across pages. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
       : null,
@@ -112,9 +205,31 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser): 
       renameRecords: (renames!.results as Rec[]).map((r) => ({ from: r.old_name, to: r.new_name, state: r.state, decidedAt: iso(r.decided_at as number), closedAt: iso(r.closed_at as number | null) })), // .114
       inviteQueue: (queue!.results as Rec[]).map((q) => ({ character: q.name, status: q.status, attempts: q.attempts, createdAt: iso(q.created_at as number), writtenAt: iso(q.written_at as number | null), invitedAt: iso(q.invited_at as number | null), joinedAt: iso(q.joined_at as number | null), retryAfter: iso(q.retry_after as number | null), lastRefusal: q.last_reason ? { reason: q.last_reason, at: iso(q.last_reason_at as number | null) } : null })),
     },
-    actions: { entries: actionPage.map((r) => ({ at: secondsToIso(r.ts), action: r.action })), truncated: actionRows.length > ACTIONS_LIMIT, nextCursor: actionRows.length > ACTIONS_LIMIT && lastAction ? `${lastAction.ts}.${lastAction.id}` : null },
-    community: plan.shape(out.slice(13)), // .74: read in the same transaction as everything above (.114: after the rename records)
+    actions: actionPage,
+    community: plan.shape(out.slice(14)), // The added history metadata result precedes unchanged registry results.
   };
   await audit(env, id, "site.copy_exported", id);
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });
+}
+
+/** Internal adapter, not a new public route. Same own-session fence and copy budget. */
+export async function exportMyHistory(request: Request, env: Env, user: SiteUser, actionCursor?: string): Promise<Response> {
+  const start = await beginHistory(request, env, user, actionCursor);
+  if (!start.ok) return start.response;
+  const out = await admittedReadAs(env, start.subject, "authenticatedIdentity", [
+    env.DB.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at"),
+    ...start.plan.statements,
+  ]);
+  if (out === FENCE_REFUSED) return historyRefusal(env, request);
+  const at = (out[0]!.results[0] as { at: number }).at;
+  const actions = await finishHistory(env, start.subject, start.plan, at, out[1]!, out[2]!);
+  if (!actions) return historyChanged();
+  const body: OwnActionHistoryView = {
+    generatedAt: secondsToIso(at),
+    coverage: { kind: "curated_partial", ownAccountOnly: true, actionsPageLimit: ACTIONS_LIMIT, completeErasure: false },
+    actions,
+  };
+  // The response is a history view, not proof that a file was saved.
+  await audit(env, start.id, "site.copy_exported", start.id);
+  return apiJson(body);
 }

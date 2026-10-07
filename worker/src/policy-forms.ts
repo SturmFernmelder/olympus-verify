@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { currentUser, PAGE_VERSION } from "./site-core";
 import { handlePrivacyIntakeForm, INTAKE_KINDS, intakeOpen, intakeRetentionDays } from "./community-privacy-intake";
 import { communityFeatures } from "./community-context";
-import { exportMyData } from "./site-export";
+import { ACTION_CURSOR_LIMIT, actionCursorShape, exportMyData, exportMyHistory, type OwnActionHistoryView } from "./site-export";
 import { escapeText as e, htmlResponse } from "./policy-render";
 import { field, FormError, formCookie, formNonce, formToken, hidden, randomCode, readForm, requireFormToken, type FormPurpose } from "./policy-form-core";
 import { privacyIdentityRoute } from "./privacy-identity";
@@ -37,12 +37,39 @@ async function showCase(request: Request, env: Env, nonce: string, c: Readonly<{
   body += await caseReadForm(env, nonce, c) + controls;
   return htmlResponse(request, "Your private case", body);
 }
+async function showHistory(request: Request, env: Env, nonce: string, result: Response, user: { discord_id: string; session_version: number }, resumeCursor?: string): Promise<Response> {
+  const data = await result.json() as OwnActionHistoryView & { error?: string; message?: string };
+  const b = `${user.discord_id}:${user.session_version}`;
+  const post = async (mode: "history" | "download", cursor: string, label: string) =>
+    `<form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}${hidden("mode", mode)}${hidden("actions", cursor)}<button type="submit">${e(label)}</button></form>`;
+  const saved = (cursor: string, label: string) =>
+    `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label>`;
+  const resumeHelp = `<p>Keep continuation values privately. To resume after the rate window or an expired form, reopen <a href="/privacy/account">Account data controls</a>, paste a saved value into Saved action continuation, and choose View my action history or Download my curated copy. Use the same original site session before it expires. Never put a continuation in an address or share it.</p>`;
+  if (!result.ok) {
+    let body = `<p>${e(data.error ?? "unconfirmed")}. ${e(data.message ?? "No history completion is claimed. Reopen the account controls.")}</p>`;
+    if (result.status === 429 && resumeCursor && actionCursorShape(resumeCursor)) {
+      body += resumeHelp + saved(resumeCursor, "Saved history-page continuation");
+      body += await post("history", resumeCursor, "Retry this history page after the rate window");
+    }
+    return htmlResponse(request, "History not available", body + controls, result.status, formCookie(nonce));
+  }
+  const page = data.actions, capture = page.capture;
+  let body = `<p>This is a curated partial view of your own retained action history, not a copy of every store or an erasure.</p><p>Captured range: ${e(capture.at)}. ${e(capture.delivered)} of ${e(capture.count)} included records reached; ${e(capture.remaining)} remain. This page was read at ${e(data.generatedAt)}.</p><ol>${page.entries.map(row => `<li>${e(row.at)} · ${e(row.action)}</li>`).join("")}</ol><p>Each view or download counts toward five copy reads per hour. A current-page JSON download freshly reads its other sections at that download's generatedAt; this view does not prove a file was saved.</p>`;
+  body += resumeHelp + saved(page.currentCursor, "Current-page continuation");
+  body += await post("download", page.currentCursor, "Download this page in my curated copy");
+  if (page.nextCursor) {
+    body += saved(page.nextCursor, "Next-page continuation");
+    body += await post("history", page.nextCursor, "Next history page");
+  } else body += "<p>The included retained action range has been traversed. This does not claim an all-store copy.</p>";
+  return htmlResponse(request, "Your action history", body + controls, 200, formCookie(nonce));
+}
+
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
   let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. The separate account connection for privacy requests is not available yet.</p>`;
   if (user) {
     const b = `${user.discord_id}:${user.session_version}`;
-    body += `<p>Your existing site session can request its curated copy, including when its account is denied or has left the server. This is the existing limited copy capability.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Action-page cursor (optional)<input name="actions" maxlength="25" autocomplete="off"></label><button type="submit">Download my curated copy</button></form>`;
+    body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
   } else body += `<p>You have no current site session. <a href="/privacy/signin">Check identify-only sign-in availability</a>. You may contact the inbox without signing in.</p>`;
   body += `<h2>Deletion and unlink controls</h2><p>Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet. Contact the private inbox to request help from staff. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
   for (const [action, label] of [["site-erase", "Site-only erasure"], ["full-erase", "Full-tool erasure"], ["bnet-unlink", "Local Battle.net unlink"]] as const) {
@@ -95,15 +122,21 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       return showCase(request, env, nonce, c);
     }
     if (m === "POST" && path === "/privacy/account/export") {
-      const f = await readForm(request, ["csrf", "actions"]), user = await currentUser(env, request);
+      const f = await readForm(request, ["csrf", "actions", "mode"]);
+      const mode = field(f, "mode", 8, false, true) || "download";
+      if (mode !== "history" && mode !== "download") throw new FormError("invalid_form");
+      const user = await currentUser(env, request);
       if (!user) return htmlResponse(request, "Session unavailable", "<p>Your current site session is no longer valid. No copy was made.</p>" + controls, 401);
       const id = String(user.discord_id), version = Number(user.session_version);
       await requireFormToken(env, request, field(f, "csrf", 160), "copy-export", `${id}:${version}`);
-      const cursor = field(f, "actions", 25, false, true); if (cursor && !/^\d{1,12}\.\d{1,12}$/.test(cursor)) throw new FormError("invalid_form");
-      const u = new URL(request.url); if (cursor) u.searchParams.set("actions", cursor);
-      const exported = await exportMyData(new Request(u, { headers: request.headers }), env, user);
-      exported.headers.set("Referrer-Policy", "no-referrer");
-      return exported;
+      const cursor = field(f, "actions", ACTION_CURSOR_LIMIT, false, true);
+      if (cursor && !actionCursorShape(cursor)) throw new FormError("invalid_form");
+      const result = mode === "history"
+        ? await exportMyHistory(request, env, user, cursor || undefined)
+        : await exportMyData(request, env, user, cursor || undefined);
+      if (mode === "history") return showHistory(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined);
+      result.headers.set("Referrer-Policy", "no-referrer");
+      return result;
     }
     if (m === "POST" && path.startsWith("/privacy/account/")) {
       const action = path.slice("/privacy/account/".length) as FormPurpose;

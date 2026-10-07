@@ -4810,3 +4810,29 @@ The privacy policy replaces the obsolete pre-.115 export claim with the actual c
 Validation uses the three generated policy mirrors, compiler, real contact/session/News suites, DOM footer views and unchanged route controls. The official-art reference advances only the fixed app.js source pin and its reference digest; official image/font bytes and the approved crest exception remain. Source checks do not establish production publication: exact-head CI, bundle/asset checks and live version/route readback are separate. This patch has no schema change; the applicable exact-release backup and deployment gates remain in force. Rollback is the accepted .116 source; no automatic database restore.
 
 The existing reconciliation helper also advances its two dependency pins to the reviewed art-reference successor; its historical policy/source constraints remain. The publication-helper smoke check must load its --help path without a dependency pin refusal.
+
+## Worker .118 - captured own-account action history (7 October 2026)
+
+Account data controls add script-free action-history pages and a separate current-page JSON download through the
+existing POST export form. Default downloads and the initial GET copy remain; query-string continuations are refused.
+The captured range excludes later/backdated inserts and the traversal's own audit entries. Canonical signed cursors
+bind to the original account, session version and expiry, while every page retains the existing admitted database
+version/clock fence. Detectable retained-range changes refuse 409 without claiming completed history.
+
+All other copy sections remain curated and are read afresh for each download. Views and downloads share the existing
+soft five-per-hour limiter; the UI and policy disclose that longer histories can require a later window. No all-store
+snapshot, complete export, erasure, identity authority, saved-file proof or bounded COUNT workload is promised.
+Readonly current/next continuation fields and a validated 429 history retry let the account save its place privately;
+reopening account controls refreshes CSRF for the saved value without renewing the original signed session.
+
+Before release, check the exact final source and generated privacy mirrors; run compiler, vectors and house-style
+real-SQLite account-copy, script-free form/News and frontend regressions. Cover tied timestamps, actor-or-subject
+ownership, exact multi-page union, later/backdated inserts, missing retained rows, tampered and cross-session cursors,
+session invalidation/expiry, denied/left/banned own-session access, HTML escaping and the mixed view/download rate limit.
+Representative unrelated audit volume must exercise the actual SQL without treating a local timing as a D1 SLA.
+
+Exact-head CI, bundle/asset/native checks, publication, provider version/settings and canonical route readback remain
+separate release gates. The official website assets and existing app.js pin are unchanged. This patch has no schema or
+configuration change; it uses the retained verified release backup. Rollback is the accepted .117 source, with no
+automatic database restore. Release evidence must identify the exact commit and actual checks; this section is a plan,
+not a deployment receipt.

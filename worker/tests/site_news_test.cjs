@@ -785,7 +785,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       check("current account page without a site session offers no copy form and states that automatic deletion/unlink are unavailable", page.status === 200 && !page.text.includes('action="/privacy/account/export"') && page.text.includes("Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.") && snapshot() === before);
       page = await sendAccount("GET", "/privacy/account", { session: adminSession });
       const nonce = (page.headers.get("Set-Cookie") || "").split(";")[0], csrf = formFor(page.text, "/privacy/account/export");
-      check("the actual account page issues an original signed session-bound export form and a private one-hour nonce cookie", page.status === 200 && /^__Host-olg_privacy_form=[A-Za-z0-9_-]{43}$/.test(nonce) && /Secure; HttpOnly; SameSite=Strict; Max-Age=3600/.test(page.headers.get("Set-Cookie") || "") && /^\d{10}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(csrf) && page.text.includes("existing limited copy capability") && snapshot() === before);
+      check("the actual account page issues an original signed session-bound export form and a private one-hour nonce cookie", page.status === 200 && /^__Host-olg_privacy_form=[A-Za-z0-9_-]{43}$/.test(nonce) && /Secure; HttpOnly; SameSite=Strict; Max-Age=3600/.test(page.headers.get("Set-Cookie") || "") && /^\d{10}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(csrf) && (page.text.includes("curated partial copy") && page.text.includes("grants no guild access")) && snapshot() === before);
       let response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, fields: { csrf } });
       check("the actual export form refuses a missing nonce cookie without changing stored News/account records", response.status === 403 && response.text.includes("form_expired") && snapshot() === before);
       response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf }, origin: "https://other.example" });
@@ -818,6 +818,100 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     }
   }
 
+
+  // .118: rendered continuation is an existing same-path POST, with no script or token-bearing address.
+  {
+    const savedDb = db, savedT = T, savedHook = HOOK, savedBefore = BEFORE_BATCH, savedAfter = AFTER_BATCH, savedCount = COUNT;
+    let historyDb = null;
+    try {
+      historyDb = new DatabaseSync(":memory:"); db = historyDb;
+      db.exec(fs.readFileSync(path.join(root,"schema.sql"),"utf8"));
+      T = realNow()-7200; HOOK = null; BEFORE_BATCH = null; AFTER_BATCH = null; resetCount();
+      const real = makeLoader(), entry = real("./index"), core = real("./site-core"); real("./schema").forgetSchemaCheck(); people();
+      const own = MEMBER2, malicious = '<img src=x onerror="oops">&', insert = db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)");
+      for(let i=0;i<1001;i++) insert.run(T,own,i===0?malicious:"rendered."+i,own);
+      insert.run(T,ADMIN,"foreign.rendered",ADMIN);
+      const session = (await core.sessionCookie(env(),own,1)).split(";")[0];
+      const send = async (method,route,{cookie=session,nonce="",fields,origin="https://guild.example"}={}) => {
+        const headers = new Headers({Cookie:[cookie,nonce].filter(Boolean).join("; ")});
+        if(method==="POST") { headers.set("Origin",origin); headers.set("Content-Type","application/x-www-form-urlencoded"); }
+        const result = await entry.default.fetch(new Request("https://guild.example"+route,{method,headers,body:fields===undefined?undefined:new URLSearchParams(fields).toString()}),env(),ctx);
+        const text=await result.text(); let body=null; try{body=JSON.parse(text);}catch{ /* Actual script-free HTML. */ }
+        return {status:result.status,headers:result.headers,text,body};
+      };
+      const exportForms = text => [...text.matchAll(/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/g)].map(m=>Object.fromEntries([...m[1].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(x=>[x[1],x[2]])));
+      const page=await send("GET","/privacy/account"), nonce=(page.headers.get("Set-Cookie")||"").split(";")[0], firstForm=exportForms(page.text)[0];
+      const history=await send("POST","/privacy/account/export",{nonce,fields:{csrf:firstForm.csrf,mode:"history"}}), forms=exportForms(history.text);
+      const downloadForm=forms.find(x=>x.mode==="download"), nextForm=forms.find(x=>x.mode==="history");
+      const savedCursors=text=>Object.fromEntries([...text.matchAll(/<label>(Current-page continuation|Next-page continuation|Saved history-page continuation)<textarea readonly rows="2" spellcheck="false" autocomplete="off">([^<]*)<\/textarea><\/label>/g)].map(x=>[x[1],x[2]]));
+      const saved=savedCursors(history.text);
+      check(".118 visible readonly continuations match the hidden page positions and explain private same-session resumption", saved["Current-page continuation"]===downloadForm.actions && saved["Next-page continuation"]===nextForm.actions && !/name=/.test((history.text.match(/<textarea readonly[^>]*>/)||[])[0]||"") && history.text.includes("Keep continuation values privately") && history.text.includes('href="/privacy/account"') && history.text.includes("paste a saved value into Saved action continuation") && history.text.includes("Use the same original site session before it expires") && !/[?&]actions=/.test(history.text));
+      check(".118 the real history view is script-free HTML with bounded own records, private caching and no file-saved claim", history.status===200 && /text\/html/.test(history.headers.get("Content-Type")||"") && !history.headers.get("Content-Disposition") && /script-src 'none'/.test(history.headers.get("Content-Security-Policy")||"") && /no-store/.test(history.headers.get("Cache-Control")||"") && /no-transform/.test(history.headers.get("Cache-Control")||"") && history.headers.get("Referrer-Policy")==="same-origin" && !/<script\b/i.test(history.text) && history.text.includes("1000 of 1001") && history.text.includes("1 remain") && history.text.includes("does not prove a file was saved"));
+      check(".118 own action markup is escaped literally and foreign account rows are absent", history.text.includes("&lt;img src=x onerror=&quot;oops&quot;&gt;&amp;") && !history.text.includes(malicious) && !history.text.includes("foreign.rendered") && (history.text.match(/<li>/g)||[]).length===1000);
+      check(".118 Current Download and Next carry signed cursors only in hidden same-path POST fields", forms.length===2 && downloadForm?.csrf && nextForm?.csrf && downloadForm.actions?.length<=140 && nextForm.actions?.length<=140 && /^1\./.test(downloadForm.actions) && /^1\./.test(nextForm.actions) && downloadForm.actions!==nextForm.actions && !/[?&]actions=/.test(history.text) && !history.headers.get("Location") && ![...history.text.matchAll(/(?:action|href)="([^"]*)"/g)].some(x=>x[1].includes(downloadForm.actions)||x[1].includes(nextForm.actions)) && history.text.includes("five copy reads per hour") && history.text.includes("freshly reads its other sections"));
+      run("UPDATE site_users SET nick='New name at download' WHERE discord_id=?",own);
+      const download=await send("POST","/privacy/account/export",{nonce,fields:downloadForm});
+      check(".118 the rendered Current Download returns exactly that history page and labels other sections fresh", download.status===200 && download.headers.get("Content-Disposition")==='attachment; filename="olympus-my-data.json"' && download.headers.get("Referrer-Policy")==="no-referrer" && download.body.actions.entries.length===1000 && download.body.actions.entries[0].action===malicious && download.body.actions.currentCursor===downloadForm.actions && download.body.actions.capture.count===1001 && download.body.actions.capture.delivered===1000 && download.body.account.nickname==="New name at download" && download.body.about.includes("Other sections are freshly read") && download.body.coverage.completeErasure===false);
+      const last=await send("POST","/privacy/account/export",{nonce,fields:nextForm}), lastForms=exportForms(last.text);
+      check(".118 the final rendered page has one record and only Current Download; completion is explicitly the included retained range", last.status===200 && last.text.includes("1001 of 1001") && last.text.includes("0 remain") && (last.text.match(/<li>/g)||[]).length===1 && lastForms.length===1 && lastForms[0].mode==="download" && !last.text.includes("Next history page") && last.text.includes("does not claim an all-store copy"));
+      check(".118 a terminal page offers only its visible current position, without inventing a next continuation", savedCursors(last.text)["Current-page continuation"]===lastForms[0].actions && !("Next-page continuation" in savedCursors(last.text)));
+      const before=JSON.stringify(all("SELECT * FROM audit ORDER BY id"));
+      const negatives=[
+        {label:"unknown mode",fields:{csrf:firstForm.csrf,mode:"erase"},status:400,reason:"invalid_form"},
+        {label:"duplicate mode",fields:[["csrf",firstForm.csrf],["mode","history"],["mode","download"]],status:400,reason:"invalid_form"},
+        {label:"oversized continuation",fields:{csrf:firstForm.csrf,mode:"history",actions:"A".repeat(141)},status:400,reason:"invalid_form"},
+        {label:"missing CSRF",fields:{mode:"history"},status:400,reason:"invalid_form"},
+        {label:"wrong CSRF",fields:{csrf:"1.bad.token",mode:"history"},status:403,reason:"form_expired"},
+        {label:"wrong origin",fields:{csrf:firstForm.csrf,mode:"history"},origin:"https://other.example",status:403,reason:"bad_origin"},
+      ];
+      for(const bad of negatives) {
+        let batches=0; BEFORE_BATCH=()=>{batches++;}; const refusal=await send("POST","/privacy/account/export",{nonce,...bad}); BEFORE_BATCH=null;
+        check(".118 "+bad.label+": original form admission refuses without any admitted payload or copy audit", refusal.status===bad.status && refusal.text.includes(bad.reason) && batches===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===before);
+      }
+      const parts=nextForm.actions.split("."); parts[8]=(parts[8][0]==="A"?"B":"A")+parts[8].slice(1);
+      let batches=0; BEFORE_BATCH=()=>{batches++;}; const badMac=await send("POST","/privacy/account/export",{nonce,fields:{...nextForm,actions:parts.join(".")}}); BEFORE_BATCH=null;
+      check(".118 shape-valid wrong-MAC continuation refuses before payload with no false completion", badMac.status===400 && badMac.text.includes("invalid_cursor") && !badMac.text.includes(parts.join(".")) && !badMac.text.includes("included retained action range has been traversed") && batches===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===before);
+      for(const query of [nextForm.actions,"1.2"]) {
+        batches=0; BEFORE_BATCH=()=>{batches++;}; const refused=await send("GET","/api/me/export?actions="+encodeURIComponent(query)); BEFORE_BATCH=null;
+        check(".118 real signed/unsigned API query continuations are refused; no token-bearing redirect or payload", refused.status===400 && refused.body?.error==="invalid_cursor" && !refused.headers.get("Location") && batches===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===before);
+      }
+      const queried=await send("POST","/privacy/account/export?actions="+encodeURIComponent(nextForm.actions),{nonce,fields:nextForm});
+      check(".118 canonical account forms retain the blanket query-string refusal without changing audit", queried.status===400 && queried.text.includes("Use the form without a query string") && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===before);
+      // Finite refusal pages must not reflect continuation values except an authenticated 429 retry.
+      const isolatedSession=(await core.sessionCookie(env(),MEMBER,1)).split(";")[0];
+      for(let i=0;i<1001;i++) insert.run(T,MEMBER,"isolated."+i,MEMBER);
+      const isolatedPage=await send("GET","/privacy/account",{cookie:isolatedSession}), isolatedNonce=(isolatedPage.headers.get("Set-Cookie")||"").split(";")[0], isolatedStart=exportForms(isolatedPage.text)[0];
+      const isolatedFirst=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:{csrf:isolatedStart.csrf,mode:"history"}}), isolatedNext=exportForms(isolatedFirst.text).find(x=>x.mode==="history");
+      run("DELETE FROM audit WHERE actor=? AND action='isolated.1000'",MEMBER);
+      const isolatedAudit=JSON.stringify(all("SELECT * FROM audit ORDER BY id"));
+      const changed=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext});
+      check(".118 a captured-range 409 retains no submitted token, retry form or false completion", changed.status===409 && changed.text.includes("history_changed") && !changed.text.includes(isolatedNext.actions) && Object.keys(savedCursors(changed.text)).length===0 && exportForms(changed.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
+      run("UPDATE site_users SET session_version=2 WHERE discord_id=?",MEMBER);
+      const signedOut=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext});
+      check(".118 an invalidated-session 401 does not reflect its old continuation or offer a retry", signedOut.status===401 && !signedOut.text.includes(isolatedNext.actions) && exportForms(signedOut.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
+      run("UPDATE site_users SET session_version=1 WHERE discord_id=?",MEMBER);
+      BEFORE_BATCH=()=>{throw new Error("finite synthetic D1 interruption before BEGIN");};
+      const interrupted=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext}); BEFORE_BATCH=null;
+      check(".118 an unconfirmed 503 retains no submitted token or retry and creates no export audit", interrupted.status===503 && !interrupted.text.includes(isolatedNext.actions) && Object.keys(savedCursors(interrupted.text)).length===0 && exportForms(interrupted.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
+
+      // Three accepted own reads above plus these two use the common five/hour bucket.
+      const fourth=await send("POST","/privacy/account/export",{nonce,fields:downloadForm}), fifth=await send("POST","/privacy/account/export",{nonce,fields:nextForm});
+      const beforeLimited=JSON.stringify(all("SELECT * FROM audit ORDER BY id")), limited=await send("POST","/privacy/account/export",{nonce,fields:nextForm}), retry=exportForms(limited.text)[0];
+      check(".118 authenticated 429 preserves precisely the submitted continuation and one same-path history retry without audit", fourth.status===200 && fifth.status===200 && limited.status===429 && limited.text.includes("slow_down") && limited.text.includes("Retry this history page after the rate window") && savedCursors(limited.text)["Saved history-page continuation"]===nextForm.actions && exportForms(limited.text).length===1 && retry?.actions===nextForm.actions && retry.mode==="history" && retry.csrf && !/[?&]actions=/.test(limited.text) && !limited.headers.get("Location") && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===beforeLimited);
+      const noPosition=await send("POST","/privacy/account/export",{nonce,fields:{csrf:firstForm.csrf,mode:"history"}});
+      check(".118 an initially rate-limited history request invents no continuation or retry position", noPosition.status===429 && Object.keys(savedCursors(noPosition.text)).length===0 && exportForms(noPosition.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===beforeLimited);
+      const exhaustedBad=await send("POST","/privacy/account/export",{nonce,fields:{...nextForm,actions:parts.join(".")}});
+      check(".118 exhausted rate limits do not convert an invalid MAC into a reflected retry continuation", exhaustedBad.status===400 && exhaustedBad.text.includes("invalid_cursor") && !exhaustedBad.text.includes(parts.join(".")) && exportForms(exhaustedBad.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===beforeLimited);
+      const rateTime=T;
+      try {
+        T+=3601; let batches=0; BEFORE_BATCH=()=>{batches++;}; const oldForm=await send("POST","/privacy/account/export",{nonce,fields:retry}); BEFORE_BATCH=null;
+        check(".118 a saved rate-refusal form expires normally; its cursor does not bypass a new CSRF form", oldForm.status===403 && oldForm.text.includes("form_expired") && batches===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===beforeLimited);
+        const reopened=await send("GET","/privacy/account"), freshNonce=(reopened.headers.get("Set-Cookie")||"").split(";")[0], freshForm=exportForms(reopened.text)[0];
+        const resumed=await send("POST","/privacy/account/export",{nonce:freshNonce,fields:{csrf:freshForm.csrf,mode:"history",actions:savedCursors(limited.text)["Saved history-page continuation"]}}), resumedCurrent=exportForms(resumed.text)[0];
+        check(".118 privately saved continuation resumes via a fresh form and the same original signed session after the rate window", resumed.status===200 && resumed.text.includes("1001 of 1001") && resumed.text.includes("0 remain") && (resumed.text.match(/<li>/g)||[]).length===1 && !resumed.text.includes("Next history page") && resumedCurrent.actions.split(".")[7]===nextForm.actions.split(".")[7] && savedCursors(resumed.text)["Current-page continuation"]===resumedCurrent.actions);
+      } finally { T=rateTime; BEFORE_BATCH=null; }
+    } finally { historyDb?.close(); db=savedDb; T=savedT; HOOK=savedHook; BEFORE_BATCH=savedBefore; AFTER_BATCH=savedAfter; COUNT=savedCount; }
+  }
 
   // The policy pages say what this module does; the numbers they state are read from NEWS_LIMITS, so neither can drift
   // alone. The served pages, whitespace folded (the tracked HTML wraps its lines).
