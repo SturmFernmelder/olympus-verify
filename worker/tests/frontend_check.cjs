@@ -303,8 +303,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   let page = await openPage(null);
   check("the boot carries the community context (features, no subject)", page.boot && page.boot.community && page.boot.community.subject === null && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === false);
   check("signed out: Roles only in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles" && !!byText(page.app, "a", "Sign in with Discord"));
-  // .114 (Viktor, 2 Oct 2026): signed out, the footer keeps only the private request form (its people cannot sign in)
-  check("signed out, the footer links only the private request form: no policy or data links (.114)", texts(page.app, ".footer-links a").join(",") === "Private request" && !page.app.querySelector('.footer-links a[href="/privacy"]') && !page.app.querySelector('.footer-links a[href="/terms"]') && !page.app.querySelector('.footer-links a[href="#/data"]'));
+  // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.
+  check("(.117) signed out, the footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
   await page.go("#/data");
   check("saved Your data fragment uses the actual replacement navigation to account controls", page.location.navigated === "/privacy/account" && page.location.replaced === true);
@@ -343,7 +343,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("a confirmed member sees Community in the top bar, and the boot says confirmedGuildData", texts(page.app, "nav.nav a").includes("Community") && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
   await waitFor(() => !!byText(page.app, "h3", "Member directory"), "the overview");
-  check("the overview keeps directory, profile and member badge, with account controls in the canonical footer instead of an old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && texts(page.app, '.footer-links a[href="/privacy/account"]').includes("Account data controls"));
+  check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
   await page.go("#/community/directory");
   await waitFor(() => page.app.textContent.includes("Nobody is listed yet"), "the empty directory");
   check("the empty directory says so and invites the member to list themselves", page.app.textContent.includes("Nobody is listed yet"));
@@ -1205,7 +1205,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("(.114) the top bar shows the member's own Discord picture: the address the Worker gave, on Discord's picture host", /^https:\/\/cdn\.discordapp\.com\//.test(avatar || "") && own.getAttribute("src") === avatar, avatar, own && own.getAttribute("src"));
     own.dispatchEvent(new Event("error"));
     check("  a picture that fails to load falls back to the official Member icon", own.getAttribute("src") === "/static/wow/pos-member.png");
-    check("  the footer says whose picture it is; signed in, it links the policies, Your data and the private request form", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && texts(p114.app, ".footer-links a").join(",") === "Privacy Policy,Terms of Service,Account data controls,Private request");
+    check("(.117) the signed-in footer keeps the own-avatar notice without policy, account or contact navigation", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && !p114.app.querySelector(".footer-links"));
     const AV = new Function("return " + APP_JS.match(/const DISCORD_AVATAR = (\/.*\/);/)[1])();
     const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
     const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];

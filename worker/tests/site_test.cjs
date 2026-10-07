@@ -305,7 +305,7 @@ const bootOf = async (res) => {
   check("  and /terms as HTML", res.status === 200 && !res.headers.has("Location") && (await res.text()).includes("<h1>Terms of Service</h1>"));
   res = await call("GET", "/tos", { host: "verify.example" });
   check("  the bot's host too", res.status === 200 && !res.headers.has("Location") && (await res.text()).includes("<h1>Terms of Service</h1>"));
-  check("  .93: the page script links the canonical policy pages (footer and Your data) and still offers no 'delete my data' (deletion is the staff's reviewed action, or a private request)", /href: "\/privacy"/.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")) && /href: "\/terms"/.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")) && !/Delete my data/i.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")));
+  check("  .117: the public page script omits the footer link row, preserves saved privacy redirects and offers no automatic deletion", !/footer-links/.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")) && /\/privacy\/account/.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")) && /\/privacy\/contact/.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")) && !/Delete my data/i.test(fs.readFileSync(path.join(root, "public/static/app.js"), "utf8")));
 
   console.log("\n== sign-in ==");
   res = await call("GET", "/auth/login");
@@ -1316,7 +1316,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".116") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".117") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

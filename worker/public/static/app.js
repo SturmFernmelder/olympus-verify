@@ -605,8 +605,7 @@
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
           h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. All other interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."),
-          S.signedIn ? h("p", null, "The picture next to your name is your own Discord picture, loaded from Discord; nobody else sees it here.") : null, // .114
-          footerLinks())));
+          S.signedIn ? h("p", null, "The picture next to your name is your own Discord picture, loaded from Discord; nobody else sees it here.") : null))); // .114
   }
   async function signOut() {
     if (dirtyKeys.size && !(await confirmBox("Leave without saving?", "You have changes that are not saved yet.", "Sign out anyway"))) return;
@@ -860,7 +859,7 @@
   function deniedView(main) {
     add(main, frame("Registration denied", null,
       h("p", { text: S.deniedText || "Your registration with Olympus has been permanently denied." }),
-      h("p", { class: "muted", text: "If you want what this site holds about you removed, ask an Olympus officer, or send a private request." }),
+      h("p", { class: "muted", text: "If you want what this site holds about you removed, ask an Olympus officer, or contact the privacy inbox for manually reviewed help." }),
       h("p", null, h("a", { href: "/privacy/account", text: "Account data controls" }), ": download your curated copy or contact the privacy inbox.")));
   }
 
@@ -2782,7 +2781,7 @@
     invalid_q: "Type at least two characters of a recipe name.",
     invalid_query: "Type a recipe name or choose a profession.",
     invalid_request: "Something in the form is not valid.",
-    intake_unavailable: "The private request form is not accepting new cases right now.",
+    intake_unavailable: "The privacy inbox is not accepting new cases right now.",
     intake_busy: "The form is busy: too many new cases in the last hour. Try again later.",
     case_not_found: "No case with that number and code. Check both; a case past its deadline is gone too.",
     case_closed: "This case is closed; nothing more can be added to it.",
@@ -2820,16 +2819,6 @@
   const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)] || (e && e.message) || fallback || "Something went wrong.";
   const PUBLIC_ROUTES = new Set(["roles", "request", "data"]); // pages that need no sign-in
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
-  function footerLinks() {
-    // .114 (Viktor, 2 Oct 2026): the policy and data links are for signed-in members. Signed out, the footer keeps only the
-    // private request form, whose people cannot sign in; /privacy and /terms stay at their addresses (the Discord
-    // application links them, and the pages that ask for data link them where they ask).
-    const request = feat("privacy_intake") ? h("a", { href: "/privacy/contact", text: "Private request" }) : null;
-    if (!S.signedIn) return request ? h("p", { class: "footer-links" }, request) : null;
-    return h("p", { class: "footer-links" },
-      h("a", { href: "/privacy", text: "Privacy Policy" }), " · ", h("a", { href: "/terms", text: "Terms of Service" }), " · ", h("a", { href: "/privacy/account", text: "Account data controls" }),
-      request ? [" · ", request] : null);
-  }
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
   async function refreshCommunity() {
     try {
