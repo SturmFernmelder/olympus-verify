@@ -47,6 +47,7 @@ import { bnetFresh } from "./bnet-retention";
 import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
 import { admittedReadAs, communityContext, communityExportPlan, FENCE_REFUSED, type CommunitySubject } from "./community-context";
 import { secondsToIso } from "./community-time";
+import { ownEventChangeStatements } from "./community-events";
 
 const ACTIONS_LIMIT = 1000;
 /** Integrity only: signed-session admission remains mandatory for every page. */
@@ -99,7 +100,7 @@ async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: st
   // Passed-user primitives are captured before awaiting; they never grant authority on their own.
   const callerId = user.discord_id, callerVersion = user.session_version;
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  if (new URL(request.url).searchParams.has("actions")) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
+  if (["actions", "eventChanges", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
@@ -142,6 +143,102 @@ async function historyRefusal(env: Env, request: Request): Promise<Response> {
 }
 const iso = (s: number | null | undefined) => (typeof s === "number" ? secondsToIso(s) : null);
 
+/** A separate collection and MAC domain; action continuations cannot select this dataset. */
+export const EVENT_CHANGE_CURSOR_LIMIT = 140;
+const EVENT_CHANGE_CURSOR = /^1\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.([A-Za-z0-9_-]{43})$/;
+export const eventChangeCursorShape = (raw: string): boolean => raw.length <= EVENT_CHANGE_CURSOR_LIMIT && EVENT_CHANGE_CURSOR.test(raw);
+export interface OwnEventChangePage {
+  entries: { eventId: string; action: "created" | "updated" | "cancelled"; at: string; changedFieldNames: string[] }[];
+  truncated: boolean; currentCursor: string; nextCursor: string | null;
+  capture: { kind: "retained_event_change_range"; at: string; count: number; delivered: number; remaining: number; complete: boolean };
+}
+export interface OwnEventChangeHistoryView {
+  generatedAt: string;
+  coverage: { kind: "curated_partial"; ownAccountOnly: true; eventChangesPageLimit: number; completeErasure: false };
+  eventChanges: OwnEventChangePage;
+}
+const eventChangeData = (payload: string, s: CommunitySubject) => JSON.stringify(["site-session", "event_changes", payload, s.discordId, s.sessionVersion, s.expiresAt]);
+async function eventChangeToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
+  const payload = historyPayload(p);
+  return `${payload}.${await sign(env.COOKIE_SECRET, "own-event-changes", eventChangeData(payload, s))}`;
+}
+async function prepareEventChanges(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
+  let p: HistoryPosition | null = null;
+  if (raw !== undefined) {
+    if (raw.length > EVENT_CHANGE_CURSOR_LIMIT) return null;
+    const parts = EVENT_CHANGE_CURSOR.exec(raw); if (!parts) return null;
+    const nums = parts.slice(1, 8).map(Number); if (!nums.every(whole)) return null;
+    p = { high: nums[0]!, total: nums[1]!, seen: nums[2]!, ts: nums[3]!, id: nums[4]!, expires: nums[5]!, captured: nums[6]! };
+    if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
+        (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
+    const payload = historyPayload(p);
+    if (!await verify(env.COOKIE_SECRET, "own-event-changes", eventChangeData(payload, s), parts[8]!)) return null;
+  }
+  return { position: p, statements: ownEventChangeStatements(env, s.discordId, p) };
+}
+async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
+  const callerId = user.discord_id, callerVersion = user.session_version;
+  if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  if (["actions", "eventChanges", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
+  const ctx = await communityContext(env, request), s = ctx.subject;
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+    return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const plan = await prepareEventChanges(env, subject, raw);
+  if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
+  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  return { ok: true, id: subject.discordId, subject, plan };
+}
+const EVENT_CHANGE_FIELDS = new Set(["title", "details", "startsAt", "durationMin", "capacity", "roleTargets"]);
+async function finishEventChanges(env: Env, s: CommunitySubject, plan: HistoryPlan, at: number, metadata: D1Result, rows: D1Result): Promise<OwnEventChangePage | null> {
+  const m = metadata.results[0] as { high_water?: unknown; total_count?: unknown; remaining_count?: unknown } | undefined;
+  if (!m || !whole(m.high_water) || !whole(m.total_count) || !whole(m.remaining_count) || !whole(at) || at === 0 || at >= s.expiresAt) return null;
+  const old = plan.position;
+  if ((m.total_count === 0) !== (m.high_water === 0) || m.remaining_count > m.total_count ||
+      (old && (m.high_water !== old.high || m.total_count !== old.total || m.remaining_count !== old.total - old.seen || at < old.captured))) return null;
+  const initial: HistoryPosition = old ?? { high: m.high_water, total: m.total_count, seen: 0, ts: 0, id: 0, expires: s.expiresAt, captured: at };
+  if (rows.results.length !== Math.min(1001, m.remaining_count)) return null;
+  const projected: OwnEventChangePage["entries"] = [];
+  let previous = initial.seen > 0 ? { ts: initial.ts, id: initial.id } : null;
+  let last: { ts: number; id: number } | null = null;
+  for (const [index, raw] of rows.results.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const r = raw as Record<string, unknown>;
+    if (!whole(r.at) || !whole(r.id) || r.id === 0 || r.id > initial.high || typeof r.event_id !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(r.event_id) ||
+        (r.action !== "created" && r.action !== "updated" && r.action !== "cancelled") || typeof r.fields !== "string" || r.fields.length > 256 ||
+        (previous && (r.at < previous.ts || (r.at === previous.ts && r.id <= previous.id)))) return null;
+    let fields: unknown;
+    try { fields = JSON.parse(r.fields); } catch { return null; }
+    if (!Array.isArray(fields) || fields.length > 6 || fields.some(f => typeof f !== "string" || !EVENT_CHANGE_FIELDS.has(f)) || new Set(fields).size !== fields.length ||
+        (r.action === "updated" ? fields.length === 0 : fields.length !== 0)) return null;
+    previous = { ts: r.at, id: r.id };
+    if (index < 1000) {
+      last = previous;
+      projected.push({ eventId: r.event_id, action: r.action, at: secondsToIso(r.at), changedFieldNames: fields as string[] });
+    }
+  }
+  const delivered = initial.seen + projected.length, remaining = initial.total - delivered;
+  if (!whole(delivered) || remaining < 0 || (remaining > 0 && projected.length !== 1000)) return null;
+  return {
+    entries: projected, truncated: remaining > 0, currentCursor: await eventChangeToken(env, s, initial),
+    nextCursor: remaining > 0 && last ? await eventChangeToken(env, s, { ...initial, seen: delivered, ts: last.ts, id: last.id }) : null,
+    capture: { kind: "retained_event_change_range", at: secondsToIso(initial.captured), count: initial.total, delivered, remaining, complete: remaining === 0 },
+  };
+}
+const eventChangesChanged = () => apiJson({ error: "event_history_changed", message: "The retained event-change range changed. Start a new capture; no completed history is claimed." }, 409);
+/** Internal own-session adapter only; no additional public route or authority. */
+export async function exportMyEventChanges(request: Request, env: Env, user: SiteUser, cursor?: string): Promise<Response> {
+  const start = await beginEventChanges(request, env, user, cursor);
+  if (!start.ok) return start.response;
+  const out = await admittedReadAs(env, start.subject, "authenticatedIdentity", [env.DB.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at"), ...start.plan.statements]);
+  if (out === FENCE_REFUSED) return historyRefusal(env, request);
+  const at = (out[0]!.results[0] as { at: number }).at;
+  const eventChanges = await finishEventChanges(env, start.subject, start.plan, at, out[1]!, out[2]!);
+  if (!eventChanges) return eventChangesChanged();
+  const body: OwnEventChangeHistoryView = { generatedAt: secondsToIso(at), coverage: { kind: "curated_partial", ownAccountOnly: true, eventChangesPageLimit: 1000, completeErasure: false }, eventChanges };
+  await audit(env, start.id, "site.copy_exported", start.id);
+  return apiJson(body);
+}
 /** .76: the member's application for their OWN copy: the parsed answers' references carry kind and label only (the key is another member's id). */
 function ownApplication(a: ReturnType<typeof appOut>) {
   const answers: Record<string, unknown> = { ...a.answers };
@@ -149,10 +246,14 @@ function ownApplication(a: ReturnType<typeof appOut>) {
   return { ...a, answers };
 }
 
-export async function exportMyData(request: Request, env: Env, user: SiteUser, actionCursor?: string): Promise<Response> {
-  const start = await beginHistory(request, env, user, actionCursor);
+export async function exportMyData(request: Request, env: Env, user: SiteUser, actionCursor?: string, eventCursor?: string): Promise<Response> {
+  if (actionCursor !== undefined && eventCursor !== undefined) return apiJson({ error: "invalid_cursor" }, 400);
+  const start = eventCursor !== undefined ? await beginEventChanges(request, env, user, eventCursor) : await beginHistory(request, env, user, actionCursor);
   if (!start.ok) return start.response;
-  const { id, subject, plan: history } = start;
+  const { id, subject } = start;
+  const history = eventCursor !== undefined ? await prepareHistory(env, subject) : start.plan;
+  const eventHistory = eventCursor !== undefined ? start.plan : await prepareEventChanges(env, subject);
+  if (!history || !eventHistory) return apiJson({ error: "invalid_cursor" }, 400);
   const plan = communityExportPlan(env, id);
   const out = await admittedReadAs(env, subject, "authenticatedIdentity", [
     env.DB.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS at"), // .76: the capture instant, the database's clock inside this batch
@@ -168,12 +269,13 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     // .74: the member's own queue state, never the officer, the claim or the note; the actions naming them as subject OR actor, paged
     env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
     ...history.statements,
+    ...eventHistory.statements,
     // .114: the account's rename records (rename-review.ts), without the administrators' identities
     env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
-  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, renames] = out;
+  const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, renames] = out;
   type Rec = Record<string, unknown>;
   const a = (account!.results[0] ?? null) as Rec | null;
   if (!a) return apiJson({ error: "conflict", message: "The account row was not present in the admitted copy. Try again." }, 409);
@@ -181,10 +283,12 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   const at = (clock!.results[0] as { at: number }).at;
   const actionPage = await finishHistory(env, subject, history, at, historyMeta!, historyRows!);
   if (!actionPage) return historyChanged();
+  const eventPage = await finishEventChanges(env, subject, eventHistory, at, eventMeta!, eventRows!);
+  if (!eventPage) return eventChangesChanged();
   const body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
-    coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, completeErasure: false },
-    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions are one page of the retained own-account range captured at actions.capture.at; later inserts are excluded. Other sections are freshly read for this download, not frozen across pages. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
+    coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, completeErasure: false },
+    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions and actor-linked eventChanges are separately captured retained ranges with their own capture.at and continuation. Later inserts are excluded from each continued range. A download continuing one range captures the other dataset afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
       : null,
@@ -206,7 +310,8 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
       inviteQueue: (queue!.results as Rec[]).map((q) => ({ character: q.name, status: q.status, attempts: q.attempts, createdAt: iso(q.created_at as number), writtenAt: iso(q.written_at as number | null), invitedAt: iso(q.invited_at as number | null), joinedAt: iso(q.joined_at as number | null), retryAfter: iso(q.retry_after as number | null), lastRefusal: q.last_reason ? { reason: q.last_reason, at: iso(q.last_reason_at as number | null) } : null })),
     },
     actions: actionPage,
-    community: plan.shape(out.slice(14)), // The added history metadata result precedes unchanged registry results.
+    eventChanges: eventPage,
+    community: plan.shape(out.slice(16)), // Both two-result history plans precede unchanged registry results.
   };
   await audit(env, id, "site.copy_exported", id);
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });

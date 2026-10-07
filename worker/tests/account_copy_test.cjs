@@ -427,6 +427,114 @@ const whereIs = (id) => {
           check(".118 after the shared rate window the same signed cookie/continuation resumes to exact range completion", response.status===200 && pages.map(p=>p.entries.length).join()==="1000,1000,1000,1000,1000,1000,1" && JSON.stringify(entries)===JSON.stringify(f.expected) && new Set(entries.map(x=>x.action)).size===6001 && pages.every(p=>p.capture.at===pages[0].capture.at && p.capture.count===6001) && pages.at(-1).capture.delivered===6001 && pages.at(-1).capture.remaining===0 && pages.at(-1).capture.complete===true && next===null && entries.filter(x=>x.action==="site.copy_exported").length===1 && copies(f.id)===beforeLimited+2);
         } finally { T=originalTime; console.log(".118 local read elapsed milliseconds (diagnostic only; scan/index cost is not guaranteed): "+JSON.stringify(times)); }
       }
+      console.log("\n== .119: separate actor-owned retained event-change capture ==");
+      {
+        const eventForm = async session => {
+          const res = await indexMod.default.fetch(new Request("https://guild.example/privacy/account", { headers: { Cookie: session } }), env(ON), ctx);
+          const text = await res.text(), forms = [...text.matchAll(/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/g)];
+          const form = forms.find(x => x[1].includes('name="collection" value="event_changes"'))?.[1] || "";
+          return { nonce: (res.headers.get("Set-Cookie") || "").split(";")[0], csrf: (form.match(/name="csrf" value="([^"]+)"/) || [])[1] || "", text };
+        };
+        const eventPost = async (session, token = "", mode = "download", controls, extra = {}, headers = {}) => {
+          const f = controls || await eventForm(session);
+          const res = await indexMod.default.fetch(new Request("https://guild.example/privacy/account/export", { method: "POST", headers: { Cookie: [session,f.nonce].join("; "), Origin: "https://guild.example", "Content-Type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams({ csrf: f.csrf, collection: "event_changes", eventChanges: token, mode, ...extra }).toString() }), env(ON), ctx);
+          const text = await res.text(); let body = {}; try { body = JSON.parse(text); } catch { /* Real script-free view/refusal. */ }
+          return { status: res.status, text, body, headers: res.headers };
+        };
+        const seedEvents = (size, over = {}) => {
+          const f = newAccount(0, over), expected = [], rowIds = [];
+          const put = db.prepare("INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)");
+          for (let i=0;i<size;i++) {
+            const eventId = "E"+String(i).padStart(21,"0"), at=T+2000+Math.floor(i/700), action=i===0?"created":i===size-1?"cancelled":"updated", fields=action==="updated"?["title","capacity"]:[];
+            rowIds.push(Number(put.run(eventId,action,f.id,at,JSON.stringify(fields)).lastInsertRowid));
+            expected.push({ eventId,action,at:iso(at),changedFieldNames:fields });
+            put.run("F"+String(i).padStart(21,"0"),"updated",OTHER,at,'["details"]');
+          }
+          return { ...f,expected,rowIds };
+        };
+        for (const size of [0,1,1000,1001,2005]) {
+          const f=seedEvents(size), session=await cookieFor(f.id), form=await eventForm(session), first=await eventPost(session,"","download",form);
+          const page=first.body.eventChanges;
+          check(`.119 ${size}: own actor range has exact count, bounded page and explicit curated partial coverage`, first.status===200 && form.csrf!=="" && page.capture.kind==="retained_event_change_range" && page.capture.count===size && page.entries.length===Math.min(size,1000) && page.capture.delivered===Math.min(size,1000) && page.capture.remaining===Math.max(size-1000,0) && page.capture.complete===(size<=1000) && first.body.coverage.eventChangesPageLimit===1000 && first.body.coverage.completeErasure===false && typeof page.currentCursor==="string");
+          db.prepare("INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)").run("B".repeat(22),"updated",f.id,T-9000,'["title"]');
+          db.prepare("INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)").run("L".repeat(22),"updated",f.id,T+9000,'["details"]');
+          const pages=[page]; let token=page.nextCursor;
+          while(token) { const response=await eventPost(session,token); check(".119 real Next POST admits the same event capture",response.status===200); pages.push(response.body.eventChanges); token=response.body.eventChanges.nextCursor; }
+          check(`.119 ${size}: ties and interleaved foreign ids traverse exactly once; later/backdated own changes are excluded`, JSON.stringify(pages.flatMap(p=>p.entries))===JSON.stringify(f.expected) && pages.every(p=>p.capture.count===size && p.capture.at===page.capture.at) && pages.at(-1).capture.complete===true && token===null);
+          if(size===1) {
+            const same=await eventPost(session,page.currentCursor), actions=await start(f.id,session);
+            check(".119 same-page JSON retains its event capture while the original action capture remains a separate dataset",same.status===200 && JSON.stringify(same.body.eventChanges.entries)===JSON.stringify(f.expected) && same.body.eventChanges.capture.count===1 && actions.status===200 && actions.body.actions.capture.kind==="retained_action_range");
+          }
+        }
+        for (const mutation of ["delivered-delete","remaining-delete","actor-drop","tuple-drop"]) {
+          const f=seedEvents(1001), session=await cookieFor(f.id), first=await eventPost(session), token=first.body.eventChanges.nextCursor;
+          if(mutation==="actor-drop") db.prepare("UPDATE community_event_changes SET actor=? WHERE id=?").run(OTHER,f.rowIds[1000]);
+          else if(mutation==="tuple-drop") db.prepare("UPDATE community_event_changes SET at=? WHERE id=?").run(T+1999,f.rowIds[1000]);
+          else db.prepare("DELETE FROM community_event_changes WHERE id=?").run(f.rowIds[mutation==="delivered-delete"?0:1000]);
+          const before=copies(f.id), response=await eventPost(session,token);
+          check(`.119 ${mutation}: observable captured count/position changes refuse completion and audit`,response.status===409 && response.body.error==="event_history_changed" && !("eventChanges" in response.body) && !("account" in response.body) && !response.headers.get("Content-Disposition") && copies(f.id)===before);
+        }
+        for (const [name,patch] of [["event-id","event_id='bad'"],["unknown-field","fields='[\"unknown\"]'"],["duplicate-field","fields='[\"title\",\"title\"]'"],["non-array","fields='{}'"],["empty-updated","fields='[]'"],["oversized-json","fields='"+JSON.stringify(["x".repeat(260)])+"'"]]) {
+          const f=seedEvents(3), session=await cookieFor(f.id); db.exec("UPDATE community_event_changes SET "+patch+" WHERE id="+f.rowIds[1]);
+          const before=copies(f.id), response=await eventPost(session);
+          check(`.119 malformed stored ${name} is a refusal with no projected arbitrary text/audit`,response.status===409 && response.body.error==="event_history_changed" && !("eventChanges" in response.body) && copies(f.id)===before);
+        }
+        {
+          const f=seedEvents(1001), session=await cookieFor(f.id), first=await eventPost(session), token=first.body.eventChanges.nextCursor, form=await eventForm(session), actionForm=await accountForm(session);
+          const actionFirst=await start(f.id,session), actionToken=actionFirst.body.actions.currentCursor;
+          const badParts=token.split("."); badParts[8]=(badParts[8][0]==="A"?"B":"A")+badParts[8].slice(1); const bad=badParts.join("."), before=copies(f.id);
+          let batches=0; BEFORE=()=>{batches++;};
+          for(const [label,raw] of [["changed MAC",bad],["other dataset",actionToken]]) {
+            const r=await eventPost(session,raw,"download",form);
+            check(".119 "+label+" refuses before admitted batch and shared-limit charge",r.status===400 && r.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);
+          }
+          const crossed=await postCopy(session,token,"download",actionForm);
+          check(".119 event token cannot continue the original action range",crossed.status===400 && crossed.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);
+          for(const extra of [{actions:""},{collection:"actions"},{collection:""},{collection:"unknown"},{mode:"unknown"}]) {
+            const r=await eventPost(session,token,"history",form,extra);
+            check(".119 strict collection/field/mode pairing refuses even empty mismatched fields",r.status===400 && r.text.includes("invalid_form") && !r.text.includes(token) && batches===0 && copies(f.id)===before);
+          }
+          const wrongCsrf=await eventPost(session,token,"history",actionForm), origin=await eventPost(session,token,"history",form,{}, {Origin:"https://other.example"});
+          check(".119 event dataset uses real bound CSRF and same-origin admission",wrongCsrf.status===403 && origin.status===403 && batches===0 && copies(f.id)===before);
+          for(const path of ["?eventChanges="+encodeURIComponent(token),"?collection=event_changes"]) {
+            const r=await call("GET","/api/me/export"+path,f.id,undefined,ON,{Cookie:session});
+            check(".119 API query cannot select/continue a dataset",r.status===400 && r.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);
+          }
+          BEFORE=null;
+          const other=seedEvents(1), otherSession=await cookieFor(other.id); batches=0; BEFORE=()=>{batches++;};
+          const crossedAccount=await eventPost(otherSession,token); BEFORE=null;
+          check(".119 another valid account cannot use a signed event continuation",crossedAccount.status===400 && crossedAccount.body.error==="invalid_cursor" && batches===0 && copies(other.id)===0);
+          const payload=cookiePayload(session), replacement=await signedSession({...payload,e:payload.e+60}); batches=0; BEFORE=()=>{batches++;};
+          const expiry=await eventPost(replacement,token); BEFORE=null;
+          check(".119 valid replacement expiry cannot reinterpret the original event token",expiry.status===400 && expiry.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);
+          db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(f.id);
+          const newVersion=await signedSession({...payload,v:2}); batches=0; BEFORE=()=>{batches++;}; const version=await eventPost(newVersion,token); BEFORE=null;
+          check(".119 valid replacement version cannot continue the original event session",version.status===400 && version.body.error==="invalid_cursor" && batches===0 && copies(f.id)===before);
+        }
+        for(const standing of ["denied","departed","banned"]) {
+          const f=seedEvents(1,{denied:standing==="denied"?1:0,in_server:standing==="departed"?0:1}); if(standing==="banned") db.prepare("INSERT INTO members(discord_id,linked_at,banned) VALUES(?,?,1)").run(f.id,T);
+          const r=await eventPost(await cookieFor(f.id));
+          check(".119 "+standing+": real valid site session reads its own event changes without guild grant",r.status===200 && r.body.account.discordId===f.id && r.body.eventChanges.capture.count===1 && r.body.coverage.completeErasure===false && !JSON.stringify(r.body.eventChanges).includes(OTHER));
+        }
+        {
+          const f=seedEvents(1), session=await cookieFor(f.id), form=await eventForm(session), before=copies(f.id);
+          const expired=await signedSession({...cookiePayload(session),e:Math.floor(RealDate.now()/1000)-1}); let batches=0; BEFORE=()=>{batches++;};
+          const response=await eventPost(expired,"","history",form); BEFORE=null;
+          check(".119 genuine database-clock expiry refuses an attempted admitted event batch, with no rows/completion/audit",[401,409].includes(response.status) && batches===1 && !response.text.includes("Current event-change page continuation") && copies(f.id)===before);
+          const user=await siteCore.currentUser(env(),new Request("https://guild.example/",{headers:{Cookie:session}})); batches=0; BEFORE=()=>{batches++;};
+          const wrong=await exporter.exportMyEventChanges(new Request("https://guild.example/privacy/account/export",{method:"POST",headers:{Cookie:session}}),env(ON),{...user,discord_id:OTHER}); BEFORE=null;
+          check(".119 passed-user primitives cannot substitute for the signed event subject",wrong.status===401 && batches===0 && copies(f.id)===before);
+        }
+        {
+          const f=seedEvents(2005), session=await cookieFor(f.id), first=await eventPost(session), page=first.body.eventChanges, form=await eventForm(session);
+          const history=await eventPost(session,page.currentCursor,"history",form);
+          check(".119 script-free event view escapes/presents only known projected data and POST-only Current/Next controls",history.status===200 && history.text.includes("Current event-change page continuation") && history.text.includes("Next event-change page continuation") && history.text.includes('name="collection" value="event_changes"') && history.text.includes('name="eventChanges" value="'+page.nextCursor+'"') && !history.text.includes('name="actions"') && !history.text.includes("<script") && !history.text.includes("?eventChanges="));
+          await postCopy(session); await eventPost(session,page.currentCursor); await postCopy(session);
+          const before=copies(f.id), limited=await eventPost(session,page.nextCursor,"history",form);
+          check(".119 action/download/event views share five reads; valid sixth event view retains matching private POST continuation",limited.status===429 && limited.text.includes("Saved event-change continuation") && limited.text.includes('name="eventChanges" value="'+page.nextCursor+'"') && limited.text.includes('name="collection" value="event_changes"') && !limited.text.includes('name="actions"') && copies(f.id)===before);
+          const time=T; try { T+=3601; const r=await eventPost(session,page.nextCursor,"download",await eventForm(session)); check(".119 rate-window resume keeps original signed event capture and fresh form",r.status===200 && r.body.eventChanges.capture.count===2005 && r.body.eventChanges.capture.delivered===2000 && r.body.eventChanges.capture.remaining===5 && r.body.eventChanges.capture.at===page.capture.at); } finally {T=time;}
+        }
+      }
     } finally { BEFORE = savedBefore; AFTER = savedAfter; T = savedT; rangeDb?.close(); db = savedDb; }
   }
 
