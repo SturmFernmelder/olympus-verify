@@ -1069,3 +1069,28 @@ schema, normal session producer, restore fence or membership capability is activ
 The owner's requested footer omission removes one SPA navigation row while leaving policy and privacy routes reachable by their direct URLs and the Discord application's policy links. The own-avatar notice and footer attribution remain. Contact messages and case receipts consistently describe the privacy inbox, whose manual review and conversation-only authority are unchanged.
 
 Recovery wording describes the data at capture and eventual export destruction instead of naming a now-deleted pre-.115 export. Existing newest-only custody, retention cutoffs and attended restore restrictions continue. This presentation change adds no identity producer, generation schema, role writer, deletion/unlink authority or provider setting. The art reference changes only app.js's exact source pin; it does not authorize new website artwork.
+
+## 7 October 2026 - captured own-account action history (.118)
+
+The existing account controls offer a script-free history view with a Next page button and a separate download for
+the displayed page. Both use POST /privacy/account/export; finite `history` and `download` modes retain the old
+blank-mode download behaviour. Continuations stay in form bodies. The initial GET /api/me/export remains available,
+but any `actions` query parameter is refused rather than allowing a private continuation in an address.
+
+The first admitted database batch captures the own-account audit high-water id and count together with its earliest
+1,000 actions. Later pages use the same captured id range and timestamp/id order, excluding subsequent inserts,
+including backdated inserts and the traversal's own copy-audit records. A domain-separated HMAC binds canonical
+continuation fields to the original signed account, session version and expiry. It gives integrity, not account
+authority: every page still uses the live version and database-clock authenticatedIdentity fence in that batch.
+
+Count, high-water, remaining count, row order and page-length checks refuse a detectably changed range with 409.
+This is a traversal of retained actions, not an immutable all-store snapshot or a commitment to unchanged contents
+against privileged replacements/restores. Other curated-copy sections are freshly read in each download's admitted
+batch at its generatedAt. A history view reads only the action section; it does not prove a file was saved.
+
+Views and downloads share the existing approximate per-isolate five-per-hour account limit. Longer histories may
+need another rate window. Readonly current/next continuation fields let the account save its place privately; a 429
+history response preserves its validated submitted continuation with a same-mode retry form. Reopening account
+controls refreshes the form for a pasted continuation, but does not renew the original signed session. COUNT and ordering can
+process more than the 1,000 returned rows, so the output cap is not a database-workload cap. No new schema, index,
+dependency, external route, privilege, identity producer, automatic erase/unlink control or Battle.net switch is added.

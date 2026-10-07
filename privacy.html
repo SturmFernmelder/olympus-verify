@@ -16,7 +16,7 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 5 October 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 7 October 2026</p>
 
 <p>Olympus Verify is a private bot run by the volunteer staff of the World of Warcraft guild &ldquo;Olympus&rdquo;. It
 serves the Olympus channels in Asmongold's Discord server, and it is not offered to the public or installed anywhere
@@ -337,13 +337,18 @@ curated JSON copy through <code>/api/me/export</code>. It contains selected acco
 reserved-name records; selected bot status, character, pending-request and queue fields without verification codes;
 and the registered community sections. Names you chose as labels and your own free text are copied as supplied and
 can name other people. Legacy Battle.net freshness flags in this copy are not evidence of Forever ownership.
-Dated actions are a paginated list of time and action name, beginning with the earliest thousand; use the returned
-continuation cursor for further pages. Each page is a separate current snapshot. The copy excludes staff notes and
+Dated actions are a paginated list of time and action name, beginning with the earliest thousand. Account data controls
+provide a script-free history view with a Next page button and a separate download for the displayed page. A traversal
+captures a range of retained actions: later entries, including backdated entries and the traversal's own copy records,
+are excluded. Its continuation is signed for the same site session and sent in a form body, never an address. If retained
+records change the captured count or page position, continuation is refused; start again for a fresh range. This is not
+an immutable multi-page database snapshot. Other account-copy sections are read afresh with each download, at that
+copy's generatedAt. The copy excludes staff notes and
 reasons, staff identities, raw roster snapshots and private payment details. Typed appointment/directory names and
 privacy inbox conversations are not matched into this account copy; use the request conversation for those.
 This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.
-If information you expect is missing, ask Olympus volunteer administration. The current download limit is about
-five copies per hour, enforced approximately in memory.</p>
+If information you expect is missing, ask Olympus volunteer administration. History views and download pages share a limit of about
+five per hour, enforced approximately in memory; longer histories may need a later window.</p>
 
 <h2>Contact</h2>
 <p>Contact Olympus volunteer administration through Olympus's officers in Asmongold's Discord server, or use the
