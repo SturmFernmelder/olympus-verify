@@ -921,8 +921,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 379151,
-      "sha256": "ec6ac1fb6ac2bed6ac7ceea5b0e1905e11e1f5bade95878c8668cf66bc42a266"
+      "bytes": 378297,
+      "sha256": "c5144c2898b8f2feb8dc0786ef67b7a566be4a61dedd5775ad9f6feaee7e83d2"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",

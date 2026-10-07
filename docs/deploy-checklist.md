@@ -4797,3 +4797,14 @@ footer placement. Bundle/deploy/private backup/owner publication and provider re
 
 Rollback is the separately retained exact ec0250d9 keeper source; applying rollback is the owner's reviewed operation,
 not an automated database restore. This candidate changes no schema. Retain recovery/drain and typed-audit gates above.
+
+
+## Worker .117 - footer and recovery wording (7 October 2026)
+
+The public SPA footer omits its Privacy Policy, Terms, account-data and contact link row at the owner's request. Direct /privacy and /terms URLs, the Discord application's policy links, standalone privacy navigation and saved account/contact route redirects remain. The footer retains attribution and the signed-in own-avatar explanation.
+
+The privacy inbox remains a manually reviewed conversation channel. Its form and receipt use that name; conversation credentials grant case access only. Existing-session curated copies remain partial. Automatic full erasure and Battle.net unlink remain unavailable. No authentication, schema, cleanup, role, permission, provider setting or lifetime changes are included.
+
+The privacy policy replaces the obsolete pre-.115 export claim with the actual capture-and-destruction lifecycle. Newest-only custody and attended recovery rules remain; an export can preserve captured records until its verified replacement permits destruction or the applicable release is accepted.
+
+Validation uses the three generated policy mirrors, compiler, real contact/session/News suites, DOM footer views and unchanged route controls. The official-art reference advances only the fixed app.js source pin and its reference digest; official image/font bytes and the approved crest exception remain. Source checks do not establish production publication: exact-head CI, bundle/asset checks and live version/route readback are separate. This patch has no schema change; the applicable exact-release backup and deployment gates remain in force. Rollback is the accepted .116 source; no automatic database restore.

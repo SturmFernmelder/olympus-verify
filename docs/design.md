@@ -1062,3 +1062,10 @@ Imports initialize constants/functions and one empty provider-pending set; they 
 Production dispatch remains CLOSED before identity flow/session/provider work; prospective SQL/cleanup definitions
 are not attached to the schema or cron. Automated erasure and unlink controls remain 503 not-performed. No generation
 schema, normal session producer, restore fence or membership capability is activated by policy publication.
+
+
+## 7 October 2026 - public footer and recovery wording (.117)
+
+The owner's requested footer omission removes one SPA navigation row while leaving policy and privacy routes reachable by their direct URLs and the Discord application's policy links. The own-avatar notice and footer attribution remain. Contact messages and case receipts consistently describe the privacy inbox, whose manual review and conversation-only authority are unchanged.
+
+Recovery wording describes the data at capture and eventual export destruction instead of naming a now-deleted pre-.115 export. Existing newest-only custody, retention cutoffs and attended restore restrictions continue. This presentation change adds no identity producer, generation schema, role writer, deletion/unlink authority or provider setting. The art reference changes only app.js's exact source pin; it does not authorize new website artwork.
