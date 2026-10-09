@@ -181,3 +181,11 @@ two helper consumers carry the new dependency pins. Prior .121 coverage is retai
 
 The external final-head source contract, scoped reviews, tests, CI and actual live readback remain separate gates.
 This copy correction proposes post-beta rank guidance and grants no native rank, bank permission or appointment.
+
+## 9 October 2026 - .123 Veteran permission correction reference
+
+The source reference binds product candidate 6eb68821b1000c24d8d72eef08497eb936f3bb85. Fresh finite coverage 8e151771c41a311a9eb4b9f8a568be8785c35be5fc5219ac7b021c79ba997f86 verifies103assets and five fixed producer rows. Only the native planner model permission flag and the site-data explanatory comment change. All official artwork, fonts, paths and approved crest pixels retain their exact bytes. Earlier .122 coverage is immutable provenance. The reference and both helper consumers are re-pinned; final exact-head contracts, independent review, tests, CI and live readback remain separate gates. The original owner item26 includes Veteran Invite Member; the later repair answer adds Guild Bank Repair and never withdrew Invite Member. This preset correction changes no native rank, permission, bank amount or appointment, and preserves existing stored/imported draft choices. AddOn0.6.5 bytes are unchanged.
+
+## .123 R123-1 rendered guidance delta
+
+The corrected product head 8535379f0141521b4506af19e03bee730650b274 also fixes the rank-planner rendered reference sentence and tests the actual PAGE_HTML. Coverage 792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1 rechecks103assets and five fixed producer rows. Only site-ranks.ts producer bytes advance from the first .123 candidate; all artwork, fonts, icon references and crest remain unchanged. The first .123 candidate and its external packet are retained historical evidence, superseded for deployment. Final reference dd612b0af643ab564798c814c8dbffc588180a4b44090b9437ee627bcb9940d7 and both helper consumer pins close this delta; exact-head packet, root byte gate, full tests, CI and actual Claude delta review are required before publication. No native rank, bank amount, appointment, AddOn or stored draft is changed.

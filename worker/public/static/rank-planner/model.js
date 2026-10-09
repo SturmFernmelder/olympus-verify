@@ -47,7 +47,7 @@
         // The current Olympus preset supplements the historical catalogue. Custom
         // and imported drafts retain their own choices; no live permission is applied.
         if (ids.length === RECOMMENDED.length && ids.every((value, index) => value === RECOMMENDED[index]) && id === 'veteran') {
-          rank.permissions.invite = false;
+          rank.permissions.invite = true;
           rank.permissions.repair = true;
         }
         return rank;

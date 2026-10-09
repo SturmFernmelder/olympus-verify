@@ -1171,3 +1171,9 @@ No current native ladder is certified or changed, and applying for a job grants 
 The existing role-description regressions now check that boundary instead of requiring the obsolete Captain and
 Treasurer claims. Unrelated historical design sections and AddOn feature descriptions remain historical or outside
 this finite wording batch; this update does not qualify those capabilities.
+
+## 9 October 2026 - .123 Veteran permission correction
+
+The original owner item 26 explicitly includes Invite Member for Veteran. The later repair-only question added Guild Bank Repair; it did not withdraw Invite Member. Earlier .121/.122 review statements and current-preset claims excluding Veteran invitations are superseded by this correction. The current recommended preset includes both permissions. Existing custom/imported/stored drafts retain their exact choices; selecting the recommendation remains an explicit action. No native rank, bank amount, staff grant or appointment is applied. The informational AddOn 0.6.5 guide contains no contrary Veteran permission statement and its bytes remain unchanged.
+
+The .123 delta review R123-1 also corrects the rendered /admin/ranks reference note: Veteran has Invite Member from owner item26 and Guild Bank Repair from the 7 October answer; no amount is set. The real PAGE_HTML test checks both the corrected owner basis and absence of the previous false exclusion. The site-data.ts change remains explanatory-comment only. The first f242 candidate and its dry/art/test receipts remain historical and do not qualify deployment. A new exact final head, reference coverage, tests, CI and both scoped reviews are required.
