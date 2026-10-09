@@ -1701,6 +1701,110 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     db.prepare("DELETE FROM community_events WHERE id = ?").run(EV);
   }
 
+  console.log("\n== Admin → Audit log (the owner's request of 7 Oct 2026, item 5) ==");
+  {
+    // sixty rows newer than anything above: the newest by the staff account, with a detail longer than the table shows
+    const t0 = Math.floor(Date.now() / 1000), long = JSON.stringify({ reason: "AUDIT-PRIVATE-REASON", ticket: "AUDIT-PRIVATE-TICKET" });
+    const rowsA = [];
+    for (let i = 0; i < 60; i++) rowsA.push(Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, 'role.restored', ?, ?)").run(t0 - 60 + i, i === 59 ? STAFF : "system", MEMBER, i === 59 ? long : null).lastInsertRowid));
+    const aud = await openPage(STAFF);
+    const asked = [];
+    aud.before((p) => { if (p.startsWith("/api/admin/audit-log")) asked.push(p); return false; });
+    await aud.go("#/admin/audit");
+    await waitFor(() => !!aud.app.querySelector("tr[data-audit-id]"), "the audit log table");
+    const tab = aud.app.querySelectorAll('nav[aria-label="Admin sections"] a').find((a) => a.textContent === "Audit log");
+    check("Admin → Audit log: the tab is among the admin sections and marked as the current one", !!tab && tab.getAttribute("href") === "#/admin/audit" && tab.getAttribute("aria-current") === "page");
+    const famSel = aud.app.querySelector("#audit-family"), winSel = aud.app.querySelector("#audit-window");
+    check("  the filters: family (All, then the families the code writes), actor (its hint names auto), subject, window (the last 7 days by default) and Show", !!famSel && texts(famSel, "option")[0] === "All" && ["role", "roster", "site", "notice", "note", "staff_notice"].every((f) => texts(famSel, "option").includes(f)) && !!aud.app.querySelector("#audit-actor") && (aud.app.querySelector("#audit-actor").getAttribute("placeholder") || "").split(", ").includes("auto") &&!!aud.app.querySelector("#audit-subject") && !!winSel && winSel.value === "7d" && texts(winSel, "option").length === 4 && !!byText(aud.app, "button", "Show"), texts(famSel || aud.app, "option"));
+    check("  the first request asks for the newest page of the last 7 days", asked[0] === "/api/admin/audit-log?window=7d", asked);
+    const cells = (id) => { const tr = aud.app.querySelector(`tr[data-audit-id="${id}"]`); return tr ? tr.children : []; };
+    const c = cells(rowsA[59]);
+    check("  a row: exact time, actor name and ID, action and subject name; private historical detail withheld",
+      c.length === 5 && c[0].getAttribute("title") === "just now" && c[0].textContent.length > 10 && c[1].textContent === "Vik (@u64)" + STAFF && c[2].textContent === "role.restored" &&
+      c[3].textContent === "Mia (@u03)" && c[3].getAttribute("title") === MEMBER && c[4].textContent.includes("details withheld") &&
+      !aud.app.textContent.includes("AUDIT-PRIVATE") && !c[4].querySelector("details"),
+      [...c].map((x) => x.textContent.slice(0, 80)));
+    check("  a system actor stays as written", cells(rowsA[58])[1] && cells(rowsA[58])[1].textContent === "system");
+    check("  the page lists fifty, Newest is off on the newest page, Older is on", aud.app.querySelectorAll("tr[data-audit-id]").length === 50 && byText(aud.app, "button", "Newest").disabled === true && byText(aud.app, "button", "Older").disabled === false);
+    byText(aud.app, "button", "Older").click();
+    await waitFor(() => asked.length >= 2 && !aud.app.querySelector(`tr[data-audit-id="${rowsA[59]}"]`) && !!aud.app.querySelector("tr[data-audit-id]"), "the older page");
+    check("  Older asks with the reply's cursor, the last id shown, and the same filters", asked[1] === `/api/admin/audit-log?window=7d&before=${rowsA[10]}` && !!aud.app.querySelector(`tr[data-audit-id="${rowsA[9]}"]`) && !aud.app.querySelector(`tr[data-audit-id="${rowsA[10]}"]`), asked);
+    byText(aud.app, "button", "Newest").click();
+    await waitFor(() => asked.length >= 3 && !!aud.app.querySelector(`tr[data-audit-id="${rowsA[59]}"]`), "the newest page again");
+    check("  Newest starts again at the newest entry", asked[2] === "/api/admin/audit-log?window=7d", asked);
+    // a stretch the Worker searched without a match, older entries left: the page names the stretch and keeps Older
+    aud.answer((p) => (p.startsWith("/api/admin/audit-log") ? { entries: [], next: 5, scanned: { lo: 5, hi: 2004 }, exhausted: false, window: "7d", limit: 50 } : null));
+    aud.app.querySelector("#audit-actor").value = "watcher";
+    aud.app.querySelector("#audit-family").value = "rank";
+    byText(aud.app, "button", "Show").click();
+    await waitFor(() => asked.length >= 4 && !aud.app.querySelector("tr[data-audit-id]"), "the empty stretch");
+    check("  Show sends the filters; an empty stretch says which entries were searched and that Older keeps looking, never that there are none", asked[3] === "/api/admin/audit-log?family=rank&actor=watcher&window=7d" && aud.app.querySelector("#audit-status").textContent === "No matching entries between #5 and #2004; Older keeps looking further back." && byText(aud.app, "button", "Older").disabled === false, asked[3], aud.app.querySelector("#audit-status") && aud.app.querySelector("#audit-status").textContent);
+    // Codex's review (7 Oct 19:58 UTC): below the window's earliest-stamped id the Worker keeps searching, and says so
+    aud.answer((p) => (p.startsWith("/api/admin/audit-log") ? { entries: [], next: 5, scanned: { lo: 5, hi: 2004 }, exhausted: false, likelyEnd: true, window: "7d", limit: 50 } : null));
+    byText(aud.app, "button", "Show").click();
+    await waitFor(() => asked.length >= 5 && /unlikely/.test((aud.app.querySelector("#audit-status") || {}).textContent || ""), "the likely-end stretch");
+    check("  past the window's earliest-stamped entry, the page says more are unlikely and still offers Older for any entry stamped out of order", aud.app.querySelector("#audit-status").textContent === "No matching entries between #5 and #2004. The rest of the log was stamped before this window, so more are unlikely; Older still checks it, for any entry stamped out of order." && byText(aud.app, "button", "Older").disabled === false);
+    // stored text that looks like markup stays text: the subject and the details are never parsed
+    const hostile = '<img src=x onerror="alert(1)"><b>bold</b>';
+    aud.answer((p) => (p.startsWith("/api/admin/audit-log") ? { entries: [{ id: 999999, ts: t0, actor: "system", actorName: null, action: "site.hostile", subject: hostile, subjectName: null, details: { label: hostile }, detailsWithheld: false, subjectWithheld: false }], next: null, scanned: { lo: 1, hi: 999999 }, exhausted: true, likelyEnd: true, window: "7d", limit: 50 } : null));
+    byText(aud.app, "button", "Show").click();
+    await waitFor(() => !!aud.app.querySelector('tr[data-audit-id="999999"]'), "the hostile row");
+    const hc = cells(999999);
+    check("  stored text that looks like markup is shown as text: no element is made from a subject or a detail", hc.length === 5 && hc[3].textContent === hostile && hc[4].textContent.includes(hostile) && hc[3].querySelectorAll("img").length === 0 && hc[4].querySelectorAll("img").length === 0 && hc[4].querySelectorAll("b").length === 0, [...hc].map((x) => x.textContent.slice(0, 60)));
+    aud.answer(null);
+    // Codex's review of 48ddfbb2 (7 Oct 2026, 20:34 UTC): a slower answer to an earlier Show must never replace a newer one,
+    // whether it arrives as a success or as a failure
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const viewIs = (actorBox) => aud.app.querySelector("#audit-actor") && aud.app.querySelector("#audit-actor").value === actorBox;
+    const showActor = (who) => { aud.app.querySelector("#audit-family").value = ""; aud.app.querySelector("#audit-actor").value = who; byText(aud.app, "button", "Show").click(); };
+    let heldOnce = false;
+    aud.hold((p) => (!heldOnce && p.includes("actor=watcher") ? ((heldOnce = true), 300) : 0));
+    showActor("watcher");
+    await sleep(20);
+    showActor("system");
+    await waitFor(() => viewIs("system") && !!aud.app.querySelector("tr[data-audit-id]"), "the newer filter's page");
+    await sleep(400); // the held answer to the older Show arrives now
+    const whoCells = aud.app.querySelectorAll("tr[data-audit-id]").map((tr) => tr.children[1].textContent);
+    check("  a late answer to an earlier Show is dropped: the newer filter's boxes and rows stay on the page", heldOnce && viewIs("system") && whoCells.length > 0 && whoCells.every((t) => t === "system"), whoCells.slice(0, 3));
+    aud.hold(null);
+    let failedOnce = false;
+    aud.delay((p) => (!failedOnce && p.includes("actor=watcher") ? 300 : 0));
+    aud.before((p) => (!failedOnce && p.includes("actor=watcher") ? ((failedOnce = true), true) : false));
+    showActor("watcher");
+    await sleep(20);
+    showActor("system");
+    await waitFor(() => viewIs("system") && !!aud.app.querySelector("tr[data-audit-id]"), "the newer filter's page again");
+    await sleep(400); // the older Show's failure arrives now
+    check("  a late failure of an earlier Show is dropped too: no error line, the newer page stays", failedOnce && viewIs("system") && !!aud.app.querySelector("tr[data-audit-id]") && !/could not be read/.test(aud.app.textContent));
+    aud.delay(null);
+    aud.before(null);
+    let routeHeld = false;
+    aud.hold((p) => (!routeHeld && p.startsWith("/api/admin/audit-log") ? ((routeHeld = true), 200) : 0));
+    byText(aud.app, "button", "Show").click();
+    await sleep(20);
+    await aud.go("#/admin");
+    await settle();
+    await sleep(300);
+    check("  an audit answer arriving after navigation cannot replace the current admin overview", routeHeld && !!byText(aud.app, "button", "Show recent activity") && !aud.app.querySelector("tr[data-audit-id]"));
+    aud.hold(null);
+    const legacyMarker = "OVERVIEW-PRIVATE-AUDIT-MARKER";
+    const legacyId = Number(db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,'site.denied',?,?)").run(t0, STAFF, MEMBER, JSON.stringify({ released: 2, reason: legacyMarker, ticket: legacyMarker, code: legacyMarker, error: legacyMarker })).lastInsertRowid);
+    const recentButton = byText(aud.app, "button", "Show recent activity");
+    recentButton.click();
+    await waitFor(() => aud.app.textContent.includes('"released":2'), "the safe recent activity summary");
+    check("  Overview's actual recent activity renders the safe summary and withholding with no historical private marker", aud.app.textContent.includes("details withheld") && !aud.app.textContent.includes(legacyMarker) && recentButton.disabled === false);
+    aud.before(p => p === "/api/admin/audit");
+    recentButton.click();
+    await waitFor(() => recentButton.disabled === false, "the refused recent activity read");
+    check("  a failed recent activity read shows an error and permits another attempt", aud.app.textContent.includes("The site could not be reached.") && recentButton.disabled === false);
+    aud.before(null);
+    recentButton.click();
+    await waitFor(() => aud.app.textContent.includes('"released":2'), "the recent activity retry");
+    check("  the same recent activity control can be retried after a failure", recentButton.disabled === false && !aud.app.textContent.includes(legacyMarker));
+    db.prepare("DELETE FROM audit WHERE id = ?").run(legacyId);
+    for (const id of rowsA) db.prepare("DELETE FROM audit WHERE id = ?").run(id);
+  }
+
   console.log("\n== standing and identity ==");
   const unconfirmed = await openPage(STAFF);
   await unconfirmed.go("#/community/directory");

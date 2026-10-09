@@ -3,7 +3,7 @@
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
   "coverage_evidence_sha256": "792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1",
-  "reference_source_head": "8535379f0141521b4506af19e03bee730650b274",
+  "reference_source_head": "ace230a0259ae71f9a8bc6d2122515c47ebef4a1",
   "assets": [
     {
       "path": "worker/public/static/app.css",
@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 378297,
-      "sha256": "c5144c2898b8f2feb8dc0786ef67b7a566be4a61dedd5775ad9f6feaee7e83d2"
+      "bytes": 385117,
+      "sha256": "2fc26303094d0e4f9ea18763f258370f5ee5b08cb48614ebab9eb18f81317b81"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -921,8 +921,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 378297,
-      "sha256": "c5144c2898b8f2feb8dc0786ef67b7a566be4a61dedd5775ad9f6feaee7e83d2"
+      "bytes": 385117,
+      "sha256": "2fc26303094d0e4f9ea18763f258370f5ee5b08cb48614ebab9eb18f81317b81"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",

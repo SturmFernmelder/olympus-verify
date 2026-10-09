@@ -1185,3 +1185,83 @@ The bot now owns an officer-chat introduction for the retained Olympus I staff c
 The guild-suggestions introduction now creates a Guide-tagged pinned forum post instead of sending a text-channel message. Main and cutover mappings target the observed forum 1557472627830956103 and the retained officer-chat 1551253115615838258. The old suggestions text channel 1555959199513575476 is retained, with no message or channel deletion. Existing four Council/development mappings and intro keys remain stable. A migration posts only in the new forum and leaves any recorded old copy alone.
 
 The existing 40-call refresh budget is retained. An empty eighteen-intro deployment may need two refreshes; the first states what was not reached and the second reads existing posts without duplication. Operators should refresh only the intended channel and read back the rendered message and pin. Record-based status alone does not certify live message content or permissions. No schema, secret, role permission, retention, appointment, AddOn or website-asset change is introduced.
+
+## 9 October 2026 - .125 full staff audit page
+
+The owner's 7 October choice was a dedicated staff page covering bot, roster, role and website actions, with names,
+filters and paging. The existing Overview recent activity alone did not complete that scope. The frozen Claude
+audit-v3 feature (59d4fcc77d581f528829ff1ae07e09d3ff31f09c) is ported into the merged .124 surrounding source,
+preserving the bounded ID scan and the original final admission fix. New source review and release qualification
+belong to the .125 tuple; the frozen candidate's historical acceptance is not acceptance of this composition.
+
+GET /api/admin/audit-log has checked family, actor, subject, window, exclusive before cursor and limit parameters.
+It walks a stretch of at most 2,000 primary-key IDs, filters timestamps themselves and returns at most 100 matches.
+Rare filters can produce an empty stretch with a valid Older cursor. The timestamp-index probe is only an empty-window
+decision or likelihood hint; it never stops traversal on an assumption that IDs and timestamps run in order.
+Local site/bot name columns are read once for approved Discord IDs, without provider HTTP or Battle.net-derived data.
+
+The aggregate staff DTO is a deterministic action allowlist. Each registered action fixes which subject kind and
+typed detail keys may leave; unrecognized actions/actors, private linkage, malformed or oversized details and all
+unapproved fields are withheld. There is no raw JSON prefix, free-text error/reason, ticket/code, tag/GUID, or private
+case/payment/evidence fallback. Case and contribution tools retain their own existing authorization and projections.
+Overview's recent endpoint keeps its route and five-field newest-100-site-action format, but derives a safe detail
+string from the same DTO and uses the same final admission. Historical audit data and its retention remain unchanged.
+
+Both handlers bind the cookie's original ID, session version and expiry before the reads, build the complete answer,
+then execute one final community fence against the live account and database clock, plus SITE_ADMINS again. Version
+revocation, denial, departure, erasure or expiry before this statement withholds the payload. A database failure closes
+with 503. Nothing asynchronous follows the check. This adds no broader authentication refactor or read-side writes.
+
+The page uses textContent, shows local names (actor IDs are explicit; a named subject's raw ID is in its tooltip), makes detail/subject
+withholding explicit, and keeps its sent filters for each
+read. Slower successes and failures cannot replace a newer read, and an answer arriving after leaving the page is
+discarded. Focused real-source SQLite and frontend tests cover these boundaries; no audit schema, new retention
+policy, dependency, external mutation, role/permission change or secret read belongs to this feature batch.
+
+### 9 October 2026 - .125 corrections after Claude's CHANGES review
+
+A125-R1 binds a subject's validated kind (Discord ID or the existing character-label grammar) to the finite list of
+actions whose DTO exposes that kind. ID-only and character-only rules cannot match a malformed historical value of
+the other kind; the removal writer's reviewed id-or-character rule accepts either. Other shapes return 400. Private
+restriction, trial, departure, contribution and OAuth/link subjects stay unqueryable even when retained or when their
+features are off. A125-R2 gives every rule an actor policy. The member contribution-acknowledgment actor and unknown
+actions are withheld, excluded from actor filtering and omitted from name resolution. Staff actors of other reviewed
+private actions remain visible; affected-member subjects and details stay withheld.
+
+Filter eligibility is derived only from the reviewed registry and bound as compact JSON membership lists, one value
+per filter, instead of a placeholder per action. The real SQLite plan retains the primary-key stretch with at most
+2,000 IDs; all filters together bind ten values, including the actor list of more than 100 actions. Each statement
+stays within D1's [100-parameter limit](https://developers.cloudflare.com/d1/platform/limits/). The original final
+cookie/session fence and maximum five statements are unchanged.
+
+A125-R3 reflects the actual writers: role.remove_failed accepts the character subject from roster.ts and the ID
+subject from interactions.ts; role.add_failed, role.deferred, role.refused_banned and roles.read_failed accept their
+roster character subject and an isId-validated discordId detail. Only those four detail rules gain an ID allowance.
+Their discordIdName is generated by the existing single local-name lookup, never read from historical detail text.
+No name is invented when local tables have none. Error/reason text stays withheld. Focused tests run the real roster
+promotion/departure and interaction writers against SQLite with only Discord effects stubbed, and guard their actual
+call-site shapes. The News enum uses the writer's edited operation (N2); payment tests use contribution_receipt and
+member contribution_acknowledged, rather than an unwritten payment action (N13).
+
+The remaining review notes are explicit limits of this correction scope:
+
+| Note | Disposition |
+|---|---|
+| N1 | Deferred: the additional roster/settings/application count and enum keys retain their conservative withholding. No new field policy is inferred. |
+| N2 | Corrected: edited is allowed; the unwritten updated value remains withheld. |
+| N3 | Deferred: verification rows keep the minimal approved action/actor projection. |
+| N4 | Corrected for R3's four actual detail-ID writers; other actions retain their existing withholding. No global ID allowance. |
+| N5 | Documentation corrected: the UI requests 50 rows; only the API accepts a checked 10-100 limit. |
+| N6 | Focused writer-fidelity guards cover the corrected role, News and private producer shapes; unknown action tests cover default display and filter withholding on both endpoints. A complete historical/all-writer census guard is deferred. |
+| N7 | Documentation corrected: actor IDs are explicit; a named subject's ID is in its tooltip. Approved role detail IDs are explicit summary values. |
+| N8 | Deferred: Overview's compatible five-field response still represents a withheld subject as null, without a separate subject marker. |
+| N9 | Deferred: the existing exact fragment guard for noncanonical audit subpaths/trailing slashes is unchanged; canonical #/admin/audit is the supported page. |
+| N10 | Deferred: late denied/out-of-server admission still uses the existing 401 signed-out wording. |
+| N11 | Covered: HEAD refusal and exact 4,000/4,001-character ASCII detail boundaries have focused tests. |
+| N12 | Unchanged: character labels use the existing bounded letter/space/apostrophe/hyphen grammar; action eligibility closes reverse lookup without inventing a roster-identity rule. |
+| N13 | Corrected: real private action names/shapes and writer vocabulary are tested, with no arbitrary payment-action substitute. |
+| N14 | Unchanged: the legacy newest-100 site.* query predates .125 and has no primary-key stretch bound; its projection and final admission stay safe. |
+| N15 | Preserved: the deliberate safe projection and narrowed legacy response replace historical raw-display/byte-identity behavior. |
+
+These changes are an unshipped .125 candidate. Codex test evidence is not actual Claude's review of the corrected
+tuple; publication/CI, separate reviews and live owner acceptance remain open. Item 5 stays Partial through those gates.

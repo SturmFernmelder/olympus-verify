@@ -1787,6 +1787,7 @@
     votes: { minAccountDays: 0, minServerDays: 0, includeDenied: false, includeLeft: false, onlyApplicants: false },
     apps: { position: "", backups: true, profession: "", status: "open", q: "", offset: 0, sort: "new" },
     names: { status: "active", q: "", contested: false, applicants: "", offset: 0 },
+    audit: { family: "", actor: "", subject: "", window: "7d", before: 0 },
     heat: "",
   };
   const qs = (o) => Object.entries(o).filter(([, v]) => v !== "" && v !== false && v !== 0 && v !== null && v !== undefined).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === true ? "1" : v)}`).join("&");
@@ -1801,7 +1802,7 @@
   };
 
   function adminTabs(sub) {
-    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"]]; // .114: Renames; .115: News
+    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"]]; // .114: Renames; .115: News; .125: Audit log
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
       h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" })); // .86
@@ -1822,6 +1823,7 @@
       settings: adminSettings,
       renames: adminRenames, // .114
       news: (b) => adminNews(b), // .115
+      audit: adminAudit, // .125: the safe projection of the dated staff log
       community: (b) => adminCommunity(b, parts.slice(1)), // .98
     };
     await (own(views, sub) ? views[sub] : adminOverview)(body);
@@ -1880,10 +1882,16 @@
     const showActivity = h("button", { class: "btn small", type: "button", text: "Show recent activity" });
     showActivity.addEventListener("click", async () => {
       showActivity.disabled = true;
-      const a = await api("GET", "/api/admin/audit");
-      clear(activity).appendChild(h("div", { class: "table-wrap" }, h("table", { class: "data" },
-        h("thead", null, h("tr", null, h("th", { text: "When" }), h("th", { text: "Who" }), h("th", { text: "What" }), h("th", { text: "Detail" }))),
-        h("tbody", null, a.audit.map((r) => h("tr", null, h("td", { class: "nowrap", text: ago(r.ts) }), h("td", { text: r.actor }), h("td", { text: r.action.replace(/^site\./, "") }), h("td", { class: "small wrap", text: [r.subject, r.details].filter(Boolean).join(" ").slice(0, 160) })))))));
+      try {
+        const a = await api("GET", "/api/admin/audit");
+        clear(activity).appendChild(h("div", { class: "table-wrap" }, h("table", { class: "data" },
+          h("thead", null, h("tr", null, h("th", { text: "When" }), h("th", { text: "Who" }), h("th", { text: "What" }), h("th", { text: "Detail" }))),
+          h("tbody", null, a.audit.map((r) => h("tr", null, h("td", { class: "nowrap", text: ago(r.ts) }), h("td", { text: r.actor }), h("td", { text: r.action.replace(/^site\./, "") }), h("td", { class: "small wrap", text: [r.subject, r.details].filter(Boolean).join(" ").slice(0, 160) })))))));
+      } catch (err) {
+        clear(activity).appendChild(errorLine(explain(err, "Recent activity could not be read.")));
+      } finally {
+        showActivity.disabled = false;
+      }
     });
     // .45: who plans to take which profession (open applications, denied accounts left out); a row lists them.
     const profCount = Object.fromEntries((o.professions || []).map((r) => [r.profession, r.n]));
@@ -2192,6 +2200,77 @@
         h("p", { class: "muted small", text: "Characters the officers' roster shows under a new name: the same character, followed by its in-game identifier, from the last 120 days. An ordinary rename keeps the link and needs nothing. The roster cannot tell why a character was renamed, so mark only a rename Blizzard required: that member applies again, with a new application and a fresh in-game verification." }),
         data.renames.length ? renamesTable : h("p", { class: "muted small", text: "No renames recorded." })),
     ]);
+  }
+
+  const AUDIT_FAMILIES = ["site", "role", "roles", "verify", "roster", "invite", "community", "admin", "link", "notice", "note", "staff_notice", "guild", "review", "rename", "rank", "queue", "nick", "intros", "bnet"];
+  const AUDIT_WINDOWS = [["1d", "Last day"], ["7d", "Last 7 days"], ["30d", "Last 30 days"], ["all", "All time"]];
+  // Codex's review of the candidate (7 Oct 2026, 20:34 UTC): a slower answer to an earlier Show, Older, Newest or visit must
+  // never replace a newer one. Every read takes the next number; an answer, or a failure, whose number is no longer the
+  // latest is dropped, and each read keeps the filters it was sent with rather than reading A.audit again after its await.
+  let auditReads = 0;
+  async function adminAudit(body) {
+    const f = A.audit;
+    const read = ++auditReads;
+    const sent = { family: f.family, actor: f.actor, subject: f.subject, window: f.window, before: f.before };
+    const family = h("select", { id: "audit-family" }, h("option", { value: "", text: "All" }), AUDIT_FAMILIES.map((k) => h("option", { value: k, text: k, selected: f.family === k })));
+    const actor = h("input", { type: "text", id: "audit-actor", value: f.actor, placeholder: "Discord ID, or watcher, system, cron, site, auto", autocomplete: "off", spellcheck: "false" });
+    const subject = h("input", { type: "text", id: "audit-subject", value: f.subject, placeholder: "Exact subject", maxlength: "80", autocomplete: "off", spellcheck: "false" });
+    const win = h("select", { id: "audit-window" }, AUDIT_WINDOWS.map(([k, t]) => h("option", { value: k, text: t, selected: f.window === k })));
+    const show = h("button", { class: "btn small", type: "button", text: "Show" });
+    // Show reads the boxes and starts at the newest entry; Older and Newest keep the filters this page was read with
+    const showNew = () => { Object.assign(f, { family: family.value, actor: actor.value.trim(), subject: subject.value.trim(), window: win.value, before: 0 }); adminAudit(body); };
+    const page = (before) => { f.before = before; adminAudit(body); };
+    show.addEventListener("click", showNew);
+    for (const box of [actor, subject]) box.addEventListener("keydown", (e) => { if (e.key === "Enter") showNew(); });
+    const filters = h("div", { class: "filters" },
+      h("label", { class: "field" }, h("span", { class: "lab small", text: "Family" }), family),
+      h("label", { class: "field" }, h("span", { class: "lab small", text: "Actor" }), actor),
+      h("label", { class: "field" }, h("span", { class: "lab small", text: "Subject" }), subject),
+      h("label", { class: "field" }, h("span", { class: "lab small", text: "Window" }), win),
+      show);
+    const intro = h("p", { class: "muted small", text: "What the bot, the officers' roster, the role writer and this site recorded in the dated log, newest first: who acted, what they did and to whom. The entries carry Discord IDs, so this page is for site admins only; reading it is not recorded. Only approved summaries are shown; private details and unrecognized records are withheld. Each request searches up to 2,000 record IDs back, so a rare filter can take Older more than once." });
+    let d;
+    try {
+      d = await api("GET", "/api/admin/audit-log?" + qs(sent));
+    } catch (err) {
+      if (read !== auditReads || currentRoute() !== "admin/audit" || !S.signedIn || S.denied || !(S.user && S.user.isAdmin)) return; // a newer read owns the page now
+      clear(body);
+      add(body, frame("Audit log", null, intro, filters, errorLine(explain(err, "The audit log could not be read."))));
+      return;
+    }
+    if (read !== auditReads || currentRoute() !== "admin/audit" || !S.signedIn || S.denied || !(S.user && S.user.isAdmin)) return; // a newer read owns the page now
+    const entries = Array.isArray(d.entries) ? d.entries : [];
+    const who = (id, name) => (name ? [h("span", { text: name }), h("br"), h("span", { class: "faint small", text: id })] : h("span", { text: id }));
+    const detail = (r) => {
+      const summary = r.details && typeof r.details === "object" && !Array.isArray(r.details)
+        ? Object.entries(r.details).map(([key, value]) => key + ": " + String(value)).join("; ") : "";
+      return [summary ? h("span", { text: summary }) : null,
+        r.detailsWithheld ? h("span", { class: "faint small", text: (summary ? " · " : "") + "Private or unrecognized details withheld" }) : null];
+    };
+    const table = h("div", { class: "table-wrap" }, h("table", { class: "data" },
+      h("thead", null, h("tr", null, ["When", "Who", "What", "Subject", "Detail"].map((t) => h("th", { text: t })))),
+      h("tbody", null, entries.map((r) => h("tr", { "data-audit-id": String(r.id) },
+        h("td", { class: "nowrap", title: ago(r.ts), text: fmtDateTime(r.ts) }),
+        h("td", null, who(r.actor, r.actorName)),
+        h("td", { text: r.action }),
+        h("td", r.subjectName ? { title: r.subject } : null, r.subjectName ? h("span", { text: r.subjectName }) : h("span", { text: r.subject || (r.subjectWithheld ? "Withheld" : "—") })),
+        (() => { const td = h("td", { class: "small wrap" }, detail(r)); td.style.overflowWrap = "anywhere"; return td; })())))));
+    const span = d.scanned ? `#${d.scanned.lo} and #${d.scanned.hi}` : "";
+    const status = entries.length
+      ? `${plural(entries.length, "entry", "entries")}, newest first${d.exhausted ? ", to the start of this window." : "."}`
+      : d.exhausted || !span
+        ? (sent.before ? "No older matching entries in this window." : "No matching entries in this window.")
+        : d.likelyEnd
+          ? `No matching entries between ${span}. The rest of the log was stamped before this window, so more are unlikely; Older still checks it, for any entry stamped out of order.`
+          : `No matching entries between ${span}; Older keeps looking further back.`;
+    clear(body);
+    add(body, frame("Audit log", null, intro, filters,
+      entries.length ? table : null,
+      h("div", { class: "pager" },
+        h("span", { class: "muted small", id: "audit-status", text: status }),
+        h("div", { class: "btn-row" },
+          h("button", { class: "btn small", type: "button", text: "Newest", disabled: !sent.before, onclick: () => page(0) }),
+          h("button", { class: "btn small", type: "button", text: "Older", disabled: !Number.isInteger(d.next), onclick: () => page(d.next) })))));
   }
 
   // ---------- news (.115) ----------
