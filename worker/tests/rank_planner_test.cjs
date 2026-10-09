@@ -139,7 +139,7 @@ const current = Model.createDraft(catalogue.ranks);
 const rank = id => current.ranks.find(r => r.id === id);
 check("the earlier 26 ideas retain their complete original data", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "752e85a9ea2e159a2b59b0bb16b9bae63274462d8abc842f35344b8e9da0e2b1");
 check("High Council's sensitive draft rights apply to all rank holders and require an authenticator", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]) && rank("officer").permissions.gold === false);
-check("Raid Leader retains authenticator and Veteran has repairs without invitations", rank("raidlead").permissions.auth && !rank("veteran").permissions.invite && rank("veteran").permissions.repair);
+check("Raid Leader retains authenticator and Veteran has the requested invitations plus repairs", rank("raidlead").permissions.auth && rank("veteran").permissions.invite && rank("veteran").permissions.repair);
 check("new exports distinguish owner policy from the historical attachment and remain unapproved", current.schema === "olympus-rank-draft/v2" && current.source.policy === Model.POLICY && current.review.claudeCode === "pending" && current.review.codex === "pending" && current.review.liveChangesApplied === false);
 check("every non-GM numeric allowance remains zero", current.ranks.slice(1).every(r => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0 && !r.bank.unlimited));
 const legacyText = read(path.join(__dirname,"fixtures","rank-planner-v1.json"));

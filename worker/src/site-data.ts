@@ -24,7 +24,7 @@ import { normalizeCharacter } from "./codes";
  * native ladder is Guild Master, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt,
  * Initiate. Co-Guild Master and Treasurer are appointments within High Council, not separate native ranks.
  * The approved preset gives every High Council holder Withdraw Gold and Modify Bank Tabs and retains the
- * Raid Leader authenticator safeguard. Veteran has Guild Bank Repair, without Invite Member. No numeric bank
+ * Raid Leader authenticator safeguard. Veteran has Invite Member and Guild Bank Repair. No numeric bank
  * allowances have been approved; zero preset allowances are unset placeholders, not an approved spending limit.
  * The current in-game ladder is not certified here. Each Guild Master must review and configure ranks and bank
  * permissions in an attended session. Application choices do not change the native ladder or AddOn permissions.

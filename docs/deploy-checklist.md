@@ -4942,3 +4942,9 @@ Rollout: publish only after the owner's reviewed exact-commit gates, then verify
 role descriptions. No native permission or role assignment follows from the copy. No database migration or backup
 lifecycle change is needed. Rollback is a separately admitted prior-source deployment; do not change guild ranks,
 roles, bank limits, credentials, counters or queues as an automatic rollback.
+
+## Worker .123 - Veteran permission correction (9 October 2026)
+
+The original owner item 26 explicitly includes Invite Member for Veteran. The later repair-only question added Guild Bank Repair; it did not withdraw Invite Member. Earlier .121/.122 review statements and current-preset claims excluding Veteran invitations are superseded by this correction. The current recommended preset includes both permissions. Existing custom/imported/stored drafts retain their exact choices; selecting the recommendation remains an explicit action. No native rank, bank amount, staff grant or appointment is applied. The informational AddOn 0.6.5 guide contains no contrary Veteran permission statement and its bytes remain unchanged.
+
+Validate the real preset model and preserved-draft cases, the full Worker suites and exact publication helper byte contract. Use the approved committed export after matching main tree and main-push CI. Check live build .123, model bytes and the default preset without changing any stored personal draft or native permissions. The governance-book sentence excluding Invite Member also needs a separate finite correction before publication; this source batch does not issue or ratify that book.
