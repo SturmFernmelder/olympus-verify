@@ -3234,7 +3234,10 @@ SLASH_OLYMPUSVERIFY1 = "/olv"
 SlashCmdList.OLYMPUSVERIFY = function(msg)
   local cmd = string.lower(string.match(msg or "", "^%s*(%S*)") or "")
   local db = OlympusVerifyDB
-  if cmd == "flush" then
+  if cmd == "ranks" then
+    if OlympusVerifyRanks and OlympusVerifyRanks.Print then OlympusVerifyRanks.Print(Print)
+    else Print("rank guide not loaded — restart the game once after updating the addon.") end
+  elseif cmd == "flush" then
     OlympusVerify_Flush() -- typed slash commands count as hardware events
   elseif cmd == "roster" then
     if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() elseif GuildRoster then GuildRoster() end
@@ -3401,7 +3404,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     else
       Print(string.format("presence checks: %s — the queue lists everyone.", Presence.blocked and "refused by this client" or (Presence.enabled and "no /who API here" or "off in Config.lua")))
     end
-    Print("/olv (panel) | members [name] | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
+    Print("/olv (panel) | members [name] | ranks | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
   elseif cmd == "show" or cmd == "hide" or cmd == "" then
     if OlympusVerifyUI and OlympusVerifyUI.Toggle then
       if cmd == "show" then OlympusVerifyUI.Show() elseif cmd == "hide" then OlympusVerifyUI.Hide() else OlympusVerifyUI.Toggle() end

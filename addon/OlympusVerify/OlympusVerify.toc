@@ -2,13 +2,14 @@
 ## Title: Olympus Verify
 ## Notes: Discord verification for the Olympus guild: whisper/mail code intake, queued invites, signed join confirmations, full roster export. /olv opens the panel.
 ## Author: Olympus
-## Version: 0.6.4
+## Version: 0.6.5
 ## SavedVariables: OlympusVerifyDB
 
 # Interface number: set to the Forever beta client's build (check /run print((select(4, GetBuildInfo()))) in game).
 Libs\OlympusHmac.lua
 Config.lua
 OlympusQueue.lua
+OlympusVerifyRanks.lua
 OlympusVerify.lua
 OlympusVerifyUI.lua
 OlympusVerifyPreview.lua

@@ -1,4 +1,5 @@
-/* Rank content preserved from the user-supplied Forever Guild Rank Codex.
+/* The original 26 rank ideas are preserved from the user-supplied Forever Guild Rank Codex.
+ * High Council is separately attributed to the owner's October 2026 decisions.
  * No document script is executed; all governance remains draft-only.
  */
 (function(root) {
@@ -9,6 +10,20 @@
     "status": "User-supplied recommendations; draft popularity is not verification."
   },
   "ranks": [
+    {
+      "id": "highcouncil",
+      "name": "High Council",
+      "aliases": ["High Councillor"],
+      "cat": "leadership",
+      "tier": 2.1,
+      "pos": "Olympus slot 2",
+      "purpose": "Olympus-wide leadership and departmental appointments. Treasurer is an appointment within High Council, rather than a separate rank in the Olympus preset.",
+      "perms": {"bundle": true, "promote": true, "demote": true, "invite": true, "remove": true, "repair": true, "gold": true, "tabs": true, "auth": true},
+      "limits": "Highest daily allowance after Guild Master; amount and each bank tab need Guild Master review. Draft withdrawals start at zero.",
+      "note": "Owner-approved Olympus preset: Withdraw Gold and Modify Bank Tabs apply to every High Council character, including those without a Treasurer appointment. Co-GM is also an appointment. This draft applies no live permissions.",
+      "origin": "Olympus owner decisions, October 2026",
+      "src": []
+    },
     {
       "id": "gm",
       "name": "Guild Master",

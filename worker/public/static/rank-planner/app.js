@@ -10,7 +10,7 @@
   const categories = { leadership: 'Leadership', officer: 'Officer role', progression: 'Raid roster', community: 'Community', utility: 'Utility' };
   const labels = { bundle: 'Officer bundle', promote: 'Promote members', demote: 'Demote members', invite: 'Invite members', remove: 'Remove members', speak: 'Speak in guild chat', recruit: 'Recruitment', repair: 'Guild bank repairs', gold: 'Withdraw gold', tabs: 'Modify bank tabs', auth: 'Require an authenticator' };
   let draft = Model.createDraft(catalogue);
-  let selectedId = 'officer';
+  let selectedId = 'highcouncil';
   let exportText = '';
   let storageAvailable = true;
   let feedbackTimer;
@@ -20,7 +20,7 @@
     if (text !== undefined) node.textContent = text;
     return node;
   }
-  const rankIconKeys = {"gm":"pos-guild_master","cogm":"pos-co_gm","officer":"pos-officer","officeralt":"assist","treasurer":"pos-treasurer","raidlead":"pos-raid_leader","classlead":"pos-class_lead","recruiter":"pos-recruitment","moderator":"pos-moderator","lootcouncil":"pos-loot_council","eventofficer":"icon-clock","pvplead":"pos-pvp_leader","mentor":"role-guide","veteran":"leader","coreraider":"pos-raider","raider":"role-dps","trialraider":"role-flex","bench":"waiting","member":"pos-member","social":"pos-community","trial":"icon-apply","initiate":"pos-member","alt":"assist","crafter":"pos-professions","inactive":"waiting","muted":"not-ready"};
+  const rankIconKeys = {"highcouncil":"leader","gm":"pos-guild_master","cogm":"pos-co_gm","officer":"pos-officer","officeralt":"assist","treasurer":"pos-treasurer","raidlead":"pos-raid_leader","classlead":"pos-class_lead","recruiter":"pos-recruitment","moderator":"pos-moderator","lootcouncil":"pos-loot_council","eventofficer":"icon-clock","pvplead":"pos-pvp_leader","mentor":"role-guide","veteran":"leader","coreraider":"pos-raider","raider":"role-dps","trialraider":"role-flex","bench":"waiting","member":"pos-member","social":"pos-community","trial":"icon-apply","initiate":"pos-member","alt":"assist","crafter":"pos-professions","inactive":"waiting","muted":"not-ready"};
 
   function rankIcon(id) {
     const image = element('img', 'rank-image');
@@ -101,7 +101,7 @@
       if (template.aliases.length) card.append(element('p', 'aliases', template.aliases.join(' · ')));
       card.append(element('p', 'purpose', template.purpose));
       const bottom = element('div', 'card-bottom');
-      bottom.append(element('span', 'citation', `${template.src.length} of 15 drafts`));
+      bottom.append(element('span', 'citation', template.origin || `${template.src.length} of 15 earlier drafts`));
       if (included) bottom.append(button('In your ladder', 'button quiet', () => { selectedId = template.id; render(); $('editor-feedback').textContent = ''; $('editor').showModal(); }, { label: `Review ${template.name} in your ladder` }));
       else bottom.append(button('Add rank', 'button small', () => perform(() => Model.addRank(draft, catalogue, template.id), `${template.name} added above the entry rank.`), { disabled: draft.ranks.length >= 10, label: `Add ${template.name}`, title: draft.ranks.length >= 10 ? 'All 10 slots are in use. Remove a rank first.' : '' }));
       card.append(bottom);
@@ -109,7 +109,7 @@
     }
     if (!list.length) fragment.append(element('p', 'empty-state', 'No ranks match that search. Try a different name or purpose.'));
     $('cards').replaceChildren(fragment);
-    $('result-count').textContent = `${list.length} / 26`;
+    $('result-count').textContent = `${list.length} / ${catalogue.length}`;
   }
   function renderLadder() {
     $('ladder-count').textContent = `${draft.ranks.length} / 10`;
@@ -197,6 +197,7 @@
   }
   function render() { renderCards(); renderLadder(); renderEditor(); }
   restore();
+  if (!draft.ranks.some(rank => rank.id === selectedId)) selectedId = draft.ranks[1].id;
   render();
   for (const id of ['search', 'category', 'sort']) $(id).addEventListener(id === 'search' ? 'input' : 'change', renderCards);
   $('plan-title').addEventListener('change', () => perform(() => Model.assertValid({ ...draft, title: $('plan-title').value.trim() }, catalogue), 'Plan name saved.'));
