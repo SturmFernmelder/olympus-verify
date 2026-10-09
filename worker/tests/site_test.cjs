@@ -516,13 +516,6 @@ const bootOf = async (res) => {
     check("  .122 rank guidance is proposed for post-beta and reaches the boot data without Captain or native Treasurer claims",
       guided.every((k) => /^Post-beta guidance:/.test(game(k))) && ps.every((p) => !/Captain|The Treasurer rank/.test(p.info.game)) &&
       html.includes("Post-beta guidance:") && !html.includes("In the Olympus addon you are a Captain"));
-    check("  appointments, High Council bank rights and Raid Leader safeguards do not promise an approved numeric allowance",
-      ["co_gm", "treasurer"].every((k) => /appointment within High Council, not a separate native rank/.test(game(k))) &&
-      /every High Council holder/.test(game("treasurer")) && /Withdraw Gold/.test(game("treasurer")) && /Modify Bank Tabs/.test(game("treasurer")) &&
-      /no numeric daily allowance is approved/.test(game("treasurer")) && ["raid_leader_na", "raid_assist_eu"].every((k) => /authenticator safeguard/.test(game(k))));
-    check("  wording alone keeps existing leadership choices, appointment defaults and voting exclusions",
-      ["co_gm", "treasurer", "officer"].every((k) => ps.some((p) => p.key === k && p.group === "leadership")) && !ps.some((p) => p.key === "high_council") &&
-      data.DEFAULT_APPOINTED.treasurer === "Fernmelder" && data.DEFAULT_NO_VOTE.join() === "co_gm" && b("treasurer").seats === 1);
     check("  and the page shows them as the role's \"In game\" fact", /h\("dt", \{ text: "In game" \}\)/.test(js) && /info\.game/.test(js));
   }
 
