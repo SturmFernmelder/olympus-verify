@@ -2,8 +2,8 @@
   "schema": "olympus-official-website-reference-v1",
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
-  "coverage_evidence_sha256": "610bfa0317e4815f3315966ec0998b66760da8fe7a4e098bffb14e3a376c7841",
-  "reference_source_head": "8174d26ccf2534aef36d54d488c5e70f5948d0eb",
+  "coverage_evidence_sha256": "bf5944a58b3b41ca5e0e5134e36aa6ca97149d810fcccc7d739ecf2862d8effe",
+  "reference_source_head": "9e9841ec6725868eb631b34b72e060b6e74b5729",
   "assets": [
     {
       "path": "worker/public/static/app.css",
@@ -909,8 +909,8 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 49243,
-      "sha256": "89a636ddadf1b3b9b05dbcd06b163070532cdbd07d61b0ae72f65a889e1fe4a8"
+      "bytes": 50398,
+      "sha256": "d80ad218ec99a915d569aded253dd6b9ff4117b26e20e8667e2ed906620a4741"
     },
     {
       "path": "worker/src/site-ranks.ts",
@@ -945,7 +945,7 @@
     "Known custom/generated website art is rejected by hash except the exact owner-approved Olympus crest at its sole brand/tab-icon path; generated cover and custom SVG artwork remain excluded from the website.",
     "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published.",
     "The owner-approved signed-in own-header Discord identity picture is external identity data, not a bundled interface-art asset: exact producer/renderer/CSP source pins and the source-bound coverage receipt carry this narrow exception. Eight other account-image sites remain official game icons; the static scanner does not validate external image addresses or prove account ownership.",
-    "The .121 source head identifies the reviewed product candidate; candidate/map hashes retain the inherited official pixel/font basis. The fresh finite coverage receipt rechecks 103 assets and five fixed-source rows, including unchanged runtime-byte metadata repairs. Final exact-head external contract and review remain separate."
+    "The .122 source head identifies the reviewed product candidate; candidate/map hashes retain the inherited official pixel/font basis. The fresh finite coverage receipt rechecks 103 unchanged assets and five fixed-source rows, rebinding only site-data.ts for ten informational role-copy windows. Final exact-head external contract and review remain separate."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
