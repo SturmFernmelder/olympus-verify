@@ -938,8 +938,10 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
 
   // The vocabulary guard: the files .115 changes may not name a fixed list of withheld terms and names. The test compares
   // SHA-256 digests of lowercase 1-3 word n-grams, so it never spells out what it checks. The allowances are the
-  // occurrences that were already in the keeper before .115 (counts per file, never raised; README.md, CLAUDE.md and the
-  // runbook had none at 58abea31).
+  // occurrences already in the keeper before .115; those allowances remain fixed. The owner's 7 October request
+  // (items 3 and 26) separately approves the public rank phrase used by .122. Only its seven exact occurrences in
+  // site-data.ts are allowed below; every other digest/file and any additional occurrence remain restricted.
+  // README.md, CLAUDE.md and the runbook had none at 58abea31.
   const GUARD = new Set([
     "c09c8072b00c830604091fab6285928f37ce5c9340ff8bf1be44d377b8558af7", "14738f5d0554c456b600ef8882f003ccf82184c67d90cc40cbffec1d3f80b796", "edd5a14cc93b6ea1c28de573c5388b47cddccb90ca7e5756f48e947a2379f671",
     "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186", "a36835a9205979a29fa5c0b92389c3d3d0e53cb1e898f6d70851fd5eb8118a98", "beaea7317fb1a16805a9f6136945be9cd6004dbcd4d33d58619541b849e530f5",
@@ -953,7 +955,10 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     "f6754549f1d16f8d7dd644b34ebcd5e859f06c8f63325d4c390d1028b69ad9e0",
   ]);
   const ALLOWED = {
-    "worker/src/site-data.ts": { "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1 },
+    "worker/src/site-data.ts": {
+      "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1,
+      "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b": 7,
+    },
     "worker/public/static/app.js": { "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1 },
   };
   const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
