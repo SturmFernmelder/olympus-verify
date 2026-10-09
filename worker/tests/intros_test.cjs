@@ -45,9 +45,9 @@ const EXPECTED_INTRO_KEYS = [
   "olympus-info", "olympus-notices", "olympus-visitors", "guild-announcements", "guild-chat",
   "looking-for-group", "classes-and-builds", "professions-and-trade", "raid-announcements",
   "raid-signups", "raid-discussion", "loot-and-raid-rules", "council-info", "council-chat",
-  "council-decisions", "addon-development", "guild-suggestions",
+  "council-decisions", "addon-development", "officer-chat", "guild-suggestions",
 ];
-const ADDED_INTRO_KEYS = ["council-info", "council-chat", "council-decisions", "addon-development", "guild-suggestions"];
+const ADDED_INTRO_KEYS = ["council-info", "council-chat", "council-decisions", "addon-development", "officer-chat", "guild-suggestions"];
 const EXPECTED_MAPPING_KEYS = [...EXPECTED_INTRO_KEYS, "server-rules", "join-olympus", "the-tavern", "dungeon-party-1", "dungeon-party-2"].sort();
 
 const env = { DB: D1, DISCORD_APP_ID: "1550176895671341076", DISCORD_BOT_TOKEN: "test-token", INTROS_GUILD_ID: GUILD, INTROS_ROLES: tomlVar("INTROS_ROLES"), INTROS_CHANNELS: CHANNELS_RAW };
@@ -57,7 +57,8 @@ let D;
 const resetDiscord = () => {
   D = { next: 900000000000000000n, messages: new Map(), threads: new Map(), calls: [], followups: [], failPin: false, failPostChannel: "", oldPinRouteOnly: false, reasons: [],
         forums: { [CH["looking-for-group"]]: [{ id: "7001", name: "Dungeon" }, { id: "7005", name: "Other" }],
-                  [CH["classes-and-builds"]]: [{ id: "7101", name: "Warrior" }, { id: "7110", name: "Guide" }, { id: "7111", name: "Question" }] } };
+                  [CH["classes-and-builds"]]: [{ id: "7101", name: "Warrior" }, { id: "7110", name: "Guide" }, { id: "7111", name: "Question" }],
+                  [CH["guild-suggestions"]]: [{ id: "7201", name: "Guide" }] } };
 };
 const nextId = () => String(D.next++);
 globalThis.fetch = async (url, init = {}) => {
@@ -128,10 +129,11 @@ async function run(i) {
   resetDiscord();
   console.log("== the copy itself ==");
   const textOf = (x) => JSON.stringify(x);
-  check("the source has exactly the seventeen reviewed intros, preserving the twelve original keys", JSON.stringify(INTROS.map((x) => x.key)) === JSON.stringify(EXPECTED_INTRO_KEYS) && INTROS.filter((x) => !x.forum).length === 15 && INTROS.filter((x) => x.forum).length === 2);
-  check("live and cutover INTROS_CHANNELS use the same complete twenty-two-key mapping", CUTOVER_CHANNELS_RAW === CHANNELS_RAW && JSON.stringify(Object.keys(CH).sort()) === JSON.stringify(EXPECTED_MAPPING_KEYS));
+  check("the source has eighteen intros, preserving the twelve original keys", JSON.stringify(INTROS.map((x) => x.key)) === JSON.stringify(EXPECTED_INTRO_KEYS) && INTROS.filter((x) => !x.forum).length === 15 && INTROS.filter((x) => x.forum).length === 3);
+  check("live and cutover INTROS_CHANNELS use the same complete twenty-three-key mapping", CUTOVER_CHANNELS_RAW === CHANNELS_RAW && JSON.stringify(Object.keys(CH).sort()) === JSON.stringify(EXPECTED_MAPPING_KEYS));
   const rawChannelPairs = CHANNELS_RAW.split(",").map((p) => p.split("="));
-  check("all twenty-two configured channel keys and ids are distinct valid snowflakes", rawChannelPairs.length === 22 && new Set(rawChannelPairs.map((p) => p[0])).size === 22 && new Set(rawChannelPairs.map((p) => p[1])).size === 22 && rawChannelPairs.every((p) => p.length === 2 && /^[0-9]{17,20}$/.test(p[1])));
+  check("all twenty-three configured channel keys and ids are distinct valid snowflakes", rawChannelPairs.length === 23 && new Set(rawChannelPairs.map((p) => p[0])).size === 23 && new Set(rawChannelPairs.map((p) => p[1])).size === 23 && rawChannelPairs.every((p) => p.length === 2 && /^[0-9]{17,20}$/.test(p[1])));
+  check("suggestions points at the observed forum, and officer-chat at the retained channel", CH["guild-suggestions"] === "1557472627830956103" && CH["officer-chat"] === "1551253115615838258" && !Object.values(CH).includes("1555959199513575476"));
 
   const keys = new Set();
   for (const intro of INTROS) for (const k of textOf([intro.embeds, intro.content || ""]).matchAll(/\{#([a-z0-9-]+)\}/g)) keys.add(k[1]);
@@ -173,28 +175,39 @@ async function run(i) {
   console.log("== first refresh: post, pin, record ==");
   const first = await run(interaction("refresh"));
   check("the reply is deferred and private (type 5, ephemeral)", first.type === 5 && first.data.flags === 64);
+  const firstCallCount = D.calls.length;
+  check("the first refresh explicitly stops before the final forum when its reserve will not fit", /Stopped early/.test(D.followups[0]) && ![...D.threads.values()].some((t) => t.parent_id === CH["guild-suggestions"]));
+  await run(interaction("refresh"));
+  const continuedCallCount = D.calls.length - firstCallCount;
+  check("a second bounded refresh finishes without duplicating earlier posts", !/Stopped early/.test(D.followups[1]) && [...D.messages.values()].length === INTROS.length);
   const textIntros = INTROS.filter((x) => !x.forum), forumIntros = INTROS.filter((x) => x.forum);
   check(`${textIntros.length} channel messages posted, one per channel`, count(/^POST \/channels\/\d+\/messages$/) === textIntros.length);
   check("each of them pinned", [...D.messages.values()].filter((mm) => !D.threads.has(mm.channel_id)).every((mm) => mm.pinned));
   check(`${forumIntros.length} forum posts created`, count(/^POST \/channels\/\d+\/threads$/) === forumIntros.length);
   const lfg = [...D.threads.values()].find((t) => t.parent_id === CH["looking-for-group"]);
   const cab = [...D.threads.values()].find((t) => t.parent_id === CH["classes-and-builds"]);
+  const suggestions = [...D.threads.values()].find((t) => t.parent_id === CH["guild-suggestions"]);
   check("LFG post: its title and the Other tag", lfg && lfg.name === "Read first: how to post a group" && lfg.applied_tags[0] === "7005");
   check("classes-and-builds post: the Guide tag", cab && cab.applied_tags[0] === "7110");
+  check("suggestions is a Guide-tagged pinned forum post with readable preview", suggestions && suggestions.name === "Read first: how to suggest an improvement" && suggestions.applied_tags[0] === "7201" && suggestions.flags === 2 && D.messages.get(suggestions.id).content.startsWith("How to propose an improvement"));
   check("forum posts open with their content line; channel messages carry none", D.messages.get(lfg.id).content.startsWith("How to post a group") && [...D.messages.values()].filter((mm) => !D.threads.has(mm.channel_id)).every((mm) => mm.content === ""));
-  check("both forum posts pinned to the top (flag 2)", lfg.flags === 2 && cab.flags === 2);
+  check("all three forum posts pinned to the top (flag 2)", lfg.flags === 2 && cab.flags === 2 && suggestions.flags === 2);
   check("no message may ping anyone (allowed_mentions parse [])", [...D.messages.values()].filter((mm) => mm.allowed_mentions).every((mm) => mm.allowed_mentions.parse.length === 0));
-  check("the officer's reply is edited with the summary", D.followups.length === 1 && (D.followups[0].match(/posted/g) || []).length === INTROS.length);
-  check(`a first refresh stays inside the budget (${D.calls.length} calls of ${BUDGET})`, D.calls.length <= BUDGET + 1);
+  check("both officer replies give a summary, with exactly one first post per intro", D.followups.length === 2 && (D.followups.join("\n").match(/➕ posted:/g) || []).length === INTROS.length);
+  check("each refresh stays inside the existing budget including its follow-up", firstCallCount <= BUDGET + 1 && continuedCallCount <= BUDGET + 1);
   check("every write carries an audit-log reason naming the officer", D.reasons.length > 0 && D.reasons.every((r) => r.includes("/olympus-intros refresh by 111111111111111111")));
   check("one record per intro", db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === INTROS.length);
   for (const key of ADDED_INTRO_KEYS) {
+    const forum = INTROS.find((x) => x.key === key).forum;
     const messages = [...D.messages.values()].filter((mm) => mm.channel_id === CH[key]);
     const row = db.prepare("SELECT parent_id, channel_id, message_id FROM intro_posts WHERE guild_id = ? AND intro_key = ?").get(GUILD, key);
-    check(`#${key}: one text intro is posted, pinned and recorded without a duplicate`, messages.length === 1 && messages[0].pinned && row?.parent_id === CH[key] && row.channel_id === CH[key] && row.message_id === messages[0].id);
+    const thread = [...D.threads.values()].find((t) => t.parent_id === CH[key]);
+    check(`#${key}: one correctly typed intro is pinned and recorded without a duplicate`, forum
+      ? !!thread && thread.flags === 2 && messages.length === 0 && row?.parent_id === CH[key] && row.channel_id === thread.id && row.message_id === thread.id
+      : messages.length === 1 && messages[0].pinned && row?.parent_id === CH[key] && row.channel_id === CH[key] && row.message_id === messages[0].id);
   }
 
-  check("the refresh is audited", db.prepare("SELECT COUNT(*) AS c FROM audit WHERE action = 'intros.refresh'").get().c === 1);
+  check("both refreshes are audited", db.prepare("SELECT COUNT(*) AS c FROM audit WHERE action = 'intros.refresh'").get().c === 2);
   check("the lock is released", db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
   const infoMsg = [...D.messages.values()].find((mm) => mm.channel_id === CH["olympus-info"]);
   check("#olympus-info is one message with three embeds", infoMsg && infoMsg.embeds.length === 3);
@@ -257,6 +270,21 @@ async function run(i) {
   const none = await run(interaction("refresh", { channel: CH["join-olympus"] }));
   check("a channel without an intro is answered, not refreshed", none.type === 4 && /no Olympus intro/.test(none.data.content));
 
+  console.log("== suggestions text-to-forum migration preserves the legacy copy ==");
+  db.exec("DELETE FROM intro_posts"); resetDiscord();
+  const legacyParent = "1555959199513575476", legacyMessage = nextId();
+  D.messages.set(legacyMessage, { id: legacyMessage, channel_id: legacyParent, content: "Preserve this legacy discussion", embeds: [], pinned: true });
+  db.prepare("INSERT INTO intro_posts (guild_id,intro_key,parent_id,channel_id,message_id,hash,posted_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
+    .run(GUILD,"guild-suggestions",legacyParent,legacyParent,legacyMessage,"legacy-text-hash",1,1);
+  const migrated = await refreshIntros(env,GUILD,"migration-officer",CH["guild-suggestions"]);
+  const migratedThread = [...D.threads.values()][0];
+  const migratedRow = db.prepare("SELECT parent_id,channel_id,message_id FROM intro_posts WHERE intro_key='guild-suggestions'").get();
+  check("the suggestions intro moves to a Guide-tagged pinned forum post and records its thread", migrated.outcomes[0].action === "moved" && migratedThread?.parent_id === CH["guild-suggestions"] && migratedThread.applied_tags[0] === "7201" && migratedThread.flags === 2 && migratedRow.parent_id === CH["guild-suggestions"] && migratedRow.channel_id === migratedThread.id && migratedRow.message_id === migratedThread.id);
+  check("migration makes no HTTP call to the retained legacy channel or message", D.calls.every((c) => !c.includes(legacyParent) && !c.includes(legacyMessage)) && D.messages.get(legacyMessage).content === "Preserve this legacy discussion" && D.messages.get(legacyMessage).pinned && /old copy/.test(migrated.outcomes[0].note));
+  D.calls=[];
+  const migrationCurrent = await refreshIntros(env,GUILD,"migration-officer",CH["guild-suggestions"]);
+  check("repeating the forum migration performs one read and creates no second thread", migrationCurrent.outcomes[0].action === "current" && D.calls.length === 1 && D.calls[0] === `GET /channels/${migratedThread.id}` && D.threads.size === 1 && D.messages.size === 2);
+
   console.log("== limits, locks and failures ==");
   db.exec("DELETE FROM intro_posts"); resetDiscord();
   const small = await refreshIntros(env, GUILD, "111111111111111111", undefined, 9);
@@ -280,17 +308,17 @@ async function run(i) {
   const mv = await refreshIntros(moved, GUILD, "6", "1554999999999999999");
   check("a channel re-pointed in the config gets a new post; the old one is named, not deleted", mv.outcomes[0].action === "moved" && /old copy/.test(mv.outcomes[0].note));
 
-  console.log("== the five new intro channels: missing configuration and retry ==");
+  console.log("== expanded intro channels: missing configuration and retry ==");
   for (const key of ADDED_INTRO_KEYS) {
     db.exec("DELETE FROM intro_posts"); resetDiscord();
     const missingRaw = CHANNELS_RAW.split(",").filter((p) => !p.startsWith(key + "=")).join(",");
     const missingEnv = { ...env, INTROS_CHANNELS: missingRaw };
     const beforeStatusCalls = D.calls.length;
     const missingStatus = await introStatus(missingEnv, GUILD);
-    check(`#${key}: missing configuration is named in status without HTTP`, missingStatus.includes(`#${key}: no channel set in INTROS_CHANNELS`) && (missingStatus.match(/not posted yet/g) || []).length === 16 && D.calls.length === beforeStatusCalls && intros.resolveText(`see {#${key}}`, parseChannels(missingRaw)) === `see #${key}`);
+    check(`#${key}: missing configuration is named in status without HTTP`, missingStatus.includes(`#${key}: no channel set in INTROS_CHANNELS`) && (missingStatus.match(/not posted yet/g) || []).length === 17 && D.calls.length === beforeStatusCalls && intros.resolveText(`see {#${key}}`, parseChannels(missingRaw)) === `see #${key}`);
     const missingResult = await refreshIntros(missingEnv, GUILD, "missing-" + key);
     const own = missingResult.outcomes.find((o) => o.key === key);
-    check(`#${key}: refresh skips the missing parent, posts the other sixteen, and never calls or records it`, missingResult.outcomes.length === 17 && !missingResult.stoppedEarly && own?.action === "skipped" && own.note === `no "${key}" channel in INTROS_CHANNELS` && missingResult.outcomes.filter((o) => o.action === "skipped").length === 1 && !D.calls.some((c) => c.includes("/channels/" + CH[key])) && db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === 16 && !db.prepare("SELECT 1 FROM intro_posts WHERE intro_key = ?").get(key) && [...D.messages.values()].length === 16 && db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
+    check(`#${key}: refresh skips the missing parent, posts the other seventeen, and never calls or records it`, missingResult.outcomes.length === 18 && !missingResult.stoppedEarly && own?.action === "skipped" && own.note === `no "${key}" channel in INTROS_CHANNELS` && missingResult.outcomes.filter((o) => o.action === "skipped").length === 1 && !D.calls.some((c) => c.includes("/channels/" + CH[key])) && db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === 17 && !db.prepare("SELECT 1 FROM intro_posts WHERE intro_key = ?").get(key) && [...D.messages.values()].length === 17 && db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
   }
   check("an invalid new-channel id is dropped and renders plain text", !parseChannels("addon-development=not-a-snowflake")["addon-development"] && intros.resolveText("see {#addon-development}", parseChannels("addon-development=not-a-snowflake")) === "see #addon-development");
   db.exec("DELETE FROM intro_posts"); resetDiscord();
@@ -308,7 +336,7 @@ async function run(i) {
   check("a successful retry becomes current with one read and no duplicate, edit or pin", currentPost.outcomes.length === 1 && currentPost.outcomes[0].action === "current" && currentPost.callsUsed === 1 && D.calls.length === beforeCurrent + 1 && D.calls[beforeCurrent] === `GET /channels/${retryChannel}/messages/${retryMessage.id}` && count(/^POST /) === beforePosts && D.messages.size === 1 && db.prepare("SELECT message_id FROM intro_posts WHERE guild_id = ? AND intro_key = ?").get(GUILD, retryKey).message_id === retryMessage.id);
   const beforeRetryStatus = D.calls.length;
   const retryStatus = await introStatus(env, GUILD);
-  check("status records the retried new intro as current without HTTP", retryStatus.includes(`<#${retryChannel}>: current`) && (retryStatus.match(/not posted yet/g) || []).length === 16 && D.calls.length === beforeRetryStatus);
+  check("status records the retried new intro as current without HTTP", retryStatus.includes(`<#${retryChannel}>: current`) && (retryStatus.match(/not posted yet/g) || []).length === 17 && D.calls.length === beforeRetryStatus);
 
 
   console.log(`\n${ok}/${n} passed`);
