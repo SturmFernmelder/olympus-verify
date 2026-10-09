@@ -338,8 +338,25 @@ export const INTROS: Intro[] = [
     }],
   },
   {
+    key: "officer-chat",
+    channel: "officer-chat",
+    embeds: [{
+      title: "Guild officer coordination",
+      color: GOLD,
+      description: [
+        "Day-to-day coordination for Olympus I officers. Use {#council-chat} for coordination across Olympus I–X and {#council-decisions} for short agreed notes.",
+        "",
+        "Keep decisions factual and record operational actions in the existing guild tools. Flag any unresolved hand-off so another officer can follow it up.",
+        "",
+        "Keep member case files, appeals, personal data and credentials in the existing private staff tools. Server administrators and bots with Administrator can read this channel; it is not a confidential case inbox.",
+      ].join("\n"),
+    }],
+  },
+  {
     key: "guild-suggestions",
     channel: "guild-suggestions",
+    forum: { title: "Read first: how to suggest an improvement", tag: "Guide" },
+    content: "How to propose an improvement for Olympus, and where to take personal reports.",
     embeds: [{
       title: "Suggestions for Olympus",
       color: GOLD,

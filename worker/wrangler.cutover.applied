@@ -14,3 +14,6 @@ activated_at = "2026-10-02T04:20:15Z"
 # Reviewed source update of INTROS_CHANNELS only; not produced by --activate and not proof of provider deployment.
 activation_profile_sha256 = "6967b157f88bea40aebcd32c7dc1d214aacb36cca9c9b2d6647b36a5c5a2638c"
 activated_at = "2026-10-06T22:08:00Z"
+# Reviewed SOURCE-ONLY .124 update of INTROS_CHANNELS: officer-chat and current suggestions forum. Not produced by --activate; not proof of provider deployment.
+activation_profile_sha256 = "29878154363e28b16d0c1b52b7389a6e03b487df660fdd73f8505fa237c2ad21"
+activated_at = "2026-10-09T17:18:58Z"
