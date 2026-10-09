@@ -157,8 +157,8 @@ The owner asked Codex to finish the work after Claude Code reached its usage lim
 
 The current reference advances the rank-planner source and its existing official-image bindings for the owner-selected
 High Council preset. The original official candidate/map hashes remain the inherited pixel and font basis; no image
-or font bytes are replaced. reference_source_head identifies product candidate f8b61a6a40dacf9d111d4c4f6bf1675626301ef2.
-Fresh metadata-only finite coverage SHA256 7aff844710e42d625b10cd97660467e0c639b591aead31c7920a49fe15bb9272
+or font bytes are replaced. reference_source_head identifies product candidate 8174d26ccf2534aef36d54d488c5e70f5948d0eb.
+Fresh metadata-only finite coverage SHA256 610bfa0317e4815f3315966ec0998b66760da8fe7a4e098bffb14e3a376c7841
 checks all 103 asset rows and five fixed-art source rows. It separately records the unchanged app.js and policies.css
 runtime files whose old asset-row hashes and lengths were stale. The reference and both consumers carry updated
 dependency pins. This is byte/reference evidence, not a rights determination or an agent signature.
@@ -166,3 +166,6 @@ dependency pins. This is byte/reference evidence, not a rights determination or 
 The incremental public PR preserves public ancestry and does not use the historical initial/additive staging helper.
 Exact local checks, required CI, scoped reviews and the final external contract/manifest bind the final release head
 separately. The AddOn guide and browser planner apply no native guild permissions or appointments.
+
+The planner retains the owner's 1 October choice, "Crest is the exception", for its existing brand and tab icon.
+The v2 finite receipt rebinds only the rank HTML source; the 103 asset bytes and the other four source pins match.
