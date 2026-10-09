@@ -672,7 +672,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("the terms: notices in #olympus-notices only, and the leadership and rename sentences", /#olympus-notices\)/.test(text) && !/#bot-announcements/.test(text) && /Renamed characters/.test(text) && /leadership directory/.test(text));
   res = await http("GET", "/admin/ranks", { who: ADMIN });
   text = await res.text();
-  check("the rank planner wears the crest and the dark scheme (item 5)", res.status === 200 && /class="brand-mark" src="\/static\/olympus-icon\.png"/.test(text) && /<meta name="color-scheme" content="dark">/.test(text) && !/icon-friends\.png/.test(text));
+  check("the rank planner uses official game art and the dark scheme (item 5)", res.status === 200 && /class="brand-mark" src="\/static\/wow\/pos-guild_master\.png"/.test(text) && /<meta name="color-scheme" content="dark">/.test(text) && !/icon-friends\.png/.test(text));
   const css = fs.readFileSync(path.join(root, "public", "static", "rank-planner", "styles.css"), "utf8");
   check("  its stylesheet takes the site's rock background, dialog frames and panel buttons", /\.114/.test(css) && css.includes('url("/static/wow/rock.jpg")') && css.includes('url("/static/wow/frame-dialog.png")') && css.includes('url("/static/wow/button-up.png")'));
   check("  every image it names is one this site serves", [...css.matchAll(/url\("([^"]+)"\)/g)].every((m) => /^\/static\/wow\/[a-z0-9_.-]+$/.test(m[1]) && fs.existsSync(path.join(root, "public", m[1]))));

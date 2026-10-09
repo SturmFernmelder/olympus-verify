@@ -53,7 +53,7 @@ the owner's document "Forever Guild Rank Codex.html".
 
 ## The publication helpers (`scripts/`)
 
-Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. The .115 successor
+Six files, five Python files (Python 3.12 or later, standard library only; `Path.is_junction` is used) and the pinned JSON reference. The historical .115 successor
 was prepared from keeper `da5076de690ede5254efa723c69df9f1ffd6ecd3` (tree `2a888b603e5851e13b70eb942c650a73e918b8dc`): reference
 `59cedafab72dd414c35fc54d846d2505df6d1d5d847dd553cd36e8c16abaabf1`, `official_assets.py`
 `c1ea7a2252d0e70602b7bb388700463411ba017b9f041417ced74ee6571103be`, and `reconcile_public_root.py`
@@ -152,3 +152,17 @@ public (`LICENSE`); `THIRD_PARTY_NOTICES.md` says what in it is not the owner's.
 ## Owner-authorized takeover on 3 October 2026
 
 The owner asked Codex to finish the work after Claude Code reached its usage limit and explicitly removed the dual sign-off requirement. Historical joint reviews above remain historical records. New releases require an exact source identity, independent Codex review, passing required checks, and separately recorded publication and deployment evidence; no new Claude signature is required. Codex may perform the authorized publication steps. The helpers remain local preparation and validation tools and never publish by themselves.
+
+## 9 October 2026 - .121 incremental rank-planner reference
+
+The current reference advances the rank-planner source and its existing official-image bindings for the owner-selected
+High Council preset. The original official candidate/map hashes remain the inherited pixel and font basis; no image
+or font bytes are replaced. reference_source_head identifies product candidate f8b61a6a40dacf9d111d4c4f6bf1675626301ef2.
+Fresh metadata-only finite coverage SHA256 7aff844710e42d625b10cd97660467e0c639b591aead31c7920a49fe15bb9272
+checks all 103 asset rows and five fixed-art source rows. It separately records the unchanged app.js and policies.css
+runtime files whose old asset-row hashes and lengths were stale. The reference and both consumers carry updated
+dependency pins. This is byte/reference evidence, not a rights determination or an agent signature.
+
+The incremental public PR preserves public ancestry and does not use the historical initial/additive staging helper.
+Exact local checks, required CI, scoped reviews and the final external contract/manifest bind the final release head
+separately. The AddOn guide and browser planner apply no native guild permissions or appointments.
