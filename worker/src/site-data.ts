@@ -20,12 +20,14 @@ import { normalizeCharacter } from "./codes";
  * `about` says what the role is, `duties` what the holder does, `expect` what the guild expects of them, `time` roughly
  * how long it takes, `works` who they work with. Plain text: the page puts all of it on screen with textContent.
  *
- * `game` (.46): what the role comes with in game, the guild rank and, where there is one, its title in the Olympus
- * addon (the census addon most of the guild runs). The ranks are the ladder proposed for release on 30 Sep: Guild
- * Master, Officer, Treasurer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt, Initiate. Officer comes right
- * below the Guild Master because that addon's Captains are the rank right below the Guild Master in every Olympus guild
- * (its ns.CAPTAIN_RANK = 1): the Captains chat, Call to Arms and Muster, loot notes and recruits' join requests all go
- * by it. Rename a rank or reorder the ladder, and these sentences change with it.
+ * `game` is informational guidance, not a grant of ranks, permissions or AddOn access. The proposed post-beta
+ * native ladder is Guild Master, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt,
+ * Initiate. Co-Guild Master and Treasurer are appointments within High Council, not separate native ranks.
+ * The approved preset gives every High Council holder Withdraw Gold and Modify Bank Tabs and retains the
+ * Raid Leader authenticator safeguard. Veteran has Guild Bank Repair, without Invite Member. No numeric bank
+ * allowances have been approved; zero preset allowances are unset placeholders, not an approved spending limit.
+ * The current in-game ladder is not certified here. Each Guild Master must review and configure ranks and bank
+ * permissions in an attended session. Application choices do not change the native ladder or AddOn permissions.
  */
 export interface RoleInfo { about: string; duties: string[]; expect: string[]; time: string; works?: string; game: string }
 export interface Position { key: string; label: string; group: "leadership" | "membership"; blurb: string; raidTime?: "na" | "eu"; info: RoleInfo }
@@ -53,7 +55,7 @@ const raidLeaderInfo = (region: string, evenings: string): RoleInfo => ({
   ],
   time: "Your region's raid nights, plus 2 to 3 hours of preparation a week.",
   works: "The Raid Assists, the Class Leads, the Loot Council and the officers.",
-  game: "The Raid Leader rank: officer chat and notes, and the raid tab of the guild bank.",
+  game: "Post-beta guidance: Raid Leader includes officer chat and notes, Invite Member, Guild Bank Repair and the authenticator safeguard. The Guild Master must review and set rank permissions, raid-tab access and bank limits in game.",
 });
 const raidAssistInfo = (region: string, evenings: string): RoleInfo => ({
   about: `The Raid Assist is the Raid Leader's second in command for the ${region} raids, ${evenings}. You keep the raid running so the Raid Leader can focus on the fight.`,
@@ -71,7 +73,7 @@ const raidAssistInfo = (region: string, evenings: string): RoleInfo => ({
   ],
   time: "Your region's raid nights, plus about an hour of setup a week.",
   works: "The Raid Leader, the Loot Council and the Class Leads.",
-  game: "The Raid Leader rank, so you can stand in for the Raid Leader. Raid assistant itself is given in the raid group, raid by raid.",
+  game: "Post-beta guidance: Raid Assist is an appointment, not a separate native rank. If assigned Raid Leader to stand in, the same authenticator safeguard applies. The Guild Master must approve and configure the rank; raid assistant is assigned within each raid.",
 });
 
 export const POSITIONS: Position[] = [
@@ -97,7 +99,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "15 hours a week or more, most of it in the evenings.",
       works: "Asmongold, the officers and every lead, and the Guild Masters of the other Olympus guilds.",
-      game: "The Officer rank. In the Olympus addon you would be the King's Steward, acting for the King; its author names the Stewards on a signed list.",
+      game: "Post-beta guidance: Co-Guild Master is an appointment within High Council, not a separate native rank. The Guild Master must appoint the holder and review rank permissions in game. Applying here does not grant a rank or AddOn access.",
     },
   },
   {
@@ -120,7 +122,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "15 hours a week or more, most of it in the evenings.",
       works: "The Olympus leadership, your officers and the other Guild Masters.",
-      game: "The Guild Master rank of your own guild. In the Olympus addon you are its Lord, in the Lords chat with the other Guild Masters.",
+      game: "Post-beta guidance: the Guild Master holds the top native rank of their own guild and configures its ranks and permissions in game. This description does not certify the current setup or grant AddOn access.",
     },
   },
   {
@@ -144,7 +146,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 8 to 15 hours a week.",
       works: "The Guild Master, the other officers and every lead.",
-      game: "The Officer rank, right below the Guild Master. In the Olympus addon you are a Captain: the Captains chat, Call to Arms and Muster, loot notes, and recruits' join requests.",
+      game: "Post-beta guidance: Officer sits below High Council in the proposed ten-rank ladder. The Guild Master must review and set its permissions in game; applying here does not grant a rank or AddOn access.",
     },
   },
   { key: "raid_leader_na", label: "Raid Leader (NA raids)", group: "leadership", raidTime: "na", blurb: `Plans and calls the North American raids, ${NA_EVENINGS}: strategy, assignments, pace, and keeping forty people pointed the same way.`, info: raidLeaderInfo("North American", NA_EVENINGS) },
@@ -190,7 +192,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 5 to 10 hours a week, more around launch.",
       works: "The officers, the Raid Leaders and the Guild Master.",
-      game: "The Officer rank, to invite and remove members. In the Olympus addon you are a Captain, so recruits' join requests reach you.",
+      game: "Post-beta guidance: Recruitment Officer is an appointment using Officer permissions approved by the Guild Master. Inviting or removing members requires the character's configured in-game permissions; applying here does not grant them.",
     },
   },
   {
@@ -253,7 +255,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 5 to 10 hours a week.",
       works: "The PvP Team, the officers and the Liaison.",
-      game: "The Officer rank: in the Olympus addon, Call to Arms and Muster come from Captains, the officers.",
+      game: "Post-beta guidance: PvP Leader is an appointment, not a separate native rank. Any Officer rank or AddOn access must be assigned and reviewed separately; applying here does not grant them.",
     },
   },
   {
@@ -274,7 +276,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 2 to 5 hours a week.",
       works: "The Guild Master and officers, the PvP Leader and the other Olympus guilds.",
-      game: "The Officer rank: in the Olympus addon, Olympus's officers share the Lords chat with the other Guild Masters.",
+      game: "Post-beta guidance: Liaison is an appointment, not a separate native rank. Any Officer rank, private channel or AddOn access must be assigned and reviewed separately; applying here does not grant them.",
     },
   },
   {
@@ -315,7 +317,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 6 hours a week.",
       works: "The Guild Master, the officers, the Raid Leaders and the Profession Coordinator.",
-      game: "The Treasurer rank, with the most gold a day from the guild bank. The Olympus addon's treasury, dues and bank tabs follow the Treasurer's own character.",
+      game: "Post-beta guidance: Treasurer is an appointment within High Council, not a separate native rank. The approved preset includes Withdraw Gold and Modify Bank Tabs for every High Council holder, with the authenticator safeguard. The Guild Master must review and set bank limits in game; no numeric daily allowance is approved here.",
     },
   },
   {

@@ -512,10 +512,17 @@ const bootOf = async (res) => {
     const html = page.html; // the signed-in page: the descriptions travel in the boot data like every other list
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
-    check("  the in-game lines (.46): the Officer rank's roles are the Olympus addon's Captains, the rest say their rank or that they have none",
-      ["officer", "recruitment"].every((k) => /^The Officer rank/.test(game(k)) && /Captain/.test(game(k))) && /^The Treasurer rank/.test(game("treasurer")) &&
-      /^The Raid Leader rank/.test(game("raid_leader_na")) && /^The Raid Leader rank/.test(game("raid_assist_eu")) && /^No rank of its own/.test(game("class_lead")) &&
-      /^The Guild Master rank of your own guild/.test(game("guild_master")) && html.includes("In the Olympus addon you are a Captain"));
+    const guided = ["co_gm", "guild_master", "officer", "recruitment", "pvp_leader", "liaison", "treasurer", "raid_leader_na", "raid_leader_eu", "raid_assist_na", "raid_assist_eu"];
+    check("  .122 rank guidance is proposed for post-beta and reaches the boot data without Captain or native Treasurer claims",
+      guided.every((k) => /^Post-beta guidance:/.test(game(k))) && ps.every((p) => !/Captain|The Treasurer rank/.test(p.info.game)) &&
+      html.includes("Post-beta guidance:") && !html.includes("In the Olympus addon you are a Captain"));
+    check("  appointments, High Council bank rights and Raid Leader safeguards do not promise an approved numeric allowance",
+      ["co_gm", "treasurer"].every((k) => /appointment within High Council, not a separate native rank/.test(game(k))) &&
+      /every High Council holder/.test(game("treasurer")) && /Withdraw Gold/.test(game("treasurer")) && /Modify Bank Tabs/.test(game("treasurer")) &&
+      /no numeric daily allowance is approved/.test(game("treasurer")) && ["raid_leader_na", "raid_assist_eu"].every((k) => /authenticator safeguard/.test(game(k))));
+    check("  wording alone keeps existing leadership choices, appointment defaults and voting exclusions",
+      ["co_gm", "treasurer", "officer"].every((k) => ps.some((p) => p.key === k && p.group === "leadership")) && !ps.some((p) => p.key === "high_council") &&
+      data.DEFAULT_APPOINTED.treasurer === "Fernmelder" && data.DEFAULT_NO_VOTE.join() === "co_gm" && b("treasurer").seats === 1);
     check("  and the page shows them as the role's \"In game\" fact", /h\("dt", \{ text: "In game" \}\)/.test(js) && /info\.game/.test(js));
   }
 
@@ -1316,7 +1323,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".121") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".122") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

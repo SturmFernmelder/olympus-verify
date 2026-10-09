@@ -4920,3 +4920,25 @@ private export and all uncertain-action receipts. Check actual version/bindings/
 script-free account form. No current candidate document is publication, adoption, provider or Claude acceptance.
 Rollback: separately admitted prior-source deployment, no automatic database restore, quota reset, uncertain upload
 retry, continuation reissue for another session or activation of a closed control.
+
+## Worker .122 - public post-beta role guidance (9 October 2026)
+
+Change: the public role descriptions use proposed post-beta guidance instead of promising the old Captain rank or
+a native Treasurer rank. Co-GM and Treasurer are High Council appointments; Officer is below High Council in the
+proposal. High Council bank-rights and Raid Leader authenticator guidance remain subject to attended GM setup,
+and no numeric bank allowance is approved. The current native ladder is neither certified nor changed.
+
+Configuration: no schema, binding, secret, role ID, application key, group, voting seat, appointment default,
+authorization, bank permission, queue, retention, dependency, asset or feature-switch change. Only the reviewed
+ten copy windows, BUILD, the three build-test pins, the obsolete role-description regressions and dated documentation
+change. F3 design, central-authority activation and native setup remain outside this release.
+
+Validation: run typecheck and the real site, host, Battle.net retention and frontend suites, including the public boot-data
+copy boundary and unchanged application/appointment choices. Required full Worker, policy, asset, bundle and CI
+qualification belongs to the exact release commit; actual Claude scoped review and provider/browser receipts are
+separate gates. Record executed checks rather than treating this checklist as their results.
+
+Rollout: publish only after the owner's reviewed exact-commit gates, then verify the .122 build and updated public
+role descriptions. No native permission or role assignment follows from the copy. No database migration or backup
+lifecycle change is needed. Rollback is a separately admitted prior-source deployment; do not change guild ranks,
+roles, bank limits, credentials, counters or queues as an automatic rollback.
