@@ -1139,3 +1139,18 @@ The output cap is not a SQL-work cap: the existing unindexed actor OR, MAX/COUNT
 rows. A prospective real-SQLite plan/6001-own plus 100000-unrelated traversal diagnostic is local evidence, not a D1
 SLA. All-store completion, rights-only resumption, third-party policy decisions and other store gaps remain open.
 No schema, index, producer, retention, external route, guild role, identity, erase/unlink or Battle.net activation.
+
+## 9 October 2026 - .121 High Council rank planning
+
+New browser drafts use the owner's ten-rank ladder: Guild Master, High Council, Officer, Officer Alt, Raid Leader,
+Veteran, Raider, Member, Alt and Initiate. Treasurer and Co-GM are appointments. The preset gives all High Council
+characters Withdraw Gold and Modify Bank Tabs, retains the Raid Leader authenticator safeguard, and includes the
+later-selected Veteran repair toggle without invitations. Every non-GM numeric bank allowance remains zero for attended review.
+The original 26 catalogue ideas remain intact as historical alternatives; High Council has separate owner provenance.
+
+Draft v2 adds an explicit owner-policy stamp. A genuine v1 export restores and exports unchanged, including its
+custom permissions and old Treasurer rank. Only the user's replacement action or explicit addition of High Council
+adopts the new provenance. The browser storage namespace stays stable. No guild, Discord, bank or appointment write
+is introduced. Older integrations that equate rank index 1 with Captain require review because High Council now sits
+there. The planner masthead and tab icon use existing official game artwork. The AddOn's /olv ranks guidance is
+informational and changes no roster, queue, verification, invite, promotion, bank permission or export behavior.

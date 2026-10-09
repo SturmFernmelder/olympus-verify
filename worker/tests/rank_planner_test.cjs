@@ -1,13 +1,4 @@
-// Build .115 (3 Oct 2026): the staff rank planner (public/static/rank-planner, served at /admin/ranks by site-ranks.ts) run for
-// real. The shipped catalogue.js, model.js and app.js are loaded in node:vm over a stub DOM built from the element ids of the
-// real planner page (site-ranks.ts), with localStorage as a Map. Covers: every page script parses (the planner's scripts are
-// not in CI's own syntax step, ci.yml being a pinned profile path); the model is unchanged (RECOMMENDED, REFERENCE, the 26
-// ranks and the source stamp); every planner file, site-ranks.ts and site-core.ts are byte-identical to their pins in the
-// official asset reference; a fresh browser still saves the Olympus recommendation and a saved one restores; the planner's
-// own buttons (Start with two ranks, an added rank landing above Initiate, Export, Use Olympus recommendation); and the rank
-// icons are the provenance file's. The permission-ladder button .115 first added was withdrawn on 3 Oct 2026: the owner's
-// answer 6 makes the in-game ladder ten ranks (the planner's RECOMMENDED order), and its preset comes in a later release, so
-// .115 changes no planner file. Run from the worker folder: node tests/rank_planner_test.cjs
+// Build .121: real planner source/DOM tests, owner policy, zero allowances and actual .120 export compatibility.
 const fs = require("fs"), path = require("path"), vm = require("vm"), crypto = require("crypto");
 const root = path.join(__dirname, ".."), repo = path.join(root, "..");
 const staticDir = path.join(root, "public", "static"), dir = path.join(staticDir, "rank-planner");
@@ -22,21 +13,21 @@ const unparsed = [];
 for (const f of scripts) { try { new vm.Script(read(f), { filename: f }); } catch (e) { unparsed.push(`${path.relative(root, f)}: ${e.message}`); } }
 check("every script under public/static and public/static/rank-planner parses (app.js, the planner's app.js, catalogue.js and model.js)", scripts.length >= 4 && ["app.js", "catalogue.js", "model.js"].every((b) => scripts.some((f) => path.basename(f) === b)) && unparsed.length === 0, unparsed);
 
-console.log("\n== the model is unchanged ==");
+console.log("\n== the current preset and preserved historical catalogue ==");
 const base = { console };
 base.globalThis = base;
 vm.runInNewContext(read(path.join(dir, "catalogue.js")), base, { filename: "catalogue.js" });
 vm.runInNewContext(read(path.join(dir, "model.js")), base, { filename: "model.js" });
 const Model = base.OlympusStaffRankPlanner, catalogue = base.OlympusStaffRankCatalogue;
-const RECOMMENDED_114 = ["gm", "officer", "treasurer", "officeralt", "raidlead", "veteran", "raider", "member", "alt", "initiate"];
-check("RECOMMENDED is the .114 list, still the default draft", JSON.stringify([...Model.RECOMMENDED]) === JSON.stringify(RECOMMENDED_114));
+const RECOMMENDED_CURRENT = ["gm", "highcouncil", "officer", "officeralt", "raidlead", "veteran", "raider", "member", "alt", "initiate"];
+check("RECOMMENDED uses High Council; Treasurer and Co-GM remain appointments", JSON.stringify([...Model.RECOMMENDED]) === JSON.stringify(RECOMMENDED_CURRENT));
 check("  REFERENCE is unchanged (protectRankIndex stays 5, informational only), so every saved and exported draft still imports", JSON.stringify(Model.REFERENCE) === JSON.stringify({ minRanks: 2, maxRanks: 10, captainRankIndex: 1, protectRankIndex: 5, protectRankIndexInformationalOnly: true }));
-check("  26 catalogue ranks, the source stamp the model expects", catalogue.ranks.length === 26 && catalogue.source.sha256 === Model.SOURCE_SHA256);
+check("  27 catalogue options with the original source stamp", catalogue.ranks.length === 27 && catalogue.source.sha256 === Model.SOURCE_SHA256);
 const reference = JSON.parse(read(path.join(repo, "scripts", "official_asset_reference.json")));
 const pins = [...(reference.assets || []), ...(reference.fixed_art_source_pins || [])];
 const frozen = ["worker/public/static/rank-planner/app.js", "worker/public/static/rank-planner/model.js", "worker/public/static/rank-planner/catalogue.js", "worker/public/static/rank-planner/styles.css", "worker/src/site-ranks.ts", "worker/src/site-core.ts"];
 const drift = frozen.filter((p) => { const rows = pins.filter((r) => r.path === p); const h = sha256(path.join(repo, p)); return rows.length === 0 || rows.some((r) => r.sha256 !== h); });
-check("  the planner's app.js, model.js, catalogue.js and styles.css, site-ranks.ts and site-core.ts are byte-identical to their pins in the official asset reference (.115 changes no planner file)", drift.length === 0, drift);
+check("  the planner's app.js, model.js, catalogue.js and styles.css, site-ranks.ts and site-core.ts are byte-identical to their pins in the official asset reference (current reviewed source pins)", drift.length === 0, drift);
 
 // ---------- a stub DOM: what the planner's app.js uses ----------
 class Node {
@@ -103,16 +94,16 @@ function openPlanner(store) {
   return { $, saved, notices, buttonByText, buttonByLabel, root: plannerRoot };
 }
 
-console.log("\n== the default draft (unchanged) ==");
+console.log("\n== the current default and legacy browser draft ==");
 check("the planner page still has every element the script reads", ["recommended", "minimum", "notices", "ladder-list", "feedback", "storage-note", "cards", "editor"].every((id) => PAGE_IDS.some(([, x]) => x === id)));
 const store = new Map();
 let p = openPlanner(store);
 const ids = (d) => (d ? d.ranks.map((r) => r.id) : []);
-check("a fresh browser saves the Olympus recommendation, as before .115", JSON.stringify(ids(p.saved())) === JSON.stringify(RECOMMENDED_114) && p.saved().title === "Olympus rank ladder" && p.$("ladder-list").children.length === 10 && p.$("storage-note").textContent === "Saved in this browser.");
+check("a fresh browser saves the current Olympus recommendation", JSON.stringify(ids(p.saved())) === JSON.stringify(RECOMMENDED_CURRENT) && p.saved().title === "Olympus rank ladder" && p.$("ladder-list").children.length === 10 && p.$("storage-note").textContent === "Saved in this browser.");
 check("  its notices are the model's own: the index-5 reference line, and nothing of the withdrawn protectRankIndex 4 note", p.notices().some((t) => t.includes("(index 5)")) && !p.notices().some((t) => t.includes("protectRankIndex 4")), p.notices());
 const savedRecommended = store.get(STORAGE_KEY);
 p = openPlanner(store);
-check("  a saved recommendation restores unchanged and without an error", store.get(STORAGE_KEY) === savedRecommended && p.$("feedback").textContent === "" && JSON.stringify(ids(p.saved())) === JSON.stringify(RECOMMENDED_114));
+check("  a saved recommendation restores unchanged and without an error", store.get(STORAGE_KEY) === savedRecommended && p.$("feedback").textContent === "" && JSON.stringify(ids(p.saved())) === JSON.stringify(RECOMMENDED_CURRENT));
 
 console.log("\n== the planner's own buttons (unchanged since .114) ==");
 check("the page's own buttons only: no Use the permission ladder (withdrawn, the owner's answer 6 of 3 Oct 2026); Start with two ranks follows Use Olympus recommendation", !p.buttonByText("Use the permission ladder") && p.$("minimum").previousElementSibling === p.$("recommended"));
@@ -130,8 +121,8 @@ p = openPlanner(store);
 check("  a reload restores the saved draft", store.get(STORAGE_KEY) === smallSaved && JSON.stringify(ids(p.saved())) === JSON.stringify(["gm", "crafter", "initiate"]) && p.$("feedback").textContent === "");
 p.$("recommended").click();
 d = p.saved();
-check("  Use Olympus recommendation loads the .114 recommendation again and says so", JSON.stringify(ids(d)) === JSON.stringify(RECOMMENDED_114) && p.$("feedback").textContent === "Olympus recommendation loaded. Bank withdrawals start at zero until you set your allowances.", ids(d));
-check("  it is a valid draft: Officer is the Captain rank (index 1); Initiate is last and needs no authenticator; bank withdrawals start at zero below the Guild Master", Model.validate(d, catalogue.ranks).length === 0 && Model.compatibility(d).captainCompatible === true && d.ranks[1].id === "officer" && d.ranks[d.ranks.length - 1].id === "initiate" && d.ranks[d.ranks.length - 1].permissions.auth === false && d.ranks.slice(1).every((r) => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0));
+check("  Use Olympus recommendation explicitly replaces the draft with the current preset", JSON.stringify(ids(d)) === JSON.stringify(RECOMMENDED_CURRENT) && p.$("feedback").textContent === "Olympus recommendation loaded. Bank withdrawals start at zero until you set your allowances.", ids(d));
+check("  it is a valid draft with an explicit positional-integration warning, unprotected entry rank and zero bank allowances", Model.validate(d, catalogue.ranks).length === 0 && Model.compatibility(d).captainCompatible === false && d.ranks[1].id === "highcouncil" && Model.notices(d).some(note => note.text.includes("Captain")) && d.ranks[d.ranks.length - 1].id === "initiate" && d.ranks[d.ranks.length - 1].permissions.auth === false && d.ranks.slice(1).every((r) => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0));
 check("  the reference block is the model's own (protectRankIndex 5, informational) and the review stays pending", JSON.stringify(d.reference) === JSON.stringify(Model.REFERENCE) && d.review.liveChangesApplied === false && d.source.sha256 === Model.SOURCE_SHA256);
 
 console.log("\n== the planner script ==");
@@ -141,6 +132,37 @@ const provenance = JSON.parse(read(path.join(staticDir, "wow", "asset-provenance
 check("the rank icons are exactly the provenance file's rank_icon_keys (official art, unchanged)", !!iconKeys && JSON.stringify(iconKeys) === JSON.stringify(provenance.rank_icon_keys) && Object.values(iconKeys).every((k) => fs.existsSync(path.join(staticDir, "wow", `${k}.png`))));
 check("  the default draft, the storage key and the restore are unchanged", APP.includes("let draft = Model.createDraft(catalogue);") && APP.includes("const storageKey = 'olympus-admin-rank-draft-v1:' + plannerRoot.dataset.draftOwner;"));
 check("  the script writes no markup and fetches nothing", !/\.innerHTML\s*[=+]|insertAdjacentHTML|outerHTML\s*=/.test(APP) && !/\bfetch\(|XMLHttpRequest|sendBeacon|WebSocket/.test(APP));
+
+
+console.log("\n== owner policy, provenance and compatibility ==");
+const current = Model.createDraft(catalogue.ranks);
+const rank = id => current.ranks.find(r => r.id === id);
+check("the earlier 26 ideas retain their complete original data", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "752e85a9ea2e159a2b59b0bb16b9bae63274462d8abc842f35344b8e9da0e2b1");
+check("High Council's sensitive draft rights apply to all rank holders and require an authenticator", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]) && rank("officer").permissions.gold === false);
+check("Raid Leader retains authenticator and Veteran has repairs without invitations", rank("raidlead").permissions.auth && !rank("veteran").permissions.invite && rank("veteran").permissions.repair);
+check("new exports distinguish owner policy from the historical attachment and remain unapproved", current.schema === "olympus-rank-draft/v2" && current.source.policy === Model.POLICY && current.review.claudeCode === "pending" && current.review.codex === "pending" && current.review.liveChangesApplied === false);
+check("every non-GM numeric allowance remains zero", current.ranks.slice(1).every(r => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0 && !r.bank.unlimited));
+const legacyText = read(path.join(__dirname,"fixtures","rank-planner-v1.json"));
+const legacyDraft = Model.importDraft(legacyText, catalogue.ranks);
+const legacyStore = new Map([[STORAGE_KEY, legacyText]]);
+const legacyPage = openPlanner(legacyStore);
+check("opening a real .120 exported draft preserves its bytes, order and permission choices", legacyStore.get(STORAGE_KEY) === legacyText && legacyPage.$("ladder-list").children[1].textContent.includes("Officer") && legacyPage.notices().some(t => t.includes("earlier draft is preserved")) && Model.exportDraft(legacyDraft,catalogue.ranks) === legacyText);
+legacyPage.$("recommended").click();
+check("replacing the legacy draft is an explicit button action with truthful new provenance", legacyPage.saved().schema === Model.SCHEMA && JSON.stringify(ids(legacyPage.saved())) === JSON.stringify(RECOMMENDED_CURRENT));
+const smallLegacy = JSON.parse(legacyText); smallLegacy.ranks = [smallLegacy.ranks[0], smallLegacy.ranks.at(-1)];
+const extendedLegacy = Model.addRank(smallLegacy,catalogue.ranks,"highcouncil");
+check("explicitly adding High Council upgrades only provenance and the selected new rank", extendedLegacy.schema === Model.SCHEMA && extendedLegacy.source.policy === Model.POLICY && extendedLegacy.ranks[1].id === "highcouncil" && JSON.stringify(extendedLegacy.ranks[2]) === JSON.stringify(smallLegacy.ranks[1]) && smallLegacy.schema === Model.LEGACY_SCHEMA);
+const legacySmallStore = new Map([[STORAGE_KEY, JSON.stringify(smallLegacy)]]);
+const legacySmallPage = openPlanner(legacySmallStore);
+legacySmallPage.buttonByLabel("Add High Council").click();
+check("the actual Add High Council button preserves legacy entry choices and adopts current provenance", legacySmallPage.saved().schema === Model.SCHEMA && legacySmallPage.saved().source.policy === Model.POLICY && legacySmallPage.saved().ranks[1].id === "highcouncil" && JSON.stringify(legacySmallPage.saved().ranks[2]) === JSON.stringify(smallLegacy.ranks[1]));
+const forgedLegacy = JSON.parse(Model.exportDraft(extendedLegacy,catalogue.ranks)); forgedLegacy.schema = Model.LEGACY_SCHEMA; delete forgedLegacy.source.policy;
+check("High Council cannot falsely claim only the legacy codex source", Model.validate(forgedLegacy,catalogue.ranks).length > 0);
+const forged = JSON.parse(Model.exportDraft(current,catalogue.ranks)); forged.source.policy = "approved";
+check("a forged owner-policy stamp is refused", Model.validate(forged,catalogue.ranks).length > 0);
+const falselySigned = JSON.parse(Model.exportDraft(current,catalogue.ranks)); falselySigned.review.claudeCode = "approved";
+check("imports cannot claim an agent approval or live application", Model.validate(falselySigned,catalogue.ranks).length > 0);
+check("rank planner masthead uses existing official WoW artwork", !PAGE_HTML.includes("/static/olympus-icon.png") && PAGE_HTML.includes("/static/wow/pos-guild_master.png"));
 
 console.log(`\n${ok}/${n} passed`);
 process.exit(ok === n ? 0 : 1);

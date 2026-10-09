@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 403507,
-      "sha256": "5ae56ed7596b33fcd7c94bf447db3ee51171dce9dcf0848fc0c2d69fa04c362b"
+      "bytes": 378297,
+      "sha256": "c5144c2898b8f2feb8dc0786ef67b7a566be4a61dedd5775ad9f6feaee7e83d2"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,26 +26,26 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 1903,
-      "sha256": "3dbc0135de75e775f25e2af197e23941ee3a20438eb6630591692935d2fecb59"
+      "bytes": 3885,
+      "sha256": "5415354e474e50d3fc68dad476b9a3598752e566352d0bc6af17149b5b20c13a"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 15696,
-      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074"
+      "bytes": 15856,
+      "sha256": "a4d0d099bb9385b2d980488231d4658a51d3b4407e3c10ece7025effc23da819"
     },
     {
       "path": "worker/public/static/rank-planner/catalogue.js",
       "mode": "100644",
-      "bytes": 19090,
-      "sha256": "748e695bf765b61a4c86e5224167db907964acbf01fbdb9378014c63e4eb5973"
+      "bytes": 20165,
+      "sha256": "e9dc0407370f1e9d36b8e4709ad450edf88e25e99c139cb72fd3eef2f9ddfb47"
     },
     {
       "path": "worker/public/static/rank-planner/model.js",
       "mode": "100644",
-      "bytes": 11826,
-      "sha256": "75db29eb93cfb3598633c79d0880bf5b8fe43f893f948dc0f8b49e2caecf5487"
+      "bytes": 13597,
+      "sha256": "d6fcc5995f6e194cd4776eb1f6ff4d9f8ca53c7dcc9e588c1ea6b943260640d5"
     },
     {
       "path": "worker/public/static/rank-planner/styles.css",
@@ -56,8 +56,8 @@
     {
       "path": "worker/public/static/wow/asset-provenance.json",
       "mode": "100644",
-      "bytes": 62212,
-      "sha256": "098d187303b7fbdee9179b2fa8177185686ad9c373fe549dbd59764a28b54068"
+      "bytes": 62241,
+      "sha256": "5556bd92037a8ca7e8ef036dd5ba3417abc506913e5b15efe022606347eaff78"
     },
     {
       "path": "worker/public/static/wow/assist.png",
@@ -915,8 +915,8 @@
     {
       "path": "worker/src/site-ranks.ts",
       "mode": "100644",
-      "bytes": 9433,
-      "sha256": "e78a4413fbf94679f754346d39a2b79512508c8f712bad7067d22b3852e93441"
+      "bytes": 9977,
+      "sha256": "30802e321778c66ecca72e387e3d774e1ec9e7cc1f9b66b3d519224d2b128117"
     },
     {
       "path": "worker/public/static/app.js",
@@ -927,8 +927,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 15696,
-      "sha256": "2f0205d79d18e3e10de5190ef784dd3f7cae86ebe7456b678fdd1c2b04b99074"
+      "bytes": 15856,
+      "sha256": "a4d0d099bb9385b2d980488231d4658a51d3b4407e3c10ece7025effc23da819"
     },
     {
       "path": "worker/src/site-core.ts",

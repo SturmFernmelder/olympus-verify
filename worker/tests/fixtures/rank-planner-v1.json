@@ -1,0 +1,275 @@
+{
+  "schema": "olympus-rank-draft/v1",
+  "status": "draft",
+  "title": "Olympus rank ladder",
+  "source": {
+    "attachment": "Forever Guild Rank Codex.html",
+    "sha256": "40BC6DF51C769ADAEDE8A0F29E7483970644B79643C3DDE4B475BA5D9E41EAA8",
+    "recommendationsOnly": true
+  },
+  "review": {
+    "claudeCode": "pending",
+    "codex": "pending",
+    "liveChangesApplied": false
+  },
+  "reference": {
+    "minRanks": 2,
+    "maxRanks": 10,
+    "captainRankIndex": 1,
+    "protectRankIndex": 5,
+    "protectRankIndexInformationalOnly": true
+  },
+  "bankLimitScope": "Whole gold per day and a default item-stack limit per bank tab per day; confirm each real bank tab separately.",
+  "ranks": [
+    {
+      "id": "gm",
+      "name": "Guild Master",
+      "permissions": {
+        "all": true,
+        "bundle": true,
+        "promote": true,
+        "demote": true,
+        "invite": true,
+        "remove": true,
+        "speak": true,
+        "recruit": true,
+        "repair": true,
+        "gold": true,
+        "tabs": true,
+        "auth": true
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": true,
+        "deposit": true,
+        "unlimited": true
+      }
+    },
+    {
+      "id": "officer",
+      "name": "Officer",
+      "permissions": {
+        "all": false,
+        "bundle": true,
+        "promote": true,
+        "demote": true,
+        "invite": true,
+        "remove": true,
+        "speak": true,
+        "recruit": false,
+        "repair": true,
+        "gold": false,
+        "tabs": false,
+        "auth": true
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "treasurer",
+      "name": "Treasurer",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": true,
+        "tabs": true,
+        "auth": true
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "officeralt",
+      "name": "Officer Alt",
+      "permissions": {
+        "all": false,
+        "bundle": true,
+        "promote": false,
+        "demote": false,
+        "invite": true,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": false,
+        "tabs": false,
+        "auth": true
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "raidlead",
+      "name": "Raid Leader",
+      "permissions": {
+        "all": false,
+        "bundle": true,
+        "promote": false,
+        "demote": false,
+        "invite": true,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": true,
+        "gold": false,
+        "tabs": false,
+        "auth": true
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "veteran",
+      "name": "Veteran",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": false,
+        "tabs": false,
+        "auth": false
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": true,
+        "gold": false,
+        "tabs": false,
+        "auth": false
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "member",
+      "name": "Member",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": false,
+        "tabs": false,
+        "auth": false
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "alt",
+      "name": "Alt",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": false,
+        "tabs": false,
+        "auth": false
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    },
+    {
+      "id": "initiate",
+      "name": "Initiate",
+      "permissions": {
+        "all": false,
+        "bundle": false,
+        "promote": false,
+        "demote": false,
+        "invite": false,
+        "remove": false,
+        "speak": true,
+        "recruit": false,
+        "repair": false,
+        "gold": false,
+        "tabs": false,
+        "auth": false
+      },
+      "bank": {
+        "goldPerDay": 0,
+        "defaultStacksPerTabPerDay": 0,
+        "view": false,
+        "deposit": false,
+        "unlimited": false
+      }
+    }
+  ]
+}

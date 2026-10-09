@@ -17,6 +17,7 @@ ADDON = TESTS.parent
 SUITES = {
     "harness": (ADDON, Path("test/harness.lua")),
     "status": (TESTS, Path("test_status.lua")),
+    "ranks": (TESTS, Path("test_ranks.lua")),
     "presence": (TESTS, Path("test_presence.lua")),
     "unverified": (TESTS, Path("test_unverified.lua")),
     "launcher": (TESTS, Path("test_launcher.lua")),
@@ -31,7 +32,7 @@ SUITES = {
 def input_hashes() -> dict[str, str]:
     paths = [
         ADDON / "OlympusVerify" / name
-        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerify.toc", "Libs/OlympusHmac.lua")
+        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "Libs/OlympusHmac.lua")
     ]
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())

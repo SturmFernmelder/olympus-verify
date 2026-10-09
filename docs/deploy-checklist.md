@@ -4869,6 +4869,28 @@ exact prior source deployment is a separately admitted provider action. Do not r
 continuation for a different session, reset a quota, reissue an uncertain upload or change a closed feature switch
 as an automatic rollback. Existing backup custody and preservation-critical writer-drain rules still apply.
 
+## Worker .121 - High Council planner and AddOn guidance (9 October 2026)
+
+Change: current ten-rank recommendation, separately attributed High Council catalogue option, preserved v1 drafts,
+explicit owner-policy provenance in new v2 drafts, and existing official WoW masthead/tab art. All High Council draft
+holders have the approved gold/tab toggles; Raid Leader keeps the authenticator safeguard; Veteran has its
+repair toggle without invitations. Numeric non-GM allowances remain zero. AddOn 0.6.5 adds informational /olv ranks guidance.
+
+Configuration: no schema, bindings, secrets, role writer, permissions, retention, authentication or feature switches
+change. F3 deletion/central-authority proposals remain outside this release. No native rank setup, reset or appointment
+is applied. Original catalogue data and saved browser drafts remain available; using the new recommendation is explicit.
+
+Validation: real planner DOM/model regressions include a genuine .120 export round trip, unchanged browser storage,
+explicit adoption, rejected forged policy/approval claims, sensitive toggles, zero allowances and positional warnings.
+Run required Worker checks, exact source/art pins, bundle runtime and CI; offline AddOn suites and source/installed byte
+parity are separate from the owner's /reload and /olv ranks live check. Record the exact qualified commit and provider
+version. Preserve the newest verified recovery export; this update changes no schema or database lifecycle.
+
+Rollout: publish only the reviewed independent source, wait for exact main CI, deploy its exact committed export and
+verify /health plus changed assets byte-for-byte. Preserve the AddOn's local Config.lua and runtime data when installing
+only reviewed code files. Rollback uses the separately admitted preceding .120 source; do not restore a database or
+reset credentials, counters, queues or roles automatically.
+
 ## Worker .120 - captured own contribution-decision history
 
 Change: a third curated partial range includes retained subject/member-actor/staff-actor contribution decisions,

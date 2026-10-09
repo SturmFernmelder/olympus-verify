@@ -4,9 +4,11 @@
   else root.OlympusStaffRankPlanner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const SCHEMA = 'olympus-rank-draft/v1';
+  const SCHEMA = 'olympus-rank-draft/v2';
+  const LEGACY_SCHEMA = 'olympus-rank-draft/v1';
+  const POLICY = 'Olympus owner: High Council native rank; Treasurer and Co-GM appointments; October 2026';
   const PERMISSIONS = ['all', 'bundle', 'promote', 'demote', 'invite', 'remove', 'speak', 'recruit', 'repair', 'gold', 'tabs', 'auth'];
-  const RECOMMENDED = ['gm', 'officer', 'treasurer', 'officeralt', 'raidlead', 'veteran', 'raider', 'member', 'alt', 'initiate'];
+  const RECOMMENDED = ['gm', 'highcouncil', 'officer', 'officeralt', 'raidlead', 'veteran', 'raider', 'member', 'alt', 'initiate'];
   const REFERENCE = Object.freeze({ minRanks: 2, maxRanks: 10, captainRankIndex: 1, protectRankIndex: 5, protectRankIndexInformationalOnly: true });
   const SOURCE_SHA256 = '40BC6DF51C769ADAEDE8A0F29E7483970644B79643C3DDE4B475BA5D9E41EAA8';
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -14,7 +16,7 @@
   const sameKeys = (value, keys) => object(value) && Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
   const fail = message => { throw new Error(message); };
   function catalogueMap(catalogue) {
-    if (!Array.isArray(catalogue) || catalogue.length !== 26) fail('The rank catalogue is incomplete.');
+    if (!Array.isArray(catalogue) || catalogue.length !== 27 || new Set(catalogue.map(rank => rank.id)).size !== 27) fail('The rank catalogue is incomplete.');
     return new Map(catalogue.map(rank => [rank.id, rank]));
   }
   function makeRank(template) {
@@ -36,11 +38,20 @@
       schema: SCHEMA,
       status: 'draft',
       title: 'Olympus rank ladder',
-      source: { attachment: 'Forever Guild Rank Codex.html', sha256: SOURCE_SHA256, recommendationsOnly: true },
+      source: { attachment: 'Forever Guild Rank Codex.html', sha256: SOURCE_SHA256, recommendationsOnly: true, policy: POLICY },
       review: { claudeCode: 'pending', codex: 'pending', liveChangesApplied: false },
       reference: { ...REFERENCE },
       bankLimitScope: 'Whole gold per day and a default item-stack limit per bank tab per day; confirm each real bank tab separately.',
-      ranks: ids.map(id => makeRank(templates.get(id))),
+      ranks: ids.map(id => {
+        const rank = makeRank(templates.get(id));
+        // The current Olympus preset supplements the historical catalogue. Custom
+        // and imported drafts retain their own choices; no live permission is applied.
+        if (ids.length === RECOMMENDED.length && ids.every((value, index) => value === RECOMMENDED[index]) && id === 'veteran') {
+          rank.permissions.invite = false;
+          rank.permissions.repair = true;
+        }
+        return rank;
+      }),
     };
     assertValid(draft, catalogue);
     return draft;
@@ -50,9 +61,11 @@
     const add = text => issues.push(text);
     const templates = catalogueMap(catalogue);
     if (!sameKeys(draft, ['schema', 'status', 'title', 'source', 'review', 'reference', 'bankLimitScope', 'ranks'])) return ['Import a rank draft exported by this planner.'];
-    if (draft.schema !== SCHEMA || draft.status !== 'draft') add('This planner accepts draft plans only.');
+    if (![SCHEMA, LEGACY_SCHEMA].includes(draft.schema) || draft.status !== 'draft') add('This planner accepts draft plans only.');
     if (typeof draft.title !== 'string' || draft.title.trim().length < 1 || draft.title.length > 100 || /[\u0000-\u001f\u007f]/.test(draft.title)) add('Give the plan a title between 1 and 100 characters.');
-    if (!sameKeys(draft.source, ['attachment', 'sha256', 'recommendationsOnly']) || draft.source.attachment !== 'Forever Guild Rank Codex.html' || draft.source.sha256 !== SOURCE_SHA256 || draft.source.recommendationsOnly !== true) add('The source reference must remain attached to this draft.');
+    const sourceKeys = draft.schema === LEGACY_SCHEMA ? ['attachment', 'sha256', 'recommendationsOnly'] : ['attachment', 'sha256', 'recommendationsOnly', 'policy'];
+    if (!sameKeys(draft.source, sourceKeys) || draft.source.attachment !== 'Forever Guild Rank Codex.html' || draft.source.sha256 !== SOURCE_SHA256 || draft.source.recommendationsOnly !== true || (draft.schema === SCHEMA && draft.source.policy !== POLICY)) add('The source reference must remain attached to this draft.');
+    if (draft.schema === LEGACY_SCHEMA && Array.isArray(draft.ranks) && draft.ranks.some(rank => rank && rank.id === 'highcouncil')) add('Use the current recommendation for a High Council draft with its owner-policy reference.');
     if (!sameKeys(draft.review, ['claudeCode', 'codex', 'liveChangesApplied']) || draft.review.claudeCode !== 'pending' || draft.review.codex !== 'pending' || draft.review.liveChangesApplied !== false) add('Exported drafts must show pending review and no live changes.');
     if (!sameKeys(draft.reference, Object.keys(REFERENCE)) || Object.entries(REFERENCE).some(([key, value]) => draft.reference[key] !== value)) add('Keep the documented rank limits and integration references.');
     if (draft.bankLimitScope !== 'Whole gold per day and a default item-stack limit per bank tab per day; confirm each real bank tab separately.') add('Bank limits must retain their draft scope.');
@@ -109,6 +122,10 @@
       if (next.ranks.length >= 10) fail('The ladder already uses all 10 rank slots.');
       if (next.ranks.some(rank => rank.id === id)) fail('That rank is already in the ladder.');
       const rank = makeRank(catalogueMap(catalogue).get(id));
+      if (id === 'highcouncil' && next.schema === LEGACY_SCHEMA) {
+        next.schema = SCHEMA;
+        next.source.policy = POLICY;
+      }
       // Keep the entry rank at the bottom. Authenticator-enabled ranks cannot occupy it.
       next.ranks.splice(next.ranks.length - 1, 0, rank);
     });
@@ -157,6 +174,8 @@
   }
   function notices(draft) {
     const out = [];
+    if (draft.schema === LEGACY_SCHEMA) out.push({ level: 'info', text: 'Your earlier draft is preserved. Use Olympus recommendation to replace it with the current High Council ladder.' });
+    if (draft.ranks.some(rank => rank.id === 'highcouncil')) out.push({ level: 'info', text: 'Treasurer and Co-GM are appointments in the Olympus preset. High Council gold-withdrawal and bank-tab rights apply to every character at that rank. Review all allowances with the Guild Master.' });
     const result = compatibility(draft);
     if (!result.captainCompatible) out.push({ level: 'warning', text: `The community addon treats the second rank as Captain. ${result.captainName} is there now; review that authority before adopting this ladder.` });
     draft.ranks.slice(1).forEach(rank => {
@@ -165,5 +184,5 @@
     out.push({ level: 'info', text: `Protected-rank reference: ${result.protectedRankName} (index 5). This is a review note only.` });
     return out;
   }
-  return { SCHEMA, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
+  return { SCHEMA, LEGACY_SCHEMA, POLICY, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
 });
