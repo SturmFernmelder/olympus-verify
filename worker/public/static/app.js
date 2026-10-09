@@ -3639,12 +3639,99 @@
   for (const [k, v] of Object.entries(ORGANIZER_ERRORS)) if (!(k in COMMUNITY_ERRORS)) COMMUNITY_ERRORS[k] = v; // the member wording of a shared code stays
   const localDT = (sec) => { const d = new Date(sec * 1000); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
   const fromLocalDT = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? Math.floor(t / 1000) : null; };
+  /** .126: calendar edits must preserve the saved instant, including the second occurrence of a repeated hour. */
+  function eventStartControl(initial) {
+    const original = initial ? sec(initial.startsAt) : null;
+    const readZone = () => { try { return DT().resolvedOptions().timeZone || null; } catch { return null; } };
+    const zone = readZone();
+    const utcInput = (t) => isoOf(t).slice(0, 16);
+    const start = h("input", { type: "datetime-local", value: original === null ? localDT(Math.ceil((nowSec() + 86400) / 1800) * 1800) : localDT(original), required: true });
+    const mode = selectOf([{ key: "local", label: zone ? `Your time zone (${zone})` : "Your time zone" }, { key: "utc", label: "UTC" }], "local", { placeholder: null });
+    const occurrence = h("select", { "aria-label": "Clock change occurrence", "data-event-occurrence": "true" });
+    const choices = fieldBox("ev-occurrence", "Clock change occurrence", occurrence);
+    choices.hidden = true;
+    const preview = h("p", { class: "muted small", "aria-live": "polite" });
+    let cache = null, priorMode = "local", error = "", known = null;
+    const inputKey = () => `${mode.value}|${start.value}|${readZone()}`;
+    const parts = (value) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+      if (!m) return null;
+      const [year, month, day, hour, minute] = m.slice(1).map(Number);
+      const d = new Date(0); d.setUTCFullYear(year, month - 1, day); d.setUTCHours(hour, minute, 0, 0);
+      return d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month && d.getUTCDate() === day && d.getUTCHours() === hour && d.getUTCMinutes() === minute ? { year, month, day, hour, minute, wall: d.getTime() } : null;
+    };
+    const sameLocal = (d, p) => d.getFullYear() === p.year && d.getMonth() + 1 === p.month && d.getDate() === p.day && d.getHours() === p.hour && d.getMinutes() === p.minute && d.getSeconds() === 0;
+    const label = (t) => `${fmtDateTime(t)} · ${isoOf(t).replace(".000Z", " UTC")}`;
+    function refresh() {
+      if (start.disabled) return cache;
+      const key = inputKey();
+      if (cache && cache.key === key) return cache;
+      error = ""; choices.hidden = true; clear(occurrence);
+      cache = { key, values: [] };
+      const p = parts(start.value);
+      if (!p) { error = "Enter a valid date and time."; preview.textContent = error; return cache; }
+      if (mode.value === "utc") cache.values = [Math.floor(p.wall / 1000)];
+      else if (!zone || readZone() !== zone) error = "Your browser's time zone changed or could not be read. Reopen this form, or choose UTC.";
+      else {
+        // A bounded contemporary-calendar search, using Date fields in the loop and Intl only on its matches.
+        // Unsupported offsets or Date/Intl disagreement are refused; UTC remains an unambiguous input path.
+        const parsed = new Date(start.value);
+        if (!Number.isFinite(parsed.getTime()) || Math.abs(parsed.getTime() - p.wall) > 26 * 3600000) error = "This local time could not be determined. Choose UTC.";
+        else try {
+          const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: zone, calendar: "gregory", numberingSystem: "latn", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+          for (let i = -1560; i <= 1560; i++) {
+            const d = new Date(p.wall + i * 60000);
+            if (!sameLocal(d, p)) continue;
+            const shown = Object.fromEntries(formatter.formatToParts(d).map((x) => [x.type, x.value]));
+            if (Number(shown.year) !== p.year || Number(shown.month) !== p.month || Number(shown.day) !== p.day || Number(shown.hour) !== p.hour || Number(shown.minute) !== p.minute || Number(shown.second) !== 0) { error = "This local time could not be determined. Choose UTC."; cache.values = []; break; }
+            cache.values.push(Math.floor(d.getTime() / 1000));
+          }
+          if (!error && cache.values.length === 0) error = "This local time does not exist because the clocks change. Choose another time, or enter the time in UTC.";
+        } catch { error = "This local time could not be determined. Choose UTC."; cache.values = []; }
+      }
+      if (cache.values.length > 1) {
+        choices.hidden = false;
+        add(occurrence, [h("option", { value: "", text: "Choose an occurrence" }), ...cache.values.map((t, i) => h("option", { value: String(t), text: `${i === 0 ? "Earlier" : i === cache.values.length - 1 ? "Later" : "Middle"}: ${label(t)}` }))]);
+        if (known && known.key === key && cache.values.includes(Math.floor(known.seconds / 60) * 60)) occurrence.value = String(Math.floor(known.seconds / 60) * 60);
+        else if (original !== null && start.value === localDT(original)) occurrence.value = String(Math.floor(original / 60) * 60);
+      }
+      preview.textContent = error || (cache.values.length > 1 ? "The clocks change at this time. Choose the occurrence you intend." : label(cache.values[0]));
+      return cache;
+    }
+    function value() {
+      const state = refresh();
+      if (error || !state || state.values.length === 0) return null;
+      let t = state.values[0];
+      if (state.values.length > 1) {
+        if (!state.values.includes(Number(occurrence.value)) || occurrence.value === "") { error = "Choose which occurrence of this time you intend."; preview.textContent = error; return null; }
+        t = Number(occurrence.value);
+      }
+      // The input has minute precision; an unchanged edit retains the original seconds and UTC offset.
+      if (known && known.key === state.key && Math.floor(known.seconds / 60) * 60 === t) t = known.seconds;
+      else if (original !== null && start.value === (mode.value === "utc" ? utcInput(original) : localDT(original)) && Math.floor(original / 60) * 60 === t) t = original;
+      preview.textContent = label(t);
+      return t;
+    }
+    start.addEventListener("input", () => { cache = null; known = null; choices.hidden = true; preview.textContent = "Check the start time before saving."; });
+    start.addEventListener("change", () => { cache = null; known = null; value(); });
+    occurrence.addEventListener("change", () => { error = ""; value(); });
+    mode.addEventListener("change", () => {
+      const next = mode.value; mode.value = priorMode;
+      const t = value(); mode.value = next; priorMode = next;
+      start.value = t === null ? "" : next === "utc" ? utcInput(t) : localDT(t);
+      known = t === null ? null : { key: inputKey(), seconds: t };
+      cache = null; value();
+    });
+    value();
+    return { start, fields: [fieldBox("ev-time-zone", "Time zone", mode), fieldBox("ev-start", "Starts", start, { required: true }), choices, preview], value, error: () => error,
+      freeze: (on) => { start.disabled = on; mode.disabled = on; occurrence.disabled = on; } };
+  }
   /** The event form (new or edit). `initial` is the event or null; `onSave(values)` returns a promise of the saved event. */
   function eventForm(initial, onSave, { cancelEvent = null } = {}) {
     const title = h("input", { type: "text", maxlength: String(EVENT_LIMITS.titleMax), value: initial ? initial.title : "", required: true });
     const details = h("textarea", { rows: "4", maxlength: String(EVENT_LIMITS.detailsMax) });
     details.value = initial ? initial.details : "";
-    const start = h("input", { type: "datetime-local", value: initial ? localDT(sec(initial.startsAt)) : localDT(Math.ceil((nowSec() + 86400) / 1800) * 1800), required: true });
+    const time = eventStartControl(initial);
     const duration = h("input", { type: "number", min: String(EVENT_LIMITS.durationMin), max: String(EVENT_LIMITS.durationMax), value: String(initial ? initial.durationMin : 180) });
     const capacity = h("input", { type: "number", min: "1", max: String(EVENT_LIMITS.capacityMax), value: initial && initial.capacity ? String(initial.capacity) : "", placeholder: "no limit" });
     const targets = ["tank", "healer", "damage"].map((r) => h("input", { type: "number", min: "0", max: String(EVENT_LIMITS.capacityMax), value: initial && initial.roleTargets ? String(initial.roleTargets[r]) : "", placeholder: "0", "aria-label": `${RAID_ROLE_LABELS[r]} wanted`, "data-role": r }));
@@ -3654,7 +3741,7 @@
     const form = h("form", { class: "stack", novalidate: true },
       fieldBox("ev-title", "Title", title, { required: true, hint: `Up to ${EVENT_LIMITS.titleMax} characters.` }),
       fieldBox("ev-details", "Details", details, { hint: `Up to ${EVENT_LIMITS.detailsMax} characters: what to bring, where to meet.` }),
-      fieldBox("ev-start", "Starts (your time zone)", start, { required: true }),
+      time.fields,
       fieldBox("ev-duration", "Duration (minutes)", duration, { hint: "15 minutes to 12 hours." }),
       fieldBox("ev-capacity", "Places", capacity, { hint: "How many yes answers take a place; empty for no limit." }),
       h("div", { class: "field" }, h("span", { class: "lab", text: "Wanted roles (optional)" }), h("div", { class: "btn-row" }, targets.map((t) => h("label", { class: "inline" }, rrIcon(t.dataset.role), " ", t)))),
@@ -3663,7 +3750,7 @@
     form.addEventListener("input", markDirty);
     form.addEventListener("change", markDirty);
     const collect = () => {
-      const t = fromLocalDT(start.value);
+      const t = time.value();
       const v = { title: title.value.trim(), details: details.value.trim(), startsAt: t === null ? "" : isoOf(t), durationMin: Number(duration.value) };
       v.capacity = capacity.value.trim() === "" ? null : Number(capacity.value);
       const any = targets.some((x) => x.value.trim() !== "");
@@ -3675,15 +3762,18 @@
       err.hidden = true;
       const v = collect();
       if (!v.title) { err.textContent = ORGANIZER_ERRORS.invalid_title; err.hidden = false; return; }
-      if (!v.startsAt) { err.textContent = ORGANIZER_ERRORS.invalid_starts_at; err.hidden = false; return; }
+      if (!v.startsAt) { err.textContent = time.error() || ORGANIZER_ERRORS.invalid_starts_at; err.hidden = false; return; }
       save.disabled = true;
+      time.freeze(true);
       try {
         const r = await onSave(v);
+        if (r === "unchanged") { save.disabled = false; time.freeze(false); }
         if (r !== "pending") setDirty("community-event", false, dirtyMark); // .109: "pending" = a lost answer waits; the form stays unsaved and the leave guard holds
       } catch (ex) {
         err.textContent = explain(ex, "The event could not be saved.");
         err.hidden = false;
         save.disabled = false;
+        time.freeze(false);
         if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity();
       }
     });
@@ -3708,7 +3798,7 @@
       location.hash = eventHref(out.event.id);
     };
     let form;
-    const lock = (on) => { for (const el of form.querySelectorAll("input, textarea, button")) el.disabled = on; };
+    const lock = (on) => { for (const el of form.querySelectorAll("input, textarea, select, button")) el.disabled = on; };
     form = eventForm(null, async (v) => {
       if (frozen) return; // an unresolved lost answer: only the two buttons act
       const payload = { opId, title: v.title, details: v.details, startsAt: v.startsAt, durationMin: v.durationMin };
@@ -3753,7 +3843,7 @@
           const before = k === "startsAt" ? e.startsAt : e[k];
           if (JSON.stringify(v[k]) !== JSON.stringify(before)) payload[k] = v[k];
         }
-        if (Object.keys(payload).length === 2) { toast("Nothing changed."); return; }
+        if (Object.keys(payload).length === 2) { toast("Nothing changed."); return "unchanged"; }
         try {
           const out = await api("POST", "/api/community/events/update", payload);
           if (eventWithheld(out)) { receiptBar("Saved. ", `The change was stored, but the event cannot be shown to you right now (${HYDRATION_WORDS[out.hydration]}). It stands.`); draw({ event: null }); return; } // .108: a valid withheld receipt
@@ -3773,7 +3863,7 @@
           } catch (ex) { if (uncertain(ex)) { await reread(LOST_EDIT); return; } if (!(await refused(ex, "The event could not be cancelled."))) toast(explain(ex, "The event could not be cancelled."), "bad"); }
         },
       });
-      if (closed) { for (const el of form.querySelectorAll("input, textarea, button")) el.disabled = true; }
+      if (closed) { for (const el of form.querySelectorAll("input, textarea, select, button")) el.disabled = true; }
       holder.appendChild(frame(`Edit: ${e.title}`, h("div", { class: "btn-row" }, h("a", { class: "btn small", href: eventHref(e.id), text: "Back to the event" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null),
         closed ? noticeBox("info", "icon-clock", h("p", { text: e.status === "cancelled" ? "This event is cancelled; it cannot be changed." : "This event has started; it cannot be changed any more." })) : null,
         h("p", { class: "muted small", text: `Revision ${e.revision}. Members who answered see a note when the start moves.` }), form));

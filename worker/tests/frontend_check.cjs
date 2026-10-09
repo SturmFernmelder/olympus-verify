@@ -213,16 +213,20 @@ async function waitFor(pred, what, ms = 2000) {
 }
 const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
 /** The real page: GET / as `who` (or nobody), the boot from its HTML, the script run in a fresh window whose fetch is the real Worker as that person. */
-async function openPage(who, over = {}) {
+async function openPage(who, over = {}, { clockNow } = {}) {
+  // .126: fixed DST form fixtures set both page Date.now and its boot clock; the real Worker's clock stays unchanged.
+  const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return clockNow; } };
   const cookie = who ? await cookieFor(who) : null;
   const headers = cookie ? { Cookie: cookie } : {};
   const res = await indexMod.default.fetch(new Request("https://guild.example/", { headers }), env(over), ctx);
   const html = await res.text();
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
-  const w = makeWindow(m ? m[1] : "{}");
+  const boot = m ? JSON.parse(m[1]) : {};
+  if (clockNow !== undefined) boot.now = Math.floor(clockNow / 1000); // app.js otherwise cancels PageDate.now through server skew
+  const w = makeWindow(JSON.stringify(boot));
   const sandbox = {
     document: w.document, window: w.window, location: w.location, history: w.history, sessionStorage: w.sessionStorage, navigator: { clipboard: { writeText: async () => {} } },
-    Node, Element, Text, Event, Intl, Date, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
+    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
     __drop: null, // .100: when set, the real answer to a matching request is thrown away after the Worker handled it (a lost answer)
     __delay: null, // .102: when set, a matching request waits this many milliseconds before the Worker sees it (a slow reply)
     __garble: null, // .104: when set, the Worker's answer to a matching request is replaced by an unreadable 200 page
@@ -246,7 +250,7 @@ async function openPage(who, over = {}) {
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
   vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });
   await settle();
-  return { ...w, boot: m ? JSON.parse(m[1]) : null, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
+  return { ...w, boot: m ? boot : null, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
 }
 // .116: current script-free policy forms, through the real Worker and genuine cookies/tokens.
 // This is a finite HTML field reader for these server templates, not a DOM or transport replacement.
@@ -1903,6 +1907,176 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await settle();
   check("  and the Community page says it is not switched on", nothing.app.textContent.includes("not switched on yet"));
   check("the page script writes no markup: every text goes through textContent (no innerHTML, outerHTML or insertAdjacentHTML assignment anywhere)", !/\.innerHTML\s*[=+]|\.outerHTML\s*=|insertAdjacentHTML/.test(APP_JS));
+
+
+  console.log("\n== .126: actual event forms at clock changes and real Worker recovery ==");
+  {
+    const savedTZ = process.env.TZ, CLOCK_ORG = "126000000000000001";
+    siteUser(CLOCK_ORG); character(CLOCK_ORG, "Clock Organizer", "Player-clock-126");
+    const eventConfig = { COMMUNITY_ORGANIZERS: CLOCK_ORG, COMMUNITY_FEATURES: "directory,events" };
+    const fixedClock = Date.parse("2026-10-01T12:00:00Z");
+    const earlier = Date.parse("2026-11-01T05:30:00Z") / 1000, later = Date.parse("2026-11-01T06:30:00Z") / 1000;
+    const iso = s => new Date(s * 1000).toISOString();
+    const future = days => Math.ceil((now + days * DAY) / 60) * 60;
+    const change = (control, value, input = false) => {
+      control.value = value;
+      if (input) control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const controls = form => ({ start: form.querySelector('input[type="datetime-local"]'), mode: form.querySelectorAll("select")[0], occurrence: form.querySelector('select[data-event-occurrence="true"]') });
+    const newForm = async title => {
+      const page = await openPage(CLOCK_ORG, eventConfig, { clockNow: fixedClock });
+      await page.go("#/community/calendar/new");
+      await waitFor(() => !!byText(page.app, "button", "Schedule"), ".126 new-event form");
+      const form = byText(page.app, "button", "Schedule").closest("form");
+      form.querySelector('input[type="text"]').value = title;
+      return { page, form, ...controls(form) };
+    };
+    const captureBefore = fixture => {
+      const sent = [];
+      fixture.page.before((pathname, init) => {
+        if (pathname !== "/api/community/events" && pathname !== "/api/community/events/update") return false;
+        sent.push({ pathname, raw: init.body, body: JSON.parse(init.body) });
+        return true; // fixed DST dates exercise the proposed real-form POST, not current366-day backend admission
+      });
+      return sent;
+    };
+    const submit = f => byText(f.form, "button", "Schedule").click();
+    const setUTC = (f, s) => { change(f.mode, "utc"); change(f.start, iso(s).slice(0, 16), true); };
+    const unlocked = f => !f.start.disabled && !f.mode.disabled && !f.occurrence.disabled && !byText(f.form, "button", "Schedule").disabled;
+    try {
+      process.env.TZ = "America/New_York";
+      check(".126 fixture uses the actual New York Date/Intl zone", Intl.DateTimeFormat().resolvedOptions().timeZone === "America/New_York");
+      const invalid = await newForm("126 invalid Gregorian date"), invalidSent = captureBefore(invalid);
+      change(invalid.start, "2027-02-29T12:00", true); submit(invalid); await settle();
+      check(".126 the permissive DOM fixture's invalid leap date is refused before any POST", invalidSent.length === 0 && invalid.form.textContent.includes("Enter a valid date and time") && !invalid.start.disabled);
+      const gap = await newForm("126 spring gap"), gapSent = captureBefore(gap);
+      change(gap.start, "2026-03-08T02:30", true); submit(gap); await settle();
+      check(".126 a spring gap explains the nonexistent time and sends no request", gapSent.length === 0 && gap.form.textContent.includes("does not exist") && !gap.start.disabled);
+      change(gap.mode, "utc"); change(gap.start, "2026-03-08T07:30", true); submit(gap);
+      await waitFor(() => gapSent.length === 1, ".126 gap UTC proposal");
+      check(".126 UTC gives an exact fallback after a rejected local gap", gapSent.length === 1 && gapSent[0].body.startsAt === "2026-03-08T07:30:00.000Z");
+
+      const first = await newForm("126 earlier hour"), firstSent = captureBefore(first);
+      change(first.start, "2026-11-01T01:30", true); submit(first); await settle();
+      check(".126 a repeated hour offers both UTC instants and requires a choice", firstSent.length === 0 && first.occurrence.querySelectorAll("option").filter(o => o.value !== "").map(o => Number(o.value)).join() === [earlier, later].join() && first.form.textContent.includes("Choose which occurrence"));
+      change(first.occurrence, String(earlier)); submit(first);
+      await waitFor(() => firstSent.length === 1, ".126 earlier proposal");
+      check(".126 earlier repeated-hour choice reaches the actual proposed POST", firstSent.length === 1 && firstSent[0].body.startsAt === "2026-11-01T05:30:00.000Z");
+      const second = await newForm("126 later hour"), secondSent = captureBefore(second);
+      change(second.start, "2026-11-01T01:30", true); change(second.occurrence, String(later)); submit(second);
+      await waitFor(() => secondSent.length === 1, ".126 later proposal");
+      check(".126 later repeated-hour choice reaches a distinct proposed POST", secondSent.length === 1 && secondSent[0].body.startsAt === "2026-11-01T06:30:00.000Z");
+
+      const switched = await newForm("126 mode roundtrip"), switchedSent = captureBefore(switched);
+      change(switched.start, "2026-11-01T01:30", true); change(switched.occurrence, String(earlier));
+      change(switched.mode, "utc");
+      check(".126 local-to-UTC displays the chosen instant", switched.start.value === "2026-11-01T05:30");
+      change(switched.mode, "local"); submit(switched);
+      await waitFor(() => switchedSent.length === 1, ".126 fold mode roundtrip");
+      check(".126 switching back to local retains the known fold occurrence", switchedSent.length === 1 && switchedSent[0].body.startsAt === "2026-11-01T05:30:00.000Z");
+
+      const changed = await newForm("126 invalidated choice"), changedSent = captureBefore(changed);
+      change(changed.start, "2026-11-01T01:30", true); change(changed.occurrence, String(earlier));
+      change(changed.start, "2026-11-01T01:45", true); submit(changed); await settle();
+      check(".126 wall-time input invalidates the earlier occurrence choice", changedSent.length === 0 && changed.occurrence.value === "" && changed.form.textContent.includes("Choose which occurrence"));
+      change(changed.occurrence, String(earlier + 15 * 60));
+      process.env.TZ = "America/Chicago"; submit(changed); await settle();
+      check(".126 browser-zone change refuses local reinterpretation", changedSent.length === 0 && changed.form.textContent.includes("time zone changed"));
+      process.env.TZ = "America/New_York";
+
+      const originalSecond = future(4) + 37;
+      const seed = await apiAs(CLOCK_ORG, "POST", "/api/community/events", { opId: token22(), title: "126 seconds original", startsAt: iso(originalSecond), durationMin: 90 }, eventConfig);
+      check(".126 real Worker fixture stores a future UTC start with nonzero seconds", seed.status === 200 && one("SELECT starts_at FROM community_events WHERE id=?", seed.body.event && seed.body.event.id)?.starts_at === originalSecond);
+      const clockEvent = seed.body.event;
+      const edit = await openPage(CLOCK_ORG, eventConfig);
+      await edit.go(`#/community/calendar/${clockEvent.id}/edit`);
+      await waitFor(() => !!byText(edit.app, "button", "Save changes"), ".126 real seconds edit");
+      let editForm = byText(edit.app, "button", "Save changes").closest("form"), editTimes = controls(editForm), editPosts = [];
+      edit.before((pathname, init) => { if (pathname === "/api/community/events/update") editPosts.push(JSON.parse(init.body)); return false; });
+      change(editTimes.mode, "utc"); change(editTimes.mode, "local");
+      editForm.querySelector('input[type="text"]').value = "126 seconds title only";
+      byText(editForm, "button", "Save changes").click();
+      await waitFor(() => one("SELECT title FROM community_events WHERE id=?", clockEvent.id)?.title === "126 seconds title only", ".126 Worker title-only edit");
+      check(".126 an unchanged time through both modes omits startsAt and preserves exact stored seconds/end", editPosts.length === 1 && !Object.hasOwn(editPosts[0], "startsAt") && one("SELECT starts_at,ends_at FROM community_events WHERE id=?", clockEvent.id).starts_at === originalSecond && one("SELECT ends_at FROM community_events WHERE id=?", clockEvent.id).ends_at === originalSecond + 90 * 60);
+      await waitFor(() => !!byText(edit.app, "button", "Save changes") && byText(edit.app, "button", "Save changes").closest("form") !== editForm, ".126 saved edit redraw");
+      editForm = byText(edit.app, "button", "Save changes").closest("form"); editTimes = controls(editForm);
+      const beforeNoop = editPosts.length;
+      byText(editForm, "button", "Save changes").click(); await settle(); await settle();
+      check(".126 no-op edit sends no update and leaves Save/time/selects usable", editPosts.length === beforeNoop && !byText(editForm, "button", "Save changes").disabled && !editTimes.start.disabled && !editTimes.mode.disabled && !editTimes.occurrence.disabled);
+      editForm.querySelector('input[type="text"]').value = "126 after no-op";
+      byText(editForm, "button", "Save changes").click();
+      await waitFor(() => one("SELECT title FROM community_events WHERE id=?", clockEvent.id)?.title === "126 after no-op", ".126 after-noop edit");
+      check(".126 the same no-op form can perform a later genuine Worker edit", one("SELECT title,starts_at FROM community_events WHERE id=?", clockEvent.id).title === "126 after no-op" && one("SELECT starts_at FROM community_events WHERE id=?", clockEvent.id).starts_at === originalSecond);
+
+      // A genuine DTO supplies shape/custody; the fixed start/clock are only before-send form fixtures.
+      const foldEdit = async () => {
+        const page = await openPage(CLOCK_ORG, eventConfig, { clockNow: fixedClock });
+        page.answer((pathname, init) => pathname === `/api/community/event?id=${clockEvent.id}` && (init.method || "GET") === "GET" ? { event: { ...clockEvent, title: "126 fold original", startsAt: "2026-11-01T06:30:37.000Z", canManage: true } } : undefined);
+        await page.go(`#/community/calendar/${clockEvent.id}/edit`);
+        await waitFor(() => !!byText(page.app, "button", "Save changes"), ".126 fixed later-fold edit");
+        const form = byText(page.app, "button", "Save changes").closest("form");
+        return { page, form, ...controls(form) };
+      };
+      const kept = await foldEdit(), keptSent = captureBefore(kept);
+      kept.form.querySelector('input[type="text"]').value = "126 folded title only";
+      byText(kept.form, "button", "Save changes").click();
+      await waitFor(() => keptSent.length === 1, ".126 unchanged fold proposal");
+      check(".126 unchanged later-fold edit omits startsAt, preserving original UTC/nonzero seconds", keptSent.length === 1 && !Object.hasOwn(keptSent[0].body, "startsAt") && kept.occurrence.value === String(later));
+      const moved = await foldEdit(), movedSent = captureBefore(moved);
+      change(moved.occurrence, String(earlier)); change(moved.mode, "utc"); change(moved.mode, "local");
+      moved.form.querySelector('input[type="text"]').value = "126 folded earlier chosen";
+      byText(moved.form, "button", "Save changes").click();
+      await waitFor(() => movedSent.length === 1, ".126 changed fold mode proposal");
+      check(".126 chosen earlier edit survives mode switching instead of reverting to original later", movedSent.length === 1 && movedSent[0].body.startsAt === "2026-11-01T05:30:00.000Z");
+
+      const pending = await newForm("126 frozen retry"), pendingSent = captureBefore(pending);
+      setUTC(pending, future(5)); submit(pending);
+      await waitFor(() => !!byText(pending.page.app, "button", "Retry the same"), ".126 frozen create");
+      check(".126 uncertain create freezes start and both time selects", pending.start.disabled && pending.mode.disabled && pending.occurrence.disabled);
+      process.env.TZ = "America/Chicago";
+      byText(pending.page.app, "button", "Retry the same").click();
+      await waitFor(() => pendingSent.length === 2, ".126 exact frozen retry");
+      check(".126 retry preserves byte-identical operation/start across browser-zone change", pendingSent.length === 2 && pendingSent[0].raw === pendingSent[1].raw);
+      process.env.TZ = "America/New_York";
+
+      const recovered = await newForm("126 known retry refusal"), recoverySent = [];
+      let dropBefore = true;
+      recovered.page.before((pathname, init) => { if (pathname !== "/api/community/events") return false; recoverySent.push(JSON.parse(init.body)); return dropBefore; });
+      setUTC(recovered, future(6)); submit(recovered);
+      await waitFor(() => !!byText(recovered.page.app, "button", "Retry the same"), ".126 lost create before refusal");
+      dropBefore = false; eventConfig.COMMUNITY_ORGANIZERS = "";
+      byText(recovered.page.app, "button", "Retry the same").click();
+      await waitFor(() => !byText(recovered.page.app, "button", "Retry the same") && !recovered.start.disabled, ".126 known Worker refusal unlock");
+      check(".126 known retry refusal unlocks all time controls and Schedule, writes nothing", unlocked(recovered) && !one("SELECT 1 FROM community_events WHERE id=?", recoverySent[0].opId));
+      eventConfig.COMMUNITY_ORGANIZERS = CLOCK_ORG;
+      const recoveredStart = future(6) + 3600;
+      change(recovered.start, iso(recoveredStart).slice(0, 16), true); submit(recovered);
+      await waitFor(() => !!one("SELECT 1 FROM community_events WHERE id=?", recoverySent[0].opId), ".126 recovered create");
+      check(".126 after known refusal edited time reaches a genuine Worker create", one("SELECT starts_at FROM community_events WHERE id=?", recoverySent[0].opId)?.starts_at === recoveredStart && recoverySent.at(-1).startsAt === iso(recoveredStart));
+
+      const absent = await newForm("126 confirmed absent"), absentSent = [];
+      let failAbsent = true;
+      absent.page.before((pathname, init) => { if (pathname !== "/api/community/events") return false; absentSent.push(JSON.parse(init.body)); return failAbsent; });
+      setUTC(absent, future(7)); submit(absent);
+      await waitFor(() => !!byText(absent.page.app, "button", "Check whether it was stored"), ".126 lost create absence check");
+      byText(absent.page.app, "button", "Check whether it was stored").click();
+      await waitFor(() => !absent.start.disabled, ".126 real Worker404 recovery");
+      check(".126 genuine event-not-found releases every time control", unlocked(absent));
+      failAbsent = false;
+      const afterAbsence = future(7) + 3600;
+      change(absent.start, iso(afterAbsence).slice(0, 16), true); submit(absent);
+      await waitFor(() => !!one("SELECT 1 FROM community_events WHERE id=?", absentSent[0].opId), ".126 after-absence create");
+      check(".126 after confirmed absence helper recomputes edited UTC for the Worker", one("SELECT starts_at FROM community_events WHERE id=?", absentSent[0].opId)?.starts_at === afterAbsence);
+
+      const refused = await newForm("126 known initial refusal");
+      setUTC(refused, future(8)); refused.form.querySelectorAll('input[type="number"]')[0].value = "14"; submit(refused);
+      await waitFor(() => !byText(refused.form, "button", "Schedule").disabled && refused.form.textContent.includes("15"), ".126 invalid-duration refusal");
+      check(".126 initial known validation refusal unlocks all time controls", unlocked(refused) && !one("SELECT 1 FROM community_events WHERE title='126 known initial refusal'"));
+    } finally {
+      if (savedTZ === undefined) delete process.env.TZ; else process.env.TZ = savedTZ;
+    }
+  }
 
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

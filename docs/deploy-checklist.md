@@ -5004,3 +5004,28 @@ Actual Claude and Codex reviews of this new exact tuple, release qualification, 
 acceptance remain separate gates. No historical review or this checklist is their receipt. After the approved
 deployment, verify .125, Admin -> Audit log, representative safe rows, filters, paging and a signed-out refusal.
 Rollback is a separately admitted prior-source deployment; it does not delete or restore audit records.
+
+## Worker .126 - calendar time choices (9 October 2026)
+
+Problem: editing an event in the second occurrence of a repeated local hour could silently move it to the earlier
+occurrence, even when only its title changed. Minute-only input could also discard its saved seconds. The calendar
+now preserves an unchanged saved instant, refuses skipped local minutes, offers explicit occurrence choices and shows
+UTC. Organizers can enter UTC directly. A mode switch converts a resolved instant and clears an unresolved value.
+
+Configuration/schema/dependencies: no changes. The API, current authorization/revision fences, RSVP/attendance,
+dues input, retention, ranks and bot permissions stay on their existing paths. No event is created by deployment.
+The local resolver is bounded to contemporary minute-offset input; unknown/changed zone or Date/Intl disagreement
+refuses local input and offers UTC. Full arbitrary historical-zone coverage is not claimed.
+
+Validation before publication: focused real app/Worker frontend regressions for clock gaps, both repeated-hour
+choices, unchanged UTC seconds, invalid dates, mode/zone changes, known refusal and frozen uncertain retry. Run the
+app syntax check, worker test:all, applicable repository CI and the exact bundle/art/policy checks on the final head.
+Independently review source and native browser form layout/behavior. Record actual Claude's scoped verdict separately.
+
+Rollout: qualify the exact .126 commit/tree and all required CI jobs, then deploy that commit through the reviewed
+deploy-commit.sh path. Verify worker health/build and live static bytes; inspect Calendar -> Schedule an event and
+an existing event's edit form without submitting a real event. Confirm Time zone, Starts, UTC preview and occurrence
+labels are usable. Item 9 remains Partial for Discord sign-ups, acceptance and reminders.
+
+Rollback: a separately qualified previous-source deployment. No database restore or account/event deletion is part
+of this rollback. Publication and live acceptance receipts remain separate from this prepared checklist.

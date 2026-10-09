@@ -1265,3 +1265,24 @@ The remaining review notes are explicit limits of this correction scope:
 
 These changes are an unshipped .125 candidate. Codex test evidence is not actual Claude's review of the corrected
 tuple; publication/CI, separate reviews and live owner acceptance remain open. Item 5 stays Partial through those gates.
+
+## 9 October 2026 - .126 calendar start-time choices
+
+An event's saved UTC instant must survive a title-only edit. The previous minute-only local input was reparsed with
+Date.parse, which can choose the earlier occurrence of a repeated clock-change hour and also discard stored seconds.
+The calendar form now preserves the original instant when its displayed minute and selected occurrence are unchanged.
+New local values are checked as Gregorian minute inputs, matched to real local components, and shown with their UTC
+instant. A skipped local time is refused. When the bounded search finds more than one occurrence, a changed value
+needs an explicit earlier/later choice. An unchanged edit selects its own existing occurrence.
+
+The form also accepts explicit UTC. Switching modes converts a resolved instant; an unresolved value is cleared so
+it cannot silently acquire another meaning. The local search covers 3,121 UTC minutes within 26 hours of the requested
+wall time, using Date components in the loop and one fixed-zone Intl formatter on matches. This is a bounded
+contemporary-calendar input path, not an arbitrary historical-zone equivalence claim. Missing/changed zone identity,
+unsupported offsets or Date/Intl disagreement hold local input and offer UTC. Native browser behavior and representative
+zone cases need their own qualification. Time controls freeze for a submitted operation; the existing uncertain-answer
+retry retains its original payload. A known refusal restores editing.
+
+This batch changes calendar input only. Existing API admission, event revisions, RSVP/attendance, retention and
+permissions stay on their current paths; the dues time helper is unchanged. Discord event publishing and raid reminders
+remain unfinished under item 9. No complete item-9 acceptance or overall signature follows from this repair.
