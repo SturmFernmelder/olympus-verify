@@ -4872,7 +4872,7 @@ as an automatic rollback. Existing backup custody and preservation-critical writ
 ## Worker .121 - High Council planner and AddOn guidance (9 October 2026)
 
 Change: current ten-rank recommendation, separately attributed High Council catalogue option, preserved v1 drafts,
-explicit owner-policy provenance in new v2 drafts, and existing official WoW masthead/tab art. All High Council draft
+explicit owner-policy provenance in new v2 drafts, and the existing owner-approved crest for brand/tab use. All High Council draft
 holders have the approved gold/tab toggles; Raid Leader keeps the authenticator safeguard; Veteran has its
 repair toggle without invitations. Numeric non-GM allowances remain zero. AddOn 0.6.5 adds informational /olv ranks guidance.
 

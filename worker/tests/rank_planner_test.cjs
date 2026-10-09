@@ -162,7 +162,7 @@ const forged = JSON.parse(Model.exportDraft(current,catalogue.ranks)); forged.so
 check("a forged owner-policy stamp is refused", Model.validate(forged,catalogue.ranks).length > 0);
 const falselySigned = JSON.parse(Model.exportDraft(current,catalogue.ranks)); falselySigned.review.claudeCode = "approved";
 check("imports cannot claim an agent approval or live application", Model.validate(falselySigned,catalogue.ranks).length > 0);
-check("rank planner masthead uses existing official WoW artwork", !PAGE_HTML.includes("/static/olympus-icon.png") && PAGE_HTML.includes("/static/wow/pos-guild_master.png"));
+check("rank planner retains the owner-approved crest only as brand and tab icon", PAGE_HTML.split("/static/olympus-icon.png").length === 3 && !PAGE_HTML.includes("/static/wow/pos-guild_master.png"));
 
 console.log(`\n${ok}/${n} passed`);
 process.exit(ok === n ? 0 : 1);

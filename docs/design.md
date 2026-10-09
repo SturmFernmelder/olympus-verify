@@ -1152,5 +1152,7 @@ Draft v2 adds an explicit owner-policy stamp. A genuine v1 export restores and e
 custom permissions and old Treasurer rank. Only the user's replacement action or explicit addition of High Council
 adopts the new provenance. The browser storage namespace stays stable. No guild, Discord, bank or appointment write
 is introduced. Older integrations that equate rank index 1 with Captain require review because High Council now sits
-there. The planner masthead and tab icon use existing official game artwork. The AddOn's /olv ranks guidance is
+there. The planner masthead and tab icon retain the existing Olympus crest: the owner's 1 October 2026 choice,
+"Crest is the exception", permits it only as site brand and browser icon. Other interface art remains official WoW art.
+The AddOn's /olv ranks guidance is
 informational and changes no roster, queue, verification, invite, promotion, bank permission or export behavior.
