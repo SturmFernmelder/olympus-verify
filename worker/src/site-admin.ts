@@ -17,7 +17,7 @@
  *   GET  friends?q
  *   GET  lookup?q, GET account/{id}
  *   GET  export/{applications|board|votes|friends|reserved|users}
- *   GET  audit
+ *   GET  audit; GET audit-log?family&actor&subject&window&before&limit (.125: safe staff page)
  *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds, namesConfirmed (.115)}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
  *         POST beta-reset {confirm, notice}; GET renames, POST renames/forced {auditId, confirm}, POST renames/{id}/approve|cancel
  *   .115: GET news, POST news {id,title,body,days}, POST news/update {id,revision,title,body,days}, POST news/delete {id,revision}
@@ -27,12 +27,12 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, labelOf, ON_BOARD, onBoardSql, readJson, readSession, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, onBoardSql, readJson, readSession, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
 import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, settingsFrom, type SiteSettings } from "./site-data";
 import { queueReserved, releaseReserved } from "./site-queue";
 import { guildSeats } from "./guild-seats";
 import { accountInfo, ownerOfCharacter, referencesNaming } from "./lookup";
-import { communityEraseStatements } from "./community-context";
+import { communityEraseStatements, fenceSql } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
 import { rest } from "./discord";
 import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
@@ -133,7 +133,8 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
     return apiJson(await accountWithNames(env, parts[1]));
   }
   if (m === "GET" && parts[0] === "export" && parts[1]) return exportPage(env, parts[1], q);
-  if (m === "GET" && parts[0] === "audit") return recentAudit(env);
+  if (m === "GET" && parts[0] === "audit-log" && !parts[1]) return auditLog(request, env, q, admin);
+  if (m === "GET" && parts[0] === "audit") return recentAudit(request, env, admin);
   return apiJson({ error: "not_found" }, 404);
 }
 
@@ -1024,7 +1025,392 @@ async function exportPage(env: Env, kind: string, q: URLSearchParams): Promise<R
   return apiJson({ columns: columns ?? [], rows: rows.slice(0, e.page), next: more ? offset + e.page : null });
 }
 
-async function recentAudit(env: Env): Promise<Response> {
-  const rows = await env.DB.prepare("SELECT ts, actor, action, subject, details FROM audit WHERE action LIKE 'site.%' ORDER BY id DESC LIMIT 100").all();
-  return apiJson({ audit: rows.results });
+async function recentAudit(request: Request, env: Env, admin: SiteUser): Promise<Response> {
+  // Keep Overview's five-field contract and newest 100 site actions, but share the safe projection and final admission.
+  const s = await readSession(env, request);
+  if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
+  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e });
+  const rows = await env.DB.prepare(
+    `SELECT id, ts, actor, action, subject, substr(details, 1, ${AUDIT_DETAILS_MAX}) AS details,
+            length(details) > ${AUDIT_DETAILS_MAX} AS cut
+       FROM audit WHERE action LIKE 'site.%' ORDER BY id DESC LIMIT 100`,
+  ).all<AuditRow>();
+  const page = { audit: rows.results.map(safeAuditEntry).map((r) => ({
+    ts: r.ts, actor: r.actor, action: r.action, subject: r.subject,
+    details: [r.details ? JSON.stringify(r.details) : "", r.detailsWithheld ? "Private or unrecognized details withheld" : ""].filter(Boolean).join(" · ") || null,
+  })) };
+  return admitAudit(env, session, page);
+}
+
+// ---------- the audit log page ----------
+
+/**
+ * Admin -> Audit log (the owner's request of 7 Oct 2026, item 5: "Full staff audit page"): the whole dated log, bot,
+ * roster, role and website actions alike, filtered, paged and with names. Staff only, because the entries carry Discord
+ * ids: it sits behind the /api/admin/* gate (site-api.ts, SITE_ADMINS). It reads and never writes, and reading leaves no
+ * audit row of its own: the privacy policy says a staff change is recorded in the dated log and reading is not. The
+ * Overview's "Show recent activity" (recentAudit above) retains its five-field contract and uses the same safe
+ * projection and final admission.
+ *
+ * The audit table has no retention purge and only grows, so a filtered keyset query could read every row looking for a
+ * page of a rare action. Each request therefore looks at one stretch of at most AUDIT_SCAN ids, newest first, walking the
+ * primary key: the stretch ends at the cursor (or the newest id), and the window is a filter on ts itself, never an id
+ * floor (Codex's review, 7 Oct 2026 19:58 UTC: ids and stamps need not run in the same order). When the stretch held fewer
+ * matches than a page, `next` is the stretch's own start and `exhausted` stays false until the oldest id is reached, so the
+ * page can say which stretch it searched and offer Older without ever claiming there are no entries at all; `likelyEnd`
+ * says when the rest of the log was stamped before the window.
+ *
+ * Admission (Codex's required change A30-AUDIT-01, 7 Oct 2026 21:23:59 UTC): the gate in site-api.ts judged the account
+ * once, before the reads, so a session revoked, expired, denied with a version bump or erased while the page was being
+ * read still got the payload, and only the next request with the same cookie was refused. The handler therefore binds the
+ * request's own signed session (readSession: u, v, e) before any audit read, requires it to be the account the gate
+ * admitted (discord id and session version), and keeps those three values: a later version or a renewed expiry is never
+ * captured. It builds the whole answer first, then runs ONE last statement on every 200 path, the early empty ones
+ * included: the community fence (community-context.ts fenceSql "applicantWrite": the live site_users row with that
+ * version, not denied, in the server, and the cookie's expiry ahead of the database's own clock) with the bound values,
+ * plus SITE_ADMINS again (zero I/O). The answer leaves only when that holds (else 401 and nothing of it); a failure of
+ * the statement itself is 503 and nothing of it; nothing asynchronous follows the admission. Five statements at most:
+ * the oldest and newest ids, the window's earliest-stamped id, the page, the names, the admission.
+ */
+const AUDIT_SCAN = 2000;
+const AUDIT_WINDOWS: Record<string, number> = { "1d": 86_400, "7d": 7 * 86_400, "30d": 30 * 86_400, all: 0 };
+/**
+ * The actors the code writes that are not a Discord id (db.ts audit callers). "auto" approves every invite queued under
+ * ADMISSION_MODE=auto (review.ts onVerified), so most invite.queued rows carry it; "admin" as the design names it.
+ */
+const AUDIT_SYSTEM_ACTORS = new Set(["watcher", "system", "cron", "site", "auto", "admin"]);
+const AUDIT_PARAMS = new Set(["family", "actor", "subject", "window", "before", "limit"]);
+/** Bound historical text before parsing; oversized or malformed text is withheld, never returned as a prefix. */
+const AUDIT_DETAILS_MAX = 4000;
+
+/** The staff page is a projection, never a replay of historical text. New actions start withheld until reviewed here.
+ * Each registered action fixes its subject kind and its own typed detail keys. OAuth tags, verification tickets/codes,
+ * GUIDs, errors, reasons, case/payment/evidence identifiers and arbitrary free text have no rule.
+ */
+type AuditValueRule = "count" | "boolean" | readonly string[];
+type AuditRule = { subject: "id" | "character" | "none"; fields: Record<string, AuditValueRule> };
+const AUDIT_RULES: Record<string, AuditRule> = Object.create(null);
+function auditRules(actions: string, subject: AuditRule["subject"], fields: AuditRule["fields"] = {}): void {
+  for (const action of actions.split(" ")) AUDIT_RULES[action] = { subject, fields };
+}
+auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
+auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
+auditRules("site.application_status", "id", { status: ["submitted", "reviewing", "accepted", "declined", "withdrawn"] });
+auditRules("site.denied", "id", { released: "count" });
+auditRules("site.undenied", "id");
+auditRules("site.data_deleted", "id", { mentions: "boolean" });
+auditRules("site.mentions_deleted", "id", { removed: "count" });
+auditRules("site.votes_saved", "none", { picks: "count" });
+auditRules("site.friends_saved", "none", { friends: "count" });
+auditRules("site.reserved_saved", "none", { added: "count", removed: "count" });
+auditRules("site.reserved_approved site.reserved_unapproved site.reserved_released", "none", { n: "count" });
+auditRules("site.reserved_queued", "none", { queued: "count", bumped: "count", inGuild: "count" });
+auditRules("site.beta_reset", "none", { appointed: "count", directoryNames: "count", notice: "boolean" });
+auditRules("site.login_failed", "none", { step: ["token", "member"], status: "count" });
+auditRules("site.news_notice", "none", { op: ["created", "updated", "deleted"], live: "count" });
+auditRules("site.news_expired", "none", { deleted: "count", opsDeleted: "count", remaining: "count" });
+auditRules("bnet.switch", "none", { enableRequested: "boolean", collectionEnabled: "boolean" });
+auditRules("bnet.retention", "none", { members: "count", phase3: "count", characters: "count", audit: "count" });
+auditRules("link.started link.bnet_not_configured link.bnet_login_started link.battletag_taken link.banned link.ok link.metadata_failed bnet.linked", "none");
+auditRules("link.bnet_token_failed link.bnet_userinfo_failed", "none", { status: "count" });
+auditRules("role.backfilled role.blocked role.blocked_removed role.misconfigured role.held_reapply role.revoke_pending role.revoked_after_hold role.revoked_reapply role.revoked_after_ban role.revoked_banned role.restored role.restore_failed role.remove_failed role.add_failed role.deferred role.refused_banned roles.read_failed", "id");
+auditRules("role.backfill_page role.sweep_failed", "none");
+auditRules("role.budget_exhausted", "none", { attempts: "count", calls: "count", retries: "count", limit: "count" });
+auditRules("role.sweep", "none", { checked: "count", restored: "count", failed: "count", unfinished: "count", absent: "count", blocked: "count", revoked: "count", calls: "count", attempts: "count", retries: "count", stopped: "boolean" });
+auditRules("verify.invalid_code verify.ticket_mismatch verify.no_pending verify.banned verify.bound_elsewhere verify.already_used verify.already_linked verify.confirmed verify.already_member verify.roster_not_current verify.ticket_reused verify.guid_pinned verify.refused_bound verify.requested verify.ticket_issued", "none");
+auditRules("invite.queued invite.failed invite.fired invite.joined_stale_link invite.joined_unconfirmed", "character");
+auditRules("invite.declined invite.expired", "character", { attempts: "count" });
+auditRules("invite.joined", "character", { promoted: "boolean" });
+auditRules("invite.resumed", "character", { position: "count", attempts: "count" });
+auditRules("review.denied rename.forced rename.approved rename.cancelled", "character");
+auditRules("roster.namesake_released roster.stale_link_released roster.namesake_seen roster.renamed roster.returned roster.left_pending roster.remove_failed roster.removed_unlinked roster.left roster.freed_seat", "character");
+auditRules("roster.member", "character", { roleGranted: "boolean", roleBlocked: "boolean" });
+auditRules("roster.rename_waiting roster.rename_blocked roster.rename_swap", "none");
+auditRules("roster.identity_held", "none", { count: "count", stale: "count", cap: "count" });
+auditRules("roster.duplicate_names", "none", { members: "count", duplicates: "count" });
+auditRules("roster.ingest_unusable", "none", { members: "count", stored: "count" });
+auditRules("roster.ingest_failed roster.first_seen_failed roster.distrusted", "none", { members: "count" });
+auditRules("roster.ingested roster.sync", "none", { members: "count", promoted: "count", stripped: "count", released: "count", renamed: "count", deferred: "count" });
+auditRules("roster.effects_failed", "none", { seq: "count", applied: "count" });
+auditRules("admin.ban admin.unban admin.discord_ban admin.discord_ban_failed", "id");
+auditRules("admin.unbind", "character");
+auditRules("admin.sync", "none", { promoted: "count", stripped: "count", released: "count", renamed: "count", deferred: "count", trustedSet: "boolean" });
+auditRules("admin.sync_refused", "none", { memberCount: "count", stored: "count" });
+auditRules("admin.refresh_guide admin.post_guide intros.refresh", "none");
+auditRules("notice.no_channel notice.failed notice.suppressed", "id", { cap: "count" });
+auditRules("notice.flush_failed", "none", { count: "count" });
+auditRules("notice.capped", "none", { cap: "count" });
+auditRules("notice.posted", "none", { users: "count" });
+auditRules("staff_notice.failed nick.failed note.failed note.set", "none");
+auditRules("guild.full", "none", { candidates: "count" });
+auditRules("guild.full_notified", "none", { candidates: "count", posted: "boolean" });
+auditRules("rank.mismatch_reported", "none", { count: "count", posted: "boolean" });
+auditRules("queue.swept", "none", { requeued: "count", expired: "count", max: "count" });
+auditRules("community.profile_created community.profile_updated community.alt_confirmed community.alt_rejected", "id");
+auditRules("community.name_conflict", "id", { names: "count" });
+auditRules("community.profiles_expired community.events_expired community.departures_recorded", "none", { deleted: "count", created: "count" });
+auditRules("community.departures_expired community.trials_expired", "none", { deleted: "count", remaining: "count" });
+auditRules("community.restrictions_expired", "none", { rows: "count", cases: "count", periods: "count" });
+auditRules("community.rsvp community.event_created community.event_updated community.event_cancelled", "none");
+auditRules("community.attendance_recorded", "none", { entries: "count" });
+// Dedicated case and contribution pages retain their own authorization/projections. This aggregate page shows the
+// action without private case linkage, reasons, status, evidence, contact or payment detail.
+auditRules("community.privacy_case_updated community.departure_acknowledged community.departure_restriction_opened community.trial_created community.trial_extended community.trial_passed community.trial_ended community.restriction_set community.restriction_acknowledged community.restriction_review_continued community.restriction_lifted community.restriction_appeal_requested community.restriction_appeal_upheld community.restriction_overturned community.restriction_watch_added community.restriction_watch_renewed community.restriction_watch_removed community.contribution_acknowledged community.contribution_evidence community.contribution_obligation community.contribution_receipt community.contribution_allocate community.contribution_void community.contribution_reverse community.contribution_state community.contribution_contact community.contribution_removal", "none");
+auditRules("community.officer_digest_posted community.officer_digest_failed community.officer_digest_removed community.officer_digest_resumed", "none");
+
+interface AuditEntry {
+  id: number;
+  ts: number;
+  actor: string;
+  actorName: string | null;
+  action: string;
+  subject: string | null;
+  subjectName: string | null;
+  subjectWithheld: boolean;
+  details: Record<string, string | number | boolean> | null;
+  detailsWithheld: boolean;
+}
+type AuditRow = { id: number; ts: number; actor: string; action: string; subject: string | null; details: string | null; cut: number | null };
+
+/** Character subjects only for writers that store a character label; never a BattleTag, opaque case id or free text. */
+function auditCharacter(value: string): boolean {
+  return Array.from(value).length <= 40 && /^[\p{L}][\p{L}' -]*$/u.test(value);
+}
+
+function safeAuditEntry(row: AuditRow): AuditEntry {
+  const rule = Object.prototype.hasOwnProperty.call(AUDIT_RULES, row.action) ? AUDIT_RULES[row.action] : null;
+  const actor = isId(row.actor) || AUDIT_SYSTEM_ACTORS.has(row.actor) ? row.actor : "withheld";
+  const subject = rule && row.subject !== null &&
+    (rule.subject === "id" ? isId(row.subject) : rule.subject === "character" && auditCharacter(row.subject)) ? row.subject : null;
+  let details: AuditEntry["details"] = null;
+  let detailsWithheld = !rule || !!row.cut;
+  if (row.details !== null) {
+    detailsWithheld = true;
+    if (rule && !row.cut) {
+      try {
+        const stored: unknown = JSON.parse(row.details);
+        if (stored !== null && typeof stored === "object" && !Array.isArray(stored)) {
+          const kept: Record<string, string | number | boolean> = {};
+          let dropped = false;
+          for (const [key, value] of Object.entries(stored)) {
+            const validation = Object.prototype.hasOwnProperty.call(rule.fields, key) ? rule.fields[key] : null;
+            const valid = validation === "count" ? typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000_000 :
+              validation === "boolean" ? typeof value === "boolean" :
+              Array.isArray(validation) && typeof value === "string" && validation.includes(value);
+            if (valid) kept[key] = value as string | number | boolean;
+            else dropped = true;
+          }
+          if (Object.keys(kept).length) details = kept;
+          detailsWithheld = dropped;
+        }
+      } catch { /* malformed historical detail stays withheld */ }
+    }
+  }
+  return {
+    id: row.id, ts: row.ts, actor, actorName: null, action: rule ? row.action : "unknown",
+    subject, subjectName: null, subjectWithheld: row.subject !== null && subject === null,
+    details, detailsWithheld,
+  };
+}
+
+const AUDIT_REFUSALS: Record<string, string> = {
+  query: "Only family, actor, subject, window, before and limit can be given, each once.",
+  family: "The family is a lowercase action prefix such as role, site or roster.",
+  actor: "The actor is a Discord ID (17 to 20 digits) or one of watcher, system, cron, site, auto and admin.",
+  subject: "The subject is 1 to 80 characters without control characters, matched exactly.",
+  window: "The window is 1d, 7d, 30d or all.",
+  before: "The cursor is a positive whole number.",
+  limit: "The page size is a whole number from 10 to 100.",
+};
+
+interface AuditQuery {
+  family: string | null;
+  actor: string | null;
+  subject: string | null;
+  window: string;
+  before: number | null;
+  limit: number;
+}
+
+/**
+ * The page's parameters, every one optional, bounded and checked; anything else is refused (400) rather than ignored, so
+ * a mistyped filter never comes back as the unfiltered log. An empty value is the same as none (the page's form sends
+ * nothing for an empty box anyway).
+ */
+function auditQuery(q: URLSearchParams): AuditQuery | { field: string } {
+  const seen = new Set<string>();
+  for (const k of q.keys()) {
+    if (!AUDIT_PARAMS.has(k) || seen.has(k)) return { field: "query" };
+    seen.add(k);
+  }
+  const get = (k: string) => {
+    const v = q.get(k);
+    return v === null || v === "" ? null : v;
+  };
+  const family = get("family");
+  if (family !== null && !/^[a-z][a-z_]{1,19}$/.test(family)) return { field: "family" };
+  const actor = get("actor");
+  if (actor !== null && !isId(actor) && !AUDIT_SYSTEM_ACTORS.has(actor)) return { field: "actor" };
+  const subject = get("subject");
+  if (subject !== null && (Array.from(subject).length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(subject))) return { field: "subject" };
+  const window = get("window") ?? "7d";
+  if (!Object.prototype.hasOwnProperty.call(AUDIT_WINDOWS, window)) return { field: "window" };
+  const before = get("before");
+  if (before !== null && !/^[1-9]\d{0,14}$/.test(before)) return { field: "before" };
+  const limitText = get("limit");
+  // written as the cursor is, without leading zeros (010 is refused as before=01 is): 10 to 99, or 100
+  const limit = limitText === null ? 50 : /^(?:[1-9]\d|100)$/.test(limitText) ? Number(limitText) : 0;
+  if (limit < 10 || limit > 100) return { field: "limit" };
+  return { family, actor, subject, window, before: before === null ? null : Number(before), limit };
+}
+
+/** What a private 200 carries, built whole before the final admission (A30-AUDIT-01). */
+interface AuditPage {
+  entries: AuditEntry[];
+  next: number | null;
+  scanned: { lo: number; hi: number } | null;
+  exhausted: boolean;
+  likelyEnd: boolean;
+  window: string;
+  limit: number;
+}
+
+/** The request's own signed session as readSession read it (id, version, expiry): the one identity the admission judges. */
+interface AuditSession {
+  readonly u: string;
+  readonly v: number;
+  readonly e: number;
+}
+
+const AUDIT_SIGNED_OUT = { error: "signed_out", message: "You are signed out. Sign in with Discord again." };
+
+async function auditLog(request: Request, env: Env, q: URLSearchParams, admin: SiteUser): Promise<Response> {
+  // A30-AUDIT-01 (Codex, 7 Oct 2026 21:23:59 UTC): bind the signed session before any audit read. It must be the account
+  // the gate admitted (site-api.ts currentUser) at the version the gate saw; the three values are copied once and never
+  // read again, so neither a later version nor a renewed expiry can stand in for the cookie this request carried.
+  const s = await readSession(env, request);
+  if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
+  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e });
+  const p = auditQuery(q);
+  if ("field" in p) return apiJson({ error: "bad_request", field: p.field, message: AUDIT_REFUSALS[p.field] }, 400);
+  const page = await auditPage(env, p);
+  return admitAudit(env, session, page);
+}
+
+/**
+ * The final admission (A30-AUDIT-01): ONE statement, after the whole answer is built and before any of it leaves, on every
+ * 200 path. The community fence (community-context.ts fenceSql "applicantWrite") judges the bound id, version and expiry
+ * inside the statement, by the database's own clock, through site_users' primary key: the live row, the same version, not
+ * denied, in the server, the cookie not yet expired. SITE_ADMINS is checked again beside it (zero I/O). A refusal is 401
+ * with nothing of the answer; a statement that fails or answers neither 1 nor 0 is 503 with nothing of it (fail closed).
+ * Nothing asynchronous follows: the prebuilt answer is only serialized.
+ */
+async function admitAudit(env: Env, s: AuditSession, page: AuditPage | { audit: { ts: number; actor: string; action: string; subject: string | null; details: string | null }[] }): Promise<Response> {
+  let held: unknown;
+  try {
+    held = (await env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3)}) AS ok`).bind(s.u, s.v, s.e).first<{ ok: number }>())?.ok;
+  } catch (e) {
+    console.error("admin audit log admission", errorRef(e));
+    held = null;
+  }
+  if (held !== 1 && held !== 0) return apiJson({ error: "unavailable", message: "The audit log could not be checked just now, so nothing is shown. Try again in a moment." }, 503);
+  if (held !== 1 || !isSiteAdmin(env, s.u)) return apiJson(AUDIT_SIGNED_OUT, 401);
+  return apiJson(page);
+}
+
+/** The page itself (statements 1 to 4); it returns the answer and sends nothing: admitAudit decides whether it leaves. */
+async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
+  const shape = { window: p.window, limit: p.limit };
+  // 1. The stretch's top: the cursor (exclusive) or the newest id, never above the newest (a cursor from nowhere would
+  //    otherwise walk empty ids). MAX on the primary key reads one row.
+  //    The oldest id is read in the same statement: each subquery is SQLite's one-row min/max on the primary key (a single
+  //    SELECT MIN(id), MAX(id) would scan the table).
+  const top = await env.DB.prepare("SELECT (SELECT MIN(id) FROM audit) AS oldest, (SELECT MAX(id) FROM audit) AS newest").first<{ oldest: number | null; newest: number | null }>();
+  const newest = top?.newest ?? 0;
+  const oldest = top?.oldest ?? 1;
+  const hi = p.before === null ? newest : Math.min(p.before - 1, newest);
+  // 2. The window, on the same clock that stamps the rows (db.ts now(), which audit() writes as ts). Codex's review of the
+  //    design (7 Oct 2026, 19:58 UTC): an id is not a time, so the page query filters on ts itself and nothing ends a
+  //    search early on the assumption that ids and stamps run in the same order. One audit_ts entry (ORDER BY ts, id
+  //    LIMIT 1, where MIN(id) ... WHERE ts >= ? would walk the primary key up from the oldest row) settles two things:
+  //    no row at all is stamped inside the window (a true empty answer), or the earliest-stamped row's id, below which
+  //    matches are unlikely but still possible (a row stamped out of order); the search then goes on down to the oldest
+  //    id and only there says it is exhausted.
+  const cutoff = p.window === "all" ? null : now() - AUDIT_WINDOWS[p.window];
+  let likelyFrom = oldest;
+  if (cutoff !== null) {
+    const first = await env.DB.prepare("SELECT id FROM audit WHERE ts >= ?1 ORDER BY ts, id LIMIT 1").bind(cutoff).first<{ id: number }>();
+    if (!first) return { entries: [], next: null, scanned: null, exhausted: true, likelyEnd: true, ...shape }; // nothing stamped inside the window
+    likelyFrom = first.id;
+  }
+  if (hi < oldest) return { entries: [], next: null, scanned: null, exhausted: true, likelyEnd: true, ...shape };
+  const lo = Math.max(oldest, hi - AUDIT_SCAN + 1);
+  // 3. The page: newest first inside [lo, hi], one more row than a page to know whether the stretch holds more. The unary
+  //    + keeps SQLite from answering a filter through audit_actor_action (which would read every row of that actor and
+  //    family in the table, then sort them): the walk stays on the primary key, at most AUDIT_SCAN rows. The family is a
+  //    range, "role." up to "role/" ('/' follows '.'), exact and case-sensitive where LIKE folds case and needs escapes;
+  //    "role" therefore never matches roles.*. Details are cut in SQL, so a long row never leaves the database whole.
+  const args: unknown[] = [lo, hi];
+  const where: string[] = [];
+  if (cutoff !== null) {
+    args.push(cutoff);
+    where.push(`+ts >= ?${args.length}`); // the window itself, on the walk (the unary + keeps audit_ts out of the plan)
+  }
+  if (p.family !== null) {
+    args.push(p.family + ".", p.family + "/");
+    where.push(`+action >= ?${args.length - 1} AND +action < ?${args.length}`);
+  }
+  if (p.actor !== null) {
+    args.push(p.actor);
+    where.push(`+actor = ?${args.length}`);
+  }
+  if (p.subject !== null) {
+    args.push(p.subject);
+    where.push(`+subject = ?${args.length}`);
+  }
+  args.push(p.limit + 1);
+  const rows = (
+    await env.DB.prepare(
+      `SELECT id, ts, actor, action, subject, substr(details, 1, ${AUDIT_DETAILS_MAX}) AS details, length(details) > ${AUDIT_DETAILS_MAX} AS cut
+         FROM audit
+        WHERE id BETWEEN ?1 AND ?2${where.map((w) => " AND " + w).join("")}
+        ORDER BY id DESC LIMIT ?${args.length}`,
+    )
+      .bind(...args)
+      .all<{ id: number; ts: number; actor: string; action: string; subject: string | null; details: string | null; cut: number | null }>()
+  ).results;
+  const more = rows.length > p.limit;
+  const page = (more ? rows.slice(0, p.limit) : rows).map(safeAuditEntry);
+  // the last row shown is the exclusive cursor; with no more matches in this stretch, the stretch's start, while older
+  // ids remain anywhere in the log (a row stamped out of order can sit below the window's earliest-stamped id)
+  const next = more ? page[page.length - 1].id : lo > oldest ? lo : null;
+  // 4. Names, in one statement for every Discord id among the page's actors and subjects (at most 2 x limit, bound as one
+  //    JSON array): the site's own account row as the site already shows it (shownName), else the bot's member row. Only
+  //    approved actor/subject ids participate; private and unknown subjects never reach this lookup.
+  const ids = [...new Set(page.flatMap((r) => [r.actor, r.subject]).filter(isId))];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const found = await env.DB.prepare(
+      `SELECT j.value AS id, s.username AS su, s.global_name AS sg, s.nick AS sn, m.username AS mu, m.global_name AS mg
+         FROM json_each(?1) j
+         LEFT JOIN site_users s ON s.discord_id = j.value
+         LEFT JOIN members m ON m.discord_id = j.value`,
+    )
+      .bind(JSON.stringify(ids))
+      .all<{ id: string; su: string | null; sg: string | null; sn: string | null; mu: string | null; mg: string | null }>();
+    for (const r of found.results) {
+      // a site row erased down to its denial keeps no name: the member row may still have one
+      const name = r.su ? shownName({ username: r.su, displayName: r.sg, nick: r.sn }) : r.mu ? shownName({ username: r.mu, displayName: r.mg }) : null;
+      if (name) names.set(r.id, name);
+    }
+  }
+  return {
+    entries: page.map((r) => ({ ...r, actorName: names.get(r.actor) ?? null, subjectName: r.subject === null ? null : names.get(r.subject) ?? null })),
+    next,
+    scanned: { lo, hi },
+    exhausted: next === null,
+    // below the window's earliest-stamped id, further matches need a row stamped out of order: the page says so in words
+    likelyEnd: !more && lo <= likelyFrom,
+    ...shape,
+  };
 }

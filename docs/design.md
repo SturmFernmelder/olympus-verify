@@ -1185,3 +1185,34 @@ The bot now owns an officer-chat introduction for the retained Olympus I staff c
 The guild-suggestions introduction now creates a Guide-tagged pinned forum post instead of sending a text-channel message. Main and cutover mappings target the observed forum 1557472627830956103 and the retained officer-chat 1551253115615838258. The old suggestions text channel 1555959199513575476 is retained, with no message or channel deletion. Existing four Council/development mappings and intro keys remain stable. A migration posts only in the new forum and leaves any recorded old copy alone.
 
 The existing 40-call refresh budget is retained. An empty eighteen-intro deployment may need two refreshes; the first states what was not reached and the second reads existing posts without duplication. Operators should refresh only the intended channel and read back the rendered message and pin. Record-based status alone does not certify live message content or permissions. No schema, secret, role permission, retention, appointment, AddOn or website-asset change is introduced.
+
+## 9 October 2026 - .125 full staff audit page
+
+The owner's 7 October choice was a dedicated staff page covering bot, roster, role and website actions, with names,
+filters and paging. The existing Overview recent activity alone did not complete that scope. The frozen Claude
+audit-v3 feature (59d4fcc77d581f528829ff1ae07e09d3ff31f09c) is ported into the merged .124 surrounding source,
+preserving the bounded ID scan and the original final admission fix. New source review and release qualification
+belong to the .125 tuple; the frozen candidate's historical acceptance is not acceptance of this composition.
+
+GET /api/admin/audit-log has checked family, actor, subject, window, exclusive before cursor and limit parameters.
+It walks a stretch of at most 2,000 primary-key IDs, filters timestamps themselves and returns at most 100 matches.
+Rare filters can produce an empty stretch with a valid Older cursor. The timestamp-index probe is only an empty-window
+decision or likelihood hint; it never stops traversal on an assumption that IDs and timestamps run in order.
+Local site/bot name columns are read once for approved Discord IDs, without provider HTTP or Battle.net-derived data.
+
+The aggregate staff DTO is a deterministic action allowlist. Each registered action fixes which subject kind and
+typed detail keys may leave; unrecognized actions/actors, private linkage, malformed or oversized details and all
+unapproved fields are withheld. There is no raw JSON prefix, free-text error/reason, ticket/code, tag/GUID, or private
+case/payment/evidence fallback. Case and contribution tools retain their own existing authorization and projections.
+Overview's recent endpoint keeps its route and five-field newest-100-site-action format, but derives a safe detail
+string from the same DTO and uses the same final admission. Historical audit data and its retention remain unchanged.
+
+Both handlers bind the cookie's original ID, session version and expiry before the reads, build the complete answer,
+then execute one final community fence against the live account and database clock, plus SITE_ADMINS again. Version
+revocation, denial, departure, erasure or expiry before this statement withholds the payload. A database failure closes
+with 503. Nothing asynchronous follows the check. This adds no broader authentication refactor or read-side writes.
+
+The page uses textContent, shows local names with IDs, makes withholding explicit, and keeps its sent filters for each
+read. Slower successes and failures cannot replace a newer read, and an answer arriving after leaving the page is
+discarded. Focused real-source SQLite and frontend tests cover these boundaries; no audit schema, new retention
+policy, dependency, external mutation, role/permission change or secret read belongs to this feature batch.

@@ -4958,3 +4958,38 @@ Problem: the retained officer-chat had no intro definition, while guild-suggesti
 Qualification: run the real intros suite against the schema and fake Discord forum protocol, including current/missing/retry paths, one bounded refresh per run, pinned Guide tagging and legacy-to-forum migration with no legacy HTTP write. Run the full Worker checks, required CI, exact source/asset contract and committed archive before deployment. No schema export or credential rotation is needed for this source-only release.
 
 After scoped review and deployment, use /olympus-intros refresh with an explicit channel for officer-chat and guild-suggestions. Verify the bot-rendered copy, Guide tag and actual pins. Read the existing Council/development introductions and pins separately; do not infer live state from /olympus-intros status alone. A whole-category refresh may stop within the unchanged 40-call budget and ask for another run; that is a bounded continuation, not a second copy. Do not post in or delete the legacy channel, grant roles, change permissions or send case data. Record actual outcomes and both scoped reviews; this checklist is not a publication receipt or overall signature.
+
+## Worker .125 - full staff audit page (9 October 2026)
+
+Change: Admin -> Audit log (#/admin/audit) reads the dated bot, roster, role and website log. Staff can filter the
+action family, exact actor and exact subject, choose one day, seven days, thirty days or all time, and page Newest/Older.
+Discord names come only from the site's username/global_name/nick and the bot's username/global_name columns;
+there is no provider lookup or Battle.net-derived name. Each new-page request searches at most 2,000 record IDs and
+returns 10-100 matching rows (50 by default). An empty stretch with older records keeps Older available; timestamps
+are filtered directly, including rows stamped out of ID order.
+
+Safety: action-specific rules project only approved subjects and typed count/boolean/enum detail fields. Unknown
+actions use a fixed label; unknown actors and private or malformed subjects are withheld. Historical tickets, codes,
+GUIDs, BattleTags, error/reason text, case/payment/evidence linkage and arbitrary free text never fall back to raw
+display. Oversized or malformed JSON details are withheld completely. Both the full page and Overview's existing
+GET /api/admin/audit use this projection. Overview keeps its newest 100 site.* rows and five-field row contract,
+with a safe string summary; the stored audit rows are unchanged.
+
+Admission: both routes bind the original signed request's ID, version and expiry before reading. After building the
+whole safe payload, one final database-clock fence checks that exact session against the live account, denial and
+server membership, followed by the current SITE_ADMINS list. A failed admission returns 401 with no payload; an
+unavailable admission returns 503 with no payload. No asynchronous private read follows that check. Reading writes
+nothing. No schema, audit retention/purge, dependency, permission, external/provider or configuration change is made.
+
+Validation: run npm run test:all and node --check public/static/app.js from worker/, plus git diff --check. The focused
+site_audit_test.cjs suite exercises access, every filter, paging, sparse/out-of-order IDs, SQLite query plans, zero writes,
+local-name projection, confidentiality sentinels on both endpoints and session changes immediately before final
+admission. frontend_check.cjs exercises the actual Audit tab, names, filters, Older/Newest, text-only rendering,
+withholding and superseded reads/navigation. Checks and publication receipts must be bound to the final exact commit.
+
+Rollout: source is a feature port from the frozen Claude audit-v3 candidate 59d4fcc77d581f528829ff1ae07e09d3ff31f09c
+onto merged .124 d59df6c83ff23cc7ecb6cb29984ab6d23942e0ad, with safe projection added to both staff surfaces.
+Actual Claude and Codex reviews of this new exact tuple, release qualification, publication/CI and live signed-in
+acceptance remain separate gates. No historical review or this checklist is their receipt. After the approved
+deployment, verify .125, Admin -> Audit log, representative safe rows, filters, paging and a signed-out refusal.
+Rollback is a separately admitted prior-source deployment; it does not delete or restore audit records.

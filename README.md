@@ -272,6 +272,11 @@ tallies, professions, availability, reserved names, friends, lookup, settings, C
 (the Treasurer starts appointed), and roles as chosen without a public vote, which keeps their applications but has no
 board or write-ins for them (the Co-Guild Master starts that way).
 
+Since .125, Admin -> Audit log shows the dated bot, roster, role and website actions to site admins, with local Discord
+names, exact actor/subject and family filters, time windows and bounded Older/Newest paging. Its action-specific
+projection and Overview's recent activity withhold private or unrecognized historical details; both routes recheck
+the original signed session before releasing their answer. Reading changes neither stored audit rows nor retention.
+
 Reserved names do not invite anyone and do not link anything. An admin approves the ones promised a seat, and from
 `LAUNCH_AT` those go to the top of the invite queue (`invite_queue.priority = 1`, `src/site-queue.ts`); an officer
 still presses the key for each invite, and the player still whispers their code to link Discord.
