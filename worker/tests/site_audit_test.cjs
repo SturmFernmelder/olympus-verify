@@ -64,7 +64,7 @@ function d1(dbh) {
         if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
         const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
         if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        if (named > 99) throw new Error("D1_ERROR: too many bound parameters");
+        if (Math.max(named, p.length) > 100) throw new Error("D1_ERROR: too many bound parameters");
         params = p;
         return api;
       },
@@ -228,8 +228,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("a SITE_ADMINS account: 200, JSON, no-store", r.status === 200 && /application\/json/.test(r.headers.get("Content-Type") || "") && r.headers.get("Cache-Control") === "no-store, no-transform", r.status, r.headers.get("Cache-Control"));
   check("  the reply's shape: entries, next, scanned, exhausted, likelyEnd, window (7d by default), limit (50 by default)", Object.keys(r.body).sort().join() === "entries,exhausted,likelyEnd,limit,next,scanned,window" && r.body.window === "7d" && r.body.limit === 50, r.body);
   const before0 = footprint();
-  for (const m of ["POST", "PUT", "DELETE", "PATCH"]) {
-    const x = await http(m, "/api/admin/audit-log", { who: ADMIN, body: {} });
+  for (const m of ["HEAD", "POST", "PUT", "DELETE", "PATCH"]) {
+    const x = await http(m, "/api/admin/audit-log", { who: ADMIN, ...(m === "HEAD" ? {} : { body: {} }) });
     check(`${m}: 404 not_found, as the admin router answers any method it has no route for`, x.status === 404 && x.body.error === "not_found", x.status, x.body);
   }
   check("a sub-path: 404", (await http("GET", "/api/admin/audit-log/1", { who: ADMIN })).status === 404);
@@ -240,6 +240,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     ["family", "Role"], ["family", "r"], ["family", "role."], ["family", "1role"], ["family", "a".repeat(21)], ["family", "role%"], ["family", "rôle"],
     ["actor", "123"], ["actor", "1".repeat(16)], ["actor", "1".repeat(21)], ["actor", "Watcher"], ["actor", "anyone"], ["actor", ADMIN + " "],
     ["subject", "x".repeat(81)], ["subject", "line\nbreak"], ["subject", "tab\there"], ["subject", "c1\u0085"], ["subject", "del\u007f"],
+    ["subject", "x".repeat(41)], ["subject", "1".repeat(16)], ["subject", "1".repeat(21)], ["subject", "Hidden#1111"], ["subject", "case_123"], ["subject", "\u{1F600}"],
     ["window", "2d"], ["window", "ALL"], ["window", "7"],
     ["before", "0"], ["before", "-1"], ["before", "1.5"], ["before", "01"], ["before", "1e3"], ["before", "abc"], ["before", "9".repeat(16)],
     ["limit", "9"], ["limit", "101"], ["limit", "5"], ["limit", "abc"], ["limit", "1000"], ["limit", "20.0"], ["limit", "010"], ["limit", "099"],
@@ -261,13 +262,13 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   const good = [
     ["family", "role"], ["family", "staff_notice"], ["family", "ab"], ["family", "a" + "b".repeat(19)],
     ["actor", ADMIN], ["actor", "1".repeat(17)], ["actor", "1".repeat(20)], ["actor", "watcher"], ["actor", "system"], ["actor", "cron"], ["actor", "site"], ["actor", "auto"], ["actor", "admin"],
-    ["subject", "x".repeat(80)], ["subject", "\u{1F600}".repeat(80)], ["subject", "Mia One"],
+    ["subject", "x".repeat(40)], ["subject", MEMBER], ["subject", "Mia One"], ["subject", "Éowyn-Realm"],
     ["window", "1d"], ["window", "7d"], ["window", "30d"], ["window", "all"],
     ["before", "1"], ["before", "9".repeat(15)], ["limit", "10"], ["limit", "100"], ["limit", "50"],
   ];
   const refusedGood = [];
   for (const [k, v] of good) { const x = await log({ [k]: v }); if (x.status !== 200) refusedGood.push(`${k}=${v}: ${x.status}`); }
-  check("every value inside the rules is taken (a subject is counted in characters: 80 emoji pass)", refusedGood.length === 0, refusedGood);
+  check("every value inside the rules is taken, including validated Discord IDs and character labels", refusedGood.length === 0, refusedGood);
   const empties = await log("?family=&actor=&subject=&window=&before=&limit=");
   check("an empty value is the default (the page's form sends none, but a hand-made address may)", empties.status === 200 && empties.body.window === "7d" && empties.body.limit === 50);
 
@@ -278,13 +279,13 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     upper: put("ROLE.granted", { actor: "system" }),
     rolex: put("rolex.thing", { actor: "system" }),
     bare: put("role", { actor: "system" }),
-    removed: put("role.removed", { actor: ADMIN, subject: MEMBER }),
+    removed: put("role.revoked_banned", { actor: ADMIN, subject: MEMBER }),
     site: put("site.settings", { actor: ADMIN }),
-    siteTo: put("site.denied", { actor: ADMIN, subject: "Mia One" }),
-    watcher: put("roster.ingested", { actor: "watcher", subject: "Mia One" }),
+    siteTo: put("role.deferred", { actor: ADMIN, subject: "Mia One" }),
+    watcher: put("roster.member", { actor: "watcher", subject: "Mia One" }),
   };
   r = await log({ family: "role", window: "all" });
-  check("family=role: exactly role.*, never roles.*, ROLE.*, rolex.* or a bare 'role'", JSON.stringify(ids(r)) === JSON.stringify([fam.removed, fam.granted]), ids(r));
+  check("family=role: exactly role.*, never roles.*, ROLE.*, rolex.* or a bare 'role'", JSON.stringify(ids(r)) === JSON.stringify([fam.siteTo, fam.removed, fam.granted]), ids(r));
   r = await log({ family: "roles", window: "all" });
   check("  family=roles: only roles.*", JSON.stringify(ids(r)) === JSON.stringify([fam.synced]), ids(r));
   r = await log({ actor: ADMIN, window: "all" });
@@ -307,6 +308,57 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("the three together", JSON.stringify(ids(r)) === JSON.stringify([fam.removed]), ids(r));
   const none = await log({ family: "nothing", window: "all" });
   check("  a filter with no match in a stretch that reaches the window's start: no entries, exhausted, no cursor", none.body.entries.length === 0 && none.body.exhausted === true && none.body.next === null);
+
+  console.log("\n== R1/R2: private producer shapes cannot be reverse-looked-up ==");
+  const sourceOf = (file) => fs.readFileSync(path.join(root, "src", file), "utf8");
+  const contributionSrc = sourceOf("community-contributions-api.ts"), restrictionSrc = sourceOf("community-restrictions.ts");
+  const trialSrc = sourceOf("community-trials.ts"), departureSrc = sourceOf("community-departures.ts");
+  check("(writer fidelity) member acknowledgment stores the member as both actor and subject; staff receipt uses the actual dynamic action and result shape", contributionSrc.includes('audit(env, me.discordId, "community.contribution_acknowledged", me.discordId, { kind })') && contributionSrc.includes('`community.contribution_${action}`, subject ?? undefined, { result: summary }') && contributionSrc.includes('action === "receipt"'));
+  check("(writer fidelity) restriction, trial and departure audit writers store discord_id as their subject", restrictionSrc.includes("SELECT ?1, ?2, ?3, discord_id, ?4 FROM community_restriction_cases") && trialSrc.includes("SELECT ?1, ?2, ?3, discord_id, ?4 FROM community_trials") && trialSrc.includes('"community.trial_ended"') && departureSrc.includes("SELECT ?1, ?2, ?3, discord_id, ?4 FROM community_departure_reviews") && departureSrc.includes('"community.departure_acknowledged"'));
+  const privateRows = [];
+  const writeRow = async (actor, action, subject, details) => {
+    await dbMod.audit(env(), actor, action, subject, details);
+    return Number(one("SELECT MAX(id) AS id FROM audit").id);
+  };
+  // Exact currently written shapes, using the real db.ts audit writer. Community features are OFF in this env: retained
+  // history must not bypass the dedicated case/contribution scopes through a filter on the aggregate audit page.
+  for (const [action, details] of [
+    ["community.restriction_set", { category: "tithe_removal" }],
+    ["community.trial_ended", { reason: "staff_decision" }],
+    ["community.departure_acknowledged", { kind: "left" }],
+    ["community.contribution_receipt", { result: "created" }],
+  ]) privateRows.push(await writeRow(ADMIN, action, MEMBER, details));
+  const ackId = await writeRow(MEMBER, "community.contribution_acknowledged", MEMBER, { kind: "acknowledged" });
+  privateRows.push(ackId);
+  run("UPDATE audit SET ts = ? WHERE id = ?", T - 60 * DAY, privateRows[0]); // retained log beyond the private case window
+  const futureId = put("community.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ kind: "acknowledged" }) });
+  privateRows.push(futureId);
+  const privateDefault = await measured(() => log({ family: "community", window: "all" }));
+  const privateMap = new Map(privateDefault.r.body.entries.map(row => [row.id, row]));
+  check("default/family aggregate shows the real private actions, while withholding every member subject and detail", privateDefault.r.status === 200 && privateRows.slice(0, 5).every(id => { const row = privateMap.get(id); return row && row.subject === null && row.subjectName === null && row.subjectWithheld && row.details === null && row.detailsWithheld; }));
+  check("member contribution acknowledgment withholds its actor and actor name as well as its private subject", privateMap.get(ackId).actor === "withheld" && privateMap.get(ackId).actorName === null && privateMap.get(futureId).actor === "withheld" && privateMap.get(futureId).action === "unknown");
+  const privateUnfiltered = await measured(() => log({ window: "all", limit: "100" }));
+  check("the unfiltered default endpoint also withholds the real member actor and private subjects", privateUnfiltered.r.body.entries.find(row => row.id === ackId).actor === "withheld" && privateRows.slice(0, 5).every(id => privateUnfiltered.r.body.entries.find(row => row.id === id).subject === null));
+  const privateNames = privateDefault.calls.filter(call => /FROM json_each\(\?1\) j/.test(call.sql));
+  check("the withheld member actor/subject never reaches local-name resolution", privateNames.length === 1 && JSON.stringify(JSON.parse(privateNames[0].params[0])) === JSON.stringify([ADMIN]), privateNames.map(call => call.params));
+  for (const family of [undefined, "community"]) {
+    const filters = { window: "all", ...(family ? { family } : {}) };
+    const sub = await log({ ...filters, subject: MEMBER });
+    const act = await log({ ...filters, actor: MEMBER });
+    const both = await log({ ...filters, actor: MEMBER, subject: MEMBER });
+    check(`subject lookup ${family || "across all families"} cannot recover any withheld private branch`, sub.status === 200 && !privateRows.some(id => ids(sub).includes(id)));
+    check(`actor lookup ${family || "across all families"} cannot recover the withheld member acknowledgment or unknown action`, act.status === 200 && !ids(act).includes(ackId) && !ids(act).includes(futureId));
+    check(`combined actor/subject lookup ${family || "across all families"} cannot recover a private branch`, both.status === 200 && !privateRows.some(id => ids(both).includes(id)));
+  }
+  check("all-time subject filtering still cannot recover an older retained private case while the community features are off", env().COMMUNITY_FEATURES === "" && one("SELECT ts FROM audit WHERE id = ?", privateRows[0]).ts === T - 60 * DAY && !ids(await log({ subject: MEMBER, window: "all" })).includes(privateRows[0]));
+  check("a private action's staff actor remains filterable where the DTO actually discloses it", privateRows.slice(0, 4).every(id => ids(privateDefault.r).includes(id)) && JSON.stringify(ids(await log({ family: "community", actor: ADMIN, window: "all" }))) === JSON.stringify(privateRows.slice(0, 4).reverse()));
+  const malformedId = put("site.denied", { actor: ADMIN, subject: "Mia One" });
+  const malformedCharacter = put("roster.member", { actor: "system", subject: MEMBER });
+  check("a character filter cannot match an ID-only writer's malformed historical subject", !ids(await log({ subject: "Mia One", window: "all" })).includes(malformedId));
+  check("an ID filter cannot match a character-only writer's malformed historical subject", !ids(await log({ subject: MEMBER, window: "all" })).includes(malformedCharacter));
+  const privacyLegacy = await http("GET", "/api/admin/audit", { who: ADMIN });
+  check("Overview's site-only surface cannot reveal the real community member acknowledgment or private branches", privacyLegacy.status === 200 && !/community\.|Mimi|Mia Lee/.test(privacyLegacy.text));
+  for (const id of [...privateRows, malformedId, malformedCharacter]) run("DELETE FROM audit WHERE id = ?", id);
 
   console.log("\n== names: the site's account row, the bot's member row, and only the name ==");
   const nm = {
@@ -334,13 +386,13 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     count: put("site.mentions_deleted", { subject: MEMBER, details: JSON.stringify({ removed: 3 }) }),
     bool: put("site.data_deleted", { subject: MEMBER, details: JSON.stringify({ mentions: true }) }),
     empty: put("site.undenied", { subject: MEMBER }),
-    ticket: put("verify.confirmed", { subject: secret, details: JSON.stringify({ ticket: secret, code: secret, guid: secret, officer: secret, discordId: MEMBER }) }),
-    failed: put("invite.failed", { subject: "Mia One", details: JSON.stringify({ code: secret, detail: secret }) }),
-    reason: put("admin.ban", { subject: MEMBER, details: JSON.stringify({ reason: secret }) }),
+    ticket: put("verify.confirmed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ ticket: secret, guid: secret, officer: secret, discordId: MEMBER, source: "whisper" }) }),
+    failed: put("invite.failed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ code: secret, detail: secret }) }),
+    reason: put("admin.ban", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ reason: secret }) }),
     error: put("role.remove_failed", { subject: MEMBER, details: JSON.stringify({ error: secret }) }),
-    case: put("community.privacy_case_updated", { subject: secret, details: JSON.stringify({ caseId: secret, status: "resolved", replied: true }) }),
-    payment: put("community.contribution_payment", { subject: MEMBER, details: JSON.stringify({ receiptId: secret, evidence: secret, result: "recorded" }) }),
-    tag: put("link.ok", { subject: secret + "#1234", details: JSON.stringify({ source: secret, boundTo: MEMBER }) }),
+    case: put("community.privacy_case_updated", { actor: ADMIN, details: JSON.stringify({ caseId: secret, status: "completed", replied: true }) }),
+    payment: put("community.contribution_receipt", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ result: "created" }) }),
+    tag: put("link.ok", { actor: MEMBER, subject: secret + "#1234", details: JSON.stringify({ source: "site", cleared: false, readback: true }) }),
     unknown: put(secret, { actor: secret, subject: secret, details: JSON.stringify({ removed: 3, note: secret }) }),
     long: put("site.mentions_deleted", { details: JSON.stringify({ removed: 3, note: secret.repeat(500) }) }),
     bad: put("site.mentions_deleted", { details: "{removed:" + secret }),
@@ -361,7 +413,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("approved numeric counts and booleans retain their types without a withheld flag", JSON.stringify(e.get(det.count).details) === '{"removed":3}' && !e.get(det.count).detailsWithheld && JSON.stringify(e.get(det.bool).details) === '{"mentions":true}' && !e.get(det.bool).detailsWithheld);
   check("a known action with no detail retains null without claiming a withheld detail", e.get(det.empty).details === null && e.get(det.empty).detailsWithheld === false);
   check("actual producer shapes carrying tickets, codes, GUIDs, reasons, errors and arbitrary detail are withheld", ["ticket", "failed", "reason", "error"].every(withheld));
-  check("private case/payment linkage and BattleTags have neither a subject nor details in the aggregate page", ["case", "payment", "tag"].every(key => withheld(key) && e.get(det[key]).subject === null && e.get(det[key]).subjectName === null && e.get(det[key]).subjectWithheld));
+  check("actual private case/payment and OAuth shapes have no subject/detail linkage in the aggregate page", ["case", "payment", "tag"].every(key => withheld(key) && e.get(det[key]).subject === null && e.get(det[key]).subjectName === null) && !e.get(det.case).subjectWithheld && e.get(det.payment).subjectWithheld && e.get(det.tag).subjectWithheld);
   check("unknown actions/actors/subjects are fixed safe labels and withheld, with no raw fallback", e.get(det.unknown).action === "unknown" && e.get(det.unknown).actor === "withheld" && e.get(det.unknown).actorName === null && e.get(det.unknown).subject === null && withheld("unknown"));
   check("oversized, malformed, primitive and array JSON details are withheld completely", ["long", "bad", "primitive", "array"].every(withheld));
   check("nested values, unknown enums, string/negative/oversized counts and string booleans are refused", ["nested", "enum", "stringCount", "negative", "wideCount", "stringBool"].every(withheld));
@@ -370,7 +422,96 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("no confidential marker from action, actor, subject or historical detail reaches the response bytes", !r.text.includes(secret));
   const nameCall = COUNT.calls.filter(c => /FROM json_each\(\?1\) j/.test(c.sql)).at(-1);
   check("name resolution binds only approved Discord IDs, never private case/tag/unknown subject values", !!nameCall && JSON.parse(nameCall.params[0]).every(id => /^\d{17,20}$/.test(id)) && !nameCall.params[0].includes(secret));
+  const boundaryBase = JSON.stringify({ removed: 3, padding: "" });
+  const detail4000 = JSON.stringify({ removed: 3, padding: "x".repeat(4000 - boundaryBase.length) });
+  const boundaryIds = [put("site.mentions_deleted", { details: detail4000 }), put("site.mentions_deleted", { details: detail4000.replace('"padding":"', '"padding":"x') })];
+  const boundaryPage = await log({ family: "site", window: "all", limit: "100" });
+  const boundaryRows = boundaryIds.map(id => boundaryPage.body.entries.find(row => row.id === id));
+  check("the exact 4000-character/ASCII-byte boundary is parsed safely; 4001 is withheld whole", detail4000.length === 4000 && JSON.stringify(boundaryRows[0].details) === '{"removed":3}' && boundaryRows[0].detailsWithheld && boundaryRows[1].details === null && boundaryRows[1].detailsWithheld);
+  for (const id of boundaryIds) run("DELETE FROM audit WHERE id = ?", id);
   for (const id of Object.values(det)) run("DELETE FROM audit WHERE id = ?", id);
+
+  console.log("\n== R3: the real role writers, with only Discord effects stubbed ==");
+  const rosterMod = load("./roster"), roleMod = load("./roles"), interactionMod = load("./interactions");
+  const rosterSrc = sourceOf("roster.ts"), interactionSrc = sourceOf("interactions.ts");
+  const roleCalls = [
+    'audit(env, "system", "role.remove_failed", name, { error: String(e) })',
+    'audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) })',
+    'audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome })',
+    'audit(env, "system", "role.refused_banned", name, { discordId })',
+    'audit(env, "system", "role.add_failed", name, { discordId, error: String(e) })',
+  ];
+  check("(writer fidelity) all five reviewed roster calls still have their exact character/discordId shapes, and the other removal writer uses target ID", roleCalls.every(call => rosterSrc.includes(call)) && interactionSrc.includes('audit(env, "system", "role.remove_failed", target, { error: String(e) })'));
+  const roleStart = Number(one("SELECT COALESCE(MAX(id), 0) + 1 AS id FROM audit").id);
+  const discordSaved = { rest: stubs["./discord"].rest, addRole: stubs["./discord"].addRole, removeRole: stubs["./discord"].removeRole, guildMember: stubs["./discord"].guildMember };
+  const memberSaved = one("SELECT banned, ban_reason FROM members WHERE discord_id = ?", MEMBER);
+  const roleMarker = "ROLE-WRITER-ERROR-MARKER";
+  try {
+    stubs["./discord"].rest = async () => [{ id: env().ROLE_GUILD_MEMBER }];
+    stubs["./discord"].addRole = async () => { throw new Error(roleMarker); };
+    roleMod.forgetRolesCheck();
+    await rosterMod.promote(env(), MEMBER, "writer add", "Writer Add");
+    stubs["./discord"].rest = async () => { throw new Error(roleMarker); };
+    roleMod.forgetRolesCheck();
+    await rosterMod.promote(env(), MEMBER, "writer deferred", "Writer Deferred");
+    stubs["./discord"].rest = async () => [{ id: env().ROLE_GUILD_MEMBER }];
+    roleMod.forgetRolesCheck();
+    run("UPDATE members SET banned = 1 WHERE discord_id = ?", MEMBER);
+    await rosterMod.promote(env(), MEMBER, "writer banned", "Writer Banned");
+    stubs["./discord"].removeRole = async () => { throw new Error(roleMarker); };
+    stubs["./discord"].guildMember = async () => { throw new Error(roleMarker); };
+    await rosterMod.demote(env(), MEMBER, "writer left", "Writer Left", "roster diff");
+    // Real interaction writer: synthetic officer interaction against this in-memory DB, Discord calls still stubbed.
+    await interactionMod.handleInteraction(env(), { type: 2, guild_id: GUILD, member: { user: { id: ADMIN }, roles: [env().ROLE_OFFICER] }, data: { name: "olympus-admin", options: [{ type: 1, name: "ban", options: [{ type: 6, name: "user", value: MEMBER }, { type: 3, name: "reason", value: roleMarker }] }] } });
+  } finally {
+    Object.assign(stubs["./discord"], discordSaved);
+    roleMod.forgetRolesCheck();
+    run("UPDATE members SET banned = ?, ban_reason = ? WHERE discord_id = ?", memberSaved.banned, memberSaved.ban_reason, MEMBER);
+  }
+  const writtenRoles = all("SELECT * FROM audit WHERE id >= ? AND action IN ('role.add_failed','role.deferred','role.refused_banned','role.remove_failed','roles.read_failed') ORDER BY id", roleStart);
+  check("the real roster and interaction paths wrote six rows covering the five required actions and both removal subject kinds", writtenRoles.length === 6 && new Set(writtenRoles.map(row => row.action)).size === 5 && writtenRoles.filter(row => row.action === "role.remove_failed").map(row => row.subject).join() === ["Writer Left", MEMBER].join(), writtenRoles.map(({ action, subject }) => ({ action, subject })));
+  const rolePage = await measured(() => log({ window: "all", limit: "100" }));
+  const roleEntries = new Map(rolePage.r.body.entries.map(row => [row.id, row]));
+  check("all actual role rows preserve their character or ID subject, with the ID subject resolved locally", writtenRoles.every(row => roleEntries.get(row.id).subject === row.subject && !roleEntries.get(row.id).subjectWithheld) && roleEntries.get(writtenRoles.at(-1).id).subjectName === shown("mia", "Mia Lee", "Mimi"));
+  const roleWithId = writtenRoles.filter(row => row.action !== "role.remove_failed");
+  check("each of the four reviewed detail-ID writers keeps the validated discordId and its generated local name", roleWithId.every(row => roleEntries.get(row.id).details.discordId === MEMBER && roleEntries.get(row.id).details.discordIdName === shown("mia", "Mia Lee", "Mimi")));
+  check("errors and deferred reasons remain withheld even when their approved IDs and names survive", !rolePage.r.text.includes(roleMarker) && roleWithId.filter(row => row.action !== "role.refused_banned").every(row => roleEntries.get(row.id).detailsWithheld) && writtenRoles.filter(row => row.action === "role.remove_failed").every(row => roleEntries.get(row.id).details === null && roleEntries.get(row.id).detailsWithheld));
+  const roleNames = rolePage.calls.find(call => /FROM json_each\(\?1\) j/.test(call.sql));
+  check("all role detail names use the one bounded local lookup, without widening statement count", rolePage.extra <= 5 && rolePage.calls.filter(call => /FROM json_each\(\?1\) j/.test(call.sql)).length === 1 && JSON.parse(roleNames.params[0]).includes(MEMBER));
+  for (const row of writtenRoles) {
+    const match = await log({ family: row.action.split(".")[0], actor: row.actor, subject: row.subject, window: "all" });
+    check(`${row.action} / ${row.subject === MEMBER ? "ID" : "character"}: typed subject and actor filters find its actual writer row`, match.status === 200 && ids(match).includes(row.id));
+  }
+  const invalidRoleIds = [
+    put("role.add_failed", { subject: "Bad One", details: JSON.stringify({ discordId: "Hidden#1111" }) }),
+    put("role.deferred", { subject: "Bad Two", details: JSON.stringify({ discordId: 300000000000000003 }) }),
+    put("role.refused_banned", { subject: "Bad Three", details: JSON.stringify({ discordId: { id: MEMBER } }) }),
+    put("roles.read_failed", { subject: "Bad Four", details: JSON.stringify({ discordId: "1".repeat(21) }) }),
+    put("site.undenied", { subject: MEMBER, details: JSON.stringify({ discordId: BOT_ONLY }) }),
+  ];
+  const invalidRolePage = await log({ window: "all", limit: "100" });
+  check("a detail ID must pass isId for its own reviewed rule; nested/numeric/tag/overlong and other-action IDs stay withheld", invalidRoleIds.every(id => { const row = invalidRolePage.body.entries.find(row => row.id === id); return row.details === null && row.detailsWithheld; }));
+  const unknownRoleId = put("role.deferred", { subject: "Unknown Person", details: JSON.stringify({ discordId: UNKNOWN }) });
+  const unknownRolePage = await log({ subject: "Unknown Person", window: "all" });
+  check("an approved detail ID absent from local tables remains an ID without a fabricated name", JSON.stringify(unknownRolePage.body.entries.find(row => row.id === unknownRoleId).details) === JSON.stringify({ discordId: UNKNOWN }));
+  const forgedNameId = put("role.deferred", { subject: "Forged Name", details: JSON.stringify({ discordId: MEMBER, discordIdName: roleMarker }) });
+  const forgedNamePage = await log({ subject: "Forged Name", window: "all" });
+  const forgedNameRow = forgedNamePage.body.entries.find(row => row.id === forgedNameId);
+  check("a historical discordIdName cannot supply text: the generated name comes only from local tables", forgedNameRow.details.discordIdName === shown("mia", "Mia Lee", "Mimi") && forgedNameRow.detailsWithheld && !forgedNamePage.text.includes(roleMarker));
+  const roleLegacy = await http("GET", "/api/admin/audit", { who: ADMIN });
+  check("both staff surfaces exclude actual role error/reason sentinels", !rolePage.r.text.includes(roleMarker) && !roleLegacy.text.includes(roleMarker));
+  run("DELETE FROM audit WHERE id >= ?", roleStart);
+
+  console.log("\n== N2/N13: current News and private producer vocabulary ==");
+  const newsSrc = sourceOf("site-news.ts"), ingestSrc = sourceOf("ingest.ts"), oauthSrc = sourceOf("oauth.ts"), privacySrc = sourceOf("community-privacy-intake.ts");
+  check("(writer fidelity) News edits say edited; private intake carries caseId with NULL subject; verification/invite/OAuth retain their real shapes", newsSrc.includes('auditIfWritten(env, id, nonce, me, "edited")') && privacySrc.includes("'community.privacy_case_updated', NULL, json_object('caseId'") && ingestSrc.includes('"verify.confirmed", name, { discordId: pending.discord_id, source: body.source, officer: body.officer, ticket, guid: whisperGuid }') && ingestSrc.includes('"invite.failed", e.name, { detail: e.detail, code }') && oauthSrc.includes('ok ? "link.ok" : "link.metadata_failed", battletag'));
+  const edited = await writeRow(ADMIN, "site.news_notice", "notice-key", { op: "edited", live: 2 });
+  const wrongNews = put("site.news_notice", { actor: ADMIN, details: JSON.stringify({ op: "updated", live: 2 }) });
+  const editedFull = await log({ family: "site", window: "all", limit: "100" });
+  const editedOld = await http("GET", "/api/admin/audit", { who: ADMIN });
+  check("the real edited enum is retained on both audit surfaces, with no notice identifier", JSON.stringify(editedFull.body.entries.find(row => row.id === edited).details) === '{"op":"edited","live":2}' && editedFull.body.entries.find(row => row.id === edited).subject === null && editedOld.body.audit.some(row => row.action === "site.news_notice" && row.details === '{"op":"edited","live":2}') && !editedOld.text.includes("notice-key"));
+  check("an unwritten updated enum remains withheld, while a valid live count survives", editedFull.body.entries.find(row => row.id === wrongNews).detailsWithheld && JSON.stringify(editedFull.body.entries.find(row => row.id === wrongNews).details) === '{"live":2}');
+  run("DELETE FROM audit WHERE id IN (?, ?)", edited, wrongNews);
 
   console.log("\n== keyset paging across three pages ==");
   const paged = [];
@@ -421,6 +562,9 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   const floorCall = mPlan.calls.find((c) => /WHERE ts >= \?1/.test(c.sql));
   const pagePlan = planOf(pageCall), floorPlan = planOf(floorCall);
   check("the page query walks the primary key (rowid>? AND rowid<?), never audit_actor_action, never a sort", /USING INTEGER PRIMARY KEY \(rowid>\? AND rowid<\?\)/.test(pagePlan) && !/audit_actor_action|TEMP B-TREE/.test(pagePlan), pagePlan);
+  const eligibilityLists = pageCall.params.filter(value => typeof value === "string" && value.startsWith("["));
+  check("real SQLite accepts all filters with ten bound values, including a >100-action actor list in one JSON binding; every statement stays within D1's 100-parameter ceiling", pageCall.params.length === 10 && eligibilityLists.length === 2 && JSON.parse(eligibilityLists[0]).length > 100 && mPlan.calls.every(call => call.params.length <= 100), pageCall.params.length, eligibilityLists.map(value => JSON.parse(value).length));
+  check("the action eligibility bindings exclude private/unknown matches and select only the typed subject actions", !JSON.parse(eligibilityLists[0]).includes("community.contribution_acknowledged") && !JSON.parse(eligibilityLists[0]).includes("community.unreviewed_future") && JSON.parse(eligibilityLists[1]).includes("role.remove_failed") && JSON.parse(eligibilityLists[1]).includes("roles.read_failed") && !JSON.parse(eligibilityLists[1]).includes("site.denied") && !JSON.parse(eligibilityLists[1]).includes("community.restriction_set"));
   check("  without the unary + the same filter would be answered from audit_actor_action and sorted (why the + is there)", /audit_actor_action/.test(planOf({ sql: pageCall.sql.replace(/\+(action|actor|subject)\b/g, "$1"), params: pageCall.params })));
   // a seek alone is not one entry: ORDER BY id, or ts with id DESC, seeks audit_ts too and then reads and sorts every row
   // of the window (TEMP B-TREE), so the plan must show no sort
@@ -441,8 +585,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     h23: put("site.e", { ts: T - 23 * H }),
     h1: put("site.f", { ts: T - H }),
   };
-  await dbMod.audit(env(), ADMIN, "site.g", undefined, { n: 1 }); // the real audit(): ts is the Worker's now()
-  const g = one("SELECT id, ts FROM audit WHERE action = 'site.g'");
+  await dbMod.audit(env(), ADMIN, "site.votes_saved", undefined, { picks: 1 }); // the real audit(): ts is the Worker's now()
+  const g = one("SELECT id, ts FROM audit WHERE action = 'site.votes_saved'");
   check("(fixture) audit() stamps ts with the Worker's clock, three hours behind SQLite's", g.ts === T && one("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").t - g.ts >= 3 * H - 5);
   r = await log({ window: "1d" });
   check("1d: the rows of the last 24 hours by that clock (23 h ago is in, though it is 26 h by SQLite's), 25 h ago is out", JSON.stringify(ids(r)) === JSON.stringify([g.id, w.h1, w.h23]) && r.body.exhausted === true && r.body.likelyEnd === true, ids(r), r.body.scanned);
@@ -633,6 +777,13 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("Overview receives an approved string summary plus withholding, never reason/ticket/code/error/case text", old.body.audit.every(row => typeof row.details === "string" && row.details.includes("released") && row.details.includes("withheld")) && !old.text.includes(marker));
   const fullRecent = await log({ family: "site", window: "all", limit: "100" });
   check("both audit surfaces exclude the same historical confidential sentinels", fullRecent.status === 200 && !fullRecent.text.includes(marker) && !old.text.includes(marker));
+  const legacyUnknown = put("site.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ reason: marker }) });
+  const legacyUnknownPage = await http("GET", "/api/admin/audit", { who: ADMIN });
+  const unknownFull = await measured(() => log({ family: "site", before: String(legacyUnknown + 1), window: "all", limit: "10" }));
+  const unknownFirst = unknownFull.r.body.entries[0], unknownOldFirst = legacyUnknownPage.body.audit[0];
+  check("future site actions with a well-shaped member ID still default to withheld actor/subject on both surfaces", unknownFirst.id === legacyUnknown && unknownFirst.action === "unknown" && unknownFirst.actor === "withheld" && unknownFirst.actorName === null && unknownFirst.subject === null && unknownFirst.subjectName === null && unknownOldFirst.action === "unknown" && unknownOldFirst.actor === "withheld" && unknownOldFirst.subject === null && !legacyUnknownPage.text.includes(marker));
+  check("subject/actor filters cannot recover an unreviewed site action's otherwise valid ID", !ids(await log({ family: "site", actor: MEMBER, window: "all" })).includes(legacyUnknown) && !ids(await log({ family: "site", subject: MEMBER, window: "all" })).includes(legacyUnknown));
+  run("DELETE FROM audit WHERE id = ?", legacyUnknown);
   check("the compatible recent endpoint still refuses signed-out and non-admin users", (await http("GET", "/api/admin/audit")).status === 401 && (await http("GET", "/api/admin/audit", { who: MEMBER })).status === 403);
   resetCount();
   const recentControl = await http("GET", "/api/admin/audit", { cookie: adminCookie });

@@ -4965,15 +4965,25 @@ Change: Admin -> Audit log (#/admin/audit) reads the dated bot, roster, role and
 action family, exact actor and exact subject, choose one day, seven days, thirty days or all time, and page Newest/Older.
 Discord names come only from the site's username/global_name/nick and the bot's username/global_name columns;
 there is no provider lookup or Battle.net-derived name. Each new-page request searches at most 2,000 record IDs and
-returns 10-100 matching rows (50 by default). An empty stretch with older records keeps Older available; timestamps
+returns 10-100 matching rows by its checked API limit (50 by default; the UI always requests 50, without a page-size
+selector). An empty stretch with older records keeps Older available; timestamps
 are filtered directly, including rows stamped out of ID order.
 
-Safety: action-specific rules project only approved subjects and typed count/boolean/enum detail fields. Unknown
+Safety: action-specific rules project only approved subjects and typed count/boolean/enum detail fields, plus validated
+discordId detail on the four reviewed roster role writers. Their local discordIdName is generated, never stored-text
+fallback. role.remove_failed accepts its actual character and ID writer shapes. Unknown
 actions use a fixed label; unknown actors and private or malformed subjects are withheld. Historical tickets, codes,
 GUIDs, BattleTags, error/reason text, case/payment/evidence linkage and arbitrary free text never fall back to raw
 display. Oversized or malformed JSON details are withheld completely. Both the full page and Overview's existing
 GET /api/admin/audit use this projection. Overview keeps its newest 100 site.* rows and five-field row contract,
 with a safe string summary; the stored audit rows are unchanged.
+
+Corrections after actual Claude's CHANGES review: a validated subject filter matches only actions exposing that
+subject kind, and an actor filter matches only actions exposing that actor. The member contribution-acknowledgment
+actor is withheld and never reaches name lookup; private case/payment/link subjects cannot be recovered by filters.
+The finite eligibility lists use compact bound JSON membership, with ten parameters for the fully filtered query,
+within D1's per-statement maximum of 100. News edits retain the actual edited enum. Other optional review notes and
+known UI/legacy limits are dispositioned in docs/design.md; no raw fallback or global ID rule is introduced.
 
 Admission: both routes bind the original signed request's ID, version and expiry before reading. After building the
 whole safe payload, one final database-clock fence checks that exact session against the live account, denial and
@@ -4984,7 +4994,8 @@ nothing. No schema, audit retention/purge, dependency, permission, external/prov
 Validation: run npm run test:all and node --check public/static/app.js from worker/, plus git diff --check. The focused
 site_audit_test.cjs suite exercises access, every filter, paging, sparse/out-of-order IDs, SQLite query plans, zero writes,
 local-name projection, confidentiality sentinels on both endpoints and session changes immediately before final
-admission. frontend_check.cjs exercises the actual Audit tab, names, filters, Older/Newest, text-only rendering,
+admission. It also exercises real roster and interaction role writers, private producer/default/filter shapes,
+unknown action filtering, exact detail boundaries and the per-statement binding budget. frontend_check.cjs exercises the actual Audit tab, names, filters, Older/Newest, text-only rendering,
 withholding and superseded reads/navigation. Checks and publication receipts must be bound to the final exact commit.
 
 Rollout: source is a feature port from the frozen Claude audit-v3 candidate 59d4fcc77d581f528829ff1ae07e09d3ff31f09c

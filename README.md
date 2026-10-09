@@ -275,7 +275,11 @@ board or write-ins for them (the Co-Guild Master starts that way).
 Since .125, Admin -> Audit log shows the dated bot, roster, role and website actions to site admins, with local Discord
 names, exact actor/subject and family filters, time windows and bounded Older/Newest paging. Its action-specific
 projection and Overview's recent activity withhold private or unrecognized historical details; both routes recheck
-the original signed session before releasing their answer. Reading changes neither stored audit rows nor retention.
+the original signed session before releasing their answer. Subject/actor filters match only actions that disclose
+that kind of subject/actor, so withheld case/payment/linkage cannot be recovered by reverse lookup. The member actor
+of a contribution acknowledgment is withheld as well. Reviewed roster role errors retain character subjects and
+validated Discord IDs with local names, while error/reason text stays withheld. The page shows 50 rows per page;
+the API's checked limit supports 10-100. Reading changes neither stored audit rows nor retention.
 
 Reserved names do not invite anyone and do not link anything. An admin approves the ones promised a seat, and from
 `LAUNCH_AT` those go to the top of the invite queue (`invite_queue.priority = 1`, `src/site-queue.ts`); an officer

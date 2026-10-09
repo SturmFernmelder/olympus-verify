@@ -1084,14 +1084,15 @@ const AUDIT_PARAMS = new Set(["family", "actor", "subject", "window", "before", 
 const AUDIT_DETAILS_MAX = 4000;
 
 /** The staff page is a projection, never a replay of historical text. New actions start withheld until reviewed here.
- * Each registered action fixes its subject kind and its own typed detail keys. OAuth tags, verification tickets/codes,
+ * Each registered action fixes its actor policy, subject kind and its own typed detail keys. OAuth tags, verification tickets/codes,
  * GUIDs, errors, reasons, case/payment/evidence identifiers and arbitrary free text have no rule.
  */
-type AuditValueRule = "count" | "boolean" | readonly string[];
-type AuditRule = { subject: "id" | "character" | "none"; fields: Record<string, AuditValueRule> };
+type AuditValueRule = "count" | "boolean" | "id" | readonly string[];
+type AuditSubjectKind = "id" | "character";
+type AuditRule = { actor: "id-or-system" | "withheld"; subject: AuditSubjectKind | "id-or-character" | "none"; fields: Record<string, AuditValueRule> };
 const AUDIT_RULES: Record<string, AuditRule> = Object.create(null);
-function auditRules(actions: string, subject: AuditRule["subject"], fields: AuditRule["fields"] = {}): void {
-  for (const action of actions.split(" ")) AUDIT_RULES[action] = { subject, fields };
+function auditRules(actions: string, subject: AuditRule["subject"], fields: AuditRule["fields"] = {}, actor: AuditRule["actor"] = "id-or-system"): void {
+  for (const action of actions.split(" ")) AUDIT_RULES[action] = { actor, subject, fields };
 }
 auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
 auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
@@ -1107,13 +1108,17 @@ auditRules("site.reserved_approved site.reserved_unapproved site.reserved_releas
 auditRules("site.reserved_queued", "none", { queued: "count", bumped: "count", inGuild: "count" });
 auditRules("site.beta_reset", "none", { appointed: "count", directoryNames: "count", notice: "boolean" });
 auditRules("site.login_failed", "none", { step: ["token", "member"], status: "count" });
-auditRules("site.news_notice", "none", { op: ["created", "updated", "deleted"], live: "count" });
+auditRules("site.news_notice", "none", { op: ["created", "edited", "deleted"], live: "count" });
 auditRules("site.news_expired", "none", { deleted: "count", opsDeleted: "count", remaining: "count" });
 auditRules("bnet.switch", "none", { enableRequested: "boolean", collectionEnabled: "boolean" });
 auditRules("bnet.retention", "none", { members: "count", phase3: "count", characters: "count", audit: "count" });
 auditRules("link.started link.bnet_not_configured link.bnet_login_started link.battletag_taken link.banned link.ok link.metadata_failed bnet.linked", "none");
 auditRules("link.bnet_token_failed link.bnet_userinfo_failed", "none", { status: "count" });
-auditRules("role.backfilled role.blocked role.blocked_removed role.misconfigured role.held_reapply role.revoke_pending role.revoked_after_hold role.revoked_reapply role.revoked_after_ban role.revoked_banned role.restored role.restore_failed role.remove_failed role.add_failed role.deferred role.refused_banned roles.read_failed", "id");
+auditRules("role.backfilled role.blocked role.blocked_removed role.misconfigured role.held_reapply role.revoke_pending role.revoked_after_hold role.revoked_reapply role.revoked_after_ban role.revoked_banned role.restored role.restore_failed", "id");
+// .125 R3 (Claude, 9 Oct 2026): roster.ts stores a character, while interactions.ts removes by Discord ID. Only the
+// four roster writers below include discordId in their detail; this is deliberately not an all-actions ID allowance.
+auditRules("role.remove_failed", "id-or-character");
+auditRules("role.add_failed role.deferred role.refused_banned roles.read_failed", "character", { discordId: "id" });
 auditRules("role.backfill_page role.sweep_failed", "none");
 auditRules("role.budget_exhausted", "none", { attempts: "count", calls: "count", retries: "count", limit: "count" });
 auditRules("role.sweep", "none", { checked: "count", restored: "count", failed: "count", unfinished: "count", absent: "count", blocked: "count", revoked: "count", calls: "count", attempts: "count", retries: "count", stopped: "boolean" });
@@ -1155,8 +1160,19 @@ auditRules("community.rsvp community.event_created community.event_updated commu
 auditRules("community.attendance_recorded", "none", { entries: "count" });
 // Dedicated case and contribution pages retain their own authorization/projections. This aggregate page shows the
 // action without private case linkage, reasons, status, evidence, contact or payment detail.
-auditRules("community.privacy_case_updated community.departure_acknowledged community.departure_restriction_opened community.trial_created community.trial_extended community.trial_passed community.trial_ended community.restriction_set community.restriction_acknowledged community.restriction_review_continued community.restriction_lifted community.restriction_appeal_requested community.restriction_appeal_upheld community.restriction_overturned community.restriction_watch_added community.restriction_watch_renewed community.restriction_watch_removed community.contribution_acknowledged community.contribution_evidence community.contribution_obligation community.contribution_receipt community.contribution_allocate community.contribution_void community.contribution_reverse community.contribution_state community.contribution_contact community.contribution_removal", "none");
+auditRules("community.privacy_case_updated community.departure_acknowledged community.departure_restriction_opened community.trial_created community.trial_extended community.trial_passed community.trial_ended community.restriction_set community.restriction_acknowledged community.restriction_review_continued community.restriction_lifted community.restriction_appeal_requested community.restriction_appeal_upheld community.restriction_overturned community.restriction_watch_added community.restriction_watch_renewed community.restriction_watch_removed community.contribution_evidence community.contribution_obligation community.contribution_receipt community.contribution_allocate community.contribution_void community.contribution_reverse community.contribution_state community.contribution_contact community.contribution_removal", "none");
+// .125 R2: this action is written by the member, so revealing or filtering its actor would expose the private linkage.
+auditRules("community.contribution_acknowledged", "none", {}, "withheld");
 auditRules("community.officer_digest_posted community.officer_digest_failed community.officer_digest_removed community.officer_digest_resumed", "none");
+
+// .125 R1/R2: filtering must obey the same disclosure policy as rendering. Bind a finite JSON action list as ONE value,
+// rather than one placeholder per action (D1 allows at most 100 bound parameters per statement). Unknown actions do
+// not participate. Eligibility is a constant derived only from the reviewed registry, never from stored/user text.
+const AUDIT_ACTOR_ACTIONS = JSON.stringify(Object.keys(AUDIT_RULES).filter((a) => AUDIT_RULES[a].actor === "id-or-system"));
+const AUDIT_SUBJECT_ACTIONS: Record<AuditSubjectKind, string> = {
+  id: JSON.stringify(Object.keys(AUDIT_RULES).filter((a) => AUDIT_RULES[a].subject === "id" || AUDIT_RULES[a].subject === "id-or-character")),
+  character: JSON.stringify(Object.keys(AUDIT_RULES).filter((a) => AUDIT_RULES[a].subject === "character" || AUDIT_RULES[a].subject === "id-or-character")),
+};
 
 interface AuditEntry {
   id: number;
@@ -1179,9 +1195,10 @@ function auditCharacter(value: string): boolean {
 
 function safeAuditEntry(row: AuditRow): AuditEntry {
   const rule = Object.prototype.hasOwnProperty.call(AUDIT_RULES, row.action) ? AUDIT_RULES[row.action] : null;
-  const actor = isId(row.actor) || AUDIT_SYSTEM_ACTORS.has(row.actor) ? row.actor : "withheld";
+  const actor = rule?.actor === "id-or-system" && (isId(row.actor) || AUDIT_SYSTEM_ACTORS.has(row.actor)) ? row.actor : "withheld";
   const subject = rule && row.subject !== null &&
-    (rule.subject === "id" ? isId(row.subject) : rule.subject === "character" && auditCharacter(row.subject)) ? row.subject : null;
+    ((rule.subject === "id" || rule.subject === "id-or-character") && isId(row.subject) ||
+     (rule.subject === "character" || rule.subject === "id-or-character") && auditCharacter(row.subject)) ? row.subject : null;
   let details: AuditEntry["details"] = null;
   let detailsWithheld = !rule || !!row.cut;
   if (row.details !== null) {
@@ -1196,6 +1213,7 @@ function safeAuditEntry(row: AuditRow): AuditEntry {
             const validation = Object.prototype.hasOwnProperty.call(rule.fields, key) ? rule.fields[key] : null;
             const valid = validation === "count" ? typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000_000 :
               validation === "boolean" ? typeof value === "boolean" :
+              validation === "id" ? isId(value) :
               Array.isArray(validation) && typeof value === "string" && validation.includes(value);
             if (valid) kept[key] = value as string | number | boolean;
             else dropped = true;
@@ -1217,7 +1235,7 @@ const AUDIT_REFUSALS: Record<string, string> = {
   query: "Only family, actor, subject, window, before and limit can be given, each once.",
   family: "The family is a lowercase action prefix such as role, site or roster.",
   actor: "The actor is a Discord ID (17 to 20 digits) or one of watcher, system, cron, site, auto and admin.",
-  subject: "The subject is 1 to 80 characters without control characters, matched exactly.",
+  subject: "The subject is a Discord ID (17 to 20 digits) or a character label (up to 40 letters, spaces, apostrophes and hyphens), matched exactly where that action shows it.",
   window: "The window is 1d, 7d, 30d or all.",
   before: "The cursor is a positive whole number.",
   limit: "The page size is a whole number from 10 to 100.",
@@ -1227,6 +1245,7 @@ interface AuditQuery {
   family: string | null;
   actor: string | null;
   subject: string | null;
+  subjectKind: AuditSubjectKind | null;
   window: string;
   before: number | null;
   limit: number;
@@ -1252,7 +1271,8 @@ function auditQuery(q: URLSearchParams): AuditQuery | { field: string } {
   const actor = get("actor");
   if (actor !== null && !isId(actor) && !AUDIT_SYSTEM_ACTORS.has(actor)) return { field: "actor" };
   const subject = get("subject");
-  if (subject !== null && (Array.from(subject).length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(subject))) return { field: "subject" };
+  const subjectKind = subject === null ? null : isId(subject) ? "id" : auditCharacter(subject) ? "character" : null;
+  if (subject !== null && subjectKind === null) return { field: "subject" };
   const window = get("window") ?? "7d";
   if (!Object.prototype.hasOwnProperty.call(AUDIT_WINDOWS, window)) return { field: "window" };
   const before = get("before");
@@ -1261,7 +1281,7 @@ function auditQuery(q: URLSearchParams): AuditQuery | { field: string } {
   // written as the cursor is, without leading zeros (010 is refused as before=01 is): 10 to 99, or 100
   const limit = limitText === null ? 50 : /^(?:[1-9]\d|100)$/.test(limitText) ? Number(limitText) : 0;
   if (limit < 10 || limit > 100) return { field: "limit" };
-  return { family, actor, subject, window, before: before === null ? null : Number(before), limit };
+  return { family, actor, subject, subjectKind, window, before: before === null ? null : Number(before), limit };
 }
 
 /** What a private 200 carries, built whole before the final admission (A30-AUDIT-01). */
@@ -1361,12 +1381,12 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
     where.push(`+action >= ?${args.length - 1} AND +action < ?${args.length}`);
   }
   if (p.actor !== null) {
-    args.push(p.actor);
-    where.push(`+actor = ?${args.length}`);
+    args.push(p.actor, AUDIT_ACTOR_ACTIONS);
+    where.push(`+actor = ?${args.length - 1} AND +action IN (SELECT value FROM json_each(?${args.length}))`);
   }
   if (p.subject !== null) {
-    args.push(p.subject);
-    where.push(`+subject = ?${args.length}`);
+    args.push(p.subject, AUDIT_SUBJECT_ACTIONS[p.subjectKind!]);
+    where.push(`+subject = ?${args.length - 1} AND +action IN (SELECT value FROM json_each(?${args.length}))`);
   }
   args.push(p.limit + 1);
   const rows = (
@@ -1384,10 +1404,10 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   // the last row shown is the exclusive cursor; with no more matches in this stretch, the stretch's start, while older
   // ids remain anywhere in the log (a row stamped out of order can sit below the window's earliest-stamped id)
   const next = more ? page[page.length - 1].id : lo > oldest ? lo : null;
-  // 4. Names, in one statement for every Discord id among the page's actors and subjects (at most 2 x limit, bound as one
+  // 4. Names, in one statement for every approved Discord id among actors, subjects and per-rule detail (at most 3 x limit, bound as one
   //    JSON array): the site's own account row as the site already shows it (shownName), else the bot's member row. Only
-  //    approved actor/subject ids participate; private and unknown subjects never reach this lookup.
-  const ids = [...new Set(page.flatMap((r) => [r.actor, r.subject]).filter(isId))];
+  //    approved actor/subject/detail ids participate; withheld actors and private/unknown subjects never reach it.
+  const ids = [...new Set(page.flatMap((r) => [r.actor, r.subject, r.details?.discordId]).filter(isId))];
   const names = new Map<string, string>();
   if (ids.length) {
     const found = await env.DB.prepare(
@@ -1405,7 +1425,11 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
     }
   }
   return {
-    entries: page.map((r) => ({ ...r, actorName: names.get(r.actor) ?? null, subjectName: r.subject === null ? null : names.get(r.subject) ?? null })),
+    entries: page.map((r) => ({ ...r,
+      actorName: names.get(r.actor) ?? null, subjectName: r.subject === null ? null : names.get(r.subject) ?? null,
+      // A generated local name for this rule's validated detail ID, never a stored free-text field or provider lookup.
+      details: r.details && isId(r.details.discordId) && names.has(r.details.discordId) ? { ...r.details, discordIdName: names.get(r.details.discordId)! } : r.details,
+    })),
     next,
     scanned: { lo, hi },
     exhausted: next === null,
