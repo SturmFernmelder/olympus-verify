@@ -169,3 +169,15 @@ separately. The AddOn guide and browser planner apply no native guild permission
 
 The planner retains the owner's 1 October choice, "Crest is the exception", for its existing brand and tab icon.
 The v2 finite receipt rebinds only the rank HTML source; the 103 asset bytes and the other four source pins match.
+
+## 9 October 2026 - .122 informational role-copy reference
+
+The source reference now binds product candidate 9e9841ec6725868eb631b34b72e060b6e74b5729. The role-description changes
+are the ten informational proposal windows in site-data.ts; no image, font, icon path or literal asset reference
+changes. Fresh finite coverage bf5944a58b3b41ca5e0e5134e36aa6ca97149d810fcccc7d739ecf2862d8effe
+checks 103 unchanged assets and all five fixed-art source rows. Only site-data.ts's whole-file bytes and hash
+advance; the other four producers and approved crest exception retain their exact pins. The reference and its
+two helper consumers carry the new dependency pins. Prior .121 coverage is retained as immutable provenance.
+
+The external final-head source contract, scoped reviews, tests, CI and actual live readback remain separate gates.
+This copy correction proposes post-beta rank guidance and grants no native rank, bank permission or appointment.

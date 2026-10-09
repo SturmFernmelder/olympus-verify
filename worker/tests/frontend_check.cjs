@@ -1694,7 +1694,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
     const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
-    check("(.115) the Roles page shows each role's In game fact as site-data.ts has it: the Treasurer and Raider ranks; Class Lead has no rank of its own", ["treasurer", "raider", "class_lead"].every((k) => fact(k) === gameLine(k)) && fact("treasurer").startsWith("The Treasurer rank") && fact("raider").startsWith("The Raider rank") && fact("class_lead").startsWith("No rank of its own"), fact("treasurer"), fact("raider"));
+    check("(.122) the Roles page renders the real post-beta Treasurer appointment and preserves the Raider and Class Lead facts", ["treasurer", "raider", "class_lead"].every((k) => fact(k) === gameLine(k)) && fact("treasurer").startsWith("Post-beta guidance:") && /appointment within High Council, not a separate native rank/.test(fact("treasurer")) && fact("raider").startsWith("The Raider rank") && fact("class_lead").startsWith("No rank of its own"), fact("treasurer"), fact("raider"));
 
     db.prepare("DELETE FROM invite_queue WHERE id = ?").run(queueRow);
     db.prepare("DELETE FROM roster_snapshots WHERE id = ?").run(snap);

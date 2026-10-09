@@ -1156,3 +1156,18 @@ there. The planner masthead and tab icon retain the existing Olympus crest: the 
 "Crest is the exception", permits it only as site brand and browser icon. Other interface art remains official WoW art.
 The AddOn's /olv ranks guidance is
 informational and changes no roster, queue, verification, invite, promotion, bank permission or export behavior.
+
+## 9 October 2026 - .122 public role guidance
+
+The public role descriptions now distinguish the proposed post-beta ladder from the current in-game setup. Officer
+sits below High Council in that proposal; Co-Guild Master and Treasurer are appointments within High Council, not
+extra native ranks. The copy removes the old Captain/index-based AddOn access promises and native Treasurer rank.
+It carries the approved High Council gold/tab rights and Raid Leader authenticator safeguard without approving a
+numeric bank allowance. Each Guild Master must review and configure native ranks and bank limits in an attended session.
+
+This is a plain-text correction: one explanatory comment and nine game-description strings in site-data.ts. Existing
+application keys, labels, groups, voting seats, appointment defaults, validation and authorization are preserved.
+No current native ladder is certified or changed, and applying for a job grants no rank, permission or AddOn access.
+The existing role-description regressions now check that boundary instead of requiring the obsolete Captain and
+Treasurer claims. Unrelated historical design sections and AddOn feature descriptions remain historical or outside
+this finite wording batch; this update does not qualify those capabilities.

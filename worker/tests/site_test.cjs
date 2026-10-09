@@ -512,10 +512,10 @@ const bootOf = async (res) => {
     const html = page.html; // the signed-in page: the descriptions travel in the boot data like every other list
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
-    check("  the in-game lines (.46): the Officer rank's roles are the Olympus addon's Captains, the rest say their rank or that they have none",
-      ["officer", "recruitment"].every((k) => /^The Officer rank/.test(game(k)) && /Captain/.test(game(k))) && /^The Treasurer rank/.test(game("treasurer")) &&
-      /^The Raid Leader rank/.test(game("raid_leader_na")) && /^The Raid Leader rank/.test(game("raid_assist_eu")) && /^No rank of its own/.test(game("class_lead")) &&
-      /^The Guild Master rank of your own guild/.test(game("guild_master")) && html.includes("In the Olympus addon you are a Captain"));
+    const guided = ["co_gm", "guild_master", "officer", "recruitment", "pvp_leader", "liaison", "treasurer", "raid_leader_na", "raid_leader_eu", "raid_assist_na", "raid_assist_eu"];
+    check("  .122 rank guidance is proposed for post-beta and reaches the boot data without Captain or native Treasurer claims",
+      guided.every((k) => /^Post-beta guidance:/.test(game(k))) && ps.every((p) => !/Captain|The Treasurer rank/.test(p.info.game)) &&
+      html.includes("Post-beta guidance:") && !html.includes("In the Olympus addon you are a Captain"));
     check("  and the page shows them as the role's \"In game\" fact", /h\("dt", \{ text: "In game" \}\)/.test(js) && /info\.game/.test(js));
   }
 
@@ -1316,7 +1316,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".121") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".122") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");
