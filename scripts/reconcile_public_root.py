@@ -3,7 +3,7 @@ from pathlib import Path
 from html.parser import HTMLParser
 import argparse,hashlib,json,os,re,subprocess,sys
 ROOT=Path(__file__).resolve().parent
-V4_PINS={'stage_publication.py':'d06f6d56c9884f5cb9e7c07acde75ad5f812f0a77fe68589d49115ab68b358e9','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'aa7bcc919cef5ac81d4d9986222534d746d88e26e9a61080502eb2ea9c28a8cc','official_asset_reference.json':'da762557875fd60bd66bd7782146c4c1f337256d87e81920143839ed858c1db5'}
+V4_PINS={'stage_publication.py':'d06f6d56c9884f5cb9e7c07acde75ad5f812f0a77fe68589d49115ab68b358e9','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'6fd00b17b51c88f67bc30f818f0ccb0404755118bdd6ba280232dce70c4a180b','official_asset_reference.json':'84d4e6caa29050fd1531f20bf9b97b8e2c8d710ee8a595394e9aeab546c681b4'}
 for name,pin in V4_PINS.items():
  p=ROOT/name
  if p.is_symlink() or p.is_junction() or hashlib.sha256(p.read_bytes()).hexdigest()!=pin:raise ValueError('unchanged_v4_helper_pin_mismatch')
