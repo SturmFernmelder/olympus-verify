@@ -19,8 +19,9 @@
  *
  * `SCHEDULED_BUDGET` gives every job's worst case in statements with every community feature on, every conditional audit
  * written and every failure path that still dispatches a statement charged in our model, even one D1 refuses.
- * The caps keep the sum under `SCHEDULED_STATEMENT_TARGET`, which leaves room below the Paid limit for D1's own
- * retries and for writers later builds add; a new scheduled job, a new column or a raised cap changes this table first.
+ * The release target is `SCHEDULED_STATEMENT_TARGET`; a new scheduled job, column or raised cap changes this table first.
+ * The joined source has separate ordinary and installed-admission envelopes. Installation is an attended operation,
+ * outside cron; the installed-admission schedule reserves 699 of the 700-statement release target.
  * `tests/scheduled_budget_test.cjs` runs the real `scheduled()` over a D1 that counts each batched statement, with every
  * capped workload past its cap, cold and warm schema, and holds each job and the whole run to these numbers; the role
  * sweep's per-account costs are measured exactly there (review of 3 Oct 2026), since its line is a bound the run's Discord
@@ -51,11 +52,13 @@ export const SCHEDULED_CAPS = {
   /** restore.ts BANNED_PER_RUN: banned or held accounts the sweep re-checks (unchanged; the test checks the two agree). */
   roleSweepBanned: 1,
   /** names.ts: linked members whose Discord names one run re-reads; NAMES_PER_RUN is clamped to it (configured 5; unchanged). */
-  namesPerRun: 5,
+  namesPerRun: 1,
   /** community-directory.ts: profiles thirty days departed that one run erases (was 100); the rest go in the next runs. */
   profilesPerRun: 1,
   /** community-contributions.ts: weekly obligations one run opens (was 200); the rest open in the next runs. */
-  obligationsPerRun: 8,
+  obligationsPerRun: 4,
+  /** 250 reserved names per cron tick; attended queueReserved retains four rounds. */
+  autoQueueRounds: 1,
   /**
    * roster.ts continueRosterEffects: the statement attempts one cron run may spend on the roster's pending member effects
    * (Codex, 3 Oct 2026 16:48 UTC, finding A). Each item is admitted at its kind's worst case before it starts
@@ -77,13 +80,13 @@ const C = SCHEDULED_CAPS;
  * attempted), then 14 probes + 14 ALTERs + 2 indexes, the two publication/reminder closure probes/ALTERs, the marker read + the 3-statement rewrite. Every invocation that
  * reaches D1 may pay it once (a fresh isolate), so the allowances below are measured from it.
  */
-const SCHEMA_WORST = 10 + 7 + 101 + 16 + 28 + 2 + 4 + 4 + 19 + 8 + 4;
+const SCHEMA_WORST = 10 + 7 + 103 + 16 + 28 + 2 + 4 + 4 + 19 + 8 + 4 + 1;
 
 export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule: string }> = [
   {
     job: "ensureSchema",
     worst: SCHEMA_WORST,
-    rule: "cold, every column reported missing and the audit rewrite pending (warm: 0; cold on a current database: 132, or 135 before the rewrite; reminder table/index add two and closure probe/ALTER at most two)",
+    rule: "cold206 when every column reports missing and the audit rewrite is pending; current cold162, pending rewrite165, warm0; includes the two admission-control statements but never trigger installation",
   },
   { job: "sweepInviteQueue", worst: 4, rule: "two updates, the queue.swept audit, the staff_notice.failed audit when the notice cannot be posted" },
   {
@@ -101,7 +104,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     rule: "the newest run's pending items, each admitted at its kind's worst case before it starts (roster-effects.ts), with the selection, the end-of-slice batch, a failure's audit and the notices' read",
   },
   { job: "refreshNames", worst: 1 + C.namesPerRun, rule: "one selection + one update per account (at most namesPerRun)" },
-  { job: "autoQueueReserved", worst: 1 + 1 + 4 * (1 + 5) + 1, rule: "the settings, the held count, four rounds of a selection and a 5-statement batch, the audit" },
+  { job: "autoQueueReserved", worst: 1 + 1 + C.autoQueueRounds * (1 + 5) + 1, rule: "the settings, the held count, admitted rounds of a selection and a 5-statement batch, the audit" },
   { job: "purgeSeenInteractions", worst: 1, rule: "one delete" },
   { job: "purgeBattleNetData", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "sweepRenameHolds", worst: 1, rule: "one delete" },
@@ -117,12 +120,30 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
-  {job:'runServingErasureJob',worst:149,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit projection; completed-account message cleanup shares this envelope'},
-  {job:'sweepServingRetention',worst:20,rule:'fixed20-statement native batch; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
+  {job:'runServingErasureJob',worst:150,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
+  {job:'sweepServingRetention',worst:21,rule:'fixed21-statement native batch including shared-publication actor minimization; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
 ];
 
 /** The sum of the table: the whole scheduled invocation's worst case. */
 export const SCHEDULED_WORST_CASE = SCHEDULED_BUDGET.reduce((n, j) => n + j.worst, 0);
+
+/** Explicit installed-admission branch, selected only by the exact true flag (source profile OFF).
+ * Every native writer group includes four control statements. Current schema is one proven read;
+ * missing schema/markers hold and attended installation is charged separately (202 native statements).
+ * The roster retains its whole 56 envelope; central roles reserve120 despite measured117/118 paths.
+ * These are local native test envelopes, not a provider-meter or old-writer/provider-transition approval.
+ */
+export const ADMISSION_SCHEDULED_BUDGET:ReadonlyArray<{job:string;worst:number}>=Object.freeze([
+ {job:'ensureSchema',worst:1},{job:'sweepInviteQueue',worst:20},{job:'sweepMemberRoles',worst:120},
+ {job:'continueRosterEffects',worst:C.rosterEffectsStatements},{job:'refreshNames',worst:6},
+ {job:'autoQueueReserved',worst:17},{job:'purgeSeenInteractions',worst:5},{job:'purgeBattleNetData',worst:13},
+ {job:'sweepRenameHolds',worst:5},{job:'sweepCommunityProfiles',worst:22},{job:'sweepCommunityEvents',worst:17},
+ {job:'runEventReminders',worst:19},{job:'sweepCommunityTrials',worst:11},{job:'sweepCommunityRestrictions',worst:13},
+ {job:'departureIntake',worst:26},{job:'sweepCommunityDepartures',worst:11},{job:'openWeeklyObligations',worst:39},
+ {job:'sweepCommunityContributions',worst:15},{job:'sweepCommunityPrivacy',worst:7},{job:'newsCron',worst:28},
+ {job:'runOfficerDigest',worst:30},{job:'runServingErasureJob',worst:193},{job:'sweepServingRetention',worst:25},
+]);
+export const ADMISSION_SCHEDULED_WORST_CASE=ADMISSION_SCHEDULED_BUDGET.reduce((n,j)=>n+j.worst,0);
 
 /**
  * .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): the other invocations that apply roster effects hold

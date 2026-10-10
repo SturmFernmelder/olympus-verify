@@ -39,6 +39,7 @@ import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
 import { betaResetState, loadLeadership, NAME_WITHHELD, recordBetaClosed, runBetaReset, saveLeadership } from "./site-leadership";
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 import { handleNewsAdmin } from "./site-news";
+import { handleRulesetPublication } from './ruleset-publication';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -56,6 +57,8 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   const body = m === "GET" ? {} : await readJson(request);
   if (body === null) return apiJson({ error: "bad_request" }, 400);
   const actor = admin.discord_id;
+
+  if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);
 
   if (parts[0] === "community") return handleCommunityAdmin(request, env, path, admin, body); // .57
   if (m === "GET" && parts[0] === "overview") return apiJson(await overview(env));

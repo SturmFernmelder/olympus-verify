@@ -6,6 +6,7 @@ import { normalizeCharacter } from "./codes";
 import { explainDiscordError, guildMember, logLine, postMessage, removeRole, setNickname, staffNotice } from "./discord";
 import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget } from "./roles";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
+import { prepareRosterCronNotice,parseRosterCronNotice,settleRosterCronNotice } from './privacy-provider-messages';
 import { errorRef } from "./log";
 import { privacyProviderCustodyDatabase,privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,privacyGenerationFenceSql,privacyGenerationLiteralFenceSql,readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
 import { ROSTER_INGEST_STATEMENTS, ROSTER_SYNC_STATEMENTS, SCHEDULED_CAPS } from "./scheduled-budget";
@@ -1041,7 +1042,7 @@ export async function promote(env: Env, discordId: string, nameKey: string, name
  * roster.member (which the role sweep reads to grant a deferred role), the log line and the welcome. At most twelve
  * statements, the welcome's share of the notices' flush included (roster-effects.ts EFFECT_WORST.promote less the claim).
  */
-async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget,capture:PrivacySubject|null=null) {
+async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget,capture:PrivacySubject|null=null,deferCronRole=false) {
   const reference={subject:discordId,capture};
   if(!(await env.DB.prepare(`SELECT (${privacyGenerationFenceSql(1,2)}) AS current`).bind(discordId,capture?.subjectGeneration??null).first<{current:number}>())?.current)return;
   // The role grant is optional (ROLE_GUILD_MEMBER may be unset once the role is retired), and nothing below depends
@@ -1054,17 +1055,21 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
       // .55: through the one role writer (roles.ts): a held blocking role withholds the grant, fail-closed config too.
       const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
       const roleEnv=env.PRIVACY_ERASURE_ENABLED==='true'?{...env,DB:privacyProviderCustodyDatabase(env)}:env;
-      const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, calls,{subjectGeneration:capture?.subjectGeneration??null});
+      const roleCalls=deferCronRole&&calls?{...calls,limit:0}:calls;
+      const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, roleCalls,{subjectGeneration:capture?.subjectGeneration??null});
       granted = outcome === "granted" || outcome === "has-role";
       blocked = outcome === "blocked";
+      if(deferCronRole)await audit(env,"system","role.deferred",name,{discordId,source:"promote",reason:outcome},reference);
+      else {
       if (blocked) await logLine(env, `⛔ roster: **${name}** (<@${discordId}>) is on the roster, but a server restriction is on the account; Guild Member withheld until it is lifted.`,[reference]);
       else if (outcome === "held") await logLine(env, `⏸️ roster: **${name}** (<@${discordId}>) is on the roster, but the account must apply again after a rename Blizzard required; Guild Member withheld until an administrator approves it.`,[reference]); // .114
       else if (outcome === "misconfigured") await logLine(env, `⚠️ roster: ROLE_GUILD_MEMBER is not a role of this server; no Guild Member granted for **${name}**.`,[reference]);
       else if (outcome === "unverified" || outcome === "budget") await audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome },reference);
       else if (outcome === "banned") await audit(env, "system", "role.refused_banned", name, { discordId },reference);
+      }
     } catch (e) {
       await audit(env, "system", "role.add_failed", name, { discordId, error: String(e) },reference);
-      await logLine(env, `⚠️ roster: could not grant Guild Member to <@${discordId}> for **${name}**: ${explainDiscordError(e)}`,[reference]);
+      if(!deferCronRole)await logLine(env, `⚠️ roster: could not grant Guild Member to <@${discordId}> for **${name}**: ${explainDiscordError(e)}`,[reference]);
     }
   }
   if (env.SET_NICKNAME === "true") {
@@ -1076,7 +1081,8 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
     }
   }
   await audit(env, "system", "roster.member", name, { discordId, roleGranted: granted, roleBlocked: blocked },reference);
-  await logLine(env, `➕ roster: **${name}** (<@${discordId}>) confirmed on the roster${granted ? " — Guild Member granted" : ""}.`,[reference]);
+  if(deferCronRole)return; // the original claim retains the cron welcome/log; attended and manual behavior is unchanged
+  await logLine(env, `➕ roster: **${name}** (<@${discordId}>) confirmed on the roster${granted ? " — Guild Member granted" : deferCronRole ? " — Guild Member pending the central role sweep" : ""}.`,[reference]);
   await notify(env, discordId, `Welcome to Olympus — **${name}** is on the guild roster.`, "welcome", batch,capture);
 }
 
@@ -1291,9 +1297,9 @@ async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: Roster
   const id = run.id;
   const stmts: D1PreparedStatement[] = [
     env.DB.prepare("UPDATE roster_effect_runs SET superseded_at = ?2 WHERE id < ?1 AND done_at IS NULL AND superseded_at IS NULL").bind(id, t),
-    env.DB.prepare("DELETE FROM roster_effects WHERE run_id < ?1").bind(id),
+    env.DB.prepare(`DELETE FROM roster_effects WHERE run_id < ?1 AND NOT ${CRON_NOTICE_CLAIM}`).bind(id),
     // finished runs kept RUN_HISTORY_S, and always the newest derived one (the next export's departures are judged against it)
-    env.DB.prepare("DELETE FROM roster_effect_runs WHERE id < ?1 AND created_at < ?2 AND id < (SELECT MAX(id) FROM roster_effect_runs WHERE derived_at IS NOT NULL)").bind(
+    env.DB.prepare("DELETE FROM roster_effect_runs WHERE id < ?1 AND created_at < ?2 AND id < (SELECT MAX(id) FROM roster_effect_runs WHERE derived_at IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM roster_effects WHERE run_id=roster_effect_runs.id)").bind(
       id,
       t - RUN_HISTORY_S,
     ),
@@ -1334,6 +1340,9 @@ export interface EffectsSlice {
   stripped: string[];
   done: boolean;
   failed: boolean;
+  /** Original cron welcome/log remains durable; this is not provider completion. */
+  noticePending?:boolean;
+  noticeHeld?:boolean;
 }
 
 interface SliceRow {
@@ -1346,6 +1355,7 @@ interface SliceRow {
   guid: string | null;
   subject_generation:string|null;
 }
+const CRON_NOTICE_CLAIM="(CASE WHEN json_valid(claim) THEN json_extract(claim,'$.p')='roster_cron_notice_v1' ELSE 0 END)";
 // the newest run, only when it is derived, unfinished and of the newest snapshot, with its pending items in order (a row with
 // a NULL seq when none is left, so the end batch can still record that it is done)
 const SLICE_ROWS = `SELECT r.id AS run, e.seq AS seq, e.kind AS kind, e.name_key AS name_key, e.name AS name, e.discord_id AS discord_id, e.guid AS guid,e.subject_generation
@@ -1387,7 +1397,7 @@ const EFFECT_DEPART = `UPDATE characters SET status = 'left', left_at = ?4 WHERE
  * (the role, the audits, the log line, the welcome) is best effort, as before, and a grant it defers is the role sweep's.
  * A failure stops the slice and is audited (counts only); it is never thrown at the export, which is already stored.
  */
-async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch): Promise<EffectsSlice> {
+async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<EffectsSlice> {
   const out: EffectsSlice = { run: null, applied: 0, skipped: 0, refused: false, promoted: [], noteBound: [], stripped: [], done: false, failed: false };
   const fits = room(adm, after + SLICE_FIXED + noticeStatementsPending(notices));
   if (fits < effectWorst(env).depart) return out; // not even the cheapest item: the next invocation
@@ -1405,7 +1415,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
       // The kind's worst case reserves this item's notice; notices from all earlier items still owe SQL at flush.
       if (room(adm, keep + noticeStatementsPending(notices)) < worst) break;
       at = it.seq;
-      const result = await applyEffect(env, run, it, nonce, calls, notices);
+      const result = await applyEffect(env, run, it, nonce, calls, notices,deferCronRole);
       if (result === "refused") {
         out.refused = true; // the run is no longer the current one, or another invocation is ahead in it: nothing more here
         break;
@@ -1414,6 +1424,8 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
         out.applied++;
         (it.kind === "promote" ? out.promoted : it.kind === "note" ? out.noteBound : out.stripped).push(it.name);
       } else out.skipped++;
+      // The dormant protocol cron lane consumes one original item; ordinary/manual slices retain their admission.
+      if(deferCronRole&&adm.count.protocol&&out.applied+out.skipped>=1)break;
     }
   } catch (e) {
     out.failed = true;
@@ -1426,7 +1438,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
   try {
     // done items leave the table (it holds only what is still due); the run is done once nothing is left
     const end = await env.DB.batch([
-      env.DB.prepare("DELETE FROM roster_effects WHERE run_id = ?1 AND done_at IS NOT NULL").bind(run),
+      env.DB.prepare(`DELETE FROM roster_effects WHERE run_id = ?1 AND done_at IS NOT NULL AND NOT ${CRON_NOTICE_CLAIM}`).bind(run),
       env.DB.prepare(
         `UPDATE roster_effect_runs SET done_at = ?2 WHERE id = ?1 AND done_at IS NULL AND derived_at IS NOT NULL AND superseded_at IS NULL
             AND NOT EXISTS (SELECT 1 FROM roster_effects WHERE run_id = ?1) AND ${RUN_IS_CURRENT}`,
@@ -1444,10 +1456,11 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
  * "skipped" when the item was claimed but its change was no longer due (the link changed, or the effect was made another
  * way since), so it is done with nothing done; "refused" when it could not be claimed.
  */
-async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch): Promise<"applied" | "skipped" | "refused"> {
+async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<"applied" | "skipped" | "refused"> {
   const t = now();
   const seq = it.seq as number;
-  const claim = env.DB.prepare(CLAIM).bind(run, seq, nonce, t,it.subject_generation,it.discord_id,it.name_key,it.kind,it.guid);
+  const proof=deferCronRole&&it.kind!=='depart'?await prepareRosterCronNotice(env,{run,seq,subject:it.discord_id,generation:it.subject_generation,name:it.name,nameKey:it.name_key,guid:it.guid,createdAt:t}):nonce;
+  const claim = env.DB.prepare(CLAIM).bind(run, seq, proof, t,it.subject_generation,it.discord_id,it.name_key,it.kind,it.guid);
   if (it.kind === "depart") {
     const res = await env.DB.batch([claim, env.DB.prepare(EFFECT_DEPART).bind(run, seq, nonce, t, it.name_key, it.discord_id)]);
     if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
@@ -1459,17 +1472,18 @@ async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, c
   const stmts = [claim];
   if (note) {
     stmts.push(
-      env.DB.prepare(EFFECT_NOTE_SET_ASIDE).bind(run, seq, nonce, it.name_key, it.discord_id),
-      env.DB.prepare(EFFECT_NOTE_LINK).bind(run, seq, nonce, it.name_key, it.discord_id, it.name, t),
+      env.DB.prepare(EFFECT_NOTE_SET_ASIDE).bind(run, seq, proof, it.name_key, it.discord_id),
+      env.DB.prepare(EFFECT_NOTE_LINK).bind(run, seq, proof, it.name_key, it.discord_id, it.name, t),
     );
   }
-  const promoteAt = stmts.push(env.DB.prepare(EFFECT_PROMOTE).bind(run, seq, nonce, t, it.name_key, it.discord_id, guidOf(it.guid), note ? 1 : 0)) - 1;
-  stmts.push(env.DB.prepare(EFFECT_QUEUE).bind(run, seq, nonce, t, it.name_key, it.discord_id));
+  const promoteAt = stmts.push(env.DB.prepare(EFFECT_PROMOTE).bind(run, seq, proof, t, it.name_key, it.discord_id, guidOf(it.guid), note ? 1 : 0)) - 1;
+  if(deferCronRole)stmts.push(env.DB.prepare(`UPDATE roster_effects SET claim=?4 WHERE run_id=?1 AND seq=?2 AND claim=?3 AND changes()=0`).bind(run,seq,proof,nonce));
+  stmts.push(env.DB.prepare(EFFECT_QUEUE).bind(run, seq, proof, t, it.name_key, it.discord_id));
   const res = await env.DB.batch(stmts);
   if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
   if (!Number(res[promoteAt]?.meta?.changes ?? 0)) return "skipped";
   const capture=it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active' as const,revision:0};
-  await afterPromotion(env, it.discord_id, it.name, notices, calls,capture);
+  await afterPromotion(env, it.discord_id, it.name, notices, calls,capture,deferCronRole);
   return "applied";
 }
 
@@ -1524,11 +1538,23 @@ async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: C
  * inside waitUntil.
  */
 export async function continueRosterEffects(env: Env): Promise<EffectsSlice | null> {
-  const count = { used: 0 };
+  const count = { used: 0,protocol:false };
   const counted = countStatements(env, count);
   const notices = noticeBatch();
   try {
-    return await applyEffects(counted, { count, limit: SCHEDULED_CAPS.rosterEffectsStatements }, NOTICE_FLUSH_FIXED, callBudget(env), notices);
+    const dormant=count.protocol===true&&env.PRIVACY_ERASURE_ENABLED==='true';
+    if(dormant){
+      const owed=await counted.DB.prepare(`SELECT claim FROM roster_effects WHERE done_at IS NOT NULL AND ${CRON_NOTICE_CLAIM}
+       AND json_extract(claim,'$.run')=run_id AND json_extract(claim,'$.seq')=seq AND json_extract(claim,'$.createdAt')=done_at
+       AND json_extract(claim,'$.subject')=discord_id AND json_extract(claim,'$.generation') IS subject_generation
+       AND (json_extract(claim,'$.welcome.state')='pending' OR json_extract(claim,'$.log.state')='pending') ORDER BY done_at,run_id,seq LIMIT 1`).first<{claim:string}>();
+      if(owed){const original=parseRosterCronNotice(owed.claim);if(!original)throw Error('cron_notice_original_invalid');
+        const state=await settleRosterCronNotice(counted,owed.claim);return{run:original.run,applied:0,skipped:0,refused:false,promoted:[],noteBound:[],stripped:[],done:state.finished,failed:false,noticePending:!state.finished,noticeHeld:['held','refused','unknown'].includes(state.state)};
+      }
+    }
+    const slice=await applyEffects(counted, { count, limit: SCHEDULED_CAPS.rosterEffectsStatements }, NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant);
+    if(dormant&&slice.applied>0&&slice.stripped.length===0)slice.noticePending=true;
+    return slice;
   } catch (e) {
     console.error("roster effects failed", errorRef(e));
     return null;

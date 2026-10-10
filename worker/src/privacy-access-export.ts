@@ -3,6 +3,7 @@ import type { Env } from './env';
 import './community-routes';
 import './qr-phase1-data';
 import './privacy-access-data';
+import './ruleset-publication-data';
 import './site-news';
 import { communityDataNames, communityExportPlan } from './community-context';
 import { appOut, apiJson, type AppRow } from './site-core';
@@ -31,8 +32,8 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  const {grant,collection,cursor}=await privacyAccessExportFormAction(request,env),id=grant.subject;
  if(collection!=='copy')return exportPrivacyHistory(env,grant,collection,cursor);
  const marker=await privacySubjectKey(env,id);
- const expected=['refs','directory','events','trials','restrictions','departures','contributions','news','event_delivery','event_reminders','privacy_access','councillor_verification'].sort();
- if(JSON.stringify(communityDataNames().slice().sort())!==JSON.stringify(expected)||communityExportPlan(env,id).statements.length!==32)throw new FormError('privacy_catalog_unqualified',503);
+ const expected=['refs','directory','events','trials','restrictions','departures','contributions','news','event_delivery','event_reminders','privacy_access','councillor_verification','ruleset_publication'].sort();
+ if(JSON.stringify(communityDataNames().slice().sort())!==JSON.stringify(expected)||communityExportPlan(env,id).statements.length!==34)throw new FormError('privacy_catalog_unqualified',503);
  const prepared=await Promise.all(PRIVACY_ALL_HISTORY_COLLECTIONS.map(c=>preparePrivacyHistory(env,grant,c,null,limit)));
  // Four base and four community singleton slots. Every preview has count + 26-row sentinel cap.
  const scalar=[
@@ -47,7 +48,7 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  ];
  let results:D1Result[];try{results=await env.DB.batch([...privacyAccessActionStatements(env,grant),env.DB.prepare('SELECT '+PRIVACY_ACCESS_NOW+' AS at'),...scalar,...prepared.flatMap(p=>p.statements),privacyAccessConsumedReadFence(env,grant)]);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
  const at=(results[3]?.results[0] as {at?:unknown}|undefined)?.at;
- if(results.length!==85||(results.at(-1)?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||typeof at!=='number'||!Number.isSafeInteger(at)||at<=0||at>=grant.expiresAt||scalar.some((_,i)=>results[4+i]!.results.length>1))throw new FormError('privacy_copy_unconfirmed',503);
+ if(results.length!==87||(results.at(-1)?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||typeof at!=='number'||!Number.isSafeInteger(at)||at<=0||at>=grant.expiresAt||scalar.some((_,i)=>results[4+i]!.results.length>1))throw new FormError('privacy_copy_unconfirmed',503);
  const histories=Object.fromEntries(await Promise.all(PRIVACY_ALL_HISTORY_COLLECTIONS.map(async(c,i)=>[c,await finishPrivacyHistory(env,grant,c,prepared[i]!,at,results[12+2*i]!.results[0] as Rec|undefined,results[13+2*i]!.results)]))) as Record<PrivacyHistoryCollection,Awaited<ReturnType<typeof finishPrivacyHistory>>>;
  const entries=(c:PrivacyHistoryCollection)=>histories[c].entries;
  const container=(c:PrivacyHistoryCollection,rows=entries(c))=>({complete:histories[c].capture.complete,total:histories[c].capture.count,limit,rows});
@@ -58,7 +59,7 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,pageLimit:limit,
  excluded:['staff notes/reasons/identities','raw roster snapshots','private payment details','provider logs and pointers','short-lived authentication secrets and OAuth codes','external Discord posts/connections','private recovery backups','local watcher/game/download copies'],
  histories:Object.fromEntries(PRIVACY_ALL_HISTORY_COLLECTIONS.map(c=>[c,{collection:c,currentCursor:histories[c].currentCursor,nextCursor:histories[c].nextCursor,capture:histories[c].capture}])),
- continuation:'All 36 selected lists have a count and a preview of at most 25 entries. Save nextCursor to continue, or currentCursor to read again from the same range position. Reconnect Discord at /privacy/access, select the exact collection and paste its cursor; a separate history page contains at most 1,000 entries. Every page needs a fresh twelve-minute identify-only grant. The original retained range and twenty-four-hour deadline never extend; a changed range refuses continuation. New privacy inbox requests are disabled.'},
+ continuation:'All 37 selected lists have a count and a preview of at most 25 entries. Save nextCursor to continue, or currentCursor to read again from the same range position. Reconnect Discord at /privacy/access, select the exact collection and paste its cursor; a separate history page contains at most 1,000 entries. Every page needs a fresh twelve-minute identify-only grant. The original retained range and twenty-four-hour deadline never extend; a changed range refuses continuation. New privacy inbox requests are disabled.'},
  about:'Selected retained records about your own Discord account were read together in one database transaction at generatedAt. A missing website account is shown as null. Complete flags concern the selected retained range only. Histories use a fixed numeric native order, not an immutable content snapshot or proof of download, erasure or every external copy.',
  account:a?{discordId:a.discord_id,username:a.username,displayName:a.global_name,nickname:a.nick,avatar:a.avatar,accountCreated:iso(a.account_created),joinedServer:iso(a.server_joined),firstSignIn:iso(a.first_login),lastSignIn:iso(a.last_login),lastMembershipCheck:iso(a.checked_at),inServer:a.in_server===1,denied:a.denied===1,deniedAt:iso(a.denied_at)}:null,
  site:{application:application(results[5]!.results[0] as AppRow|undefined)},
@@ -69,7 +70,7 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  for(const c of PRIVACY_ALL_HISTORY_COLLECTIONS.slice(3)){
   const path=c.split('.');let target=body;
   for(const part of path.slice(0,-1))target=(target[part]??= {}) as Rec;
-  const nested=c.startsWith('community.privacy_access.')||c.startsWith('community.councillor_verification.');
+  const nested=c.startsWith('community.privacy_access.')||c.startsWith('community.councillor_verification.')||c.startsWith('community.ruleset_publication.');
   target[path.at(-1)!]=!c.startsWith('community.')||nested?container(c):entries(c);
  }
  return apiJson(body,200,{'Content-Disposition':'attachment; filename="olympus-my-privacy-data.json"','Referrer-Policy':'no-referrer'});

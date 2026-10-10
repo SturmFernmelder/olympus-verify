@@ -17,6 +17,7 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { loadSettings } from "./site-data";
+import { SCHEDULED_CAPS } from './scheduled-budget';
 
 const CHUNK = 250; // ids go into the SQL as integers, not bound parameters, so D1's 100-parameter cap does not apply
 const ROUNDS = 4;  // up to 1,000 names per run: more than the guild has seats
@@ -29,6 +30,9 @@ export interface QueueOutcome { queued: number; bumped: number; inGuild: number;
  * account where more than one claim is approved are left alone ("contested") until an admin releases one of them.
  */
 export async function queueReserved(env: Env, actor: string, ids?: number[]): Promise<QueueOutcome> {
+  return queueReservedRounds(env,actor,ids,ROUNDS);
+}
+async function queueReservedRounds(env: Env, actor: string, ids: number[]|undefined,rounds:number): Promise<QueueOutcome> {
   const out: QueueOutcome = { queued: 0, bumped: 0, inGuild: 0, blocked: 0, contested: 0, more: false };
   const only = ids?.filter((x) => Number.isInteger(x) && x > 0).slice(0, 500);
   if (ids && !only?.length) return out;
@@ -44,7 +48,7 @@ export async function queueReserved(env: Env, actor: string, ids?: number[]): Pr
   ).first<{ contested: number | null; banned: number | null }>();
   out.contested = held?.contested ?? 0;
   out.blocked = held?.banned ?? 0;
-  for (let round = 0; round < ROUNDS; round++) {
+  for (let round = 0; round < rounds; round++) {
     const cand = await env.DB.prepare(
       `SELECT r.id AS id FROM site_reserved r
         WHERE r.status = 'approved' ${filter} AND NOT ${contested} AND NOT ${banned}
@@ -109,7 +113,7 @@ export async function autoQueueReserved(env: Env): Promise<QueueOutcome | null> 
   try {
     const s = await loadSettings(env);
     if (!s.autoQueue || now() < s.launchAt) return null;
-    return await queueReserved(env, "system");
+    return await queueReservedRounds(env, "system",undefined,SCHEDULED_CAPS.autoQueueRounds);
   } catch (e) {
     console.error("reserved names: auto-queue failed", errorRef(e));
     return null;

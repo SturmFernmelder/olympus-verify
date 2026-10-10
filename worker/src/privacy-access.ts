@@ -50,6 +50,10 @@ const CALLBACK_SUPPORT = new Map<string,string>([
  ['identity_scope_nonstring_refused','PA-T6A'],['identity_scope_empty_refused','PA-T6B'],
  ['identity_scope_identify_format_refused','PA-T6C'],['identity_scope_broader_refused','PA-T6D'],
  ['identity_scope_missing_identify_refused','PA-T6E'],
+ ['identity_scope_known_role_refused','PA-T6F'],['identity_scope_known_member_role_refused','PA-T6G'],
+ ['identity_scope_known_guild_refused','PA-T6H'],['identity_scope_known_member_guild_refused','PA-T6J'],
+ ['identity_scope_known_role_guild_refused','PA-T6K'],['identity_scope_known_member_role_guild_refused','PA-T6L'],
+ ['identity_scope_known_email_refused','PA-T6M'],
  ['identity_read_transport_unconfirmed','PA-I1'],['identity_read_unconfirmed','PA-I2'],
  ['identity_read_body_unconfirmed','PA-I3'],['identity_read_refused','PA-I4'],
  ['identity_subject_unconfirmed','PA-S1'],['identity_grant_material_unconfirmed','PA-G1'],
@@ -68,7 +72,21 @@ function scopeRefusal(scope:unknown):string{
  // RFC 6749 §3.3 excludes quote/backslash and uses one ASCII SP separator.
  // The absolute end assertion also excludes JavaScript's final-newline match.
  if(!/^[\x21\x23-\x5B\x5D-\x7E]+(?: [\x21\x23-\x5B\x5D-\x7E]+)*(?![\s\S])/.test(scope))return 'identity_exchange_scope_refused';
- return scope.split(' ').includes('identify')?'identity_scope_broader_refused':'identity_scope_missing_identify_refused';
+ // Reject-only diagnostics: these exact unique permission sets do not gain admission.
+ // guilds/email are known permission names, not a claim that this app requested them.
+ const tokens=scope.split(' ');
+ if(new Set(tokens).size===tokens.length){
+  switch([...tokens].sort().join(' ')){
+   case 'identify role_connections.write':return 'identity_scope_known_role_refused';
+   case 'guilds.members.read identify role_connections.write':return 'identity_scope_known_member_role_refused';
+   case 'guilds identify':return 'identity_scope_known_guild_refused';
+   case 'guilds guilds.members.read identify':return 'identity_scope_known_member_guild_refused';
+   case 'guilds identify role_connections.write':return 'identity_scope_known_role_guild_refused';
+   case 'guilds guilds.members.read identify role_connections.write':return 'identity_scope_known_member_role_guild_refused';
+   case 'email identify':return 'identity_scope_known_email_refused';
+  }
+ }
+ return tokens.includes('identify')?'identity_scope_broader_refused':'identity_scope_missing_identify_refused';
 }
 
 /** Two statements, each deleting at most 100 original expired rows. Composed with the counted retention job. */
@@ -201,7 +219,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';
- body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer. All 36 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
+ body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer. All 37 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
  }
  body+=erasureEnabled?'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh page grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>':'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh download grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
  return htmlResponse(request,'Privacy account connection',body);

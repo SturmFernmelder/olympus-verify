@@ -371,7 +371,7 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   r = await exact("refreshNames", (L, e) => L("./names").refreshNames(e));
   check("  NAMES_PER_RUN 50 is clamped to namesPerRun", r.value.refreshed === CAP.namesPerRun, r.value);
   r = await exact("autoQueueReserved", (L, e) => L("./site-queue").autoQueueReserved(e));
-  check("  four rounds of 250 names moved", r.value && r.value.queued === 1000 && r.value.more === true, r.value);
+  check(`  ${CAP.autoQueueRounds} capped rounds of 250 names moved`, r.value && r.value.queued === CAP.autoQueueRounds * 250 && r.value.more === true, r.value);
   await exact("purgeSeenInteractions", (L, e) => L("./index").purgeSeenInteractions(e));
   r = await exact("purgeBattleNetData", (L, e) => L("./bnet-retention").purgeBattleNetData(e));
   check("  it purged the stale tag and audited the counts", r.value.members === 1 && one("SELECT COUNT(*) AS c FROM audit WHERE action = 'bnet.retention'").c === 1);
@@ -404,13 +404,13 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   r = await exact("ensureSchema", (L, e) => L("./schema").ensureSchema(e), { fail: everyColumnMissing });
   measured.ensureSchema = r.statements;
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); resetCount(); L("./schema").forgetSchemaCheck(); await L("./schema").ensureSchema(e); const cold = COUNT.statements; resetCount(); await L("./schema").ensureSchema(e); return { cold, warm: COUNT.statements }; });
-  check(`cold on a current database: ${r.value.cold} statements (159: joined publication, reminder, privacy and QR schema); warm: ${r.value.warm}`, r.value.cold === 159 && r.value.warm === 0, r.value);
+  check(`cold on a current database: ${r.value.cold} statements (162: joined publication, reminder, privacy, QR, ruleset and admission control); warm: ${r.value.warm}`, r.value.cold === 162 && r.value.warm === 0, r.value);
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN publication_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT publication_closed FROM community_events LIMIT 1") ?? null; });
-  check(`actual old-parent publication closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 160, r.statements);
+  check(`actual old-parent publication closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 163, r.statements);
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN reminder_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT reminder_closed FROM community_events LIMIT 1").reminder_closed; });
-  check(`actual old-parent reminder closure ALTER: ${r.statements} statements; default OFF disposition`, r.statements === 160 && r.value === 0, r);
+  check(`actual old-parent reminder closure ALTER: ${r.statements} statements; default OFF disposition`, r.statements === 163 && r.value === 0, r);
   r = await measure((L, e) => L("./schema").ensureSchema(e));
-  check(`  cold before the one-time audit rewrite: ${r.statements} statements (162)`, r.statements === 162, r.statements);
+  check(`  cold before the one-time audit rewrite: ${r.statements} statements (165)`, r.statements === 165, r.statements);
   const sumMeasured = Object.values(measured).reduce((s, x) => s + x, 0);
   console.log(`    the jobs measured one by one: ${sumMeasured} statements`);
 
@@ -435,13 +435,13 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   const warm = await wholeRun("warm");
   console.log(`    warm schema: ${warm.statements} statements in ${warm.trips} round trips (${warm.jobs} jobs)`);
   check(`warm: ${warm.statements} statements, within the table less the schema line (${sum - line("ensureSchema")}) and the target`, warm.jobs === jobs.length - 1 && warm.statements <= sum - line("ensureSchema") && warm.statements <= budget.SCHEDULED_STATEMENT_TARGET, warm);
-  check(`  the run did every capped workload's share: ${CAP.obligationsPerRun} weeks opened, 10 profiles erased, 20 names refreshed, 1000 names queued`, one("SELECT COUNT(*) AS c FROM community_contribution_obligations").c === CAP.obligationsPerRun && one("SELECT COUNT(*) AS c FROM community_profiles").c === 2 * CAP.profilesPerRun && one("SELECT COUNT(*) AS c FROM members WHERE names_at IS NOT NULL").c === CAP.namesPerRun && one("SELECT COUNT(*) AS c FROM site_reserved WHERE status = 'queued'").c === 1000);
+  check(`  the run did every capped workload's share: ${CAP.obligationsPerRun} weeks opened, ${CAP.profilesPerRun} profiles erased, ${CAP.namesPerRun} names refreshed, ${CAP.autoQueueRounds * 250} names queued`, one("SELECT COUNT(*) AS c FROM community_contribution_obligations").c === CAP.obligationsPerRun && one("SELECT COUNT(*) AS c FROM community_profiles").c === 2 * CAP.profilesPerRun && one("SELECT COUNT(*) AS c FROM members WHERE names_at IS NOT NULL").c === CAP.namesPerRun && one("SELECT COUNT(*) AS c FROM site_reserved WHERE status = 'queued'").c === CAP.autoQueueRounds * 250);
   check("  reminder cron caps the due backlog at one effect", one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='posted'").c === 1 && one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='armed'").c === 2 && FETCHES.filter((p) => p === `POST /api/v10/channels/${RAID}/messages`).length === 1);
   check("  the roster effects' slice too: some of the 60 pending promotions applied, the rest left for the next runs", one("SELECT COUNT(*) AS c FROM roster_effects").c < 60 && one("SELECT COUNT(*) AS c FROM roster_effects").c > 0);
   check("  and the rest: the digest posted, the figures computed, a role sweep recorded", one("SELECT COUNT(*) AS c FROM audit WHERE action = 'community.officer_digest_posted'").c === 1 && one("SELECT value FROM site_settings WHERE key = 'newsFigures'") && one("SELECT COUNT(*) AS c FROM audit WHERE action = 'role.sweep'").c === 1);
   const cold = await wholeRun("cold");
   console.log(`    cold schema (a fresh isolate on a current database): ${cold.statements} statements in ${cold.trips} round trips`);
-  check(`cold: ${cold.statements} statements = warm + 159, within the table and the target`, cold.statements === warm.statements + 159 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
+  check(`cold: ${cold.statements} statements = warm + 162, within the table and the target`, cold.statements === warm.statements + 162 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
   const worst = await wholeRun("cold worst");
   console.log(`    cold schema, every column reported missing: ${worst.statements} statements in ${worst.trips} round trips`);
   check(`cold worst: ${worst.statements} statements = warm + the schema line, within the table (${sum}) and the target (${budget.SCHEDULED_STATEMENT_TARGET})`, worst.statements === warm.statements + line("ensureSchema") && worst.statements <= sum && worst.statements <= budget.SCHEDULED_STATEMENT_TARGET, worst, warm);
@@ -469,7 +469,8 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   run("DELETE FROM community_contribution_obligations");
   resetCount();
   const big = await opener.openWeeklyObligations(env(), T, 1000);
-  check(`  a larger limit cannot raise the cap (${big}); a smaller one lowers it`, big === full && (await opener.openWeeklyObligations(env(), T, 5)) === 5 && (await opener.openWeeklyObligations(env(), T, 0)) === 0 && (await opener.openWeeklyObligations(env(), T, Number.NaN)) === 0);
+  const lower = Math.max(1, CAP.obligationsPerRun - 1);
+  check(`  a larger limit cannot raise the cap (${big}); a smaller one lowers it`, big === full && (await opener.openWeeklyObligations(env(), T, lower)) === lower && (await opener.openWeeklyObligations(env(), T, 0)) === 0 && (await opener.openWeeklyObligations(env(), T, Number.NaN)) === 0);
 
   fresh();
   db.exec("BEGIN"); seedProfiles(Math.floor(2.5 * CAP.profilesPerRun)); db.exec("COMMIT");

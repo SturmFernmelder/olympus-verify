@@ -41,8 +41,11 @@ async function run() {
 
   let f = fixture(false), report = await coverage.inspectFoundationCoverage(f.port);
   eq('actual baseline schema cannot qualify planned profile', report.physicalProfile, 'held');
-  eq('baseline missing families are reported exactly', [...report.missingStores].sort(),
-    [...catalog.FOUNDATION_TABLES, 'site_login_flows', 'role_grants', 'role_attempts'].sort());
+  eq('current 67-table baseline keeps the dormant 63-name census explicitly truncated', report.censusMayBeTruncated, true);
+  eq('bounded baseline missing-name vector is reported exactly', [...report.missingStores].sort(),
+    [...catalog.FOUNDATION_TABLES, 'site_login_flows', 'role_grants', 'role_attempts', 'site_users', 'site_votes'].sort());
+  eq('the truncated names are physically present rather than claimed absent',
+    f.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN('site_users','site_votes') ORDER BY name").all().map(r => r.name), ['site_users', 'site_votes']);
   eq('baseline report never provides full erasure authority', [report.completeErasureQualified, report.accountAuthorityAdopted], [false, false]);
   f.db.prepare('INSERT INTO pending(discord_id,name_key,name,created_at,expires_at) VALUES(?,?,?,?,?)').run(A, 'fixture', 'Fixture', f.now, f.now + 3600);
   const r = await core.retireExistingAccount(f.port, operation(f));

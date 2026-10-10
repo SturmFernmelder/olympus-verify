@@ -28,8 +28,9 @@ function childBudget(parent:CallBudget):CallBudget {
   exhausted:false,audited:false,inventoryFailed:false
  };
 }
-export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:number,capture:Capture,parent:CallBudget):Promise<RankContinuation> {
+export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:number,capture:Capture,parent:CallBudget,effectLimit:number=RANK_CONTINUATION_EFFECT_LIMIT):Promise<RankContinuation> {
  const empty=(state:RankContinuation['state'],reason:string):RankContinuation=>({state,reason,rotate:true,visited:0,closedAbsent:0,pending:0,unknown:0,held:0,attempts:0,outcomes:[]});
+ if(!Number.isInteger(effectLimit)||effectLimit<1||effectLimit>RANK_CONTINUATION_EFFECT_LIMIT)return empty('held','trusted_effect_limit_required');
  if(env.QR_RANK_MAPPING_ENABLED!=='true'&&env.QR_PRIVILEGED_RANK_MAPPING_ENABLED!=='true')return empty('held','rank_mapping_disabled');
  if(typeof subject!=='string'||!ID.test(subject)||!Number.isSafeInteger(snapshotId)||snapshotId<1||!capture||!Object.prototype.hasOwnProperty.call(capture,'subjectGeneration')||capture.subjectGeneration!==null&&(typeof capture.subjectGeneration!=='string'||!GEN.test(capture.subjectGeneration)))return empty('held','original_generation_required');
  if(!parent||!Number.isSafeInteger(parent.limit)||!Number.isSafeInteger(parent.attempts)||parent.attempts<0||parent.limit<parent.attempts||!Number.isSafeInteger(parent.calls)||!Number.isSafeInteger(parent.retries))return empty('held','shared_budget_required');
@@ -43,7 +44,7 @@ export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:nu
  const rows=await env.DB.prepare(`SELECT id,state,attempts FROM role_settlements WHERE subject=?1 AND subject_generation IS ?3 AND guild_id=?4
  AND purpose IN('roster_native_rank','roster_privileged_rank') AND ((roster_id=?2 AND state='pending' AND attempts=0)
  OR (roster_id<=?2 AND state IN('dispatching','unknown') AND attempts=1))
- ORDER BY CASE WHEN attempts=1 THEN 0 ELSE 1 END,desired,created_at,id LIMIT 2`).bind(subject,snapshotId,capture.subjectGeneration,env.GUILD_ID).all<{id:string;state:string;attempts:number}>();
+ ORDER BY CASE WHEN attempts=1 THEN 0 ELSE 1 END,desired,created_at,id LIMIT ?5`).bind(subject,snapshotId,capture.subjectGeneration,env.GUILD_ID,effectLimit).all<{id:string;state:string;attempts:number}>();
  for(const row of rows.results){if(b.limit-b.attempts<8){parent.exhausted=true;budgetHeld=true;break;}
   try{const r=await settleRoleIntent(env,row.id,row.attempts===1||row.state==='unknown'||row.state==='dispatching',undefined,b);outcomes.push(r);
    if(r.state==='unknown')break;}catch{outcomes.push({state:'held',reason:'central_settlement_failed',operationId:row.id,checkedAt:null});}
