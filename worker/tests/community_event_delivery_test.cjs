@@ -106,6 +106,19 @@ async function publish(over = {}, op = OP) { const p = await preview(); return c
 let passed = 0, total = 0;
 function check(name, value, detail) { total++; if (value) passed++; console.log(`${value ? "PASS" : "FAIL"} ${name}`); if (!value && detail) console.log(detail); }
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   seed(); await event();
   let p = await preview();
@@ -198,7 +211,7 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   hooks.afterEffect = () => { db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(ORG); };
   r = await publish(); check("successful send during session revocation keeps pointer held, returns no private payload", r.status === 401 && row().message_id === ONE && row().state === "unknown" && !r.body.delivery);
   seed(); await event();
-  hooks.afterEffect = async () => { await admin.deleteSiteData(env(), ORG, STAFF); };
+  hooks.afterEffect = async () => { await admin.deleteSiteData(env(), ORG, STAFF, false, await erasureRequest(ORG, STAFF)); };
   r = await publish(); check("actual account erase during successful send retains known pointer/debt without resurrecting payload or actor", r.status === 401 && row().message_id === ONE && row().state === "unknown" && row().cleanup_requested === 1 && row().actor === null && row().frozen_content === null && row().payload_hash === null, r);
   seed(); await event();
   hooks.afterEffect = async () => { await call("POST", "/api/community/events/cancel", { eventId: EVENT, revision: 1 }); };
@@ -228,7 +241,7 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   let own = await call("GET", "/api/me/export");
   const text = JSON.stringify(own.body);
   check("real account-copy route includes own delivery status without operationId/nonce/message/other identities", own.status === 200 && text.includes("event_delivery") && text.includes("publication") && !text.includes(OP) && !text.includes(row().claim_nonce) && !text.includes(ONE) && !text.includes(STAFF), own.status);
-  await admin.deleteSiteData(env(), ORG, STAFF);
+  await admin.deleteSiteData(env(), ORG, STAFF, false, await erasureRequest(ORG, STAFF));
   check("real erasure wipes copied content and publisher/session evidence while marking finite removal debt", row().actor === null && row().session_version === null && row().session_expires === null && row().frozen_content === null && row().payload_hash === null && row().cleanup_requested === 1 && row().message_id === ONE);
   seed(); await event();
   hooks.afterEffect = () => { throw Error("synthetic unknown publication for expiry"); }; await publish(); hooks = {};

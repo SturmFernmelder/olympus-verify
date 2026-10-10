@@ -134,6 +134,19 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(APPLICANT); siteUser(ORG, { global_name: "Org" }); confirm(ORG, "Org Char"); siteUser(M1, { global_name: "Mia" }); confirm(M1, "Mia One"); siteUser(M2, { global_name: "Ben" }); confirm(M2, "Ben Two"); siteUser(M3, { global_name: "Cat" }); confirm(M3, "Cat Three"); siteUser(STAFF, { global_name: "Vik" }); confirm(STAFF, "Vik Admin");
   // .67: whatever closes at an event's start is judged by the DATABASE clock, so the fixtures start in the real future and
@@ -323,9 +336,9 @@ const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
   console.log("\n== erasure, export, retention ==");
   const exported = await context.communityExport(env(), M3);
   check("the account copy carries sign-ups and attendance", exported.events && exported.events.signups.length === 1 && exported.events.attendance.length === 1);
-  const deleted = await siteAdmin.deleteSiteData(env(), M3, STAFF);
+  const deleted = await siteAdmin.deleteSiteData(env(), M3, STAFF, false, await erasureRequest(M3, STAFF));
   check("deleteSiteData removes the member's answers and attendance and moves the generations", deleted && !one("SELECT 1 FROM community_event_signups WHERE discord_id = ?", M3) && !one("SELECT 1 FROM community_event_attendance WHERE discord_id = ?", M3) && one("SELECT signup_generation FROM community_events WHERE id = ?", OP1).signup_generation >= 5);
-  await siteAdmin.deleteSiteData(env(), ORG, STAFF);
+  await siteAdmin.deleteSiteData(env(), ORG, STAFF, false, await erasureRequest(ORG, STAFF));
   r = await call("GET", "/api/community/event?id=" + OP1, M1);
   check("erasing the creator keeps the event for the others with the organizer anonymized and the history actor cleared", r.status === 200 && r.body.event.organizer.displayName === "Guild organizer" && one("SELECT COUNT(*) AS n FROM community_event_changes WHERE event_id = ? AND actor IS NOT NULL", OP1).n === 1);
   T = start + 3600 + 7200 + 31 * 86400;

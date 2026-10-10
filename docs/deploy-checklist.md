@@ -5108,3 +5108,30 @@ Before deployment, accept the exact integrated main head and all four CI jobs, r
 pins, complete the fresh verified backup and exact newest-only cleanup receipt required by .130, and preserve its
 known/unknown Discord custody. Live checks bind build .132, D1, anonymous/member identity and canonical PDF/ZIP
 MIME/bytes/links. Do not trigger an actual event, role assignment, reset, erasure or unwanted Discord guide for QA.
+
+## Worker .133 — Atomic existing site-data deletion
+
+The existing staff SITE-ONLY deletion now consumes the original signed request. Its configured-admin,
+same-origin/page, actor session and captured target fields are checked before cleanup. The consuming D1 batch
+checks the original actor/session against the database clock and the target's captured session version,
+first-login and denial fields before any release, site cleanup, target mutation or audit write. The target
+mutation and exactly one `site.data_deleted` audit record commit together. A terminal mutation or audit failure,
+including a trigger that ignores either operation, rolls the complete batch back. An unreadable committed
+response returns `erasure_held`; staff must inspect the account and audit record before trying again.
+
+Reference removal is computed from the other application's current answer inside the consuming transaction,
+so an intervening unrelated edit is preserved. Malformed or ambiguous reference shapes are left unchanged.
+The optional legacy denial residue and separate mentions-only route retain their existing scope. This release
+does not implement complete erasure, minimized safety markers, bot-role effects, restore authority or durable
+account generations. Identical account-snapshot ABA and the separate mentions-only audit are outside this
+acceptance. All dormant .129 activation gates remain off; guessed full-erase forms still return 503.
+
+No dependency, configuration or schema delta is introduced by .133. The nine affected real-Worker/SQLite suites
+cover the signed-request compatibility changes; the focused account suite adds 41 cases for admission drift,
+transaction rollback, ignored terminal writes, concurrent references and uncertain outcomes. Exact source,
+typecheck, release-note/build pins and all four CI jobs must pass on the final integrated head.
+
+Rollout retains the reviewed .130 organizer-delivery schema and its verified newest-only backup/cleanup gate,
+the .131 PDF/ZIP and .132 current-beta profile. Recheck build .133, D1 and those existing public downloads after
+publication. Do not erase a real account, assign a role or post an event for live QA. Rollback deploys the preceding
+accepted source; do not describe it as full erasure or delete delivery custody.

@@ -8,7 +8,7 @@
  *                                          (.115: namesConfirmed when a typed name is added or changed)
  *   GET  applications?position&backups&profession&status&q&offset, GET applications/{id}
  *   POST applications/{id}/status          {status, note}
- *   POST users/{id}/deny {reason}, POST users/{id}/undeny, POST users/{id}/delete {mentions} (everything the site holds)
+ *   POST users/{id}/deny {reason}, POST users/{id}/undeny, POST users/{id}/delete {mentions} (legacy site-only deletion)
  *   POST users/{id}/mentions               only what others entered about an account that never signed in here
  *   GET  availability?role                 the weekly grid of every open application, summed per UTC hour
  *   GET  board?role&minAccountDays&minServerDays&includeDenied&includeLeft&onlyApplicants, GET board/voters?role&candidate
@@ -27,11 +27,11 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, onBoardSql, readJson, readSession, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, onBoardSql, readJson, readSession, sameOrigin, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
 import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, settingsFrom, type SiteSettings } from "./site-data";
-import { queueReserved, releaseReserved } from "./site-queue";
+import { queueReserved, releaseReserved, releaseReservedStatements } from "./site-queue";
 import { guildSeats } from "./guild-seats";
-import { accountInfo, ownerOfCharacter, referencesNaming } from "./lookup";
+import { accountInfo, ownerOfCharacter } from "./lookup";
 import { communityEraseStatements, fenceSql } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
 import { rest } from "./discord";
@@ -113,7 +113,13 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   if (m === "POST" && parts[0] === "users" && parts[2] === "undeny") return undeny(env, actor, parts[1]);
   if (m === "POST" && parts[0] === "users" && parts[2] === "delete") {
     if (!isId(parts[1])) return apiJson({ error: "bad_request" }, 400);
-    return (await deleteSiteData(env, parts[1], actor, body.mentions === true)) ? apiJson({ ok: true }) : apiJson({ error: "not_found", message: "That account has nothing on this site." }, 404);
+    if (request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({ error: "reload" }, 409);
+    try {
+      return (await deleteSiteData(env, parts[1], actor, body.mentions === true, request)) ? apiJson({ ok: true }) : apiJson({ error: "not_found", message: "That account has nothing on this site." }, 404);
+    } catch (e) {
+      if (!(e instanceof SiteErasureHeld)) throw e;
+      return apiJson({ error: "erasure_held", message: "Site-only deletion was not confirmed. Inspect the account and its audit record before trying again. Full erasure remains unavailable." }, 503);
+    }
   }
   if (m === "POST" && parts[0] === "users" && parts[2] === "mentions") {
     if (!isId(parts[1])) return apiJson({ error: "bad_request" }, 400);
@@ -461,28 +467,70 @@ async function undeny(env: Env, actor: string, id: string): Promise<Response> {
  * What other members entered about an account: write-ins naming it, friends-list entries, and references in their
  * applications (taken out of the list; the rest of the application stays as written). As statements for one batch.
  */
-async function mentionDeletes(env: Env, id: string) {
-  const refs = await referencesNaming(env, id);
+function mentionDeletes(env: Env, id: string) {
+  // .133: scrub the consuming-time document, never a stale whole-answer copy prepared before the batch.
+  // Descending index removal preserves every other value (including primitives and large numeric spellings).
+  // Ambiguous duplicate keys and malformed/non-array legacy documents remain untouched; this is site-only erasure.
+  const exactReference = `CASE WHEN e.type = 'object' THEN
+    (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'kind') = 1
+    AND (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'key') = 1
+    AND json_type(e.value, '$.kind') = 'text' AND json_extract(e.value, '$.kind') = 'discord'
+    AND json_type(e.value, '$.key') = 'text' AND json_extract(e.value, '$.key') = ?1 ELSE 0 END`;
   return [
     env.DB.prepare("DELETE FROM site_votes WHERE nominee_kind = 'discord' AND nominee_key = ?1").bind(id),
     env.DB.prepare("DELETE FROM site_friends WHERE friend_kind = 'discord' AND friend_key = ?1").bind(id),
-    ...refs.map((r) => env.DB.prepare("UPDATE site_applications SET answers = ?2 WHERE discord_id = ?1").bind(r.owner, r.answers)),
+    env.DB.prepare(`UPDATE site_applications AS a SET answers = (
+      WITH RECURSIVE matches(idx, ordinal) AS (
+        SELECT CAST(e.key AS INTEGER), ROW_NUMBER() OVER (ORDER BY CAST(e.key AS INTEGER) DESC)
+        FROM json_each(a.answers, '$.references') e WHERE ${exactReference}
+      ), scrubbed(ordinal, text) AS (
+        SELECT 0, a.answers UNION ALL
+        SELECT s.ordinal + 1, json_remove(s.text, '$.references[' || m.idx || ']')
+        FROM scrubbed s JOIN matches m ON m.ordinal = s.ordinal + 1
+      ) SELECT text FROM scrubbed ORDER BY ordinal DESC LIMIT 1
+    ) WHERE a.discord_id <> ?1 AND CASE
+      WHEN NOT json_valid(a.answers) THEN 0
+      WHEN json_type(a.answers) <> 'object' THEN 0
+      WHEN COALESCE(json_type(a.answers, '$.references'), '') <> 'array' THEN 0
+      WHEN (SELECT COUNT(*) FROM json_each(a.answers) f WHERE f.key = 'references') <> 1 THEN 0
+      ELSE EXISTS (SELECT 1 FROM json_each(a.answers, '$.references') e WHERE ${exactReference}) END`).bind(id),
   ];
 }
 
 /**
- * Everything the site holds about one account, removed at once: what they entered, their votes, the votes others cast
+ * Legacy site-only deletion: what they entered, their votes, the votes others cast
  * on their application, and the account row. Staff do this on request from the admin page (the site has no "delete my
  * data" button: the policy linked from the Discord application says to ask staff). Reserved names already in the
  * invite queue are taken out of it. A permanent denial outlives the data: the row stays with nothing in it but the id
  * and the denial, so the same account cannot simply sign up again. With `mentions`, what other members entered about
- * the account goes too (mentionDeletes: their Discord name, and any reason or note written about them).
+ * the account goes too. This does not delete the bot's verification records or complete full erasure.
+ * .133: reservation release, registered site erasers and the existing restore/audit record commit in one transaction.
+ * The original signed staff session and captured target state are consumed before any mutation. A refusal aborts the
+ * whole D1 batch, including opaque registry statements; no current-session fallback exists for internal callers.
  */
-export async function deleteSiteData(env: Env, id: string, actor: string, mentions = false): Promise<boolean> {
-  const row = await env.DB.prepare("SELECT denied FROM site_users WHERE discord_id = ?1").bind(id).first<{ denied: number }>();
+class SiteErasureHeld extends Error {
+  constructor() { super("site_erasure_held"); }
+}
+
+export async function deleteSiteData(env: Env, id: string, actor: string, mentions = false, request?: Request): Promise<boolean> {
+  if (!request || !isId(id) || !isSiteAdmin(env, actor) || request.method !== "POST" ||
+      new URL(request.url).pathname !== `/api/admin/users/${id}/delete` ||
+      request.headers.get("X-Olympus") !== PAGE_VERSION || !sameOrigin(request)) throw new SiteErasureHeld();
+  const session = await readSession(env, request);
+  if (!session || session.u !== actor || !Number.isSafeInteger(session.v) || session.v < 1 ||
+      !Number.isSafeInteger(session.e)) throw new SiteErasureHeld();
+  const row = await env.DB.prepare("SELECT denied, denied_at, session_version, first_login FROM site_users WHERE discord_id = ?1")
+    .bind(id).first<{ denied: number; denied_at: number | null; session_version: number; first_login: number }>();
   if (!row) return false;
-  await releaseReserved(env, { ownerId: id }, actor);
-  await env.DB.batch([
+  const statements = [
+    // CASE is lazy: its invalid JSON branch deliberately aborts a refused transaction before any registry mutation.
+    // D1 batch() rolls the complete sequence back when any statement fails. The database clock judges cookie expiry.
+    env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity", 1, 2, 3)}
+      AND EXISTS (SELECT 1 FROM site_users target WHERE target.discord_id = ?4 AND target.session_version = ?5
+        AND target.first_login = ?6 AND target.denied = ?7 AND target.denied_at IS ?8)
+      THEN 1 ELSE json_extract('site_erasure_refused', '$') END AS admitted`)
+      .bind(actor, session.v, session.e, id, row.session_version, row.first_login, row.denied, row.denied_at),
+    ...releaseReservedStatements(env, { ownerId: id }, actor),
     ...(mentions ? await mentionDeletes(env, id) : []),
     ...communityEraseStatements(env, id), // .56: every community feature's rows, in the same batch
     // .71: the account's identity as a staff actor on the site's own tables goes too (the audit log keeps actor ids: the dated log the privacy text names)
@@ -505,9 +553,27 @@ export async function deleteSiteData(env: Env, id: string, actor: string, mentio
            WHERE discord_id = ?1`,
         ).bind(id)
       : env.DB.prepare("DELETE FROM site_users WHERE discord_id = ?1").bind(id),
-  ]);
+    // The dated audit is also the existing manual-restore replay record. Its failure rolls back every earlier write.
+    env.DB.prepare("INSERT INTO audit(ts, actor, action, subject, details) SELECT CAST(strftime('%s', 'now') AS INTEGER), ?1, 'site.data_deleted', ?2, ?3 WHERE changes() = 1")
+      .bind(actor, id, JSON.stringify({ mentions })),
+    // A silent/ignored terminal mutation or audit insert must fail inside the transaction, before it can commit.
+    env.DB.prepare(`SELECT CASE WHEN changes() = 1 AND EXISTS (
+      SELECT 1 FROM audit WHERE id = last_insert_rowid() AND actor = ?1 AND action = 'site.data_deleted'
+        AND subject = ?2 AND details = ?3
+    ) THEN 1 ELSE json_extract('site_erasure_receipt_refused', '$') END AS recorded`)
+      .bind(actor, id, JSON.stringify({ mentions })),
+  ];
+  try {
+    const results = await env.DB.batch<{ admitted?: number; recorded?: number }>(statements);
+    if (!Array.isArray(results) || results.length !== statements.length || results.some(r => !r || ("success" in r && r.success !== true)) ||
+        results[0]?.results?.[0]?.admitted !== 1 || results.at(-2)?.meta?.changes !== 1 ||
+        results.at(-1)?.results?.[0]?.recorded !== 1) throw new SiteErasureHeld();
+  } catch {
+    // A refused transaction or unreadable/lost result is held. Never infer success or run a partial repair/retry.
+    forgetBoardCounts();
+    throw new SiteErasureHeld();
+  }
   forgetBoardCounts();
-  await audit(env, actor, "site.data_deleted", id, { mentions });
   return true;
 }
 

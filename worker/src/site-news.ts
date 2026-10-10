@@ -71,6 +71,15 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".133",
+    date: "2026-10-10",
+    lines: [
+      "Staff site-data deletion now finishes together with its audit record, so a failed step does not leave a partial cleanup.",
+      "If completion cannot be confirmed, the site asks staff to inspect the account and audit record before trying again.",
+      "This improves the existing site-only action. Complete account erasure and the proposed safety marker remain unavailable.",
+    ],
+  },
+  {
     build: ".132",
     date: "2026-10-10",
     lines: [

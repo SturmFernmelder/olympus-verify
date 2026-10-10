@@ -138,6 +138,19 @@ const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
 };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Fern" }); confirm(MEMBER, "Fern Melder", "Player-1-0001"); siteUser(MEMBER2, { global_name: "Bea" }); confirm(MEMBER2, "Bea Stormer", "Player-1-0002");
   siteUser(BANNED); confirm(BANNED, "Bad Actor"); db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(BANNED); siteUser(STAFF);
@@ -376,9 +389,9 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
   console.log("\n== erasure, export, departure ==");
   const exported = await context.communityExport(env(), MEMBER);
   check("the account copy carries the profile with professions, alts and crafts", exported.directory && exported.directory.revision === 6 && exported.directory.crafts.length === 2 && exported.directory.alts.length === 1);
-  const deleted = await siteAdmin.deleteSiteData(env(), MEMBER2, STAFF);
+  const deleted = await siteAdmin.deleteSiteData(env(), MEMBER2, STAFF, false, await erasureRequest(MEMBER2, STAFF));
   check("deleteSiteData removes a member's profile, claims and ref in its batch", deleted && !one("SELECT 1 FROM community_profiles WHERE discord_id = ?", MEMBER2) && !one("SELECT 1 FROM community_alt_claims WHERE discord_id = ?", MEMBER2) && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", MEMBER2));
-  await siteAdmin.deleteSiteData(env(), STAFF, STAFF);
+  await siteAdmin.deleteSiteData(env(), STAFF, STAFF, false, await erasureRequest(STAFF, STAFF));
   check("  erasing the reviewing admin clears their identity from the claims they reviewed", one("SELECT reviewed_by FROM community_alt_claims WHERE discord_id = ? AND name_key = 'fern alt'", MEMBER).reviewed_by === null);
   db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(MEMBER);
   let sw = await dir.sweepCommunityProfiles(env());
