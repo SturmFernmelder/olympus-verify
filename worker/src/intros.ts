@@ -16,6 +16,7 @@
  */
 import { errorRef } from "./log";
 import type { Env } from "./env";
+import { rulesetLabel } from "./ruleset-profile";
 import { audit, now } from "./db";
 import { DiscordError, EPHEMERAL, explainDiscordError, json, option, reply, rest, subcommand, userOf, type Interaction } from "./discord";
 
@@ -80,7 +81,7 @@ export const INTROS: Intro[] = [
         title: "Olympus — Asmongold's guild in World of Warcraft: Forever",
         color: GOLD,
         description: [
-          "We play on the **PvP ruleset** as **Alliance**.",
+          `Current game: **${rulesetLabel()}**.`,
           "",
           "**Get into the guild channels**",
           "1. Read the server rules in {#server-rules}; they apply here too.",
@@ -154,7 +155,7 @@ export const INTROS: Intro[] = [
     embeds: [{
       title: "Guild announcements",
       color: GOLD,
-      description: "News from Olympus leadership.\n**Ruleset: PvP · Faction: Alliance** (decided 16 September 2026).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.",
+      description: `News from Olympus leadership.\nCurrent game: **${rulesetLabel()}**.\n**Ruleset: PvP · Faction: Alliance** (decided 16 September 2026).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.`,
     }],
   },
   {

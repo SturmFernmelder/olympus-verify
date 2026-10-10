@@ -1,5 +1,6 @@
 /** The verification guide: one embed with three buttons, posted by `/olympus-admin post-guide` (meant for #join-guild, pinned). */
 import type { Env } from "./env";
+import { rulesetLabel } from "./ruleset-profile";
 
 export const GUIDE_VERIFY = "guide:verify"; // button → a request code, nothing to type (27 Sep; it opened a name modal before)
 export const GUIDE_STATUS = "guide:status"; // button → same answer as /verify-status
@@ -47,6 +48,8 @@ export function guideMessage(env: Env) {
         title: role ? "Join Olympus or restore your guild access" : "Join Olympus",
         color: GOLD,
         description: [
+          `Current game: **${rulesetLabel()}**.`,
+          "",
           "For a character in, or applying to, the main Olympus guild. The website is optional for this verification flow.", // .114: no Battle.net promise while its sign-in is switched off (bnet-switch.ts)
           "",
           "**1. Get a code** — press **Get my code**. The bot shows the line to use in game. If the current officer relay needs a character name first, enter it exactly as it appears in game.",

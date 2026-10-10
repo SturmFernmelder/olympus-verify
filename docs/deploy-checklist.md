@@ -5088,3 +5088,23 @@ intended organizer event and preview. AddOn, automatic erasure, reminders and gu
 
 Rollback: deploy the preceding accepted source; the additive table/column may remain. Do not erase known/unknown
 delivery custody or reopen a publication-closed event as part of rollback.
+
+## Shared public-beta identity and charter downloads — .132
+
+The immutable checked public-beta profile supplies the home label, anonymous/member API metadata, guild guide
+and the two identity-bearing introductions. The realm is the owner's exact GetRealmName value, Classic Beta PvP 2.
+All views use revision forever-beta-pvp2-v1; malformed, unsupported and future boot profiles display identity
+unavailable. Shape parsing is not admission authority. No private future identity, mutable selection, new settings
+writer, role/invite change or beta-reset activation is included. The real full-release switch and durable per-surface
+Discord update adapter remain unavailable. Existing pinned messages are not updated just by deploying this source.
+
+The .131 exact R6 PDF and closed five-payload ZIP remain unchanged. Governance downloads are anonymous public draft
+assets; publication is neither ratification nor appointment. The dormant .129 lifecycle remains off. This source
+also retains the reviewed .130 explicit organizer delivery, schema and uncertainty/closure controls; automatic
+announcements/reminders remain off. News gets a bounded plain-text release entry and the real identity suite is
+part of the normal CI test command. No new dependency, configuration or schema delta is introduced by .132 itself.
+
+Before deployment, accept the exact integrated main head and all four CI jobs, recheck official-art/book/download
+pins, complete the fresh verified backup and exact newest-only cleanup receipt required by .130, and preserve its
+known/unknown Discord custody. Live checks bind build .132, D1, anonymous/member identity and canonical PDF/ZIP
+MIME/bytes/links. Do not trigger an actual event, role assignment, reset, erasure or unwanted Discord guide for QA.

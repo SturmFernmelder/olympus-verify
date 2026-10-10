@@ -220,7 +220,7 @@ async function waitFor(pred, what, ms = 2000) {
 }
 const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
 /** The real page: GET / as `who` (or nobody), the boot from its HTML, the script run in a fresh window whose fetch is the real Worker as that person. */
-async function openPage(who, over = {}, { clockNow } = {}) {
+async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   // .126: fixed DST form fixtures set both page Date.now and its boot clock; the real Worker's clock stays unchanged.
   const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return clockNow; } };
   const cookie = who ? await cookieFor(who) : null;
@@ -230,6 +230,7 @@ async function openPage(who, over = {}, { clockNow } = {}) {
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
   const boot = m ? JSON.parse(m[1]) : {};
   if (clockNow !== undefined) boot.now = Math.floor(clockNow / 1000); // app.js otherwise cancels PageDate.now through server skew
+  if (bootTransform) bootTransform(boot); // test-only malformed boot fixture; no production hook
   const w = makeWindow(JSON.stringify(boot));
   const sandbox = {
     document: w.document, window: w.window, location: w.location, history: w.history, sessionStorage: w.sessionStorage, navigator: { clipboard: { writeText: async () => {} } },
@@ -326,6 +327,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== the shell: signed out ==");
   let page = await openPage(null);
+  {
+    const profile = load("./ruleset-profile"), expected = profile.rulesetLabel();
+    check("public-beta identity in actual anonymous Worker boot and home agrees with shared module", JSON.stringify(page.boot.meta.ruleset) === JSON.stringify(profile.currentRulesetProfile()) && page.app.querySelector('[data-ruleset-identity="current"]').textContent === expected && page.app.querySelector(".hero .tag").textContent.includes(expected));
+    const memberProfile = await openPage(MEMBER);
+    check("signed-in home uses the same beta profile without claiming a release switch", memberProfile.app.querySelector('[data-ruleset-identity="current"]').textContent === expected && !byText(memberProfile.app, "button", "Switch to full release"));
+    const hostile = [null, [], {}, { ...profile.currentRulesetProfile(), phase: "full_release", realm: "Synthetic Future Realm" }, { ...profile.currentRulesetProfile(), realm: "Wrong Beta Realm" }, { ...profile.currentRulesetProfile(), realm: "</script><img src=x onerror=alert(1)>" }, { ...profile.currentRulesetProfile(), revision: "unsupported-revision" }, { ...profile.currentRulesetProfile(), faction: "Horde" }, { ...profile.currentRulesetProfile(), realm: 12 }, { ...profile.currentRulesetProfile(), secret: "SYNTHETIC_PRIVATE_SENTINEL" }];
+    for (const [i, bad] of hostile.entries()) {
+      const malformed = await openPage(null, {}, { bootTransform: (boot) => { boot.meta.ruleset = bad; } });
+      check(`malformed/future ruleset boot ${i + 1} refuses display without HTML or private sentinel`, malformed.app.querySelector('[data-ruleset-identity="current"]').textContent === "Game identity unavailable" && !malformed.app.textContent.includes("SYNTHETIC_PRIVATE_SENTINEL") && !malformed.app.querySelector('img[src="x"]') && !malformed.app.textContent.includes("Synthetic Future Realm"));
+    }
+    const missing = await openPage(null, {}, { bootTransform: (boot) => { delete boot.meta.ruleset; } });
+    check("missing old-version boot has an explicit unavailable identity instead of an invented default", missing.app.querySelector('[data-ruleset-identity="current"]').textContent === "Game identity unavailable");
+  }
   check("the boot carries the community context (features, no subject)", page.boot && page.boot.community && page.boot.community.subject === null && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === false);
   check("signed out: Roles and public governance links in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles,Governance,Organization" && !!byText(page.app, "a", "Sign in with Discord"));
   // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.

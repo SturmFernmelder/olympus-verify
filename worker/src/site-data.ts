@@ -13,6 +13,7 @@
  */
 import type { Env } from "./env";
 import { normalizeCharacter } from "./codes";
+import { currentRulesetProfile, rulesetSwitchReadiness } from "./ruleset-profile";
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -727,6 +728,8 @@ export async function loadSettings(env: Env): Promise<SiteSettings> {
 /** Everything the page needs to draw the forms; sent with /api/me and in the page's boot data. */
 export function meta() {
   return {
+    ruleset: currentRulesetProfile(),
+    rulesetSwitch: rulesetSwitchReadiness("full_release"),
     positions: POSITIONS,
     classes: CLASSES,
     roles: ROLES,
