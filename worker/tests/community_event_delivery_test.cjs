@@ -185,6 +185,9 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   hooks.afterEffect = () => { throw Error("synthetic lost POST response"); };
   r = await publish(); check("lost POST response keeps durable unknown and no known pointer", r.status === 409 && row().state === "unknown" && row().message_id === null && messages.size === 1);
   hooks = {}; r = await publish(); check("unknown retry cannot create another message", r.status === 409 && r.body.error === "delivery_held" && effects().length === 1);
+  const heldPreview = await call("GET", `/api/community/events/discord?eventId=${EVENT}`);
+  const deniedPreview = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, MEMBER);
+  check("reloaded organizer preview exposes only the held opaque operationId, never nonce or publisher/session identities", heldPreview.status === 200 && heldPreview.body.delivery.operationId === OP && !JSON.stringify(heldPreview.body).includes(row().claim_nonce) && !JSON.stringify(heldPreview.body).includes(ORG) && !JSON.stringify(heldPreview.body).includes(STAFF) && deniedPreview.status === 403 && !deniedPreview.body.delivery);
   messages.set(WRONG, { ...messages.get(ONE), id: WRONG, nonce: "wrong nonce" });
   r = await call("POST", "/api/community/events/discord/reconcile", { eventId: EVENT, opId: OP, messageId: WRONG });
   check("bot author/content alone cannot reconcile an unrelated pointer", r.status === 409 && row().message_id === null);
@@ -224,9 +227,58 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   seed(); await event(); await publish();
   let own = await call("GET", "/api/me/export");
   const text = JSON.stringify(own.body);
-  check("real account-copy route includes own delivery status without nonce/message/other identities", own.status === 200 && text.includes("event_delivery") && text.includes("publication") && !text.includes(row().claim_nonce) && !text.includes(ONE) && !text.includes(STAFF), own.status);
+  check("real account-copy route includes own delivery status without operationId/nonce/message/other identities", own.status === 200 && text.includes("event_delivery") && text.includes("publication") && !text.includes(OP) && !text.includes(row().claim_nonce) && !text.includes(ONE) && !text.includes(STAFF), own.status);
   await admin.deleteSiteData(env(), ORG, STAFF);
   check("real erasure wipes copied content and publisher/session evidence while marking finite removal debt", row().actor === null && row().session_version === null && row().session_expires === null && row().frozen_content === null && row().payload_hash === null && row().cleanup_requested === 1 && row().message_id === ONE);
+  seed(); await event();
+  hooks.afterEffect = () => { throw Error("synthetic unknown publication for expiry"); }; await publish(); hooks = {};
+  const expiryStart = one("SELECT starts_at FROM community_events WHERE id=?", EVENT).starts_at;
+  await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 1, startsAt: new Date((expiryStart + 2 * 86400) * 1000).toISOString() });
+  // Age only finite delivery custody to the real SQLite clock; the rescheduled parent remains current.
+  db.prepare("UPDATE community_event_deliveries SET retain_until=CAST(strftime('%s','now') AS INTEGER)-1 WHERE event_id=?").run(EVENT);
+  const databaseNow = one("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").n;
+  const expiredChild = await events.sweepCommunityEvents(env(), databaseNow);
+  check("real database-clock expiry discards unknown custody and atomically closes the surviving rescheduled parent", expiredChild === 0 && !row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 1 && messages.size === 1 && JSON.parse(one("SELECT details FROM audit WHERE action='community.events_expired' ORDER BY id DESC LIMIT 1").details).discordUnresolved === 1);
+  requests = [];
+  r = await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 2, startsAt: new Date((expiryStart + 3 * 86400) * 1000).toISOString() });
+  p = await preview(); const closedPublish = await publish({}, NEXT);
+  check("edit preserves publication closure; preview and explicit republish cannot create a second remote message", r.status === 200 && p.publicationClosed === true && p.publicationBlock === "publication_closed" && p.canPublish === false && closedPublish.status === 409 && closedPublish.body.error === "publication_closed" && requests.length === 0 && messages.size === 1);
+  seed(); await event();
+  db.prepare("UPDATE community_events SET created_at=created_at-30*86400,publication_closed=1 WHERE id=?").run(EVENT);
+  const unchangedStart = one("SELECT starts_at FROM community_events WHERE id=?", EVENT).starts_at;
+  r = await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 1, startsAt: new Date((at() + 350 * 86400) * 1000).toISOString() });
+  check("real editor cannot renew the original creation366 horizon or the closed parent lifetime", r.status === 400 && r.body.error === "invalid_starts_at" && one("SELECT starts_at,revision,publication_closed FROM community_events WHERE id=?", EVENT).starts_at === unchangedStart && one("SELECT revision FROM community_events WHERE id=?", EVENT).revision === 1 && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 1, r);
+  seed(); await event();
+  hooks.afterStatement = (sql) => { if (sql.includes("AS started FROM community_events WHERE id = ?1")) { hooks.afterStatement = null; db.prepare("UPDATE community_events SET created_at=created_at-30*86400 WHERE id=?").run(EVENT); } };
+  r = await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 1, startsAt: new Date((at() + 350 * 86400) * 1000).toISOString() });
+  check("original creation-clock bound is restated inside the actual event UPDATE across a stored-read race", r.status === 400 && r.body.error === "invalid_starts_at" && one("SELECT revision FROM community_events WHERE id=?", EVENT).revision === 1 && effects().length === 0, r);
+  seed(); await event(); await publish();
+  db.prepare("UPDATE community_event_deliveries SET retain_until=CAST(strftime('%s','now') AS INTEGER)-1 WHERE event_id=?").run(EVENT);
+  await events.sweepCommunityEvents(env(), one("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").n);
+  check("expiry also latches a known posted pointer without claiming remote removal", !row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 1 && messages.has(ONE));
+  for (const outcome of ["refused", "removed"]) {
+    seed(); await event();
+    if (outcome === "refused") hooks.http = (req) => req.method === "POST" ? new Response(null, { status: 403 }) : undefined;
+    await publish(); hooks = {};
+    if (outcome === "removed") await call("POST", "/api/community/events/discord/remove", { eventId: EVENT, opId: NEXT });
+    db.prepare("UPDATE community_event_deliveries SET retain_until=CAST(strftime('%s','now') AS INTEGER)-1 WHERE event_id=?").run(EVENT);
+    await events.sweepCommunityEvents(env(), one("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").n);
+    check(`expiry of definite ${outcome} with no pointer does not invent unresolved closure`, !row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 0 && messages.size === 0);
+  }
+  seed(); await event();
+  hooks.http = (req) => { if (req.url === `/api/v10/channels/${CHANNEL}`) db.prepare("UPDATE community_events SET publication_closed=1 WHERE id=?").run(EVENT); };
+  r = await publish();
+  check("publication closure arriving after capture prevents the atomic claim/effect", r.status === 409 && !row() && effects().length === 0);
+  seed(); await event();
+  hooks.afterBatch = async () => {
+    if (row()?.state === "claimed") {
+      hooks.afterBatch = null;
+      db.prepare("UPDATE community_event_deliveries SET retain_until=CAST(strftime('%s','now') AS INTEGER)-1 WHERE event_id=?").run(EVENT);
+      await events.sweepCommunityEvents(env(), one("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").n);
+    }
+  };
+  r = await publish();
+  check("real expiry after committed claim closes parent and pre-send refuses, without a POST", r.status === 409 && !row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 1 && effects().length === 0);
   seed(); await event(); await publish();
   const expired = one("SELECT retain_until FROM community_events WHERE id=?", EVENT).retain_until + 1;
   const deleted = await events.sweepCommunityEvents(env(), expired);
@@ -235,13 +287,20 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   seed(); await event(); await publish();
   hooks.beforeStatement = (sql) => { if (/DELETE FROM community_events WHERE/.test(sql)) { hooks.beforeStatement = null; throw Error("synthetic expiry rollback"); } };
   let refused = false; try { await events.sweepCommunityEvents(env(), row().retain_until + 1); } catch { refused = true; }
-  check("failed parent expiry rolls back publication disposal in the same transaction", refused && !!row() && !!one("SELECT 1 FROM community_events WHERE id=?", EVENT));
+  check("failed parent expiry rolls back closure latch and publication disposal in the same transaction", refused && !!row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 0);
   const canonicalDDL = one("SELECT sql FROM sqlite_master WHERE name='community_event_deliveries'").sql.replace(/\s+/g, " ");
   db.exec("DROP TABLE community_event_deliveries"); schema.forgetSchemaCheck(); hooks = {}; await schema.ensureSchema(env());
   const initializedDDL = one("SELECT sql FROM sqlite_master WHERE name='community_event_deliveries'").sql.replace(/\s+/g, " ");
   check("actual self-migration recreates exact canonical delivery table shape", initializedDDL === canonicalDDL && !!one("SELECT 1 FROM sqlite_master WHERE name='community_event_deliveries_retain'"));
   db.exec("DROP TABLE community_event_deliveries"); db.exec(fs.readFileSync(path.join(root, "migrations", "2026-10-10-event-discord-publication.sql"), "utf8"));
   check("dated migration has exact canonical table/index parity", one("SELECT sql FROM sqlite_master WHERE name='community_event_deliveries'").sql.replace(/\s+/g, " ") === canonicalDDL && !!one("SELECT 1 FROM sqlite_master WHERE name='community_event_deliveries_retain'"));
+  const closureColumn = () => one('SELECT type, "notnull" AS required, dflt_value AS fallback FROM pragma_table_info(\'community_events\') WHERE name=\'publication_closed\'');
+  const canonicalClosure = JSON.stringify(closureColumn());
+  db.exec("ALTER TABLE community_events DROP COLUMN publication_closed"); schema.forgetSchemaCheck(); await schema.ensureSchema(env());
+  check("real self-migration upgrades an old parent with the exact closed disposition default/type", JSON.stringify(closureColumn()) === canonicalClosure && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 0);
+  db.exec("ALTER TABLE community_events DROP COLUMN publication_closed"); db.exec(fs.readFileSync(path.join(root, "migrations", "2026-10-10-event-publication-closure.sql"), "utf8"));
+  let invalidClosure = false; try { db.prepare("UPDATE community_events SET publication_closed=2 WHERE id=?").run(EVENT); } catch { invalidClosure = true; }
+  check("dated closure ALTER matches canonical/runtime metadata and refuses non-boolean state", JSON.stringify(closureColumn()) === canonicalClosure && invalidClosure);
   check("every observed statement respects D1's 100-bound-parameter limit", maxParameters <= 100, maxParameters);
   console.log(`\n${passed}/${total} passed`); process.exitCode = passed === total ? 0 : 1;
 })().catch((e) => { console.error(e); process.exitCode = 1; });

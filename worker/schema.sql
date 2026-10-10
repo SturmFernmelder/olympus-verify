@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS community_events (
   attendance_generation INTEGER NOT NULL DEFAULT 0 CHECK (attendance_generation >= 0), -- moves with every attendance write
   nonce                 TEXT,                                               -- per organizer write: admits the rest of its batch
   attendance_nonce      TEXT,                                               -- per attendance write
+  publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)), -- finite no-republish disposition after delivery custody expires
   created_at            INTEGER NOT NULL,
   updated_at            INTEGER NOT NULL,
   retain_until          INTEGER NOT NULL                                    -- ends_at + 30 days; a cancellation brings it forward

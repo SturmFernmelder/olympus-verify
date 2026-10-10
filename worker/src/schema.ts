@@ -98,6 +98,8 @@ async function migrate(env: Env) {
   // migrations/2026-10-01-audit-actor-action.sql.
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action)").run();
   await migrateGuildSite(env);
+  // .130: a parent-bound publication disposition; a separate probe/ALTER adds at most two cold statements.
+  await addColumn(env, "community_events", "publication_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1))");
   await redactSettingsAudit(env);
 }
 
@@ -407,6 +409,7 @@ export const SITE_SCHEMA = [
      attendance_generation INTEGER NOT NULL DEFAULT 0 CHECK (attendance_generation >= 0),
      nonce                 TEXT,
      attendance_nonce      TEXT,
+     publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)),
      created_at            INTEGER NOT NULL,
      updated_at            INTEGER NOT NULL,
      retain_until          INTEGER NOT NULL

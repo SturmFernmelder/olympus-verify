@@ -40,7 +40,7 @@ import { refAfterSignup } from "./community-refs";
 import { validateName } from "./community-names";
 import { isoToSeconds, secondsToIso } from "./community-time";
 import { RAID_ROLES, scanLimit, type RaidRole, orderDigest, encodeCursor, cursorParts } from "./community-directory";
-import { eventDeliveryChanged, eventDeliveryExpiry, eventDeliveryOwnerErase } from "./community-event-delivery";
+import { eventDeliveryChanged, eventDeliveryCloseExpired, eventDeliveryExpiry, eventDeliveryOwnerErase } from "./community-event-delivery";
 
 /*
  * .67 (Codex's independent calendar review on .59, 1 Oct 02:50 UTC; four grouped repairs and two contract decisions):
@@ -489,8 +489,8 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
   }
 }
 
-type Stored = { id: string; title: string; details: string; starts_at: number; duration_min: number; capacity: number | null; role_targets: string | null; status: string; revision: number; created_by: string | null; yes: number; started: number };
-const stored = (env: Env, id: string) => env.DB.prepare(`SELECT id, title, details, starts_at, duration_min, capacity, role_targets, status, revision, created_by, ${placesHeld("community_events.id")} AS yes, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(id).first<Stored>();
+type Stored = { id: string; title: string; details: string; starts_at: number; duration_min: number; capacity: number | null; role_targets: string | null; status: string; revision: number; created_by: string | null; created_at: number; yes: number; started: number };
+const stored = (env: Env, id: string) => env.DB.prepare(`SELECT id, title, details, starts_at, duration_min, capacity, role_targets, status, revision, created_by, created_at, ${placesHeld("community_events.id")} AS yes, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(id).first<Stored>();
 async function organizerRefusal(env: Env, ctx: CommunityContext, row: Stored | null, viewer: Viewer, revision: number, at: number): Promise<Response | null> {
   if (!row) return apiJson({ error: "event_not_found" }, 404);
   const event = () => loadEvent(env, ctx, row.id);
@@ -521,6 +521,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     if (refused) return refused;
     const current: EventValues = { title: row!.title, details: row!.details, startsAt: row!.starts_at, durationMin: row!.duration_min, capacity: row!.capacity, roleTargets: row!.role_targets ? (JSON.parse(row!.role_targets) as RoleTargets) : null };
     const next: EventValues = { ...current, ...(Object.fromEntries(parsed) as Partial<EventValues>) };
+    // The accepted horizon belongs to the original creation, so repeated edits cannot keep the parent disposition forever.
+    if (next.startsAt > row!.created_at + EVENT_LIMITS.horizonDays * 86400) throw new Bad("invalid_starts_at");
     const changed = EVENT_FIELDS.filter((f) => (f === "roleTargets" ? roleTargetsText(next.roleTargets) !== roleTargetsText(current.roleTargets) : next[f] !== current[f]));
     if (changed.length === 0) return apiJson({ ...(await readEvent(env, ctx, eventId)), unchanged: true });
     const lowers = next.capacity !== null && (current.capacity === null || next.capacity < current.capacity);
@@ -533,7 +535,7 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_events SET title = ?5, details = ?6, starts_at = ?7, duration_min = ?8, ends_at = ?9, capacity = ?10, role_targets = ?11, retain_until = ?12, revision = revision + 1, nonce = ?13, updated_at = ?14
-         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?15 = 1)
+         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND ?7 <= created_at + ${EVENT_LIMITS.horizonDays * 86400} AND (created_by = ?3 OR ?15 = 1)
            AND (?10 IS NULL OR (capacity IS NOT NULL AND ?10 >= capacity) OR ?10 >= ${placesHeld("community_events.id")})
            AND ${fenceSql("confirmedGuildData", 3, 4, 16)}`,
       ).bind(eventId, revision, me, ctx.subject!.sessionVersion, next.title, next.details, next.startsAt, next.durationMin, endsAt, next.capacity, roleTargetsText(next.roleTargets), endsAt + EVENT_RETENTION_S, nonce, t, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
@@ -545,6 +547,7 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     const after = await stored(env, eventId);
     const refusedAfter = await organizerRefusal(env, ctx, after, viewer, revision, t);
     if (refusedAfter) return refusedAfter;
+    if (next.startsAt > after!.created_at + EVENT_LIMITS.horizonDays * 86400) throw new Bad("invalid_starts_at");
     if (belowHeld(after!.yes)) return capacityRefusal();
     if (lowers && (await communityContext(env, request)).capabilities.organizer) return capacityRefusal();
     return refusal(env, request, "confirmedGuildData");
@@ -810,7 +813,8 @@ export function ownEventChangeStatements(env: Env, actor: string, position: { hi
 /** Cron step: events past their retention deadline go with their answers, attendance and history; bounded per run. */
 export async function sweepCommunityEvents(env: Env, at = now(), limit = 100): Promise<number> {
   const due = "SELECT id FROM community_events WHERE retain_until <= ?1 ORDER BY retain_until, id LIMIT ?2";
-  const [delivery, , , , ev] = await env.DB.batch([
+  const [, delivery, , , , ev] = await env.DB.batch([
+    eventDeliveryCloseExpired(env, at, limit),
     eventDeliveryExpiry(env, at, limit),
     env.DB.prepare(`DELETE FROM community_event_signups WHERE event_id IN (${due})`).bind(at, limit),
     env.DB.prepare(`DELETE FROM community_event_attendance WHERE event_id IN (${due})`).bind(at, limit),

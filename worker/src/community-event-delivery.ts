@@ -19,7 +19,7 @@ const RESULTS = ["published", "reconciled", "removed", "admission_changed", "dis
 const safeResult = (v: unknown) => typeof v === "string" && (RESULTS as readonly string[]).includes(v) ? v : null;
 type State = "claimed" | "posted" | "refused" | "unknown" | "removed";
 interface Destination { guild: string; channel: string; host: string }
-interface EventRow { id: string; title: string; starts_at: number; duration_min: number; status: string; revision: number; created_at: number; retain_until: number }
+interface EventRow { id: string; title: string; starts_at: number; duration_min: number; status: string; revision: number; created_at: number; retain_until: number; publication_closed: number }
 interface Delivery {
   event_id: string; purpose: "publication"; event_revision: number; starts_at: number; guild_id: string; channel_id: string;
   message_id: string | null; frozen_content: string | null; payload_hash: string | null; op_id: string; claim_nonce: string;
@@ -79,7 +79,7 @@ function contentOf(e: EventRow, d: Destination): string {
 }
 const hashOf = async (content: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content)))].map((b) => b.toString(16).padStart(2, "0")).join("");
 function summary(row: Delivery | null, e: EventRow) {
-  return row ? { state: row.state, revision: row.event_revision, stale: row.event_revision !== e.revision, removalPending: row.cleanup_requested === 1,
+  return row ? { state: row.state, revision: row.event_revision, stale: row.event_revision !== e.revision, removalPending: row.cleanup_requested === 1, operationId: ID.test(row.op_id) ? row.op_id : null,
     messageUrl: row.message_id ? `https://discord.com/channels/${row.guild_id}/${row.channel_id}/${row.message_id}` : null,
     retainUntil: secondsToIso(row.retain_until), result: safeResult(row.result_code) } : null;
 }
@@ -89,7 +89,7 @@ async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{
   if (!organizer(env, ctx)) return FENCE_REFUSED;
   const managed = `(created_by = ?2 OR ?3 = 1) AND retain_until > ${DB_NOW}`;
   const out = await admittedRead(env, ctx, "confirmedGuildData", [
-    env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, staff),
+    env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, staff),
     env.DB.prepare(`SELECT * FROM community_event_deliveries WHERE event_id=?1 AND purpose='publication' AND retain_until>${DB_NOW}
       AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND ${managed})`).bind(eventId, me, staff),
   ]);
@@ -122,7 +122,8 @@ export async function eventDeliveryPreview(request: Request, env: Env, ctx: Comm
     if (!current) return apiJson({ error: "event_not_found" }, 404);
     if (current.event.revision !== out.event.revision || (d ? !sameDestination(d, destination(env)) : destination(env) !== null)) return apiJson({ error: "stale_revision" }, 409);
     return apiJson({ eventId, revision: current.event.revision, enabled: enabled(env), payload: content ? { content, allowed_mentions: { parse: [] } } : null,
-      payloadHash, canPublish: !!content && enabled(env) && current.event.status === "scheduled" && current.event.starts_at > now() && current.event.starts_at <= current.event.created_at + START_HORIZON_S && current.delivery?.cleanup_requested !== 1,
+      payloadHash, publicationClosed: current.event.publication_closed === 1, publicationBlock: current.event.publication_closed === 1 ? "publication_closed" : null,
+      canPublish: !!content && enabled(env) && current.event.publication_closed === 0 && current.event.status === "scheduled" && current.event.starts_at > now() && current.event.starts_at <= current.event.created_at + START_HORIZON_S && current.delivery?.cleanup_requested !== 1,
       delivery: summary(current.delivery, current.event) });
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }
@@ -162,7 +163,7 @@ const knownRefusal = (status: number) => [400, 401, 403, 404, 405, 413, 415, 422
 async function settle(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
   const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0;
   const stillCurrent = `actor=?5 AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND revision=?8 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
     AND ${fenceSql("confirmedGuildData", 5, 6, 7)}`;
   await env.DB.batch([
     env.DB.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
@@ -176,7 +177,7 @@ async function settle(env: Env, ctx: CommunityContext, e: EventRow, nonce: strin
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
   if (!organizer(env, ctx) || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
-  const active = remove ? "" : `AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
+  const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
   const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4)}) AS ok FROM community_event_deliveries d
     WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
     AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?7=1) AND retain_until>${DB_NOW} ${active})`)
@@ -196,6 +197,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
     if (!out) return apiJson({ error: "event_not_found" }, 404);
     const e = out.event, old = out.delivery, content = contentOf(e, d), hash = await hashOf(content);
+    if (e.publication_closed !== 0) return answer(request, env, ctx, eventId, { error: "publication_closed" }, 409);
     if (e.revision !== rev) return answer(request, env, ctx, eventId, { error: "stale_revision" }, 409);
     if (e.status !== "scheduled" || e.starts_at <= now()) return answer(request, env, ctx, eventId, { error: "event_not_scheduled" }, 409);
     if (e.starts_at > e.created_at + START_HORIZON_S) return answer(request, env, ctx, eventId, { error: "event_creation_horizon" }, 409);
@@ -216,7 +218,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     const claimed = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO community_event_deliveries
       (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,session_version,session_expires,created_at,updated_at,retain_until,result_code)
       SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
-      WHERE id=?1 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ?7=1)
+      WHERE id=?1 AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ?7=1)
       AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4)}
       ON CONFLICT(event_id,purpose) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,guild_id=excluded.guild_id,channel_id=excluded.channel_id,
         message_id=excluded.message_id,frozen_content=excluded.frozen_content,payload_hash=excluded.payload_hash,op_id=excluded.op_id,claim_nonce=excluded.claim_nonce,state='claimed',
@@ -317,9 +319,14 @@ export function eventDeliveryOwnerErase(env: Env, owner: string): D1PreparedStat
     WHERE event_id IN(SELECT id FROM community_events WHERE created_by=?1)`).bind(owner);
 }
 /** Expiry disposes local metadata at the parent's deadline. RETURNING counts unresolved external custody, never claims provider deletion. */
+const EXPIRED_DELIVERIES = "event_id IN(SELECT event_id FROM community_event_deliveries WHERE retain_until<=?1 ORDER BY retain_until,event_id LIMIT ?2) OR event_id IN(SELECT id FROM community_events WHERE retain_until<=?1 ORDER BY retain_until,id LIMIT ?2)";
+/** Runs before local disposal in the same transaction; a finite parent flag prevents later duplicate creation. */
+export function eventDeliveryCloseExpired(env: Env, at: number, limit: number): D1PreparedStatement {
+  return env.DB.prepare(`UPDATE community_events SET publication_closed=1 WHERE publication_closed=0 AND id IN(SELECT event_id FROM community_event_deliveries
+    WHERE (${EXPIRED_DELIVERIES}) AND (message_id IS NOT NULL OR state IN('claimed','unknown')))` ).bind(at, limit);
+}
 export function eventDeliveryExpiry(env: Env, at: number, limit: number): D1PreparedStatement {
-  return env.DB.prepare(`DELETE FROM community_event_deliveries WHERE event_id IN(SELECT event_id FROM community_event_deliveries WHERE retain_until<=?1 ORDER BY retain_until,event_id LIMIT ?2)
-    OR event_id IN(SELECT id FROM community_events WHERE retain_until<=?1 ORDER BY retain_until,id LIMIT ?2)
+  return env.DB.prepare(`DELETE FROM community_event_deliveries WHERE ${EXPIRED_DELIVERIES}
     RETURNING CASE WHEN message_id IS NOT NULL OR state IN('claimed','unknown') THEN 1 ELSE 0 END AS incomplete`).bind(at, limit);
 }
 
