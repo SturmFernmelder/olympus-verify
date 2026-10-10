@@ -125,17 +125,29 @@ export function privacyAccessActionStatements(env:Env,g:PrivacyAccessGrant):D1Pr
  AND consumed_at IS NOT NULL AND expires_at>${PRIVACY_ACCESS_NOW}) THEN 1 ELSE json_extract('privacy_access_consume_refused','$') END AS consumed`).bind(g.sessionHash,g.purpose,g.grantId)];
 }
 /** Read payloads finish under the same original capture and absolute deadline; this never renews a grant. */
-export function privacyAccessConsumedReadFence(env:Env,g:PrivacyAccessGrant):D1PreparedStatement{
+export function privacyAccessConsumedReadFence(env:Env,g:PrivacyAccessGrant,historyExpires:number|null=null):D1PreparedStatement{
  return env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL} AND EXISTS(SELECT 1 FROM privacy_access_grants
  WHERE session_hash=?5 AND purpose=?6 AND grant_id=?7 AND csrf_hash=?8 AND subject_id=?1 AND subject_generation IS ?2 AND state IS ?3 AND revision IS ?4
  AND created_at=?9 AND expires_at=?10 AND expires_at>${PRIVACY_ACCESS_NOW} AND consumed_at IS NOT NULL)
- THEN 1 ELSE json_extract('privacy_access_read_refused','$') END AS admitted`).bind(...captureValues(g),g.sessionHash,g.purpose,g.grantId,g.csrfHash,g.createdAt,g.expiresAt);
+ AND (?11 IS NULL OR ${PRIVACY_ACCESS_NOW}<?11)
+ THEN 1 ELSE json_extract('privacy_access_read_refused','$') END AS admitted`).bind(...captureValues(g),g.sessionHash,g.purpose,g.grantId,g.csrfHash,g.createdAt,g.expiresAt,historyExpires);
+}
+async function actionForm(request:Request,env:Env,purpose:PrivacyAccessPurpose,allowConsumed=false):Promise<{grant:PrivacyAccessGrant;form:Readonly<Record<string,string>>}>{
+ const g=await readPrivacyAccessGrant(request,env,purpose);if(!g||g.consumedAt!==null&&!allowConsumed)throw new FormError('privacy_access_expired',403);
+ const form=await readForm(request,purpose==='own_erasure'?['csrf','grant','confirm']:['csrf','grant','collection','cursor']);
+ if(request.method!=='POST'||form.grant!==g.grantId||!TOKEN.test(form.csrf??'')||await privacyAccessHash(form.csrf!)!==g.csrfHash||purpose==='own_erasure'&&form.confirm!=='yes')throw new FormError('privacy_form_refused',403);
+ return {grant:g,form};
 }
 export async function privacyAccessFormAction(request:Request,env:Env,purpose:PrivacyAccessPurpose,allowConsumed=false):Promise<PrivacyAccessGrant>{
- const g=await readPrivacyAccessGrant(request,env,purpose);if(!g||g.consumedAt!==null&&!allowConsumed)throw new FormError('privacy_access_expired',403);
- const form=await readForm(request,purpose==='own_erasure'?['csrf','grant','confirm']:['csrf','grant']);
- if(request.method!=='POST'||form.grant!==g.grantId||!TOKEN.test(form.csrf??'')||await privacyAccessHash(form.csrf!)!==g.csrfHash||purpose==='own_erasure'&&form.confirm!=='yes')throw new FormError('privacy_form_refused',403);
- return g;
+ const out=await actionForm(request,env,purpose,allowConsumed);
+ if(purpose==='own_export'&&('collection'in out.form||'cursor'in out.form))throw new FormError('privacy_purpose_refused',403);
+ return out.grant;
+}
+export async function privacyAccessExportFormAction(request:Request,env:Env):Promise<{grant:PrivacyAccessGrant;collection:'copy'|'actions'|'eventChanges'|'contributionDecisions';cursor:string|null}>{
+ if(new URL(request.url).search)throw new FormError('invalid_history_cursor');
+ const {grant,form}=await actionForm(request,env,'own_export'),collection=form.collection??'copy',cursor=form.cursor??'';
+ if(!['copy','actions','eventChanges','contributionDecisions'].includes(collection)||cursor.length>140||/[\r\n\t ]/.test(cursor)||(collection==='copy'&&cursor))throw new FormError('invalid_history_cursor');
+ return {grant,collection:collection as 'copy'|'actions'|'eventChanges'|'contributionDecisions',cursor:cursor||null};
 }
 export async function privacyAccessPage(request:Request,env:Env):Promise<Response>{
  const grants=await Promise.all([readPrivacyAccessGrant(request,env,'own_export'),readPrivacyAccessGrant(request,env,'own_erasure')]);
@@ -144,9 +156,9 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null)continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';
- body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records. Histories and larger sections are bounded; omissions and truncation are stated in the file.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':''}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
+ body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records. Larger sections are bounded; omissions and truncation are stated in the file. Actions, event changes and contribution decisions also have separate history downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':'<label>Download <select name="collection"><option value="copy">Selected account copy</option><option value="actions">Actions history</option><option value="eventChanges">Event changes history</option><option value="contributionDecisions">Contribution decisions history</option></select></label><label>History cursor from a previous file (optional)<textarea name="cursor" maxlength="140" rows="3" spellcheck="false" autocomplete="off"></textarea></label>'}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
  }
- body+='<p>This connection grants only these privacy actions. <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
+ body+='<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh page grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
  return htmlResponse(request,'Privacy account connection',body);
 }
 export function privacyAccessRefusal(request:Request,error:unknown):Response{

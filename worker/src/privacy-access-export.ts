@@ -7,7 +7,8 @@ import { appOut, apiJson, type AppRow } from './site-core';
 import { bnetFresh } from './bnet-retention';
 import { secondsToIso } from './community-time';
 import { privacySubjectKey } from './privacy-serving-authority';
-import { privacyAccessFormAction, privacyAccessActionStatements, privacyAccessConsumedReadFence, PRIVACY_ACCESS_NOW } from './privacy-access';
+import { privacyAccessExportFormAction, privacyAccessActionStatements, privacyAccessConsumedReadFence, PRIVACY_ACCESS_NOW } from './privacy-access';
+import { exportPrivacyHistory } from './privacy-access-history';
 import { FormError } from './policy-form-core';
 
 const limit=1000;
@@ -40,7 +41,8 @@ function application(row:AppRow|undefined):unknown{
 }
 export async function exportPrivacyAccess(request:Request,env:Env):Promise<Response>{
  if(new URL(request.url).pathname!=='/privacy/access/export')throw new FormError('privacy_purpose_refused',403);
- const grant=await privacyAccessFormAction(request,env,'own_export'),id=grant.subject;
+ const {grant,collection,cursor}=await privacyAccessExportFormAction(request,env),id=grant.subject;
+ if(collection!=='copy')return exportPrivacyHistory(env,grant,collection,cursor);
  const marker=await privacySubjectKey(env,id),community=communityExportPlan(env,id);
  // Every selected column is the established own-copy projection. No provider pointers, staff identities or account references.
  const statements=[
@@ -76,7 +78,7 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  const body={generatedAt:secondsToIso(at),identity:{discordId:id,authority:'fresh_identify_only',expiresAt:secondsToIso(grant.expiresAt)},
  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,pageLimit:limit,
  excluded:['staff notes/reasons/identities','raw roster snapshots','private payment details','provider logs and pointers','short-lived authentication secrets and OAuth codes','external Discord posts/connections','private recovery backups','local watcher/game/download copies'],
- continuation:'This download contains at most 1,000 retained rows per history. A false complete flag means further records are retained but are not included in this download. New privacy inbox requests are disabled; this download does not provide a continuation for additional rows.'},
+ continuation:'This download contains at most 1,000 retained rows per history. A false complete flag means further records are retained but are not included here. Reconnect Discord at /privacy/access and select Actions, Event changes or Contribution decisions for a separate bounded history capture and continuation. Other larger sections have no continuation in this first batch. New privacy inbox requests are disabled.'},
  about:'Selected retained records about your own Discord account were read together in one database transaction at generatedAt. A missing website account is shown as null. Per-section complete flags concern only this selected range; community sections carry their established coverage. This is not every store, an immutable all-store snapshot, proof of download, or erasure.',
  account:a?{discordId:a.discord_id,username:a.username,displayName:a.global_name,nickname:a.nick,avatar:a.avatar,accountCreated:iso(a.account_created),joinedServer:iso(a.server_joined),firstSignIn:iso(a.first_login),lastSignIn:iso(a.last_login),lastMembershipCheck:iso(a.checked_at),inServer:a.in_server===1,denied:a.denied===1,deniedAt:iso(a.denied_at)}:null,
  site:{application:application(out[2]!.results[0] as AppRow|undefined),votes:bounded(out[3]!),boardVotes:bounded(out[4]!),friends:bounded(out[5]!),reserved:bounded(out[6]!)},
