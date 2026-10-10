@@ -5154,8 +5154,10 @@ OFF. Opt-out/edit/erasure in flight preserves known pointer debt. Erasure clears
 
 Schema adds community_event_reminders, its due index and the parent reminder_closed boolean. Canonical/runtime/
 dated migration agree. Retention is capped by the original stored parent deadline using MIN, never renewed by a
-reschedule. Expiry atomically latches unresolved/known custody before dropping local metadata; local disposal does
-not claim Discord deletion. Unswept expired rows cannot arm already-expired consent. Existing event clocks remain.
+reschedule. Expiry atomically closes every expired consent before dropping its local metadata, including armed,
+cancelled and refused rows whose parent survives a reschedule. Reminder-only disposal contributes counts to the
+same expiry audit as publication disposal; unresolved pointers/claims remain disclosed as external debt, never as
+Discord deletion. Unswept expired rows cannot arm already-expired consent. Existing event clocks remain.
 
 The conservative scheduled table is 618/700: one candidate costs at most six D1 attempts; closure/disposal adds two;
 new cold-schema worst adds four. Weekly opening is capped at 24 instead of 30 with deterministic continuation.

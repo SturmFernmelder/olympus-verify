@@ -816,7 +816,7 @@ export function ownEventChangeStatements(env: Env, actor: string, position: { hi
 /** Cron step: events past their retention deadline go with their answers, attendance and history; bounded per run. */
 export async function sweepCommunityEvents(env: Env, at = now(), limit = 100): Promise<number> {
   const due = "SELECT id FROM community_events WHERE retain_until <= ?1 ORDER BY retain_until, id LIMIT ?2";
-  const [, delivery, , , , , , ev] = await env.DB.batch([
+  const [, delivery, , reminder, , , , ev] = await env.DB.batch([
     eventDeliveryCloseExpired(env, at, limit),
     eventDeliveryExpiry(env, at, limit),
     eventReminderCloseExpired(env, at, limit),
@@ -827,8 +827,9 @@ export async function sweepCommunityEvents(env: Env, at = now(), limit = 100): P
     env.DB.prepare(`DELETE FROM community_events WHERE id IN (${due})`).bind(at, limit),
   ]);
   const n = ev?.meta?.changes ?? 0;
-  const incomplete = delivery!.results.reduce<number>((sum, row) => sum + ((row as { incomplete?: number }).incomplete === 1 ? 1 : 0), 0);
-  if (n || delivery!.results.length) await audit(env, "cron", "community.events_expired", undefined, { deleted: n, discordUnresolved: incomplete });
+  const disposed = [...delivery!.results, ...reminder!.results];
+  const incomplete = disposed.reduce<number>((sum, row) => sum + ((row as { incomplete?: number }).incomplete === 1 ? 1 : 0), 0);
+  if (n || disposed.length) await audit(env, "cron", "community.events_expired", undefined, { deleted: n, discordUnresolved: incomplete });
   return n;
 }
 

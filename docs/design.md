@@ -1326,7 +1326,9 @@ than refreshing an expired website cookie. One claimed effect per run bounds SQL
 needs new explicit consent; an ambiguous effect is never automatically retried, since Discord's nonce only supplies
 recent deduplication. Editing cancels consent, and current erasure hooks clear copied identity/content while keeping
 external cleanup debt. Finite custody expiry closes the surviving event before local disposal; no external deletion
-is inferred. The original deadline cannot be extended by a reschedule or consent retry. The existing calendar
+is inferred. Even an armed, cancelled or refused expired consent closes the surviving parent before its row is
+dropped; reminder-only disposal records counts and unresolved external custody in the existing expiry audit.
+The original deadline cannot be extended by a reschedule or consent retry. The existing calendar
 organizer capability is preserved; this is not a Discord-role authority or admission writer.
 
 ## 2026-10-10: separate governance downloads (.134)

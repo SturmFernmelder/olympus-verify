@@ -180,14 +180,28 @@ async function fresh() { seed(); await event(); }
   const original=row().retain_until; await call('POST','/api/community/events/update',{eventId:EVENT,revision:1,startsAt:new Date((at()+2*86400)*1000).toISOString()});
   check("reschedule cannot extend stored reminder deadline",row().retain_until===original);
   await events.sweepCommunityEvents(env(),original+1);check("expiry drops local unknown metadata and atomically closes surviving parent",!row() && one('SELECT reminder_closed FROM community_events').reminder_closed===1 && messages.size===1);
+  const unknownExpiryAudit=one("SELECT details FROM audit WHERE action='community.events_expired' ORDER BY id DESC LIMIT 1");
+  check("reminder-only unknown disposal records one unresolved Discord effect",!!unknownExpiryAudit && JSON.parse(unknownExpiryAudit.details).discordUnresolved===1 && JSON.parse(unknownExpiryAudit.details).deleted===0);
   r=await arm(2);await tick();check("expired unknown custody cannot be rearmed after rescheduling",r.status===409 && !row() && effects().length===1);
   await fresh(); await arm(); const beforeRollback=row().retain_until;hooks.beforeStatement=(sql)=>{if(sql.startsWith('DELETE FROM community_event_reminders')){hooks.beforeStatement=null;throw Error('expiry refusal')}};failed=false;try{await events.sweepCommunityEvents(env(),beforeRollback+1)}catch{failed=true}check("expiry refusal rolls parent closure and child disposal back together",failed && !!row() && one('SELECT reminder_closed FROM community_events').reminder_closed===0);
 
   for(const state of ['armed','cancelled','refused']) {
-    await fresh();await arm();db.prepare("UPDATE community_event_reminders SET state=?,retain_until=CAST(strftime('%s','now') AS INTEGER)-1").run(state);
-    const old=row().retain_until;r=await status();const armed=await arm();
+    await fresh();await arm();await call('POST','/api/community/events/update',{eventId:EVENT,revision:1,startsAt:new Date((at()+2*86400)*1000).toISOString()});
+    db.prepare("UPDATE community_event_reminders SET state=?,retain_until=CAST(strftime('%s','now') AS INTEGER)-1").run(state);
+    const old=row().retain_until;r=await status();const armed=await arm(2);
     check(`expired ${state} custody before cleanup cannot masquerade as fresh consent`,r.body.closed===true && r.body.canArm===false && armed.status===409 && armed.body.error==='reminder_expired' && row().retain_until===old && effects().length===0);
+    SQL=[];await events.sweepCommunityEvents(env(),at());
+    const expiryCost=SQL.length, expiryAudit=one("SELECT details FROM audit WHERE action='community.events_expired' ORDER BY id DESC LIMIT 1");
+    check(`expired ${state} custody closes its surviving parent before disposal`,!row() && one('SELECT reminder_closed FROM community_events').reminder_closed===1 && expiryCost===9);
+    r=await arm(2);await tick();
+    check(`expired ${state} custody cannot rearm after cleanup/reschedule`,r.status===409 && !row() && effects().length===0);
+    check(`reminder-only ${state} disposal records zero unresolved effects`,!!expiryAudit && JSON.parse(expiryAudit.details).discordUnresolved===0 && JSON.parse(expiryAudit.details).deleted===0);
   }
+  await fresh();await arm();await tick();await call('POST','/api/community/events/update',{eventId:EVENT,revision:1,startsAt:new Date((at()+2*86400)*1000).toISOString()});
+  db.prepare("UPDATE community_event_reminders SET retain_until=CAST(strftime('%s','now') AS INTEGER)-1").run();
+  await events.sweepCommunityEvents(env(),at());
+  const postedExpiryAudit=one("SELECT details FROM audit WHERE action='community.events_expired' ORDER BY id DESC LIMIT 1");
+  check("reminder-only known-pointer disposal records unresolved external custody without deleting Discord message",!!postedExpiryAudit && JSON.parse(postedExpiryAudit.details).discordUnresolved===1 && !row() && messages.size===1);
   await fresh();hooks.beforeStatement=(sql)=>{if(sql.startsWith('INSERT INTO community_event_reminders')){hooks.beforeStatement=null;db.prepare('UPDATE site_users SET session_version=2 WHERE discord_id=?').run(ORG)}};r=await arm();
   check("consent consumes original session and revocation before SQL leaves no row",r.status!==200 && !row() && effects().length===0);
   await fresh();await arm();db.prepare('UPDATE community_events SET created_by=?').run(OTHER);await tick();check("creator/management drift invalidates durable consent",row().state==='armed' && effects().length===0);

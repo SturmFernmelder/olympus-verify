@@ -182,10 +182,12 @@ export function eventReminderChanged(env: Env, eventId: string, eventNonce: stri
 }
 const expired = "event_id IN(SELECT event_id FROM community_event_reminders WHERE retain_until<=?1 ORDER BY retain_until,event_id LIMIT ?2) OR event_id IN(SELECT id FROM community_events WHERE retain_until<=?1 ORDER BY retain_until,id LIMIT ?2)";
 export function eventReminderCloseExpired(env: Env, at: number, limit: number): D1PreparedStatement {
-  return env.DB.prepare(`UPDATE community_events SET reminder_closed=1 WHERE reminder_closed=0 AND id IN(SELECT event_id FROM community_event_reminders WHERE (${expired}) AND (message_id IS NOT NULL OR state IN('claimed','unknown','posted','removed')))` ).bind(at, limit);
+  // Every original consent deadline is final, including consent that never produced a message.
+  return env.DB.prepare(`UPDATE community_events SET reminder_closed=1 WHERE reminder_closed=0 AND id IN(SELECT event_id FROM community_event_reminders WHERE (${expired}))`).bind(at, limit);
 }
 export function eventReminderExpiry(env: Env, at: number, limit: number): D1PreparedStatement {
-  return env.DB.prepare(`DELETE FROM community_event_reminders WHERE ${expired}`).bind(at, limit);
+  return env.DB.prepare(`DELETE FROM community_event_reminders WHERE ${expired}
+    RETURNING CASE WHEN message_id IS NOT NULL OR state IN('claimed','unknown','posted') THEN 1 ELSE 0 END AS incomplete`).bind(at, limit);
 }
 export function eventReminderOwnerErase(env: Env, who: string): D1PreparedStatement {
   return env.DB.prepare(`UPDATE community_event_reminders SET actor=NULL,consent_version=NULL,frozen_content=NULL,cleanup_requested=1,
