@@ -16,6 +16,7 @@ import { requestServingErasure, erasureRequestStatus, type ErasureRequestResult 
 const ID = /^[A-Za-z0-9_-]{22}$/, CODE = /^[A-Za-z0-9_-]{43}$/;
 const CASE_FIELDS = ["csrf", "caseId", "caseCode", "before"] as const;
 const controls = `<section class="data-controls"><h2>Privacy and account data</h2><p><a href="/privacy/account">Account data controls</a> · <a href="/privacy/contact">Account help</a> · <a href="/privacy/case">Read an existing case</a></p></section>`;
+const erasurePaused = '<p>Automatic serving-account erasure is temporarily paused while Olympus checks older account records. Downloads and checks of existing erasure requests remain available. Ask an Olympus officer for attended help. Reconnecting Discord does not enable erasure.</p>';
 function erasureRequest(request:Request):Request {
  const headers=new Headers(request.headers);headers.set('X-Olympus',PAGE_VERSION);
  return new Request(new URL('/api/me/erasure',request.url),{method:'POST',headers});
@@ -123,6 +124,7 @@ async function showContributionDecisions(request: Request, env: Env, nonce: stri
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
   let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. ${env.PRIVACY_ACCESS_ENABLED === 'true' ? '<a href="/privacy/access">Connect Discord for privacy actions</a>, including without a current website account or server membership.' : 'The separate account connection for privacy requests is not available yet.'}</p>`;
+  if(env.PRIVACY_ERASURE_ENABLED!=='true')body+=erasurePaused;
   if (user) {
     const b = `${user.discord_id}:${user.session_version}`;
     body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
@@ -137,10 +139,6 @@ async function accountPage(request: Request, env: Env, nonce: string): Promise<R
   }
   body+=`<h2>Check an erasure request</h2>${await erasureStatusForm(env,nonce)}`;
   body += `<h2>Other deletion and unlink controls</h2><p>${env.PRIVACY_ERASURE_ENABLED==='true'?'Serving-account erasure covers the attributable bot and website records. Separate site-only erasure and local Battle.net unlink are not offered here.':'Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.'} Ask an Olympus officer for attended help. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
-  if(env.PRIVACY_ERASURE_ENABLED!=='true') for (const [action, label] of [["site-erase", "Site-only erasure"], ["full-erase", "Full-tool erasure"], ["bnet-unlink", "Local Battle.net unlink"]] as const) {
-    if(action==='full-erase'&&env.PRIVACY_ERASURE_ENABLED==='true')continue;
-    body += `<form method="post" action="/privacy/account/${action}">${hidden("csrf", await formToken(env, nonce, action))}<button type="submit">Check ${e(label.toLowerCase())} availability</button></form>`;
-  }
   return htmlResponse(request, "Account data controls", body + controls, 200, formCookie(nonce));
 }
 
@@ -170,8 +168,10 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
   if (m === "HEAD") return htmlResponse(request, "Privacy controls", "");
   try {
     const nonce = formNonce(request) ?? randomCode();
+    if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED!=='true')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt.</p>'+controls,503);
     if ((m === 'GET' || m === 'POST') && path === '/privacy/contact' && env.PRIVACY_ACCESS_ENABLED === 'true' && env.PRIVACY_INTAKE_ENABLED !== 'true') {
-      return htmlResponse(request,'Privacy account controls','<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records or request serving-account erasure; this grants no guild access.</p><p><a href="/privacy/access">Open account data controls</a> · <a href="/privacy/case">Read an existing case</a></p><p>Existing cases keep their original inactivity deadlines. Unattributable text, unresolved provider outcomes and human-managed staff permissions may require attended handling.</p>',m === 'GET' ? 200 : 503);
+      const introduction=env.PRIVACY_ERASURE_ENABLED==='true'?'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records or request serving-account erasure; this grants no guild access.</p>':'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records; this grants no guild access.</p>'+erasurePaused;
+      return htmlResponse(request,'Privacy account controls',introduction+'<p><a href="/privacy/access">Open account data controls</a> · <a href="/privacy/case">Read an existing case</a></p><p>Existing cases keep their original inactivity deadlines. Unattributable text, unresolved provider outcomes and human-managed staff permissions may require attended handling.</p>',m === 'GET' ? 200 : 503);
     }
     if (m === "GET" && path === "/privacy/contact") {
       if (!communityFeatures(env).has("privacy_intake") || !intakeOpen(env)) return htmlResponse(request, "Contact the privacy inbox", `<p>New requests are paused. Existing cases can still be read.</p>${controls}`, 503);
