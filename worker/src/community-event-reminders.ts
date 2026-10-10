@@ -16,7 +16,8 @@ interface Reminder {
   event_id: string; event_revision: number; starts_at: number; actor: string | null; consent_version: number | null;
   guild_id: string; channel_id: string; host: string; op_id: string; claim_nonce: string | null;
   state: "armed" | "claimed" | "posted" | "refused" | "unknown" | "cancelled" | "removed";
-  message_id: string | null; frozen_content: string | null; cleanup_requested: number; retain_until: number; expired?: number; privacy_generation?: string | null;
+  message_id: string | null; frozen_content: string | null; cleanup_requested: number; retain_until: number;
+  created_at: number; updated_at: number; last_attempt_at: number; expired?: number; privacy_generation?: string | null;
 }
 const enabled = (env: Env) => env.EVENT_DISCORD_REMINDERS === "on" && env.EVENT_DISCORD_DELIVERY === "on" && communityFeatures(env).has("events");
 const organizers = (env: Env) => {
@@ -113,16 +114,29 @@ export async function runEventReminders(env: Env): Promise<number> {
   const d = destination(env); if (!d) return 0;
   const r = await env.DB.prepare(`SELECT r.*,(SELECT generation FROM privacy_subjects WHERE subject_id=r.actor) AS privacy_generation FROM community_event_reminders r WHERE r.state='armed' AND ${current} ORDER BY r.last_attempt_at,r.starts_at,r.event_id LIMIT 1`).first<Reminder>();
   if (!r) return 0;
-  await env.DB.prepare(`UPDATE community_event_reminders SET last_attempt_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?2`).bind(r.event_id, r.op_id).run();
+  const rotated = await env.DB.prepare(`UPDATE community_event_reminders SET last_attempt_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?2 RETURNING last_attempt_at`)
+    .bind(r.event_id, r.op_id).first<{ last_attempt_at: number }>();
+  if (!rotated) return 0;
   if (!r.actor || r.guild_id !== d.guild || r.channel_id !== d.channel || r.host !== d.host || !r.frozen_content) return 0;
   const bot = await qualifyDestination(env, d);
   if (!bot || !(await eventDiscordMemberPresent(env, r.actor, d.guild))) return 0;
   const nonce = randomToken(), ids = organizers(env);
-  const claim = await env.DB.prepare(`UPDATE community_event_reminders AS r SET state='claimed',claim_nonce=?3,updated_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?4 AND ${current} AND ${authority}`)
-    .bind(r.event_id, ids, nonce, r.op_id).run();
-  if (claim.meta.changes !== 1) return 0;
-  // HTTP prerequisite reads yielded: final current consent/account/event/config checks precede the one effect.
-  const proof = await env.DB.prepare(`SELECT 1 AS ok FROM community_event_reminders r WHERE event_id=?1 AND state='claimed' AND claim_nonce=?3 AND ${current} AND ${authority}`).bind(r.event_id, ids, nonce).first<{ ok: number }>();
+  // Consume the selected consent, not a replacement row or a newly active generation after HTTP awaits.
+  // All stored fields stay exact except this invocation's rotation timestamp and claimed state/nonce/time.
+  const selected = `r.op_id=?4 AND r.actor IS ?5 AND r.consent_version IS ?6 AND r.event_revision=?7 AND r.starts_at=?8
+    AND r.guild_id=?9 AND r.channel_id=?10 AND r.host=?11 AND r.message_id IS ?12 AND r.frozen_content IS ?13
+    AND r.cleanup_requested=?14 AND r.retain_until=?15 AND r.created_at=?16 AND r.last_attempt_at=?17 AND r.updated_at=?18
+    AND ${privacyGenerationLiteralFenceSql("r.actor", r.privacy_generation ?? null)}`;
+  const selectedValues = (updatedAt: number) => [r.event_id, ids, nonce, r.op_id, r.actor, r.consent_version,
+    r.event_revision, r.starts_at, r.guild_id, r.channel_id, r.host, r.message_id, r.frozen_content,
+    r.cleanup_requested, r.retain_until, r.created_at, rotated.last_attempt_at, updatedAt];
+  const claim = await env.DB.prepare(`UPDATE community_event_reminders AS r SET state='claimed',claim_nonce=?3,updated_at=${DB_NOW}
+    WHERE event_id=?1 AND state='armed' AND claim_nonce IS ?19 AND ${selected} AND ${current} AND ${authority} RETURNING updated_at`)
+    .bind(...selectedValues(r.updated_at), r.claim_nonce).first<{ updated_at: number }>();
+  if (!claim) return 0;
+  // Reconsume the same selected row and generation after claim; no fresh authority is adopted before POST.
+  const proof = await env.DB.prepare(`SELECT 1 AS ok FROM community_event_reminders r WHERE event_id=?1 AND state='claimed'
+    AND claim_nonce=?3 AND ${selected} AND ${current} AND ${authority}`).bind(...selectedValues(claim.updated_at)).first<{ ok: number }>();
   if (!proof || !enabled(env) || JSON.stringify(destination(env)) !== JSON.stringify(d)) {
     await env.DB.prepare(`UPDATE community_event_reminders SET state='cancelled',updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?2 AND state='claimed'`).bind(r.event_id, nonce).run(); return 0;
   }
