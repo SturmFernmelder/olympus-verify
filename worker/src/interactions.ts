@@ -1,5 +1,6 @@
 /** Slash commands and message components. Discord calls POST /interactions (HTTP interactions, no gateway). */
 import type { Env } from "./env";
+import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound } from './privacy-serving-authority';
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
@@ -51,6 +52,8 @@ export async function handleInteraction(env: Env, i: Interaction): Promise<Respo
   // .58: every admitted interaction names the configured guild; one without a guild_id (a DM, a user-installed context)
   // used to pass this guard and could open a code request (Codex's probe, 1 Oct 01:35 UTC).
   if (i.guild_id !== env.GUILD_ID) return reply("This bot only serves Olympus.");
+  const actor=userOf(i)?.id;
+  if(actor&&/^\d{17,20}$/.test(actor)&&!privacyActorAlreadyBound(env,actor))env=privacyBoundSubjectEnv(env,actor,await readPrivacySubject(env,actor));
 
   if (i.type === 2) {
     if (i.data?.type === 2) return cmdUserMenu(env, i);

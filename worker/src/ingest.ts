@@ -1,3 +1,4 @@
+import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture, pendingRequestFence,privacyCaptureFromColumns,privacyGenerationFenceSql } from './privacy-serving-authority';
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
 import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow } from "./db";
@@ -84,6 +85,8 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
     if (ticket) await noteTicketReuse(env, code, nameKey, name);
     return json({ result: "no_pending" });
   }
+  const privacyCapture = pendingPrivacyCapture(pending);
+  if(privacyCapture && privacyCapture.state!=='active')return json({result:'privacy_held'},409);
   // A ban closes the account's open requests (/olympus-admin ban), but a code whispered in the moment before the ban,
   // or a request opened by an older build, must not link anything either.
   const account = await getMember(env, pending.discord_id);
@@ -166,7 +169,8 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
       ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t),
     );
   }
-  const done = await env.DB.batch(stmts);
+  const allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingRequestFence(env,pending),...stmts]);
+  const done=allDone.slice(1);
   if (!done[1]?.meta?.changes) {
     // Lost a race: the request was used a moment ago, or the name was linked to another account a moment ago.
     const after = await env.DB.prepare("SELECT consumed_at, name FROM pending WHERE id = ?1").bind(pending.id).first<{ consumed_at: number | null; name: string }>();
@@ -198,11 +202,11 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
     // last export, read on launch day, would grant the role to whoever took the name on live and pin the wrong
     // character to them. The GUID is taken only from a very fresh export; otherwise the next export pins it.
     await audit(env, "watcher", "verify.already_member", name, { discordId: pending.discord_id, source: body.source });
-    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null));
+    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null),undefined,privacyCapture);
     return json({ result: "member", discordId: pending.discord_id, name });
   }
   if (onRoster) await audit(env, "watcher", "verify.roster_not_current", name, { exportedAt: onRoster.exportedAt });
-  await onVerified(env, resolved, body.source);
+  await onVerified(env, resolved, body.source,privacyCapture);
   return json({ result: "verified", discordId: pending.discord_id, name });
 }
 
@@ -461,52 +465,57 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       // went out, or the chat log merely said "has joined the guild" — only the first two are trusted
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
       const trusted = isAuthoritative(e) || (await onLatestRoster(env, key));
       const cutoff = linksNotBefore(env);
       if (c && trusted && !c.guid && cutoff && c.bound_at < cutoff && ["verified", "queued", "left_pending"].includes(c.status)) {
         // A link from before LINKS_NOT_BEFORE with no GUID pinned: this join may be a namesake of the character that
         // was linked. The next roster export (which carries GUIDs) releases or confirms it; a join line never does.
-        await audit(env, "watcher", "invite.joined_stale_link", e.name, { origin: e.origin, discordId: c.discord_id, boundAt: c.bound_at });
+        await audit(env, "watcher", "invite.joined_stale_link", e.name, { origin: e.origin, discordId: c.discord_id, boundAt: c.bound_at },reference);
         applied++;
         continue;
       }
       if (c && ["verified", "queued", "left_pending"].includes(c.status)) {
         if (trusted) {
-          await promote(env, c.discord_id, key, c.name, notices, undefined, calls); // also marks the invite_queue row joined
+          await promote(env, c.discord_id, key, c.name, notices, undefined, calls,privacyCaptureFromColumns(c.discord_id,c));
           applied++;
-          await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail, origin: e.origin, promoted: true });
+          await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail, origin: e.origin, promoted: true },reference);
           continue;
         }
         // Unverified claim: record it, grant nothing. The roster export decides.
-        await audit(env, "watcher", "invite.joined_unconfirmed", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id });
+        await audit(env, "watcher", "invite.joined_unconfirmed", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id },reference);
         applied++;
       }
       const r = await env.DB.prepare(
-        "UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND status IN ('queued','written','invited')",
+        `UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND status IN ('queued','written','invited') AND (?3 IS NULL OR(discord_id=?3 AND ${privacyGenerationFenceSql(3,4)}))`,
       )
-        .bind(key, e.ts ?? now())
+        .bind(key, e.ts ?? now(),reference?.subject??null,reference?.capture?.subjectGeneration??null)
         .run();
       if (r.meta.changes) {
         applied++;
-        await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail });
+        await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail },reference);
       }
     } else if (e.type === "left" && e.name) {
       // "has left the guild" / "has been kicked out of the guild by X"
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
       if (c && (c.status === "member" || c.status === "left_pending")) {
         if (isAuthoritative(e)) {
-          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices });
+          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices,capture:reference!.capture });
           applied++;
         } else if (c.status === "member") {
           // Forgeable text: arm the removal instead of performing it. The next roster export either confirms the
           // departure (and the role goes) or shows them still on the roster (and the flag is cleared).
-          await env.DB.prepare("UPDATE characters SET status = 'left_pending' WHERE name_key = ?1").bind(key).run();
-          await audit(env, "watcher", "roster.left_pending", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id });
+          await env.DB.prepare(`UPDATE characters SET status = 'left_pending' WHERE name_key = ?1 AND discord_id=?2 AND ${privacyGenerationFenceSql(2,3)}`).bind(key,c.discord_id,reference!.capture?.subjectGeneration??null).run();
+          await audit(env, "watcher", "roster.left_pending", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id },reference);
           await logLine(
             env,
             `\u23f3 roster: **${c.name}** (<@${c.discord_id}>) looks like they left the guild (${e.detail || "chat log"}). ` +
               `The role stays until a roster export confirms it.`,
+            [reference!],
           );
           applied++;
         }
@@ -516,11 +525,12 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       // and deliberately distinguished from an ordinary departure so the person is told why and keeps their binding.
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
       if (e.ok === false) {
         await audit(env, "watcher", "roster.remove_failed", e.name, { detail: e.detail });
         applied++;
       } else if (c && (c.status === "member" || c.status === "left_pending")) {
-        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices });
+        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c) });
         applied++;
       } else {
         await audit(env, "watcher", "roster.removed_unlinked", e.name, { detail: e.detail, reason: e.reason });
@@ -537,14 +547,17 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       // fresh, unpinned link, and never a GUID another live link already holds.
       const g = playerGuid(e.guid);
       if (g && isAuthoritative(e)) {
+        const key=normalizeCharacter(e.name),c=await getCharacter(env,key);
+        if(!c||c.privacy_state&&c.privacy_state!=='active')continue;
+        const capture=privacyCaptureFromColumns(c.discord_id,c);
         const r = await env.DB.prepare(
           `UPDATE characters SET guid = ?2
-            WHERE name_key = ?1 AND guid IS NULL AND bound_at >= ?3 AND status IN ('verified','queued','member','left_pending')
+            WHERE name_key = ?1 AND discord_id=?4 AND ${privacyGenerationFenceSql(4,5)} AND guid IS NULL AND bound_at >= ?3 AND status IN ('verified','queued','member','left_pending')
               AND NOT EXISTS (SELECT 1 FROM characters c2 WHERE c2.guid = ?2 AND c2.name_key <> ?1 AND c2.status IN ('verified','queued','member','left','left_pending'))`,
         )
-          .bind(normalizeCharacter(e.name), g, now() - 6 * 3600)
+          .bind(key, g, now() - 6 * 3600,c.discord_id,capture?.subjectGeneration??null)
           .run();
-        if (r.meta.changes) await audit(env, "watcher", "verify.guid_pinned", e.name, { guid: g });
+        if (r.meta.changes) await audit(env, "watcher", "verify.guid_pinned", e.name, { guid: g },{subject:c.discord_id,capture});
       }
       applied++;
     } else if (e.type === "guild_full") {
@@ -719,6 +732,7 @@ async function resumeAfterGuildLeave(env: Env, nameKey: string, name: string, so
     .bind(nameKey)
     .first<{ id: number; discord_id: string; attempts: number | null; retry_after: number | null; last_reason: string | null }>();
   if (!row) return null;
+  const capture=await readPrivacySubject(env,row.discord_id);
 
   const t = now();
   // Only meaningful for a row actually held back by that refusal. A row already servable needs no help, and
@@ -726,12 +740,12 @@ async function resumeAfterGuildLeave(env: Env, nameKey: string, name: string, so
   if (row.last_reason !== "in_another_guild" || (row.retry_after ?? 0) <= t) return null;
 
   const attempts = Math.max(0, (row.attempts ?? 0) - 1);
-  await env.DB.prepare(
+  await admittedPrivacySubjectWrite(env,row.discord_id,capture,[env.DB.prepare(
     "UPDATE invite_queue SET status = 'queued', retry_after = NULL, claimed_by = NULL, claimed_at = NULL, " +
       "attempts = ?2, last_reason = 'ready_after_gquit', last_reason_at = ?3 WHERE id = ?1",
   )
     .bind(row.id, attempts, t)
-    .run();
+    ]);
 
   const pos = await waitlistPosition(env, nameKey);
   await audit(env, "watcher", "invite.resumed", name, { discordId: row.discord_id, source, position: pos, attempts });

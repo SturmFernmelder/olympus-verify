@@ -78,11 +78,11 @@ export async function purgeBattleNetData(env: Env, at = now()): Promise<BnetPurg
   // Stale: no timestamp, at or past the cutoff, or further in the future than a clock could explain.
   const [m, p3, ch, au] = await env.DB.batch([
     env.DB.prepare(
-      `UPDATE members SET battletag = NULL, bnet_conn_id = NULL, linked_at = NULL
+      `UPDATE members SET activity_at=MAX(COALESCE(activity_at,0),CASE WHEN linked_at>0 AND linked_at<=?2 THEN linked_at ELSE 0 END),battletag = NULL, bnet_conn_id = NULL, linked_at = NULL
         WHERE (battletag IS NOT NULL OR bnet_conn_id IS NOT NULL OR linked_at IS NOT NULL) AND (linked_at IS NULL OR linked_at <= ?1 OR linked_at > ?2)`,
     ).bind(cutoff, future),
     env.DB.prepare(
-      `UPDATE members SET bnet_account_id = NULL, bnet_linked_at = NULL
+      `UPDATE members SET activity_at=MAX(COALESCE(activity_at,0),CASE WHEN bnet_linked_at>0 AND bnet_linked_at<=?2 THEN bnet_linked_at ELSE 0 END),bnet_account_id = NULL, bnet_linked_at = NULL
         WHERE (bnet_account_id IS NOT NULL OR bnet_linked_at IS NOT NULL) AND (bnet_linked_at IS NULL OR bnet_linked_at <= ?1 OR bnet_linked_at > ?2)`,
     ).bind(cutoff, future),
     env.DB.prepare("DELETE FROM bnet_characters WHERE fetched_at IS NULL OR fetched_at <= ?1 OR fetched_at > ?2").bind(cutoff, future),

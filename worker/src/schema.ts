@@ -10,6 +10,7 @@ import type { Env } from "./env";
 import { now } from "./db";
 import { errorRef } from "./log";
 import { QR_PHASE1_DDL } from './qr-phase1-schema';
+import { PRIVACY_SERVING_SCHEMA } from "./privacy-serving-schema";
 
 let ready: Promise<void> | null = null;
 
@@ -55,6 +56,9 @@ async function migrate(env: Env) {
   await addColumn(env, "pending", "nonce", "TEXT");
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS pending_nonce ON pending(nonce, consumed_at)").run();
   await addColumn(env, "characters", "guid", "TEXT");
+  await addColumn(env,"members","activity_at","INTEGER");
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS roster_effects(run_id INTEGER NOT NULL,seq INTEGER NOT NULL,kind TEXT NOT NULL CHECK(kind IN('promote','note','depart')),name_key TEXT NOT NULL,name TEXT NOT NULL,discord_id TEXT NOT NULL,guid TEXT,done_at INTEGER,claim TEXT,subject_generation TEXT,PRIMARY KEY(run_id,seq))`).run();
+  await addColumn(env,"roster_effects","subject_generation","TEXT");
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS relays (
        officer_id TEXT PRIMARY KEY,
@@ -98,7 +102,12 @@ async function migrate(env: Env) {
   // 1 Oct 2026 (.50): /verify-status asks whether this account ever linked (bnet-retention.ts everLinked). Same as
   // migrations/2026-10-01-audit-actor-action.sql.
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action)").run();
+  // Older production restriction tables predate retain_until. Create the canonical cold shape first,
+  // then consume a zero-row probe/guarded ALTER before the site batch's retain index can reference it.
+  await env.DB.prepare(SITE_SCHEMA.find(s=>s.startsWith('CREATE TABLE IF NOT EXISTS community_restriction_cases'))!).run();
+  await addColumn(env,'community_restriction_cases','retain_until','INTEGER');
   await migrateGuildSite(env);
+  await addColumn(env,'privacy_serving_jobs','last_attempt_at','INTEGER');
   // .130: a parent-bound publication disposition; a separate probe/ALTER adds at most two cold statements.
   await addColumn(env, "community_events", "publication_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1))");
   await addColumn(env, "community_events", "reminder_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1))");
@@ -230,6 +239,7 @@ const LEGACY_ROLES = [
 
 export const SITE_SCHEMA = [
   ...QR_PHASE1_DDL,
+  ...PRIVACY_SERVING_SCHEMA,
   `CREATE TABLE IF NOT EXISTS site_users (
      discord_id      TEXT PRIMARY KEY,
      username        TEXT,
@@ -837,6 +847,7 @@ export const SITE_SCHEMA = [
      guid       TEXT,
      done_at    INTEGER,
      claim      TEXT,
+     subject_generation TEXT,
      PRIMARY KEY (run_id, seq)
    )`,
 ];

@@ -26,6 +26,9 @@ stubs["./roles"] = rolesMod.exports;
 const budgetMod = { exports: {} };
 new Function("module", "exports", "require", ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", "src", "scheduled-budget.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(budgetMod, budgetMod.exports, () => ({}));
 stubs["./scheduled-budget"] = budgetMod.exports;
+// .134 actual capture parser; these narrow legacy fixtures model an ORIGINAL missing subject.
+const privacyMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','privacy-serving-authority.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(privacyMod,privacyMod.exports,()=>({}));
+stubs['./privacy-serving-authority']=privacyMod.exports;
 const mod = { exports: {} };
 new Function("module", "exports", "require", js)(mod, mod.exports, (p) => stubs[p]);
 const { restoreMemberRole, restoreNote } = mod.exports;
@@ -33,7 +36,7 @@ const { restoreMemberRole, restoreNote } = mod.exports;
 // .114: the reapply hold (rename_holds) is answered from HELD; every other read from ROWS, as before
 let HELD = new Set();
 const held = (sql, id) => (/FROM rename_holds/.test(sql) ? (HELD.has(id) ? { held: 1 } : null) : undefined);
-const DB = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); return hh !== undefined ? hh : ROWS[id] ?? { n: 0, banned: null }; } }) }; } };
+const DB = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); return hh !== undefined ? hh : { privacy_generation:null,privacy_state:null,privacy_revision:null,...(ROWS[id] ?? { n: 0, banned: null }) }; } }) }; } };
 const GM = "1549581282227265566", OTHER = "1549581447768186960";
 const env = (over = {}) => ({ DB, ROLE_GUILD_MEMBER: GM, GUILD_ID: "236932545793490944", BLOCKING_ROLE_IDS: BLOCK, ...over });
 let REMOVES = [];
@@ -109,7 +112,7 @@ const A = "111111111111111111", B = "222222222222222222";
   reset(); ROWS[A] = { n: 1, banned: 0 };
   let bannedAfterRead = false;
   stubs["./discord"].guildMember = async () => { bannedAfterRead = true; return { roles: [] }; };
-  const dbBanAware = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); if (hh !== undefined) return hh; return /^SELECT banned FROM members WHERE discord_id = \?1$/.test(sql) ? { banned: bannedAfterRead ? 1 : 0 } : (ROWS[id] ?? { n: 0, banned: null }); } }) }; } };
+  const dbBanAware = { prepare: (sql) => { SQL.push(sql); return { bind: (id) => ({ first: async () => { const hh = held(sql, id); if (hh !== undefined) return hh; return /^SELECT banned FROM members WHERE discord_id = \?1$/.test(sql) ? { banned: bannedAfterRead ? 1 : 0 } : {privacy_generation:null,privacy_state:null,privacy_revision:null,...(ROWS[id] ?? { n: 0, banned: null })}; } }) }; } };
   check("a ban written while the member read was in flight is seen by the ban read that follows it: banned, nothing granted (.60)", (await restoreMemberRole(env({ DB: dbBanAware }), A, [OTHER], "status")) === "banned" && ADDS.length === 0);
   stubs["./discord"].guildMember = async () => ({ roles: [] });
 

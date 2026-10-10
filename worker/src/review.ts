@@ -3,8 +3,11 @@ import type { Env } from "./env";
 import { audit, now, type PendingRow } from "./db";
 import { postMessage } from "./discord";
 import { notify } from "./dm";
+import { admittedPrivacySubjectWrite, readPrivacySubject, pendingPrivacyCapture, pendingRequestFence, type PrivacySubject } from './privacy-serving-authority';
+import { messageOperationId,postPrivacyMessage } from './privacy-provider-messages';
 
-export async function enqueueInvite(env: Env, nameKey: string, name: string, discordId: string, approvedBy: string) {
+export async function enqueueInvite(env: Env, nameKey: string, name: string, discordId: string, approvedBy: string, originalCapture?:PrivacySubject|null,originalPending?:PendingRow) {
+  const capture=originalCapture===undefined?await readPrivacySubject(env,discordId):originalCapture;
   const note = env.SET_GUILD_NOTE === "true" ? `D:${discordId}` : null; // public note ≤ 31 chars; "D:" + 17–19 digits fits
   // Build .41: a live row for this name (queued, written, or invited and not accepted yet) is taken over in place
   // rather than replaced. The applicant keeps their place in line, a reserved name the guild site put at the top keeps
@@ -46,24 +49,26 @@ export async function enqueueInvite(env: Env, nameKey: string, name: string, dis
                         THEN 1 ELSE 0 END)`,
         ).bind(nameKey, name, discordId, note, now(), approvedBy),
       ];
-  await env.DB.batch([
+  await admittedPrivacySubjectWrite(env,discordId,capture,[
+    ...(originalPending?[pendingRequestFence(env,originalPending)]:[]),
     ...steps,
     env.DB.prepare("UPDATE characters SET status = 'queued' WHERE name_key = ?1 AND discord_id = ?2").bind(nameKey, discordId),
     env.DB.prepare(
       "UPDATE site_reserved SET queue_id = (SELECT MAX(id) FROM invite_queue WHERE name_key = ?1 AND status IN ('queued','written')) WHERE name_key = ?1 AND status = 'queued'",
     ).bind(nameKey),
   ]);
-  await audit(env, approvedBy, "invite.queued", name, { discordId, ...(live ? { kept: live.id } : {}), ...(live?.priority ? { priority: live.priority } : {}) });
+  await audit(env, approvedBy, "invite.queued", name, { discordId, ...(live ? { kept: live.id } : {}), ...(live?.priority ? { priority: live.priority } : {}) },{subject:discordId,capture});
 }
 
 /** Called after an in-game code was validated. Returns the message shown to the applicant by DM. */
-export async function onVerified(env: Env, pending: PendingRow, source: string): Promise<void> {
+export async function onVerified(env: Env, pending: PendingRow, source: string, originalCapture?:PrivacySubject|null): Promise<void> {
+  const capture=originalCapture===undefined?pendingPrivacyCapture(pending):originalCapture;
   if (env.ADMISSION_MODE === "auto") {
-    await enqueueInvite(env, pending.name_key, pending.name, pending.discord_id, "auto");
-    await safeDm(env, pending.discord_id, `**${pending.name}** is verified. Your guild invite fires from an officer's client on their next flush; your Guild Member role follows once you appear on the roster.`);
+    await enqueueInvite(env, pending.name_key, pending.name, pending.discord_id, "auto",capture,pending);
+    await safeDm(env, pending.discord_id, `**${pending.name}** is verified. Your guild invite fires from an officer's client on their next flush; your Guild Member role follows once you appear on the roster.`,capture);
     return;
   }
-  const msg = await postMessage(env, env.CHANNEL_RECRUITMENT_REVIEW, {
+  const msg = await postPrivacyMessage(env,'review',env.CHANNEL_RECRUITMENT_REVIEW, {
     content: `**Application — ${pending.name}** (<@${pending.discord_id}>), code confirmed in game via ${source} <t:${now()}:R>.`,
     components: [
       {
@@ -75,37 +80,40 @@ export async function onVerified(env: Env, pending: PendingRow, source: string):
       },
     ],
     allowed_mentions: { parse: [] },
-  });
-  await env.DB.prepare("UPDATE pending SET consumed_source = ?2 WHERE id = ?1").bind(pending.id, `${source}:card:${msg.id}`).run();
-  await safeDm(env, pending.discord_id, `**${pending.name}** is verified and waiting for an officer's approval. You will get a DM when the invite is queued.`);
+  },[{subject:pending.discord_id,capture}],await messageOperationId('review',`${pending.id}:${pending.created_at}:${pending.discord_id}:${capture?.subjectGeneration??'absent'}`));
+  if(!msg)return;
+  await admittedPrivacySubjectWrite(env,pending.discord_id,capture,[env.DB.prepare("UPDATE pending SET consumed_source = ?2 WHERE id = ?1").bind(pending.id, `${source}:card:${msg.id}`)]);
+  await safeDm(env, pending.discord_id, `**${pending.name}** is verified and waiting for an officer's approval. You will get a DM when the invite is queued.`,capture);
 }
 
 export async function approvePending(env: Env, pendingId: number, actor: string): Promise<{ ok: boolean; message: string }> {
-  const p = await env.DB.prepare("SELECT * FROM pending WHERE id = ?1").bind(pendingId).first<PendingRow>();
+  const p = await env.DB.prepare("SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.id=?1").bind(pendingId).first<PendingRow>();
   if (!p) return { ok: false, message: "That application no longer exists." };
+  const capture=pendingPrivacyCapture(p);
   const ch = await env.DB.prepare("SELECT status, discord_id FROM characters WHERE name_key = ?1").bind(p.name_key).first<{ status: string; discord_id: string }>();
   if (!ch || ch.discord_id !== p.discord_id || ch.status === "unbound") return { ok: false, message: "This binding was removed; ask the applicant to run /verify again." };
   if (ch.status === "queued" || ch.status === "member") return { ok: false, message: `Already ${ch.status}.` };
   const member = await env.DB.prepare("SELECT banned FROM members WHERE discord_id = ?1").bind(p.discord_id).first<{ banned: number }>();
   if (member?.banned) return { ok: false, message: "This account is banned from verification." };
-  await enqueueInvite(env, p.name_key, p.name, p.discord_id, actor);
-  await safeDm(env, p.discord_id, `Approved — your invite for **${p.name}** is queued and fires from an officer's client on their next flush. Accept it in game; your Guild Member role follows automatically.`);
+  await enqueueInvite(env, p.name_key, p.name, p.discord_id, actor,capture,p);
+  await safeDm(env, p.discord_id, `Approved — your invite for **${p.name}** is queued and fires from an officer's client on their next flush. Accept it in game; your Guild Member role follows automatically.`,capture);
   return { ok: true, message: `✅ **${p.name}** (<@${p.discord_id}>) approved by <@${actor}> <t:${now()}:R> — invite queued.` };
 }
 
 export async function denyPending(env: Env, pendingId: number, actor: string): Promise<{ ok: boolean; message: string }> {
-  const p = await env.DB.prepare("SELECT * FROM pending WHERE id = ?1").bind(pendingId).first<PendingRow>();
+  const p = await env.DB.prepare("SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.id=?1").bind(pendingId).first<PendingRow>();
   if (!p) return { ok: false, message: "That application no longer exists." };
-  await env.DB.batch([
+  const capture=pendingPrivacyCapture(p);
+  await admittedPrivacySubjectWrite(env,p.discord_id,capture,[pendingRequestFence(env,p),
     env.DB.prepare("UPDATE characters SET status = 'denied' WHERE name_key = ?1 AND discord_id = ?2 AND status = 'verified'").bind(p.name_key, p.discord_id),
     env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(p.name_key),
   ]);
-  await audit(env, actor, "review.denied", p.name, { discordId: p.discord_id });
-  await safeDm(env, p.discord_id, `Your application for **${p.name}** was not approved. You can ask in #help-desk if you want to know why.`);
+  await audit(env, actor, "review.denied", p.name, { discordId: p.discord_id },{subject:p.discord_id,capture});
+  await safeDm(env, p.discord_id, `Your application for **${p.name}** was not approved. You can ask in #help-desk if you want to know why.`,capture);
   return { ok: true, message: `❌ **${p.name}** (<@${p.discord_id}>) denied by <@${actor}> <t:${now()}:R>.` };
 }
 
 /** Review decisions are user-initiated and never arrive in bulk, but they share the Worker-wide rate cap anyway. */
-async function safeDm(env: Env, userId: string, content: string) {
-  await notify(env, userId, content, "review");
+async function safeDm(env: Env, userId: string, content: string,capture:PrivacySubject|null) {
+  await notify(env, userId, content, "review",undefined,capture);
 }

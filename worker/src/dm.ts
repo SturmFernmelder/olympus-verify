@@ -26,6 +26,8 @@ import type { Env } from "./env";
 import { audit, now } from "./db";
 import { intVar } from "./env";
 import { explainDiscordError, logLine, postMessage } from "./discord";
+import { readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
+import { postPrivacyMessage } from './privacy-provider-messages';
 
 const WINDOW_SECONDS = 60;
 const MAX_MENTIONS_PER_POST = 20;   // one post never pings more than this many people
@@ -41,6 +43,7 @@ export interface Notice {
   userId: string;
   content: string;
   kind: string;
+  privacyCapture?:PrivacySubject|null;
 }
 
 /** Collects the notices of one roster sync or one batch of game events, so they go out as one post, not one each. */
@@ -53,13 +56,15 @@ export const noticeBatch = (): NoticeBatch => ({ items: [] });
  * Tell one member something. With a batch, it waits for the batch to be flushed; without one, it posts now.
  * Returns whether it was (or will be) posted; callers treat `false` as normal, not as an error.
  */
-export async function notify(env: Env, userId: string, content: string, kind: string, batch?: NoticeBatch): Promise<boolean> {
+export async function notify(env: Env, userId: string, content: string, kind: string, batch?: NoticeBatch,originalCapture?:PrivacySubject|null): Promise<boolean> {
   if (!/^\d{5,25}$/.test(userId)) return false;  // a snowflake or nothing: never let text reach the mention syntax
+  const privacyCapture=originalCapture===undefined?await readPrivacySubject(env,userId):originalCapture;
+  if(privacyCapture&&privacyCapture.state!=='active')return false;
   if (batch) {
-    batch.items.push({ userId, content, kind });
+    batch.items.push({ userId, content, kind,privacyCapture });
     return true;
   }
-  return postNotices(env, [{ userId, content, kind }]);
+  return postNotices(env, [{ userId, content, kind,privacyCapture }]);
 }
 
 /** Post whatever a batch collected. Never throws: it runs in `finally` blocks and must not mask the real error. */
@@ -108,7 +113,7 @@ async function postNotices(env: Env, items: Notice[]): Promise<boolean> {
   const channel = (env.CHANNEL_NOTICES ?? "").trim();
   if (!channel) {
     // Not configured: say nothing rather than fall back to anything else. Audited so the gap is visible.
-    for (const i of items) await audit(env, "system", "notice.no_channel", i.userId, { kind: i.kind });
+    for (const i of items) await audit(env, "system", "notice.no_channel", i.userId, { kind: i.kind },{subject:i.userId,capture:i.privacyCapture??null});
     return false;
   }
   const posts = composeNotices(items);
@@ -119,7 +124,7 @@ async function postNotices(env: Env, items: Notice[]): Promise<boolean> {
   let posted = 0;
   for (const p of posts) {
     if (room <= 0) {
-      for (const u of p.users) await audit(env, "system", "notice.suppressed", u, { cap });
+      for (const u of p.users) await audit(env, "system", "notice.suppressed", u, { cap },{subject:u,capture:items.find(i=>i.userId===u)?.privacyCapture??null});
       const already = await env.DB.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'notice.capped' AND ts > ?1").bind(since).first<{ n: number }>();
       if (!(already?.n ?? 0)) {
         await audit(env, "system", "notice.capped", undefined, { cap });
@@ -129,13 +134,15 @@ async function postNotices(env: Env, items: Notice[]): Promise<boolean> {
     }
     try {
       // Only the members named in this post can be pinged: never @everyone, @here or a role, whatever the text says.
-      await postMessage(env, channel, { content: p.content, allowed_mentions: { parse: [], users: p.users } });
+      const refs=p.users.map(userId=>({subject:userId,capture:items.find(i=>i.userId===userId)?.privacyCapture??null}));
+      const sent=await postPrivacyMessage(env,'notice',channel,{content:p.content,allowed_mentions:{parse:[],users:p.users}},refs);
+      if(!sent)continue;
       await audit(env, "system", "notice.posted", undefined, { users: p.users.length });
       room--;
       posted++;
     } catch (e) {
       const why = explainDiscordError(e);
-      for (const u of p.users) await audit(env, "system", "notice.failed", u, { error: why });
+      for (const u of p.users) await audit(env, "system", "notice.failed", u, { error: why },{subject:u,capture:items.find(i=>i.userId===u)?.privacyCapture??null});
       const already = await env.DB.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'notice.failed' AND ts > ?1").bind(since).first<{ n: number }>();
       if ((already?.n ?? 0) <= p.users.length) await logLine(env, `⚠️ could not post a notice in <#${channel}>: ${why}`);
     }

@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { privacyGenerationFenceSql,type PrivacySubject } from './privacy-serving-authority';
 
 export const now = () => Math.floor(Date.now() / 1000);
 
@@ -19,9 +20,12 @@ export function likeArg(s: string, prefix = false): string {
   return `${lead}${body}%`;
 }
 
-export async function audit(env: Env, actor: string, action: string, subject?: string, details?: unknown) {
-  await env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?1, ?2, ?3, ?4, ?5)")
-    .bind(now(), actor, action, subject ?? null, details === undefined ? null : JSON.stringify(details))
+export type PrivacyReference={subject:string;capture:PrivacySubject|null};
+export async function audit(env: Env, actor: string, action: string, subject?: string, details?: unknown,reference?:PrivacyReference|PrivacyReference[]) {
+  const references=reference===undefined?null:Array.isArray(reference)?reference:[reference];
+  const sql="INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, ?3, ?4, ?5"+(references?` WHERE NOT EXISTS (SELECT 1 FROM json_each(?6) j WHERE NOT ((json_extract(j.value,'$.g') IS NULL AND NOT EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=json_extract(j.value,'$.id'))) OR EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=json_extract(j.value,'$.id') AND p.generation=json_extract(j.value,'$.g') AND p.state='active')))`:'');
+  await env.DB.prepare(sql)
+    .bind(now(), actor, action, subject ?? null, details === undefined ? null : JSON.stringify(details),...(references?[JSON.stringify(references.map(r=>({id:r.subject,g:r.capture?.subjectGeneration??null})))]:[]))
     .run();
 }
 
@@ -46,6 +50,9 @@ export interface CharacterRow {
   left_at: number | null;
   source: string | null;
   guid?: string | null; // pinned when the link first meets a roster export (schema.ts)
+  privacy_generation?:string|null;
+  privacy_state?:'active'|'retiring'|'retired'|null;
+  privacy_revision?:number|null;
 }
 
 export interface PendingRow {
@@ -57,6 +64,9 @@ export interface PendingRow {
   expires_at: number;
   consumed_at: number | null;
   nonce?: string | null; // a request code ("ticket"): no character until someone whispers it
+  privacy_generation?:string|null;
+  privacy_state?:'active'|'retiring'|'retired'|null;
+  privacy_revision?:number|null;
 }
 
 export interface QueueRow {
@@ -73,25 +83,25 @@ export const getMember = (env: Env, id: string) =>
   env.DB.prepare("SELECT * FROM members WHERE discord_id = ?1").bind(id).first<MemberRow>();
 
 export const getCharacter = (env: Env, nameKey: string) =>
-  env.DB.prepare("SELECT * FROM characters WHERE name_key = ?1").bind(nameKey).first<CharacterRow>();
+  env.DB.prepare("SELECT c.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.name_key = ?1").bind(nameKey).first<CharacterRow>();
 
 export const openPendingFor = (env: Env, nameKey: string) =>
   env.DB.prepare(
-    "SELECT * FROM pending WHERE name_key = ?1 AND consumed_at IS NULL AND expires_at > ?2 ORDER BY id DESC LIMIT 1",
+    "SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.name_key=?1 AND p.consumed_at IS NULL AND p.expires_at>?2 ORDER BY p.id DESC LIMIT 1",
   )
     .bind(nameKey, now())
     .first<PendingRow>();
 
 /** The open request code with this nonce (unique among open requests by construction), or null. */
 export const openTicket = (env: Env, nonce: string) =>
-  env.DB.prepare("SELECT * FROM pending WHERE nonce = ?1 AND consumed_at IS NULL AND expires_at > ?2 ORDER BY id DESC LIMIT 1")
+  env.DB.prepare("SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.nonce=?1 AND p.consumed_at IS NULL AND p.expires_at>?2 ORDER BY p.id DESC LIMIT 1")
     .bind(nonce, now())
     .first<PendingRow>();
 
 /** This account's open request code, so pressing Verify twice shows the same code instead of minting another. */
 export const openTicketFor = (env: Env, discordId: string) =>
   env.DB.prepare(
-    "SELECT * FROM pending WHERE discord_id = ?1 AND nonce IS NOT NULL AND consumed_at IS NULL AND expires_at > ?2 ORDER BY id DESC LIMIT 1",
+    "SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.discord_id=?1 AND p.nonce IS NOT NULL AND p.consumed_at IS NULL AND p.expires_at>?2 ORDER BY p.id DESC LIMIT 1",
   )
     .bind(discordId, now())
     .first<PendingRow>();

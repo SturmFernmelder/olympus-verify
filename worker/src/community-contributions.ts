@@ -236,7 +236,7 @@ function parseRevision(token: LedgerRevision): { incarnation: string; revision: 
  * the server. The same fence for a member acknowledging and for a staff member recording.
  */
 export type SessionFence = CommunitySubject;
-const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos)}` : "");
+const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos,fence.privacyGeneration??null)}` : "");
 const fenceBinds = (fence: SessionFence | undefined) => (fence ? [fence.discordId, fence.sessionVersion, fence.expiresAt] : []);
 
 /** A new member row gets a fresh random incarnation; an existing one keeps its incarnation and bumps its revision; only when this request's obligation row was inserted. */
@@ -746,7 +746,7 @@ export async function attestEvidence(env: Env, input: { guildScope: string; peri
 
 /** Why the fence refuses now, if it does, judged by the database clock and facts in SQL (.80): the session ended (session_expired), or the actor lost standing (denied, left the server: standing_lost). */
 export async function fenceRefusal(env: Env, fence: SessionFence): Promise<"session_expired" | "standing_lost" | null> {
-  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
+  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3,fence.privacyGeneration??null)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3,fence.privacyGeneration??null)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
   if (row?.session_ok !== 1) return "session_expired";
   if (row.standing_ok !== 1) return "standing_lost";
   return null;

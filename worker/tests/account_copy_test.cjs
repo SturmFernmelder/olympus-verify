@@ -42,11 +42,12 @@ function d1(db, hooks = {}) {
     prepare: stmt,
     batch: async (stmts) => {
       hooks.count?.();
-      hooks.beforeBatch?.(++batches); // .74: a test may change the facts between the context read and this payload batch
+      const payload=stmts.length>2; // .134 two-statement original-session facades are admission/read guards, not the captured payload.
+      if(payload)hooks.beforeBatch?.(++batches);
       db.exec("BEGIN");
       let out;
       try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
+      if(payload)hooks.afterBatch?.(batches);
       return out;
     },
   };
@@ -261,13 +262,13 @@ async function erasureRequest(target, actor) {
   check("a copy is read in exactly one batch: the keeper's sections and every registry section in the same admitted transaction", r.status === 200 && lastBatch === 1 && ["refs", "directory", "events", "trials", "restrictions", "departures"].every((k) => k in r.body.community), lastBatch, Object.keys(r.body.community || {}).join());
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(OTHER); } };
   r = await call("GET", "/api/me/export", OTHER);
-  check("the session invalidated between the context read and the batch: 401 signed_out, no section of the copy", r.status === 401 && r.body.error === "signed_out" && !("community" in r.body) && !("account" in r.body), JSON.stringify(r.body).slice(0, 200));
+  check("the original-session facade refuses a changed session before copy payload, no section is returned", r.status === 503 && r.body.error === "erasure_held" && !("community" in r.body) && !("account" in r.body), JSON.stringify(r.body).slice(0, 200));
   db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(OTHER);
   let late = false;
   AFTER = (i) => { if (i === 1) db.prepare("UPDATE site_users SET session_version = 3 WHERE discord_id = ?").run(OTHER); if (i >= 2) late = true; };
   r = await call("GET", "/api/me/export", OTHER);
   AFTER = null;
-  check("the session invalidated right after the batch: the whole admitted transaction is answered without a later database read or all-store completion claim", r.status === 200 && late === false && "restrictions" in r.body.community && r.body.about.startsWith("A curated partial copy about your own Discord account"), JSON.stringify(r.body).slice(0, 120));
+  check("the session invalidated right after the batch: the whole admitted transaction is answered without a later payload re-read or all-store completion claim", r.status === 200 && late === false && "restrictions" in r.body.community && r.body.about.startsWith("A curated partial copy about your own Discord account"), JSON.stringify(r.body).slice(0, 120));
   db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(OTHER);
   check("(no hook left armed)", BEFORE === null && AFTER === null);
 
@@ -404,7 +405,7 @@ async function erasureRequest(target, actor) {
         } finally { T = originalTime; BEFORE = null; }
         const expired = await signedSession({ ...payload, e: Math.floor(RealDate.now()/1000)-1 }); batches = 0; BEFORE = () => { batches++; };
         const response = await start(f.id, expired); BEFORE = null;
-        check(".118 genuine SQLite-clock expiry refuses an attempted admitted API batch without any payload or export audit", [401,409].includes(response.status) && ["signed_out","conflict"].includes(response.body.error) && batches === 1 && !("account" in response.body) && !("actions" in response.body) && copies(f.id) === beforeCopies);
+        check(".118 genuine SQLite-clock expiry refuses an attempted admitted API batch without any payload or export audit", response.status === 503 && response.body.error === "erasure_held" && batches === 0 && !("account" in response.body) && !("actions" in response.body) && copies(f.id) === beforeCopies);
       }
       for (const standing of ["denied", "departed", "banned"]) {
         const f = newAccount(1, { denied: standing === "denied" ? 1 : 0, in_server: standing === "departed" ? 0 : 1 });
@@ -710,7 +711,7 @@ async function erasureRequest(target, actor) {
       await seed(); const expiry = one("SELECT CAST(strftime('%s','now') AS INTEGER) AS s").s - 1, expired = await signed(MEMBER, STAFF, { e: expiry }), beforeExpiry = snapshot();
       BEFORE = () => { batches++; };
       const expiryResult = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }, ON, { Cookie: expired }); BEFORE = null;
-      check(".133 original cookie expired by database clock cannot delete despite older process clock", expiryResult.status === 503 && expiryResult.body.error === "erasure_held" && batches === 1 && snapshot() === beforeExpiry && auditCount() === 0);
+      check(".133 original cookie expired by database clock cannot delete despite older process clock", expiryResult.status === 503 && expiryResult.body.error === "erasure_held" && batches === 0 && snapshot() === beforeExpiry && auditCount() === 0);
       await seed(); const prooflessBefore = snapshot(); let prooflessHeld = false;
       try { await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF); } catch { prooflessHeld = true; }
       check(".133 proofless internal caller is held; current actor row never synthesizes admission", prooflessHeld && snapshot() === prooflessBefore && auditCount() === 0);
@@ -759,7 +760,7 @@ async function erasureRequest(target, actor) {
       const denied = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }), denial = one("SELECT * FROM site_users WHERE discord_id=?", MEMBER);
       check(".133 existing denied residue is unchanged policy, with identity cleared and session advanced", denied.status === 200 && denial.denied === 1 && denial.denied_reason === "existing denial detail" && denial.denied_by === STAFF && denial.denied_at === T-100 && denial.username === null && denial.session_version === 2 && denial.first_login === T-100);
       await seed(); const beforeLost = auditCount(), base = env(ON).DB; let attempts = 0;
-      const lost = { ...base, batch: async statements => { attempts++; await base.batch(statements); throw Error("synthetic committed response loss"); } };
+      const lost = { ...base, batch: async statements => { const payload=statements.length>2;if(payload)attempts++;const out=await base.batch(statements);if(payload)throw Error("synthetic committed response loss");return out; } };
       const uncertain = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }, { ...ON, DB: lost });
       check(".133 lost post-commit answer is held honestly, preserves atomic audit/custody and causes no implicit retry", uncertain.status === 503 && uncertain.body.error === "erasure_held" && attempts === 1 && !one("SELECT 1 FROM site_users WHERE discord_id=?", MEMBER) && auditCount() === beforeLost + 1);
       await seed(); const session = await cookieFor(MEMBER), page = await indexMod.default.fetch(new Request("https://guild.example/privacy/account", { headers: { Cookie: session } }), env(ON), ctx);

@@ -37,10 +37,12 @@
  * and the SQL that names a run as current. It imports nothing that reaches Discord.
  */
 import type { Env } from "./env";
+import { privacyDatabaseAdmissionOverhead,privacyProviderCustodyDatabase,registerPrivacyCountedDatabase } from './privacy-serving-authority';
 
 /** Statement attempts one invocation (or one job of the cron's) has made so far through a counted env. */
 export interface StatementCount {
   used: number;
+  factor?:number;
 }
 
 const RAW = Symbol("raw statement");
@@ -51,24 +53,25 @@ const RAW = Symbol("raw statement");
  * changes (the statements, their binds and their results are D1's own).
  */
 export function countStatements(env: Env, count: StatementCount): Env {
-  const db = env.DB;
+  const overhead=privacyDatabaseAdmissionOverhead(env.DB);count.factor=1+overhead;
+  const decorate=(db:D1Database,overhead:number):D1Database=>{
   const wrap = (s: D1PreparedStatement): D1PreparedStatement => {
     const w = {
       bind: (...values: unknown[]) => wrap(s.bind(...values)),
       first: (...a: unknown[]) => {
-        count.used++;
+        count.used+=1+overhead;
         return (s.first as (...x: unknown[]) => Promise<unknown>)(...a);
       },
       run: () => {
-        count.used++;
+        count.used+=1+overhead;
         return s.run();
       },
       all: () => {
-        count.used++;
+        count.used+=1+overhead;
         return s.all();
       },
       raw: (...a: unknown[]) => {
-        count.used++;
+        count.used+=1+2*overhead;
         return (s.raw as (...x: unknown[]) => Promise<unknown>)(...a);
       },
       [RAW]: s,
@@ -78,7 +81,7 @@ export function countStatements(env: Env, count: StatementCount): Env {
   const counted = {
     prepare: (query: string) => wrap(db.prepare(query)),
     batch: (statements: D1PreparedStatement[]) => {
-      count.used += statements.length;
+      count.used += statements.length+overhead;
       return db.batch(statements.map((x) => (x as unknown as { [RAW]?: D1PreparedStatement })[RAW] ?? x));
     },
     exec: (query: string) => {
@@ -87,7 +90,10 @@ export function countStatements(env: Env, count: StatementCount): Env {
     },
     dump: () => (db as unknown as { dump: () => Promise<ArrayBuffer> }).dump(),
   };
-  return { ...env, DB: counted as unknown as D1Database };
+  return counted as unknown as D1Database;};
+  const counted=decorate(env.DB,overhead),native=privacyProviderCustodyDatabase(env);
+  registerPrivacyCountedDatabase(counted,native===env.DB?counted:decorate(native,0),overhead);
+  return {...env,DB:counted};
 }
 
 /** What an invocation may still spend: its limit, less what it has spent, less what it must keep for later (`reserve`). */
@@ -95,7 +101,7 @@ export interface Admission {
   count: StatementCount;
   limit: number;
 }
-export const room = (a: Admission, reserve: number): number => a.limit - a.count.used - reserve;
+export const room = (a: Admission, reserve: number): number => Math.floor((a.limit-a.count.used)/(a.count.factor??1))-reserve;
 
 /**
  * Each kind's worst case in statement attempts, its claim batch included; an attempt D1 refuses counts too, and a refused
@@ -109,14 +115,18 @@ export const room = (a: Admission, reserve: number): number => a.limit - a.count
  * - depart: the claim batch (2: the claim, status left); then the remaining-characters count, a failed removal's
  *   audit, a failed member read's audit and roster.left (4). A roster departure posts no notice.
  */
-export const EFFECT_WORST = { promote: 15, note: 17, depart: 6 } as const;
+export const EFFECT_WORST = { promote: 20, note: 22, depart: 7 } as const;
+/** Durable central roles and bot-qualified message custody replace the old direct effects. Root's
+ * joined gate must measure these envelopes against the exact composed central source before ON. */
+export const SERVING_EFFECT_WORST = {promote:40,note:42,depart:25} as const;
+export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'?SERVING_EFFECT_WORST:EFFECT_WORST;}
 /**
  * The same when the run's Discord-call budget can no longer afford a grant (roles.ts affords(calls, GRANT_CALLS) is false):
  * the writer returns "budget" before any read, writing role.budget_exhausted at most once (counted here each time), and the
  * promotion writes role.deferred (and role.add_failed when that is refused). The call budget only shrinks within a run, so
  * once this applies it applies to the rest of the run.
  */
-export const EFFECT_DEFERRED_WORST = { promote: 11, note: 13 } as const;
+export const EFFECT_DEFERRED_WORST = { promote: 16, note: 18 } as const;
 /** A slice's own statements: the selection, the end batch (done items removed, the run's done_at), a failure's audit. */
 export const SLICE_FIXED = 4;
 /** The notices' flush reads the post cap once and, when a write of its own is refused, records notice.flush_failed (dm.ts);
@@ -125,7 +135,7 @@ export const NOTICE_FLUSH_FIXED = 2;
 /** SQL still owed by dm.ts's buffered notices. Each item can occupy its own post: the member's audit, the cap/failure
  *  read, and the cap audit (or the posted audit followed by a failed audit). The flush's one cap read and failure audit
  *  are reserved separately above. Count this debt before admitting another effect, not only when finally flushes. */
-export const noticeStatementsPending = (batch: { items: unknown[] }): number => 3 * batch.items.length;
+export const noticeStatementsPending = (batch: { items: unknown[] }): number => 5 * batch.items.length;
 
 /**
  * Identity effects (roster.ts reconcileIdentities) admitted the same way: a release is its guarded batch (2), departure
@@ -134,7 +144,7 @@ export const noticeStatementsPending = (batch: { items: unknown[] }): number => 
  * mutating it, so a stale export neither moves the link nor archives a different account's target row. The swap report
  * and the held-releases report are each at most a read and an audit, once.
  */
-export const RELEASE_WORST = 8;
+export const RELEASE_WORST = 9;
 export const RENAME_WORST = 6;
 export const IDENTITY_FIXED = 4;
 

@@ -47,22 +47,22 @@ export const SCHEDULED_STATEMENT_TARGET = 700;
 /** Per-run caps the jobs read from here. */
 export const SCHEDULED_CAPS = {
   /** restore.ts: accounts one Guild Member sweep may check; ROLE_SWEEP_PER_RUN is clamped to it (configured 10; the clamp was 50). */
-  roleSweepAccounts: 10,
+  roleSweepAccounts: 1,
   /** restore.ts BANNED_PER_RUN: banned or held accounts the sweep re-checks (unchanged; the test checks the two agree). */
-  roleSweepBanned: 5,
+  roleSweepBanned: 2,
   /** names.ts: linked members whose Discord names one run re-reads; NAMES_PER_RUN is clamped to it (configured 5; unchanged). */
-  namesPerRun: 20,
+  namesPerRun: 5,
   /** community-directory.ts: profiles thirty days departed that one run erases (was 100); the rest go in the next runs. */
-  profilesPerRun: 10,
+  profilesPerRun: 1,
   /** community-contributions.ts: weekly obligations one run opens (was 200); the rest open in the next runs. */
-  obligationsPerRun: 24,
+  obligationsPerRun: 8,
   /**
    * roster.ts continueRosterEffects: the statement attempts one cron run may spend on the roster's pending member effects
    * (Codex, 3 Oct 2026 16:48 UTC, finding A). Each item is admitted at its kind's worst case before it starts
    * (roster-effects.ts EFFECT_WORST), so this is the job's bound; the ingest that made the worklist, and every later
    * export, apply larger slices in their own invocations.
    */
-  rosterEffectsStatements: 40,
+  rosterEffectsStatements: 64,
 } as const;
 
 const C = SCHEDULED_CAPS;
@@ -77,7 +77,7 @@ const C = SCHEDULED_CAPS;
  * attempted), then 14 probes + 14 ALTERs + 2 indexes, the two publication/reminder closure probes/ALTERs, the marker read + the 3-statement rewrite. Every invocation that
  * reaches D1 may pay it once (a fresh isolate), so the allowances below are measured from it.
  */
-const SCHEMA_WORST = 10 + 7 + 101 + 16 + 28 + 2 + 4 + 4;
+const SCHEMA_WORST = 10 + 7 + 101 + 16 + 28 + 2 + 4 + 4 + 19 + 8;
 
 export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule: string }> = [
   {
@@ -91,9 +91,9 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     // 6 reads before the accounts, the banned selection, the budget audit, the sweep audit, the sweep_failed audit;
     // per account at most 4 ban/hold reads and 3 audit attempts (the failure path; the success path is 5); per banned or
     // held account 2 reads and 2 audit attempts. scheduled_budget_test measures 7, 5 and 4 exactly (review of 3 Oct 2026);
-    // the role sweep is capped at the configured ten accounts, preserving rotation for later cron runs
-    worst: 10 + 7 * C.roleSweepAccounts + 4 * C.roleSweepBanned,
-    rule: "10 fixed + 7 per account (at most roleSweepAccounts) + 4 per banned or held account (at most roleSweepBanned), failures included",
+    // the call budget (at most 50 requests) stops a failure run at 11 accounts, so 20 is the account cap's bound
+    worst: 10 + 40 * C.roleSweepAccounts + 12 * C.roleSweepBanned,
+    rule: "10 fixed + conservative central generation/queue/settlement and legacy guard envelope40 per account +12 per banned/held account; joined QR activation requires actual max-path composition gate",
   },
   {
     job: "continueRosterEffects",
@@ -117,6 +117,8 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
+  {job:'runServingErasureJob',worst:140,rule:'one oldest current job, native inactive admission fallback, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase; completed-account message cleanup shares this envelope'},
+  {job:'sweepServingRetention',worst:18,rule:'fixed18-statement native batch, each deterministic selection capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
 ];
 
 /** The sum of the table: the whole scheduled invocation's worst case. */

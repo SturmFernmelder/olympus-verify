@@ -1,3 +1,4 @@
+import { privacyGenerationLiteralFenceSql, privacySubjectWritableSql } from './privacy-serving-authority';
 /**
  * .56 (1 Oct 2026): the adapter contract for the community modules ported from Olympus Forever (consolidation batch 1
  * of Codex's keeper adapter map, evidence/forever-keeper-adapter-map.md, 1 Oct 01:07 UTC).
@@ -52,6 +53,7 @@ export function communityFeatures(env: Env): Set<CommunityFeature> {
 
 export interface CommunitySubject {
   discordId: string;
+  privacyGeneration?:string|null;
   sessionVersion: number;
   /** Unix seconds, from the cookie: bound into the fence and compared with the database clock inside the first statement (.59); the code check in admitted() is only a zero-I/O fast refusal. */
   expiresAt: number;
@@ -136,10 +138,11 @@ export async function communityContext(env: Env, request: Request): Promise<Comm
   const features = communityFeatures(env);
   const s = await readSession(env, request);
   if (!s) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
-  const user = await env.DB.prepare("SELECT * FROM site_users WHERE discord_id = ?1").bind(s.u).first<SiteUser>();
+  const user = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u).first<SiteUser>();
   if (!user || user.session_version !== s.v) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
+  user.privacyGeneration=s.g;
   const facts = await communityFacts(env, user);
-  return { subject: { discordId: s.u, sessionVersion: s.v, expiresAt: s.e }, user, facts, capabilities: capabilitiesOf(facts), features };
+  return { subject: { discordId: s.u, sessionVersion: s.v, expiresAt: s.e,privacyGeneration:s.g }, user, facts, capabilities: capabilitiesOf(facts), features };
 }
 
 /** What the page may know: the capabilities, the flags, and the member's own id (which /api/me already gives them). */
@@ -163,9 +166,10 @@ export const DB_NOW = "CAST(strftime('%s', 'now') AS INTEGER)";
  * caller binds them at those positions. Mirrors capabilitiesOf exactly, evaluated inside the statement so nothing can
  * change between the check and the write, and the expiry is compared with the database clock at execution.
  */
-export function fenceSql(cap: FenceCapability, id: number, version: number, expires: number): string {
-  if (cap === "authenticatedIdentity") return `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version}) AND ?${expires} > ${DB_NOW}`;
-  const applicant = `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version} AND fu.denied = 0 AND fu.in_server = 1) AND ?${expires} > ${DB_NOW}`;
+export function fenceSql(cap: FenceCapability, id: number, version: number, expires: number,generation?:string|null): string {
+  const lifecycle=generation===undefined?privacySubjectWritableSql("fu.discord_id"):privacyGenerationLiteralFenceSql("fu.discord_id",generation);
+  if (cap === "authenticatedIdentity") return `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version} AND ${lifecycle}) AND ?${expires} > ${DB_NOW}`;
+  const applicant = `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version} AND fu.denied = 0 AND fu.in_server = 1 AND ${lifecycle}) AND ?${expires} > ${DB_NOW}`;
   if (cap === "applicantWrite") return applicant;
   return `${applicant} AND EXISTS (SELECT 1 FROM characters fc WHERE fc.discord_id = ?${id} AND fc.status = 'member') AND NOT EXISTS (SELECT 1 FROM members fm WHERE fm.discord_id = ?${id} AND fm.banned = 1)`;
 }
@@ -186,7 +190,9 @@ export function randomToken(): string {
  */
 export async function admitted(env: Env, ctx: CommunityContext, statements: D1PreparedStatement[]): Promise<D1Result[] | typeof FENCE_REFUSED> {
   if (!ctx.subject || ctx.subject.expiresAt <= now() || statements.length === 0) return FENCE_REFUSED;
-  const results = await env.DB.batch(statements);
+  const original=ctx.subject;
+  const probe=env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity",1,2,3,original.privacyGeneration??null)} THEN 1 ELSE json_extract('privacy_community_request_refused','$') END AS admitted`).bind(original.discordId,original.sessionVersion,original.expiresAt);
+  const results = (await env.DB.batch([probe,...statements])).slice(1);
   if ((results[0]?.meta?.changes ?? 0) === 0) return FENCE_REFUSED;
   return results;
 }
@@ -206,7 +212,7 @@ export async function admittedRead(env: Env, ctx: CommunityContext, cap: FenceCa
 /** .75: the same reader admission for a module that holds the acting session itself (community-contributions.ts readAs). */
 export async function admittedReadAs(env: Env, subject: CommunitySubject, cap: FenceCapability, statements: D1PreparedStatement[]): Promise<D1Result[] | typeof FENCE_REFUSED> {
   if (subject.expiresAt <= now()) return FENCE_REFUSED;
-  const probe = env.DB.prepare(`SELECT (${fenceSql(cap, 1, 2, 3)}) AS ok`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt);
+  const probe = env.DB.prepare(`SELECT (${fenceSql(cap, 1, 2, 3,subject.privacyGeneration??null)}) AS ok`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt);
   const results = await env.DB.batch([probe, ...statements]);
   if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
   return results.slice(1);
