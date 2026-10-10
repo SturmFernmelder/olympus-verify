@@ -17,3 +17,13 @@ condition = "AND"
 paths = ['''^docs/asmongold-move-walkthrough\.md$''']
 regexTarget = "match"
 regexes = ['''Authorization: Bearer PASTE_TOKEN_HERE"''']
+
+# The dormant privacy contract fixture signs only synthetic local requests. Limit the exception to its exact
+# fixed literal and file; plausible credentials elsewhere continue to fail the whole-history scan.
+[[allowlists]]
+description = "Privacy foundation's exact synthetic local fixture secret"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/privacy_foundation129_contract_test\.cjs$''']
+regexTarget = "match"
+regexes = ["secret = 'SYNTHETIC-FOUNDATION129-HMAC'"]
