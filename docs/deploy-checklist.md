@@ -5029,3 +5029,30 @@ labels are usable. Item 9 remains Partial for Discord sign-ups, acceptance and r
 
 Rollback: a separately qualified previous-source deployment. No database restore or account/event deletion is part
 of this rollback. Publication and live acceptance receipts remain separate from this prepared checklist.
+
+## Build .128 — Public governance and organization
+
+Change: public `#/governance` serves the entire exact reviewed R6 draft through a text-only reader. It has all 13
+chapters, search, contents/deep links, previous/next and expand/collapse controls, plus visible Start here, Adoption
+checklist and Appointment templates. `#/organization` shows actual accountability/coordination structure, independent
+Justice/audit boundaries, four portfolios plus shared Systems, local guild duties and all five emissary liaisons.
+Its 95 original labels, ten native slots and ten unappointed I–X placeholders are separately searchable/readable.
+
+Scope: fixed public Markdown/JSON assets, frontend code/styles, the BUILD marker, tests and these documentation
+sections. No database schema, cron, API, role writer, bank permission, release switch, dependency or image/font change.
+The actual-name directory remains protected. The public book is unratified and issues no warrants; existing source
+history is preserved. PDF/native-build gates are separate and no PDF link is published by this source batch.
+
+Before publication: run app syntax, governance content tests, the real frontend/Worker suite and full worker test:all.
+Independently review the exact final source/artifact bindings and required CI. In a local browser as an anonymous
+visitor, inspect both routes at desktop and narrow widths; test native summary keyboard operation, search, deep links,
+all expand/collapse controls, chapter tables, office selection and protected-directory navigation. Confirm the draft
+banner, exact-source download and original 95 labels. Failed fetch/malformed data must show an error, without a
+misleading partial book or hierarchy.
+
+Rollout: deploy only the exact qualified commit through the existing reviewed deploy script. Check health/build .128,
+canonical HTML and live JS/CSS/Markdown/JSON bytes, then inspect both public routes without signing in. Retain separate
+evidence for native browser behavior and live byte parity; this checklist itself certifies neither.
+
+Rollback: redeploy the separately qualified preceding source. No database restore, account deletion, native rank or
+Discord permission change is part of rollback. Ratification, appointments and attended Guild Master setup remain open.

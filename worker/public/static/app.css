@@ -684,3 +684,96 @@ table.data select, table.data input { max-width: 180px; }
    fixed reload notice and receipt bar are stacked by app.js (stackBars), so neither covers the other. */
 .card-head { flex-wrap: wrap; min-width: 0; }
 .card-head h3 { min-width: 0; overflow-wrap: anywhere; }
+
+/* .128: public R6 reader and semantic organization. Existing game fonts, textures and icons only. */
+.governance-hero { display: flex; gap: 20px; align-items: center; padding: 24px 0 8px; }
+.governance-hero > .ico { width: 64px; height: 64px; flex: 0 0 64px; image-rendering: auto; }
+.governance-hero p { color: var(--muted); max-width: 52rem; }
+.governance-draft { border: 1px solid var(--brass); border-left: 4px solid var(--gold-soft); background: var(--dialog); padding: 16px 20px; margin: 16px 0; }
+.governance-draft p { margin: 6px 0 0; font-size: 0.92rem; }
+.governance-quicklinks, .governance-page-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0; }
+.governance-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px; background: var(--tooltip); border: 1px solid var(--line); margin: 20px 0; }
+.governance-controls label { width: 100%; color: var(--gold-soft); }
+.governance-controls input { flex: 1 1 18rem; min-width: 0; }
+.governance-controls [role="status"] { flex-basis: 100%; margin: 0; }
+.governance-layout { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.governance-toc { position: sticky; top: 108px; max-height: calc(100vh - 130px); overflow-y: auto; background: var(--dialog); border: 1px solid var(--line); padding: 18px; }
+.governance-toc ol { padding-left: 20px; margin: 0; }
+.governance-toc li { margin: 10px 0; }
+.governance-toc a { font-size: 0.88rem; text-decoration: none; }
+.governance-toc a[aria-current="location"] { color: var(--white); text-decoration: underline; }
+.governance-reader { min-width: 0; }
+.governance-page-nav { padding: 0 0 14px; border-bottom: 1px solid var(--line); justify-content: space-between; }
+.governance-page-nav span { flex: 1 1 14rem; text-align: center; }
+.governance-chapter { background: var(--dialog); border: 1px solid var(--brass); margin: 0 0 16px; scroll-margin-top: 100px; }
+.governance-chapter > summary { padding: 18px; color: var(--gold); cursor: pointer; }
+.governance-chapter > summary h2 { display: inline; font-size: 1.45rem; }
+.governance-chapter[open] > summary { border-bottom: 1px solid var(--line); }
+.governance-prose { padding: 22px; font-family: Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.7; overflow-wrap: anywhere; }
+.governance-prose h3, .governance-prose h4 { margin: 26px 0 12px; color: var(--gold-soft); }
+.governance-prose h4 { font-size: 1.1rem; }
+.governance-prose strong { font-weight: bold; }
+.governance-prose code { overflow-wrap: anywhere; color: var(--blue); }
+.governance-prose li { margin: 8px 0; }
+.governance-table th, .governance-table td { vertical-align: top; min-width: 100px; }
+.governance-overview { display: flex; gap: 16px; padding: 18px; background: var(--tooltip); border: 1px solid var(--brass); margin: 18px 0; }
+.governance-overview h3 { margin-top: 0; }
+.governance-overview > .ico { flex: 0 0 32px; }
+.organization-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
+.organization-legend p { margin: 0; padding: 12px; background: var(--dialog); border-left: 3px solid var(--brass); font-size: 0.86rem; }
+.organization-legend .relation-coordination { border-left-style: dashed; border-left-color: var(--blue); }
+.organization-legend .relation-independence { border-left: 3px double var(--green-soft); }
+.organization-legend .relation-classification { border-left-style: dotted; border-left-color: var(--muted); }
+.organization-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(250px, 1fr); gap: 24px; align-items: start; margin-bottom: 24px; }
+.organization-tree { min-width: 0; }
+.organization-branch { min-width: 0; margin-bottom: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.5); }
+.organization-branch > summary { padding: 12px; cursor: pointer; color: var(--gold-soft); overflow-wrap: anywhere; }
+.organization-branch > summary small { display: block; margin: 4px 0 0 16px; font-size: 0.76rem; color: var(--muted); }
+.organization-title { font-size: 1rem; }
+.organization-children { list-style: none; padding: 4px 10px 0 16px; margin: 0 0 0 12px; border-left: 2px solid var(--brass); }
+.organization-children > li { position: relative; min-width: 0; }
+.organization-children > li::before { content: ""; position: absolute; left: -16px; top: 22px; width: 16px; border-top: 2px solid var(--brass); }
+.organization-branch.relation-coordination { border-left: 2px dashed var(--blue); }
+.organization-branch.relation-independence { border-left: 3px double var(--green-soft); }
+.organization-branch.relation-classification { border-left: 2px dotted var(--muted); }
+.organization-card { padding: 0 12px 12px; }
+.organization-card p { margin: 10px 0; }
+.organization-select { display: flex; width: 100%; gap: 10px; align-items: center; text-align: left; padding: 8px; font: inherit; color: var(--text); border: 1px solid var(--brass); background: var(--tooltip); cursor: pointer; }
+.organization-select[aria-pressed="true"] { outline: 2px solid var(--gold-soft); color: var(--white); }
+.organization-select .ico { flex: 0 0 32px; }
+.organization-detail { position: sticky; top: 108px; border: 1px solid var(--brass); background: var(--dialog); padding: 20px; overflow-wrap: anywhere; }
+.organization-detail h3 { margin-top: 20px; }
+.organization-detail .btn { margin: 4px 6px 4px 0; }
+.eyebrow { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.06em; }
+.organization-ranks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; padding-left: 24px; }
+.organization-ranks li { padding: 8px 0; }
+.organization-guilds { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.organization-guilds li { border: 1px solid var(--line); padding: 12px; }
+.organization-guilds small { display: block; color: var(--muted); }
+.organization-terms { list-style: none; padding: 0; columns: 2; column-gap: 24px; }
+.organization-terms li { break-inside: avoid; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.organization-terms small { display: block; }
+.organization-term { color: var(--gold-soft); border: 0; padding: 0; background: none; text-align: left; font: inherit; text-decoration: underline; cursor: pointer; }
+@media (max-width: 820px) {
+  .governance-layout, .organization-layout { grid-template-columns: minmax(0, 1fr); }
+  .governance-toc, .organization-detail { position: static; max-height: none; }
+  .governance-toc ol { columns: 2; }
+  .governance-toc li { break-inside: avoid; }
+  .organization-guilds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .governance-prose { padding: 16px; }
+  .governance-toc ol, .organization-terms { columns: 1; }
+  .organization-ranks, .organization-legend { grid-template-columns: minmax(0, 1fr); }
+  .organization-children { padding-left: 10px; margin-left: 5px; }
+  .organization-children > li::before { left: -10px; width: 10px; }
+  .governance-hero { align-items: flex-start; gap: 12px; }
+  .governance-hero > .ico { width: 40px; height: 40px; flex-basis: 40px; }
+}
+@media print {
+  .topbar, .footer, .governance-controls, .governance-toc, .governance-page-nav, .governance-quicklinks { display: none !important; }
+  .governance-layout { display: block; }
+  .governance-chapter { display: block !important; break-before: page; color: #111; background: #fff; border-color: #999; }
+  .governance-chapter > .governance-prose { display: block !important; }
+  .governance-chapter > summary h2, .governance-prose h3, .governance-prose strong { color: #111; text-shadow: none; }
+}
