@@ -64,6 +64,7 @@ const MEMBER_RECHECK = 3600;
 
 export async function handleApi(request: Request, env: Env, path: string, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
   const m = request.method;
+  if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env);
   if (m === "GET" && path === "/api/public") return apiJson({ settings: await loadSettings(env), meta: meta(), now: now() });
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);

@@ -286,6 +286,11 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
           if (ctx) ctx.waitUntil(p);
         });
       }
+      if(i.type===2&&i.data?.name==='olympus-qr'){
+        const {createInteractionRequest,QrHeld}=await import('./qr-phase1');
+        try{const r=await createInteractionRequest(env,request,body);return reply(`Whisper !olympus ${r.code} to an online qualified High Councillor. This code expires in ten minutes. You need no AddOn or website account.`);}
+        catch(e){return reply(e instanceof QrHeld?`Councillor verification is held: ${e.code}.`:'Councillor verification is currently held.');}
+      }
       return await handleInteraction(env, i);
     };
     // .50 (Codex's second review, 1 Oct 00:05 UTC): a command that only reads is answered afresh every time instead of

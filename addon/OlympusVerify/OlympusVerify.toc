@@ -14,3 +14,5 @@ OlympusVerify.lua
 OlympusVerifyUI.lua
 OlympusVerifyPreview.lua
 OlympusVerifyRoster.lua
+Libs/OlympusQr.lua
+OlympusVerifyBrowser.lua

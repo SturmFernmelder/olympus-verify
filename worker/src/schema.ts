@@ -9,6 +9,7 @@
 import type { Env } from "./env";
 import { now } from "./db";
 import { errorRef } from "./log";
+import { QR_PHASE1_DDL } from './qr-phase1-schema';
 
 let ready: Promise<void> | null = null;
 
@@ -228,6 +229,7 @@ const LEGACY_ROLES = [
 ];
 
 export const SITE_SCHEMA = [
+  ...QR_PHASE1_DDL,
   `CREATE TABLE IF NOT EXISTS site_users (
      discord_id      TEXT PRIMARY KEY,
      username        TEXT,

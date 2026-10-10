@@ -1,5 +1,10 @@
 /** Bindings, vars and secrets. Vars live in wrangler.toml; secrets are set with `wrangler secret put`. */
 export interface Env {
+  QR_PHASE1_ENABLED?: string;
+  PRIVACY_ERASURE_ENABLED?: string;
+  QR_RANK_MAPPING_ENABLED?: string;
+  QR_NATIVE_ROLE_MAP?: string;
+  QR_PRIVILEGED_RANK_MAPPING_ENABLED?: string;
   DB: D1Database;
   ASSETS: Fetcher;                  // .51: the site's static files (wrangler.toml [assets] binding; run_worker_first, so index.ts hands them over itself)
 

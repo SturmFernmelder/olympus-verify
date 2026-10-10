@@ -42,6 +42,7 @@
  * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
+import './qr-phase1-data';
 import { audit } from "./db";
 import { bnetFresh } from "./bnet-retention";
 import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
