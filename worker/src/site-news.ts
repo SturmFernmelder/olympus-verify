@@ -71,6 +71,14 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".126",
+    date: "2026-10-09",
+    lines: [
+      "Calendar edits keep the saved start time. At a repeated clock-change hour, choose the earlier or later occurrence for a new time.",
+      "Calendar forms show the exact start in UTC and let you enter UTC directly. Times skipped by a clock change are refused.",
+    ],
+  },
+  {
     build: ".115",
     date: "2026-10-03",
     lines: [
