@@ -342,13 +342,16 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   const held2 = await measure(sweep, { seed: onlyHeld(2), fail: auditFails("role.revoked_reapply") });
   const perHeld = held2.statements - held1.statements;
   check(`a held account in the banned reconciliation: ${perHeld} statements (4: the ban and the hold read, the refused removal audit, revoke_pending)`, perHeld === 4 && held1.value.failed.length === 1 && held2.value.failed.length === 2 && held1.statements - perHeld === fixedReads, held1.statements, held2.statements);
-  // The longest failure run: more accounts than the cap, every one on the failure path, ROLE_CALL_BUDGET at its most (the
-  // writer clamps it to 50 requests, roles.ts callBudget). The call budget stops the run before the account cap, so the
-  // line's 7 x 20 is the cap's bound; what the run did is exactly the fixed reads, 7 an account and the budget's audit.
+  // The ten-account cap is now reached before the 50-request transport budget.
+  // Measure both stopping mechanisms: a full capped failure slice and a shorter
+  // transport-exhausted slice, whose unfinished accounts must wait for another run.
   const longest = await measure(failSweep, { seed: onlyMembers(CAP.roleSweepAccounts + 5), ...failing, over: { ROLE_CALL_BUDGET: "1000" } });
   ON_PUT = null;
   const done = longest.value.failed.length;
-  check(`the longest failure run the call budget allows: ${done} accounts, ${longest.statements} statements = fixed ${fixedReads} + 7 x ${done} + the budget's audit, within the line`, longest.value.budgetExhausted === true && done >= 5 && done <= CAP.roleSweepAccounts && longest.statements === fixedReads + 7 * done + 1 && longest.statements <= line("sweepMemberRoles"), longest.statements, done);
+  check(`the capped failure slice: ${done} accounts, ${longest.statements} statements = fixed ${fixedReads} + 7 x ${done}, within the line`, longest.value.budgetExhausted === false && done === CAP.roleSweepAccounts && longest.statements === fixedReads + 7 * done && longest.statements <= line("sweepMemberRoles"), longest.statements, done);
+  const transportStopped = await measure(failSweep, { seed: onlyMembers(CAP.roleSweepAccounts + 5), ...failing, over: { ROLE_CALL_BUDGET: "12" } });
+  ON_PUT = null;
+  check("a smaller transport budget stops before the account cap without exceeding either allowance", transportStopped.value.budgetExhausted === true && transportStopped.value.failed.length < CAP.roleSweepAccounts && transportStopped.value.attempts <= 12 && transportStopped.statements <= line("sweepMemberRoles"), transportStopped.value, transportStopped.statements);
   check(`  the line is the measured costs at the caps: 10 fixed + ${perFailed} x ${CAP.roleSweepAccounts} + ${perHeld} x ${CAP.roleSweepBanned} = ${10 + perFailed * CAP.roleSweepAccounts + perHeld * CAP.roleSweepBanned} (its value ${line("sweepMemberRoles")}), the success path cheaper than the failure path`, line("sweepMemberRoles") === 10 + perFailed * CAP.roleSweepAccounts + perHeld * CAP.roleSweepBanned && ok2.statements - ok1.statements <= perFailed && makeLoader()("./roles").callBudget({ ROLE_CALL_BUDGET: "1000" }).limit === 50);
   // .115, third review round (finding A): the cron's slice of the roster's pending member effects. Its line is an admission
   // allowance (each item is admitted at its kind's worst case before it starts), so the measured count is at most the line.

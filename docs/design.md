@@ -1328,3 +1328,12 @@ recent deduplication. Editing cancels consent, and current erasure hooks clear c
 external cleanup debt. Finite custody expiry closes the surviving event before local disposal; no external deletion
 is inferred. The original deadline cannot be extended by a reschedule or consent retry. The existing calendar
 organizer capability is preserved; this is not a Discord-role authority or admission writer.
+
+## 2026-10-10: separate governance downloads (.134)
+
+Members can download a guide, adoption checklist and reusable appointment/news templates without searching the
+complete charter. Each is a covered excerpt of the exact reviewed R6 PDF; the original printed page numbers are
+retained for comparison. A separate two-page release worksheet covers source identity, verified recovery, explicit
+publication, privacy limits, the attended councillor game/browser check and the eventual beta reset. Draft notices
+remain visible: neither a download nor a checklist grants authority or records adoption. The original full PDF,
+five-payload ZIP, source reader and all four reading/chart links retain their accepted identities.

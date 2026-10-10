@@ -5157,12 +5157,19 @@ dated migration agree. Retention is capped by the original stored parent deadlin
 reschedule. Expiry atomically latches unresolved/known custody before dropping local metadata; local disposal does
 not claim Discord deletion. Unswept expired rows cannot arm already-expired consent. Existing event clocks remain.
 
-The conservative scheduled table is 688/700: one candidate costs at most six D1 attempts; closure/disposal adds two;
+The conservative scheduled table is 618/700: one candidate costs at most six D1 attempts; closure/disposal adds two;
 new cold-schema worst adds four. Weekly opening is capped at 24 instead of 30 with deterministic continuation.
-Synthetic real scheduled tests measure 412 warm, 544 cold and 584 every-column-fallback attempts, with three due
+Synthetic real scheduled tests measure 369 warm, 501 cold and 541 every-column-fallback attempts, with three due
 reminders proving the one-send cap. Later privacy/QR composition must independently remeasure the joined budget;
-Root selected role-sweep cap ten for that later composition, preserving production's configured ten. This candidate
-retains its separately tested role-sweep cap twenty and does not silently qualify a joined future build.
+the role-sweep source cap is ten, preserving production's configured ten. The tests separately cover stopping at
+that account cap and stopping earlier when the transport budget is exhausted.
+
+Four additional anonymous draft downloads are available beside the unchanged complete R6 PDF and ZIP: the member
+guide (21 pages), adoption checklist (4), appointment/news templates (4), and release preparation worksheet (2).
+The first three preserve reviewed R6 pages beneath a new explanatory cover. The worksheet does not claim a release,
+ratification or appointment has occurred. The closed downloads manifest binds each file's bytes and hash to the
+unchanged R6 source. All pages were rendered and inspected; actual Worker asset responses and download links are
+checked together. No generated artwork is introduced.
 
 Before publication: independently review the exact source and UI; pass Worker/SQLite/DOM/type/bundle/schema/config
 and final integrated CI checks; complete the existing .130 verified-backup/newest-only-cleanup gate. Live QA must

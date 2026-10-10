@@ -47,7 +47,7 @@ export const SCHEDULED_STATEMENT_TARGET = 700;
 /** Per-run caps the jobs read from here. */
 export const SCHEDULED_CAPS = {
   /** restore.ts: accounts one Guild Member sweep may check; ROLE_SWEEP_PER_RUN is clamped to it (configured 10; the clamp was 50). */
-  roleSweepAccounts: 20,
+  roleSweepAccounts: 10,
   /** restore.ts BANNED_PER_RUN: banned or held accounts the sweep re-checks (unchanged; the test checks the two agree). */
   roleSweepBanned: 5,
   /** names.ts: linked members whose Discord names one run re-reads; NAMES_PER_RUN is clamped to it (configured 5; unchanged). */
@@ -91,7 +91,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     // 6 reads before the accounts, the banned selection, the budget audit, the sweep audit, the sweep_failed audit;
     // per account at most 4 ban/hold reads and 3 audit attempts (the failure path; the success path is 5); per banned or
     // held account 2 reads and 2 audit attempts. scheduled_budget_test measures 7, 5 and 4 exactly (review of 3 Oct 2026);
-    // the call budget (at most 50 requests) stops a failure run at 11 accounts, so 20 is the account cap's bound
+    // the role sweep is capped at the configured ten accounts, preserving rotation for later cron runs
     worst: 10 + 7 * C.roleSweepAccounts + 4 * C.roleSweepBanned,
     rule: "10 fixed + 7 per account (at most roleSweepAccounts) + 4 per banned or held account (at most roleSweepBanned), failures included",
   },

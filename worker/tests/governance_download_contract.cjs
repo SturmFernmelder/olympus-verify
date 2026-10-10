@@ -30,6 +30,12 @@ const PAYLOADS = [
 ];
 const PDF = { bytes: 1361567, sha256: "8bbd9517272718991823aad15920a6ff0250f452a7affbd9141eee3f5129e6de" };
 const ZIP = { bytes: 2081840, sha256: "7ead7b97d80477aa607ab13c419c527b25ff2c4be1ede79da51cca5ca4b5f0ed" };
+const EXTRA_DOWNLOADS = [
+  ["Guide PDF", "olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf", 135664, "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"],
+  ["Adoption checklist PDF", "olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf", 79878, "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"],
+  ["Templates PDF", "olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf", 81476, "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"],
+  ["Release preparation PDF", "olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf", 4448, "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"]
+];
 const sha = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
 function crc32(bytes) {
   let crc = 0xffffffff;
@@ -101,7 +107,13 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   const download = (label, href, filename) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === filename).length === 1;
   check("actual h/add renders Download PDF with correct public href and download filename", download("Download PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"));
   check("actual h/add renders Download full package with correct href and filename", download("Download full package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"));
-  check("existing source-download and all four reading/chart links remain", links.length === 7 && links.filter((link) => link.getAttribute("href") === "/static/governance/reconciled-book.md").length === 1 && ["Start here", "Adoption checklist", "Appointment templates", "Interactive organization"].every((label) => links.some((link) => link.textContent === label)));
+  check("closed eleven-link census preserves source-download and all four reading/chart links", links.length === 11 && links.filter((link) => link.getAttribute("href") === "/static/governance/reconciled-book.md").length === 1 && ["Start here", "Adoption checklist", "Appointment templates", "Interactive organization"].every((label) => links.filter((link) => link.textContent === label).length === 1));
+  for (const [label, file, filename, bytes, hash] of EXTRA_DOWNLOADS) {
+    const data = fs.readFileSync(path.join(dir, file));
+    check(label + " has accepted bytes and a matching real download link", data.length === bytes && sha(data) === hash && data.subarray(0, 5).toString("ascii") === "%PDF-" && data.subarray(-128).includes(Buffer.from("%%EOF")) && download(label, "/static/governance/" + file, filename));
+  }
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, "downloads-manifest.json"), "utf8"));
+  check("additional PDF manifest preserves reviewed source identity and draft status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
   check("public draft/unissued-appointment notice remains explicit", app.includes("R6 • Public draft for ratification") && app.includes("Publication is not adoption.") && app.includes("issues no appointments or warrants"));
   const bad = Buffer.from(zip); bad.writeUInt32LE((bad.readUInt32LE(entries[0].centralOffset + 16) ^ 1) >>> 0, entries[0].centralOffset + 16);
   let crcRejected = false; try { inspectZip(bad); } catch { crcRejected = true; }

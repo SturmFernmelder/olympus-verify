@@ -22,6 +22,7 @@ __pycache__/
 
 # Local output and scratch
 tools/out/
+tmp/pdfs/
 watcher/state.json
 watcher/*.log
 watcher/*.tmp
