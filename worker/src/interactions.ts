@@ -620,6 +620,8 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       // Editing beats reposting: the pin, the position and the message link all survive, and no stale copy is left.
       const channel = option<string>(i, "channel") ?? i.channel_id ?? "";
       if (!channel) return reply("Pick a channel.");
+      const publicationChannels=(await import('./intros')).parseChannels(env.INTROS_CHANNELS);
+      if(channel===publicationChannels['join-olympus'])return reply('This guide is managed by the staff ruleset publication operation. Inspect or reconcile it there; no legacy edit was sent.');
       try {
         const out = await refreshPinnedGuide(env, channel);
         if ("error" in out) return reply(`Nothing edited in <#${channel}> \u2014 ${out.error}. Use \`post-guide\` to place a fresh one, then pin it.`);
@@ -633,6 +635,8 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       // the pinned how-to with buttons — into the channel given, else the one the command was typed in
       const channel = option<string>(i, "channel") ?? i.channel_id ?? "";
       if (!channel) return reply("Pick a channel.");
+      const publicationChannels=(await import('./intros')).parseChannels(env.INTROS_CHANNELS);
+      if(channel===publicationChannels['join-olympus'])return reply('This guide is managed by the staff ruleset publication operation. Inspect or reconcile it there; no second guide was posted.');
       try {
         const msg = await postMessage(env, channel, guideMessage(env));
         await audit(env, actor, "admin.post_guide", channel, { message: msg.id });

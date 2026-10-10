@@ -5,6 +5,7 @@ import { secondsToIso } from './community-time';
 import { PROFESSIONS } from './community-directory';
 import { ownContributionHistorySource, projectOwnContributionHistory } from './community-contributions';
 import { DB_NOW } from './community-context';
+import { projectOwnRulesetPublication } from './ruleset-publication-data';
 import type { PrivacyHistoryDefinition, PrivacyHistoryPosition } from './privacy-access-history';
 import { boundedPrivacyHistoryStatements } from './privacy-access-history';
 
@@ -19,6 +20,7 @@ export const PRIVACY_FAMILY_HISTORY_COLLECTIONS=[
  'community.event_delivery.publications','community.event_reminders.reminders','community.privacy_access.connections',
  'community.councillor_verification.councillorKeys','community.councillor_verification.challenges','community.councillor_verification.requests',
  'community.councillor_verification.attestations','community.councillor_verification.roleOutcomes',
+ 'community.ruleset_publication.operations',
 ] as const;
 export type PrivacyFamilyHistoryCollection=typeof PRIVACY_FAMILY_HISTORY_COLLECTIONS[number];
 type Rec=Record<string,unknown>;
@@ -29,6 +31,7 @@ const pick=(r:Rec,fields:string)=>Object.fromEntries(fields.split(',').map(k=>[k
 const live=(a:string)=>`(${a}.retain_until IS NULL OR ${a}.retain_until>${now})`;
 const profile='EXISTS(SELECT 1 FROM community_profiles p WHERE p.discord_id=?1)';
 const sources:Record<PrivacyFamilyHistoryCollection,string>={
+ 'community.ruleset_publication.operations':`SELECT rowid AS __history_id,0 AS __history_at,profile_revision,selection_revision,target_key,state,result_code,created_at,updated_at,actor_retain_until FROM ruleset_publications WHERE actor=?1 AND actor_retain_until>${now}`,
  'site.votes':'SELECT rowid AS __history_id,0 AS __history_at,ballot,slot,nominee_label,reason,created_at,updated_at FROM site_votes WHERE voter_id=?1',
  'site.boardVotes':'SELECT rowid AS __history_id,0 AS __history_at,role_key,vote,created_at,updated_at FROM site_board_votes WHERE voter_id=?1',
  'site.friends':'SELECT rowid AS __history_id,0 AS __history_at,friend_label,note,created_at FROM site_friends WHERE owner_id=?1',
@@ -64,6 +67,7 @@ const sources:Record<PrivacyFamilyHistoryCollection,string>={
  'community.councillor_verification.roleOutcomes':'SELECT rowid AS __history_id,0 AS __history_at,id,purpose,desired,state,reason,attempts,created_at,expires_at,checked_at FROM role_settlements WHERE subject=?1',
 };
 const rawFields:Partial<Record<PrivacyFamilyHistoryCollection,string>>={
+ 'community.ruleset_publication.operations':'profile_revision,selection_revision,target_key,state,result_code,created_at,updated_at,actor_retain_until',
  'site.votes':'ballot,slot,nominee_label,reason,created_at,updated_at','site.boardVotes':'role_key,vote,created_at,updated_at',
  'site.friends':'friend_label,note,created_at','site.reserved':'name,status,created_at,approved_at,queued_at,released_at',
  'verification.characters':'name,status,bound_at,verified_at,member_since,left_at,source','verification.codeRequests':'name,created_at,expires_at,consumed_at,consumed_source',
@@ -86,6 +90,7 @@ const projectedFields:Partial<Record<PrivacyFamilyHistoryCollection,string>>={
  'community.event_delivery.publications':'event_id,purpose,event_revision,state,cleanup_requested,created_at,updated_at,retain_until,result_code','community.event_reminders.reminders':'event_id,event_revision,state,starts_at,created_at,retain_until',
 };
 function project(c:PrivacyFamilyHistoryCollection,r:Rec):Rec {
+ if(c==='community.ruleset_publication.operations')return projectOwnRulesetPublication(r);
  const fields=rawFields[c];if(fields)return pick(r,fields);
  switch(c){
   case 'community.directory.professions':if(!PROFESSIONS.includes(r.profession as typeof PROFESSIONS[number])||!(r.skill===null||typeof r.skill==='number'&&Number.isInteger(r.skill)&&r.skill>=0&&r.skill<=450))return fail();return {name:r.profession,skill:r.skill,updatedAt:iso(r.updated_at)};

@@ -41,7 +41,17 @@ async function review(){
  ok('enabled erasure original confirmation is present',section(onHtml,'/privacy/access/erasure').includes('name="confirm" value="yes" required'));
  const staleIdentity=fields(section(onHtml,'/privacy/access/erasure'));
  eq('enabled identify HTML includes the exact reviewed scope disclosure once',onHtml.split(scopeDisclosure).length,2);
- if(oldAccess){const oldHtml=await (await oldAccess.privacyAccessPage(request('/privacy/access',connection.cookie),f.env)).text();eq('immutable a947 did not contain the new disclosure',oldHtml.includes(scopeDisclosure),false);eq('enabled identify HTML exactly equals immutable a947 apart from the single reviewed scope disclosure',onHtml.replace(scopeDisclosure,''),oldHtml);}
+ if(oldAccess){
+  const oldHtml=await (await oldAccess.privacyAccessPage(request('/privacy/access',connection.cookie),f.env)).text();
+  const history36='All 36 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below.';
+  const history37='All 37 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below.';
+  eq('immutable a947 did not contain the new disclosure',oldHtml.includes(scopeDisclosure),false);
+  eq('immutable a947 contains the exact original history copy span once',oldHtml.split(history36).length,2);
+  eq('immutable a947 has no current history copy span',oldHtml.includes(history37),false);
+  eq('current identify HTML contains the exact Task7 history copy span once',onHtml.split(history37).length,2);
+  eq('current identify HTML has no original history copy span',onHtml.includes(history36),false);
+  eq('enabled identify HTML exactly equals immutable a947 apart from the single reviewed scope disclosure and exact Task7 history copy span',onHtml.replace(scopeDisclosure,''),oldHtml.replace(history36,history37));
+ }
  sql.length=0;const accountOn=await call(f,'/privacy/account',cookies),accountOnHtml=await accountOn.text(),onAccountSql=sql.length;
  eq('enabled ordinary page status',accountOn.status,200);safeHtml('enabled ordinary page',accountOn,accountOnHtml);
  eq('enabled ordinary page retains three copy forms',(accountOnHtml.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
@@ -86,8 +96,8 @@ async function review(){
  eq('disabled ordinary erasure refusal performs zero native SQL',sql.length,0);eq('disabled ordinary erasure refusal changes no original credential/account state',state(f)+'|'+grants(f),before+'|'+originalGrants);
  sql.length=0;r=await authority.requestServingErasure(f.env,request('/api/me/erasure',ordinary,'POST',{}, {'X-Olympus':core.PAGE_VERSION}),'f'.repeat(32));eq('disabled ordinary native admission remains original feature-disabled guard',await r.json(),{error:'feature_disabled'});eq('disabled ordinary native guard performs zero SQL',sql.length,0);
  sql.length=0;r=await call(f,'/privacy/access/export',connection.cookie,'POST',{...fields(section(onHtml,'/privacy/access/export')),collection:'copy'});const data=await r.json();
- eq('disabled genuine identity aggregate download succeeds',r.status,200);eq('disabled aggregate retains exact 36 coverage histories',Object.keys(data.coverage.histories).sort(),[...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS].sort());
- eq('disabled aggregate keeps established 86-attempt bound',sql.length,86);eq('disabled aggregate preserves account authority and role/provider custody',state(f),before);
+ eq('disabled genuine identity aggregate download succeeds',r.status,200);eq('disabled aggregate retains exact 37 coverage histories',Object.keys(data.coverage.histories).sort(),[...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS].sort());eq('disabled aggregate has only the 37 source-qualified histories',Object.keys(data.coverage.histories).length,37);
+ eq('disabled aggregate costs exact88 attempts including two shared-publication queries',sql.length,88);eq('disabled aggregate preserves account authority and role/provider custody',state(f),before);
  eq('disabled aggregate consumes only original own-export grant',JSON.parse(JSON.stringify(f.db.prepare('SELECT purpose,consumed_at IS NOT NULL AS spent FROM privacy_access_grants ORDER BY purpose').all())),[{purpose:'own_erasure',spent:0},{purpose:'own_export',spent:1}]);
  r=await call(f,'/privacy/access',connection.cookie);h=await r.text();ok('spent disabled page does not replace download with unavailable erasure form',!/<form\b/.test(h)&&h.includes('fresh download grant')&&h.includes(paused));
  const second=await connect(f),secondForm=await form(f,second);calls=[];sql.length=0;r=await call(f,'/privacy/access/export',second.cookie,'POST',{csrf:secondForm.csrf,grant:secondForm.grant,collection:'site.votes'});const page=await r.json();

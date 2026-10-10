@@ -26,7 +26,7 @@ async function review(){
  const plan=registry.communityExportPlan(f.env,A),names=Array.from(registry.communityDataNames()),native=await f.env.DB.batch(plan.statements);
  const inventory={before,productionFamilies:names,productionStatementCount:plan.statements.length,queries:plan.statements.map((s,i)=>({index:i,tables:Array.from(new Set(Array.from(s.sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]+)/gi),x=>x[1]))),returned:native[i].results.length}))};
  console.log('ACTUAL_PRODUCTION_EXPORT_CENSUS '+JSON.stringify(inventory));
- eq('actual index imports twelve registered families',names.length,12);eq('actual index imports32 registered copy statements',plan.statements.length,32);
+ eq('actual index imports thirteen registered families',names.length,13);eq('actual index imports34 registered copy statements',plan.statements.length,34);
  ok('production census includes purpose and news families',names.includes('privacy_access')&&names.includes('news'));
  async function own(collection){const connection=await connect(f),frm=await form(f,connection);provider=null;const response=await copy.exportPrivacyAccess(frm.request({collection}),f.env);eq('genuine own '+collection+' download admitted',response.status,200);return response.json();}
  const history=await own('contributionDecisions'),aggregate=await own('copy');

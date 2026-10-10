@@ -28,7 +28,7 @@ async function review(){
  check('Root grant copy is own only with explicit bounded count',copy.connections.rows.length===2&&copy.connections.total===2&&copy.connections.limit===1000&&copy.connections.complete===true);
  check('Root grant copy omits all secret/hash/identifier/opinion fields',copy.connections.rows.every(r=>Object.keys(r).sort().join(',')==='consumed_at,created_at,expires_at,purpose')&&!JSON.stringify(copy).includes(OTHER)&&!JSON.stringify(copy).includes('a'.repeat(32)));
  await enabled.DB.batch(data.privacyAccessEraseStatements(enabled,ID));check('Root grant eraser removes only retiring own credentials and preserves another subject',!raw('SELECT * FROM privacy_access_grants WHERE subject_id=?',ID)&&rows('SELECT * FROM privacy_access_grants WHERE subject_id=?',OTHER).length===1);
- const retention=load('privacy-retention');check('Root retention includes exact two credential purges in fixed20 statement envelope',retention.servingRetentionStatements(enabled).length===20&&retention.SERVING_RETENTION_STATEMENTS===20);
+ const retention=load('privacy-retention');check('Root retention includes both credential purges and shared-publication actor scrub in exact21 statement envelope',retention.servingRetentionStatements(enabled).length===21&&retention.SERVING_RETENTION_STATEMENTS===21);
  for(const[file,bytes]of pins)check('review source pin stable '+path.basename(file),fs.readFileSync(file).equals(bytes));
  console.log(`${passes}/${checks} independent Root privacy access seam checks passed`);db.close();if(passes!==checks)process.exitCode=1;
 }

@@ -4,7 +4,7 @@ const fixturePath=path.join(__dirname,'privacy_access_test.cjs'),source=fs.readF
 if(cut<0)throw Error('fixture seam');
 const scenario=String.raw`
 const history=load('privacy-access-history'),family=load('privacy-access-family-history'),community=load('community-context');
-load('index'); // Actual serving graph: all twelve families, not the old exporter-only subset.
+load('index'); // Actual serving graph: all thirteen families, including shared-publication own metadata.
 function put(f,t,r){const keys=Object.keys(r);f.db.prepare('INSERT INTO '+t+'('+keys.join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').run(...Object.values(r));}
 const hex=(i,n=32)=>i.toString(16).padStart(n,'0'),eid=i=>'e'+String(i).padStart(21,'0');
 function member(f,id=A){if(!f.db.prepare('SELECT 1 FROM members WHERE discord_id=?').get(id))put(f,'members',{discord_id:id,banned:0});}
@@ -47,17 +47,18 @@ function seedOne(f,c,i,who=A){const at=f.time()-100,keep=f.time()+100000;
  case 'community.councillor_verification.requests':put(f,'verification_requests',{code:'hidden-code'+i,requester:who,created_at:at,expires_at:keep,state:'pending'});break;
  case 'community.councillor_verification.attestations':challenge(f);put(f,'verification_requests',{code:'hidden-code'+i,requester:who,created_at:at,expires_at:keep});put(f,'verification_proofs',{id:'proof'+i,code:'hidden-code'+i,challenge:'private-lease',signer:B,key_id:'key',requester:who,requester_guid:'hiddenGUID',requester_name:'hidden-name',native_rank:1,rank_name:'Officer',native_profile:'beta-five',signer_guid:'hiddenGUID',snapshot_id:1,digest:'hidden-digest'+i,created_at:at,expires_at:keep});break;
  case 'community.councillor_verification.roleOutcomes':put(f,'role_settlements',{id:'role'+i,subject:who,purpose:'membership',guild_id:B,role_id:STAFF,desired:1,state:'settled',reason:'granted',created_at:at,expires_at:keep});break;
+ case 'community.ruleset_publication.operations':put(f,'ruleset_publications',{guild_id:STAFF,publication_id:'publication'+who+i,target_key:'olympus-info',selection_revision:i+1,profile_revision:load('ruleset-profile').currentRulesetProfile().revision,plan_hash:'hidden-plan',actor:who,actor_generation:G,session_version:7,session_expires:keep,channel_id:STAFF,message_id:B,frozen_payload:'hidden-public-copy',payload_hash:'hidden-digest',claim_nonce:'hidden-nonce',stage:'pin',state:'applied',result_code:'confirmed',created_at:at,updated_at:at,actor_retain_until:keep});break;
  default:throw Error('unknown test seed '+c);
  }
 }
 async function seed(f,c,n=1002){if(c.startsWith('community.directory.')&&c!=='community.directory.crafts')profile(f);
  if(c==='community.privacy_access.connections'){for(let i=0;i<501;i++)await connect(f);return;}
  f.db.exec('BEGIN');try{for(let i=0;i<n;i++)seedOne(f,c,i);seedOne(f,c,c==='community.directory.professions'?0:10000,B);f.db.exec('COMMIT');}catch(e){f.db.exec('ROLLBACK');throw e;}}
-async function download(f,c,cursor=null){const con=await connect(f),frm=await form(f,con);provider=null;let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);const response=await copy.exportPrivacyAccess(frm.request({collection:c,cursor:cursor??''}),f.env);f.hooks.statement=null;f.hooks.beforeBatch=null;eq(c+' attempts',attempts,c==='copy'?86:8);eq(c+' native batch size',batches,[c==='copy'?85:7]);return {data:await response.json(),frm};}
+async function download(f,c,cursor=null){const con=await connect(f),frm=await form(f,con);provider=null;let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);const response=await copy.exportPrivacyAccess(frm.request({collection:c,cursor:cursor??''}),f.env);f.hooks.statement=null;f.hooks.beforeBatch=null;eq(c+' attempts',attempts,c==='copy'?88:8);eq(c+' native batch size',batches,[c==='copy'?87:7]);return {data:await response.json(),frm};}
 const sorted=a=>Array.from(a,x=>JSON.stringify(x)).sort();
 async function original(f,c){if(!c.startsWith('community.'))return null;const plan=community.communityExportPlan(f.env,A),out=await f.env.DB.batch(plan.statements.map(s=>/ LIMIT 1000$/.test(s.sql)?f.env.DB.prepare(s.sql.replace(/ LIMIT 1000$/,'')).bind(A):s)),body=plan.shape(out),parts=c.split('.');const value=body[parts[1]][parts[2]];return Array.isArray(value)?value:value.rows;}
 async function mainFamily(){
- eq('closed thirty-three additions',family.PRIVACY_FAMILY_HISTORY_COLLECTIONS.length,33);eq('all histories thirty-six',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,36);eq('actual producer graph12',community.communityDataNames().length,12);eq('actual producer graph32 statements',community.communityExportPlan(fixture().env,A).statements.length,32);
+ eq('closed thirty-four family histories',family.PRIVACY_FAMILY_HISTORY_COLLECTIONS.length,34);eq('all histories thirty-seven',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,37);eq('actual producer graph13',community.communityDataNames().length,13);eq('actual producer graph34 statements',community.communityExportPlan(fixture().env,A).statements.length,34);
  for(const c of family.PRIVACY_FAMILY_HISTORY_COLLECTIONS){
   const f=fixture(),n=c==='community.directory.professions'?12:1002;await seed(f,c,n);const before=count(f,'sqlite_master');
   const baseline=await original(f,c);const first=(await download(f,c)).data.history;
@@ -68,7 +69,7 @@ async function mainFamily(){
   if(first.nextCursor){const tail=(await download(f,c,first.nextCursor)).data.history;all=all.concat(tail.entries);eq(c+' tailcount',tail.entries.length,want-1000);eq(c+' fixed deadline',tail.capture.expiresAt,first.capture.expiresAt);eq(c+' complete aftertail',tail.capture.complete,true);eq(c+' terminates',tail.nextCursor,null);}
   eq(c+' all range delivered',all.length,want);if(baseline&&c!=='community.privacy_access.connections')eq(c+' exact existing own DTO parity',sorted(all),sorted(baseline));
   eq(c+' no DDL',count(f,'sqlite_master'),before);
-  const initial=(await download(f,'copy')).data;eq(c+' initial all36 continued',Object.keys(initial.coverage.histories).length,36);const meta=initial.coverage.histories[c];eq(c+' aggregate count',meta.capture.count,c==='community.privacy_access.connections'?1008:want);
+  const initial=(await download(f,'copy')).data;eq(c+' initial all37 continued',Object.keys(initial.coverage.histories).length,37);const meta=initial.coverage.histories[c];eq(c+' aggregate count',meta.capture.count,c==='community.privacy_access.connections'?1008:want);
   if(c!=='community.privacy_access.connections'){let v=initial;for(const k of c.split('.'))v=v[k];const rows=Array.isArray(v)?v:v.rows;eq(c+' aggregate capped',rows.length,Math.min(want,25));eq(c+' aggregate DTO equalsfirst',rows,first.entries.slice(0,25));}
   if(meta.nextCursor&&c!=='community.privacy_access.connections'){const continuation=(await download(f,c,meta.nextCursor)).data.history;eq(c+' aggregate tail resumes at25',continuation.capture.delivered,want);eq(c+' aggregate tail exact',continuation.entries,all.slice(25));eq(c+' preview deadline retained',continuation.capture.expiresAt,meta.capture.expiresAt);}
   if(c==='community.directory.professions'){f.db.exec('PRAGMA ignore_check_constraints=ON');put(f,'community_professions',{discord_id:A,profession:'not-a-profession',skill:999,updated_at:f.time()});await refused('malformed restored profession no false completeness',()=>download(f,c));}

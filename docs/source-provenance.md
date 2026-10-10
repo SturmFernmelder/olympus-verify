@@ -239,3 +239,13 @@ calls `load_contract` then `validate_result_tree`, validates the public worktree
 unlisted and renamed resources, module/vendor coverage and retained art refusals. It never stages a repository,
 runs a generator, publishes or calls a provider. Synthetic contracts are test fixtures, not publication authority.
 Exact-head independent review, the final external contract/manifest and publication remain separate qualification.
+
+### .141 admission catalogue provenance
+
+`worker/scripts/build-privacy-admission-catalogue.cjs` derives the canonical 66-business-table/78-index vector and 198 trigger templates from the actual joined schema. Its second whole-layout vector uses only `worker/schema/admission-physical-2026-10-10.json`, an exact SHA-256-pinned read-only sqlite_master capture containing schema metadata and no business rows, with the two new source tables added in memory. The generated TypeScript records both raw/canonical manifest pins. The checker performs no provider access or installation; the dated control migration is additive and contains no triggers. Historical experiment and Task7 receipts remain their original scoped evidence, not acceptance of the joined source or remote installation.
+
+The Task7 browser join changes only the native app bytes in the website reference: both exact app rows move from
+434940 bytes / `92c76184...` to 445628 bytes / `50a9740d...`. The reference hash and its two helper consumers are
+re-pinned with no helper logic or schema change. All 94 official assets, the approved crest, the fifteen required
+non-art resources and the other fixed art producers retain their bytes and refusal rules. The reference's source-head
+field remains historical provenance; final candidate source and release qualification use their own exact commit.

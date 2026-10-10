@@ -1,0 +1,1250 @@
+[
+  {
+    "type": "index",
+    "name": "audit_actor_action",
+    "tbl_name": "audit",
+    "sql": "CREATE INDEX audit_actor_action ON audit(actor, action)"
+  },
+  {
+    "type": "index",
+    "name": "audit_ts",
+    "tbl_name": "audit",
+    "sql": "CREATE INDEX audit_ts ON audit(ts)"
+  },
+  {
+    "type": "index",
+    "name": "characters_discord",
+    "tbl_name": "characters",
+    "sql": "CREATE INDEX characters_discord ON characters(discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_alt_claims_key",
+    "tbl_name": "community_alt_claims",
+    "sql": "CREATE INDEX community_alt_claims_key ON community_alt_claims(name_key)"
+  },
+  {
+    "type": "index",
+    "name": "community_alt_claims_reviewer",
+    "tbl_name": "community_alt_claims",
+    "sql": "CREATE INDEX community_alt_claims_reviewer ON community_alt_claims(reviewed_by)"
+  },
+  {
+    "type": "index",
+    "name": "community_alt_claims_status",
+    "tbl_name": "community_alt_claims",
+    "sql": "CREATE INDEX community_alt_claims_status ON community_alt_claims(status)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_allocation_events_receipt",
+    "tbl_name": "community_contribution_allocation_events",
+    "sql": "CREATE INDEX community_contribution_allocation_events_receipt ON community_contribution_allocation_events(receipt_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_allocation_events_week",
+    "tbl_name": "community_contribution_allocation_events",
+    "sql": "CREATE INDEX community_contribution_allocation_events_week ON community_contribution_allocation_events(obligation_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_decisions_member",
+    "tbl_name": "community_contribution_decisions",
+    "sql": "CREATE INDEX community_contribution_decisions_member ON community_contribution_decisions(guild_scope, discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_decisions_retain",
+    "tbl_name": "community_contribution_decisions",
+    "sql": "CREATE INDEX community_contribution_decisions_retain ON community_contribution_decisions(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_obligations_retain",
+    "tbl_name": "community_contribution_obligations",
+    "sql": "CREATE INDEX community_contribution_obligations_retain ON community_contribution_obligations(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_receipts_member",
+    "tbl_name": "community_contribution_receipts",
+    "sql": "CREATE INDEX community_contribution_receipts_member ON community_contribution_receipts(guild_scope, matched_discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_contribution_receipts_retain",
+    "tbl_name": "community_contribution_receipts",
+    "sql": "CREATE INDEX community_contribution_receipts_retain ON community_contribution_receipts(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_craft_offers_key",
+    "tbl_name": "community_craft_offers",
+    "sql": "CREATE INDEX community_craft_offers_key ON community_craft_offers(recipe_key)"
+  },
+  {
+    "type": "index",
+    "name": "community_craft_offers_profession",
+    "tbl_name": "community_craft_offers",
+    "sql": "CREATE INDEX community_craft_offers_profession ON community_craft_offers(profession, recipe_key)"
+  },
+  {
+    "type": "index",
+    "name": "community_departure_reviews_retain",
+    "tbl_name": "community_departure_reviews",
+    "sql": "CREATE INDEX community_departure_reviews_retain ON community_departure_reviews(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_departure_reviews_status",
+    "tbl_name": "community_departure_reviews",
+    "sql": "CREATE INDEX community_departure_reviews_status ON community_departure_reviews(status, observed_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_attendance_member",
+    "tbl_name": "community_event_attendance",
+    "sql": "CREATE INDEX community_event_attendance_member ON community_event_attendance(discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_attendance_recorder",
+    "tbl_name": "community_event_attendance",
+    "sql": "CREATE INDEX community_event_attendance_recorder ON community_event_attendance(recorded_by)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_changes_actor",
+    "tbl_name": "community_event_changes",
+    "sql": "CREATE INDEX community_event_changes_actor ON community_event_changes(actor)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_changes_event",
+    "tbl_name": "community_event_changes",
+    "sql": "CREATE INDEX community_event_changes_event ON community_event_changes(event_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_deliveries_retain",
+    "tbl_name": "community_event_deliveries",
+    "sql": "CREATE INDEX community_event_deliveries_retain ON community_event_deliveries(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_reminders_due",
+    "tbl_name": "community_event_reminders",
+    "sql": "CREATE INDEX community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_signups_member",
+    "tbl_name": "community_event_signups",
+    "sql": "CREATE INDEX community_event_signups_member ON community_event_signups(discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_event_signups_status",
+    "tbl_name": "community_event_signups",
+    "sql": "CREATE INDEX community_event_signups_status ON community_event_signups(event_id, status)"
+  },
+  {
+    "type": "index",
+    "name": "community_events_op",
+    "tbl_name": "community_events",
+    "sql": "CREATE UNIQUE INDEX community_events_op ON community_events(created_by, op_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_events_retain",
+    "tbl_name": "community_events",
+    "sql": "CREATE INDEX community_events_retain ON community_events(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_events_window",
+    "tbl_name": "community_events",
+    "sql": "CREATE INDEX community_events_window ON community_events(starts_at, ends_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_privacy_cases_created",
+    "tbl_name": "community_privacy_cases",
+    "sql": "CREATE INDEX community_privacy_cases_created ON community_privacy_cases(created_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_privacy_cases_open",
+    "tbl_name": "community_privacy_cases",
+    "sql": "CREATE INDEX community_privacy_cases_open ON community_privacy_cases(closed_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_privacy_cases_retain",
+    "tbl_name": "community_privacy_cases",
+    "sql": "CREATE INDEX community_privacy_cases_retain ON community_privacy_cases(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_privacy_messages_order",
+    "tbl_name": "community_privacy_messages",
+    "sql": "CREATE INDEX community_privacy_messages_order ON community_privacy_messages(case_id, created_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_profiles_departed",
+    "tbl_name": "community_profiles",
+    "sql": "CREATE INDEX community_profiles_departed ON community_profiles(departed_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_profiles_listed",
+    "tbl_name": "community_profiles",
+    "sql": "CREATE INDEX community_profiles_listed ON community_profiles(listed)"
+  },
+  {
+    "type": "index",
+    "name": "community_profiles_main_key",
+    "tbl_name": "community_profiles",
+    "sql": "CREATE INDEX community_profiles_main_key ON community_profiles(main_key)"
+  },
+  {
+    "type": "index",
+    "name": "community_restriction_cases_member",
+    "tbl_name": "community_restriction_cases",
+    "sql": "CREATE INDEX community_restriction_cases_member ON community_restriction_cases(discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_restriction_cases_retain",
+    "tbl_name": "community_restriction_cases",
+    "sql": "CREATE INDEX community_restriction_cases_retain ON community_restriction_cases(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_restriction_cases_review",
+    "tbl_name": "community_restriction_cases",
+    "sql": "CREATE INDEX community_restriction_cases_review ON community_restriction_cases(review_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_restriction_characters_expiry",
+    "tbl_name": "community_restriction_characters",
+    "sql": "CREATE INDEX community_restriction_characters_expiry ON community_restriction_characters(expires_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_restriction_characters_key",
+    "tbl_name": "community_restriction_characters",
+    "sql": "CREATE INDEX community_restriction_characters_key ON community_restriction_characters(proof_key)"
+  },
+  {
+    "type": "index",
+    "name": "community_trials_due",
+    "tbl_name": "community_trials",
+    "sql": "CREATE INDEX community_trials_due ON community_trials(review_due_at)"
+  },
+  {
+    "type": "index",
+    "name": "community_trials_member",
+    "tbl_name": "community_trials",
+    "sql": "CREATE INDEX community_trials_member ON community_trials(discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "community_trials_retain",
+    "tbl_name": "community_trials",
+    "sql": "CREATE INDEX community_trials_retain ON community_trials(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "community_trials_sponsor",
+    "tbl_name": "community_trials",
+    "sql": "CREATE INDEX community_trials_sponsor ON community_trials(sponsor_discord_id)"
+  },
+  {
+    "type": "index",
+    "name": "invite_queue_claim",
+    "tbl_name": "invite_queue",
+    "sql": "CREATE INDEX invite_queue_claim ON invite_queue(status, claimed_by, claimed_at)"
+  },
+  {
+    "type": "index",
+    "name": "invite_queue_order",
+    "tbl_name": "invite_queue",
+    "sql": "CREATE INDEX invite_queue_order ON invite_queue(status, priority, id)"
+  },
+  {
+    "type": "index",
+    "name": "invite_queue_status",
+    "tbl_name": "invite_queue",
+    "sql": "CREATE INDEX invite_queue_status ON invite_queue(status)"
+  },
+  {
+    "type": "index",
+    "name": "members_battletag",
+    "tbl_name": "members",
+    "sql": "CREATE UNIQUE INDEX members_battletag ON members(battletag) WHERE battletag IS NOT NULL"
+  },
+  {
+    "type": "index",
+    "name": "pending_name",
+    "tbl_name": "pending",
+    "sql": "CREATE INDEX pending_name ON pending(name_key, consumed_at)"
+  },
+  {
+    "type": "index",
+    "name": "pending_nonce",
+    "tbl_name": "pending",
+    "sql": "CREATE INDEX pending_nonce ON pending(nonce, consumed_at)"
+  },
+  {
+    "type": "index",
+    "name": "privacy_access_grants_expiry",
+    "tbl_name": "privacy_access_grants",
+    "sql": "CREATE INDEX privacy_access_grants_expiry ON privacy_access_grants(expires_at)"
+  },
+  {
+    "type": "index",
+    "name": "privacy_access_oauth_expiry",
+    "tbl_name": "privacy_access_oauth",
+    "sql": "CREATE INDEX privacy_access_oauth_expiry ON privacy_access_oauth(expires_at)"
+  },
+  {
+    "type": "index",
+    "name": "privacy_provider_messages_cleanup",
+    "tbl_name": "privacy_provider_messages",
+    "sql": "CREATE INDEX privacy_provider_messages_cleanup ON privacy_provider_messages(cleanup_requested,state,created_at)"
+  },
+  {
+    "type": "index",
+    "name": "privacy_restore_replay_subject",
+    "tbl_name": "privacy_restore_replay",
+    "sql": "CREATE INDEX privacy_restore_replay_subject ON privacy_restore_replay(subject_id,retired_generation)"
+  },
+  {
+    "type": "index",
+    "name": "privacy_serving_jobs_open",
+    "tbl_name": "privacy_serving_jobs",
+    "sql": "CREATE UNIQUE INDEX privacy_serving_jobs_open ON privacy_serving_jobs(subject_id) WHERE state<>'complete'"
+  },
+  {
+    "type": "index",
+    "name": "privacy_serving_jobs_retain",
+    "tbl_name": "privacy_serving_jobs",
+    "sql": "CREATE INDEX privacy_serving_jobs_retain ON privacy_serving_jobs(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "qr_key_subject",
+    "tbl_name": "councillor_keys",
+    "sql": "CREATE INDEX qr_key_subject ON councillor_keys(signer,revoked_at)"
+  },
+  {
+    "type": "index",
+    "name": "qr_request_subject",
+    "tbl_name": "verification_requests",
+    "sql": "CREATE INDEX qr_request_subject ON verification_requests(requester,expires_at)"
+  },
+  {
+    "type": "index",
+    "name": "rename_holds_account",
+    "tbl_name": "rename_holds",
+    "sql": "CREATE INDEX rename_holds_account ON rename_holds(discord_id, state)"
+  },
+  {
+    "type": "index",
+    "name": "rename_holds_audit",
+    "tbl_name": "rename_holds",
+    "sql": "CREATE UNIQUE INDEX rename_holds_audit ON rename_holds(audit_id) WHERE audit_id IS NOT NULL"
+  },
+  {
+    "type": "index",
+    "name": "role_settlement_subject",
+    "tbl_name": "role_settlements",
+    "sql": "CREATE INDEX role_settlement_subject ON role_settlements(subject,state)"
+  },
+  {
+    "type": "index",
+    "name": "roster_snapshots_first",
+    "tbl_name": "roster_snapshots",
+    "sql": "CREATE INDEX roster_snapshots_first ON roster_snapshots(first_received_at)"
+  },
+  {
+    "type": "index",
+    "name": "seen_interactions_at",
+    "tbl_name": "seen_interactions",
+    "sql": "CREATE INDEX seen_interactions_at ON seen_interactions(seen_at)"
+  },
+  {
+    "type": "index",
+    "name": "site_applications_position",
+    "tbl_name": "site_applications",
+    "sql": "CREATE INDEX site_applications_position ON site_applications(position, status)"
+  },
+  {
+    "type": "index",
+    "name": "site_board_votes_candidate",
+    "tbl_name": "site_board_votes",
+    "sql": "CREATE INDEX site_board_votes_candidate ON site_board_votes(candidate_id)"
+  },
+  {
+    "type": "index",
+    "name": "site_board_votes_tally",
+    "tbl_name": "site_board_votes",
+    "sql": "CREATE INDEX site_board_votes_tally ON site_board_votes(role_key, candidate_id)"
+  },
+  {
+    "type": "index",
+    "name": "site_friends_friend",
+    "tbl_name": "site_friends",
+    "sql": "CREATE INDEX site_friends_friend ON site_friends(friend_kind, friend_key)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_notices_created_by",
+    "tbl_name": "site_news_notices",
+    "sql": "CREATE INDEX site_news_notices_created_by ON site_news_notices(created_by)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_notices_order",
+    "tbl_name": "site_news_notices",
+    "sql": "CREATE INDEX site_news_notices_order ON site_news_notices(created_at)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_notices_retain",
+    "tbl_name": "site_news_notices",
+    "sql": "CREATE INDEX site_news_notices_retain ON site_news_notices(retain_until)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_notices_updated_by",
+    "tbl_name": "site_news_notices",
+    "sql": "CREATE INDEX site_news_notices_updated_by ON site_news_notices(updated_by)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_ops_created_by",
+    "tbl_name": "site_news_ops",
+    "sql": "CREATE INDEX site_news_ops_created_by ON site_news_ops(created_by)"
+  },
+  {
+    "type": "index",
+    "name": "site_news_ops_purge",
+    "tbl_name": "site_news_ops",
+    "sql": "CREATE INDEX site_news_ops_purge ON site_news_ops(purge_after)"
+  },
+  {
+    "type": "index",
+    "name": "site_reserved_name",
+    "tbl_name": "site_reserved",
+    "sql": "CREATE INDEX site_reserved_name ON site_reserved(name_key, status)"
+  },
+  {
+    "type": "index",
+    "name": "site_reserved_owner",
+    "tbl_name": "site_reserved",
+    "sql": "CREATE INDEX site_reserved_owner ON site_reserved(owner_id, status)"
+  },
+  {
+    "type": "index",
+    "name": "site_reserved_status",
+    "tbl_name": "site_reserved",
+    "sql": "CREATE INDEX site_reserved_status ON site_reserved(status, id)"
+  },
+  {
+    "type": "index",
+    "name": "site_votes_nominee",
+    "tbl_name": "site_votes",
+    "sql": "CREATE INDEX site_votes_nominee ON site_votes(nominee_kind, nominee_key)"
+  },
+  {
+    "type": "index",
+    "name": "site_votes_tally",
+    "tbl_name": "site_votes",
+    "sql": "CREATE INDEX site_votes_tally ON site_votes(ballot, nominee_kind, nominee_key)"
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_bnet_characters_1",
+    "tbl_name": "bnet_characters",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_characters_1",
+    "tbl_name": "characters",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_alt_claims_1",
+    "tbl_name": "community_alt_claims",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_evidence_1",
+    "tbl_name": "community_contribution_evidence",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_horizons_1",
+    "tbl_name": "community_contribution_horizons",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_members_1",
+    "tbl_name": "community_contribution_members",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_obligations_1",
+    "tbl_name": "community_contribution_obligations",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_policies_1",
+    "tbl_name": "community_contribution_policies",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_receipts_1",
+    "tbl_name": "community_contribution_receipts",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_contribution_receipts_2",
+    "tbl_name": "community_contribution_receipts",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_craft_offers_1",
+    "tbl_name": "community_craft_offers",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_departure_reviews_1",
+    "tbl_name": "community_departure_reviews",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_departure_reviews_2",
+    "tbl_name": "community_departure_reviews",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_event_attendance_1",
+    "tbl_name": "community_event_attendance",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_event_deliveries_1",
+    "tbl_name": "community_event_deliveries",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_event_reminders_1",
+    "tbl_name": "community_event_reminders",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_event_signups_1",
+    "tbl_name": "community_event_signups",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_events_1",
+    "tbl_name": "community_events",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_privacy_cases_1",
+    "tbl_name": "community_privacy_cases",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_privacy_messages_1",
+    "tbl_name": "community_privacy_messages",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_privacy_operations_1",
+    "tbl_name": "community_privacy_operations",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_professions_1",
+    "tbl_name": "community_professions",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_profiles_1",
+    "tbl_name": "community_profiles",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_profiles_2",
+    "tbl_name": "community_profiles",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_refs_1",
+    "tbl_name": "community_refs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_refs_2",
+    "tbl_name": "community_refs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_restriction_cases_1",
+    "tbl_name": "community_restriction_cases",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_restriction_characters_1",
+    "tbl_name": "community_restriction_characters",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_restriction_periods_1",
+    "tbl_name": "community_restriction_periods",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_community_trials_1",
+    "tbl_name": "community_trials",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_councillor_challenges_1",
+    "tbl_name": "councillor_challenges",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_councillor_keys_1",
+    "tbl_name": "councillor_keys",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_councillor_keys_2",
+    "tbl_name": "councillor_keys",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_intro_locks_1",
+    "tbl_name": "intro_locks",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_intro_posts_1",
+    "tbl_name": "intro_posts",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_members_1",
+    "tbl_name": "members",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_access_grants_1",
+    "tbl_name": "privacy_access_grants",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_access_grants_2",
+    "tbl_name": "privacy_access_grants",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_access_oauth_1",
+    "tbl_name": "privacy_access_oauth",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_denial_markers_1",
+    "tbl_name": "privacy_denial_markers",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_provider_messages_1",
+    "tbl_name": "privacy_provider_messages",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_restore_replay_1",
+    "tbl_name": "privacy_restore_replay",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_serving_jobs_1",
+    "tbl_name": "privacy_serving_jobs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_privacy_subjects_1",
+    "tbl_name": "privacy_subjects",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_relays_1",
+    "tbl_name": "relays",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_role_settlements_1",
+    "tbl_name": "role_settlements",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_role_settlements_2",
+    "tbl_name": "role_settlements",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_roster_effects_1",
+    "tbl_name": "roster_effects",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_roster_first_seen_1",
+    "tbl_name": "roster_first_seen",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_roster_members_1",
+    "tbl_name": "roster_members",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_seen_interactions_1",
+    "tbl_name": "seen_interactions",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_applications_1",
+    "tbl_name": "site_applications",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_board_votes_1",
+    "tbl_name": "site_board_votes",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_friends_1",
+    "tbl_name": "site_friends",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_news_notices_1",
+    "tbl_name": "site_news_notices",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_news_ops_1",
+    "tbl_name": "site_news_ops",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_settings_1",
+    "tbl_name": "site_settings",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_users_1",
+    "tbl_name": "site_users",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_site_votes_1",
+    "tbl_name": "site_votes",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_verification_proofs_1",
+    "tbl_name": "verification_proofs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_verification_proofs_2",
+    "tbl_name": "verification_proofs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_verification_proofs_3",
+    "tbl_name": "verification_proofs",
+    "sql": null
+  },
+  {
+    "type": "index",
+    "name": "sqlite_autoindex_verification_requests_1",
+    "tbl_name": "verification_requests",
+    "sql": null
+  },
+  {
+    "type": "table",
+    "name": "_cf_KV",
+    "tbl_name": "_cf_KV",
+    "sql": "CREATE TABLE _cf_KV (\n        key TEXT PRIMARY KEY,\n        value BLOB\n      ) WITHOUT ROWID"
+  },
+  {
+    "type": "table",
+    "name": "audit",
+    "tbl_name": "audit",
+    "sql": "CREATE TABLE audit (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  ts             INTEGER NOT NULL,\n  actor          TEXT NOT NULL,      -- discord id, 'watcher', 'system', 'cron'\n  action         TEXT NOT NULL,\n  subject        TEXT,               -- character name / discord id\n  details        TEXT                -- JSON\n)"
+  },
+  {
+    "type": "table",
+    "name": "bnet_characters",
+    "tbl_name": "bnet_characters",
+    "sql": "CREATE TABLE bnet_characters (\n  discord_id     TEXT NOT NULL,\n  character_id   TEXT NOT NULL,\n  name           TEXT NOT NULL,\n  realm_or_ruleset TEXT,\n  level          INTEGER,\n  fetched_at     INTEGER NOT NULL,\n  PRIMARY KEY (discord_id, character_id)\n)"
+  },
+  {
+    "type": "table",
+    "name": "characters",
+    "tbl_name": "characters",
+    "sql": "CREATE TABLE characters (\n  name_key       TEXT PRIMARY KEY,   -- normalized\n  name           TEXT NOT NULL,      -- as first seen in game / as typed\n  discord_id     TEXT NOT NULL REFERENCES members(discord_id),\n  status         TEXT NOT NULL,      -- pending | verified | queued | member | left | unbound\n  bound_at       INTEGER NOT NULL,\n  verified_at    INTEGER,\n  member_since   INTEGER,\n  left_at        INTEGER,\n  source         TEXT                -- whisper | mail | api\n, guid TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "community_alt_claims",
+    "tbl_name": "community_alt_claims",
+    "sql": "CREATE TABLE community_alt_claims (\n     discord_id  TEXT NOT NULL,\n     name        TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 40),\n     name_key    TEXT NOT NULL,\n     status      TEXT NOT NULL DEFAULT 'claimed' CHECK (status IN ('claimed', 'officer_confirmed', 'rejected')),\n     proof       TEXT NOT NULL DEFAULT 'self' CHECK (proof IN ('self', 'keeper')),\n     claimed_at  INTEGER NOT NULL,\n     reviewed_by TEXT,\n     reviewed_at INTEGER,\n     updated_at  INTEGER NOT NULL,\n     PRIMARY KEY (discord_id, name_key)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_allocation_events",
+    "tbl_name": "community_contribution_allocation_events",
+    "sql": "CREATE TABLE community_contribution_allocation_events (\n     id              INTEGER PRIMARY KEY AUTOINCREMENT,\n     receipt_id      TEXT NOT NULL,\n     obligation_id   INTEGER NOT NULL,\n     amount_copper   INTEGER NOT NULL CHECK (amount_copper <> 0),\n     member_revision INTEGER NOT NULL,\n     nonce           TEXT NOT NULL,\n     actor           TEXT NOT NULL,\n     created_at      INTEGER NOT NULL\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_decisions",
+    "tbl_name": "community_contribution_decisions",
+    "sql": "CREATE TABLE community_contribution_decisions (\n     id              INTEGER PRIMARY KEY AUTOINCREMENT,\n     guild_scope     TEXT NOT NULL,\n     discord_id      TEXT NOT NULL,\n     obligation_id   INTEGER NOT NULL,\n     action          TEXT NOT NULL,\n     actor           TEXT NOT NULL,\n     member_revision INTEGER NOT NULL,\n     nonce           TEXT NOT NULL,\n     at              INTEGER NOT NULL,\n     retain_until    INTEGER NOT NULL\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_evidence",
+    "tbl_name": "community_contribution_evidence",
+    "sql": "CREATE TABLE community_contribution_evidence (\n     guild_scope  TEXT NOT NULL,\n     period_start INTEGER NOT NULL,\n     state        TEXT NOT NULL CHECK (state IN ('complete', 'partial', 'stale', 'unavailable')),\n     attested_at  INTEGER NOT NULL,\n     retain_until INTEGER NOT NULL,\n     nonce        TEXT,\n     PRIMARY KEY (guild_scope, period_start)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_horizons",
+    "tbl_name": "community_contribution_horizons",
+    "sql": "CREATE TABLE community_contribution_horizons (\n     guild_scope TEXT NOT NULL,\n     kind        TEXT NOT NULL,\n     horizon     INTEGER NOT NULL,\n     PRIMARY KEY (guild_scope, kind)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_members",
+    "tbl_name": "community_contribution_members",
+    "sql": "CREATE TABLE community_contribution_members (\n     guild_scope  TEXT NOT NULL,\n     discord_id   TEXT NOT NULL,\n     incarnation  TEXT NOT NULL CHECK (length(incarnation) = 22),\n     revision     INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     nonce        TEXT,\n     updated_at   INTEGER NOT NULL,\n     PRIMARY KEY (guild_scope, discord_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_obligations",
+    "tbl_name": "community_contribution_obligations",
+    "sql": "CREATE TABLE community_contribution_obligations (\n     id                       INTEGER PRIMARY KEY AUTOINCREMENT,\n     guild_scope              TEXT NOT NULL,\n     discord_id               TEXT NOT NULL,\n     period_start             INTEGER NOT NULL,\n     due_at                   INTEGER NOT NULL,\n     policy_version           TEXT NOT NULL REFERENCES community_contribution_policies(version),\n     amount_copper            INTEGER NOT NULL CHECK (amount_copper > 0),\n     eligible                 INTEGER NOT NULL CHECK (eligible IN (0, 1)),\n     state                    TEXT NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'exempt', 'disputed', 'resolved')),\n     acknowledged_at          INTEGER,\n     officer_contact_at       INTEGER,\n     final_notice_at          INTEGER,\n     final_acknowledged_at    INTEGER,\n     final_officer_contact_at INTEGER,\n     revision                 INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     facts_revision           INTEGER NOT NULL DEFAULT 1 CHECK (facts_revision >= 1),\n     removal_case_id          TEXT,\n     retain_until             INTEGER NOT NULL,\n     op_nonce                 TEXT,\n     created_at               INTEGER NOT NULL,\n     updated_at               INTEGER NOT NULL,\n     UNIQUE (guild_scope, discord_id, period_start)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_policies",
+    "tbl_name": "community_contribution_policies",
+    "sql": "CREATE TABLE community_contribution_policies (\n     version                TEXT PRIMARY KEY,\n     amount_copper          INTEGER NOT NULL CHECK (amount_copper > 0),\n     anchor_weekday         INTEGER NOT NULL CHECK (anchor_weekday BETWEEN 0 AND 6),\n     anchor_hour_utc        INTEGER NOT NULL CHECK (anchor_hour_utc BETWEEN 0 AND 23),\n     grace_hours            INTEGER NOT NULL CHECK (grace_hours >= 0),\n     final_notice_days      INTEGER NOT NULL CHECK (final_notice_days >= 1),\n     review_days            INTEGER NOT NULL CHECK (review_days >= 1),\n     new_member_exempt_days INTEGER NOT NULL CHECK (new_member_exempt_days >= 0),\n     created_at             INTEGER NOT NULL\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_contribution_receipts",
+    "tbl_name": "community_contribution_receipts",
+    "sql": "CREATE TABLE community_contribution_receipts (\n     id                  TEXT PRIMARY KEY CHECK (length(id) = 22),\n     guild_scope         TEXT NOT NULL,\n     source              TEXT NOT NULL CHECK (source IN ('officer_manual', 'mail', 'bank_log')),\n     source_id           TEXT NOT NULL,\n     payload_hash        TEXT NOT NULL,\n     payer_name          TEXT,\n     amount_copper       INTEGER NOT NULL CHECK (amount_copper > 0),\n     retired_copper      INTEGER NOT NULL DEFAULT 0 CHECK (retired_copper >= 0),\n     observed_at         INTEGER NOT NULL,\n     observer_discord_id TEXT,\n     matched_discord_id  TEXT,\n     status              TEXT NOT NULL CHECK (status IN ('matched', 'unmatched', 'disputed', 'rejected')),\n     voided_at           INTEGER,\n     retain_until        INTEGER NOT NULL,\n     created_at          INTEGER NOT NULL,\n     UNIQUE (guild_scope, source, source_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_craft_offers",
+    "tbl_name": "community_craft_offers",
+    "sql": "CREATE TABLE community_craft_offers (\n     discord_id  TEXT NOT NULL,\n     profession  TEXT NOT NULL CHECK (profession IN ('alchemy', 'blacksmithing', 'enchanting', 'engineering', 'herbalism', 'leatherworking', 'mining', 'skinning', 'tailoring', 'cooking', 'fishing', 'first_aid')),\n     recipe_name TEXT NOT NULL CHECK (length(recipe_name) BETWEEN 2 AND 60),\n     recipe_key  TEXT NOT NULL CHECK (length(recipe_key) BETWEEN 2 AND 60),\n     updated_at  INTEGER NOT NULL,\n     PRIMARY KEY (discord_id, recipe_key)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_departure_reviews",
+    "tbl_name": "community_departure_reviews",
+    "sql": "CREATE TABLE community_departure_reviews (\n     id                  TEXT PRIMARY KEY CHECK (length(id) = 22),\n     discord_id          TEXT NOT NULL,\n     character_key       TEXT NOT NULL CHECK (length(character_key) BETWEEN 2 AND 160),\n     character_name      TEXT NOT NULL CHECK (length(character_name) BETWEEN 2 AND 40),\n     proof_key           TEXT NOT NULL,\n     kind                TEXT NOT NULL CHECK (kind IN ('left', 'removed', 'unknown')),\n     observed_at         INTEGER NOT NULL,\n     status              TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'acknowledged', 'restriction_opened')),\n     restriction_case_id TEXT,\n     reviewed_by         TEXT,\n     reviewed_at         INTEGER,\n     created_at          INTEGER NOT NULL,\n     revision            INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     nonce               TEXT,\n     retain_until        INTEGER NOT NULL,\n     CHECK ((status = 'open') = (reviewed_at IS NULL)),\n     CHECK ((status = 'restriction_opened') = (restriction_case_id IS NOT NULL)),\n     UNIQUE (discord_id, proof_key, observed_at)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_departure_scan",
+    "tbl_name": "community_departure_scan",
+    "sql": "CREATE TABLE community_departure_scan (\n     id         INTEGER PRIMARY KEY CHECK (id = 1),\n     left_at    INTEGER NOT NULL,\n     name_key   TEXT NOT NULL,\n     updated_at INTEGER NOT NULL\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_event_attendance",
+    "tbl_name": "community_event_attendance",
+    "sql": "CREATE TABLE community_event_attendance (\n     event_id    TEXT NOT NULL,\n     discord_id  TEXT NOT NULL,\n     state       TEXT NOT NULL CHECK (state IN ('present', 'absent', 'excused', 'unknown')),\n     source      TEXT NOT NULL DEFAULT 'officer' CHECK (source IN ('officer', 'observed')),\n     reason_code TEXT CHECK (reason_code IS NULL OR (reason_code IN ('late', 'left_early') AND state = 'present')),\n     recorded_by TEXT,\n     recorded_at INTEGER NOT NULL,\n     revision    INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     write_nonce TEXT,\n     PRIMARY KEY (event_id, discord_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_event_changes",
+    "tbl_name": "community_event_changes",
+    "sql": "CREATE TABLE community_event_changes (\n     id       INTEGER PRIMARY KEY AUTOINCREMENT,\n     event_id TEXT NOT NULL,\n     action   TEXT NOT NULL CHECK (action IN ('created', 'updated', 'cancelled')),\n     actor    TEXT,\n     at       INTEGER NOT NULL,\n     fields   TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(fields))\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_event_deliveries",
+    "tbl_name": "community_event_deliveries",
+    "sql": "CREATE TABLE community_event_deliveries (\n    event_id TEXT NOT NULL REFERENCES community_events(id) ON DELETE CASCADE,\n    purpose TEXT NOT NULL CHECK (purpose = 'publication'),\n    event_revision INTEGER NOT NULL CHECK (event_revision >= 1),\n    starts_at INTEGER NOT NULL,\n    guild_id TEXT NOT NULL,\n    channel_id TEXT NOT NULL,\n    message_id TEXT,\n    frozen_content TEXT CHECK (frozen_content IS NULL OR length(frozen_content) <= 1024),\n    payload_hash TEXT,\n    op_id TEXT NOT NULL CHECK (length(op_id) = 22),\n    claim_nonce TEXT NOT NULL CHECK (length(claim_nonce) = 22),\n    state TEXT NOT NULL CHECK (state IN ('claimed','posted','refused','unknown','removed')),\n    cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_requested IN (0,1)),\n    actor TEXT,\n    session_version INTEGER,\n    session_expires INTEGER,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    retain_until INTEGER NOT NULL,\n    result_code TEXT,\n    PRIMARY KEY (event_id,purpose)\n  )"
+  },
+  {
+    "type": "table",
+    "name": "community_event_reminders",
+    "tbl_name": "community_event_reminders",
+    "sql": "CREATE TABLE community_event_reminders (\n  event_id TEXT PRIMARY KEY REFERENCES community_events(id) ON DELETE CASCADE,\n  event_revision INTEGER NOT NULL CHECK (event_revision >= 1),\n  starts_at INTEGER NOT NULL,\n  actor TEXT,\n  consent_version INTEGER,\n  guild_id TEXT NOT NULL,\n  channel_id TEXT NOT NULL,\n  host TEXT NOT NULL,\n  op_id TEXT NOT NULL CHECK (length(op_id) = 22),\n  claim_nonce TEXT,\n  state TEXT NOT NULL CHECK (state IN ('armed','claimed','posted','refused','unknown','cancelled','removed')),\n  message_id TEXT,\n  frozen_content TEXT CHECK (frozen_content IS NULL OR length(frozen_content) <= 1024),\n  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_requested IN (0,1)),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  last_attempt_at INTEGER NOT NULL DEFAULT 0,\n  retain_until INTEGER NOT NULL\n)"
+  },
+  {
+    "type": "table",
+    "name": "community_event_signups",
+    "tbl_name": "community_event_signups",
+    "sql": "CREATE TABLE community_event_signups (\n     event_id       TEXT NOT NULL,\n     discord_id     TEXT NOT NULL,\n     status         TEXT NOT NULL CHECK (status IN ('yes', 'tentative', 'no')),\n     character_name TEXT CHECK (character_name IS NULL OR length(character_name) BETWEEN 2 AND 40),\n     character_key  TEXT,\n     raid_role      TEXT CHECK (raid_role IS NULL OR raid_role IN ('tank', 'healer', 'damage')),\n     revision       INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     rsvp_starts_at INTEGER NOT NULL,\n     updated_at     INTEGER NOT NULL,\n     write_nonce    TEXT,\n     PRIMARY KEY (event_id, discord_id),\n     CHECK ((character_name IS NULL) = (character_key IS NULL))\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_events",
+    "tbl_name": "community_events",
+    "sql": "CREATE TABLE community_events (\n     id                    TEXT PRIMARY KEY CHECK (length(id) = 22),\n     op_id                 TEXT NOT NULL,\n     op_hash               TEXT,\n     title                 TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),\n     details               TEXT NOT NULL DEFAULT '' CHECK (length(details) <= 500),\n     starts_at             INTEGER NOT NULL CHECK (starts_at > 0),\n     duration_min          INTEGER NOT NULL CHECK (duration_min BETWEEN 15 AND 720),\n     ends_at               INTEGER NOT NULL CHECK (ends_at = starts_at + duration_min * 60),\n     capacity              INTEGER CHECK (capacity IS NULL OR capacity BETWEEN 1 AND 100),\n     role_targets          TEXT CHECK (role_targets IS NULL OR json_valid(role_targets)),\n     status                TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'cancelled')),\n     created_by            TEXT,\n     revision              INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     signup_generation     INTEGER NOT NULL DEFAULT 0 CHECK (signup_generation >= 0),\n     attendance_generation INTEGER NOT NULL DEFAULT 0 CHECK (attendance_generation >= 0),\n     nonce                 TEXT,\n     attendance_nonce      TEXT,\n     created_at            INTEGER NOT NULL,\n     updated_at            INTEGER NOT NULL,\n     retain_until          INTEGER NOT NULL\n   , publication_closed INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)), reminder_closed INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1)))"
+  },
+  {
+    "type": "table",
+    "name": "community_privacy_cases",
+    "tbl_name": "community_privacy_cases",
+    "sql": "CREATE TABLE community_privacy_cases (\n     case_id        TEXT PRIMARY KEY CHECK (length(case_id) = 22),\n     code_hash      TEXT NOT NULL CHECK (length(code_hash) = 64),\n     payload_hash   TEXT NOT NULL,\n     kind           TEXT NOT NULL CHECK (kind IN ('access', 'deletion', 'correction', 'objection', 'other')),\n     subject_hint   TEXT CHECK (subject_hint IS NULL OR length(subject_hint) <= 64),\n     character_hint TEXT CHECK (character_hint IS NULL OR length(character_hint) <= 64),\n     status         TEXT NOT NULL CHECK (status IN ('received', 'in_review', 'needs_verification', 'completed', 'declined')),\n     retention_days INTEGER NOT NULL CHECK (retention_days BETWEEN 1 AND 3650),\n     retain_until   INTEGER NOT NULL,\n     created_at     INTEGER NOT NULL,\n     updated_at     INTEGER NOT NULL,\n     closed_at      INTEGER\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_privacy_messages",
+    "tbl_name": "community_privacy_messages",
+    "sql": "CREATE TABLE community_privacy_messages (\n     case_id    TEXT NOT NULL,\n     message_id TEXT NOT NULL CHECK (length(message_id) = 22),\n     author     TEXT NOT NULL CHECK (author IN ('requester', 'staff')),\n     text       TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),\n     text_hash  TEXT NOT NULL,\n     nonce      TEXT NOT NULL,\n     created_at INTEGER NOT NULL,\n     PRIMARY KEY (case_id, message_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_privacy_operations",
+    "tbl_name": "community_privacy_operations",
+    "sql": "CREATE TABLE community_privacy_operations (\n     case_id      TEXT NOT NULL,\n     op_id        TEXT NOT NULL CHECK (length(op_id) = 22),\n     payload_hash TEXT NOT NULL,\n     nonce        TEXT NOT NULL,\n     created_at   INTEGER NOT NULL,\n     PRIMARY KEY (case_id, op_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_professions",
+    "tbl_name": "community_professions",
+    "sql": "CREATE TABLE community_professions (\n     discord_id TEXT NOT NULL,\n     profession TEXT NOT NULL CHECK (profession IN ('alchemy', 'blacksmithing', 'enchanting', 'engineering', 'herbalism', 'leatherworking', 'mining', 'skinning', 'tailoring', 'cooking', 'fishing', 'first_aid')),\n     skill      INTEGER CHECK (skill IS NULL OR skill BETWEEN 0 AND 450),\n     updated_at INTEGER NOT NULL,\n     PRIMARY KEY (discord_id, profession)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_profiles",
+    "tbl_name": "community_profiles",
+    "sql": "CREATE TABLE community_profiles (\n     discord_id      TEXT PRIMARY KEY,\n     ref             TEXT NOT NULL UNIQUE CHECK (length(ref) = 22),\n     revision        INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     listed          INTEGER NOT NULL DEFAULT 0 CHECK (listed IN (0, 1)),\n     main_name       TEXT CHECK (main_name IS NULL OR length(main_name) BETWEEN 2 AND 40),\n     main_key        TEXT,\n     main_source     TEXT CHECK (main_source IN ('self', 'keeper')),\n     main_updated_at INTEGER,\n     raid_role       TEXT CHECK (raid_role IN ('tank', 'healer', 'damage')),\n     role_updated_at INTEGER,\n     departed_at     INTEGER,\n     write_nonce     TEXT,\n     created_at      INTEGER NOT NULL,\n     updated_at      INTEGER NOT NULL,\n     CHECK ((main_name IS NULL) = (main_key IS NULL) AND (main_name IS NULL) = (main_source IS NULL) AND (main_name IS NULL) = (main_updated_at IS NULL)),\n     CHECK ((raid_role IS NULL) = (role_updated_at IS NULL))\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_refs",
+    "tbl_name": "community_refs",
+    "sql": "CREATE TABLE community_refs (\n     discord_id TEXT PRIMARY KEY,\n     ref        TEXT NOT NULL UNIQUE CHECK (length(ref) = 22),\n     created_at INTEGER NOT NULL\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_restriction_cases",
+    "tbl_name": "community_restriction_cases",
+    "sql": "CREATE TABLE community_restriction_cases (\n     id              TEXT PRIMARY KEY CHECK (length(id) = 22),\n     discord_id      TEXT NOT NULL,\n     category        TEXT NOT NULL CHECK (category IN ('ban', 'conduct_removal', 'tithe_removal')),\n     set_by          TEXT NOT NULL,\n     set_at          INTEGER NOT NULL,\n     review_at       INTEGER NOT NULL,\n     expires_at      INTEGER,\n     appeal_status   TEXT NOT NULL DEFAULT 'none' CHECK (appeal_status IN ('none', 'requested', 'upheld', 'overturned')),\n     review_outcome  TEXT CHECK (review_outcome IN ('continued', 'lifted')),\n     reviewed_at     INTEGER,\n     reviewed_by     TEXT,\n     acknowledged_at INTEGER,\n     acknowledged_by TEXT,\n     resolved_at     INTEGER,\n     resolved_by     TEXT,\n     updated_at      INTEGER NOT NULL,\n     updated_by      TEXT,\n     retain_until    INTEGER,\n     incarnation     TEXT NOT NULL,\n     revision        INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     nonce           TEXT,\n     CHECK ((category = 'ban') = (expires_at IS NULL))\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_restriction_characters",
+    "tbl_name": "community_restriction_characters",
+    "sql": "CREATE TABLE community_restriction_characters (\n     case_id         TEXT NOT NULL,\n     character_key   TEXT NOT NULL CHECK (length(character_key) BETWEEN 2 AND 160),\n     character_name  TEXT NOT NULL CHECK (length(character_name) BETWEEN 2 AND 40),\n     proof_key       TEXT NOT NULL,\n     guid            TEXT,\n     added_at        INTEGER NOT NULL,\n     added_by        TEXT,\n     review_at       INTEGER NOT NULL,\n     expires_at      INTEGER NOT NULL,\n     renewed_at      INTEGER,\n     renewed_by      TEXT,\n     renewal_reason  TEXT CHECK (renewal_reason IN ('ongoing_risk', 'appeal_pending', 'repeat_return')),\n     revision        INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     CHECK (review_at >= added_at AND review_at <= expires_at),\n     CHECK ((renewed_at IS NULL) = (renewal_reason IS NULL)),\n     PRIMARY KEY (case_id, character_key)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_restriction_periods",
+    "tbl_name": "community_restriction_periods",
+    "sql": "CREATE TABLE community_restriction_periods (\n     discord_id      TEXT PRIMARY KEY,\n     opened_at       INTEGER NOT NULL,\n     retain_until    INTEGER NOT NULL,\n     renewed_at      INTEGER,\n     renewal_reason  TEXT CHECK (renewal_reason IN ('ongoing_risk', 'appeal_pending', 'repeat_return')),\n     nonce           TEXT\n   )"
+  },
+  {
+    "type": "table",
+    "name": "community_trials",
+    "tbl_name": "community_trials",
+    "sql": "CREATE TABLE community_trials (\n     id                 TEXT PRIMARY KEY CHECK (length(id) = 22),\n     op_id              TEXT NOT NULL,\n     op_hash            TEXT,\n     discord_id         TEXT NOT NULL,\n     sponsor_discord_id TEXT,\n     started_at         INTEGER NOT NULL,\n     review_due_at      INTEGER NOT NULL CHECK (review_due_at > started_at),\n     status             TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'extended', 'passed', 'ended')),\n     outcome_reason     TEXT,\n     concluded_at       INTEGER,\n     created_by         TEXT,\n     updated_by         TEXT,\n     created_at         INTEGER NOT NULL,\n     updated_at         INTEGER NOT NULL,\n     incarnation        TEXT NOT NULL,\n     revision           INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     nonce              TEXT,\n     retain_until       INTEGER NOT NULL,\n     CHECK ((status IN ('active', 'extended') AND outcome_reason IS NULL AND concluded_at IS NULL)\n         OR (status = 'passed' AND COALESCE(outcome_reason, '') = 'review_passed' AND concluded_at IS NOT NULL)\n         OR (status = 'ended' AND COALESCE(outcome_reason, '') IN ('withdrew', 'inactive', 'staff_decision') AND concluded_at IS NOT NULL)),\n     CHECK (sponsor_discord_id IS NULL OR sponsor_discord_id <> discord_id)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "councillor_challenges",
+    "tbl_name": "councillor_challenges",
+    "sql": "CREATE TABLE councillor_challenges (\n nonce TEXT PRIMARY KEY, key_id TEXT NOT NULL REFERENCES councillor_keys(id), signer TEXT NOT NULL,\n session_version INTEGER NOT NULL, session_expires INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,\n mode TEXT NOT NULL CHECK(mode IN('single','automatic')), max_proofs INTEGER NOT NULL CHECK(max_proofs IN(1,10)),\n proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs))"
+  },
+  {
+    "type": "table",
+    "name": "councillor_keys",
+    "tbl_name": "councillor_keys",
+    "sql": "CREATE TABLE councillor_keys (\n id TEXT PRIMARY KEY, signer TEXT NOT NULL, signer_guid TEXT NOT NULL, public_key TEXT NOT NULL,\n subject_generation TEXT NOT NULL, roster_id INTEGER NOT NULL,\n created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, UNIQUE(signer,public_key))"
+  },
+  {
+    "type": "table",
+    "name": "intro_locks",
+    "tbl_name": "intro_locks",
+    "sql": "CREATE TABLE intro_locks (\n       guild_id TEXT PRIMARY KEY,\n       holder   TEXT NOT NULL,\n       until    INTEGER NOT NULL\n     )"
+  },
+  {
+    "type": "table",
+    "name": "intro_posts",
+    "tbl_name": "intro_posts",
+    "sql": "CREATE TABLE intro_posts (\n       guild_id   TEXT NOT NULL,\n       intro_key  TEXT NOT NULL,\n       parent_id  TEXT NOT NULL,\n       channel_id TEXT NOT NULL,\n       message_id TEXT NOT NULL,\n       hash       TEXT NOT NULL,\n       posted_at  INTEGER NOT NULL,\n       updated_at INTEGER NOT NULL,\n       PRIMARY KEY (guild_id, intro_key)\n     )"
+  },
+  {
+    "type": "table",
+    "name": "invite_queue",
+    "tbl_name": "invite_queue",
+    "sql": "CREATE TABLE invite_queue (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  name_key       TEXT NOT NULL,\n  name           TEXT NOT NULL,\n  discord_id     TEXT NOT NULL,\n  note           TEXT,               -- public note text the addon sets after they join (Discord ID)\n  status         TEXT NOT NULL,      -- queued | written | invited | joined | expired | cancelled\n  created_at     INTEGER NOT NULL,\n  written_at     INTEGER,\n  invited_at     INTEGER,\n  joined_at      INTEGER,\n  approved_by    TEXT                -- Discord ID of the officer (review mode) or 'auto'\n, claimed_by TEXT, claimed_at INTEGER, attempts INTEGER NOT NULL DEFAULT 0, retry_after INTEGER, last_reason TEXT, last_reason_at INTEGER, priority INTEGER NOT NULL DEFAULT 0)"
+  },
+  {
+    "type": "table",
+    "name": "members",
+    "tbl_name": "members",
+    "sql": "CREATE TABLE members (\n  discord_id     TEXT PRIMARY KEY,\n  discord_name   TEXT,\n  battletag      TEXT,            -- from the Discord `connections` scope (type battlenet, verified)\n  bnet_conn_id   TEXT,            -- Discord's id for that connection\n  linked_at      INTEGER,         -- unix seconds\n  banned         INTEGER NOT NULL DEFAULT 0,   -- 1 = refuse re-link and admission\n  ban_reason     TEXT,\n  bnet_account_id TEXT,           -- Phase 3: Battle.net OAuth account id (wow.profile)\n  bnet_linked_at INTEGER\n, username TEXT, global_name TEXT, names_at INTEGER, activity_at INTEGER)"
+  },
+  {
+    "type": "table",
+    "name": "pending",
+    "tbl_name": "pending",
+    "sql": "CREATE TABLE pending (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  discord_id     TEXT NOT NULL,\n  name_key       TEXT NOT NULL,\n  name           TEXT NOT NULL,\n  created_at     INTEGER NOT NULL,\n  expires_at     INTEGER NOT NULL,\n  consumed_at    INTEGER,\n  consumed_source TEXT\n, nonce TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "privacy_access_grants",
+    "tbl_name": "privacy_access_grants",
+    "sql": "CREATE TABLE privacy_access_grants(\n    session_hash TEXT NOT NULL CHECK(length(session_hash)=64 AND session_hash NOT GLOB '*[^0-9a-f]*'),\n    purpose TEXT NOT NULL CHECK(purpose IN('own_export','own_erasure')),\n    grant_id TEXT NOT NULL UNIQUE CHECK(length(grant_id)=32 AND grant_id NOT GLOB '*[^0-9a-f]*'),\n    csrf_hash TEXT NOT NULL CHECK(length(csrf_hash)=64 AND csrf_hash NOT GLOB '*[^0-9a-f]*'),\n    subject_id TEXT NOT NULL CHECK(length(subject_id) BETWEEN 17 AND 20 AND subject_id NOT GLOB '*[^0-9]*'),\n    subject_generation TEXT,state TEXT,revision INTEGER,\n    erasure_operation TEXT CHECK(erasure_operation IS NULL OR (length(erasure_operation)=32 AND erasure_operation NOT GLOB '*[^0-9a-f]*')),\n    created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,consumed_at INTEGER,\n    PRIMARY KEY(session_hash,purpose),CHECK(expires_at=created_at+720),\n    CHECK((subject_generation IS NULL AND state IS NULL AND revision IS NULL) OR\n      (subject_generation IS NOT NULL AND length(subject_generation)=32 AND subject_generation NOT GLOB '*[^0-9a-f]*'\n      AND state IN('active','retiring','retired') AND revision IS NOT NULL AND revision>=0))\n  )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_access_oauth",
+    "tbl_name": "privacy_access_oauth",
+    "sql": "CREATE TABLE privacy_access_oauth(\n    state_hash TEXT NOT NULL PRIMARY KEY CHECK(length(state_hash)=64 AND state_hash NOT GLOB '*[^0-9a-f]*'),\n    browser_hash TEXT NOT NULL CHECK(length(browser_hash)=64 AND browser_hash NOT GLOB '*[^0-9a-f]*'),\n    purpose TEXT NOT NULL CHECK(purpose='privacy_identify'),\n    created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,consumed_at INTEGER,\n    CHECK(expires_at=created_at+300)\n  )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_denial_markers",
+    "tbl_name": "privacy_denial_markers",
+    "sql": "CREATE TABLE privacy_denial_markers (\n  subject_key TEXT PRIMARY KEY, denied_at INTEGER NOT NULL, retain_until INTEGER NOT NULL,\n  reason TEXT NOT NULL CHECK(reason='rejected_guild_application_or_membership'),\n  CHECK(retain_until=denied_at+31536000)\n )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_provider_messages",
+    "tbl_name": "privacy_provider_messages",
+    "sql": "CREATE TABLE privacy_provider_messages(\n  operation_id TEXT PRIMARY KEY CHECK(length(operation_id) BETWEEN 32 AND 96),\n  purpose TEXT NOT NULL CHECK(purpose IN('review','notice','guild_log','event_publication','event_reminder')),subjects TEXT NOT NULL CHECK(json_valid(subjects) AND json_type(subjects)='array'),\n  channel_id TEXT NOT NULL,message_id TEXT,state TEXT NOT NULL CHECK(state IN('claimed','unknown','known','cleaning','removed','refused')),\n  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_requested IN(0,1)),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,retain_until INTEGER NOT NULL,\n  CHECK(retain_until=created_at+31622400)\n )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_restore_replay",
+    "tbl_name": "privacy_restore_replay",
+    "sql": "CREATE TABLE privacy_restore_replay (\n  operation_id TEXT PRIMARY KEY, subject_id TEXT NOT NULL, retired_generation TEXT NOT NULL,\n  erased_at INTEGER NOT NULL, retain_until INTEGER NOT NULL CHECK(retain_until=erased_at+31622400),\n  scope TEXT NOT NULL CHECK(scope='serving_account'), recovery_custody TEXT NOT NULL DEFAULT 'operator-held' CHECK(recovery_custody IN('operator-held','receipt-confirmed')),\n  custody_receipt_digest TEXT CHECK(custody_receipt_digest IS NULL OR length(custody_receipt_digest)=64)\n )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_serving_jobs",
+    "tbl_name": "privacy_serving_jobs",
+    "sql": "CREATE TABLE privacy_serving_jobs (\n  operation_id TEXT PRIMARY KEY CHECK(length(operation_id)=32 AND operation_id NOT GLOB '*[^0-9a-f]*'),\n  subject_id TEXT, subject_generation TEXT NOT NULL, request_digest TEXT NOT NULL CHECK(length(request_digest)=64),\n  original_session_version INTEGER NOT NULL, original_session_expires INTEGER NOT NULL,\n  state TEXT NOT NULL CHECK(state IN('waiting_role','held','erasing','complete')),\n  hold_reason TEXT, role_checked_at INTEGER, staff_access TEXT NOT NULL DEFAULT 'unknown' CHECK(staff_access IN('human-managed','none','unknown')),\n  created_at INTEGER NOT NULL, completed_at INTEGER, last_attempt_at INTEGER, retain_until INTEGER NOT NULL,\n  CHECK(retain_until=created_at+31622400), CHECK((state='complete' AND completed_at IS NOT NULL) OR (state<>'complete' AND completed_at IS NULL))\n )"
+  },
+  {
+    "type": "table",
+    "name": "privacy_subjects",
+    "tbl_name": "privacy_subjects",
+    "sql": "CREATE TABLE privacy_subjects (\n  subject_id TEXT PRIMARY KEY CHECK(length(subject_id) BETWEEN 17 AND 20 AND subject_id NOT GLOB '*[^0-9]*'),\n  generation TEXT NOT NULL CHECK(length(generation)=32 AND generation NOT GLOB '*[^0-9a-f]*'),\n  state TEXT NOT NULL CHECK(state IN('active','retiring','retired')),\n  revision INTEGER NOT NULL CHECK(revision>=0), created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,\n  erased_at INTEGER, retain_until INTEGER,\n  CHECK((state='retired' AND erased_at IS NOT NULL AND retain_until=erased_at+31622400) OR (state<>'retired' AND retain_until IS NULL))\n )"
+  },
+  {
+    "type": "table",
+    "name": "relays",
+    "tbl_name": "relays",
+    "sql": "CREATE TABLE relays (\n       officer_id TEXT PRIMARY KEY,\n       character  TEXT NOT NULL,\n       online     INTEGER NOT NULL DEFAULT 0,\n       seen_at    INTEGER NOT NULL,\n       changed_at INTEGER NOT NULL,\n       version    TEXT,\n       addon      TEXT\n     , unknown_since INTEGER)"
+  },
+  {
+    "type": "table",
+    "name": "rename_holds",
+    "tbl_name": "rename_holds",
+    "sql": "CREATE TABLE rename_holds (\n     id          INTEGER PRIMARY KEY AUTOINCREMENT,\n     discord_id  TEXT NOT NULL,\n     old_name    TEXT NOT NULL,\n     new_name    TEXT NOT NULL,\n     char_key    TEXT NOT NULL,\n     guid        TEXT,\n     nonce       TEXT NOT NULL,\n     audit_id    INTEGER,\n     state       TEXT NOT NULL CHECK (state IN ('reapply', 'approved', 'cancelled')),\n     decided_by  TEXT NOT NULL,\n     decided_at  INTEGER NOT NULL,\n     closed_by   TEXT,\n     closed_at   INTEGER\n   )"
+  },
+  {
+    "type": "table",
+    "name": "role_settlements",
+    "tbl_name": "role_settlements",
+    "sql": "CREATE TABLE role_settlements (\n id TEXT PRIMARY KEY, subject TEXT NOT NULL, purpose TEXT NOT NULL,\n proof_id TEXT, guild_id TEXT NOT NULL, role_id TEXT NOT NULL, desired INTEGER NOT NULL CHECK(desired IN(0,1)),\n state TEXT NOT NULL CHECK(state IN('pending','dispatching','settled','held','unknown')),\n reason TEXT NOT NULL, claim_nonce TEXT, subject_generation TEXT, request_digest TEXT,\n roster_id INTEGER, native_guid TEXT, native_profile TEXT, native_rank INTEGER, native_rank_name TEXT,\n attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts IN(0,1)),\n created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, checked_at INTEGER,\n UNIQUE(proof_id,role_id,desired))"
+  },
+  {
+    "type": "table",
+    "name": "roster_effect_runs",
+    "tbl_name": "roster_effect_runs",
+    "sql": "CREATE TABLE roster_effect_runs (\n     id               INTEGER PRIMARY KEY AUTOINCREMENT,\n     snapshot_id      INTEGER NOT NULL,\n     prev_snapshot_id INTEGER,\n     removals         INTEGER NOT NULL,\n     created_at       INTEGER NOT NULL,\n     derived_at       INTEGER,\n     items            INTEGER,\n     done_at          INTEGER,\n     superseded_at    INTEGER\n   )"
+  },
+  {
+    "type": "table",
+    "name": "roster_effects",
+    "tbl_name": "roster_effects",
+    "sql": "CREATE TABLE roster_effects (\n     run_id     INTEGER NOT NULL,\n     seq        INTEGER NOT NULL,\n     kind       TEXT NOT NULL CHECK (kind IN ('promote', 'note', 'depart')),\n     name_key   TEXT NOT NULL,\n     name       TEXT NOT NULL,\n     discord_id TEXT NOT NULL,\n     guid       TEXT,\n     done_at    INTEGER,\n     claim      TEXT, subject_generation TEXT,\n     PRIMARY KEY (run_id, seq)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "roster_first_seen",
+    "tbl_name": "roster_first_seen",
+    "sql": "CREATE TABLE roster_first_seen (\n  name_key   TEXT PRIMARY KEY,\n  first_seen INTEGER NOT NULL\n)"
+  },
+  {
+    "type": "table",
+    "name": "roster_members",
+    "tbl_name": "roster_members",
+    "sql": "CREATE TABLE roster_members (\n  snapshot_id    INTEGER NOT NULL REFERENCES roster_snapshots(id) ON DELETE CASCADE,\n  name_key       TEXT NOT NULL,\n  name           TEXT NOT NULL,\n  rank           TEXT,\n  rank_index     INTEGER,\n  level          INTEGER,\n  class          TEXT,\n  public_note    TEXT,\n  officer_note   TEXT,\n  guid           TEXT,\n  last_online    INTEGER,\n  PRIMARY KEY (snapshot_id, name_key)\n)"
+  },
+  {
+    "type": "table",
+    "name": "roster_snapshots",
+    "tbl_name": "roster_snapshots",
+    "sql": "CREATE TABLE roster_snapshots (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  exported_at    INTEGER NOT NULL,   -- addon time() at export\n  received_at    INTEGER NOT NULL,\n  source         TEXT NOT NULL,      -- addon | api\n  member_count   INTEGER NOT NULL\n, content_hash TEXT, trusted INTEGER, complete INTEGER, first_received_at INTEGER)"
+  },
+  {
+    "type": "table",
+    "name": "seen_interactions",
+    "tbl_name": "seen_interactions",
+    "sql": "CREATE TABLE seen_interactions (id TEXT PRIMARY KEY, seen_at INTEGER NOT NULL, response TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "site_applications",
+    "tbl_name": "site_applications",
+    "sql": "CREATE TABLE site_applications (\n     discord_id  TEXT PRIMARY KEY,\n     position    TEXT NOT NULL,\n     class_lead  TEXT,\n     fallback    INTEGER NOT NULL DEFAULT 1,\n     character   TEXT,\n     char_key    TEXT,\n     class       TEXT,\n     role        TEXT,\n     region      TEXT,\n     answers     TEXT NOT NULL,\n     status      TEXT NOT NULL,\n     admin_note  TEXT,\n     reviewed_by TEXT,\n     reviewed_at INTEGER,\n     created_at  INTEGER NOT NULL,\n     updated_at  INTEGER NOT NULL\n   , backup1 TEXT, backup2 TEXT, avail TEXT, avail_tz TEXT, fit_na INTEGER, fit_eu INTEGER, board_at INTEGER)"
+  },
+  {
+    "type": "table",
+    "name": "site_board_votes",
+    "tbl_name": "site_board_votes",
+    "sql": "CREATE TABLE site_board_votes (\n     voter_id     TEXT NOT NULL,\n     candidate_id TEXT NOT NULL,\n     role_key     TEXT NOT NULL,\n     vote         INTEGER NOT NULL,\n     created_at   INTEGER NOT NULL,\n     updated_at   INTEGER NOT NULL,\n     PRIMARY KEY (voter_id, candidate_id, role_key)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_friends",
+    "tbl_name": "site_friends",
+    "sql": "CREATE TABLE site_friends (\n     owner_id     TEXT NOT NULL,\n     friend_kind  TEXT NOT NULL,\n     friend_key   TEXT NOT NULL,\n     friend_label TEXT NOT NULL,\n     note         TEXT,\n     created_at   INTEGER NOT NULL,\n     PRIMARY KEY (owner_id, friend_kind, friend_key)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_news_notices",
+    "tbl_name": "site_news_notices",
+    "sql": "CREATE TABLE site_news_notices (\n     id           TEXT PRIMARY KEY CHECK (length(id) = 22),\n     op_hash      TEXT NOT NULL,\n     title        TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),\n     body         TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 2000),\n     revision     INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),\n     nonce        TEXT,\n     created_by   TEXT,\n     created_at   INTEGER NOT NULL,\n     updated_by   TEXT,\n     updated_at   INTEGER NOT NULL,\n     retain_until INTEGER NOT NULL,\n     CHECK (retain_until > created_at AND retain_until <= created_at + 7776000)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_news_ops",
+    "tbl_name": "site_news_ops",
+    "sql": "CREATE TABLE site_news_ops (\n     id          TEXT PRIMARY KEY CHECK (length(id) = 22),\n     nonce       TEXT NOT NULL,\n     created_by  TEXT,\n     created_at  INTEGER NOT NULL,\n     purge_after INTEGER NOT NULL CHECK (purge_after > created_at)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_reserved",
+    "tbl_name": "site_reserved",
+    "sql": "CREATE TABLE site_reserved (\n     id          INTEGER PRIMARY KEY AUTOINCREMENT,\n     owner_id    TEXT NOT NULL,\n     name        TEXT NOT NULL,\n     name_key    TEXT NOT NULL,\n     status      TEXT NOT NULL,\n     created_at  INTEGER NOT NULL,\n     approved_by TEXT,\n     approved_at INTEGER,\n     queue_id    INTEGER,\n     queued_at   INTEGER,\n     released_by TEXT,\n     released_at INTEGER\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_settings",
+    "tbl_name": "site_settings",
+    "sql": "CREATE TABLE site_settings (\n     key        TEXT PRIMARY KEY,\n     value      TEXT NOT NULL,\n     updated_at INTEGER NOT NULL,\n     updated_by TEXT\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_users",
+    "tbl_name": "site_users",
+    "sql": "CREATE TABLE site_users (\n     discord_id      TEXT PRIMARY KEY,\n     username        TEXT,\n     global_name     TEXT,\n     nick            TEXT,\n     avatar          TEXT,\n     account_created INTEGER,\n     server_joined   INTEGER,\n     first_login     INTEGER NOT NULL,\n     last_login      INTEGER NOT NULL,\n     checked_at      INTEGER,\n     in_server       INTEGER NOT NULL DEFAULT 1,\n     session_version INTEGER NOT NULL DEFAULT 1,\n     denied          INTEGER NOT NULL DEFAULT 0,\n     denied_reason   TEXT,\n     denied_at       INTEGER,\n     denied_by       TEXT\n   )"
+  },
+  {
+    "type": "table",
+    "name": "site_votes",
+    "tbl_name": "site_votes",
+    "sql": "CREATE TABLE site_votes (\n     voter_id      TEXT NOT NULL,\n     ballot        TEXT NOT NULL,\n     slot          INTEGER NOT NULL,\n     nominee_kind  TEXT NOT NULL,\n     nominee_key   TEXT NOT NULL,\n     nominee_label TEXT NOT NULL,\n     reason        TEXT,\n     created_at    INTEGER NOT NULL,\n     updated_at    INTEGER NOT NULL,\n     PRIMARY KEY (voter_id, ballot, slot)\n   )"
+  },
+  {
+    "type": "table",
+    "name": "sqlite_sequence",
+    "tbl_name": "sqlite_sequence",
+    "sql": "CREATE TABLE sqlite_sequence(name,seq)"
+  },
+  {
+    "type": "table",
+    "name": "verification_proofs",
+    "tbl_name": "verification_proofs",
+    "sql": "CREATE TABLE verification_proofs (\n id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE REFERENCES verification_requests(code),\n challenge TEXT NOT NULL REFERENCES councillor_challenges(nonce), signer TEXT NOT NULL,\n key_id TEXT NOT NULL REFERENCES councillor_keys(id), requester TEXT NOT NULL,\n requester_guid TEXT NOT NULL, requester_name TEXT NOT NULL, native_rank INTEGER NOT NULL, rank_name TEXT NOT NULL, native_profile TEXT NOT NULL,\n signer_guid TEXT NOT NULL, snapshot_id INTEGER NOT NULL, subject_generation TEXT,\n digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)"
+  },
+  {
+    "type": "table",
+    "name": "verification_requests",
+    "tbl_name": "verification_requests",
+    "sql": "CREATE TABLE verification_requests (\n code TEXT PRIMARY KEY, requester TEXT NOT NULL, subject_generation TEXT,\n created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,\n state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN('pending','proved','expired')),\n session_version INTEGER, session_expires INTEGER)"
+  }
+]

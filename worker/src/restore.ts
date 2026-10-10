@@ -17,8 +17,9 @@ import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
 import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS } from "./roles";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
-import { privacyCaptureFromColumns,type PrivacySubject } from './privacy-serving-authority';
+import { privacyCaptureFromColumns,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
+import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
 type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;rank_snapshot_id:number|null};
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
@@ -271,7 +272,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     const continueRanks=async()=>{
       const snapshot=rankSnapshots.get(id);
       if(rankMapping&&Number.isSafeInteger(snapshot)&&snapshot!>0)
-        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls);
+        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls,isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))&&trigger==='cron'?1:2);
     };
     if (m.roles.includes(role)) { await continueRanks(); return "done"; }
     try {

@@ -1,6 +1,8 @@
 /** Closed production table/column census. Presence in this list does not alone qualify erasure semantics. */
 import type { Env } from './env';
 import { communityDataNames } from './community-context';
+import { admissionCatalogueCurrent,isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
+import { privacyProviderCustodyDatabase } from './privacy-serving-authority';
 export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   {
     "table": "audit",
@@ -264,6 +266,7 @@ export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   }
 ] as const);
 const CONTROL_TABLES:Readonly<Record<string,string>>=Object.freeze({
+ privacy_write_admission:'singleton,protocol,active,nonce,purpose,entry_changes,logical_changes',
  privacy_subjects:'subject_id,generation,state,revision,created_at,updated_at,erased_at,retain_until',
  privacy_serving_jobs:'operation_id,subject_id,subject_generation,request_digest,original_session_version,original_session_expires,state,hold_reason,role_checked_at,staff_access,created_at,completed_at,last_attempt_at,retain_until',
  privacy_denial_markers:'subject_key,denied_at,retain_until,reason',
@@ -281,13 +284,17 @@ export function registerServingPrivacyFamilies(registryName:string,entries:Reado
 }
 /** A newly storing family or column closes completion until its real projection is reviewed. */
 export async function servingPrivacyCatalogCurrent(env:Env):Promise<boolean>{
+ const native=privacyProviderCustodyDatabase(env),protocol=isPrivacyWriteAdmissionDatabase(native);
+ if(env.PRIVACY_WRITE_ADMISSION_ENABLED==='true'&&!protocol)return false;
+ if(protocol&&!(await admissionCatalogueCurrent(native)))return false;
  const expected=new Map(PRIVACY_BUSINESS_CATALOG.map(e=>[e.table as string,e.columns as string]));
  for(const [registryName,entries] of extensions){if(!communityDataNames().includes(registryName))return false;for(const e of entries)expected.set(e.table,e.columns);}
  // Cloudflare's exact internal _cf_KV is provider-managed and rejects table_info. Materialize the finite
  // name filter BEFORE invoking the table-valued pragma; no other unknown table or prefix is exempted.
  const rows=await env.DB.prepare("WITH business AS MATERIALIZED(SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV') SELECT m.name AS table_name,group_concat(p.name,',') AS columns FROM business m JOIN pragma_table_info(m.name) p GROUP BY m.name ORDER BY m.name").all<{table_name:string;columns:string}>();
- if(!Array.isArray(rows.results)||rows.results.length!==expected.size+Object.keys(CONTROL_TABLES).length)return false;
- for(const row of rows.results){const columns=CONTROL_TABLES[row.table_name]??expected.get(row.table_name);
+ const business=rows.results;
+ if(!Array.isArray(business)||business.length!==expected.size+Object.keys(CONTROL_TABLES).length)return false;
+ for(const row of business){const columns=CONTROL_TABLES[row.table_name]??expected.get(row.table_name);
   // Old additive migrations append fields in a different physical order. The exact finite column SET
   // is the storage contract; neither extra nor missing fields are accepted.
   if(!columns||columns.split(',').sort().join(',')!==row.columns.split(',').sort().join(','))return false;}

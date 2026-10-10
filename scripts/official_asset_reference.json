@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 434940,
-      "sha256": "92c761843a4caca892a9dc9bf16d8623b52488ee32a48321404818e141323083"
+      "bytes": 445628,
+      "sha256": "50a9740d9d12e827cbf2e7d440f6ff32d3dd2d252884fafe5059e42e6eddd25d"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -925,8 +925,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 434940,
-      "sha256": "92c761843a4caca892a9dc9bf16d8623b52488ee32a48321404818e141323083"
+      "bytes": 445628,
+      "sha256": "50a9740d9d12e827cbf2e7d440f6ff32d3dd2d252884fafe5059e42e6eddd25d"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",

@@ -12,11 +12,17 @@ import { errorRef } from "./log";
 import { QR_PHASE1_DDL } from './qr-phase1-schema';
 import { PRIVACY_SERVING_SCHEMA } from "./privacy-serving-schema";
 import { PRIVACY_ACCESS_SCHEMA } from "./privacy-access-schema";
+import { isPrivacyWriteAdmissionDatabase,assertAdmissionCurrentSchema } from './privacy-write-admission';
+import { privacyProviderCustodyDatabase } from './privacy-serving-authority';
+import { RULESET_PUBLICATION_SCHEMA } from './ruleset-publication-schema';
+import {ADMISSION_CONTROL_DDL,ADMISSION_PROTOCOL} from './privacy-write-admission-catalogue';
 
 let ready: Promise<void> | null = null;
 
 /** Resolves once the schema this build expects is in place. Cached per isolate; retried after a failure. */
 export function ensureSchema(env: Env): Promise<void> {
+  const native=privacyProviderCustodyDatabase(env);
+  if(isPrivacyWriteAdmissionDatabase(native))return assertAdmissionCurrentSchema(native);
   if (!ready) {
     ready = migrate(env).catch((e) => {
       ready = null; // try again on the next request rather than caching the failure
@@ -239,6 +245,9 @@ const LEGACY_ROLES = [
 ];
 
 export const SITE_SCHEMA = [
+  RULESET_PUBLICATION_SCHEMA,
+  ADMISSION_CONTROL_DDL.replace('CREATE TABLE ','CREATE TABLE IF NOT EXISTS '),
+  `INSERT OR IGNORE INTO privacy_write_admission VALUES(1,'${ADMISSION_PROTOCOL}',0,'','',0,0)`,
   ...PRIVACY_ACCESS_SCHEMA,
   ...QR_PHASE1_DDL,
   ...PRIVACY_SERVING_SCHEMA,

@@ -32,6 +32,7 @@ function load(name) {
 }
 const intros = load("./intros");
 const { INTROS, LINK_HOSTS, parseChannels, renderEmbeds, validateEmbeds, handleIntros, refreshIntros, introStatus, summarize, takeLock, BUDGET } = intros;
+const LEGACY_INTROS = INTROS.filter(x=>!['olympus-info','guild-announcements'].includes(x.key));
 
 // The same INTROS_CHANNELS the Worker deploys with.
 const toml = fs.readFileSync(path.join(root, "wrangler.toml"), "utf8");
@@ -167,7 +168,7 @@ async function run(i) {
   check("a member without an Olympus officer role is refused", /officers only/.test(member.data.content));
   const admin = await run(interaction("status", {}, { member: { user: { id: "3", username: "a" }, roles: [], permissions: String(1n << 3n | 1n << 10n) } }));
   check("an Administrator may run it without the role", admin.type === 4 && /Olympus intros/.test(admin.data.content));
-  check("status before any refresh: every intro 'not posted yet'", (admin.data.content.match(/not posted yet/g) || []).length === INTROS.length);
+  check("status separates sixteen unposted intros and managed identity slots", (admin.data.content.match(/not posted yet/g) || []).length === LEGACY_INTROS.length);
   check("status makes no Discord calls", D.calls.length === 0);
   const off = await handleIntros({ ...env, INTROS_GUILD_ID: "" }, interaction("status"), () => {});
   check("INTROS_GUILD_ID empty switches the command off", /only works/.test((await off.json()).data.content));
@@ -176,11 +177,11 @@ async function run(i) {
   const first = await run(interaction("refresh"));
   check("the reply is deferred and private (type 5, ephemeral)", first.type === 5 && first.data.flags === 64);
   const firstCallCount = D.calls.length;
-  check("the first refresh explicitly stops before the final forum when its reserve will not fit", /Stopped early/.test(D.followups[0]) && ![...D.threads.values()].some((t) => t.parent_id === CH["guild-suggestions"]));
+  check("first bounded refresh finishes sixteen legacy slots without publishing the two managed identities", !/Stopped early/.test(D.followups[0]) && [...D.threads.values()].some((t) => t.parent_id === CH["guild-suggestions"]) && ![...D.messages.values()].some(m=>[CH["olympus-info"],CH["guild-announcements"]].includes(m.channel_id)));
   await run(interaction("refresh"));
   const continuedCallCount = D.calls.length - firstCallCount;
-  check("a second bounded refresh finishes without duplicating earlier posts", !/Stopped early/.test(D.followups[1]) && [...D.messages.values()].length === INTROS.length);
-  const textIntros = INTROS.filter((x) => !x.forum), forumIntros = INTROS.filter((x) => x.forum);
+  check("a second bounded refresh finishes without duplicating earlier posts", !/Stopped early/.test(D.followups[1]) && [...D.messages.values()].length === LEGACY_INTROS.length);
+  const textIntros = LEGACY_INTROS.filter((x) => !x.forum), forumIntros = INTROS.filter((x) => x.forum);
   check(`${textIntros.length} channel messages posted, one per channel`, count(/^POST \/channels\/\d+\/messages$/) === textIntros.length);
   check("each of them pinned", [...D.messages.values()].filter((mm) => !D.threads.has(mm.channel_id)).every((mm) => mm.pinned));
   check(`${forumIntros.length} forum posts created`, count(/^POST \/channels\/\d+\/threads$/) === forumIntros.length);
@@ -193,10 +194,10 @@ async function run(i) {
   check("forum posts open with their content line; channel messages carry none", D.messages.get(lfg.id).content.startsWith("How to post a group") && [...D.messages.values()].filter((mm) => !D.threads.has(mm.channel_id)).every((mm) => mm.content === ""));
   check("all three forum posts pinned to the top (flag 2)", lfg.flags === 2 && cab.flags === 2 && suggestions.flags === 2);
   check("no message may ping anyone (allowed_mentions parse [])", [...D.messages.values()].filter((mm) => mm.allowed_mentions).every((mm) => mm.allowed_mentions.parse.length === 0));
-  check("both officer replies give a summary, with exactly one first post per intro", D.followups.length === 2 && (D.followups.join("\n").match(/➕ posted:/g) || []).length === INTROS.length);
+  check("both officer replies give a summary, with exactly one first post per intro", D.followups.length === 2 && (D.followups.join("\n").match(/➕ posted:/g) || []).length === LEGACY_INTROS.length);
   check("each refresh stays inside the existing budget including its follow-up", firstCallCount <= BUDGET + 1 && continuedCallCount <= BUDGET + 1);
   check("every write carries an audit-log reason naming the officer", D.reasons.length > 0 && D.reasons.every((r) => r.includes("/olympus-intros refresh by 111111111111111111")));
-  check("one record per intro", db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === INTROS.length);
+  check("one record per intro", db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === LEGACY_INTROS.length);
   for (const key of ADDED_INTRO_KEYS) {
     const forum = INTROS.find((x) => x.key === key).forum;
     const messages = [...D.messages.values()].filter((mm) => mm.channel_id === CH[key]);
@@ -209,8 +210,8 @@ async function run(i) {
 
   check("both refreshes are audited", db.prepare("SELECT COUNT(*) AS c FROM audit WHERE action = 'intros.refresh'").get().c === 2);
   check("the lock is released", db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
-  const infoMsg = [...D.messages.values()].find((mm) => mm.channel_id === CH["olympus-info"]);
-  check("#olympus-info is one message with three embeds", infoMsg && infoMsg.embeds.length === 3);
+  const infoMsg = {embeds:renderEmbeds(INTROS.find(x=>x.key==="olympus-info"),CH)}; // Source copy only; actual durable POST/pin is tested by ruleset_publication_test.
+  check("#olympus-info approved source has three embeds and legacy sends no copy", infoMsg.embeds.length === 3 && ![...D.messages.values()].some(m=>m.channel_id===CH["olympus-info"]));
   check("mentions resolve to real channel ids", JSON.stringify(infoMsg.embeds).includes(`<#${CH["join-olympus"]}>`));
   const infoText = JSON.stringify(infoMsg.embeds);
   check("the join step says an invite can be requested before joining (.52, content candidate)", /request a guild invite this way before joining/.test(infoText) && !/Join the main Olympus guild in game, then/.test(infoText));
@@ -226,8 +227,8 @@ async function run(i) {
   D.calls = []; D.followups = [];
   await run(interaction("refresh"));
   check("reads only: no post, edit or pin", D.calls.every((c) => c.startsWith("GET ") || c.startsWith("PATCH /webhooks/")));
-  check("everything reported current", (D.followups[0].match(/current/g) || []).length === INTROS.length);
-  check("no second copy anywhere", [...D.messages.values()].length === INTROS.length);
+  check("everything reported current", (D.followups[0].match(/current/g) || []).length === LEGACY_INTROS.length);
+  check("no second copy anywhere", [...D.messages.values()].length === LEGACY_INTROS.length);
 
   console.log("== the text changes (a deploy) ==");
   const infoIntro = INTROS.find((x) => x.key === "olympus-info");
@@ -238,12 +239,12 @@ async function run(i) {
   lfgIntro.embeds[0].description = savedLfg + "\nTest line.";
   lfg.thread_metadata.archived = true; // the post went quiet and archived itself
   const st = await introStatus(env, GUILD);
-  check("status sees both as changed before the refresh", (st.match(/text changed/g) || []).length === 2);
+  check("status detects legacy changed text and keeps identity authority separate", (st.match(/text changed/g) || []).length === 1 && st.includes("#olympus-info: managed by Admin"));
   D.calls = []; D.followups = [];
   await run(interaction("refresh"));
-  check("#olympus-info edited in place: same message, no new post", infoMsg.edits === 1 && infoMsg.embeds[0].description.endsWith("Test line.") && count(/^POST /) === 0);
+  check("legacy cannot edit or repost changed beta identity copy", !D.calls.some(c=>c.includes(CH["olympus-info"])) && count(/^POST /) === 0);
   check("the archived forum post is reopened before its message is edited", lfg.thread_metadata.archived === false && D.messages.get(lfg.id).embeds[0].description.endsWith("Test line."));
-  check("the summary says two updated in place", (D.followups[0].match(/updated in place/g) || []).length === 2);
+  check("summary reports one legacy update and separate managed slots", (D.followups[0].match(/updated in place/g) || []).length === 1 && D.followups[0].includes("staff ruleset publication"));
   infoIntro.embeds[0].description = savedDesc;
   lfgIntro.embeds[0].description = savedLfg;
   await run(interaction("refresh"));
@@ -291,7 +292,7 @@ async function run(i) {
   check("a small budget stops early without breaking a half-done intro", small.stoppedEarly && small.outcomes.some((o) => o.action === "not-reached") && D.calls.length <= 9);
   check("…and says to run it again", /Run `\/olympus-intros refresh` again/.test(summarize(small)));
   const rest = await refreshIntros(env, GUILD, "111111111111111111");
-  check("the next run finishes the rest without reposting the first ones", !rest.stoppedEarly && [...D.messages.values()].length === INTROS.length);
+  check("the next run finishes the rest without reposting the first ones", !rest.stoppedEarly && [...D.messages.values()].length === LEGACY_INTROS.length);
   check("two officers at once: the second is told to wait", await takeLock(env, GUILD, "someone-else") && (await refreshIntros(env, GUILD, "2")).busy === true);
   db.exec("DELETE FROM intro_locks");
   db.prepare("INSERT INTO intro_locks (guild_id, holder, until) VALUES (?, 'crashed', 1)").run(GUILD); // expired long ago
@@ -315,10 +316,10 @@ async function run(i) {
     const missingEnv = { ...env, INTROS_CHANNELS: missingRaw };
     const beforeStatusCalls = D.calls.length;
     const missingStatus = await introStatus(missingEnv, GUILD);
-    check(`#${key}: missing configuration is named in status without HTTP`, missingStatus.includes(`#${key}: no channel set in INTROS_CHANNELS`) && (missingStatus.match(/not posted yet/g) || []).length === 17 && D.calls.length === beforeStatusCalls && intros.resolveText(`see {#${key}}`, parseChannels(missingRaw)) === `see #${key}`);
+    check(`#${key}: missing configuration is named in status without HTTP`, missingStatus.includes(`#${key}: no channel set in INTROS_CHANNELS`) && (missingStatus.match(/not posted yet/g) || []).length === 15 && D.calls.length === beforeStatusCalls && intros.resolveText(`see {#${key}}`, parseChannels(missingRaw)) === `see #${key}`);
     const missingResult = await refreshIntros(missingEnv, GUILD, "missing-" + key);
     const own = missingResult.outcomes.find((o) => o.key === key);
-    check(`#${key}: refresh skips the missing parent, posts the other seventeen, and never calls or records it`, missingResult.outcomes.length === 18 && !missingResult.stoppedEarly && own?.action === "skipped" && own.note === `no "${key}" channel in INTROS_CHANNELS` && missingResult.outcomes.filter((o) => o.action === "skipped").length === 1 && !D.calls.some((c) => c.includes("/channels/" + CH[key])) && db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === 17 && !db.prepare("SELECT 1 FROM intro_posts WHERE intro_key = ?").get(key) && [...D.messages.values()].length === 17 && db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
+    check(`#${key}: refresh skips the missing parent and two managed identities, posts other fifteen, and never calls or records it`, missingResult.outcomes.length === 18 && !missingResult.stoppedEarly && own?.action === "skipped" && own.note === `no "${key}" channel in INTROS_CHANNELS` && missingResult.outcomes.filter((o) => o.action === "skipped").length === 3 && !D.calls.some((c) => c.includes("/channels/" + CH[key])) && db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === 15 && !db.prepare("SELECT 1 FROM intro_posts WHERE intro_key = ?").get(key) && [...D.messages.values()].length === 15 && db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
   }
   check("an invalid new-channel id is dropped and renders plain text", !parseChannels("addon-development=not-a-snowflake")["addon-development"] && intros.resolveText("see {#addon-development}", parseChannels("addon-development=not-a-snowflake")) === "see #addon-development");
   db.exec("DELETE FROM intro_posts"); resetDiscord();
@@ -336,7 +337,7 @@ async function run(i) {
   check("a successful retry becomes current with one read and no duplicate, edit or pin", currentPost.outcomes.length === 1 && currentPost.outcomes[0].action === "current" && currentPost.callsUsed === 1 && D.calls.length === beforeCurrent + 1 && D.calls[beforeCurrent] === `GET /channels/${retryChannel}/messages/${retryMessage.id}` && count(/^POST /) === beforePosts && D.messages.size === 1 && db.prepare("SELECT message_id FROM intro_posts WHERE guild_id = ? AND intro_key = ?").get(GUILD, retryKey).message_id === retryMessage.id);
   const beforeRetryStatus = D.calls.length;
   const retryStatus = await introStatus(env, GUILD);
-  check("status records the retried new intro as current without HTTP", retryStatus.includes(`<#${retryChannel}>: current`) && (retryStatus.match(/not posted yet/g) || []).length === 17 && D.calls.length === beforeRetryStatus);
+  check("status records the retried new intro as current without HTTP", retryStatus.includes(`<#${retryChannel}>: current`) && (retryStatus.match(/not posted yet/g) || []).length === 15 && D.calls.length === beforeRetryStatus);
 
 
   console.log(`\n${ok}/${n} passed`);

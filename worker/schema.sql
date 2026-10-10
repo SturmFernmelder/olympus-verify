@@ -1016,3 +1016,24 @@ CREATE TABLE IF NOT EXISTS privacy_access_grants(
       AND state IN('active','retiring','retired') AND revision IS NOT NULL AND revision>=0))
   );
 CREATE INDEX IF NOT EXISTS privacy_access_grants_expiry ON privacy_access_grants(expires_at);
+
+-- Request-driven approved beta publication; shared guild custody, own authorizing metadata.
+CREATE TABLE IF NOT EXISTS ruleset_publications (
+ guild_id TEXT NOT NULL, publication_id TEXT NOT NULL, target_key TEXT NOT NULL,
+ selection_revision INTEGER NOT NULL, profile_revision TEXT NOT NULL, plan_hash TEXT NOT NULL,
+ actor TEXT, actor_generation TEXT, session_version INTEGER, session_expires INTEGER,
+ parent_id TEXT, channel_id TEXT, message_id TEXT, frozen_payload TEXT, payload_hash TEXT, record_hash TEXT,
+ claim_nonce TEXT, stage TEXT NOT NULL CHECK(stage IN('selection','pending','create','edit','pin')),
+ state TEXT NOT NULL CHECK(state IN('selected','pending','claimed','unknown','known','applied','refused','superseded','held')),
+ result_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, actor_retain_until INTEGER NOT NULL,
+ PRIMARY KEY(guild_id,publication_id,target_key)
+);
+
+-- Transaction control only. Trigger installation is a separate qualified source operation, never cron.
+CREATE TABLE IF NOT EXISTS privacy_write_admission (
+ singleton INTEGER PRIMARY KEY CHECK(singleton=1), protocol TEXT NOT NULL CHECK(protocol='olympus-write-admission-experiment-1'),
+ active INTEGER NOT NULL CHECK(active IN(0,1)), nonce TEXT NOT NULL, purpose TEXT NOT NULL,
+ entry_changes INTEGER NOT NULL CHECK(entry_changes>=0), logical_changes INTEGER NOT NULL CHECK(logical_changes>=0),
+ CHECK((active=0 AND nonce='' AND purpose='') OR (active=1 AND length(nonce)=32 AND nonce NOT GLOB '*[^0-9a-f]*' AND purpose IN('writer','lifecycle')))
+);
+INSERT OR IGNORE INTO privacy_write_admission VALUES(1,'olympus-write-admission-experiment-1',0,'','',0,0);
