@@ -16,7 +16,12 @@ const iso=(value:unknown)=>typeof value==='number'?secondsToIso(value):null;
 const bounded=(result:D1Result)=>({complete:result.results.length<=limit,rows:result.results.slice(0,limit)});
 function application(row:AppRow|undefined):unknown{
  if(!row)return null;const a=appOut(row),answers={...a.answers};
- if(Array.isArray(answers.references))answers.references=(answers.references as unknown[]).filter((r):r is Rec=>!!r&&typeof r==='object'&&!Array.isArray(r)).map(r=>({kind:typeof r.kind==='string'?r.kind:null,label:typeof r.label==='string'?r.label:null}));
+ if(Object.hasOwn(answers,'references')){
+  // Restored legacy JSON can contain any shape. Only the reviewed list projection may carry references.
+  answers.references=Array.isArray(answers.references)?(answers.references as unknown[])
+   .filter((r):r is Rec=>!!r&&typeof r==='object'&&!Array.isArray(r))
+   .map(r=>({kind:r.kind==='discord'||r.kind==='name'?r.kind:null,label:typeof r.label==='string'?r.label:null})):null;
+ }
  return {...a,answers};
 }
 export async function exportPrivacyAccess(request:Request,env:Env):Promise<Response>{
