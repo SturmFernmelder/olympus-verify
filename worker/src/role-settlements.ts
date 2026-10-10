@@ -24,7 +24,7 @@ async function request<T>(env:Env,b:AttemptBudget,method:string,path:string):Pro
 async function member(env:Env,b:AttemptBudget,subject:string):Promise<Member|null> {
  try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
 }
-async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false) {
+async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[]) {
  if(!ID.test(env.GUILD_ID)||!ID.test(subject)||!ID.test(roleId)||!env.DISCORD_BOT_TOKEN)throw new Error('role_configuration');
  const me=await request<{id:string}>(env,b,'GET','/users/@me');if(!ID.test(env.DISCORD_APP_ID)||me.id!==env.DISCORD_APP_ID||me.id===subject)throw new Error('bot_identity');
  const roles=await request<Role[]>(env,b,'GET',`/guilds/${env.GUILD_ID}/roles`);
@@ -33,19 +33,21 @@ async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,gran
  if(roles.some(r=>!ID.test(r.id)||!Number.isInteger(r.position)||typeof r.permissions!=='string'||!/^\d{1,32}$/.test(r.permissions)||typeof r.managed!=='boolean')||new Set(roles.map(r=>r.id)).size!==roles.length)throw new Error('role_inventory');
  const inventory=new Map(roles.map(r=>[r.id,r]));const botRoles=bot.roles.map(id=>inventory.get(id));if(botRoles.some(r=>!r))throw new Error('bot_inventory');
  const highest=Math.max(0,...botRoles.map(r=>r!.position));const permission=botRoles.reduce((v,r)=>v|BigInt(r!.permissions),BigInt(inventory.get(env.GUILD_ID)?.permissions||'0'));
- const wanted=inventory.get(roleId);if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');
+ for(const requested of [{id:roleId,cosmetic},...otherRoles]){const wanted=inventory.get(requested.id);if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||requested.cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');}
  if(target){if(target.roles.some(id=>!inventory.has(id))||Math.max(0,...target.roles.map(id=>inventory.get(id)!.position))>=highest)throw new Error('target_hierarchy');}
  if(grant&&(!target||(env.BLOCKING_ROLE_IDS||'').split(',').map(x=>x.trim()).some(x=>x&&target.roles.includes(x))))throw new Error('server_restriction');
  return target;
 }
 export const PROOF_CURRENT=`EXISTS(SELECT 1 FROM verification_proofs p JOIN verification_requests v ON v.code=p.code
  WHERE p.id=?1 AND p.requester=?2 AND p.expires_at>${DB_NOW} AND v.state='proved' AND v.used_at IS NOT NULL
+ AND p.rowid=(SELECT MAX(newest.rowid) FROM verification_proofs newest WHERE newest.requester=p.requester)
  AND ${SIGNER_CURRENT.replace(/\?1\b/g,'p.key_id').replace(/\?2\b/g,'p.signer')}
  AND (CASE WHEN v.subject_generation IS NULL THEN NOT EXISTS(SELECT 1 FROM privacy_subjects WHERE subject_id=v.requester) ELSE EXISTS(
  SELECT 1 FROM privacy_subjects WHERE subject_id=v.requester AND generation=v.subject_generation AND state='active') END)
  AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=p.requester AND banned=1)
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=p.requester AND state='reapply')
  AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=p.requester AND desired=0 AND attempts=1 AND purpose IN('grant_compensation','ban','rename_hold','blocking_role','guild_departure','account_erasure') AND state IN('dispatching','unknown'))
+ AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=p.requester AND (other.proof_id IS NULL OR other.proof_id<>p.id) AND other.attempts=1 AND other.state IN('dispatching','unknown') AND other.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank'))
  AND EXISTS(SELECT 1 FROM characters WHERE discord_id=p.requester AND guid=p.requester_guid AND name=p.requester_name AND status='member')
  AND NOT EXISTS(SELECT 1 FROM roster_snapshots s WHERE s.id>p.snapshot_id AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1
  AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id AND guid=p.requester_guid AND rank_index=p.native_rank)<>1))`;
@@ -59,7 +61,8 @@ const ROSTER_CURRENT=`EXISTS(SELECT 1 FROM roster_snapshots s JOIN roster_member
  AND r.guid=?3 AND r.rank=?4 AND r.rank_index=?5 AND c.status='member'
  AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id AND guid=?3)=1 AND (SELECT COUNT(*) FROM characters WHERE guid=?3 AND status IN('member','left_pending'))=1
  AND ${privacyGenerationFenceSql(2,6)} AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?2 AND banned=1)
- AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND desired=0 AND attempts=1 AND state IN('dispatching','unknown') AND id<>?7)
+ AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND attempts=1 AND state IN('dispatching','unknown') AND id<>?7
+ AND (desired=0 OR purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank')))
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?2 AND state='reapply'))`;
 const rosterParams=(env:Env,i:Intent)=>[i.roster_id,i.subject,i.native_guid,i.native_rank_name,i.native_rank,i.subject_generation,i.id,Number(env.LINKS_NOT_BEFORE||0)];
 async function intentCurrent(env:Env,i:Intent){return i.proof_id?proofCurrent(env,i.proof_id,i.subject):['roster_native_rank','roster_privileged_rank','roster_membership'].includes(i.purpose)&&!!await env.DB.prepare(`SELECT 1 WHERE ${ROSTER_CURRENT}`).bind(...rosterParams(env,i)).first();}
@@ -103,6 +106,33 @@ async function rankTargets(env:QrEnv,subject:string,profile:string,name:string,i
  for(const role of map.roles)if(role===wanted||prior.results.some(r=>r.role_id===role))out.push([role,Number(role===wanted),'verified_privileged_rank']);
  }
  return out.sort((a,b)=>a[1]-b[1]); // Remove managed old roles before a new mapped grant; held removals stop dispatch.
+}
+/** One fresh qualified member read can close all already-absent mapped removals. It never dispatches an effect.
+ * The consuming UPDATE repeats the original generation and whole latest roster guard after the HTTP await.
+ * This avoids spending four inventory GETs on each of ten absent cosmetic roles before the wanted grants.
+ */
+export async function settleRosterRankAbsences(env:QrEnv,subject:string,snapshotId:number,capturedGeneration:string|null,b:AttemptBudget) {
+ const held=(reason:string)=>({state:'held' as const,reason,closed:0});
+ if(env.QR_RANK_MAPPING_ENABLED!=='true'&&env.QR_PRIVILEGED_RANK_MAPPING_ENABLED!=='true')return held('rank_mapping_disabled');
+ if(typeof subject!=='string'||!ID.test(subject)||!Number.isSafeInteger(snapshotId)||snapshotId<1||capturedGeneration!==null&&(typeof capturedGeneration!=='string'||!TOKEN.test(capturedGeneration)))return held('invalid_capture');
+ const rows=await env.DB.prepare(`SELECT * FROM role_settlements WHERE subject=?1 AND roster_id=?2 AND subject_generation IS ?3 AND guild_id=?4
+ AND purpose IN('roster_native_rank','roster_privileged_rank') AND desired=0 AND state='pending' AND attempts=0 ORDER BY id LIMIT 14`).bind(subject,snapshotId,capturedGeneration,env.GUILD_ID).all<Intent>();
+ if(rows.results.length>13)return held('rank_intent_census');if(!rows.results.length)return {state:'settled' as const,reason:'no_pending_removals',closed:0};
+ const first=rows.results[0]!,roles:{id:string;cosmetic:boolean}[]=[];
+ try{for(const i of rows.results){if(i.native_guid!==first.native_guid||i.native_profile!==first.native_profile||i.native_rank!==first.native_rank||i.native_rank_name!==first.native_rank_name)throw Error();
+ if(i.purpose==='roster_native_rank'){const map=rankMap(env);if(i.native_profile!==map.profile||!map.roles.includes(i.role_id)||i.role_id===mappedNativeRole(i.native_rank_name!,i.native_rank!,map))throw Error();}
+ else{if(env.QR_PRIVILEGED_RANK_MAPPING_ENABLED!=='true'||!['beta-five','ten-rank'].includes(i.native_profile!))throw Error();const map=privilegedNativeMap(i.native_profile as 'beta-five'|'ten-rank',env);if(!map.roles.includes(i.role_id)||i.role_id===map.wanted(i.native_rank_name!,i.native_rank!))throw Error();}
+ roles.push({id:i.role_id,cosmetic:i.purpose==='roster_native_rank'});}}catch{return held('frozen_configuration_changed');}
+ if(!await intentCurrent(env,first))return held('roster_or_generation_stale');
+ if(b.limit-b.attempts<4)return held('role_request_budget');let target:Member|null;
+ try{target=await qualify(env,b,subject,first.role_id,false,roles[0]!.cosmetic,roles.slice(1));}catch{return held('inventory_hierarchy_or_server_hold');}
+ const absent=rows.results.filter(i=>!target?.roles.includes(i.role_id)).map(i=>i.id);if(!absent.length)return {state:'settled' as const,reason:'no_absent_removals',closed:0};
+ const out=await env.DB.prepare(`UPDATE role_settlements SET state='settled',reason='fresh_server_absence_batch',checked_at=${DB_NOW}
+ WHERE id IN(SELECT value FROM json_each(?9)) AND subject=?2 AND roster_id=?1 AND subject_generation IS ?6 AND guild_id=?10
+ AND native_guid=?3 AND native_rank_name=?4 AND native_rank=?5 AND native_profile=?11 AND desired=0 AND state='pending' AND attempts=0
+ AND ${ROSTER_CURRENT} AND (purpose='roster_native_rank' OR (purpose='roster_privileged_rank' AND EXISTS(
+ SELECT 1 FROM role_settlements prior WHERE prior.subject=?2 AND prior.role_id=role_settlements.role_id AND prior.purpose IN('verified_privileged_rank','roster_privileged_rank') AND prior.desired=1 AND prior.attempts=1 AND prior.state='settled'))) RETURNING id`).bind(...rosterParams(env,first),JSON.stringify(absent),env.GUILD_ID,first.native_profile).all<{id:string}>();
+ return out.results.length===absent.length?{state:'settled' as const,reason:'fresh_server_absence_batch',closed:out.results.length}:held('roster_or_generation_changed_after_lookup');
 }
 /** One HTTP request handles at most two admitted effects (16 actual calls). Unknown/held stops continuation. */
 export async function settleOwnedRoleBatch(env:QrEnv,ids:string[],actor:{id:string;v:number;e:number;g:string|null},reconcileOnly=false){

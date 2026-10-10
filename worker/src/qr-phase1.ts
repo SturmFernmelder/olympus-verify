@@ -32,12 +32,14 @@ export const SIGNER_CURRENT=`EXISTS(SELECT 1 FROM councillor_keys k JOIN privacy
  WHERE k.id=?1 AND k.signer=?2 AND k.revoked_at IS NULL AND k.expires_at>${DB_NOW} AND s.generation=k.subject_generation AND s.state='active' AND c.status='member' AND m.banned=0
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=k.signer AND state='reapply') AND NOT EXISTS(SELECT 1 FROM roster_snapshots x WHERE x.id>k.roster_id AND x.id=(SELECT MAX(id) FROM roster_snapshots)
  AND (x.complete IS NOT 1 OR x.trusted IS NOT 1 OR x.exported_at>${DB_NOW} OR x.member_count<>(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id)
+ OR (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=k.signer_guid)<>1
  OR (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=k.signer_guid AND rank='High Council' AND rank_index=1)<>1)))`;
 export async function enrollKey(env:QrEnv,id:string,guid:string,publicKey:unknown,session:QrSession){requireQr(env);bytesFromBase64(publicKey,32);const s=await active(env,id,session);await serverSigner(env,id,guid);const r=await rosterIdentity(env,guid,true),key=randomGeneration();
  const out=await env.DB.prepare(`INSERT INTO councillor_keys(id,signer,signer_guid,public_key,subject_generation,roster_id,created_at,expires_at) SELECT ?3,?1,?4,?5,?2,?6,${DB_NOW},${DB_NOW}+86400 WHERE ${privacyGenerationFenceSql(1,2)}
  AND NOT EXISTS(SELECT 1 FROM councillor_keys WHERE signer=?1 AND revoked_at IS NULL AND expires_at>${DB_NOW})
  AND EXISTS(SELECT 1 FROM roster_snapshots x JOIN roster_members r ON r.snapshot_id=x.id WHERE x.id=?6 AND x.id=(SELECT MAX(id) FROM roster_snapshots) AND x.complete=1 AND x.trusted=1 AND x.exported_at<=${DB_NOW} AND x.exported_at>${DB_NOW}-600 AND x.exported_at>=?7
- AND x.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id) AND r.guid=?4 AND r.rank='High Council' AND r.rank_index=1)
+ AND x.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id) AND r.guid=?4 AND r.rank='High Council' AND r.rank_index=1
+ AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=?4)=1)
  AND EXISTS(SELECT 1 FROM characters c JOIN members m ON m.discord_id=c.discord_id WHERE c.discord_id=?1 AND c.guid=?4 AND c.status='member' AND m.banned=0)
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply')
  AND ?9>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?8 AND in_server=1)
