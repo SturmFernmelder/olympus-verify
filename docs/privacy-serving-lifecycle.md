@@ -73,8 +73,8 @@ Native projected-row byte guards run before returned-row materialization. They r
 oversized or unqualified record rather than returning an apparently complete empty section. The
 application singleton has its separately reviewed larger bound; an omitted News body is not selected
 or counted toward the exported projection. Included labels and user-authored text remain verbatim.
-Internal row IDs, staff/counterpart identifiers, authentication data, provider pointers and proof
-digests remain outside the copy. Fresh-form rereading after a lost response is distinct from proof
+Native ordering values appear only in integrity cursors, not as record fields. Staff/counterpart
+identifiers, authentication data, provider pointers and proof digests remain outside the copy. Fresh-form rereading after a lost response is distinct from proof
 that the browser saved a file. Counts and completion concern selected retained ranges and fields,
 not every store, external copy or successful erasure. This candidate still needs exact-head release
 qualification and the preferred Discord application callback before activation.
