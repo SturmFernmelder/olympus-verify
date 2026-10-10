@@ -46,8 +46,10 @@ export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return
  ];}
 export const SERVING_RETENTION_STATEMENTS=20;
 export async function sweepServingRetention(env:Env):Promise<number>{
- if(env.PRIVACY_RETENTION_ENABLED!=='true')return 0;
- const statements=servingRetentionStatements(env);
+ // Short privacy credentials keep their own fixed deadlines even while account-retention work is paused.
+ const statements=env.PRIVACY_RETENTION_ENABLED==='true'?servingRetentionStatements(env)
+  :env.PRIVACY_ACCESS_ENABLED==='true'?privacyAccessPurgeStatements(env):[];
+ if(statements.length===0)return 0;
  const out=await env.DB.batch(statements);
  if(out.length!==statements.length)throw Error('privacy_retention_outcome_unknown');
  return out.reduce((n,r)=>n+(r.meta?.changes??0),0);
