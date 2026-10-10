@@ -134,7 +134,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".128"));
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build.includes(".130"));
   res = await get("https://guild.example/");
   check("the site host serves the site", res.status === 200 && (await res.text()).includes("Guild Registration"));
   res = await get("https://guild.example/health");
