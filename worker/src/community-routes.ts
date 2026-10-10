@@ -9,6 +9,7 @@ import { communityContext, contextDto, refusal } from "./community-context";
 import "./community-refs"; // registers its erasure and export
 import { adminAltDecision, adminDirectory, craftingSearch, directoryList, profileGet, profilePut } from "./community-directory";
 import { attendanceList, cancelEvent, createEvent, getEvent, listEvents, myAttendance, recordAttendance, rsvp, updateEvent } from "./community-events";
+import { eventDeliveryPreview, eventDeliveryPublish, eventDeliveryReconcile, eventDeliveryRemove } from "./community-event-delivery";
 import { createTrial, listTrials, trialMe, updateTrial } from "./community-trials";
 import { listRestrictions, restrictionAction, returnReview } from "./community-restrictions";
 import { listDepartures, updateDeparture } from "./community-departures";
@@ -31,6 +32,10 @@ export async function handleCommunity(request: Request, env: Env, path: string):
   if (m === "POST" && path === "/api/community/events") return createEvent(request, env, ctx);
   if (m === "POST" && path === "/api/community/events/update") return updateEvent(request, env, ctx);
   if (m === "POST" && path === "/api/community/events/cancel") return cancelEvent(request, env, ctx);
+  if (m === "GET" && path === "/api/community/events/discord") return eventDeliveryPreview(request, env, ctx);
+  if (m === "POST" && path === "/api/community/events/discord/publish") return eventDeliveryPublish(request, env, ctx);
+  if (m === "POST" && path === "/api/community/events/discord/reconcile") return eventDeliveryReconcile(request, env, ctx);
+  if (m === "POST" && path === "/api/community/events/discord/remove") return eventDeliveryRemove(request, env, ctx);
   if (m === "GET" && path === "/api/community/event/attendance") return attendanceList(request, env, ctx);
   if (m === "POST" && path === "/api/community/attendance/record") return recordAttendance(request, env, ctx);
   if (m === "GET" && path === "/api/community/attendance/me") return myAttendance(request, env, ctx);
