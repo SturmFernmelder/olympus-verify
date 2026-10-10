@@ -12,8 +12,8 @@
 //     success path, 7 on the failure path and 4 a held account in the banned reconciliation, each measured as the
 //     difference between two runs one account apart, so a change to the shared role writer that costs one statement
 //     more fails here; the longest failure run the call budget allows equals the fixed reads + 7 an account;
-//   - the schema: warm 0, cold on a current database 126 (129 before the audit rewrite; 124 and 127 until the roster
-//     effects' two tables of the third review round), cold with every column reported
+//   - the schema: warm 0, cold on a current database 128 (131 before the audit rewrite; publication table/index add
+//     two to the previous 126/129), cold with every column reported
 //     missing equal to its line;
 //   - the whole real scheduled() with every community feature on, warm, cold and cold worst: within the table and the target;
 //   - the roster's member effects (third review round; Codex, 3 Oct 2026 16:48 UTC, finding A): the cron's slice of a
@@ -385,9 +385,9 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   r = await exact("ensureSchema", (L, e) => L("./schema").ensureSchema(e), { fail: everyColumnMissing });
   measured.ensureSchema = r.statements;
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); resetCount(); L("./schema").forgetSchemaCheck(); await L("./schema").ensureSchema(e); const cold = COUNT.statements; resetCount(); await L("./schema").ensureSchema(e); return { cold, warm: COUNT.statements }; });
-  check(`cold on a current database: ${r.value.cold} statements (126: the roster effects' two tables since the third review round); warm: ${r.value.warm}`, r.value.cold === 126 && r.value.warm === 0, r.value);
+  check(`cold on a current database: ${r.value.cold} statements (128: publication table/index add two); warm: ${r.value.warm}`, r.value.cold === 128 && r.value.warm === 0, r.value);
   r = await measure((L, e) => L("./schema").ensureSchema(e));
-  check(`  cold before the one-time audit rewrite: ${r.statements} statements (129)`, r.statements === 129, r.statements);
+  check(`  cold before the one-time audit rewrite: ${r.statements} statements (131)`, r.statements === 131, r.statements);
   const sumMeasured = Object.values(measured).reduce((s, x) => s + x, 0);
   console.log(`    the jobs measured one by one: ${sumMeasured} statements`);
 
@@ -417,7 +417,7 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   check("  and the rest: the digest posted, the figures computed, a role sweep recorded", one("SELECT COUNT(*) AS c FROM audit WHERE action = 'community.officer_digest_posted'").c === 1 && one("SELECT value FROM site_settings WHERE key = 'newsFigures'") && one("SELECT COUNT(*) AS c FROM audit WHERE action = 'role.sweep'").c === 1);
   const cold = await wholeRun("cold");
   console.log(`    cold schema (a fresh isolate on a current database): ${cold.statements} statements in ${cold.trips} round trips`);
-  check(`cold: ${cold.statements} statements = warm + 126, within the table and the target`, cold.statements === warm.statements + 126 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
+  check(`cold: ${cold.statements} statements = warm + 128, within the table and the target`, cold.statements === warm.statements + 128 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
   const worst = await wholeRun("cold worst");
   console.log(`    cold schema, every column reported missing: ${worst.statements} statements in ${worst.trips} round trips`);
   check(`cold worst: ${worst.statements} statements = warm + the schema line, within the table (${sum}) and the target (${budget.SCHEDULED_STATEMENT_TARGET})`, worst.statements === warm.statements + line("ensureSchema") && worst.statements <= sum && worst.statements <= budget.SCHEDULED_STATEMENT_TARGET, worst, warm);

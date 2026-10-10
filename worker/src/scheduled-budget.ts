@@ -72,18 +72,18 @@ const C = SCHEDULED_CAPS;
  * are read from the source: a job whose statements change changes its line here.
  */
 /**
- * The schema check's worst case: 5 column probes + 5 ALTERs, 7 single CREATEs, the site batch (95 tables and indexes + 2
+ * The schema check's worst case: 5 column probes + 5 ALTERs, 7 single CREATEs, the site batch (97 tables and indexes + 2
  * legacy updates; the roster effects' two tables since the third .115 review round), the column batch failing (16
  * attempted), then 14 probes + 14 ALTERs + 2 indexes, the marker read + the 3-statement rewrite. Every invocation that
  * reaches D1 may pay it once (a fresh isolate), so the allowances below are measured from it.
  */
-const SCHEMA_WORST = 10 + 7 + 97 + 16 + 28 + 2 + 4;
+const SCHEMA_WORST = 10 + 7 + 99 + 16 + 28 + 2 + 4;
 
 export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule: string }> = [
   {
     job: "ensureSchema",
     worst: SCHEMA_WORST,
-    rule: "cold, every column reported missing and the audit rewrite pending (warm: 0; cold on a current database: 126, or 129 before the rewrite)",
+    rule: "cold, every column reported missing and the audit rewrite pending (warm: 0; cold on a current database: 128, or 131 before the rewrite; publication table/index add two)",
   },
   { job: "sweepInviteQueue", worst: 4, rule: "two updates, the queue.swept audit, the staff_notice.failed audit when the notice cannot be posted" },
   {
@@ -106,7 +106,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "purgeBattleNetData", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "sweepRenameHolds", worst: 1, rule: "one delete" },
   { job: "sweepCommunityProfiles", worst: 2 + 1 + 6 * C.profilesPerRun + 1, rule: "the departure batch (2), the selection, a 6-statement erase per profile (at most profilesPerRun), the audit" },
-  { job: "sweepCommunityEvents", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
+  { job: "sweepCommunityEvents", worst: 5 + 1, rule: "a 5-statement batch including finite publication disposal + the audit; no Discord delivery/reminder cron" },
   { job: "sweepCommunityTrials", worst: 2 + 1, rule: "a 2-statement batch + the audit" },
   { job: "sweepCommunityRestrictions", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "departureIntake", worst: 1 + 10 + 1 + 1 + 1, rule: "the stored position, at most 10 scan pages (DEPARTURE_LIMITS.intakePages), the position write, the insert, the audit" },
