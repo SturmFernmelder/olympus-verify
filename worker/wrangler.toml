@@ -51,7 +51,7 @@ database_id = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
 [vars]
 GUILD_ID = "236932545793490944"       # Asmongold's server: since the cutover the bot and the site share it (the Olympus server 1549537348516188200 before)
 DISCORD_APP_ID = "1550176895671341076"  # Olympus Verify application (public value; bot role 1550178134878584934)
-ROLE_GUILD_MEMBER = "1552077551839617104" # Olympus Guild Member; native rank mappings use the separately configured guarded role writer
+ROLE_GUILD_MEMBER = "1552077551839617104" # Olympus Guild Member: the only membership role this Worker writes
 ROLE_OFFICER = "1554262223038324840"    # Olympus Officer: officer authority
 ROLE_MODERATOR = "571363393555136512"   # Discord Moderator (the server's global role): named for departure-access reporting only, no officer authority
 ROLE_GUILD_LEADER = "1554261979684933742" # Olympus Guild Leader: officer authority
@@ -66,7 +66,7 @@ SET_GUILD_NOTE = "false"                # public note "D:<discord id>" — SetNo
 OFFICER_CHARACTERS = "Fern Melder"     # shown in /verify instructions; the characters running the addon (two-part Forever name)
 LINKS_NOT_BEFORE = ""                  # launch day: set to "2026-11-04" (and deploy) before the first live roster export; older links then count only if their character ID matches
 REQUEST_CODES = "auto"                 # auto: Get my code hands out request codes once an officer's watcher reports addon 0.6.0+; "off" = ask for the character name instead; "on" = always
-OFFICER_RANK_NAMES = "Guild Master,Officer"  # in-game rank names that ought to hold the Discord Officer role, comma separated. The legacy audit reports mismatches; guarded native rank mapping has its separate flags below.
+OFFICER_RANK_NAMES = "Guild Master,Officer"  # in-game rank names that ought to hold the Discord Officer role, comma separated. The bot only REPORTS mismatches — it never grants the role.
 # Characters the officer-rank check never reports. The guild owner belongs here: a Discord server owner holds every
 # permission without the role, so the check would flag them on every export forever. Comma-separated, as in game.
 RANK_CHECK_EXEMPT = ""                 # CHARACTER names, as in game — not rank names
@@ -115,7 +115,7 @@ EVENT_DISCORD_REMINDERS = "on"          # .134: one separately opted event remin
 CONTRIBUTIONS_MODE = "ledger"           # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
 CONTRIBUTIONS_RETENTION_DAYS = "90"     # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
 CONTRIBUTIONS_SCOPE = "olympus"         # .75: the guild scope ledger records carry
-PRIVACY_INTAKE_ENABLED = "false"         # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
+PRIVACY_INTAKE_ENABLED = "true"         # .82: "true" accepts new private requests at /api/privacy/requests (with the flag `privacy_intake` in COMMUNITY_FEATURES, MONITORED and a retention)
 PRIVACY_INTAKE_MONITORED = "true"       # .82: set "true" only once an administrator actually reads the queue; new cases are refused otherwise
 PRIVACY_INTAKE_RETENTION_DAYS = "30"    # .82: days a case is kept from its last activity (1..3650), fixed per case at creation; "" = no new cases
 OFFICER_DIGEST_ENABLED = "true"         # .85: "true" posts the daily officer digest (counts only) to CHANNEL_MOD_ALERTS (else the review channel) after 15:00 UTC
@@ -125,17 +125,6 @@ LAUNCH_AT = "1793833200"               # 4 Nov 2026, 3:00 p.m. PST: approved res
 NAMES_PER_RUN = "5"                    # linked members whose Discord names the cron re-reads per run (names.ts); with the role sweep it stays well inside 50 calls
 # key=channel id for every channel an intro lives in or mentions; the keys are the {#key} placeholders in intros.ts
 INTROS_CHANNELS = "server-rules=1300107359242424350,olympus-info=1554264597912100914,join-olympus=1554264786055987200,olympus-notices=1554264944747216977,olympus-visitors=1554265065509756989,guild-announcements=1554265182379839669,guild-chat=1551253084536049714,looking-for-group=1554265340286861352,classes-and-builds=1554265517210996898,professions-and-trade=1554265690612039710,raid-announcements=1554265809952571422,raid-signups=1554266022444408872,raid-discussion=1554266160050995230,loot-and-raid-rules=1554266306952560762,the-tavern=1554267028074930256,dungeon-party-1=1554267180697264158,dungeon-party-2=1554267323546992650,council-info=1555636857621188669,council-chat=1555637091193458768,council-decisions=1555637366121570344,addon-development=1555946128481063013,officer-chat=1551253115615838258,guild-suggestions=1557472627830956103"
-
-# .135: reviewed serving-account controls. Existing case credentials remain usable.
-PRIVACY_ACCESS_ENABLED = "true"
-PRIVACY_ERASURE_ENABLED = "true"
-PRIVACY_RETENTION_ENABLED = "true"
-# The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.
-# No native High Council exists in the observed beta ladder; enable only after qualified attended acceptance prerequisites.
-QR_PHASE1_ENABLED = "false"
-QR_RANK_MAPPING_ENABLED = "true"
-QR_PRIVILEGED_RANK_MAPPING_ENABLED = "true"
-QR_NATIVE_ROLE_MAP = '{"profile":"beta-five","roles":["1557496182966587453","1557496796949909575","1557498252994285568","1557498969310101576","1557499286965719050"]}'
 
 # Secrets (wrangler secret put NAME):
 #   DISCORD_PUBLIC_KEY  DISCORD_BOT_TOKEN  DISCORD_CLIENT_SECRET   (DISCORD_APP_ID is a var above)
