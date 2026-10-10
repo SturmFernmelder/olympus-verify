@@ -1,11 +1,11 @@
 /** Finite policy markup/slot grammar. This parser is intentionally smaller than HTML, and refuses ambiguity. */
 export const SLOT_NAMES = Object.freeze(["ACCOUNT_CONTROLS", "BNET_LOGIN"]);
 export const CANONICAL = "https://olympus.roachcouncil.com";
-export const FALLBACK_CONTROLS = '<section class="data-controls"><h2>Privacy and account data</h2><p><a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> · <a href="https://olympus.roachcouncil.com/privacy/signin">Identify-only sign-in availability</a> · <a href="https://olympus.roachcouncil.com/privacy/contact">Contact the privacy inbox</a></p></section>';
+export const FALLBACK_CONTROLS = '<section class="data-controls"><h2>Privacy and account data</h2><p><a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> · <a href="https://olympus.roachcouncil.com/privacy/access">Connect Discord for privacy actions</a> · <a href="https://olympus.roachcouncil.com/privacy/case">Read an existing case</a></p></section>';
 const VOID = new Set(["meta", "link", "img", "br", "input"]);
 const TAGS = new Set(["html", "head", "body", "meta", "title", "style", "link", "main", "header", "nav", "section", "h1", "h2", "h3", "p", "a", "strong", "em", "b", "code", "ul", "ol", "li", "img", "br", "span"]);
 const ATTRS = new Set(["lang", "charset", "name", "content", "class", "id", "tabindex", "aria-label", "aria-current", "href", "src", "alt", "width", "height", "rel", "style"]);
-const LINKS = new Set(["./privacy.html", "./terms.html", "/", "/privacy", "/terms", "#policy-content", ...["account", "signin", "contact"].map(x => `${CANONICAL}/privacy/${x}`)]);
+const LINKS = new Set(["./privacy.html", "./terms.html", "/", "/privacy", "/terms", "#policy-content", ...["account", "signin", "contact", "access", "case"].map(x => `${CANONICAL}/privacy/${x}`)]);
 const RESOURCES = new Set(["/static/policies.css", "/static/olympus-icon.png"]);
 
 export function slots(source) {

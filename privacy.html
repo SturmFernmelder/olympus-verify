@@ -16,7 +16,7 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 7 October 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 10 October 2026</p>
 
 <p>Olympus Verify is a private bot run by the volunteer staff of the World of Warcraft guild &ldquo;Olympus&rdquo;. It
 serves the Olympus channels in Asmongold's Discord server, and it is not offered to the public or installed anywhere
@@ -25,9 +25,7 @@ same person, so guild channels can be opened to guild members without an officer
 
 <h2>Privacy contact</h2>
 <p>Olympus volunteer administration handles privacy questions and requests. Use the
-<a href="https://olympus.roachcouncil.com/privacy/contact">privacy inbox contact form</a> to check inbox availability and its
-current instructions. Keep the case number and secret code if you submit a case; do not put passwords, authentication
-tokens or identity documents in your message.</p>
+<a href="https://olympus.roachcouncil.com/privacy/access">privacy account connection</a> for your own retained-data download or serving-account erasure. Existing case IDs and private codes still open their conversations. An Olympus officer arranges attended handling for unresolved records or permissions. Do not put passwords, authentication tokens or identity documents in guild messages.</p>
 
 <h2>Age and eligibility</h2>
 <p>You must be at least 13 and meet any higher minimum age required by Discord or the law where you live. You must
@@ -119,7 +117,7 @@ thirty days later.</p>
 Olympus X), its Guild Master and officers by the names they type, and they list a name only after that person agreed.
 Confirmed members can read it. A listing is a record only: it gives no powers in the bot, the site or Discord. An
 administrator clears it after the beta has closed and changes it when the leadership changes. Anyone listed there or
-appointed to a role (see the guild site, above) can ask any Olympus officer, or use the privacy inbox contact form, to have
+appointed to a role (see the guild site, above) can ask any Olympus officer, or use the privacy account help page, to have
 the name removed or corrected, and an administrator does it at once: the name is cleared, or replaced by &ldquo;Name
 withheld&rdquo;, which keeps an appointed role appointed.</p>
 <p><strong>News.</strong> When the site's administrators switch it on (it is off until they do), confirmed members can
@@ -134,7 +132,7 @@ by their start times and the titles their organizers gave them; a title is free 
 already shows it to confirmed members (see Calendar and attendance). A notice is different: it is free text an
 administrator writes for the whole guild, shown as plain text,
 and the site does not check what it says. The administrators name a member in a notice only with that member's
-agreement, and anyone a notice names can ask any Olympus officer, or use the privacy inbox contact form, to have it changed or
+agreement, and anyone a notice names can ask any Olympus officer, or use the privacy account help page, to have it changed or
 deleted, and an administrator does it at once. A notice is shown for the period the administrator chose, from 1 to 90
 days after it was first posted (judged by the database's own clock in every read), and then deleted by the scheduled
 cleanup; an administrator may change or delete it sooner. Members see when a notice was posted and last changed, not who
@@ -255,84 +253,25 @@ may post to a staff channel how many things wait for an officer, as counts only,
 rank-planning page keeps its draft in that administrator's own browser and stores nothing on the server; that browser
 copy outlives signing out and any deletion on the server until the administrator clears their browser's data.</p>
 
+<h2>Councillor browser verification</h2>
+<p>AddOn-free members send their website verification code as an ordinary in-game whisper to an online qualified High Councillor. The councillor runs the AddOn and browser scanner; the browser holds a non-extractable signing key locally and the service stores its public key with a fixed twenty-four-hour lease. A separately accepted automatic scanner session lasts at most five minutes and ten proofs. Signing needs that councillor's game and browser to be running; Cloudflare alone cannot observe game membership. Proofs are councillor attestations, not Blizzard-issued ownership certificates.</p>
+<p>The service keeps the request, challenge, account and generation, character GUID and name, native rank, roster reference, proof digest and signed role-settlement outcome. Current server checks, the configured native-rank profile, fresh complete roster evidence and one-use proof authority govern bot effects. Lost effects are reconciled without blindly repeating them. Browser keys remain in the councillor's browser until revoked or its local storage is cleared; server-side account erasure cannot reach that local copy. Account downloads omit public-key material, authentication secrets, proof digests and counterpart identities.</p>
+
 <h2>Getting rid of it</h2>
-<p>Ask any Olympus officer (or, if you can no longer reach Discord, use the privacy inbox contact form described below). For the
-bot, an officer unbinds your characters: each character row is marked unbound and loses its in-game identifier, and your
-open code requests and queue entries are cancelled; unbinding does not by itself remove your Guild Member role, which an
-officer removes in Discord where it should go. The bot has no delete command: your member row
-(your Discord user ID and, if you were banned from verifying, the ban and its reason), the unbound character rows and the
-dated log stay, and the officers handle a request to erase the bot's data about you by hand, in the database, as a
-separate request; unbinding alone is not erasure. Leaving the Discord server does none of this by itself. The guild's
-roster history is kept: it holds character names, ranks, notes and dates, and where the bot wrote your Discord user ID
-into a character's public note the exported note carries it; the history is not scrubbed of it.</p>
-<p>For the guild site, ask Olympus volunteer administration to review a removal request. Administrators can use the
-existing staff tools to remove your site application, your votes and friends list, reserved names, votes on your
-application and the ordinary site account row. On request they can also remove structured write-ins, friends-list
-entries and application references tied to your Discord account, including the notes within those entries; this can
-be requested even if you never signed in. These tools do not find every mention in arbitrary free text. A permanently
-denied registration keeps a reduced account row with the Discord user ID, denial decision and necessary operational
-state, so the same denied account cannot simply register again. Staff explain what was removed and what remains.
-There is no automatic self-service complete-account erasure in the current site.</p>
-<p><strong>Names the administrators typed.</strong> The holders of appointed roles and the names in the leadership
-directory are typed by the administrators and tied to no Discord account, so they are not in your copy and deleting your
-site data does not find them. They are removed or corrected on request instead, as said under the leadership directory:
-ask any Olympus officer, or use the privacy inbox contact form.</p>
-<p><strong>If you can no longer reach Discord</strong>, use the
-<a href="https://olympus.roachcouncil.com/privacy/contact">privacy inbox contact form</a> when it is available; it needs no sign-in.
-The page prepares a case number and secret code before submission. Save both, write what you ask for and, if useful,
-an account or character hint. Administrators answer inside that case. The case number identifies it in staff pages
-and operation records; admitted staff can read it without your code. Only a hash of the secret code is stored, so
-nobody can recover it for you. Anyone holding the case number and code can read the requester conversation; keep
-them private. The form has no separate email field, but information you put in your request or replies, including
-an email address, is stored as part of the message. It does not write the connection IP address into the case record.
-A case does not prove account ownership and does not itself export, erase or change other records. Staff check
-ownership before using the site's tools. A case uses the retention period shown when it opens. New messages and staff
-changes while it is open extend its deadline; reading alone does not. Closing fixes the deadline at that operation,
-and later changes that keep it closed do not extend it; reopening can extend it. After its deadline it is no longer
-available through the case interface. Scheduled cleanup deletes expired cases in bounded batches, so physical
-deletion may take more than one run. This does not recall copies already taken.</p>
-<p>The staff site deletion also runs the registered community cleanup for your account, including its profile and
-offers, event answers and attendance, trials, departure items and matched dues records. It is a site operation, not
-a guarantee that every guild, bot or external copy has been erased. Records with separate purposes can remain,
-including dated audit actions, unresolved restriction cases and their necessary watch-list/member-period records,
-bot verification and queue history, exported roster history, privacy inbox conversations and recovery copies.
-Staff review those separately and tell you the outcome. Names typed into appointments or the leadership directory
-are handled separately as described above; privacy inbox cases are keyed by case number rather than an account.
-The site cleanup removes the staff-actor pointers its registered cleanup covers, including attribution on News
-notices; it does not search all free text someone else wrote. Discord retains its own messages. An export or a
-removal on this site does not change a saved browser, downloaded, officer-computer or provider copy.</p>
-<p>Where a record has a stated lifetime &mdash; a trial, a case, a departure item, a dues record, a privacy inbox case,
-a News notice &mdash; no page shows it and no new copy contains it from the moment the lifetime ends, judged by the
-database's own clock inside each read, with the one exception stated above for the dues ledger (the minimum accounting of
-an expired payment, its kind, the amount it paid, the part retired, its date and status and which week, stays with a week
-that is itself still within its period) and one for News: an administrator's own copy lists the notices they posted or
-last changed, and the records left by their deleted ones, until the cleanup deletes them, each with the time its period
-ends or ended; the physical deletion follows in the scheduled cleanup, which works in bounded batches, so it may take
-several runs, and waits while the Worker's schema check fails. Profiles and events follow their own rule, stated above,
-not a deadline inside each read: a profile stops being shown as soon as its owner no longer qualifies and is deleted by
-that cleanup thirty days later; an event, its answers and attendance remain as the calendar shows them until that cleanup
-deletes them thirty days after it ended. None of this recalls a copy already downloaded, the officers' local working
-copies, or what Discord holds in its own messages and logs.</p>
-<p><strong>Backups.</strong> The live service applies the stated read cutoffs and processes physical deletions through
-bounded cleanup or staff action. These changes do not rewrite the two separate recovery copies: the private export of the whole database that the owner takes before a deploy, and
-Cloudflare's own point-in-time history of the database, which it keeps for up to 30 days. The owner keeps only the
-newest export that has been checked by restoring it privately: an older one is destroyed once a newer one has been
-checked, the last one is destroyed once the game's launch release is accepted, and after that each export is destroyed
-once its own release is accepted. A recovery export can preserve data as it stood when captured until that export is
-destroyed after a newer export has been verified, or its applicable release has been accepted. Neither copy is read in ordinary work; a deletion reaches
-them when they are destroyed or age out. The following is an attended recovery requirement, not an automatic restore or erasure feature. If a recovery copy
-were restored, the site must remain closed to everyone from just before
-the restore until the owner has done the following on it: repeated the deletions made since it was taken; deleted every
-News notice changed or deleted since then and put back the record of every notice posted since then, so that no notice
-comes back in an earlier form (one changed since is deleted, and the administrators post it again if it is still wanted)
-and none can be posted again; and put back the names the administrators typed (the appointed roles and the leadership
-directory) exactly as they stood just before the restore, so that a name removed or corrected on request stays removed or
-corrected. For the names the owner takes a private copy of just those two settings right before restoring and destroys
-it once they are back; the dated log never receives the names. The owner also checks the restored database for the
-rewrite described under appointed roles, as after installing build .115.</p>
+<p>Open <a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> for your current site session, or <a href="https://olympus.roachcouncil.com/privacy/access">connect Discord for privacy actions</a>. The separate connection asks Discord only to identify your account. It does not require server membership or create a guild-site account, and grants no guild, staff or bot role access. It lasts twelve minutes, with a separate one-use form for a curated copy and for serving-account erasure. Its authentication handshake expires after five minutes. Short-lived authentication hashes and form credentials are not included in downloads.</p>
+<p>Explicitly requesting erasure closes the current account generation to ordinary site saves and new bot-managed role grants. A bounded scheduled job first confirms that your bot-managed Olympus Guild Member role is absent or removes it through the central role writer. If Discord is unavailable, the role outcome is unknown, an old operation is unresolved, or an unclassified store or ambiguous reference is present, completion is held. Manually assigned staff permissions need human handling. Keep the request ID and private status code: they read only that request until its original deadline and never restore ordinary account access. A lost response does not prove rollback or completion.</p>
+<p>Qualified serving-account erasure removes the account and application, linked characters and their identifiers, requests and queue entries, attributable roster rows and notes, first-seen rows, inactive relay references, votes and friends, reserved names, registered community records, verification keys and proofs, settled role records, attributable operational actions, and the short-lived privacy connection. It scrubs covered staff-actor pointers and structured references. Typed appointments, directory names and arbitrary text are not assumed to identify your account; ambiguous references can hold completion and need attended correction. An independent later game census can contain current game facts again, without restoring your erased account link. Unbinding alone and leaving Discord are not erasure.</p>
+<p><strong>Separate safety purposes.</strong> An active verification ban and its necessary reason, unresolved safety cases and their watch records can remain under their separate rules. For your own rejected guild application or membership, erasure retains a keyed, minimized account marker with the fixed reason and original decision date for up to 365 days from that decision. It does not retain your application, name or rejection explanation, does not mean a general ban, and retries do not extend its deadline. A separate restore-suppression record holds the retired Discord account identifier and generation for 366 days from erasure, to prevent an old recovery copy from reviving that generation.</p>
+<p><strong>Discord messages.</strong> The service tracks bounded bot-created review, notice, guild-log, event-publication and reminder pointers it can attribute. It requests cleanup and confirms absence; a lost send or deletion response is kept as unresolved custody without automatic resend. Known pointers can continue cleanup after local account erasure. Unknown outcomes or unresolved records beyond their original deadline need attended resolution and are not silently called erased. Other people's messages and copies remain with their holders. The status explicitly separates serving-account completion, Discord cleanup and recovery copies.</p>
+<p><strong>Automatic retention.</strong> Inactive site accounts with no active linked character and dated inactive bot accounts become eligible for serving erasure after twelve months. Unsuccessful applications, ended links, unused requests, released reserved names, departed-account references, inactive relays and expired operational history use bounded cleanup with their original clocks. Undated legacy evidence is held for review. Beta requests and first-seen dates age from the eventual beta cutoff only after the attended reset confirms that cutoff; the original dates are preserved. An event cannot be scheduled more than 366 days beyond its original creation to perpetuate its records. Existing shorter trial, case, dues and News lifetimes continue to apply.</p>
+<p>Where a record has a stated read cutoff, the database clock controls availability. Physical deletion follows in bounded scheduled batches and can need several runs or wait for a schema or provider hold. Profiles become unavailable when their owner no longer qualifies and are cleaned thirty days later. Events, answers and attendance are cleaned thirty days after the event ends. Unresolved safety cases, provider outcomes and active bans have separate purposes. Cleanup does not recall a downloaded, browser, game-client, officer-computer or provider copy.</p>
+<p><strong>Existing private cases.</strong> New privacy-inbox requests are replaced by the account controls above. Existing conversations can still be read with their case ID and private code at <a href="https://olympus.roachcouncil.com/privacy/case">Read an existing case</a>. The code controls that conversation only, not an account. Cases keep their fixed-at-creation inactivity policy; messages or staff changes can extend an open case, reads do not, and closing fixes its deadline. Scheduled cleanup removes expired cases. Ask an Olympus officer for attended handling of unattributable names, ambiguous records, unresolved external custody or staff permissions.</p>
+<p><strong>Recovery copies.</strong> Serving erasure does not physically rewrite a private database export or Cloudflare's observed up-to-30-day recovery history. Only the newest privately restored and verified export is kept; a superseded export is destroyed after its exact approved cleanup, and each export has a 365-day maximum age. Acceptance of its applicable release can dispose of it sooner. Until disposal or expiry, a copy can contain the data as captured. These are separate operator obligations, not an automatic all-copy erasure claim.</p>
+<p>Recovery is attended: keep the site closed before restoring and until subsequent erasures and the generation suppression records have been replayed. Reapply the News suppression and changes, and restore the current typed appointments and leadership-directory settings so a removed or corrected name stays corrected. Check the settings-audit name rewrite before reopening. Never treat an older database as current membership, role, proof or privacy authority. The owner verifies each recovery copy's age and records replacement and cleanup receipts; unresolved custody remains explicitly open.</p>
 
 <h2>Your copy</h2>
-<p>While signed in, open <a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> to download the current
+<p>The separate identify-only connection also provides a curated, bounded own-account download after departure, denial, or without a website account. It includes the registered own-record sections but caps larger sections at one thousand records and states omissions; it does not offer the ordinary session’s history continuations. Authentication credentials, structural references to other accounts, proof digests, raw provider pointers and staff details are withheld. User-authored labels and free text can name other people. A consumed download form is not proof that your browser saved the file; reconnect for a fresh form after a lost download response.</p>
+<p>With an existing site session, open <a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> to download the current
 curated JSON copy through <code>/api/me/export</code>. It contains selected account, application, vote, friend and
 reserved-name records; selected bot status, character, pending-request and queue fields without verification codes;
 and the registered community sections. Names you chose as labels and your own free text are copied as supplied and
@@ -366,12 +305,11 @@ If information you expect is missing, ask Olympus volunteer administration. Hist
 five per hour, enforced approximately in memory; longer histories may need a later window.</p>
 
 <h2>Contact</h2>
-<p>Contact Olympus volunteer administration through Olympus's officers in Asmongold's Discord server, or use the
-<a href="https://olympus.roachcouncil.com/privacy/contact">privacy inbox contact form</a> to check its availability and instructions.</p>
+<p>Contact Olympus volunteer administration through Olympus’s officers in Asmongold’s Discord server for attended help. Own-account downloads and erasure requests use <a href="https://olympus.roachcouncil.com/privacy/access">Privacy account connection</a>; existing case credentials use <a href="https://olympus.roachcouncil.com/privacy/case">Read an existing case</a>.</p>
 
 <p class="meta" style="margin-top:2.5rem">See also the <a href="./terms.html">Terms of Service</a>.</p>
 <!-- olympus:slot ACCOUNT_CONTROLS start -->
-<section class="data-controls"><h2>Privacy and account data</h2><p><a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> · <a href="https://olympus.roachcouncil.com/privacy/signin">Identify-only sign-in availability</a> · <a href="https://olympus.roachcouncil.com/privacy/contact">Contact the privacy inbox</a></p></section>
+<section class="data-controls"><h2>Privacy and account data</h2><p><a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> · <a href="https://olympus.roachcouncil.com/privacy/access">Connect Discord for privacy actions</a> · <a href="https://olympus.roachcouncil.com/privacy/case">Read an existing case</a></p></section>
 <!-- olympus:slot ACCOUNT_CONTROLS end -->
 <!-- olympus:slot BNET_LOGIN start -->
 
