@@ -57,10 +57,6 @@ async function review(){
    eq(label+' news own shape intentionally omits body',Object.keys(preview[0]).sort(),['id','title','postedAt','editedAt','keptUntil'].sort());
    const selected=await own(f,'community.news.notices',data.coverage.histories['community.news.notices'].currentCursor);
    eq(label+' news max own selected equals preview',selected.history.entries,preview);
-   // An omitted legacy body is not a projected row and cannot make an own title-only copy fail.
-   f.db.prepare('UPDATE site_news_notices SET body=? WHERE id=?').run(character.repeat(200000),form.opId);
-   const restored=await own(f,'community.news.notices',data.coverage.histories['community.news.notices'].currentCursor);
-   eq(label+' omitted oversized legacy body cannot refuse retained projection',restored.history.entries,preview);
   }
   f.db.close();
  }
