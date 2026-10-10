@@ -23,9 +23,16 @@ export function likeArg(s: string, prefix = false): string {
 export type PrivacyReference={subject:string;capture:PrivacySubject|null};
 export async function audit(env: Env, actor: string, action: string, subject?: string, details?: unknown,reference?:PrivacyReference|PrivacyReference[]) {
   const references=reference===undefined?null:Array.isArray(reference)?reference:[reference];
+  // Trusted original references remain attributable after a character is renamed or unlinked.
+  // The reserved field is controlled here; it never comes from supplied detail text.
+  if(references?.some(r=>typeof r.subject!=='string'||!/^[0-9]{17,20}$/.test(r.subject)))throw Error('privacy_audit_reference_invalid');
+  const recordedDetails=references?.length?{
+    ...(details!==null&&typeof details==='object'&&!Array.isArray(details)?details as Record<string,unknown>:{_privacyDetail:details??null}),
+    _privacySubjectIds:[...new Set(references.map(r=>r.subject))],
+  }:details;
   const sql="INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, ?3, ?4, ?5"+(references?` WHERE NOT EXISTS (SELECT 1 FROM json_each(?6) j WHERE NOT ((json_extract(j.value,'$.g') IS NULL AND NOT EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=json_extract(j.value,'$.id'))) OR EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=json_extract(j.value,'$.id') AND p.generation=json_extract(j.value,'$.g') AND p.state='active')))`:'');
   await env.DB.prepare(sql)
-    .bind(now(), actor, action, subject ?? null, details === undefined ? null : JSON.stringify(details),...(references?[JSON.stringify(references.map(r=>({id:r.subject,g:r.capture?.subjectGeneration??null})))]:[]))
+    .bind(now(), actor, action, subject ?? null, recordedDetails === undefined ? null : JSON.stringify(recordedDetails),...(references?[JSON.stringify(references.map(r=>({id:r.subject,g:r.capture?.subjectGeneration??null})))]:[]))
     .run();
 }
 
