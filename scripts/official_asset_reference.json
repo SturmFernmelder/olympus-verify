@@ -933,8 +933,8 @@
     {
       "path": "worker/src/site-core.ts",
       "mode": "100644",
-      "bytes": 16825,
-      "sha256": "41afe7a282c1d64fb74b1ecc71ffa3d9971710769837e3322d8ec81188037fdc"
+      "bytes": 17584,
+      "sha256": "acb0e2d6101b2c20e21e61edc893c000086ad3afb9f726148558f22848536ad9"
     }
   ],
   "limitations": [
@@ -960,5 +960,6 @@
     "usage": "brand_and_tab_icon_only",
     "owner_instruction": "Crest is the exception",
     "instruction_date": "2026-10-01"
-  }
+  },
+  "site_core_privacy_qr_successor": "Reviewed .135 authority and QR shell integration; official artwork assets unchanged."
 }
