@@ -2,8 +2,8 @@
 
 This document describes the composed .135 serving-account candidate, not a claim that every copy,
 provider record or historical identifier can be erased automatically. Missing activation values fail
-closed; the reviewed candidate explicitly enables `PRIVACY_ACCESS_ENABLED`, `PRIVACY_ERASURE_ENABLED`
-and `PRIVACY_RETENTION_ENABLED`. New private-inbox intake stays OFF and existing cases remain available.
+closed; the first-stage candidate enables `PRIVACY_ACCESS_ENABLED` while `PRIVACY_ERASURE_ENABLED`
+and `PRIVACY_RETENTION_ENABLED` remain OFF pending legacy-writer transition qualification. New private-inbox intake stays OFF and existing cases remain available.
 The dormant .129 foundation is not adopted as serving authority. Production publication requires the
 final joined source, schema, policy, recovery, budget, callback and exact-head release gates.
 

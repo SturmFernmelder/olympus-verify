@@ -1344,7 +1344,7 @@ five-payload ZIP, source reader and all four reading/chart links retain their ac
 
 Privacy identity is purpose-specific and does not borrow ordinary guild admission. A five-minute, browser-bound
 Discord identity handshake creates independent twelve-minute, one-use copy and erasure grants. Account generations
-bind every serving writer to its original capture. Requesting erasure closes that generation before the bounded job
+bind the qualified new-source serving writers to their original capture. Once enabled, requesting erasure closes that generation before the bounded job
 checks Guild Member absence and erases classified local stores. A later generation or reauthentication cannot adopt
 an old pending write, proof, queue result, event claim or provider outcome. Database-clock checks and terminal fences
 remain in the consuming transaction; unknown outcomes are explicit rather than guessed rollbacks.
@@ -1373,3 +1373,8 @@ module loading are separate from the qualified person's actual live proof and in
 The additive serving schema has 65 classified tables. Schema admission and all scheduled waitUntil jobs share the
 conservative 699-statement invocation envelope; adding copy pagination does not add schema or scheduled work. Every
 release must independently measure the whole joined source and exact archive, then bind live readback to that head.
+
+The first-stage .135 profile opens account copies while new erasure and lifecycle-retention jobs remain OFF.
+An actual .134 request resumed after new-version erasure and recreated a member row, so the destructive workload
+needs a separately qualified legacy-writer transition. New-version cooperative fences cannot retrofit an already
+executing prior version. The canonical profile and append-only configuration marker must agree before publication.

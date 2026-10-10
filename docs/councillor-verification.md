@@ -2,7 +2,7 @@
 
 This is the composed .135 Phase 1 source candidate. Missing feature values fail closed. The candidate
 keeps `QR_PHASE1_ENABLED` OFF because the observed beta ladder has no native High Council; privacy
-controls and the independent beta-five rank-mapping gates are enabled in its reviewed configuration.
+downloads and the independent beta-five rank-mapping gates are enabled; new erasure and lifecycle-retention workloads stay OFF until legacy-writer transition qualification.
 No native rank, appointment or game permission is changed by source publication. Command registration,
 browser enrollment, intended role effects and qualified real game/browser acceptance are separate actions.
 The reader is `/static/qr-phase1.html`; its authenticated navigation stays hidden while Phase 1 is OFF.

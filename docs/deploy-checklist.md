@@ -5191,7 +5191,7 @@ without a guild-site account and never creates ordinary guild, staff or bot auth
 controls remain available. New private-inbox intake is off; existing cases retain their original codes, access and
 fixed-at-creation thirty-day policy. Account help directs ambiguous or externally held records to an officer.
 
-Serving erasure immediately retires the original generation from ordinary saves and new bot-role grants. The
+When enabled, the implemented serving-erasure path immediately retires the original generation from ordinary saves and new bot-role grants. The
 bounded job requires the central role writer to confirm Guild Member absence before the local transaction. Unknown
 Discord effects, malformed records, unclassified tables or unresolved original custody hold completion. The local
 transaction covers the classified serving stores and attributable structured references, including character-name
@@ -5231,9 +5231,12 @@ roster evidence; do not substitute ordinal positions or promote an account just 
 
 Schema/config: twelve additive tables take the serving census from 53 to 65, with matching canonical/runtime/dated
 migrations and guarded legacy column additions. The dormant .129 foundation is not used as serving authority.
-PRIVACY_ACCESS_ENABLED, PRIVACY_ERASURE_ENABLED, PRIVACY_RETENTION_ENABLED, QR_RANK_MAPPING_ENABLED and
-QR_PRIVILEGED_RANK_MAPPING_ENABLED are true in this candidate; QR_PHASE1_ENABLED and PRIVACY_INTAKE_ENABLED
-are false. Rank mapping is independently enabled without the signer bridge. Battle.net login and the beta reset stay off. The conservative shared cron model is
+PRIVACY_ACCESS_ENABLED, QR_RANK_MAPPING_ENABLED and QR_PRIVILEGED_RANK_MAPPING_ENABLED are true in this
+first-stage candidate. PRIVACY_ERASURE_ENABLED, PRIVACY_RETENTION_ENABLED, QR_PHASE1_ENABLED and
+PRIVACY_INTAKE_ENABLED are false. A native upgrade-consistency fixture reproduced an already-started .134
+verification writer recreating a member row after .135 erasure completed. Erasure/retention activation therefore
+requires a separately qualified barrier or actual terminal-state evidence for incompatible legacy writers;
+deployment percentage, a fixed wait or the new source's cooperative guards are not that evidence. Rank mapping is independently enabled without the signer bridge. Battle.net login and the beta reset stay off. The conservative shared cron model is
 699 attempted SQL statements, including the 149-statement erasure envelope and seven-statement reminder envelope.
 Reduced per-run caps continue deterministically; this is modeled accounting, not a provider billing guarantee.
 
