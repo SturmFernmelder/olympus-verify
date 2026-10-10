@@ -585,6 +585,7 @@
     const links = [];
     if (S.signedIn && !S.denied) links.push(["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"], ["#/roles", "Roles"]);
     else if (!S.signedIn) links.push(["#/roles", "Roles"]); // what each role involves is readable before signing in
+    links.push(["#/governance", "Governance"], ["#/organization", "Organization"]); // .128: the public draft and generic structure contain no live member directory
     if (S.signedIn && !S.denied && anyCommunity() && can("applicantWrite")) links.push(["#/community", "Community"]); // .93: only while a community page is switched on; .100 (F5): and while the fresh context admits the account
     if (S.user && S.user.isAdmin) links.push(["#/admin", "Admin"]);
     const head = route.split("/")[0];
@@ -697,7 +698,7 @@
     app.appendChild(main);
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
     if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // the Roles page and the saved account/contact fragment redirects need no sign-in
-    else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView; // .93: a denied identity keeps its copy and the request form
+    else if (S.denied && head !== "governance" && head !== "organization") view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView; // public draft reading does not grant member admission
     if (head === "admin" && !(S.user && S.user.isAdmin)) view = ROUTES[""];
     try {
       const out = view(main, route.split("/").slice(1));
@@ -713,6 +714,245 @@
   const showError = (main) => (e) => {
     if (e && e.status === 401) return;
     main.appendChild(frame("Something went wrong", null, h("p", { text: (e && e.message) || String(e) })));
+  };
+
+  // ---------------------------------------------------------------- public R6 draft and organization (.128)
+  // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
+  const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
+  const GOVERNANCE_MODEL = "/static/governance/organization.json";
+  const GOVERNANCE_SHA256 = "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca";
+  let governanceBookPromise = null, governanceModelPromise = null;
+  async function publicGovernanceBytes(path, cap) {
+    const res = await fetch(path, { credentials: "omit", redirect: "error" });
+    if (!res.ok) throw new Error("The public governance file could not be read. Reload this page to try again.");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (!bytes.length || bytes.length > cap) throw new Error("The public governance file has an unexpected size.");
+    return bytes;
+  }
+  function governanceBook() {
+    if (!governanceBookPromise) governanceBookPromise = (async () => {
+      const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
+      if (bytes.length !== 116006) throw new Error("The R6 draft has an unexpected size.");
+      const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+      if (digest !== GOVERNANCE_SHA256) throw new Error("The R6 draft does not match the reviewed text.");
+      return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    })().catch((e) => { governanceBookPromise = null; throw e; });
+    return governanceBookPromise;
+  }
+  function governanceModel() {
+    if (!governanceModelPromise) governanceModelPromise = (async () => {
+      const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
+      const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+      if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R6" || data.draft !== true || data.ratified !== false || data.appointmentsIssued !== false ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 116006 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
+          !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
+          !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization draft has an unexpected shape.");
+      const ids = new Set(data.nodes.map((n) => n.id));
+      if (ids.size !== data.nodes.length || data.nodes.some((n) => !/^[a-z][a-z0-9-]*$/.test(n.id) || (n.parent !== null && !ids.has(n.parent)) ||
+          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id))) ||
+          data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 95) throw new Error("The organization draft has an invalid relation.");
+      // A corrupt static file must not turn recursive rendering into a loop.
+      for (const n of data.nodes) {
+        const seen = new Set(); let current = n;
+        while (current) { if (seen.has(current.id)) throw new Error("The organization draft contains a cycle."); seen.add(current.id); current = data.nodes.find((p) => p.id === current.parent); }
+      }
+      return data;
+    })().catch((e) => { governanceModelPromise = null; throw e; });
+    return governanceModelPromise;
+  }
+  const governanceSlug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  function parseGovernanceBook(text) {
+    const chapters = [], used = new Set(); let chapter = null;
+    for (const line of text.split(/\r?\n/)) {
+      const heading = /^# (.+)$/.exec(line);
+      if (heading) {
+        const stem = governanceSlug(heading[1]); let id = stem, n = 2;
+        while (used.has(id)) id = stem + "-" + n++;
+        used.add(id); chapter = { id, title: heading[1], lines: [] }; chapters.push(chapter);
+      } else if (chapter) chapter.lines.push(line);
+    }
+    if (!chapters.length || chapters[0].title !== "Reading and Adopting This Book") throw new Error("The R6 draft has no reading guide.");
+    return { chapters, text };
+  }
+  // A small text-only Markdown reader. It creates DOM nodes; arbitrary HTML and Markdown URLs never execute.
+  function governanceInline(text) {
+    return String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part) =>
+      part.startsWith("**") && part.endsWith("**") ? h("strong", { text: part.slice(2, -2) }) :
+      part.startsWith("`") && part.endsWith("`") ? h("code", { text: part.slice(1, -1) }) : document.createTextNode(part));
+  }
+  function governanceBlocks(lines) {
+    const out = []; let i = 0;
+    const special = (line) => !line.trim() || /^(#{2,6} |\|.*\||[-*] |\d+[.)] |---+$)/.test(line) || line.trim() === "[[OVERVIEW]]";
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      if (line.trim() === "[[OVERVIEW]]") {
+        out.push(h("div", { class: "governance-overview" }, posIcon("guild_master"), h("div", null,
+          h("h3", { text: "Explore the organization" }), h("p", { text: "Open reporting lines, inspect an office’s remit and find every requested label in the interactive chart." }),
+          h("a", { class: "btn", href: "#/organization", text: "Open the interactive organization chart" })))); i++; continue;
+      }
+      const heading = /^(#{2,6}) (.+)$/.exec(line);
+      if (heading) { out.push(h(heading[1].length < 4 ? "h3" : "h4", null, governanceInline(heading[2]))); i++; continue; }
+      if (/^---+$/.test(line.trim())) { out.push(h("hr")); i++; continue; }
+      if (/^\|.*\|$/.test(line)) {
+        const rows = [];
+        while (i < lines.length && /^\|.*\|$/.test(lines[i])) {
+          const cells = lines[i++].slice(1, -1).split("|").map((s) => s.trim());
+          if (!cells.every((s) => /^:?-{3,}:?$/.test(s))) rows.push(cells);
+        }
+        const tableHead = h("thead", null, h("tr", null, (rows[0] || []).map((cell) => h("th", { scope: "col" }, governanceInline(cell)))));
+        const tableBody = h("tbody", null, rows.slice(1).map((row) => h("tr", null, row.map((cell) => h("td", null, governanceInline(cell))))));
+        out.push(h("div", { class: "table-wrap" }, h("table", { class: "governance-table" }, tableHead, tableBody))); continue;
+      }
+      const list = /^([-*] |\d+[.)] )/.exec(line);
+      if (list) {
+        const ordered = /^\d/.test(list[0]), items = [];
+        while (i < lines.length && (ordered ? /^\d+[.)] / : /^[-*] /).test(lines[i])) items.push(h("li", null, governanceInline(lines[i++].replace(/^([-*] |\d+[.)] )/, ""))));
+        out.push(h(ordered ? "ol" : "ul", null, items)); continue;
+      }
+      const paragraph = [line]; i++;
+      while (i < lines.length && !special(lines[i])) paragraph.push(lines[i++]);
+      out.push(h("p", null, governanceInline(paragraph.join(" "))));
+    }
+    return out;
+  }
+  function governanceDraftNotice() {
+    return h("div", { class: "governance-draft", role: "note" }, h("strong", { text: "R6 • Public draft for ratification" }),
+      h("p", { text: "Publication is not adoption. This book issues no appointments or warrants and changes no native rank, bank limit or platform permission. Its dated snapshots describe the source history, not a current release announcement." }));
+  }
+  ROUTES.governance = async (main, parts) => {
+    const loading = h("p", { role: "status", text: "Opening the R6 governance book…" }); add(main, loading);
+    const book = await governanceBook();
+    if (!app.contains(main)) return;
+    clear(main);
+    const chapters = book.chapters, details = new Map(), contents = new Map(), toc = new Map();
+    const target = dec(parts[0] || ""), selected = chapters.findIndex((c) => c.id === target);
+    let index = selected < 0 ? 0 : selected;
+    const search = h("input", { type: "search", id: "governance-search", placeholder: "Search the whole book", "aria-label": "Search the whole governance book", maxlength: "160" });
+    const result = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+    const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
+    const current = h("span", { class: "small" });
+    function selection(i, focus = false, open = true) {
+      index = i; const chapter = chapters[index];
+      if (open) details.get(chapter.id).open = true;
+      current.textContent = `${index + 1} / ${chapters.length} • ${chapter.title}`;
+      prev.hidden = index === 0; next.hidden = index === chapters.length - 1;
+      if (index > 0) prev.setAttribute("href", "#/governance/" + chapters[index - 1].id);
+      if (index < chapters.length - 1) next.setAttribute("href", "#/governance/" + chapters[index + 1].id);
+      for (const [id, link] of toc) { if (id === chapter.id) link.setAttribute("aria-current", "location"); else link.removeAttribute("aria-current"); }
+      if (focus) { const summary = details.get(chapter.id).querySelector("summary"); summary.focus(); scrollToSection(details.get(chapter.id)); }
+    }
+    const chapterNodes = chapters.map((chapter, i) => {
+      const summary = h("summary", { onclick: () => selection(i, false, false), "data-chapter-summary": chapter.id }, h("h2", { text: chapter.title }));
+      const content = h("div", { class: "governance-prose" }, governanceBlocks(chapter.lines));
+      const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
+      details.set(chapter.id, section); contents.set(chapter.id, (chapter.title + " " + chapter.lines.join(" ")).toLowerCase());
+      return section;
+    });
+    const tocList = chapters.map((chapter) => { const link = h("a", { href: "#/governance/" + chapter.id, text: chapter.title }); const item = h("li", null, link); toc.set(chapter.id, link); return item; });
+    function filter() {
+      const query = search.value.trim().toLowerCase(); let count = 0;
+      for (const chapter of chapters) {
+        const matches = !query || contents.get(chapter.id).includes(query);
+        const section = details.get(chapter.id); section.hidden = !matches; toc.get(chapter.id).parentNode.hidden = !matches;
+        if (query) section.open = matches;
+        if (matches) count++;
+      }
+      result.textContent = query ? `${count} of ${chapters.length} chapters match “${search.value.trim()}”.` : `The complete book • ${chapters.length} chapters. Select a chapter or search its full text.`;
+    }
+    search.addEventListener("input", filter);
+    add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
+      h("h1", { text: "The Governance of Olympus" }), h("p", { text: "Charters, statute, bylaws, ordinances, office descriptions and reusable records — the complete R6 text." }))), governanceDraftNotice(),
+      h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
+        h("a", { class: "btn", href: "#/governance/reading-and-adopting-this-book", text: "Start here" }),
+        h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
+        h("a", { class: "btn", href: "#/governance/3-letters-patent-and-warrants", text: "Appointment templates" }),
+        h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
+        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R6.md", text: "Download the exact source" })),
+      h("div", { class: "governance-controls" }, h("label", { for: "governance-search", text: "Find a rule or office" }), search,
+        h("button", { class: "btn small", type: "button", text: "Clear search", onclick: () => { search.value = ""; filter(); } }),
+        h("button", { class: "btn small", type: "button", text: "Expand all chapters", onclick: () => { for (const section of details.values()) if (!section.hidden) section.open = true; } }),
+        h("button", { class: "btn small", type: "button", text: "Collapse all chapters", onclick: () => { for (const section of details.values()) section.open = false; } }), result),
+      h("div", { class: "governance-layout" }, h("aside", { class: "governance-toc" }, h("nav", { "aria-label": "Book chapters" }, h("h2", { text: "Contents" }), h("ol", null, tocList))),
+        h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes))]);
+    selection(index); filter();
+    if (selected >= 0) selection(index, true);
+  };
+  ROUTES.organization = async (main, parts) => {
+    add(main, h("p", { role: "status", text: "Opening the organization…" }));
+    const data = await governanceModel();
+    if (!app.contains(main)) return;
+    clear(main);
+    const byId = new Map(data.nodes.map((n) => [n.id, n])), cards = new Map(), branches = new Map();
+    const search = h("input", { id: "organization-search", type: "search", maxlength: "160", placeholder: "Office, rank or alias", "aria-label": "Search organization and all 95 labels" });
+    const result = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+    const detail = h("section", { class: "organization-detail", "aria-label": "Selected office details", "aria-live": "polite", tabindex: "-1" });
+    const terms = data.terms.map((term) => {
+      const entry = h("li", { "data-organization-term": String(term.ordinal) }, h("button", { class: "organization-term", type: "button", text: term.label, onclick: () => select(term.nodeId, term, true) }),
+        h("small", { class: "muted", text: data.termGroups.find((g) => g.id === term.classification).title }));
+      return { term, entry };
+    });
+    function reveal(id) {
+      let node = byId.get(id);
+      while (node) { const branch = branches.get(node.id); if (branch) { branch.hidden = false; branch.open = true; } node = byId.get(node.parent); }
+    }
+    function select(id, term = null, focus = false) {
+      const node = byId.get(id); if (!node) return;
+      reveal(id);
+      for (const [key, button] of cards) button.setAttribute("aria-pressed", key === id ? "true" : "false");
+      clear(detail);
+      add(detail, [h("p", { class: "eyebrow", text: term ? term.label : node.kind }), h("h2", { text: node.title }),
+        term ? h("p", { text: term.note }) : null, h("h3", { text: "Remit" }), h("p", { text: node.remit }),
+        h("h3", { text: "Authority and limits" }), h("p", { text: node.limits }),
+        h("p", null, h("strong", { text: "Relation: " }), data.legend[node.relation], node.parent ? " Parent: " + byId.get(node.parent).title + "." : " Separate root in this diagram."),
+        node.coordinates.length ? h("div", null, h("h3", { text: "Coordinates with" }), node.coordinates.map((key) => h("button", { class: "btn small", type: "button", text: byId.get(key).title, onclick: () => select(key, null, true) }))) : null,
+        h("h3", { text: "Requested labels in this remit" }), h("ul", null, data.terms.filter((t) => t.nodeId === id).map((t) => h("li", { text: t.label }))),
+        h("a", { class: "btn small", href: "#/governance/" + node.chapter, text: "Read the office descriptions" }),
+        h("a", { class: "btn small", href: "#/organization/" + id, text: "Link to this part of the chart" })]);
+      if (focus) { detail.focus(); scrollToSection(detail); }
+    }
+    function tree(node) {
+      const children = data.nodes.filter((n) => n.parent === node.id);
+      const button = h("button", { class: "organization-select", type: "button", "aria-pressed": "false", "data-organization-node": node.id, onclick: () => select(node.id, null, true) }, posIcon(node.icon), h("span", { text: node.title }));
+      cards.set(node.id, button);
+      const summary = h("summary", null, h("span", { class: "organization-title", text: node.title }), h("small", { text: node.kind }));
+      const branch = h("details", { class: "organization-branch relation-" + node.relation, "data-organization-branch": node.id }, summary,
+        h("div", { class: "organization-card" }, button, h("p", { class: "small", text: node.remit }), h("span", { class: "badge", text: node.relation })),
+        children.length ? h("ul", { class: "organization-children" }, children.map((child) => h("li", null, tree(child)))) : null);
+      branch.open = node.parent === null || node.id === "council" || node.id === "guilds" || node.id === "officers" || node.id === "emissaries";
+      branches.set(node.id, branch); return branch;
+    }
+    const roots = data.nodes.filter((n) => n.parent === null).map(tree);
+    function filter() {
+      const query = search.value.trim().toLowerCase(), keep = new Set(); let termCount = 0, nodeCount = 0;
+      for (const { term, entry } of terms) {
+        const hit = !query || (term.label + " " + term.note + " " + term.classification).toLowerCase().includes(query);
+        entry.hidden = !hit; if (hit) { termCount++; if (query) keep.add(term.nodeId); }
+      }
+      for (const node of data.nodes) if (!query || (node.title + " " + node.remit + " " + node.kind).toLowerCase().includes(query)) { keep.add(node.id); nodeCount++; }
+      for (const id of [...keep]) { let node = byId.get(id); while (node.parent) { keep.add(node.parent); node = byId.get(node.parent); } }
+      for (const [id, branch] of branches) { branch.hidden = !keep.has(id); if (query && keep.has(id)) branch.open = true; }
+      result.textContent = query ? `${termCount} requested labels and ${nodeCount} structural parts match “${search.value.trim()}”. Connecting ancestors remain visible.` : `${data.terms.length} exact requested labels • ${data.nodes.length} structural parts • 10 native ranks. Expand a branch, then select an office for its remit.`;
+    }
+    search.addEventListener("input", filter);
+    add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null, h("h1", { text: "Organization of Olympus" }), h("p", { text: "Many guilds. One Olympus. Explore accountability, coordination and the vocabulary of service." }))),
+      governanceDraftNotice(), h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" },
+        h("a", { class: "btn", href: "#/governance/revised-organisation-chart", text: "Read the chart’s rules" }),
+        h("a", { class: "btn", href: data.directoryRoute, text: "Actual leadership directory • members only" })),
+      h("div", { class: "organization-legend" }, Object.entries(data.legend).map(([key, value]) => h("p", { class: "relation-" + key }, h("strong", { text: key + ": " }), value))),
+      h("div", { class: "governance-controls" }, h("label", { for: "organization-search", text: "Find an office or requested label" }), search,
+        h("button", { class: "btn small", type: "button", text: "Clear search", onclick: () => { search.value = ""; filter(); } }),
+        h("button", { class: "btn small", type: "button", text: "Expand all branches", onclick: () => { for (const branch of branches.values()) if (!branch.hidden) branch.open = true; } }),
+        h("button", { class: "btn small", type: "button", text: "Collapse all branches", onclick: () => { for (const branch of branches.values()) branch.open = false; } }), result),
+      h("div", { class: "organization-layout" }, h("section", { class: "organization-tree", "aria-label": "Reporting and coordination hierarchy" }, roots), detail),
+      frame("The ten native rank slots", null, h("p", { text: "Administrative display order, separate from the appointment tree. Actual game permissions and bank amounts require attended Guild Master setup." }),
+        h("ol", { class: "organization-ranks" }, data.nativeRanks.map((rank) => h("li", { "data-native-rank": String(rank.order) }, h("strong", { text: rank.name }), h("p", { class: "small", text: rank.meaning }))))),
+      frame("Olympus I–X • unappointed directory slots", null, h("p", { text: "These are planned directory placeholders. They neither assert formed guilds nor appoint their Guild Masters." }),
+        h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map((guild) => h("li", null, h("strong", { text: guild.name }), h("small", { text: guild.state }))))),
+      frame("All 95 requested labels", h("span", { class: "badge", text: "Vocabulary, not automatic powers" }), h("p", { text: "Each original label appears once below. Select it to see its classification and related office. Ceremonial, honorary, play-preference and review labels remain distinct from native ranks." }),
+        h("ul", { class: "organization-terms" }, terms.map((row) => row.entry)))]);
+    filter(); const target = dec(parts[0] || ""); select(byId.has(target) ? target : "founder", null, byId.has(target));
   };
 
   // ---------------------------------------------------------------- home
@@ -2896,7 +3136,7 @@
   const codeOf = (e) => (e && e.data && e.data.error) || (e && e.code) || "";
   const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
   const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)] || (e && e.message) || fallback || "Something went wrong.";
-  const PUBLIC_ROUTES = new Set(["roles", "request", "data"]); // pages that need no sign-in
+  const PUBLIC_ROUTES = new Set(["roles", "request", "data", "governance", "organization"]); // public reading does not grant member admission
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
   async function refreshCommunity() {

@@ -1,0 +1,1305 @@
+{
+  "schema": "olympus-public-organization-v1",
+  "revision": "R6",
+  "draft": true,
+  "ratified": false,
+  "appointmentsIssued": false,
+  "book": {
+    "path": "/static/governance/reconciled-book.md",
+    "bytes": 116006,
+    "sha256": "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca"
+  },
+  "legend": {
+    "accountability": "Accountability within an accepted remit; no automatic platform permission.",
+    "coordination": "Cooperation and liaison, not command.",
+    "independence": "Independent review with conflict exclusion, not direction by the subject.",
+    "classification": "Vocabulary grouping, not a reporting line."
+  },
+  "nodes": [
+    {
+      "id": "founder",
+      "title": "Founder and Patron",
+      "parent": null,
+      "relation": "accountability",
+      "kind": "constitutional office",
+      "icon": "guild_master",
+      "remit": "Reserved constitutional decisions and reasoned final authority.",
+      "limits": "Draft publication confirms no appointment, sovereignty, access or ratification.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "council",
+      "title": "High Council",
+      "parent": "founder",
+      "relation": "accountability",
+      "kind": "council and native rank",
+      "icon": "officer",
+      "remit": "Olympus-wide standards, budgets and portfolio coordination.",
+      "limits": "Native rank does not create an accepted seat, mandate or vote.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "justice",
+      "title": "Council of Justice",
+      "parent": "founder",
+      "relation": "independence",
+      "kind": "independent adjudication",
+      "icon": "moderator",
+      "remit": "Conduct, compliance, disputes and appeals through unconflicted panels.",
+      "limits": "Case designation, recusal and actual moderation access are separate.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "executive",
+      "title": "Co-Guild Master and Vice Guild Master",
+      "parent": "founder",
+      "relation": "coordination",
+      "kind": "appointments",
+      "icon": "co_gm",
+      "remit": "Agendas, absence cover and liaison within an accepted warrant.",
+      "limits": "Neither title is a native rank, automatic succession or command over other Guild Masters.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "staff",
+      "title": "Chief of Staff",
+      "parent": "executive",
+      "relation": "coordination",
+      "kind": "appointment",
+      "icon": "officer",
+      "remit": "Agendas, action register and delivery across portfolios.",
+      "limits": "No assumption of reserved Founder powers or additional platform access.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "registrar",
+      "title": "Secretary and Registrar",
+      "parent": "staff",
+      "relation": "coordination",
+      "kind": "recordkeeping duty",
+      "icon": "officer",
+      "remit": "Maintain instruments, vacancies, minutes and appointment terms.",
+      "limits": "May be combined with Chief of Staff; cannot manufacture approval or rewrite a decision.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "diplomacy",
+      "title": "Foreign affairs",
+      "parent": "staff",
+      "relation": "coordination",
+      "kind": "appointment and aliases",
+      "icon": "liaison",
+      "remit": "Agreed contacts and proposed cooperation through the Chief of Staff.",
+      "limits": "Binding commitments require written delegation, not a title.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "war",
+      "title": "Department of War",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "core portfolio",
+      "icon": "pvp_leader",
+      "remit": "Shared PvP and raid standards, preparation and training.",
+      "limits": "Portfolio coordination does not confer local guild or event command.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "war-pvp",
+      "title": "War Head for PvP",
+      "parent": "war",
+      "relation": "accountability",
+      "kind": "portfolio appointment",
+      "icon": "pvp_leader",
+      "remit": "PvP standards and coordination of PvP Emissaries.",
+      "limits": "Local Captains lead only assigned activities.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "war-raiding",
+      "title": "War Head for Raiding",
+      "parent": "war",
+      "relation": "accountability",
+      "kind": "portfolio appointment",
+      "icon": "raid_leader",
+      "remit": "Raid preparation and coordination of Raiding Emissaries.",
+      "limits": "No automatic invitation, loot, bank or demotion powers.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "strategy",
+      "title": "Strategy and scouting",
+      "parent": "war",
+      "relation": "coordination",
+      "kind": "shared appointments",
+      "icon": "pvp_leader",
+      "remit": "Build research, encounter planning, permitted scouting and tested advice.",
+      "limits": "Advice creates no compulsory play, account access or permission for personal surveillance.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "treasury",
+      "title": "Federal Treasury",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "core portfolio",
+      "icon": "treasurer",
+      "remit": "Dues accounting, approved budgets, receipts and Finance Emissaries.",
+      "limits": "Treasurer is an appointment within High Council; bank preset, custody and approval are separate.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "artisanry",
+      "title": "Association of Artisanry",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "core portfolio",
+      "icon": "professions",
+      "remit": "Crafting, willing suppliers and approved supply requests.",
+      "limits": "Materials remain their owners’ property; no forced labour or bank access by title.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "heraldry",
+      "title": "Department of Heraldry",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "core portfolio",
+      "icon": "community",
+      "remit": "Approved announcements, events, recruitment communications and participation.",
+      "limits": "Publicity needs verified facts and appropriate consent.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "intake",
+      "title": "Intake and recruitment",
+      "parent": "heraldry",
+      "relation": "accountability",
+      "kind": "shared appointment",
+      "icon": "recruitment",
+      "remit": "Application pipeline, capacity contacts, verification readiness and review dates.",
+      "limits": "No independent blacklist, finding of guilt or bypass of game verification.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "media",
+      "title": "Media and communications",
+      "parent": "heraldry",
+      "relation": "accountability",
+      "kind": "shared appointment",
+      "icon": "community",
+      "remit": "Approved news, permitted content and local media liaison.",
+      "limits": "No private cases, chat logs or financial receipts in publicity.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "events",
+      "title": "Events and training",
+      "parent": "heraldry",
+      "relation": "accountability",
+      "kind": "shared appointments",
+      "icon": "leveling",
+      "remit": "Calendar coordination, inclusive events, willing mentors and skill clinics.",
+      "limits": "No compulsory attendance, new Training rank or unapproved resource allocation.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "systems",
+      "title": "Systems and Addons Division",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "shared support division",
+      "icon": "liaison",
+      "remit": "Technical tools, AddOn maintenance, Discord engineering and access inventories.",
+      "limits": "Shared support, not a fifth core ministry; custody is individually granted and title gives no secrets.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "auditor",
+      "title": "Independent Bank Auditor",
+      "parent": "council",
+      "relation": "independence",
+      "kind": "independent audit",
+      "icon": "treasurer",
+      "remit": "Review records and report to Council or an unconflicted authority.",
+      "limits": "Cannot audit their own custody or hold withdrawal/payment approval over audited assets.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "guilds",
+      "title": "Affiliated Guild Masters • I–X placeholders",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "local guild leadership",
+      "icon": "guild_master",
+      "remit": "Each Guild Master runs their guild and answers to Founder and Council for common obligations.",
+      "limits": "Ten directory slots are unappointed placeholders, not a claim that ten formed guilds exist.",
+      "coordinates": [
+        "founder"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "officers",
+      "title": "Local Officers and Officer Alts",
+      "parent": "guilds",
+      "relation": "accountability",
+      "kind": "native ranks and delegated duties",
+      "icon": "officer",
+      "remit": "Local leadership delegated by that guild’s Guild Master.",
+      "limits": "Sensitive powers need actual permission; Officer Alt is not another person or vote.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissaries",
+      "title": "Five per-guild emissary liaisons",
+      "parent": "officers",
+      "relation": "coordination",
+      "kind": "appointments",
+      "icon": "liaison",
+      "remit": "Connect a participating guild with each core portfolio.",
+      "limits": "Local delegation remains controlling; no unilateral commitment or replacement of event command.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissary-pvp",
+      "title": "Emissary of War • PvP",
+      "parent": "emissaries",
+      "relation": "coordination",
+      "kind": "liaison appointment",
+      "icon": "pvp_leader",
+      "remit": "Link local PvP activity to the PvP War Head.",
+      "limits": "Participation remains locally approved.",
+      "coordinates": [
+        "war-pvp"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissary-raiding",
+      "title": "Emissary of War • Raiding",
+      "parent": "emissaries",
+      "relation": "coordination",
+      "kind": "liaison appointment",
+      "icon": "raid_leader",
+      "remit": "Share preparation and event plans with the Raiding War Head.",
+      "limits": "Does not replace the local Raid Leader’s named command.",
+      "coordinates": [
+        "war-raiding"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissary-finance",
+      "title": "Emissary of Finance",
+      "parent": "emissaries",
+      "relation": "coordination",
+      "kind": "liaison appointment",
+      "icon": "treasurer",
+      "remit": "Approved financial summaries, dues and custody liaison.",
+      "limits": "Bank custody and audit remain separate.",
+      "coordinates": [
+        "treasury"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissary-artisanry",
+      "title": "Emissary of Artisanry",
+      "parent": "emissaries",
+      "relation": "coordination",
+      "kind": "liaison appointment",
+      "icon": "professions",
+      "remit": "Bring local crafting and material needs to Artisanry.",
+      "limits": "Cannot requisition private resources.",
+      "coordinates": [
+        "artisanry"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "emissary-heraldry",
+      "title": "Emissary of Heraldry",
+      "parent": "emissaries",
+      "relation": "coordination",
+      "kind": "liaison appointment",
+      "icon": "community",
+      "remit": "Verified local news and approved event publicity.",
+      "limits": "Communications duties are not extra native officer ranks.",
+      "coordinates": [
+        "heraldry"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "tactical",
+      "title": "Local raid and PvP appointments",
+      "parent": "officers",
+      "relation": "accountability",
+      "kind": "event assignments",
+      "icon": "raid_leader",
+      "remit": "Named Raid Leaders, Raid Assistants, Marshals and PvP Captains lead bounded activities.",
+      "limits": "Raid Leader is a native slot; event command is separately assigned and gives no general guild or bank authority.",
+      "coordinates": [
+        "emissary-pvp",
+        "emissary-raiding"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "custody",
+      "title": "Quartermaster and bank custody",
+      "parent": "officers",
+      "relation": "accountability",
+      "kind": "local appointment and aliases",
+      "icon": "treasurer",
+      "remit": "Issue approved supplies and maintain stock and receipt records.",
+      "limits": "Bank Manager and Bank Steward are aliases; custody cannot audit itself.",
+      "coordinates": [
+        "emissary-finance"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "local-intake",
+      "title": "Local recruitment and trial support",
+      "parent": "officers",
+      "relation": "accountability",
+      "kind": "local appointments",
+      "icon": "recruitment",
+      "remit": "Recruiters and Trial Officers explain expectations and arrange reviews and mentorship.",
+      "limits": "Missing information is not fabricated misconduct.",
+      "coordinates": [
+        "intake"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "local-events",
+      "title": "Local community, events and media",
+      "parent": "officers",
+      "relation": "accountability",
+      "kind": "local appointments",
+      "icon": "community",
+      "remit": "Inclusive onboarding, local events and permitted news or content.",
+      "limits": "No staff access or control of play hours by title.",
+      "coordinates": [
+        "emissary-heraldry",
+        "media",
+        "events"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "class-support",
+      "title": "Class Heads and mentors",
+      "parent": "officers",
+      "relation": "coordination",
+      "kind": "expertise and support appointments",
+      "icon": "class_lead",
+      "remit": "Advice for Warrior, Paladin, Hunter, Rogue, Priest, Mage, Warlock, Shaman and Druid; support for Initiates.",
+      "limits": "Expertise is an appointment, not another native rank or an already implemented AddOn badge.",
+      "coordinates": [
+        "events",
+        "war-raiding",
+        "artisanry"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "welfare",
+      "title": "Welfare and community support",
+      "parent": "officers",
+      "relation": "coordination",
+      "kind": "support appointment",
+      "icon": "community",
+      "remit": "Explain options and connect local support contacts, with an independent route into Justice.",
+      "limits": "No clinical claim; support conversations are not evidence of misconduct.",
+      "coordinates": [
+        "justice"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "membership",
+      "title": "Membership, tags and review states",
+      "parent": null,
+      "relation": "classification",
+      "kind": "classification",
+      "icon": "member",
+      "remit": "The administrative rank ladder is separate from the reporting structure.",
+      "limits": "Tags and review states create no native powers, votes or access.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "native",
+      "title": "Ten native rank slots",
+      "parent": "membership",
+      "relation": "classification",
+      "kind": "native ranks",
+      "icon": "member",
+      "remit": "Exactly ten administrative character rank slots, described in Article S3.",
+      "limits": "A draft preset changes no live rank, bank amount or permission.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "activity",
+      "title": "Activity and courtesy tags",
+      "parent": "membership",
+      "relation": "classification",
+      "kind": "voluntary tags",
+      "icon": "raider",
+      "remit": "Social play, crafting, raid participation and voluntary descriptions.",
+      "limits": "No inferior standing or compulsory attendance; Treasury Tiers do not buy office, votes or powers.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "review",
+      "title": "Introduction and review statuses",
+      "parent": "membership",
+      "relation": "classification",
+      "kind": "statuses",
+      "icon": "recruitment",
+      "remit": "Introductory reviews and authorized case statuses with scope and review date.",
+      "limits": "A Muted or hold label does not itself change permissions; appeal remains available.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "honorary",
+      "title": "Honorary and advisory recognition",
+      "parent": "membership",
+      "relation": "classification",
+      "kind": "courtesy and advisory appointments",
+      "icon": "officer",
+      "remit": "Recognition for past service and scoped current advice.",
+      "limits": "No automatic access, vote, bank rights or moderation powers.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    }
+  ],
+  "termGroups": [
+    {
+      "id": "native",
+      "title": "Native ranks"
+    },
+    {
+      "id": "leadership",
+      "title": "Leadership and ceremonial vocabulary"
+    },
+    {
+      "id": "portfolios",
+      "title": "Portfolio and independent audit"
+    },
+    {
+      "id": "liaisons",
+      "title": "Emissaries and correspondents"
+    },
+    {
+      "id": "shared",
+      "title": "Shared services and aliases"
+    },
+    {
+      "id": "local",
+      "title": "Local, event and support appointments"
+    },
+    {
+      "id": "activity",
+      "title": "Activity and courtesy tags"
+    },
+    {
+      "id": "review",
+      "title": "Introduction and review statuses"
+    },
+    {
+      "id": "honorary",
+      "title": "Honorary and advisory recognition"
+    }
+  ],
+  "terms": [
+    {
+      "ordinal": 1,
+      "label": "Academy Lead (Training Lead)",
+      "classification": "shared",
+      "nodeId": "events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 2,
+      "label": "Addon Developer",
+      "classification": "shared",
+      "nodeId": "systems",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 3,
+      "label": "Addon / Discord Architect",
+      "classification": "shared",
+      "nodeId": "systems",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 4,
+      "label": "Alt (Verified Alt)",
+      "classification": "native",
+      "nodeId": "native",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 5,
+      "label": "Alt / Social Member",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 6,
+      "label": "Ambassador",
+      "classification": "shared",
+      "nodeId": "diplomacy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 7,
+      "label": "Artisan",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 8,
+      "label": "Bank Auditor",
+      "classification": "portfolios",
+      "nodeId": "auditor",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 9,
+      "label": "Bank Manager",
+      "classification": "local",
+      "nodeId": "custody",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 10,
+      "label": "Bank Steward",
+      "classification": "local",
+      "nodeId": "custody",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 11,
+      "label": "Bench",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 12,
+      "label": "Broadcaster",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 13,
+      "label": "Casual",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 14,
+      "label": "Chief of Intake (Gatekeeper, Intake Gatekeeper)",
+      "classification": "shared",
+      "nodeId": "intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 15,
+      "label": "Chief of Staff",
+      "classification": "leadership",
+      "nodeId": "staff",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 16,
+      "label": "Chief Strategist (Head of Research)",
+      "classification": "shared",
+      "nodeId": "strategy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 17,
+      "label": "Class Head",
+      "classification": "local",
+      "nodeId": "class-support",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 18,
+      "label": "Class Lead",
+      "classification": "local",
+      "nodeId": "class-support",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 19,
+      "label": "Co-GM",
+      "classification": "leadership",
+      "nodeId": "executive",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 20,
+      "label": "Coalition Lead (Foreign Affairs Lead)",
+      "classification": "shared",
+      "nodeId": "diplomacy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 21,
+      "label": "Community & Events Lead",
+      "classification": "shared",
+      "nodeId": "events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 22,
+      "label": "Community Officer (Social Officer)",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 23,
+      "label": "Content Creator",
+      "classification": "shared",
+      "nodeId": "media",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 24,
+      "label": "Content Rep (Stream Rep)",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 25,
+      "label": "Core Raider",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 26,
+      "label": "Council of Justice",
+      "classification": "leadership",
+      "nodeId": "justice",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 27,
+      "label": "Crafter",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 28,
+      "label": "Department Head",
+      "classification": "leadership",
+      "nodeId": "council",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 29,
+      "label": "Deputy",
+      "classification": "leadership",
+      "nodeId": "executive",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 30,
+      "label": "Diplomat",
+      "classification": "shared",
+      "nodeId": "diplomacy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 31,
+      "label": "Diplomatic Envoy",
+      "classification": "shared",
+      "nodeId": "diplomacy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 32,
+      "label": "Discord Engineer",
+      "classification": "shared",
+      "nodeId": "systems",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 33,
+      "label": "Discord Moderator",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 34,
+      "label": "Emissary",
+      "classification": "liaisons",
+      "nodeId": "emissaries",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 35,
+      "label": "Emissary of Artisanry",
+      "classification": "liaisons",
+      "nodeId": "emissary-artisanry",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 36,
+      "label": "Emissary of Finance",
+      "classification": "liaisons",
+      "nodeId": "emissary-finance",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 37,
+      "label": "Emissary of Heraldry",
+      "classification": "liaisons",
+      "nodeId": "emissary-heraldry",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 38,
+      "label": "Emissary of War (War Emissary)",
+      "classification": "liaisons",
+      "nodeId": "emissaries",
+      "note": "War Emissary covers the distinct local PvP and Raiding liaisons."
+    },
+    {
+      "ordinal": 39,
+      "label": "Event Coordinator",
+      "classification": "shared",
+      "nodeId": "events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 40,
+      "label": "Event Officer",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 41,
+      "label": "Final Authority",
+      "classification": "leadership",
+      "nodeId": "founder",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 42,
+      "label": "Founder",
+      "classification": "leadership",
+      "nodeId": "founder",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 43,
+      "label": "Guild Master (GM)",
+      "classification": "native",
+      "nodeId": "guilds",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 44,
+      "label": "Guild Recruiter",
+      "classification": "local",
+      "nodeId": "local-intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 45,
+      "label": "High Council",
+      "classification": "native",
+      "nodeId": "council",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 46,
+      "label": "Honorary / Emeritus",
+      "classification": "honorary",
+      "nodeId": "honorary",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 47,
+      "label": "Inactive",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 48,
+      "label": "Initiate",
+      "classification": "native",
+      "nodeId": "native",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 49,
+      "label": "Intelligence / Scouting Lead",
+      "classification": "shared",
+      "nodeId": "strategy",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 50,
+      "label": "Lead Correspondent",
+      "classification": "liaisons",
+      "nodeId": "emissaries",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 51,
+      "label": "Loot Council",
+      "classification": "local",
+      "nodeId": "tactical",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 52,
+      "label": "Marshall",
+      "classification": "local",
+      "nodeId": "tactical",
+      "note": "Requested spelling retained; Marshal is the book’s event-appointment spelling."
+    },
+    {
+      "ordinal": 53,
+      "label": "Media & Communications Lead",
+      "classification": "shared",
+      "nodeId": "media",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 54,
+      "label": "Media Lead",
+      "classification": "shared",
+      "nodeId": "media",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 55,
+      "label": "Member (Roster Member)",
+      "classification": "native",
+      "nodeId": "native",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 56,
+      "label": "Mentor",
+      "classification": "shared",
+      "nodeId": "class-support",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 57,
+      "label": "Minister",
+      "classification": "portfolios",
+      "nodeId": "council",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 58,
+      "label": "Minister of Artisanry",
+      "classification": "portfolios",
+      "nodeId": "artisanry",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 59,
+      "label": "Minister of Heraldry",
+      "classification": "portfolios",
+      "nodeId": "heraldry",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 60,
+      "label": "Moderator",
+      "classification": "local",
+      "nodeId": "local-events",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 61,
+      "label": "Muted",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 62,
+      "label": "Officer",
+      "classification": "native",
+      "nodeId": "officers",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 63,
+      "label": "Officer Alt",
+      "classification": "native",
+      "nodeId": "officers",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 64,
+      "label": "Penal / Sentry Hold (Timeout)",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 65,
+      "label": "Per-Guild Correspondent",
+      "classification": "liaisons",
+      "nodeId": "emissaries",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 66,
+      "label": "Pledge",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 67,
+      "label": "Privy Council",
+      "classification": "leadership",
+      "nodeId": "council",
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+    },
+    {
+      "ordinal": 68,
+      "label": "Probation",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 69,
+      "label": "Profession Coordinator",
+      "classification": "local",
+      "nodeId": "artisanry",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 70,
+      "label": "PvP Captain",
+      "classification": "local",
+      "nodeId": "tactical",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 71,
+      "label": "PvP Lead (PvP Leader)",
+      "classification": "local",
+      "nodeId": "tactical",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 72,
+      "label": "Quartermaster",
+      "classification": "local",
+      "nodeId": "custody",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 73,
+      "label": "Raid Assist",
+      "classification": "local",
+      "nodeId": "tactical",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 74,
+      "label": "Raid Leader (Raid Lead)",
+      "classification": "native",
+      "nodeId": "tactical",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 75,
+      "label": "Raider",
+      "classification": "native",
+      "nodeId": "native",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 76,
+      "label": "Recruit",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 77,
+      "label": "Recruiter",
+      "classification": "local",
+      "nodeId": "local-intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 78,
+      "label": "Recruitment Lead",
+      "classification": "shared",
+      "nodeId": "intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 79,
+      "label": "Recruitment Officer",
+      "classification": "shared",
+      "nodeId": "intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 80,
+      "label": "Social",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 81,
+      "label": "Sovereign (The King)",
+      "classification": "leadership",
+      "nodeId": "founder",
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+    },
+    {
+      "ordinal": 82,
+      "label": "Tech / Tools Officer",
+      "classification": "shared",
+      "nodeId": "systems",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 83,
+      "label": "Technical Envoy",
+      "classification": "shared",
+      "nodeId": "systems",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 84,
+      "label": "The Court",
+      "classification": "leadership",
+      "nodeId": "founder",
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+    },
+    {
+      "ordinal": 85,
+      "label": "Tithe Payer (Treasury Tiers)",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 86,
+      "label": "Treasurer (Guild Bank)",
+      "classification": "portfolios",
+      "nodeId": "treasury",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 87,
+      "label": "Trial (Trial Member, Trialist, Trial/Recruit)",
+      "classification": "review",
+      "nodeId": "review",
+      "note": "Status vocabulary alone applies no sanction or permission."
+    },
+    {
+      "ordinal": 88,
+      "label": "Trial Officer",
+      "classification": "local",
+      "nodeId": "local-intake",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 89,
+      "label": "Trial Raider",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 90,
+      "label": "Veteran",
+      "classification": "native",
+      "nodeId": "native",
+      "note": "Native character rank and corresponding appointment or relationship are distinct."
+    },
+    {
+      "ordinal": 91,
+      "label": "Veteran Officer",
+      "classification": "honorary",
+      "nodeId": "honorary",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 92,
+      "label": "Vice Guild Master",
+      "classification": "leadership",
+      "nodeId": "executive",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 93,
+      "label": "VIP",
+      "classification": "activity",
+      "nodeId": "activity",
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+    },
+    {
+      "ordinal": 94,
+      "label": "War Head",
+      "classification": "portfolios",
+      "nodeId": "war",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    },
+    {
+      "ordinal": 95,
+      "label": "Welfare / Community Support Lead",
+      "classification": "shared",
+      "nodeId": "welfare",
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+    }
+  ],
+  "nativeRanks": [
+    {
+      "order": 1,
+      "name": "Guild Master",
+      "meaning": "Runs the individual guild within the adopted framework."
+    },
+    {
+      "order": 2,
+      "name": "High Council",
+      "meaning": "Native rank; accepted Council seat and vote remain separate."
+    },
+    {
+      "order": 3,
+      "name": "Officer",
+      "meaning": "Delegated local leadership and actual permission checks."
+    },
+    {
+      "order": 4,
+      "name": "Officer Alt",
+      "meaning": "Verified alternate of an officer, not another person or vote."
+    },
+    {
+      "order": 5,
+      "name": "Raid Leader",
+      "meaning": "Event command is separately assigned."
+    },
+    {
+      "order": 6,
+      "name": "Veteran",
+      "meaning": "Sustained constructive service; Invite Member and Guild Bank Repairs remain a separately applied draft preset."
+    },
+    {
+      "order": 7,
+      "name": "Raider",
+      "meaning": "Organized raiding without command over social members."
+    },
+    {
+      "order": 8,
+      "name": "Member",
+      "meaning": "Full membership across social play, raiding, crafting, leveling and PvP."
+    },
+    {
+      "order": 9,
+      "name": "Alt",
+      "meaning": "Verified alternate relationship, no duplicate person or vote."
+    },
+    {
+      "order": 10,
+      "name": "Initiate",
+      "meaning": "Supported introduction with criteria, mentor and review."
+    }
+  ],
+  "guildPlaceholders": [
+    {
+      "name": "Olympus I",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus II",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus III",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus IV",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus V",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus VI",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus VII",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus VIII",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus IX",
+      "state": "Unappointed placeholder"
+    },
+    {
+      "name": "Olympus X",
+      "state": "Unappointed placeholder"
+    }
+  ],
+  "directoryRoute": "#/community/leadership"
+}
