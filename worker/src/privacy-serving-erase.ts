@@ -42,7 +42,8 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  const unqualified=`EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
  OR EXISTS(SELECT 1 FROM site_applications a WHERE a.discord_id<>?2 AND instr(a.answers,?2)>0 AND
  (NOT json_valid(a.answers) OR CASE WHEN json_valid(a.answers) THEN json_type(a.answers)<>'object' OR
- (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 ELSE 1 END))`;
+ (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 OR
+ COALESCE(json_type(a.answers,'$.references'),'')<>'array' ELSE 1 END))`;
  const before=env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND (${roleSettledSql})
  AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?6 AND r.role_id=?7 AND r.desired=0)
  AND ?5 BETWEEN ${PRIVACY_DB_NOW}-60 AND ${PRIVACY_DB_NOW}+5 AND NOT(${unqualified})
@@ -88,6 +89,11 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  character_hint=CASE WHEN character_hint IN(SELECT name FROM characters WHERE discord_id=?1) OR character_hint IN(SELECT name_key FROM characters WHERE discord_id=?1) THEN NULL ELSE character_hint END
  WHERE subject_hint=?1 OR character_hint IN(SELECT name FROM characters WHERE discord_id=?1) OR character_hint IN(SELECT name_key FROM characters WHERE discord_id=?1)`).bind(p.subject),
  ...mentionDeletes(env,p.subject), ...communityEraseStatements(env,p.subject),
+ // Structured cleanup can leave malformed arrays, duplicate keys or free text. Never silently
+ // erase another owner's text, or commit our terminal receipt while this attributable ID remains.
+ env.DB.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM site_applications
+ WHERE discord_id<>?1 AND instr(answers,?1)>0) THEN 1
+ ELSE json_extract('privacy_ambiguous_reference_held','$') END AS admitted`).bind(p.subject),
  ...['pending','invite_queue','bnet_characters','rename_holds','characters'].map(table=>env.DB.prepare(`DELETE FROM ${table} WHERE discord_id=${target}`).bind(p.subject)),
  env.DB.prepare('DELETE FROM site_board_votes WHERE voter_id=?1 OR candidate_id=?1').bind(p.subject),
  env.DB.prepare('DELETE FROM site_votes WHERE voter_id=?1').bind(p.subject),
