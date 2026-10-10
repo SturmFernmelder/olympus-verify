@@ -437,7 +437,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the cron purges", m("100000000000000015").battletag === null);
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health carries the retention line: nothing overdue, build .134", health.build.includes(".134") && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
+  check("/health carries the retention line: nothing overdue, exact build .135", health.build === "2026-10-10.135 Account controls and councillor bridge" && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");
