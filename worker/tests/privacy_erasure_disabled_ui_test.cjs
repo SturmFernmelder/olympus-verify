@@ -10,6 +10,7 @@ async function review(){
  const first=load('privacy-access-history'),sql=[];
  const paused='Automatic serving-account erasure is temporarily paused while Olympus checks older account records.';
  const sizeCopy='The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer.';
+ const scopeDisclosure='<p>This connection asks Discord only to identify your account. A returned token may also permit a guild membership check. This connection uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
  const baselineDir=process.env.PRIVACY_UI_BASELINE_DIR;
  function baseline(name){
   if(!baselineDir)return null;
@@ -39,7 +40,8 @@ async function review(){
  ok('enabled copy retains Root size-refusal disclosure',onHtml.includes(sizeCopy));
  ok('enabled erasure original confirmation is present',section(onHtml,'/privacy/access/erasure').includes('name="confirm" value="yes" required'));
  const staleIdentity=fields(section(onHtml,'/privacy/access/erasure'));
- if(oldAccess)eq('enabled identify HTML exactly equals immutable a947',onHtml,await (await oldAccess.privacyAccessPage(request('/privacy/access',connection.cookie),f.env)).text());
+ eq('enabled identify HTML includes the exact reviewed scope disclosure once',onHtml.split(scopeDisclosure).length,2);
+ if(oldAccess){const oldHtml=await (await oldAccess.privacyAccessPage(request('/privacy/access',connection.cookie),f.env)).text();eq('immutable a947 did not contain the new disclosure',oldHtml.includes(scopeDisclosure),false);eq('enabled identify HTML exactly equals immutable a947 apart from the single reviewed scope disclosure',onHtml.replace(scopeDisclosure,''),oldHtml);}
  sql.length=0;const accountOn=await call(f,'/privacy/account',cookies),accountOnHtml=await accountOn.text(),onAccountSql=sql.length;
  eq('enabled ordinary page status',accountOn.status,200);safeHtml('enabled ordinary page',accountOn,accountOnHtml);
  eq('enabled ordinary page retains three copy forms',(accountOnHtml.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
