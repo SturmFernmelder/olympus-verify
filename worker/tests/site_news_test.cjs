@@ -750,7 +750,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       controlDb = new DatabaseSync(":memory:"); db = controlDb;
       db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
       T = realNow() - 7200; HOOK = null; BEFORE_BATCH = null; AFTER_BATCH = null; resetCount();
-      const controlLoad = makeLoader(), controlIndex = controlLoad("./index"), controlCore = controlLoad("./site-core");
+      const controlLoad = makeLoader(), controlIndex = controlLoad("./index"), controlCore = controlLoad("./site-core"), controlForm = controlLoad("./policy-form-core");
       controlLoad("./schema").forgetSchemaCheck(); people();
       const liveId = "N".repeat(22), goneId = "G".repeat(22), otherId = "F".repeat(22);
       const putNotice = (id, author, title) => run("INSERT INTO site_news_notices (id, op_hash, title, body, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'fixture-only', ?, 'Fixture notice body', ?, ?, ?, ?, ?)", id, title, author, T, author, T, T + 30 * DAY);
@@ -803,9 +803,10 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       check("a valid member SSR export preserves the registered empty News lists rather than exposing another author's notices", response.status === 200 && JSON.stringify(response.body?.community?.news) === JSON.stringify({ notices: [], deletedNotices: [] }) && recordsSnapshot() === recordsBefore && expectedCopyAudits([ADMIN2, MEMBER]));
       const postCopies = snapshot();
       for (const action of ["site-erase", "full-erase", "bnet-unlink"]) {
-        const token = formFor(page.text, "/privacy/account/" + action);
+        check("the account page hides unavailable " + action + " forms", !page.text.includes('action="/privacy/account/' + action + '"') && formFor(page.text, "/privacy/account/" + action) === "");
+        const token = await controlForm.formToken(env(), nonce.split("=")[1], action);
         response = await sendAccount("POST", "/privacy/account/" + action, { session: adminSession, nonce, fields: { csrf: token } });
-        check("the actual " + action + " form returns not performed and leaves News authors/account rows untouched", response.status === 503 && response.text.includes("not performed") && response.text.includes("No rows were deleted, no roles changed and no remote connection removed.") && snapshot() === postCopies);
+        check("a genuine saved " + action + " form returns not performed and leaves News authors/account rows untouched", response.status === 503 && response.text.includes("not performed") && response.text.includes(action === "full-erase" ? "No new erasure request was submitted by this attempt." : "No rows were deleted, no roles changed and no remote connection removed.") && snapshot() === postCopies);
       }
       run("UPDATE site_users SET session_version = 2 WHERE discord_id = ?", ADMIN2);
       const changed = snapshot(), newerSession = await sessionFor(ADMIN2, 2);
@@ -920,11 +921,11 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const L = news.NEWS_LIMITS;
   check("the privacy policy has a News paragraph: switched on by the administrators, confirmed members only, counts and times never a name", priv.status === 200 && priv.text.includes("<strong>News.</strong> When the site's administrators switch it on (it is off until they do), confirmed members can read a News page.") && priv.text.includes("The figures are counts and times, never a name or anyone's place in line"));
   check("  its numbers are the code's: 1 to 90 days, the tombstone's 120 days, a count below five masked, figures at most every three hours", L.days[0] === 1 && L.days[L.days.length - 1] === 90 && priv.text.includes(`from ${L.days[0]} to ${L.days[L.days.length - 1]} days after it was first posted`) && L.opsKeepS === 120 * DAY && priv.text.includes(`until ${L.opsKeepS / DAY} days after it was posted`) && priv.text.includes("shown only as &ldquo;fewer than 5&rdquo;") && L.figuresEveryS === 3 * 3600 && priv.text.includes("at most every three hours"));
-  check("  current policy keeps News authors staff-only, clears registered attribution in staff site cleanup, lists retained notices in the curated admin copy, and states that the copy is partial",
-    priv.text.includes("recorded for the staff only") && priv.text.includes("The site cleanup removes the staff-actor pointers its registered cleanup covers, including attribution on News notices") && priv.text.includes("an administrator's own copy lists the notices they posted or last changed, and the records left by their deleted ones, until the cleanup deletes them, each with the time its period ends or ended") && priv.text.includes("This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.") && priv.text.includes("never a title or a text") && priv.text.includes("a privacy inbox case, a News notice &mdash;") && priv.text.includes("Confirmed members can also read the News page while it is on"));
+  check("  current policy keeps News authors staff-only, covers registered staff pointers/community records, identifies the curated registered copy and its limits",
+    priv.text.includes("recorded for the staff only") && priv.text.includes("It scrubs covered staff-actor pointers and structured references.") && priv.text.includes("registered community records") && priv.text.includes("and the registered community sections.") && priv.text.includes("This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.") && priv.text.includes("never a title or a text") && priv.text.includes("Confirmed members can also read the News page while it is on"));
   // Codex, 3 Oct 2026 13:24 UTC: "never your name" belongs to the figures the Worker computes; a notice is free text an
   // administrator types (createNotice stores any title and text), so the policy states the staff's practice and the remedy.
-  check("  'never your name' covers only the automatic figures; a notice is free text, names a member only with agreement, and is changed or deleted on request through any officer or the privacy inbox contact form", priv.text.includes("Confirmed members can also read the News page while it is on: the figures the site works out by itself, which are counts and times and never your name or your place in the invite queue; the next events with the titles their organizers gave them, as the calendar shows them; and the notices the administrators write for the whole guild, which name a member only with that member's agreement (see News, above, to have one changed or deleted).") && priv.text.includes("A notice is different: it is free text an administrator writes for the whole guild, shown as plain text, and the site does not check what it says. The administrators name a member in a notice only with that member's agreement, and anyone a notice names can ask any Olympus officer, or use the privacy inbox contact form, to have it changed or deleted, and an administrator does it at once.") && !priv.text.includes("the administrators' notices and the counts it shows, never your name") && !priv.text.includes("a notice that names someone is changed or deleted on request"));
+  check("  'never your name' covers only the automatic figures; a notice is free text, names a member only with agreement, and is changed or deleted on request through any officer or the current privacy account help page", priv.text.includes("Confirmed members can also read the News page while it is on: the figures the site works out by itself, which are counts and times and never your name or your place in the invite queue; the next events with the titles their organizers gave them, as the calendar shows them; and the notices the administrators write for the whole guild, which name a member only with that member's agreement (see News, above, to have one changed or deleted).") && priv.text.includes("A notice is different: it is free text an administrator writes for the whole guild, shown as plain text, and the site does not check what it says. The administrators name a member in a notice only with that member's agreement, and anyone a notice names can ask any Olympus officer, or use the privacy account help page, to have it changed or deleted, and an administrator does it at once.") && !priv.text.includes("the administrators' notices and the counts it shows, never your name") && !priv.text.includes("a notice that names someone is changed or deleted on request"));
   // Review of 3 Oct 2026: newsPage sends each next event's title, which its organizer typed (1 to 80 characters of free
   // text, community-events.ts), so the policy may not count titles among the figures that carry no name; it says what
   // they are instead. Tied to the source: while the events statement selects the title, the free-text sentence must stand.
@@ -963,6 +964,14 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1,
       // .128 owner request: public entire governance; exactly one Letters Patent deep-link slug for appointment templates.
       "cedcfc67c817e967143fcf4e69fd3d7164b3cf8ab51dc21191e9a20b08070627": 1,
+    },
+    // .135 original item 22: Root reviewed these public QR disclosure/command/build occurrences only.
+    // Every other withheld digest and file limit, including the future ruleset identity, stays unchanged.
+    "policies/privacy.html": {
+      "abc08ca79847ea557652f6d538e15e4b6c5b4a21427e4cc9bb694e7c2e8af7d9": 6,
+    },
+    "worker/src/index.ts": {
+      "abc08ca79847ea557652f6d538e15e4b6c5b4a21427e4cc9bb694e7c2e8af7d9": 4,
     },
   };
   const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
@@ -1017,7 +1026,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const idxNames = ["site_news_notices_order", "site_news_notices_retain", "site_news_notices_created_by", "site_news_notices_updated_by", "site_news_ops_purge", "site_news_ops_created_by"];
   check("  the six indexes in all three", idxNames.every((x) => sqlFile.includes(`INDEX IF NOT EXISTS ${x} `) && mig.includes(`INDEX IF NOT EXISTS ${x} `) && schemaTs.includes(`INDEX IF NOT EXISTS ${x} `)));
   const tables = (d) => d.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").get().c;
-  check("  schema.sql makes 53 tables (the prior 52 plus event reminder custody)", tables(db) === 53, tables(db));
+  check("schema.sql makes 65 tables: 53 business, five privacy controls, five QR stores and two purpose-access stores", tables(db) === 65, tables(db));
   const old = new DatabaseSync(":memory:");
   old.exec(fs.readFileSync(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"), "utf8"));
   schema.forgetSchemaCheck();

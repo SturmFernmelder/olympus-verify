@@ -1,6 +1,7 @@
+import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,privacyBoundSubjectEnv,PrivacySiteRequestHeld,privacyCaptureFromColumns,privacyGenerationFenceSql,type PrivacySubject } from './privacy-serving-authority';
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
-import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow } from "./db";
+import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
 import { dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
 import { onVerified } from "./review";
@@ -8,6 +9,65 @@ import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { demote, guidOf, ingestRoster, isCurrentRoster, latestRosterEntry, onLatestRoster, promote, ROSTER_PIN_WITHIN, type RosterMemberIn } from "./roster";
 import { callBudget } from "./roles"; // .90 (P-20): the join events' promotions share one Discord-call budget per batch
 import { guildSeats, seatsStaffLine } from "./guild-seats";
+import { messageOperationId,postPrivacyMessage } from './privacy-provider-messages';
+
+type WatcherCapture = { references: PrivacyReference[] };
+type CapturedQueue = {id:number;discord_id:string;name_key:string;name:string;created_at:number;status:string;attempts:number|null;retry_after:number|null;last_reason:string|null;claimed_by:string|null;claimed_at:number|null;last_reason_at:number|null;note:string|null;written_at:number|null;invited_at:number|null;joined_at:number|null;approved_by:string|null;priority:number;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null};
+const queueSelect = "SELECT q.*,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM invite_queue q LEFT JOIN privacy_subjects p ON p.subject_id=q.discord_id ";
+/** The event consumes the physical row it originally observed, never a replacement under its name/id. */
+function queueMutation(env:Env,row:CapturedQueue,set:string,values:unknown[]):D1PreparedStatement {
+  const at=values.length+1;
+  return env.DB.prepare(`UPDATE invite_queue SET ${set} WHERE id=?${at} AND discord_id=?${at+1}
+    AND name_key=?${at+2} AND name=?${at+3} AND created_at=?${at+4} AND status=?${at+5}
+    AND attempts IS ?${at+6} AND retry_after IS ?${at+7} AND last_reason IS ?${at+8}
+    AND claimed_by IS ?${at+9} AND claimed_at IS ?${at+10} AND last_reason_at IS ?${at+11}
+    AND note IS ?${at+12} AND written_at IS ?${at+13} AND invited_at IS ?${at+14}
+    AND joined_at IS ?${at+15} AND approved_by IS ?${at+16} AND priority=?${at+17}`)
+    .bind(...values,row.id,row.discord_id,row.name_key,row.name,row.created_at,row.status,row.attempts,row.retry_after,row.last_reason,
+      row.claimed_by,row.claimed_at,row.last_reason_at,row.note,row.written_at,row.invited_at,row.joined_at,row.approved_by,row.priority);
+}
+function pendingFingerprintFence(env:Env,p:PendingRow):D1PreparedStatement {
+  return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM pending WHERE id=?1 AND discord_id=?2
+    AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL
+    AND expires_at>CAST(strftime('%s','now') AS INTEGER)) THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
+    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null);
+}
+function bindWatcher(env:Env,subject:string,capture:PrivacySubject|null,context:WatcherCapture):Env {
+  context.references.push({subject,capture});
+  return privacyBoundSubjectEnv(env,subject,capture);
+}
+/** Logging/notification helpers deliberately swallow delivery failures; recheck the original
+ * authority before reporting ordinary success, without changing or retrying any payload. */
+async function assertWatcherCurrent(env:Env,context:WatcherCapture):Promise<void>{
+  const seen=new Set<string>();
+  for(const reference of context.references){
+    const key=`${reference.subject}:${reference.capture?.subjectGeneration??'absent'}`;
+    if(seen.has(key))continue;seen.add(key);
+    await privacyBoundSubjectEnv(env,reference.subject,reference.capture).DB.prepare('SELECT 1 AS watcher_current').first();
+  }
+}
+/** A failed native result never proves rollback. Only an observed retired/replaced original generation proves a hold. */
+async function watcherHeldResult(env:Env,context:WatcherCapture):Promise<Response> {
+  for(const reference of context.references) {
+    try {
+      const current=await readPrivacySubject(env,reference.subject);
+      if(current?.subjectGeneration!==reference.capture?.subjectGeneration||current&&current.state!=='active')
+        return json({result:'privacy_held'},409);
+    }catch { /* An unavailable read proves no outcome. */ }
+  }
+  return json({result:'outcome_unknown'},503);
+}
+/** Identifiable staff posts use the same late-pointer custody as guild-log messages. */
+async function watcherStaffNotice(env:Env,payload:unknown,kind:string,references:PrivacyReference[],operationKey:string):Promise<boolean> {
+  const channel=staffChannel(env);if(!channel)return false;
+  try {
+    const operation=await messageOperationId('guild_log',JSON.stringify([kind,operationKey,payload,references.map(r=>[r.subject,r.capture?.subjectGeneration??null])]));
+    return !!await postPrivacyMessage(env,'guild_log',channel,payload,references,operation);
+  }catch {
+    await audit(env,'system','staff_notice.failed',kind,{channel,reason:'privacy_message_not_confirmed'},references);
+    return false;
+  }
+}
 
 /** The shortest WATCHER_TOKEN accepted: README asks for 32+ random characters, and an empty secret must never be a key. */
 export const WATCHER_TOKEN_MIN = 32;
@@ -53,6 +113,17 @@ export function playerGuid(v: unknown): string | null {
 }
 
 export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
+  const context:WatcherCapture={references:[]};
+  try {
+    const result=await postVerifyInner(env,body,context);
+    if(result.status<400)await assertWatcherCurrent(env,context);
+    return result;
+  }
+  catch(error) { if(error instanceof PrivacySiteRequestHeld)return watcherHeldResult(env,context);throw error; }
+}
+
+async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture): Promise<Response> {
+  const originalEnv=env;
   const name = (body.character ?? "").trim();
   const nameKey = normalizeCharacter(name);
   if (!nameKey || !body.code) return json({ error: "character and code required" }, 400);
@@ -67,39 +138,47 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
     return json({ result: "invalid" });
   }
   let pending: PendingRow | null = ticket ? await openTicket(env, ticketNonce(code)!) : await openPendingFor(env, nameKey);
+  if(pending?.privacy_state&&pending.privacy_state!=='active')return json({result:'privacy_held'},409);
+  // Bind immediately after the joint pending/generation read, before ticket crypto or any later await.
+  const privacyCapture=pending?pendingPrivacyCapture(pending):null;
+  const reference=pending?{subject:pending.discord_id,capture:privacyCapture}:undefined;
+  if(pending)env=bindWatcher(env,pending.discord_id,privacyCapture,context);
   // A request code is good for the one request that showed it, and no other. issueTicket never hands out a nonce while
   // an older code for it could still pass, and this makes that a rule rather than a timing argument: an old code whose
   // nonce has since been given to somebody else's request does not match that request's code, so it cannot claim it.
   if (pending && ticket && code !== (await ticketFor(env.VERIFY_SECRET, pending.nonce ?? "", dayBucket(new Date(pending.created_at * 1000))))) {
-    await audit(env, "watcher", "verify.ticket_mismatch", name, { source: body.source, pendingId: pending.id });
+    await audit(env, "watcher", "verify.ticket_mismatch", name, { source: body.source, pendingId: pending.id },reference);
     pending = null;
   }
   if (!pending) {
     // A valid code with no open request is usually an expired request or a replay. There is one case where it is
     // deliberate: we refused this character's invite because they were in another guild, told them to leave and
     // whisper the code back, and they have now done it. Whispering it again is how they say "done".
-    const resumed = await resumeAfterGuildLeave(env, nameKey, name, body.source);
+    const resumed = await resumeAfterGuildLeave(env, nameKey, name, body.source,context);
+    if(resumed&&'refused'in resumed)return json({result:'no_pending'});
     if (resumed) return json({ result: "resumed", ...resumed });
-    await audit(env, "watcher", "verify.no_pending", name, { source: body.source, ticket });
-    if (ticket) await noteTicketReuse(env, code, nameKey, name);
+    await audit(env, "watcher", "verify.no_pending", name, { source: body.source, ticket },reference);
+    if (ticket) await noteTicketReuse(env, code, nameKey, name,context);
     return json({ result: "no_pending" });
   }
+  if(privacyCapture && privacyCapture.state!=='active')return json({result:'privacy_held'},409);
   // A ban closes the account's open requests (/olympus-admin ban), but a code whispered in the moment before the ban,
   // or a request opened by an older build, must not link anything either.
   const account = await getMember(env, pending.discord_id);
   if (account?.banned) {
-    await closeRequest(env, pending.id, "banned");
-    await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket });
-    await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`);
+    await closeRequest(env, pending, "banned");
+    await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket },reference);
+    await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`,[reference!]);
     return json({ result: "banned" });
   }
   const existing = await getCharacter(env, nameKey);
   if (existing && existing.discord_id !== pending.discord_id && !["unbound", "denied", "left"].includes(existing.status)) {
-    await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: existing.discord_id, ticket });
+    const references=[reference!,{subject:existing.discord_id,capture:privacyCaptureFromColumns(existing.discord_id,existing)}];
+    await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: existing.discord_id, ticket },references);
     // A request code is closed here: the addon and the watcher have already tied it to this sender, so left open it
     // would sit unusable for a day while Get my code kept showing it. The next press issues a fresh one.
-    if (ticket) await closeRequest(env, pending.id, "refused");
-    await logLine(env, `⚠️ verify: **${name}** whispered a valid code but the name is bound to <@${existing.discord_id}> (request from <@${pending.discord_id}>). Not re-linked — an officer must /olympus-admin unbind first.`);
+    if (ticket) await closeRequest(env, pending, "refused");
+    await logLine(env, `⚠️ verify: **${name}** whispered a valid code but the name is bound to <@${existing.discord_id}> (request from <@${pending.discord_id}>). Not re-linked — an officer must /olympus-admin unbind first.`,references);
     return json({ result: "bound_elsewhere" });
   }
   // The name may be free while the CHARACTER is not: a linked member renamed since the last export, and the link has
@@ -113,15 +192,16 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
   const who = whisperGuid ?? rosterGuid;
   const holder = who
     ? await env.DB.prepare(
-        "SELECT name, discord_id FROM characters WHERE guid = ?1 AND name_key <> ?2 AND status IN ('verified','queued','member','left','left_pending') LIMIT 1",
+        "SELECT c.name,c.discord_id,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.guid = ?1 AND c.name_key <> ?2 AND c.status IN ('verified','queued','member','left','left_pending') LIMIT 1",
       )
         .bind(who, nameKey)
-        .first<{ name: string; discord_id: string }>()
+        .first<{ name: string; discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>()
     : null;
   if (holder && holder.discord_id !== pending.discord_id) {
-    await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: holder.discord_id, as: holder.name, ticket });
-    if (ticket) await closeRequest(env, pending.id, "refused");
-    await logLine(env, `⚠️ verify: **${name}** whispered a valid code, but this character is linked to <@${holder.discord_id}> as **${holder.name}** (renamed since). Not re-linked — an officer decides.`);
+    const references=[reference!,{subject:holder.discord_id,capture:privacyCaptureFromColumns(holder.discord_id,holder)}];
+    await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: holder.discord_id, as: holder.name, ticket },references);
+    if (ticket) await closeRequest(env, pending, "refused");
+    await logLine(env, `⚠️ verify: **${name}** whispered a valid code, but this character is linked to <@${holder.discord_id}> as **${holder.name}** (renamed since). Not re-linked — an officer decides.`,references);
     return json({ result: "bound_elsewhere" });
   }
   const t = now();
@@ -166,30 +246,50 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
       ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t),
     );
   }
-  const done = await env.DB.batch(stmts);
+  let allDone:D1Result[];
+  try {
+    allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingFingerprintFence(env,pending),...stmts]);
+  } catch {
+    // A competing relay or account closure can refuse the original consuming proof. Read only
+    // to classify the outcome: never adopt a replacement pending row/generation or retry a write.
+    try {
+      const subject=await readPrivacySubject(originalEnv,pending.discord_id);
+      if (subject?.subjectGeneration !== privacyCapture?.subjectGeneration || subject && subject.state !== 'active')
+        return json({result:'privacy_held'},409);
+      const after=await originalEnv.DB.prepare('SELECT discord_id,created_at,name_key,nonce,expires_at,consumed_at FROM pending WHERE id=?1')
+        .bind(pending.id).first<{discord_id:string;created_at:number;name_key:string;nonce:string|null;expires_at:number;consumed_at:number|null}>();
+      // Only a *different* named consumer proves that this relay did not land. A same-name
+      // consumed proof can be our own committed batch with a lost reply; do not restart it.
+      if(after&&after.discord_id===pending.discord_id&&after.created_at===pending.created_at&&after.expires_at===pending.expires_at&&
+          after.nonce===(pending.nonce??null)&&after.consumed_at!==null&&after.name_key!==nameKey)
+        return json({result:'no_pending'});
+    } catch { /* An unavailable observation cannot prove refusal or rollback. */ }
+    return json({result:'outcome_unknown'},503);
+  }
+  const done=allDone.slice(1);
   if (!done[1]?.meta?.changes) {
     // Lost a race: the request was used a moment ago, or the name was linked to another account a moment ago.
     const after = await env.DB.prepare("SELECT consumed_at, name FROM pending WHERE id = ?1").bind(pending.id).first<{ consumed_at: number | null; name: string }>();
     if (!after?.consumed_at) {
-      await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, ticket, race: true });
-      if (ticket) await closeRequest(env, pending.id, "refused");
+      await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, ticket, race: true },reference);
+      if (ticket) await closeRequest(env, pending, "refused");
       return json({ result: "bound_elsewhere" });
     }
-    await audit(env, "watcher", "verify.already_used", name, { source: body.source, ticket, usedBy: after.name });
+    await audit(env, "watcher", "verify.already_used", name, { source: body.source, ticket, usedBy: after.name },reference);
     if (ticket && after.name && normalizeCharacter(after.name) !== nameKey) {
       // Another character got there first with the same request code: it was shared or leaked. Worth a line, because
       // the owner of the request is about to find a character linked that may not be theirs.
-      await logLine(env, `⚠️ verify: **${name}** whispered the request code of <@${pending.discord_id}> that **${after.name}** had just used. Not linked.`);
+      await logLine(env, `⚠️ verify: **${name}** whispered the request code of <@${pending.discord_id}> that **${after.name}** had just used. Not linked.`,[reference!]);
     }
     return json({ result: "no_pending" });
   }
   const resolved: PendingRow = { ...pending, name_key: nameKey, name, consumed_at: t };
   if (alreadyLinked) {
-    await audit(env, "watcher", "verify.already_linked", name, { discordId: pending.discord_id, source: body.source });
+    await audit(env, "watcher", "verify.already_linked", name, { discordId: pending.discord_id, source: body.source },reference);
     return json({ result: "member", discordId: pending.discord_id, name });
   }
-  await audit(env, "watcher", "verify.confirmed", name, { discordId: pending.discord_id, source: body.source, officer: body.officer, ticket, guid: whisperGuid });
-  await logLine(env, `✅ verify: **${name}** confirmed in game (${body.source}${ticket ? ", request code" : ""}) for <@${pending.discord_id}>.`);
+  await audit(env, "watcher", "verify.confirmed", name, { discordId: pending.discord_id, source: body.source, officer: body.officer, ticket, guid: whisperGuid },reference);
+  await logLine(env, `✅ verify: **${name}** confirmed in game (${body.source}${ticket ? ", request code" : ""}) for <@${pending.discord_id}>.`,[reference!]);
   // ... and only when the roster's character under this name is the one that whispered, where that is known.
   if (onRoster && current && (!whisperGuid || !rosterGuid || whisperGuid === rosterGuid)) {
     // Already in the guild (an existing member linking their Discord, or someone an officer invited by hand):
@@ -197,17 +297,19 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
     // for keeping it (a newer snapshot without the name still strips it). Only a current roster says so: the beta's
     // last export, read on launch day, would grant the role to whoever took the name on live and pin the wrong
     // character to them. The GUID is taken only from a very fresh export; otherwise the next export pins it.
-    await audit(env, "watcher", "verify.already_member", name, { discordId: pending.discord_id, source: body.source });
-    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null));
+    await audit(env, "watcher", "verify.already_member", name, { discordId: pending.discord_id, source: body.source },reference);
+    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null),undefined,privacyCapture);
     return json({ result: "member", discordId: pending.discord_id, name });
   }
-  if (onRoster) await audit(env, "watcher", "verify.roster_not_current", name, { exportedAt: onRoster.exportedAt });
-  await onVerified(env, resolved, body.source);
+  if (onRoster) await audit(env, "watcher", "verify.roster_not_current", name, { exportedAt: onRoster.exportedAt },reference);
+  await onVerified(env, resolved, body.source,privacyCapture);
   return json({ result: "verified", discordId: pending.discord_id, name });
 }
 
-async function closeRequest(env: Env, id: number, why: "refused" | "banned") {
-  await env.DB.prepare("UPDATE pending SET consumed_at = ?2, consumed_source = ?3 WHERE id = ?1 AND consumed_at IS NULL").bind(id, now(), why).run();
+async function closeRequest(env: Env, p:PendingRow, why: "refused" | "banned") {
+  await env.DB.prepare(`UPDATE pending SET consumed_at=?8,consumed_source=?9 WHERE id=?1 AND discord_id=?2
+    AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL`)
+    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,now(),why).run();
 }
 
 /**
@@ -215,18 +317,20 @@ async function closeRequest(env: Env, id: number, why: "refused" | "banned") {
  * leaked. The addon and the watcher refuse the second character on the officer's own PC; this is what the staff log
  * shows when it reaches the Worker anyway (a second officer's watcher, say).
  */
-async function noteTicketReuse(env: Env, code: string, nameKey: string, name: string) {
+async function noteTicketReuse(env: Env, code: string, nameKey: string, name: string,context:WatcherCapture) {
   const nonce = ticketNonce(code);
   if (!nonce) return;
   const used = await env.DB.prepare(
-    "SELECT discord_id, name, created_at FROM pending WHERE nonce = ?1 AND consumed_at IS NOT NULL AND created_at > ?2 ORDER BY id DESC LIMIT 1",
+    "SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.nonce = ?1 AND p.consumed_at IS NOT NULL AND p.created_at > ?2 ORDER BY p.id DESC LIMIT 1",
   )
     .bind(nonce, now() - 48 * 3600)
-    .first<{ discord_id: string; name: string; created_at: number }>();
+    .first<PendingRow>();
   if (!used?.name || normalizeCharacter(used.name) === nameKey) return;
+  const capture=pendingPrivacyCapture(used),reference={subject:used.discord_id,capture};
+  env=bindWatcher(env,used.discord_id,capture,context);
   if (code !== (await ticketFor(env.VERIFY_SECRET, nonce, dayBucket(new Date(used.created_at * 1000))))) return;
-  await audit(env, "watcher", "verify.ticket_reused", name, { discordId: used.discord_id, usedBy: used.name });
-  await logLine(env, `⚠️ verify: **${name}** whispered the request code of <@${used.discord_id}> that **${used.name}** already used. Not linked.`);
+  await audit(env, "watcher", "verify.ticket_reused", name, { discordId: used.discord_id, usedBy: used.name },reference);
+  await logLine(env, `⚠️ verify: **${name}** whispered the request code of <@${used.discord_id}> that **${used.name}** already used. Not linked.`,[reference]);
 }
 
 interface EventIn {
@@ -332,17 +436,27 @@ export function explainRefusal(code: string | null | undefined): string {
 /** A batch of game events can decline, refuse, admit and remove several people; their notices go out as one post. */
 export async function postEvents(env: Env, body: { events: EventIn[] }): Promise<Response> {
   const notices = noticeBatch();
+  const context:WatcherCapture={references:[]};
+  let result:Response;
   try {
-    return await postEventsInner(env, body, notices);
+    result=await postEventsInner(env, body, notices,context);
+  } catch(error) {
+    if(error instanceof PrivacySiteRequestHeld)result=await watcherHeldResult(env,context);
+    else throw error;
   } finally {
     await flushNotices(env, notices);
   }
+  try {if(result.status<400)await assertWatcherCurrent(env,context);}
+  catch(error){if(error instanceof PrivacySiteRequestHeld)return watcherHeldResult(env,context);throw error;}
+  return result;
 }
 
-async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch): Promise<Response> {
+async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch,context:WatcherCapture): Promise<Response> {
   const calls = callBudget(env); // .90 (P-20)
+  const originalEnv=env;
   let applied = 0;
   for (const e of body.events ?? []) {
+    let env=originalEnv;
     if (e.type === "invite" && e.name) {
       const key = normalizeCharacter(e.name);
       if (e.ok === false) {
@@ -350,15 +464,14 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
         const full = code === "guild_full";
         const guilded = code === "in_another_guild";
         const backoff = full ? INVITE_RETRY_FULL : guilded ? INVITE_RETRY_GUILDED : INVITE_RETRY_OTHER;
-        await audit(env, "watcher", "invite.failed", e.name, { detail: e.detail, code });
-        applied++;
-
         const row = await env.DB.prepare(
-          "SELECT id, attempts, discord_id FROM invite_queue WHERE name_key = ?1 AND status IN ('queued','written','invited') ORDER BY id DESC LIMIT 1",
+          queueSelect+"WHERE q.name_key = ?1 AND q.status IN ('queued','written','invited') ORDER BY id DESC LIMIT 1",
         )
           .bind(key)
-          .first<{ id: number; attempts: number | null; discord_id: string }>();
-        if (!row) continue;
+          .first<CapturedQueue>();
+        if(!row){await audit(env,"watcher","invite.failed",e.name,{detail:e.detail,code});applied++;continue;}
+        const capture=privacyCaptureFromColumns(row.discord_id,row),reference={subject:row.discord_id,capture};
+        env=bindWatcher(env,row.discord_id,capture,context);
 
         // Neither a full guild nor an offline applicant is something the person can act on, so neither counts
         // towards giving up on them. Offline mattered more than it looked: an invite fires at a moment nobody can
@@ -373,13 +486,12 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
         // stopping is that they are told how to come back. Re-running /verify makes a new row, which is the back
         // of the queue -- the price of the turn they passed on, and cheap next to losing their place silently.
         if (code === "declined") {
-          await env.DB.prepare(
-            "UPDATE invite_queue SET status = 'declined', attempts = ?2, last_reason = ?3, last_reason_at = ?4, " +
-              "retry_after = NULL, claimed_by = NULL, claimed_at = NULL WHERE id = ?1",
-          )
-            .bind(row.id, attempts, code, now())
-            .run();
-          await audit(env, "system", "invite.declined", e.name, { attempts });
+          const result=await queueMutation(env,row,
+            "status='declined',attempts=?1,last_reason=?2,last_reason_at=?3,retry_after=NULL,claimed_by=NULL,claimed_at=NULL",
+            [attempts,code,now()]).run();
+          if(!result.meta.changes)continue;
+          await audit(env,"watcher","invite.failed",e.name,{detail:e.detail,code},reference);applied++;
+          await audit(env, "system", "invite.declined", e.name, { attempts },reference);
           await notify(
             env,
             row.discord_id,
@@ -387,19 +499,18 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
               `mis-click, press **Get my code** in the pinned guide (or run \`/verify\`) and whisper the new code, and you go back in the queue.`,
             "invite declined",
             notices,
+            capture,
           );
           continue;
         }
 
         const max = Math.max(1, intVar(env.INVITE_MAX_ATTEMPTS, 6));
         if (attempts >= max) {
-          await env.DB.prepare(
-            "UPDATE invite_queue SET status = 'expired', attempts = ?2, last_reason = ?3, last_reason_at = ?4 WHERE id = ?1",
-          )
-            .bind(row.id, attempts, code, now())
-            .run();
-          await audit(env, "system", "invite.expired", e.name, { attempts, detail: e.detail });
-          await staffNotice(
+          const result=await queueMutation(env,row,"status='expired',attempts=?1,last_reason=?2,last_reason_at=?3",[attempts,code,now()]).run();
+          if(!result.meta.changes)continue;
+          await audit(env,"watcher","invite.failed",e.name,{detail:e.detail,code},reference);applied++;
+          await audit(env, "system", "invite.expired", e.name, { attempts, detail: e.detail },reference);
+          await watcherStaffNotice(
             env,
             {
               content:
@@ -408,20 +519,20 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
               allowed_mentions: { parse: [] },
             },
             "invite expired",
+            [reference],`${row.id}:${row.created_at}:${attempts}:${code}`,
           );
           continue;
         }
 
-        await env.DB.prepare(
-          "UPDATE invite_queue SET status = 'queued', attempts = ?2, retry_after = ?3, last_reason = ?4, last_reason_at = ?5, " +
-            "claimed_by = NULL, claimed_at = NULL WHERE id = ?1",
-        )
-          .bind(row.id, attempts, now() + backoff, code, now())
-          .run();
+        const result=await queueMutation(env,row,
+          "status='queued',attempts=?1,retry_after=?2,last_reason=?3,last_reason_at=?4,claimed_by=NULL,claimed_at=NULL",
+          [attempts,now()+backoff,code,now()]).run();
+        if(!result.meta.changes)continue;
+        await audit(env,"watcher","invite.failed",e.name,{detail:e.detail,code},reference);applied++;
 
         // Tell staff once, the first time, that someone is waiting on themselves rather than on us.
         if (guilded && attempts === 1) {
-          await staffNotice(
+          await watcherStaffNotice(
             env,
             {
               content:
@@ -430,6 +541,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
               allowed_mentions: { parse: [] },
             },
             "applicant in another guild",
+            [reference],`${row.id}:${row.created_at}:${attempts}:${code}`,
           );
           // And tell the applicant, who is the only person who can act on it. While the anti-spam flag is up this
           // costs nothing and sends nothing -- notify() drops it without calling Discord -- and it starts working
@@ -440,73 +552,88 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
             `Your guild invite for **${e.name}** could not be sent: ${explainRefusal("in_another_guild")}.`,
             "invite refused: in another guild",
             notices,
+            capture,
           );
         }
         continue;
       }
-      const r = await env.DB.prepare(
-        // The reason is cleared here, not only set on refusal: a row that was refused last week and has just been
-        // invited again is not still refused, and /verify-status reads this column straight back to the applicant.
-        "UPDATE invite_queue SET status = 'invited', invited_at = ?2, retry_after = ?3, last_reason = NULL, " +
-          "last_reason_at = NULL WHERE name_key = ?1 AND status IN ('queued','written')",
-      )
-        .bind(key, e.ts ?? now(), now() + INVITE_RECHECK)
-        .run();
-      if (r.meta.changes) {
+      const rows=await env.DB.prepare(queueSelect+"WHERE q.name_key=?1 AND q.status IN ('queued','written') ORDER BY id").bind(key).all<CapturedQueue>();
+      const references:PrivacyReference[]=[];
+      for(const row of rows.results){
+        const capture=privacyCaptureFromColumns(row.discord_id,row),reference={subject:row.discord_id,capture};
+        const scoped=bindWatcher(originalEnv,row.discord_id,capture,context);
+        const r=await queueMutation(scoped,row,"status='invited',invited_at=?1,retry_after=?2,last_reason=NULL,last_reason_at=NULL",[e.ts??now(),now()+INVITE_RECHECK]).run();
+        if(r.meta.changes)references.push(reference);
+      }
+      if (references.length) {
         applied++;
-        await audit(env, "watcher", "invite.fired", e.name, { detail: e.detail });
+        await audit(env, "watcher", "invite.fired", e.name, { detail: e.detail },references);
       }
     } else if (e.type === "joined" && e.name) {
       // the addon saw the character on the roster (MemberExistsByName), or an officer's signed confirmation whisper
       // went out, or the chat log merely said "has joined the guild" — only the first two are trusted
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
+      if(reference)env=bindWatcher(env,reference.subject,reference.capture,context);
+      // Capture fallback queue ownership before the roster/provider await. A no-character
+      // event still cannot adopt a freshly recreated request under the same character name.
+      const queueRows=await env.DB.prepare(queueSelect+"WHERE q.name_key=?1 AND q.status IN ('queued','written','invited') ORDER BY id").bind(key).all<CapturedQueue>();
+      const queueReferences=queueRows.results.map(row=>({subject:row.discord_id,capture:privacyCaptureFromColumns(row.discord_id,row)}));
       const trusted = isAuthoritative(e) || (await onLatestRoster(env, key));
       const cutoff = linksNotBefore(env);
       if (c && trusted && !c.guid && cutoff && c.bound_at < cutoff && ["verified", "queued", "left_pending"].includes(c.status)) {
         // A link from before LINKS_NOT_BEFORE with no GUID pinned: this join may be a namesake of the character that
         // was linked. The next roster export (which carries GUIDs) releases or confirms it; a join line never does.
-        await audit(env, "watcher", "invite.joined_stale_link", e.name, { origin: e.origin, discordId: c.discord_id, boundAt: c.bound_at });
+        await audit(env, "watcher", "invite.joined_stale_link", e.name, { origin: e.origin, discordId: c.discord_id, boundAt: c.bound_at },reference);
         applied++;
         continue;
       }
       if (c && ["verified", "queued", "left_pending"].includes(c.status)) {
         if (trusted) {
-          await promote(env, c.discord_id, key, c.name, notices, undefined, calls); // also marks the invite_queue row joined
+          await promote(env, c.discord_id, key, c.name, notices, undefined, calls,privacyCaptureFromColumns(c.discord_id,c));
           applied++;
-          await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail, origin: e.origin, promoted: true });
+          await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail, origin: e.origin, promoted: true },reference);
           continue;
         }
         // Unverified claim: record it, grant nothing. The roster export decides.
-        await audit(env, "watcher", "invite.joined_unconfirmed", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id });
+        await audit(env, "watcher", "invite.joined_unconfirmed", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id },reference);
         applied++;
       }
-      const r = await env.DB.prepare(
-        "UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND status IN ('queued','written','invited')",
-      )
-        .bind(key, e.ts ?? now())
-        .run();
-      if (r.meta.changes) {
+      const joinedReferences:PrivacyReference[]=[];
+      for(let i=0;i<queueRows.results.length;i++){
+        const row=queueRows.results[i]!,queueReference=queueReferences[i]!;
+        if(reference&&queueReference.subject!==reference.subject)continue;
+        const scoped=bindWatcher(env,row.discord_id,queueReference.capture,context);
+        const r=await queueMutation(scoped,row,"status='joined',joined_at=?1",[e.ts??now()]).run();
+        if(r.meta.changes)joinedReferences.push(queueReference);
+      }
+      if (joinedReferences.length) {
         applied++;
-        await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail });
+        await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail },joinedReferences);
       }
     } else if (e.type === "left" && e.name) {
       // "has left the guild" / "has been kicked out of the guild by X"
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
+      if(reference)env=bindWatcher(env,reference.subject,reference.capture,context);
       if (c && (c.status === "member" || c.status === "left_pending")) {
         if (isAuthoritative(e)) {
-          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices });
+          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices,capture:reference!.capture });
           applied++;
         } else if (c.status === "member") {
           // Forgeable text: arm the removal instead of performing it. The next roster export either confirms the
           // departure (and the role goes) or shows them still on the roster (and the flag is cleared).
-          await env.DB.prepare("UPDATE characters SET status = 'left_pending' WHERE name_key = ?1").bind(key).run();
-          await audit(env, "watcher", "roster.left_pending", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id });
+          await env.DB.prepare(`UPDATE characters SET status = 'left_pending' WHERE name_key = ?1 AND discord_id=?2 AND ${privacyGenerationFenceSql(2,3)}`).bind(key,c.discord_id,reference!.capture?.subjectGeneration??null).run();
+          await audit(env, "watcher", "roster.left_pending", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id },reference);
           await logLine(
             env,
             `\u23f3 roster: **${c.name}** (<@${c.discord_id}>) looks like they left the guild (${e.detail || "chat log"}). ` +
               `The role stays until a roster export confirms it.`,
+            [reference!],
           );
           applied++;
         }
@@ -516,18 +643,21 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       // and deliberately distinguished from an ordinary departure so the person is told why and keeps their binding.
       const key = normalizeCharacter(e.name);
       const c = await getCharacter(env, key);
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
+      if(reference)env=bindWatcher(env,reference.subject,reference.capture,context);
       if (e.ok === false) {
-        await audit(env, "watcher", "roster.remove_failed", e.name, { detail: e.detail });
+        await audit(env, "watcher", "roster.remove_failed", e.name, { detail: e.detail },reference);
         applied++;
       } else if (c && (c.status === "member" || c.status === "left_pending")) {
-        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices });
+        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c) });
         applied++;
       } else {
-        await audit(env, "watcher", "roster.removed_unlinked", e.name, { detail: e.detail, reason: e.reason });
+        await audit(env, "watcher", "roster.removed_unlinked", e.name, { detail: e.detail, reason: e.reason },reference);
         // A removal for being unverified has no Discord side to undo (there is no binding), so the log line is the
         // only place staff see it happened, and who did it.
         if (e.reason === "unverified") {
-          await logLine(env, `\u{1F6AA} removed in game for not verifying: **${e.name}**${e.detail ? ` \u2014 ${e.detail}` : ""}.`);
+          await logLine(env, `\u{1F6AA} removed in game for not verifying: **${e.name}**${e.detail ? ` \u2014 ${e.detail}` : ""}.`,reference?[reference]:undefined);
         }
         applied++;
       }
@@ -537,14 +667,18 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       // fresh, unpinned link, and never a GUID another live link already holds.
       const g = playerGuid(e.guid);
       if (g && isAuthoritative(e)) {
+        const key=normalizeCharacter(e.name),c=await getCharacter(env,key);
+        if(!c||c.privacy_state&&c.privacy_state!=='active')continue;
+        const capture=privacyCaptureFromColumns(c.discord_id,c);
+        env=bindWatcher(env,c.discord_id,capture,context);
         const r = await env.DB.prepare(
           `UPDATE characters SET guid = ?2
-            WHERE name_key = ?1 AND guid IS NULL AND bound_at >= ?3 AND status IN ('verified','queued','member','left_pending')
+            WHERE name_key = ?1 AND discord_id=?4 AND ${privacyGenerationFenceSql(4,5)} AND guid IS NULL AND bound_at >= ?3 AND status IN ('verified','queued','member','left_pending')
               AND NOT EXISTS (SELECT 1 FROM characters c2 WHERE c2.guid = ?2 AND c2.name_key <> ?1 AND c2.status IN ('verified','queued','member','left','left_pending'))`,
         )
-          .bind(normalizeCharacter(e.name), g, now() - 6 * 3600)
+          .bind(key, g, now() - 6 * 3600,c.discord_id,capture?.subjectGeneration??null)
           .run();
-        if (r.meta.changes) await audit(env, "watcher", "verify.guid_pinned", e.name, { guid: g });
+        if (r.meta.changes) await audit(env, "watcher", "verify.guid_pinned", e.name, { guid: g },{subject:c.discord_id,capture});
       }
       applied++;
     } else if (e.type === "guild_full") {
@@ -552,7 +686,11 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       applied++;
       await noticeGuildFull(env, e);
     } else if (e.type === "note" && e.name) {
-      await audit(env, "watcher", e.ok === false ? "note.failed" : "note.set", e.name, { detail: e.detail });
+      const c=await getCharacter(env,normalizeCharacter(e.name));
+      if(c?.privacy_state&&c.privacy_state!=='active')continue;
+      const reference=c?{subject:c.discord_id,capture:privacyCaptureFromColumns(c.discord_id,c)}:undefined;
+      if(reference)env=bindWatcher(env,reference.subject,reference.capture,context);
+      await audit(env, "watcher", e.ok === false ? "note.failed" : "note.set", e.name, { detail: e.detail },reference);
       applied++;
     }
   }
@@ -711,14 +849,15 @@ export async function postQueueWritten(env: Env, body: { ids: number[]; officer?
  * game itself vouches for the sender of a whisper. No new trust path, and nothing here can be triggered by
  * anybody except the character it concerns.
  */
-async function resumeAfterGuildLeave(env: Env, nameKey: string, name: string, source: string) {
+async function resumeAfterGuildLeave(env: Env, nameKey: string, name: string, source: string,context:WatcherCapture) {
   const row = await env.DB.prepare(
-    "SELECT id, discord_id, attempts, retry_after, last_reason FROM invite_queue " +
-      "WHERE name_key = ?1 AND status IN ('queued','written','invited') ORDER BY id LIMIT 1",
+    queueSelect+"WHERE q.name_key = ?1 AND q.status IN ('queued','written','invited') ORDER BY id LIMIT 1",
   )
     .bind(nameKey)
-    .first<{ id: number; discord_id: string; attempts: number | null; retry_after: number | null; last_reason: string | null }>();
+    .first<CapturedQueue>();
   if (!row) return null;
+  const capture=privacyCaptureFromColumns(row.discord_id,row),reference={subject:row.discord_id,capture};
+  env=bindWatcher(env,row.discord_id,capture,context);
 
   const t = now();
   // Only meaningful for a row actually held back by that refusal. A row already servable needs no help, and
@@ -726,24 +865,24 @@ async function resumeAfterGuildLeave(env: Env, nameKey: string, name: string, so
   if (row.last_reason !== "in_another_guild" || (row.retry_after ?? 0) <= t) return null;
 
   const attempts = Math.max(0, (row.attempts ?? 0) - 1);
-  await env.DB.prepare(
-    "UPDATE invite_queue SET status = 'queued', retry_after = NULL, claimed_by = NULL, claimed_at = NULL, " +
-      "attempts = ?2, last_reason = 'ready_after_gquit', last_reason_at = ?3 WHERE id = ?1",
-  )
-    .bind(row.id, attempts, t)
-    .run();
+  const result=await queueMutation(env,row,
+    "status='queued',retry_after=NULL,claimed_by=NULL,claimed_at=NULL,attempts=?1,last_reason='ready_after_gquit',last_reason_at=?2",
+    [attempts,t]).run();
+  if(!result.meta.changes)return {refused:true} as const;
 
   const pos = await waitlistPosition(env, nameKey);
-  await audit(env, "watcher", "invite.resumed", name, { discordId: row.discord_id, source, position: pos, attempts });
+  await audit(env, "watcher", "invite.resumed", name, { discordId: row.discord_id, source, position: pos, attempts },reference);
   await logLine(
     env,
     `\u{1F513} **${name}** (<@${row.discord_id}>) left their old guild and confirmed it — back in the queue at #${pos}, ready to invite.`,
+    [reference],
   );
   await notify(
     env,
     row.discord_id,
     `Thanks — **${name}** is back in the invite queue at position ${pos}. An officer will invite you shortly.`,
     "resumed after leaving guild",
+    undefined,capture,
   );
   return { name, position: pos, attempts };
 }

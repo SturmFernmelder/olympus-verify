@@ -44,12 +44,20 @@ function d1(db) {
         return exec(sql, params);
       },
       _exec: () => exec(sql, params),
+      _hold: async () => {
+        if (hooks.holdOnce && hooks.holdOnce.test(sql)) {
+          const gate = hooks.holdOnce; hooks.holdOnce = null; await gate.open;
+        }
+      },
     };
     return api;
   };
   return {
     prepare: stmt,
     batch: async (stmts) => {
+      // Request-bound admission now uses native batches. Pause before BEGIN, rather than holding
+      // an artificial open SQLite transaction while the concurrent request tests the replay claim.
+      for (const s of stmts) await s._hold();
       db.exec("BEGIN");
       try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; }
     },

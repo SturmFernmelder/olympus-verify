@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS members (
   bnet_linked_at INTEGER,
   username       TEXT,            -- build .41: Discord username (the unique handle), for the officers' roster window
   global_name    TEXT,            --   Discord display name, when the account has one
-  names_at       INTEGER          --   when those two were last read (names.ts: interactions, site sign-ins, the cron)
+  names_at       INTEGER,         --   when those two were last read (names.ts: interactions, site sign-ins, the cron)
+  activity_at    INTEGER          -- genuine account activity time; no provider identifier; never refreshed by cron
 );
 CREATE UNIQUE INDEX IF NOT EXISTS members_battletag ON members(battletag) WHERE battletag IS NOT NULL;
 -- Retention (build .48, bnet-retention.ts): battletag, bnet_conn_id and linked_at are cleared 29 days after the last
@@ -147,6 +148,7 @@ CREATE TABLE IF NOT EXISTS roster_effects (
   guid       TEXT,
   done_at    INTEGER,
   claim      TEXT,
+  subject_generation TEXT,
   PRIMARY KEY (run_id, seq)
 );
 
@@ -906,3 +908,111 @@ CREATE TABLE IF NOT EXISTS community_event_reminders (
   retain_until INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id);
+
+-- Councillor browser attestation and durable one-effect role outcomes. Activation remains OFF.
+CREATE TABLE IF NOT EXISTS councillor_keys (
+ id TEXT PRIMARY KEY, signer TEXT NOT NULL, signer_guid TEXT NOT NULL, public_key TEXT NOT NULL,
+ subject_generation TEXT NOT NULL, roster_id INTEGER NOT NULL,
+ created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, UNIQUE(signer,public_key));
+
+CREATE TABLE IF NOT EXISTS councillor_challenges (
+ nonce TEXT PRIMARY KEY, key_id TEXT NOT NULL REFERENCES councillor_keys(id), signer TEXT NOT NULL,
+ session_version INTEGER NOT NULL, session_expires INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
+ mode TEXT NOT NULL CHECK(mode IN('single','automatic')), max_proofs INTEGER NOT NULL CHECK(max_proofs IN(1,10)),
+ proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs));
+
+CREATE TABLE IF NOT EXISTS verification_requests (
+ code TEXT PRIMARY KEY, requester TEXT NOT NULL, subject_generation TEXT,
+ created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
+ state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN('pending','proved','expired')),
+ session_version INTEGER, session_expires INTEGER);
+
+CREATE TABLE IF NOT EXISTS verification_proofs (
+ id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE REFERENCES verification_requests(code),
+ challenge TEXT NOT NULL REFERENCES councillor_challenges(nonce), signer TEXT NOT NULL,
+ key_id TEXT NOT NULL REFERENCES councillor_keys(id), requester TEXT NOT NULL,
+ requester_guid TEXT NOT NULL, requester_name TEXT NOT NULL, native_rank INTEGER NOT NULL, rank_name TEXT NOT NULL, native_profile TEXT NOT NULL,
+ signer_guid TEXT NOT NULL, snapshot_id INTEGER NOT NULL, subject_generation TEXT,
+ digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+
+CREATE TABLE IF NOT EXISTS role_settlements (
+ id TEXT PRIMARY KEY, subject TEXT NOT NULL, purpose TEXT NOT NULL,
+ proof_id TEXT, guild_id TEXT NOT NULL, role_id TEXT NOT NULL, desired INTEGER NOT NULL CHECK(desired IN(0,1)),
+ state TEXT NOT NULL CHECK(state IN('pending','dispatching','settled','held','unknown')),
+ reason TEXT NOT NULL, claim_nonce TEXT, subject_generation TEXT, request_digest TEXT,
+ roster_id INTEGER, native_guid TEXT, native_profile TEXT, native_rank INTEGER, native_rank_name TEXT,
+ attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts IN(0,1)),
+ created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, checked_at INTEGER,
+ UNIQUE(proof_id,role_id,desired));
+
+CREATE INDEX IF NOT EXISTS qr_request_subject ON verification_requests(requester,expires_at);
+
+CREATE INDEX IF NOT EXISTS qr_key_subject ON councillor_keys(signer,revoked_at);
+
+CREATE INDEX IF NOT EXISTS role_settlement_subject ON role_settlements(subject,state);
+
+-- Serving erasure lifecycle; dormant .129 foundation is unchanged.
+CREATE TABLE IF NOT EXISTS privacy_subjects (
+  subject_id TEXT PRIMARY KEY CHECK(length(subject_id) BETWEEN 17 AND 20 AND subject_id NOT GLOB '*[^0-9]*'),
+  generation TEXT NOT NULL CHECK(length(generation)=32 AND generation NOT GLOB '*[^0-9a-f]*'),
+  state TEXT NOT NULL CHECK(state IN('active','retiring','retired')),
+  revision INTEGER NOT NULL CHECK(revision>=0), created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+  erased_at INTEGER, retain_until INTEGER,
+  CHECK((state='retired' AND erased_at IS NOT NULL AND retain_until=erased_at+31622400) OR (state<>'retired' AND retain_until IS NULL))
+ );
+CREATE TABLE IF NOT EXISTS privacy_serving_jobs (
+  operation_id TEXT PRIMARY KEY CHECK(length(operation_id)=32 AND operation_id NOT GLOB '*[^0-9a-f]*'),
+  subject_id TEXT, subject_generation TEXT NOT NULL, request_digest TEXT NOT NULL CHECK(length(request_digest)=64),
+  original_session_version INTEGER NOT NULL, original_session_expires INTEGER NOT NULL,
+  state TEXT NOT NULL CHECK(state IN('waiting_role','held','erasing','complete')),
+  hold_reason TEXT, role_checked_at INTEGER, staff_access TEXT NOT NULL DEFAULT 'unknown' CHECK(staff_access IN('human-managed','none','unknown')),
+  created_at INTEGER NOT NULL, completed_at INTEGER, last_attempt_at INTEGER, retain_until INTEGER NOT NULL,
+  CHECK(retain_until=created_at+31622400), CHECK((state='complete' AND completed_at IS NOT NULL) OR (state<>'complete' AND completed_at IS NULL))
+ );
+CREATE UNIQUE INDEX IF NOT EXISTS privacy_serving_jobs_open ON privacy_serving_jobs(subject_id) WHERE state<>'complete';
+CREATE INDEX IF NOT EXISTS privacy_serving_jobs_retain ON privacy_serving_jobs(retain_until);
+CREATE TABLE IF NOT EXISTS privacy_denial_markers (
+  subject_key TEXT PRIMARY KEY, denied_at INTEGER NOT NULL, retain_until INTEGER NOT NULL,
+  reason TEXT NOT NULL CHECK(reason='rejected_guild_application_or_membership'),
+  CHECK(retain_until=denied_at+31536000)
+ );
+CREATE TABLE IF NOT EXISTS privacy_restore_replay (
+  operation_id TEXT PRIMARY KEY, subject_id TEXT NOT NULL, retired_generation TEXT NOT NULL,
+  erased_at INTEGER NOT NULL, retain_until INTEGER NOT NULL CHECK(retain_until=erased_at+31622400),
+  scope TEXT NOT NULL CHECK(scope='serving_account'), recovery_custody TEXT NOT NULL DEFAULT 'operator-held' CHECK(recovery_custody IN('operator-held','receipt-confirmed')),
+  custody_receipt_digest TEXT CHECK(custody_receipt_digest IS NULL OR length(custody_receipt_digest)=64)
+ );
+CREATE INDEX IF NOT EXISTS privacy_restore_replay_subject ON privacy_restore_replay(subject_id,retired_generation);
+CREATE TABLE IF NOT EXISTS privacy_provider_messages(
+  operation_id TEXT PRIMARY KEY CHECK(length(operation_id) BETWEEN 32 AND 96),
+  purpose TEXT NOT NULL CHECK(purpose IN('review','notice','guild_log','event_publication','event_reminder')),subjects TEXT NOT NULL CHECK(json_valid(subjects) AND json_type(subjects)='array'),
+  channel_id TEXT NOT NULL,message_id TEXT,state TEXT NOT NULL CHECK(state IN('claimed','unknown','known','cleaning','removed','refused')),
+  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_requested IN(0,1)),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,retain_until INTEGER NOT NULL,
+  CHECK(retain_until=created_at+31622400)
+ );
+CREATE INDEX IF NOT EXISTS privacy_provider_messages_cleanup ON privacy_provider_messages(cleanup_requested,state,created_at);
+
+-- .135: identify-only privacy credentials with fixed five/twelve-minute deadlines.
+CREATE TABLE IF NOT EXISTS privacy_access_oauth(
+    state_hash TEXT NOT NULL PRIMARY KEY CHECK(length(state_hash)=64 AND state_hash NOT GLOB '*[^0-9a-f]*'),
+    browser_hash TEXT NOT NULL CHECK(length(browser_hash)=64 AND browser_hash NOT GLOB '*[^0-9a-f]*'),
+    purpose TEXT NOT NULL CHECK(purpose='privacy_identify'),
+    created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,consumed_at INTEGER,
+    CHECK(expires_at=created_at+300)
+  );
+CREATE INDEX IF NOT EXISTS privacy_access_oauth_expiry ON privacy_access_oauth(expires_at);
+CREATE TABLE IF NOT EXISTS privacy_access_grants(
+    session_hash TEXT NOT NULL CHECK(length(session_hash)=64 AND session_hash NOT GLOB '*[^0-9a-f]*'),
+    purpose TEXT NOT NULL CHECK(purpose IN('own_export','own_erasure')),
+    grant_id TEXT NOT NULL UNIQUE CHECK(length(grant_id)=32 AND grant_id NOT GLOB '*[^0-9a-f]*'),
+    csrf_hash TEXT NOT NULL CHECK(length(csrf_hash)=64 AND csrf_hash NOT GLOB '*[^0-9a-f]*'),
+    subject_id TEXT NOT NULL CHECK(length(subject_id) BETWEEN 17 AND 20 AND subject_id NOT GLOB '*[^0-9]*'),
+    subject_generation TEXT,state TEXT,revision INTEGER,
+    erasure_operation TEXT CHECK(erasure_operation IS NULL OR (length(erasure_operation)=32 AND erasure_operation NOT GLOB '*[^0-9a-f]*')),
+    created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,consumed_at INTEGER,
+    PRIMARY KEY(session_hash,purpose),CHECK(expires_at=created_at+720),
+    CHECK((subject_generation IS NULL AND state IS NULL AND revision IS NULL) OR
+      (subject_generation IS NOT NULL AND length(subject_generation)=32 AND subject_generation NOT GLOB '*[^0-9a-f]*'
+      AND state IN('active','retiring','retired') AND revision IS NOT NULL AND revision>=0))
+  );
+CREATE INDEX IF NOT EXISTS privacy_access_grants_expiry ON privacy_access_grants(expires_at);

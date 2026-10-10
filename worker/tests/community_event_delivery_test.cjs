@@ -186,11 +186,11 @@ async function erasureRequest(target, actor) {
   ]) {
     seed(); await event(); let done = false;
     hooks.http = (req) => { if (!done && req.url === `/api/v10/channels/${CHANNEL}`) { done = true; mutate(); } };
-    r = await publish(); check(`after destination lookup ${label} admits no claim/effect`, r.status >= 400 && r.status < 500 && !row() && effects().length === 0, r);
+    r = await publish(); check(`after destination lookup ${label} admits no claim/effect`, (label === "session revoked" ? r.status === 503 && r.body.error === "erasure_held" : r.status >= 400 && r.status < 500) && !row() && effects().length === 0, r);
   }
   seed(); await event();
   hooks.afterBatch = () => { if (row()?.state === "claimed") { hooks.afterBatch = null; db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(ORG); } };
-  r = await publish(); check("revocation after committed claim prevents send, original-session response withheld", r.status === 401 && row().state === "refused" && effects().length === 0);
+  r = await publish(); check("revocation after committed claim prevents send, original-session response withheld", r.status === 503 && r.body.error === "erasure_held" && !r.body.delivery && row().state === "claimed" && effects().length === 0);
   seed(); await event(); p = await preview();
   const simultaneous = await Promise.all([OP, NEXT].map((opId) => call("POST", "/api/community/events/discord/publish", { eventId: EVENT, revision: 1, opId, payloadHash: p.payloadHash })));
   check("actual concurrent double publish admits one durable claim and at most one create", simultaneous.some((v) => v.status === 200) && effects().length === 1 && messages.size === 1 && row().state === "posted", simultaneous);
@@ -209,10 +209,10 @@ async function erasureRequest(target, actor) {
 
   seed(); await event();
   hooks.afterEffect = () => { db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(ORG); };
-  r = await publish(); check("successful send during session revocation keeps pointer held, returns no private payload", r.status === 401 && row().message_id === ONE && row().state === "unknown" && !r.body.delivery);
+  r = await publish(); check("successful send during session revocation keeps pointer held, returns no private payload", r.status === 503 && r.body.error === "erasure_held" && row().message_id === ONE && row().state === "unknown" && !r.body.delivery);
   seed(); await event();
   hooks.afterEffect = async () => { await admin.deleteSiteData(env(), ORG, STAFF, false, await erasureRequest(ORG, STAFF)); };
-  r = await publish(); check("actual account erase during successful send retains known pointer/debt without resurrecting payload or actor", r.status === 401 && row().message_id === ONE && row().state === "unknown" && row().cleanup_requested === 1 && row().actor === null && row().frozen_content === null && row().payload_hash === null, r);
+  r = await publish(); check("actual account erase during successful send retains known pointer/debt without resurrecting payload or actor", r.status === 503 && r.body.error === "erasure_held" && !r.body.delivery && row().message_id === ONE && row().state === "unknown" && row().cleanup_requested === 1 && row().actor === null && row().frozen_content === null && row().payload_hash === null, r);
   seed(); await event();
   hooks.afterEffect = async () => { await call("POST", "/api/community/events/cancel", { eventId: EVENT, revision: 1 }); };
   r = await publish(); check("real cancel while send in flight preserves known pointer and removal debt", r.status === 409 && row().message_id === ONE && row().state === "unknown" && row().cleanup_requested === 1, r);
@@ -226,7 +226,7 @@ async function erasureRequest(target, actor) {
   seed(); await event();
   hooks.afterBatch = () => { if (row()?.state === "claimed") { hooks.afterBatch = null; throw Error("synthetic lost committed claim result"); } };
   r = await publish(); hooks = {}; const count = effects().length; const again = await publish();
-  check("committed claim with lost database response stays held across retry and issues no HTTP effect", r.status === 500 && row().state === "claimed" && again.status === 409 && effects().length === count && count === 0);
+  check("committed claim with lost database response stays held across retry and issues no HTTP effect", r.status === 503 && r.body.error === "erasure_held" && !r.body.delivery && row().state === "claimed" && again.status === 409 && effects().length === count && count === 0);
   seed(); await event();
   hooks.beforeStatement = (sql) => { if (/UPDATE community_event_deliveries SET message_id=CASE/.test(sql)) { hooks.beforeStatement = null; throw Error("synthetic settlement failure"); } };
   r = await publish(); hooks = {}; const retry = await publish();

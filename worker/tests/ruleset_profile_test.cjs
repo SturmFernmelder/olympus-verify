@@ -45,7 +45,7 @@ check("original fixed ruleset/faction decision retained in guild announcement", 
 function d1(db) {
   const prepare = sql => {
     let args = [];
-    const run = () => { const r = db.prepare(sql).run(...args); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; };
+    const run = () => { const st = db.prepare(sql); if (st.columns().length) return { results: st.all(...args), meta: { changes: 0 } }; const r = st.run(...args); return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; };
     const statement = { bind(...p) { assert.ok(p.length <= 100); args = p; return statement; }, first: async () => db.prepare(sql).get(...args) ?? null, all: async () => ({ results: db.prepare(sql).all(...args) }), run: async () => run(), _run: run };
     return statement;
   };

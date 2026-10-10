@@ -467,7 +467,7 @@ async function undeny(env: Env, actor: string, id: string): Promise<Response> {
  * What other members entered about an account: write-ins naming it, friends-list entries, and references in their
  * applications (taken out of the list; the rest of the application stays as written). As statements for one batch.
  */
-function mentionDeletes(env: Env, id: string) {
+export function mentionDeletes(env: Env, id: string) {
   // .133: scrub the consuming-time document, never a stale whole-answer copy prepared before the batch.
   // Descending index removal preserves every other value (including primitives and large numeric spellings).
   // Ambiguous duplicate keys and malformed/non-array legacy documents remain untouched; this is site-only erasure.
@@ -525,7 +525,7 @@ export async function deleteSiteData(env: Env, id: string, actor: string, mentio
   const statements = [
     // CASE is lazy: its invalid JSON branch deliberately aborts a refused transaction before any registry mutation.
     // D1 batch() rolls the complete sequence back when any statement fails. The database clock judges cookie expiry.
-    env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity", 1, 2, 3)}
+    env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity", 1, 2, 3,session.g)}
       AND EXISTS (SELECT 1 FROM site_users target WHERE target.discord_id = ?4 AND target.session_version = ?5
         AND target.first_login = ?6 AND target.denied = ?7 AND target.denied_at IS ?8)
       THEN 1 ELSE json_extract('site_erasure_refused', '$') END AS admitted`)
@@ -1095,7 +1095,7 @@ async function recentAudit(request: Request, env: Env, admin: SiteUser): Promise
   // Keep Overview's five-field contract and newest 100 site actions, but share the safe projection and final admission.
   const s = await readSession(env, request);
   if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
-  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e });
+  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e,g:s.g });
   const rows = await env.DB.prepare(
     `SELECT id, ts, actor, action, subject, substr(details, 1, ${AUDIT_DETAILS_MAX}) AS details,
             length(details) > ${AUDIT_DETAILS_MAX} AS cut
@@ -1363,6 +1363,7 @@ interface AuditPage {
 
 /** The request's own signed session as readSession read it (id, version, expiry): the one identity the admission judges. */
 interface AuditSession {
+  g:string|null;
   readonly u: string;
   readonly v: number;
   readonly e: number;
@@ -1376,7 +1377,7 @@ async function auditLog(request: Request, env: Env, q: URLSearchParams, admin: S
   // read again, so neither a later version nor a renewed expiry can stand in for the cookie this request carried.
   const s = await readSession(env, request);
   if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
-  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e });
+  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e,g:s.g });
   const p = auditQuery(q);
   if ("field" in p) return apiJson({ error: "bad_request", field: p.field, message: AUDIT_REFUSALS[p.field] }, 400);
   const page = await auditPage(env, p);
@@ -1394,7 +1395,7 @@ async function auditLog(request: Request, env: Env, q: URLSearchParams, admin: S
 async function admitAudit(env: Env, s: AuditSession, page: AuditPage | { audit: { ts: number; actor: string; action: string; subject: string | null; details: string | null }[] }): Promise<Response> {
   let held: unknown;
   try {
-    held = (await env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3)}) AS ok`).bind(s.u, s.v, s.e).first<{ ok: number }>())?.ok;
+    held = (await env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3,s.g)}) AS ok`).bind(s.u, s.v, s.e).first<{ ok: number }>())?.ok;
   } catch (e) {
     console.error("admin audit log admission", errorRef(e));
     held = null;

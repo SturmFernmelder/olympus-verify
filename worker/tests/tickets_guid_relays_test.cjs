@@ -84,7 +84,8 @@ const { auditReason } = (() => {
   return mod.exports;
 })();
 
-let T = 1790500000; // the clock every module reads (db.now() is Math.floor(Date.now()/1000))
+// Start beside SQLite's native clock: the production one-use fence also checks database expiry.
+let T = Math.floor(Date.now() / 1000);
 const RealDate = Date;
 // The clock every module reads: Date.now() and new Date() alike (codes.ts takes "now" from new Date()).
 globalThis.Date = class extends RealDate {

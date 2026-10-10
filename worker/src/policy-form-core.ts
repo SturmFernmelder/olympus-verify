@@ -4,8 +4,8 @@ import { escapeText } from "./policy-render";
 
 export const FORM_COOKIE = "__Host-olg_privacy_form";
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
-export type FormPurpose = "contact-create" | "case-read" | "case-reply" | "copy-export" | "site-erase" | "full-erase" | "bnet-unlink" | "privacy-signin";
-const PURPOSES: readonly string[] = ["contact-create", "case-read", "case-reply", "copy-export", "site-erase", "full-erase", "bnet-unlink", "privacy-signin"];
+export type FormPurpose = "contact-create" | "case-read" | "case-reply" | "copy-export" | "site-erase" | "full-erase" | "bnet-unlink" | "privacy-signin" | "erasure-status";
+const PURPOSES: readonly string[] = ["contact-create", "case-read", "case-reply", "copy-export", "site-erase", "full-erase", "bnet-unlink", "privacy-signin", "erasure-status"];
 export class FormError extends Error { constructor(public readonly code: string, public readonly status = 400) { super(code); } }
 export const randomCode = (n = 32): string => b64u(crypto.getRandomValues(new Uint8Array(n)));
 export function formCookie(nonce: string): string { return `${FORM_COOKIE}=${nonce}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=3600`; }

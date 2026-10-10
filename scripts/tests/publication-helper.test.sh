@@ -3,16 +3,16 @@
 # present (five Python helpers and the pinned JSON reference); six Python files compile (the five V4 helpers and the
 # reconciliation helper); four CLI helpers answer --help without touching any repository (publication_audit,
 # stage_publication, validate_publication, reconcile_public_root); and the asset gate loads its pinned JSON reference. The
-# canonical fixture tests (local Git fixtures, hundreds of checks) stay with the candidate; this is the smoke test CI runs.
+# historical canonical fixtures stay with their candidate. CI also exercises the current full byte/resource gate below.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 fail() { echo "FAIL $1" >&2; exit 1; }
-# the newest interpreter on PATH that is at least 3.12 (Path.is_junction), else whatever there is (compile-only then)
+# The runtime gate requires Python 3.12 (Path.is_junction); compile-only is not a passing publication smoke.
 PY=""
 for c in python3 python; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' 2>/dev/null; then PY="$c"; break; fi
 done
-[ -n "$PY" ] || PY="$(command -v python3 || command -v python)" || fail "no python"
+[ -n "$PY" ] || fail "the publication gate requires Python 3.12 or later"
 for f in publication_audit public_history official_assets stage_publication validate_publication reconcile_public_root; do
   [ -f "scripts/$f.py" ] || fail "scripts/$f.py is missing"
   "$PY" -m py_compile "scripts/$f.py" || fail "scripts/$f.py does not compile"
@@ -25,12 +25,11 @@ node --check scripts/pages_network_guard.cjs || fail "the network guard does not
 for f in publication_audit stage_publication validate_publication; do
   "$PY" "scripts/$f.py" --help >/dev/null || fail "scripts/$f.py --help"
 done
-# the reconciliation helper needs Python 3.12 (Path.is_junction) even for --help, since it verifies its pins at import
-if "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)'; then "$PY" scripts/reconcile_public_root.py --help >/dev/null || fail "scripts/reconcile_public_root.py --help (a pin mismatch?)"; fi
-# the helpers need Python 3.12 or later at run time (Path.is_junction); CI's runner has it, an older local interpreter only compiles them
-if "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)'; then
+"$PY" scripts/reconcile_public_root.py --help >/dev/null || fail "scripts/reconcile_public_root.py --help (a pin mismatch?)"
 "$PY" - <<'PY' || fail "the asset gate does not load its pinned reference"
 import sys
+import hashlib
+from pathlib import Path
 sys.path.insert(0, "scripts")
 import official_assets
 ref = official_assets.reference()
@@ -38,11 +37,16 @@ assert len(ref["official_paths"]) == 94, len(ref["official_paths"])
 assert ref["approved_extractor"]["path"] == "tools/build-site-assets.py"
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
 assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
+# The .135 composition changes native code, not artwork. Catch stale reference rows before publication.
+for row in ref["assets"] + ref["fixed_art_source_pins"]:
+    path = Path(row["path"])
+    assert not path.is_symlink() and not path.is_junction(), row["path"]
+    raw = path.read_bytes()
+    assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
+assert len(ref["assets"]) == 103 and len(ref["fixed_art_source_pins"]) == 5
 PY
-else
-  echo "SKIP the reference load: this interpreter is older than Python 3.12 (CI runs it)"
-fi
+"$PY" -B scripts/tests/publication-resource.test.py || fail "the actual publication resource/result-tree gate"
 for d in LICENSE README.md CLAUDE.md THIRD_PARTY_NOTICES.md docs/source-provenance.md docs/design.md docs/deploy-checklist.md; do
   [ -f "$d" ] || fail "required document $d is missing"
 done
-echo "PASS publication helpers (six Python files compile, four CLI helpers answer --help, the pins and the pinned JSON reference load, the seven documents exist)"
+echo "PASS publication helpers (compile, --help, exact reference pins, actual contract/result-tree/resource controls, seven required documents)"

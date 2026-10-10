@@ -9,6 +9,7 @@ import { API, credentialFetch } from "./discord";
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
 import { admitted, admittedRead, communityFeatures, DB_NOW, fenceSql, FENCE_REFUSED, organizerIds, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { secondsToIso } from "./community-time";
+import { privacyProviderCustodyDatabase } from "./privacy-serving-authority";
 
 const ID = /^[A-Za-z0-9_-]{22}$/;
 const SNOWFLAKE = /^[0-9]{17,20}$/;
@@ -162,19 +163,42 @@ export function ownMessage(v: unknown, d: Destination, bot: string): v is Messag
 export const exactContent = (m: Message, content: string | null) => content !== null && m.content === content && Array.isArray(m.embeds) && m.embeds.length === 0 && Array.isArray(m.attachments) && m.attachments.length === 0;
 export const knownRefusal = (status: number) => [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(status);
 
-/** A known result records custody even if the original session/event was revoked while the HTTP request was in flight. */
-async function settle(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
-  const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0;
+/** Captured before the provider await; never refreshed from a replacement account or operation. */
+export interface EventCustodyProof {
+  eventId: string; revision: number; startsAt: number; opId: string; nonce: string;
+  guild: string; channel: string; pointer: string | null; retainUntil: number;
+}
+/** Update only exact erasure-adopted event/operation/claim custody. Legacy purpose:op rows remain held.
+ * No new subject/content record or renewed deadline is created. Already cleaning/removed custody
+ * cannot be overwritten by a late response; a different known pointer also refuses.
+ */
+export function eventAdoptedCustody(db: D1Database, purpose: "event_publication" | "event_reminder", p: EventCustodyProof,
+  result: "posted" | "refused" | "unknown" | "removed", pointer: string | null): D1PreparedStatement {
+  return db.prepare(`UPDATE privacy_provider_messages SET
+    message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?4,message_id) END,
+    state=CASE WHEN ?3='removed' THEN 'removed' WHEN ?4 IS NOT NULL THEN 'known'
+      WHEN ?3='refused' AND message_id IS NULL THEN 'refused' ELSE state END,updated_at=${DB_NOW}
+    WHERE operation_id=?1 AND purpose=?2 AND channel_id=?5 AND retain_until<=?6
+      AND state IN('claimed','unknown','known') AND (message_id IS NULL OR message_id=?4 OR message_id IS ?7)`)
+    .bind(`${purpose}:${p.eventId}:${p.opId}:${p.nonce}`, purpose, result, pointer, p.channel, p.retainUntil, p.pointer);
+}
+/** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced. */
+async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
+  const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0, db = privacyProviderCustodyDatabase(env);
   const stillCurrent = `actor=?5 AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
-    AND ${fenceSql("confirmedGuildData", 5, 6, 7)}`;
-  await env.DB.batch([
-    env.DB.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
-      state=CASE WHEN ?3='posted' THEN CASE WHEN state='claimed' AND ${stillCurrent} THEN 'posted' ELSE 'unknown' END ELSE ?3 END,
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
+    AND ${fenceSql("confirmedGuildData", 5, 6, 7, ctx.subject!.privacyGeneration ?? null)}`;
+  await db.batch([
+    db.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
+      state=CASE WHEN ?3='posted' THEN CASE WHEN state IN('claimed','unknown') AND ${stillCurrent} THEN 'posted' ELSE 'unknown' END ELSE ?3 END,
       frozen_content=CASE WHEN ?3='removed' THEN NULL ELSE frozen_content END, payload_hash=CASE WHEN ?3='removed' THEN NULL ELSE payload_hash END,
-      cleanup_requested=CASE WHEN ?3='removed' THEN 0 ELSE cleanup_requested END, updated_at=${DB_NOW}, result_code=?4
-      WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?2 AND state IN('claimed','unknown')`)
-      .bind(e.id, nonce, result, code, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, e.revision, staff, pointer),
+      cleanup_requested=CASE WHEN ?3='removed' THEN 0 WHEN ?10 IS NOT NULL AND NOT(${stillCurrent}) THEN 1 ELSE cleanup_requested END,
+      updated_at=${DB_NOW}, result_code=?4
+      WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?2 AND op_id=?11 AND guild_id=?12 AND channel_id=?13
+        AND event_revision=?8 AND starts_at=?15 AND retain_until<=?16 AND (message_id IS ?14 OR message_id=?10) AND state IN('claimed','unknown')`)
+      .bind(p.eventId, p.nonce, result, code, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, p.revision, staff, pointer,
+        p.opId, p.guild, p.channel, p.pointer, p.startsAt, p.retainUntil),
+    eventAdoptedCustody(db, "event_publication", p, result, pointer),
   ]);
 }
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
@@ -218,6 +242,9 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       if (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== old.message_id) return answer(request, env, ctx, eventId, { error: "delivery_custody_unqualified" }, 409);
     }
     const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    const custody: EventCustodyProof = { eventId, revision: e.revision, startsAt: e.starts_at, opId: op, nonce,
+      guild: d.guild, channel: d.channel, pointer: old?.state === "removed" ? null : old?.message_id ?? null,
+      retainUntil: Math.min(old?.retain_until ?? e.retain_until, e.retain_until) };
     const claimed = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO community_event_deliveries
       (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,session_version,session_expires,created_at,updated_at,retain_until,result_code)
       SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
@@ -230,7 +257,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, rev, old?.claim_nonce ?? "", staff, d.guild, d.channel, old?.state === "removed" ? null : old?.message_id ?? null, content, hash, op, nonce, e.title, e.starts_at, e.duration_min)]);
     if (claimed === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, e, nonce, d))) {
-      await settle(env, ctx, e, nonce, "refused", "admission_changed");
+      await settle(env, ctx, custody, "refused", "admission_changed");
       return answer(request, env, ctx, eventId, { error: "delivery_not_sent" }, 409);
     }
     let result: "posted" | "refused" | "unknown" = "unknown", code = "outcome_unknown", pointer: string | null = null;
@@ -244,7 +271,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
         if (pointer && exactContent(response.value, content)) { result = "posted"; code = "published"; }
       }
     } catch { /* transport/abort/redirect/unreadable outcome stays held; no retry */ }
-    await settle(env, ctx, e, nonce, result, code, pointer);
+    await settle(env, ctx, custody, result, code, pointer);
     return answer(request, env, ctx, eventId, {}, result === "unknown" ? 409 : 200, true);
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }
@@ -268,9 +295,9 @@ export async function eventDeliveryReconcile(request: Request, env: Env, ctx: Co
     const response = await discord(env, "GET", `/channels/${d.channel}/messages/${body.messageId}`);
     if (response.status !== 200 || !ownMessage(response.value, d, bot) || response.value.id !== body.messageId || !exactContent(response.value, row.frozen_content)
       || (!row.message_id && response.value.nonce !== row.claim_nonce)) throw new Bad("delivery_custody_unqualified", 409);
-    // Recording proven custody cannot resurrect an erased payload/actor. Response still uses the original reader fence.
-    await env.DB.prepare(`UPDATE community_event_deliveries SET message_id=?3,state=CASE WHEN cleanup_requested=0 THEN 'posted' ELSE 'unknown' END,result_code='reconciled',updated_at=${DB_NOW}
-      WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?2 AND state IN('claimed','unknown')`).bind(eventId, row.claim_nonce, body.messageId).run();
+    const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: row.op_id,
+      nonce: row.claim_nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
+    await settle(env, ctx, custody, "posted", "reconciled", body.messageId);
     return answer(request, env, ctx, eventId, {}, 200, true);
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }
@@ -293,18 +320,20 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     const message = await discord(env, "GET", `/channels/${d.channel}/messages/${row.message_id}`);
     if (message.status !== 404 && (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== row.message_id)) throw new Bad("delivery_custody_unqualified", 409);
     const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: op,
+      nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
     const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1,claim_nonce=?5,op_id=?6,actor=?2,session_version=?3,session_expires=?4,updated_at=${DB_NOW}
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?7 AND message_id=?8 AND state IN('posted','refused','unknown') AND retain_until>${DB_NOW}
       AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?9=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4)}`)
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, nonce, op, row.claim_nonce, row.message_id, staff)]);
     if (claim === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, out.event, nonce, d, true))) {
-      await settle(env, ctx, out.event, nonce, "unknown", "admission_changed");
+      await settle(env, ctx, custody, "unknown", "admission_changed", row.message_id);
       return answer(request, env, ctx, eventId, { error: "delivery_not_sent" }, 409);
     }
     let result: "removed" | "unknown" = message.status === 404 ? "removed" : "unknown";
     if (message.status !== 404) { try { const response = await discord(env, "DELETE", `/channels/${d.channel}/messages/${row.message_id}`); if (response.status === 204 || response.status === 404) result = "removed"; } catch { /* unknown removal stays held */ } }
-    await settle(env, ctx, out.event, nonce, result, result === "removed" ? "removed" : "outcome_unknown");
+    await settle(env, ctx, custody, result, result === "removed" ? "removed" : "outcome_unknown", row.message_id);
     return answer(request, env, ctx, eventId, {}, result === "unknown" ? 409 : 200, true);
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }

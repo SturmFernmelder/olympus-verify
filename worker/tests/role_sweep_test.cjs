@@ -56,7 +56,12 @@ stubs["./roles"] = rolesMod.exports;
 // .115: restore.ts reads its per-run caps from the real scheduled-budget.ts (the scheduled D1 budget; Codex, 3 Oct 2026 13:26 UTC)
 const budgetMod = { exports: {} };
 new Function("module", "exports", "require", ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", "src", "scheduled-budget.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(budgetMod, budgetMod.exports, () => ({}));
+// This broad legacy role-behavior fixture needs several accounts in one run; the real production cap1 is separately tested by scheduled_budget_test.
+budgetMod.exports.SCHEDULED_CAPS={...budgetMod.exports.SCHEDULED_CAPS,roleSweepAccounts:20,roleSweepBanned:5};
 stubs["./scheduled-budget"] = budgetMod.exports;
+// .134 actual capture parser; these narrow legacy fixtures model an ORIGINAL missing subject.
+const privacyMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','privacy-serving-authority.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(privacyMod,privacyMod.exports,()=>({}));
+stubs['./privacy-serving-authority']=privacyMod.exports;
 const mod = { exports: {} };
 new Function("module", "exports", "require", js)(mod, mod.exports, (p) => stubs[p]);
 const { sweepMemberRoles, forgetLocalThrottle, SETTLE_SECONDS, THROTTLE_SECONDS } = mod.exports;

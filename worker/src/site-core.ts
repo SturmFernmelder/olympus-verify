@@ -5,6 +5,7 @@
  */
 import type { Env } from "./env";
 import { now } from "./db";
+import { privacyGenerationLiteralFenceSql } from "./privacy-serving-authority";
 import { DiscordError, rest } from "./discord";
 import { currentPosition, LIMITS, raidFit, roleKeyOf } from "./site-data";
 
@@ -18,6 +19,7 @@ export const isSiteAdmin = (env: Env, id: string) => siteAdmins(env).has(id);
 
 export interface SiteUser {
   discord_id: string;
+  privacyGeneration?: string|null;
   username: string | null;
   global_name: string | null;
   nick: string | null;
@@ -114,8 +116,11 @@ export async function verify(secret: string, purpose: string, data: string, mac:
   }
 }
 
-export async function sessionCookie(env: Env, discordId: string, version: number): Promise<string> {
-  const body = b64u(new TextEncoder().encode(JSON.stringify({ u: discordId, v: version, e: now() + SESSION_SECONDS })));
+export async function sessionCookie(env: Env, discordId: string, version: number,originalGeneration?:string|null): Promise<string> {
+  const issuedExpires=now()+SESSION_SECONDS;
+  const generation=originalGeneration===undefined?(await env.DB.prepare('SELECT generation FROM privacy_subjects WHERE subject_id=?1').bind(discordId).first<{generation:string}>())?.generation??null:originalGeneration;
+  if(generation!==null&&!/^[0-9a-f]{32}$/.test(generation))throw Error('privacy_cookie_generation_invalid');
+  const body = b64u(new TextEncoder().encode(JSON.stringify({ u: discordId, v: version, e: issuedExpires, g:generation })));
   const mac = await sign(env.COOKIE_SECRET, "session", body);
   return `${SESSION_COOKIE}=${body}.${mac}; Max-Age=${SESSION_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
@@ -129,16 +134,17 @@ export function cookie(request: Request, name: string): string {
   return "";
 }
 
-export async function readSession(env: Env, request: Request): Promise<{ u: string; v: number; e: number } | null> {
+export async function readSession(env: Env, request: Request): Promise<{ u: string; v: number; e: number; g:string|null } | null> {
   const raw = cookie(request, SESSION_COOKIE);
   const dot = raw.indexOf(".");
   if (dot < 1 || !env.COOKIE_SECRET) return null;
   const body = raw.slice(0, dot);
   if (!(await verify(env.COOKIE_SECRET, "session", body, raw.slice(dot + 1)))) return null;
   try {
-    const s = JSON.parse(new TextDecoder().decode(unb64u(body))) as { u: string; v: number; e: number };
+    const s = JSON.parse(new TextDecoder().decode(unb64u(body))) as { u: string; v: number; e: number; g?:string|null };
     if (typeof s.u !== "string" || typeof s.v !== "number" || typeof s.e !== "number" || s.e < now()) return null;
-    return s;
+    if(s.g!==undefined&&s.g!==null&&(typeof s.g!=='string'||!/^[0-9a-f]{32}$/.test(s.g)))return null;
+    return {...s,g:s.g??null};
   } catch {
     return null;
   }
@@ -148,9 +154,9 @@ export async function readSession(env: Env, request: Request): Promise<{ u: stri
 export async function currentUser(env: Env, request: Request): Promise<SiteUser | null> {
   const s = await readSession(env, request);
   if (!s) return null;
-  const row = await env.DB.prepare("SELECT * FROM site_users WHERE discord_id = ?1").bind(s.u).first<SiteUser>();
+  const row = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u).first<SiteUser>();
   if (!row || row.session_version !== s.v) return null;
-  return row;
+  return {...row,privacyGeneration:s.g};
 }
 
 /**

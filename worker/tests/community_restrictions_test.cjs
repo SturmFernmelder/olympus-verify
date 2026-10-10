@@ -33,7 +33,8 @@ function d1(db, hooks = {}) {
       first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
       all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
       run: async () => { hooks.count?.(); hooks.beforeRun?.(sql); return exec(sql, params); },
-      _exec: () => exec(sql, params),
+      _exec: () => { hooks.beforeRun?.(sql); return exec(sql, params); },
+      _sql: sql,
     };
     return api;
   };
@@ -41,11 +42,13 @@ function d1(db, hooks = {}) {
     prepare: stmt,
     batch: async (stmts) => {
       hooks.count?.();
-      hooks.beforeBatch?.(++batches); // .73: a test may change the facts between the context read and this payload batch
+      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
+      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
+      if (logical) hooks.beforeBatch?.(++batches);
       db.exec("BEGIN");
       let out;
       try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
+      if (logical) hooks.afterBatch?.(batches);
       return out;
     },
   };
@@ -398,7 +401,7 @@ async function erasureRequest(target, actor) {
   restoreStaff();
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(STAFF); } };
   r = await call("GET", "/api/admin/community/return-review", STAFF);
-  check("the return review: signed out everywhere before the payload batch: 401, no members", r.status === 401 && !("members" in r.body));
+  check("the return review: original session closed before the payload batch: 503 erasure_held, no members", r.status === 503 && r.body.error === "erasure_held" && !("members" in r.body));
   restoreStaff();
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 

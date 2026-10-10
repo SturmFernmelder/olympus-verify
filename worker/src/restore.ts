@@ -15,8 +15,11 @@
 import { intVar, type Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
-import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, inventoryCalls, GRANT_CALLS } from "./roles";
+import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS } from "./roles";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
+import { privacyCaptureFromColumns,type PrivacySubject } from './privacy-serving-authority';
+import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
+type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;rank_snapshot_id:number|null};
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
 
@@ -27,20 +30,23 @@ export async function restoreMemberRole(env: Env, userId: string, roles: string[
   if (roles.includes(role)) return "has-role";
   const row = await env.DB.prepare(
     "SELECT (SELECT COUNT(*) FROM characters WHERE discord_id = ?1 AND status IN ('member','left_pending')) AS n, " +
-      "(SELECT banned FROM members WHERE discord_id = ?1) AS banned",
+      "(SELECT banned FROM members WHERE discord_id = ?1) AS banned, (SELECT generation FROM privacy_subjects WHERE subject_id=?1) AS privacy_generation, (SELECT state FROM privacy_subjects WHERE subject_id=?1) AS privacy_state, (SELECT revision FROM privacy_subjects WHERE subject_id=?1) AS privacy_revision",
   )
     .bind(userId)
-    .first<{ n: number; banned: number | null }>();
+    .first<{ n: number; banned: number | null } & SweepSubject>();
   if (!row || !row.n) return "not-member";
   if (row.banned) return "banned";
+  if(row.privacy_state&&row.privacy_state!=='active')return 'held';
+  const capture=privacyCaptureFromColumns(userId,row),reference={subject:userId,capture};
   // .55: a held blocking role (Quarantine, Flagellant) withholds the restore; the sweep gives the role back once lifted.
   if (heldBlockingRole(env, roles)) {
-    await audit(env, "system", "role.blocked", userId, { source, blockedBy: heldBlockingRole(env, roles) });
+    await audit(env, "system", "role.blocked", userId, { source, blockedBy: heldBlockingRole(env, roles) },reference);
     return "blocked";
   }
   try {
     // .58: the writer re-reads the member and the ban at the effect; the payload's roles above were only the first look.
-    const outcome = await grantMemberRole(env, userId, `olympus-verify: Guild Member restored (${source}); the roster already has this member`, source, roles);
+    const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
+    const outcome = await writer(env, userId, `olympus-verify: Guild Member restored (${source}); the roster already has this member`, source, roles,undefined,{subjectGeneration:capture?.subjectGeneration??null});
     if (outcome === "misconfigured" || outcome === "unverified") return "failed";
     if (outcome === "banned") return "banned";
     if (outcome === "blocked") return "blocked";
@@ -48,12 +54,12 @@ export async function restoreMemberRole(env: Env, userId: string, roles: string[
     if (outcome === "not-in-server") return "unknown";
     if (outcome !== "granted") return "has-role";
   } catch (e) {
-    await audit(env, "system", "role.restore_failed", userId, { source, error: String(e).slice(0, 200) });
-    await logLine(env, `⚠️ role: <@${userId}> is in the guild but has no Guild Member, and putting it back failed: ${explainDiscordError(e)}`);
+    await audit(env, "system", "role.restore_failed", userId, { source, error: String(e).slice(0, 200) },reference);
+    await logLine(env, `⚠️ role: <@${userId}> is in the guild but has no Guild Member, and putting it back failed: ${explainDiscordError(e)}`,[reference]);
     return "failed";
   }
-  await audit(env, "system", "role.restored", userId, { source });
-  await logLine(env, `♻️ role: Guild Member was missing for <@${userId}> although the roster has them in the guild — restored (${source}).`);
+  await audit(env, "system", "role.restored", userId, { source },reference);
+  await logLine(env, `♻️ role: Guild Member was missing for <@${userId}> although the roster has them in the guild — restored (${source}).`,[reference]);
   return "restored";
 }
 
@@ -153,8 +159,8 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     return null;
   }
   lastLocal = t;
-  const last = await env.DB.prepare("SELECT details FROM audit WHERE action = 'role.sweep' ORDER BY id DESC LIMIT 1")
-    .first<{ details: string | null }>();
+  const last = await env.DB.prepare("SELECT details,(SELECT generation FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_generation,(SELECT state FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_state,(SELECT revision FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_revision FROM audit WHERE action = 'role.sweep' ORDER BY id DESC LIMIT 1")
+    .first<{ details: string | null;cursor_generation:string|null;cursor_state:string|null;cursor_revision:number|null }>();
 
   let state: SweepState | null = null;
   try {
@@ -186,14 +192,20 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     if (did && !fresh.includes(did)) fresh.push(did);
   }
   let priority: string[] = [];
+  const captures=new Map<string,PrivacySubject|null>();
+  const rankSnapshots=new Map<string,number|null>();
+  const rankMapping=env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true';
+  const originalCursorReference=last&&typeof state.c==='string'&&/^\d{17,20}$/.test(state.c)?{subject:state.c,capture:privacyCaptureFromColumns(state.c,{privacy_generation:last.cursor_generation??null,privacy_state:last.cursor_state??null,privacy_revision:last.cursor_revision??null})}:null;
   if (fresh.length) {
     const ph = fresh.map((_, k) => `?${k + 1}`).join(",");
     const still = await env.DB.prepare(
-      `SELECT DISTINCT discord_id FROM characters c WHERE discord_id IN (${ph}) AND status IN ('member','left_pending') ` +
+      `SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision,(SELECT MAX(id) FROM roster_snapshots) AS rank_snapshot_id FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.discord_id IN (${ph}) AND status IN ('member','left_pending') AND (p.state IS NULL OR p.state='active') ` +
         "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = c.discord_id AND m.banned = 1)",
     )
       .bind(...fresh)
-      .all<{ discord_id: string }>();
+      .all<SweepSubject>();
+    for(const row of still.results)captures.set(row.discord_id,privacyCaptureFromColumns(row.discord_id,row));
+    for(const row of still.results)rankSnapshots.set(row.discord_id,row.rank_snapshot_id);
     const keep = new Set(still.results.map((r) => r.discord_id));
     priority = fresh.filter((d) => keep.has(d));
   }
@@ -204,11 +216,13 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   const room = budget - priority.length;
   if (room > 0) {
     const rows = await env.DB.prepare(
-      "SELECT DISTINCT discord_id FROM characters c WHERE status = 'member' AND discord_id > ?1 " +
-        "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = c.discord_id AND m.banned = 1) ORDER BY discord_id LIMIT ?2",
+      "SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision,(SELECT MAX(id) FROM roster_snapshots) AS rank_snapshot_id FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE status = 'member' AND c.discord_id > ?1 AND (p.state IS NULL OR p.state='active') " +
+        "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = c.discord_id AND m.banned = 1) ORDER BY c.discord_id LIMIT ?2",
     )
       .bind(cursor, room)
-      .all<{ discord_id: string }>();
+      .all<SweepSubject>();
+    for(const row of rows.results)captures.set(row.discord_id,privacyCaptureFromColumns(row.discord_id,row));
+    for(const row of rows.results)rankSnapshots.set(row.discord_id,row.rank_snapshot_id);
     for (const r of rows.results) if (!priority.includes(r.discord_id)) rotation.push(r.discord_id);
     cursor = rows.results.length < room ? "" : rows.results[rows.results.length - 1].discord_id; // wrap at the end
   }
@@ -225,6 +239,8 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   const unfinished: string[] = []; // .99: lookups Discord did not answer
   let rotationHeld = false; // .99: the rotation cursor never passes an unfinished account
   const handle = async (id: string): Promise<"done" | "stop" | "unfinished"> => {
+    if(!captures.has(id))return 'unfinished';
+    const capture=captures.get(id)!,reference={subject:id,capture};
     let m: Awaited<ReturnType<typeof guildMember>>;
     try {
       m = await guildMember(env, id, calls);
@@ -250,9 +266,17 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       failed.push({ id, error: e instanceof DiscordError ? `remove ${e.status}` : String(e).slice(0, 120) });
       return "done";
     }
-    if (m.roles.includes(role)) return "done";
+    // Continue native ranks for an already-confirmed member as well. The roster and privacy generation
+    // came from the original selection, before any Discord await; a later roster is never substituted.
+    const continueRanks=async()=>{
+      const snapshot=rankSnapshots.get(id);
+      if(rankMapping&&Number.isSafeInteger(snapshot)&&snapshot!>0)
+        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls);
+    };
+    if (m.roles.includes(role)) { await continueRanks(); return "done"; }
     try {
-      const outcome = await grantMemberRole(env, id, `olympus-verify: Guild Member restored (sweep); the roster has this member`, `sweep:${trigger}`, m.roles, calls);
+      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,typeof calls,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
+      const outcome = await writer(env, id, `olympus-verify: Guild Member restored (sweep); the roster has this member`, `sweep:${trigger}`, m.roles, calls,{subjectGeneration:capture?.subjectGeneration??null});
       if (outcome === "blocked") {
         blocked.push(id);
         return "done";
@@ -264,12 +288,13 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       }
       if (outcome !== "granted") return "done";
       restored.push(id);
-      await audit(env, "system", "role.restored", id, { source: `sweep:${trigger}` });
+      await audit(env, "system", "role.restored", id, { source: `sweep:${trigger}` },reference);
+      await continueRanks();
       await new Promise((res) => setTimeout(res, 250)); // keep a run of grants off Discord's rate limiter
       return "done";
     } catch (e) {
       failed.push({ id, error: e instanceof DiscordError ? `grant ${e.status}` : String(e).slice(0, 120) });
-      await audit(env, "system", "role.restore_failed", id, { source: `sweep:${trigger}`, error: String(e).slice(0, 200) });
+      await audit(env, "system", "role.restore_failed", id, { source: `sweep:${trigger}`, error: String(e).slice(0, 200) },reference);
       // 403 means the bot's role cannot grant Guild Member at all; every other try would fail the same way.
       return e instanceof DiscordError && e.status === 403 ? "stop" : "done";
     }
@@ -278,7 +303,8 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     // .90/.95 (P-20): the whole account reserved before its first request (the look; then the grant's inventory read when
     // it is due, the writer's fresh look, the PUT and the mandatory removal after a ban, each with its possible 429 retry):
     // stop BEFORE an account the budget cannot finish, so nobody is half-handled; the rotation resumes at the last one done
-    if (!affords(calls, 1 + GRANT_CALLS + inventoryCalls(env, calls)) || !takeCall(calls)) {
+    const membershipCalls=1+GRANT_CALLS+inventoryCalls(env,calls);
+    if (!affords(calls,membershipCalls) || calls.limit-calls.attempts<reserve(membershipCalls)+(rankMapping?RANK_CONTINUATION_HTTP_RESERVE:0) || !takeCall(calls)) {
       await budgetExhausted(env, calls, `sweep:${trigger}`);
       stopped = true;
       break;
@@ -318,6 +344,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     await logLine(
       env,
       `♻️ role sweep: Guild Member was missing for ${restored.map((d) => `<@${d}>`).join(", ")} although the roster has them in the guild — restored.`,
+      restored.map(subject=>({subject,capture:captures.get(subject)??null})),
     );
   }
   if (failed.length) {
@@ -326,10 +353,11 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       `⚠️ role sweep: ${failed.length} account(s) could not be checked or given Guild Member: ` +
         failed.slice(0, 5).map((f) => `<@${f.id}> (${f.error})`).join(", ") +
         (failed.some((f) => f.error === "grant 403") ? ` — ${explainDiscordError(new DiscordError(403, ""))}` : ""),
+      failed.map(f=>({subject:f.id,capture:captures.get(f.id)??null})),
     );
   }
   if (blocked.length) {
-    await logLine(env, `⛔ role sweep: Guild Member withheld or removed for ${blocked.map((d) => `<@${d}>`).join(", ")} while a server restriction is on the account.`);
+    await logLine(env, `⛔ role sweep: Guild Member withheld or removed for ${blocked.map((d) => `<@${d}>`).join(", ")} while a server restriction is on the account.`,blocked.map(subject=>({subject,capture:captures.get(subject)??null})));
   }
   // 3. .60: banned accounts still holding Guild Member (a late grant that landed after the ban, or a removal that failed)
   //    lose it; up to BANNED_PER_RUN per run, in a rotation of their own. .63: every banned account, whatever its
@@ -342,6 +370,6 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   if (banned.held.length) {
     await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114
   }
-  await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted });
+  await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted },[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]));
   return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished };
 }

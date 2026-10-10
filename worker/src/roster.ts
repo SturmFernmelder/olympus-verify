@@ -1,18 +1,20 @@
 /** Roster snapshots and the diff that grants/strips the Guild Member role. The roster is the source of truth. */
 import type { Env } from "./env";
-import { audit, linksNotBefore, now } from "./db";
+import { audit, linksNotBefore, now,type PrivacyReference } from "./db";
 import { intVar, officerRankNames, rankCheckExempt, staffChannel, staffRoles } from "./env";
 import { normalizeCharacter } from "./codes";
 import { explainDiscordError, guildMember, logLine, postMessage, removeRole, setNickname, staffNotice } from "./discord";
 import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget } from "./roles";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { errorRef } from "./log";
+import { privacyProviderCustodyDatabase,privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,privacyGenerationFenceSql,privacyGenerationLiteralFenceSql,readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
 import { ROSTER_INGEST_STATEMENTS, ROSTER_SYNC_STATEMENTS, SCHEDULED_CAPS } from "./scheduled-budget";
 import {
   countStatements,
   derivationWorst,
   EFFECT_DEFERRED_WORST,
   EFFECT_WORST,
+  effectWorst,
   IDENTITY_FIXED,
   inParts,
   NOTICE_FLUSH_FIXED,
@@ -127,7 +129,16 @@ interface BoundRow {
   status: string;
   guid: string | null;
   bound_at: number;
+  privacy_generation:string|null;
+  privacy_state:'active'|'retiring'|'retired'|null;
+  privacy_revision:number|null;
 }
+const BOUND_SELECT=`SELECT c.name_key,c.name,c.discord_id,c.status,c.guid,c.bound_at,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision
+ FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.status IN ('verified','queued','member','left','left_pending')`;
+const BOUND_AND_NOTE_SELECT=BOUND_SELECT+` UNION ALL SELECT NULL,NULL,m.discord_id,'privacy_note_capture',NULL,0,s.generation,s.state,s.revision FROM members m LEFT JOIN privacy_subjects s ON s.subject_id=m.discord_id WHERE m.banned=0`;
+const capturedActive=(c:BoundRow)=>c.privacy_state===null||c.privacy_state==='active';
+const captureOf=(c:BoundRow)=>privacyCaptureFromColumns(c.discord_id,c);
+const referenceOf=(c:BoundRow):PrivacyReference=>({subject:c.discord_id,capture:captureOf(c)});
 
 /** A GUID as an export gives it: a non-empty string, or nothing. A number or a table from a damaged file is nothing. */
 export function guidOf(v: unknown): string | null {
@@ -146,6 +157,7 @@ interface IdentityFence {
 // Both paths prove the stored count. Worklist derivation also requires complete 1; manual sync has already admitted its
 // deliberate full-row legacy/stuck override before calling without a run ID.
 const EXPECTED_BINDING = `c.name_key = ?1 AND c.discord_id = ?2 AND c.guid IS ?3 AND c.bound_at = ?4 AND c.status = ?5
+  AND ${privacyGenerationFenceSql(2,10)}
   AND ?6 = (SELECT MAX(id) FROM roster_snapshots)
   AND EXISTS (SELECT 1 FROM roster_snapshots s WHERE s.id = ?6
         AND s.member_count = (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = s.id))
@@ -165,24 +177,25 @@ async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, 
   const done = await env.DB.batch([
     // Queue first: both predicates see the unchanged expected binding in the same transaction.
     env.DB.prepare(`UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')
-      AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds),
-    env.DB.prepare(`UPDATE characters AS c SET status = 'unbound', left_at = ?8, guid = NULL WHERE ${EXPECTED_BINDING}`).bind(...binds, now()),
+      AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds,null,null,c.privacy_generation),
+    env.DB.prepare(`UPDATE characters AS c SET status = 'unbound', left_at = ?8, guid = NULL WHERE ${EXPECTED_BINDING}`).bind(...binds, now(),null,c.privacy_generation),
   ]);
   if (!Number(done[1]?.meta?.changes ?? 0)) return false;
   if (c.status === "member" || c.status === "left_pending") {
-    await afterDeparture(env, c.discord_id, c.name, why === "namesake" ? "a different character now has this name" : "link predates LINKS_NOT_BEFORE", { batch: notices });
+    await afterDeparture(env, c.discord_id, c.name, why === "namesake" ? "a different character now has this name" : "link predates LINKS_NOT_BEFORE", { batch: notices,capture:captureOf(c) });
   }
   await audit(env, "system", why === "namesake" ? "roster.namesake_released" : "roster.stale_link_released", c.name, {
     discordId: c.discord_id,
     oldGuid: c.guid,
     rosterGuid,
     boundAt: c.bound_at,
-  });
+  },referenceOf(c));
   await logLine(
     env,
     why === "namesake"
       ? `♻️ roster: **${c.name}** on the roster is a different character from the one <@${c.discord_id}> linked (new GUID). The link is released; the character's owner can verify it.`
       : `♻️ roster: the link of **${c.name}** to <@${c.discord_id}> dates from before LINKS_NOT_BEFORE and was never tied to a character ID, so it is released; they verify again with a new code.`,
+    [referenceOf(c)],
   );
   return true;
 }
@@ -313,7 +326,7 @@ export async function reconcileIdentities(
       if (out.held.has(r.to.key)) {
         // the link under the new name is being held back this time (see `cap`), so this move waits with it
         out.held.add(r.c.name_key);
-        await auditOnce(env, "roster.rename_waiting", `${r.c.name_key}>${r.to.key}`, { from: r.c.name, to: r.to.name, discordId: r.c.discord_id });
+        await auditOnce(env, "roster.rename_waiting", `${r.c.name_key}>${r.to.key}`, { from: r.c.name, to: r.to.name, discordId: r.c.discord_id },undefined,[referenceOf(r.c)]);
         continue;
       }
       const moved = await moveBinding(env, r.c, r.to, opts.fence);
@@ -325,16 +338,16 @@ export async function reconcileIdentities(
         byKey.set(r.to.key, r.c);
       } else {
         out.held.add(r.c.name_key);
-        if (moved === "blocked" && await auditOnce(env, "roster.rename_blocked", `${r.c.name_key}>${r.to.key}`, { from: r.c.name, to: r.to.name, discordId: r.c.discord_id })) {
-          await logLine(env, `⚠️ roster: **${r.c.name}** (<@${r.c.discord_id}>) is now called **${r.to.name}**, but that name is still linked to another account. Left as it is — an officer decides.`);
+        if (moved === "blocked" && await auditOnce(env, "roster.rename_blocked", `${r.c.name_key}>${r.to.key}`, { from: r.c.name, to: r.to.name, discordId: r.c.discord_id },undefined,[referenceOf(r.c)])) {
+          await logLine(env, `⚠️ roster: **${r.c.name}** (<@${r.c.discord_id}>) is now called **${r.to.name}**, but that name is still linked to another account. Left as it is — an officer decides.`,[referenceOf(r.c)]);
         }
       }
     }
     if (later.length === todo.length) {
       for (const r of later) out.held.add(r.c.name_key);
       const swap = later.map((r) => `${r.c.name_key}>${r.to.key}`).sort().join(",");
-      if (await auditOnce(env, "roster.rename_swap", swap.slice(0, 500), { moves: later.map((r) => ({ from: r.c.name, to: r.to.name, discordId: r.c.discord_id })) })) {
-        await logLine(env, `⚠️ roster: ${later.map((r) => `**${r.c.name}** → **${r.to.name}**`).join(", ")} look like characters that swapped names. Left as they are — an officer decides.`);
+      if (await auditOnce(env, "roster.rename_swap", swap.slice(0, 500), { moves: later.map((r) => ({ from: r.c.name, to: r.to.name, discordId: r.c.discord_id })) },undefined,later.map(r=>referenceOf(r.c)))) {
+        await logLine(env, `⚠️ roster: ${later.map((r) => `**${r.c.name}** → **${r.to.name}**`).join(", ")} look like characters that swapped names. Left as they are — an officer decides.`,later.map(r=>referenceOf(r.c)));
       }
       break;
     }
@@ -347,10 +360,10 @@ export async function reconcileIdentities(
  * Record something that is true on every export until a person acts -- a blocked rename, a swap -- once, and again only
  * after `every` seconds, so the log says it rather than repeating it after each /reload. True when it was recorded.
  */
-async function auditOnce(env: Env, action: string, subject: string, details: unknown, every = 6 * 3600): Promise<boolean> {
+async function auditOnce(env: Env, action: string, subject: string, details: unknown, every = 6 * 3600,references?:PrivacyReference[]): Promise<boolean> {
   const last = await env.DB.prepare("SELECT ts FROM audit WHERE action = ?1 AND subject = ?2 ORDER BY id DESC LIMIT 1").bind(action, subject).first<{ ts: number }>();
   if (last && now() - last.ts < every) return false;
-  await audit(env, "system", action, subject, details);
+  await audit(env, "system", action, subject, details,references);
   return true;
 }
 
@@ -359,21 +372,21 @@ async function auditOnce(env: Env, action: string, subject: string, details: unk
 async function moveBinding(env: Env, c: BoundRow, to: { name: string; key: string }, fence: IdentityFence): Promise<"moved" | "blocked" | "stale"> {
   const binds = identityBinds(c, fence);
   const done = await env.DB.batch([
-    env.DB.prepare(`SELECT 1 AS valid FROM characters c WHERE ${EXPECTED_BINDING}`).bind(...binds),
+    env.DB.prepare(`SELECT 1 AS valid FROM characters c WHERE ${EXPECTED_BINDING}`).bind(...binds,null,null,c.privacy_generation),
     env.DB.prepare(`UPDATE characters SET name_key = name_key || '~' || bound_at || '~' || rowid
       WHERE name_key = ?8 AND status IN ('unbound','denied','left')
-        AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds, to.key),
+        AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds, to.key,null,c.privacy_generation),
     // Move the queue before the source key. The target has just been freed and both changes use the original binding.
     env.DB.prepare(`UPDATE invite_queue SET name_key = ?8, name = ?9 WHERE name_key = ?1 AND status IN ('queued','written','invited')
       AND NOT EXISTS (SELECT 1 FROM characters WHERE name_key = ?8)
-      AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds, to.key, to.name),
+      AND EXISTS (SELECT 1 FROM characters c WHERE ${EXPECTED_BINDING})`).bind(...binds, to.key, to.name,c.privacy_generation),
     env.DB.prepare(`UPDATE characters AS c SET name_key = ?8, name = ?9 WHERE ${EXPECTED_BINDING}
-      AND NOT EXISTS (SELECT 1 FROM characters WHERE name_key = ?8)`).bind(...binds, to.key, to.name),
+      AND NOT EXISTS (SELECT 1 FROM characters WHERE name_key = ?8)`).bind(...binds, to.key, to.name,c.privacy_generation),
   ]);
   if (!(done[0]?.results as Array<{ valid: number }> | undefined)?.[0]?.valid) return "stale";
   if (!Number(done[3]?.meta?.changes ?? 0)) return "blocked";
-  await audit(env, "system", "roster.renamed", to.name, { from: c.name, discordId: c.discord_id, guid: c.guid });
-  await logLine(env, `\u{1F501} roster: **${c.name}** is now **${to.name}** (same character) — link to <@${c.discord_id}> kept.`);
+  await audit(env, "system", "roster.renamed", to.name, { from: c.name, discordId: c.discord_id, guid: c.guid },referenceOf(c));
+  await logLine(env, `\u{1F501} roster: **${c.name}** is now **${to.name}** (same character) — link to <@${c.discord_id}> kept.`,[referenceOf(c)]);
   return "moved";
 }
 
@@ -388,7 +401,7 @@ async function reportHeldReleases(env: Env, releases: Release[], cap: number) {
   }
   if (last && lastCount === releases.length && now() - last.ts < 6 * 3600) return;
   const stale = releases.filter((r) => r.why === "stale").length;
-  await audit(env, "system", "roster.identity_held", undefined, { count: releases.length, stale, cap, names: releases.slice(0, 40).map((r) => r.c.name) });
+  await audit(env, "system", "roster.identity_held", undefined, { count: releases.length, stale, cap, names: releases.slice(0, 40).map((r) => r.c.name) },releases.slice(0,40).map(r=>referenceOf(r.c)));
   await logLine(
     env,
     `⚠️ roster: ${releases.length} links would be released at once (limit ${cap} per export)` +
@@ -661,7 +674,10 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
       chunks.push([
         env.DB.prepare(
           `INSERT OR REPLACE INTO roster_members (snapshot_id, name_key, name, rank, rank_index, level, class, public_note, officer_note, guid, last_online)
-           SELECT ?1, ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(col).join(", ")} FROM json_each(?2) j`,
+           SELECT ?1, ${[0,1,2,3,4,5].map(col).join(',')},
+             CASE WHEN EXISTS(SELECT 1 FROM privacy_subjects ps WHERE (ps.state<>'active' OR ps.erased_at IS NOT NULL) AND instr(COALESCE(${col(6)},''),ps.subject_id)>0) THEN NULL ELSE ${col(6)} END,
+             CASE WHEN EXISTS(SELECT 1 FROM privacy_subjects ps WHERE (ps.state<>'active' OR ps.erased_at IS NOT NULL) AND instr(COALESCE(${col(7)},''),ps.subject_id)>0) THEN NULL ELSE ${col(7)} END,
+             ${col(8)},${col(9)} FROM json_each(?2) j`,
         ).bind(snapId, JSON.stringify(rowValues.slice(i, i + ROSTER_ROWS_PER_STATEMENT))),
       ]);
     }
@@ -875,9 +891,9 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
   if (stored !== snap.member_count) return refuse("incomplete");
   const onRoster = new Map(rows.results.map((r) => [r.name_key, r] as const));
   const bound = await env.DB.prepare(
-    "SELECT name_key, name, discord_id, status, guid, bound_at FROM characters WHERE status IN ('verified','queued','member','left','left_pending')",
+    BOUND_SELECT,
   ).all<BoundRow>();
-  const byKey = new Map(bound.results.map((c) => [c.name_key, c] as const));
+  const byKey = new Map(bound.results.filter(capturedActive).map((c) => [c.name_key, c] as const));
   // Same identity rules as a roster export, without the cap: a person asked, and this is how a held batch is applied.
   // Only a name swap between two linked characters is still held (reconcileIdentities).
   const ident = await reconcileIdentities(env, rows.results, byKey, {
@@ -905,18 +921,18 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
     // .115 (finding A): admitted before it starts, at its worst case: a pin and a promotion cost what a worklist promotion
     // does (the pin in place of the claim; the grant's share smaller once the call budget cannot afford one), a removal
     // what a departure does, a pin alone one statement
-    const worst = promoting ? (affords(calls, GRANT_CALLS) ? EFFECT_WORST.promote : EFFECT_DEFERRED_WORST.promote) : removing ? EFFECT_WORST.depart : pin ? 1 : 0;
+    const worst = promoting ? (env.PRIVACY_ERASURE_ENABLED==='true'||affords(calls, GRANT_CALLS) ? effectWorst(env).promote : EFFECT_DEFERRED_WORST.promote) : removing ? effectWorst(env).depart : pin ? 1 : 0;
     if (!worst) continue;
     if (room(adm, SYNC_TAIL + noticeStatementsPending(notices)) < worst) {
       out.deferred++;
       continue;
     }
-    if (pin) await env.DB.prepare("UPDATE characters SET guid = ?2 WHERE name_key = ?1 AND guid IS NULL").bind(c.name_key, g).run();
+    if (pin) await env.DB.prepare(`UPDATE characters SET guid = ?2 WHERE name_key = ?1 AND guid IS NULL AND discord_id=?3 AND ${privacyGenerationFenceSql(3,4)}`).bind(c.name_key, g,c.discord_id,c.privacy_generation).run();
     if (promoting) {
-      await promote(env, c.discord_id, c.name_key, row!.name, notices, g, calls);
+      await promote(env, c.discord_id, c.name_key, row!.name, notices, g, calls,captureOf(c));
       out.promoted.push(row!.name);
     } else if (removing) {
-      await demote(env, c.discord_id, c.name_key, c.name, "manual sync", { batch: notices });
+      await demote(env, c.discord_id, c.name_key, c.name, "manual sync", { batch: notices,capture:captureOf(c) });
       out.stripped.push(c.name);
     }
   }
@@ -932,8 +948,11 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
 }
 
 /** A member character is gone from the guild (roster diff, or a "has left/been kicked" line relayed by the watcher). */
-export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch } = {}) {
-  await env.DB.prepare("UPDATE characters SET status = 'left', left_at = ?2 WHERE name_key = ?1").bind(nameKey, now()).run();
+export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null } = {}) {
+  const capture=opts.capture===undefined?await readPrivacySubject(env,discordId):opts.capture;
+  const changed=await env.DB.prepare(`UPDATE characters SET status = 'left', left_at = ?2 WHERE name_key = ?1 AND discord_id=?3 AND ${privacyGenerationFenceSql(3,4)}`).bind(nameKey, now(),discordId,capture?.subjectGeneration??null).run();
+  if(!changed.meta.changes)return;
+  opts={...opts,capture};
   await afterDeparture(env, discordId, name, how, opts);
 }
 
@@ -943,16 +962,25 @@ export async function demote(env: Env, discordId: string, nameKey: string, name:
  * that still give access read, roster.left, the log line, and the seat notice when the seat was freed. At most four
  * statements (roster-effects.ts EFFECT_WORST.depart).
  */
-async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch }) {
-  const remaining = await env.DB.prepare("SELECT COUNT(*) AS n FROM characters WHERE discord_id = ?1 AND status = 'member'").bind(discordId).first<{ n: number }>();
+async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null }) {
+  const capture=opts.capture===undefined?await readPrivacySubject(env,discordId):opts.capture,reference={subject:discordId,capture};
+  const remaining = await env.DB.prepare(`SELECT COUNT(*) AS n,(${privacyGenerationFenceSql(1,2)}) AS current FROM characters WHERE discord_id = ?1 AND status = 'member'`).bind(discordId,capture?.subjectGeneration??null).first<{ n: number;current:number }>();
+  if(!remaining?.current)return;
   const last = (remaining?.n ?? 0) === 0;
+  let removed=false;
   let kept: string[] = [];
   if (last) {
     if (env.ROLE_GUILD_MEMBER) {
       try {
-        await removeRole(env, discordId, env.ROLE_GUILD_MEMBER, `olympus-verify: ${name} left the guild (${how})`);
+        const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null})=>Promise<{state:string;reason?:string}>};
+        if(env.PRIVACY_ERASURE_ENABLED!=='true'){await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}
+        else if(!central.settleGuildDepartureRole)await audit(env,'system','role.remove_held',name,{reason:'central_departure_adapter_unavailable'},reference);
+        else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null});
+         removed=outcome.state==='absent'||outcome.state==='removed'||outcome.state==='settled';
+         if(!removed)await audit(env,'system','role.remove_held',name,{reason:outcome.reason??outcome.state},reference);
+        }
       } catch (e) {
-        await audit(env, "system", "role.remove_failed", name, { error: String(e) });
+        await audit(env, "system", "role.remove_failed", name, { error: String(e) },reference);
       }
     }
     // Removing Guild Member does not necessarily remove access: Raid Leader, Officer, Moderator, Guild Leader and
@@ -963,10 +991,10 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
       const staff = new Set(staffRoles(env));
       kept = (m?.roles ?? []).filter((r) => staff.has(r));
     } catch (e) {
-      await audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) });
+      await audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) },reference);
     }
   }
-  await audit(env, "system", opts.space ? "roster.freed_seat" : "roster.left", name, { discordId, how, keptRoles: kept });
+  await audit(env, "system", opts.space ? "roster.freed_seat" : "roster.left", name, { discordId, how, keptRoles: kept },reference);
   if (opts.space) {
     // Removed to make room, not for cause. The binding is left intact, so coming back is one invite rather than a
     // fresh verification, and the person is told that rather than being left to guess why their access vanished.
@@ -977,6 +1005,7 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
         `You are still verified here, so an officer can invite you straight back in when a place opens; ask in the help channel and we will put you at the front.`,
       "seat-freed",
       opts.batch,
+      capture,
     );
   }
   const keptNote = kept.length
@@ -985,22 +1014,25 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
   await logLine(
     env,
     opts.space
-      ? `\u{1FA91} seat freed: **${name}** (<@${discordId}>) was removed to make room${last ? " \u2014 Guild Member role removed" : ""}${keptNote}. Their verification is kept, so a re-invite needs no new code.`
-      : `\u2796 roster: **${name}** (<@${discordId}>) is no longer in the guild (${how})${last ? " \u2014 Guild Member role removed" : ""}${keptNote}.`,
+      ? `\u{1FA91} seat freed: **${name}** (<@${discordId}>) was removed to make room${last ? removed?" \u2014 Guild Member role absent or removed":" \u2014 Guild Member removal remains held" : ""}${keptNote}. Their verification is kept, so a re-invite needs no new code.`
+      : `\u2796 roster: **${name}** (<@${discordId}>) is no longer in the guild (${how})${last ? removed?" \u2014 Guild Member role absent or removed":" \u2014 Guild Member removal remains held" : ""}${keptNote}.`,
+    [reference],
   );
 }
 
 /** Character confirmed on the roster with a verified binding → member: Guild Member role, nickname, log line, DM. */
-export async function promote(env: Env, discordId: string, nameKey: string, name: string, batch?: NoticeBatch, guid?: string | null, calls?: CallBudget) {
+export async function promote(env: Env, discordId: string, nameKey: string, name: string, batch?: NoticeBatch, guid?: string | null, calls?: CallBudget,originalCapture?:PrivacySubject|null) {
+  const capture=originalCapture===undefined?await readPrivacySubject(env,discordId):originalCapture;
+  if(capture&&capture.state!=='active')return;
   const t = now();
   const g = guidOf(guid); // pinned only if none is: a pin is never overwritten here (reconcileIdentities decides that)
   await env.DB.batch([
     env.DB.prepare(
-      "UPDATE characters SET status = 'member', member_since = COALESCE(member_since, ?2), left_at = NULL, guid = COALESCE(guid, ?3) WHERE name_key = ?1",
-    ).bind(nameKey, t, g),
-    env.DB.prepare("UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND status IN ('queued','written','invited')").bind(nameKey, t),
+      `UPDATE characters SET status = 'member', member_since = COALESCE(member_since, ?2), left_at = NULL, guid = COALESCE(guid, ?3) WHERE name_key = ?1 AND discord_id=?4 AND ${privacyGenerationFenceSql(4,5)}`,
+    ).bind(nameKey, t, g,discordId,capture?.subjectGeneration??null),
+    env.DB.prepare(`UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND discord_id=?3 AND status IN ('queued','written','invited') AND ${privacyGenerationFenceSql(3,4)}`).bind(nameKey, t,discordId,capture?.subjectGeneration??null),
   ]);
-  await afterPromotion(env, discordId, name, batch, calls);
+  await afterPromotion(env, discordId, name, batch, calls,capture);
 }
 
 /**
@@ -1009,7 +1041,9 @@ export async function promote(env: Env, discordId: string, nameKey: string, name
  * roster.member (which the role sweep reads to grant a deferred role), the log line and the welcome. At most twelve
  * statements, the welcome's share of the notices' flush included (roster-effects.ts EFFECT_WORST.promote less the claim).
  */
-async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget) {
+async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget,capture:PrivacySubject|null=null) {
+  const reference={subject:discordId,capture};
+  if(!(await env.DB.prepare(`SELECT (${privacyGenerationFenceSql(1,2)}) AS current`).bind(discordId,capture?.subjectGeneration??null).first<{current:number}>())?.current)return;
   // The role grant is optional (ROLE_GUILD_MEMBER may be unset once the role is retired), and nothing below depends
   // on it succeeding. Until 26 Sep the nickname and welcome sat after addRole inside one try, so any role failure —
   // including the role simply having been deleted — silently stopped nicknames as well.
@@ -1018,29 +1052,32 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
   if (env.ROLE_GUILD_MEMBER) {
     try {
       // .55: through the one role writer (roles.ts): a held blocking role withholds the grant, fail-closed config too.
-      const outcome = await grantMemberRole(env, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, calls); // .90: within the run's Discord-call budget
+      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
+      const roleEnv=env.PRIVACY_ERASURE_ENABLED==='true'?{...env,DB:privacyProviderCustodyDatabase(env)}:env;
+      const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, calls,{subjectGeneration:capture?.subjectGeneration??null});
       granted = outcome === "granted" || outcome === "has-role";
       blocked = outcome === "blocked";
-      if (blocked) await logLine(env, `⛔ roster: **${name}** (<@${discordId}>) is on the roster, but a server restriction is on the account; Guild Member withheld until it is lifted.`);
-      else if (outcome === "held") await logLine(env, `⏸️ roster: **${name}** (<@${discordId}>) is on the roster, but the account must apply again after a rename Blizzard required; Guild Member withheld until an administrator approves it.`); // .114
-      else if (outcome === "misconfigured") await logLine(env, `⚠️ roster: ROLE_GUILD_MEMBER is not a role of this server; no Guild Member granted for **${name}**.`);
-      else if (outcome === "unverified" || outcome === "budget") await audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome }); // the sweep grants it once Discord answers, or on its next run (.90: the run's budget)
-      else if (outcome === "banned") await audit(env, "system", "role.refused_banned", name, { discordId });
+      if (blocked) await logLine(env, `⛔ roster: **${name}** (<@${discordId}>) is on the roster, but a server restriction is on the account; Guild Member withheld until it is lifted.`,[reference]);
+      else if (outcome === "held") await logLine(env, `⏸️ roster: **${name}** (<@${discordId}>) is on the roster, but the account must apply again after a rename Blizzard required; Guild Member withheld until an administrator approves it.`,[reference]); // .114
+      else if (outcome === "misconfigured") await logLine(env, `⚠️ roster: ROLE_GUILD_MEMBER is not a role of this server; no Guild Member granted for **${name}**.`,[reference]);
+      else if (outcome === "unverified" || outcome === "budget") await audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome },reference);
+      else if (outcome === "banned") await audit(env, "system", "role.refused_banned", name, { discordId },reference);
     } catch (e) {
-      await audit(env, "system", "role.add_failed", name, { discordId, error: String(e) });
-      await logLine(env, `⚠️ roster: could not grant Guild Member to <@${discordId}> for **${name}**: ${explainDiscordError(e)}`);
+      await audit(env, "system", "role.add_failed", name, { discordId, error: String(e) },reference);
+      await logLine(env, `⚠️ roster: could not grant Guild Member to <@${discordId}> for **${name}**: ${explainDiscordError(e)}`,[reference]);
     }
   }
   if (env.SET_NICKNAME === "true") {
+    if(!(await env.DB.prepare(`SELECT (${privacyGenerationFenceSql(1,2)}) AS current`).bind(discordId,capture?.subjectGeneration??null).first<{current:number}>())?.current)return;
     try {
       await setNickname(env, discordId, name.slice(0, 32));
     } catch (e) {
-      await audit(env, "system", "nick.failed", name, { error: String(e) }); // owner/higher roles cannot be renamed by a bot
+      await audit(env, "system", "nick.failed", name, { error: String(e) },reference); // owner/higher roles cannot be renamed by a bot
     }
   }
-  await audit(env, "system", "roster.member", name, { discordId, roleGranted: granted, roleBlocked: blocked });
-  await logLine(env, `➕ roster: **${name}** (<@${discordId}>) confirmed on the roster${granted ? " — Guild Member granted" : ""}.`);
-  await notify(env, discordId, `Welcome to Olympus — **${name}** is on the guild roster.`, "welcome", batch);
+  await audit(env, "system", "roster.member", name, { discordId, roleGranted: granted, roleBlocked: blocked },reference);
+  await logLine(env, `➕ roster: **${name}** (<@${discordId}>) confirmed on the roster${granted ? " — Guild Member granted" : ""}.`,[reference]);
+  await notify(env, discordId, `Welcome to Olympus — **${name}** is on the guild roster.`, "welcome", batch,capture);
 }
 
 // ---------- the member effects as a worklist (.115, third review round; Codex, 3 Oct 2026 16:48 UTC, finding A) ----------
@@ -1127,28 +1164,32 @@ interface Derived {
 // Each derivation statement carries RUN_IS_CURRENT (?1 the run), so a run overtaken by a newer export applies nothing.
 const DERIVE_PINS = `UPDATE characters SET guid = (SELECT json_extract(p.value, '$[1]') FROM json_each(?2) p WHERE json_extract(p.value, '$[0]') = characters.name_key)
   WHERE guid IS NULL AND status IN ('verified','queued','member','left','left_pending')
-    AND name_key IN (SELECT json_extract(value, '$[0]') FROM json_each(?2)) AND ${RUN_IS_CURRENT}`;
+    AND EXISTS(SELECT 1 FROM json_each(?2)p WHERE json_extract(p.value,'$[0]')=characters.name_key AND json_extract(p.value,'$[2]')=characters.discord_id
+      AND ${privacyGenerationExpressionFenceSql("json_extract(p.value,'$[2]')","json_extract(p.value,'$[3]')")}) AND ${RUN_IS_CURRENT}`;
 const DERIVE_RETURNED_AUDIT = `INSERT INTO audit (ts, actor, action, subject, details)
   SELECT ?3, 'system', 'roster.returned', json_extract(r.value, '$[1]'), json_object('discordId', c.discord_id)
     FROM json_each(?2) r JOIN characters c ON c.name_key = json_extract(r.value, '$[0]') AND c.discord_id = json_extract(r.value, '$[2]')
-   WHERE c.status = 'left_pending' AND ${RUN_IS_CURRENT} ORDER BY r.key`;
+   WHERE c.status = 'left_pending' AND ${privacyGenerationExpressionFenceSql('c.discord_id',"json_extract(r.value,'$[3]')")} AND ${RUN_IS_CURRENT} ORDER BY r.key`;
 const DERIVE_RETURNED = `UPDATE characters SET status = 'member', left_at = NULL
   WHERE status = 'left_pending'
-    AND EXISTS (SELECT 1 FROM json_each(?2) r WHERE json_extract(r.value, '$[0]') = characters.name_key AND json_extract(r.value, '$[2]') = characters.discord_id)
+    AND EXISTS (SELECT 1 FROM json_each(?2) r WHERE json_extract(r.value, '$[0]') = characters.name_key AND json_extract(r.value, '$[2]') = characters.discord_id
+      AND ${privacyGenerationExpressionFenceSql('characters.discord_id',"json_extract(r.value,'$[3]')")})
     AND ${RUN_IS_CURRENT}`;
 const DERIVE_ARMED_AUDIT = `INSERT INTO audit (ts, actor, action, subject, details)
   SELECT ?3, 'system', 'roster.left_pending', c.name, json_object('discordId', c.discord_id)
     FROM json_each(?2) a JOIN characters c ON c.name_key = json_extract(a.value, '$[0]') AND c.discord_id = json_extract(a.value, '$[1]')
-   WHERE c.status = 'member' AND ${RUN_IS_CURRENT} ORDER BY a.key`;
+   WHERE c.status = 'member' AND ${privacyGenerationExpressionFenceSql('c.discord_id',"json_extract(a.value,'$[2]')")} AND ${RUN_IS_CURRENT} ORDER BY a.key`;
 const DERIVE_ARMED = `UPDATE characters SET status = 'left_pending'
   WHERE status = 'member'
-    AND EXISTS (SELECT 1 FROM json_each(?2) a WHERE json_extract(a.value, '$[0]') = characters.name_key AND json_extract(a.value, '$[1]') = characters.discord_id)
+    AND EXISTS (SELECT 1 FROM json_each(?2) a WHERE json_extract(a.value, '$[0]') = characters.name_key AND json_extract(a.value, '$[1]') = characters.discord_id
+      AND ${privacyGenerationExpressionFenceSql('characters.discord_id',"json_extract(a.value,'$[2]')")})
     AND ${RUN_IS_CURRENT}`;
 // an officer's D: note names an account that must exist and not be banned (checked again when the item is applied)
-const DERIVE_ITEMS = `INSERT OR IGNORE INTO roster_effects (run_id, seq, kind, name_key, name, discord_id, guid)
-  SELECT ?1, ?2 + i.key, json_extract(i.value, '$[0]'), json_extract(i.value, '$[1]'), json_extract(i.value, '$[2]'), json_extract(i.value, '$[3]'), json_extract(i.value, '$[4]')
+const DERIVE_ITEMS = `INSERT OR IGNORE INTO roster_effects (run_id, seq, kind, name_key, name, discord_id, guid,subject_generation)
+  SELECT ?1, ?2 + i.key, json_extract(i.value, '$[0]'), json_extract(i.value, '$[1]'), json_extract(i.value, '$[2]'), json_extract(i.value, '$[3]'), json_extract(i.value, '$[4]'),json_extract(i.value,'$[5]')
     FROM json_each(?3) i
    WHERE ${RUN_IS_CURRENT}
+     AND ${privacyGenerationExpressionFenceSql("json_extract(i.value,'$[3]')","json_extract(i.value,'$[5]')")}
      AND (json_extract(i.value, '$[0]') <> 'note' OR EXISTS (SELECT 1 FROM members m WHERE m.discord_id = json_extract(i.value, '$[3]') AND m.banned = 0))`;
 const DERIVE_DONE = `UPDATE roster_effect_runs SET derived_at = ?2, items = (SELECT COUNT(*) FROM roster_effects WHERE run_id = ?1),
        done_at = CASE WHEN EXISTS (SELECT 1 FROM roster_effects WHERE run_id = ?1 AND done_at IS NULL) THEN NULL ELSE ?2 END
@@ -1182,9 +1223,10 @@ async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: Roster
   //    are positive evidence (the GUID is on this roster), so they apply even to a distrusted, possibly truncated
   //    export -- capped, so a systematic change of character IDs is held for a person instead of applied.
   const bound = await env.DB.prepare(
-    "SELECT name_key, name, discord_id, status, guid, bound_at FROM characters WHERE status IN ('verified','queued','member','left','left_pending')",
+    BOUND_AND_NOTE_SELECT,
   ).all<BoundRow>();
-  const byKey = new Map(bound.results.map((c) => [c.name_key, c] as const));
+  const noteCaptures=new Map(bound.results.filter(c=>c.status==='privacy_note_capture'&&capturedActive(c)).map(c=>[c.discord_id,c]));
+  const byKey = new Map(bound.results.filter(c=>c.status!=='privacy_note_capture'&&capturedActive(c)).map((c) => [c.name_key, c] as const));
   const batchWorst = derivationWorst(rows.length, byKey.size);
   const ident = await reconcileIdentities(env, rows, byKey, {
     cap: releaseCap(byKey.size),
@@ -1195,37 +1237,38 @@ async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: Roster
   });
 
   const current = new Map(rows.map((r) => [r.name_key, r] as const));
-  const pins: Array<[string, string]> = []; // [name key, GUID]
-  const returns: Array<[string, string, string]> = []; // [name key, the roster's name, discord id]
-  const arms: Array<[string, string]> = []; // [name key, discord id]
+  const pins: Array<[string, string,string,string|null]> = []; // key, GUID, original subject/generation
+  const returns: Array<[string, string, string,string|null]> = [];
+  const arms: Array<[string, string,string|null]> = [];
   const pendingLeft: string[] = [];
   const returned: string[] = [];
-  const items: Array<[EffectKind, string, string, string, string | null]> = []; // [kind, name key, name, discord id, GUID]
+  const items: Array<[EffectKind, string, string, string, string | null,string|null]> = [];
   for (const [key, m] of current) {
     const c = byKey.get(key);
     if (c && ident.held.has(key)) continue; // left exactly as it is until a person decides (see reconcileIdentities)
     const g = guidOf(m.guid);
     if (c && g && c.guid && c.guid !== g) continue; // not this link's character; reconcileIdentities has reported it
     if (c && g && !c.guid) {
-      pins.push([key, g]);
+      pins.push([key, g,c.discord_id,c.privacy_generation]);
       c.guid = g;
     }
     if (c && c.status === "left_pending") {
       // They were missing from one export and are back in this one — the gap was a truncated or mid-load snapshot.
       // The role was never removed, so this is a status correction, not a promotion: no DM, no welcome line.
-      returns.push([key, m.name, c.discord_id]);
+      returns.push([key, m.name, c.discord_id,c.privacy_generation]);
       returned.push(m.name);
       continue;
     }
     if (c && c.status !== "member") {
-      items.push(["promote", key, m.name, c.discord_id, g]);
+      items.push(["promote", key, m.name, c.discord_id, g,c.privacy_generation]);
       continue;
     }
     if (!c) {
       // Manual path: an officer set the public note to D:<discord id> by hand. Whether that account exists and is not
       // banned is decided where the item is stored and again where it is applied, never by a read per member.
       const mt = (m.public_note ?? "").trim().match(NOTE_RE);
-      if (mt) items.push(["note", key, m.name, mt[1], g]);
+      const original=mt?noteCaptures.get(mt[1]):undefined;
+      if (mt&&original) items.push(["note", key, m.name, mt[1], g,original.privacy_generation]);
     }
   }
 
@@ -1236,10 +1279,10 @@ async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: Roster
       if (current.has(c.name_key) || ident.held.has(c.name_key)) continue;
       if (c.status === "member") {
         if (!previous.has(c.name_key)) continue; // never seen in a snapshot yet; nothing to conclude
-        arms.push([c.name_key, c.discord_id]);
+        arms.push([c.name_key, c.discord_id,c.privacy_generation]);
         pendingLeft.push(c.name);
       } else if (c.status === "left_pending") {
-        items.push(["depart", c.name_key, c.name, c.discord_id, null]);
+        items.push(["depart", c.name_key, c.name, c.discord_id, null,c.privacy_generation]);
       }
     }
   }
@@ -1301,10 +1344,11 @@ interface SliceRow {
   name: string;
   discord_id: string;
   guid: string | null;
+  subject_generation:string|null;
 }
 // the newest run, only when it is derived, unfinished and of the newest snapshot, with its pending items in order (a row with
 // a NULL seq when none is left, so the end batch can still record that it is done)
-const SLICE_ROWS = `SELECT r.id AS run, e.seq AS seq, e.kind AS kind, e.name_key AS name_key, e.name AS name, e.discord_id AS discord_id, e.guid AS guid
+const SLICE_ROWS = `SELECT r.id AS run, e.seq AS seq, e.kind AS kind, e.name_key AS name_key, e.name AS name, e.discord_id AS discord_id, e.guid AS guid,e.subject_generation
   FROM roster_effect_runs r JOIN roster_snapshots s ON s.id = r.snapshot_id
     LEFT JOIN roster_effects e ON e.run_id = r.id AND e.done_at IS NULL
   WHERE r.id = (SELECT MAX(id) FROM roster_effect_runs) AND r.derived_at IS NOT NULL AND r.done_at IS NULL
@@ -1313,8 +1357,11 @@ const SLICE_ROWS = `SELECT r.id AS run, e.seq AS seq, e.kind AS kind, e.name_key
  ORDER BY e.seq LIMIT ?1`;
 // The claim: ?1 run, ?2 seq, ?3 this slice's nonce, ?4 the time. Only a pending item of the current run is claimed; the
 // statements after it in the same batch act only when it was (CLAIMED), so the item is done exactly when its change is.
-const CLAIM = `UPDATE roster_effects SET done_at = ?4, claim = ?3 WHERE run_id = ?1 AND seq = ?2 AND done_at IS NULL AND ${RUN_IS_CURRENT}`;
-const CLAIMED = "EXISTS (SELECT 1 FROM roster_effects WHERE run_id = ?1 AND seq = ?2 AND claim = ?3)";
+const CLAIM = `UPDATE roster_effects SET done_at = ?4, claim = ?3 WHERE run_id = ?1 AND seq = ?2 AND done_at IS NULL
+ AND subject_generation IS ?5 AND discord_id=?6 AND name_key=?7 AND kind=?8 AND guid IS ?9
+ AND ${privacyGenerationExpressionFenceSql('roster_effects.discord_id','roster_effects.subject_generation')} AND ${RUN_IS_CURRENT}`;
+const CLAIMED = `EXISTS (SELECT 1 FROM roster_effects WHERE run_id = ?1 AND seq = ?2 AND claim = ?3
+ AND ${privacyGenerationExpressionFenceSql('roster_effects.discord_id','roster_effects.subject_generation')})`;
 // promote: ?5 key, ?6 account, ?7 GUID, ?8 1 for a D: note (the link that batch just made), 0 for a verified link
 const EFFECT_PROMOTE = `UPDATE characters SET status = 'member', member_since = COALESCE(member_since, ?4), left_at = NULL, guid = COALESCE(guid, ?7)
   WHERE name_key = ?5 AND discord_id = ?6 AND ${CLAIMED}
@@ -1343,8 +1390,8 @@ const EFFECT_DEPART = `UPDATE characters SET status = 'left', left_at = ?4 WHERE
 async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch): Promise<EffectsSlice> {
   const out: EffectsSlice = { run: null, applied: 0, skipped: 0, refused: false, promoted: [], noteBound: [], stripped: [], done: false, failed: false };
   const fits = room(adm, after + SLICE_FIXED + noticeStatementsPending(notices));
-  if (fits < EFFECT_WORST.depart) return out; // not even the cheapest item: the next invocation
-  const rows = (await env.DB.prepare(SLICE_ROWS).bind(Math.floor(fits / EFFECT_WORST.depart) + 1).all<SliceRow>()).results;
+  if (fits < effectWorst(env).depart) return out; // not even the cheapest item: the next invocation
+  const rows = (await env.DB.prepare(SLICE_ROWS).bind(Math.floor(fits / effectWorst(env).depart) + 1).all<SliceRow>()).results;
   if (!rows.length) return out;
   const run = rows[0].run;
   out.run = run;
@@ -1354,7 +1401,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
   try {
     for (const it of rows) {
       if (it.seq === null) break;
-      const worst = it.kind === "depart" ? EFFECT_WORST.depart : affords(calls, GRANT_CALLS) ? EFFECT_WORST[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
+      const worst = it.kind === "depart" ? effectWorst(env).depart : env.PRIVACY_ERASURE_ENABLED==='true'||affords(calls, GRANT_CALLS) ? effectWorst(env)[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
       // The kind's worst case reserves this item's notice; notices from all earlier items still owe SQL at flush.
       if (room(adm, keep + noticeStatementsPending(notices)) < worst) break;
       at = it.seq;
@@ -1400,12 +1447,12 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
 async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch): Promise<"applied" | "skipped" | "refused"> {
   const t = now();
   const seq = it.seq as number;
-  const claim = env.DB.prepare(CLAIM).bind(run, seq, nonce, t);
+  const claim = env.DB.prepare(CLAIM).bind(run, seq, nonce, t,it.subject_generation,it.discord_id,it.name_key,it.kind,it.guid);
   if (it.kind === "depart") {
     const res = await env.DB.batch([claim, env.DB.prepare(EFFECT_DEPART).bind(run, seq, nonce, t, it.name_key, it.discord_id)]);
     if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
     if (!Number(res[1]?.meta?.changes ?? 0)) return "skipped";
-    await afterDeparture(env, it.discord_id, it.name, "roster (absent from two exports)", { batch: notices });
+    await afterDeparture(env, it.discord_id, it.name, "roster (absent from two exports)", { batch: notices,capture:it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active',revision:0} });
     return "applied";
   }
   const note = it.kind === "note";
@@ -1421,7 +1468,8 @@ async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, c
   const res = await env.DB.batch(stmts);
   if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
   if (!Number(res[promoteAt]?.meta?.changes ?? 0)) return "skipped";
-  await afterPromotion(env, it.discord_id, it.name, notices, calls);
+  const capture=it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active' as const,revision:0};
+  await afterPromotion(env, it.discord_id, it.name, notices, calls,capture);
   return "applied";
 }
 

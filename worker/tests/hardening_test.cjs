@@ -78,7 +78,11 @@ function load(name) {
 }
 const codes = load("./codes"), relays = load("./relays"), roster = load("./roster"), ingest = load("./ingest"), schema = load("./schema"), unv = load("./unverified");
 
-let T = 1790500000;
+// Start the synthetic business/HMAC clock from SQLite's actual clock, not an expired September date.
+// Subsequent explicit advances still test relative ticket-day and relay-age semantics; consuming SQL remains native.
+const fixtureClockDb = new DatabaseSync(":memory:");
+let T = fixtureClockDb.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS now").get().now;
+fixtureClockDb.close();
 const RealDate = Date;
 // The clock every module reads: Date.now() and new Date() alike (codes.ts takes "now" from new Date()).
 globalThis.Date = class extends RealDate {

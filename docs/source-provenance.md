@@ -189,3 +189,53 @@ The source reference binds product candidate 6eb68821b1000c24d8d72eef08497eb936f
 ## .123 R123-1 rendered guidance delta
 
 The corrected product head 8535379f0141521b4506af19e03bee730650b274 also fixes the rank-planner rendered reference sentence and tests the actual PAGE_HTML. Coverage 792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1 rechecks103assets and five fixed producer rows. Only site-ranks.ts producer bytes advance from the first .123 candidate; all artwork, fonts, icon references and crest remain unchanged. The first .123 candidate and its external packet are retained historical evidence, superseded for deployment. Final reference dd612b0af643ab564798c814c8dbffc588180a4b44090b9437ee627bcb9940d7 and both helper consumer pins close this delta; exact-head packet, root byte gate, full tests, CI and actual Claude delta review are required before publication. No native rank, bank amount, appointment, AddOn or stored draft is changed.
+
+## 10 October 2026 - .135 source and publication-helper reference
+
+The reference binds product source 496ea52f28f27e40553e26a435f83ea2c3f408ab. Its existing native app.css/app.js rows
+and fixed app.js/site-data.ts/site-core.ts producers now match the privacy and browser-scanner composition. All 94
+official game images/fonts, provenance and approved crest pixels retain their prior bytes. No website artwork is
+added. The extra top-level successor field is removed to preserve the closed reference schema; the dated explanation
+uses its existing limitations list. Both helper consumers carry the exact new reference pin, and reconciliation
+also pins the asset helper whose only executable change is that reference hash. The other four V4 helpers and the
+network guard retain their raw hashes. CI checks all 103 asset rows and five fixed producers against the real tree.
+
+This corrects the legitimate publication-smoke failure at 496ea52. Earlier failed logs and references remain
+evidence; no hash guard or shape check is bypassed. Source reference parity, independent review and CI remain
+separate from deployment and automatic deletion activation. The owner's Codex-only takeover does not imply Claude
+approval of this successor.
+
+## 10 October 2026 - .135 required publication resources
+
+The previous source-reference repair at `ca0178495c259a42cdfd56c2ff2b5a81f77f955a` passed its raw pin smoke but
+still refused nine actual governance/QR URLs in `app.js`. It also lacked fifteen tracked public files in the result
+and worktree gates. This finite successor corrects that refusal without changing any Worker, website, QR module,
+document, official image/font, provenance record or crest bytes.
+
+The closed `olympus-official-website-reference-v2` schema adds `required_public_resources`: fifteen exact
+path/mode/length/SHA-256 rows, separate from the original 103 assets. Nine rows are governance resources (five PDFs,
+one ZIP, the download manifest, organization JSON and the reconciled Markdown book). Six rows are the QR HTML,
+ES module, worker decoder, unchanged jsQR runtime, its license and its recorded source provenance. These are
+document/data/protocol resources, not artwork exceptions. The retained official candidate/map/coverage fields
+remain evidence of their historical official-art scope; they do not independently approve the new resources.
+The source-head field binds these current bytes to `ca0178495c259a42cdfd56c2ff2b5a81f77f955a`.
+
+Final externally reviewed manifests must use `olympus-selected-official-public-assets-v2` and carry the same
+`required_public_resources` rows. The contract schema remains v1: its existing manifest digest binds the new closed
+manifest. Required resources cannot be excluded, omitted, renamed or repinned through a final manifest. The result
+and worktree gates require the exact 118-file union. Only the exact required public ZIP path, mode, length and digest
+qualify its archive-path exception; other private/archive paths remain refused. A resource directory grants no
+prefix exception. Static URL coverage admits these exact non-art targets, while CSS `url(...)` still uses only the
+art/native asset group and rejects a PDF or module as an image/font. `.mjs` files now require runtime pins and source
+reference coverage, including the real QR HTML/module/decoder/vendor chain. The existing five art-sensitive source
+pins, official 94-file set, banned-art hashes, embedded-art guard and sole crest exception are preserved.
+
+`official_assets.py` pins the new reference; `stage_publication.py` uses the same exact-resource tuple check before
+its archive-path refusal, without changing staging permissions or output guards. `reconcile_public_root.py` pins
+all three changed inputs. The other three V4 helpers and the network guard retain their exact bytes. CI's existing
+`publication-helper.test.sh` requires Python 3.12 or later and now invokes
+`publication-resource.test.py` against the actual tracked source: it creates temporary synthetic byte contracts,
+calls `load_contract` then `validate_result_tree`, validates the public worktree, and tests missing, substituted,
+unlisted and renamed resources, module/vendor coverage and retained art refusals. It never stages a repository,
+runs a generator, publishes or calls a provider. Synthetic contracts are test fixtures, not publication authority.
+Exact-head independent review, the final external contract/manifest and publication remain separate qualification.

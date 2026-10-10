@@ -34,6 +34,7 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const nativeClock = new DatabaseSync(":memory:");
 
 // ---------- a D1-shaped wrapper over SQLite, with the hooks this suite needs ----------
 let FAULT = null; // (sql, phase) => boolean: throw a D1-shaped error at "prepare" or at "run"
@@ -87,6 +88,8 @@ function fresh() {
   db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  // Both clocks consume the same explicit fixture time; other SQLite date formats remain native.
+  db.function("strftime", { varargs: true }, (...args) => args.length === 2 && args[0] === "%s" && args[1] === "now" ? String(T) : nativeClock.prepare(`SELECT strftime(${args.map(() => "?").join(",")}) AS value`).get(...args).value);
 }
 fresh();
 

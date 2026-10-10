@@ -20,6 +20,7 @@ import { audit, now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { purgeBattleNetData } from "./bnet-retention";
 import { BNET_SWITCH_KEY, bnetLoginOn, bnetSwitchedOffPage } from "./bnet-switch";
+import { readPrivacySubject, privacyBoundSubjectEnv, type PrivacySubject } from './privacy-serving-authority';
 
 const SCOPES = "identify role_connections.write";
 
@@ -90,6 +91,9 @@ export async function linkedRoleCallback(env: Env, request: Request): Promise<Re
   const meRes = await credentialFetch(`${API}/users/@me`, { headers: auth });
   if (!meRes.ok) return page("Discord said no", `Discord would not tell us who you are (${meRes.status}). Try the link again.`, 502);
   const me = (await meRes.json()) as { id: string; username: string; global_name?: string | null };
+  if(!/^\d{17,20}$/.test(me.id))return page('Link refused','Discord identity could not be validated.',400);
+  const privacyCapture=await readPrivacySubject(env,me.id);
+  try{env=privacyBoundSubjectEnv(env,me.id,privacyCapture);}catch{return page('Link held','Complete a fresh Olympus sign-in before linking again.',409);}
 
   if (!env.BNET_CLIENT_ID || !env.BNET_CLIENT_SECRET) {
     await audit(env, me.id, "link.bnet_not_configured");
@@ -102,7 +106,7 @@ export async function linkedRoleCallback(env: Env, request: Request): Promise<Re
 
   // Straight to Blizzard: they are the only party that will still tell us a BattleTag.
   const bstate = crypto.randomUUID().replace(/-/g, "");
-  const sealed = await seal(env.COOKIE_SECRET, { d: me.id, n: me.global_name ?? me.username, t: token.access_token, s: bstate, exp: now() + 600 });
+  const sealed = await seal(env.COOKIE_SECRET, { d: me.id, n: me.global_name ?? me.username, t: token.access_token, s: bstate, exp: now() + 600, privacyCapture });
   const bnetUrl = new URL(`${BNET_OAUTH}/authorize`);
   bnetUrl.searchParams.set("client_id", env.BNET_CLIENT_ID);
   bnetUrl.searchParams.set("scope", "openid");
@@ -135,9 +139,11 @@ export async function bnetLinkCallback(env: Env, request: Request): Promise<Resp
   const code = u.searchParams.get("code") ?? "";
   const state = u.searchParams.get("state") ?? "";
   const cookie = (request.headers.get("Cookie") ?? "").split(/;\s*/).find((c) => c.startsWith("olv_bnet="))?.slice("olv_bnet=".length) ?? "";
-  const box = cookie ? await unseal<{ d: string; n: string; t: string; s: string; exp: number }>(env.COOKIE_SECRET, cookie) : null;
+  const box = cookie ? await unseal<{ d: string; n: string; t: string; s: string; exp: number;privacyCapture?:PrivacySubject|null }>(env.COOKIE_SECRET, cookie) : null;
   const clear = { "Set-Cookie": "olv_bnet=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax" };
   if (!code || !box || box.s !== state || box.exp < now()) return page("Link expired", "That link was already used or timed out. Start again from Discord.", 400, clear);
+  if(!Object.prototype.hasOwnProperty.call(box,'privacyCapture'))return page('Link expired','Start a fresh link from Discord.',409,clear);
+  try{env=privacyBoundSubjectEnv(env,box.d,box.privacyCapture!);}catch{return page('Link held','Complete a fresh Olympus sign-in before linking again.',409,clear);}
   if (!env.BNET_CLIENT_ID || !env.BNET_CLIENT_SECRET) return page("Not enabled", "Battle.net login is not configured.", 404, clear);
 
   const tokenRes = await credentialFetch(`${BNET_OAUTH}/token`, {
@@ -191,6 +197,8 @@ export async function bindBattletag(
   // .114: the switch is read again here, at the effect: one turned off while this person was at Blizzard's login stores
   // nothing and pushes nothing to Discord (the cron's purge still covers what earlier links stored).
   if (!(await bnetLoginOn(env))) return bnetSwitchedOffPage();
+  const privacyCapture=await readPrivacySubject(env,me.id);
+  try{env=privacyBoundSubjectEnv(env,me.id,privacyCapture);}catch{return page('Link held','Complete a fresh Olympus sign-in before linking again.',409);}
   // Build .48: Battle.net data older than 29 days is purged by the cron; purging here too means a stale namesake row
   // (the cron ran late) can never block a fresh link, and a stale row is never read as current.
   await purgeBattleNetData(env);
@@ -209,9 +217,9 @@ export async function bindBattletag(
   // above stores nothing (the secrets and the policy marker are fixed for this Worker version; only the setting can change)
   const linkedAt = now();
   const stored = await env.DB.prepare(
-    `INSERT INTO members (discord_id, discord_name, battletag, bnet_conn_id, linked_at)
-     SELECT ?1, ?2, ?3, ?4, ?5 WHERE EXISTS (SELECT 1 FROM site_settings WHERE key = ?6 AND value = '1')
-     ON CONFLICT(discord_id) DO UPDATE SET discord_name = ?2, battletag = ?3, bnet_conn_id = ?4, linked_at = ?5`,
+    `INSERT INTO members (discord_id, discord_name, battletag, bnet_conn_id, linked_at,activity_at)
+     SELECT ?1, ?2, ?3, ?4, ?5,?5 WHERE EXISTS (SELECT 1 FROM site_settings WHERE key = ?6 AND value = '1')
+     ON CONFLICT(discord_id) DO UPDATE SET discord_name = ?2, battletag = ?3, bnet_conn_id = ?4, linked_at = ?5,activity_at=MAX(COALESCE(activity_at,0),?5)`,
   )
     .bind(me.id, me.global_name ?? me.username, battletag, connId, linkedAt, BNET_SWITCH_KEY)
     .run();

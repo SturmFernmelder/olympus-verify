@@ -37,6 +37,7 @@ import type { Env } from "./env";
 import { intVar } from "./env";
 import { audit, now } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
+const durableServingRoles=(env:Env)=>env.QR_PHASE1_ENABLED==='true'||env.PRIVACY_ERASURE_ENABLED==='true';
 
 export const blockingRoleIds = (env: Env): string[] =>
   (env.BLOCKING_ROLE_IDS ?? "")
@@ -123,7 +124,15 @@ export async function budgetExhausted(env: Env, budget: CallBudget, source: stri
  * bookkeeping only: the decision is made on a fresh member read and a fresh ban read, immediately before the write.
  * Throws what addRole throws, so every caller keeps its own failure handling and audit.
  */
-export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget): Promise<GrantOutcome> {
+export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<GrantOutcome> {
+  if(durableServingRoles(env)){
+    // The serving caller passes its ORIGINAL selection/cookie capture. Missing authority is never repaired by reading a new generation.
+    if(!generationCapture)return 'held';
+    try{const central=await import('./role-settlements'),snapshot=await env.DB.prepare('SELECT MAX(id) AS id FROM roster_snapshots').first<{id:number}>();
+      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,generationCapture.subjectGeneration),r=await central.settleRoleIntent(env,operation,false,undefined,budget);
+      return r.state==='settled'?(r.reason==='fresh_server_confirmed'?'has-role':'granted'):r.reason==='role_request_budget'?'budget':'held';
+    }catch{return 'held';}
+  }
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return "no-role";
   // .95: the whole grant reserved before its first request: the inventory read when it is due, the fresh look, the PUT and
@@ -199,6 +208,7 @@ export const reapplyHeld = async (env: Env, userId: string): Promise<boolean> =>
  * role by hand: the account may have no roster character left for the sweep to visit, and the hold keeps it from coming back.
  */
 export async function revokeForReapply(env: Env, userId: string, source: string): Promise<"removed" | "not-held" | "failed"> {
+  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'rename_hold');return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return "not-held";
   let m: Awaited<ReturnType<typeof guildMember>>;
@@ -217,6 +227,7 @@ export async function revokeForReapply(env: Env, userId: string, source: string)
 
 /** .114: remove Guild Member from an account under a reapply hold; a failure is recorded as pending for the sweep's reconciliation. */
 async function revokeHeld(env: Env, userId: string, role: string, source: string, budget?: CallBudget): Promise<boolean> {
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'rename_hold',budget)).state==='settled';}
   try {
     await removeRole(env, userId, role, "olympus-verify: a rename Blizzard required; the account applies again", budget, true);
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_hold" : "role.revoked_reapply", userId, { source });
@@ -232,6 +243,7 @@ async function revokeHeld(env: Env, userId: string, role: string, source: string
  * reconciliation (restore.ts) retries it on its next run, and a 403 there stops that run like any other grant failure.
  */
 export async function revokeForBan(env: Env, userId: string, role: string, source: string, budget?: CallBudget): Promise<boolean> {
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'ban',budget)).state==='settled';}
   try {
     await removeRole(env, userId, role, "olympus-verify: banned from verifying; Guild Member removed", budget, true); // .95: mandatory: its retry is never refused
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_ban" : "role.revoked_banned", userId, { source });
@@ -299,6 +311,7 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
 
 /** While a blocking role is held, Guild Member is taken away. Returns the blocking role id when it did, else null. */
 export async function removeIfBlocked(env: Env, userId: string, roles: readonly string[], source: string, budget?: CallBudget): Promise<string | null> {
+  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'blocking_role',budget);return r.state==='settled'?'current-server-restriction':null;}
   const role = env.ROLE_GUILD_MEMBER;
   if (!role || !roles.includes(role)) return null;
   const blocker = heldBlockingRole(env, roles);
@@ -318,6 +331,21 @@ const cacheKey = (env: Env) => `${env.GUILD_ID}|${env.ROLE_GUILD_MEMBER}|${block
 export const forgetRolesCheck = () => {
   cache = null;
 };
+
+/** New durable writer: privacy job proof, CAS dispatch and SQL-confirmable absence receipt. */
+export async function settleAccountErasureMemberRole(env:Env,proof:import('./role-settlements').ErasureProof) {
+  return (await import('./role-settlements')).settleErasure(env,proof);
+}
+/** Departure authority is the original capture plus current last-character roster absence, never an erasure proof. */
+export async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget) {
+  return (await import('./role-settlements')).settleGuildDepartureRole(env,subject,capture,budget);
+}
+export async function reconcileAccountErasureRoleDebt(env:Env,proof:import('./role-settlements').ErasureProof) {
+  return (await import('./role-settlements')).reconcileAccountErasureRoleDebt(env,proof);
+}
+export const accountErasureRoleSettledSql=`EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.subject=?2 AND r.subject_generation=?3 AND r.request_digest=?4
+ AND r.purpose='account_erasure' AND r.desired=0 AND r.state='settled' AND r.reason IN('absent','removed')
+ AND r.checked_at<=CAST(strftime('%s','now') AS INTEGER) AND r.checked_at>CAST(strftime('%s','now') AS INTEGER)-60)`;
 
 /** The valid ten-minute copy of the guild's roles for this configuration, or null. */
 const cachedSnapshot = (env: Env) => {

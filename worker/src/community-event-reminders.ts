@@ -5,7 +5,9 @@
 import type { Env } from "./env";
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, organizerIds, communityFeatures, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
-import { contentOf, destination, discord, eventDiscordMemberPresent, exactContent, knownRefusal, ownMessage, qualifyDestination } from "./community-event-delivery";
+import { privacyGenerationLiteralFenceSql, privacyProviderCustodyDatabase } from "./privacy-serving-authority";
+import { registerServingPrivacyFamilies } from './privacy-business-catalog';
+import { eventAdoptedCustody, type EventCustodyProof, contentOf, destination, discord, eventDiscordMemberPresent, exactContent, knownRefusal, ownMessage, qualifyDestination } from "./community-event-delivery";
 import { secondsToIso } from "./community-time";
 
 const ID = /^[A-Za-z0-9_-]{22}$/;
@@ -14,7 +16,8 @@ interface Reminder {
   event_id: string; event_revision: number; starts_at: number; actor: string | null; consent_version: number | null;
   guild_id: string; channel_id: string; host: string; op_id: string; claim_nonce: string | null;
   state: "armed" | "claimed" | "posted" | "refused" | "unknown" | "cancelled" | "removed";
-  message_id: string | null; frozen_content: string | null; cleanup_requested: number; retain_until: number; expired?: number;
+  message_id: string | null; frozen_content: string | null; cleanup_requested: number; retain_until: number;
+  created_at: number; updated_at: number; last_attempt_at: number; expired?: number; privacy_generation?: string | null;
 }
 const enabled = (env: Env) => env.EVENT_DISCORD_REMINDERS === "on" && env.EVENT_DISCORD_DELIVERY === "on" && communityFeatures(env).has("events");
 const organizers = (env: Env) => {
@@ -109,18 +112,31 @@ export async function eventReminderConsent(request: Request, env: Env, ctx: Comm
 export async function runEventReminders(env: Env): Promise<number> {
   if (!enabled(env)) return 0;
   const d = destination(env); if (!d) return 0;
-  const r = await env.DB.prepare(`SELECT r.* FROM community_event_reminders r WHERE r.state='armed' AND ${current} ORDER BY r.last_attempt_at,r.starts_at,r.event_id LIMIT 1`).first<Reminder>();
+  const r = await env.DB.prepare(`SELECT r.*,(SELECT generation FROM privacy_subjects WHERE subject_id=r.actor) AS privacy_generation FROM community_event_reminders r WHERE r.state='armed' AND ${current} ORDER BY r.last_attempt_at,r.starts_at,r.event_id LIMIT 1`).first<Reminder>();
   if (!r) return 0;
-  await env.DB.prepare(`UPDATE community_event_reminders SET last_attempt_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?2`).bind(r.event_id, r.op_id).run();
+  const rotated = await env.DB.prepare(`UPDATE community_event_reminders SET last_attempt_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?2 RETURNING last_attempt_at`)
+    .bind(r.event_id, r.op_id).first<{ last_attempt_at: number }>();
+  if (!rotated) return 0;
   if (!r.actor || r.guild_id !== d.guild || r.channel_id !== d.channel || r.host !== d.host || !r.frozen_content) return 0;
   const bot = await qualifyDestination(env, d);
   if (!bot || !(await eventDiscordMemberPresent(env, r.actor, d.guild))) return 0;
   const nonce = randomToken(), ids = organizers(env);
-  const claim = await env.DB.prepare(`UPDATE community_event_reminders AS r SET state='claimed',claim_nonce=?3,updated_at=${DB_NOW} WHERE event_id=?1 AND state='armed' AND op_id=?4 AND ${current} AND ${authority}`)
-    .bind(r.event_id, ids, nonce, r.op_id).run();
-  if (claim.meta.changes !== 1) return 0;
-  // HTTP prerequisite reads yielded: final current consent/account/event/config checks precede the one effect.
-  const proof = await env.DB.prepare(`SELECT 1 AS ok FROM community_event_reminders r WHERE event_id=?1 AND state='claimed' AND claim_nonce=?3 AND ${current} AND ${authority}`).bind(r.event_id, ids, nonce).first<{ ok: number }>();
+  // Consume the selected consent, not a replacement row or a newly active generation after HTTP awaits.
+  // All stored fields stay exact except this invocation's rotation timestamp and claimed state/nonce/time.
+  const selected = `r.op_id=?4 AND r.actor IS ?5 AND r.consent_version IS ?6 AND r.event_revision=?7 AND r.starts_at=?8
+    AND r.guild_id=?9 AND r.channel_id=?10 AND r.host=?11 AND r.message_id IS ?12 AND r.frozen_content IS ?13
+    AND r.cleanup_requested=?14 AND r.retain_until=?15 AND r.created_at=?16 AND r.last_attempt_at=?17 AND r.updated_at=?18
+    AND ${privacyGenerationLiteralFenceSql("r.actor", r.privacy_generation ?? null)}`;
+  const selectedValues = (updatedAt: number) => [r.event_id, ids, nonce, r.op_id, r.actor, r.consent_version,
+    r.event_revision, r.starts_at, r.guild_id, r.channel_id, r.host, r.message_id, r.frozen_content,
+    r.cleanup_requested, r.retain_until, r.created_at, rotated.last_attempt_at, updatedAt];
+  const claim = await env.DB.prepare(`UPDATE community_event_reminders AS r SET state='claimed',claim_nonce=?3,updated_at=${DB_NOW}
+    WHERE event_id=?1 AND state='armed' AND claim_nonce IS ?19 AND ${selected} AND ${current} AND ${authority} RETURNING updated_at`)
+    .bind(...selectedValues(r.updated_at), r.claim_nonce).first<{ updated_at: number }>();
+  if (!claim) return 0;
+  // Reconsume the same selected row and generation after claim; no fresh authority is adopted before POST.
+  const proof = await env.DB.prepare(`SELECT 1 AS ok FROM community_event_reminders r WHERE event_id=?1 AND state='claimed'
+    AND claim_nonce=?3 AND ${selected} AND ${current} AND ${authority}`).bind(...selectedValues(claim.updated_at)).first<{ ok: number }>();
   if (!proof || !enabled(env) || JSON.stringify(destination(env)) !== JSON.stringify(d)) {
     await env.DB.prepare(`UPDATE community_event_reminders SET state='cancelled',updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?2 AND state='claimed'`).bind(r.event_id, nonce).run(); return 0;
   }
@@ -132,12 +148,43 @@ export async function runEventReminders(env: Env): Promise<number> {
       pointer = sent.value.id; if (exactContent(sent.value, r.frozen_content)) state = "posted";
     }
   } catch { /* unknown transport/redirect/abort/body result stays held; no automatic resend */ }
-  await env.DB.batch([
-    env.DB.prepare(`UPDATE community_event_reminders AS r SET message_id=COALESCE(?4,message_id),state=CASE WHEN ?3='posted' AND (${current}) AND (${authority}) THEN 'posted' WHEN ?3='posted' THEN 'unknown' ELSE ?3 END,
-      updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?5 AND state IN('claimed','unknown')`).bind(r.event_id, ids, state, pointer, nonce),
-    env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ${DB_NOW},'cron','community.event_reminder_delivery',?1,?2 WHERE changes()=1`).bind(r.event_id, JSON.stringify({ result: state })),
+  const db = privacyProviderCustodyDatabase(env), custody: EventCustodyProof = {
+    eventId: r.event_id, revision: r.event_revision, startsAt: r.starts_at, opId: r.op_id, nonce,
+    guild: r.guild_id, channel: r.channel_id, pointer: r.message_id, retainUntil: r.retain_until };
+  const originalAuthority = `(${authority}) AND r.actor=?14 AND r.consent_version=?15 AND ${privacyGenerationLiteralFenceSql("r.actor", r.privacy_generation ?? null)}`;
+  await db.batch([
+    db.prepare(`UPDATE community_event_reminders AS r SET message_id=COALESCE(?4,message_id),state=CASE WHEN ?3='posted' AND (${current}) AND (${originalAuthority}) THEN 'posted' WHEN ?3='posted' THEN 'unknown' ELSE ?3 END,
+      cleanup_requested=CASE WHEN ?4 IS NOT NULL AND NOT((${current}) AND (${originalAuthority})) THEN 1 ELSE cleanup_requested END,
+      updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?5 AND op_id=?6 AND guild_id=?7 AND channel_id=?8 AND host=?9
+        AND event_revision=?10 AND starts_at=?11 AND retain_until<=?12 AND (message_id IS ?13 OR message_id=?4) AND state IN('claimed','unknown')`)
+      .bind(r.event_id, ids, state, pointer, nonce, r.op_id, r.guild_id, r.channel_id, r.host, r.event_revision, r.starts_at, r.retain_until, r.message_id, r.actor, r.consent_version),
+    db.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ${DB_NOW},'cron','community.event_reminder_delivery',?1,?2 WHERE changes()=1`).bind(r.event_id, JSON.stringify({ result: state })),
+    eventAdoptedCustody(db, "event_reminder", custody, state as "posted" | "refused" | "unknown", pointer),
   ]);
   return state === "posted" ? 1 : 0;
+}
+
+/** Qualified GET/DELETE result settlement only; neither starts nor renews an effect. */
+async function settleReminderMessage(env: Env, ctx: CommunityContext, r: Reminder, nonce: string,
+  state: "posted" | "unknown" | "removed", messageId: string) {
+  const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+  const db = privacyProviderCustodyDatabase(env), custody: EventCustodyProof = {
+    eventId: r.event_id, revision: r.event_revision, startsAt: r.starts_at, opId: r.op_id, nonce,
+    guild: r.guild_id, channel: r.channel_id, pointer: r.message_id, retainUntil: r.retain_until };
+  const stillCurrent = `cleanup_requested=0 AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=?1 AND e.reminder_closed=0
+    AND e.revision=?8 AND e.starts_at=?9 AND e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.retain_until>${DB_NOW}
+    AND (e.created_by=?11 OR ?14=1)) AND ${fenceSql("confirmedGuildData", 11, 12, 13, s.privacyGeneration ?? null)}`;
+  await db.batch([
+    db.prepare(`UPDATE community_event_reminders SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE ?4 END,
+      state=CASE WHEN ?3='posted' AND NOT(${stillCurrent}) THEN 'unknown' ELSE ?3 END,
+      frozen_content=CASE WHEN ?3='removed' THEN NULL ELSE frozen_content END,
+      cleanup_requested=CASE WHEN ?3='removed' THEN 0 WHEN ?3='posted' AND NOT(${stillCurrent}) THEN 1 ELSE cleanup_requested END,updated_at=${DB_NOW}
+      WHERE event_id=?1 AND claim_nonce=?2 AND op_id=?5 AND guild_id=?6 AND channel_id=?7 AND event_revision=?8 AND starts_at=?9
+        AND retain_until<=?10 AND host=?15 AND (message_id IS ?16 OR message_id=?4) AND state IN('claimed','unknown')`)
+      .bind(r.event_id, nonce, state, messageId, r.op_id, r.guild_id, r.channel_id, r.event_revision, r.starts_at, r.retain_until,
+        s.discordId, s.sessionVersion, s.expiresAt, staff, r.host, r.message_id),
+    eventAdoptedCustody(db, "event_reminder", custody, state as "posted" | "unknown" | "removed", messageId),
+  ]);
 }
 
 export async function eventReminderMessage(request: Request, env: Env, ctx: CommunityContext, remove = false) {
@@ -156,6 +203,12 @@ export async function eventReminderMessage(request: Request, env: Env, ctx: Comm
   const messageId = remove ? r.message_id! : v.messageId as string;
   const found = await discord(env, "GET", `/channels/${d.channel}/messages/${messageId}`);
   if (!(remove && found.status === 404) && (found.status !== 200 || !ownMessage(found.value, d, bot) || found.value.id !== messageId || (!remove && (!exactContent(found.value, r.frozen_content) || (!r.message_id && found.value.nonce !== r.claim_nonce))))) return answer(request, env, ctx, v.eventId, "reminder_custody_unqualified");
+  if (!remove) {
+    // The original admitted read and exact provider GET already proved this claim's custody.
+    // A replacement session cannot authorize another effect; late recording still preserves the pointer.
+    await settleReminderMessage(env, ctx, r, r.claim_nonce, "posted", messageId);
+    return answer(request, env, ctx, r.event_id);
+  }
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0, nonce = randomToken();
   const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_reminders SET claim_nonce=?5,state='claimed',message_id=COALESCE(message_id,?9),updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?6 AND op_id=?7 AND state IN('claimed','unknown','posted')
     AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?8=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4)}`)
@@ -169,9 +222,7 @@ export async function eventReminderMessage(request: Request, env: Env, ctx: Comm
     state = "unknown";
     try { if (found.status === 404) state = "removed"; else { const deleted = await discord(env, "DELETE", `/channels/${d.channel}/messages/${messageId}`); if (deleted.status === 204 || deleted.status === 404) state = "removed"; } } catch { /* preserve deletion debt */ }
   }
-  await env.DB.prepare(`UPDATE community_event_reminders SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE ?4 END,state=CASE WHEN ?3='posted' AND cleanup_requested=1 THEN 'unknown' ELSE ?3 END,
-    frozen_content=CASE WHEN ?3='removed' THEN NULL ELSE frozen_content END,cleanup_requested=CASE WHEN ?3='removed' THEN 0 ELSE cleanup_requested END,updated_at=${DB_NOW}
-    WHERE event_id=?1 AND claim_nonce=?2 AND state IN('claimed','unknown')`).bind(r.event_id, nonce, state, messageId).run();
+  await settleReminderMessage(env, ctx, { ...r, message_id: messageId }, nonce, state as "posted" | "unknown" | "removed", messageId);
   return answer(request, env, ctx, r.event_id);
 }
 
@@ -199,3 +250,7 @@ registerCommunityData("event_reminders", (env, who) => [env.DB.prepare(`UPDATE c
   WHERE actor=?1`).bind(who)],
   (env, who) => ({ statements: [env.DB.prepare("SELECT event_id,event_revision,state,starts_at,created_at,retain_until FROM community_event_reminders WHERE actor=?1 ORDER BY event_id").bind(who)],
     shape: ([rows]) => ({ reminders: (rows!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, revision: r.event_revision, state: r.state, startsAt: secondsToIso(r.starts_at as number), createdAt: secondsToIso(r.created_at as number), retainUntil: secondsToIso(r.retain_until as number) })) }) }));
+registerServingPrivacyFamilies('event_reminders',[
+  {table:'community_event_reminders',columns:'event_id,event_revision,starts_at,actor,consent_version,guild_id,channel_id,host,op_id,claim_nonce,state,message_id,frozen_content,cleanup_requested,created_at,updated_at,last_attempt_at,retain_until'},
+  {table:'community_events',columns:'id,op_id,op_hash,title,details,starts_at,duration_min,ends_at,capacity,role_targets,status,created_by,revision,signup_generation,attendance_generation,nonce,attendance_nonce,publication_closed,reminder_closed,created_at,updated_at,retain_until'},
+]);

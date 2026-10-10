@@ -89,6 +89,7 @@ import {
   periodStart,
 } from "./community-contribution-policy";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
+import { privacyGenerationFenceSql } from "./privacy-serving-authority";
 
 const SOURCES = ["officer_manual", "mail", "bank_log"] as const;
 const STATUSES = ["matched", "unmatched", "disputed", "rejected"] as const;
@@ -236,7 +237,7 @@ function parseRevision(token: LedgerRevision): { incarnation: string; revision: 
  * the server. The same fence for a member acknowledging and for a staff member recording.
  */
 export type SessionFence = CommunitySubject;
-const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos)}` : "");
+const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos,fence.privacyGeneration??null)}` : "");
 const fenceBinds = (fence: SessionFence | undefined) => (fence ? [fence.discordId, fence.sessionVersion, fence.expiresAt] : []);
 
 /** A new member row gets a fresh random incarnation; an existing one keeps its incarnation and bumps its revision; only when this request's obligation row was inserted. */
@@ -247,7 +248,7 @@ const bumpMemberFor = (env: Env, guildScope: string, id: string, at: number, opN
      ON CONFLICT(guild_scope, discord_id) DO UPDATE SET revision = revision + 1, updated_at = ?3`,
   ).bind(guildScope, id, at, randomToken(), opNonce);
 
-type ObligationInput = { guildScope: string; discordId: string; periodStart: number; eligible: boolean; policy?: ContributionPolicy; fence?: SessionFence; proof?: { firstLogin: number; sessionVersion: number } };
+type ObligationInput = { guildScope: string; discordId: string; periodStart: number; eligible: boolean; policy?: ContributionPolicy; fence?: SessionFence; proof?: { firstLogin: number; sessionVersion: number; privacyGeneration: string | null } };
 
 /** One obligation per member and week under a pinned policy version; an existing week is returned unchanged. */
 export async function createObligation(env: Env, input: ObligationInput, at = now()): Promise<{ id: number; created: boolean }> {
@@ -278,10 +279,11 @@ async function openObligation(env: Env, input: ObligationInput, at: number, ensu
     ? ` AND EXISTS (SELECT 1 FROM site_users pu WHERE pu.discord_id = ?2 AND pu.first_login = ?${11 + fb} AND pu.session_version = ?${12 + fb})
         AND EXISTS (SELECT 1 FROM characters pc WHERE pc.discord_id = ?2 AND pc.status = 'member')
         AND (SELECT MIN(pa.member_since) FROM characters pa WHERE pa.discord_id = ?2 AND pa.status = 'member' AND typeof(pa.member_since) = 'integer' AND pa.member_since > 0) IS NOT NULL
+        AND ${privacyGenerationFenceSql(2, 14 + fb)}
         AND ?7 = (CASE WHEN (SELECT MIN(pa.member_since) FROM characters pa WHERE pa.discord_id = ?2 AND pa.status = 'member' AND typeof(pa.member_since) = 'integer' AND pa.member_since > 0) + ?${13 + fb} <= ?3 THEN 1 ELSE 0 END)`
     : "";
-  const proofBinds = input.proof ? [input.proof.firstLogin, input.proof.sessionVersion, policy.newMemberExemptDays * DAY] : [];
-  // ?1 scope, ?2 member, ?3 period, ?4 due, ?5 version, ?6 amount, ?7 eligible, ?8 now, ?9 retain, ?10 opNonce, ?11.. the fence, then the proof (first login, session version, the exemption in seconds)
+  const proofBinds = input.proof ? [input.proof.firstLogin, input.proof.sessionVersion, policy.newMemberExemptDays * DAY, input.proof.privacyGeneration] : [];
+  // ?1 scope, ?2 member, ?3 period, ?4 due, ?5 version, ?6 amount, ?7 eligible, ?8 now, ?9 retain, ?10 opNonce, ?11.. the fence, then the proof (first login, session version, exemption seconds, original generation or absence)
   const [inserted] = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO ${T}obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, retain_until, op_nonce, created_at, updated_at)
@@ -746,7 +748,7 @@ export async function attestEvidence(env: Env, input: { guildScope: string; peri
 
 /** Why the fence refuses now, if it does, judged by the database clock and facts in SQL (.80): the session ended (session_expired), or the actor lost standing (denied, left the server: standing_lost). */
 export async function fenceRefusal(env: Env, fence: SessionFence): Promise<"session_expired" | "standing_lost" | null> {
-  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
+  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3,fence.privacyGeneration??null)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3,fence.privacyGeneration??null)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
   if (row?.session_ok !== 1) return "session_expired";
   if (row.standing_ok !== 1) return "standing_lost";
   return null;
@@ -982,6 +984,34 @@ export function contributionExportPlan(env: Env, id: string): { statements: D1Pr
     shape: ([obligations, receipts]) => shapeExport(obligations!, receipts!),
   };
 }
+
+/** Pure identify-copy constructors. No execution, admission, mutation or renewal of ledger lifetimes. */
+export function ownContributionHistorySource(kind: 'obligations' | 'receipts'): string {
+  if (kind === 'obligations') return `SELECT o.rowid AS __history_id,0 AS __history_at,o.guild_scope,o.period_start,o.due_at,o.policy_version,o.amount_copper,o.eligible,o.state,
+    o.acknowledged_at,o.officer_contact_at,o.final_notice_at,o.final_acknowledged_at,o.final_officer_contact_at,
+    ${gatedSumSql(weekJournal('o.id'))} AS paid,${magnitudeSql(weekJournal('o.id'))} AS paid_magnitude
+    FROM ${T}obligations o WHERE o.discord_id=?1 AND ${LIVE_WEEK('o')}`;
+  const raw = `SELECT r.rowid AS __history_id,0 AS __history_at,r.guild_scope,r.source,r.amount_copper,r.retired_copper,r.observed_at,r.status,r.voided_at,(r.retain_until<=${DB_NOW}) AS expired,
+    ${gatedSumSql(receiptJournal('r.id'))} AS allocated,${magnitudeSql(receiptJournal('r.id'))} AS allocated_magnitude
+    FROM ${T}receipts r WHERE r.matched_discord_id=?1`;
+  // Count only the established emitted relationship. Malformed/overflow rows remain visible to the refusing projector.
+  return `SELECT * FROM (${raw}) WHERE expired=0 OR allocated>0 OR allocated_magnitude>${SAFE_REAL}
+    OR typeof(amount_copper)<>'integer' OR ABS(amount_copper)>${MAX_COPPER_TOTAL}
+    OR typeof(retired_copper)<>'integer' OR ABS(retired_copper)>${MAX_COPPER_TOTAL}`;
+}
+export function projectOwnContributionHistory(kind: 'obligations' | 'receipts', row: Record<string, unknown>): Record<string, unknown> {
+  const result = { results: [row] } as unknown as D1Result, empty = { results: [] } as unknown as D1Result;
+  const shaped = shapeExport(kind === 'obligations' ? result : empty, kind === 'receipts' ? result : empty);
+  if (shaped.error) throw new Error('privacy_contribution_projection_refused');
+  const rows = shaped[kind] as Record<string, unknown>[];
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('privacy_contribution_projection_refused');
+  return rows[0]!;
+}
+/** Same four actor forms recognized by erasure; raw/user forms cover retained legacy records. */
+export function ownContributionCopyDecisionSource():string {
+  const actor="(actor=?1 OR actor='user:'||?1 OR actor='member:'||?1 OR actor='staff:'||?1)";
+  return `SELECT id,at,action,retain_until,(discord_id=?1) AS own_subject,${actor} AS own_actor FROM ${T}decisions WHERE (discord_id=?1 OR ${actor}) AND retain_until>${DB_NOW}`;
+}
 function shapeExport(obligations: D1Result, receipts: D1Result): Record<string, unknown> {
   const iso = (s: unknown) => (typeof s === "number" ? new Date(s * 1000).toISOString() : null);
   try {
@@ -1044,20 +1074,22 @@ export async function openWeeklyObligations(env: Env, at = now(), limit: number 
   const guildScope = contributionScope(env);
   const start = periodStart(at, policy);
   const rows = await env.DB.prepare(
-    `SELECT c.discord_id, MIN(c.member_since) AS joined, u.first_login, u.session_version FROM characters c JOIN site_users u ON u.discord_id = c.discord_id
+    `SELECT c.discord_id, MIN(c.member_since) AS joined, u.first_login, u.session_version, ps.generation AS privacy_generation
+     FROM characters c JOIN site_users u ON u.discord_id = c.discord_id LEFT JOIN privacy_subjects ps ON ps.subject_id = c.discord_id
      WHERE c.status = 'member' AND typeof(c.member_since) = 'integer' AND c.member_since > 0
+       AND (ps.subject_id IS NULL OR ps.state = 'active')
        AND length(c.discord_id) BETWEEN 17 AND 20 AND c.discord_id NOT GLOB '*[^0-9]*'
        AND NOT EXISTS (SELECT 1 FROM ${T}obligations o WHERE o.guild_scope = ?1 AND o.discord_id = c.discord_id AND o.period_start = ?2)
      GROUP BY c.discord_id ORDER BY c.discord_id LIMIT ?3`,
-  ).bind(guildScope, start, cap).all<{ discord_id: string; joined: number; first_login: number; session_version: number }>();
+  ).bind(guildScope, start, cap).all<{ discord_id: string; joined: number; first_login: number; session_version: number; privacy_generation: string | null }>();
   let policyOnce: Promise<void> | null = null;
   const ensureOnce = () => (policyOnce ??= ensurePolicy(env, policy, at));
   let n = 0;
   for (const r of rows.results) {
     if (!DISCORD_ID.test(r.discord_id)) continue; // kept as a second guard; the scan above already leaves these out
     try {
-      // .78: the account's incarnation as read and a roster-confirmed character NOW are re-stated at the insert (the .76 departures pattern)
-      const { created } = await openObligation(env, { guildScope, discordId: r.discord_id, periodStart: start, eligible: firstEligiblePeriod(r.joined, policy) <= start, policy, proof: { firstLogin: r.first_login, sessionVersion: r.session_version } }, at, ensureOnce);
+      // The original account and privacy generation (including absence) stay fixed across policy awaits; current roster eligibility is re-stated in the insert.
+      const { created } = await openObligation(env, { guildScope, discordId: r.discord_id, periodStart: start, eligible: firstEligiblePeriod(r.joined, policy) <= start, policy, proof: { firstLogin: r.first_login, sessionVersion: r.session_version, privacyGeneration: r.privacy_generation } }, at, ensureOnce);
       if (created) n++;
     } catch (e) {
       if (!(e instanceof ContributionError && e.code === "proof_changed")) throw e; // the account was erased/recreated or lost its roster proof since the scan: nothing recorded

@@ -99,6 +99,7 @@ const commands = [
     options: [{ type: STRING, name: "character", autocomplete: true, description: "Optional: only this character may use the code", required: false, max_length: 32 }],
   },
   { name: "verify-status", description: "Show your verified characters and your Olympus access" },
+  { name: "olympus-qr", description: "Get a ten-minute code to whisper to a qualified High Councillor" },
   {
     name: "olympus-admin",
     description: "Officer tools for the verification bot",

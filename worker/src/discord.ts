@@ -244,10 +244,15 @@ export async function staffNotice(env: Env, payload: unknown, kind: string): Pro
   }
 }
 
-export async function logLine(env: Env, text: string) {
+export async function logLine(env: Env, text: string, references?:import('./db').PrivacyReference[]) {
   if (!env.CHANNEL_SERVER_LOG) return;
   try {
-    await postMessage(env, env.CHANNEL_SERVER_LOG, { content: text.slice(0, 1900), allowed_mentions: { parse: [] } });
+    const body={content:text.slice(0,1900),allowed_mentions:{parse:[]}};
+    if(references?.length){
+      const {postPrivacyMessage,messageOperationId}=await import('./privacy-provider-messages');
+      const operationId=await messageOperationId('guild_log',JSON.stringify({text:body.content,subjects:references.map(r=>({id:r.subject,g:r.capture?.subjectGeneration??null}))}));
+      await postPrivacyMessage(env,'guild_log',env.CHANNEL_SERVER_LOG,body,references,operationId);
+    }else await postMessage(env,env.CHANNEL_SERVER_LOG,body);
   } catch {
     /* logging must never break the flow */
   }

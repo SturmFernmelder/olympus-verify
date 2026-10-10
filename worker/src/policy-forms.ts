@@ -7,10 +7,27 @@ import { ACTION_CURSOR_LIMIT, actionCursorShape, EVENT_CHANGE_CURSOR_LIMIT, even
 import { escapeText as e, htmlResponse } from "./policy-render";
 import { field, FormError, formCookie, formNonce, formToken, hidden, randomCode, readForm, requireFormToken, type FormPurpose } from "./policy-form-core";
 import { privacyIdentityRoute } from "./privacy-identity";
+import "./privacy-access-data";
+import { beginPrivacyAccess, finishPrivacyAccess, privacyAccessPage, privacyAccessRefusal } from "./privacy-access";
+import { exportPrivacyAccess } from "./privacy-access-export";
+import { erasePrivacyAccess } from "./privacy-access-erasure";
+import { requestServingErasure, erasureRequestStatus, type ErasureRequestResult } from './privacy-serving-authority';
 
 const ID = /^[A-Za-z0-9_-]{22}$/, CODE = /^[A-Za-z0-9_-]{43}$/;
 const CASE_FIELDS = ["csrf", "caseId", "caseCode", "before"] as const;
-const controls = `<section class="data-controls"><h2>Privacy and account data</h2><p><a href="/privacy/account">Account data controls</a> · <a href="/privacy/contact">Contact the privacy inbox</a> · <a href="/privacy/case">Read an existing case</a></p></section>`;
+const controls = `<section class="data-controls"><h2>Privacy and account data</h2><p><a href="/privacy/account">Account data controls</a> · <a href="/privacy/contact">Account help</a> · <a href="/privacy/case">Read an existing case</a></p></section>`;
+const erasurePaused = '<p>Automatic serving-account erasure is temporarily paused while Olympus checks older account records. Downloads and checks of existing erasure requests remain available. Ask an Olympus officer for attended help. Reconnecting Discord does not enable erasure.</p>';
+function erasureRequest(request:Request):Request {
+ const headers=new Headers(request.headers);headers.set('X-Olympus',PAGE_VERSION);
+ return new Request(new URL('/api/me/erasure',request.url),{method:'POST',headers});
+}
+async function erasureStatusForm(env:Env,nonce:string,operationId='',statusToken=''):Promise<string>{
+ return `<form method="post" action="/privacy/account/erasure-status">${hidden('csrf',await formToken(env,nonce,'erasure-status'))}<label>Erasure request ID<input name="operationId" value="${e(operationId)}" required pattern="[a-f0-9]{32}" maxlength="32" autocomplete="off"></label><label>Private status code (optional while the original session is current)<textarea name="statusToken" maxlength="1024" rows="3" autocomplete="off">${e(statusToken)}</textarea></label><button type="submit">Check my erasure request</button></form>`;
+}
+async function showErasureStatus(request:Request,env:Env,nonce:string,operationId:string,status:ErasureRequestResult|null):Promise<Response>{
+ const body=status?`<p>Request <code>${e(operationId)}</code>: <strong>${e(status.state)}</strong>.</p><p>${status.state==='complete'?'Serving account records were erased after the bot-managed Guild Member role was confirmed absent.':'The request is queued or held; account erasure is not complete.'}</p><p>Manually assigned staff roles are human-managed. External Discord cleanup has ${e(status.externalCleanup.known)} known pointer(s), ${e(status.externalCleanup.unknown)} unknown outcome(s), and ${e(status.externalCleanup.expiredUnresolved)} unresolved record(s) past their original deadline. Unknown or expired unresolved custody can need attended resolution; it is not silently marked erased. Private recovery exports and Cloudflare recovery history have separate custody. This result does not mean every copy was erased.</p><p>Save this private status code; it can read only this request until its original deadline, without restoring account access. A held request that reaches that deadline needs attended resolution; its authority is not renewed.</p><pre>${e(status.statusToken)}</pre>`:`<p>The service could not confirm this request. Keep the same request ID and check again; do not submit a different erasure request to resolve a lost response.</p>`;
+ return htmlResponse(request,'Account erasure status',body+await erasureStatusForm(env,nonce,operationId,status?.statusToken??'')+controls,status?200:503,formCookie(nonce));
+}
 function credentials(f: Readonly<Record<string, string>>) {
   const caseId = field(f, "caseId", 22, true, true), caseCode = field(f, "caseCode", 43, true, true);
   if (!ID.test(caseId) || !CODE.test(caseCode)) throw new FormError("invalid_form");
@@ -106,33 +123,56 @@ async function showContributionDecisions(request: Request, env: Env, nonce: stri
 
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
-  let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. The separate account connection for privacy requests is not available yet.</p>`;
+  let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. ${env.PRIVACY_ACCESS_ENABLED === 'true' ? '<a href="/privacy/access">Connect Discord for privacy actions</a>, including without a current website account or server membership.' : 'The separate account connection for privacy requests is not available yet.'}</p>`;
+  if(env.PRIVACY_ERASURE_ENABLED!=='true')body+=erasurePaused;
   if (user) {
     const b = `${user.discord_id}:${user.session_version}`;
     body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
     body += `<h2>My event-change history</h2><p>Only retained changes recorded with your account as actor are included. These controls share the same five-read hourly budget with the action form above.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:event_changes`))}${hidden("collection", "event_changes")}<label>Saved event-change continuation (optional)<input name="eventChanges" maxlength="${EVENT_CHANGE_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my event-change page in curated copy</button><button name="mode" value="history" type="submit">View my event-change history</button></form>`;
     body += `<h2>My contribution-decision history</h2><p>Retained decisions name your account as subject or explicitly record it as a member/staff actor. Only action, time and your relation are included. These controls share the same five-read hourly budget with the other account forms.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:contribution_decisions`))}${hidden("collection", "contribution_decisions")}<label>Saved contribution-decision continuation (optional)<input name="contributionDecisions" maxlength="${CONTRIBUTION_DECISION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my contribution-decision page in curated copy</button><button name="mode" value="history" type="submit">View my contribution-decision history</button></form>`;
-  } else body += `<p>You have no current site session. <a href="/privacy/signin">Check identify-only sign-in availability</a>. You may contact the inbox without signing in.</p>`;
-  body += `<h2>Deletion and unlink controls</h2><p>Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet. Contact the private inbox to request help from staff. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
-  for (const [action, label] of [["site-erase", "Site-only erasure"], ["full-erase", "Full-tool erasure"], ["bnet-unlink", "Local Battle.net unlink"]] as const) {
-    body += `<form method="post" action="/privacy/account/${action}">${hidden("csrf", await formToken(env, nonce, action))}<button type="submit">Check ${e(label.toLowerCase())} availability</button></form>`;
+  } else body += env.PRIVACY_ACCESS_ENABLED === 'true'
+    ? '<p>You have no current site session. <a href="/privacy/access">Connect your Discord account for privacy actions</a>; this also works without a website account or current server membership.</p>'
+    : '<p>You have no current site session. <a href="/privacy/signin">Check identify-only sign-in availability</a>. You may contact the inbox without signing in.</p>';
+  if(user&&env.PRIVACY_ERASURE_ENABLED==='true'){
+   const operationId=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+   body+=`<h2>Erase my serving account</h2><p>This closes ordinary account access immediately, then removes the bot-managed Guild Member role before erasing serving account records. Staff roles need a human administrator. Active safety cases, unresolved external-message cleanup, and private recovery copies have separate retention. A minimized rejected-application/membership marker may last 12 months from the original rejection; a separate account ID and retired-generation replay record lasts 366 days for restore suppression.</p><p>Save this request ID before submitting: <code>${e(operationId)}</code>.</p><form method="post" action="/privacy/account/full-erase">${hidden('csrf',await formToken(env,nonce,'full-erase',`${user.discord_id}:${user.session_version}`))}${hidden('operationId',operationId)}<label><input type="checkbox" name="confirm" value="erase" required> I request erasure and understand that Guild Member access ends.</label><button type="submit">Request serving account erasure</button></form>`;
   }
+  body+=`<h2>Check an erasure request</h2>${await erasureStatusForm(env,nonce)}`;
+  body += `<h2>Other deletion and unlink controls</h2><p>${env.PRIVACY_ERASURE_ENABLED==='true'?'Serving-account erasure covers the attributable bot and website records. Separate site-only erasure and local Battle.net unlink are not offered here.':'Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.'} Ask an Olympus officer for attended help. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
   return htmlResponse(request, "Account data controls", body + controls, 200, formCookie(nonce));
 }
 
 /** Canonical-site dispatch only (site.ts). Every response, including refusal/HEAD, is no-store/no-transform. */
 export async function handlePolicyForms(request: Request, env: Env, path: string, schemaReady: boolean): Promise<Response | null> {
-  const paths = ["/privacy/contact", "/privacy/case", "/privacy/case/reply", "/privacy/account", "/privacy/account/export", "/privacy/account/site-erase", "/privacy/account/full-erase", "/privacy/account/bnet-unlink", "/privacy/signin", "/privacy/callback"];
+  const paths = ["/privacy/contact", "/privacy/case", "/privacy/case/reply", "/privacy/account", "/privacy/account/export", "/privacy/account/site-erase", "/privacy/account/full-erase", "/privacy/account/erasure-status", "/privacy/account/bnet-unlink", "/privacy/signin", "/privacy/callback", "/privacy/access", "/privacy/access/export", "/privacy/access/erasure"];
   if (!paths.includes(path)) return null;
   if (new URL(request.url).search && path !== "/privacy/callback") return htmlResponse(request, "Request refused", "<p>Use the form without a query string. Private codes must never appear in an address.</p>", 400);
   const m = request.method;
   if (!["GET", "HEAD", "POST"].includes(m)) { const r = htmlResponse(request, "Method not allowed", "<p>Use this page's form.</p>", 405); r.headers.set("Allow", "GET, HEAD, POST"); return r; }
   if (!schemaReady) return htmlResponse(request, "Temporarily unavailable", "<p>The database is updating. No request was submitted.</p>", 503);
+  if (env.PRIVACY_ACCESS_ENABLED === 'true' && ['/privacy/signin','/privacy/callback','/privacy/access','/privacy/access/export','/privacy/access/erasure'].includes(path)) {
+    if (m === 'HEAD' && path === '/privacy/access') return htmlResponse(request,'Privacy account connection','');
+    const expected = path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
+    if (m !== expected) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
+    try {
+      if (path === '/privacy/signin') return await beginPrivacyAccess(request,env);
+      if (path === '/privacy/callback') return await finishPrivacyAccess(request,env);
+      if (path === '/privacy/access/export') return await exportPrivacyAccess(request,env);
+      if (path === '/privacy/access/erasure') return await erasePrivacyAccess(request,env);
+      return await privacyAccessPage(request,env);
+    } catch(error) { return privacyAccessRefusal(request,error); }
+  }
+  if (path.startsWith('/privacy/access')) return htmlResponse(request,'Privacy connection unavailable','<p>This account connection is not enabled.</p>',503);
   if (path === "/privacy/signin" || path === "/privacy/callback") return privacyIdentityRoute(request, env, path);
   if ((path.endsWith("/reply") || path.startsWith("/privacy/account/")) && m !== "POST") { const r = htmlResponse(request, "Method not allowed", "<p>Use the account or case form.</p>", 405); r.headers.set("Allow", "POST"); return r; }
   if (m === "HEAD") return htmlResponse(request, "Privacy controls", "");
   try {
     const nonce = formNonce(request) ?? randomCode();
+    if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED!=='true')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p>'+controls,503);
+    if ((m === 'GET' || m === 'POST') && path === '/privacy/contact' && env.PRIVACY_ACCESS_ENABLED === 'true' && env.PRIVACY_INTAKE_ENABLED !== 'true') {
+      const introduction=env.PRIVACY_ERASURE_ENABLED==='true'?'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records or request serving-account erasure; this grants no guild access.</p>':'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records; this grants no guild access.</p>'+erasurePaused;
+      return htmlResponse(request,'Privacy account controls',introduction+'<p><a href="/privacy/access">Open account data controls</a> · <a href="/privacy/case">Read an existing case</a></p><p>Existing cases keep their original inactivity deadlines. Unattributable text, unresolved provider outcomes and human-managed staff permissions may require attended handling.</p>',m === 'GET' ? 200 : 503);
+    }
     if (m === "GET" && path === "/privacy/contact") {
       if (!communityFeatures(env).has("privacy_intake") || !intakeOpen(env)) return htmlResponse(request, "Contact the privacy inbox", `<p>New requests are paused. Existing cases can still be read.</p>${controls}`, 503);
       const c = Object.freeze({ caseId: randomCode(16), caseCode: randomCode() });
@@ -192,15 +232,29 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       return result;
     }
 
+    if(m==='POST'&&path==='/privacy/account/erasure-status'){
+      const f=await readForm(request,['csrf','operationId','statusToken']);await requireFormToken(env,request,field(f,'csrf',160),'erasure-status');
+      const operationId=field(f,'operationId',32,true,true),token=field(f,'statusToken',1024,false,true);if(!/^[a-f0-9]{32}$/.test(operationId))throw new FormError('invalid_form');
+      const status=await erasureRequestStatus(env,erasureRequest(request),operationId,token||undefined);
+      return showErasureStatus(request,env,nonce,operationId,status);
+    }
+    if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED==='true'){
+      const f=await readForm(request,['csrf','operationId','confirm']),user=await currentUser(env,request);
+      if(!user)throw new FormError('session_unavailable',401);
+      await requireFormToken(env,request,field(f,'csrf',160),'full-erase',`${user.discord_id}:${user.session_version}`);
+      const operationId=field(f,'operationId',32,true,true);if(!/^[a-f0-9]{32}$/.test(operationId)||field(f,'confirm',5,true,true)!=='erase')throw new FormError('invalid_form');
+      const bridge=erasureRequest(request);await requestServingErasure(env,bridge,operationId);
+      return showErasureStatus(request,env,nonce,operationId,await erasureRequestStatus(env,bridge,operationId).catch(()=>null));
+    }
     if (m === "POST" && path.startsWith("/privacy/account/")) {
       const action = path.slice("/privacy/account/".length) as FormPurpose;
       const f = await readForm(request, ["csrf"]); await requireFormToken(env, request, field(f, "csrf", 160), action);
-      return htmlResponse(request, "Account action unavailable", `<section class="receipt"><p>Status: <strong>not performed</strong>. This automatic control is not available yet. Contact the private inbox for staff help. No rows were deleted, no roles changed and no remote connection removed.</p></section>${controls}`, 503);
+      return htmlResponse(request, "Account action unavailable", `<section class="receipt"><p>Status: <strong>not performed</strong>. This automatic control is unavailable. Use <a href="/privacy/contact">Account help</a> for the available controls, or ask an Olympus officer for attended help. No rows were deleted, no roles changed and no remote connection removed.</p></section>${controls}`, 503);
     }
     return htmlResponse(request, "Method not allowed", "<p>Use the form provided on this page.</p>", 405);
   } catch (error) {
     if (error instanceof FormError) return htmlResponse(request, "Request refused", `<p>${e(error.code)}. No account action was performed. Reopen the form and try again.</p>${controls}`, error.status);
     // A lost database response can leave an admitted case/message. Never turn uncertainty into a false rollback claim.
-    return htmlResponse(request, "Outcome not confirmed", `<p>The service could not confirm the outcome. For a case submission or reply, keep the credentials and read the case before retrying. This interface does not perform account deletion.</p>${controls}`, 503);
+    return htmlResponse(request, "Outcome not confirmed", `<p>The service could not confirm the outcome. Keep the saved case credentials or erasure request ID and read its status before retrying.</p>${controls}`, 503);
   }
 }

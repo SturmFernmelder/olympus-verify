@@ -21,6 +21,7 @@
  * records that an officer resolved a week after an in-game removal and may LINK an existing case (community-restrictions.ts).
  */
 import type { Env } from "./env";
+import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
 import { refusal, type CommunityContext } from "./community-context";
@@ -121,7 +122,17 @@ async function withLedger(env: Env, body: Record<string, unknown>, scope: string
   try {
     return apiJson({ ...body, ledger: viewDto(await L.ledgerView(env, scope, id, at, fence), staff) });
   } catch (e) {
-    if (e instanceof L.ContributionError && (e.code === "reader_refused" || e.code === "contribution_overflow")) return apiJson({ ...body, ledger: null, withheld: e.code });
+    if (e instanceof PrivacySiteRequestHeld || e instanceof L.ContributionError && (e.code === "reader_refused" || e.code === "contribution_overflow")) {
+      // The primary mutation has already returned its durable result. Original admission still
+      // controls the fresh read; withholding it must not disclose allocations or credit details.
+      const known = body.result && typeof body.result === 'object' && !Array.isArray(body.result)
+        ? body.result as Record<string, unknown> : {};
+      const result: Record<string, unknown> = {};
+      if (typeof known.status === 'string' && known.status.length <= 64) result.status = known.status;
+      if (typeof known.id === 'string' && /^[A-Za-z0-9_-]{22}$/.test(known.id) || Number.isSafeInteger(known.id) && (known.id as number) > 0) result.id = known.id;
+      if (typeof known.created === 'boolean') result.created = known.created;
+      return apiJson({ ok: body.ok === true, result, ledger: null, withheld: e instanceof PrivacySiteRequestHeld ? 'reader_refused' : e.code });
+    }
     throw e;
   }
 }
@@ -165,7 +176,7 @@ export async function contributionsAcknowledge(request: Request, env: Env, ctx: 
     const at = now();
     const evidence = await L.obligationEvidence(env, scope, me.discordId, obligationId, me);
     const result = await L.recordContact(env, { guildScope: scope, discordId: me.discordId, obligationId, kind, evidence, expectedRevision, actor: `member:${me.discordId}`, fence: me }, at);
-    if (result === "recorded") await audit(env, me.discordId, "community.contribution_acknowledged", me.discordId, { kind });
+    if (result === "recorded") await audit(env, me.discordId, "community.contribution_acknowledged", me.discordId, { kind }).catch(() => {});
     return withLedger(env, { ok: result === "recorded", result: { status: result } }, scope, me.discordId, me, false, at);
   } catch (e) {
     return answer(e, request, env);
@@ -268,7 +279,7 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
       keys(["periodStart", "state"]);
       if (!(L.EVIDENCE_STATES as readonly unknown[]).includes(body.state)) throw new Bad("invalid_evidence");
       await L.attestEvidence(env, { guildScope: scope, periodStart: timeOf(body.periodStart, "invalid_period"), state: body.state as EvidenceState, fence }, at);
-      await audit(env, me, "community.contribution_evidence", undefined, { state: body.state });
+      await audit(env, me, "community.contribution_evidence", undefined, { state: body.state }).catch(() => {});
       return apiJson({ ok: true, result: { status: "attested" } });
     } else if (action === "removal") {
       keys(["discordId", "obligationId", "expectedRevision", "caseId"]);
@@ -278,7 +289,7 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
       result = await L.recordRemoval(env, { guildScope: scope, discordId: subject, obligationId: obligationId(), expectedRevision: revision(), caseId: caseId as string | null, staffId: me, fence }, at);
     } else throw new Bad("invalid_action");
     const summary = typeof result === "string" ? result : (result as { status?: string }).status ?? ((result as { created?: boolean }).created === false ? "replay" : "created");
-    await audit(env, me, `community.contribution_${action}`, subject ?? undefined, { result: summary });
+    await audit(env, me, `community.contribution_${action}`, subject ?? undefined, { result: summary }).catch(() => {});
     const payload: Record<string, unknown> = { ok: !NOT_OK.has(summary), result: typeof result === "string" ? { status: result } : result };
     return subject ? withLedger(env, payload, scope, subject, fence, true, at) : apiJson(payload);
   } catch (e) {

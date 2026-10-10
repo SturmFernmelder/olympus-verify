@@ -1,3 +1,4 @@
+import './privacy-access-data';
 /**
  * .71 (1 Oct 2026): the member's own copy, consolidation batch 7 of Codex's adapter map (the donor's src/rights.ts, made
  * the keeper's way). GET /api/me/export answers, to the signed-in account alone, selected retained records about it:
@@ -17,7 +18,8 @@
  * or the database cookie deadline before that batch refuses the whole copy; after it nothing is queried again, so the
  * body is never a partial "everything" (Codex's review of .71, 1 Oct 04:24 UTC: the .71 exporters ran after the batch
  * on their own, and one read after the reader lost standing returned a case). Five copies an hour per account; each is
- * audited as `site.copy_exported` with no details. The answer is a JSON attachment.
+ * audited as `site.copy_exported` with no details while its original admission is still current.
+ * A successful captured read is preserved if a later erasure closes that best-effort audit. The answer is a JSON attachment.
  *
  * .74, Codex's complementary review of .71 (1 Oct 04:36 UTC): the copy carries no STRUCTURAL reference to another Discord
  * account (a vote's nominee and a friend are the label the member chose, without the `kind` that said "a Discord
@@ -42,6 +44,7 @@
  * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
+import './qr-phase1-data';
 import { audit } from "./db";
 import { bnetFresh } from "./bnet-retention";
 import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
@@ -49,6 +52,7 @@ import { admittedReadAs, communityContext, communityExportPlan, FENCE_REFUSED, t
 import { secondsToIso } from "./community-time";
 import { ownEventChangeStatements } from "./community-events";
 import { ownContributionDecisionStatements } from "./community-contributions";
+import { privacySubjectKey } from './privacy-serving-authority';
 
 const ACTIONS_LIMIT = 1000;
 /** Integrity only: signed-session admission remains mandatory for every page. */
@@ -105,7 +109,7 @@ async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: st
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
   const plan = await prepareHistory(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600))
@@ -184,7 +188,7 @@ async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
   const plan = await prepareEventChanges(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
@@ -237,7 +241,7 @@ export async function exportMyEventChanges(request: Request, env: Env, user: Sit
   const eventChanges = await finishEventChanges(env, start.subject, start.plan, at, out[1]!, out[2]!);
   if (!eventChanges) return eventChangesChanged();
   const body: OwnEventChangeHistoryView = { generatedAt: secondsToIso(at), coverage: { kind: "curated_partial", ownAccountOnly: true, eventChangesPageLimit: 1000, completeErasure: false }, eventChanges };
-  await audit(env, start.id, "site.copy_exported", start.id);
+  await audit(env, start.id, "site.copy_exported", start.id).catch(()=>{});
   return apiJson(body);
 }
 /** .120: separate retained contribution-decision collection, cursor purpose and minimal projection. */
@@ -280,7 +284,7 @@ async function beginContributionDecisions(request: Request, env: Env, user: Site
   const ctx = await communityContext(env, request), s = ctx.subject;
   if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt) });
+  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
   const plan = await prepareContributionDecisions(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
@@ -334,14 +338,20 @@ export async function exportMyContributionDecisions(request: Request, env: Env, 
   const contributionDecisions = await finishContributionDecisions(env, start.subject, start.plan, at, out[1], out[2]);
   if (!contributionDecisions) return contributionDecisionsChanged();
   const body: OwnContributionDecisionHistoryView = { generatedAt: secondsToIso(at), coverage: { kind: "curated_partial", ownAccountOnly: true, contributionDecisionsPageLimit: 1000, completeErasure: false }, contributionDecisions };
-  await audit(env, start.id, "site.copy_exported", start.id);
+  await audit(env, start.id, "site.copy_exported", start.id).catch(()=>{});
   return apiJson(body);
 }
 
 /** .76: the member's application for their OWN copy: the parsed answers' references carry kind and label only (the key is another member's id). */
 function ownApplication(a: ReturnType<typeof appOut>) {
   const answers: Record<string, unknown> = { ...a.answers };
-  if (Array.isArray(answers.references)) answers.references = (answers.references as Record<string, unknown>[]).map((r) => ({ kind: r.kind, label: r.label }));
+  if (Object.hasOwn(answers, 'references')) {
+    // Restored legacy answers can have any shape. Expose only the chosen reference label,
+    // never counterpart keys or nested objects, through either own-copy admission path.
+    answers.references = Array.isArray(answers.references) ? (answers.references as unknown[])
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object' && !Array.isArray(r))
+      .map(r => ({ kind: r.kind === 'discord' || r.kind === 'name' ? r.kind : null, label: typeof r.label === 'string' ? r.label : null })) : null;
+  }
   return { ...a, answers };
 }
 
@@ -355,6 +365,14 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   const decisionHistory = contributionCursor !== undefined ? start.plan : await prepareContributionDecisions(env, subject);
   if (!history || !eventHistory || !decisionHistory) return apiJson({ error: "invalid_cursor" }, 400);
   const plan = communityExportPlan(env, id);
+  const privacyCopy=env.PRIVACY_ERASURE_ENABLED==='true'||env.PRIVACY_RETENTION_ENABLED==='true';
+  const markerKey=privacyCopy?await privacySubjectKey(env,id):null;
+  const privacyStatements=!privacyCopy?[]:[
+    env.DB.prepare('SELECT state,hold_reason,staff_access,created_at,completed_at,retain_until FROM privacy_serving_jobs WHERE subject_id=?1 ORDER BY created_at,operation_id LIMIT 1001').bind(id),
+    env.DB.prepare("SELECT purpose,state,cleanup_requested,created_at,updated_at,retain_until FROM privacy_provider_messages WHERE EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1) ORDER BY created_at,operation_id LIMIT 1001").bind(id),
+    env.DB.prepare('SELECT erased_at,retain_until,scope,recovery_custody FROM privacy_restore_replay WHERE subject_id=?1 ORDER BY erased_at,operation_id LIMIT 1001').bind(id),
+    env.DB.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?1').bind(markerKey),
+  ];
   const out = await admittedReadAs(env, subject, "authenticatedIdentity", [
     env.DB.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS at"), // .76: the capture instant, the database's clock inside this batch
     env.DB.prepare("SELECT discord_id, username, global_name, nick, avatar, account_created, server_joined, first_login, last_login, checked_at, in_server, denied, denied_at FROM site_users WHERE discord_id = ?1").bind(id),
@@ -374,6 +392,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     // .114: the account's rename records (rename-review.ts), without the administrators' identities
     env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
+    ...privacyStatements,
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
   const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, decisionMeta, decisionRows, renames] = out;
@@ -415,9 +434,14 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     actions: actionPage,
     eventChanges: eventPage,
     contributionDecisions: decisionPage,
-    community: plan.shape(out.slice(18)), // Three two-result history plans precede unchanged registry results.
+    community: plan.shape(out.slice(18,18+plan.statements.length)), // Three two-result history plans precede registry results.
+    ...(privacyCopy?{privacyLifecycle:{coverage:'own minimized serving controls; no private provider pointers, proof digests or other account identifiers',allCopiesErased:false,
+      erasureRequests:{complete:out[18+plan.statements.length]!.results.length<=1000,rows:out[18+plan.statements.length]!.results.slice(0,1000)},
+      providerCleanup:{complete:out[19+plan.statements.length]!.results.length<=1000,rows:out[19+plan.statements.length]!.results.slice(0,1000)},
+      recoverySuppression:{complete:out[20+plan.statements.length]!.results.length<=1000,rows:out[20+plan.statements.length]!.results.slice(0,1000)},
+      rejectionMarker:out[21+plan.statements.length]!.results}}:{}),
   };
-  await audit(env, id, "site.copy_exported", id);
+  await audit(env, id, "site.copy_exported", id).catch(()=>{});
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });
 }
 
@@ -439,6 +463,6 @@ export async function exportMyHistory(request: Request, env: Env, user: SiteUser
     actions,
   };
   // The response is a history view, not proof that a file was saved.
-  await audit(env, start.id, "site.copy_exported", start.id);
+  await audit(env, start.id, "site.copy_exported", start.id).catch(()=>{});
   return apiJson(body);
 }

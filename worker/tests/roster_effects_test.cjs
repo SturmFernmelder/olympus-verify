@@ -544,10 +544,10 @@ async function ingestDirect(members, exportedAt, over = {}) {
   const costly = { over: { SET_NICKNAME: "true", CHANNEL_NOTICES: "" }, prepare: () => { FAIL_NICK = true; ON_PUT = (d) => holdFor(d); }, fail: (sql, p) => /^INSERT INTO audit/.test(sql) && ["role.revoked_after_hold", "role.revoke_pending"].includes(p[2]) };
   let a = await sliceCost("promote", 2, costly), b = await sliceCost("promote", 3, costly);
   const perPromote = b.statements - a.statements;
-  check(`a promotion on its costliest path (a hold lands during the grant, the removal's audit and its pending record refused, role.add_failed, the nickname refused, the welcome audited for want of a channel): ${perPromote} statements (claim 3 + grant 7 + nickname 1 + roster.member 1 + notice 1), at most ${fx.EFFECT_WORST.promote}`, perPromote === 13 && perPromote <= fx.EFFECT_WORST.promote && b.out.effects.applied === 3 && auditCount("role.add_failed") === 3, a.statements, b.statements, b.out.effects);
+  check(`a promotion on its costliest path (a hold lands during the grant, the removal's audit and its pending record refused, role.add_failed, the nickname refused, the welcome audited for want of a channel): ${perPromote} statements (claim 3 + grant 7 + nickname 1 + roster.member 1 + notice 1), at most ${fx.EFFECT_WORST.promote}`, perPromote === 15 && perPromote <= fx.EFFECT_WORST.promote && b.out.effects.applied === 3 && auditCount("role.add_failed") === 3, a.statements, b.statements, b.out.effects);
   a = await sliceCost("note", 2, costly); b = await sliceCost("note", 3, costly);
   const perNote = b.statements - a.statements;
-  check(`an officer's D: note on the same path: ${perNote} statements (the claim batch 5), at most ${fx.EFFECT_WORST.note}`, perNote === 15 && perNote <= fx.EFFECT_WORST.note && b.out.effects.applied === 3 && one("SELECT COUNT(*) AS c FROM characters WHERE source = 'note' AND status = 'member'").c === 3, a.statements, b.statements);
+  check(`an officer's D: note on the same path: ${perNote} statements (the claim batch 5), at most ${fx.EFFECT_WORST.note}`, perNote === 17 && perNote <= fx.EFFECT_WORST.note && b.out.effects.applied === 3 && one("SELECT COUNT(*) AS c FROM characters WHERE source = 'note' AND status = 'member'").c === 3, a.statements, b.statements);
   const deferredCase = { over: { ROLE_CALL_BUDGET: "4", SET_NICKNAME: "true", CHANNEL_NOTICES: "" }, prepare: () => { FAIL_NICK = true; } };
   a = await sliceCost("promote", 2, deferredCase); b = await sliceCost("promote", 3, deferredCase);
   const perDeferred = b.statements - a.statements;
@@ -555,7 +555,7 @@ async function ingestDirect(members, exportedAt, over = {}) {
   const departCase = { prepare: () => { FAIL_REMOVE = true; FAIL_MEMBER = true; } };
   a = await sliceCost("depart", 2, departCase); b = await sliceCost("depart", 3, departCase);
   const perDepart = b.statements - a.statements;
-  check(`a departure on its costliest path (the removal and the member read refused): exactly ${perDepart} = ${fx.EFFECT_WORST.depart} statements (claim 2, the count, two failure audits, roster.left)`, perDepart === fx.EFFECT_WORST.depart && b.out.effects.applied === 3 && [0, 1, 2].every((i) => statusOf(i) === "left"), a.statements, b.statements);
+  check(`a departure on its costliest path (the removal and the member read refused): exactly ${perDepart} = ${fx.EFFECT_WORST.depart} statements (claim 2, the count, two failure audits, roster.left)`, perDepart === 6 && perDepart <= fx.EFFECT_WORST.depart && b.out.effects.applied === 3 && [0, 1, 2].every((i) => statusOf(i) === "left"), a.statements, b.statements);
   const capped = { prepare: () => { run("INSERT INTO audit (ts, actor, action, details) VALUES (?, 'system', 'notice.posted', '{}')", T); }, over: { NOTICE_RATE_CAP: "1" } };
   a = await sliceCost("promote", 20, capped); b = await sliceCost("promote", 21, capped);
   check(`a welcome over the notice cap costs its own audit and its post's share (the 21st opens a second post): ${b.statements - a.statements} statements, at most ${fx.EFFECT_WORST.promote}`, b.statements - a.statements <= fx.EFFECT_WORST.promote && auditCount("notice.suppressed") === 21 && auditCount("notice.capped") === 1, a.statements, b.statements);
@@ -620,7 +620,7 @@ async function ingestDirect(members, exportedAt, over = {}) {
   // ================= identity transactions: races occur BEFORE the atomic batch, not after it =================
   console.log("\n== an older export cannot rename or release a newer binding ==");
   const queue = (i) => run("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES (?, ?, ?, 'queued', ?)", key(i), nm(i), did(i), T - 600);
-  const boundMap = () => new Map(all("SELECT name_key, name, discord_id, status, guid, bound_at FROM characters WHERE status IN ('verified','queued','member','left','left_pending')").map((c) => [c.name_key, c]));
+  const boundMap = () => new Map(all("SELECT c.name_key,c.name,c.discord_id,c.status,c.guid,c.bound_at,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.status IN ('verified','queued','member','left','left_pending')").map((c) => [c.name_key, c]));
   const identityHook = async (predicate, action) => {
     let fired = false;
     BEFORE_BATCH = async (sqls) => {

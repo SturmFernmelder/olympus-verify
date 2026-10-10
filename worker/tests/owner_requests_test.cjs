@@ -31,6 +31,7 @@ function d1(db) {
       all: async () => { const results = db.prepare(sql).all(...params); await HOOK?.(sql, "read"); return { results }; },
       run: async () => exec(sql, params),
       _exec: () => exec(sql, params),
+      _sql: sql,
     };
     return api;
   };
@@ -38,7 +39,11 @@ function d1(db) {
     prepare: stmt,
     batch: async (stmts) => {
       db.exec("BEGIN");
-      try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; }
+      let out;
+      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
+      // A competing HTTP save occurs after the original read committed, with its captured answer intact.
+      for (const s of stmts) if (/^\s*SELECT\b/.test(s._sql) && !s._sql.includes("privacy_site_request_refused")) await HOOK?.(s._sql, "read");
+      return out;
     },
   };
 }
@@ -481,22 +486,22 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   // the policy says what the code does (the served page, whitespace folded: the tracked HTML wraps its lines)
   res = await http("GET", "/privacy");
   const policyText = (await res.text()).replace(/\s+/g, " ");
-  check("the privacy policy covers typed names: appointed roles public on the open web, removal by Name withheld, not in your copy", res.status === 200 && ["<strong>Appointed roles.</strong>", "open web", "&ldquo;Name withheld&rdquo;", "removed or corrected", "not in your copy"].every((s) => policyText.includes(s)) && policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
+  check("the privacy policy covers typed names: appointed roles public on the open web, removal by Name withheld, not in your copy", res.status === 200 && ["<strong>Appointed roles.</strong>", "open web", "&ldquo;Name withheld&rdquo;", "removed or corrected", "Typed appointment/directory names and privacy inbox conversations are not matched into this account copy"].every((s) => policyText.includes(s)) && policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
   check("  the length it states is the one the server keeps (site-data.ts cleanAppointed)", policyText.includes("(up to 40 characters, tied to no Discord account)") && Array.from(siteData.cleanAppointed({ treasurer: "é".repeat(45) }).treasurer).length === 40);
   check("  names only after that person agreed, in both editors; the log keeps role keys and a count", /they type a name only after that person agreed/.test(policyText) && /they list a name only after that person agreed/.test(policyText) && /how many names were saved, never the names/.test(policyText));
   // Codex, 3 Oct 2026 13:24 UTC: the rewrite is said as schema.ts redactSettingsAudit behaves (a failure logs and a later
   // start retries), with the owner's check after installing; never "were rewritten when build .115 was installed".
   check("  the older entries: rewritten once at a start, a failure logged and retried later, checked by the owner after installing", policyText.includes("Build .115 rewrites the entries written before it the same way, once, when it first starts; if that fails, the failure is logged and the rewrite is tried again at a later start, and after installing it the owner checks that the rewrite is recorded as done and that no such entry still holds a name or a notice's text.") && !/were rewritten the same way when build \.115 was installed/.test(policyText));
   check("  an administrator clears the appointments and the directory after the beta has closed (a person's step, no timer)", (policyText.match(/clears it after the beta has closed/g) || []).length === 2 && !/cleared when the beta ends/.test(policyText));
-  check("a rank records staff decisions; the policy distinguishes read cutoffs, bounded physical cleanup and independent recovery copies", /can reflect a staff decision \(for example a probation rank, where the guild uses one\)/.test(policyText) && /<strong>Backups\.<\/strong> The live service applies the stated read cutoffs and processes physical deletions through bounded cleanup or staff action\./.test(policyText) && !/Lifetimes and deletions apply to the live database at once/.test(policyText) && /point-in-time history of the database, which it keeps for up to \d+ days/.test(policyText) && /A recovery export can preserve data as it stood when captured until that export is destroyed/.test(policyText) && !/\.115 therefore still holds/.test(policyText));
-  check("  only the newest checked export is kept until the launch is accepted (owner's answer of 3 Oct 2026)", /The owner keeps only the\s+newest export that has been checked by restoring it privately: an older one is destroyed once a newer one has been\s+checked, the last one is destroyed once the game's launch release is accepted/.test(policyText) && !/would be made again/.test(policyText));
+  check("a rank records staff decisions; policy distinguishes bounded live cleanup, recovery history and independent copies", /can reflect a staff decision \(for example a probation rank, where the guild uses one\)/.test(policyText) && /<strong>Recovery copies\.<\/strong> Serving erasure does not physically rewrite a private database export/.test(policyText) && /up-to-30-day recovery history/.test(policyText) && /bounded cleanup/.test(policyText) && /a copy can contain the data as captured/.test(policyText) && /not an automatic all-copy erasure claim/.test(policyText) && !/Lifetimes and deletions apply to the live database at once/.test(policyText) && !/\.115 therefore still holds/.test(policyText));
+  check("  only the newest privately restored verified export is kept, approved superseded cleanup and each export's 365-day ceiling remain separate obligations", /Only the newest privately restored and verified export is kept/.test(policyText) && /a superseded export is destroyed after its exact approved cleanup/.test(policyText) && /each export has a 365-day maximum age/.test(policyText) && /Acceptance of its applicable release can dispose of it sooner/.test(policyText) && /separate operator obligations, not an automatic all-copy erasure claim/.test(policyText) && !/would be made again/.test(policyText));
   // Codex, 3 Oct 2026 13:26 UTC: the restore replays deletions from the audit, which keeps no typed name; so the owner puts
   // back the two typed-name rows as they stood right before the restore (docs/launch-runbook.md section 1), never through
   // the audit, and checks the rewrite again.
   // The second review round (3 Oct 2026): the site is closed for the whole restore (the runbook's step 0: no window in which
   // a restored name shows), and News notices changed or deleted since the copy are deleted, the records of notices posted
   // since are put back (site_news_test runs the runbook's statements over a simulated restore).
-  check("restore wording is an attended requirement, with closed site, deletion replay, News replay, private typed-name preservation and rewrite check; no automatic erasure claim", ["The following is an attended recovery requirement, not an automatic restore or erasure feature.", "site must remain closed to everyone from just before the restore", "repeated the deletions made since it was taken", "deleted every News notice changed or deleted since then", "put back the record of every notice posted since then", "put back the names the administrators typed", "exactly as they stood just before the restore", "private copy of just those two settings", "destroys it once they are back", "dated log never receives the names", "owner also checks the restored database for the rewrite"].every(s => policyText.includes(s)) && !/If one were ever restored, the site would be closed/.test(policyText));
+  check("restore wording requires closed-site attended recovery, generation/erasure replay, News replay, current typed-name preservation and rewrite check; no automatic erasure claim", ["Recovery is attended: keep the site closed before restoring and until subsequent erasures and the generation suppression records have been replayed.", "Reapply the News suppression and changes", "restore the current typed appointments and leadership-directory settings so a removed or corrected name stays corrected", "Check the settings-audit name rewrite before reopening", "Never treat an older database as current membership, role, proof or privacy authority", "unresolved custody remains explicitly open"].every(s => policyText.includes(s)) && !/If one were ever restored, the site would be closed/.test(policyText));
   // Website closure hides restored rows but proves no drain of admitted writes. The corrected runbook refuses before
   // capture/replacement unless actual quiescence is proved; these text checks do not claim an implemented runtime barrier.
   const restoreRunbook = fs.readFileSync(path.join(root, "..", "docs", "launch-runbook.md"), "utf8").replace(/\s+/g, " ");
@@ -666,7 +671,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("the privacy policy: Battle.net sign-in switched off, no 'sign in with Battle.net again to keep them'", /Battle\.net sign-in is currently switched off/.test(text) && !/sign in with Battle\.net again to keep them/.test(text));
   check("  no stale server, address or channel wording", !/serves the Olympus Discord server/.test(text) && !/once it moves there/.test(text) && !/#bot-announcements/.test(text) && !/open a ticket/.test(text) && !/help channel/.test(text));
   check("  it names the top bar's picture, the leadership directory and the rename records", /cdn\.discordapp\.com/.test(text) && /The leadership directory/.test(text) && /Renames Blizzard required/.test(text));
-  check("  and says unbinding does not by itself remove the Guild Member role", /unbinding does not by itself remove your Guild Member role/.test(text));
+  check("  unbinding and leaving Discord alone are not erasure; role changes still require the qualified bot writer", /Unbinding alone and leaving Discord are not erasure/.test(text) && /maps verified current native guild ranks/.test(text) && /where the configured rank profile permits/.test(text));
   res = await http("GET", "/terms");
   text = await res.text();
   check("the terms: notices in #olympus-notices only, and the leadership and rename sentences", /#olympus-notices\)/.test(text) && !/#bot-announcements/.test(text) && /Renamed characters/.test(text) && /leadership directory/.test(text));

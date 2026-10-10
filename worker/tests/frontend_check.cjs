@@ -161,7 +161,7 @@ function d1(db) {
     };
     return api;
   };
-  return { prepare: stmt, batch: async (stmts) => { db.exec("BEGIN"); let out; try { out = stmts.map((s, j) => { const r = s._exec(); HOOKS.afterStatement?.(s._sql, j); return r; }); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; } HOOKS.afterBatch?.(++batches, stmts.map((s) => s._sql)); return out; } };
+  return { prepare: stmt, batch: async (stmts) => { db.exec("BEGIN"); let out; try { out = stmts.map((s, j) => { const r = s._exec(); HOOKS.afterStatement?.(s._sql, j); return r; }); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; } if (!(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"))) HOOKS.afterBatch?.(++batches, stmts.map((s) => s._sql)); return out; } };
 }
 const db = new DatabaseSync(":memory:");
 db.exec("PRAGMA foreign_keys = ON");

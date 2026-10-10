@@ -1,3 +1,4 @@
+import { admittedPrivacyOAuthWrite, admittedPrivacySubjectWrite, readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
 /**
  * The Olympus guild site (build .41, 29 Sep 2026; .43, 30 Sep: the game's own art, the voting board): registration,
  * applications, votes, friends and reserved names, at SITE_HOST (guild.roachcouncil.com).
@@ -114,7 +115,8 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
   } catch {
     community = null; // no database: the page hides the community pages and says so
   }
-  boot = { ...boot, ...extra, build, joinUrl: joinUrl(env), community };
+  boot = { ...boot, ...extra, build, joinUrl: joinUrl(env), community,
+    qrVerification: { enabled: env.QR_PHASE1_ENABLED === "true" } };
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -159,7 +161,7 @@ async function login(env: Env, url: URL, consent = false): Promise<Response> {
   const missing = missingConfig(env);
   if (missing) return simple(`Sign-in is not set up yet: the Worker has no ${missing}.`, 503);
   // The last character records which prompt this attempt used, so the callback can retry once with "consent".
-  const state = b64u(crypto.getRandomValues(new Uint8Array(18))) + (consent ? "c" : "n");
+  const state = b64u(new TextEncoder().encode(JSON.stringify({random:b64u(crypto.getRandomValues(new Uint8Array(18))),issuedAt:now()}))) + (consent ? "c" : "n");
   const mac = await sign(env.COOKIE_SECRET, "state", state);
   const to = new URL("https://discord.com/oauth2/authorize");
   to.searchParams.set("client_id", env.DISCORD_APP_ID);
@@ -228,16 +230,20 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   const me = (await meRes.json()) as { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean };
   if (!/^\d{17,20}$/.test(me.id ?? "") || me.bot) return flash("discord_error", 502, "user");
 
+  const privacyCapture = await readPrivacySubject(env,me.id);
+  let privacyIssuedAt:number|null=null;
+  try { const encoded=state.slice(0,-1);const parsed=JSON.parse(atob(encoded.replace(/-/g,'+').replace(/_/g,'/')));if(Number.isSafeInteger(parsed.issuedAt)&&parsed.issuedAt>0)privacyIssuedAt=parsed.issuedAt; } catch { /* old states cannot re-create a retired subject */ }
+
   // The one thing this site needs to know about someone's servers: are they in this one. guilds.members.read answers
   // for this server only, with 404 for "not a member".
   const memRes = await credentialFetch(`${API}/users/@me/guilds/${env.SITE_GUILD_ID}/member`, { headers: auth });
   if (memRes.status === 404) {
-    await audit(env, me.id, "site.login_not_member");
+    await audit(env, 'site', "site.login_not_member");
     return flash("not_member", 403);
   }
   if (memRes.status === 429) return flash("busy", 429);
   if (!memRes.ok) {
-    await audit(env, me.id, "site.login_failed", undefined, { step: "member", status: memRes.status });
+    await audit(env, 'site', "site.login_failed", undefined, { step: "member", status: memRes.status });
     return flash("discord_error", 502, `member ${memRes.status}`);
   }
   const member = (await memRes.json()) as DiscordMember;
@@ -250,7 +256,7 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   // A new row starts its session version at a random number, not at 1: someone who deleted their data and signs up
   // again must not bring a cookie from before the delete back to life (one from the same second, too).
   const firstVersion = 2 + (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0);
-  const row = await env.DB.prepare(
+  const privacyWrite = env.DB.prepare(
     `INSERT INTO site_users (discord_id, username, global_name, nick, avatar, account_created, server_joined, first_login, last_login, checked_at, in_server, session_version)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?8, 1, ?9)
      ON CONFLICT(discord_id) DO UPDATE SET username = ?2, global_name = ?3, nick = ?4, avatar = ?5, account_created = ?6,
@@ -259,12 +265,14 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   )
     .bind(me.id, me.username.slice(0, 64), me.global_name?.slice(0, 64) ?? null, member.nick?.slice(0, 64) ?? null, avatar,
       snowflakeTime(me.id), Number.isFinite(joined) ? joined : null, t, firstVersion)
-    .first<{ session_version: number }>();
-  waitUntil(recordNames(env, me).catch(() => {})); // a linked member's names for the roster window, while we have them
-  await audit(env, me.id, "site.login");
+    ;
+  let row:{session_version:number}|undefined,admittedSubject:PrivacySubject;
+  try { const result=await admittedPrivacyOAuthWrite(env,me.id,privacyCapture,privacyIssuedAt,privacyWrite);row=result.results[0] as {session_version:number}|undefined;admittedSubject=result.privacySubject; } catch { return flash('privacy_held',409); }
+  waitUntil(recordNames(env, me,false,admittedSubject).catch(() => {}));
+  try { await admittedPrivacySubjectWrite(env,me.id,admittedSubject,[env.DB.prepare('INSERT INTO audit(ts,actor,action)VALUES(?1,?2,?3)').bind(t,me.id,'site.login')]); } catch { return flash('privacy_held',409); }
   const h = securityHeaders(new Headers({ Location: "/" }));
   h.append("Set-Cookie", clear[0]);
-  h.append("Set-Cookie", await sessionCookie(env, me.id, row?.session_version ?? 1));
+  h.append("Set-Cookie", await sessionCookie(env, me.id, row?.session_version ?? 1,admittedSubject.subjectGeneration));
   return new Response(null, { status: 303, headers: h });
 }
 

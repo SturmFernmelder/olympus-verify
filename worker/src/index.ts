@@ -24,10 +24,13 @@ import { INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction
 import { errorRef, idNamespace, logPath } from "./log";
 import { now } from "./db";
 import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
+import { PrivacySiteRequestHeld, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
 import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
 import { sweepMemberRoles } from "./restore";
 import { continueRosterEffects } from "./roster";
+import {runServingErasureJob} from './privacy-serving-jobs';
+import {sweepServingRetention} from './privacy-retention';
 import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
@@ -121,6 +124,7 @@ export default {
       if (request.method === "GET" && path === "/queue" && res.ok) ctx.waitUntil(sweepMemberRoles(env, "watcher"));
       return res;
     } catch (e) {
+      if(e instanceof PrivacySiteRequestHeld)return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
       // .49: the message goes to the log with a short id; the caller gets the id and nothing else (a D1 or upstream
       // error text can name tables, hosts or codes).
       const requestId = crypto.randomUUID().slice(0, 8);
@@ -167,6 +171,8 @@ export default {
     // most every 3 h, only while News is switched on, from the switch and cache the cleanup's batch read (site-news.ts newsCron)
     ctx.waitUntil(newsCron(env));
     ctx.waitUntil(runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
+    ctx.waitUntil(runServingErasureJob(env).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
+    ctx.waitUntil(sweepServingRetention(env).catch(e=>console.error('serving retention failed',errorRef(e))));
   },
 };
 
@@ -273,10 +279,13 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     const i = JSON.parse(body) as Interaction;
     if (env.DISCORD_APP_ID && i.application_id !== env.DISCORD_APP_ID) return new Response("wrong application", { status: 400 });
     if (!schemaReady && i.type !== 1) return reply("The bot is updating its database \u2014 please try again in a minute.");
+    const privacyActor=i.member?.user??i.user;
+    const privacyCapture=privacyActor&&/^\d{17,20}$/.test(privacyActor.id)?await readPrivacySubject(env,privacyActor.id):undefined;
+    if(privacyCapture!==undefined)env=privacyBoundSubjectEnv(env,privacyActor!.id,privacyCapture);
     const run = async (): Promise<Response> => {
       // Build .41: every command, button and form carries the member's current Discord names; keep a linked member's
       // copy fresh for the roster window (one read, and a write at most daily). Not on autocomplete: that fires per key.
-      if (ctx && (i.type === 2 || i.type === 3 || i.type === 5)) ctx.waitUntil(recordNames(env, i.member?.user ?? i.user).catch(() => {}));
+      if (ctx && (i.type === 2 || i.type === 3 || i.type === 5)) ctx.waitUntil(recordNames(env, privacyActor,false,privacyCapture).catch(() => {}));
       // Lookups in Asmongold's server, routed ahead of the "only serves Olympus" guard like the intros (lookup.ts).
       if (isAsmongoldLookup(env, i)) return await handleLookup(env, i);
       // Build .39: the channel intros live in INTROS_GUILD_ID (Asmongold's server) while verification still serves
@@ -285,6 +294,11 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         return await handleIntros(env, i, (p) => {
           if (ctx) ctx.waitUntil(p);
         });
+      }
+      if(i.type===2&&i.data?.name==='olympus-qr'){
+        const {createInteractionRequest,QrHeld}=await import('./qr-phase1');
+        try{const r=await createInteractionRequest(env,request,body);return reply(`Whisper !olympus ${r.code} to an online qualified High Councillor. This code expires in ten minutes. You need no AddOn or website account.`);}
+        catch(e){return reply(e instanceof QrHeld?`Councillor verification is held: ${e.code}.`:'Councillor verification is currently held.');}
       }
       return await handleInteraction(env, i);
     };
@@ -375,7 +389,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-10.134 Opted raid reminders";
+const BUILD = "2026-10-10.136 Original account proof and catalogue guards";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

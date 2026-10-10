@@ -5178,3 +5178,100 @@ and final integrated CI checks; complete the existing .130 verified-backup/newes
 inspect actual .134 controls/build/assets without posting an unsolicited event or reminder. An intended organizer
 may explicitly enable one event after qualification. No role, command registration or central authority activation.
 Rollback disables EVENT_DISCORD_REMINDERS or deploys prior source; retain all custody and parent closure evidence.
+
+## Worker .135 — Account controls and councillor bridge
+
+This section is a rollout contract, not a production receipt. Exact-head release evidence must separately identify
+the qualified commit, main CI, deployment version, schema readback, policy/assets and unresolved live acceptance.
+The owner's Codex takeover permits separately attributable Codex qualification; no Claude signature is implied.
+
+The separate Discord privacy connection asks only for identity. Its browser-bound handshake expires after five
+minutes and its purpose-specific copy/erasure grants after twelve minutes. It works after server departure or
+without a guild-site account and never creates ordinary guild, staff or bot authority. Current-session account
+controls remain available. New private-inbox intake is off; existing cases retain their original codes, access and
+fixed-at-creation thirty-day policy. Account help directs ambiguous or externally held records to an officer.
+
+When enabled, the implemented serving-erasure path immediately retires the original generation from ordinary saves and new bot-role grants. The
+bounded job requires the central role writer to confirm Guild Member absence before the local transaction. Unknown
+Discord effects, malformed records, unclassified tables or unresolved original custody hold completion. The local
+transaction covers the classified serving stores and attributable structured references, including character-name
+references and legacy grouped roster-audit names. It does not infer ownership of arbitrary prose or typed appointments.
+Status distinguishes serving-account completion, known/unknown external-message debt, human-managed staff access
+and operator-held recovery copies; allCopiesErased remains false. Do not test this by deleting a real account.
+
+Only this account's rejected guild application or membership supplies the minimized keyed denial marker: its fixed
+reason and original decision date expire after 365 days, and retries cannot extend it. Active bans and unresolved
+safety cases retain separate purposes. Restore suppression keeps the retired identifier/generation for 366 days.
+Inactive-account and record cleanup uses original database clocks and bounded batches. Beta cutoff processing stays
+attended and disabled until the actual cutoff is known. Newest-only private exports have a 365-day age cap; the
+observed provider recovery history and external/local copies remain separate custody obligations.
+
+Every preserving writer must keep its original generation and operation capture across awaits. Known late Discord
+results record cleanup debt under that original operation; they do not restore erased data or repeat a send. A lost
+primary response remains unknown. Reminder claim and final pre-send proof consume the complete selected row and
+original generation. Response-only event/reminder settlement matches the original event, operation/nonce,
+destination and unextended deadline, retaining late pointers as cleanup debt without restoring erased fields.
+Watcher replays and accountless role paths use the same central
+admission/removal rules; fresh server evidence remains required and a Discord outage holds protected work.
+
+The browser bridge supports AddOn-free members through an ordinary game whisper. A qualified native High Councillor
+runs AddOn 0.6.6 and a browser scanner. Enrollment needs a fresh complete trusted roster, the exact supported client,
+guild and native High Council slot; website admin or Officer access is insufficient. The browser's non-extractable
+Ed25519 key has a fixed twenty-four-hour server lease; automatic signing requires a separate five-minute/ten-proof
+acceptance. QR and manual-wire paths use the same signed proof and one-effect role settlement. The game and scanner
+must run; this does not implement off-PC observation or the proposed future 3-of-5 phase.
+
+The checked-in role map is beta-five, matching the observed five native ranks. That ladder has no native High Council,
+so the signing bridge remains OFF until a qualified actor and matching native profile are established. Rank-based grants require the exact
+configured profile and original current proof; privileged grants use the existing Guild Leader, Officer and Raid
+Leader roles. The bot's approved hierarchy is above the Olympus roles. Deployment appoints nobody; enabled mapping
+jobs may apply only source-qualified bot-managed roles.
+Changing the game to the ten-rank preset requires attended GM action, a matching reviewed configuration and fresh
+roster evidence; do not substitute ordinal positions or promote an account just to pass the QR test.
+
+Schema/config: twelve additive tables take the serving census from 53 to 65, with matching canonical/runtime/dated
+migrations and guarded legacy column additions. The dormant .129 foundation is not used as serving authority.
+PRIVACY_ACCESS_ENABLED, QR_RANK_MAPPING_ENABLED and QR_PRIVILEGED_RANK_MAPPING_ENABLED are true in this
+first-stage candidate. PRIVACY_ERASURE_ENABLED, PRIVACY_RETENTION_ENABLED, QR_PHASE1_ENABLED and
+PRIVACY_INTAKE_ENABLED are false. A native upgrade-consistency fixture reproduced an already-started .134
+verification writer recreating a member row after .135 erasure completed. Erasure/retention activation therefore
+requires a separately qualified barrier or actual terminal-state evidence for incompatible legacy writers;
+deployment percentage, a fixed wait or the new source's cooperative guards are not that evidence. Rank mapping is independently enabled without the signer bridge. Battle.net login and the beta reset stay off. The conservative shared cron model is
+699 attempted SQL statements, including the 149-statement erasure envelope and seven-statement reminder envelope.
+Reduced per-run caps continue deterministically; this is modeled accounting, not a provider billing guarantee.
+
+Before deployment, independently qualify the final composed source, all account-copy collection boundaries and
+continuations, original-authority races, unknown-result custody, role/proof rejection, schema upgrade and whole-cron
+budget. Pass the full native Worker/SQLite/bundle, watcher/tools and AddOn gates, policy parity, exact asset archive
+and all four main CI jobs. Verify the fresh private export by isolated restore/core counts and retain its recovery
+bookmark. Require the exact approved superseded-export cleanup receipt. Confirm the preferred Discord application's
+privacy callback and the approved canonical WAF paths; never reset credentials to perform these checks.
+
+Deploy only the qualified committed archive. Read actual .135 health/BOOT and the 65-table metadata census, typed-name
+audit rewrite, public policy/privacy shells and unchanged four PDF hashes. Inspect actual browser account controls
+without requesting erasure or inventing a role/proof test. Module-load acceptance of AddOn 0.6.6 is separate from a
+qualified councillor's real game/browser proof, ingestion and intended role result. Keep that real acceptance open
+until performed by the qualified person. Preserve the current backup and all unresolved external custody.
+
+Rollback cannot undo completed erasure or role effects. Disable only the affected admissions/workloads and roll
+forward with a reviewed repair while preserving generations, suppression and provider debt. Do not deploy an older
+writer that ignores the retirement fence, restore an old database as a test, discard custody or reopen retired data.
+
+## Worker .136 — Original account proof and catalogue guards (10 Oct 2026 candidate)
+
+This finite successor preserves the qualified .135 first-stage configuration. The weekly contribution opener carries
+its original native privacy generation or absence across policy awaits and consumes it in the obligation insert.
+Changed generation/absence and retiring subjects hold the write with the existing `proof_changed` handling. Valid
+unchanged subjects and unrelated accounts continue. The exact business catalogue counts legal `sqliteX` lookalike
+tables and holds unknown-store admission through the literal reserved-prefix predicate.
+
+The two native suites are registered once in `test:all`. Qualify the joined actual source, original contribution
+transactions, health build pins, whole cron and normal Worker gates on the committed candidate. Preserve the source
+and counterexample receipts for the two repairs. The catalogue fixture uses the actual production entry graph and
+keeps its exact predecessor query diagnostic without requiring private paths or repository history at runtime.
+
+Schema and activation flags retain the .135 profile: erasure, lifecycle retention and QR signing remain OFF;
+account copies and the qualified beta role mapping retain their current configuration. The shared source envelope
+stays 699 attempted statements because these guards add no statements. Provider-side legacy effects, restore
+admission and the complete write-transport protocol require separate qualification before destructive activation.
+Publication, live readback, CI acceptance and any deployment remain attached to their own exact release receipts.

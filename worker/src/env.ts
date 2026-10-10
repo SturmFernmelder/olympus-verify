@@ -1,5 +1,9 @@
 /** Bindings, vars and secrets. Vars live in wrangler.toml; secrets are set with `wrangler secret put`. */
 export interface Env {
+  QR_PHASE1_ENABLED?: string;
+  QR_RANK_MAPPING_ENABLED?: string;
+  QR_NATIVE_ROLE_MAP?: string;
+  QR_PRIVILEGED_RANK_MAPPING_ENABLED?: string;
   DB: D1Database;
   ASSETS: Fetcher;                  // .51: the site's static files (wrangler.toml [assets] binding; run_worker_first, so index.ts hands them over itself)
 
@@ -68,6 +72,9 @@ export interface Env {
   PRIVACY_INTAKE_ENABLED?: string;  // .82: "true" accepts new private requests (with the flag privacy_intake, PRIVACY_INTAKE_MONITORED and a retention); existing cases stay readable
   PRIVACY_INTAKE_MONITORED?: string; // .82: "true" once someone actually reads the staff queue; without it no new case is accepted
   PRIVACY_INTAKE_RETENTION_DAYS?: string; // .82: 1..3650 days a case is kept from its last activity, fixed per case when it is created
+  PRIVACY_ERASURE_ENABLED?: string; // serving request admission only; completion also needs current role/removal and all-store custody checks
+  PRIVACY_ACCESS_ENABLED?: string; // identify-only privacy connection, separate from ordinary guild access
+  PRIVACY_RETENTION_ENABLED?: string; // bounded fixed-deadline local sweeper; provider/recovery custody remains separate
   OFFICER_DIGEST_ENABLED?: string;  // .85: "true" posts the daily officer digest (counts only) to the staff channel after 15:00 UTC (community-digest.ts); anything else only removes a digest it posted earlier
   NAME_RESERVATION_AT?: string;     // default for when Blizzard's name reservation opens (ISO or unix); the admin page overrides it
   LAUNCH_AT?: string;               // default launch time (ISO or unix): approved reserved names are queued from then

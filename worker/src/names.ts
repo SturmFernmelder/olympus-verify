@@ -14,6 +14,7 @@ import { intVar } from "./env";
 import { now } from "./db";
 import { DiscordError, rest } from "./discord";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
+import { privacyGenerationLiteralFenceSql, readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
 
 export interface DiscordNames { id: string; username?: string | null; global_name?: string | null }
 
@@ -23,12 +24,15 @@ const RECORD_EVERY = 86400;
 const STALE_AFTER = 7 * 86400;
 
 /** `fresh` = just read from Discord: stamp it even when nothing changed, so the cron moves on to the next one. */
-export async function recordNames(env: Env, user: DiscordNames | undefined | null, fresh = false): Promise<void> {
+export async function recordNames(env: Env, user: DiscordNames | undefined | null, fresh = false, originalCapture?:PrivacySubject|null): Promise<void> {
   if (!user || !/^\d{17,20}$/.test(user.id ?? "") || !user.username) return;
+  const capture=originalCapture===undefined?await readPrivacySubject(env,user.id):originalCapture;
+  if(capture&&capture.state!=='active')return;
   const t = now();
   await env.DB.prepare(
     `UPDATE members SET username = ?2, global_name = ?3, names_at = ?4
-      WHERE discord_id = ?1 AND (?6 = 1 OR username IS NOT ?2 OR global_name IS NOT ?3 OR names_at IS NULL OR names_at < ?5)`,
+      WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql('discord_id',capture?.subjectGeneration??null)}
+       AND (?6 = 1 OR username IS NOT ?2 OR global_name IS NOT ?3 OR names_at IS NULL OR names_at < ?5)`,
   )
     .bind(user.id, user.username.slice(0, 64), user.global_name ? user.global_name.slice(0, 64) : null, t, t - RECORD_EVERY, fresh ? 1 : 0)
     .run();
@@ -41,25 +45,27 @@ export async function refreshNames(env: Env, limit = intVar(env.NAMES_PER_RUN, 5
   if (!n || !env.DISCORD_BOT_TOKEN) return out;
   try {
     const rows = await env.DB.prepare(
-      `SELECT m.discord_id AS id FROM members m
+      `SELECT m.discord_id AS id,ps.generation,ps.state,ps.revision FROM members m LEFT JOIN privacy_subjects ps ON ps.subject_id=m.discord_id
         WHERE (m.names_at IS NULL OR m.names_at < ?1)
+          AND (ps.state IS NULL OR ps.state='active')
           AND EXISTS (SELECT 1 FROM characters c WHERE c.discord_id = m.discord_id AND c.status NOT IN ('unbound', 'denied'))
         ORDER BY m.names_at IS NOT NULL, m.names_at
         LIMIT ?2`,
     )
       .bind(now() - STALE_AFTER, n)
-      .all<{ id: string }>();
+      .all<{ id: string;generation:string|null;state:'active'|null;revision:number|null }>();
     for (const r of rows.results) {
+      const capture:PrivacySubject|null=r.generation===null?null:{subject:r.id,subjectGeneration:r.generation,state:'active',revision:r.revision!};
       try {
         // attempt 1: no waiting out a 429 here. The cron run's Discord budget is shared with the role sweep, and the
         // names can wait half an hour.
         const u = await rest<{ id: string; username: string; global_name?: string | null }>(env, "GET", `/users/${r.id}`, undefined, 1);
-        await recordNames(env, u, true);
+        await recordNames(env, u, true,capture);
         out.refreshed++;
       } catch (e) {
         if (e instanceof DiscordError && e.status === 404) {
           // A deleted account: keep the last names we saw, stop asking.
-          await env.DB.prepare("UPDATE members SET names_at = ?2 WHERE discord_id = ?1").bind(r.id, now()).run();
+          await env.DB.prepare(`UPDATE members SET names_at=?2 WHERE discord_id=?1 AND ${privacyGenerationLiteralFenceSql('discord_id',capture?.subjectGeneration??null)}`).bind(r.id,now()).run();
           out.gone++;
           continue;
         }

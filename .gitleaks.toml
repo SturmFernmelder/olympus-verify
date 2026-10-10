@@ -27,3 +27,13 @@ condition = "AND"
 paths = ['''^worker/tests/privacy_foundation129_contract_test\.cjs$''']
 regexTarget = "match"
 regexes = ["secret = 'SYNTHETIC-FOUNDATION129-HMAC'"]
+
+# sign(secret, purpose, data) takes the credential from env.COOKIE_SECRET. This fixed second argument is
+# the public HMAC purpose label, not a credential. The whole-history scan still examines this file and rule.
+[[allowlists]]
+description = "Privacy subject HMAC's exact public purpose label"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/src/privacy-serving-authority\.ts$''']
+regexTarget = "match"
+regexes = ['''^env\.COOKIE_SECRET,'privacy-denial-v1'$''']
