@@ -154,6 +154,12 @@ function check(name, value, detail) { total++; if (value) passed++; console.log(
   await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 1, title: "Budgeted update" });
   r = await publish({}, NEXT);
   check("real update path is bounded to five HTTP requests with one effect and no retries", r.status === 200 && requests.length === 5 && effects().length === 1 && effects()[0].method === "PATCH");
+  seed(); await event(); await publish();
+  const originalDeliveryDeadline = row().retain_until, originalStart = one("SELECT starts_at FROM community_events WHERE id=?", EVENT).starts_at;
+  r = await call("POST", "/api/community/events/update", { eventId: EVENT, revision: 1, startsAt: new Date((originalStart + 2 * 86400) * 1000).toISOString() });
+  check("real reschedule moves the parent deadline two days but retains the publication's original deadline", r.status === 200 && one("SELECT retain_until FROM community_events WHERE id=?", EVENT).retain_until === originalDeliveryDeadline + 2 * 86400 && row().retain_until === originalDeliveryDeadline, r);
+  requests = []; r = await publish({}, NEXT);
+  check("explicit republish after reschedule never extends retained delivery custody", r.status === 200 && row().event_revision === 2 && row().message_id === ONE && row().state === "posted" && row().retain_until === originalDeliveryDeadline && effects().length === 1 && effects()[0].method === "PATCH", r);
 
   for (const [label, mutate] of [
     ["session revoked", () => db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(ORG)],

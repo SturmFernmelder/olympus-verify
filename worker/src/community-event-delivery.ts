@@ -220,7 +220,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4)}
       ON CONFLICT(event_id,purpose) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,guild_id=excluded.guild_id,channel_id=excluded.channel_id,
         message_id=excluded.message_id,frozen_content=excluded.frozen_content,payload_hash=excluded.payload_hash,op_id=excluded.op_id,claim_nonce=excluded.claim_nonce,state='claimed',
-        actor=excluded.actor,session_version=excluded.session_version,session_expires=excluded.session_expires,updated_at=excluded.updated_at,retain_until=excluded.retain_until,result_code=NULL
+        actor=excluded.actor,session_version=excluded.session_version,session_expires=excluded.session_expires,updated_at=excluded.updated_at,retain_until=MIN(community_event_deliveries.retain_until,excluded.retain_until),result_code=NULL
       WHERE community_event_deliveries.claim_nonce=?6 AND community_event_deliveries.state IN('posted','refused','removed') AND community_event_deliveries.cleanup_requested=0`)
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, rev, old?.claim_nonce ?? "", staff, d.guild, d.channel, old?.state === "removed" ? null : old?.message_id ?? null, content, hash, op, nonce, e.title, e.starts_at, e.duration_min)]);
     if (claimed === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
