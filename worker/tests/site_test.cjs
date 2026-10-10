@@ -508,7 +508,7 @@ const bootOf = async (res) => {
     const js = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     const listed = (js.match(/icon\("pos-" \+ \((\[[^\]]+\])/) || [])[1];
     check("  and the page script shows each one (none falls back to the question mark)", !!listed && ps.every((p) => JSON.parse(listed).includes(p.key.replace(/_(na|eu)$/, ""))));
-    check("  Roles, Your data and the private request form are the pages open before signing in (.93), by one list", /ROUTES\.roles = function/.test(js) && /PUBLIC_ROUTES = new Set\(\["roles", "request", "data"\]\)/.test(js) && /!PUBLIC_ROUTES\.has\(head\)/.test(js));
+    check("  public routes add only governance and organization to Roles/data/request; community stays protected", /ROUTES\.roles = function/.test(js) && /PUBLIC_ROUTES = new Set\(\["roles", "request", "data", "governance", "organization"\]\)/.test(js) && /!PUBLIC_ROUTES\.has\(head\)/.test(js));
     const html = page.html; // the signed-in page: the descriptions travel in the boot data like every other list
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
@@ -1316,7 +1316,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".126") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".128") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

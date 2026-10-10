@@ -104,7 +104,7 @@ class Element extends Node {
       if (form) form.dispatchEvent(new Event("submit", { bubbles: true }));
     }
   }
-  focus() {} blur() {} select() {} scrollIntoView() {}
+  focus() { this.focusCalls = (this.focusCalls || 0) + 1; } blur() {} select() {} scrollIntoView() {}
   getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 }; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatchEvent(new Event("close")); }
@@ -189,6 +189,13 @@ Object.assign(stubs, {
 });
 const siteCore = load("./site-core"), indexMod = load("./index");
 const MEMBER = "300000000000000003", OTHER = "300000000000000004", DENIED = "300000000000000005", STAFF = "472099715253796864";
+// .128: the genuine Worker still routes static requests; ASSETS serves only these actual public candidate files.
+const governanceAssets = { fetch: async (request) => {
+  const pathname = new URL(request.url).pathname;
+  const files = { "/static/governance/reconciled-book.md": "reconciled-book.md", "/static/governance/organization.json": "organization.json" };
+  if (!Object.hasOwn(files, pathname)) return new Response("Not found", { status: 404 });
+  return new Response(fs.readFileSync(path.join(root, "public", "static", "governance", files[pathname])), { headers: { "Content-Type": pathname.endsWith(".json") ? "application/json" : "text/plain; charset=utf-8" } });
+} };
 const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: STAFF, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "directory,crafting,privacy_intake,events,attendance,trials,contributions,departures,restrictions", COMMUNITY_ORGANIZERS: OTHER, CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", PRIVACY_INTAKE_ENABLED: "true", PRIVACY_INTAKE_MONITORED: "true", PRIVACY_INTAKE_RETENTION_DAYS: "90", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
@@ -218,7 +225,7 @@ async function openPage(who, over = {}, { clockNow } = {}) {
   const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return clockNow; } };
   const cookie = who ? await cookieFor(who) : null;
   const headers = cookie ? { Cookie: cookie } : {};
-  const res = await indexMod.default.fetch(new Request("https://guild.example/", { headers }), env(over), ctx);
+  const res = await indexMod.default.fetch(new Request("https://guild.example/", { headers }), env({ ASSETS: governanceAssets, ...over }), ctx);
   const html = await res.text();
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
   const boot = m ? JSON.parse(m[1]) : {};
@@ -226,7 +233,7 @@ async function openPage(who, over = {}, { clockNow } = {}) {
   const w = makeWindow(JSON.stringify(boot));
   const sandbox = {
     document: w.document, window: w.window, location: w.location, history: w.history, sessionStorage: w.sessionStorage, navigator: { clipboard: { writeText: async () => {} } },
-    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
+    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, Uint8Array, TextDecoder, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
     __drop: null, // .100: when set, the real answer to a matching request is thrown away after the Worker handled it (a lost answer)
     __delay: null, // .102: when set, a matching request waits this many milliseconds before the Worker sees it (a slow reply)
     __garble: null, // .104: when set, the Worker's answer to a matching request is replaced by an unreadable 200 page
@@ -238,8 +245,8 @@ async function openPage(who, over = {}, { clockNow } = {}) {
       if (ms) await new Promise((r) => setTimeout(r, ms));
       if (sandbox.__before && sandbox.__before(pathname, init)) throw new TypeError("the network dropped the request"); // .107: before the Worker
       const h2 = { Origin: "https://guild.example", ...(init.headers || {}) };
-      if (cookie) h2.Cookie = cookie;
-      const r = await indexMod.default.fetch(new Request("https://guild.example" + pathname, { method: init.method || "GET", headers: h2, body: init.body }), env(over), ctx);
+      if (cookie && init.credentials !== "omit") h2.Cookie = cookie;
+      const r = await indexMod.default.fetch(new Request("https://guild.example" + pathname, { method: init.method || "GET", headers: h2, body: init.body }), env({ ASSETS: governanceAssets, ...over }), ctx);
       if (sandbox.__drop && sandbox.__drop(pathname, init)) throw new TypeError("the network dropped the answer");
       if (sandbox.__garble && sandbox.__garble(pathname, init)) return new Response("<!doctype html><title>an edge page</title>", { status: 200, headers: { "Content-Type": "text/html" } }); // .104: a 2xx the browser cannot read, after the Worker handled it
       { const ms2 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (ms2) await new Promise((res) => setTimeout(res, ms2)); } // .110: the answer is complete; the page sees it later
@@ -320,7 +327,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   console.log("\n== the shell: signed out ==");
   let page = await openPage(null);
   check("the boot carries the community context (features, no subject)", page.boot && page.boot.community && page.boot.community.subject === null && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === false);
-  check("signed out: Roles only in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles" && !!byText(page.app, "a", "Sign in with Discord"));
+  check("signed out: Roles and public governance links in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles,Governance,Organization" && !!byText(page.app, "a", "Sign in with Discord"));
   // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.
   check("(.117) signed out, the footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
@@ -2078,6 +2085,75 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     }
   }
 
+  // .128: actual public app -> actual Worker -> exact public book/model, including denied identities.
+  {
+    const p = await openPage(null), requests = [];
+    p.before((pathname, init) => { requests.push({ pathname, method: init.method || "GET", credentials: init.credentials }); return false; });
+    await p.go("#/governance");
+    await waitFor(() => !!p.app.querySelector('[data-chapter="reading-and-adopting-this-book"]'), ".128 public book");
+    const chapters = p.app.querySelectorAll("details.governance-chapter");
+    check(".128 unsigned visitor can read entire R6 with draft and no-issued-warrant banner", chapters.length === 13 && p.app.textContent.includes("Publication is not adoption") && p.app.textContent.includes("issues no appointments or warrants"), p.app.textContent.slice(0, 1600));
+    check(".128 reading, adoption and appointment entry links point at real chapters", ["reading-and-adopting-this-book", "adoption-and-office-registers", "3-letters-patent-and-warrants"].every((id) => chapters.some((c) => c.getAttribute("data-chapter") === id) && p.app.querySelector(`a[href="#/governance/${id}"]`)));
+    check(".128 complete book includes statute, bylaws, all20 ordinances, letters and all3 safe tables", p.app.textContent.includes("Article S12a") && p.app.textContent.includes("ORD 20 Pilot and expansion") && p.app.textContent.includes("Independent auditor warrant") && p.app.querySelectorAll("table.governance-table").length === 3);
+    check(".128 OVERVIEW is a genuine chart link rather than an exposed placeholder", !p.app.textContent.includes("[[OVERVIEW]]") && !!p.app.querySelector('a[href="#/organization"]'));
+    byText(p.app, "button", "Expand all chapters").click();
+    check(".128 Expand all chapters opens every native details container", chapters.every((c) => c.open && c.querySelector("summary")));
+    byText(p.app, "button", "Collapse all chapters").click();
+    check(".128 Collapse all chapters closes every native details container", chapters.every((c) => !c.open));
+    const search = p.app.querySelector("#governance-search"); search.value = "Independent auditor warrant"; search.dispatchEvent(new Event("input"));
+    check(".128 whole-book search reveals the matching complete appointment chapter", chapters.filter((c) => !c.hidden).length === 1 && chapters.find((c) => !c.hidden).getAttribute("data-chapter") === "3-letters-patent-and-warrants" && chapters.find((c) => !c.hidden).open);
+    byText(p.app, "button", "Clear search").click();
+    check(".128 clearing search restores all full chapters", chapters.every((c) => !c.hidden));
+    await p.go("#/governance/adoption-and-office-registers");
+    await waitFor(() => !!p.app.querySelector('[data-chapter="adoption-and-office-registers"]'), ".128 adoption deep link");
+    check(".128 deep navigation selects and opens adoption with real previous/next links", p.app.querySelector('[data-chapter="adoption-and-office-registers"]').open && !!p.app.querySelector('a[href="#/governance/daily-news-template"]') && !!p.app.querySelector('a[href="#/governance/source-and-decision-register"]'));
+    await p.go("#/organization/emissary-heraldry");
+    await waitFor(() => p.app.querySelectorAll("[data-organization-term]").length === 95, ".128 organization");
+    check(".128 public diagram exposes genuine Founder->Council->portfolio and GM->Officer->five-liaison nesting", p.app.querySelector('[data-organization-branch="council"]').parentNode.closest('[data-organization-branch="founder"]') && p.app.querySelector('[data-organization-branch="war"]').parentNode.closest('[data-organization-branch="council"]') && p.app.querySelector('[data-organization-branch="officers"]').parentNode.closest('[data-organization-branch="guilds"]') && p.app.querySelector('[data-organization-branch="emissaries"]').querySelectorAll("[data-organization-node]").length === 6);
+    check(".128 ten ranks and ten unappointed I-X slots are separate from the hierarchy", p.app.querySelectorAll("[data-native-rank]").length === 10 && p.app.querySelectorAll(".organization-guilds li").length === 10 && p.app.querySelector(".organization-guilds").textContent.includes("Olympus XUnappointed placeholder"));
+    check(".128 deep selection exposes authority, parent relation and Heraldry coordination", p.app.querySelector(".organization-detail").textContent.includes("Emissary of Heraldry") && p.app.querySelector(".organization-detail").textContent.includes("Authority and limits") && p.app.querySelector(".organization-detail").textContent.includes("Five per-guild emissary liaisons") && p.app.querySelector(".organization-detail").textContent.includes("Department of Heraldry"));
+    const orgSearch = p.app.querySelector("#organization-search"); orgSearch.value = "Marshall"; orgSearch.dispatchEvent(new Event("input"));
+    const hits = p.app.querySelectorAll("[data-organization-term]").filter((c) => !c.hidden);
+    check(".128 exact-label search locates Marshall without inventing a native rank", hits.length === 1 && hits[0].textContent.includes("Marshall"));
+    let selectedScrolls = 0; p.window.scrollTo = () => { selectedScrolls++; };
+    hits[0].querySelector("button").click();
+    check(".128 requested alias selection explains spelling, event remit and no general authority", p.app.querySelector(".organization-detail").textContent.includes("Marshal is the book") && p.app.querySelector(".organization-detail").textContent.includes("event command is separately assigned"));
+    check(".128 alias selection focuses and scrolls to its detail explanation", p.app.querySelector(".organization-detail").focusCalls >= 2 && selectedScrolls === 1);
+    byText(p.app, "button", "Clear search").click();
+    byText(p.app, "button", "Expand all branches").click();
+    check(".128 keyboard-operable native hierarchy can expand all38 branches", p.app.querySelectorAll("details.organization-branch").length === 38 && p.app.querySelectorAll("details.organization-branch").every((c) => c.open && c.querySelector("summary")));
+    byText(p.app, "button", "Collapse all branches").click();
+    check(".128 hierarchy can collapse all branches", p.app.querySelectorAll("details.organization-branch").every((c) => !c.open));
+    check(".128 no public member/leadership API or write request; only cookie-free fixed assets", requests.length === 2 && requests.every((r) => r.pathname.startsWith("/static/governance/") && r.method === "GET" && r.credentials === "omit"));
+    await p.go("#/community/leadership");
+    check(".128 actual-name directory link still sends unsigned visitor to sign-in home", !p.app.querySelector(".organization-tree") && p.app.textContent.includes("Sign in with Discord") && !requests.some((r) => r.pathname === "/api/community/leadership"));
+
+    const denied = await openPage(DENIED);
+    await denied.go("#/governance"); await waitFor(() => !!denied.app.querySelector(".governance-chapter"), ".128 denied public reader");
+    check(".128 denied identity may read public governance without gaining admission", !!denied.app.querySelector(".governance-chapter") && denied.boot.denied);
+    await denied.go("#/community/leadership");
+    check(".128 denied identity remains refused at the private directory", denied.app.textContent.includes("Registration denied") && !denied.app.querySelector(".organization-tree"));
+
+    const malformed = await openPage(null);
+    malformed.answer((pathname) => pathname === "/static/governance/organization.json" ? { schema: "bad" } : null);
+    await malformed.go("#/organization"); await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
+    check(".128 invalid model refuses instead of drawing a misleading hierarchy", !malformed.app.querySelector(".organization-tree") && malformed.app.textContent.includes("unexpected shape"));
+    const hostile = await openPage(null), hostileModel = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));
+    hostileModel.nodes[0].title = '<img src="https://untrusted.invalid/image" onerror="alert(1)">';
+    hostile.answer((pathname) => pathname === "/static/governance/organization.json" ? hostileModel : null);
+    await hostile.go("#/organization"); await waitFor(() => !!hostile.app.querySelector(".organization-tree"), ".128 safe model text");
+    check(".128 organization data renders markup-like text without constructing an image or event handler", hostile.app.textContent.includes(hostileModel.nodes[0].title) && !hostile.app.querySelector('img[src="https://untrusted.invalid/image"]') && !hostile.app.querySelector("[onerror]"));
+    const alteredBytes = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md")); alteredBytes[0] = 33;
+    const altered = await openPage(null, { ASSETS: { fetch: async () => new Response(alteredBytes) } });
+    await altered.go("#/governance"); await waitFor(() => altered.app.textContent.includes("does not match the reviewed text"), ".128 source hash refusal");
+    check(".128 same-size altered book is refused before presenting any chapter", !altered.app.querySelector(".governance-chapter") && altered.app.textContent.includes("does not match the reviewed text"));
+    const missing = await openPage(null); missing.before((pathname) => pathname === "/static/governance/reconciled-book.md");
+    await missing.go("#/governance"); await waitFor(() => missing.app.textContent.includes("Something went wrong"), ".128 missing book refusal");
+    check(".128 failed public fetch is visible without a partial book or false acceptance", missing.app.textContent.includes("Something went wrong") && !missing.app.querySelector(".governance-chapter"));
+    const slow = await openPage(null); slow.delay((pathname) => pathname === "/static/governance/reconciled-book.md" ? 60 : 0);
+    await slow.go("#/governance"); await slow.go("#/roles"); await new Promise((r) => setTimeout(r, 100));
+    check(".128 delayed public reply cannot append its book to a newer route", !slow.app.querySelector(".governance-chapter") && slow.app.textContent.includes("Roles in Olympus"));
+  }
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

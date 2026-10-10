@@ -71,6 +71,14 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".128",
+    date: "2026-10-09",
+    lines: [
+      "The public Governance page contains the complete draft charter, search, chapter links and the adoption and appointment templates.",
+      "Organization explains the proposed offices, ten guild ranks and all 95 requested role labels. Publication makes no appointments.",
+    ],
+  },
+  {
     build: ".126",
     date: "2026-10-09",
     lines: [

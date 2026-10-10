@@ -959,7 +959,11 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1,
       "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b": 7,
     },
-    "worker/public/static/app.js": { "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1 },
+    "worker/public/static/app.js": {
+      "d35427801ac4cd1a0b2407d280973bf6457fc7b7d69e94ff70c03ec8819b6186": 1,
+      // .128 owner request: public entire governance; exactly one Letters Patent deep-link slug for appointment templates.
+      "cedcfc67c817e967143fcf4e69fd3d7164b3cf8ab51dc21191e9a20b08070627": 1,
+    },
   };
   const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
   const grams = (text) => {

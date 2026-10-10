@@ -1286,3 +1286,34 @@ retry retains its original payload. A known refusal restores editing.
 This batch changes calendar input only. Existing API admission, event revisions, RSVP/attendance, retention and
 permissions stay on their current paths; the dues time helper is unchanged. Discord event publishing and raid reminders
 remain unfinished under item 9. No complete item-9 acceptance or overall signature follows from this repair.
+
+## .128 — Public R6 governance reader and interactive organization
+
+The owner requested the entire governance book publicly on the website and a dynamic organization chart. The two
+public routes, `#/governance` and `#/organization`, read fixed same-origin assets without credentials or member APIs.
+The Markdown asset is the exact reviewed 116,006-byte R6 source, SHA256
+`dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca`, including its dated historical statements.
+The browser checks that binding before presenting any chapter. The reader constructs text nodes, safe emphasis and
+tables; it does not execute HTML or arbitrary Markdown links. All 13 chapters are available through a contents list,
+deep links, full-text search, previous/next navigation and native keyboard-operable expand/collapse containers.
+Start here, Adoption checklist and Appointment templates link to the existing source sections. The chart placeholder
+becomes a link to the real interactive chart; the downloadable source stays unchanged.
+
+The generic organization has reporting and coordination relations, independent Justice and audit remits, four core
+portfolios, shared Systems, local guild leadership, five distinct emissary liaisons and local support/event duties.
+Selecting a node shows its remit, limits, parent relation and coordination contacts. All 95 requested labels are
+classified and searchable exactly once in the vocabulary index. The ten native rank slots and the ten unappointed
+Olympus I–X directory placeholders remain separate. Courtesy and review labels create no native power. Actual
+leadership identities stay in the protected directory; this public chart links there but never fetches its data.
+
+The R6 draft banner explicitly distinguishes publication from adoption, accepted warrants and actual permissions.
+No appointment, bank amount, rank change, beta reset, donor feature or automatic release switch is implemented here.
+PDF generation and the builder's historical R5 banner remain separately held publication work. This independent web
+reader does not claim that a PDF was built or that the charter was ratified. It uses existing official client artwork,
+fonts and the already-approved crest; no new dependency or artwork was added. Backend admission and privacy controls
+remain on their existing paths.
+
+Qualification: exact source/95-label/structure tests and real frontend-to-Worker regressions cover unsigned and denied
+readers, public asset requests without credentials, protected directory refusal, chapter/search/detail controls,
+malformed data, missing assets and late-route responses. A native browser review on the final candidate separately
+checks mobile layout, keyboard behavior and actual text/table legibility before publication.
