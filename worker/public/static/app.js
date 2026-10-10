@@ -597,6 +597,7 @@
     else if (!S.signedIn) links.push(["#/roles", "Roles"]); // what each role involves is readable before signing in
     links.push(["#/governance", "Governance"], ["#/organization", "Organization"]); // .128: the public draft and generic structure contain no live member directory
     if (S.signedIn && !S.denied && anyCommunity() && can("applicantWrite")) links.push(["#/community", "Community"]); // .93: only while a community page is switched on; .100 (F5): and while the fresh context admits the account
+    if (S.signedIn && !S.denied && S.qrVerification && S.qrVerification.enabled === true) links.push(["/static/qr-phase1.html", "Verify in game"]);
     if (S.user && S.user.isAdmin) links.push(["#/admin", "Admin"]);
     const head = route.split("/")[0];
     const nav = h("nav", { class: "nav", "aria-label": "Sections" },

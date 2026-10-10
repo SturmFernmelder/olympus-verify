@@ -15,7 +15,7 @@ export async function handleQrApi(request:Request,env:Env):Promise<Response>{
  if(env.SITE_GUILD_ID!==env.GUILD_ID)return apiJson({error:'guild_scope_mismatch'},503);
  if(request.method!=='GET'&&(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION))return apiJson({error:'bad_origin'},403);
  if(rateLimited('qr:'+session.u,20,60))return apiJson({error:'rate_limited'},429);
- if(request.method==='GET'&&path==='/api/qr/profile')return apiJson({phase:1,profile:QR_PROFILE,leaseHours:24,requires:'Verified GUID and native High Council slot 1; Officer and site admin do not qualify',trust:'councillor_browser_attestation'});
+ if(request.method==='GET'&&path==='/api/qr/profile')return apiJson({phase:1,profile:QR_PROFILE,leaseHours:24,rankMappingEnabled:env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true',requires:'Verified GUID and native High Council slot 1; Officer and site admin do not qualify',trust:'councillor_browser_attestation'});
  if(request.method==='GET'&&path==='/api/qr/status')return apiJson(await requestStatus(env,session.u,u.searchParams.get('code')||''));
  // Read-only recovery survives a lost proof response/reload. It exposes only this original generation's own receipts.
  const ownedProof=`EXISTS(SELECT 1 FROM verification_requests v JOIN councillor_keys k ON k.id=p.key_id WHERE v.code=p.code AND ((p.requester=?1 AND v.subject_generation=?2) OR (p.signer=?1 AND k.subject_generation=?2)))`;

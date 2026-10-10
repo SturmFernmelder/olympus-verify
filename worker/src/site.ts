@@ -114,7 +114,8 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
   } catch {
     community = null; // no database: the page hides the community pages and says so
   }
-  boot = { ...boot, ...extra, build, joinUrl: joinUrl(env), community };
+  boot = { ...boot, ...extra, build, joinUrl: joinUrl(env), community,
+    qrVerification: { enabled: env.QR_PHASE1_ENABLED === "true" } };
   const html = `<!doctype html>
 <html lang="en">
 <head>
