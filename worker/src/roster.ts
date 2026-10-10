@@ -1547,6 +1547,7 @@ export async function continueRosterEffects(env: Env): Promise<EffectsSlice | nu
       const owed=await counted.DB.prepare(`SELECT claim FROM roster_effects WHERE done_at IS NOT NULL AND ${CRON_NOTICE_CLAIM}
        AND json_extract(claim,'$.run')=run_id AND json_extract(claim,'$.seq')=seq AND json_extract(claim,'$.createdAt')=done_at
        AND json_extract(claim,'$.subject')=discord_id AND json_extract(claim,'$.generation') IS subject_generation
+       AND json_extract(claim,'$.welcome.state')<>'attempted' AND json_extract(claim,'$.log.state')<>'attempted'
        AND (json_extract(claim,'$.welcome.state')='pending' OR json_extract(claim,'$.log.state')='pending') ORDER BY done_at,run_id,seq LIMIT 1`).first<{claim:string}>();
       if(owed){const original=parseRosterCronNotice(owed.claim);if(!original)throw Error('cron_notice_original_invalid');
         const state=await settleRosterCronNotice(counted,owed.claim);return{run:original.run,applied:0,skipped:0,refused:false,promoted:[],noteBound:[],stripped:[],done:state.finished,failed:false,noticePending:!state.finished,noticeHeld:['held','refused','unknown'].includes(state.state)};

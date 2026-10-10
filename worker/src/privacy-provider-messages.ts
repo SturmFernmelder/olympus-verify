@@ -25,6 +25,8 @@ export function parseRosterCronNotice(claim:string):RosterCronNotice|null{
 /** One original phase dispatch, followed by response-only native custody. Attempted/unknown phases never re-POST. */
 export async function settleRosterCronNotice(env:Env,claim:string):Promise<{state:'known'|'refused'|'unknown'|'held'|'pending';finished:boolean}>{
  const n=parseRosterCronNotice(claim),DB=privacyProviderCustodyDatabase(env);if(!n||!isPrivacyWriteAdmissionDatabase(DB)||env.PRIVACY_ERASURE_ENABLED!=='true')throw Error('cron_notice_proof_invalid');
+ // A second invocation cannot replace the original row while either phase awaits its provider response.
+ if(n.welcome.state==='attempted'||n.log.state==='attempted')return{state:'held',finished:false};
  const kind=n.welcome.state==='pending'?'welcome':n.log.state==='pending'?'log':null;if(!kind)return{state:'held',finished:false};const x=n[kind];
  const base=`run_id=?1 AND seq=?2 AND claim=?3 AND done_at=?4 AND discord_id=?5 AND subject_generation IS ?6 AND name=?7 AND name_key=?8 AND guid IS ?9`;
  const values=[n.run,n.seq,claim,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid];

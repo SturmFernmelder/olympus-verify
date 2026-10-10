@@ -37,8 +37,30 @@ async function seed(active=false){const r=await whole('cold',true,false,active?'
   if(scenario==='admission-lost')globalThis.protocolStageAssert('lost committed admission no HTTP and retains one-use attempted intent',p.posts.length===0&&ledger?.state==='claimed'&&JSON.parse(saved.claim).welcome.state==='attempted',{p,ledger,saved});
   if(scenario==='lost-custody')globalThis.protocolStageAssert('lost custody rollback leaves claimed pointer debt and attempted original',ledger?.state==='claimed'&&JSON.parse(saved.claim).welcome.state==='attempted',{ledger,saved});
   if(['refused','unknown'].includes(scenario))globalThis.protocolStageAssert('refused/unknown retained with no fake completion '+scenario,ledger?.state===scenario&&p.result.noticePending===true&&!p.result.done,{ledger,p});
-  const before=sentNonces.filter(x=>x===c.n.welcome.operation).length;await phase();globalThis.protocolStageAssert('original welcome dispatch never repeats '+scenario,scenario==='admission-rollback'||sentNonces.filter(x=>x===c.n.welcome.operation).length===before);globalThis.fetch=baseFetch;
+  const before=sentNonces.filter(x=>x===c.n.welcome.operation).length;const resumedPhase=await phase();if(['admission-lost','lost-custody'].includes(scenario)){globalThis.protocolStageAssert('attempted original does not block a later primary unit '+scenario,resumedPhase.result!==null&&resumedPhase.result.applied>0,resumedPhase);globalThis.protocolStageAssert('fair continuation preserves attempted original row and original provider debt '+scenario,one('SELECT claim FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq)?.claim===saved.claim&&one('SELECT state FROM privacy_provider_messages WHERE operation_id=?',c.n.welcome.operation)?.state==='claimed'&&!one('SELECT 1 FROM privacy_provider_messages WHERE operation_id=?',c.n.log.operation));globalThis.protocolStageAssert('fair native continuation remains within56 '+scenario,resumedPhase.statements<=56,resumedPhase);}globalThis.protocolStageAssert('original welcome dispatch never repeats '+scenario,scenario==='admission-rollback'||sentNonces.filter(x=>x===c.n.welcome.operation).length===before);globalThis.fetch=baseFetch;
  }
+
+ // Deliberately overlap a second native consumer while the first original welcome POST awaits a response.
+ c=await seed();T+=1800;const raceEnv=globalThis.nativePhaseEnv,raceMessages=globalThis.nativePhaseLoader('./privacy-provider-messages'),raceFetch=fetch,racePosts=[];
+ let enterRace,releaseRace;const raceEntered=new Promise(resolve=>{enterRace=resolve;}),raceRelease=new Promise(resolve=>{releaseRace=resolve;});let racePaused=false;
+ globalThis.fetch=async(url,init)=>{if(init?.method==='POST'&&init.body){const b=JSON.parse(init.body);if([c.n.welcome.operation,c.n.log.operation].includes(b.nonce)){racePosts.push(b.nonce);if(b.nonce===c.n.welcome.operation&&!racePaused){racePaused=true;enterRace();await raceRelease;}}}return raceFetch(url,init);};
+ try{
+  const firstFlight=raceMessages.settleRosterCronNotice(raceEnv,c.original.claim);await raceEntered;
+  const attemptedRow=one('SELECT claim FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq),attemptedClaim=attemptedRow.claim,attemptedNotice=JSON.parse(attemptedClaim);
+  globalThis.protocolStageAssert('overlap fixture pauses original genuine claimed welcome before response',attemptedNotice.welcome.state==='attempted'&&attemptedNotice.log.state==='pending'&&one('SELECT state FROM privacy_provider_messages WHERE operation_id=?',c.n.welcome.operation).state==='claimed');
+  const callsBeforeOverlap=racePosts.length,statementsBeforeOverlap=COUNT.statements;
+  const concurrent=await raceMessages.settleRosterCronNotice(raceEnv,attemptedClaim);
+  globalThis.protocolStageAssert('overlapping next phase holds until original attempted phase settles',concurrent.state==='held'&&!concurrent.finished,concurrent);
+  globalThis.protocolStageAssert('overlap sends no second phase and performs no native mutation',racePosts.length===callsBeforeOverlap&&COUNT.statements===statementsBeforeOverlap,{posts:racePosts,statements:COUNT.statements-statementsBeforeOverlap});
+  globalThis.protocolStageAssert('overlap preserves the sole original attempted row and provider claim',one('SELECT claim FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq).claim===attemptedClaim&&one('SELECT state FROM privacy_provider_messages WHERE operation_id=?',c.n.welcome.operation).state==='claimed');
+  releaseRace();const settledWelcome=await firstFlight,savedWelcome=one('SELECT claim FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq);
+  globalThis.protocolStageAssert('original welcome response settles exact original claim after overlap',settledWelcome.state==='known'&&!settledWelcome.finished&&JSON.parse(savedWelcome.claim).welcome.state==='known'&&JSON.parse(savedWelcome.claim).log.state==='pending',{settledWelcome,savedWelcome});
+  const stalePosts=racePosts.length,stale=await raceMessages.settleRosterCronNotice(raceEnv,attemptedClaim);
+  globalThis.protocolStageAssert('stale attempted snapshot cannot dispatch or overwrite settled original',stale.state==='held'&&!stale.finished&&racePosts.length===stalePosts&&one('SELECT claim FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq).claim===savedWelcome.claim);
+  const settledLog=await raceMessages.settleRosterCronNotice(raceEnv,savedWelcome.claim);
+  globalThis.protocolStageAssert('fresh serialized log completes and removes the original effect',settledLog.state==='known'&&settledLog.finished&&!one('SELECT 1 FROM roster_effects WHERE run_id=? AND seq=?',c.n.run,c.n.seq),settledLog);
+  globalThis.protocolStageAssert('serialized overlap has exactly one original welcome and log each',racePosts.length===2&&racePosts[0]===c.n.welcome.operation&&racePosts[1]===c.n.log.operation&&one("SELECT COUNT(*) n FROM privacy_provider_messages WHERE operation_id IN(?,?) AND state='known'",c.n.welcome.operation,c.n.log.operation).n===2,racePosts);
+ }finally{releaseRace();globalThis.fetch=raceFetch;}
  globalThis.protocolStageSeal(reports,SOURCE_PINS);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 `)};const mod=new ModuleA(input,module);mod.filename=input;mod.paths=ModuleA._nodeModulePaths(pathA.dirname(input));mod._compile(source,input);`;
