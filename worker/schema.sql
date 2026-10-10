@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS community_events (
   attendance_generation INTEGER NOT NULL DEFAULT 0 CHECK (attendance_generation >= 0), -- moves with every attendance write
   nonce                 TEXT,                                               -- per organizer write: admits the rest of its batch
   attendance_nonce      TEXT,                                               -- per attendance write
+  publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)), -- finite no-republish disposition after delivery custody expires
   created_at            INTEGER NOT NULL,
   updated_at            INTEGER NOT NULL,
   retain_until          INTEGER NOT NULL                                    -- ends_at + 30 days; a cancellation brings it forward
@@ -854,3 +855,30 @@ CREATE TABLE IF NOT EXISTS site_news_ops (
 );
 CREATE INDEX IF NOT EXISTS site_news_ops_purge ON site_news_ops(purge_after);
 CREATE INDEX IF NOT EXISTS site_news_ops_created_by ON site_news_ops(created_by);
+
+-- 10 Oct 2026, owner raid task 3/9: an explicit safe publication's claim and finite message custody.
+-- No sign-up/member details; deadline follows its event; local expiry reports unresolved external removal.
+CREATE TABLE IF NOT EXISTS community_event_deliveries (
+  event_id TEXT NOT NULL REFERENCES community_events(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL CHECK (purpose = 'publication'),
+  event_revision INTEGER NOT NULL CHECK (event_revision >= 1),
+  starts_at INTEGER NOT NULL,
+  guild_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  message_id TEXT,
+  frozen_content TEXT CHECK (frozen_content IS NULL OR length(frozen_content) <= 1024),
+  payload_hash TEXT,
+  op_id TEXT NOT NULL CHECK (length(op_id) = 22),
+  claim_nonce TEXT NOT NULL CHECK (length(claim_nonce) = 22),
+  state TEXT NOT NULL CHECK (state IN ('claimed','posted','refused','unknown','removed')),
+  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_requested IN (0,1)),
+  actor TEXT,
+  session_version INTEGER,
+  session_expires INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  retain_until INTEGER NOT NULL,
+  result_code TEXT,
+  PRIMARY KEY (event_id,purpose)
+);
+CREATE INDEX IF NOT EXISTS community_event_deliveries_retain ON community_event_deliveries(retain_until);

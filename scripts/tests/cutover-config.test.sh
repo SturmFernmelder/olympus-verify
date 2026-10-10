@@ -53,6 +53,7 @@ build() { # $1 = old|new
     echo 'COMMUNITY_FEATURES = ""'
     echo 'CONTRIBUTIONS_MODE = "off"'
     echo 'OFFICER_DIGEST_ENABLED = "false"'
+    echo 'EVENT_DISCORD_DELIVERY = ""'
   } > "$f"
 }
 build old wrangler.toml
@@ -225,4 +226,21 @@ date_line 'VERIFY_OPEN_SINCE = "2026-10-23"  # comment'; refuses "a move from a 
 run --activate >/dev/null || fail "an activation that leaves a non-calendar date alone should be accepted"
 ( cd "$tmp" && git reset -q --hard "$good" )
 synthetic_contract "restored after the date checks"
-echo "PASS cutover-config.sh contract (the committed state, the lifecycle, --activate, the forward-only VERIFY_OPEN_SINCE and the marker grammar in a synthetic pair)"
+# .130's explicit organizer switch follows the same recorded activation lifecycle, including reversal.
+announcement_records="$(records)"
+announcement_old_marker="$(cat "$M")"
+( cd "$tmp" && sed -i 's/^EVENT_DISCORD_DELIVERY = ""/EVENT_DISCORD_DELIVERY = "on"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "the explicit announcement switch should activate"
+cmp -s "$L" "$P" || fail "announcement activation should keep the pair identical"
+[ "$(records)" = $((announcement_records + 1)) ] || fail "announcement activation should append one record"
+[ "$(head -n "$(printf '%s\n' "$announcement_old_marker" | wc -l)" "$M")" = "$announcement_old_marker" ] || fail "announcement activation must preserve the complete previous marker"
+tail -n 3 "$M" | grep -q '^# Activation .*(EVENT_DISCORD_DELIVERY)' || fail "the new record should name only the announcement switch"
+run --check >/dev/null || fail "--check should pass after announcement activation"
+commit announcements_on
+( cd "$tmp" && sed -i 's/^EVENT_DISCORD_DELIVERY = "on"/EVENT_DISCORD_DELIVERY = "off"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "the announcement switch should deactivate through the same procedure"
+[ "$(records)" = $((announcement_records + 2)) ] && cmp -s "$L" "$P" || fail "deactivation should append one record and preserve pair equality"
+run --check >/dev/null || fail "--check should pass after announcement deactivation"
+commit announcements_off
+synthetic_contract "after the announcement switch reversals"
+echo "PASS cutover-config.sh contract (the committed state, the lifecycle, --activate, the forward-only VERIFY_OPEN_SINCE, the announcement switch and the marker grammar in a synthetic pair)"

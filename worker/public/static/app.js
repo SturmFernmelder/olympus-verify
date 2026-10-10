@@ -3199,6 +3199,7 @@
       if (parts[1] === "new") return organizerNewEvent(body);
       if (parts[1] && parts[2] === "edit") return organizerEditEvent(body, parts[1]);
       if (parts[1] && parts[2] === "attendance" && feat("attendance")) return organizerAttendance(body, parts[1]);
+      if (parts[1] && parts[2] === "discord") return organizerEventDiscord(body, parts[1]);
       return parts[1] ? communityEvent(body, parts[1]) : communityCalendar(body);
     }
     add(body, frame("Not here", null, h("p", { text: "There is no such community page, or it is not switched on." })));
@@ -3624,7 +3625,7 @@
       const e = data.event;
       if (!e) { holder.appendChild(frame("Event", back(), noticeBox("warn", "icon-warning", h("p", { text: data.hydration === "too_large" ? COMMUNITY_ERRORS.events_too_large : "This event could not be read right now." })))); return; }
       if (message) holder.appendChild(noticeBox("warn", "icon-warning", h("p", { text: message })));
-      holder.appendChild(frame(e.title, h("div", { class: "btn-row" }, back(), e.canManage ? [h("a", { class: "btn small", href: `${eventHref(e.id)}/edit`, text: "Edit" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null] : null), eventCard(e, false)));
+      holder.appendChild(frame(e.title, h("div", { class: "btn-row" }, back(), e.canManage ? [h("a", { class: "btn small", href: `${eventHref(e.id)}/edit`, text: "Edit" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null, h("a", { class: "btn small", href: `${eventHref(e.id)}/discord`, text: "Discord announcement" })] : null), eventCard(e, false)));
       holder.appendChild(rsvpForm(e, reload));
       holder.appendChild(signupsPanel(id, data.signups || [], data.nextCursor || null, e));
     };
@@ -3632,6 +3633,118 @@
       try { draw(await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`), message); } catch (e) { fail(e); }
     };
     await reload();
+  }
+  // .130: explicit organizer publication. A lost answer survives navigation/reload as a tab-local operation marker;
+  // an absent read is never permission to resend. The Worker owns every destination, authority and custody check.
+  async function organizerEventDiscord(body, id) {
+    if (!can("organizer")) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
+    const key = "olympus.eventDelivery." + id;
+    const opPattern = /^[A-Za-z0-9_-]{22}$/;
+    const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
+    const states = ["claimed", "posted", "refused", "unknown", "removed"];
+    const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+    const validDelivery = (v) => v === null || (object(v) && states.includes(v.state) && Number.isSafeInteger(v.revision) && v.revision > 0 && typeof v.stale === "boolean" && typeof v.removalPending === "boolean" && typeof v.operationId === "string" && opPattern.test(v.operationId) && (v.messageUrl === null || (typeof v.messageUrl === "string" && messagePattern.test(v.messageUrl))) && typeof v.retainUntil === "string" && Number.isFinite(Date.parse(v.retainUntil)));
+    let pending = null, storageUnavailable = false;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (raw) { const v = JSON.parse(raw); if (!object(v) || typeof v.opId !== "string" || !opPattern.test(v.opId) || !["publish", "remove", "reconcile"].includes(v.kind)) throw new Error("unknown operation"); pending = v; }
+    } catch { storageUnavailable = true; }
+    const remember = (v) => { try { sessionStorage.setItem(key, JSON.stringify(v)); pending = v; return true; } catch { storageUnavailable = true; return false; } };
+    const forget = () => { try { sessionStorage.removeItem(key); pending = null; } catch { storageUnavailable = true; } };
+    const panel = h("div", { class: "stack" }); add(body, panel);
+    let current = null, busy = false, sequence = 0;
+    const live = () => document.body.contains(panel);
+    const status = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
+    const preview = h("div", { class: "stack", "data-announcement-preview": "" });
+    const exactText = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const exactDetails = h("details", {}, h("summary", { text: "Exact Discord message text" }), exactText);
+    const showPreview = (content) => {
+      clear(preview); exactText.textContent = content || ""; exactDetails.hidden = !content;
+      if (!content) { preview.appendChild(h("p", { text: "An announcement preview is unavailable." })); return; }
+      const lines = content.split("\n"), title = lines[0] && /^\*\*(.*)\*\*$/.exec(lines[0]);
+      const when = lines[1] && /^<t:([0-9]{1,12}):F> · <t:\1:R>$/.exec(lines[1]);
+      const duration = lines[2] && /^Duration: ([0-9]+) minutes$/.exec(lines[2]);
+      const calendar = lines[3] && /^\[Sign up on the Olympus calendar\]\((https:\/\/[a-z0-9.-]+\/#\/community\/calendar\/[A-Za-z0-9_-]{22})\)$/.exec(lines[3]);
+      const seconds = when && Number(when[1]);
+      if (lines.length !== 5 || !title || !when || !duration || !calendar || !calendar[1].endsWith("/" + id) || !Number.isSafeInteger(seconds) || !Number.isFinite(new Date(seconds * 1000).getTime())) {
+        preview.appendChild(h("p", { text: content })); return;
+      }
+      add(preview, [h("strong", { text: title[1].replace(/\\([\\`*_{}\[\]()<>#|~])/g, "$1") }),
+        h("p", { text: fmtDateTime(seconds) }), h("p", { text: lines[2] }),
+        h("a", { href: calendar[1], text: "Sign up on the Olympus calendar" }), h("p", { text: lines[4] }),
+        h("p", { class: "muted small", text: "Time is shown in your browser's time zone. Discord shows each reader their local time." })]);
+    };
+    const publish = h("button", { class: "btn", type: "button", text: "Publish announcement" });
+    const remove = h("button", { class: "btn small", type: "button", text: "Remove announcement" });
+    const refresh = h("button", { class: "btn small", type: "button", text: "Refresh announcement status" });
+    const message = h("input", { type: "text", autocomplete: "off", placeholder: "Discord message link or message ID" });
+    const reconcile = h("button", { class: "btn small", type: "button", text: "Check existing message" });
+    const link = h("div", { class: "btn-row" });
+    add(panel, frame("Discord announcement", h("a", { class: "btn small", href: eventHref(id), text: "Back to event" }),
+      h("p", { text: "Preview the announcement before publishing it to raid-signups. It contains the event title, time, duration and calendar link. Sign-ups stay on the website; this message does not ping members." }), status, preview, exactDetails, link,
+      h("div", { class: "btn-row" }, publish, remove, refresh),
+      fieldBox("event-discord-message", "Find an announcement after a lost answer", message, { hint: "Open raid-signups in Discord, copy the bot's message link, then check it here. Checking an existing message does not post another one." }), reconcile));
+    const buttons = () => {
+      const d = current && current.delivery, held = d && ["claimed", "unknown"].includes(d.state);
+      publish.textContent = d && d.state === "posted" ? "Update announcement" : "Publish announcement";
+      publish.disabled = busy || storageUnavailable || !!pending || !current || !current.canPublish || !!held || !!(d && d.removalPending) || !!(d && d.state === "posted" && !d.stale);
+      remove.disabled = busy || storageUnavailable || !!(pending && (!d || pending.opId !== d.operationId)) || !d || !d.messageUrl || d.state === "claimed" || d.state === "removed";
+      reconcile.disabled = busy || storageUnavailable || !d || !held || !!(pending && pending.opId !== d.operationId);
+      refresh.disabled = busy; message.disabled = busy || reconcile.disabled;
+    };
+    const draw = (data) => {
+      if (!object(data) || data.eventId !== id || !Number.isSafeInteger(data.revision) || data.revision < 1 || typeof data.enabled !== "boolean" || typeof data.canPublish !== "boolean" || typeof data.publicationClosed !== "boolean" || !validDelivery(data.delivery) ||
+        !(data.payload === null ? data.payloadHash === null : object(data.payload) && typeof data.payload.content === "string" && data.payload.content.length <= 1024 && object(data.payload.allowed_mentions) && Array.isArray(data.payload.allowed_mentions.parse) && data.payload.allowed_mentions.parse.length === 0 && typeof data.payloadHash === "string" && /^[0-9a-f]{64}$/.test(data.payloadHash)) ||
+        (data.canPublish && (!data.enabled || !data.payload || data.publicationClosed))) throw new ApiError(200, { error: "unreadable_answer" });
+      current = data;
+      const d = data.delivery;
+      if (pending && (data.publicationClosed || (pending.kind === "publish" && d && d.state === "posted" && !d.stale && !d.removalPending) || (pending.kind === "remove" && d && d.state === "removed") || (d && d.operationId === pending.opId && ["posted", "removed", "refused"].includes(d.state) && !(d.state === "posted" && d.removalPending)))) forget();
+      showPreview(data.payload && data.payload.content);
+      clear(link); if (d && d.messageUrl) link.appendChild(h("a", { class: "btn small", href: d.messageUrl, target: "_blank", rel: "noopener noreferrer", text: "Open Discord announcement" }));
+      status.textContent = storageUnavailable ? "This tab cannot preserve operation status. Publication is held; use a browser tab with session storage available." :
+        data.publicationClosed ? "Publication is closed for this event because an earlier announcement could not be safely resolved within its retention period. It cannot be posted again." :
+        pending || (d && ["claimed", "unknown"].includes(d.state)) ? "The outcome is unresolved. Refresh status or check the existing Discord message; do not post another announcement." :
+        d && d.removalPending ? "Removal is pending. Check the existing message before completing removal." :
+        !data.enabled ? "Discord announcements are switched off. A known existing announcement can still be removed." :
+        d && d.state === "posted" ? (d.stale ? "The event changed. Preview and update its existing announcement." : "The announcement is published and matches this event revision.") :
+        d && d.state === "removed" ? "The announcement was removed." : d && d.state === "refused" ? "Discord refused the previous attempt. Review the preview before trying again." :
+        data.canPublish ? "Ready to publish the preview." : "This event is not currently eligible for publication.";
+      buttons();
+    };
+    const load = async () => {
+      if (busy || !live()) return;
+      const n = ++sequence; busy = true; buttons();
+      try { const data = await api("GET", `/api/community/events/discord?eventId=${encodeURIComponent(id)}`); if (n === sequence && live()) draw(data); }
+      catch (ex) { current = null; clear(preview); exactText.textContent = ""; exactDetails.hidden = true; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Check the existing operation before publishing again."); }
+      finally { if (n === sequence) { busy = false; buttons(); } }
+    };
+    const action = async (kind) => {
+      if (busy || !current || !live()) return;
+      buttons(); const button = kind === "publish" ? publish : kind === "remove" ? remove : reconcile; if (button.disabled) return;
+      const d = current.delivery, opId = kind === "reconcile" ? d.operationId : b64url(16);
+      const payload = kind === "publish" ? { eventId: id, revision: current.revision, opId, payloadHash: current.payloadHash } : { eventId: id, opId };
+      if (kind === "reconcile") {
+        const text = message.value.trim(), match = messagePattern.exec(text);
+        const messageId = match ? match[1] : text;
+        if (!/^[0-9]{17,20}$/.test(messageId)) { status.textContent = "Enter a Discord message link or its numeric message ID."; return; }
+        payload.messageId = messageId;
+      }
+      if (!remember({ kind, opId })) { buttons(); status.textContent = "The browser could not preserve this operation. Nothing was sent."; return; }
+      busy = true; buttons();
+      try {
+        const result = await api("POST", `/api/community/events/discord/${kind}`, payload);
+        if (!object(result) || result.eventId !== id || !Number.isSafeInteger(result.revision) || result.revision < 1 || !validDelivery(result.delivery) || !result.delivery || result.delivery.operationId !== opId ||
+          (kind === "remove" ? result.delivery.state !== "removed" : result.delivery.state !== "posted" || result.delivery.removalPending)) throw new ApiError(200, { error: "unreadable_answer" });
+        forget(); message.value = "";
+      } catch (ex) {
+        // These are definite pre-effect refusals. Every other answer remains bound to its operation until a durable read proves it.
+        if (!uncertain(ex) && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
+        status.textContent = uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
+      } finally { busy = false; buttons(); }
+      await load();
+    };
+    publish.addEventListener("click", () => action("publish")); remove.addEventListener("click", () => action("remove")); reconcile.addEventListener("click", () => action("reconcile")); refresh.addEventListener("click", load);
+    buttons(); await load();
   }
   function rsvpForm(e, reload) {
     const closed = e.status === "cancelled" || sec(e.startsAt) <= nowSec();

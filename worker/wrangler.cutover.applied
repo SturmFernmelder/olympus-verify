@@ -17,3 +17,6 @@ activated_at = "2026-10-06T22:08:00Z"
 # Reviewed SOURCE-ONLY .124 update of INTROS_CHANNELS: officer-chat and current suggestions forum. Not produced by --activate; not proof of provider deployment.
 activation_profile_sha256 = "29878154363e28b16d0c1b52b7389a6e03b487df660fdd73f8505fa237c2ad21"
 activated_at = "2026-10-09T17:18:58Z"
+# Activation (scripts/cutover-config.sh --activate): only the activation keys changed (EVENT_DISCORD_DELIVERY); this is the profile now in force.
+activation_profile_sha256 = "7f173020077ac29a1b0f88b193fb3a2b187725ecefb76e27ba87fae216f19c21"
+activated_at = "2026-10-10T03:34:43Z"
