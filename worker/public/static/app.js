@@ -3655,7 +3655,25 @@
     let current = null, busy = false, sequence = 0;
     const live = () => document.body.contains(panel);
     const status = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
-    const preview = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const preview = h("div", { class: "stack", "data-announcement-preview": "" });
+    const exactText = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const exactDetails = h("details", {}, h("summary", { text: "Exact Discord message text" }), exactText);
+    const showPreview = (content) => {
+      clear(preview); exactText.textContent = content || ""; exactDetails.hidden = !content;
+      if (!content) { preview.appendChild(h("p", { text: "An announcement preview is unavailable." })); return; }
+      const lines = content.split("\n"), title = lines[0] && /^\*\*(.*)\*\*$/.exec(lines[0]);
+      const when = lines[1] && /^<t:([0-9]{1,12}):F> · <t:\1:R>$/.exec(lines[1]);
+      const duration = lines[2] && /^Duration: ([0-9]+) minutes$/.exec(lines[2]);
+      const calendar = lines[3] && /^\[Sign up on the Olympus calendar\]\((https:\/\/[a-z0-9.-]+\/#\/community\/calendar\/[A-Za-z0-9_-]{22})\)$/.exec(lines[3]);
+      const seconds = when && Number(when[1]);
+      if (lines.length !== 5 || !title || !when || !duration || !calendar || !calendar[1].endsWith("/" + id) || !Number.isSafeInteger(seconds) || !Number.isFinite(new Date(seconds * 1000).getTime())) {
+        preview.appendChild(h("p", { text: content })); return;
+      }
+      add(preview, h("strong", { text: title[1].replace(/\\([\\`*_{}\[\]()<>#|~])/g, "$1") }),
+        h("p", { text: fmtDateTime(seconds) }), h("p", { text: lines[2] }),
+        h("a", { href: calendar[1], text: "Sign up on the Olympus calendar" }), h("p", { text: lines[4] }),
+        h("p", { class: "muted small", text: "Time is shown in your browser's time zone. Discord shows each reader their local time." }));
+    };
     const publish = h("button", { class: "btn", type: "button", text: "Publish announcement" });
     const remove = h("button", { class: "btn small", type: "button", text: "Remove announcement" });
     const refresh = h("button", { class: "btn small", type: "button", text: "Refresh announcement status" });
@@ -3663,7 +3681,7 @@
     const reconcile = h("button", { class: "btn small", type: "button", text: "Check existing message" });
     const link = h("div", { class: "btn-row" });
     add(panel, frame("Discord announcement", h("a", { class: "btn small", href: eventHref(id), text: "Back to event" }),
-      h("p", { text: "Preview the announcement before publishing it to raid-signups. It contains the event title, time, duration and calendar link. Sign-ups stay on the website; this message does not ping members." }), status, preview, link,
+      h("p", { text: "Preview the announcement before publishing it to raid-signups. It contains the event title, time, duration and calendar link. Sign-ups stay on the website; this message does not ping members." }), status, preview, exactDetails, link,
       h("div", { class: "btn-row" }, publish, remove, refresh),
       fieldBox("event-discord-message", "Find an announcement after a lost answer", message, { hint: "Open raid-signups in Discord, copy the bot's message link, then check it here. Checking an existing message does not post another one." }), reconcile));
     const buttons = () => {
@@ -3680,8 +3698,8 @@
         (data.canPublish && (!data.enabled || !data.payload || data.publicationClosed))) throw new ApiError(200, { error: "unreadable_answer" });
       current = data;
       const d = data.delivery;
-      if (pending && (data.publicationClosed || (pending.kind === "publish" && d && d.state === "posted" && !d.stale && !d.removalPending) || (d && d.operationId === pending.opId && ["posted", "removed", "refused"].includes(d.state) && !(d.state === "posted" && d.removalPending)))) forget();
-      preview.textContent = data.payload ? data.payload.content : "An announcement preview is unavailable.";
+      if (pending && (data.publicationClosed || (pending.kind === "publish" && d && d.state === "posted" && !d.stale && !d.removalPending) || (pending.kind === "remove" && d && d.state === "removed") || (d && d.operationId === pending.opId && ["posted", "removed", "refused"].includes(d.state) && !(d.state === "posted" && d.removalPending)))) forget();
+      showPreview(data.payload && data.payload.content);
       clear(link); if (d && d.messageUrl) link.appendChild(h("a", { class: "btn small", href: d.messageUrl, target: "_blank", rel: "noopener noreferrer", text: "Open Discord announcement" }));
       status.textContent = storageUnavailable ? "This tab cannot preserve operation status. Publication is held; use a browser tab with session storage available." :
         data.publicationClosed ? "Publication is closed for this event because an earlier announcement could not be safely resolved within its retention period. It cannot be posted again." :
@@ -3697,7 +3715,7 @@
       if (busy || !live()) return;
       const n = ++sequence; busy = true; buttons();
       try { const data = await api("GET", `/api/community/events/discord?eventId=${encodeURIComponent(id)}`); if (n === sequence && live()) draw(data); }
-      catch (ex) { current = null; preview.textContent = ""; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Check the existing operation before publishing again."); }
+      catch (ex) { current = null; clear(preview); exactText.textContent = ""; exactDetails.hidden = true; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Check the existing operation before publishing again."); }
       finally { if (n === sequence) { busy = false; buttons(); } }
     };
     const action = async (kind) => {

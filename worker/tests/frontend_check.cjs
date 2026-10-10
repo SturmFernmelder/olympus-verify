@@ -2197,6 +2197,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       check(".130 a member opening the organizer route receives no announcement data or controls", member.app.textContent.includes("Only the event organizer") && forbiddenReads === 0 && !byText(member.app, "button", "Publish announcement"));
       await p.go(route(id)); await loaded(p);
       check(".130 preview renders safe title text without script markup or private event details", p.app.querySelector("pre").textContent.includes("script") && !p.app.querySelector("script") && !p.app.querySelector("pre").textContent.includes("PRIVATE_SIGNUP_DETAILS") && !byText(p.app, "button", "Publish announcement").disabled);
+      const readable = p.app.querySelector("[data-announcement-preview]");
+      check(".130 primary preview shows readable local time and title without Discord markup", readable.textContent.includes("Raid <script>alert(1)</script>") && readable.textContent.includes("Duration: 120 minutes") && !readable.textContent.includes("<t:") && !readable.textContent.includes("**") && readable.querySelector("a").href.endsWith("/" + id));
+      check(".130 collapsed exact-message detail preserves the complete frozen payload", p.app.querySelector("details").querySelector("pre").textContent === (await apiAs(ORG, "GET", `/api/community/events/discord?eventId=${id}`, undefined, over)).body.payload.content && !p.app.querySelector("details").open);
       p.drop((pathname, init) => pathname.endsWith("/discord/publish") && init.method === "POST");
       byText(p.app, "button", "Publish announcement").click();
       await waitFor(() => p.app.textContent.includes("published and matches"), "lost browser answer reconciles durable publication");
@@ -2254,6 +2257,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       check(".130 unknown removal keeps exact known custody and offers guarded removal, never publication", !byText(u.app, "button", "Remove announcement").disabled && byText(u.app, "button", "Publish announcement").disabled && !messages.has(unknownMessageId));
       byText(u.app, "button", "Remove announcement").click(); await waitFor(() => u.app.textContent.includes("announcement was removed"), "already absent removal reconciliation");
       check(".130 retry of unknown known-pointer deletion proves absence without a second DELETE effect", effects.filter((e) => e.method === "DELETE").length === 2 && posts() === 2 && one("SELECT state FROM community_event_deliveries WHERE event_id=?", unknownId).state === "removed");
+      const replayId = await create("Two-tab removal"), first = await openPage(ORG, over), second = await openPage(ORG, over);
+      await first.go(route(replayId)); await loaded(first); byText(first.app, "button", "Publish announcement").click();
+      await waitFor(() => first.app.textContent.includes("published and matches"), "two-tab publication");
+      await second.go(route(replayId)); await loaded(second);
+      byText(first.app, "button", "Remove announcement").click(); await waitFor(() => first.app.textContent.includes("announcement was removed"), "first-tab removal");
+      const deletesBeforeReplay = effects.filter((e) => e.method === "DELETE").length;
+      byText(second.app, "button", "Remove announcement").click(); await waitFor(() => second.app.textContent.includes("announcement was removed"), "stale-tab removal replay");
+      check(".130 stale second-tab removal resolves from durable removed custody without another DELETE", effects.filter((e) => e.method === "DELETE").length === deletesBeforeReplay && !second.sessionStorage.getItem("olympus.eventDelivery." + replayId) && !byText(second.app, "button", "Publish announcement").disabled && byText(second.app, "button", "Remove announcement").disabled);
     } finally { globalThis.fetch = originalFetch; }
   }
   console.log(`\n${ok}/${n} passed`);
