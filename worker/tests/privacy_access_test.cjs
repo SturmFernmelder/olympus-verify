@@ -37,9 +37,10 @@ function oauthProvider(id=A,scope='identify'){provider=(url,init)=>{
  throw Error('unexpected provider endpoint '+url);};}
 async function start(f){const r=await access.beginPrivacyAccess(new Request(BASE+'/privacy/signin',{headers:{'CF-Connecting-IP':access.privacyAccessRandomId()}}),f.env);const u=new URL(r.headers.get('Location'));
  eq('OAuth scope is identify only',u.searchParams.get('scope'),'identify');eq('OAuth uses registered privacy callback',u.searchParams.get('redirect_uri'),BASE+'/privacy/callback');
+ eq('OAuth still requests active consent',u.searchParams.get('prompt'),'consent');
  return {state:u.searchParams.get('state'),flowCookie:r.headers.get('Set-Cookie').split(';')[0]};}
 async function finish(f,flow){return access.finishPrivacyAccess(new Request(BASE+'/privacy/callback?state='+flow.state+'&code=original_code&iss=https%3A%2F%2Fdiscord.com',{headers:{Cookie:flow.flowCookie}}),f.env);}
-async function connect(f,id=A){oauthProvider(id);const flow=await start(f),r=await finish(f,flow);eq('callback redirects privacy lane',r.headers.get('Location'),'/privacy/access');const cs=r.headers.get('Set-Cookie');ok('callback never issues ordinary cookie',!/(?:^|, )__Host-olg=/.test(cs));return {flow,cookie:cs.split(', ').find(x=>x.startsWith(access.PRIVACY_ACCESS_COOKIE+'=')).split(';')[0]};}
+async function connect(f,id=A,scope='identify'){oauthProvider(id,scope);const flow=await start(f),r=await finish(f,flow);eq('callback redirects privacy lane',r.headers.get('Location'),'/privacy/access');const cs=r.headers.get('Set-Cookie');ok('callback never issues ordinary cookie',!/(?:^|, )__Host-olg=/.test(cs));return {flow,cookie:cs.split(', ').find(x=>x.startsWith(access.PRIVACY_ACCESS_COOKIE+'=')).split(';')[0]};}
 async function form(f,c,purpose='own_export'){const page=await access.privacyAccessPage(new Request(BASE+'/privacy/access',{headers:{Cookie:c.cookie}}),f.env),html=await page.text();
  ok('privacy page has script-free CSP',page.headers.get('Content-Security-Policy').includes("script-src 'none'"));ok('privacy page has no script',!/<script\b/i.test(html));
  const action=purpose==='own_export'?'export':'erasure',section=new RegExp('<form method="post" action="/privacy/access/'+action+'">([\\s\\S]*?)</form>').exec(html);assert.ok(section);
@@ -66,15 +67,48 @@ async function main(){
  }
  f=fixture();subject(f);const c3=await connect(f),frm3=await form(f,c3);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.includes('privacy_access_action_refused'))){f.hooks.beforeBatch=null;f.advance(721);}};await refused('expiry after grant read refuses native batch',()=>copy.exportPrivacyAccess(frm3.request(),f.env));eq('expired original action never consumed',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
  f=fixture();subject(f);oauthProvider();const flow=await start(f);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))){f.hooks.beforeBatch=null;f.db.exec('UPDATE privacy_subjects SET revision=revision+1');}};await refused('callback original capture race refused',()=>finish(f,flow));eq('callback capture race issues no grants',count(f,'privacy_access_grants'),0);eq('callback capture race changes no site account',count(f,'site_users'),0);f.db.close();
- f=fixture();oauthProvider(A,'identify guilds.members.read');const broad=await start(f);calls=[];await refused('broad provider scope rejected',()=>finish(f,broad));eq('broad provider scope never reads identity',calls.length,1);eq('broad provider scope issues no grants',count(f,'privacy_access_grants'),0);f.db.close();
+ // .142 changes only the closed returned-scope pair; frozen .140 refusal evidence
+ // is preserved separately. Fresh handler authority is still identity/own-purpose.
+ for(const scope of ['identify guilds.members.read','guilds.members.read identify']){
+  f=fixture();oauthProvider(A,scope);const flow=await start(f),canary='synthetic142-unused-provider-material';calls=[];
+  provider=(url,init)=>{
+   if(url==='https://discord.com/api/oauth2/token')return new Response(JSON.stringify({access_token:canary,refresh_token:canary,token_type:'Bearer',scope,private_error:canary}));
+   if(url==='https://discord.com/api/v10/users/@me'){eq(scope+' uses returned bearer only for identity',init.headers.Authorization,'Bearer '+canary);eq(scope+' identity GET keeps manual redirects',init.redirect,'manual');return new Response(JSON.stringify({id:A,username:canary,email:canary,member:{id:B},extra:canary}));}
+   throw Error('unexpected provider endpoint');
+  };
+  const nativeLog=context.console,recorded=[];context.console={log:(...v)=>recorded.push(v),warn:(...v)=>recorded.push(v),error:(...v)=>recorded.push(v)};
+  let response,page,data;
+  try{
+   response=await finish(f,flow);const cs=response.headers.get('Set-Cookie'),cookie=cs.split(', ').find(x=>x.startsWith(access.PRIVACY_ACCESS_COOKIE+'=')).split(';')[0];
+   page=await (await access.privacyAccessPage(new Request(BASE+'/privacy/access',{headers:{Cookie:cookie}}),f.env)).text();
+   const frm=await form(f,{cookie});data=await (await copy.exportPrivacyAccess(frm.request(),f.env)).json();
+   ok(scope+' privacy cookie remains unusable as ordinary session',await core.readSession(f.env,new Request(BASE+'/api/me',{headers:{Cookie:cookie}}))===null);
+   await refused(scope+' callback cannot repeat exchange',()=>finish(f,flow));await refused(scope+' own export cannot repeat',()=>copy.exportPrivacyAccess(frm.request(),f.env));
+  }finally{context.console=nativeLog;}
+  eq(scope+' callback redirects only privacy access',response.headers.get('Location'),'/privacy/access');
+  eq(scope+' only fixed token and identity endpoints',calls.map(c=>c.url),['https://discord.com/api/oauth2/token','https://discord.com/api/v10/users/@me']);
+  ok(scope+' never issues ordinary cookie',!/(?:^|, )__Host-olg=/.test(response.headers.get('Set-Cookie')));
+  eq(scope+' two original purpose grants',f.db.prepare('SELECT purpose,expires_at-created_at AS ttl FROM privacy_access_grants ORDER BY purpose').all().map(r=>({...r})),[{purpose:'own_erasure',ttl:720},{purpose:'own_export',ttl:720}]);
+  eq(scope+' only own identity export',data.identity.discordId,A);eq(scope+' local authority label unchanged',data.identity.authority,'fresh_identify_only');
+  eq(scope+' accountless remains accountless',data.account,null);ok(scope+' no counterpart identity',!JSON.stringify(data).includes(B));
+  eq(scope+' no normal account, membership, roles or audit',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements'),count(f,'audit')],[0,0,0,0]);
+  const allNative=JSON.stringify(f.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r=>[r.name,f.db.prepare('SELECT * FROM "'+r.name.replaceAll('"','""')+'"').all()]));
+  const outputs=page+JSON.stringify(data)+allNative+JSON.stringify([...response.headers]);
+  ok(scope+' no provider credentials or extra identity fields stored/reflected',!outputs.includes(canary)&&!outputs.includes(await access.privacyAccessHash(canary)));
+  ok(scope+' returned scope never stored/reflected',!outputs.includes(scope));eq(scope+' no provider log output',recorded,[]);
+  ok(scope+' disclosure explains request and unused membership capability',page.includes('asks Discord only to identify your account')&&page.includes('may also permit a guild membership check')&&page.includes('uses only your account ID, keeps no Discord token'));
+  f.db.close();
+ }
  // RFC 6749 §5.1 variants preserve the original identify-only request, grant
- // lifetimes and one-exchange rule; an explicitly different scope still refuses.
+ // lifetimes and one-exchange rule; only the two exact approved orders also pass.
  for(const [name,token,accept] of [
   ['lowercase bearer',{token_type:'bearer',scope:'identify'},true],
   ['uppercase bearer',{token_type:'BEARER',scope:'identify'},true],
   ['mixed bearer',{token_type:'bEaReR',scope:'identify'},true],
   ['unchanged scope omitted',{token_type:'Bearer'},true],
   ['both standard variants',{token_type:'bearer'},true],
+  ['closed pair with lowercase bearer',{token_type:'bearer',scope:'identify guilds.members.read'},true],
+  ['closed pair reversed with mixed bearer',{token_type:'bEaReR',scope:'guilds.members.read identify'},true],
   ['null scope',{token_type:'Bearer',scope:null},false],
   ['empty scope',{token_type:'Bearer',scope:''},false],
   ['non-string scope',{token_type:'Bearer',scope:['identify']},false],
@@ -93,6 +127,27 @@ async function main(){
   eq(name+' no guild/session/role authority',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);
   ok(name+' consumes original flow',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
   const priorCalls=calls.length;await refused(name+' cannot replay callback',()=>finish(f,flow));eq(name+' replay no further exchange',calls.length,priorCalls);f.db.close();
+ }
+ for(const scope of ['identify guilds.members.read','guilds.members.read identify']){
+  for(const [name,mutate] of [['absence created',f=>subject(f)],['generation ABA',f=>f.db.prepare('UPDATE privacy_subjects SET generation=?').run('b'.repeat(32))],['revision changed',f=>f.db.exec('UPDATE privacy_subjects SET revision=revision+1')],['retiring',f=>f.db.exec("UPDATE privacy_subjects SET state='retiring'")]]){
+   f=fixture();if(name!=='absence created')subject(f);oauthProvider(A,scope);const flow=await start(f);calls=[];
+   f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))){f.hooks.beforeBatch=null;mutate(f);}};
+   await refused(scope+' callback original '+name+' refuses',()=>finish(f,flow));eq(scope+' callback race cannot mint grants',count(f,'privacy_access_grants'),0);
+   eq(scope+' callback race no normal authority',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);
+   eq(scope+' callback race still only fixed endpoints',calls.map(c=>c.url),['https://discord.com/api/oauth2/token','https://discord.com/api/v10/users/@me']);
+   const priorCalls=calls.length;await refused(scope+' failed capture state stays spent',()=>finish(f,flow));eq(scope+' failed capture replay no provider call',calls.length,priorCalls);f.db.close();
+   f=fixture();if(name!=='absence created')subject(f);const c=await connect(f,A,scope),frm=await form(f,c);
+   f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.includes('privacy_access_action_refused'))){f.hooks.beforeBatch=null;mutate(f);}};
+   await refused(scope+' own export original '+name+' refuses',()=>copy.exportPrivacyAccess(frm.request(),f.env));
+   eq(scope+' action race rolls back one-use consumption',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
+  }
+  for(const fault of ['expiry during provider await','ignored native grant']){
+   f=fixture();oauthProvider(A,scope);const flow=await start(f);calls=[];
+   if(fault==='expiry during provider await'){const normal=provider;provider=(url,init)=>{const r=normal(url,init);if(url.endsWith('/oauth2/token'))f.advance(300);return r;};}
+   else f.db.exec("CREATE TRIGGER ignore_closed_trial_grant BEFORE INSERT ON privacy_access_grants WHEN NEW.purpose='own_erasure' BEGIN SELECT RAISE(IGNORE); END");
+   await refused(scope+' '+fault+' refuses callback',()=>finish(f,flow));eq(scope+' '+fault+' native batch rolls back both grants',count(f,'privacy_access_grants'),0);
+   const priorCalls=calls.length;await refused(scope+' '+fault+' cannot renew spent state',()=>finish(f,flow));eq(scope+' '+fault+' replay no provider call',calls.length,priorCalls);f.db.close();
+  }
  }
  const secretSentinel='synthetic-private-code-cookie-token-identity-DO-NOT-REFLECT';
  const diagnostics=[
@@ -122,8 +177,8 @@ async function main(){
   ok(name+' original flow spent',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
   const priorCalls=calls.length;await refused(name+' spent flow cannot exchange again',()=>finish(f,flow));eq(name+' no replay HTTP',calls.length,priorCalls);f.db.close();
  }
- // .140 categories are diagnosis only. Every alternative spends the same native
- // state and stops before identity HTTP/capture/grants; no normalization admits.
+ // .140 fixed refusal categories stay intact for every unapproved .142 value.
+ // Each spends native state before refusing identity/grants; no normalization.
  const genericScopeHtml=await access.privacyAccessRefusal(new Request(BASE+'/privacy/callback'),new (load('policy-form-core').FormError)('identity_exchange_scope_refused',503)).text();
  for(const [name,scope,marker] of [
   ['null',null,'PA-T6A'],['boolean',false,'PA-T6A'],['number',0,'PA-T6A'],
@@ -133,6 +188,10 @@ async function main(){
   ['repeated identify','identify identify','PA-T6C'],['repeated formatted identify',' identify  identify ','PA-T6C'],
   ['broader identify first','identify email','PA-T6D'],['broader identify last','email identify','PA-T6D'],
   ['broader repeated identify','identify identify email','PA-T6D'],['case-sensitive extra token','identify Identify','PA-T6D'],
+  ['pair plus email','identify guilds.members.read email','PA-T6D'],['pair plus unknown','identify guilds.members.read '+secretSentinel,'PA-T6D'],
+  ['other known guild scope','identify guilds','PA-T6D'],['other known role scope','identify role_connections.write','PA-T6D'],
+  ['member token casing','identify Guilds.members.read','PA-T6D'],['member token prefix','identify xguilds.members.read','PA-T6D'],
+  ...['identify identify guilds.members.read','identify guilds.members.read identify','guilds.members.read identify identify','guilds.members.read guilds.members.read identify','guilds.members.read identify guilds.members.read','identify guilds.members.read guilds.members.read','identify identify guilds.members.read guilds.members.read','guilds.members.read guilds.members.read identify identify'].map((s,i)=>['closed pair duplicate'+i,s,'PA-T6D']),
   ['RFC punctuation boundaries','identify ! # [ ] ~','PA-T6D'],['comma inside RFC token','identify email,other','PA-T6D'],
   ['private broad scope canary','identify '+secretSentinel,'PA-T6D'],
   ['long bounded token','identify '+('a'.repeat(8000)),'PA-T6D'],
@@ -145,6 +204,8 @@ async function main(){
   ['final identify newline','identify\n','PA-T6'],['carriage return','identify\r','PA-T6'],
   ['double broad separator','identify  email','PA-T6'],['leading broad separator',' identify email','PA-T6'],
   ['trailing broad separator','identify email ','PA-T6'],['quote excluded','identify "email"','PA-T6'],
+  ...[' identify guilds.members.read','identify guilds.members.read ','identify  guilds.members.read',' guilds.members.read identify','guilds.members.read identify ','guilds.members.read  identify','identify\tguilds.members.read','guilds.members.read\tidentify','identify\nguilds.members.read','guilds.members.read identify\n','identify guilds.members.read\n','identify\u00a0guilds.members.read','identify \uff47uilds.members.read'].map((s,i)=>['closed pair formatting'+i,s,'PA-T6']),
+  ...[0,1,9,10,13,31,127,160,0x2003,0x2028,0x2029,0xfeff].map(n=>['closed pair control/U'+n,'identify guilds.members.read'+String.fromCharCode(n),'PA-T6']),
   ['backslash excluded','identify \\email','PA-T6'],['NUL excluded','identify\0email','PA-T6'],
   ['DEL excluded','identify '+String.fromCharCode(127),'PA-T6'],['NBSP separator','identify\u00a0email','PA-T6'],
   ['Unicode space','\u2003identify','PA-T6'],['Unicode token','identify \u00e9mail','PA-T6'],
@@ -192,14 +253,16 @@ async function main(){
  await refused('ignored grant insert fails final actual guard',()=>finish(f,ignoredGrant));eq('ignored grant insert rolls back both grants',count(f,'privacy_access_grants'),0);f.db.close();
  f=fixture();const cFinal=await connect(f),formFinal=await form(f,cFinal);f.hooks.step=(_i,sql)=>{if(sql.includes('privacy_access_read_refused'))f.advance(720);};
  await refused('copy final original deadline aborts native transaction',()=>copy.exportPrivacyAccess(formFinal.request(),f.env));eq('copy final deadline rolls back consumption',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
+ for(const scope of ['identify','identify guilds.members.read','guilds.members.read identify']){
  f=fixture();f.db.prepare('INSERT INTO members(discord_id,banned,ban_reason) VALUES(?,1,?)').run(A,'private staff reason');f.db.prepare('INSERT INTO members(discord_id,banned,ban_reason) VALUES(?,0,?)').run(B,'counterparty');
  f.db.prepare('INSERT INTO site_users(discord_id,first_login,last_login,in_server,session_version,denied,denied_reason,denied_by) VALUES(?,?,?,?,?,?,?,?)').run(A,f.time(),f.time(),0,7,1,'private denial',STAFF);
  f.db.prepare('INSERT INTO site_users(discord_id,first_login,last_login,in_server,session_version) VALUES(?,?,?,?,?)').run(B,f.time(),f.time(),1,2);
  f.db.prepare('INSERT INTO site_friends(owner_id,friend_kind,friend_key,friend_label,note,created_at) VALUES(?,?,?,?,?,?)').run(A,'discord',B,'Chosen label','own note',f.time());
  f.db.prepare('INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,?)').run(f.time(),STAFF,'own.action',A,JSON.stringify({staff:STAFF,other:B}));
  f.db.prepare('INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,?)').run(f.time(),STAFF,'other.action',B,'private');
- const c4=await connect(f),frm4=await form(f,c4),data=await (await copy.exportPrivacyAccess(frm4.request(),f.env)).json(),serialized=JSON.stringify(data);
+ const c4=await connect(f,A,scope),frm4=await form(f,c4),data=await (await copy.exportPrivacyAccess(frm4.request(),f.env)).json(),serialized=JSON.stringify(data);
  ok('banned departed denied export succeeds',data.verification.bannedFromVerifying&&data.account.inServer===false&&data.account.denied);ok('no counterparty or staff structural identity',!serialized.includes(B)&&!serialized.includes(STAFF));ok('private staff reasons omitted',!serialized.includes('private staff reason')&&!serialized.includes('private denial'));eq('only own actions copied',data.actions.rows.length,1);eq('existing ordinary version unchanged by identity/export',f.db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(A).session_version,7);f.db.close();
+ }
  f=fixture();f.db.prepare('INSERT INTO site_users(discord_id,first_login,last_login,session_version) VALUES(?,?,?,?)').run(A,f.time(),f.time(),4);f.db.prepare('INSERT INTO site_applications(discord_id,position,answers,status,created_at,updated_at) VALUES(?,?,?,?,?,?)').run(A,'member',JSON.stringify({references:[null,1,'legacy',[],{kind:'discord',label:'Chosen reference',key:B},{kind:{id:B},label:{id:STAFF}}]}),'submitted',f.time(),f.time());
  const cLegacy=await connect(f),formLegacy=await form(f,cLegacy),legacy=await (await copy.exportPrivacyAccess(formLegacy.request(),f.env)).json();eq('legacy malformed references do not consume without copy',legacy.site.application.answers.references.length,2);ok('legacy reference projection withholds structural identities',!JSON.stringify(legacy).includes(B)&&!JSON.stringify(legacy).includes(STAFF));f.db.close();
  for(const [shape,references] of [['object',{kind:'discord',key:B,label:'Chosen reference'}],['string',B],['number',123],['boolean',true],['null',null]]){

@@ -5298,3 +5298,12 @@ The genuine .138 callback returned the closed `PA-T6` marker after token type pa
 Scope refusals use five fixed categories: `PA-T6A` non-string, `PA-T6B` empty string, `PA-T6C` lowercase `identify` formatted or repeated using ASCII spaces alone, `PA-T6D` a valid case-sensitive RFC scope list containing exact `identify` and another token, and `PA-T6E` a valid list missing exact `identify`. Malformed or unclassified strings retain generic `PA-T6`; these markers reveal no scope value. No raw provider error/body, callback code/state, token or identity is reflected, logged or stored. Issuer checks, native original-flow consumption, purpose/capture fences, five-minute flow expiry, twelve-minute grant expiry, body limits and provider custody are unchanged.
 
 No configuration, schema, assets, dependencies or provider mutations. Qualify the native privacy access suite, typecheck and three build pins on the exact commit; genuine callback/download acceptance remains required separately. Rollback to .138 restores its generic scope marker and preserves the same strict scope gate. The separately owned .139 dormant integration is not part of this eight-path candidate.
+
+
+## .142 privacy OAuth membership-scope compatibility trial
+
+The .140 genuine `PA-T6D` result identifies a valid scope list containing exact `identify` plus another token. It does not identify the actual extra token or prove a reused consent. Preserve the scoped .140 live receipt and its refusal screenshot; do not save the OAuth query, provider body or token.
+
+This successor requests only `identify` and allows one additional closed response shape: exactly `identify guilds.members.read` or `guilds.members.read identify`. All other present alternatives, email, unknown scopes, duplicates, case changes and malformed spacing remain refused before identity reads or grants. Prove both orders with native tests, fixed-identity-only HTTP, no ordinary session or role effects, no token storage/reflection, and spent-state replay refusal. Check the public explanation and original native capture/purpose/expiry guards.
+
+Use a fresh ordinary browser flow for live acceptance; never replay the consumed callback URL. Validate the actual own-account download without printing private records or cursors. An accepted source or release build is not that browser acceptance. Schema, profile flags, public asset bytes and dependencies stay unchanged; erasure, retention and Phase1 QR remain OFF.
