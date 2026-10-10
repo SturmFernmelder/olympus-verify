@@ -168,7 +168,7 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
   if (m === "HEAD") return htmlResponse(request, "Privacy controls", "");
   try {
     const nonce = formNonce(request) ?? randomCode();
-    if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED!=='true')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt.</p>'+controls,503);
+    if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED!=='true')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p>'+controls,503);
     if ((m === 'GET' || m === 'POST') && path === '/privacy/contact' && env.PRIVACY_ACCESS_ENABLED === 'true' && env.PRIVACY_INTAKE_ENABLED !== 'true') {
       const introduction=env.PRIVACY_ERASURE_ENABLED==='true'?'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records or request serving-account erasure; this grants no guild access.</p>':'<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records; this grants no guild access.</p>'+erasurePaused;
       return htmlResponse(request,'Privacy account controls',introduction+'<p><a href="/privacy/access">Open account data controls</a> · <a href="/privacy/case">Read an existing case</a></p><p>Existing cases keep their original inactivity deadlines. Unattributable text, unresolved provider outcomes and human-managed staff permissions may require attended handling.</p>',m === 'GET' ? 200 : 503);

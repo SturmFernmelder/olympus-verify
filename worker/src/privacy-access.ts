@@ -164,7 +164,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  return htmlResponse(request,'Privacy account connection',body);
 }
 export function privacyAccessRefusal(request:Request,error:unknown):Response{
- if(error instanceof FormError&&error.code==='privacy_erasure_unavailable')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt.</p><p><a href="/privacy/access">Download my retained records</a> · <a href="/privacy/account">Check an existing erasure request</a> · <a href="/privacy/contact">Account help</a></p>',503);
+ if(error instanceof FormError&&error.code==='privacy_erasure_unavailable')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p><p><a href="/privacy/access">Download my retained records</a> · <a href="/privacy/account">Check an existing erasure request</a> · <a href="/privacy/contact">Account help</a></p>',503);
  const status=error instanceof FormError?error.status:503;
  return htmlResponse(request,'Privacy connection unavailable',`<p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>`,status);
 }
