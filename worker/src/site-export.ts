@@ -345,7 +345,13 @@ export async function exportMyContributionDecisions(request: Request, env: Env, 
 /** .76: the member's application for their OWN copy: the parsed answers' references carry kind and label only (the key is another member's id). */
 function ownApplication(a: ReturnType<typeof appOut>) {
   const answers: Record<string, unknown> = { ...a.answers };
-  if (Array.isArray(answers.references)) answers.references = (answers.references as Record<string, unknown>[]).map((r) => ({ kind: r.kind, label: r.label }));
+  if (Object.hasOwn(answers, 'references')) {
+    // Restored legacy answers can have any shape. Expose only the chosen reference label,
+    // never counterpart keys or nested objects, through either own-copy admission path.
+    answers.references = Array.isArray(answers.references) ? (answers.references as unknown[])
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object' && !Array.isArray(r))
+      .map(r => ({ kind: r.kind === 'discord' || r.kind === 'name' ? r.kind : null, label: typeof r.label === 'string' ? r.label : null })) : null;
+  }
   return { ...a, answers };
 }
 
