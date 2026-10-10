@@ -71,6 +71,15 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".132",
+    date: "2026-10-10",
+    lines: [
+      "Home and the guild guides use one checked current-beta identity. The full-release identity switch remains unavailable.",
+      "Governance includes the reviewed 40-page draft PDF and its download package. These documents issue no appointments.",
+      "Event organizers can preview, publish, reconcile and remove a Discord announcement. Automatic announcements and reminders remain off.",
+    ],
+  },
+  {
     build: ".128",
     date: "2026-10-09",
     lines: [

@@ -103,6 +103,16 @@
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
   const listText = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
   const M = () => S.meta || { positions: [], classes: [], roles: [], regions: [], hours: [], voice: [], questions: [], professions: [], ballots: [], limits: {}, avail: { reference: 0, prime: { na: [], eu: [], min: 3 } } };
+  // Only the supported public-beta schema/revision is rendered. Boot data cannot select a future phase.
+  function rulesetIdentity() {
+    const p = M().ruleset, keys = ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"];
+    if (!p || typeof p !== "object" || Array.isArray(p) || Object.keys(p).length !== keys.length
+      || !keys.every((k) => Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] === "string")
+      || p.schema !== "olympus-ruleset-profile-v1" || p.revision !== "forever-beta-pvp2-v1" || p.phase !== "beta"
+      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || p.realm !== "Classic Beta PvP 2" || p.ruleset !== "PvP" || p.faction !== "Alliance"
+      || !/^[\p{L}\p{N} .:'()-]{1,80}$/u.test(p.realm) || p.realm !== p.realm.trim() || p.realm !== p.realm.normalize("NFC")) return "Game identity unavailable";
+    return `${p.game} · Beta · ${p.realm} · ${p.ruleset} · ${p.faction}`;
+  }
   // .93: the community context from the boot (community-context.ts contextDto): flags for everyone, capabilities for the viewer
   const COM = () => S.community || { subject: null, capabilities: {}, features: {} };
   const feat = (f) => !!COM().features[f];
@@ -1019,6 +1029,7 @@
 
   ROUTES[""] = function home(main) {
     const flash = flashBox();
+    if (S.signedIn) add(main, h("p", { class: "muted small", "data-ruleset-identity": "current", text: rulesetIdentity() }));
     if (!S.signedIn) {
       add(main, [
         h("section", { class: "frame" },
@@ -1026,7 +1037,7 @@
             h("img", { class: "art", src: "/static/wow/molten-core.jpg", alt: "Molten Core, from the game's loading screen", width: "500", height: "284" }),
             h("div", null,
               h("div", { class: "title", text: "Olympus" }),
-              h("div", { class: "tag" }, h("span", { text: "Asmongold's guild" }), h("span", { text: "World of Warcraft: Forever · PvP · Alliance" })),
+              h("div", { class: "tag" }, h("span", { text: "Asmongold's guild" }), h("span", { "data-ruleset-identity": "current", text: rulesetIdentity() })),
               h("p", { class: "lead", text: "Registration is open. Apply for a place or a role, vote on who leads the guild, list the friends you are bringing, and enter your reserved names when name reservation opens." }),
               signInButton(true),
               h("p", { class: "muted small", text: "For members of Asmongold's Discord server. The site checks that one membership and nothing else: it never sees your password, email, other servers or messages." })))),
