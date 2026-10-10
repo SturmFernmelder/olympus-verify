@@ -217,7 +217,7 @@ bounded status codes. Some error paths also log truncated request paths or comma
 include user-supplied text. Cloudflare's operational logging and retention settings apply to that output. A working copy
 of the invite queue, the addon's saved data and
 the game's chat log sit on the computer of the officer who sends the invites. The bot talks to Discord as part of its
-ordinary work: it reads members' roles and nicknames, grants and removes the Guild Member role, sets nicknames where that
+ordinary work: it reads members' roles and nicknames, grants and removes the Guild Member role, maps verified current native guild ranks to Olympus rank roles and the Guild Leader, Officer or Raid Leader access roles where the configured rank profile permits, sets nicknames where that
 is switched on, bans where an officer orders it, writes a short reason into Discord's own audit log for those changes,
 refreshes the Discord usernames and display names of linked members, re-checks a signed-in member's server membership
 about hourly after a save, and posts the notices and staff messages described below; Discord keeps its own records of all

@@ -55,15 +55,15 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  // Before creator anonymization, adopt only this creator's bounded bot publication custody.
  // Unknown dispatches retain a no-repeat record; known pointers remain eligible for automatic DELETE.
  env.DB.prepare(`INSERT INTO privacy_provider_messages(operation_id,purpose,subjects,channel_id,message_id,state,cleanup_requested,created_at,updated_at,retain_until)
- SELECT 'event_publication:'||d.op_id,'event_publication',json_array(json_object('id',?1,'g',?2)),d.channel_id,d.message_id,
+ SELECT 'event_publication:'||d.event_id||':'||d.op_id||':'||d.claim_nonce,'event_publication',json_array(json_object('id',?1,'g',?2)),d.channel_id,d.message_id,
  CASE WHEN d.message_id IS NOT NULL THEN 'known' ELSE 'unknown' END,1,d.retain_until-${PRIVACY_REPLAY},${PRIVACY_DB_NOW},d.retain_until
- FROM community_event_deliveries d JOIN community_events e ON e.id=d.event_id WHERE e.created_by=?1 AND d.state NOT IN('removed','refused') AND d.retain_until>${PRIVACY_DB_NOW}
+ FROM community_event_deliveries d JOIN community_events e ON e.id=d.event_id WHERE e.created_by=?1 AND d.claim_nonce IS NOT NULL AND d.state NOT IN('removed','refused') AND d.retain_until>${PRIVACY_DB_NOW}
  ON CONFLICT(operation_id)DO NOTHING`).bind(p.subject,p.subjectGeneration),
  ...(!communityDataNames().includes('event_reminders')?[]:[env.DB.prepare(`INSERT INTO privacy_provider_messages(operation_id,purpose,subjects,channel_id,message_id,state,cleanup_requested,created_at,updated_at,retain_until)
- SELECT 'event_reminder:'||d.op_id,'event_reminder',json_array(json_object('id',?1,'g',?2)),d.channel_id,d.message_id,
+ SELECT 'event_reminder:'||d.event_id||':'||d.op_id||':'||d.claim_nonce,'event_reminder',json_array(json_object('id',?1,'g',?2)),d.channel_id,d.message_id,
  CASE WHEN d.message_id IS NOT NULL THEN 'known' ELSE 'unknown' END,1,d.retain_until-${PRIVACY_REPLAY},${PRIVACY_DB_NOW},d.retain_until
  FROM community_event_reminders d LEFT JOIN community_events e ON e.id=d.event_id
- WHERE (d.actor=?1 OR e.created_by=?1) AND d.state IN('claimed','unknown','posted','cleaning') AND d.retain_until>${PRIVACY_DB_NOW}
+ WHERE (d.actor=?1 OR e.created_by=?1) AND d.claim_nonce IS NOT NULL AND d.state IN('claimed','unknown','posted','cleaning') AND d.retain_until>${PRIVACY_DB_NOW}
  ON CONFLICT(operation_id)DO NOTHING`).bind(p.subject,p.subjectGeneration)]),
  // The marker uses the original denial time. It is neither a ban record nor a refreshed clock.
  env.DB.prepare(`INSERT INTO privacy_denial_markers(subject_key,denied_at,retain_until,reason)
