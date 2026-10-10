@@ -54,6 +54,7 @@ build() { # $1 = old|new
     echo 'CONTRIBUTIONS_MODE = "off"'
     echo 'OFFICER_DIGEST_ENABLED = "false"'
     echo 'EVENT_DISCORD_DELIVERY = ""'
+    echo 'EVENT_DISCORD_REMINDERS = ""'
   } > "$f"
 }
 build old wrangler.toml
@@ -243,4 +244,20 @@ run --activate >/dev/null || fail "the announcement switch should deactivate thr
 run --check >/dev/null || fail "--check should pass after announcement deactivation"
 commit announcements_off
 synthetic_contract "after the announcement switch reversals"
-echo "PASS cutover-config.sh contract (the committed state, the lifecycle, --activate, the forward-only VERIFY_OPEN_SINCE, the announcement switch and the marker grammar in a synthetic pair)"
+# .134 global enablement changes no individual event consent.
+reminder_records="$(records)"
+reminder_old_marker="$(cat "$M")"
+( cd "$tmp" && sed -i 's/^EVENT_DISCORD_REMINDERS = ""/EVENT_DISCORD_REMINDERS = "on"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "the reminder switch should activate"
+[ "$(records)" = $((reminder_records + 1)) ] && cmp -s "$L" "$P" || fail "reminder activation should append once and preserve pair equality"
+[ "$(head -n "$(printf '%s\n' "$reminder_old_marker" | wc -l)" "$M")" = "$reminder_old_marker" ] || fail "reminder activation must preserve previous records"
+tail -n 3 "$M" | grep -q '^# Activation .*(EVENT_DISCORD_REMINDERS)' || fail "only the reminder switch should be named"
+run --check >/dev/null || fail "--check should pass after reminder activation"
+commit reminders_on
+( cd "$tmp" && sed -i 's/^EVENT_DISCORD_REMINDERS = "on"/EVENT_DISCORD_REMINDERS = "off"/' worker/wrangler.cutover.toml )
+run --activate >/dev/null || fail "the reminder switch should deactivate"
+[ "$(records)" = $((reminder_records + 2)) ] && cmp -s "$L" "$P" || fail "reminder deactivation should append once and preserve pair equality"
+run --check >/dev/null || fail "--check should pass after reminder deactivation"
+commit reminders_off
+
+echo "PASS cutover-config.sh contract (committed state, lifecycle, activation, forward-only date, announcement/reminder switches and marker grammar)"

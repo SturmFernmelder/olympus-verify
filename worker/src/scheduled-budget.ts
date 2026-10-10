@@ -47,7 +47,7 @@ export const SCHEDULED_STATEMENT_TARGET = 700;
 /** Per-run caps the jobs read from here. */
 export const SCHEDULED_CAPS = {
   /** restore.ts: accounts one Guild Member sweep may check; ROLE_SWEEP_PER_RUN is clamped to it (configured 10; the clamp was 50). */
-  roleSweepAccounts: 20,
+  roleSweepAccounts: 10,
   /** restore.ts BANNED_PER_RUN: banned or held accounts the sweep re-checks (unchanged; the test checks the two agree). */
   roleSweepBanned: 5,
   /** names.ts: linked members whose Discord names one run re-reads; NAMES_PER_RUN is clamped to it (configured 5; unchanged). */
@@ -55,7 +55,7 @@ export const SCHEDULED_CAPS = {
   /** community-directory.ts: profiles thirty days departed that one run erases (was 100); the rest go in the next runs. */
   profilesPerRun: 10,
   /** community-contributions.ts: weekly obligations one run opens (was 200); the rest open in the next runs. */
-  obligationsPerRun: 30,
+  obligationsPerRun: 24,
   /**
    * roster.ts continueRosterEffects: the statement attempts one cron run may spend on the roster's pending member effects
    * (Codex, 3 Oct 2026 16:48 UTC, finding A). Each item is admitted at its kind's worst case before it starts
@@ -72,18 +72,18 @@ const C = SCHEDULED_CAPS;
  * are read from the source: a job whose statements change changes its line here.
  */
 /**
- * The schema check's worst case: 5 column probes + 5 ALTERs, 7 single CREATEs, the site batch (97 tables and indexes + 2
+ * The schema check's worst case: 5 column probes + 5 ALTERs, 7 single CREATEs, the site batch (99 tables and indexes + 2
  * legacy updates; the roster effects' two tables since the third .115 review round), the column batch failing (16
- * attempted), then 14 probes + 14 ALTERs + 2 indexes, the separate publication-closure probe/ALTER, the marker read + the 3-statement rewrite. Every invocation that
+ * attempted), then 14 probes + 14 ALTERs + 2 indexes, the two publication/reminder closure probes/ALTERs, the marker read + the 3-statement rewrite. Every invocation that
  * reaches D1 may pay it once (a fresh isolate), so the allowances below are measured from it.
  */
-const SCHEMA_WORST = 10 + 7 + 99 + 16 + 28 + 2 + 2 + 4;
+const SCHEMA_WORST = 10 + 7 + 101 + 16 + 28 + 2 + 4 + 4;
 
 export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule: string }> = [
   {
     job: "ensureSchema",
     worst: SCHEMA_WORST,
-    rule: "cold, every column reported missing and the audit rewrite pending (warm: 0; cold on a current database: 129, or 132 before the rewrite; publication table/index add two and closure probe/ALTER at most two)",
+    rule: "cold, every column reported missing and the audit rewrite pending (warm: 0; cold on a current database: 132, or 135 before the rewrite; reminder table/index add two and closure probe/ALTER at most two)",
   },
   { job: "sweepInviteQueue", worst: 4, rule: "two updates, the queue.swept audit, the staff_notice.failed audit when the notice cannot be posted" },
   {
@@ -91,7 +91,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     // 6 reads before the accounts, the banned selection, the budget audit, the sweep audit, the sweep_failed audit;
     // per account at most 4 ban/hold reads and 3 audit attempts (the failure path; the success path is 5); per banned or
     // held account 2 reads and 2 audit attempts. scheduled_budget_test measures 7, 5 and 4 exactly (review of 3 Oct 2026);
-    // the call budget (at most 50 requests) stops a failure run at 11 accounts, so 20 is the account cap's bound
+    // the role sweep is capped at the configured ten accounts, preserving rotation for later cron runs
     worst: 10 + 7 * C.roleSweepAccounts + 4 * C.roleSweepBanned,
     rule: "10 fixed + 7 per account (at most roleSweepAccounts) + 4 per banned or held account (at most roleSweepBanned), failures included",
   },
@@ -106,7 +106,8 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "purgeBattleNetData", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "sweepRenameHolds", worst: 1, rule: "one delete" },
   { job: "sweepCommunityProfiles", worst: 2 + 1 + 6 * C.profilesPerRun + 1, rule: "the departure batch (2), the selection, a 6-statement erase per profile (at most profilesPerRun), the audit" },
-  { job: "sweepCommunityEvents", worst: 6 + 1, rule: "a 6-statement batch including finite closure latch and publication disposal + the audit; no Discord delivery/reminder cron" },
+  { job: "sweepCommunityEvents", worst: 8 + 1, rule: "an 8-statement batch including finite publication/reminder closure and disposal + the audit" },
+  { job: "runEventReminders", worst: 6, rule: "one due selection, attempted-candidate rotation, conditional claim, final current proof, settlement and conditional audit; one candidate, no automatic resend" },
   { job: "sweepCommunityTrials", worst: 2 + 1, rule: "a 2-statement batch + the audit" },
   { job: "sweepCommunityRestrictions", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "departureIntake", worst: 1 + 10 + 1 + 1 + 1, rule: "the stored position, at most 10 scan pages (DEPARTURE_LIMITS.intakePages), the position write, the insert, the audit" },

@@ -1,0 +1,65 @@
+{
+  "schema": "olympus-governance-downloads-v1",
+  "sourceSHA256": "8bbd9517272718991823aad15920a6ff0250f452a7affbd9141eee3f5129e6de",
+  "ratified": false,
+  "appointmentsIssued": false,
+  "artifacts": [
+    {
+      "file": "olympus-guide-r6.pdf",
+      "pages": 21,
+      "sourcePages": [
+        3,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "bytes": 135664,
+      "sha256": "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"
+    },
+    {
+      "file": "olympus-adoption-checklist-r6.pdf",
+      "pages": 4,
+      "sourcePages": [
+        3,
+        37,
+        38
+      ],
+      "bytes": 79878,
+      "sha256": "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"
+    },
+    {
+      "file": "olympus-templates-r6.pdf",
+      "pages": 4,
+      "sourcePages": [
+        9,
+        10,
+        36
+      ],
+      "bytes": 81476,
+      "sha256": "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"
+    },
+    {
+      "file": "olympus-release-preparation.pdf",
+      "pages": 2,
+      "sourcePages": [],
+      "bytes": 4448,
+      "sha256": "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"
+    }
+  ]
+}

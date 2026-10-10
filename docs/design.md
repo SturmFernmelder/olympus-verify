@@ -1317,3 +1317,25 @@ Qualification: exact source/95-label/structure tests and real frontend-to-Worker
 readers, public asset requests without credentials, protected directory refusal, chapter/search/detail controls,
 malformed data, missing assets and late-route responses. A native browser review on the final candidate separately
 checks mobile layout, keyboard behavior and actual text/table legibility before publication.
+
+## 2026-10-10: opted event reminders (.134)
+
+The owner requested reminders in raid-signups. Each revision needs separate organizer consent; the global reviewed
+switch alone never opts in an event. Cron uses durable consent and current keeper/Discord membership facts rather
+than refreshing an expired website cookie. One claimed effect per run bounds SQL and Discord calls. A known refusal
+needs new explicit consent; an ambiguous effect is never automatically retried, since Discord's nonce only supplies
+recent deduplication. Editing cancels consent, and current erasure hooks clear copied identity/content while keeping
+external cleanup debt. Finite custody expiry closes the surviving event before local disposal; no external deletion
+is inferred. Even an armed, cancelled or refused expired consent closes the surviving parent before its row is
+dropped; reminder-only disposal records counts and unresolved external custody in the existing expiry audit.
+The original deadline cannot be extended by a reschedule or consent retry. The existing calendar
+organizer capability is preserved; this is not a Discord-role authority or admission writer.
+
+## 2026-10-10: separate governance downloads (.134)
+
+Members can download a guide, adoption checklist and reusable appointment/news templates without searching the
+complete charter. Each is a covered excerpt of the exact reviewed R6 PDF; the original printed page numbers are
+retained for comparison. A separate two-page release worksheet covers source identity, verified recovery, explicit
+publication, privacy limits, the attended councillor game/browser check and the eventual beta reset. Draft notices
+remain visible: neither a download nor a checklist grants authority or records adoption. The original full PDF,
+five-payload ZIP, source reader and all four reading/chart links retain their accepted identities.

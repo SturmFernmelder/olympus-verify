@@ -41,6 +41,7 @@ import { validateName } from "./community-names";
 import { isoToSeconds, secondsToIso } from "./community-time";
 import { RAID_ROLES, scanLimit, type RaidRole, orderDigest, encodeCursor, cursorParts } from "./community-directory";
 import { eventDeliveryChanged, eventDeliveryCloseExpired, eventDeliveryExpiry, eventDeliveryOwnerErase } from "./community-event-delivery";
+import { eventReminderChanged, eventReminderCloseExpired, eventReminderExpiry, eventReminderOwnerErase } from "./community-event-reminders";
 
 /*
  * .67 (Codex's independent calendar review on .59, 1 Oct 02:50 UTC; four grouped repairs and two contract decisions):
@@ -540,6 +541,7 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
            AND ${fenceSql("confirmedGuildData", 3, 4, 16)}`,
       ).bind(eventId, revision, me, ctx.subject!.sessionVersion, next.title, next.details, next.startsAt, next.durationMin, endsAt, next.capacity, roleTargetsText(next.roleTargets), endsAt + EVENT_RETENTION_S, nonce, t, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
       eventDeliveryChanged(env, eventId, nonce),
+      eventReminderChanged(env, eventId, nonce),
       historyStatement(env, eventId, "updated", me, t, changed, nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_updated', ?1, ?5 WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce, JSON.stringify({ fields: changed })),
     ]);
@@ -577,6 +579,7 @@ export async function cancelEvent(request: Request, env: Env, ctx: CommunityCont
          WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?8 = 1) AND ${fenceSql("confirmedGuildData", 3, 4, 9)}`,
       ).bind(eventId, revision, me, ctx.subject!.sessionVersion, nonce, t, t + EVENT_RETENTION_S, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
       eventDeliveryChanged(env, eventId, nonce, true),
+      eventReminderChanged(env, eventId, nonce),
       historyStatement(env, eventId, "cancelled", me, t, [], nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_cancelled', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce),
     ]);
@@ -813,17 +816,20 @@ export function ownEventChangeStatements(env: Env, actor: string, position: { hi
 /** Cron step: events past their retention deadline go with their answers, attendance and history; bounded per run. */
 export async function sweepCommunityEvents(env: Env, at = now(), limit = 100): Promise<number> {
   const due = "SELECT id FROM community_events WHERE retain_until <= ?1 ORDER BY retain_until, id LIMIT ?2";
-  const [, delivery, , , , ev] = await env.DB.batch([
+  const [, delivery, , reminder, , , , ev] = await env.DB.batch([
     eventDeliveryCloseExpired(env, at, limit),
     eventDeliveryExpiry(env, at, limit),
+    eventReminderCloseExpired(env, at, limit),
+    eventReminderExpiry(env, at, limit),
     env.DB.prepare(`DELETE FROM community_event_signups WHERE event_id IN (${due})`).bind(at, limit),
     env.DB.prepare(`DELETE FROM community_event_attendance WHERE event_id IN (${due})`).bind(at, limit),
     env.DB.prepare(`DELETE FROM community_event_changes WHERE event_id IN (${due})`).bind(at, limit),
     env.DB.prepare(`DELETE FROM community_events WHERE id IN (${due})`).bind(at, limit),
   ]);
   const n = ev?.meta?.changes ?? 0;
-  const incomplete = delivery!.results.reduce<number>((sum, row) => sum + ((row as { incomplete?: number }).incomplete === 1 ? 1 : 0), 0);
-  if (n || delivery!.results.length) await audit(env, "cron", "community.events_expired", undefined, { deleted: n, discordUnresolved: incomplete });
+  const disposed = [...delivery!.results, ...reminder!.results];
+  const incomplete = disposed.reduce<number>((sum, row) => sum + ((row as { incomplete?: number }).incomplete === 1 ? 1 : 0), 0);
+  if (n || disposed.length) await audit(env, "cron", "community.events_expired", undefined, { deleted: n, discordUnresolved: incomplete });
   return n;
 }
 
@@ -831,6 +837,7 @@ registerCommunityData(
   "events",
   (env, id) => [
     eventDeliveryOwnerErase(env, id), // before created_by is anonymized: copied publication text and provider-removal debt
+    eventReminderOwnerErase(env, id), // likewise, before a different consenting organizer's creator link is erased
     // the generations move first, so a page read before the erase cannot be continued
     env.DB.prepare("UPDATE community_events SET signup_generation = signup_generation + 1 WHERE id IN (SELECT event_id FROM community_event_signups WHERE discord_id = ?1)").bind(id),
     env.DB.prepare("UPDATE community_events SET attendance_generation = attendance_generation + 1 WHERE id IN (SELECT event_id FROM community_event_attendance WHERE discord_id = ?1)").bind(id),

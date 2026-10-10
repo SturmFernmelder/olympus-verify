@@ -881,6 +881,10 @@
         h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.pdf", download: "Olympus Guild Governance - Successor Draft.pdf", text: "Download PDF" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.zip", download: "Olympus Governance - Successor Draft.zip", text: "Download full package" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-guide-r6.pdf", download: "Olympus Guild Guide - Draft R6.pdf", text: "Guide PDF" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-adoption-checklist-r6.pdf", download: "Olympus Adoption Checklist - Draft R6.pdf", text: "Adoption checklist PDF" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-templates-r6.pdf", download: "Olympus Appointment and News Templates - Draft R6.pdf", text: "Templates PDF" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-release-preparation.pdf", download: "Olympus Release Preparation Checklist.pdf", text: "Release preparation PDF" }),
         h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R6.md", text: "Download the exact source" })),
       h("div", { class: "governance-controls" }, h("label", { for: "governance-search", text: "Find a rule or office" }), search,
         h("button", { class: "btn small", type: "button", text: "Clear search", onclick: () => { search.value = ""; filter(); } }),
@@ -3757,6 +3761,71 @@
       await load();
     };
     publish.addEventListener("click", () => action("publish")); remove.addEventListener("click", () => action("remove")); reconcile.addEventListener("click", () => action("reconcile")); refresh.addEventListener("click", load);
+    buttons(); await load();
+    await organizerEventReminder(panel, id);
+  }
+  async function organizerEventReminder(body, id) {
+    const panel = h("div", { class: "stack", "data-event-reminder": "" }); add(body, panel);
+    const choice = h("input", { type: "checkbox", id: "event-reminder-consent" });
+    const arm = h("button", { class: "btn small", type: "button", text: "Enable one reminder" });
+    const stop = h("button", { class: "btn small", type: "button", text: "Stop reminder" });
+    const refresh = h("button", { class: "btn small", type: "button", text: "Refresh reminder status" });
+    const message = h("input", { type: "text", placeholder: "Reminder message ID or Discord link", autocomplete: "off" });
+    const check = h("button", { class: "btn small", type: "button", text: "Check existing reminder" });
+    const remove = h("button", { class: "btn small", type: "button", text: "Remove reminder" });
+    const status = h("p", { role: "status", "aria-live": "polite", class: "small" });
+    const preview = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const link = h("div", { class: "btn-row" });
+    add(panel, frame("Optional raid reminder", null,
+      h("p", { text: "Opt in separately for one reminder in raid-signups, with this event's title, time and calendar link. It does not ping or name attendees. It becomes due sixty minutes before the start; the half-hour scheduler sends at its next eligible tick. Outages or a busy queue can delay or prevent delivery; nothing is sent after the event starts." }),
+      status, preview, h("label", { class: "check field", for: "event-reminder-consent" }, choice, "I want one reminder for this event revision"),
+      h("div", { class: "btn-row" }, arm, stop, refresh), link,
+      fieldBox("event-reminder-message", "Find a reminder after a lost answer", message), h("div", { class: "btn-row" }, check, remove)));
+    const states = ["armed", "claimed", "posted", "refused", "unknown", "cancelled", "removed"];
+    const pattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
+    let current = null, busy = false;
+    const live = () => document.body.contains(panel);
+    const buttons = () => {
+      const r = current && current.reminder;
+      choice.disabled = busy || !current || !current.canArm;
+      arm.disabled = choice.disabled || !choice.checked;
+      stop.disabled = busy || !r || !["armed", "claimed", "unknown", "posted"].includes(r.state);
+      check.disabled = busy || !r || !["claimed", "unknown"].includes(r.state);
+      remove.disabled = busy || !r || !r.messageUrl || r.state === "removed";
+      message.disabled = check.disabled; refresh.disabled = busy;
+    };
+    const draw = (v) => {
+      const r = v && v.reminder;
+      if (!v || v.eventId !== id || !Number.isSafeInteger(v.revision) || v.revision < 1 || typeof v.enabled !== "boolean" || typeof v.closed !== "boolean" || typeof v.canArm !== "boolean" ||
+        (r !== null && (!r || typeof r.state !== "string" || !states.includes(r.state) || !Number.isSafeInteger(r.revision) || r.revision < 1 || typeof r.stale !== "boolean" || typeof r.removalPending !== "boolean" || typeof r.operationId !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(r.operationId) ||
+          !(r.messageUrl === null || (typeof r.messageUrl === "string" && pattern.test(r.messageUrl))) || typeof r.dueAt !== "string" || !Number.isFinite(Date.parse(r.dueAt)) || typeof r.retainUntil !== "string" || !Number.isFinite(Date.parse(r.retainUntil)))) ||
+        !(v.payload === null || (v.payload && typeof v.payload.content === "string" && v.payload.content.length <= 1024 && v.payload.allowed_mentions && Array.isArray(v.payload.allowed_mentions.parse) && v.payload.allowed_mentions.parse.length === 0)) || (v.canArm && (!v.enabled || v.closed || !v.payload || (r && (!["armed", "cancelled", "refused"].includes(r.state) || r.messageUrl || r.removalPending))))) throw new ApiError(200, { error: "unreadable_answer" });
+      current = v; choice.checked = false; preview.textContent = v.payload ? v.payload.content : "Preview unavailable."; clear(link);
+      if (r && r.messageUrl) link.appendChild(h("a", { href: r.messageUrl, target: "_blank", rel: "noopener noreferrer", text: "Open Discord reminder" }));
+      status.textContent = r && ["claimed", "unknown"].includes(r.state) ? "Delivery is unresolved. Check the existing message; no automatic resend will occur." :
+        r && r.removalPending ? "The stored reminder needs removal. Local cleanup does not delete a Discord message." :
+        v.closed ? "Reminder custody expired. This event cannot send another reminder." : r && r.state === "armed" ? "One reminder is armed for this revision. Editing the event cancels this consent." :
+        r && r.state === "posted" ? "The reminder was delivered." : r && r.state === "removed" ? "The reminder was removed." : !v.enabled ? "Automatic reminders are switched off." : r ? "Reminder state: " + r.state + "." : "No reminder is enabled.";
+    };
+    const load = async () => {
+      if (busy || !live()) return; busy = true; buttons();
+      try { const v = await api("GET", `/api/community/events/reminder?eventId=${encodeURIComponent(id)}`); if (live()) draw(v); }
+      catch (ex) { current = null; preview.textContent = ""; clear(link); status.textContent = explain(ex, "Reminder status could not be verified. Nothing will be resent automatically."); }
+      finally { busy = false; buttons(); }
+    };
+    const action = async (kind) => {
+      if (busy || !current || !live()) return; buttons();
+      const control = { arm, stop, check, remove }[kind]; if (control.disabled) return;
+      const r = current.reminder;
+      const payload = kind === "arm" || kind === "stop" ? { eventId: id, revision: current.revision, enabled: kind === "arm" } : { eventId: id, opId: r.operationId };
+      if (kind === "check") { const value = message.value.trim(), match = pattern.exec(value); payload.messageId = match ? match[1] : value; if (!/^[0-9]{17,20}$/.test(payload.messageId)) { status.textContent = "Enter a numeric message ID or Discord message link."; return; } }
+      busy = true; buttons();
+      try { const v = await api("POST", "/api/community/events/reminder" + (kind === "check" ? "/reconcile" : kind === "remove" ? "/remove" : ""), payload); if (live()) draw(v); }
+      catch (ex) { current = null; status.textContent = uncertain(ex) ? "The answer was lost. Refresh status before another action; do not resend a reminder." : explain(ex, "Reminder action was not confirmed."); }
+      finally { busy = false; buttons(); }
+      await load();
+    };
+    choice.addEventListener("change", buttons); arm.addEventListener("click", () => action("arm")); stop.addEventListener("click", () => action("stop")); check.addEventListener("click", () => action("check")); remove.addEventListener("click", () => action("remove")); refresh.addEventListener("click", load);
     buttons(); await load();
   }
   function rsvpForm(e, reload) {

@@ -60,7 +60,8 @@ export interface Env {
   COMMUNITY_FEATURES?: string;      // .56: comma list of community modules switched on (community-context.ts); "" = none
   COMMUNITY_DIRECTORY_LIMIT?: string; // .57: listed profiles the directory holds and one read evaluates (default 2500; community-directory.ts); .59: also the calendar's member bound
   COMMUNITY_ORGANIZERS?: string;    // .59: Discord ids (comma list) who may organize events besides SITE_ADMINS; they must still be confirmed guild members
-  EVENT_DISCORD_DELIVERY?: string;  // 10 Oct 2026: "on" allows explicit organizer publication to the configured raid-signups channel; default OFF, no cron reminders
+  EVENT_DISCORD_DELIVERY?: string;  // 10 Oct 2026: "on" allows explicit organizer publication to the configured raid-signups channel; default OFF
+  EVENT_DISCORD_REMINDERS?: string; // 10 Oct 2026: "on" permits separately opted sixty-minute reminders; default OFF
   CONTRIBUTIONS_MODE?: string;      // .75: "off" (default) or "ledger": the contribution ledger takes writes only in ledger mode with a retention (community-contributions.ts)
   CONTRIBUTIONS_RETENTION_DAYS?: string; // .75: 1..3650 days every ledger record is kept from its week or observation; "" = no writes
   CONTRIBUTIONS_SCOPE?: string;     // .75: the guild scope the ledger records carry (default "olympus")

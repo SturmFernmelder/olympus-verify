@@ -5135,3 +5135,46 @@ Rollout retains the reviewed .130 organizer-delivery schema and its verified new
 the .131 PDF/ZIP and .132 current-beta profile. Recheck build .133, D1 and those existing public downloads after
 publication. Do not erase a real account, assign a role or post an event for live QA. Rollback deploys the preceding
 accepted source; do not describe it as full erasure or delete delivery custody.
+
+## Worker .134 — Organizer-opted raid reminders (10 Oct 2026)
+
+The organizer announcement page offers separate, initially unticked consent to one raid-signups reminder bound to
+this event's revision and start. The global EVENT_DISCORD_REMINDERS switch defaults OFF in code; the reviewed
+production/cutover profile sets it on. No existing event is opted in. Deployment activates capability, not a message.
+Editing or cancellation cancels old consent. The half-hour scheduler takes at most one eligible candidate per run,
+when its start is within sixty minutes and still future; outages/backlogs can delay or prevent delivery.
+
+Cron consumes durable consent with current account/session-version, roster confirmation, ban, configured organizer,
+event-management and destination checks, plus current Discord guild presence and the configured bot identity.
+Cookie expiry does not create a fabricated current session. The reminder contains public title, time, duration and
+calendar link only, with empty allowed_mentions. It does not name or ping attendees or copy private event details.
+A conditional claim precedes the one POST. Unknown transport/claim/settlement remains held without automatic resend;
+a reloaded organizer page can inspect the exact message. Known-pointer removal remains available with the feature
+OFF. Opt-out/edit/erasure in flight preserves known pointer debt. Erasure clears copied text and consent identity.
+
+Schema adds community_event_reminders, its due index and the parent reminder_closed boolean. Canonical/runtime/
+dated migration agree. Retention is capped by the original stored parent deadline using MIN, never renewed by a
+reschedule. Expiry atomically closes every expired consent before dropping its local metadata, including armed,
+cancelled and refused rows whose parent survives a reschedule. Reminder-only disposal contributes counts to the
+same expiry audit as publication disposal; unresolved pointers/claims remain disclosed as external debt, never as
+Discord deletion. Unswept expired rows cannot arm already-expired consent. Existing event clocks remain.
+
+The conservative scheduled table is 618/700: one candidate costs at most six D1 attempts; closure/disposal adds two;
+new cold-schema worst adds four. Weekly opening is capped at 24 instead of 30 with deterministic continuation.
+Synthetic real scheduled tests measure 369 warm, 501 cold and 541 every-column-fallback attempts, with three due
+reminders proving the one-send cap. Later privacy/QR composition must independently remeasure the joined budget;
+the role-sweep source cap is ten, preserving production's configured ten. The tests separately cover stopping at
+that account cap and stopping earlier when the transport budget is exhausted.
+
+Four additional anonymous draft downloads are available beside the unchanged complete R6 PDF and ZIP: the member
+guide (21 pages), adoption checklist (4), appointment/news templates (4), and release preparation worksheet (2).
+The first three preserve reviewed R6 pages beneath a new explanatory cover. The worksheet does not claim a release,
+ratification or appointment has occurred. The closed downloads manifest binds each file's bytes and hash to the
+unchanged R6 source. All pages were rendered and inspected; actual Worker asset responses and download links are
+checked together. No generated artwork is introduced.
+
+Before publication: independently review the exact source and UI; pass Worker/SQLite/DOM/type/bundle/schema/config
+and final integrated CI checks; complete the existing .130 verified-backup/newest-only-cleanup gate. Live QA must
+inspect actual .134 controls/build/assets without posting an unsolicited event or reminder. An intended organizer
+may explicitly enable one event after qualification. No role, command registration or central authority activation.
+Rollback disables EVENT_DISCORD_REMINDERS or deploys prior source; retain all custody and parent closure evidence.

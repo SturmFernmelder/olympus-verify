@@ -434,7 +434,8 @@ CREATE TABLE IF NOT EXISTS community_events (
   attendance_generation INTEGER NOT NULL DEFAULT 0 CHECK (attendance_generation >= 0), -- moves with every attendance write
   nonce                 TEXT,                                               -- per organizer write: admits the rest of its batch
   attendance_nonce      TEXT,                                               -- per attendance write
-  publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)), -- finite no-republish disposition after delivery custody expires
+  publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)),
+  reminder_closed       INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1)), -- finite no-repeat disposition after reminder custody expires
   created_at            INTEGER NOT NULL,
   updated_at            INTEGER NOT NULL,
   retain_until          INTEGER NOT NULL                                    -- ends_at + 30 days; a cancellation brings it forward
@@ -882,3 +883,26 @@ CREATE TABLE IF NOT EXISTS community_event_deliveries (
   PRIMARY KEY (event_id,purpose)
 );
 CREATE INDEX IF NOT EXISTS community_event_deliveries_retain ON community_event_deliveries(retain_until);
+
+-- Explicit organizer consent; no attendee identities or session cookies.
+CREATE TABLE IF NOT EXISTS community_event_reminders (
+  event_id TEXT PRIMARY KEY REFERENCES community_events(id) ON DELETE CASCADE,
+  event_revision INTEGER NOT NULL CHECK (event_revision >= 1),
+  starts_at INTEGER NOT NULL,
+  actor TEXT,
+  consent_version INTEGER,
+  guild_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  host TEXT NOT NULL,
+  op_id TEXT NOT NULL CHECK (length(op_id) = 22),
+  claim_nonce TEXT,
+  state TEXT NOT NULL CHECK (state IN ('armed','claimed','posted','refused','unknown','cancelled','removed')),
+  message_id TEXT,
+  frozen_content TEXT CHECK (frozen_content IS NULL OR length(frozen_content) <= 1024),
+  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_requested IN (0,1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  last_attempt_at INTEGER NOT NULL DEFAULT 0,
+  retain_until INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id);
