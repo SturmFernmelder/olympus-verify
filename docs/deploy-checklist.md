@@ -5275,3 +5275,10 @@ account copies and the qualified beta role mapping retain their current configur
 stays 699 attempted statements because these guards add no statements. Provider-side legacy effects, restore
 admission and the complete write-transport protocol require separate qualification before destructive activation.
 Publication, live readback, CI acceptance and any deployment remain attached to their own exact release receipts.
+
+
+## Worker .137 - Exact Discord issuer in the privacy callback (10 October 2026)
+
+The first real identity-only connection after .136 returned `iss=https://discord.com`; the strict callback parameter gate refused it before the code exchange. Accept that field only once and only with the exact decoded Discord issuer, before consuming state or making any provider call. The token and identity endpoints remain fixed. Missing, duplicate, wrong and alternate URL spellings are refused without consuming the original flow. State/browser binding, five-minute flow expiry, twelve-minute purpose grants and one-use downloads remain enforced.
+
+No schema, secret, callback registration, asset, rank, retention or erasure change is needed. `PRIVACY_ERASURE_ENABLED`, `PRIVACY_RETENTION_ENABLED` and `QR_PHASE1_ENABLED` remain false. Qualify the exact commit and repeat the genuine browser connection/download; the .136 live refusal is a preserved finding, not completed account-data acceptance. Rollback uses the previous committed snapshot and would restore that connection refusal.

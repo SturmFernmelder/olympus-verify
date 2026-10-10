@@ -1396,3 +1396,10 @@ This candidate preserves the .135 first-stage flags, native role profile and 699
 lifecycle retention and councillor signing stay OFF. Legacy-writer transaction admission, restore boundaries,
 scheduler transport accounting and already-admitted provider effects remain separate activation gates. The isolated
 admission prototype remains design evidence outside this candidate's production source and schema.
+
+
+## 10 October 2026 - Privacy issuer validation (.137)
+
+Real Discord authorization returned the RFC 9207 `iss` response parameter, absent from the earlier synthetic success fixture. The privacy callback now requires the exact static issuer `https://discord.com`, rejects duplicates/unknown parameters and refuses before any state consumption or credential exchange on mismatch. It never follows an issuer-derived endpoint. Native fixtures use the observed parameter shape and exercise missing, alternate, duplicate and extra-field refusals with zero outbound calls, unchanged original state and a subsequent successful exact-issuer connection.
+
+Issuer validation follows [RFC 9207 section 2.4](https://www.rfc-editor.org/rfc/rfc9207.html#section-2.4); the exact Discord issuer is bound to the observed fixed-provider flow. This correction does not claim completed real OAuth or downloads until browser acceptance, nor activate the held deletion/retention/QR paths.

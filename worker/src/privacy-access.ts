@@ -69,7 +69,10 @@ export async function beginPrivacyAccess(request:Request,env:Env):Promise<Respon
 export async function finishPrivacyAccess(request:Request,env:Env):Promise<Response>{
  const base=origin(env,request),u=new URL(request.url),params=u.searchParams;
  if(!env.DISCORD_APP_ID||!env.DISCORD_CLIENT_SECRET||!env.COOKIE_SECRET)throw new FormError('privacy_unavailable',503);
- if(request.method!=='GET'||u.pathname!=='/privacy/callback'||[...params.keys()].some(k=>!['state','code','error'].includes(k)||params.getAll(k).length!==1))throw new FormError('invalid_identity_callback');
+ // Discord's real authorization response supplies RFC 9207's issuer. Compare the
+ // decoded value exactly before consuming state or exchanging a code; never derive
+ // a token endpoint from it. This lane accepts only our fixed Discord issuer.
+ if(request.method!=='GET'||u.pathname!=='/privacy/callback'||[...params.keys()].some(k=>!['state','code','error','iss'].includes(k)||params.getAll(k).length!==1)||params.get('iss')!=='https://discord.com')throw new FormError('invalid_identity_callback');
  const state=params.get('state')??'',code=params.get('code')??'',browser=cookieValue(request,PRIVACY_ACCESS_FLOW_COOKIE);
  if(!TOKEN.test(state)||!browser||!/^[A-Za-z0-9_-]{1,256}$/.test(code)||params.has('error'))throw new FormError('invalid_identity_callback');
  const stateHash=await privacyAccessHash(state),browserHash=await privacyAccessHash(browser);
