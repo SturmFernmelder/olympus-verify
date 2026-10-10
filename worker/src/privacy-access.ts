@@ -41,6 +41,20 @@ async function captureSubject(env:Env,subject:string):Promise<PrivacyAccessCaptu
  if(!validCapture(capture))throw new FormError('privacy_authority_refused',503);return capture;
 }
 const csrfFor=(env:Env,rawCookie:string,purpose:PrivacyAccessPurpose)=>sign(env.COOKIE_SECRET,'privacy-access-form-v1',JSON.stringify([rawCookie,purpose]));
+// Closed support markers identify the failed step without retaining or reflecting
+// provider errors, response bodies, callback URLs or any identity/credential.
+const CALLBACK_SUPPORT = new Map<string,string>([
+ ['identity_exchange_transport_unconfirmed','PA-T1'],['identity_exchange_unconfirmed','PA-T2'],
+ ['identity_exchange_body_unconfirmed','PA-T3'],['identity_exchange_refused','PA-T4'],
+ ['identity_exchange_type_refused','PA-T5'],['identity_exchange_scope_refused','PA-T6'],
+ ['identity_read_transport_unconfirmed','PA-I1'],['identity_read_unconfirmed','PA-I2'],
+ ['identity_read_body_unconfirmed','PA-I3'],['identity_read_refused','PA-I4'],
+ ['identity_subject_unconfirmed','PA-S1'],['identity_grant_material_unconfirmed','PA-G1'],
+ ['identity_grant_batch_unconfirmed','PA-G2'],['identity_capture_unconfirmed','PA-G3'],
+]);
+async function callbackStep<T>(reason:string,work:()=>Promise<T>):Promise<T>{
+ try{return await work();}catch{throw new FormError(reason,503);}
+}
 
 /** Two statements, each deleting at most 100 original expired rows. Composed with the counted retention job. */
 export function privacyAccessPurgeStatements(env:Env):D1PreparedStatement[]{return [
@@ -81,29 +95,36 @@ export async function finishPrivacyAccess(request:Request,env:Env):Promise<Respo
  RETURNING expires_at`).bind(stateHash,browserHash).first<{expires_at:number}>();
  if(!flow)throw new FormError('identity_state_expired',403);
  const controller=new AbortController(),until=Date.now()+PRIVACY_PROVIDER_DEADLINE_MS;
- const exchange=await fetchPrivacyProvider(credentialFetch('https://discord.com/api/oauth2/token',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/x-www-form-urlencoded'},
- body:new URLSearchParams({client_id:env.DISCORD_APP_ID,client_secret:env.DISCORD_CLIENT_SECRET,grant_type:'authorization_code',code,redirect_uri:base+'/privacy/callback'})}),until,controller);
+ const exchange=await callbackStep('identity_exchange_transport_unconfirmed',()=>fetchPrivacyProvider(credentialFetch('https://discord.com/api/oauth2/token',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/x-www-form-urlencoded'},
+ body:new URLSearchParams({client_id:env.DISCORD_APP_ID,client_secret:env.DISCORD_CLIENT_SECRET,grant_type:'authorization_code',code,redirect_uri:base+'/privacy/callback'})}),until,controller));
  if(!exchange.ok){discardPrivacyProvider(exchange);throw new FormError('identity_exchange_unconfirmed',503);}
- const tokenResult=await readPrivacyProviderJson(exchange,until,controller);
+ const tokenResult=await callbackStep('identity_exchange_body_unconfirmed',()=>readPrivacyProviderJson(exchange,until,controller));
  if(!tokenResult||typeof tokenResult!=='object'||Array.isArray(tokenResult))throw new FormError('identity_exchange_refused',503);
  const t=tokenResult as {access_token?:unknown;token_type?:unknown;scope?:unknown};
- if(typeof t.access_token!=='string'||t.access_token.length<1||t.access_token.length>2048||t.token_type!=='Bearer'||t.scope!=='identify')throw new FormError('identity_exchange_refused',503);
- const response=await fetchPrivacyProvider(credentialFetch(API+'/users/@me',{signal:controller.signal,headers:{Authorization:'Bearer '+t.access_token}}),until,controller);
+ if(typeof t.access_token!=='string'||t.access_token.length<1||t.access_token.length>2048)throw new FormError('identity_exchange_refused',503);
+ // RFC 6749 §5.1: token_type is case-insensitive; an omitted scope means the
+ // original requested scope. Every flow in this lane requests only identify.
+ if(typeof t.token_type!=='string'||t.token_type.toLowerCase()!=='bearer')throw new FormError('identity_exchange_type_refused',503);
+ if(Object.hasOwn(t,'scope')&&t.scope!=='identify')throw new FormError('identity_exchange_scope_refused',503);
+ const response=await callbackStep('identity_read_transport_unconfirmed',()=>fetchPrivacyProvider(credentialFetch(API+'/users/@me',{signal:controller.signal,headers:{Authorization:'Bearer '+t.access_token}}),until,controller));
  if(!response.ok){discardPrivacyProvider(response);throw new FormError('identity_read_unconfirmed',503);}
- const identity=await readPrivacyProviderJson(response,until,controller);
+ const identity=await callbackStep('identity_read_body_unconfirmed',()=>readPrivacyProviderJson(response,until,controller));
  if(!identity||typeof identity!=='object'||Array.isArray(identity)||typeof (identity as {id?:unknown}).id!=='string'||!ID.test((identity as {id:string}).id))throw new FormError('identity_read_refused',503);
- const captured=await captureSubject(env,(identity as {id:string}).id);
- const session=random(),sessionHash=await privacyAccessHash(session),exportCsrf=await privacyAccessHash(await csrfFor(env,session,'own_export')),eraseCsrf=await privacyAccessHash(await csrfFor(env,session,'own_erasure'));
+ const captured=await callbackStep('identity_subject_unconfirmed',()=>captureSubject(env,(identity as {id:string}).id));
+ const session=random();
+ const [sessionHash,exportCsrf,eraseCsrf]=await callbackStep('identity_grant_material_unconfirmed',async()=>[
+  await privacyAccessHash(session),await privacyAccessHash(await csrfFor(env,session,'own_export')),await privacyAccessHash(await csrfFor(env,session,'own_erasure')),
+ ] as const);
  const guard=env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL}
  AND EXISTS(SELECT 1 FROM privacy_access_oauth WHERE state_hash=?5 AND browser_hash=?6 AND purpose='privacy_identify' AND consumed_at IS NOT NULL AND expires_at=?7 AND expires_at>${PRIVACY_ACCESS_NOW})
  AND (SELECT COUNT(*) FROM privacy_access_grants WHERE expires_at>${PRIVACY_ACCESS_NOW})<2000
  THEN 1 ELSE json_extract('privacy_identity_capture_refused','$') END AS admitted`).bind(...captureValues(captured),stateHash,browserHash,flow.expires_at);
  const insert=(purpose:PrivacyAccessPurpose,csrfHash:string)=>env.DB.prepare(`INSERT INTO privacy_access_grants(session_hash,purpose,grant_id,csrf_hash,subject_id,subject_generation,state,revision,created_at,expires_at)
  VALUES(?1,?2,?3,?4,?5,?6,?7,?8,${PRIVACY_ACCESS_NOW},${PRIVACY_ACCESS_NOW}+720)`).bind(sessionHash,purpose,privacyAccessRandomId(),csrfHash,...captureValues(captured));
- const result=await env.DB.batch([guard,insert('own_export',exportCsrf),insert('own_erasure',eraseCsrf),env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL}
+ const result=await callbackStep('identity_grant_batch_unconfirmed',()=>env.DB.batch([guard,insert('own_export',exportCsrf),insert('own_erasure',eraseCsrf),env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL}
  AND EXISTS(SELECT 1 FROM privacy_access_oauth WHERE state_hash=?5 AND browser_hash=?6 AND purpose='privacy_identify' AND consumed_at IS NOT NULL AND expires_at=?7 AND expires_at>${PRIVACY_ACCESS_NOW})
  AND (SELECT COUNT(*) FROM privacy_access_grants WHERE session_hash=?8 AND subject_id=?1 AND subject_generation IS ?2 AND state IS ?3 AND revision IS ?4 AND consumed_at IS NULL AND expires_at>${PRIVACY_ACCESS_NOW})=2
- THEN 1 ELSE json_extract('privacy_grants_unconfirmed','$') END AS admitted`).bind(...captureValues(captured),stateHash,browserHash,flow.expires_at,sessionHash)]);
+ THEN 1 ELSE json_extract('privacy_grants_unconfirmed','$') END AS admitted`).bind(...captureValues(captured),stateHash,browserHash,flow.expires_at,sessionHash)]));
  if(result.length!==4||(result[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1||(result[3]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)throw new FormError('identity_capture_unconfirmed',503);
  const h=policyHeaders();h.set('Location','/privacy/access');h.append('Set-Cookie',browserCookie(PRIVACY_ACCESS_FLOW_COOKIE,'',0));h.append('Set-Cookie',browserCookie(PRIVACY_ACCESS_COOKIE,session,720));
  return new Response(null,{status:303,headers:h});
@@ -169,7 +190,8 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
 export function privacyAccessRefusal(request:Request,error:unknown):Response{
  if(error instanceof FormError&&error.code==='privacy_erasure_unavailable')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p><p><a href="/privacy/access">Download my retained records</a> · <a href="/privacy/account">Check an existing erasure request</a> · <a href="/privacy/contact">Account help</a></p>',503);
  const status=error instanceof FormError?error.status:503;
- return htmlResponse(request,'Privacy connection unavailable',`<p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>`,status);
+ const support=new URL(request.url).pathname==='/privacy/callback'&&error instanceof FormError?CALLBACK_SUPPORT.get(error.code):undefined;
+ return htmlResponse(request,'Privacy connection unavailable',`<div data-privacy-refusal="${support??'PA-U0'}"><p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p></div>`,status);
 }
 
 const erasurePaused='<p>Automatic serving-account erasure is temporarily paused while Olympus checks older account records. Downloads and checks of existing erasure requests remain available. Ask an Olympus officer for attended help. Reconnecting Discord does not enable erasure.</p>';

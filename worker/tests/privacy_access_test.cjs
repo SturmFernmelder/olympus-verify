@@ -67,6 +67,64 @@ async function main(){
  f=fixture();subject(f);const c3=await connect(f),frm3=await form(f,c3);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.includes('privacy_access_action_refused'))){f.hooks.beforeBatch=null;f.advance(721);}};await refused('expiry after grant read refuses native batch',()=>copy.exportPrivacyAccess(frm3.request(),f.env));eq('expired original action never consumed',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
  f=fixture();subject(f);oauthProvider();const flow=await start(f);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))){f.hooks.beforeBatch=null;f.db.exec('UPDATE privacy_subjects SET revision=revision+1');}};await refused('callback original capture race refused',()=>finish(f,flow));eq('callback capture race issues no grants',count(f,'privacy_access_grants'),0);eq('callback capture race changes no site account',count(f,'site_users'),0);f.db.close();
  f=fixture();oauthProvider(A,'identify guilds.members.read');const broad=await start(f);calls=[];await refused('broad provider scope rejected',()=>finish(f,broad));eq('broad provider scope never reads identity',calls.length,1);eq('broad provider scope issues no grants',count(f,'privacy_access_grants'),0);f.db.close();
+ // RFC 6749 §5.1 variants preserve the original identify-only request, grant
+ // lifetimes and one-exchange rule; an explicitly different scope still refuses.
+ for(const [name,token,accept] of [
+  ['lowercase bearer',{token_type:'bearer',scope:'identify'},true],
+  ['uppercase bearer',{token_type:'BEARER',scope:'identify'},true],
+  ['mixed bearer',{token_type:'bEaReR',scope:'identify'},true],
+  ['unchanged scope omitted',{token_type:'Bearer'},true],
+  ['both standard variants',{token_type:'bearer'},true],
+  ['null scope',{token_type:'Bearer',scope:null},false],
+  ['empty scope',{token_type:'Bearer',scope:''},false],
+  ['non-string scope',{token_type:'Bearer',scope:['identify']},false],
+  ['scope casing',{token_type:'Bearer',scope:'Identify'},false],
+  ['other scope',{token_type:'Bearer',scope:'guilds.members.read'},false],
+  ['missing type',{scope:'identify'},false],
+  ['type whitespace',{token_type:' Bearer',scope:'identify'},false],
+  ['type trailing whitespace',{token_type:'Bearer ',scope:'identify'},false],
+  ['type trailing newline',{token_type:'Bearer\n',scope:'identify'},false],
+  ['other type',{token_type:'MAC',scope:'identify'},false],
+ ]){
+  f=fixture();oauthProvider();const flow=await start(f),normalProvider=provider;
+  provider=(url,init)=>url.endsWith('/oauth2/token')?new Response(JSON.stringify({access_token:'test-access-token',...token})):normalProvider(url,init);calls=[];
+  if(accept){const response=await finish(f,flow);eq(name+' callback succeeds',response.status,303);eq(name+' only fixed provider pair',calls.map(x=>x.url),['https://discord.com/api/oauth2/token','https://discord.com/api/v10/users/@me']);eq(name+' two purpose grants',count(f,'privacy_access_grants'),2);eq(name+' original grant TTL',f.db.prepare('SELECT expires_at-created_at AS ttl FROM privacy_access_grants LIMIT 1').get().ttl,720);}
+  else{await refused(name+' callback refuses',()=>finish(f,flow));eq(name+' no identity read',calls.length,1);eq(name+' no grants',count(f,'privacy_access_grants'),0);}
+  eq(name+' no guild/session/role authority',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);
+  ok(name+' consumes original flow',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
+  const priorCalls=calls.length;await refused(name+' cannot replay callback',()=>finish(f,flow));eq(name+' replay no further exchange',calls.length,priorCalls);f.db.close();
+ }
+ const secretSentinel='synthetic-private-code-cookie-token-identity-DO-NOT-REFLECT';
+ const diagnostics=[
+  ['token request','PA-T1',(f)=>{provider=()=>{throw Error(secretSentinel);};}],
+  ['token HTTP','PA-T2',(f)=>{provider=()=>new Response(secretSentinel,{status:503});}],
+  ['token body','PA-T3',(f)=>{provider=()=>new Response(secretSentinel);}],
+  ['token shape','PA-T4',(f)=>{provider=()=>new Response(JSON.stringify({token_type:'Bearer',scope:'identify'}));}],
+  ['token type','PA-T5',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'MAC',scope:'identify'}));}],
+  ['token scope','PA-T6',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope:'identify email'}));}],
+  ['identity request','PA-I1',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?Promise.reject(Error(secretSentinel)):normal(url,init);}],
+  ['identity HTTP','PA-I2',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel,{status:503}):normal(url,init);}],
+  ['identity body','PA-I3',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel):normal(url,init);}],
+  ['identity shape','PA-I4',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(JSON.stringify({id:secretSentinel})):normal(url,init);}],
+  ['subject read','PA-S1',(f)=>{f.hooks.beforeRead=sql=>{if(sql.startsWith('SELECT generation,state,revision FROM privacy_subjects'))throw Error(secretSentinel);};}],
+  ['grant material','PA-G1',(f)=>{f.env.COOKIE_SECRET=Symbol(secretSentinel);}],
+  ['grant batch','PA-G2',(f)=>{f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants')))throw Error(secretSentinel);};}],
+  ['grant receipt','PA-G3',(f)=>{const native=f.env.DB.batch.bind(f.env.DB);f.env.DB.batch=async stmts=>{const rows=await native(stmts);return stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))?rows.slice(0,3):rows;};}],
+ ];
+ for(const [name,marker,inject] of diagnostics){
+  f=fixture();oauthProvider();const flow=await start(f);inject(f);calls=[];let failure;
+  try{await finish(f,flow);}catch(error){failure=error;}
+  ok(name+' injected failure refuses callback',!!failure);
+  const response=access.privacyAccessRefusal(new Request(BASE+'/privacy/callback?code='+secretSentinel+'&state='+secretSentinel),failure),html=await response.text();
+  eq(name+' generic refusal status',response.status,503);ok(name+' closed support marker',html.includes('data-privacy-refusal="'+marker+'"'));
+  ok(name+' no sensitive reflection',!html.includes(secretSentinel)&&![...response.headers.values()].some(x=>x.includes(secretSentinel)));
+  ok(name+' no privacy grant cookie',!response.headers.has('Set-Cookie'));
+  ok(name+' original flow spent',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
+  const priorCalls=calls.length;await refused(name+' spent flow cannot exchange again',()=>finish(f,flow));eq(name+' no replay HTTP',calls.length,priorCalls);f.db.close();
+ }
+ for(const error of [Error(secretSentinel),new (load('policy-form-core').FormError)(secretSentinel,503),new (load('policy-form-core').FormError)('identity_exchange_unconfirmed',503)]){
+  const response=access.privacyAccessRefusal(new Request(BASE+'/privacy/access/export'),error),html=await response.text();ok('non-callback errors have only unknown support marker',html.includes('data-privacy-refusal="PA-U0"'));ok('unknown errors never reflect private detail',!html.includes(secretSentinel));
+ }
  f=fixture();oauthProvider();const expiredFlow=await start(f);f.advance(300);calls=[];await refused('expired flow cannot exchange',()=>finish(f,expiredFlow));eq('expired flow no provider calls',calls.length,0);f.db.close();
  for(const bad of ['missing','wrong','another-browser']){f=fixture();oauthProvider();const flow=await start(f),other=bad==='another-browser'?await start(f):null;calls=[];
   const cookie=bad==='missing'?'':bad==='wrong'?access.PRIVACY_ACCESS_FLOW_COOKIE+'='+('z'.repeat(43)):other.flowCookie;
