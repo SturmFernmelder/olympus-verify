@@ -194,15 +194,15 @@ async function main(){
  const knownRefusalCases=[];
  for(const [marker,tokens] of knownRefusalSets){
   for(const [i,order] of permutations(tokens).entries())knownRefusalCases.push([marker+' known permutation '+i,order.join(' '),marker]);
-  for(const [i,token] of tokens.entries())knownRefusalCases.push([marker+' duplicate token '+i,[...tokens,token].join(' '),'PA-T6D']);
+  for(const [i,token] of tokens.entries())knownRefusalCases.push([marker+' duplicate token '+i,[...tokens,token].join(' '),'PA-T6N']);
   knownRefusalCases.push([marker+' unknown extra',[...tokens,secretSentinel].join(' '),'PA-T6D']);
   knownRefusalCases.push([marker+' missing exact identity',tokens.filter(t=>t!=='identify').join(' '),'PA-T6E']);
   knownRefusalCases.push([marker+' wrong identity casing',tokens.map(t=>t==='identify'?'Identify':t).join(' '),'PA-T6E']);
   knownRefusalCases.push([marker+' token near-match',tokens.map(t=>t==='identify'?t:'x'+t).join(' '),'PA-T6D']);
-  knownRefusalCases.push([marker+' email plus another permission',[...tokens,'email'].join(' '),'PA-T6D']);
+  knownRefusalCases.push([marker+' email plus another permission',[...tokens,'email'].join(' '),marker==='PA-T6M'?'PA-T6N':'PA-T6P']);
   for(const [i,value] of [' '+tokens.join(' '),tokens.join(' ')+' ',tokens.join('  '),tokens.join('\t'),tokens.join(' ')+'\n',tokens.join(' ')+'\r',tokens.join(' ')+'\0',tokens.join(' ')+'\u00a0'].entries())knownRefusalCases.push([marker+' malformed '+i,value,'PA-T6']);
  }
- eq('known diagnostic exact-set permutation census',knownRefusalCases.filter(x=>x[2].startsWith('PA-T6')&&!['PA-T6','PA-T6D','PA-T6E'].includes(x[2])).length,48);
+ eq('known diagnostic exact-set permutation census',knownRefusalCases.filter(x=>x[0].includes(' known permutation ')).length,48);
  const genericScopeHtml=await access.privacyAccessRefusal(new Request(BASE+'/privacy/callback'),new (load('policy-form-core').FormError)('identity_exchange_scope_refused',503)).text();
  for(const [name,scope,marker] of [
   ...knownRefusalCases,
@@ -212,11 +212,11 @@ async function main(){
   ['trailing ASCII space','identify ','PA-T6C'],['surrounding ASCII spaces','  identify  ','PA-T6C'],
   ['repeated identify','identify identify','PA-T6C'],['repeated formatted identify',' identify  identify ','PA-T6C'],
   ['broader identify first','identify email','PA-T6M'],['broader identify last','email identify','PA-T6M'],
-  ['broader repeated identify','identify identify email','PA-T6D'],['case-sensitive extra token','identify Identify','PA-T6D'],
-  ['pair plus email','identify guilds.members.read email','PA-T6D'],['pair plus unknown','identify guilds.members.read '+secretSentinel,'PA-T6D'],
+  ['broader repeated identify','identify identify email','PA-T6N'],['case-sensitive extra token','identify Identify','PA-T6D'],
+  ['pair plus email','identify guilds.members.read email','PA-T6P'],['pair plus unknown','identify guilds.members.read '+secretSentinel,'PA-T6D'],
   ['other known guild scope','identify guilds','PA-T6H'],['other known role scope','identify role_connections.write','PA-T6F'],
   ['member token casing','identify Guilds.members.read','PA-T6D'],['member token prefix','identify xguilds.members.read','PA-T6D'],
-  ...['identify identify guilds.members.read','identify guilds.members.read identify','guilds.members.read identify identify','guilds.members.read guilds.members.read identify','guilds.members.read identify guilds.members.read','identify guilds.members.read guilds.members.read','identify identify guilds.members.read guilds.members.read','guilds.members.read guilds.members.read identify identify'].map((s,i)=>['closed pair duplicate'+i,s,'PA-T6D']),
+  ...['identify identify guilds.members.read','identify guilds.members.read identify','guilds.members.read identify identify','guilds.members.read guilds.members.read identify','guilds.members.read identify guilds.members.read','identify guilds.members.read guilds.members.read','identify identify guilds.members.read guilds.members.read','guilds.members.read guilds.members.read identify identify'].map((s,i)=>['closed pair duplicate'+i,s,'PA-T6N']),
   ['RFC punctuation boundaries','identify ! # [ ] ~','PA-T6D'],['comma inside RFC token','identify email,other','PA-T6D'],
   ['private broad scope canary','identify '+secretSentinel,'PA-T6D'],
   ['long bounded token','identify '+('a'.repeat(8000)),'PA-T6D'],
@@ -253,6 +253,80 @@ async function main(){
   const flowRow=f.db.prepare('SELECT * FROM privacy_access_oauth').get();ok(name+' scope original state consumed',flowRow.consumed_at!==null);
   ok(name+' scope no provider data in native flow',!JSON.stringify(flowRow).includes(secretSentinel));
   const priorCalls=calls.length;await refused(name+' scope replay refused',()=>finish(f,flow));eq(name+' scope replay zero HTTP',calls.length,priorCalls);f.db.close();
+ }
+ // .144 public dictionary membership is diagnostic only. Exercise the real native
+ // callback with the same original Request as the response renderer; another
+ // Request/error must not acquire these one-response-only support details.
+ const publicScopes=[
+  'activities.read','activities.write','applications.builds.read','applications.builds.upload',
+  'applications.commands','applications.commands.update','applications.commands.permissions.update',
+  'applications.entitlements','applications.store.update','bot','connections','dm_channels.read',
+  'email','gdm.join','guilds','guilds.join','guilds.members.read','identify','identify.premium',
+  'messages.read','relationships.read','role_connections.write','rpc','rpc.activities.write',
+  'rpc.notifications.read','rpc.voice.read','rpc.voice.write','voice','webhook.incoming',
+  'openid','sdk.social_layer_presence','sdk.social_layer',
+ ];
+ eq('official diagnostic dictionary has32 distinct public names',new Set(publicScopes).size,32);
+ const hex=n=>n.toString(16).padStart(8,'0'),identityBit=2**17;
+ const singletonMarkers={email:'PA-T6M',guilds:'PA-T6H','role_connections.write':'PA-T6F'};
+ const scopeDetails=[];
+ for(const [i,name] of publicScopes.entries()){
+  if(name==='identify'||name==='guilds.members.read')continue; // Existing accepted values remain unchanged below.
+  for(const reverse of [false,true])scopeDetails.push(['public dictionary bit'+i+' order'+Number(reverse),(reverse?[name,'identify']:['identify',name]).join(' '),singletonMarkers[name]??'PA-T6P',hex(identityBit+2**i),'00000000',false,false]);
+ }
+ scopeDetails.push(
+  ['all32 ascending',publicScopes.join(' '),'PA-T6P','ffffffff','00000000',false,false],
+  ['all32 descending',[...publicScopes].reverse().join(' '),'PA-T6P','ffffffff','00000000',false,false],
+  ['all32 repeated',[...publicScopes,...publicScopes].join(' '),'PA-T6N','ffffffff','ffffffff',false,false],
+  ['bit31 repeated','identify sdk.social_layer sdk.social_layer','PA-T6N','80020000','80000000',false,false],
+  ['only identity repeated','identify identify identify','PA-T6C','00020000','00020000',false,false],
+  ['known noidentity repeated','connections connections','PA-T6E','00000400','00000400',false,false],
+  ['one unknown','identify '+secretSentinel,'PA-T6D','00020000','00000000',true,false],
+  ['unknown repeated','identify '+secretSentinel+' '+secretSentinel,'PA-T6N','00020000','00000000',true,true],
+  ['different unknowns','identify '+secretSentinel+' '+secretSentinel+'_different','PA-T6D','00020000','00000000',true,false],
+  ['knownandunknown repeats','identify connections connections '+secretSentinel+' '+secretSentinel,'PA-T6N','00020400','00000400',true,true],
+  ['unknown repeat withoutidentity',secretSentinel+' '+secretSentinel,'PA-T6E','00000000','00000000',true,true],
+  ['public-name near match','identify sdk.social_layerx','PA-T6D','00020000','00000000',true,false],
+ );
+ for(const [name,scope,marker,known,repeatedKnown,unknown,repeatedUnknown] of scopeDetails){
+  f=fixture();const flow=await start(f);calls=[];const recorded=[],nativeLog=context.console;
+  const request=new Request(BASE+'/privacy/callback?state='+flow.state+'&code=original_code&iss=https%3A%2F%2Fdiscord.com',{headers:{Cookie:flow.flowCookie}});
+  provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope,private_error:secretSentinel}));
+  context.console={log:(...v)=>recorded.push(v),warn:(...v)=>recorded.push(v),error:(...v)=>recorded.push(v)};
+  let failure;try{await access.finishPrivacyAccess(request,f.env);}catch(error){failure=error;}finally{context.console=nativeLog;}
+  ok(name+' actual callback refuses',!!failure);eq(name+' only token exchange',calls.map(c=>c.url),['https://discord.com/api/oauth2/token']);
+  const cloneHtml=await access.privacyAccessRefusal(new Request(request),failure).text();ok(name+' clone Request has no diagnostic metadata',!cloneHtml.includes('data-privacy-scope-'));
+  const response=access.privacyAccessRefusal(request,failure),html=await response.text();
+  eq(name+' original callback refuses503',response.status,503);ok(name+' fixed rejection marker',html.includes('data-privacy-refusal="'+marker+'"'));
+  const attributes=Object.fromEntries([...html.matchAll(/data-privacy-scope-([a-z-]+)="([^"]+)"/g)].map(m=>[m[1],m[2]]));
+  eq(name+' exact closed metadata',attributes,{schema:'discord-public-scope-v1',known,'repeated-known':repeatedKnown,unknown:String(unknown),'repeated-unknown':String(repeatedUnknown)});
+  const expectedLabels=publicScopes.filter((_,i)=>Math.floor(parseInt(known,16)/2**i)%2===1).join(', ')||'none';
+  ok(name+' exact reviewed human labels',html.includes('<p>Recognized permission labels: '+expectedLabels+'.</p>'));
+  ok(name+' public support description',html.includes('These details do not grant access.'));
+  ok(name+' unknownandcredential never reflected',!html.includes(secretSentinel)&&!html.includes(flow.state)&&!html.includes('original_code')&&![...response.headers.values()].some(v=>v.includes(secretSentinel)||v.includes(flow.state)));
+  ok(name+' script-free no-store response',response.headers.get('Content-Security-Policy').includes("script-src 'none'")&&response.headers.get('Cache-Control').includes('no-store')&&!/<script\b/i.test(html));
+  ok(name+' no cookie issued',!response.headers.has('Set-Cookie'));eq(name+' no logging',recorded,[]);
+  eq(name+' no identity/grant/ordinary mutations',[count(f,'privacy_access_grants'),count(f,'privacy_subjects'),count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0,0,0]);
+  const flowRow=f.db.prepare('SELECT * FROM privacy_access_oauth').get();ok(name+' consumed state without metadata storage',flowRow.consumed_at!==null&&!JSON.stringify(flowRow).includes(secretSentinel)&&!JSON.stringify(flowRow).includes('discord-public-scope-v1'));
+  const secondHtml=await access.privacyAccessRefusal(request,failure).text();ok(name+' same error metadata spent after one response',!secondHtml.includes('data-privacy-scope-'));
+  const forged=new (load('policy-form-core').FormError)(failure.code,503);ok(name+' copied error code cannot acquire metadata',!(await access.privacyAccessRefusal(request,forged).text()).includes('data-privacy-scope-'));
+  const prior=calls.length;await refused(name+' state replay refuses',()=>access.finishPrivacyAccess(request,f.env));eq(name+' replay has no newHTTP',calls.length,prior);f.db.close();
+ }
+ for(const [name,scope,marker] of [
+  ['nonstring null',null,'PA-T6A'],['nonstring object',{scope:secretSentinel},'PA-T6A'],['empty','','PA-T6B'],
+  ['identity surrounding space',' identify ','PA-T6C'],['mixed leading space',' identify connections','PA-T6'],
+  ['mixed doubled space','identify  connections','PA-T6'],['tab separator','identify\tconnections','PA-T6'],
+  ['final newline','identify connections\n','PA-T6'],['Unicode','identify \uff43onnections','PA-T6'],
+  ['quoted unknown','identify "'+secretSentinel+'"','PA-T6'],['backslash unknown','identify \\'+secretSentinel,'PA-T6'],
+  ['finite body exceeded','identify '+secretSentinel+'a'.repeat(16400),'PA-T3'],
+ ]){
+  f=fixture();const flow=await start(f),request=new Request(BASE+'/privacy/callback?state='+flow.state+'&code=original_code&iss=https%3A%2F%2Fdiscord.com',{headers:{Cookie:flow.flowCookie}});calls=[];
+  provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope}));let failure;
+  try{await access.finishPrivacyAccess(request,f.env);}catch(error){failure=error;}
+  ok(name+' same-request malformed refusal',!!failure);const html=await access.privacyAccessRefusal(request,failure).text();
+  ok(name+' fixed malformed marker',html.includes('data-privacy-refusal="'+marker+'"'));ok(name+' malformed receives no enum metadata',!html.includes('data-privacy-scope-'));
+  ok(name+' malformed no provider value reflection',!html.includes(secretSentinel));eq(name+' malformed only exchange',calls.map(c=>c.url),['https://discord.com/api/oauth2/token']);
+  eq(name+' malformed grant0',count(f,'privacy_access_grants'),0);f.db.close();
  }
  // Even a forged error cannot reflect an arbitrary reason as a public marker.
  for(const reason of ['identity_scope_'+secretSentinel,'PA-T6D','identity_scope_broader_refused '+secretSentinel]){
