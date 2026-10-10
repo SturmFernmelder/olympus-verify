@@ -869,6 +869,8 @@
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
         h("a", { class: "btn", href: "#/governance/3-letters-patent-and-warrants", text: "Appointment templates" }),
         h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.pdf", download: "Olympus Guild Governance - Successor Draft.pdf", text: "Download PDF" }),
+        h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.zip", download: "Olympus Governance - Successor Draft.zip", text: "Download full package" }),
         h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R6.md", text: "Download the exact source" })),
       h("div", { class: "governance-controls" }, h("label", { for: "governance-search", text: "Find a rule or office" }), search,
         h("button", { class: "btn small", type: "button", text: "Clear search", onclick: () => { search.value = ""; filter(); } }),
