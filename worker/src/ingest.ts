@@ -169,7 +169,24 @@ export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
       ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t),
     );
   }
-  const allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingRequestFence(env,pending),...stmts]);
+  let allDone:D1Result[];
+  try {
+    allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingRequestFence(env,pending),...stmts]);
+  } catch {
+    // A competing relay or account closure can refuse the original consuming proof. Read only
+    // to classify the outcome: never adopt a replacement pending row/generation or retry a write.
+    try {
+      const subject=await readPrivacySubject(env,pending.discord_id);
+      if (subject?.subjectGeneration !== privacyCapture?.subjectGeneration || subject && subject.state !== 'active')
+        return json({result:'privacy_held'},409);
+      const after=await env.DB.prepare('SELECT discord_id,created_at,name_key,nonce,consumed_at FROM pending WHERE id=?1')
+        .bind(pending.id).first<{discord_id:string;created_at:number;name_key:string;nonce:string|null;consumed_at:number|null}>();
+      if (!after || after.discord_id!==pending.discord_id || after.created_at!==pending.created_at ||
+          after.nonce!==(pending.nonce??null) || after.name_key!==pending.name_key || after.consumed_at!==null)
+        return json({result:'no_pending'});
+    } catch { /* An unavailable observation cannot prove refusal or rollback. */ }
+    return json({result:'outcome_unknown'},503);
+  }
   const done=allDone.slice(1);
   if (!done[1]?.meta?.changes) {
     // Lost a race: the request was used a moment ago, or the name was linked to another account a moment ago.
