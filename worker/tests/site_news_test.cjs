@@ -1017,7 +1017,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const idxNames = ["site_news_notices_order", "site_news_notices_retain", "site_news_notices_created_by", "site_news_notices_updated_by", "site_news_ops_purge", "site_news_ops_created_by"];
   check("  the six indexes in all three", idxNames.every((x) => sqlFile.includes(`INDEX IF NOT EXISTS ${x} `) && mig.includes(`INDEX IF NOT EXISTS ${x} `) && schemaTs.includes(`INDEX IF NOT EXISTS ${x} `)));
   const tables = (d) => d.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").get().c;
-  check("  schema.sql makes 52 tables (the prior 51 plus event delivery custody)", tables(db) === 52, tables(db));
+  check("  schema.sql makes 53 tables (the prior 52 plus event reminder custody)", tables(db) === 53, tables(db));
   const old = new DatabaseSync(":memory:");
   old.exec(fs.readFileSync(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"), "utf8"));
   schema.forgetSchemaCheck();

@@ -2284,6 +2284,46 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const deletesBeforeReplay = effects.filter((e) => e.method === "DELETE").length;
       byText(second.app, "button", "Remove announcement").click(); await waitFor(() => second.app.textContent.includes("announcement was removed"), "stale-tab removal replay");
       check(".130 stale second-tab removal resolves from durable removed custody without another DELETE", effects.filter((e) => e.method === "DELETE").length === deletesBeforeReplay && !second.sessionStorage.getItem("olympus.eventDelivery." + replayId) && !byText(second.app, "button", "Publish announcement").disabled && byText(second.app, "button", "Remove announcement").disabled);
+
+      const reminderOver = { ...over, EVENT_DISCORD_REMINDERS: "on" };
+      const reminderLoaded = (page) => waitFor(() => !!byText(page.app,"button","Refresh reminder status") && !byText(page.app,"button","Refresh reminder status").disabled, "reminder status");
+      const reminderId = await create("Reminder <script>unsafe()</script>");
+      await apiAs(ORG,"POST","/api/community/events/update",{eventId:reminderId,revision:1,startsAt:isoAt(Math.floor(Date.now()/1000)+1800)},reminderOver);
+      const rem = await openPage(ORG,reminderOver);await rem.go(route(reminderId));await reminderLoaded(rem);
+      check(".134 reminder starts unticked and disabled until separate consent", !rem.app.querySelector("#event-reminder-consent").checked && byText(rem.app,"button","Enable one reminder").disabled && !one("SELECT 1 FROM community_event_reminders WHERE event_id=?",reminderId));
+      const remPanel = rem.app.querySelector("[data-event-reminder]");
+      check(".134 reminder explains approximate scheduler delivery and displays safe exact public content",remPanel.textContent.includes("half-hour scheduler") && remPanel.querySelector("pre").textContent.includes("script") && !remPanel.querySelector("script") && !remPanel.textContent.includes("PRIVATE_SIGNUP_DETAILS"));
+      const beforeReminderPost = posts();rem.drop((pathname,init)=>pathname==="/api/community/events/reminder" && init.method==="POST");
+      rem.app.querySelector("#event-reminder-consent").checked=true;fire(rem.app.querySelector("#event-reminder-consent"),"change");byText(rem.app,"button","Enable one reminder").click();
+      await waitFor(()=>rem.app.textContent.includes("One reminder is armed"),"lost consent browser response");
+      check(".134 lost consent reply resolves exact durable row without sending or renewing consent automatically",one("SELECT state FROM community_event_reminders WHERE event_id=?",reminderId).state==="armed" && posts()===beforeReminderPost && !rem.app.querySelector("#event-reminder-consent").checked);
+      rem.drop(null);loseProviderAnswer=true;await load("./community-event-reminders").runEventReminders(env(reminderOver));loseProviderAnswer=false;
+      byText(rem.app,"button","Refresh reminder status").click();await waitFor(()=>rem.app.textContent.includes("Delivery is unresolved"),"unknown reminder readback");
+      check(".134 unknown reminder cannot enable a resend and retains reconciliation controls",byText(rem.app,"button","Enable one reminder").disabled && !byText(rem.app,"button","Check existing reminder").disabled && posts()===beforeReminderPost+1);
+      const remMessage=[...messages.values()].find((m)=>m.content.startsWith("**Raid reminder**"));
+      await rem.go("#/community/calendar");await rem.go(route(reminderId));await reminderLoaded(rem);
+      rem.app.querySelector("#f-event-reminder-message").value=`https://discord.com/channels/${GUILD}/${CHANNEL}/${remMessage.id}`;
+      byText(rem.app,"button","Check existing reminder").click();await waitFor(()=>rem.app.textContent.includes("The reminder was delivered"),"reminder reconciliation");
+      check(".134 reloaded page uses server operation ID to reconcile exact nonce without a new POST",posts()===beforeReminderPost+1 && !!byText(rem.app,"a","Open Discord reminder") && !byText(rem.app,"button","Remove reminder").disabled);
+      const remOff=await openPage(ORG,{...reminderOver,EVENT_DISCORD_REMINDERS:"",EVENT_DISCORD_DELIVERY:""});await remOff.go(route(reminderId));await reminderLoaded(remOff);
+      check(".134 global OFF disables consent while keeping known-pointer removal",byText(remOff.app,"button","Enable one reminder").disabled && !byText(remOff.app,"button","Remove reminder").disabled);
+      byText(remOff.app,"button","Remove reminder").click();await waitFor(()=>remOff.app.textContent.includes("The reminder was removed"),"reminder removal");
+      check(".134 explicit removal with OFF never posts and deletes only known reminder",!messages.has(remMessage.id) && posts()===beforeReminderPost+1);
+      const expiryId=await create("Expired reminder"), old=now-1;
+      await apiAs(ORG,"POST","/api/community/events/reminder",{eventId:expiryId,revision:1,enabled:true},reminderOver);
+      db.prepare("UPDATE community_event_reminders SET retain_until=? WHERE event_id=?").run(old,expiryId);
+      const expired=await openPage(ORG,reminderOver);await expired.go(route(expiryId));await reminderLoaded(expired);
+      check(".134 expired unswept custody shows closure and cannot arm invisible consent",expired.app.textContent.includes("Reminder custody expired") && byText(expired.app,"button","Enable one reminder").disabled);
+      const actualReminder=(await apiAs(ORG,"GET",`/api/community/events/reminder?eventId=${reminderId}`,undefined,reminderOver)).body;
+      for(const field of ["operationId","messageUrl"]) {
+        const bad=JSON.parse(JSON.stringify(actualReminder));bad.reminder[field]=[field==="messageUrl"?`https://discord.com/channels/${GUILD}/${CHANNEL}/${remMessage.id}`:bad.reminder[field]];
+        const malformedReminder=await openPage(ORG,reminderOver);malformedReminder.answer((pathname)=>pathname.startsWith("/api/community/events/reminder?")?bad:null);
+        await malformedReminder.go(route(reminderId));await reminderLoaded(malformedReminder);
+        check(`.134 array-coerced reminder ${field} cannot expose custody or enable effects`,byText(malformedReminder.app,"button","Enable one reminder").disabled && byText(malformedReminder.app,"button","Remove reminder").disabled && !byText(malformedReminder.app,"a","Open Discord reminder"));
+      }
+      const oldArm=byText(rem.app,"button","Enable one reminder"),oldRefreshReminder=byText(rem.app,"button","Refresh reminder status");let detachedReminderReads=0;
+      rem.before((pathname)=>{if(pathname.startsWith("/api/community/events/reminder"))detachedReminderReads++;return false});await rem.go("#/roles");oldArm.click();oldRefreshReminder.click();await settle();
+      check(".134 detached reminder controls cannot write or refresh another route",detachedReminderReads===0 && posts()===beforeReminderPost+1);
     } finally { globalThis.fetch = originalFetch; }
   }
   console.log(`\n${ok}/${n} passed`);

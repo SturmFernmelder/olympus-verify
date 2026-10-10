@@ -45,6 +45,7 @@ import { bnetRetentionStatus, legacyApiCounts, purgeBattleNetData } from "./bnet
 import { rolesStatus } from "./roles";
 import { sweepCommunityProfiles } from "./community-directory";
 import { sweepCommunityEvents } from "./community-events";
+import { runEventReminders } from "./community-event-reminders";
 import { sweepCommunityTrials } from "./community-trials";
 import { sweepCommunityRestrictions } from "./community-restrictions";
 import { departureIntake, sweepCommunityDepartures } from "./community-departures";
@@ -152,6 +153,7 @@ export default {
     // .57: community profiles whose owner stopped qualifying start a 30-day clock and go when it runs out; runs with the feature off too.
     ctx.waitUntil(sweepCommunityProfiles(env).catch((e) => console.error("community sweep failed", errorRef(e))));
     ctx.waitUntil(sweepCommunityEvents(env).catch((e) => console.error("community events sweep failed", errorRef(e)))); // .59: events 30 days past their end
+    ctx.waitUntil(runEventReminders(env).catch((e) => console.error("event reminder failed", errorRef(e)))); // at most one due opted event; unknown delivery holds
     ctx.waitUntil(sweepCommunityTrials(env).catch((e) => console.error("community trials sweep failed", errorRef(e)))); // .61: trials past their deadline
     ctx.waitUntil(sweepCommunityRestrictions(env).catch((e) => console.error("community restrictions sweep failed", errorRef(e)))); // .69: expired watch-list rows, resolved cases, orphan periods
     // .70: departure review items: the intake only while the flag is on, the purge always
@@ -373,7 +375,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-10.133 Atomic site-data deletion";
+const BUILD = "2026-10-10.134 Opted raid reminders";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

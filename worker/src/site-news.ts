@@ -71,6 +71,15 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".134",
+    date: "2026-10-10",
+    lines: [
+      "Event organizers can separately opt in to one raid-signups reminder for an event revision. Existing events stay opted out.",
+      "Reminders become due sixty minutes before the start. Scheduler delays or outages can prevent delivery; nothing is sent after the start.",
+      "Editing cancels consent. Lost delivery answers stay held for message inspection, with no automatic resend or attendee mentions.",
+    ],
+  },
+  {
     build: ".133",
     date: "2026-10-10",
     lines: [

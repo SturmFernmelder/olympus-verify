@@ -100,6 +100,7 @@ async function migrate(env: Env) {
   await migrateGuildSite(env);
   // .130: a parent-bound publication disposition; a separate probe/ALTER adds at most two cold statements.
   await addColumn(env, "community_events", "publication_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1))");
+  await addColumn(env, "community_events", "reminder_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1))");
   await redactSettingsAudit(env);
 }
 
@@ -410,6 +411,7 @@ export const SITE_SCHEMA = [
      nonce                 TEXT,
      attendance_nonce      TEXT,
      publication_closed    INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1)),
+     reminder_closed       INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1)),
      created_at            INTEGER NOT NULL,
      updated_at            INTEGER NOT NULL,
      retain_until          INTEGER NOT NULL
@@ -790,6 +792,27 @@ export const SITE_SCHEMA = [
     PRIMARY KEY (event_id,purpose)
   )`,
   "CREATE INDEX IF NOT EXISTS community_event_deliveries_retain ON community_event_deliveries(retain_until)",
+  `CREATE TABLE IF NOT EXISTS community_event_reminders (
+  event_id TEXT PRIMARY KEY REFERENCES community_events(id) ON DELETE CASCADE,
+  event_revision INTEGER NOT NULL CHECK (event_revision >= 1),
+  starts_at INTEGER NOT NULL,
+  actor TEXT,
+  consent_version INTEGER,
+  guild_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  host TEXT NOT NULL,
+  op_id TEXT NOT NULL CHECK (length(op_id) = 22),
+  claim_nonce TEXT,
+  state TEXT NOT NULL CHECK (state IN ('armed','claimed','posted','refused','unknown','cancelled','removed')),
+  message_id TEXT,
+  frozen_content TEXT CHECK (frozen_content IS NULL OR length(frozen_content) <= 1024),
+  cleanup_requested INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_requested IN (0,1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  last_attempt_at INTEGER NOT NULL DEFAULT 0,
+  retain_until INTEGER NOT NULL
+)`,
+  "CREATE INDEX IF NOT EXISTS community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id)",
   // .115, third review round: a roster export's durable member effects (migrations/2026-10-03-roster-effects.sql).
   `CREATE TABLE IF NOT EXISTS roster_effect_runs (
      id               INTEGER PRIMARY KEY AUTOINCREMENT,

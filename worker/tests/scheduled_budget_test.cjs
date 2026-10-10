@@ -109,13 +109,15 @@ const realSetTimeout = setTimeout;
 globalThis.setTimeout = (fn, _ms, ...a) => realSetTimeout(fn, 0, ...a);
 
 // ---------- Discord, faked at fetch(): the guild's roles, members, role writes, messages, users ----------
-const GUILD = "236932545793490944", ROLE = "1549581282227265566", STAFF = "1550000000000000010", LOG = "1550000000000000011", OTHER = "1550000000000000012";
+const GUILD = "236932545793490944", ROLE = "1549581282227265566", STAFF = "1550000000000000010", LOG = "1550000000000000011", OTHER = "1550000000000000012", RAID = "1550000000000000013", BOT = "1550000000000000014";
 let HAS_ROLE = new Set(), ON_PUT = null, FETCHES = [];
 const reply = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url)), method = init.method || "GET", p = u.pathname;
   FETCHES.push(`${method} ${p}`);
   let m;
+  if (p === "/api/v10/users/@me") return reply({ id: BOT, bot: true });
+  if (p === `/api/v10/channels/${RAID}` && method === "GET") return reply({ id: RAID, guild_id: GUILD, type: 0 });
   if (p === `/api/v10/guilds/${GUILD}/roles`) return reply([{ id: ROLE }]);
   if ((m = p.match(/^\/api\/v10\/guilds\/\d+\/members\/(\d+)$/)) && method === "GET") return reply({ roles: HAS_ROLE.has(m[1]) ? [ROLE] : [], user: { id: m[1], username: "u" } });
   if ((m = p.match(/^\/api\/v10\/guilds\/\d+\/members\/(\d+)\/roles\/\d+$/))) {
@@ -125,6 +127,7 @@ globalThis.fetch = async (url, init = {}) => {
   }
   if ((m = p.match(/^\/api\/v10\/channels\/(\d+)\/messages$/)) && method === "POST") {
     const body = JSON.parse(init.body || "{}");
+    if (m[1] === RAID) return reply({ id: "1550000000000000096", channel_id: RAID, author: { id: BOT, bot: true }, type: 0, content: body.content, nonce: body.nonce, embeds: [], attachments: [] });
     if (body.nonce) return reply({ id: "1550000000000000099" }); // the officer digest
     if (m[1] === STAFF) return reply({ message: "Missing Access", code: 50001 }, 403); // the staff notice cannot be posted: audited
     return reply({ id: "1550000000000000098" });
@@ -142,6 +145,8 @@ const env = (over = {}) => ({
   OFFICER_DIGEST_ENABLED: "true", LAUNCH_AT: String(T - DAY), INVITE_MAX_ATTEMPTS: "6",
   // above the caps on purpose: the source clamps them to the budget's
   ROLE_SWEEP_PER_RUN: "50", ROLE_CALL_BUDGET: "50", NAMES_PER_RUN: "50",
+  SITE_GUILD_ID: GUILD, DISCORD_APP_ID: BOT, INTROS_GUILD_ID: GUILD, INTROS_CHANNELS: `raid-signups=${RAID}`,
+  EVENT_DISCORD_DELIVERY: "on", EVENT_DISCORD_REMINDERS: "on", COMMUNITY_ORGANIZERS: "300000000000001000",
   ...over,
 });
 
@@ -240,6 +245,14 @@ function seedEffects(count) {
   return runId;
 }
 let MEMBER_IDS = [];
+function seedReminders() {
+  const clock = one("SELECT CAST(strftime('%s','now') AS INTEGER) AS clock").clock, actor = id(1000);
+  for (let i = 0; i < 3; i++) {
+    const eventId = ref(9901 + i), start = clock + 1800 + i;
+    run("INSERT INTO community_events(id,op_id,title,starts_at,duration_min,ends_at,created_by,created_at,updated_at,retain_until) VALUES(?,?,?, ?,120,?,?,?,?,?)", eventId, ref(9801+i), "Public reminder", start, start+7200, actor, clock, clock, start+7200+30*DAY);
+    run("INSERT INTO community_event_reminders(event_id,event_revision,starts_at,actor,consent_version,guild_id,channel_id,host,op_id,state,frozen_content,created_at,updated_at,retain_until) VALUES(?,1,?,?,1,?,?,?,?,'armed',?,?,?,?)", eventId, start, actor, GUILD, RAID, "guild.example", ref(9701+i), "Public synthetic reminder", clock, clock, start+7200+30*DAY);
+  }
+}
 function seedAll() {
   HAS_ROLE = new Set(); ON_PUT = null; FETCHES = [];
   db.exec("BEGIN");
@@ -251,6 +264,7 @@ function seedAll() {
   seedDepartures();
   seedFixed();
   seedEffects(60);
+  seedReminders();
   db.exec("COMMIT");
 }
 
@@ -363,6 +377,8 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   check(`  ${CAP.profilesPerRun} of the ${3 * CAP.profilesPerRun} expired profiles erased, the rest left for the next runs`, r.value.deleted === CAP.profilesPerRun && one("SELECT COUNT(*) AS c FROM community_profiles").c === 2 * CAP.profilesPerRun, r.value);
   r = await exact("sweepCommunityEvents", (L, e) => L("./community-events").sweepCommunityEvents(e));
   check("  the event went and was audited", r.value === 1);
+  r = await exact("runEventReminders", (L, e) => L("./community-event-reminders").runEventReminders(e));
+  check("  exactly one of three due reminders posted; the other two wait", r.value === 1 && one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='posted'").c === 1 && one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='armed'").c === 2 && FETCHES.filter((p) => p === `POST /api/v10/channels/${RAID}/messages`).length === 1, r.value);
   r = await exact("sweepCommunityTrials", (L, e) => L("./community-trials").sweepCommunityTrials(e));
   check("  the trial went", r.value.deleted === 1);
   r = await exact("sweepCommunityRestrictions", (L, e) => L("./community-restrictions").sweepCommunityRestrictions(e));
@@ -385,11 +401,13 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   r = await exact("ensureSchema", (L, e) => L("./schema").ensureSchema(e), { fail: everyColumnMissing });
   measured.ensureSchema = r.statements;
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); resetCount(); L("./schema").forgetSchemaCheck(); await L("./schema").ensureSchema(e); const cold = COUNT.statements; resetCount(); await L("./schema").ensureSchema(e); return { cold, warm: COUNT.statements }; });
-  check(`cold on a current database: ${r.value.cold} statements (129: publication table/index and closure probe); warm: ${r.value.warm}`, r.value.cold === 129 && r.value.warm === 0, r.value);
+  check(`cold on a current database: ${r.value.cold} statements (132: publication/reminder stores and closure probes); warm: ${r.value.warm}`, r.value.cold === 132 && r.value.warm === 0, r.value);
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN publication_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT publication_closed FROM community_events LIMIT 1") ?? null; });
-  check(`actual old-parent closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 130, r.statements);
+  check(`actual old-parent publication closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 133, r.statements);
+  r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN reminder_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT reminder_closed FROM community_events LIMIT 1").reminder_closed; });
+  check(`actual old-parent reminder closure ALTER: ${r.statements} statements; default OFF disposition`, r.statements === 133 && r.value === 0, r);
   r = await measure((L, e) => L("./schema").ensureSchema(e));
-  check(`  cold before the one-time audit rewrite: ${r.statements} statements (132)`, r.statements === 132, r.statements);
+  check(`  cold before the one-time audit rewrite: ${r.statements} statements (135)`, r.statements === 135, r.statements);
   const sumMeasured = Object.values(measured).reduce((s, x) => s + x, 0);
   console.log(`    the jobs measured one by one: ${sumMeasured} statements`);
 
@@ -414,12 +432,13 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   const warm = await wholeRun("warm");
   console.log(`    warm schema: ${warm.statements} statements in ${warm.trips} round trips (${warm.jobs} jobs)`);
   check(`warm: ${warm.statements} statements, within the table less the schema line (${sum - line("ensureSchema")}) and the target`, warm.jobs === jobs.length - 1 && warm.statements <= sum - line("ensureSchema") && warm.statements <= budget.SCHEDULED_STATEMENT_TARGET, warm);
-  check("  the run did every capped workload's share: 30 weeks opened, 10 profiles erased, 20 names refreshed, 1000 names queued", one("SELECT COUNT(*) AS c FROM community_contribution_obligations").c === CAP.obligationsPerRun && one("SELECT COUNT(*) AS c FROM community_profiles").c === 2 * CAP.profilesPerRun && one("SELECT COUNT(*) AS c FROM members WHERE names_at IS NOT NULL").c === CAP.namesPerRun && one("SELECT COUNT(*) AS c FROM site_reserved WHERE status = 'queued'").c === 1000);
+  check(`  the run did every capped workload's share: ${CAP.obligationsPerRun} weeks opened, 10 profiles erased, 20 names refreshed, 1000 names queued`, one("SELECT COUNT(*) AS c FROM community_contribution_obligations").c === CAP.obligationsPerRun && one("SELECT COUNT(*) AS c FROM community_profiles").c === 2 * CAP.profilesPerRun && one("SELECT COUNT(*) AS c FROM members WHERE names_at IS NOT NULL").c === CAP.namesPerRun && one("SELECT COUNT(*) AS c FROM site_reserved WHERE status = 'queued'").c === 1000);
+  check("  reminder cron caps the due backlog at one effect", one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='posted'").c === 1 && one("SELECT COUNT(*) AS c FROM community_event_reminders WHERE state='armed'").c === 2 && FETCHES.filter((p) => p === `POST /api/v10/channels/${RAID}/messages`).length === 1);
   check("  the roster effects' slice too: some of the 60 pending promotions applied, the rest left for the next runs", one("SELECT COUNT(*) AS c FROM roster_effects").c < 60 && one("SELECT COUNT(*) AS c FROM roster_effects").c > 0);
   check("  and the rest: the digest posted, the figures computed, a role sweep recorded", one("SELECT COUNT(*) AS c FROM audit WHERE action = 'community.officer_digest_posted'").c === 1 && one("SELECT value FROM site_settings WHERE key = 'newsFigures'") && one("SELECT COUNT(*) AS c FROM audit WHERE action = 'role.sweep'").c === 1);
   const cold = await wholeRun("cold");
   console.log(`    cold schema (a fresh isolate on a current database): ${cold.statements} statements in ${cold.trips} round trips`);
-  check(`cold: ${cold.statements} statements = warm + 129, within the table and the target`, cold.statements === warm.statements + 129 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
+  check(`cold: ${cold.statements} statements = warm + 132, within the table and the target`, cold.statements === warm.statements + 132 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
   const worst = await wholeRun("cold worst");
   console.log(`    cold schema, every column reported missing: ${worst.statements} statements in ${worst.trips} round trips`);
   check(`cold worst: ${worst.statements} statements = warm + the schema line, within the table (${sum}) and the target (${budget.SCHEDULED_STATEMENT_TARGET})`, worst.statements === warm.statements + line("ensureSchema") && worst.statements <= sum && worst.statements <= budget.SCHEDULED_STATEMENT_TARGET, worst, warm);

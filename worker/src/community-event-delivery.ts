@@ -18,7 +18,7 @@ const START_HORIZON_S = 366 * 86400; // accepted event creation clock; an edit m
 const RESULTS = ["published", "reconciled", "removed", "admission_changed", "discord_refused", "outcome_unknown"] as const;
 const safeResult = (v: unknown) => typeof v === "string" && (RESULTS as readonly string[]).includes(v) ? v : null;
 type State = "claimed" | "posted" | "refused" | "unknown" | "removed";
-interface Destination { guild: string; channel: string; host: string }
+export interface Destination { guild: string; channel: string; host: string }
 interface EventRow { id: string; title: string; starts_at: number; duration_min: number; status: string; revision: number; created_at: number; retain_until: number; publication_closed: number }
 interface Delivery {
   event_id: string; purpose: "publication"; event_revision: number; starts_at: number; guild_id: string; channel_id: string;
@@ -34,7 +34,7 @@ const revision = (v: unknown) => { if (typeof v !== "number" || !Number.isSafeIn
 const bad = (e: unknown) => e instanceof Bad ? apiJson({ error: e.code }, e.status) : null;
 
 /** No client-supplied destination or bot-host URL enters the frozen announcement. Ambiguous mappings refuse. */
-function destination(env: Env): Destination | null {
+export function destination(env: Env): Destination | null {
   const guild = env.SITE_GUILD_ID ?? "", host = (env.SITE_HOST ?? "").toLowerCase();
   const maps = (env.INTROS_CHANNELS ?? "").split(",").map((v) => v.split("=").map((s) => s.trim())).filter(([k]) => k === "raid-signups");
   if (!SNOWFLAKE.test(guild) || env.INTROS_GUILD_ID !== guild || maps.length !== 1 || maps[0]!.length !== 2 || !SNOWFLAKE.test(maps[0]![1]!)) return null;
@@ -74,7 +74,7 @@ async function bodyOf(request: Request, keys: string[]): Promise<Record<string, 
   return value;
 }
 const escapeTitle = (text: string) => text.replace(/[\\`*_{}\[\]()<>#|~]/g, "\\$&");
-function contentOf(e: EventRow, d: Destination): string {
+export function contentOf(e: EventRow, d: Destination): string {
   return `**${escapeTitle(e.title)}**\n<t:${e.starts_at}:F> · <t:${e.starts_at}:R>\nDuration: ${e.duration_min} minutes\n[Sign up on the Olympus calendar](https://${d.host}/#/community/calendar/${e.id})\nA sign-up reserves a place; the organizer confirms the raid roster.`;
 }
 const hashOf = async (content: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content)))].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -129,13 +129,13 @@ export async function eventDeliveryPreview(request: Request, env: Env, ctx: Comm
 }
 
 /** Exactly one bounded credential-bearing request. Error bodies, tokens and provider text are neither stored nor returned. */
-async function discord(env: Env, method: string, path: string, body?: unknown): Promise<{ status: number; value: unknown }> {
+export async function discord(env: Env, method: string, path: string, body?: unknown): Promise<{ status: number; value: unknown }> {
   const response = await credentialFetch(API + path, { method, headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   if (response.status === 204 || !response.ok) { await response.body?.cancel(); return { status: response.status, value: null }; }
   try { return { status: response.status, value: await readJsonBounded(response, DISCORD_BODY_LIMIT) }; }
   catch { return { status: response.status, value: null }; }
 }
-async function qualifyDestination(env: Env, d: Destination): Promise<string | null> {
+export async function qualifyDestination(env: Env, d: Destination): Promise<string | null> {
   const app = env.DISCORD_APP_ID?.trim();
   if (!app || !SNOWFLAKE.test(app)) return null;
   try {
@@ -148,16 +148,19 @@ async function qualifyDestination(env: Env, d: Destination): Promise<string | nu
 }
 /** Membership failure/outage is HOLD, never an inferred departure or an authorization grant. */
 async function memberPresent(env: Env, ctx: CommunityContext, guild: string): Promise<boolean> {
+  return eventDiscordMemberPresent(env, ctx.subject!.discordId, guild);
+}
+export async function eventDiscordMemberPresent(env: Env, actor: string, guild: string): Promise<boolean> {
   try {
-    const result = await discord(env, "GET", `/guilds/${guild}/members/${ctx.subject!.discordId}`);
-    return result.status === 200 && record(result.value) && record(result.value.user) && result.value.user.id === ctx.subject!.discordId;
+    const result = await discord(env, "GET", `/guilds/${guild}/members/${actor}`);
+    return result.status === 200 && record(result.value) && record(result.value.user) && result.value.user.id === actor;
   } catch { return false; }
 }
-function ownMessage(v: unknown, d: Destination, bot: string): v is Message {
+export function ownMessage(v: unknown, d: Destination, bot: string): v is Message {
   return record(v) && typeof v.id === "string" && SNOWFLAKE.test(v.id) && v.channel_id === d.channel && record(v.author) && v.author.id === bot && v.author.bot === true && v.webhook_id == null && v.type === 0;
 }
-const exactContent = (m: Message, content: string | null) => content !== null && m.content === content && Array.isArray(m.embeds) && m.embeds.length === 0 && Array.isArray(m.attachments) && m.attachments.length === 0;
-const knownRefusal = (status: number) => [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(status);
+export const exactContent = (m: Message, content: string | null) => content !== null && m.content === content && Array.isArray(m.embeds) && m.embeds.length === 0 && Array.isArray(m.attachments) && m.attachments.length === 0;
+export const knownRefusal = (status: number) => [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(status);
 
 /** A known result records custody even if the original session/event was revoked while the HTTP request was in flight. */
 async function settle(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {

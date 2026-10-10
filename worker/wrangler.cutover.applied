@@ -20,3 +20,6 @@ activated_at = "2026-10-09T17:18:58Z"
 # Activation (scripts/cutover-config.sh --activate): only the activation keys changed (EVENT_DISCORD_DELIVERY); this is the profile now in force.
 activation_profile_sha256 = "7f173020077ac29a1b0f88b193fb3a2b187725ecefb76e27ba87fae216f19c21"
 activated_at = "2026-10-10T03:34:43Z"
+# Activation (scripts/cutover-config.sh --activate): only the activation keys changed (EVENT_DISCORD_REMINDERS); this is the profile now in force.
+activation_profile_sha256 = "008650104beddd63b7dae964f9ee2620dcf7b09ad1972350e068a00fd358fd63"
+activated_at = "2026-10-10T11:47:20Z"

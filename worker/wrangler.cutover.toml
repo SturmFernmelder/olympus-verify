@@ -111,6 +111,7 @@ COMMUNITY_FEATURES = "directory,crafting,events,attendance,trials,restrictions,d
 COMMUNITY_DIRECTORY_LIMIT = "2500"      # .57: listed profiles the directory holds (a guild has at most 1,000 characters); the 2,501st save is refused; .59: and the calendar's distinct members
 COMMUNITY_ORGANIZERS = ""               # .59: Discord ids who may create, edit and cancel events and record attendance (SITE_ADMINS always may); "" = admins only
 EVENT_DISCORD_DELIVERY = "on"           # .130: organizer preview/publish/update/remove in raid-signups; no automatic messages or reminders
+EVENT_DISCORD_REMINDERS = "on"          # .134: one separately opted event reminder; no existing event is opted in
 CONTRIBUTIONS_MODE = "ledger"           # .75: "ledger" turns the contribution ledger's writes on (with the flag `contributions` in COMMUNITY_FEATURES and a retention); "off" = read-only
 CONTRIBUTIONS_RETENTION_DAYS = "90"     # .75: days every ledger record is kept from its week or observation (1..3650); "" = no writes
 CONTRIBUTIONS_SCOPE = "olympus"         # .75: the guild scope ledger records carry

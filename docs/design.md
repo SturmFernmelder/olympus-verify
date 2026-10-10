@@ -1317,3 +1317,14 @@ Qualification: exact source/95-label/structure tests and real frontend-to-Worker
 readers, public asset requests without credentials, protected directory refusal, chapter/search/detail controls,
 malformed data, missing assets and late-route responses. A native browser review on the final candidate separately
 checks mobile layout, keyboard behavior and actual text/table legibility before publication.
+
+## 2026-10-10: opted event reminders (.134)
+
+The owner requested reminders in raid-signups. Each revision needs separate organizer consent; the global reviewed
+switch alone never opts in an event. Cron uses durable consent and current keeper/Discord membership facts rather
+than refreshing an expired website cookie. One claimed effect per run bounds SQL and Discord calls. A known refusal
+needs new explicit consent; an ambiguous effect is never automatically retried, since Discord's nonce only supplies
+recent deduplication. Editing cancels consent, and current erasure hooks clear copied identity/content while keeping
+external cleanup debt. Finite custody expiry closes the surviving event before local disposal; no external deletion
+is inferred. The original deadline cannot be extended by a reschedule or consent retry. The existing calendar
+organizer capability is preserved; this is not a Discord-role authority or admission writer.

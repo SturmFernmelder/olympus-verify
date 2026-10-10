@@ -41,7 +41,7 @@ digest() { sha256sum "$1" | cut -c1-64; }
 strip() { sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"; }
 # the only keys --activate may change after the cutover: the community switches and their lifetimes, and gate 6's
 # VERIFY_OPEN_SINCE, forward only (forward_date below; Codex's review of the first activation, 1 Oct 2026 23:14 UTC)
-activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED VERIFY_OPEN_SINCE EVENT_DISCORD_DELIVERY"
+activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED VERIFY_OPEN_SINCE EVENT_DISCORD_DELIVERY EVENT_DISCORD_REMINDERS"
 expected="routes GUILD_ID ROLE_GUILD_MEMBER ROLE_OFFICER ROLE_MODERATOR ROLE_GUILD_LEADER ROLE_GUILD_MASTER ROLE_RAID_LEADER CHANNEL_RECRUITMENT_REVIEW CHANNEL_MOD_ALERTS CHANNEL_SERVER_LOG SET_NICKNAME CHANNEL_NOTICES BLOCKING_ROLE_IDS CHANNEL_VISITOR_CHAT SITE_HOST SITE_LEGACY_HOSTS VERIFY_OPEN_SINCE"
 changed="$( (diff <(strip "$live") <(strip "$cut") || true) | sed -n 's/^[<>][[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)[[:space:]]*=.*/\1/p' | sort -u | tr '\n' ' ')"
 other="$( (diff <(strip "$live") <(strip "$cut") || true) | grep -E '^[<>]' | grep -Ev '^[<>][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=' || true)"
