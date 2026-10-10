@@ -8,11 +8,11 @@ if(source.split(boundary).length!==2)throw Error('genuine OAuth fixture boundary
 const casePath=path.join(__dirname,'privacy_history_native_cases.cjs');
 async function review(){
  load('index');const registry=load('community-context'),ctx={A,B,STAFF,G,load};
- eq('independent33 static retained array cases',nativeCases.cases.length,33);
- eq('independent36 exact history coverage',nativeCases.collections.length,36);
- eq('actual production registers twelve export families',Array.from(registry.communityDataNames()).length,12);
+ eq('independent34 static retained array cases',nativeCases.cases.length,34);
+ eq('independent37 exact history coverage',nativeCases.collections.length,37);
+ eq('actual production registers thirteen export families',Array.from(registry.communityDataNames()).length,13);
  const census=fixture(),plan=registry.communityExportPlan(census.env,A);
- eq('actual production registers32 copy SQL statements',plan.statements.length,32);census.db.close();
+ eq('actual production registers34 copy SQL statements',plan.statements.length,34);census.db.close();
  async function prepared(f,id=A){const c=await connect(f,id),frm=await form(f,c);provider=null;return frm;}
  async function download(f,collection,cursor=null){
   const frm=await prepared(f),footprint=['site_users','members','privacy_subjects','role_settlements'].map(t=>count(f,t));
@@ -110,10 +110,10 @@ async function review(){
  // Aggregate source graph and coverage include every history, independently of registration order.
  const f=fixture(),frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
  const aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json();f.hooks.statement=null;f.hooks.beforeBatch=null;
- eq('aggregate actual86-attempt finite envelope',attempts,86);eq('aggregate one native85-statement batch',batches,[85]);
- eq('aggregate exact36 closed capture descriptors',Object.keys(aggregate.coverage.histories).sort(),nativeCases.collections.slice().sort());
+ eq('aggregate actual88-attempt finite envelope',attempts,88);eq('aggregate one native87-statement batch',batches,[87]);
+ eq('aggregate exact37 closed capture descriptors',Object.keys(aggregate.coverage.histories).sort(),nativeCases.collections.slice().sort());
  for(const c of nativeCases.collections){const h=aggregate.coverage.histories[c];eq(c+' aggregate metadata collection binding',h.collection,c);eq(c+' aggregate selected capture deadline86400',Date.parse(h.capture.expiresAt)-Date.parse(h.capture.at),86400*1000);}
- eq('aggregate actual twelve community family projections',Object.keys(aggregate.community).sort(),Array.from(registry.communityDataNames()).sort());
+ eq('aggregate actual thirteen community family projections',Object.keys(aggregate.community).sort(),Array.from(registry.communityDataNames()).sort());
  ok('aggregate retains scalar refs/profile/period projections',Object.hasOwn(aggregate.community.refs,'ref')&&Object.hasOwn(aggregate.community.directory,'main')&&Object.hasOwn(aggregate.community.restrictions,'watchListPeriod'));
  f.db.close();provider=null;console.log('privacy_history_whole_coverage_review_test: '+checks+' checks PASS');
 }

@@ -9,7 +9,7 @@ function seedExpiry(f){const clock=f.time();
  f.db.prepare("INSERT INTO privacy_access_grants(session_hash,purpose,grant_id,csrf_hash,subject_id,created_at,expires_at) VALUES(?,'own_export',?,?,?,?,?)").run(key,(i+1).toString(16).padStart(32,'0'),'b'.repeat(64),A,at,at+720);}
  f.db.prepare('INSERT INTO audit(ts,actor,action) VALUES(?,?,?)').run(clock-31536001,A,'retained.account.action');}
 async function mainExpiry(){
- for(const [accessFlag,retentionFlag,want] of [[undefined,undefined,0],['false','false',0],['true','false',2],['true',undefined,2],['true','true',20],['false','true',20]]){
+ for(const [accessFlag,retentionFlag,want] of [[undefined,undefined,0],['false','false',0],['true','false',2],['true',undefined,2],['true','true',21],['false','true',21]]){
  const f=fixture();seedExpiry(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
  const env={...f.env,PRIVACY_ACCESS_ENABLED:accessFlag,PRIVACY_RETENTION_ENABLED:retentionFlag};const n=await retention.sweepServingRetention(env);
  eq('exact branch statement attempts '+accessFlag+'/'+retentionFlag,attempts,want);eq('one native batch or none',batches,want?[want]:[]);

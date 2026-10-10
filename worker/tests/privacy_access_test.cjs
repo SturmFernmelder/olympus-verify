@@ -156,7 +156,7 @@ async function main(){
   ['token body','PA-T3',(f)=>{provider=()=>new Response(secretSentinel);}],
   ['token shape','PA-T4',(f)=>{provider=()=>new Response(JSON.stringify({token_type:'Bearer',scope:'identify'}));}],
   ['token type','PA-T5',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'MAC',scope:'identify'}));}],
-  ['token scope','PA-T6D',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope:'identify email'}));}],
+  ['token scope','PA-T6M',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope:'identify email'}));}],
   ['identity request','PA-I1',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?Promise.reject(Error(secretSentinel)):normal(url,init);}],
   ['identity HTTP','PA-I2',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel,{status:503}):normal(url,init);}],
   ['identity body','PA-I3',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel):normal(url,init);}],
@@ -179,17 +179,42 @@ async function main(){
  }
  // .140 fixed refusal categories stay intact for every unapproved .142 value.
  // Each spends native state before refusing identity/grants; no normalization.
+ // New known-permission markers classify refusals only. Exercise each exact set
+ // through genuine state issuance/consumption and the real callback, in every order.
+ const knownRefusalSets=[
+  ['PA-T6F',['identify','role_connections.write']],
+  ['PA-T6G',['identify','guilds.members.read','role_connections.write']],
+  ['PA-T6H',['identify','guilds']],
+  ['PA-T6J',['identify','guilds.members.read','guilds']],
+  ['PA-T6K',['identify','role_connections.write','guilds']],
+  ['PA-T6L',['identify','guilds.members.read','role_connections.write','guilds']],
+  ['PA-T6M',['identify','email']],
+ ];
+ const permutations=tokens=>tokens.length===0?[[]]:tokens.flatMap((v,i)=>permutations(tokens.filter((_,j)=>j!==i)).map(t=>[v,...t]));
+ const knownRefusalCases=[];
+ for(const [marker,tokens] of knownRefusalSets){
+  for(const [i,order] of permutations(tokens).entries())knownRefusalCases.push([marker+' known permutation '+i,order.join(' '),marker]);
+  for(const [i,token] of tokens.entries())knownRefusalCases.push([marker+' duplicate token '+i,[...tokens,token].join(' '),'PA-T6D']);
+  knownRefusalCases.push([marker+' unknown extra',[...tokens,secretSentinel].join(' '),'PA-T6D']);
+  knownRefusalCases.push([marker+' missing exact identity',tokens.filter(t=>t!=='identify').join(' '),'PA-T6E']);
+  knownRefusalCases.push([marker+' wrong identity casing',tokens.map(t=>t==='identify'?'Identify':t).join(' '),'PA-T6E']);
+  knownRefusalCases.push([marker+' token near-match',tokens.map(t=>t==='identify'?t:'x'+t).join(' '),'PA-T6D']);
+  knownRefusalCases.push([marker+' email plus another permission',[...tokens,'email'].join(' '),'PA-T6D']);
+  for(const [i,value] of [' '+tokens.join(' '),tokens.join(' ')+' ',tokens.join('  '),tokens.join('\t'),tokens.join(' ')+'\n',tokens.join(' ')+'\r',tokens.join(' ')+'\0',tokens.join(' ')+'\u00a0'].entries())knownRefusalCases.push([marker+' malformed '+i,value,'PA-T6']);
+ }
+ eq('known diagnostic exact-set permutation census',knownRefusalCases.filter(x=>x[2].startsWith('PA-T6')&&!['PA-T6','PA-T6D','PA-T6E'].includes(x[2])).length,48);
  const genericScopeHtml=await access.privacyAccessRefusal(new Request(BASE+'/privacy/callback'),new (load('policy-form-core').FormError)('identity_exchange_scope_refused',503)).text();
  for(const [name,scope,marker] of [
+  ...knownRefusalCases,
   ['null',null,'PA-T6A'],['boolean',false,'PA-T6A'],['number',0,'PA-T6A'],
   ['object',{identify:secretSentinel},'PA-T6A'],['array',['identify'],'PA-T6A'],
   ['empty','','PA-T6B'],['leading ASCII space',' identify','PA-T6C'],
   ['trailing ASCII space','identify ','PA-T6C'],['surrounding ASCII spaces','  identify  ','PA-T6C'],
   ['repeated identify','identify identify','PA-T6C'],['repeated formatted identify',' identify  identify ','PA-T6C'],
-  ['broader identify first','identify email','PA-T6D'],['broader identify last','email identify','PA-T6D'],
+  ['broader identify first','identify email','PA-T6M'],['broader identify last','email identify','PA-T6M'],
   ['broader repeated identify','identify identify email','PA-T6D'],['case-sensitive extra token','identify Identify','PA-T6D'],
   ['pair plus email','identify guilds.members.read email','PA-T6D'],['pair plus unknown','identify guilds.members.read '+secretSentinel,'PA-T6D'],
-  ['other known guild scope','identify guilds','PA-T6D'],['other known role scope','identify role_connections.write','PA-T6D'],
+  ['other known guild scope','identify guilds','PA-T6H'],['other known role scope','identify role_connections.write','PA-T6F'],
   ['member token casing','identify Guilds.members.read','PA-T6D'],['member token prefix','identify xguilds.members.read','PA-T6D'],
   ...['identify identify guilds.members.read','identify guilds.members.read identify','guilds.members.read identify identify','guilds.members.read guilds.members.read identify','guilds.members.read identify guilds.members.read','identify guilds.members.read guilds.members.read','identify identify guilds.members.read guilds.members.read','guilds.members.read guilds.members.read identify identify'].map((s,i)=>['closed pair duplicate'+i,s,'PA-T6D']),
   ['RFC punctuation boundaries','identify ! # [ ] ~','PA-T6D'],['comma inside RFC token','identify email,other','PA-T6D'],

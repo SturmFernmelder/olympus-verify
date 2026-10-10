@@ -36,6 +36,7 @@ const SPECS=[
  ['community.councillor_verification.requests','verification_requests','created_at,expires_at,used_at,state'],
  ['community.councillor_verification.attestations','verification_proofs','id,own_part,created_at,expires_at'],
  ['community.councillor_verification.roleOutcomes','role_settlements','id,purpose,desired,state,reason,attempts,created_at,expires_at,checked_at'],
+ ['community.ruleset_publication.operations','ruleset_publications','profile_revision,selection_revision,target_key,state,result_code,created_at,updated_at,actor_retain_until'],
 ];
 const cases=SPECS.map(([key,table,fields,capacity=Infinity])=>Object.freeze({key,table,fields:fields.split(','),capacity}));
 function put(f,table,row){
@@ -109,6 +110,7 @@ function seed(f,key,owner,n,ctx,offset=0){
    case 'community.councillor_verification.requests':row={code:'PRIVATE-request-code-'+i,requester:owner,subject_generation:ctx.G,created_at:at,expires_at:t+1000,state:'pending',session_version:7,session_expires:t+1000};break;
    case 'community.councillor_verification.attestations':{const key=token('key',i),challenge=token('challenge',i),code='PRIVATE-proof-request-'+i;qrKey(f,key,staff,i,ctx.G);qrChallenge(f,challenge,key,staff,i);put(f,'verification_requests',{code,requester:owner,created_at:at,expires_at:t+1000,state:'proved'});row={id,code,challenge,signer:staff,key_id:key,requester:owner,requester_guid:'PRIVATE-requester-guid',requester_name:name,native_rank:1,rank_name:'PRIVATE-rank-name',native_profile:'PRIVATE-native-profile',signer_guid:'PRIVATE-signer-guid',snapshot_id:1,subject_generation:ctx.G,digest:'PRIVATE-proof-digest-'+i,created_at:at,expires_at:t+1000};break;}
    case 'community.councillor_verification.roleOutcomes':row={id,subject:owner,purpose:'verification',guild_id:staff,role_id:staff,desired:1,state:'held',reason:'native_review',claim_nonce:'PRIVATE-role-claim',subject_generation:ctx.G,request_digest:'PRIVATE-role-proof',roster_id:1,native_guid:'PRIVATE-native-guid',native_profile:'PRIVATE-native-profile',native_rank:1,native_rank_name:'PRIVATE-native-rank',created_at:at,expires_at:t+1000};break;
+   case 'community.ruleset_publication.operations':row={guild_id:staff,publication_id:token('publication-'+owner,i),target_key:'olympus-info',selection_revision:i+1,profile_revision:ctx.load('ruleset-profile').currentRulesetProfile().revision,plan_hash:'PRIVATE-plan-hash',actor:owner,actor_generation:ctx.G,session_version:7,session_expires:t+1000,channel_id:staff,message_id:peer,frozen_payload:'PRIVATE-shared-payload',payload_hash:'PRIVATE-payload-hash',claim_nonce:'PRIVATE-claim-nonce',stage:'pin',state:'applied',result_code:'confirmed',created_at:at,updated_at:at,actor_retain_until:at+365*86400};break;
    default:throw Error('Independent fixture not implemented '+key);
   }
   put(f,item.table,row);

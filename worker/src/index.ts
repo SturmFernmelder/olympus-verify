@@ -58,6 +58,13 @@ import { runOfficerDigest } from "./community-digest";
 import { communityFeatures } from "./community-context";
 import { guildSeats } from "./guild-seats";
 import { newsCron } from "./site-news";
+import {createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,PrivacyWriteAdmissionHeld} from './privacy-write-admission';
+
+/** No installer runs here. An enabled but absent/unknown current-source installation refuses at ensureSchema. */
+function writeAdmissionEnv(env:Env):Env{
+  return env.PRIVACY_WRITE_ADMISSION_ENABLED==='true'&&!isPrivacyWriteAdmissionDatabase(env.DB)
+    ?{...env,DB:createPrivacyWriteAdmissionDatabase(env.DB,'writer',env.PRIVACY_WRITE_ADMISSION_LAYOUT??'canonical')}:env;
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -100,6 +107,7 @@ export default {
     // host's answer (the legacy 301 above, the unknown 404, the bot's 404 below). No database, no schema check.
     if (host === "site" && (request.method === "GET" || request.method === "HEAD") && path.startsWith("/static/")) return env.ASSETS.fetch(request);
     try {
+      env=writeAdmissionEnv(env);
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
       // after a failure. Until it has succeeded, the watcher's endpoints answer 503 (the watcher keeps its work and
       // retries) and commands say to try again: the code below reads columns the check adds, so running it without them
@@ -108,6 +116,7 @@ export default {
         () => true,
         (e) => {
           console.error("schema check failed", errorRef(e));
+          if(isPrivacyWriteAdmissionDatabase(env.DB))throw new PrivacyWriteAdmissionHeld('current_schema_unconfirmed');
           return false;
         },
       );
@@ -124,6 +133,7 @@ export default {
       if (request.method === "GET" && path === "/queue" && res.ok) ctx.waitUntil(sweepMemberRoles(env, "watcher"));
       return res;
     } catch (e) {
+      if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
       if(e instanceof PrivacySiteRequestHeld)return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
       // .49: the message goes to the log with a short id; the caller gets the id and nothing else (a D1 or upstream
       // error text can name tables, hosts or codes).
@@ -138,6 +148,7 @@ export default {
     // limit (each statement of a batch counts). Each job's worst case and the per-run caps are in scheduled-budget.ts; a
     // new job here gets its line there first (tests/scheduled_budget_test.cjs holds this run to it).
     try {
+      env=writeAdmissionEnv(env);
       await ensureSchema(env);
     } catch (e) {
       console.error("schema check failed; skipping this run", errorRef(e)); // the sweeps read the new columns too
@@ -389,7 +400,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-10.142 Privacy OAuth membership-scope compatibility";
+const BUILD = "2026-10-10.143 Admission, ruleset publication and privacy compatibility";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

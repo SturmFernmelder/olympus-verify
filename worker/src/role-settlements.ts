@@ -73,10 +73,20 @@ export async function queueRosterMembershipRole(env:QrEnv,subject:string,snapsho
  const profiles=await env.DB.prepare('SELECT DISTINCT rank,rank_index FROM roster_members WHERE snapshot_id=?1 LIMIT 11').bind(snapshotId).all<{rank:string;rank_index:number}>(),profile=identifyNativeProfile(profiles.results);
  const rows=await env.DB.prepare(`SELECT r.guid,r.rank,r.rank_index FROM roster_members r JOIN characters c ON c.guid=r.guid AND c.discord_id=?1 WHERE r.snapshot_id=?2 AND c.status='member'`).bind(subject,snapshotId).all<{guid:string;rank:string;rank_index:number}>();
  if(rows.results.length!==1)throw Error('unique_native_guid_required');const r=rows.results[0]!,id=randomGeneration();
- await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,created_at,expires_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)
+ const args=[snapshotId,subject,r.guid,r.rank,r.rank_index,capturedGeneration,id,Number(env.LINKS_NOT_BEFORE||0),env.GUILD_ID,env.ROLE_GUILD_MEMBER,profile];
+ // A later genuinely fresh producer may dispose an operation that never dispatched. It cannot renew its deadline,
+ // borrow its authority or retry an attempted/unknown write; the successor is a distinct operation captured here.
+ const expired=`state='held' AND reason='expired_without_dispatch' AND attempts=0 AND expires_at<=${DB_NOW}`;
+ await env.DB.batch([env.DB.prepare(`UPDATE role_settlements SET state='held',reason='expired_without_dispatch'
+ WHERE subject=?2 AND purpose='roster_membership' AND roster_id=?1 AND role_id=?10 AND guild_id=?9
+ AND subject_generation IS ?6 AND native_guid=?3 AND native_profile=?11 AND native_rank=?5 AND native_rank_name=?4
+ AND desired=1 AND state='pending' AND attempts=0 AND expires_at<=${DB_NOW} AND ${ROSTER_CURRENT}`).bind(...args),
+ env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,created_at,expires_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)
  SELECT ?7,?2,'roster_membership',?9,?10,1,'pending','awaiting_dispatch',?6,${DB_NOW},${DB_NOW}+300,?1,?3,?11,?5,?4 WHERE ${ROSTER_CURRENT}
- AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND purpose='roster_membership' AND roster_id=?1 AND role_id=?10)`).bind(snapshotId,subject,r.guid,r.rank,r.rank_index,capturedGeneration,id,Number(env.LINKS_NOT_BEFORE||0),env.GUILD_ID,env.ROLE_GUILD_MEMBER,profile).run();
- const row=await env.DB.prepare("SELECT id FROM role_settlements WHERE subject=?1 AND purpose='roster_membership' AND roster_id=?2 AND role_id=?3").bind(subject,snapshotId,env.ROLE_GUILD_MEMBER).first<{id:string}>();if(!row)throw Error('membership_currentness_changed');return row.id;
+ AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND purpose='roster_membership' AND roster_id=?1 AND role_id=?10 AND NOT(${expired}))`).bind(...args)]);
+ const row=await env.DB.prepare(`SELECT id FROM role_settlements WHERE subject=?2 AND purpose='roster_membership' AND roster_id=?1 AND role_id=?10
+ AND guild_id=?9 AND subject_generation IS ?6 AND native_guid=?3 AND native_profile=?11 AND native_rank=?5 AND native_rank_name=?4
+ AND NOT(${expired}) AND ${ROSTER_CURRENT}`).bind(...args).first<{id:string}>();if(!row)throw Error('membership_currentness_changed');return row.id;
 }
 /** Called by the existing roster acceptance path for one linked subject. No new cron/sweep or caller rank authority. */
 export async function queueRosterRankRoles(env:QrEnv,subject:string,snapshotId:number,capturedGeneration:string|null):Promise<string[]> {
@@ -87,10 +97,16 @@ export async function queueRosterRankRoles(env:QrEnv,subject:string,snapshotId:n
  WHERE r.snapshot_id=?2 AND c.status='member'`).bind(subject,snapshotId).all<{guid:string;rank:string;rank_index:number}>();
  if(r.results.length!==1)throw Error('unique_native_guid_required');const row=r.results[0]!,desiredRows=await rankTargets(env,subject,profile,row.rank,row.rank_index),rows=desiredRows.map(([role,desired,purpose])=>({id:randomGeneration(),role,desired,purpose:purpose.replace('verified_','roster_')}));
  const args=[snapshotId,subject,row.guid,row.rank,row.rank_index,capturedGeneration,randomGeneration(),Number(env.LINKS_NOT_BEFORE||0),env.GUILD_ID,JSON.stringify(rows),profile];
- await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,created_at,expires_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)
+ const expired=`state='held' AND reason='expired_without_dispatch' AND attempts=0 AND expires_at<=${DB_NOW}`;
+ await env.DB.batch([env.DB.prepare(`UPDATE role_settlements SET state='held',reason='expired_without_dispatch'
+ WHERE subject=?2 AND roster_id=?1 AND subject_generation IS ?6 AND guild_id=?9 AND native_guid=?3 AND native_rank_name=?4 AND native_rank=?5 AND native_profile=?11
+ AND state='pending' AND attempts=0 AND expires_at<=${DB_NOW} AND purpose IN('roster_native_rank','roster_privileged_rank')
+ AND EXISTS(SELECT 1 FROM json_each(?10)j WHERE role_id=json_extract(j.value,'$.role') AND desired=json_extract(j.value,'$.desired') AND purpose=json_extract(j.value,'$.purpose'))
+ AND ${ROSTER_CURRENT}`).bind(...args),env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,created_at,expires_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)
  SELECT json_extract(j.value,'$.id'),?2,json_extract(j.value,'$.purpose'),?9,json_extract(j.value,'$.role'),json_extract(j.value,'$.desired'),'pending','awaiting_dispatch',?6,${DB_NOW},${DB_NOW}+300,?1,?3,?11,?5,?4 FROM json_each(?10) j WHERE ${ROSTER_CURRENT}
- AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND purpose=json_extract(j.value,'$.purpose') AND roster_id=?1 AND role_id=json_extract(j.value,'$.role') AND desired=json_extract(j.value,'$.desired'))`).bind(...args).run();
- const found=await env.DB.prepare("SELECT id,role_id,desired,purpose FROM role_settlements WHERE subject=?1 AND roster_id=?2 AND purpose IN('roster_native_rank','roster_privileged_rank') LIMIT 28").bind(subject,snapshotId).all<{id:string;role_id:string;desired:number;purpose:string}>();
+ AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND purpose=json_extract(j.value,'$.purpose') AND roster_id=?1 AND role_id=json_extract(j.value,'$.role') AND desired=json_extract(j.value,'$.desired') AND NOT(${expired}))`).bind(...args)]);
+ const found=await env.DB.prepare(`SELECT id,role_id,desired,purpose FROM role_settlements WHERE subject=?2 AND roster_id=?1 AND purpose IN('roster_native_rank','roster_privileged_rank')
+ AND guild_id=?9 AND subject_generation IS ?6 AND native_guid=?3 AND native_rank_name=?4 AND native_rank=?5 AND native_profile=?11 AND NOT(${expired}) AND ${ROSTER_CURRENT} AND ?10 IS NOT NULL LIMIT 28`).bind(...args).all<{id:string;role_id:string;desired:number;purpose:string}>();
  return rows.map(r=>{const matches=found.results.filter(x=>x.role_id===r.role&&x.desired===r.desired&&x.purpose===r.purpose);if(matches.length!==1)throw Error('rank_currentness_changed');return matches[0]!.id;});
 }
 
@@ -188,7 +204,11 @@ export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,a
  if(!await intentCurrent(env,i))return result('held','proof_changed_after_lookup',id);
  const nonce=randomGeneration(),base=i.proof_id?{sql:PROOF_CURRENT,values:[i.proof_id,i.subject,id,nonce],id:3,nonce:4}:{sql:ROSTER_CURRENT,values:[...rosterParams(env,i),nonce],id:7,nonce:9};
  let guard=base.sql+` AND ?${base.nonce} IS NOT NULL AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND desired=0 AND attempts=1 AND state IN('dispatching','unknown') AND id<>?${base.id})`;if(actor){const start=base.values.length+1;base.values.push(actor.id,actor.v,actor.e,actor.g);guard+=` AND ?${start+2}>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?${start} AND session_version=?${start+1} AND in_server=1) AND ${privacyGenerationFenceSql(start,start+3)}`;}
- if(i.desired===1&&/^(verified|roster)_(native|privileged)_rank$/.test(i.purpose))guard+=` AND NOT EXISTS(SELECT 1 FROM role_settlements old JOIN role_settlements current ON current.id=?${base.id} WHERE old.subject=current.subject AND old.desired=0 AND old.state<>'settled' AND old.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank') AND ((current.proof_id IS NOT NULL AND old.proof_id=current.proof_id) OR (current.roster_id IS NOT NULL AND old.roster_id=current.roster_id)))`;
+ if(i.desired===1&&/^(verified|roster)_(native|privileged)_rank$/.test(i.purpose))guard+=` AND NOT EXISTS(SELECT 1 FROM role_settlements old JOIN role_settlements current ON current.id=?${base.id} WHERE old.subject=current.subject AND old.desired=0 AND old.state<>'settled' AND old.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank') AND ((current.proof_id IS NOT NULL AND old.proof_id=current.proof_id) OR (current.roster_id IS NOT NULL AND old.roster_id=current.roster_id))
+ AND NOT(current.proof_id IS NULL AND old.proof_id IS NULL AND current.roster_id IS NOT NULL
+ AND old.purpose IN('roster_native_rank','roster_privileged_rank') AND old.state='held' AND old.reason='expired_without_dispatch' AND old.attempts=0 AND old.expires_at<=${DB_NOW}
+ AND old.guild_id=current.guild_id AND old.subject_generation IS current.subject_generation AND old.native_guid IS current.native_guid
+ AND old.native_profile IS current.native_profile AND old.native_rank IS current.native_rank AND old.native_rank_name IS current.native_rank_name))`;
  const update=(set:string,extra='')=>env.DB.prepare(`UPDATE role_settlements SET ${set} WHERE id=?${base.id} AND ${guard} ${extra} RETURNING id`).bind(...base.values);
  const present=!!target?.roles.includes(i.role_id);
  if(present===(i.desired===1)){

@@ -38,6 +38,11 @@ const stubs = {
     },
   },
 };
+// The unregistered legacy D1 facade keeps its original retry lane. The real brand check is used;
+// installed-admission behavior is exercised by the dedicated native suites.
+stubs["./privacy-write-admission"] = load("privacy-write-admission.ts", {
+  "./privacy-write-admission-catalogue": load("privacy-write-admission-catalogue.ts", {}),
+});
 const discord = load("discord.ts", stubs);
 stubs["./discord"] = discord;
 const roles = load("roles.ts", stubs);

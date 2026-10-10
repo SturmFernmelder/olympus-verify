@@ -75,6 +75,8 @@ export interface Env {
   PRIVACY_ERASURE_ENABLED?: string; // serving request admission only; completion also needs current role/removal and all-store custody checks
   PRIVACY_ACCESS_ENABLED?: string; // identify-only privacy connection, separate from ordinary guild access
   PRIVACY_RETENTION_ENABLED?: string; // bounded fixed-deadline local sweeper; provider/recovery custody remains separate
+  PRIVACY_WRITE_ADMISSION_ENABLED?: string; // .139: exact source-installed control/triggers required; absent/default OFF, no automatic installation
+  PRIVACY_WRITE_ADMISSION_LAYOUT?: 'canonical'|'recorded-live-20261010'; // closed complete source layouts only; no per-table mix or live-schema learning
   OFFICER_DIGEST_ENABLED?: string;  // .85: "true" posts the daily officer digest (counts only) to the staff channel after 15:00 UTC (community-digest.ts); anything else only removes a digest it posted earlier
   NAME_RESERVATION_AT?: string;     // default for when Blizzard's name reservation opens (ISO or unix); the admin page overrides it
   LAUNCH_AT?: string;               // default launch time (ISO or unix): approved reserved names are queued from then

@@ -2060,7 +2060,7 @@
   };
 
   function adminTabs(sub) {
-    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"]]; // .114: Renames; .115: News; .125: Audit log
+    const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]; // .114: Renames; .115: News; .125: Audit log
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
       h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" })); // .86
@@ -2082,6 +2082,7 @@
       renames: adminRenames, // .114
       news: (b) => adminNews(b), // .115
       audit: adminAudit, // .125: the safe projection of the dated staff log
+      'ruleset-publication': adminRulesetPublication,
       community: (b) => adminCommunity(b, parts.slice(1)), // .98
     };
     await (own(views, sub) ? views[sub] : adminOverview)(body);
@@ -2529,6 +2530,96 @@
         h("div", { class: "btn-row" },
           h("button", { class: "btn small", type: "button", text: "Newest", disabled: !sent.before, onclick: () => page(0) }),
           h("button", { class: "btn small", type: "button", text: "Older", disabled: !Number.isInteger(d.next), onclick: () => page(d.next) })))));
+  }
+
+  // Explicit approved-beta publication: request-driven steps, durable original operations, no future selector or automatic sends.
+  async function adminRulesetPublication(body) {
+    const path = "/api/admin/ruleset-publication", key = "olympus.rulesetSelection";
+    const token = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{22}$/.test(v);
+    const id = (v) => typeof v === "string" && /^[0-9]{17,20}$/.test(v);
+    const obj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+    const states = ["unselected", "pending", "claimed", "unknown", "known", "applied", "refused", "held"];
+    const targets = ["guide", "olympus-info", "guild-announcements"];
+    const formValid = (v) => obj(v) && token(v.operationId) && Number.isSafeInteger(v.expectedRevision) && v.expectedRevision >= 0 && Number.isSafeInteger(v.expiresAt) && v.expiresAt > nowSec() && typeof v.token === "string" && /^[A-Za-z0-9_-]{43}$/.test(v.token);
+    const operationValid = (v) => obj(v) && token(v.publicationId) && targets.includes(v.target) && Number.isSafeInteger(v.revision) && v.revision > 0 && ["claimed", "unknown"].includes(v.state) && ["create", "edit", "pin"].includes(v.stage) && id(v.channelId) && (v.messageId === null || id(v.messageId));
+    const profileValid = (v) => obj(v) && Object.keys(v).sort().join(",") === ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"].sort().join(",") && Object.keys(v).every(k => v[k] === M().ruleset?.[k]) && rulesetIdentity() !== "Game identity unavailable";
+    let current = null, busy = false, pending = null, storageFailed = false;
+    try { const raw = sessionStorage.getItem(key); if (raw) { pending = JSON.parse(raw); if (!obj(pending) || pending.profileRevision !== "forever-beta-pvp2-v1" || !formValid(pending.form)) throw Error("unconfirmed original selection"); } }
+    catch { storageFailed = true; }
+    const panel = h("div", { class: "stack" }); clear(body); add(body, panel);
+    const live = () => document.body.contains(panel) && currentRoute() === "admin/ruleset-publication" && S.signedIn && !S.denied && S.user?.isAdmin;
+    const notice = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
+    const review = h("input", { type: "checkbox", id: "ruleset-publication-reviewed" });
+    const select = h("button", { class: "btn", type: "button", text: "Record current beta plan" });
+    const refresh = h("button", { class: "btn small", type: "button", text: "Refresh publication status" });
+    const rows = h("div", { class: "stack" }), blockers = h("div", { class: "stack" });
+    add(panel, frame("Ruleset publication", null,
+      h("p", { text: "Review the exact approved current-beta copy and destinations below. Recording the plan sends nothing. Each Apply next step sends at most one post, edit or pin; inspect its status before continuing. No future profile or automatic publication is available." }),
+      h("p", { class: "muted small", text: "Guide wording remains owner-approved. Erasing a publishing account removes its authorization metadata; the independent guild guide and original message custody remain. An unknown outcome is checked without sending again." }),
+      notice, h("label", null, review, " I reviewed these approved payloads and destinations."), h("div", { class: "btn-row" }, select, refresh), blockers, rows));
+    const buttons = () => {
+      select.textContent = pending ? "Retry original selection" : "Record current beta plan";
+      select.disabled = busy || storageFailed || !current || (!pending && (!review.checked || !formValid(current.form)));
+      refresh.disabled = busy; review.disabled = busy;
+      for (const b of rows.querySelectorAll("button")) b.disabled = busy || !current || b.dataset.allowed !== "yes";
+      for (const b of blockers.querySelectorAll("button")) b.disabled = busy || !current;
+    };
+    const messageId = (text, channel) => { const v = text.trim(); if (id(v)) return v; const m = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/([0-9]{17,20})\/([0-9]{17,20})$/.exec(v); return m && m[1] === channel ? m[2] : null; };
+    const action = async (kind, operation, input) => {
+      if (busy || !current || !live()) return;
+      const payload = { publicationId: operation.publicationId, target: operation.target };
+      if (kind === "reconcile") { const pointer = messageId(input.value || operation.messageId || "", operation.channelId); if (!pointer) { notice.textContent = "Enter the bot's message ID or its link in the displayed destination."; return; } payload.messageId = pointer; }
+      busy = true; buttons();
+      try { const r = await api("POST", path + "/" + kind, payload); if (!obj(r) || !["applied", "known", "held", "unknown", "refused", "known_response_unrecorded"].includes(r.state)) throw new ApiError(200, { error: "unreadable_answer" }); }
+      catch { if (live()) notice.textContent = "The operation is unconfirmed. Refresh its original status or check the existing message; do not create another copy."; }
+      finally { busy = false; }
+      if (live()) await load();
+    };
+    const operationControls = (operation, canApply) => {
+      const pointer = h("input", { type: "text", autocomplete: "off", "aria-label": "Message ID for " + operation.target, placeholder: "Existing bot message ID or link", value: operation.messageId || "" });
+      const apply = h("button", { class: "btn small", type: "button", text: "Apply next step", "data-allowed": canApply ? "yes" : "no", onclick: () => { if (!apply.disabled) action("publish", operation); } });
+      const check = h("button", { class: "btn small", type: "button", text: "Check existing message", "data-allowed": ["claimed", "unknown", "held"].includes(operation.state) ? "yes" : "no", onclick: () => { if (!check.disabled) action("reconcile", operation, pointer); } });
+      return [h("div", { class: "btn-row" }, apply, check), pointer];
+    };
+    const draw = (d) => {
+      if (!obj(d) || !profileValid(d.currentProfile) || d.futureSwitchAvailable !== false || d.automaticPublication !== false || !formValid(d.form) || !Array.isArray(d.targets) || d.targets.length !== 3 || !Array.isArray(d.blockingOperations) || d.blockingOperations.length > 3 || !d.blockingOperations.every(operationValid) ||
+        !(d.selected === null || obj(d.selected) && token(d.selected.publicationId) && Number.isSafeInteger(d.selected.revision) && d.selected.revision > 0 && d.selected.profileRevision === d.currentProfile.revision) ||
+        d.targets.some((t,i) => !obj(t) || t.target !== targets[i] || !id(t.channelId) || t.parentId !== t.channelId || !states.includes(t.state) || !(t.stage === null || ["pending", "create", "edit", "pin"].includes(t.stage)) || !(t.messageId === null || id(t.messageId)) || !obj(t.payload) || !Array.isArray(t.payload.embeds) || !obj(t.payload.allowed_mentions) || !Array.isArray(t.payload.allowed_mentions.parse) || t.payload.allowed_mentions.parse.length !== 0 || JSON.stringify(t.payload).length > 16000)) throw new ApiError(200, { error: "unreadable_answer" });
+      current = d;
+      if (pending && d.selected?.publicationId === pending.form.operationId) { sessionStorage.removeItem(key); pending = null; }
+      review.checked = false; clear(rows); clear(blockers);
+      notice.textContent = storageFailed ? "Original operation storage is unavailable or expired. Publication is held; use an attended status check." : pending ? "An original selection is unconfirmed. Retry that exact selection or refresh its status." : d.selected ? "Selected revision " + d.selected.revision + " · " + d.currentProfile.revision : "No publication revision selected. " + d.currentProfile.realm + " · " + d.currentProfile.ruleset + " · " + d.currentProfile.faction;
+      for (const b of d.blockingOperations) {
+        const input = h("input", { type: "text", "aria-label": "Held message ID for " + b.target, placeholder: "Original bot message ID or link", value: b.messageId || "" });
+        add(blockers, frame("Original held operation: " + b.target, null, h("p", { text: "Revision " + b.revision + " · " + b.publicationId + " · " + b.state + " · channel " + b.channelId }), input,
+          h("button", { class: "btn small", type: "button", text: "Check original held message", onclick: () => action("reconcile", b, input) })));
+      }
+      for (const t of d.targets) {
+        const operation = { ...t, publicationId: d.selected?.publicationId }, blocked = d.blockingOperations.some(b => b.target === t.target);
+        add(rows, frame(t.target, h("span", { class: "badge", text: t.state }), h("p", { class: "small", text: "Destination channel " + t.channelId + (d.selected ? " · operation " + d.selected.publicationId : "") }),
+          h("details", null, h("summary", { text: "Exact approved Discord payload" }), h("pre", { class: "details", text: JSON.stringify(t.payload, null, 2) })),
+          t.messageId ? h("p", { text: "Known message " + t.messageId }) : null,
+          operationControls(operation, !!d.selected && !blocked && ["pending", "known", "refused"].includes(t.state))));
+      }
+      buttons();
+    };
+    const load = async () => {
+      if (busy || !live()) return; busy = true; buttons();
+      try { const d = await api("GET", path); if (live()) draw(d); }
+      catch { if (live()) { current = null; clear(rows); clear(blockers); notice.textContent = "Publication status is unavailable or unqualified. No action is enabled."; } }
+      finally { busy = false; if (live()) buttons(); }
+    };
+    select.addEventListener("click", async () => {
+      if (select.disabled || busy || !current || !live()) return;
+      const exact = pending || { profileRevision: current.currentProfile.revision, form: current.form };
+      try { sessionStorage.setItem(key, JSON.stringify(exact)); pending = exact; } catch { storageFailed = true; buttons(); notice.textContent = "The original selection could not be preserved. Nothing was sent."; return; }
+      busy = true; buttons();
+      try { const r = await api("POST", path + "/select", exact); if (!obj(r) || r.publicationId !== exact.form.operationId || !Number.isSafeInteger(r.revision)) throw new ApiError(200, { error: "unreadable_answer" }); sessionStorage.removeItem(key); pending = null; }
+      catch { if (live()) notice.textContent = "The original selection remains unconfirmed. Refresh or retry only that exact operation."; }
+      finally { busy = false; }
+      if (live()) await load();
+    });
+    review.addEventListener("change", buttons); refresh.addEventListener("click", load); buttons(); await load();
   }
 
   // ---------- news (.115) ----------

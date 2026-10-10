@@ -38,11 +38,13 @@
  */
 import type { Env } from "./env";
 import { privacyDatabaseAdmissionOverhead,privacyProviderCustodyDatabase,registerPrivacyCountedDatabase } from './privacy-serving-authority';
+import { admissionTransportCost,isPrivacyWriteAdmissionDatabase,registerAdmissionCountedDatabase } from './privacy-write-admission';
 
 /** Statement attempts one invocation (or one job of the cron's) has made so far through a counted env. */
 export interface StatementCount {
   used: number;
   factor?:number;
+  protocol?:boolean;
 }
 
 const RAW = Symbol("raw statement");
@@ -53,21 +55,22 @@ const RAW = Symbol("raw statement");
  * changes (the statements, their binds and their results are D1's own).
  */
 export function countStatements(env: Env, count: StatementCount): Env {
-  const overhead=privacyDatabaseAdmissionOverhead(env.DB);count.factor=1+overhead;
+  const overhead=privacyDatabaseAdmissionOverhead(env.DB),protocol=isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env));count.protocol=protocol;count.factor=protocol?1:1+overhead;
   const decorate=(db:D1Database,overhead:number):D1Database=>{
-  const wrap = (s: D1PreparedStatement): D1PreparedStatement => {
+  const queries=new WeakMap<D1PreparedStatement,string>();
+  const wrap = (s: D1PreparedStatement,query:string): D1PreparedStatement => {
     const w = {
-      bind: (...values: unknown[]) => wrap(s.bind(...values)),
+      bind: (...values: unknown[]) => wrap(s.bind(...values),query),
       first: (...a: unknown[]) => {
-        count.used+=1+overhead;
+        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
         return (s.first as (...x: unknown[]) => Promise<unknown>)(...a);
       },
       run: () => {
-        count.used+=1+overhead;
+        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
         return s.run();
       },
       all: () => {
-        count.used+=1+overhead;
+        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
         return s.all();
       },
       raw: (...a: unknown[]) => {
@@ -76,12 +79,12 @@ export function countStatements(env: Env, count: StatementCount): Env {
       },
       [RAW]: s,
     };
-    return w as unknown as D1PreparedStatement;
+    queries.set(w as unknown as D1PreparedStatement,query);return w as unknown as D1PreparedStatement;
   };
   const counted = {
-    prepare: (query: string) => wrap(db.prepare(query)),
+    prepare: (query: string) => wrap(db.prepare(query),query),
     batch: (statements: D1PreparedStatement[]) => {
-      count.used += statements.length+overhead;
+      count.used += statements.length+overhead+(protocol?admissionTransportCost(statements.map(x=>{const q=queries.get(x);if(q===undefined)throw Error('roster_unknown_counted_constructor');return q;})):0);
       return db.batch(statements.map((x) => (x as unknown as { [RAW]?: D1PreparedStatement })[RAW] ?? x));
     },
     exec: (query: string) => {
@@ -90,7 +93,7 @@ export function countStatements(env: Env, count: StatementCount): Env {
     },
     dump: () => (db as unknown as { dump: () => Promise<ArrayBuffer> }).dump(),
   };
-  return counted as unknown as D1Database;};
+  const result=counted as unknown as D1Database;registerAdmissionCountedDatabase(result,db,()=>{count.used++;});return result;};
   const counted=decorate(env.DB,overhead),native=privacyProviderCustodyDatabase(env);
   registerPrivacyCountedDatabase(counted,native===env.DB?counted:decorate(native,0),overhead);
   return {...env,DB:counted};

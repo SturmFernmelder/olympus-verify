@@ -1,4 +1,5 @@
 import './privacy-access-data';
+import './ruleset-publication-data';
 /**
  * .71 (1 Oct 2026): the member's own copy, consolidation batch 7 of Codex's adapter map (the donor's src/rights.ts, made
  * the keeper's way). GET /api/me/export answers, to the signed-in account alone, selected retained records about it:

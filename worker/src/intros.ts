@@ -610,6 +610,7 @@ async function refreshForum(run: Run, intro: Intro, forum: string, payload: Payl
 const cost = (intro: Intro) => (intro.forum ? 5 : 4);
 
 export async function refreshIntros(env: Env, guild: string, actor: string, only?: string, budget = BUDGET): Promise<RefreshResult> {
+  const managed=['olympus-info','guild-announcements']; // These approved identity slots use the durable staff publisher.
   const channels = parseChannels(env.INTROS_CHANNELS);
   const list = INTROS.filter((x) => !only || channels[x.channel] === only);
   const holder = `${actor}:${crypto.randomUUID()}`;
@@ -621,6 +622,7 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
     const rows = await loadRows(env, guild);
     for (const intro of list) {
       const parent = channels[intro.channel];
+      if(managed.includes(intro.key)){outcomes.push({key:intro.key,action:'skipped',note:'Managed by the staff ruleset publication page; inspect or reconcile that operation.'});continue;}
       if (!parent) {
         outcomes.push({ key: intro.key, action: "skipped", note: `no "${intro.channel}" channel in INTROS_CHANNELS` });
         continue;
@@ -707,10 +709,13 @@ export async function introStatus(env: Env, guild: string): Promise<string> {
   const channels = parseChannels(env.INTROS_CHANNELS);
   const rows = await loadRows(env, guild);
   const lines = [
-    `**Olympus intros (${INTROS.length})**, from the bot's records. \`/olympus-intros refresh\` posts, updates and re-pins them, and also notices deleted or unpinned ones.`,
+    `**Olympus intros (${INTROS.length})**. The two beta identity slots use Admin → Ruleset publication. This command maintains the other sixteen intros and notices deleted or unpinned ones.`,
   ];
   for (const intro of INTROS) {
     const parent = channels[intro.channel];
+    if(['olympus-info','guild-announcements'].includes(intro.key)){
+      lines.push(`⏭️ #${intro.channel}: managed by Admin → Ruleset publication`);continue;
+    }
     if (!parent) {
       lines.push(`⏭️ #${intro.channel}: no channel set in INTROS_CHANNELS`);
       continue;
