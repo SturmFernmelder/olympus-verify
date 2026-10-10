@@ -59,6 +59,26 @@ final joined source, schema, policy, recovery, budget, callback and exact-head r
   grouped roster-audit cleanup. The shared whole scheduled model is 699/700; exact-head native
   measurement remains a separate release gate.
 
+## Identify-only copy continuation
+
+The composed own-copy path has a closed inventory of 36 selected list sections. Its initial JSON copy
+reads selected scalar records and up to 25 entries from each section in one native transaction, with
+exact captured counts and current/next cursors for every section. Separate selected history downloads
+read up to 1,000 entries. Each requires a fresh genuine twelve-minute identify-only grant and one-use
+form; no ordinary SiteUser or guild/staff admission is synthesized. The original twenty-four-hour
+range deadline and account-generation binding do not extend. A range fixes ordering and counts, not
+immutable record contents: current edits can appear, while changed retained counts refuse continuation.
+
+Native projected-row byte guards run before returned-row materialization. They refuse a covered
+oversized or unqualified record rather than returning an apparently complete empty section. The
+application singleton has its separately reviewed larger bound; an omitted News body is not selected
+or counted toward the exported projection. Included labels and user-authored text remain verbatim.
+Internal row IDs, staff/counterpart identifiers, authentication data, provider pointers and proof
+digests remain outside the copy. Fresh-form rereading after a lost response is distinct from proof
+that the browser saved a file. Counts and completion concern selected retained ranges and fields,
+not every store, external copy or successful erasure. This candidate still needs exact-head release
+qualification and the preferred Discord application callback before activation.
+
 ## Explicit open boundaries
 
 * Unknown sends have no trustworthy message pointer. Present or ambiguous external role debt remains
