@@ -107,7 +107,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepRenameHolds", worst: 1, rule: "one delete" },
   { job: "sweepCommunityProfiles", worst: 2 + 1 + 6 * C.profilesPerRun + 1, rule: "the departure batch (2), the selection, a 6-statement erase per profile (at most profilesPerRun), the audit" },
   { job: "sweepCommunityEvents", worst: 8 + 1, rule: "an 8-statement batch including finite publication/reminder closure and disposal + the audit" },
-  { job: "runEventReminders", worst: 6, rule: "one due selection, attempted-candidate rotation, conditional claim, final current proof, settlement and conditional audit; one candidate, no automatic resend" },
+  { job: "runEventReminders", worst: 7, rule: "one due selection, attempted-candidate rotation, original captured generation and complete-row claim/final proof, response-only custody settlement and conditional audit; one candidate, no automatic resend" },
   { job: "sweepCommunityTrials", worst: 2 + 1, rule: "a 2-statement batch + the audit" },
   { job: "sweepCommunityRestrictions", worst: 4 + 1, rule: "a 4-statement batch + the audit" },
   { job: "departureIntake", worst: 1 + 10 + 1 + 1 + 1, rule: "the stored position, at most 10 scan pages (DEPARTURE_LIMITS.intakePages), the position write, the insert, the audit" },
@@ -117,7 +117,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
-  {job:'runServingErasureJob',worst:148,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase; completed-account message cleanup shares this envelope'},
+  {job:'runServingErasureJob',worst:149,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit projection; completed-account message cleanup shares this envelope'},
   {job:'sweepServingRetention',worst:20,rule:'fixed20-statement native batch; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
 ];
 

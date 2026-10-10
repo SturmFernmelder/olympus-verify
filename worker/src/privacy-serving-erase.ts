@@ -37,13 +37,27 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  const markerKey=await privacySubjectKey(env,p.subject);
  const v=[p.operationId,p.subject,p.subjectGeneration,p.requestDigest];
  const identity='?1';
+ // The legacy watcher grouped names in a typed system audit row. Attribute only names
+ // covered by the account's live character ownership interval, preserving the other names.
+ const groupedShape=(a:string)=>`CASE WHEN NOT json_valid(${a}.details) THEN 0
+ WHEN json_type(${a}.details)<>'object' THEN 0
+ WHEN (SELECT COUNT(*) FROM json_each(${a}.details) WHERE key='names')<>1 THEN 0
+ WHEN (SELECT COUNT(*) FROM json_each(${a}.details))<>(SELECT COUNT(DISTINCT key) FROM json_each(${a}.details)) THEN 0
+ WHEN COALESCE(json_type(${a}.details,'$.names'),'')<>'array' THEN 0
+ ELSE NOT EXISTS(SELECT 1 FROM json_each(${a}.details,'$.names') WHERE type<>'text') END`;
  // Ambiguous/manual references in another owner's record cannot be guessed away. The structured
  // application scrub runs below, but any still-ambiguous raw document closes this batch.
  const unqualified=`EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
  OR EXISTS(SELECT 1 FROM site_applications a WHERE a.discord_id<>?2 AND instr(a.answers,?2)>0 AND
  (NOT json_valid(a.answers) OR CASE WHEN json_valid(a.answers) THEN json_type(a.answers)<>'object' OR
  (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 OR
- COALESCE(json_type(a.answers,'$.references'),'')<>'array' ELSE 1 END))`;
+ COALESCE(json_type(a.answers,'$.references'),'')<>'array' ELSE 1 END))
+ OR EXISTS(SELECT 1 FROM audit a JOIN characters c ON c.discord_id=?2 AND a.ts>=c.bound_at
+ WHERE a.actor='system' AND a.action='roster.identity_held' AND a.subject IS NULL
+ AND NOT (${groupedShape('a')}) AND CASE WHEN json_valid(a.details) THEN
+ EXISTS(SELECT 1 FROM json_tree(a.details) j WHERE j.type='text' AND
+ (j.value=c.name COLLATE NOCASE OR j.value=c.name_key COLLATE NOCASE))
+ ELSE instr(lower(COALESCE(a.details,'')),lower(c.name))>0 OR instr(lower(COALESCE(a.details,'')),lower(c.name_key))>0 END)`;
  const before=env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND (${roleSettledSql})
  AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?6 AND r.role_id=?7 AND r.desired=0)
  AND ?5 BETWEEN ${PRIVACY_DB_NOW}-60 AND ${PRIVACY_DB_NOW}+5 AND NOT(${unqualified})
@@ -96,6 +110,14 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  ELSE json_extract('privacy_ambiguous_reference_held','$') END AS admitted`).bind(p.subject),
  // Resolve recorded character-only operational subjects while their live ownership interval still exists.
  // Earlier owners' history and arbitrary free text are not inferred from a matching name.
+ env.DB.prepare(`UPDATE audit SET details=json_set(details,'$.names',json((SELECT json_group_array(n.value)
+ FROM json_each(audit.details,'$.names') n WHERE NOT EXISTS(SELECT 1 FROM characters c
+ WHERE c.discord_id=?1 AND audit.ts>=c.bound_at AND
+ (n.value=c.name COLLATE NOCASE OR n.value=c.name_key COLLATE NOCASE)))))
+ WHERE actor='system' AND action='roster.identity_held' AND subject IS NULL AND (${groupedShape('audit')})
+ AND CASE WHEN ${groupedShape('audit')} THEN EXISTS(SELECT 1 FROM json_each(audit.details,'$.names') n
+ JOIN characters c ON c.discord_id=?1 AND audit.ts>=c.bound_at
+ WHERE n.value=c.name COLLATE NOCASE OR n.value=c.name_key COLLATE NOCASE) ELSE 0 END`).bind(p.subject),
  env.DB.prepare(`DELETE FROM audit WHERE actor=?1 OR subject=?1 OR instr(COALESCE(details,''),?1)>0
  OR EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?1 AND audit.ts>=c.bound_at AND
  (audit.subject=c.name COLLATE NOCASE OR audit.subject=c.name_key COLLATE NOCASE) AND
