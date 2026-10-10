@@ -33,6 +33,7 @@
  * answers and attendance and anonymizes them as creator or recorder.
  */
 import type { Env } from "./env";
+import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
 import { admitted, admittedRead, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, qualifiesSql, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
@@ -231,6 +232,13 @@ async function readEvent(env: Env, ctx: CommunityContext, id: string): Promise<{
   return { event: shapeFrom([e], counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], viewer)[0] ?? null };
 }
 const loadEvent = async (env: Env, ctx: CommunityContext, id: string): Promise<EventDto | null> => (await readEvent(env, ctx, id)).event;
+/** Only after a returned mutation batch: preserve its acknowledgement without a newly refused event payload. */
+async function readEventAfterWrite(env:Env,ctx:CommunityContext,id:string):Promise<{event:EventDto|null;hydration?:'refused'|'too_large'}>{
+ try{return await readEvent(env,ctx,id);}catch(error){
+  if(error instanceof PrivacySiteRequestHeld)return {event:null,hydration:'refused'};
+  throw error;
+ }
+}
 
 const featureOff = () => apiJson({ error: "feature_disabled", message: "This part of the site is not switched on." }, 503);
 const notOrganizer = () => apiJson({ error: "not_organizer", message: "Only guild organizers can do that." }, 403);
@@ -417,7 +425,7 @@ export async function rsvp(request: Request, env: Env, ctx: CommunityContext): P
       refAfterSignup(env, eventId, me, nonce, newRef, t),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?3, ?2, 'community.rsvp', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?4)").bind(eventId, me, t, nonce),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEvent(env, ctx, eventId));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
     const state = await env.DB.prepare(
       `SELECT e.status, (e.starts_at <= ${DB_NOW}) AS started, e.capacity, ${placesHeld("e.id")} AS yes,
               (SELECT revision FROM community_event_signups o WHERE o.event_id = e.id AND o.discord_id = ?2) AS mine_revision,
@@ -480,7 +488,7 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
       historyStatement(env, id, "created", me, t, [], nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_created', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(id, t, me, nonce),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEvent(env, ctx, id));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, id));
     const existing = await env.DB.prepare("SELECT created_by, op_hash FROM community_events WHERE id = ?1").bind(id).first<{ created_by: string | null; op_hash: string | null }>();
     if (existing && (existing.created_by !== me || existing.op_hash !== hash)) return apiJson({ error: "op_conflict" }, 409);
     if (existing && (await communityContext(env, request)).capabilities.organizer) return apiJson({ ...(await readEvent(env, ctx, id)), replay: true });
@@ -545,7 +553,7 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
       historyStatement(env, eventId, "updated", me, t, changed, nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_updated', ?1, ?5 WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce, JSON.stringify({ fields: changed })),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEvent(env, ctx, eventId));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
     const after = await stored(env, eventId);
     const refusedAfter = await organizerRefusal(env, ctx, after, viewer, revision, t);
     if (refusedAfter) return refusedAfter;
@@ -583,7 +591,7 @@ export async function cancelEvent(request: Request, env: Env, ctx: CommunityCont
       historyStatement(env, eventId, "cancelled", me, t, [], nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_cancelled', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEvent(env, ctx, eventId));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
     return (await organizerRefusal(env, ctx, await stored(env, eventId), viewer, revision, t)) ?? refusal(env, request, "confirmedGuildData");
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
