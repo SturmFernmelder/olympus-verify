@@ -18,7 +18,7 @@ const D1 = {
       all: async () => ({ results: db.prepare(sql).all(...params) }),
       run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
       // like D1, a batch reports each statement as { meta: { changes, last_row_id } }
-      _exec: () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+      _exec: () => { const st = db.prepare(sql); if (st.columns().length) return { results: st.all(...params), meta: { changes: 0 } }; const r = st.run(...params); return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
     };
     return api;
   },

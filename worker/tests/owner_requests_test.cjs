@@ -31,6 +31,7 @@ function d1(db) {
       all: async () => { const results = db.prepare(sql).all(...params); await HOOK?.(sql, "read"); return { results }; },
       run: async () => exec(sql, params),
       _exec: () => exec(sql, params),
+      _sql: sql,
     };
     return api;
   };
@@ -38,7 +39,11 @@ function d1(db) {
     prepare: stmt,
     batch: async (stmts) => {
       db.exec("BEGIN");
-      try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; }
+      let out;
+      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
+      // A competing HTTP save occurs after the original read committed, with its captured answer intact.
+      for (const s of stmts) if (/^\s*SELECT\b/.test(s._sql) && !s._sql.includes("privacy_site_request_refused")) await HOOK?.(s._sql, "read");
+      return out;
     },
   };
 }

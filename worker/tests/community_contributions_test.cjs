@@ -44,11 +44,13 @@ function d1(db, hooks = {}) {
     batch: async (stmts) => {
       hooks.count?.();
       hooks.sql?.(stmts.map((s) => s._sql));
-      hooks.beforeBatch?.(++batches);
+      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
+      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
+      if (logical) hooks.beforeBatch?.(++batches);
       db.exec("BEGIN");
       let out;
       try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
+      if (logical) hooks.afterBatch?.(batches);
       return out;
     },
   };

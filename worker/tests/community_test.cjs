@@ -9,6 +9,8 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const nativeClock = new DatabaseSync(":memory:");
+let SQL_TIME = null; // Normally aligned; expiry cases move only the consuming clock.
 
 function d1(db, hooks = {}) {
   const exec = (sql, params) => {
@@ -47,6 +49,8 @@ function freshDb() {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  // Both clocks consume the same explicit fixture time; other SQLite date formats remain native.
+  db.function("strftime", { varargs: true }, (...args) => args.length === 2 && args[0] === "%s" && args[1] === "now" ? String(SQL_TIME ?? T) : nativeClock.prepare(`SELECT strftime(${args.map(() => "?").join(",")}) AS value`).get(...args).value);
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -182,14 +186,20 @@ async function erasureRequest(target, actor) {
   out = await context.admitted(env(), c, fenced(MEMBER, 1, "confirmedGuildData", "C".repeat(22)));
   check("a confirmed member's guild-data write is admitted", out !== context.FENCE_REFUSED && one("SELECT ref FROM community_refs WHERE discord_id = ?", MEMBER).ref === "C".repeat(22));
   db.prepare("DELETE FROM community_refs").run();
+  // Known native SQLite abort is distinct from FENCE_REFUSED; transport uncertainty must propagate.
+  const NATIVE_REFUSED = Symbol("known native SQLite guard refusal");
+  const nativeAdmitted = async (...args) => {
+    try { return await context.admitted(...args); }
+    catch (e) { if (!/malformed JSON/.test(String(e))) throw e; return NATIVE_REFUSED; }
+  };
   // the facts change between the context read and the write: each one refuses inside the statement
   const after = async (id, mutate, cap, label) => {
     const cx = await contextFor(id);
     mutate();
-    const r = await context.admitted(env(), cx, fenced(id, 1, cap, "D".repeat(22)));
+    const r = await nativeAdmitted(env(), cx, fenced(id, 1, cap, "D".repeat(22)));
     const why = await context.refusal(env(), req("https://guild.example/x", await cookieFor(id)), cap);
     const body = await why.json();
-    check(label, r === context.FENCE_REFUSED && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", id), r === context.FENCE_REFUSED, JSON.stringify(body));
+    check(label, (r === context.FENCE_REFUSED || r === NATIVE_REFUSED) && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", id), r === context.FENCE_REFUSED || r === NATIVE_REFUSED, JSON.stringify(body));
     return body;
   };
   let b = await after(APPLICANT, () => db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(APPLICANT), "applicantWrite", "signed out between the read and the write: refused in the statement");
@@ -218,10 +228,13 @@ async function erasureRequest(target, actor) {
   // inside the statement. The test's JavaScript clock is frozen in September, so the precheck passes; the real clock
   // in SQLite is what refuses.
   c = await contextFor(APPLICANT);
-  c = { ...c, subject: { ...c.subject, expiresAt: realNow() - 5 } }; // "valid" to the frozen precheck, expired to the database
-  out = await context.admitted(env(), c, fenced(APPLICANT, 1, "applicantWrite", "X".repeat(22), realNow() - 5));
-  check("a session that expired by the time the first SQL runs is refused INSIDE the statement, by the database clock (Codex 01:50)", out === context.FENCE_REFUSED && !one("SELECT 1 FROM community_refs WHERE ref = ?", "X".repeat(22)));
-  out = await context.admitted(env(), c, fenced(APPLICANT, 1, "applicantWrite", "Y".repeat(22), realNow() + 60));
+  SQL_TIME = realNow();
+  c = { ...c, subject: { ...c.subject, expiresAt: SQL_TIME - 5 } }; // "valid" to the frozen precheck, expired to the database
+  out = await nativeAdmitted(env(), c, fenced(APPLICANT, 1, "applicantWrite", "X".repeat(22), SQL_TIME - 5));
+  check("a session that expired by the time the first SQL runs is refused INSIDE the statement, by the database clock (Codex 01:50)", (out === context.FENCE_REFUSED || out === NATIVE_REFUSED) && !one("SELECT 1 FROM community_refs WHERE ref = ?", "X".repeat(22)));
+  c = { ...c, subject: { ...c.subject, expiresAt: SQL_TIME + 60 } }; // matching original expiry positive control
+  out = await context.admitted(env(), c, fenced(APPLICANT, 1, "applicantWrite", "Y".repeat(22), SQL_TIME + 60));
+  SQL_TIME = null;
   check("  and one still valid at that instant is admitted", out !== context.FENCE_REFUSED && !!one("SELECT 1 FROM community_refs WHERE ref = ?", "Y".repeat(22)));
   db.prepare("DELETE FROM community_refs WHERE discord_id = ?").run(APPLICANT);
   check("  the fence SQL names the database clock, not a bound time", /strftime\('%s', 'now'\)/.test(context.fenceSql("applicantWrite", 1, 2, 3)) && context.DB_NOW.includes("strftime"));

@@ -6,6 +6,9 @@ const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.Co
 
 let AUDIT = [], POSTS = [], LOGS = [], NOW = 1790380800, FAIL_POST = false;
 const stubs = {
+  // Legacy notice delivery uses a captured absent subject; native privacy/custody suites qualify the real adapters.
+  "./privacy-serving-authority": { readPrivacySubject: async () => null },
+  "./privacy-provider-messages": { postPrivacyMessage: async (env, _kind, channel, payload) => { await stubs["./discord"].postMessage(env, channel, payload); return true; } },
   "./db": { now: () => NOW, audit: async (_env, _actor, action, target, detail) => { AUDIT.push({ action, target, detail, ts: NOW }); } },
   "./env": { intVar: (v, d) => { const n = parseInt(v ?? "", 10); return Number.isFinite(n) ? n : d; } },
   "./discord": {

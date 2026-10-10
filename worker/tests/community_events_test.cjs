@@ -32,6 +32,7 @@ function d1(db, hooks = {}) {
       all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
       run: async () => { hooks.count?.(); return exec(sql, params); },
       _exec: () => exec(sql, params),
+      _sql: sql,
     };
     return api;
   };
@@ -304,7 +305,7 @@ async function erasureRequest(target, actor) {
   const dirMod = load("./community-events");
   const origBatch = env().DB.batch;
   let raced = false; // .67: the hydration after the write is a batch too, so the simulated other writer fires once, after the write's batch
-  const raceEnv = { ...env(ON), DB: { ...env().DB, batch: async (stmts) => { const out = await origBatch(stmts); if (!raced) { raced = true; db.prepare("UPDATE community_event_attendance SET write_nonce = 'other', revision = revision + 1 WHERE event_id = ? AND discord_id = ?").run(OP1, M2); } return out; } } };
+  const raceEnv = { ...env(ON), DB: { ...env().DB, batch: async (stmts) => { const out = await origBatch(stmts); if (!raced && stmts.some(s => /^\s*INSERT INTO community_event_attendance\b/.test(s._sql))) { raced = true; db.prepare("UPDATE community_event_attendance SET write_nonce = 'other', revision = revision + 1 WHERE event_id = ? AND discord_id = ?").run(OP1, M2); } return out; } } };
   const cs5 = await indexMod.default.fetch(new Request("https://guild.example/api/community/attendance/record", { method: "POST", headers: { Cookie: await cookieFor(ORG), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ eventId: OP1, entries: [{ ref: refOf(M2), state: "present", revision: 1 }] }) }), raceEnv, ctx);
   const cs5b = await cs5.json();
   // .67: the result is read in the write's own transaction, so an overwrite that lands afterwards cannot be mistaken for

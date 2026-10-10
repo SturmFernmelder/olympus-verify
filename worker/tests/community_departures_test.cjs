@@ -31,6 +31,7 @@ function d1(db, hooks = {}) {
       all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
       run: async () => { hooks.count?.(); hooks.beforeRun?.(sql); return exec(sql, params); },
       _exec: () => exec(sql, params),
+      _sql: sql,
     };
     return api;
   };
@@ -38,11 +39,13 @@ function d1(db, hooks = {}) {
     prepare: stmt,
     batch: async (stmts) => {
       hooks.count?.();
-      hooks.beforeBatch?.(++batches); // .73: a test may change the facts between the context read and this payload batch
+      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
+      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
+      if (logical) hooks.beforeBatch?.(++batches);
       db.exec("BEGIN");
       let out;
       try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
+      if (logical) hooks.afterBatch?.(batches);
       return out;
     },
   };

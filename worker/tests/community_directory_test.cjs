@@ -33,6 +33,7 @@ function d1(db, hooks = {}) {
       all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
       run: async () => { hooks.count?.(); return exec(sql, params); },
       _exec: () => exec(sql, params),
+      _sql: sql,
     };
     return api;
   };
@@ -40,11 +41,13 @@ function d1(db, hooks = {}) {
     prepare: stmt,
     batch: async (stmts) => {
       hooks.count?.();
-      hooks.beforeBatch?.(++batches); // .72: a test may change the facts between the context read and this payload batch
+      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
+      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
+      if (logical) hooks.beforeBatch?.(++batches);
       db.exec("BEGIN");
       let out;
       try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
+      if (logical) hooks.afterBatch?.(batches);
       return out;
     },
   };
@@ -427,7 +430,7 @@ async function erasureRequest(target, actor) {
   restoreRM();
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(RM); } };
   r = await call("GET", "/api/community/crafting?q=fort", RM);
-  check("GET crafting: signed out everywhere before the payload batch: 401 signed_out, no results", r.status === 401 && r.body.error === "signed_out" && !("results" in r.body));
+  check("GET crafting: original session closed before the payload batch: 503 erasure_held, no results", r.status === 503 && r.body.error === "erasure_held" && !("results" in r.body));
   restoreRM();
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(RM); } };
   r = await call("GET", "/api/community/directory", RM);
@@ -439,7 +442,7 @@ async function erasureRequest(target, actor) {
   db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(RM); } };
   r = await call("GET", "/api/community/profile", RM);
-  check("GET profile: the reader's row removed before the payload batch: 401, no profile", r.status === 401 && !("profile" in r.body));
+  check("GET profile: the reader's row removed before the payload batch: 503 erasure_held, no profile", r.status === 503 && r.body.error === "erasure_held" && !("profile" in r.body));
   siteUser(RM, { global_name: "Rae" });
   BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(RM); } };
   r = await call("PUT", "/api/community/profile", RM, { revision: 1, raidRole: "tank" });

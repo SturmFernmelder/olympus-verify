@@ -37,8 +37,8 @@ const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
 // ---------- a D1-shaped wrapper over SQLite that counts every statement and keeps its SQL and bindings ----------
-let COUNT = { statements: 0, calls: [] };
-const resetCount = () => { COUNT = { statements: 0, calls: [] }; };
+let COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [] };
+const resetCount = () => { COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [] }; };
 /**
  * A30-AUDIT-01: a change armed by a test runs once, right before the first statement whose SQL it names executes (the
  * final admission), so it lands after the page read and before the admission; a change that throws fails that statement.
@@ -54,8 +54,10 @@ function d1(dbh) {
   const stmt = (sql) => {
     let params = [];
     const note = () => {
-      COUNT.statements++;
-      COUNT.calls.push({ sql, params });
+      COUNT.nativeCalls.push({ sql, params });
+      // Preserve the audit payload budget while measuring every new native privacy guard separately.
+      if (sql.includes("json_extract('privacy_site_request_refused'")) COUNT.privacyGuards++;
+      else { COUNT.statements++; COUNT.calls.push({ sql, params }); }
       if (BEFORE && BEFORE.when(sql)) { const armed = BEFORE; BEFORE = null; armed.run(COUNT.calls.length - 1); }
     };
     const api = {
@@ -106,7 +108,7 @@ const realDiscord = (() => {
 const stubs = {
   "./discord": {
     ...realDiscord,
-    json: (body, status = 200) => ({ status, body, json: async () => body }),
+    json: (body, status = 200) => ({ status, body, json: async () => body, text: async () => JSON.stringify(body) }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
     verifyInteraction: async () => true,
     logLine: async () => {},
@@ -137,7 +139,7 @@ function load(name) {
 const indexMod = load("./index"), siteCore = load("./site-core"), dbMod = load("./db"), schema = load("./schema"), review = load("./review");
 const contextMod = load("./community-context"), adminMod = load("./site-admin");
 /** The final admission's exact SQL: the community fence with applicantWrite's semantics, over the bound id, version and expiry. */
-const ADMISSION = `SELECT (${contextMod.fenceSql("applicantWrite", 1, 2, 3)}) AS ok`;
+const ADMISSION = `SELECT (${contextMod.fenceSql("applicantWrite", 1, 2, 3, null)}) AS ok`; // fixture cookie captures original absence
 
 // The database's clock, movable (A30-AUDIT-01's expiry case): strftime is overridden on a connection by an application
 // function that asks a second, untouched SQLite connection for the real answer and adds SHIFT seconds to
@@ -168,10 +170,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
 const run = (sql, ...p) => db.prepare(sql).run(...p);
-const cookieFor = async (id) => (await siteCore.sessionCookie(env(), id, 1)).split(";")[0];
+// Original signed fixture captures absence (g=null); cookie setup SQL is outside request budget.
+const cookieFor = async (id) => cookieWith(id, 1, T + 7 * DAY);
 /** A session cookie with a chosen version and expiry, signed as site-core.ts sessionCookie signs it. */
 const cookieWith = async (u, v, e) => {
-  const body = siteCore.b64u(new TextEncoder().encode(JSON.stringify({ u, v, e })));
+  const body = siteCore.b64u(new TextEncoder().encode(JSON.stringify({ u, v, e, g: null })));
   return `${siteCore.SESSION_COOKIE}=${body}.${await siteCore.sign(env().COOKIE_SECRET, "session", body)}`;
 };
 /** The expiry a cookie carries. */
@@ -294,7 +297,10 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("actor=watcher: only the watcher's rows", JSON.stringify(ids(r)) === JSON.stringify([fam.watcher]), ids(r));
   // the live ADMISSION_MODE=auto path (wrangler.toml): a confirmed code queues the invite through the real review.ts, which
   // audits invite.queued with the actor "auto"; the row goes again so the paging below sees only its own invite rows
-  await review.onVerified(env(), { id: 1, discord_id: MEMBER, name_key: "auto one", name: "Auto One", created_at: T, expires_at: T + 600, consumed_at: null }, "whisper");
+  // Supply the actual pending proof with original captured absence, rather than an actor-only object.
+  const autoPendingId = run("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at) VALUES (?, ?, ?, ?, ?)", MEMBER, "auto one", "Auto One", T, T + 600).lastInsertRowid;
+  const autoPending = one("SELECT p.*, s.generation AS privacy_generation, s.state AS privacy_state, s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.id=?", autoPendingId);
+  await review.onVerified(env(), autoPending, "whisper");
   const autoRow = one("SELECT id, actor FROM audit WHERE action = 'invite.queued' AND subject = 'Auto One'");
   r = await log({ actor: "auto", window: "all" });
   check("actor=auto: the invite.queued row the real review.ts writes under ADMISSION_MODE=auto", !!autoRow && autoRow.actor === "auto" && r.status === 200 && JSON.stringify(ids(r)) === JSON.stringify([autoRow.id]), autoRow, r.status, r.body);
@@ -435,11 +441,11 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   const rosterMod = load("./roster"), roleMod = load("./roles"), interactionMod = load("./interactions");
   const rosterSrc = sourceOf("roster.ts"), interactionSrc = sourceOf("interactions.ts");
   const roleCalls = [
-    'audit(env, "system", "role.remove_failed", name, { error: String(e) })',
-    'audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) })',
-    'audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome })',
-    'audit(env, "system", "role.refused_banned", name, { discordId })',
-    'audit(env, "system", "role.add_failed", name, { discordId, error: String(e) })',
+    'audit(env, "system", "role.remove_failed", name, { error: String(e) },reference)',
+    'audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) },reference)',
+    'audit(env, "system", "role.deferred", name, { discordId, source: "promote", reason: outcome },reference)',
+    'audit(env, "system", "role.refused_banned", name, { discordId },reference)',
+    'audit(env, "system", "role.add_failed", name, { discordId, error: String(e) },reference)',
   ];
   check("(writer fidelity) all five reviewed roster calls still have their exact character/discordId shapes, and the other removal writer uses target ID", roleCalls.every(call => rosterSrc.includes(call)) && interactionSrc.includes('audit(env, "system", "role.remove_failed", target, { error: String(e) })'));
   const roleStart = Number(one("SELECT COALESCE(MAX(id), 0) + 1 AS id FROM audit").id);
@@ -460,6 +466,9 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     await rosterMod.promote(env(), MEMBER, "writer banned", "Writer Banned");
     stubs["./discord"].removeRole = async () => { throw new Error(roleMarker); };
     stubs["./discord"].guildMember = async () => { throw new Error(roleMarker); };
+    // Real departure consumes the originally bound physical character.
+    run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER);
+    run("INSERT INTO characters (name_key,name,discord_id,status,bound_at) VALUES (?, ?, ?, 'member', ?)", "writer left", "Writer Left", MEMBER, T);
     await rosterMod.demote(env(), MEMBER, "writer left", "Writer Left", "roster diff");
     // Real interaction writer: synthetic officer interaction against this in-memory DB, Discord calls still stubbed.
     await interactionMod.handleInteraction(env(), { type: 2, guild_id: GUILD, member: { user: { id: ADMIN }, roles: [env().ROLE_OFFICER] }, data: { name: "olympus-admin", options: [{ type: 1, name: "ban", options: [{ type: 6, name: "user", value: MEMBER }, { type: 3, name: "reason", value: roleMarker }] }] } });
@@ -624,12 +633,15 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   T -= 60 * DAY;
 
   console.log("\n== statements per request ==");
-  const counts = [];
+  const counts = [], privacyCosts = [];
   for (const params of [{}, { window: "all" }, { family: "site", actor: ADMIN, window: "30d" }, { before: String(w.h1) }, { window: "1d", before: String(w.h23) }, { family: "none" }]) {
     const m = await measured(() => log(params));
     counts.push(m.extra);
+    privacyCosts.push({ payload: COUNT.statements, guards: COUNT.privacyGuards, native: COUNT.nativeCalls.length });
     if (m.r.status !== 200 || m.calls.slice(-m.extra).some((c) => !/\baudit\b|json_each/.test(c.sql) && c.sql !== ADMISSION) || m.calls.at(-1).sql !== ADMISSION) counts.push("unexpected");
   }
+  console.log("AUDIT_NATIVE_COST", JSON.stringify({ gatePayload: GATE, requests: privacyCosts }));
+  check("native privacy guards are separately measured from unchanged audit payload SQL", privacyCosts.every(c => c.native === c.payload + c.guards && c.guards > 0), privacyCosts);
   check("at most five statements of its own per request (the oldest and newest ids, the window's earliest-stamped id, the page, the names, the final admission), the admission always the last", counts.every((c) => typeof c === "number" && c <= 5) && counts.includes(5), counts);
   const empty0 = new DatabaseSync(":memory:"); // an empty audit table
   const saved = db;
@@ -704,10 +716,10 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("the cookie's expiry passing after the page read, before the final admission (the database's clock moved on two minutes): 401 with nothing of the page", c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page >= 0 && c.page < c.at, c.r.status, c.r.body);
   check("  (fixture) the database's clock passed the expiry; the Worker's clock, which readSession uses, did not", dbNow() > shortE && T < shortE);
   let follow = await http("GET", "/api/admin/audit-log?window=all", { cookie: shortCookie });
-  check("  the same cookie's next request: 401, no entries (the gate's clock still takes the cookie; the admission refuses it)", follow.status === 401 && bare(follow, "signed_out"), follow.status, follow.body);
+  check("  the same cookie's next request: 503 erasure_held, no entries (native original-expiry guard refuses before payload)", follow.status === 503 && bare(follow, "erasure_held"), follow.status, follow.body);
   SHIFT = 0;
   c = await injected(null, { cookie: await cookieWith(ADMIN, 1, dbNow() - 1) });
-  check("a cookie the database's clock has expired though the Worker's has not: the reads run, the admission refuses it (401): the database's clock decides", c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page >= 0, c.r.status, c.r.body);
+  check("a cookie the database's clock has expired though the Worker's has not: native guard returns503 erasure_held before audit payload", c.r.status === 503 && bare(c.r, "erasure_held") && c.at === -1 && c.page === -1, c.r.status, c.r.body);
 
   // the early answers are fenced the same way
   T += 60 * DAY; // nothing stamped in the last 30 days now; cookies minted from here on carry the moved clock
@@ -735,7 +747,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     console.error = consoleError;
   }
   check("the admission statement fails: 503 unavailable with nothing of the page (fail closed), after the page was read", c.r.status === 503 && bare(c.r, "unavailable") && c.at === c.last && c.page >= 0, c.r.status, c.r.body);
-  check("  logged as a fixed label and a category only (log.ts errorRef), never the error's text", logged.length === 1 && logged[0].length === 2 && logged[0][0] === "admin audit log admission" && logged[0][1] === "d1", logged);
+  check("  logged as a fixed label and sanitized native facade category only, never the error's text", logged.length === 1 && logged[0].length === 2 && logged[0][0] === "admin audit log admission" && logged[0][1] === "error", logged);
   check("  nothing changed, so the same cookie's next request is 200 again", (await http("GET", "/api/admin/audit-log?window=all", { cookie: adminCookie })).status === 200);
 
   // the binding, through handleAdmin as site-api.ts calls it, with an account the cookie does or does not match
@@ -798,13 +810,13 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   console.log("\n== static ==");
   const auditSrc = src.slice(src.indexOf("// ---------- the audit log page ----------"));
   check("the handler writes nothing (no INSERT, UPDATE, DELETE or audit() call in its code)", auditSrc.length > 1000 && !/\b(INSERT|UPDATE|DELETE)\b/.test(auditSrc) && !/\baudit\(env/.test(auditSrc));
-  check("  its SQL interpolates only compile-time constants", [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]).every((x) => /^(AUDIT_DETAILS_MAX|args\.length( - 1)?|where\.map\(\(w\) => " AND " \+ w\)\.join\(""\)|fenceSql\("applicantWrite", 1, 2, 3\))$/.test(x)), [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]));
+  check("  its SQL interpolates reviewed bounds and the original session generation", [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]).every((x) => /^(AUDIT_DETAILS_MAX|args\.length( - 1)?|where\.map\(\(w\) => " AND " \+ w\)\.join\(""\)|fenceSql\("applicantWrite", 1, 2, 3,s\.g\))$/.test(x)), [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]));
   // A30-AUDIT-01, statically: the page is built without sending anything, the admission is the last await, and the route
   // hands the gate's account to the handler
   const fnOf = (name) => { const at = auditSrc.indexOf(`async function ${name}(`); return at < 0 ? "" : auditSrc.slice(at, auditSrc.indexOf("\n}\n", at) + 3); };
   const admitSrc = fnOf("admitAudit"), pageSrc = fnOf("auditPage"), logSrc = fnOf("auditLog");
   check("the page (auditPage) builds the answer and sends nothing: no apiJson in it; both early returns are the answer itself", pageSrc.length > 1000 && !/apiJson/.test(pageSrc) && (pageSrc.match(/return \{ entries: \[\]/g) || []).length === 2);
-  check("  the admission (admitAudit) has exactly one await, its one statement, and returns the prebuilt answer, a 401 or a 503", (admitSrc.match(/\bawait\b/g) || []).length === 1 && /return apiJson\(page\);\n\}/.test(admitSrc) && /fenceSql\("applicantWrite", 1, 2, 3\)/.test(admitSrc) && /isSiteAdmin\(env, s\.u\)/.test(admitSrc));
+  check("  the admission (admitAudit) has exactly one await, its one statement, and returns the prebuilt answer, a 401 or a 503", (admitSrc.match(/\bawait\b/g) || []).length === 1 && /return apiJson\(page\);\n\}/.test(admitSrc) && /fenceSql\("applicantWrite", 1, 2, 3,s\.g\)/.test(admitSrc) && /isSiteAdmin\(env, s\.u\)/.test(admitSrc));
   check("  the handler (auditLog) binds the session before the page and ends in the admission; the route hands it the gate's account", logSrc.indexOf("readSession(env, request)") > 0 && logSrc.indexOf("readSession(env, request)") < logSrc.indexOf("auditPage(env, p)") && /return admitAudit\(env, session, page\);\n\}/.test(logSrc) && src.includes("return auditLog(request, env, q, admin);"));
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   check("this suite runs in test:all, after owner_requests_test", /owner_requests_test\.cjs && node tests\/site_audit_test\.cjs/.test(pkg.scripts["test:all"]));

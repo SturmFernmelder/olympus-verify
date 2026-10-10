@@ -27,6 +27,9 @@ const D1 = {
 let NOW = 1790380800;
 const GUILD = "236932545793490944", ROLE = "1549581282227265566", BLOCK = "1399774654893133864";
 const stubs = {
+  // This budget fixture has no privacy subject or rank mapping; refuse accidental expansion of its mocked lane.
+  "./privacy-serving-authority": { privacyCaptureFromColumns: (_subject, row) => { if (row.privacy_generation !== null || row.privacy_state !== null) throw Error("unexpected privacy fixture"); return null; } },
+  "./role-rank-continuation": { RANK_CONTINUATION_HTTP_RESERVE: 20, continueRosterRanks: async () => { throw Error("rank continuation outside legacy role-budget fixture"); } },
   "./env": { intVar: (v, d) => { const n = parseInt(v ?? "", 10); return Number.isFinite(n) ? n : d; }, staffChannel: () => "" },
   "./db": {
     now: () => NOW,
@@ -39,7 +42,9 @@ const discord = load("discord.ts", stubs);
 stubs["./discord"] = discord;
 const roles = load("roles.ts", stubs);
 stubs["./roles"] = roles;
-stubs["./scheduled-budget"] = load("scheduled-budget.ts", stubs); // .115: restore.ts reads its per-run caps from it (the scheduled D1 budget)
+const scheduled = load("scheduled-budget.ts", stubs);
+// Keep this historical ten-account/retry scenario explicit; actual joined caps remain covered by scheduled_budget and rank integration.
+stubs["./scheduled-budget"] = { ...scheduled, SCHEDULED_CAPS: { ...scheduled.SCHEDULED_CAPS, roleSweepAccounts: 10 } };
 const restore = load("restore.ts", stubs);
 const backfill = load("backfill.ts", stubs);
 
