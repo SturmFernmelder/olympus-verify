@@ -35,5 +35,7 @@ check("hierarchy has unique ids, valid references and no cycles", data.nodes.eve
   while (cursor) { if (visited.has(cursor.id)) return false; visited.add(cursor.id); if (cursor.parent !== null && !ids.has(cursor.parent)) return false; cursor = ids.get(cursor.parent); }
   return node.coordinates.every((id) => ids.has(id));
 }) && ids.size === data.nodes.length);
+// R6 download contract executes only stdlib asset checks and the exact public h/add quicklink slice.
+for (const result of require("./governance_download_contract.cjs").runChecks(root)) check(result.name, result.passed);
 console.log(`\n${ok}/${n} passed`);
 process.exit(ok === n ? 0 : 1);
