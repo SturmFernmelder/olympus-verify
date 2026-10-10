@@ -49,8 +49,10 @@ export const PROOF_CURRENT=`EXISTS(SELECT 1 FROM verification_proofs p JOIN veri
  AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=p.requester AND desired=0 AND attempts=1 AND purpose IN('grant_compensation','ban','rename_hold','blocking_role','guild_departure','account_erasure') AND state IN('dispatching','unknown'))
  AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=p.requester AND (other.proof_id IS NULL OR other.proof_id<>p.id) AND other.attempts=1 AND other.state IN('dispatching','unknown') AND other.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank'))
  AND EXISTS(SELECT 1 FROM characters WHERE discord_id=p.requester AND guid=p.requester_guid AND name=p.requester_name AND status='member')
+ AND (SELECT COUNT(*) FROM characters WHERE guid=p.requester_guid AND status IN('member','left_pending'))=1
  AND NOT EXISTS(SELECT 1 FROM roster_snapshots s WHERE s.id>p.snapshot_id AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1
- AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id AND guid=p.requester_guid AND rank_index=p.native_rank)<>1))`;
+ AND ((SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id AND guid=p.requester_guid)<>1
+ OR (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id AND guid=p.requester_guid AND name=p.requester_name AND rank=p.rank_name AND rank_index=p.native_rank)<>1)))`;
 async function proofCurrent(env:Env,proof:string,subject:string) {return !!await env.DB.prepare(`SELECT 1 WHERE ${PROOF_CURRENT}`).bind(proof,subject).first();}
 /** Rank snapshots must remain the exact latest complete trusted export, with one linked native GUID.
  * Privacy generation is captured at selection; a missing subject is an absence branch, not a login.
