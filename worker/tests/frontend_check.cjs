@@ -2304,7 +2304,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const remMessage=[...messages.values()].find((m)=>m.content.startsWith("**Raid reminder**"));
       await rem.go("#/community/calendar");await rem.go(route(reminderId));await reminderLoaded(rem);
       rem.app.querySelector("#f-event-reminder-message").value=`https://discord.com/channels/${GUILD}/${CHANNEL}/${remMessage.id}`;
-      byText(rem.app,"button","Check existing reminder").click();await waitFor(()=>rem.app.textContent.includes("The reminder was delivered"),"reminder reconciliation");
+      byText(rem.app,"button","Check existing reminder").click();
+      // The POST draws its result before action() awaits a follow-up status GET.
+      // Wait for that GET to finish enabling controls, retaining the same assertions.
+      await waitFor(()=>rem.app.textContent.includes("The reminder was delivered") && !!byText(rem.app,"a","Open Discord reminder") && !byText(rem.app,"button","Remove reminder").disabled,"reminder reconciliation and completed refresh");
       check(".134 reloaded page uses server operation ID to reconcile exact nonce without a new POST",posts()===beforeReminderPost+1 && !!byText(rem.app,"a","Open Discord reminder") && !byText(rem.app,"button","Remove reminder").disabled);
       const remOff=await openPage(ORG,{...reminderOver,EVENT_DISCORD_REMINDERS:"",EVENT_DISCORD_DELIVERY:""});await remOff.go(route(reminderId));await reminderLoaded(remOff);
       check(".134 global OFF disables consent while keeping known-pointer removal",byText(remOff.app,"button","Enable one reminder").disabled && !byText(remOff.app,"button","Remove reminder").disabled);
