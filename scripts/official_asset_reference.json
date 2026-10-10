@@ -1,9 +1,9 @@
 {
-  "schema": "olympus-official-website-reference-v1",
+  "schema": "olympus-official-website-reference-v2",
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
   "coverage_evidence_sha256": "792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1",
-  "reference_source_head": "496ea52f28f27e40553e26a435f83ea2c3f408ab",
+  "reference_source_head": "ca0178495c259a42cdfd56c2ff2b5a81f77f955a",
   "assets": [
     {
       "path": "worker/public/static/app.css",
@@ -733,6 +733,10 @@
     "worker/public/static/app.css",
     "worker/public/static/app.js",
     "worker/public/static/policies.css",
+    "worker/public/static/qr-phase1-decoder.js",
+    "worker/public/static/qr-phase1.html",
+    "worker/public/static/qr-phase1.mjs",
+    "worker/public/static/qr-vendor/jsqr-1.4.0.js",
     "worker/public/static/rank-planner/app.js",
     "worker/public/static/rank-planner/catalogue.js",
     "worker/public/static/rank-planner/model.js",
@@ -946,7 +950,8 @@
     "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published.",
     "The owner-approved signed-in own-header Discord identity picture is external identity data, not a bundled interface-art asset: exact producer/renderer/CSP source pins and the source-bound coverage receipt carry this narrow exception. Eight other account-image sites remain official game icons; the static scanner does not validate external image addresses or prove account ownership.",
     "The .123 corrected source head includes R123-1 rendered rank-planner guidance and its real page test. Fresh finite coverage checks103assets and five fixed-art producer rows. The model invitation flag, site-data comment and site-ranks reference note differ from .122; all official image/font pixels, icon references, profile paths and approved crest remain unchanged. Final exact-head external contract and review remain separate.",
-    "The .135 source successor binds the current site shell, scanner UI and role text. All 94 official game assets, fonts, provenance and approved crest pixels are unchanged; public QR decoding supplies protocol behavior rather than decorative artwork. This reference is byte evidence, not publication or deletion approval."
+    "The .135 source successor binds the current site shell, scanner UI and role text. All 94 official game assets, fonts, provenance and approved crest pixels are unchanged; public QR decoding supplies protocol behavior rather than decorative artwork. This reference is byte evidence, not publication or deletion approval.",
+    "The .135 resource successor separately requires fifteen exact non-art public resources: nine governance document/data downloads and six QR runtime/license/source records. They are not official artwork, image/font exceptions, CSS image URLs, qualified QR activation or publication approval. The sole public ZIP archive exception requires its exact source-bound path, mode, length and digest; other archive/private-path refusals are unchanged."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -961,5 +966,97 @@
     "usage": "brand_and_tab_icon_only",
     "owner_instruction": "Crest is the exception",
     "instruction_date": "2026-10-01"
-  }
+  },
+  "required_public_resources": [
+    {
+      "path": "worker/public/static/governance/downloads-manifest.json",
+      "mode": "100644",
+      "bytes": 1361,
+      "sha256": "73147564ea1226c722300a3de4c9bdea7b915bb85d1e3061caada43ceeb17c1f"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-adoption-checklist-r6.pdf",
+      "mode": "100644",
+      "bytes": 79878,
+      "sha256": "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-governance-r6.pdf",
+      "mode": "100644",
+      "bytes": 1361567,
+      "sha256": "8bbd9517272718991823aad15920a6ff0250f452a7affbd9141eee3f5129e6de"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-governance-r6.zip",
+      "mode": "100644",
+      "bytes": 2081840,
+      "sha256": "7ead7b97d80477aa607ab13c419c527b25ff2c4be1ede79da51cca5ca4b5f0ed"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-guide-r6.pdf",
+      "mode": "100644",
+      "bytes": 135664,
+      "sha256": "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-release-preparation.pdf",
+      "mode": "100644",
+      "bytes": 4448,
+      "sha256": "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"
+    },
+    {
+      "path": "worker/public/static/governance/olympus-templates-r6.pdf",
+      "mode": "100644",
+      "bytes": 81476,
+      "sha256": "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"
+    },
+    {
+      "path": "worker/public/static/governance/organization.json",
+      "mode": "100644",
+      "bytes": 43900,
+      "sha256": "fc5a10ad145fcd9d933b7cb4209bf812a2175a8be247582fb9d7f1d684125d18"
+    },
+    {
+      "path": "worker/public/static/governance/reconciled-book.md",
+      "mode": "100644",
+      "bytes": 116006,
+      "sha256": "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca"
+    },
+    {
+      "path": "worker/public/static/qr-phase1-decoder.js",
+      "mode": "100644",
+      "bytes": 756,
+      "sha256": "c9ed57507e608f44974d1bf2b184ff533b615fd982d9955594ab7b532c7e582d"
+    },
+    {
+      "path": "worker/public/static/qr-phase1.html",
+      "mode": "100644",
+      "bytes": 3831,
+      "sha256": "4f4a25e8b9f4fd80aa301437f3ff30f2611462f54b7af5f44779c6fab7db114f"
+    },
+    {
+      "path": "worker/public/static/qr-phase1.mjs",
+      "mode": "100644",
+      "bytes": 13361,
+      "sha256": "773cff95e3c7e50bf5c0cfcb03fcb7e40d2757ebb6051fbb074551c63d5b2677"
+    },
+    {
+      "path": "worker/public/static/qr-vendor/jsqr-1.4.0.LICENSE.txt",
+      "mode": "100644",
+      "bytes": 11358,
+      "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+    },
+    {
+      "path": "worker/public/static/qr-vendor/jsqr-1.4.0.js",
+      "mode": "100644",
+      "bytes": 256885,
+      "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859"
+    },
+    {
+      "path": "worker/public/static/qr-vendor/jsqr-1.4.0.source.json",
+      "mode": "100644",
+      "bytes": 1057,
+      "sha256": "100c248c28a009ce9f4156d054d0703f53a7bb965476e51a173c78d2f6aee204"
+    }
+  ]
 }

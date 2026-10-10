@@ -204,3 +204,38 @@ This corrects the legitimate publication-smoke failure at 496ea52. Earlier faile
 evidence; no hash guard or shape check is bypassed. Source reference parity, independent review and CI remain
 separate from deployment and automatic deletion activation. The owner's Codex-only takeover does not imply Claude
 approval of this successor.
+
+## 10 October 2026 - .135 required publication resources
+
+The previous source-reference repair at `ca0178495c259a42cdfd56c2ff2b5a81f77f955a` passed its raw pin smoke but
+still refused nine actual governance/QR URLs in `app.js`. It also lacked fifteen tracked public files in the result
+and worktree gates. This finite successor corrects that refusal without changing any Worker, website, QR module,
+document, official image/font, provenance record or crest bytes.
+
+The closed `olympus-official-website-reference-v2` schema adds `required_public_resources`: fifteen exact
+path/mode/length/SHA-256 rows, separate from the original 103 assets. Nine rows are governance resources (five PDFs,
+one ZIP, the download manifest, organization JSON and the reconciled Markdown book). Six rows are the QR HTML,
+ES module, worker decoder, unchanged jsQR runtime, its license and its recorded source provenance. These are
+document/data/protocol resources, not artwork exceptions. The retained official candidate/map/coverage fields
+remain evidence of their historical official-art scope; they do not independently approve the new resources.
+The source-head field binds these current bytes to `ca0178495c259a42cdfd56c2ff2b5a81f77f955a`.
+
+Final externally reviewed manifests must use `olympus-selected-official-public-assets-v2` and carry the same
+`required_public_resources` rows. The contract schema remains v1: its existing manifest digest binds the new closed
+manifest. Required resources cannot be excluded, omitted, renamed or repinned through a final manifest. The result
+and worktree gates require the exact 118-file union. Only the exact required public ZIP path, mode, length and digest
+qualify its archive-path exception; other private/archive paths remain refused. A resource directory grants no
+prefix exception. Static URL coverage admits these exact non-art targets, while CSS `url(...)` still uses only the
+art/native asset group and rejects a PDF or module as an image/font. `.mjs` files now require runtime pins and source
+reference coverage, including the real QR HTML/module/decoder/vendor chain. The existing five art-sensitive source
+pins, official 94-file set, banned-art hashes, embedded-art guard and sole crest exception are preserved.
+
+`official_assets.py` pins the new reference; `stage_publication.py` uses the same exact-resource tuple check before
+its archive-path refusal, without changing staging permissions or output guards. `reconcile_public_root.py` pins
+all three changed inputs. The other three V4 helpers and the network guard retain their exact bytes. CI's existing
+`publication-helper.test.sh` requires Python 3.12 or later and now invokes
+`publication-resource.test.py` against the actual tracked source: it creates temporary synthetic byte contracts,
+calls `load_contract` then `validate_result_tree`, validates the public worktree, and tests missing, substituted,
+unlisted and renamed resources, module/vendor coverage and retained art refusals. It never stages a repository,
+runs a generator, publishes or calls a provider. Synthetic contracts are test fixtures, not publication authority.
+Exact-head independent review, the final external contract/manifest and publication remain separate qualification.

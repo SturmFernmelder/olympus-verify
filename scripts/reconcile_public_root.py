@@ -3,9 +3,9 @@ from pathlib import Path
 from html.parser import HTMLParser
 import argparse,hashlib,json,os,re,subprocess,sys
 ROOT=Path(__file__).resolve().parent
-# The .135 reference successor rebinds current source; its asset helper differs only in that exact reference pin.
-# The other V4 helpers and the network guard retain their reviewed raw pins.
-V4_PINS={'stage_publication.py':'d06f6d56c9884f5cb9e7c07acde75ad5f812f0a77fe68589d49115ab68b358e9','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'711ffb9392c7ce2d85535096203921031a20779bc8eb4eb8110c4fa4c39e7626','official_asset_reference.json':'3b8676d30d1b22a386fc7c20cea24a25a56980c612c441cf0ed61bbcd427476e'}
+# The .135 resource successor adds exact resource/module coverage and staging tuple checks; these three pins bind it.
+# The other three V4 helpers and the network guard retain their reviewed raw pins.
+V4_PINS={'stage_publication.py':'c145d3bb467c973210457d233794aa65e505db3a959abf92a2f2b2cccbd3cf34','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'8206562cbab425ef468de8ccd7bd04402e36d2c156f93858f499a494b0cc82fa','official_asset_reference.json':'c1d87f3a7ec77f6f2ca6759a05874b2d83c6f1fb5dbbc45f682ce8aca20ffcc8'}
 for name,pin in V4_PINS.items():
  p=ROOT/name
  if p.is_symlink() or p.is_junction() or hashlib.sha256(p.read_bytes()).hexdigest()!=pin:raise ValueError('unchanged_v4_helper_pin_mismatch')

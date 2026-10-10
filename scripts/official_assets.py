@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='3b8676d30d1b22a386fc7c20cea24a25a56980c612c441cf0ed61bbcd427476e'
+REFERENCE_SHA256='c1d87f3a7ec77f6f2ca6759a05874b2d83c6f1fb5dbbc45f682ce8aca20ffcc8'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -47,9 +47,18 @@ def pin_rows(value, paths: set[str] | None, failure: str, *, maximum=512) -> dic
 def runtime_path(path: str) -> bool:
     folded=path.casefold()
     return folded.startswith('worker/src/') \
-      or (folded.startswith('worker/public/') and folded.endswith(('.css','.js','.html')))
+      or (folded.startswith('worker/public/') and folded.endswith(('.css','.js','.mjs','.html')))
 
-def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[str]) -> list[str]:
+def resource_rows(value, failure: str) -> dict[str,dict]:
+    # Reviewed documents, data and protocol code are required bytes, never an image/font exception.
+    result=pin_rows(value,None,failure,maximum=32)
+    if not result or any(not p.startswith('worker/public/static/') or (private_path(p) and not p.endswith('.zip'))
+        or not p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) for p in result):
+        raise ValueError(failure)
+    return result
+
+def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[str],
+               resources: dict[str,dict] | None = None) -> list[str]:
     try:text=data.decode('utf-8')
     except UnicodeDecodeError:raise ValueError('website_runtime_source_not_utf8') from None
     # Fixed source pins and reviewed finite dynamic maps remain necessary; this scanner is intentionally not a JS parser.
@@ -60,7 +69,8 @@ def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[s
         if url in prefixes:continue
         relative='worker/public'+url
         validate_path(relative)
-        if relative not in expected:raise ValueError('unlisted_website_runtime_reference')
+        if relative not in expected and relative not in (resources or {}):
+            raise ValueError('unlisted_website_runtime_reference')
     if path.endswith('.css'):
         for match in re.finditer(r'(?i)url\(\s*([\s\S]*?)\s*\)',text):
             value=match.group(1).strip().strip('"\'')
@@ -73,10 +83,10 @@ def reference() -> dict:
     ref,_=pinned_json(Path(__file__).with_name('official_asset_reference.json'),REFERENCE_SHA256,
                       'official_asset_reference_pin_mismatch')
     keys={'schema','official_candidate_manifest_sha256','official_map_sha256','coverage_evidence_sha256',
-          'reference_source_head','assets','official_paths','native_paths','runtime_paths','runtime_prefixes',
+          'reference_source_head','assets','required_public_resources','official_paths','native_paths','runtime_paths','runtime_prefixes',
           'required_documents','required_profile_paths','optional_profile_paths','provenance_path','banned_website_art_sha256',
           'approved_extractor','fixed_art_source_pins','limitations','brand_exception'}
-    if set(ref)!=keys or ref.get('schema')!='olympus-official-website-reference-v1' \
+    if set(ref)!=keys or ref.get('schema')!='olympus-official-website-reference-v2' \
       or not isinstance(ref['reference_source_head'],str) or not COMMIT.fullmatch(ref['reference_source_head']):
         raise ValueError('official_asset_reference_shape_invalid')
     for key in ('official_candidate_manifest_sha256','official_map_sha256','coverage_evidence_sha256'):
@@ -93,6 +103,10 @@ def reference() -> dict:
         raise ValueError('official_brand_exception_shape_invalid')
     assets=pin_rows(ref['assets'],set(ref['official_paths'])|set(ref['native_paths'])|{ref['provenance_path'],BRAND_EXCEPTION['path']},
                     'official_asset_reference_shape_invalid')
+    resources=resource_rows(ref['required_public_resources'],'official_public_resource_reference_shape_invalid')
+    if {p.casefold() for p in resources}&{p.casefold() for p in assets} \
+      or not {p for p in resources if runtime_path(p)}.issubset(ref['runtime_paths']):
+        raise ValueError('official_public_resource_reference_shape_invalid')
     if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=94 \
       or any(not p.startswith('worker/public/static/wow/') for p in ref['official_paths']) \
       or any(not p.endswith(('.css','.js')) for p in ref['native_paths']) \
@@ -116,6 +130,7 @@ def reference() -> dict:
     if ref['optional_profile_paths']!=['worker/wrangler.cutover.applied']:
         raise ValueError('official_asset_reference_shape_invalid')
     ref['_assets']=assets
+    ref['_resources']=resources
     ref['_extractor']=extractor
     ref['_fixed_art_sources']=fixed
     return ref
@@ -131,12 +146,14 @@ def load_contract(contract_path: Path, contract_hash: str, asset_path: Path, ass
     if not isinstance(keeper_head,str) or not COMMIT.fullmatch(keeper_head) or c.get('keeper_head')!=keeper_head \
       or c.get('finalHead')!=keeper_head or a.get('keeper_head')!=keeper_head:raise ValueError('official_asset_source_head_mismatch')
     if c.get('asset_manifest_sha256')!=asset_hash:raise ValueError('official_asset_contract_manifest_binding_mismatch')
-    if set(a)!={'schema','keeper_head','official_candidate_manifest_sha256','reference_sha256','files',
+    if set(a)!={'schema','keeper_head','official_candidate_manifest_sha256','reference_sha256','files','required_public_resources',
                    'runtime_files','reference_coverage','excluded_public_files'} \
-      or a.get('schema')!='olympus-selected-official-public-assets-v1' \
+      or a.get('schema')!='olympus-selected-official-public-assets-v2' \
       or a.get('official_candidate_manifest_sha256')!=ref['official_candidate_manifest_sha256'] \
       or a.get('reference_sha256')!=REFERENCE_SHA256:raise ValueError('official_asset_manifest_shape_invalid')
     assets=pin_rows(a['files'],set(ref['_assets']),'official_asset_manifest_file_pin_invalid')
+    resources=resource_rows(a['required_public_resources'],'official_public_resource_pin_invalid')
+    if resources!=ref['_resources']:raise ValueError('public_resource_change_requires_reviewed_reference_successor')
     # Art/fonts/provenance remain fixed; native UI and runtime code require explicit final source-bound re-pins.
     for path,row in ref['_assets'].items():
         if path not in ref['native_paths'] and assets[path]!=row:
@@ -144,8 +161,9 @@ def load_contract(contract_path: Path, contract_hash: str, asset_path: Path, ass
     runtime=pin_rows(a['runtime_files'],None,'official_runtime_file_pin_invalid')
     if not set(ref['runtime_paths']).issubset(runtime) or any(not runtime_path(path) for path in runtime):
         raise ValueError('official_runtime_file_pin_invalid')
-    for path in set(runtime)&set(assets):
-        if runtime[path]!=assets[path]:raise ValueError('official_runtime_public_pin_binding_mismatch')
+    public={**assets,**resources}
+    for path in set(runtime)&set(public):
+        if runtime[path]!=public[path]:raise ValueError('official_runtime_public_pin_binding_mismatch')
     coverage=a['reference_coverage']
     if not isinstance(coverage,list) or len(coverage)!=len(runtime):raise ValueError('official_runtime_coverage_shape_invalid')
     covered={}
@@ -157,7 +175,7 @@ def load_contract(contract_path: Path, contract_hash: str, asset_path: Path, ass
         covered[row['path']]=row['references']
     excluded=pin_rows(a['excluded_public_files'],None,'official_unselected_public_pin_invalid',maximum=256)
     for path in excluded:
-        if not path.startswith('worker/public/') or path in assets or path in runtime or private_path(path):
+        if not path.startswith('worker/public/') or path in public or path in runtime or private_path(path):
             raise ValueError('official_unselected_public_pin_invalid')
     docs=pin_rows(c['documents'],set(ref['required_documents']),'official_asset_required_document_pin_invalid')
     profile=pin_rows(c['profile_files'],None,'official_asset_profile_pin_invalid')
@@ -166,12 +184,16 @@ def load_contract(contract_path: Path, contract_hash: str, asset_path: Path, ass
         raise ValueError('official_asset_profile_pin_invalid')
     if c.get('provenance_sha256')!=assets[ref['provenance_path']]['sha256']:
         raise ValueError('official_asset_provenance_binding_mismatch')
-    return {'contract':c,'assets':assets,'documents':docs,'profile_files':profile,'runtime_files':runtime,'reference_coverage':covered,
+    return {'contract':c,'assets':assets,'required_public_resources':resources,'documents':docs,'profile_files':profile,'runtime_files':runtime,'reference_coverage':covered,
       'excluded_public_files':excluded,'reference':ref,'contract_sha256':contract_hash,'asset_manifest_sha256':asset_hash}
+
+def exact_public_resource(path: str, mode: str, data: bytes, contract: dict) -> bool:
+    pin=contract['required_public_resources'].get(path)
+    return pin is not None and mode==pin['mode'] and len(data)==pin['bytes'] and sha(data)==pin['sha256']
 
 def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: dict) -> dict:
     ref=contract['reference']
-    expected=contract['assets']
+    expected={**contract['assets'],**contract['required_public_resources']}
     found={}
     by_path={}
     official_by_hash={}
@@ -182,7 +204,9 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
         if path in by_path or path.casefold() in {p.casefold() for p in by_path}:raise ValueError('duplicate_result_tree_path')
         by_path[path]=row
         data=payloads[path]
-        if private_path(path):raise ValueError('private_runtime_path_in_result')
+        # The general archive refusal still applies unless this exact required public resource was source-pinned.
+        if private_path(path) and not exact_public_resource(path,row['mode'],data,contract):
+            raise ValueError('private_runtime_path_in_result')
         if sha(data)==BRAND_EXCEPTION['sha256'] and path!=BRAND_EXCEPTION['path']:
             raise ValueError('brand_exception_payload_at_unlisted_path')
         if path.startswith('worker/public/'):
@@ -217,13 +241,14 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
             except UnicodeDecodeError:raise ValueError('required_document_or_runtime_source_not_utf8') from None
     prefix=set(ref['runtime_prefixes'])
     for path in contract['runtime_files']:
-        if references(payloads[path],path,expected,prefix)!=contract['reference_coverage'][path]:
+        if references(payloads[path],path,contract['assets'],prefix,contract['required_public_resources'])!=contract['reference_coverage'][path]:
             raise ValueError('website_runtime_reference_coverage_mismatch')
     return {'kind':'official_website_assets_runtime_references_and_document_bytes_only','result':'PASS',
       'contract_sha256':contract['contract_sha256'],'asset_manifest_sha256':contract['asset_manifest_sha256'],
       'reference_sha256':REFERENCE_SHA256,'official_candidate_manifest_sha256':ref['official_candidate_manifest_sha256'],
       'official_map_sha256':ref['official_map_sha256'],'coverage_evidence_sha256':ref['coverage_evidence_sha256'],
       'keeper_head':contract['contract']['keeper_head'],'public_asset_count':len(expected),
+      'required_non_art_resource_pins_verified':len(contract['required_public_resources']),
       'official_image_font_count':len(ref['official_paths']),'native_public_file_count':len(ref['native_paths']),
       'required_document_pins_verified':len(contract['documents']),'runtime_source_pins_verified':len(contract['runtime_files']),
       'profile_source_pins_verified':len(contract['profile_files']),
@@ -236,6 +261,7 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
       'document_content_acceptance':False,'joint_signature':False,'readyForPublication':False}
 
 def validate_worktree_assets(snapshot: Path, contract: dict) -> None:
+    expected={**contract['assets'],**contract['required_public_resources']}
     root=snapshot/'worker/public'
     if not root.is_dir() or root.is_symlink() or root.is_junction():raise ValueError('public_asset_worktree_invalid')
     found=set()
@@ -246,9 +272,9 @@ def validate_worktree_assets(snapshot: Path, contract: dict) -> None:
         for name in files:
             item=Path(folder)/name
             path=item.relative_to(snapshot).as_posix()
-            if path not in contract['assets']:raise ValueError('unlisted_public_asset_in_worktree')
-            pin=contract['assets'][path]
+            if path not in expected:raise ValueError('unlisted_public_asset_in_worktree')
+            pin=expected[path]
             data=item.read_bytes()
             if len(data)!=pin['bytes'] or sha(data)!=pin['sha256']:raise ValueError('public_asset_worktree_pin_mismatch')
             found.add(path)
-    if found!=set(contract['assets']):raise ValueError('missing_public_asset_in_worktree')
+    if found!=set(expected):raise ValueError('missing_public_asset_in_worktree')

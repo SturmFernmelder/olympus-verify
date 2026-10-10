@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from publication_audit import ASSIGNMENT, blobs, exact_head, git, git_run, private_path, scan_text, tree
 from public_history import assert_snapshot_objects, public_parent
-from official_assets import load_contract, validate_result_tree, validate_worktree_assets
+from official_assets import exact_public_resource, load_contract, validate_result_tree, validate_worktree_assets
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_URL = 'https://github.com/SturmFernmelder/olympus-verify.git'
@@ -87,7 +87,7 @@ def main() -> None:
     for row in keeper_rows:
         path = row['path']
         data = keeper_blobs[row['blob']]
-        if private_path(path):
+        if private_path(path) and not exact_public_resource(path,row['mode'],data,asset_contract):
             raise ValueError('private_runtime_path_in_snapshot')
         if path in asset_contract['excluded_public_files']:
             pin = asset_contract['excluded_public_files'][path]
