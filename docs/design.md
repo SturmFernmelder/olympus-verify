@@ -1339,3 +1339,37 @@ retained for comparison. A separate two-page release worksheet covers source ide
 publication, privacy limits, the attended councillor game/browser check and the eventual beta reset. Draft notices
 remain visible: neither a download nor a checklist grants authority or records adoption. The original full PDF,
 five-payload ZIP, source reader and all four reading/chart links retain their accepted identities.
+
+## 2026-10-10: serving privacy and councillor authority (.135)
+
+Privacy identity is purpose-specific and does not borrow ordinary guild admission. A five-minute, browser-bound
+Discord identity handshake creates independent twelve-minute, one-use copy and erasure grants. Account generations
+bind every serving writer to its original capture. Requesting erasure closes that generation before the bounded job
+checks Guild Member absence and erases classified local stores. A later generation or reauthentication cannot adopt
+an old pending write, proof, queue result, event claim or provider outcome. Database-clock checks and terminal fences
+remain in the consuming transaction; unknown outcomes are explicit rather than guessed rollbacks.
+
+Original external custody survives a late known response as cleanup debt. It cannot refill erased account content or
+redispatch an ambiguous operation. Erasure status separates serving completion, Discord message debt, human-managed
+staff permissions and recovery copies. Active safety cases/bans have separate purposes. A rejection marker means
+only the account's rejected guild application or membership and has a fixed original 365-day clock. Restore-only
+generation suppression lasts 366 days; private exports are newest-only with a 365-day maximum age. Attended recovery
+must replay suppression, corrections and News dispositions before reopening. Automatic all-copy erasure is not a
+claim this design can make about third-party, browser, downloaded, game-client or operator-held copies.
+
+The councillor browser is the signing client; the AddOn supplies bounded observations from the supported game and
+renders QR or a complete manual wire. AddOn-free members need only a normal in-game whisper and their website code.
+Enrollment binds a non-extractable local Ed25519 key to a current native High Councillor and trusted complete roster.
+The server lease is twenty-four hours; automatic mode is separately accepted for five minutes and ten proofs. Fresh
+game observation, original member/session/generation, replay rejection and one-effect current-server role settlement
+are independently enforced. Neither website staff access nor the rendered QR alone proves native qualification.
+The councillor's game and browser must be online; future peer consensus remains outside this launch phase.
+
+Native roles use an explicit profile rather than inferred rank numbers. The observed beta-five profile stays active
+until an attended game-rank change, matching reviewed role map and fresh roster establish the ten-rank layout. Role
+mapping grants no council appointment, charter adoption or bank authority. Source/native acceptance and installed
+module loading are separate from the qualified person's actual live proof and intended role settlement.
+
+The additive serving schema has 65 classified tables. Schema admission and all scheduled waitUntil jobs share the
+conservative 699-statement invocation envelope; adding copy pagination does not add schema or scheduled work. Every
+release must independently measure the whole joined source and exact archive, then bind live readback to that head.

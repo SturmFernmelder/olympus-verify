@@ -1,9 +1,11 @@
 # Councillor browser verification candidate
 
-This is Phase 1 source preparation. `QR_PHASE1_ENABLED`, `QR_RANK_MAPPING_ENABLED` and
-`QR_PRIVILEGED_RANK_MAPPING_ENABLED` are absent by default and therefore OFF. No bot command,
-browser key, native rank, server role, permission or production setting is changed by this candidate.
-The reader is `/static/qr-phase1.html`; integration supplies its authenticated navigation link.
+This is the composed .135 Phase 1 source candidate. Missing feature values fail closed. The candidate
+keeps `QR_PHASE1_ENABLED` OFF because the observed beta ladder has no native High Council; privacy
+controls and the independent beta-five rank-mapping gates are enabled in its reviewed configuration.
+No native rank, appointment or game permission is changed by source publication. Command registration,
+browser enrollment, intended role effects and qualified real game/browser acceptance are separate actions.
+The reader is `/static/qr-phase1.html`; its authenticated navigation stays hidden while Phase 1 is OFF.
 
 A member needs no AddOn. The signed-in member creates a ten-minute code (or uses the genuinely
 Discord-signed, accountless `/olympus-qr` interaction) and whispers `!olympus <code>` in game.
@@ -70,9 +72,11 @@ removals use audited source predicates and original pre-provider generation/abse
 also requires current trusted complete roster absence of every own native GUID. Account erasure consumes the genuine durable retiring job,
 and local deletion must consume the fresh SQL-confirmable absence receipt in its own batch.
 
-Roster-wide unattended continuation is a separate integration: the existing roster/effects caller
-must supply its original generation and measured budget. This candidate adds no new cron/sweep or
-hidden lifecycle budget reallocation. The explicit rank-sync page settles its selected native intents.
+The composed roster-wide unattended continuation supplies its original generation, current exact
+native profile and measured central-writer budget. The existing sweep is bounded to one account per
+run in the shared .135 accounting model. It works independently of the Phase 1 signer gate. No caller
+may substitute a later generation or use a stale/incomplete roster. An explicit rank-sync page can
+settle selected native intents only while the bridge's route admission is enabled.
 
 A lost proof response does not require proof replay. The own-only receipt reader recovers the
 original generation's accepted requests and durable operation IDs after reload. Reconcile performs
@@ -102,5 +106,6 @@ do not establish native game behavior, actual browser capture availability or li
 Before activation: review the combined source/schema/budgets, preserve a verified database export,
 confirm current bot identity/hierarchy/configured maps, install the reviewed AddOn/command through
 the owner-controlled release, and perform the concrete member/councillor game/browser flow. Keep
-the gates OFF while qualified native eligibility is absent. Battle.net and the attended beta reset
+the Phase 1 signer gate OFF while qualified native High Council eligibility is absent; independent
+native rank mapping retains its own exact-profile gates. Battle.net and the attended beta reset
 retain their existing gates. No appointments or native bank permissions are issued here.

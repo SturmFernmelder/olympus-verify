@@ -131,7 +131,8 @@ PRIVACY_ACCESS_ENABLED = "true"
 PRIVACY_ERASURE_ENABLED = "true"
 PRIVACY_RETENTION_ENABLED = "true"
 # The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.
-QR_PHASE1_ENABLED = "true"
+# No native High Council exists in the observed beta ladder; enable only after qualified attended acceptance prerequisites.
+QR_PHASE1_ENABLED = "false"
 QR_RANK_MAPPING_ENABLED = "true"
 QR_PRIVILEGED_RANK_MAPPING_ENABLED = "true"
 QR_NATIVE_ROLE_MAP = '{"profile":"beta-five","roles":["1557496182966587453","1557496796949909575","1557498252994285568","1557498969310101576","1557499286965719050"]}'

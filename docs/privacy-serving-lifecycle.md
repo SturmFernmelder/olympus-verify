@@ -1,9 +1,11 @@
 # Serving privacy lifecycle source scope
 
-This implementation is a qualified serving-account slice, not a claim that every copy, provider record,
-or historical identifier can already be erased automatically. `PRIVACY_ERASURE_ENABLED` and
-`PRIVACY_RETENTION_ENABLED` default to OFF. The dormant .129 foundation is not adopted or activated.
-Deployment and activation require the joined source, schema, policy and budget gate.
+This document describes the composed .135 serving-account candidate, not a claim that every copy,
+provider record or historical identifier can be erased automatically. Missing activation values fail
+closed; the reviewed candidate explicitly enables `PRIVACY_ACCESS_ENABLED`, `PRIVACY_ERASURE_ENABLED`
+and `PRIVACY_RETENTION_ENABLED`. New private-inbox intake stays OFF and existing cases remain available.
+The dormant .129 foundation is not adopted as serving authority. Production publication requires the
+final joined source, schema, policy, recovery, budget, callback and exact-head release gates.
 
 ## Implemented paths
 
@@ -28,7 +30,7 @@ Deployment and activation require the joined source, schema, policy and budget g
 * Original generations travel through ordinary site/community writes, OAuth/name completion, pending
   verification and selected roster effects. The consuming SQL refuses stale payloads, including a
   genuine reauthentication that deliberately reuses the previous session version or physical work slot.
-* Known bot-authored review, notice, guild-log and adopted event-publication message pointers have
+* Known bot-authored review, notice, guild-log, event-publication and reminder message pointers have
   bounded automatic cleanup. Lost DELETE replies retain custody and settle only through GET absence.
   A POST completing after account closure still records its pointer in purpose custody.
 * The existing own-data copy includes minimized lifecycle request, cleanup, recovery-suppression and
@@ -47,13 +49,15 @@ Deployment and activation require the joined source, schema, policy and budget g
 * Historical beta code requests and character first-seen dates keep their original dates. Automatic
   aging/admission waits for the actual cutoff and attended reset confirmation, then ages from the later
   original date or cutoff. Manual authenticated erasure is a separate request.
-* The fixed 18-statement native retention page handles expired minimized controls, completed requests,
+* The fixed 20-statement native retention page handles expired minimized controls, completed requests,
   ended queue/application/reservation/reference records, inactive relays and finished old roster work,
-  while preserving active work and the latest complete snapshot. Each selection is capped at 1,000.
+  while preserving active work and the latest complete snapshot. Record selections are capped at 1,000;
+  the two short-lived privacy-credential selections are capped at 100.
   Removed/refused provider receipts expire at their original 366-day deadline.
-* One erasure job has a declared 140-statement envelope, two five-pointer cleanup pages and up to two
-  expired-role debts reconciled by GET only. The actual busiest composed privacy/QR fixture uses 132
-  D1 attempts. Root's full joined reminder/rank/scheduler measurement remains a separate gate.
+* One erasure job has a declared 149-statement envelope, two five-pointer cleanup pages and up to two
+  expired-role debts reconciled by GET only. It includes original typed-reference guards and legacy
+  grouped roster-audit cleanup. The shared whole scheduled model is 699/700; exact-head native
+  measurement remains a separate release gate.
 
 ## Explicit open boundaries
 
@@ -68,9 +72,10 @@ Deployment and activation require the joined source, schema, policy and budget g
   retain the owner-selected 365-day maximum and newest-only verified replacement/cleanup receipts.
   Restoring an old export requires the attended runbook and a current suppression list. A restored D1
   database's own historical job/replay ledger cannot prove present external restore authority.
-* A user who has lost the ordinary cookie and cannot enter normal guild OAuth does not yet have an
-  independent identity-only access/erasure flow in this source. That is a separate implementation lane;
-  no synthetic SiteUser, ordinary session or membership authority is created here.
+* A user without the ordinary cookie can use the separate identify-only access/erasure connection,
+  including after departure or denial. It asks only for Discord identity and creates purpose-specific
+  twelve-minute one-use grants. It never synthesizes a SiteUser, ordinary session or membership authority.
+  The preferred application's new privacy callback must be registered before publication.
 * Undated legacy members, malformed/manual other-owner references and unregistered stores hold local
   completion. Character-only orphan IDs are outside the valid foreign-key model and need separate
   legacy/import diagnosis; this source does not guess their ownership.
@@ -78,9 +83,10 @@ Deployment and activation require the joined source, schema, policy and budget g
   account-bearing notes and links is fenced/suppressed; this is not a promise that every game fact
   permanently disappears. External nickname/welcome effects and every historical staff-target writer
   are not collectively certified by the serving slice.
-* Reminder adoption requires the actual registered reminder eraser/exporter plus its exact table and
-  parent-column extension. The separate QR/rank family must be registered and its repair accepted.
-  Merely listing those tuples does not qualify their erasure/export or activate them.
+* Actual registered reminder and QR/rank erasers/exporters now participate in the composed serving
+  catalogue. Original-generation and complete-selected-row reminder races, late result custody and
+  finite provider debts have separate native review evidence. Listing the tables alone still provides
+  no release or live-acceptance qualification.
 
 No production account deletion, role change, provider request, recovery copy or activation is performed
 by the source qualification tests. Full automated all-store privacy tasks remain open for the boundaries above.
