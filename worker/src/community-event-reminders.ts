@@ -5,6 +5,7 @@
 import type { Env } from "./env";
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, organizerIds, communityFeatures, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
+import { registerServingPrivacyFamilies } from './privacy-business-catalog';
 import { contentOf, destination, discord, eventDiscordMemberPresent, exactContent, knownRefusal, ownMessage, qualifyDestination } from "./community-event-delivery";
 import { secondsToIso } from "./community-time";
 
@@ -199,3 +200,7 @@ registerCommunityData("event_reminders", (env, who) => [env.DB.prepare(`UPDATE c
   WHERE actor=?1`).bind(who)],
   (env, who) => ({ statements: [env.DB.prepare("SELECT event_id,event_revision,state,starts_at,created_at,retain_until FROM community_event_reminders WHERE actor=?1 ORDER BY event_id").bind(who)],
     shape: ([rows]) => ({ reminders: (rows!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, revision: r.event_revision, state: r.state, startsAt: secondsToIso(r.starts_at as number), createdAt: secondsToIso(r.created_at as number), retainUntil: secondsToIso(r.retain_until as number) })) }) }));
+registerServingPrivacyFamilies('event_reminders',[
+  {table:'community_event_reminders',columns:'event_id,event_revision,starts_at,actor,consent_version,guild_id,channel_id,host,op_id,claim_nonce,state,message_id,frozen_content,cleanup_requested,created_at,updated_at,last_attempt_at,retain_until'},
+  {table:'community_events',columns:'id,op_id,op_hash,title,details,starts_at,duration_min,ends_at,capacity,role_targets,status,created_by,revision,signup_generation,attendance_generation,nonce,attendance_nonce,publication_closed,reminder_closed,created_at,updated_at,retain_until'},
+]);

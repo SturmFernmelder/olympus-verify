@@ -1,8 +1,10 @@
+import './privacy-access-data';
 /** Serving-account completion; independent provider messages/recovery copies retain truthful custody.
  * Dormant .129 completion and restore authority are not enabled by this module.
  */
 import type { Env } from './env';
 import './community-routes';
+import './qr-phase1-data';
 import { communityDataNames,communityEraseStatements } from './community-context';
 import { mentionDeletes } from './site-admin';
 import { servingPrivacyCatalogCurrent } from './privacy-business-catalog';

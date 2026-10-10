@@ -7,6 +7,10 @@ import { ACTION_CURSOR_LIMIT, actionCursorShape, EVENT_CHANGE_CURSOR_LIMIT, even
 import { escapeText as e, htmlResponse } from "./policy-render";
 import { field, FormError, formCookie, formNonce, formToken, hidden, randomCode, readForm, requireFormToken, type FormPurpose } from "./policy-form-core";
 import { privacyIdentityRoute } from "./privacy-identity";
+import "./privacy-access-data";
+import { beginPrivacyAccess, finishPrivacyAccess, privacyAccessPage, privacyAccessRefusal } from "./privacy-access";
+import { exportPrivacyAccess } from "./privacy-access-export";
+import { erasePrivacyAccess } from "./privacy-access-erasure";
 import { requestServingErasure, erasureRequestStatus, type ErasureRequestResult } from './privacy-serving-authority';
 
 const ID = /^[A-Za-z0-9_-]{22}$/, CODE = /^[A-Za-z0-9_-]{43}$/;
@@ -118,7 +122,7 @@ async function showContributionDecisions(request: Request, env: Env, nonce: stri
 
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
-  let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. The separate account connection for privacy requests is not available yet.</p>`;
+  let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. ${env.PRIVACY_ACCESS_ENABLED === 'true' ? '<a href="/privacy/access">Connect Discord for privacy actions</a>, including without a current website account or server membership.' : 'The separate account connection for privacy requests is not available yet.'}</p>`;
   if (user) {
     const b = `${user.discord_id}:${user.session_version}`;
     body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
@@ -140,17 +144,33 @@ async function accountPage(request: Request, env: Env, nonce: string): Promise<R
 
 /** Canonical-site dispatch only (site.ts). Every response, including refusal/HEAD, is no-store/no-transform. */
 export async function handlePolicyForms(request: Request, env: Env, path: string, schemaReady: boolean): Promise<Response | null> {
-  const paths = ["/privacy/contact", "/privacy/case", "/privacy/case/reply", "/privacy/account", "/privacy/account/export", "/privacy/account/site-erase", "/privacy/account/full-erase", "/privacy/account/erasure-status", "/privacy/account/bnet-unlink", "/privacy/signin", "/privacy/callback"];
+  const paths = ["/privacy/contact", "/privacy/case", "/privacy/case/reply", "/privacy/account", "/privacy/account/export", "/privacy/account/site-erase", "/privacy/account/full-erase", "/privacy/account/erasure-status", "/privacy/account/bnet-unlink", "/privacy/signin", "/privacy/callback", "/privacy/access", "/privacy/access/export", "/privacy/access/erasure"];
   if (!paths.includes(path)) return null;
   if (new URL(request.url).search && path !== "/privacy/callback") return htmlResponse(request, "Request refused", "<p>Use the form without a query string. Private codes must never appear in an address.</p>", 400);
   const m = request.method;
   if (!["GET", "HEAD", "POST"].includes(m)) { const r = htmlResponse(request, "Method not allowed", "<p>Use this page's form.</p>", 405); r.headers.set("Allow", "GET, HEAD, POST"); return r; }
   if (!schemaReady) return htmlResponse(request, "Temporarily unavailable", "<p>The database is updating. No request was submitted.</p>", 503);
+  if (env.PRIVACY_ACCESS_ENABLED === 'true' && ['/privacy/signin','/privacy/callback','/privacy/access','/privacy/access/export','/privacy/access/erasure'].includes(path)) {
+    if (m === 'HEAD' && path === '/privacy/access') return htmlResponse(request,'Privacy account connection','');
+    const expected = path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
+    if (m !== expected) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
+    try {
+      if (path === '/privacy/signin') return await beginPrivacyAccess(request,env);
+      if (path === '/privacy/callback') return await finishPrivacyAccess(request,env);
+      if (path === '/privacy/access/export') return await exportPrivacyAccess(request,env);
+      if (path === '/privacy/access/erasure') return await erasePrivacyAccess(request,env);
+      return await privacyAccessPage(request,env);
+    } catch(error) { return privacyAccessRefusal(request,error); }
+  }
+  if (path.startsWith('/privacy/access')) return htmlResponse(request,'Privacy connection unavailable','<p>This account connection is not enabled.</p>',503);
   if (path === "/privacy/signin" || path === "/privacy/callback") return privacyIdentityRoute(request, env, path);
   if ((path.endsWith("/reply") || path.startsWith("/privacy/account/")) && m !== "POST") { const r = htmlResponse(request, "Method not allowed", "<p>Use the account or case form.</p>", 405); r.headers.set("Allow", "POST"); return r; }
   if (m === "HEAD") return htmlResponse(request, "Privacy controls", "");
   try {
     const nonce = formNonce(request) ?? randomCode();
+    if ((m === 'GET' || m === 'POST') && path === '/privacy/contact' && env.PRIVACY_ACCESS_ENABLED === 'true' && env.PRIVACY_INTAKE_ENABLED !== 'true') {
+      return htmlResponse(request,'Privacy account controls','<p>The request inbox has been replaced by account data controls. Connect your own Discord account to download retained records or request serving-account erasure; this grants no guild access.</p><p><a href="/privacy/access">Open account data controls</a> · <a href="/privacy/case">Read an existing case</a></p><p>Existing cases keep their original inactivity deadlines. Unattributable text, unresolved provider outcomes and human-managed staff permissions may require attended handling.</p>',m === 'GET' ? 200 : 503);
+    }
     if (m === "GET" && path === "/privacy/contact") {
       if (!communityFeatures(env).has("privacy_intake") || !intakeOpen(env)) return htmlResponse(request, "Contact the privacy inbox", `<p>New requests are paused. Existing cases can still be read.</p>${controls}`, 503);
       const c = Object.freeze({ caseId: randomCode(16), caseCode: randomCode() });

@@ -11,6 +11,7 @@ import { now } from "./db";
 import { errorRef } from "./log";
 import { QR_PHASE1_DDL } from './qr-phase1-schema';
 import { PRIVACY_SERVING_SCHEMA } from "./privacy-serving-schema";
+import { PRIVACY_ACCESS_SCHEMA } from "./privacy-access-schema";
 
 let ready: Promise<void> | null = null;
 
@@ -238,6 +239,7 @@ const LEGACY_ROLES = [
 ];
 
 export const SITE_SCHEMA = [
+  ...PRIVACY_ACCESS_SCHEMA,
   ...QR_PHASE1_DDL,
   ...PRIVACY_SERVING_SCHEMA,
   `CREATE TABLE IF NOT EXISTS site_users (

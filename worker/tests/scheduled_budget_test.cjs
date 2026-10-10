@@ -341,8 +341,8 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   ON_PUT = null;
   const perFailed = bad4.statements - bad3.statements;
   check(`the failure path: ${perFailed} statements an account (7: four reads, the removal's two refused audits, restore_failed), the fixed reads the same`, perFailed === 7 && bad3.value.failed.length === 3 && bad4.value.failed.length === 4 && bad3.statements - 3 * perFailed === fixedReads, bad3.statements, bad4.statements);
-  const held1 = await measure(sweep, { seed: onlyHeld(1), fail: auditFails("role.revoked_reapply") });
-  const held2 = await measure(sweep, { seed: onlyHeld(2), fail: auditFails("role.revoked_reapply") });
+  const held1 = await measure(sweep, { seed: onlyHeld(1),legacyCostProbe:true, fail: auditFails("role.revoked_reapply") });
+  const held2 = await measure(sweep, { seed: onlyHeld(2),legacyCostProbe:true, fail: auditFails("role.revoked_reapply") });
   const perHeld = held2.statements - held1.statements;
   check(`a held account in the banned reconciliation: ${perHeld} statements (4: the ban and the hold read, the refused removal audit, revoke_pending)`, perHeld === 4 && held1.value.failed.length === 1 && held2.value.failed.length === 2 && held1.statements - perHeld === fixedReads, held1.statements, held2.statements);
   // The ten-account cap is now reached before the 50-request transport budget.
@@ -404,13 +404,13 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   r = await exact("ensureSchema", (L, e) => L("./schema").ensureSchema(e), { fail: everyColumnMissing });
   measured.ensureSchema = r.statements;
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); resetCount(); L("./schema").forgetSchemaCheck(); await L("./schema").ensureSchema(e); const cold = COUNT.statements; resetCount(); await L("./schema").ensureSchema(e); return { cold, warm: COUNT.statements }; });
-  check(`cold on a current database: ${r.value.cold} statements (155: joined publication, reminder, privacy and QR schema); warm: ${r.value.warm}`, r.value.cold === 155 && r.value.warm === 0, r.value);
+  check(`cold on a current database: ${r.value.cold} statements (159: joined publication, reminder, privacy and QR schema); warm: ${r.value.warm}`, r.value.cold === 159 && r.value.warm === 0, r.value);
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN publication_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT publication_closed FROM community_events LIMIT 1") ?? null; });
-  check(`actual old-parent publication closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 156, r.statements);
+  check(`actual old-parent publication closure ALTER: ${r.statements} statements, exactly one above current cold`, r.statements === 160, r.statements);
   r = await measure(async (L, e) => { await L("./schema").ensureSchema(e); run("ALTER TABLE community_events DROP COLUMN reminder_closed"); L("./schema").forgetSchemaCheck(); resetCount(); await L("./schema").ensureSchema(e); return one("SELECT reminder_closed FROM community_events LIMIT 1").reminder_closed; });
-  check(`actual old-parent reminder closure ALTER: ${r.statements} statements; default OFF disposition`, r.statements === 156 && r.value === 0, r);
+  check(`actual old-parent reminder closure ALTER: ${r.statements} statements; default OFF disposition`, r.statements === 160 && r.value === 0, r);
   r = await measure((L, e) => L("./schema").ensureSchema(e));
-  check(`  cold before the one-time audit rewrite: ${r.statements} statements (158)`, r.statements === 158, r.statements);
+  check(`  cold before the one-time audit rewrite: ${r.statements} statements (162)`, r.statements === 162, r.statements);
   const sumMeasured = Object.values(measured).reduce((s, x) => s + x, 0);
   console.log(`    the jobs measured one by one: ${sumMeasured} statements`);
 
@@ -441,7 +441,7 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   check("  and the rest: the digest posted, the figures computed, a role sweep recorded", one("SELECT COUNT(*) AS c FROM audit WHERE action = 'community.officer_digest_posted'").c === 1 && one("SELECT value FROM site_settings WHERE key = 'newsFigures'") && one("SELECT COUNT(*) AS c FROM audit WHERE action = 'role.sweep'").c === 1);
   const cold = await wholeRun("cold");
   console.log(`    cold schema (a fresh isolate on a current database): ${cold.statements} statements in ${cold.trips} round trips`);
-  check(`cold: ${cold.statements} statements = warm + 155, within the table and the target`, cold.statements === warm.statements + 155 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
+  check(`cold: ${cold.statements} statements = warm + 159, within the table and the target`, cold.statements === warm.statements + 159 && cold.statements <= sum && cold.statements <= budget.SCHEDULED_STATEMENT_TARGET, cold, warm);
   const worst = await wholeRun("cold worst");
   console.log(`    cold schema, every column reported missing: ${worst.statements} statements in ${worst.trips} round trips`);
   check(`cold worst: ${worst.statements} statements = warm + the schema line, within the table (${sum}) and the target (${budget.SCHEDULED_STATEMENT_TARGET})`, worst.statements === warm.statements + line("ensureSchema") && worst.statements <= sum && worst.statements <= budget.SCHEDULED_STATEMENT_TARGET, worst, warm);

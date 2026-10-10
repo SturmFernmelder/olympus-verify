@@ -3,12 +3,14 @@
  * recorded cutoff only after the attended beta reset confirms that same cutoff.
  */
 import type { Env } from './env';
+import { privacyAccessPurgeStatements } from './privacy-access';
 import { PRIVACY_DB_NOW as T, PRIVACY_YEAR as YEAR } from './privacy-serving-authority';
 import {betaRetentionClockSql as betaAged} from './privacy-retention-clocks';
 const expired=(clock:string)=>`${clock}<=${T}-${YEAR}`;
 const active=(identity:string)=>`EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=${identity} AND c.status NOT IN('unbound','denied','left'))`;
 /** Fixed statement census is part of the joined scheduled budget. Each selection has a finite deterministic page. */
 export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return [
+ ...privacyAccessPurgeStatements(env),
  env.DB.prepare(`DELETE FROM privacy_denial_markers WHERE subject_key IN(SELECT subject_key FROM privacy_denial_markers WHERE retain_until<=${T} ORDER BY retain_until,subject_key LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_restore_replay WHERE operation_id IN(SELECT operation_id FROM privacy_restore_replay WHERE retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_serving_jobs WHERE operation_id IN(SELECT operation_id FROM privacy_serving_jobs WHERE state='complete' AND retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
@@ -42,7 +44,7 @@ export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return
  env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE ${expired('ts')} ORDER BY ts,id LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_provider_messages WHERE operation_id IN(SELECT operation_id FROM privacy_provider_messages WHERE state IN('removed','refused') AND retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
  ];}
-export const SERVING_RETENTION_STATEMENTS=18;
+export const SERVING_RETENTION_STATEMENTS=20;
 export async function sweepServingRetention(env:Env):Promise<number>{
  if(env.PRIVACY_RETENTION_ENABLED!=='true')return 0;
  const statements=servingRetentionStatements(env);

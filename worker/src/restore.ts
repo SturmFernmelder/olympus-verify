@@ -15,10 +15,11 @@
 import { intVar, type Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
-import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, inventoryCalls, GRANT_CALLS } from "./roles";
+import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS } from "./roles";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
 import { privacyCaptureFromColumns,type PrivacySubject } from './privacy-serving-authority';
-type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null};
+import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
+type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;rank_snapshot_id:number|null};
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
 
@@ -192,16 +193,19 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   }
   let priority: string[] = [];
   const captures=new Map<string,PrivacySubject|null>();
+  const rankSnapshots=new Map<string,number|null>();
+  const rankMapping=env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true';
   const originalCursorReference=last&&typeof state.c==='string'&&/^\d{17,20}$/.test(state.c)?{subject:state.c,capture:privacyCaptureFromColumns(state.c,{privacy_generation:last.cursor_generation??null,privacy_state:last.cursor_state??null,privacy_revision:last.cursor_revision??null})}:null;
   if (fresh.length) {
     const ph = fresh.map((_, k) => `?${k + 1}`).join(",");
     const still = await env.DB.prepare(
-      `SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.discord_id IN (${ph}) AND status IN ('member','left_pending') AND (p.state IS NULL OR p.state='active') ` +
+      `SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision,(SELECT MAX(id) FROM roster_snapshots) AS rank_snapshot_id FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.discord_id IN (${ph}) AND status IN ('member','left_pending') AND (p.state IS NULL OR p.state='active') ` +
         "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = c.discord_id AND m.banned = 1)",
     )
       .bind(...fresh)
       .all<SweepSubject>();
     for(const row of still.results)captures.set(row.discord_id,privacyCaptureFromColumns(row.discord_id,row));
+    for(const row of still.results)rankSnapshots.set(row.discord_id,row.rank_snapshot_id);
     const keep = new Set(still.results.map((r) => r.discord_id));
     priority = fresh.filter((d) => keep.has(d));
   }
@@ -212,12 +216,13 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   const room = budget - priority.length;
   if (room > 0) {
     const rows = await env.DB.prepare(
-      "SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE status = 'member' AND c.discord_id > ?1 AND (p.state IS NULL OR p.state='active') " +
+      "SELECT DISTINCT c.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision,(SELECT MAX(id) FROM roster_snapshots) AS rank_snapshot_id FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE status = 'member' AND c.discord_id > ?1 AND (p.state IS NULL OR p.state='active') " +
         "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = c.discord_id AND m.banned = 1) ORDER BY c.discord_id LIMIT ?2",
     )
       .bind(cursor, room)
       .all<SweepSubject>();
     for(const row of rows.results)captures.set(row.discord_id,privacyCaptureFromColumns(row.discord_id,row));
+    for(const row of rows.results)rankSnapshots.set(row.discord_id,row.rank_snapshot_id);
     for (const r of rows.results) if (!priority.includes(r.discord_id)) rotation.push(r.discord_id);
     cursor = rows.results.length < room ? "" : rows.results[rows.results.length - 1].discord_id; // wrap at the end
   }
@@ -261,7 +266,14 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       failed.push({ id, error: e instanceof DiscordError ? `remove ${e.status}` : String(e).slice(0, 120) });
       return "done";
     }
-    if (m.roles.includes(role)) return "done";
+    // Continue native ranks for an already-confirmed member as well. The roster and privacy generation
+    // came from the original selection, before any Discord await; a later roster is never substituted.
+    const continueRanks=async()=>{
+      const snapshot=rankSnapshots.get(id);
+      if(rankMapping&&Number.isSafeInteger(snapshot)&&snapshot!>0)
+        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls);
+    };
+    if (m.roles.includes(role)) { await continueRanks(); return "done"; }
     try {
       const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,typeof calls,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
       const outcome = await writer(env, id, `olympus-verify: Guild Member restored (sweep); the roster has this member`, `sweep:${trigger}`, m.roles, calls,{subjectGeneration:capture?.subjectGeneration??null});
@@ -277,6 +289,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       if (outcome !== "granted") return "done";
       restored.push(id);
       await audit(env, "system", "role.restored", id, { source: `sweep:${trigger}` },reference);
+      await continueRanks();
       await new Promise((res) => setTimeout(res, 250)); // keep a run of grants off Discord's rate limiter
       return "done";
     } catch (e) {
@@ -290,7 +303,8 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     // .90/.95 (P-20): the whole account reserved before its first request (the look; then the grant's inventory read when
     // it is due, the writer's fresh look, the PUT and the mandatory removal after a ban, each with its possible 429 retry):
     // stop BEFORE an account the budget cannot finish, so nobody is half-handled; the rotation resumes at the last one done
-    if (!affords(calls, 1 + GRANT_CALLS + inventoryCalls(env, calls)) || !takeCall(calls)) {
+    const membershipCalls=1+GRANT_CALLS+inventoryCalls(env,calls);
+    if (!affords(calls,membershipCalls) || calls.limit-calls.attempts<reserve(membershipCalls)+(rankMapping?RANK_CONTINUATION_HTTP_RESERVE:0) || !takeCall(calls)) {
       await budgetExhausted(env, calls, `sweep:${trigger}`);
       stopped = true;
       break;
