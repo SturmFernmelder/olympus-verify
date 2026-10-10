@@ -128,6 +128,9 @@ INTROS_CHANNELS = "server-rules=1300107359242424350,olympus-info=155426459791210
 
 # .135 first stage: account copies ON; erasure/retention activation awaits legacy-writer compatibility. Existing case credentials remain usable.
 PRIVACY_ACCESS_ENABLED = "true"
+# .144 gated profile: deploy only after exact attended native installation/readback; no automatic installer.
+PRIVACY_WRITE_ADMISSION_ENABLED = "true"
+PRIVACY_WRITE_ADMISSION_LAYOUT = "recorded-live-20261010"
 PRIVACY_ERASURE_ENABLED = "false"
 PRIVACY_RETENTION_ENABLED = "false"
 # The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.

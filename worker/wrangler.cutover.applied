@@ -26,3 +26,7 @@ activated_at = "2026-10-10T11:47:20Z"
 # Activation (scripts/cutover-config.sh --activate): only the activation keys changed (PRIVACY_ACCESS_ENABLED PRIVACY_ERASURE_ENABLED PRIVACY_INTAKE_ENABLED PRIVACY_RETENTION_ENABLED QR_NATIVE_ROLE_MAP QR_PHASE1_ENABLED QR_PRIVILEGED_RANK_MAPPING_ENABLED QR_RANK_MAPPING_ENABLED); this is the profile now in force.
 activation_profile_sha256 = "58a147f3a19a0b76687ab0a81fca0ae5e5a93aca703744c1ab24758d49b37116"
 activated_at = "2026-10-10T16:14:05Z"
+# Reviewed SOURCE-ONLY .144 admission profile. Not produced by --activate; not proof of installation or deployment.
+# Deployment is held until exact native202 install/readback. Erasure, retention, intake and QR Phase1 remain OFF.
+activation_profile_sha256 = "31d73161ae567bee5b1af0e7b875b557bdf173bf6de99cafe22bcffb800e33db"
+activated_at = "2026-10-10T22:04:26Z"

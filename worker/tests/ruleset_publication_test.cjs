@@ -23,10 +23,11 @@ function fixture(generation=null){
  ADMISSION_MODE:'review',OFFICER_CHARACTERS:'Synthetic Officer',ROLE_GUILD_MEMBER:'700000000000000099',SET_NICKNAME:'false',NAME_RESERVATION_AT:'0',LAUNCH_AT:'0',COMMUNITY_FEATURES:''};
  db.prepare('INSERT INTO site_users(discord_id,username,in_server,denied,session_version,first_login,last_login,checked_at)VALUES(?,?,1,0,1,?,?,?)').run(ADMIN,'synthetic-staff',T,T,T);
  if(generation)db.prepare("INSERT INTO privacy_subjects VALUES(?,?,'active',1,?,?,NULL,NULL)").run(ADMIN,generation,T,T);
- const messages=new Map(),calls=[];let effectHook=null,getHook=null,losePost=false,next=900000000000000000n,wrongBot=false,wrongGuild=false;
+ const messages=new Map(),calls=[];let effectHook=null,getHook=null,losePost=false,losePatch=false,responseScanVersion=undefined,next=900000000000000000n,wrongBot=false,wrongGuild=false;
  globalThis.fetch=async(url,init={})=>{const p=new URL(url).pathname.replace(/^\/api\/v10/,''),m=init.method??'GET';calls.push([m,p]);
   if(m==='GET'&&getHook){const h=getHook;getHook=null;await h(p);}
-  const reply=(x,status=200)=>new Response(status===204?null:JSON.stringify(x),{status,headers:{'content-type':'application/json'}});let x;
+  const reply=(x,status=200)=>{const body=structuredClone(x);if(responseScanVersion!==undefined&&body?.channel_id&&Array.isArray(body.embeds))for(const embed of body.embeds)embed.content_scan_version=responseScanVersion;
+   return new Response(status===204?null:JSON.stringify(body),{status,headers:{'content-type':'application/json'}});};let x;
   if(p==='/users/@me')return reply({id:wrongBot?OTHER:BOT,bot:true});
   if((x=p.match(/^\/channels\/(\d+)$/)))return reply({id:x[1],guild_id:wrongGuild?OTHER:GUILD,type:0});
   if((x=p.match(/^\/channels\/(\d+)\/messages\/pins$/)))return reply({items:[...messages.values()].filter(z=>z.channel_id===x[1]&&z.pinned).map(message=>({message}))});
@@ -36,7 +37,7 @@ function fixture(generation=null){
    if(losePost){losePost=false;throw Error('synthetic lost provider result');}return reply(msg);
   }
   if((x=p.match(/^\/channels\/(\d+)\/messages\/(\d+)$/))){const msg=messages.get(x[2]);if(!msg||msg.channel_id!==x[1])return reply({code:10008},404);
-   if(m==='PATCH'){Object.assign(msg,JSON.parse(init.body));if(effectHook){const h=effectHook;effectHook=null;await h(msg);}}return reply(msg);}
+   if(m==='PATCH'){Object.assign(msg,JSON.parse(init.body));if(effectHook){const h=effectHook;effectHook=null;await h(msg);}if(losePatch){losePatch=false;throw Error('synthetic lost PATCH result');}}return reply(msg);}
   if((x=p.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/))&&m==='PUT'){const msg=messages.get(x[2]);if(!msg)return reply({code:10008},404);msg.pinned=true;if(effectHook){const h=effectHook;effectHook=null;await h(msg);}return reply(null,204);}
   return reply({code:0},404);
  };
@@ -45,7 +46,7 @@ function fixture(generation=null){
   const req=new Request('https://guild.example/api/admin/ruleset-publication'+suffix,{method,headers:{Cookie:cookie,Origin:'https://guild.example','X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json',...extra},...(method==='GET'?{}:{body:JSON.stringify(body)})});
   const start=sqlCount,res=await site.handleSite(req,env,new URL(req.url).pathname,true,'synthetic-publication',()=>{});maxSql=Math.max(maxSql,sqlCount-start);return {status:res.status,data:await res.json()};};
  const select=async()=>{const a=await request('GET','');return request('POST','/select',{profileRevision:profile.currentRulesetProfile().revision,form:a.data.form});};
- return {db,env,request,select,messages,calls,get effects(){return calls.filter(c=>c[0]!=='GET').length;},set before(v){before=v;},set after(v){after=v;},set effectHook(v){effectHook=v;},set getHook(v){getHook=v;},set losePost(v){losePost=v;},set lostBatch(v){lostBatch=v;},set wrongBot(v){wrongBot=v;},set wrongGuild(v){wrongGuild=v;},get cookie(){return cookie;},set cookie(v){cookie=v;}};
+ return {db,env,request,select,messages,calls,get effects(){return calls.filter(c=>c[0]!=='GET').length;},set before(v){before=v;},set after(v){after=v;},set effectHook(v){effectHook=v;},set getHook(v){getHook=v;},set losePost(v){losePost=v;},set losePatch(v){losePatch=v;},set responseScanVersion(v){responseScanVersion=v;},set lostBatch(v){lostBatch=v;},set wrongBot(v){wrongBot=v;},set wrongGuild(v){wrongGuild=v;},get cookie(){return cookie;},set cookie(v){cookie=v;}};
 }
 (async()=>{
  const canonical=load('guide').guideMessage({ADMISSION_MODE:'review',OFFICER_CHARACTERS:'Synthetic Officer',ROLE_GUILD_MEMBER:'700000000000000099',SET_NICKNAME:'false'});
@@ -55,6 +56,33 @@ function fixture(generation=null){
  received.components[0].components[0].type=4;check('changed source-defined component type is refused',!adapter.messageMatches(received,canonical));
  received.components[0].components[0].type=canonical.components[0].components[0].type;received.embeds[0].image={url:'https://unapproved.invalid/personal'};
  check('extra semantic embed content is refused',!adapter.messageMatches(received,canonical));
+ for(const value of [0,1,Number.MAX_SAFE_INTEGER]){const msg=structuredClone(canonical);msg.embeds[0].content_scan_version=value;check('direct embed response-only safe scan version accepted '+value,adapter.messageMatches(msg,canonical));}
+ for(const [label,value] of [['negative',-1],['fractional',0.5],['string','1'],['empty string',''],['null',null],['false',false],['true',true],['unsafe integer',Number.MAX_SAFE_INTEGER+1],['NaN',NaN],['infinity',Infinity],['object',{}],['array',[]]]){const msg=structuredClone(canonical);msg.embeds[0].content_scan_version=value;check('malformed scan version refused '+label,!adapter.messageMatches(msg,canonical));}
+ for(const location of ['footer','fields','component','button']){const msg=structuredClone(canonical);const obj=location==='footer'?(msg.embeds[0].footer??={text:'source footer'}):location==='fields'?(msg.embeds[0].fields??=[{name:'source name',value:'source value'}])[0]:location==='component'?msg.components[0]:msg.components[0].components[0];const wanted=structuredClone(msg);obj.content_scan_version=1;check('scan version at nested or nonembed location refused '+location,!adapter.messageMatches(msg,wanted));}
+ const defined=structuredClone(canonical);defined.embeds[0].content_scan_version=1;let versioned=structuredClone(defined);check('source-defined scan version equality is preserved',adapter.messageMatches(versioned,defined));versioned.embeds[0].content_scan_version=2;check('source-defined scan version mismatch remains refused',!adapter.messageMatches(versioned,defined));delete versioned.embeds[0].content_scan_version;check('missing source-defined scan version remains refused',!adapter.messageMatches(versioned,defined));
+ for(const change of ['description','color','footer','custom_id','component_type','unknown_key','content']){const msg=structuredClone(canonical);msg.embeds[0].content_scan_version=1;
+  if(change==='description')msg.embeds[0].description+='changed';else if(change==='color')msg.embeds[0].color++;else if(change==='footer')msg.embeds[0].footer={text:'unapproved footer'};else if(change==='custom_id')msg.components[0].components[0].custom_id='unapproved';else if(change==='component_type')msg.components[0].type=4;else if(change==='unknown_key')msg.embeds[0].unapproved='extra';else msg.content='unapproved';
+  check('valid scan metadata cannot hide source or extra content change '+change,!adapter.messageMatches(msg,canonical));}
+ const oldGuide='800000000000000077',rowTuple=r=>Object.fromEntries(['guild_id','publication_id','target_key','selection_revision','profile_revision','plan_hash','actor','actor_generation','session_version','session_expires','parent_id','channel_id','frozen_payload','payload_hash','record_hash','claim_nonce','stage','created_at','actor_retain_until'].map(k=>[k,r[k]]));
+ function seedGuide(f){const msg={content:'',...load('guide').guideMessage(f.env),id:oldGuide,channel_id:CH.guide,author:{id:BOT},pinned:true};msg.embeds[0].description+=' old text';f.messages.set(oldGuide,msg);}
+ let mf=fixture(g);seedGuide(mf);mf.responseScanVersion=1;let ms=await mf.select(),claimedTuple=null;
+ mf.effectHook=async()=>{claimedTuple=rowTuple(mf.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get());};
+ let mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'}),settledRow=mf.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get();
+ check('actual single guide PATCH response with scan metadata settles applied original pointer',mr.status===200&&mr.data.state==='applied'&&mr.data.messageId===oldGuide&&mf.effects===1&&mf.calls.filter(c=>c[0]==='PATCH').length===1&&mf.calls.filter(c=>c[0]==='POST'||c[0]==='PUT').length===0);
+ check('successful metadata response settlement preserves exact claimed original tuple/deadline',JSON.stringify(rowTuple(settledRow))===JSON.stringify(claimedTuple));
+ mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'});check('applied metadata response replay performs no additional provider write',mr.status===200&&mr.data.state==='applied'&&mf.effects===1);
+ mf=fixture(g);seedGuide(mf);mf.responseScanVersion=1;mf.losePatch=true;ms=await mf.select();mf.effectHook=async()=>{claimedTuple=rowTuple(mf.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get());};
+ mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'});check('actual committed PATCH with lost reply remains unknown at original known pointer',mr.status===200&&mr.data.state==='unknown'&&mf.effects===1&&mf.db.prepare("SELECT message_id FROM ruleset_publications WHERE target_key='guide'").get().message_id===oldGuide);
+ mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'});check('unknown lost PATCH is refused without redispatch',mr.status===409&&mf.effects===1);
+ const reconcileStart=mf.calls.length;mr=await mf.request('POST','/reconcile',{publicationId:ms.data.publicationId,target:'guide',messageId:oldGuide});settledRow=mf.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get();
+ check('explicit original-operation reconciliation accepts exact metadata GET without new provider mutation',mr.status===200&&mr.data.state==='applied'&&mr.data.messageId===oldGuide&&mf.effects===1&&mf.calls.slice(reconcileStart).length===3&&mf.calls.slice(reconcileStart).every(c=>c[0]==='GET'));
+ check('metadata reconciliation preserves original generation/nonce/payload/created/deadline',JSON.stringify(rowTuple(settledRow))===JSON.stringify(claimedTuple));
+ mr=await mf.request('POST','/reconcile',{publicationId:ms.data.publicationId,target:'guide',messageId:oldGuide});check('settled reconciliation cannot admit another response or effect',mr.status===409&&mf.effects===1);
+ mf=fixture(g);seedGuide(mf);mf.responseScanVersion='1';ms=await mf.select();mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'});check('malformed provider scan metadata leaves actual PATCH unknown without a repeat',mr.status===200&&mr.data.state==='unknown'&&mf.effects===1);mr=await mf.request('POST','/reconcile',{publicationId:ms.data.publicationId,target:'guide',messageId:oldGuide});check('malformed provider scan metadata also refuses original explicit reconciliation',mr.status===409&&mf.effects===1);
+ mf=fixture(g);seedGuide(mf);mf.responseScanVersion=1;ms=await mf.select();const erasedDeadline=mf.db.prepare("SELECT actor_retain_until FROM ruleset_publications WHERE target_key='guide'").get().actor_retain_until;
+ mf.effectHook=async()=>{await mf.env.DB.batch(data.rulesetPublicationEraseStatements(mf.env,ADMIN));mf.db.prepare('DELETE FROM site_users WHERE discord_id=?').run(ADMIN);mf.db.prepare("UPDATE privacy_subjects SET state='retired',revision=2,erased_at=?,retain_until=? WHERE subject_id=?").run(T,T+366*86400,ADMIN);};
+ mr=await mf.request('POST','/publish',{publicationId:ms.data.publicationId,target:'guide'});settledRow=mf.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get();
+ check('late metadata PATCH reply after erasure records only held original pointer',mr.status===200&&mr.data.state==='held'&&settledRow.message_id===oldGuide&&settledRow.actor===null&&settledRow.actor_generation===null&&settledRow.session_version===null&&settledRow.session_expires===null&&settledRow.actor_retain_until===erasedDeadline&&mf.effects===1);
  let f=fixture(g),a=await f.request('GET','');check('GET status does not publish and future switch stays unavailable',a.status===200&&f.effects===0&&a.data.futureSwitchAvailable===false);
  for(const key of ['olympus-info','guild-announcements']){const legacy=await load('intros').refreshIntros(f.env,GUILD,ADMIN,CH[key]);check('legacy refresh cannot compete for migrated identity slot '+key,legacy.outcomes.length===1&&legacy.outcomes[0].action==='skipped'&&f.effects===0);}
  f.env.ROLE_OFFICER=OTHER;

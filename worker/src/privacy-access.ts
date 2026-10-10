@@ -53,17 +53,62 @@ const CALLBACK_SUPPORT = new Map<string,string>([
  ['identity_scope_known_role_refused','PA-T6F'],['identity_scope_known_member_role_refused','PA-T6G'],
  ['identity_scope_known_guild_refused','PA-T6H'],['identity_scope_known_member_guild_refused','PA-T6J'],
  ['identity_scope_known_role_guild_refused','PA-T6K'],['identity_scope_known_member_role_guild_refused','PA-T6L'],
- ['identity_scope_known_email_refused','PA-T6M'],
+  ['identity_scope_known_email_refused','PA-T6M'],
+  ['identity_scope_duplicate_refused','PA-T6N'],['identity_scope_known_combination_refused','PA-T6P'],
  ['identity_read_transport_unconfirmed','PA-I1'],['identity_read_unconfirmed','PA-I2'],
  ['identity_read_body_unconfirmed','PA-I3'],['identity_read_refused','PA-I4'],
  ['identity_subject_unconfirmed','PA-S1'],['identity_grant_material_unconfirmed','PA-G1'],
  ['identity_grant_batch_unconfirmed','PA-G2'],['identity_capture_unconfirmed','PA-G3'],
 ]);
+// Diagnostic dictionary only: Discord's public API OAuth table plus the Social SDK
+// scopes page (reviewed 2026-10-10). Membership never authorizes a permission.
+// https://docs.discord.com/developers/topics/oauth2#oauth2-scopes
+// https://docs.discord.com/developers/discord-social-sdk/core-concepts/oauth2-scopes
+const PUBLIC_DISCORD_SCOPE_NAMES=Object.freeze([
+ 'activities.read','activities.write','applications.builds.read','applications.builds.upload',
+ 'applications.commands','applications.commands.update','applications.commands.permissions.update',
+ 'applications.entitlements','applications.store.update','bot','connections','dm_channels.read',
+ 'email','gdm.join','guilds','guilds.join','guilds.members.read','identify','identify.premium',
+ 'messages.read','relationships.read','role_connections.write','rpc','rpc.activities.write',
+ 'rpc.notifications.read','rpc.voice.read','rpc.voice.write','voice','webhook.incoming',
+ 'openid','sdk.social_layer_presence','sdk.social_layer',
+]);
+type ScopeDiagnostic=Readonly<{known:string;repeatedKnown:string;unknown:boolean;repeatedUnknown:boolean;duplicate:boolean}>;
+const scopeDiagnostics=new WeakMap<FormError,Readonly<{request:Request;diagnostic:ScopeDiagnostic}>>();
+function scopeDiagnostic(scope:unknown):ScopeDiagnostic|null{
+ if(typeof scope!=='string'||!/^[\x21\x23-\x5B\x5D-\x7E]+(?: [\x21\x23-\x5B\x5D-\x7E]+)*(?![\s\S])/.test(scope))return null;
+ const seen=new Set<string>(),repeatedKnown=new Set<string>();let known=0,unknown=false,repeatedUnknown=false,duplicate=false;
+ for(const token of scope.split(' ')){
+  const index=PUBLIC_DISCORD_SCOPE_NAMES.indexOf(token);
+  if(seen.has(token)){duplicate=true;if(index<0)repeatedUnknown=true;else repeatedKnown.add(token);}
+  else{seen.add(token);if(index<0)unknown=true;else known+=2**index;}
+ }
+ // Arithmetic keeps bit31 unsigned; both masks are bounded public enum membership,
+ // not digests, token counts, ordering or a representation of an unknown name.
+ const repeated=[...repeatedKnown].reduce((mask,name)=>mask+2**PUBLIC_DISCORD_SCOPE_NAMES.indexOf(name),0);
+ return Object.freeze({known:known.toString(16).padStart(8,'0'),repeatedKnown:repeated.toString(16).padStart(8,'0'),unknown,repeatedUnknown,duplicate});
+}
+function refusedScope(request:Request,scope:unknown):FormError{
+ const diagnostic=scopeDiagnostic(scope),error=new FormError(scopeRefusal(scope,diagnostic),503);
+ // This call is reached only after the original browser/state was consumed. Retain
+ // no provider value, and expose metadata only once to that exact request's page.
+ if(diagnostic)scopeDiagnostics.set(error,Object.freeze({request,diagnostic}));return error;
+}
+function scopeSupport(request:Request,error:unknown):Readonly<{attributes:string;body:string}>|null{
+ if(!(error instanceof FormError)||new URL(request.url).pathname!=='/privacy/callback')return null;
+ const bound=scopeDiagnostics.get(error);if(!bound||bound.request!==request)return null;
+ scopeDiagnostics.delete(error);const d=bound.diagnostic,mask=parseInt(d.known,16);
+ const labels=PUBLIC_DISCORD_SCOPE_NAMES.filter((_,i)=>Math.floor(mask/2**i)%2===1);
+ const attributes=` data-privacy-scope-schema="discord-public-scope-v1" data-privacy-scope-known="${d.known}" data-privacy-scope-repeated-known="${d.repeatedKnown}" data-privacy-scope-unknown="${d.unknown}" data-privacy-scope-repeated-unknown="${d.repeatedUnknown}"`;
+ // Every label comes from the closed source dictionary, never the provider string.
+ const body='<p>Support details: '+(d.duplicate?'Repeated permission entries. ':'Unique permission entries. ')+(d.unknown?'An unrecognized permission is present. ':'Only recognized permission labels are present. ')+'These details do not grant access.</p><p>Recognized permission labels: '+(labels.join(', ')||'none')+'.</p>';
+ return Object.freeze({attributes,body});
+}
 async function callbackStep<T>(reason:string,work:()=>Promise<T>):Promise<T>{
  try{return await work();}catch{throw new FormError(reason,503);}
 }
 /** Scope grammar classifies only an already refused value (.140); it never admits one. */
-function scopeRefusal(scope:unknown):string{
+function scopeRefusal(scope:unknown,diagnostic:ScopeDiagnostic|null):string{
  if(typeof scope!=='string')return 'identity_scope_nonstring_refused';
  if(scope.length===0)return 'identity_scope_empty_refused';
  // Only ASCII spaces around/repeating the exact token receive this category.
@@ -86,7 +131,9 @@ function scopeRefusal(scope:unknown):string{
    case 'email identify':return 'identity_scope_known_email_refused';
   }
  }
- return tokens.includes('identify')?'identity_scope_broader_refused':'identity_scope_missing_identify_refused';
+  if(!tokens.includes('identify'))return 'identity_scope_missing_identify_refused';
+  if(diagnostic?.duplicate)return 'identity_scope_duplicate_refused';
+  return diagnostic?.unknown?'identity_scope_broader_refused':'identity_scope_known_combination_refused';
 }
 
 /** Two statements, each deleting at most 100 original expired rows. Composed with the counted retention job. */
@@ -141,7 +188,7 @@ export async function finishPrivacyAccess(request:Request,env:Env):Promise<Respo
  // .142 closed compatibility trial: accept only the ordinary app's exact extra
  // member-read permission, in either order. It is unused here; this does not
  // downscope the provider token or admit other scopes, duplicates or formatting.
- if(Object.hasOwn(t,'scope')&&t.scope!=='identify'&&t.scope!=='identify guilds.members.read'&&t.scope!=='guilds.members.read identify')throw new FormError(scopeRefusal(t.scope),503);
+  if(Object.hasOwn(t,'scope')&&t.scope!=='identify'&&t.scope!=='identify guilds.members.read'&&t.scope!=='guilds.members.read identify')throw refusedScope(request,t.scope);
  const response=await callbackStep('identity_read_transport_unconfirmed',()=>fetchPrivacyProvider(credentialFetch(API+'/users/@me',{signal:controller.signal,headers:{Authorization:'Bearer '+t.access_token}}),until,controller));
  if(!response.ok){discardPrivacyProvider(response);throw new FormError('identity_read_unconfirmed',503);}
  const identity=await callbackStep('identity_read_body_unconfirmed',()=>readPrivacyProviderJson(response,until,controller));
@@ -227,8 +274,9 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
 export function privacyAccessRefusal(request:Request,error:unknown):Response{
  if(error instanceof FormError&&error.code==='privacy_erasure_unavailable')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p><p><a href="/privacy/access">Download my retained records</a> · <a href="/privacy/account">Check an existing erasure request</a> · <a href="/privacy/contact">Account help</a></p>',503);
  const status=error instanceof FormError?error.status:503;
- const support=new URL(request.url).pathname==='/privacy/callback'&&error instanceof FormError?CALLBACK_SUPPORT.get(error.code):undefined;
- return htmlResponse(request,'Privacy connection unavailable',`<div data-privacy-refusal="${support??'PA-U0'}"><p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p></div>`,status);
+  const support=new URL(request.url).pathname==='/privacy/callback'&&error instanceof FormError?CALLBACK_SUPPORT.get(error.code):undefined;
+  const diagnostic=scopeSupport(request,error);
+  return htmlResponse(request,'Privacy connection unavailable',`<div data-privacy-refusal="${support??'PA-U0'}"${diagnostic?.attributes??''}><p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>${diagnostic?.body??''}</div>`,status);
 }
 
 const erasurePaused='<p>Automatic serving-account erasure is temporarily paused while Olympus checks older account records. Downloads and checks of existing erasure requests remain available. Ask an Olympus officer for attended help. Reconnecting Discord does not enable erasure.</p>';

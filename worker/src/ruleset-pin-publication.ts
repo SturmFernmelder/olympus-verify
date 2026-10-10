@@ -6,22 +6,24 @@ import { GUIDE_VERIFY, GUIDE_STATUS } from './guide';
 export type PublicPayload={content?:string;embeds:unknown[];components?:unknown[];allowed_mentions:{parse:never[]}};
 export type PublicationMessage={id:string;channel_id:string;author?:{id:string};content?:string;embeds?:unknown[];components?:unknown[];pinned?:boolean;nonce?:string|number};
 const ID=/^\d{17,20}$/;
-function samePayload(actual:unknown,wanted:unknown):boolean {
- if(Array.isArray(wanted))return Array.isArray(actual)&&actual.length===wanted.length&&wanted.every((v,i)=>samePayload(actual[i],v));
+type PayloadContext='payload'|'embedArray'|'embedObject';
+function samePayload(actual:unknown,wanted:unknown,context:PayloadContext='payload'):boolean {
+ if(Array.isArray(wanted))return Array.isArray(actual)&&actual.length===wanted.length&&wanted.every((v,i)=>samePayload(actual[i],v,context==='embedArray'?'embedObject':'payload'));
  if(wanted&&typeof wanted==='object'){
   if(!actual||typeof actual!=='object'||Array.isArray(actual))return false;
   const a=actual as Record<string,unknown>,w=wanted as Record<string,unknown>;
   if(!Object.keys(w).every(k=>Object.hasOwn(a,k)&&samePayload(a[k],w[k])))return false;
-  // Only harmless response defaults are ignored. Source-defined type/flags/id still compare exactly.
+  // The observed numeric scan version is response metadata only on direct embeds; source fields still compare exactly.
   return Object.keys(a).every(k=>Object.hasOwn(w,k)||(k==='type'&&a[k]==='rich')
    ||(k==='id'&&Number.isSafeInteger(a[k])&&(a[k] as number)>=0)
+   ||(context==='embedObject'&&k==='content_scan_version'&&Number.isSafeInteger(a[k])&&(a[k] as number)>=0)
    ||((k==='inline'||k==='disabled')&&a[k]===false)||(k==='flags'&&a[k]===0));
  }
  return actual===wanted;
 }
 /** Semantic equality preserves every source field and refuses added content or changed component types. */
 export function messageMatches(m:PublicationMessage,p:PublicPayload):boolean{
- return (m.content??'')===(p.content??'')&&samePayload(m.embeds??[],p.embeds)&&samePayload(m.components??[],p.components??[]);
+ return (m.content??'')===(p.content??'')&&samePayload(m.embeds??[],p.embeds,'embedArray')&&samePayload(m.components??[],p.components??[]);
 }
 export function messageOwned(m:PublicationMessage,channel:string,bot:string):boolean{
  return ID.test(m?.id??'')&&m.channel_id===channel&&m.author?.id===bot;
