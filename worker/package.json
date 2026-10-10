@@ -19,9 +19,9 @@
     "test:qr": "node tests/qr_phase1_test.cjs && node tests/qr_browser_test.cjs && node tests/role_rank_continuation_test.cjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260916.1",
+    "@cloudflare/workers-types": "^5.20261003.1",
     "typescript": "^5.6.0",
-    "wrangler": "^4.135.0"
+    "wrangler": "^4.147.0"
   },
   "overrides": {
     "miniflare@5.20260918.0-alpha": {
