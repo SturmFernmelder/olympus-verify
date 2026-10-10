@@ -3669,10 +3669,10 @@
       if (lines.length !== 5 || !title || !when || !duration || !calendar || !calendar[1].endsWith("/" + id) || !Number.isSafeInteger(seconds) || !Number.isFinite(new Date(seconds * 1000).getTime())) {
         preview.appendChild(h("p", { text: content })); return;
       }
-      add(preview, h("strong", { text: title[1].replace(/\\([\\`*_{}\[\]()<>#|~])/g, "$1") }),
+      add(preview, [h("strong", { text: title[1].replace(/\\([\\`*_{}\[\]()<>#|~])/g, "$1") }),
         h("p", { text: fmtDateTime(seconds) }), h("p", { text: lines[2] }),
         h("a", { href: calendar[1], text: "Sign up on the Olympus calendar" }), h("p", { text: lines[4] }),
-        h("p", { class: "muted small", text: "Time is shown in your browser's time zone. Discord shows each reader their local time." }));
+        h("p", { class: "muted small", text: "Time is shown in your browser's time zone. Discord shows each reader their local time." })]);
     };
     const publish = h("button", { class: "btn", type: "button", text: "Publish announcement" });
     const remove = h("button", { class: "btn small", type: "button", text: "Remove announcement" });
