@@ -2159,7 +2159,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const ORG = "300000000000000093", CHANNEL = "300000000000000094", BOT = "1550176895671341076", GUILD = "236932545793490944";
     siteUser(ORG, { global_name: "Announcement Organizer" }); character(ORG, "UI Organizer", "ui-organizer-guid");
     const over = { COMMUNITY_ORGANIZERS: ORG, DISCORD_BOT_TOKEN: "synthetic-announcement-only", INTROS_GUILD_ID: GUILD, INTROS_CHANNELS: `raid-signups=${CHANNEL}`, EVENT_DISCORD_DELIVERY: "on" };
-    const originalFetch = globalThis.fetch, effects = [], messages = new Map(); let nextMessage = 1, loseProviderAnswer = false;
+    const originalFetch = globalThis.fetch, effects = [], messages = new Map(); let nextMessage = 1, loseProviderAnswer = false, loseRemoveAnswer = false;
     globalThis.fetch = async (input, init = {}) => {
       const u = new URL(input), method = init.method || "GET";
       if (u.origin !== "https://discord.com" || !u.pathname.startsWith("/api/v10/")) throw new Error("no external network in announcement fixtures");
@@ -2175,7 +2175,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       }
       const messageId = u.pathname.match(new RegExp(`^/api/v10/channels/${CHANNEL}/messages/(\\d+)$`))?.[1], m = messages.get(messageId);
       if (messageId && method === "GET") return m ? Response.json(m) : new Response(null, { status: 404 });
-      if (messageId && method === "DELETE") { effects.push({ method, id: messageId }); messages.delete(messageId); return new Response(null, { status: 204 }); }
+      if (messageId && method === "DELETE") { effects.push({ method, id: messageId }); messages.delete(messageId); if (loseRemoveAnswer) throw new TypeError("synthetic lost delete answer"); return new Response(null, { status: 204 }); }
       if (messageId && method === "PATCH" && m) { const b = JSON.parse(init.body); effects.push({ method, id: messageId, body: b }); m.content = b.content; return Response.json(m); }
       throw new Error("unexpected synthetic Discord request");
     };
@@ -2223,6 +2223,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       check(".130 absent durable row after transport uncertainty does not unlock a blind retry", posts() === 2 && !one("SELECT 1 FROM community_event_deliveries WHERE event_id=?", absentId) && byText(a.app, "button", "Publish announcement").disabled);
       a.before(null); await a.go("#/community/calendar"); await a.go(route(absentId)); await loaded(a);
       check(".130 tab-local uncertainty marker survives route replacement when the read is empty", byText(a.app, "button", "Publish announcement").disabled && a.sessionStorage.getItem("olympus.eventDelivery." + absentId));
+      const reload = await openPage(ORG, over); reload.sessionStorage.setItem("olympus.eventDelivery." + absentId, a.sessionStorage.getItem("olympus.eventDelivery." + absentId));
+      await reload.go(route(absentId)); await loaded(reload);
+      check(".130 a fresh page retaining the same tab marker still refuses an absent-row retry", reload.app.textContent.includes("outcome is unresolved") && byText(reload.app, "button", "Publish announcement").disabled && posts() === 2);
 
       const off = await openPage(ORG, { ...over, EVENT_DISCORD_DELIVERY: "" }); await off.go(route(unknownId)); await loaded(off);
       check(".130 feature OFF disables publication but keeps guarded known-message removal", off.app.textContent.includes("switched off") && byText(off.app, "button", "Update announcement").disabled && !byText(off.app, "button", "Remove announcement").disabled);
@@ -2232,6 +2235,25 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const malformed = await openPage(ORG, over); malformed.answer((pathname) => pathname.startsWith("/api/community/events/discord?") ? { eventId: id, revision: 1, enabled: true, canPublish: true, publicationClosed: false, payload: { content: "wrong", allowed_mentions: { parse: ["everyone"] } }, payloadHash: "a".repeat(64), delivery: null } : null);
       await malformed.go(route(id)); await loaded(malformed);
       check(".130 malformed preview cannot enable publication or inject an unreviewed mention policy", byText(malformed.app, "button", "Publish announcement").disabled && !malformed.app.querySelector("pre").textContent && posts() === 2);
+      const actual = (await apiAs(ORG, "GET", `/api/community/events/discord?eventId=${unknownId}`, undefined, over)).body;
+      for (const name of ["payloadHash", "operationId", "messageUrl"]) {
+        const bad = JSON.parse(JSON.stringify(actual));
+        if (name === "payloadHash") bad.payloadHash = [bad.payloadHash]; else bad.delivery[name] = [bad.delivery[name]];
+        const typed = await openPage(ORG, over); typed.answer((pathname) => pathname.startsWith("/api/community/events/discord?") ? bad : null);
+        await typed.go(route(unknownId)); await loaded(typed);
+        check(`.130 array-coerced ${name} is refused before showing custody or enabling any write`, byText(typed.app, "button", "Publish announcement").disabled && byText(typed.app, "button", "Remove announcement").disabled && !byText(typed.app, "a", "Open Discord announcement"));
+      }
+      const detachedId = await create("Detached controls"), detached = await openPage(ORG, over); await detached.go(route(detachedId)); await loaded(detached);
+      const oldPublish = byText(detached.app, "button", "Publish announcement"), oldRefresh = byText(detached.app, "button", "Refresh announcement status");
+      let detachedRequests = 0; detached.before((pathname) => { if (pathname.startsWith("/api/community/events/discord")) detachedRequests++; return false; });
+      await detached.go("#/roles"); oldPublish.click(); oldRefresh.click(); await settle(); await settle();
+      check(".130 retained controls from a detached route issue neither a write nor a refresh", detachedRequests === 0 && posts() === 2 && !one("SELECT 1 FROM community_event_deliveries WHERE event_id=?", detachedId));
+
+      loseRemoveAnswer = true; byText(u.app, "button", "Remove announcement").click();
+      await waitFor(() => u.app.textContent.includes("outcome is unresolved"), "uncertain known deletion"); loseRemoveAnswer = false;
+      check(".130 unknown removal keeps exact known custody and offers guarded removal, never publication", !byText(u.app, "button", "Remove announcement").disabled && byText(u.app, "button", "Publish announcement").disabled && !messages.has(unknownMessageId));
+      byText(u.app, "button", "Remove announcement").click(); await waitFor(() => u.app.textContent.includes("announcement was removed"), "already absent removal reconciliation");
+      check(".130 retry of unknown known-pointer deletion proves absence without a second DELETE effect", effects.filter((e) => e.method === "DELETE").length === 2 && posts() === 2 && one("SELECT state FROM community_event_deliveries WHERE event_id=?", unknownId).state === "removed");
     } finally { globalThis.fetch = originalFetch; }
   }
   console.log(`\n${ok}/${n} passed`);

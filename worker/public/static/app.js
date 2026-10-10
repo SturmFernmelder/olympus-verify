@@ -3643,16 +3643,17 @@
     const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
     const states = ["claimed", "posted", "refused", "unknown", "removed"];
     const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-    const validDelivery = (v) => v === null || (object(v) && states.includes(v.state) && Number.isSafeInteger(v.revision) && v.revision > 0 && typeof v.stale === "boolean" && typeof v.removalPending === "boolean" && opPattern.test(v.operationId) && (v.messageUrl === null || messagePattern.test(v.messageUrl)) && typeof v.retainUntil === "string" && Number.isFinite(Date.parse(v.retainUntil)));
+    const validDelivery = (v) => v === null || (object(v) && states.includes(v.state) && Number.isSafeInteger(v.revision) && v.revision > 0 && typeof v.stale === "boolean" && typeof v.removalPending === "boolean" && typeof v.operationId === "string" && opPattern.test(v.operationId) && (v.messageUrl === null || (typeof v.messageUrl === "string" && messagePattern.test(v.messageUrl))) && typeof v.retainUntil === "string" && Number.isFinite(Date.parse(v.retainUntil)));
     let pending = null, storageUnavailable = false;
     try {
       const raw = sessionStorage.getItem(key);
-      if (raw) { const v = JSON.parse(raw); if (!object(v) || !opPattern.test(v.opId) || !["publish", "remove", "reconcile"].includes(v.kind)) throw new Error("unknown operation"); pending = v; }
+      if (raw) { const v = JSON.parse(raw); if (!object(v) || typeof v.opId !== "string" || !opPattern.test(v.opId) || !["publish", "remove", "reconcile"].includes(v.kind)) throw new Error("unknown operation"); pending = v; }
     } catch { storageUnavailable = true; }
     const remember = (v) => { try { sessionStorage.setItem(key, JSON.stringify(v)); pending = v; return true; } catch { storageUnavailable = true; return false; } };
     const forget = () => { try { sessionStorage.removeItem(key); pending = null; } catch { storageUnavailable = true; } };
     const panel = h("div", { class: "stack" }); add(body, panel);
     let current = null, busy = false, sequence = 0;
+    const live = () => document.body.contains(panel);
     const status = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
     const preview = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
     const publish = h("button", { class: "btn", type: "button", text: "Publish announcement" });
@@ -3675,7 +3676,7 @@
     };
     const draw = (data) => {
       if (!object(data) || data.eventId !== id || !Number.isSafeInteger(data.revision) || data.revision < 1 || typeof data.enabled !== "boolean" || typeof data.canPublish !== "boolean" || typeof data.publicationClosed !== "boolean" || !validDelivery(data.delivery) ||
-        !(data.payload === null ? data.payloadHash === null : object(data.payload) && typeof data.payload.content === "string" && data.payload.content.length <= 1024 && object(data.payload.allowed_mentions) && Array.isArray(data.payload.allowed_mentions.parse) && data.payload.allowed_mentions.parse.length === 0 && /^[0-9a-f]{64}$/.test(data.payloadHash)) ||
+        !(data.payload === null ? data.payloadHash === null : object(data.payload) && typeof data.payload.content === "string" && data.payload.content.length <= 1024 && object(data.payload.allowed_mentions) && Array.isArray(data.payload.allowed_mentions.parse) && data.payload.allowed_mentions.parse.length === 0 && typeof data.payloadHash === "string" && /^[0-9a-f]{64}$/.test(data.payloadHash)) ||
         (data.canPublish && (!data.enabled || !data.payload || data.publicationClosed))) throw new ApiError(200, { error: "unreadable_answer" });
       current = data;
       const d = data.delivery;
@@ -3693,14 +3694,14 @@
       buttons();
     };
     const load = async () => {
-      if (busy) return;
+      if (busy || !live()) return;
       const n = ++sequence; busy = true; buttons();
-      try { const data = await api("GET", `/api/community/events/discord?eventId=${encodeURIComponent(id)}`); if (n === sequence) draw(data); }
+      try { const data = await api("GET", `/api/community/events/discord?eventId=${encodeURIComponent(id)}`); if (n === sequence && live()) draw(data); }
       catch (ex) { current = null; preview.textContent = ""; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Check the existing operation before publishing again."); }
       finally { if (n === sequence) { busy = false; buttons(); } }
     };
     const action = async (kind) => {
-      if (busy || !current) return;
+      if (busy || !current || !live()) return;
       buttons(); const button = kind === "publish" ? publish : kind === "remove" ? remove : reconcile; if (button.disabled) return;
       const d = current.delivery, opId = kind === "reconcile" ? d.operationId : b64url(16);
       const payload = kind === "publish" ? { eventId: id, revision: current.revision, opId, payloadHash: current.payloadHash } : { eventId: id, opId };
