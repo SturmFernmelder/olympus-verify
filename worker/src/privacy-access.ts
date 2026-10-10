@@ -1,5 +1,6 @@
 /** Fresh identify-only privacy access (owner takeover, 2026-10-10). No membership or ordinary session authority. */
 import type { Env } from './env';
+import { PRIVACY_ALL_HISTORY_COLLECTIONS, type PrivacyHistoryCollection } from './privacy-access-history';
 import { API, credentialFetch } from './discord';
 import { b64u, sign, siteHost, rateLimited } from './site-core';
 import { htmlResponse, policyHeaders } from './policy-render';
@@ -143,11 +144,11 @@ export async function privacyAccessFormAction(request:Request,env:Env,purpose:Pr
  if(purpose==='own_export'&&('collection'in out.form||'cursor'in out.form))throw new FormError('privacy_purpose_refused',403);
  return out.grant;
 }
-export async function privacyAccessExportFormAction(request:Request,env:Env):Promise<{grant:PrivacyAccessGrant;collection:'copy'|'actions'|'eventChanges'|'contributionDecisions';cursor:string|null}>{
+export async function privacyAccessExportFormAction(request:Request,env:Env):Promise<{grant:PrivacyAccessGrant;collection:'copy'|PrivacyHistoryCollection;cursor:string|null}>{
  if(new URL(request.url).search)throw new FormError('invalid_history_cursor');
  const {grant,form}=await actionForm(request,env,'own_export'),collection=form.collection??'copy',cursor=form.cursor??'';
- if(!['copy','actions','eventChanges','contributionDecisions'].includes(collection)||cursor.length>140||/[\r\n\t ]/.test(cursor)||(collection==='copy'&&cursor))throw new FormError('invalid_history_cursor');
- return {grant,collection:collection as 'copy'|'actions'|'eventChanges'|'contributionDecisions',cursor:cursor||null};
+ if(!(collection==='copy'||PRIVACY_ALL_HISTORY_COLLECTIONS.includes(collection as PrivacyHistoryCollection))||cursor.length>140||/[\r\n\t ]/.test(cursor)||(collection==='copy'&&cursor))throw new FormError('invalid_history_cursor');
+ return {grant,collection:collection as 'copy'|PrivacyHistoryCollection,cursor:cursor||null};
 }
 export async function privacyAccessPage(request:Request,env:Env):Promise<Response>{
  const grants=await Promise.all([readPrivacyAccessGrant(request,env,'own_export'),readPrivacyAccessGrant(request,env,'own_erasure')]);
@@ -156,7 +157,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null)continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';
- body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records. Larger sections are bounded; omissions and truncation are stated in the file. Actions, event changes and contribution decisions also have separate history downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':'<label>Download <select name="collection"><option value="copy">Selected account copy</option><option value="actions">Actions history</option><option value="eventChanges">Event changes history</option><option value="contributionDecisions">Contribution decisions history</option></select></label><label>History cursor from a previous file (optional)<textarea name="cursor" maxlength="140" rows="3" spellcheck="false" autocomplete="off"></textarea></label>'}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
+ body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. Omissions and size refusals are stated in the file. All 36 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
  }
  body+='<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh page grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
  return htmlResponse(request,'Privacy account connection',body);
@@ -165,3 +166,5 @@ export function privacyAccessRefusal(request:Request,error:unknown):Response{
  const status=error instanceof FormError?error.status:503;
  return htmlResponse(request,'Privacy connection unavailable',`<p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>`,status);
 }
+
+function historyControls():string { return '<label>Download <select name="collection"><option value="copy">Selected account copy</option>'+PRIVACY_ALL_HISTORY_COLLECTIONS.map(c=>'<option value="'+c+'">'+c.split('.').map(p=>{const s=p.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' ');return s.charAt(0).toUpperCase()+s.slice(1);}).join(' · ')+'</option>').join('')+'</select></label><label>History cursor from a previous file (optional)<textarea name="cursor" maxlength="140" rows="3" spellcheck="false" autocomplete="off"></textarea></label>'; }

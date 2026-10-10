@@ -982,6 +982,34 @@ export function contributionExportPlan(env: Env, id: string): { statements: D1Pr
     shape: ([obligations, receipts]) => shapeExport(obligations!, receipts!),
   };
 }
+
+/** Pure identify-copy constructors. No execution, admission, mutation or renewal of ledger lifetimes. */
+export function ownContributionHistorySource(kind: 'obligations' | 'receipts'): string {
+  if (kind === 'obligations') return `SELECT o.rowid AS __history_id,0 AS __history_at,o.guild_scope,o.period_start,o.due_at,o.policy_version,o.amount_copper,o.eligible,o.state,
+    o.acknowledged_at,o.officer_contact_at,o.final_notice_at,o.final_acknowledged_at,o.final_officer_contact_at,
+    ${gatedSumSql(weekJournal('o.id'))} AS paid,${magnitudeSql(weekJournal('o.id'))} AS paid_magnitude
+    FROM ${T}obligations o WHERE o.discord_id=?1 AND ${LIVE_WEEK('o')}`;
+  const raw = `SELECT r.rowid AS __history_id,0 AS __history_at,r.guild_scope,r.source,r.amount_copper,r.retired_copper,r.observed_at,r.status,r.voided_at,(r.retain_until<=${DB_NOW}) AS expired,
+    ${gatedSumSql(receiptJournal('r.id'))} AS allocated,${magnitudeSql(receiptJournal('r.id'))} AS allocated_magnitude
+    FROM ${T}receipts r WHERE r.matched_discord_id=?1`;
+  // Count only the established emitted relationship. Malformed/overflow rows remain visible to the refusing projector.
+  return `SELECT * FROM (${raw}) WHERE expired=0 OR allocated>0 OR allocated_magnitude>${SAFE_REAL}
+    OR typeof(amount_copper)<>'integer' OR ABS(amount_copper)>${MAX_COPPER_TOTAL}
+    OR typeof(retired_copper)<>'integer' OR ABS(retired_copper)>${MAX_COPPER_TOTAL}`;
+}
+export function projectOwnContributionHistory(kind: 'obligations' | 'receipts', row: Record<string, unknown>): Record<string, unknown> {
+  const result = { results: [row] } as unknown as D1Result, empty = { results: [] } as unknown as D1Result;
+  const shaped = shapeExport(kind === 'obligations' ? result : empty, kind === 'receipts' ? result : empty);
+  if (shaped.error) throw new Error('privacy_contribution_projection_refused');
+  const rows = shaped[kind] as Record<string, unknown>[];
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('privacy_contribution_projection_refused');
+  return rows[0]!;
+}
+/** Same four actor forms recognized by erasure; raw/user forms cover retained legacy records. */
+export function ownContributionCopyDecisionSource():string {
+  const actor="(actor=?1 OR actor='user:'||?1 OR actor='member:'||?1 OR actor='staff:'||?1)";
+  return `SELECT id,at,action,retain_until,(discord_id=?1) AS own_subject,${actor} AS own_actor FROM ${T}decisions WHERE (discord_id=?1 OR ${actor}) AND retain_until>${DB_NOW}`;
+}
 function shapeExport(obligations: D1Result, receipts: D1Result): Record<string, unknown> {
   const iso = (s: unknown) => (typeof s === "number" ? new Date(s * 1000).toISOString() : null);
   try {

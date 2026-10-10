@@ -2,33 +2,20 @@
 import type { Env } from './env';
 import './community-routes';
 import './qr-phase1-data';
-import { communityExportPlan } from './community-context';
+import './privacy-access-data';
+import './site-news';
+import { communityDataNames, communityExportPlan } from './community-context';
 import { appOut, apiJson, type AppRow } from './site-core';
 import { bnetFresh } from './bnet-retention';
 import { secondsToIso } from './community-time';
 import { privacySubjectKey } from './privacy-serving-authority';
 import { privacyAccessExportFormAction, privacyAccessActionStatements, privacyAccessConsumedReadFence, PRIVACY_ACCESS_NOW } from './privacy-access';
-import { exportPrivacyHistory } from './privacy-access-history';
+import { exportPrivacyHistory, preparePrivacyHistory, finishPrivacyHistory, privacyBoundedScalarStatement, PRIVACY_ALL_HISTORY_COLLECTIONS, type PrivacyHistoryCollection } from './privacy-access-history';
 import { FormError } from './policy-form-core';
 
-const limit=1000;
+const limit=25;
 type Rec=Record<string,unknown>;
 const iso=(value:unknown)=>typeof value==='number'?secondsToIso(value):null;
-const bounded=(result:D1Result)=>({complete:result.results.length<=limit,rows:result.results.slice(0,limit)});
-const eventFields=new Set(['title','details','startsAt','durationMin','capacity','roleTargets']);
-function eventChanges(result:D1Result):unknown{
- const rows=result.results.map(raw=>{
-  const r=raw as Rec;
-  if(!r||typeof r!=='object'||Array.isArray(r)||typeof r.event_id!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(r.event_id)||
-   !Number.isSafeInteger(r.at)||(r.at as number)<0||!['created','updated','cancelled'].includes(r.action as string)||
-   typeof r.fields!=='string'||r.fields.length>256)throw new FormError('privacy_copy_unconfirmed',503);
-  let fields:unknown;try{fields=JSON.parse(r.fields);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
-  if(!Array.isArray(fields)||fields.length>6||fields.some(f=>typeof f!=='string'||!eventFields.has(f))||new Set(fields).size!==fields.length||
-   (r.action==='updated'?fields.length===0:fields.length!==0))throw new FormError('privacy_copy_unconfirmed',503);
-  return {eventId:r.event_id,action:r.action,at:iso(r.at),changedFieldNames:fields};
- });
- return {complete:rows.length<=limit,rows:rows.slice(0,limit)};
-}
 function application(row:AppRow|undefined):unknown{
  if(!row)return null;const a=appOut(row),answers={...a.answers};
  if(Object.hasOwn(answers,'references')){
@@ -43,48 +30,47 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  if(new URL(request.url).pathname!=='/privacy/access/export')throw new FormError('privacy_purpose_refused',403);
  const {grant,collection,cursor}=await privacyAccessExportFormAction(request,env),id=grant.subject;
  if(collection!=='copy')return exportPrivacyHistory(env,grant,collection,cursor);
- const marker=await privacySubjectKey(env,id),community=communityExportPlan(env,id);
- // Every selected column is the established own-copy projection. No provider pointers, staff identities or account references.
- const statements=[
- env.DB.prepare(`SELECT ${PRIVACY_ACCESS_NOW} AS at`),
- env.DB.prepare('SELECT discord_id,username,global_name,nick,avatar,account_created,server_joined,first_login,last_login,checked_at,in_server,denied,denied_at FROM site_users WHERE discord_id=?1').bind(id),
- env.DB.prepare('SELECT discord_id,position,class_lead,backup1,backup2,fallback,character,class,role,region,avail,avail_tz,fit_na,fit_eu,board_at,answers,status,created_at,updated_at FROM site_applications WHERE discord_id=?1').bind(id),
- env.DB.prepare('SELECT ballot,slot,nominee_label,reason,created_at,updated_at FROM site_votes WHERE voter_id=?1 ORDER BY ballot,slot LIMIT 1001').bind(id),
- env.DB.prepare('SELECT role_key,vote,created_at,updated_at FROM site_board_votes WHERE voter_id=?1 ORDER BY role_key,created_at LIMIT 1001').bind(id),
- env.DB.prepare('SELECT friend_label,note,created_at FROM site_friends WHERE owner_id=?1 ORDER BY created_at,friend_label LIMIT 1001').bind(id),
- env.DB.prepare('SELECT name,status,created_at,approved_at,queued_at,released_at FROM site_reserved WHERE owner_id=?1 ORDER BY id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT banned,linked_at,bnet_linked_at,username,global_name,names_at FROM members WHERE discord_id=?1').bind(id),
- env.DB.prepare('SELECT name,status,bound_at,verified_at,member_since,left_at,source FROM characters WHERE discord_id=?1 ORDER BY bound_at,name LIMIT 1001').bind(id),
- env.DB.prepare('SELECT name,created_at,expires_at,consumed_at,consumed_source FROM pending WHERE discord_id=?1 ORDER BY created_at,id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT name,status,attempts,created_at,written_at,invited_at,joined_at,retry_after,last_reason,last_reason_at FROM invite_queue WHERE discord_id=?1 ORDER BY created_at,id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT ts AS at,action FROM audit WHERE subject=?1 OR actor=?1 ORDER BY ts,id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT old_name,new_name,state,decided_at,closed_at FROM rename_holds WHERE discord_id=?1 ORDER BY decided_at,id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT event_id,action,at,fields FROM community_event_changes WHERE actor=?1 ORDER BY at,id LIMIT 1001').bind(id),
- env.DB.prepare(`SELECT action,at,CASE WHEN discord_id=?1 THEN 1 ELSE 0 END AS own_subject,CASE WHEN actor=?1 THEN 1 ELSE 0 END AS own_actor
- FROM community_contribution_decisions WHERE (discord_id=?1 OR actor=?1) AND retain_until>${PRIVACY_ACCESS_NOW}
- AND action IN('allocation_reversed','receipt_voided','removal_recorded','state_open','state_exempt','state_disputed','state_resolved','contact_acknowledged','contact_officer_contact','contact_final_notice','contact_final_acknowledged','contact_final_officer_contact') ORDER BY at,id LIMIT 1001`).bind(id),
- ...community.statements,
- env.DB.prepare('SELECT state,hold_reason,staff_access,created_at,completed_at,retain_until FROM privacy_serving_jobs WHERE subject_id=?1 ORDER BY created_at,operation_id LIMIT 1001').bind(id),
- env.DB.prepare("SELECT purpose,state,cleanup_requested,created_at,updated_at,retain_until FROM privacy_provider_messages WHERE EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1) ORDER BY created_at,operation_id LIMIT 1001").bind(id),
- env.DB.prepare('SELECT erased_at,retain_until,scope,recovery_custody FROM privacy_restore_replay WHERE subject_id=?1 ORDER BY erased_at,operation_id LIMIT 1001').bind(id),
- env.DB.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?1').bind(marker),
+ const marker=await privacySubjectKey(env,id);
+ const expected=['refs','directory','events','trials','restrictions','departures','contributions','news','event_delivery','event_reminders','privacy_access','councillor_verification'].sort();
+ if(JSON.stringify(communityDataNames().slice().sort())!==JSON.stringify(expected)||communityExportPlan(env,id).statements.length!==32)throw new FormError('privacy_catalog_unqualified',503);
+ const prepared=await Promise.all(PRIVACY_ALL_HISTORY_COLLECTIONS.map(c=>preparePrivacyHistory(env,grant,c,null,limit)));
+ // Four base and four community singleton slots. Every preview has count + 26-row sentinel cap.
+ const scalar=[
+ privacyBoundedScalarStatement(env,id,'SELECT discord_id,username,global_name,nick,avatar,account_created,server_joined,first_login,last_login,checked_at,in_server,denied,denied_at FROM site_users WHERE discord_id=?1',["discord_id","username","global_name","nick","avatar","account_created","server_joined","first_login","last_login","checked_at","in_server","denied","denied_at"]),
+ privacyBoundedScalarStatement(env,id,'SELECT discord_id,position,class_lead,backup1,backup2,fallback,character,class,role,region,avail,avail_tz,fit_na,fit_eu,board_at,answers,status,created_at,updated_at FROM site_applications WHERE discord_id=?1',["discord_id","position","class_lead","backup1","backup2","fallback","character","class","role","region","avail","avail_tz","fit_na","fit_eu","board_at","answers","status","created_at","updated_at"],131072),
+ privacyBoundedScalarStatement(env,id,'SELECT banned,linked_at,bnet_linked_at,username,global_name,names_at FROM members WHERE discord_id=?1',["banned","linked_at","bnet_linked_at","username","global_name","names_at"]),
+ privacyBoundedScalarStatement(env,marker,'SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?1',["denied_at","retain_until","reason"]),
+ privacyBoundedScalarStatement(env,id,'SELECT ref FROM community_refs WHERE discord_id=?1',["ref"]),
+ privacyBoundedScalarStatement(env,id,'SELECT ref,revision,listed,main_name,main_source,main_updated_at,raid_role,role_updated_at FROM community_profiles WHERE discord_id=?1',["ref","revision","listed","main_name","main_source","main_updated_at","raid_role","role_updated_at"]),
+ privacyBoundedScalarStatement(env,id,'SELECT ref FROM community_refs WHERE discord_id=?1',["ref"]),
+ privacyBoundedScalarStatement(env,id,'SELECT opened_at,retain_until,renewed_at,renewal_reason FROM community_restriction_periods WHERE discord_id=?1',["opened_at","retain_until","renewed_at","renewal_reason"]),
  ];
- const results=await env.DB.batch([...privacyAccessActionStatements(env,grant),...statements,privacyAccessConsumedReadFence(env,grant)]),out=results.slice(3,-1);
- if(out.length!==statements.length||(results.at(-1)?.results[0] as {admitted?:number}|undefined)?.admitted!==1)throw new FormError('privacy_copy_unconfirmed',503);
- const at=(out[0]?.results[0] as {at?:unknown}|undefined)?.at;
- if(typeof at!=='number'||!Number.isSafeInteger(at)||at>=grant.expiresAt)throw new FormError('privacy_copy_unconfirmed',503);
- const a=out[1]!.results[0] as Rec|undefined,m=out[7]!.results[0] as Rec|undefined;
- const base=15+community.statements.length;
- const body={generatedAt:secondsToIso(at),identity:{discordId:id,authority:'fresh_identify_only',expiresAt:secondsToIso(grant.expiresAt)},
+ let results:D1Result[];try{results=await env.DB.batch([...privacyAccessActionStatements(env,grant),env.DB.prepare('SELECT '+PRIVACY_ACCESS_NOW+' AS at'),...scalar,...prepared.flatMap(p=>p.statements),privacyAccessConsumedReadFence(env,grant)]);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
+ const at=(results[3]?.results[0] as {at?:unknown}|undefined)?.at;
+ if(results.length!==85||(results.at(-1)?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||typeof at!=='number'||!Number.isSafeInteger(at)||at<=0||at>=grant.expiresAt||scalar.some((_,i)=>results[4+i]!.results.length>1))throw new FormError('privacy_copy_unconfirmed',503);
+ const histories=Object.fromEntries(await Promise.all(PRIVACY_ALL_HISTORY_COLLECTIONS.map(async(c,i)=>[c,await finishPrivacyHistory(env,grant,c,prepared[i]!,at,results[12+2*i]!.results[0] as Rec|undefined,results[13+2*i]!.results)]))) as Record<PrivacyHistoryCollection,Awaited<ReturnType<typeof finishPrivacyHistory>>>;
+ const entries=(c:PrivacyHistoryCollection)=>histories[c].entries;
+ const container=(c:PrivacyHistoryCollection,rows=entries(c))=>({complete:histories[c].capture.complete,total:histories[c].capture.count,limit,rows});
+ const a=results[4]!.results[0] as Rec|undefined,m=results[6]!.results[0] as Rec|undefined,p=results[9]!.results[0] as Rec|undefined,w=results[11]!.results[0] as Rec|undefined;
+ const community:Record<string,Rec>={refs:{ref:(results[8]!.results[0] as Rec|undefined)?.ref??null},directory:{ref:p?.ref??(results[10]!.results[0] as Rec|undefined)?.ref??null,revision:p?.revision??0,listed:p?.listed===1,main:p?.main_name!=null?{name:p.main_name,source:p.main_source,updatedAt:iso(p.main_updated_at)}:null,raidRole:p?.raid_role!=null?{value:p.raid_role,updatedAt:iso(p.role_updated_at)}:null},restrictions:{watchListPeriod:w?{openedAt:iso(w.opened_at),retainUntil:iso(w.retain_until),renewedAt:iso(w.renewed_at),renewalReason:w.renewal_reason}:null},contributions:{note:'Who observed or recorded a payment, payer names as written in the source, source identifiers and unmatched evidence are not included.'}};
+ const contributionRows=entries('contributionDecisions').map(r=>({action:r.action,at:Date.parse(r.at as string)/1000,own_subject:r.relation==='subject'||r.relation==='both'?1:0,own_actor:r.relation==='actor'||r.relation==='both'?1:0}));
+ const body:Rec={generatedAt:secondsToIso(at),identity:{discordId:id,authority:'fresh_identify_only',expiresAt:secondsToIso(grant.expiresAt)},
  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,pageLimit:limit,
  excluded:['staff notes/reasons/identities','raw roster snapshots','private payment details','provider logs and pointers','short-lived authentication secrets and OAuth codes','external Discord posts/connections','private recovery backups','local watcher/game/download copies'],
- continuation:'This download contains at most 1,000 retained rows per history. A false complete flag means further records are retained but are not included here. Reconnect Discord at /privacy/access and select Actions, Event changes or Contribution decisions for a separate bounded history capture and continuation. Other larger sections have no continuation in this first batch. New privacy inbox requests are disabled.'},
- about:'Selected retained records about your own Discord account were read together in one database transaction at generatedAt. A missing website account is shown as null. Per-section complete flags concern only this selected range; community sections carry their established coverage. This is not every store, an immutable all-store snapshot, proof of download, or erasure.',
+ histories:Object.fromEntries(PRIVACY_ALL_HISTORY_COLLECTIONS.map(c=>[c,{collection:c,currentCursor:histories[c].currentCursor,nextCursor:histories[c].nextCursor,capture:histories[c].capture}])),
+ continuation:'All 36 selected lists have a count and a preview of at most 25 entries. Save nextCursor to continue, or currentCursor to read again from the same range position. Reconnect Discord at /privacy/access, select the exact collection and paste its cursor; a separate history page contains at most 1,000 entries. Every page needs a fresh twelve-minute identify-only grant. The original retained range and twenty-four-hour deadline never extend; a changed range refuses continuation. New privacy inbox requests are disabled.'},
+ about:'Selected retained records about your own Discord account were read together in one database transaction at generatedAt. A missing website account is shown as null. Complete flags concern the selected retained range only. Histories use a fixed numeric native order, not an immutable content snapshot or proof of download, erasure or every external copy.',
  account:a?{discordId:a.discord_id,username:a.username,displayName:a.global_name,nickname:a.nick,avatar:a.avatar,accountCreated:iso(a.account_created),joinedServer:iso(a.server_joined),firstSignIn:iso(a.first_login),lastSignIn:iso(a.last_login),lastMembershipCheck:iso(a.checked_at),inServer:a.in_server===1,denied:a.denied===1,deniedAt:iso(a.denied_at)}:null,
- site:{application:application(out[2]!.results[0] as AppRow|undefined),votes:bounded(out[3]!),boardVotes:bounded(out[4]!),friends:bounded(out[5]!),reserved:bounded(out[6]!)},
- verification:{known:!!m,bannedFromVerifying:m?.banned===1,battleNet:m?{linked:bnetFresh(m.linked_at as number|null,at),linkedAt:bnetFresh(m.linked_at as number|null,at)?iso(m.linked_at):null,profileLinkedAt:bnetFresh(m.bnet_linked_at as number|null,at)?iso(m.bnet_linked_at):null}:null,
- discordNames:m?{username:m.username,displayName:m.global_name,readAt:iso(m.names_at)}:null,characters:bounded(out[8]!),codeRequests:bounded(out[9]!),inviteQueue:bounded(out[10]!),renameRecords:bounded(out[12]!)},
- actions:bounded(out[11]!),eventChanges:eventChanges(out[13]!),contributionDecisions:bounded(out[14]!),community:community.shape(out.slice(15,base)),
- privacyLifecycle:{coverage:'own minimized serving controls; no provider pointers, proof digests or other account identifiers',allCopiesErased:false,erasureRequests:bounded(out[base]!),providerCleanup:bounded(out[base+1]!),recoverySuppression:bounded(out[base+2]!),rejectionMarker:out[base+3]!.results}};
+ site:{application:application(results[5]!.results[0] as AppRow|undefined)},
+ verification:{known:!!m,bannedFromVerifying:m?.banned===1,battleNet:m?{linked:bnetFresh(m.linked_at as number|null,at),linkedAt:bnetFresh(m.linked_at as number|null,at)?iso(m.linked_at):null,profileLinkedAt:bnetFresh(m.bnet_linked_at as number|null,at)?iso(m.bnet_linked_at):null}:null,discordNames:m?{username:m.username,displayName:m.global_name,readAt:iso(m.names_at)}:null},
+ actions:container('actions',entries('actions').map(r=>({at:Date.parse(r.at as string)/1000,action:r.action}))),eventChanges:container('eventChanges'),contributionDecisions:container('contributionDecisions',contributionRows),community,
+ privacyLifecycle:{coverage:'own minimized serving controls; no provider pointers, proof digests or other account identifiers',allCopiesErased:false,rejectionMarker:results[7]!.results}};
+ // Constant closed paths only. Existing direct arrays remain arrays; existing bounded containers retain rows/complete.
+ for(const c of PRIVACY_ALL_HISTORY_COLLECTIONS.slice(3)){
+  const path=c.split('.');let target=body;
+  for(const part of path.slice(0,-1))target=(target[part]??= {}) as Rec;
+  const nested=c.startsWith('community.privacy_access.')||c.startsWith('community.councillor_verification.');
+  target[path.at(-1)!]=!c.startsWith('community.')||nested?container(c):entries(c);
+ }
  return apiJson(body,200,{'Content-Disposition':'attachment; filename="olympus-my-privacy-data.json"','Referrer-Policy':'no-referrer'});
 }
