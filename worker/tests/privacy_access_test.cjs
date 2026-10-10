@@ -101,7 +101,7 @@ async function main(){
   ['token body','PA-T3',(f)=>{provider=()=>new Response(secretSentinel);}],
   ['token shape','PA-T4',(f)=>{provider=()=>new Response(JSON.stringify({token_type:'Bearer',scope:'identify'}));}],
   ['token type','PA-T5',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'MAC',scope:'identify'}));}],
-  ['token scope','PA-T6',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope:'identify email'}));}],
+  ['token scope','PA-T6D',(f)=>{provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope:'identify email'}));}],
   ['identity request','PA-I1',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?Promise.reject(Error(secretSentinel)):normal(url,init);}],
   ['identity HTTP','PA-I2',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel,{status:503}):normal(url,init);}],
   ['identity body','PA-I3',(f)=>{const normal=provider;provider=(url,init)=>url.endsWith('/users/@me')?new Response(secretSentinel):normal(url,init);}],
@@ -121,6 +121,57 @@ async function main(){
   ok(name+' no privacy grant cookie',!response.headers.has('Set-Cookie'));
   ok(name+' original flow spent',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
   const priorCalls=calls.length;await refused(name+' spent flow cannot exchange again',()=>finish(f,flow));eq(name+' no replay HTTP',calls.length,priorCalls);f.db.close();
+ }
+ // .140 categories are diagnosis only. Every alternative spends the same native
+ // state and stops before identity HTTP/capture/grants; no normalization admits.
+ const genericScopeHtml=await access.privacyAccessRefusal(new Request(BASE+'/privacy/callback'),new (load('policy-form-core').FormError)('identity_exchange_scope_refused',503)).text();
+ for(const [name,scope,marker] of [
+  ['null',null,'PA-T6A'],['boolean',false,'PA-T6A'],['number',0,'PA-T6A'],
+  ['object',{identify:secretSentinel},'PA-T6A'],['array',['identify'],'PA-T6A'],
+  ['empty','','PA-T6B'],['leading ASCII space',' identify','PA-T6C'],
+  ['trailing ASCII space','identify ','PA-T6C'],['surrounding ASCII spaces','  identify  ','PA-T6C'],
+  ['repeated identify','identify identify','PA-T6C'],['repeated formatted identify',' identify  identify ','PA-T6C'],
+  ['broader identify first','identify email','PA-T6D'],['broader identify last','email identify','PA-T6D'],
+  ['broader repeated identify','identify identify email','PA-T6D'],['case-sensitive extra token','identify Identify','PA-T6D'],
+  ['RFC punctuation boundaries','identify ! # [ ] ~','PA-T6D'],['comma inside RFC token','identify email,other','PA-T6D'],
+  ['private broad scope canary','identify '+secretSentinel,'PA-T6D'],
+  ['long bounded token','identify '+('a'.repeat(8000)),'PA-T6D'],
+  ['missing identify','guilds.members.read email','PA-T6E'],['case-sensitive Identify','Identify','PA-T6E'],
+  ['uppercase IDENTIFY','IDENTIFY','PA-T6E'],['comma is not separator','identify,email','PA-T6E'],
+  ['identify substring','xidentify identifyx','PA-T6E'],
+  ['private missing scope canary',secretSentinel,'PA-T6E'],
+  ['spaces only','   ','PA-T6'],['tab separator','identify\temail','PA-T6'],
+  ['newline separator','identify\nemail','PA-T6'],['final newline','identify email\n','PA-T6'],
+  ['final identify newline','identify\n','PA-T6'],['carriage return','identify\r','PA-T6'],
+  ['double broad separator','identify  email','PA-T6'],['leading broad separator',' identify email','PA-T6'],
+  ['trailing broad separator','identify email ','PA-T6'],['quote excluded','identify "email"','PA-T6'],
+  ['backslash excluded','identify \\email','PA-T6'],['NUL excluded','identify\0email','PA-T6'],
+  ['DEL excluded','identify '+String.fromCharCode(127),'PA-T6'],['NBSP separator','identify\u00a0email','PA-T6'],
+  ['Unicode space','\u2003identify','PA-T6'],['Unicode token','identify \u00e9mail','PA-T6'],
+  ['BOM','\ufeffidentify','PA-T6'],['Unicode lookalike','\uff49dentify','PA-T6'],
+  ['response exceeds finite byte cap','identify '+('a'.repeat(16400)),'PA-T3'],
+ ]){
+  f=fixture();oauthProvider();const flow=await start(f);calls=[];
+  provider=()=>new Response(JSON.stringify({access_token:secretSentinel,token_type:'Bearer',scope,private_error:secretSentinel}));
+  const nativeLog=context.console,recorded=[];context.console={log:(...v)=>recorded.push(v),warn:(...v)=>recorded.push(v),error:(...v)=>recorded.push(v)};
+  let failure;try{await finish(f,flow);}catch(error){failure=error;}finally{context.console=nativeLog;}
+  ok(name+' scope callback refused',!!failure);
+  eq(name+' scope only token endpoint',calls.map(x=>x.url),['https://discord.com/api/oauth2/token']);
+  eq(name+' scope no capture or authority rows',[count(f,'privacy_access_grants'),count(f,'privacy_subjects'),count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0,0,0]);
+  const response=access.privacyAccessRefusal(new Request(BASE+'/privacy/callback?code='+secretSentinel+'&state='+flow.state),failure),html=await response.text();
+  eq(name+' scope refusal status',response.status,503);
+  const markers=[...html.matchAll(/data-privacy-refusal="([^"]+)"/g)].map(x=>x[1]);eq(name+' scope exact closed marker',markers,[marker]);
+  eq(name+' scope only categorical page difference',html.replace(/data-privacy-refusal="[^"]+"/,'data-privacy-refusal="PA-T6"'),genericScopeHtml);
+  ok(name+' scope no token/code/state reflection',!html.includes(secretSentinel)&&!html.includes(flow.state)&&![...response.headers.values()].some(x=>x.includes(secretSentinel)||x.includes(flow.state)));
+  ok(name+' scope no credential cookie',!response.headers.has('Set-Cookie'));eq(name+' scope no log output',recorded,[]);
+  const flowRow=f.db.prepare('SELECT * FROM privacy_access_oauth').get();ok(name+' scope original state consumed',flowRow.consumed_at!==null);
+  ok(name+' scope no provider data in native flow',!JSON.stringify(flowRow).includes(secretSentinel));
+  const priorCalls=calls.length;await refused(name+' scope replay refused',()=>finish(f,flow));eq(name+' scope replay zero HTTP',calls.length,priorCalls);f.db.close();
+ }
+ // Even a forged error cannot reflect an arbitrary reason as a public marker.
+ for(const reason of ['identity_scope_'+secretSentinel,'PA-T6D','identity_scope_broader_refused '+secretSentinel]){
+  const response=access.privacyAccessRefusal(new Request(BASE+'/privacy/callback'),new (load('policy-form-core').FormError)(reason,503)),html=await response.text();
+  ok('dynamic scope marker refused',html.includes('data-privacy-refusal="PA-U0"')&&!html.includes(secretSentinel));
  }
  for(const error of [Error(secretSentinel),new (load('policy-form-core').FormError)(secretSentinel,503),new (load('policy-form-core').FormError)('identity_exchange_unconfirmed',503)]){
   const response=access.privacyAccessRefusal(new Request(BASE+'/privacy/access/export'),error),html=await response.text();ok('non-callback errors have only unknown support marker',html.includes('data-privacy-refusal="PA-U0"'));ok('unknown errors never reflect private detail',!html.includes(secretSentinel));
