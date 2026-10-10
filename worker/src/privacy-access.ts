@@ -47,6 +47,9 @@ const CALLBACK_SUPPORT = new Map<string,string>([
  ['identity_exchange_transport_unconfirmed','PA-T1'],['identity_exchange_unconfirmed','PA-T2'],
  ['identity_exchange_body_unconfirmed','PA-T3'],['identity_exchange_refused','PA-T4'],
  ['identity_exchange_type_refused','PA-T5'],['identity_exchange_scope_refused','PA-T6'],
+ ['identity_scope_nonstring_refused','PA-T6A'],['identity_scope_empty_refused','PA-T6B'],
+ ['identity_scope_identify_format_refused','PA-T6C'],['identity_scope_broader_refused','PA-T6D'],
+ ['identity_scope_missing_identify_refused','PA-T6E'],
  ['identity_read_transport_unconfirmed','PA-I1'],['identity_read_unconfirmed','PA-I2'],
  ['identity_read_body_unconfirmed','PA-I3'],['identity_read_refused','PA-I4'],
  ['identity_subject_unconfirmed','PA-S1'],['identity_grant_material_unconfirmed','PA-G1'],
@@ -54,6 +57,18 @@ const CALLBACK_SUPPORT = new Map<string,string>([
 ]);
 async function callbackStep<T>(reason:string,work:()=>Promise<T>):Promise<T>{
  try{return await work();}catch{throw new FormError(reason,503);}
+}
+/** Scope grammar classifies only an already refused value (.140); it never admits one. */
+function scopeRefusal(scope:unknown):string{
+ if(typeof scope!=='string')return 'identity_scope_nonstring_refused';
+ if(scope.length===0)return 'identity_scope_empty_refused';
+ // Only ASCII spaces around/repeating the exact token receive this category.
+ // Tabs, newlines and Unicode whitespace remain malformed, never normalized.
+ if(/^ *(?:identify +)*identify *(?![\s\S])/.test(scope))return 'identity_scope_identify_format_refused';
+ // RFC 6749 §3.3 excludes quote/backslash and uses one ASCII SP separator.
+ // The absolute end assertion also excludes JavaScript's final-newline match.
+ if(!/^[\x21\x23-\x5B\x5D-\x7E]+(?: [\x21\x23-\x5B\x5D-\x7E]+)*(?![\s\S])/.test(scope))return 'identity_exchange_scope_refused';
+ return scope.split(' ').includes('identify')?'identity_scope_broader_refused':'identity_scope_missing_identify_refused';
 }
 
 /** Two statements, each deleting at most 100 original expired rows. Composed with the counted retention job. */
@@ -105,7 +120,7 @@ export async function finishPrivacyAccess(request:Request,env:Env):Promise<Respo
  // RFC 6749 §5.1: token_type is case-insensitive; an omitted scope means the
  // original requested scope. Every flow in this lane requests only identify.
  if(typeof t.token_type!=='string'||t.token_type.toLowerCase()!=='bearer')throw new FormError('identity_exchange_type_refused',503);
- if(Object.hasOwn(t,'scope')&&t.scope!=='identify')throw new FormError('identity_exchange_scope_refused',503);
+ if(Object.hasOwn(t,'scope')&&t.scope!=='identify')throw new FormError(scopeRefusal(t.scope),503);
  const response=await callbackStep('identity_read_transport_unconfirmed',()=>fetchPrivacyProvider(credentialFetch(API+'/users/@me',{signal:controller.signal,headers:{Authorization:'Bearer '+t.access_token}}),until,controller));
  if(!response.ok){discardPrivacyProvider(response);throw new FormError('identity_read_unconfirmed',503);}
  const identity=await callbackStep('identity_read_body_unconfirmed',()=>readPrivacyProviderJson(response,until,controller));
