@@ -217,7 +217,16 @@ async function signIn(id) {
   const res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${id}&state=${encodeURIComponent(state)}`, { headers: { Cookie: `__Host-olg_state=${stateCookie}` } }), env(), ctx);
   await settle();
   const c = cookiesFrom(res)["__Host-olg"];
-  if (c) jar.set(id, `__Host-olg=${c}`);
+  if (c) {
+    // .133: business dates stay in September, but the real consuming SQLite fence uses its wall clock.
+    // Authenticate the actual OAuth cookie first; preserve its u/v and adjust only fixture expiry at sign-in.
+    // Never refresh a protected request or replace the production database clock/session fence.
+    const original = await core.readSession(env(), new Request("https://guild.example/", { headers: { Cookie: `__Host-olg=${c}` } }));
+    if (!original || original.u !== id) throw new Error("Actual OAuth cookie did not authenticate");
+    const wallNow = Number(db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").get().t);
+    const body = Buffer.from(JSON.stringify({ ...original, e: Math.max(original.e, wallNow + 3600) })).toString("base64url");
+    jar.set(id, `__Host-olg=${body}.${await core.sign(env().COOKIE_SECRET, "session", body)}`);
+  }
   return res;
 }
 const bootOf = async (res) => {
@@ -1135,6 +1144,16 @@ const bootOf = async (res) => {
   // The admin writes Frank in and lists him as a friend; deleting Frank's data with "mentions" takes those too.
   await call("PUT", "/api/votes", { who: VIKTOR, body: { votes: [vote("professions", 1, "discord", "300000000000000006", "Frank")] } });
   await call("PUT", "/api/friends", { who: VIKTOR, body: { friends: [{ kind: "discord", key: "300000000000000006", label: "Frank", note: "met in Stormwind" }] } });
+  {
+    const original = await core.readSession(env(), new Request("https://guild.example/", { headers: { Cookie: jar.get(VIKTOR) } }));
+    const wallNow = Number(db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").get().t);
+    const body = Buffer.from(JSON.stringify({ ...original, e: wallNow - 1 })).toString("base64url");
+    const expired = `__Host-olg=${body}.${await core.sign(env().COOKIE_SECRET, "session", body)}`;
+    const snapshot = () => JSON.stringify(db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(({ name }) => [name, db.prepare(`SELECT * FROM "${name}"`).all()]));
+    const before = snapshot();
+    const held = await call("POST", "/api/admin/users/300000000000000006/delete", { headers: { Cookie: expired }, body: { mentions: true } });
+    check(".133 an original staff cookie expired on the database clock holds every table without refreshing the request", held.status === 503 && (await J(held)).error === "erasure_held" && snapshot() === before);
+  }
   res = await call("POST", "/api/admin/users/300000000000000006/delete", { who: VIKTOR, body: { mentions: true } });
   const denRow = db.prepare("SELECT * FROM site_users WHERE discord_id = '300000000000000006'").get();
   check("staff delete a denied account's data on request: only the bare denial is kept", res.status === 200 && denRow.denied === 1 && denRow.username === null && !db.prepare("SELECT 1 FROM site_votes WHERE voter_id = '300000000000000006'").get());
@@ -1316,7 +1335,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".132") && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build.includes(".133") && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

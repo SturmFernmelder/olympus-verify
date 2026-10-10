@@ -142,6 +142,19 @@ const iso = (s) => new Date(s * 1000).toISOString();
 const C1 = "A".repeat(22), C2 = "B".repeat(22), C3 = "C".repeat(22), C4 = "D".repeat(22);
 const act = (body, who = STAFF) => call("POST", "/api/admin/community/restrictions", who, body);
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Mia" }); siteUser(OTHER, { global_name: "Oz" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
   character(MEMBER, "Mia One", "member", "Player-1-0001"); character(MEMBER, "Mia Two", "member", "Player-1-0002"); character(MEMBER, "Mia Gone", "unbound");
@@ -272,11 +285,11 @@ const act = (body, who = STAFF) => call("POST", "/api/admin/community/restrictio
   console.log("\n== erasure, export, purge ==");
   const exported = await context.communityExport(env(), MEMBER);
   check("the account copy lists the member's cases (dates, outcomes, no staff), their watch-list rows and the period", exported.restrictions.cases.length === 2 && exported.restrictions.cases.every((c) => !("setBy" in c)) && exported.restrictions.watchList.length === 2 && exported.restrictions.watchListPeriod && !JSON.stringify(exported.restrictions).includes(STAFF), JSON.stringify(exported.restrictions).slice(0, 300));
-  await siteAdmin.deleteSiteData(env(), STAFF, STAFF2);
+  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
   check("erasing the staff member who set the cases anonymizes them: setBy null in the view, 'erased' stored", one("SELECT set_by FROM community_restriction_cases WHERE id = ?", C4).set_by === "erased" && !one("SELECT 1 FROM community_restriction_characters WHERE added_by = ?", STAFF));
   siteUser(STAFF, { global_name: "Vik" });
   check("(the lifted case still carries the acknowledgement the officer recorded)", one("SELECT acknowledged_at FROM community_restriction_cases WHERE id = ?", C1).acknowledged_at !== null);
-  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF);
+  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
   check("erasing the member (.73, the selected contract) deletes their INACTIVE case (C1, lifted) with its rows, keeps the active ban case with its rows (the one case-bound exception) and the period while that case is unresolved; another member's resolved case (C2) is untouched", !one("SELECT 1 FROM community_restriction_cases WHERE id = ?", C1) && !!one("SELECT 1 FROM community_restriction_cases WHERE id = ?", C2) && !!one("SELECT 1 FROM community_restriction_cases WHERE id = ?", C4) && one("SELECT COUNT(*) AS n FROM community_restriction_characters WHERE case_id = ?", C4).n === 2 && !!one("SELECT 1 FROM community_restriction_periods WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM site_users WHERE discord_id = ?", MEMBER));
   r = await call("GET", "/api/admin/community/restrictions?discordId=" + MEMBER, STAFF);
   check("  staff still see the case, with no display name and no return", r.body.cases.find((c) => c.caseId === C4).displayName === null && r.body.cases.find((c) => c.caseId === C4).returnToken === null);

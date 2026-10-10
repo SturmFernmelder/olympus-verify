@@ -150,6 +150,19 @@ const act = (body, who = STAFF, over = ON, extraHeaders = {}) => call("POST", "/
 const staffView = async (id = MEMBER) => (await call("GET", "/api/admin/community/contributions?discordId=" + id, STAFF)).body.ledger;
 const week = (ledger, start) => ledger.obligations.find((o) => o.periodStart === iso(start));
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Mia" }); character(MEMBER, "Mia One", T - 30 * DAY, "Player-1-0001"); siteUser(OTHER, { global_name: "Oz" }); character(OTHER, "Oz New", T - 3 * DAY); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
 
@@ -555,10 +568,10 @@ const week = (ledger, start) => ledger.obligations.find((o) => o.periodStart ===
   exported = await context.communityExport(env(ON), MEMBER);
   text = JSON.stringify(exported.contributions);
   check("the account copy lists the member's live weeks with paid sums and contact dates and their receipts' amounts; never who observed or recorded, payer names or source ids", exported.contributions.obligations.length === 6 && exported.contributions.receipts.length === 2 && exported.contributions.receipts.some((x) => x.voidedAt !== null) && exported.contributions.receipts.some((x) => x.allocatedCopper === 10000) && !/"(payerName|payer_name|observer|observerDiscordId|sourceId|source_id|recordedBy)"|mail-1|mail-3|staff:/.test(text) && !text.includes(STAFF), text.slice(0, 300));
-  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2);
+  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
   check("erasing the officer removes them as the receipt's observer and anonymizes them as the actor of journal rows and decisions", one("SELECT observer_discord_id FROM community_contribution_receipts WHERE id = ?", receiptId).observer_discord_id === null && !one("SELECT 1 FROM community_contribution_allocation_events WHERE actor = ?", "staff:" + STAFF) && !one("SELECT 1 FROM community_contribution_decisions WHERE actor = ?", "staff:" + STAFF) && !!one("SELECT 1 FROM community_contribution_decisions WHERE actor = 'erased'"));
   siteUser(STAFF, { global_name: "Vik" });
-  await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF);
+  await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
   const left = ["community_contribution_members.discord_id", "community_contribution_obligations.discord_id", "community_contribution_receipts.matched_discord_id", "community_contribution_decisions.discord_id"].filter((tc) => { const [t, c] = tc.split("."); return one(`SELECT 1 FROM ${t} WHERE ${c} = ?`, MEMBER); });
   check("erasing the member removes every ledger row about them (all scopes) and the journal rows of their weeks and receipts", left.length === 0 && one("SELECT COUNT(*) AS n FROM community_contribution_allocation_events").n === 0, left.join(" "));
   db.prepare("UPDATE community_contribution_obligations SET retain_until = ? WHERE discord_id = ?").run(T - 1, OTHER);

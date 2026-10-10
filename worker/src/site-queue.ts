@@ -121,7 +121,7 @@ export async function autoQueueReserved(env: Env): Promise<QueueOutcome | null> 
  * the site added is cancelled while it is still waiting; a row that was already there on its own (they verified) only
  * loses its place at the front.
  */
-export async function releaseReserved(env: Env, where: { ids?: number[]; ownerId?: string }, actor: string): Promise<number> {
+export function releaseReservedStatements(env: Env, where: { ids?: number[]; ownerId?: string }, actor: string): D1PreparedStatement[] {
   const ids = where.ids?.filter((x) => Number.isInteger(x) && x > 0).slice(0, 200);
   // ?1 = who, ?2 = when, ?3 = the owner (only when releasing by owner)
   let cond: string;
@@ -130,9 +130,9 @@ export async function releaseReserved(env: Env, where: { ids?: number[]; ownerId
   else if (where.ownerId) {
     cond = "owner_id = ?3";
     args.push(where.ownerId);
-  } else return 0;
+  } else return [];
   const queued = `SELECT queue_id FROM site_reserved WHERE ${cond} AND status = 'queued' AND queue_id IS NOT NULL`;
-  const res = await env.DB.batch([
+  return [
     // ?1 and ?2 appear in every statement so the same arguments bind to all three.
     env.DB.prepare(
       // 'invited' too: an invite that fired and was not accepted goes back to the queue after 30 minutes (sweepInviteQueue).
@@ -144,6 +144,12 @@ export async function releaseReserved(env: Env, where: { ids?: number[]; ownerId
         WHERE status IN ${ACTIVE} AND approved_by <> 'site' AND ?1 IS NOT NULL AND ?2 IS NOT NULL AND id IN (${queued})`,
     ).bind(...args),
     env.DB.prepare(`UPDATE site_reserved SET status = 'released', released_by = ?1, released_at = ?2 WHERE ${cond} AND status <> 'released'`).bind(...args),
-  ]);
+  ];
+}
+
+export async function releaseReserved(env: Env, where: { ids?: number[]; ownerId?: string }, actor: string): Promise<number> {
+  const statements = releaseReservedStatements(env, where, actor);
+  if (!statements.length) return 0;
+  const res = await env.DB.batch(statements);
   return res[2]?.meta?.changes ?? 0;
 }

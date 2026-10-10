@@ -139,6 +139,19 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const dep = load("./community-departures");
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(MEMBER, { global_name: "Mia" }); siteUser(OTHER, { global_name: "Oz" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
   departed(MEMBER, "Mia One", T - 3 * 86400, "has been kicked out of the guild by Fern Melder");
@@ -215,10 +228,10 @@ const dep = load("./community-departures");
   check("  and takes no decision: 404 not_found", r.status === 404);
   const exported = await context.communityExport(env(), MEMBER);
   check("the account copy lists the member's live items without the reviewer or the case", exported.departures.departures.length === 2 && exported.departures.departures.every((d) => !("reviewedBy" in d) && !("restrictionCaseId" in d)) && exported.departures.departures[0].kind === "removed");
-  await siteAdmin.deleteSiteData(env(), STAFF, STAFF2);
+  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
   check("erasing the reviewing admin anonymizes them on the items; the items stay", one("SELECT reviewed_by FROM community_departure_reviews WHERE id = ?", d2.id).reviewed_by === null && !!one("SELECT 1 FROM community_departure_reviews WHERE id = ?", d1.id));
   siteUser(STAFF, { global_name: "Vik" });
-  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF);
+  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
   check("erasing the member removes their items (the case opened from one lives on under its own rules)", !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", MEMBER) && !!one("SELECT 1 FROM community_restriction_cases WHERE id = ?", caseId));
   const sw = await dep.sweepCommunityDepartures(env({ COMMUNITY_FEATURES: "" }), T);
   check("the purge runs with the flag off: the expired item goes, the backlog is reported", sw.deleted === 1 && sw.remaining === 0 && !one("SELECT 1 FROM community_departure_reviews WHERE id = ?", dOz.id) && JSON.parse(one("SELECT details FROM audit WHERE action = 'community.departures_expired'").details).remaining === 0);

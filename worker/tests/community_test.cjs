@@ -114,6 +114,19 @@ const cookieFor = async (id, version = 1) => (await siteCore.sessionCookie(env()
 const req = (url, cookie, init = {}) => new Request(url, { ...init, headers: { ...(init.headers ?? {}), ...(cookie ? { Cookie: cookie } : {}) } });
 const APPLICANT = "300000000000000001", MEMBER = "300000000000000002", BANNED = "300000000000000003", DENIED = "300000000000000004", LEFT = "300000000000000005", STAFF = "472099715253796864";
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   console.log("\n== the context: who may do what, from keeper facts only ==");
   siteUser(APPLICANT); siteUser(MEMBER); confirm(MEMBER, "Fern Melder"); siteUser(BANNED); confirm(BANNED, "Bad Actor"); db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(BANNED);
@@ -225,10 +238,10 @@ const APPLICANT = "300000000000000001", MEMBER = "300000000000000002", BANNED = 
   check("refs registered itself", context.communityDataNames().includes("refs"));
   const exported = await context.communityExport(env(), APPLICANT);
   check("the export carries the member's ref", exported.refs && exported.refs.ref === "F".repeat(22));
-  const deleted = await siteAdmin.deleteSiteData(env(), APPLICANT, STAFF);
+  const deleted = await siteAdmin.deleteSiteData(env(), APPLICANT, STAFF, false, await erasureRequest(APPLICANT, STAFF));
   check("deleteSiteData removes the community rows in its own batch", deleted === true && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", APPLICANT) && !one("SELECT 1 FROM site_users WHERE discord_id = ?", APPLICANT));
   db.prepare("INSERT INTO community_refs (discord_id, ref, created_at) VALUES (?, ?, ?) ON CONFLICT(discord_id) DO NOTHING").run(MEMBER, "M".repeat(22), T);
-  await siteAdmin.deleteSiteData(env(), DENIED, STAFF);
+  await siteAdmin.deleteSiteData(env(), DENIED, STAFF, false, await erasureRequest(DENIED, STAFF));
   check("  and leaves other members' rows (another account's deletion does not touch this ref)", !!one("SELECT 1 FROM community_refs WHERE discord_id = ?", MEMBER));
   check("refOf answers null afterwards", (await refs.refOf(env(), APPLICANT)) === null);
 

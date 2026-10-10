@@ -9,6 +9,7 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+let maxBindings = 0;
 
 function d1(db, hooks = {}) {
   let batches = 0; // .74: numbered per request, for the beforeBatch/afterBatch hooks
@@ -23,6 +24,8 @@ function d1(db, hooks = {}) {
     const api = {
       bind: (...p) => {
         if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
+        maxBindings = Math.max(maxBindings, p.length);
+        if (p.length > 100) throw new Error("D1 per-statement binding limit exceeded");
         const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
         if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
         params = p;
@@ -162,6 +165,19 @@ const whereIs = (id) => {
   return hits.sort();
 };
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(MEMBER, { global_name: "Mia", nick: "Mia the Mage" }); confirm(MEMBER, "Mia One", "Player-1-0001"); confirm(MEMBER, "Mia Two", "Player-1-0002");
   siteUser(ORG, { global_name: "Org" }); confirm(ORG, "Org Char"); siteUser(OTHER, { global_name: "Oz" }); confirm(OTHER, "Oz Alt"); siteUser(STAFF, { global_name: "Vik" }); confirm(STAFF, "Vik Admin"); siteUser(STAFF2, { global_name: "Ann" });
@@ -258,14 +274,14 @@ const whereIs = (id) => {
   console.log("\n== erasure through the real deleteSiteData, then every table scanned ==");
   const before = whereIs(MEMBER);
   check("(before: the member's id sits in many tables)", before.length >= 12, before.join(" "));
-  const deleted = await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF);
+  const deleted = await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
   const after = whereIs(MEMBER);
   const allowed = ["audit.actor", "audit.subject", "characters.discord_id", "community_restriction_cases.discord_id", "community_restriction_periods.discord_id", "invite_queue.discord_id", "members.discord_id", "pending.discord_id"];
   check("after the erasure the id remains ONLY in the documented residue: the bot's own verification rows (members, characters, pending, the invite queue), the dated log, and the active restriction case with its period", deleted && after.every((h) => allowed.includes(h)), after.filter((h) => !allowed.includes(h)).join(" ") || "(no unexpected hit)");
   check("  the site account, application, votes, board votes, friends and reservations are gone", !one("SELECT 1 FROM site_users WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM site_applications WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM site_votes WHERE voter_id = ?", MEMBER) && !one("SELECT 1 FROM site_board_votes WHERE voter_id = ?", MEMBER) && !one("SELECT 1 FROM site_friends WHERE owner_id = ?", MEMBER) && !one("SELECT 1 FROM site_reserved WHERE owner_id = ?", MEMBER));
   check("  every community feature's rows about them are gone or anonymized: profile, ref, answer, trial, departure item; the case's watch-list rows stay with the active case", !one("SELECT 1 FROM community_profiles WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_event_signups WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_trials WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", MEMBER) && one("SELECT COUNT(*) AS n FROM community_restriction_characters WHERE case_id = ?", "R".repeat(22)).n === 2);
   const staffBefore = whereIs(STAFF);
-  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2);
+  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
   const staffAfter = whereIs(STAFF);
   const staffAllowed = ["audit.actor", "audit.subject", "characters.discord_id", "members.discord_id"];
   check("an erased staff member is anonymized everywhere they acted (the application's reviewer, the reservation's approver, the denial, the trial's creator, the case's setter, the watch-list's adder, the queue row's approver) and remains only in the dated log and the bot's own rows", staffBefore.length > staffAfter.length && staffAfter.every((h) => staffAllowed.includes(h)), staffAfter.filter((h) => !staffAllowed.includes(h)).join(" ") || "(no unexpected hit)");
@@ -637,6 +653,126 @@ const whereIs = (id) => {
     } finally { BEFORE = savedBefore; AFTER = savedAfter; T = savedT; rangeDb?.close(); db = savedDb; }
   }
 
+  console.log("\n== .133: original-request site-only erasure is one atomic write ==");
+  {
+    const savedDb = db, savedBefore = BEFORE, savedAfter = AFTER;
+    const oldRemove = stubs["./discord"].removeRole, oldAdd = stubs["./discord"].addRole;
+    let fixtureDb, roleEffects = 0, batches = 0;
+    stubs["./discord"].removeRole = async () => { roleEffects++; };
+    stubs["./discord"].addRole = async () => { roleEffects++; };
+    const snapshot = () => JSON.stringify(["site_users", "site_applications", "site_votes", "site_friends", "site_reserved", "invite_queue", "community_profiles", "community_refs", "audit"].map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
+    const auditCount = () => one("SELECT COUNT(*) AS n FROM audit WHERE action='site.data_deleted'").n;
+    const seed = async () => {
+      BEFORE = null; AFTER = null; fixtureDb?.close(); fixtureDb = freshDb(); db = fixtureDb;
+      load("./schema").forgetSchemaCheck(); roleEffects = 0; batches = 0;
+      for (const id of [MEMBER, OTHER, STAFF, STAFF2]) siteUser(id);
+      confirm(MEMBER, "Mia One", "Player-1-0001");
+      const profile = await call("PUT", "/api/community/profile", MEMBER, { revision: 0, listed: true, main: "Mia One", raidRole: "healer" });
+      if (profile.status !== 200) throw Error(".133 real profile fixture refused");
+      db.prepare("INSERT INTO site_applications(discord_id,position,answers,status,created_at,updated_at) VALUES(?,'officer',?,'submitted',?,?)").run(OTHER, JSON.stringify({ references: [{ kind: "discord", key: MEMBER, label: "Mia" }, { kind: "name", label: "Keep" }], reason: "old answer" }), T, T);
+      db.prepare("INSERT INTO site_votes(voter_id,ballot,slot,nominee_kind,nominee_key,nominee_label,created_at,updated_at) VALUES(?,'officer',1,'discord',?,'Mia',?,?)").run(OTHER, MEMBER, T, T);
+      db.prepare("INSERT INTO site_friends(owner_id,friend_kind,friend_key,friend_label,created_at) VALUES(?,'discord',?,'Mia',?)").run(OTHER, MEMBER, T);
+      for (const [id, approver, name] of [[101, "site", "Mia Site"], [102, "verification", "Mia Own"]]) {
+        db.prepare("INSERT INTO invite_queue(id,name_key,name,discord_id,status,created_at,approved_by,priority) VALUES(?,?,?,?,'queued',?,?,1)").run(id, name.toLowerCase(), name, MEMBER, T, approver);
+        db.prepare("INSERT INTO site_reserved(owner_id,name,name_key,status,created_at,queue_id,queued_at) VALUES(?,?,?,'queued',?,?,?)").run(MEMBER, name, name.toLowerCase(), T, id, T);
+      }
+    };
+    const signed = async (id, actor, change = {}) => {
+      const original = await erasureRequest(id, actor), payload = await siteCore.readSession(env(), original);
+      const body = siteCore.b64u(new TextEncoder().encode(JSON.stringify({ ...payload, ...change })));
+      const mac = await siteCore.sign(env().COOKIE_SECRET, "session", body);
+      return "__Host-olg=" + body + "." + mac;
+    };
+    try {
+      for (const [label, trigger] of [
+        ["early queue release", "CREATE TRIGGER erasure_fault BEFORE UPDATE ON invite_queue WHEN OLD.id=101 BEGIN SELECT RAISE(ABORT,'synthetic early fault'); END"],
+        ["middle community eraser", `CREATE TRIGGER erasure_fault BEFORE DELETE ON community_profiles WHEN OLD.discord_id='${MEMBER}' BEGIN SELECT RAISE(ABORT,'synthetic middle fault'); END`],
+        ["terminal account delete", `CREATE TRIGGER erasure_fault BEFORE DELETE ON site_users WHEN OLD.discord_id='${MEMBER}' BEGIN SELECT RAISE(ABORT,'synthetic terminal fault'); END`],
+        ["final audit/replay insert", "CREATE TRIGGER erasure_fault BEFORE INSERT ON audit WHEN NEW.action='site.data_deleted' BEGIN SELECT RAISE(ABORT,'synthetic final fault'); END"],
+        ["ignored terminal target delete", `CREATE TRIGGER erasure_fault BEFORE DELETE ON site_users WHEN OLD.discord_id='${MEMBER}' BEGIN SELECT RAISE(IGNORE); END`],
+        ["ignored final audit/replay insert", "CREATE TRIGGER erasure_fault BEFORE INSERT ON audit WHEN NEW.action='site.data_deleted' BEGIN SELECT RAISE(IGNORE); END"],
+      ]) {
+        await seed(); db.exec(trigger); const before = snapshot(); BEFORE = () => { batches++; };
+        const r = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }); BEFORE = null;
+        check(".133 " + label + " fault: actual HTTP holds the entire original SQLite state in one batch", r.status === 503 && r.body.error === "erasure_held" && batches === 1 && snapshot() === before && auditCount() === 0 && roleEffects === 0, r.status);
+        check(".133 " + label + " fault: neither site queue cancellation nor verification priority release leaks", one("SELECT status FROM invite_queue WHERE id=101").status === "queued" && one("SELECT priority FROM invite_queue WHERE id=102").priority === 1 && one("SELECT COUNT(*) AS n FROM site_reserved WHERE status='queued'").n === 2);
+      }
+      for (const [label, update] of [
+        ["original staff session revoked", () => db.prepare("UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?").run(STAFF)],
+        ["target session changed", () => db.prepare("UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?").run(MEMBER)],
+        ["target first-login incarnation changed", () => db.prepare("UPDATE site_users SET first_login=first_login+1 WHERE discord_id=?").run(MEMBER)],
+        ["target denial decision changed", () => db.prepare("UPDATE site_users SET denied=1,denied_at=? WHERE discord_id=?").run(T, MEMBER)],
+      ]) {
+        await seed(); let current; BEFORE = () => { BEFORE = null; batches++; update(); current = snapshot(); };
+        const r = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+        check(".133 " + label + " before consuming batch holds with zero erasure effects", r.status === 503 && r.body.error === "erasure_held" && batches === 1 && snapshot() === current && auditCount() === 0 && roleEffects === 0);
+      }
+      await seed(); const expiry = one("SELECT CAST(strftime('%s','now') AS INTEGER) AS s").s - 1, expired = await signed(MEMBER, STAFF, { e: expiry }), beforeExpiry = snapshot();
+      BEFORE = () => { batches++; };
+      const expiryResult = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }, ON, { Cookie: expired }); BEFORE = null;
+      check(".133 original cookie expired by database clock cannot delete despite older process clock", expiryResult.status === 503 && expiryResult.body.error === "erasure_held" && batches === 1 && snapshot() === beforeExpiry && auditCount() === 0);
+      await seed(); const prooflessBefore = snapshot(); let prooflessHeld = false;
+      try { await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF); } catch { prooflessHeld = true; }
+      check(".133 proofless internal caller is held; current actor row never synthesizes admission", prooflessHeld && snapshot() === prooflessBefore && auditCount() === 0);
+      for (const [label, actor, request] of [
+        ["different signed actor", STAFF, await erasureRequest(MEMBER, STAFF2)],
+        ["different target path", STAFF, await erasureRequest(OTHER, STAFF)],
+        ["unconfigured staff", OTHER, await erasureRequest(MEMBER, OTHER)],
+      ]) {
+        let held = false; try { await siteAdmin.deleteSiteData(env(ON), MEMBER, actor, true, request); } catch { held = true; }
+        check(".133 " + label + " cannot substitute for original subject-bound staff request", held && snapshot() === prooflessBefore && auditCount() === 0);
+      }
+      for (const [label, headers, status] of [["cross-origin", { Origin: "https://other.example" }, 403], ["old page", { "X-Olympus": "1" }, 409]]) {
+        const r = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }, ON, headers);
+        check(".133 " + label + " is refused without site-only effects", r.status === status && snapshot() === prooflessBefore);
+      }
+      await seed(); BEFORE = () => { BEFORE = null; batches++; db.prepare("UPDATE site_applications SET answers=? WHERE discord_id=?").run(JSON.stringify({ references: [{ kind: "discord", key: MEMBER }, { kind: "discord", key: STAFF2, label: "Fresh other reference" }], reason: "concurrent answer", newField: "preserve" }), OTHER); };
+      const scrub = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+      const currentAnswers = JSON.parse(one("SELECT answers FROM site_applications WHERE discord_id=?", OTHER).answers);
+      check(".133 consuming-current mention scrub preserves concurrently changed fields and unrelated reference", scrub.status === 200 && currentAnswers.reason === "concurrent answer" && currentAnswers.newField === "preserve" && currentAnswers.references.length === 1 && currentAnswers.references[0].key === STAFF2 && batches === 1);
+      check(".133 successful transaction releases both queue forms, deletes site/community data and records exactly one existing audit/replay row", !one("SELECT 1 FROM site_users WHERE discord_id=?", MEMBER) && !one("SELECT 1 FROM community_profiles WHERE discord_id=?", MEMBER) && !one("SELECT 1 FROM site_reserved WHERE owner_id=?", MEMBER) && one("SELECT status FROM invite_queue WHERE id=101").status === "cancelled" && one("SELECT priority FROM invite_queue WHERE id=102").priority === 0 && auditCount() === 1);
+      const receipt = one("SELECT * FROM audit WHERE action='site.data_deleted'");
+      check(".133 dated manual-replay record has only existing actor/subject and mentions boolean, no cookie or application fields", receipt.actor === STAFF && receipt.subject === MEMBER && receipt.details === '{"mentions":true}' && Math.abs(receipt.ts - RealDate.now()/1000) < 300);
+      check(".133 site-only success preserves bot membership/character linkage and never changes roles", !!one("SELECT 1 FROM members WHERE discord_id=?", MEMBER) && !!one("SELECT 1 FROM characters WHERE discord_id=?", MEMBER) && roleEffects === 0);
+      const alreadyGone = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+      check(".133 absent target remains 404 and cannot create a second manual-replay audit", alreadyGone.status === 404 && auditCount() === 1);
+      await seed(); const untouched = ' { "references": [], "reason": "keep exact" }';
+      db.prepare("UPDATE site_applications SET answers=? WHERE discord_id=?").run(untouched, OTHER);
+      const none = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+      check(".133 no matching reference retains whole unrelated document bytes", none.status === 200 && one("SELECT answers FROM site_applications WHERE discord_id=?", OTHER).answers === untouched);
+      const mixed = [null, false, true, 7, "text", [1, "array"], { extra: "object" }, { kind: "discord", key: MEMBER }, { kind: "name", key: MEMBER }];
+      await seed(); db.prepare("UPDATE site_applications SET answers=? WHERE discord_id=?").run(JSON.stringify({ references: mixed, untouched: "current" }), OTHER);
+      await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+      const keptMixed = JSON.parse(one("SELECT answers FROM site_applications WHERE discord_id=?", OTHER).answers);
+      check(".133 actual eraser preserves primitive/null/boolean/array reference values and removes only exact string Discord entry", JSON.stringify(keptMixed.references) === JSON.stringify(mixed.filter((_,i) => i !== 7)) && keptMixed.untouched === "current");
+      for (const text of ['{"references":[', '{"references":null}', '{"references":{"kind":"discord","key":"'+MEMBER+'"}}', '{"references":[{"kind":"discord","kind":"name","key":"'+MEMBER+'"}]}', '{"references":[{"kind":"discord","key":"'+MEMBER+'"}],"references":[]}']) {
+        await seed(); db.prepare("UPDATE site_applications SET answers=? WHERE discord_id=?").run(text, OTHER);
+        const result = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true });
+        check(".133 malformed/non-array/ambiguous legacy reference document is preserved without aborting unrelated site-only deletion", result.status === 200 && one("SELECT answers FROM site_applications WHERE discord_id=?", OTHER).answers === text);
+      }
+      await seed(); const own = await call("POST", `/api/admin/users/${STAFF}/delete`, STAFF, { mentions: true });
+      check(".133 self-target staff deletion consumes admission before intentional account disappearance", own.status === 200 && !one("SELECT 1 FROM site_users WHERE discord_id=?", STAFF) && auditCount() === 1 && one("SELECT actor FROM audit WHERE action='site.data_deleted'").actor === STAFF && roleEffects === 0);
+      await seed(); db.exec("CREATE TRIGGER erasure_fault BEFORE INSERT ON audit WHEN NEW.action='site.data_deleted' BEGIN SELECT RAISE(ABORT,'self receipt fault'); END"); const ownBefore = snapshot();
+      const ownFault = await call("POST", `/api/admin/users/${STAFF}/delete`, STAFF, { mentions: true });
+      check(".133 self-target final receipt fault rolls back its account and actor anonymization", ownFault.status === 503 && snapshot() === ownBefore && auditCount() === 0);
+      await seed(); db.prepare("UPDATE site_users SET denied=1,denied_at=?,denied_by=?,denied_reason='existing denial detail' WHERE discord_id=?").run(T-100, STAFF, MEMBER);
+      const denied = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }), denial = one("SELECT * FROM site_users WHERE discord_id=?", MEMBER);
+      check(".133 existing denied residue is unchanged policy, with identity cleared and session advanced", denied.status === 200 && denial.denied === 1 && denial.denied_reason === "existing denial detail" && denial.denied_by === STAFF && denial.denied_at === T-100 && denial.username === null && denial.session_version === 2 && denial.first_login === T-100);
+      await seed(); const beforeLost = auditCount(), base = env(ON).DB; let attempts = 0;
+      const lost = { ...base, batch: async statements => { attempts++; await base.batch(statements); throw Error("synthetic committed response loss"); } };
+      const uncertain = await call("POST", `/api/admin/users/${MEMBER}/delete`, STAFF, { mentions: true }, { ...ON, DB: lost });
+      check(".133 lost post-commit answer is held honestly, preserves atomic audit/custody and causes no implicit retry", uncertain.status === 503 && uncertain.body.error === "erasure_held" && attempts === 1 && !one("SELECT 1 FROM site_users WHERE discord_id=?", MEMBER) && auditCount() === beforeLost + 1);
+      await seed(); const session = await cookieFor(MEMBER), page = await indexMod.default.fetch(new Request("https://guild.example/privacy/account", { headers: { Cookie: session } }), env(ON), ctx);
+      const html = await page.text(), form = (html.match(/<form method="post" action="\/privacy\/account\/full-erase">([\s\S]*?)<\/form>/) || [])[1] || "", csrf = (form.match(/name="csrf" value="([^"]+)"/) || [])[1] || "", formCookie = (page.headers.get("Set-Cookie") || "").split(";")[0], fullBefore = snapshot();
+      const full = await indexMod.default.fetch(new Request("https://guild.example/privacy/account/full-erase", { method: "POST", headers: { Cookie: session + "; " + formCookie, Origin: "https://guild.example", "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ csrf }).toString() }), env({ ...ON, PRIVACY_FOUNDATION_ON: "on" }), ctx);
+      check(".133 actual full-erasure form remains 503/not performed even with a guessed activation boolean", full.status === 503 && (await full.text()).includes("not performed") && snapshot() === fullBefore && roleEffects === 0);
+      check(".133 real D1-shaped execution stays within 100 bindings per statement", maxBindings <= 100, maxBindings);
+      console.log(".133 SQLite admission/transaction diagnostic", JSON.stringify({ sqlite: one("SELECT sqlite_version() AS v").v, maxBindings, productionD1Native: false, completeErasure: false }));
+    } finally {
+      BEFORE = savedBefore; AFTER = savedAfter; db = savedDb; fixtureDb?.close();
+      stubs["./discord"].removeRole = oldRemove; stubs["./discord"].addRole = oldAdd;
+    }
+  }
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

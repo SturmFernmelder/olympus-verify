@@ -135,6 +135,19 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
 
+// .133: construct an original signed staff Request before the real site-only eraser consumes it.
+// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
+async function erasureRequest(target, actor) {
+  const site = load("./site-core");
+  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
+  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
+  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
+  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
+  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
+    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
+  });
+}
+
 (async () => {
   siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Mia" }); siteUser(SPONSOR, { global_name: "Sam" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
   const due = T + 30 * 86400;
@@ -258,11 +271,11 @@ const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
   console.log("\n== erasure, export, retention ==");
   const exported = await context.communityExport(env(), MEMBER);
   check("the account copy lists the member's trials without sponsor or staff", exported.trials.trials.length === 2 && exported.trials.trials.every((t) => !("sponsorDiscordId" in t)) && exported.trials.trials[0].outcome === "passed");
-  await siteAdmin.deleteSiteData(env(), SPONSOR, STAFF);
+  await siteAdmin.deleteSiteData(env(), SPONSOR, STAFF, false, await erasureRequest(SPONSOR, STAFF));
   check("erasing the sponsor anonymizes them on the member's trial and removes their own", one("SELECT sponsor_discord_id FROM community_trials WHERE id = ?", OP1).sponsor_discord_id === null && !one("SELECT 1 FROM community_trials WHERE id = ?", OP2));
-  await siteAdmin.deleteSiteData(env(), STAFF2, STAFF);
+  await siteAdmin.deleteSiteData(env(), STAFF2, STAFF, false, await erasureRequest(STAFF2, STAFF));
   check("erasing a reviewer clears them as updated_by; the trial about them is gone with them", one("SELECT updated_by FROM community_trials WHERE id = ?", OP1).updated_by === null && !one("SELECT 1 FROM community_trials WHERE id = ?", OP3));
-  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF);
+  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
   check("erasing the member removes their trials", !one("SELECT 1 FROM community_trials WHERE discord_id = ?", MEMBER));
   siteUser(MEMBER, { global_name: "Mia" });
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "E".repeat(22), discordId: MEMBER, reviewDueAt: iso(due) });
