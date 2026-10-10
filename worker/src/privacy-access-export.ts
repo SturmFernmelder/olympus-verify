@@ -14,6 +14,20 @@ const limit=1000;
 type Rec=Record<string,unknown>;
 const iso=(value:unknown)=>typeof value==='number'?secondsToIso(value):null;
 const bounded=(result:D1Result)=>({complete:result.results.length<=limit,rows:result.results.slice(0,limit)});
+const eventFields=new Set(['title','details','startsAt','durationMin','capacity','roleTargets']);
+function eventChanges(result:D1Result):unknown{
+ const rows=result.results.map(raw=>{
+  const r=raw as Rec;
+  if(!r||typeof r!=='object'||Array.isArray(r)||typeof r.event_id!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(r.event_id)||
+   !Number.isSafeInteger(r.at)||(r.at as number)<0||!['created','updated','cancelled'].includes(r.action as string)||
+   typeof r.fields!=='string'||r.fields.length>256)throw new FormError('privacy_copy_unconfirmed',503);
+  let fields:unknown;try{fields=JSON.parse(r.fields);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
+  if(!Array.isArray(fields)||fields.length>6||fields.some(f=>typeof f!=='string'||!eventFields.has(f))||new Set(fields).size!==fields.length||
+   (r.action==='updated'?fields.length===0:fields.length!==0))throw new FormError('privacy_copy_unconfirmed',503);
+  return {eventId:r.event_id,action:r.action,at:iso(r.at),changedFieldNames:fields};
+ });
+ return {complete:rows.length<=limit,rows:rows.slice(0,limit)};
+}
 function application(row:AppRow|undefined):unknown{
  if(!row)return null;const a=appOut(row),answers={...a.answers};
  if(Object.hasOwn(answers,'references')){
@@ -68,7 +82,7 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  site:{application:application(out[2]!.results[0] as AppRow|undefined),votes:bounded(out[3]!),boardVotes:bounded(out[4]!),friends:bounded(out[5]!),reserved:bounded(out[6]!)},
  verification:{known:!!m,bannedFromVerifying:m?.banned===1,battleNet:m?{linked:bnetFresh(m.linked_at as number|null,at),linkedAt:bnetFresh(m.linked_at as number|null,at)?iso(m.linked_at):null,profileLinkedAt:bnetFresh(m.bnet_linked_at as number|null,at)?iso(m.bnet_linked_at):null}:null,
  discordNames:m?{username:m.username,displayName:m.global_name,readAt:iso(m.names_at)}:null,characters:bounded(out[8]!),codeRequests:bounded(out[9]!),inviteQueue:bounded(out[10]!),renameRecords:bounded(out[12]!)},
- actions:bounded(out[11]!),eventChanges:bounded(out[13]!),contributionDecisions:bounded(out[14]!),community:community.shape(out.slice(15,base)),
+ actions:bounded(out[11]!),eventChanges:eventChanges(out[13]!),contributionDecisions:bounded(out[14]!),community:community.shape(out.slice(15,base)),
  privacyLifecycle:{coverage:'own minimized serving controls; no provider pointers, proof digests or other account identifiers',allCopiesErased:false,erasureRequests:bounded(out[base]!),providerCleanup:bounded(out[base+1]!),recoverySuppression:bounded(out[base+2]!),rejectionMarker:out[base+3]!.results}};
  return apiJson(body,200,{'Content-Disposition':'attachment; filename="olympus-my-privacy-data.json"','Referrer-Policy':'no-referrer'});
 }

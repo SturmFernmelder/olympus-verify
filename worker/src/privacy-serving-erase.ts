@@ -94,6 +94,13 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  env.DB.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM site_applications
  WHERE discord_id<>?1 AND instr(answers,?1)>0) THEN 1
  ELSE json_extract('privacy_ambiguous_reference_held','$') END AS admitted`).bind(p.subject),
+ // Resolve recorded character-only operational subjects while their live ownership interval still exists.
+ // Earlier owners' history and arbitrary free text are not inferred from a matching name.
+ env.DB.prepare(`DELETE FROM audit WHERE actor=?1 OR subject=?1 OR instr(COALESCE(details,''),?1)>0
+ OR EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?1 AND audit.ts>=c.bound_at AND
+ (audit.subject=c.name COLLATE NOCASE OR audit.subject=c.name_key COLLATE NOCASE) AND
+ ((audit.actor='watcher' AND audit.action IN('note.set','note.failed','invite.failed','invite.fired','invite.joined','verify.roster_not_current','verify.guid_pinned','roster.remove_failed','roster.removed_unlinked'))
+ OR (audit.actor='system' AND audit.action IN('invite.declined','invite.expired','role.remove_held','role.remove_failed','nick.failed'))))`).bind(p.subject),
  ...['pending','invite_queue','bnet_characters','rename_holds','characters'].map(table=>env.DB.prepare(`DELETE FROM ${table} WHERE discord_id=${target}`).bind(p.subject)),
  env.DB.prepare('DELETE FROM site_board_votes WHERE voter_id=?1 OR candidate_id=?1').bind(p.subject),
  env.DB.prepare('DELETE FROM site_votes WHERE voter_id=?1').bind(p.subject),
@@ -111,7 +118,6 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  env.DB.prepare('DELETE FROM members WHERE discord_id=?1 AND banned=0').bind(p.subject),
  // Independent case credentials are not ownership proof. Do not erase another person's case from a hint.
  // The active ban/case exception and provider-message custody are disclosed separately from serving-account completion.
- env.DB.prepare("DELETE FROM audit WHERE actor=?1 OR subject=?1 OR instr(COALESCE(details,''),?1)>0").bind(p.subject),
  env.DB.prepare("DELETE FROM seen_interactions WHERE instr(COALESCE(response,''),?1)>0").bind(p.subject),
  // Replay identity has a fixed 366-day purpose window; private recovery copies have their own operator custody.
  env.DB.prepare(`INSERT INTO privacy_restore_replay(operation_id,subject_id,retired_generation,erased_at,retain_until,scope)

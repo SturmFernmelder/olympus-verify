@@ -249,7 +249,7 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
     if (m === "POST" && path.startsWith("/privacy/account/")) {
       const action = path.slice("/privacy/account/".length) as FormPurpose;
       const f = await readForm(request, ["csrf"]); await requireFormToken(env, request, field(f, "csrf", 160), action);
-      return htmlResponse(request, "Account action unavailable", `<section class="receipt"><p>Status: <strong>not performed</strong>. This automatic control is not available yet. Contact the private inbox for staff help. No rows were deleted, no roles changed and no remote connection removed.</p></section>${controls}`, 503);
+      return htmlResponse(request, "Account action unavailable", `<section class="receipt"><p>Status: <strong>not performed</strong>. This automatic control is unavailable. Use <a href="/privacy/contact">Account help</a> for the available controls, or ask an Olympus officer for attended help. No rows were deleted, no roles changed and no remote connection removed.</p></section>${controls}`, 503);
     }
     return htmlResponse(request, "Method not allowed", "<p>Use the form provided on this page.</p>", 405);
   } catch (error) {
