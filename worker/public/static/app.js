@@ -3679,7 +3679,7 @@
         (data.canPublish && (!data.enabled || !data.payload || data.publicationClosed))) throw new ApiError(200, { error: "unreadable_answer" });
       current = data;
       const d = data.delivery;
-      if (pending && (data.publicationClosed || (d && d.operationId === pending.opId && ["posted", "removed", "refused"].includes(d.state) && !(d.state === "posted" && d.removalPending)))) forget();
+      if (pending && (data.publicationClosed || (pending.kind === "publish" && d && d.state === "posted" && !d.stale && !d.removalPending) || (d && d.operationId === pending.opId && ["posted", "removed", "refused"].includes(d.state) && !(d.state === "posted" && d.removalPending)))) forget();
       preview.textContent = data.payload ? data.payload.content : "An announcement preview is unavailable.";
       clear(link); if (d && d.messageUrl) link.appendChild(h("a", { class: "btn small", href: d.messageUrl, target: "_blank", rel: "noopener noreferrer", text: "Open Discord announcement" }));
       status.textContent = storageUnavailable ? "This tab cannot preserve operation status. Publication is held; use a browser tab with session storage available." :
@@ -3696,7 +3696,7 @@
       if (busy) return;
       const n = ++sequence; busy = true; buttons();
       try { const data = await api("GET", `/api/community/events/discord?eventId=${encodeURIComponent(id)}`); if (n === sequence) draw(data); }
-      catch (ex) { current = null; preview.textContent = ""; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Nothing was posted."); }
+      catch (ex) { current = null; preview.textContent = ""; clear(link); status.textContent = explain(ex, "Announcement status could not be read. Check the existing operation before publishing again."); }
       finally { if (n === sequence) { busy = false; buttons(); } }
     };
     const action = async (kind) => {
@@ -3719,7 +3719,7 @@
         forget(); message.value = "";
       } catch (ex) {
         // These are definite pre-effect refusals. Every other answer remains bound to its operation until a durable read proves it.
-        if (!uncertain(ex) && ["delivery_disabled", "preview_changed", "stale_revision", "publication_closed", "event_started", "event_cancelled", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
+        if (!uncertain(ex) && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
         status.textContent = uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
       } finally { busy = false; buttons(); }
       await load();

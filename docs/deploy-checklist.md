@@ -5056,3 +5056,35 @@ evidence for native browser behavior and live byte parity; this checklist itself
 
 Rollback: redeploy the separately qualified preceding source. No database restore, account deletion, native rank or
 Discord permission change is part of rollback. Ratification, appointments and attended Guild Master setup remain open.
+
+## Worker .130 — explicit calendar announcements in Discord
+
+Event managers can open Calendar → event → Discord announcement, review the exact title/time/duration/calendar-link
+preview, and explicitly publish, update, reconcile or remove the bot's message in the configured raid-signups text
+channel. No RSVP identities/details or mentions enter the announcement. Only the event owner or a site administrator
+may manage it; publication requires a fresh confirmed Discord member and the actual configured bot/channel identities.
+EVENT_DISCORD_DELIVERY is on in the reviewed production configuration; organizer membership itself is unchanged.
+
+A durable operation precedes every Discord effect. Lost answers hold publication, including across route replacement
+and page reload in the same tab. A copied bot message link can prove existing custody without posting another message.
+Known-message removal remains available with publication off. Expired unresolved custody leaves a minimal closed
+disposition on the finite event, preventing duplicate re-publication after local delivery metadata is disposed.
+Edits cannot move an event beyond 366 days from its original creation; existing delivery deadlines may only shorten.
+Local expiry does not claim that a Discord message was deleted. There are no automatic announcements or reminders.
+
+Schema: one community_event_deliveries table/index and boolean community_events.publication_closed. Canonical,
+self-migration and dated SQL must agree, including old-parent upgrade and failed-transaction rollback. The modeled
+cron cost is exactly 700 statements with existing caps unchanged; its expiry batch closes then disposes delivery
+custody atomically. Account-copy output excludes operation IDs, claim nonces and message pointers. The dormant .129
+erasure foundation does not become qualified or activated by this extension.
+
+Before deployment: independently review the exact backend and UI, run full Worker/native bundle/CI checks and
+synthetic browser tests for loss, stale/malformed receipts, closure, off-mode and member refusal. Obtain a fresh
+verified private database export, compare its restore/core counts and retain the time-travel bookmark. Complete
+the accepted newest-only custody inventory and receipts before publication; never restore production as a test.
+Deploy only the matching main commit. Check actual build .130, D1 schema, canonical asset bytes and organizer UI.
+Do not create a real event or publish an unwanted live message merely for QA. Live-message acceptance requires an
+intended organizer event and preview. AddOn, automatic erasure, reminders and guild rank automation are separate.
+
+Rollback: deploy the preceding accepted source; the additive table/column may remain. Do not erase known/unknown
+delivery custody or reopen a publication-closed event as part of rollback.
