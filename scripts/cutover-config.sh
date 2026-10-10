@@ -11,8 +11,8 @@
 #     the one the marker records last, so an edit of either file after that fails the check and forces a re-review.
 #
 # After the cutover, the community features are switched on (docs/launch-runbook.md step 4) only by --activate: the
-# profile may then differ from the live file in the eight activation keys and nothing else (the seven community switches
-# and lifetimes, and gate 6's VERIFY_OPEN_SINCE, which only moves forward: one real calendar day written YYYY-MM-DD,
+# profile may then differ from the live file in the reviewed activation keys and nothing else (the community switches
+# and lifetimes, .130's explicit organizer announcement switch, and gate 6's VERIFY_OPEN_SINCE, which only moves forward: one real calendar day written YYYY-MM-DD,
 # strictly later than the live one, never earlier, empty, malformed or removed); --activate copies it over the live file
 # and APPENDS an activation record to the marker. The marker has one grammar, read line by line: comment
 # lines (starting with #) anywhere; otherwise exactly one cutover record, profile_sha256 = "<64 hex>" then
@@ -41,7 +41,7 @@ digest() { sha256sum "$1" | cut -c1-64; }
 strip() { sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"; }
 # the only keys --activate may change after the cutover: the community switches and their lifetimes, and gate 6's
 # VERIFY_OPEN_SINCE, forward only (forward_date below; Codex's review of the first activation, 1 Oct 2026 23:14 UTC)
-activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED VERIFY_OPEN_SINCE"
+activation="COMMUNITY_FEATURES CONTRIBUTIONS_MODE CONTRIBUTIONS_RETENTION_DAYS PRIVACY_INTAKE_ENABLED PRIVACY_INTAKE_MONITORED PRIVACY_INTAKE_RETENTION_DAYS OFFICER_DIGEST_ENABLED VERIFY_OPEN_SINCE EVENT_DISCORD_DELIVERY"
 expected="routes GUILD_ID ROLE_GUILD_MEMBER ROLE_OFFICER ROLE_MODERATOR ROLE_GUILD_LEADER ROLE_GUILD_MASTER ROLE_RAID_LEADER CHANNEL_RECRUITMENT_REVIEW CHANNEL_MOD_ALERTS CHANNEL_SERVER_LOG SET_NICKNAME CHANNEL_NOTICES BLOCKING_ROLE_IDS CHANNEL_VISITOR_CHAT SITE_HOST SITE_LEGACY_HOSTS VERIFY_OPEN_SINCE"
 changed="$( (diff <(strip "$live") <(strip "$cut") || true) | sed -n 's/^[<>][[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)[[:space:]]*=.*/\1/p' | sort -u | tr '\n' ' ')"
 other="$( (diff <(strip "$live") <(strip "$cut") || true) | grep -E '^[<>]' | grep -Ev '^[<>][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=' || true)"
