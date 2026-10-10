@@ -189,3 +189,18 @@ The source reference binds product candidate 6eb68821b1000c24d8d72eef08497eb936f
 ## .123 R123-1 rendered guidance delta
 
 The corrected product head 8535379f0141521b4506af19e03bee730650b274 also fixes the rank-planner rendered reference sentence and tests the actual PAGE_HTML. Coverage 792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1 rechecks103assets and five fixed producer rows. Only site-ranks.ts producer bytes advance from the first .123 candidate; all artwork, fonts, icon references and crest remain unchanged. The first .123 candidate and its external packet are retained historical evidence, superseded for deployment. Final reference dd612b0af643ab564798c814c8dbffc588180a4b44090b9437ee627bcb9940d7 and both helper consumer pins close this delta; exact-head packet, root byte gate, full tests, CI and actual Claude delta review are required before publication. No native rank, bank amount, appointment, AddOn or stored draft is changed.
+
+## 10 October 2026 - .135 source and publication-helper reference
+
+The reference binds product source 496ea52f28f27e40553e26a435f83ea2c3f408ab. Its existing native app.css/app.js rows
+and fixed app.js/site-data.ts/site-core.ts producers now match the privacy and browser-scanner composition. All 94
+official game images/fonts, provenance and approved crest pixels retain their prior bytes. No website artwork is
+added. The extra top-level successor field is removed to preserve the closed reference schema; the dated explanation
+uses its existing limitations list. Both helper consumers carry the exact new reference pin, and reconciliation
+also pins the asset helper whose only executable change is that reference hash. The other four V4 helpers and the
+network guard retain their raw hashes. CI checks all 103 asset rows and five fixed producers against the real tree.
+
+This corrects the legitimate publication-smoke failure at 496ea52. Earlier failed logs and references remain
+evidence; no hash guard or shape check is bypassed. Source reference parity, independent review and CI remain
+separate from deployment and automatic deletion activation. The owner's Codex-only takeover does not imply Claude
+approval of this successor.
