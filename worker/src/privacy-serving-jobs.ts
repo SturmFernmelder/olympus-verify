@@ -6,7 +6,7 @@ import {CURRENT_ERASURE_SQL,PRIVACY_DB_NOW,admitInactiveServingAccount,type Acco
 import {continueServingErasure} from './privacy-serving-erase';
 import {cleanupPrivacyMessages} from './privacy-provider-messages';
 import {admitInactiveBotAccount} from './privacy-inactive-bot';
-export const SERVING_ERASURE_JOB_WORST=140;
+export const SERVING_ERASURE_JOB_WORST=148;
 
 export async function runServingErasureJob(env:Env):Promise<{attempted:number;completed:number;held:number}>{
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return{attempted:0,completed:0,held:0};

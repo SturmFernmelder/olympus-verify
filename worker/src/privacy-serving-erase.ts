@@ -103,6 +103,7 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  env.DB.prepare('UPDATE site_applications SET reviewed_by=NULL WHERE reviewed_by=?1').bind(p.subject),
  env.DB.prepare('UPDATE site_users SET denied_by=NULL WHERE denied_by=?1').bind(p.subject),
  env.DB.prepare('UPDATE site_settings SET updated_by=NULL WHERE updated_by=?1').bind(p.subject),
+ env.DB.prepare("UPDATE rename_holds SET decided_by=CASE WHEN decided_by=?1 THEN 'erased' ELSE decided_by END,closed_by=CASE WHEN closed_by=?1 THEN NULL ELSE closed_by END WHERE decided_by=?1 OR closed_by=?1").bind(p.subject),
  env.DB.prepare('UPDATE invite_queue SET approved_by=CASE WHEN approved_by=?1 THEN NULL ELSE approved_by END,claimed_by=CASE WHEN claimed_by=?1 THEN NULL ELSE claimed_by END WHERE ?1 IN(approved_by,claimed_by)').bind(p.subject),
  env.DB.prepare('DELETE FROM site_applications WHERE discord_id=?1').bind(p.subject),
  env.DB.prepare('DELETE FROM site_users WHERE discord_id=?1').bind(p.subject),

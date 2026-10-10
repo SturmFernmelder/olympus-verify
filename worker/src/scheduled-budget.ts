@@ -62,7 +62,7 @@ export const SCHEDULED_CAPS = {
    * (roster-effects.ts EFFECT_WORST), so this is the job's bound; the ingest that made the worklist, and every later
    * export, apply larger slices in their own invocations.
    */
-  rosterEffectsStatements: 64,
+  rosterEffectsStatements: 56,
 } as const;
 
 const C = SCHEDULED_CAPS;
@@ -117,7 +117,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
-  {job:'runServingErasureJob',worst:140,rule:'one oldest current job, native inactive admission fallback, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase; completed-account message cleanup shares this envelope'},
+  {job:'runServingErasureJob',worst:148,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase; completed-account message cleanup shares this envelope'},
   {job:'sweepServingRetention',worst:20,rule:'fixed20-statement native batch; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
 ];
 
