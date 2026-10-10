@@ -1378,3 +1378,21 @@ The first-stage .135 profile opens account copies while new erasure and lifecycl
 An actual .134 request resumed after new-version erasure and recreated a member row, so the destructive workload
 needs a separately qualified legacy-writer transition. New-version cooperative fences cannot retrofit an already
 executing prior version. The canonical profile and append-only configuration marker must agree before publication.
+
+## 2026-10-10: original weekly authority and exact catalogue (.136 candidate)
+
+The weekly contribution opener captures the account's privacy generation or its absence in the original roster/account
+query. That capture stays fixed across policy initialization and is consumed in the obligation insert together with
+the original first-login/session-version facts and current roster eligibility. A changed or retiring subject holds the
+write; another independently admitted invocation can capture current authority. The existing native transaction,
+known-commit handling and scheduled statement envelope remain intact.
+
+The serving business catalogue compares the literal reserved `sqlite_` prefix. A legal unknown table such as
+`sqliteX_private` is counted and holds catalogue admission. Actual SQLite internal tables and the exact `_cf_KV`
+provider exception retain their established treatment. The native fixture loads the actual production entry graph
+and all twelve registered families before testing the 65-store catalogue.
+
+This candidate preserves the .135 first-stage flags, native role profile and 699-statement cron model. Erasure,
+lifecycle retention and councillor signing stay OFF. Legacy-writer transaction admission, restore boundaries,
+scheduler transport accounting and already-admitted provider effects remain separate activation gates. The isolated
+admission prototype remains design evidence outside this candidate's production source and schema.

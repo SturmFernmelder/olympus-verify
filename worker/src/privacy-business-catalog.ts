@@ -285,7 +285,7 @@ export async function servingPrivacyCatalogCurrent(env:Env):Promise<boolean>{
  for(const [registryName,entries] of extensions){if(!communityDataNames().includes(registryName))return false;for(const e of entries)expected.set(e.table,e.columns);}
  // Cloudflare's exact internal _cf_KV is provider-managed and rejects table_info. Materialize the finite
  // name filter BEFORE invoking the table-valued pragma; no other unknown table or prefix is exempted.
- const rows=await env.DB.prepare("WITH business AS MATERIALIZED(SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'_cf_KV') SELECT m.name AS table_name,group_concat(p.name,',') AS columns FROM business m JOIN pragma_table_info(m.name) p GROUP BY m.name ORDER BY m.name").all<{table_name:string;columns:string}>();
+ const rows=await env.DB.prepare("WITH business AS MATERIALIZED(SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV') SELECT m.name AS table_name,group_concat(p.name,',') AS columns FROM business m JOIN pragma_table_info(m.name) p GROUP BY m.name ORDER BY m.name").all<{table_name:string;columns:string}>();
  if(!Array.isArray(rows.results)||rows.results.length!==expected.size+Object.keys(CONTROL_TABLES).length)return false;
  for(const row of rows.results){const columns=CONTROL_TABLES[row.table_name]??expected.get(row.table_name);
   // Old additive migrations append fields in a different physical order. The exact finite column SET

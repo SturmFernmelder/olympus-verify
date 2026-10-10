@@ -5256,3 +5256,22 @@ until performed by the qualified person. Preserve the current backup and all unr
 Rollback cannot undo completed erasure or role effects. Disable only the affected admissions/workloads and roll
 forward with a reviewed repair while preserving generations, suppression and provider debt. Do not deploy an older
 writer that ignores the retirement fence, restore an old database as a test, discard custody or reopen retired data.
+
+## Worker .136 — Original account proof and catalogue guards (10 Oct 2026 candidate)
+
+This finite successor preserves the qualified .135 first-stage configuration. The weekly contribution opener carries
+its original native privacy generation or absence across policy awaits and consumes it in the obligation insert.
+Changed generation/absence and retiring subjects hold the write with the existing `proof_changed` handling. Valid
+unchanged subjects and unrelated accounts continue. The exact business catalogue counts legal `sqliteX` lookalike
+tables and holds unknown-store admission through the literal reserved-prefix predicate.
+
+The two native suites are registered once in `test:all`. Qualify the joined actual source, original contribution
+transactions, health build pins, whole cron and normal Worker gates on the committed candidate. Preserve the source
+and counterexample receipts for the two repairs. The catalogue fixture uses the actual production entry graph and
+keeps its exact predecessor query diagnostic without requiring private paths or repository history at runtime.
+
+Schema and activation flags retain the .135 profile: erasure, lifecycle retention and QR signing remain OFF;
+account copies and the qualified beta role mapping retain their current configuration. The shared source envelope
+stays 699 attempted statements because these guards add no statements. Provider-side legacy effects, restore
+admission and the complete write-transport protocol require separate qualification before destructive activation.
+Publication, live readback, CI acceptance and any deployment remain attached to their own exact release receipts.
