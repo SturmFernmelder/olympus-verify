@@ -281,6 +281,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  return htmlResponse(request,'Privacy account connection',body);
 }
 export function privacyAccessRefusal(request:Request,error:unknown):Response{
+  if(error instanceof FormError&&error.code==='privacy_history_generation_unavailable'&&error.status===409&&new URL(request.url).pathname==='/privacy/access/export')return htmlResponse(request,'Roster history needs review','<p>This roster-history download needs attended review because the original account link required for attribution was unavailable when you connected Discord. A fresh Discord sign-in alone does not create that link. Ask an Olympus officer for help with this download.</p><p><a href="/privacy/access">Other account downloads</a> &middot; <a href="/privacy/contact">Account help</a></p>',error.status);
  if(error instanceof FormError&&error.code==='privacy_erasure_unavailable')return htmlResponse(request,'Erasure temporarily unavailable',erasurePaused+'<p>No new erasure request was submitted by this attempt. Deletion was not performed.</p><p><a href="/privacy/access">Download my retained records</a> · <a href="/privacy/account">Check an existing erasure request</a> · <a href="/privacy/contact">Account help</a></p>',503);
  const status=error instanceof FormError?error.status:503;
   const support=new URL(request.url).pathname==='/privacy/callback'&&error instanceof FormError?CALLBACK_SUPPORT.get(error.code):undefined;

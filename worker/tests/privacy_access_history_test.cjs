@@ -49,6 +49,61 @@ function seedExtra(f,c,n=1002){
   put.run('officer_digest','PRIVATE_DIGEST_STATE',at,A);put.run('betaResetIntent','PRIVATE_RESET_NONCE',at,A);put.run('newsFigures','PRIVATE_AUTOMATIC_VALUE',at,A);put.run('auditTypedNames','PRIVATE_MIGRATION_VALUE',at,A);put.run('unknown_foreign_key','PRIVATE_FOREIGN_VALUE',at,B);
  }
 }
+/* BEGIN account151 roster history response cases */
+async function rosterHistoryMessageCases(){
+ const policy=load('policy-forms'),{FormError}=load('policy-form-core');
+ const special='This roster-history download needs attended review',generic='The connection or form could not be confirmed.';
+ const nativeForm=async f=>{f.env.PRIVACY_ACCESS_ENABLED='true';const connection=await connect(f),frm=await form(f,connection);provider=null;return frm;};
+ const ownRoster=(f,name='Own Character')=>f.db.prepare("INSERT INTO roster_effects(run_id,seq,kind,name_key,name,discord_id,subject_generation) VALUES(9,0,'note','own-character',?,?,?)").run(name,A,G);
+ const page=async(f,frm,fields)=>{const before=calls.length,response=await policy.handlePolicyForms(frm.request(fields),f.env,'/privacy/access/export',true);ok('roster UI actual source Response',response instanceof Response);eq('roster UI no export provider calls',calls.length,before);return {response,text:await response.text()};};
+ const held=(name,result,status,wantSpecial)=>{
+  eq(name+' exact status',result.response.status,status);eq(name+' no attachment',result.response.headers.get('Content-Disposition'),null);
+  eq(name+' known linkage prose only',result.text.includes(special),wantSpecial);eq(name+' generic reconnect prose only',result.text.includes(generic),!wantSpecial);
+  ok(name+' no identity or error internals',![A,B,STAFF,G,'privacy_history_generation_unavailable','privacy_copy_unconfirmed','test-access-token','test-only-oauth-client'].some(x=>result.text.includes(x)));
+  ok(name+' script-free response',result.response.headers.get('Content-Security-Policy').includes("script-src 'none'")&&!result.text.includes('<script'));
+ };
+ {
+  const f=fixture();try{
+   const frm=await nativeForm(f),result=await page(f,frm,{collection:'verification.rosterEffects'});held('native missing original generation',result,409,true);
+   ok('missing generation attended original-link explanation',result.text.includes('original account link')&&result.text.includes('A fresh Discord sign-in alone does not create that link.')&&result.text.includes('/privacy/contact'));
+   eq('missing generation fixture has no roster records',[count(f,'roster_effects'),count(f,'roster_effect_runs')],[0,0]);
+   ok('missing generation response does not claim records exist',!result.text.includes('these records')&&!result.text.includes('older roster records'));
+   eq('missing generation leaves grant unconsumed',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);
+   eq('missing generation invents no account link',count(f,'privacy_subjects'),0);
+   eq('missing generation creates no ordinary account member role',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);
+  }finally{f.db.close();}
+ }
+ {
+  const f=fixture();try{
+   subject(f);ownRoster(f,'x'.repeat(20000));const frm=await nativeForm(f),result=await page(f,frm,{collection:'verification.rosterEffects'});held('native selected roster byte overflow',result,503,false);
+   eq('native byte overflow rolls back consume',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);
+  }finally{f.db.close();}
+ }
+ for(const failure of ['expired','csrf']){
+  const f=fixture();try{
+   subject(f);ownRoster(f);const frm=await nativeForm(f);if(failure==='expired')f.advance(720);
+   const fields={collection:'verification.rosterEffects',...(failure==='csrf'?{csrf:'z'.repeat(43)}:{})};held('native '+failure+' form',await page(f,frm,fields),403,false);
+   eq('native '+failure+' leaves consume unchanged',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);
+  }finally{f.db.close();}
+ }
+ {
+  const f=fixture();try{
+   subject(f);ownRoster(f);const frm=await nativeForm(f),result=await page(f,frm,{collection:'verification.rosterEffects'}),data=JSON.parse(result.text);
+   eq('native orphan parent download remains200',result.response.status,200);eq('native orphan remains null',data.history.entries[0].run,null);
+   eq('native orphan pending original metadata',[data.history.entries[0].processingStatus,data.history.entries[0].processingRecordedAt],['pending',null]);
+   eq('native valid attachment unchanged',result.response.headers.get('Content-Disposition'),'attachment; filename="olympus-my-verification.rosterEffects-history.json"');
+  }finally{f.db.close();}
+ }
+ for(const [name,route,error,status]of [
+  ['same code outside export','/privacy/callback',new FormError('privacy_history_generation_unavailable',409),409],
+  ['different conflict code','/privacy/access/export',new FormError('privacy_history_changed',409),409],
+  ['same code wrong status','/privacy/access/export',new FormError('privacy_history_generation_unavailable',403),403],
+  ['untyped same error text','/privacy/access/export',new Error('privacy_history_generation_unavailable'),503],
+ ]){const response=access.privacyAccessRefusal(new Request(BASE+route),error);held(name,{response,text:await response.text()},status,false);}
+ console.log('ACCOUNT151_ROSTER_MESSAGE_CASES_COMPLETE');
+}
+/* END account151 roster history response cases */
+
 async function extraCollectionHistoryCases(){
  eq('aggregate exact37 list remains fixed',history.PRIVACY_COPY_HISTORY_COLLECTIONS.length,37);eq('all40 separately downloadable',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,40);
  eq('three exact extra selectors',extras,['verification.battleNetCharacters','verification.rosterEffects','site.settingUpdates']);
@@ -335,6 +390,7 @@ async function mainHistory(){
   }
  }
 
+ await rosterHistoryMessageCases();
  await extraCollectionHistoryCases();
  // Root-authorized finite nine-store batch: actual SQLite collectors and genuine admissions.
  // Fresh source module instances model worker-isolate rate-limit state; no authority/exporter is stubbed.
