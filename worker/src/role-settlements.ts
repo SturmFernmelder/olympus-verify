@@ -7,29 +7,32 @@ import { rest, DiscordError, type AttemptBudget } from './discord';
 import { DB_NOW, randomGeneration } from './account-generation-contracts';
 import { requireQr, type QrEnv, SIGNER_CURRENT } from './qr-phase1';
 import { parseNativeRoleMap,mappedNativeRole,identifyNativeProfile,privilegedNativeMap } from './native-rank-adapter';
-import { privacyGenerationFenceSql,readPrivacySubject } from './privacy-serving-authority';
+import { privacyGenerationFenceSql,readPrivacySubject,privacyProviderCustodyDatabase } from './privacy-serving-authority';
+import { fenceSql } from './community-context';
+import { isSiteAdmin } from './site-core';
 
 type Role={id:string;position:number;permissions:string;managed:boolean};
 type Member={roles:string[];user:{id:string}};
-type Intent={id:string;subject:string;purpose:string;proof_id:string|null;guild_id:string;role_id:string;desired:number;state:string;attempts:number;expires_at:number;roster_id:number|null;native_guid:string|null;native_profile:string|null;native_rank:number|null;native_rank_name:string|null;subject_generation:string|null;claim_nonce:string|null;created_at:number;request_digest:string|null;reason:string};
+type Intent={id:string;subject:string;purpose:string;proof_id:string|null;guild_id:string;role_id:string;desired:number;state:string;attempts:number;expires_at:number;roster_id:number|null;native_guid:string|null;native_profile:string|null;native_rank:number|null;native_rank_name:string|null;subject_generation:string|null;claim_nonce:string|null;created_at:number;request_digest:string|null;reason:string;checked_at:number|null};
 export type Settlement=Readonly<{state:'settled'|'held'|'unknown';reason:string;operationId:string|null;checkedAt:number|null}>;
 const result=(state:Settlement['state'],reason:string,operationId:string|null=null,checkedAt:number|null=null):Settlement=>({state,reason,operationId,checkedAt});
 const ID=/^\d{17,20}$/;const TOKEN=/^[0-9a-f]{32}$/;
 const now=()=>Math.floor(Date.now()/1000);
 const budget=():AttemptBudget=>({limit:8,attempts:0,retries:0});
 /** This path counts every network request and disables the legacy 429 retry. */
-async function request<T>(env:Env,b:AttemptBudget,method:string,path:string):Promise<T> {
+async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,readAdmission?:()=>Promise<boolean>):Promise<T> {
+ if(readAdmission&&method==='GET'&&!await readAdmission())throw Error('retirement_original_read_admission_changed');
  if(b.attempts>=b.limit)throw new Error('role_budget');b.attempts++;if('calls' in b)(b as AttemptBudget&{calls:number}).calls++;
  return rest<T>(env,method,path,undefined,1,'Olympus verified role settlement',b);
 }
-async function member(env:Env,b:AttemptBudget,subject:string):Promise<Member|null> {
- try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
+async function member(env:Env,b:AttemptBudget,subject:string,readAdmission?:()=>Promise<boolean>):Promise<Member|null> {
+ try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`,readAdmission);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
 }
-async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false) {
+async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false,readAdmission?:()=>Promise<boolean>) {
  if(!ID.test(env.GUILD_ID)||!ID.test(subject)||!ID.test(roleId)||!env.DISCORD_BOT_TOKEN)throw new Error('role_configuration');
- const me=await request<{id:string}>(env,b,'GET','/users/@me');if(!ID.test(env.DISCORD_APP_ID)||me.id!==env.DISCORD_APP_ID||me.id===subject)throw new Error('bot_identity');
- const roles=await request<Role[]>(env,b,'GET',`/guilds/${env.GUILD_ID}/roles`);
- const bot=await member(env,b,me.id),target=await member(env,b,subject);
+ const me=await request<{id:string}>(env,b,'GET','/users/@me',readAdmission);if(!ID.test(env.DISCORD_APP_ID)||me.id!==env.DISCORD_APP_ID||me.id===subject)throw new Error('bot_identity');
+ const roles=await request<Role[]>(env,b,'GET',`/guilds/${env.GUILD_ID}/roles`,readAdmission);
+ const bot=await member(env,b,me.id,readAdmission),target=await member(env,b,subject,readAdmission);
  if(!Array.isArray(roles)||roles.length>250||!bot||!Array.isArray(bot.roles)||target&&!Array.isArray(target.roles))throw new Error('role_inventory');
  if(roles.some(r=>!ID.test(r.id)||!Number.isInteger(r.position)||typeof r.permissions!=='string'||!/^\d{1,32}$/.test(r.permissions)||typeof r.managed!=='boolean')||new Set(roles.map(r=>r.id)).size!==roles.length)throw new Error('role_inventory');
  const inventory=new Map(roles.map(r=>[r.id,r]));const botRoles=bot.roles.map(id=>inventory.get(id));if(botRoles.some(r=>!r))throw new Error('bot_inventory');
@@ -412,11 +415,92 @@ async function settleOwnedMembershipPair(env:Env,subject:string,purpose:RemovalP
  }
  return last;
 }
+export const RETIREMENT_PARENT_FIELDS=['id','subject','purpose','proof_id','guild_id','role_id','desired','state','attempts','claim_nonce','subject_generation','created_at','expires_at','request_digest','roster_id','native_guid','native_profile','native_rank','native_rank_name','reason','checked_at'] as const;
+export type RetirementParent=Readonly<Intent>;
+type AttendedInput=Readonly<{staff:Readonly<{u:string;v:number;e:number;g:string|null}>;binding:ReturnType<typeof membershipTargets>;parent:RetirementParent;subjectGeneration:string|null;expiresAt:number;formNonce:string;child:RetirementParent|null}>;
+export type AttendedRetirementAdmission=AttendedInput&{readonly origin:D1Database};
+const attendedAdmissions=new WeakSet<AttendedRetirementAdmission>();
+/** Internal trusted route seam, after its fixed-purpose MAC verification; never a client-supplied capability. */
+export function admitAttendedMembershipRetirement(env:Env,input:AttendedInput):AttendedRetirementAdmission{
+ if(!isSiteAdmin(env,input.staff.u)||!membershipTargetsCurrent(env,input.binding)||!TOKEN.test(input.formNonce)||!Number.isSafeInteger(input.expiresAt)||input.expiresAt>input.staff.e)throw Error('retirement_attended_admission');
+ const project=(p:RetirementParent)=>Object.freeze(Object.fromEntries(RETIREMENT_PARENT_FIELDS.map(k=>[k,p[k]]))) as RetirementParent;
+ const a=Object.freeze({...input,staff:Object.freeze({...input.staff}),binding:Object.freeze({...input.binding}),parent:project(input.parent),child:input.child?project(input.child):null,origin:env.DB});attendedAdmissions.add(a);return a;
+}
+/** Original staff/form authority is consumed only before dispatch. After dispatch, exact spent custody
+ * can retain a late outcome when that staff session closes; it creates no new effect or account authority.
+ */
+async function retireAttendedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget,a:AttendedRetirementAdmission):Promise<Settlement>{
+ if(!attendedAdmissions.has(a)||a.origin!==env.DB||grantId!==a.parent.id||capture.subjectGeneration!==a.subjectGeneration||!membershipTransitionEnabled(env)||!membershipTargetsCurrent(env,a.binding))return result('held','retirement_attended_admission_required');
+ const p=a.parent,s=a.staff,binding=a.binding,live=()=>isSiteAdmin(env,s.u)&&membershipTargetsCurrent(env,binding);
+ if(!binding.retired||p.guild_id!==binding.guild||p.role_id!==binding.retired||p.purpose!=='roster_membership'||p.proof_id!==null||p.desired!==1||p.attempts!==1||p.state!=='settled'||!p.claim_nonce)return result('held','retirement_original_grant_not_owned');
+ const parent=(param:number)=>`EXISTS(SELECT 1 FROM role_settlements p WHERE ${RETIREMENT_PARENT_FIELDS.map(k=>`p.${k} IS json_extract(?${param},'$.${k}')`).join(' AND ')})`;
+ const staff=`${fenceSql('applicantWrite',14,15,16,s.g)} AND ?17>${DB_NOW} AND ?17<=?16`;
+ const approvedParent=JSON.stringify(p),custody=privacyProviderCustodyDatabase(env);
+ if(a.child){
+  const r=a.child;
+  if(r.purpose!=='grant_compensation'||r.request_digest!==p.id||r.subject!==p.subject||r.guild_id!==p.guild_id||r.role_id!==p.role_id||r.subject_generation!==p.subject_generation||r.desired!==0||r.attempts!==1||!r.claim_nonce||!['dispatching','unknown','settled'].includes(r.state)||!r.reason.startsWith('membership_retirement'))return result('held','retirement_receipt_changed');
+  const values=[JSON.stringify(r),approvedParent,s.u,s.v,s.e,a.expiresAt];
+  const child=`${RETIREMENT_PARENT_FIELDS.map(k=>`${k} IS json_extract(?1,'$.${k}')`).join(' AND ')}`;
+  const recovery=`${child} AND ${parent(2)} AND ${fenceSql('applicantWrite',3,4,5,s.g)} AND ?6>${DB_NOW} AND ?6<=?5`;
+  if(!live()||!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${recovery}`).bind(...values).first())return result('held','retirement_original_admission_changed',r.id);
+  if(b.limit-b.attempts<4)return result('held','role_request_budget',r.id);
+  const readAdmission=async()=>live()&&!!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${recovery}`).bind(...values).first();
+  let target:Member|null;try{target=await qualify(env,b,r.subject,r.role_id,false,false,[],true,readAdmission);}catch{return result('held','retirement_inventory_hold',r.id);}
+  if(target?.roles.includes(r.role_id))return result('unknown','retirement_outcome_not_absent',r.id,now());
+  try{if(!live()||!await env.DB.prepare(`UPDATE role_settlements SET state='settled',reason='membership_retirement_absent',checked_at=${DB_NOW} WHERE ${recovery} RETURNING id`).bind(...values).first())return result('held','retirement_receipt_changed',r.id);}
+  catch{return result('unknown','original_settlement_unconfirmed',r.id);}
+  return result('settled','retirement_reconciled_absent',r.id,now());
+ }
+ if(p.subject_generation!==a.subjectGeneration)return result('held','retirement_original_generation_changed');
+ const id=a.formNonce,nonce=randomGeneration(),args:unknown[]=[id,p.subject,p.id,p.guild_id,p.role_id,a.subjectGeneration,p.claim_nonce,p.created_at,p.expires_at,nonce,approvedParent,0,0,s.u,s.v,s.e,a.expiresAt];
+ const originalParent=`${parent(11)} AND EXISTS(SELECT 1 FROM role_settlements p WHERE p.id=?3 AND p.subject=?2 AND p.guild_id=?4 AND p.role_id=?5 AND p.subject_generation IS ?6 AND p.claim_nonce=?7 AND p.created_at=?8 AND p.expires_at=?9)`;
+ const original=`${originalParent} AND ${privacyGenerationFenceSql(2,6)} AND ${staff}`;
+ if(!live()||!await env.DB.prepare(`SELECT 1 WHERE ${original} AND ?1 IS NOT NULL AND ?3 IS NOT NULL AND ?4 IS NOT NULL AND ?5 IS NOT NULL AND ?7 IS NOT NULL AND ?8 IS NOT NULL AND ?9 IS NOT NULL AND ?10 IS NOT NULL AND ?12=0 AND ?13=0`).bind(...args).first())return result('held','retirement_original_admission_changed');
+ const prior=await env.DB.prepare(`SELECT id FROM role_settlements WHERE purpose='grant_compensation' AND request_digest=?1 LIMIT 1`).bind(p.id).first<{id:string}>();if(prior)return result('held','retirement_prior_receipt_requires_status',prior.id);
+ if(b.limit-b.attempts<8)return result('held','role_request_budget');
+ const readAdmission=async()=>live()&&!!await env.DB.prepare(`SELECT 1 WHERE ${original} AND ?1 IS NOT NULL AND ?10 IS NOT NULL AND ?12 IS NOT NULL AND ?13 IS NOT NULL`).bind(...args).first();
+ let target:Member|null;try{target=await qualify(env,b,p.subject,binding.retired,false,false,[{id:binding.current,cosmetic:true}],true,readAdmission);}catch{return result('held','retirement_inventory_hold');}
+ if(!target?.roles.includes(binding.current)||!live())return result('held','retirement_replacement_not_current');
+ const out=await env.DB.batch<{id?:string;created_at?:number;expires_at?:number;admitted?:number}>([
+  env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,request_digest,subject_generation,created_at,expires_at)
+ SELECT ?1,?2,'grant_compensation',?4,?5,0,'pending','membership_retirement_pending',?3,?6,${DB_NOW},min(${DB_NOW}+300,?17) WHERE ${original}
+ AND ?10 IS NOT NULL AND ?7 IS NOT NULL AND ?8 IS NOT NULL AND ?9 IS NOT NULL AND ?12=0 AND ?13=0
+ AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='grant_compensation' AND request_digest=?3) RETURNING id,created_at,expires_at`).bind(...args),
+  env.DB.prepare(`SELECT CASE WHEN changes()=1 AND ${original}
+ AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?1 AND subject=?2 AND request_digest=?3 AND guild_id=?4 AND role_id=?5
+ AND subject_generation IS ?6 AND purpose='grant_compensation' AND proof_id IS NULL AND desired=0 AND state='pending'
+ AND attempts=0 AND claim_nonce IS NULL AND reason='membership_retirement_pending' AND checked_at IS NULL
+ AND created_at=${DB_NOW} AND expires_at=min(${DB_NOW}+300,?17) AND roster_id IS NULL AND native_guid IS NULL
+ AND native_profile IS NULL AND native_rank IS NULL AND native_rank_name IS NULL)
+ AND ?10 IS NOT NULL AND ?12=0 AND ?13=0 THEN 1 ELSE json_extract('retirement_child_creation_refused','$') END AS admitted`).bind(...args)]);
+ const child=out[0]?.results[0];if(out.length!==2||out[1]?.results[0]?.admitted!==1||!child||child.id!==id||!Number.isSafeInteger(child.created_at)||!Number.isSafeInteger(child.expires_at))return result('unknown','retirement_creation_unconfirmed',id);
+ args[11]=child.created_at;args[12]=child.expires_at;
+ const tuple=`id=?1 AND subject=?2 AND guild_id=?4 AND role_id=?5 AND purpose='grant_compensation' AND proof_id IS NULL AND request_digest=?3 AND subject_generation IS ?6 AND desired=0 AND created_at=?12 AND expires_at=?13 AND roster_id IS NULL AND native_guid IS NULL AND native_profile IS NULL AND native_rank IS NULL AND native_rank_name IS NULL`;
+ const pending=`${tuple} AND state='pending' AND attempts=0 AND claim_nonce IS NULL AND reason='membership_retirement_pending' AND checked_at IS NULL AND ?13>${DB_NOW} AND ${original}`;
+ const dispatching=`${tuple} AND state='dispatching' AND attempts=1 AND claim_nonce=?10 AND reason='membership_retirement_dispatching' AND checked_at IS NULL`;
+ if(!target.roles.includes(binding.retired))return live()&&!!await env.DB.prepare(`UPDATE role_settlements SET state='settled',reason='membership_retirement_absent',checked_at=${DB_NOW} WHERE ${pending} AND ?10 IS NOT NULL RETURNING id`).bind(...args).first()?result('settled','retirement_absent',id,now()):result('held','retirement_original_admission_changed',id);
+ try{target=await member(env,b,p.subject,readAdmission);}catch{return result('held','retirement_current_server_unknown',id);}
+ if(!target?.roles.includes(binding.current)||!live())return result('held','retirement_replacement_not_current',id);
+ const claimed=await env.DB.prepare(`UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?10,reason='membership_retirement_dispatching' WHERE ${pending} RETURNING id`).bind(...args).first();
+ if(!claimed||!live()||!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${dispatching} AND ?13>${DB_NOW} AND ${original}`).bind(...args).first())return result('held','retirement_original_admission_changed',id);
+ // All following writes are response-only, exact original spent custody. No original admission is refreshed.
+ const response=`${dispatching} AND ${originalParent}`,responseArgs=args.slice(0,13);
+ let settling=false;
+ try{await request(env,b,'DELETE',`/guilds/${p.guild_id}/members/${p.subject}/roles/${p.role_id}`);const after=await member(env,b,p.subject);if(after?.roles.includes(p.role_id))throw Error('retirement_confirmation_unknown');
+  settling=true;if(!await custody.prepare(`UPDATE role_settlements SET state='settled',reason='membership_retirement_absent',checked_at=${DB_NOW} WHERE ${response} RETURNING id`).bind(...responseArgs).first())return result('unknown','original_settlement_unconfirmed',id);
+  return result('settled','retirement_removed',id,now());
+ }catch{
+  if(settling)return result('unknown','original_settlement_unconfirmed',id);
+  try{await custody.prepare(`UPDATE role_settlements SET state='unknown',reason='membership_retirement_unknown' WHERE ${response}`).bind(...responseArgs).run();}catch{return result('unknown','original_settlement_unconfirmed',id);}
+  return result('unknown','retirement_confirmation_unknown',id);
+ }
+}
 /** Request-only retirement of one proven bot-owned roster grant. The current replacement must be present.
  * This does not migrate manual/legacy holders or authorize channel/role permission changes.
  * A separate removal receipt retains its own original cause/nonce/deadline; the grant receipt is never rewritten.
  */
-export async function retireOwnedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget=budget()):Promise<Settlement>{
+export async function retireOwnedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget=budget(),admission?:AttendedRetirementAdmission):Promise<Settlement>{
+ if(admission)return retireAttendedMembershipRole(env,grantId,capture,b,admission);
  if(!membershipTransitionEnabled(env)||!TOKEN.test(grantId)||!capture||!Object.hasOwn(capture,'subjectGeneration'))return result('held','retirement_admission_required');
  let binding:ReturnType<typeof membershipTargets>;try{binding=membershipTargets(env);}catch{return result('held','retirement_configuration');}
  if(!binding.retired)return result('held','retirement_binding_absent');
