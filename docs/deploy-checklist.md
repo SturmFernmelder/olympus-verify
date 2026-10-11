@@ -5360,3 +5360,9 @@ Rollback: retain a qualified admission-ON profile with the exact installed layou
 ## Membership custody .145: deleted retired-role review correction (10 October 2026)
 
 A permanently deleted configured retired membership role no longer vetoes removal of the still-present current role for a ban, blocking role, Blizzard rename reapplication hold or guild departure. The current role, bot identity, Manage Roles, hierarchy, original generation, cause and spent settlement custody remain required. Native regressions preserve all prior cases and check each cause, no old-target DELETE, exact current-target custody and missing/managed/too-high current-role holds. This is part of the unreleased .145 candidate; the membership cutover gate remains OFF and no roles are changed by publication.
+
+## Unreleased .145: original browser-session fixture repair (10 October 2026)
+
+The original merged-main run 38103004133 stopped at 70/71 calendar publication checks. The test helper signed a new cookie on every request, so crossing a second changed the expiry that the production custody guard correctly requires to match the original publication. Preserve that failed run and the deterministic original reproduction; do not bypass or rerun it as evidence of success.
+
+The fixture now reuses the original signed cookie per actor and resets it for each seed. All original 71 assertions remain byte-identical; 19 additional controls cover second boundaries, separate actors, replaced or expired sessions and unchanged custody deadlines. Production code, configuration, schema, public assets, dependencies and the unreleased .145 build stamp are unchanged. Qualify the repair commit and its merged main with the actual CI jobs before the first .145 deployment; no live callback or download is inferred from these checks.
