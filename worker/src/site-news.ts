@@ -71,6 +71,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".151", date: "2026-10-11", lines: [
+      "A roster-history download without its original account link now asks for attended review. A fresh Discord sign-in alone cannot create that link.",
+      "Other connection and data-validation failures keep their existing response; this guidance does not activate erasure or change access.",
+    ],
+  },
+  {
     build: ".143", date: "2026-10-10", lines: [
       "Administrators can review the current beta identity and request convergence of its approved guide and channel introductions.",
       "Uncertain publication stays held for inspection. A newer selection keeps its own authority; merging this source posts nothing.",
