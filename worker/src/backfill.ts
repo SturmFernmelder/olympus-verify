@@ -20,7 +20,7 @@
  *
  * Dry by default. Applying is a bulk write against real people's accounts, so it takes an explicit ?apply=1.
  */
-import { membershipTransitionEnabled,membershipSettlementEnabled } from './membership-role-transition';
+import { membershipSettlementEnabled,membershipTargets,membershipTargetsCurrent } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
 import type { Env } from "./env";
 import { DiscordError, guildMember } from "./discord";
@@ -42,6 +42,11 @@ export function backfillOptions(q: URLSearchParams): BackfillOptions {
 export async function backfillRoles(env: Env, opts: BackfillOptions) {
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return { error: "ROLE_GUILD_MEMBER is not set" };
+  // .152: freeze the same central mode and target binding as the common writer before database/provider awaits.
+  const centralMembership=membershipSettlementEnabled(env);
+  let originalTargets:ReturnType<typeof membershipTargets>|null=null;
+  if(centralMembership){try{originalTargets=membershipTargets(env);}catch{ /* Invalid original configuration stays held. */ }}
+  const originalMembershipCurrent=()=>membershipSettlementEnabled(env)===centralMembership&&(!centralMembership||originalTargets!==null&&membershipTargetsCurrent(env,originalTargets));
 
   // Distinct because one Discord account can hold several characters; the role is per account, not per character.
   const total = await env.DB.prepare(
@@ -50,7 +55,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
   ).first<{ n: number }>();
 
   const rows = await env.DB.prepare(
-    (membershipTransitionEnabled(env)?"SELECT DISTINCT discord_id,(SELECT generation FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_generation,(SELECT state FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_state,(SELECT revision FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_revision FROM characters WHERE":"SELECT DISTINCT discord_id FROM characters WHERE") + " status = 'member' AND discord_id IS NOT NULL AND discord_id <> '' AND discord_id > ?1 " +
+    (centralMembership?"SELECT DISTINCT discord_id,(SELECT generation FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_generation,(SELECT state FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_state,(SELECT revision FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_revision FROM characters WHERE":"SELECT DISTINCT discord_id FROM characters WHERE") + " status = 'member' AND discord_id IS NOT NULL AND discord_id <> '' AND discord_id > ?1 " +
       "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = characters.discord_id AND m.banned = 1) ORDER BY discord_id LIMIT ?2",
   )
     .bind(opts.after, opts.limit)
@@ -68,8 +73,9 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
 
   /** One account; "done", or the note to stop the page with (this account not finished: the next page starts at it). */
   const handle = async (r: { discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }): Promise<"done" | string> => {
-    if(membershipTransitionEnabled(env)&&r.privacy_state&&r.privacy_state!=='active')return "stopped: original privacy subject is held";
-    const originalCapture=membershipTransitionEnabled(env)?privacyCaptureFromColumns(r.discord_id,r):undefined;
+    if(!originalMembershipCurrent())return "stopped: original membership configuration is held; no provider retry";
+    if(centralMembership&&r.privacy_state&&r.privacy_state!=='active')return "stopped: original privacy subject is held";
+    const originalCapture=centralMembership?privacyCaptureFromColumns(r.discord_id,r):undefined;
     let member: Awaited<ReturnType<typeof guildMember>>;
     try {
       member = await guildMember(env, r.discord_id, calls);
@@ -81,6 +87,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
       failed.push({ id: r.discord_id, error: String(e).slice(0, 160) });
       return `stopped: Discord did not answer a member lookup (${status}); run the page again from the cursor once it does`;
     }
+    if(!originalMembershipCurrent())return "stopped: original membership configuration is held; no provider retry";
     // Not in this server. Expected right after a move for anyone who has not joined the new one yet, so it is
     // reported rather than treated as an error — re-running later picks them up.
     if (!member) {
@@ -101,7 +108,8 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
       return "done";
     }
     try {
-      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null});
+      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls,{subjectGeneration:originalCapture?.subjectGeneration??null,membershipContext:{central:centralMembership,targets:originalTargets}});
+      if(!originalMembershipCurrent())return "stopped: original membership configuration is held; no provider retry";
       if (outcome === "budget") return "stopped: this run's Discord-call budget is used up (ROLE_CALL_BUDGET); run the page again from the cursor";
       if (outcome === "misconfigured") return "stopped: ROLE_GUILD_MEMBER is not a role of this server";
       if (outcome === "unverified") return "stopped: the guild's roles could not be read from Discord; run the page again";
@@ -109,7 +117,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
         blocked.push(r.discord_id);
         return "done";
       }
-      if(membershipTransitionEnabled(env)&&outcome==="held")return "stopped: original membership authority is held; no provider retry";
+      if(centralMembership&&outcome==="held")return "stopped: original membership authority is held; no provider retry";
       if (outcome !== "granted") return "done";
       granted.push(r.discord_id);
       await audit(env, "system", "role.backfilled", r.discord_id, { role });

@@ -78,7 +78,7 @@ export async function queueRosterMembershipRole(env:QrEnv,subject:string,snapsho
  const profiles=await env.DB.prepare('SELECT DISTINCT rank,rank_index FROM roster_members WHERE snapshot_id=?1 LIMIT 11').bind(snapshotId).all<{rank:string;rank_index:number}>(),profile=identifyNativeProfile(profiles.results);
  const rows=await env.DB.prepare(`SELECT r.guid,r.rank,r.rank_index FROM roster_members r JOIN characters c ON c.guid=r.guid AND c.discord_id=?1 WHERE r.snapshot_id=?2 AND c.status='member'`).bind(subject,snapshotId).all<{guid:string;rank:string;rank_index:number}>();
  if(rows.results.length!==1)throw Error('unique_native_guid_required');const r=rows.results[0]!,id=randomGeneration();
- if(!membershipTargetsCurrent(env,binding))throw Error('membership_configuration_changed');
+ if(!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,binding))throw Error('membership_configuration_changed');
  const args=[snapshotId,subject,r.guid,r.rank,r.rank_index,capturedGeneration,id,Number(env.LINKS_NOT_BEFORE||0),binding.guild,binding.current,profile];
  // A later genuinely fresh producer may dispose an operation that never dispatched. It cannot renew its deadline,
  // borrow its authority or retry an attempted/unknown write; the successor is a distinct operation captured here.
@@ -194,6 +194,7 @@ export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,a
  if(compensation){if(!reconcileOnly)return result('unknown','explicit_compensation_reconciliation_required',id);const r=await reconcileRemovalReceipt(env,compensation.id,b);return result(r.state==='settled'?'held':r.state,r.state==='settled'?(compensation.reason.startsWith('membership_retirement')?'membership_retirement_absent':'removed_after_admission_changed'):r.reason,id,r.checkedAt);}
  let membershipBinding:ReturnType<typeof membershipTargets>|undefined;
  try{if(['verified_membership','roster_membership'].includes(i.purpose)){
+ if(!reconcileOnly&&!membershipSettlementEnabled(env))return result('held','membership_writer_disabled',id);
  const binding=membershipTargets(env);membershipBinding=binding;
  if(i.role_id!==binding.current){if(reconcileOnly&&membershipTransitionEnabled(env)&&i.role_id===binding.retired)return reconcileRetiredMembershipReceipt(env,i,b);throw Error();}
  }
@@ -221,7 +222,7 @@ export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,a
  AND old.purpose IN('roster_native_rank','roster_privileged_rank') AND old.state='held' AND old.reason='expired_without_dispatch' AND old.attempts=0 AND old.expires_at<=${DB_NOW}
  AND old.guild_id=current.guild_id AND old.subject_generation IS current.subject_generation AND old.native_guid IS current.native_guid
  AND old.native_profile IS current.native_profile AND old.native_rank IS current.native_rank AND old.native_rank_name IS current.native_rank_name))`;
- if(membershipBinding&&!membershipTargetsCurrent(env,membershipBinding))return result('held','frozen_configuration_changed',id);
+ if(membershipBinding&&(!reconcileOnly&&!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,membershipBinding)))return result('held','frozen_configuration_changed',id);
  const update=(set:string,extra='')=>env.DB.prepare(`UPDATE role_settlements SET ${set} WHERE id=?${base.id} AND ${guard} ${extra} RETURNING id`).bind(...base.values);
  const present=!!target?.roles.includes(i.role_id);
  if(present===(i.desired===1)){
@@ -231,12 +232,12 @@ export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,a
  const claimed=await update(`state='dispatching',attempts=1,claim_nonce=?${base.nonce},reason='dispatching'`,`AND state='pending' AND attempts=0 AND expires_at>${DB_NOW}`).first();
  if(!claimed)return result('held','claim_changed',id);
  if(!await update("reason='admitted_before_effect'",`AND claim_nonce=?${base.nonce} AND state='dispatching'`).first())return result('held','proof_changed_before_effect',id);
- if(membershipBinding&&!membershipTargetsCurrent(env,membershipBinding))return result('held','frozen_configuration_changed',id);
+ if(membershipBinding&&(!reconcileOnly&&!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,membershipBinding)))return result('held','frozen_configuration_changed',id);
  try{await request(env,b,i.desired?'PUT':'DELETE',`/guilds/${env.GUILD_ID}/members/${i.subject}/roles/${i.role_id}`);}catch{
  await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='provider_outcome_unknown' WHERE id=?1 AND claim_nonce=?2 AND state='dispatching'`).bind(id,nonce).run();return result('unknown','provider_outcome_unknown',id);}
  // Even a 204 is not completion until current server state and admission are checked again.
  try{const after=await member(env,b,i.subject);const restricted=!!after&&(env.BLOCKING_ROLE_IDS||'').split(',').some(r=>r.trim()&&after.roles.includes(r.trim()));
- if(i.desired===1&&after?.roles.includes(i.role_id)&&(!await intentCurrent(env,i)||restricted||membershipBinding&&!membershipTargetsCurrent(env,membershipBinding)))return compensateGrant(env,b,i,nonce);
+ if(i.desired===1&&after?.roles.includes(i.role_id)&&(!await intentCurrent(env,i)||restricted||membershipBinding&&(!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,membershipBinding))))return compensateGrant(env,b,i,nonce);
  if(!!after?.roles.includes(i.role_id)!==(i.desired===1))throw Error('changed');
  const r=await update(`state='settled',reason='effect_and_current_server_confirmed',checked_at=${DB_NOW}`,`AND claim_nonce=?${base.nonce}`).first();
  if(!r&&i.desired===1&&after?.roles.includes(i.role_id))return compensateGrant(env,b,i,nonce);
@@ -569,7 +570,7 @@ export async function settleErasure(env:Env,proof:ErasureProof,b:AttemptBudget=b
  if(!intent)return held;
  let target:Member|null;try{target=await qualify(env,b,proof.subject,env.ROLE_GUILD_MEMBER,false);}catch{return held;}
  if(!await authority.currentAccountErasureProof(env,proof))return held;
- const staff=(env.ROLE_OFFICER||'')+','+(env.ROLE_GUILD_LEADER||'')+','+(env.ROLE_GUILD_MASTER||'')+','+(env.ROLE_RAID_LEADER||'');
+ const staff=(env.ROLE_OFFICER||'')+','+(env.ROLE_MODERATOR||'')+','+(env.ROLE_GUILD_LEADER||'')+','+(env.ROLE_GUILD_MASTER||'')+','+(env.ROLE_RAID_LEADER||'');
  const staffAccess=target?.roles.some(r=>staff.split(',').includes(r))?'human-managed' as const:'none' as const;
  const settle=async(reason:'absent'|'removed')=>!!await env.DB.prepare(`UPDATE role_settlements SET state='settled',reason=?5,checked_at=${DB_NOW}
  WHERE id=?1 AND subject=?2 AND subject_generation=?3 AND request_digest=?4 AND ${authority.CURRENT_ERASURE_SQL} RETURNING id`).bind(...p,reason).first();

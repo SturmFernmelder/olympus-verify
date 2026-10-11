@@ -10,7 +10,7 @@ count_sql = next(s for s in sqls if "COUNT(DISTINCT" in s)
 # This closed extractor never evaluates TypeScript or supplies an invented SQL statement.
 def page_queries(source):
     literal = r'"(?:[^"\\]|\\.)*"'
-    pattern = (r'env\.DB\.prepare\(\s*\(membershipTransitionEnabled\(env\)\?\s*('
+    pattern = (r'env\.DB\.prepare\(\s*\(centralMembership\?\s*('
                + literal + r')\s*:\s*(' + literal + r')\)\s*\+\s*('
                + r'(?:' + literal + r'\s*(?:\+\s*)?)+)\s*,?\s*\)')
     matches = list(re.finditer(pattern, source))
@@ -65,7 +65,7 @@ check("ON accountless capture stays absence despite other subject rows", capture
 check("OFF projection remains Discord ID only", all(len(r) == 1 for r in db.execute(page_sql, ("", 25))))
 db.execute("UPDATE privacy_subjects SET generation=?,revision=revision+1 WHERE subject_id=?", ("c"*32, active))
 check("selected original capture does not turn into a later generation", captured[active] == (active, "a"*32, "active", 7) and {r[0]:r for r in db.execute(page_sql_on, ("",25))}[active] == (active, "c"*32, "active", 8))
-for label, damaged in (("missing selector", src.replace("membershipTransitionEnabled(env)", "unsupportedSelector(env)")), ("duplicate page query", src+"\n"+src)):
+for label, damaged in (("missing selector", src.replace("centralMembership", "unsupportedSelector")), ("duplicate page query", src+"\n"+src)):
     try:
         page_queries(damaged)
     except ValueError:

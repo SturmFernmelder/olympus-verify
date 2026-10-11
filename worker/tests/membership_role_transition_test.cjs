@@ -60,6 +60,71 @@ async function measured(fn){const start=sqlCalls,http=requests.length,v=await fn
  reset();on();const landed=await rolesWriter.queueRosterMembershipRole(env,subject,1,generation);effectHook=()=>{env.MEMBERSHIP_RETIRED_ROLE_ID=undefined;env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='false';};const landedResult=await measured(()=>rolesWriter.settleRoleIntent(env,landed));check('configuration withdrawn during landed PUT gets separate original-target removal',landedResult.state==='held'&&!members[subject].includes(memberRole)&&effects().filter(x=>x.startsWith('PUT')).length===1&&effects().filter(x=>x.startsWith('DELETE')).length===1);
  const backfill=load('backfill');reset();on();lookupHook=()=>db.prepare('UPDATE privacy_subjects SET generation=? WHERE subject_id=?').run('c'.repeat(32),subject);const backfillRace=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));check('actual backfill carries the first selection generation through member GET',effects().length===0&&backfillRace.granted===0&&!backfillRace.finished&&backfillRace.cursor===''&&backfillRace.note.includes('held'));
  reset();on();db.prepare("UPDATE privacy_subjects SET state='retiring' WHERE subject_id=?").run(subject);const inactiveBackfill=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));check('inactive selected backfill holds before any provider request',requests.length===0&&!inactiveBackfill.finished&&inactiveBackfill.note.includes('held'));
+  // .152: the original backfill selection is authority in every existing central mode, including explicit absence.
+  for(const centralFlag of ['QR_PHASE1_ENABLED','PRIVACY_ERASURE_ENABLED']){
+   const mode=()=>{reset();env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='false';env.MEMBERSHIP_RETIRED_ROLE_ID=undefined;env.QR_PHASE1_ENABLED='false';env.PRIVACY_ERASURE_ENABLED='false';env[centralFlag]='true';};
+   for(const accountless of [false,true]){
+    mode();if(accountless)db.prepare('DELETE FROM privacy_subjects WHERE subject_id=?').run(subject);
+    check(centralFlag+' alone uses central membership with dedicated transition OFF',transition.membershipSettlementEnabled(env)&&!transition.membershipTransitionEnabled(env));
+    const originalClock=clock,r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''})),intent=db.prepare("SELECT * FROM role_settlements WHERE subject=? AND purpose='roster_membership'").get(subject);
+    check(centralFlag+' '+(accountless?'original absence':'original generation')+' backfill grants and advances only the completed account',r.granted===1&&r.examined===1&&r.cursor===subject&&members[subject].includes(memberRole)&&effects().length===1&&effects()[0].startsWith('PUT'));
+    check(centralFlag+' original generation/absence, target and native deadline are retained',intent?.subject_generation===(accountless?null:generation)&&intent.guild_id===guild&&intent.role_id===memberRole&&intent.attempts===1&&intent.created_at===originalClock&&intent.expires_at===originalClock+300&&/^[0-9a-f]{32}$/.test(intent.claim_nonce));
+   }
+   for(const mutation of ['generation','retiring','absence-to-OAuth','mode-withdrawal','current-role','guild']){
+    mode();if(mutation==='absence-to-OAuth')db.prepare('DELETE FROM privacy_subjects WHERE subject_id=?').run(subject);
+    let reached=false;lookupHook=()=>{reached=true;
+     if(mutation==='generation')db.prepare('UPDATE privacy_subjects SET generation=? WHERE subject_id=?').run('c'.repeat(32),subject);
+     if(mutation==='retiring')db.prepare("UPDATE privacy_subjects SET state='retiring' WHERE subject_id=?").run(subject);
+     if(mutation==='absence-to-OAuth')db.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at) VALUES(?,?,'active',1,?,?)").run(subject,generation,clock,clock);
+     if(mutation==='mode-withdrawal')env[centralFlag]='false';
+     if(mutation==='current-role')env.ROLE_GUILD_MEMBER=oldRole;
+     if(mutation==='guild')env.GUILD_ID='400000000000000008';
+    };
+    const r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+    check(centralFlag+' original '+mutation+' during outer GET holds without PUT or cursor advance',reached&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&db.prepare('SELECT COUNT(*) n FROM role_settlements').get().n===0);
+   }
+   mode();db.prepare("UPDATE privacy_subjects SET state='retiring' WHERE subject_id=?").run(subject);let r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+   check(centralFlag+' originally retiring selection holds before provider work',requests.length===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held'));
+   // A legacy selected row has no generation columns. It must not be upgraded after either awaited read.
+   for(const phase of ['selected-page','outer-GET']){
+    reset();env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='false';env.QR_PHASE1_ENABLED='false';env.PRIVACY_ERASURE_ENABLED='false';let reached=false;
+    if(phase==='selected-page'){const prepare=env.DB.prepare;env.DB.prepare=sql=>{const q=prepare(sql),all=q.all;q.all=async()=>{const selected=await all();if(sql.startsWith('SELECT DISTINCT discord_id FROM characters WHERE')){reached=true;env[centralFlag]='true';}return selected;};return q;};}
+    else lookupHook=()=>{reached=true;env[centralFlag]='true';};
+    r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+    check(centralFlag+' OFF-to-ON during '+phase+' cannot manufacture capture or finish the account',reached&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&db.prepare('SELECT COUNT(*) n FROM role_settlements').get().n===0&&(phase!=='selected-page'||requests.length===0));
+   }
+  }
+  // .152 V4: carry the outer original tuple through the writer's own awaits; independent rank gates never authorize membership.
+  for(const centralFlag of ['QR_PHASE1_ENABLED','PRIVACY_ERASURE_ENABLED']){
+   const mode=()=>{reset();env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='false';env.MEMBERSHIP_RETIRED_ROLE_ID=undefined;env.QR_PHASE1_ENABLED='false';env.PRIVACY_ERASURE_ENABLED='false';env[centralFlag]='true';env.QR_RANK_MAPPING_ENABLED='true';env.QR_PRIVILEGED_RANK_MAPPING_ENABLED='true';};
+   for(const mutation of ['mode','current-role','guild']){
+    mode();let reached=false;const prepare=env.DB.prepare;env.DB.prepare=sql=>{const q=prepare(sql),first=q.first;q.first=async()=>{const r=await first();if(sql==='SELECT MAX(id) AS id FROM roster_snapshots'){reached=true;if(mutation==='mode')env[centralFlag]='false';if(mutation==='current-role')env.ROLE_GUILD_MEMBER=oldRole;if(mutation==='guild')env.GUILD_ID='400000000000000008';}return r;};return q;};
+    const r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+    check(centralFlag+' original '+mutation+' after inner MAX cannot mint a replacement intent or advance cursor',reached&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&db.prepare('SELECT COUNT(*) n FROM role_settlements').get().n===0);
+   }
+   for(const phase of ['profile-return','row-return']){
+    mode();let reached=false;const prepare=env.DB.prepare;env.DB.prepare=sql=>{const q=prepare(sql),all=q.all;q.all=async()=>{const r=await all();if(!reached&&(phase==='profile-return'&&sql.startsWith('SELECT DISTINCT rank,rank_index FROM roster_members')||phase==='row-return'&&sql.startsWith('SELECT r.guid,r.rank,r.rank_index FROM roster_members r JOIN characters'))){reached=true;env[centralFlag]='false';}return r;};return q;};
+    const r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+    check(centralFlag+' common OFF with rank gates ON at '+phase+' holds before producer batch and cursor',reached&&env.QR_RANK_MAPPING_ENABLED==='true'&&env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true'&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&db.prepare('SELECT COUNT(*) n FROM role_settlements').get().n===0);
+   }
+   mode();const pending=await rolesWriter.queueRosterMembershipRole(env,subject,1,generation),pendingOriginal={...row(pending)};env[centralFlag]='false';let r=await measured(()=>rolesWriter.settleRoleIntent(env,pending));
+   check(centralFlag+' independent rank gates do not authorize a pending membership grant',r.state==='held'&&r.reason==='membership_writer_disabled'&&effects().length===0&&requests.length===0&&JSON.stringify(row(pending))===JSON.stringify(pendingOriginal));
+   mode();let reached=false;const prepare=env.DB.prepare;env.DB.prepare=sql=>{const q=prepare(sql),first=q.first;q.first=async()=>{const v=await first();if(!reached&&sql.includes("reason='admitted_before_effect'")){reached=true;env[centralFlag]='false';}return v;};return q;};
+   r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));const spent=db.prepare("SELECT * FROM role_settlements WHERE purpose='roster_membership'").get();
+   check(centralFlag+' OFF with rank gates ON at last consuming read holds without PUT or cursor advance',reached&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&spent?.attempts===1&&spent.subject_generation===generation&&spent.expires_at===spent.created_at+300&&/^[0-9a-f]{32}$/.test(spent.claim_nonce));
+   mode();effectHook=(method,role)=>{if(method==='PUT'&&role===memberRole)env[centralFlag]='false';};r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+   const original=db.prepare("SELECT * FROM role_settlements WHERE purpose='roster_membership'").get(),compensation=db.prepare("SELECT * FROM role_settlements WHERE purpose='grant_compensation'").get();
+   check(centralFlag+' landed grant followed by common OFF uses only distinct original-target compensation',effects().map(v=>v.split(' ')[0]).join(',')==='PUT,DELETE'&&effects().every(v=>v.endsWith('/roles/'+memberRole))&&!members[subject].includes(memberRole)&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&original?.reason==='removed_after_admission_changed'&&original.attempts===1&&original.subject_generation===generation&&original.expires_at===original.created_at+300&&compensation?.request_digest===original.id&&compensation.role_id===memberRole&&compensation.reason==='removed');
+   mode();const observed=await rolesWriter.queueRosterMembershipRole(env,subject,1,generation);await measured(()=>rolesWriter.settleRoleIntent(env,observed));const before={...row(observed)},httpStart=requests.length,effectStart=effects().length;env[centralFlag]='false';r=await measured(()=>rolesWriter.settleRoleIntent(env,observed,true));
+   check(centralFlag+' common OFF preserves existing GET-only reconciliation under independent rank gates',r.state==='settled'&&effects().length===effectStart&&requests.length>httpStart&&requests.slice(httpStart).every(v=>v.startsWith('GET '))&&row(observed).subject_generation===before.subject_generation&&row(observed).claim_nonce===before.claim_nonce&&row(observed).created_at===before.created_at&&row(observed).expires_at===before.expires_at);
+   for(const phase of ['inner-member','pre-legacy-effect']){
+    reset();env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='false';env.QR_PHASE1_ENABLED='false';env.PRIVACY_ERASURE_ENABLED='false';let reached=false;
+    if(phase==='inner-member'){let seen=0;const hook=id=>{if(id!==subject||++seen<2){lookupHook=hook;return;}reached=true;members[subject]=[memberRole];env[centralFlag]='true';};lookupHook=hook;}
+    else{const prepare=env.DB.prepare;env.DB.prepare=sql=>{const q=prepare(sql),first=q.first;q.first=async()=>{const v=await first();if(sql.startsWith('SELECT 1 AS held FROM rename_holds h')){reached=true;env[centralFlag]='true';}return v;};return q;};}
+    r=await measured(()=>backfill.backfillRoles(env,{apply:true,limit:1,after:''}));
+    check(centralFlag+' original legacy OFF-to-ON at '+phase+' cannot finish or dispatch',reached&&effects().length===0&&r.granted===0&&r.examined===0&&r.cursor===''&&!r.finished&&r.note.includes('held')&&db.prepare('SELECT COUNT(*) n FROM role_settlements').get().n===0);
+   }
+  }
  reset();on();const renameInactiveId=Number(db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,'system','roster.renamed','Actual Member',?)").run(clock,JSON.stringify({from:'Old Name',discordId:subject,guid})).lastInsertRowid);db.prepare("UPDATE privacy_subjects SET state='retiring' WHERE subject_id=?").run(subject);const renameInactive=await rename.markForcedRename(env,bot,renameInactiveId);check('inactive first audit-target capture returns held without role or hold writes',renameInactive.error==='subject_held'&&effects().length===0&&db.prepare('SELECT COUNT(*) n FROM rename_holds').get().n===0);
  // Original child clocks and original bot-owned parent remain consuming authority after all provider awaits.
  for(const mutation of ['extend-expired','created-at']){

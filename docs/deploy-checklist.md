@@ -5458,3 +5458,19 @@ Qualification and rollout:
 
 Rollback uses the independently qualified .150 main and its unchanged profile under a separate reviewed provider action. It restores generic guidance while leaving the original roster hold and data boundaries intact. A lost deployment answer requires reconciliation; rollback does not reconstruct expired rows or establish late-provider drain, every-copy erasure or reopening.
 
+
+## Worker .152 - Original membership authority (11 October 2026)
+
+Role backfill captures its original common membership mode before database or Discord waits. Its configured target and selected generation or explicit absence are captured when that mode selected central settlement; the legacy OFF query remains Discord IDs only. The same central predicate used by the common writer selects the original privacy generation or explicit absence whenever dedicated membership settlement, QR phase or erasure is already enabled. Mode and target drift holds the page before or after its outer lookup without advancing the unfinished account. The original optional context is also consumed before writer branch selection, after its inner snapshot read and after existing legacy member/ban/reapply waits. Membership producer/consumer Boolean fences prevent independent rank gates from authorizing a new membership effect when the common gate is OFF. GET-only reconciliation and removal-only paths stay unchanged, and landed-grant withdrawal follows original-target compensation. This does not qualify legacy mode races after dispatch or every mutable configuration seam. Current generation, original absence, roster freshness, native deadlines and one-use provider custody remain the existing authority; no later read manufactures an original link.
+
+Erasure observes a configured Moderator alongside the existing staff roles as human-managed access. The observation does not prove who assigned the role and grants no automatic staff-removal authority. Only the existing Guild Member erasure target can be removed. This source preparation does not enable erasure or replace a member role.
+
+Configuration, schema, dependencies, package scripts, assets and policies stay byte-identical to .151. Keep account access, installed write admission and local retention ON; serving/inactive erasure, new private intake, QR signing and membership transition OFF/unset. Independent native-rank mapping gates are unchanged. No grant/expiry/claim protocol, query literal, statement cap or provider retry is added.
+
+Qualification and rollout:
+1. Source and fixtures require independent raw recipe review. The original targeted membership, staff-custody, real backfill-SQL and typecheck checks are pending on this exact source. Preserve every outcome and actual process identity; do not inherit a pass or activation acceptance from .151.
+2. Check the three changed build-pin drivers and member news convention, then bind actual PR/main CI, all 483 files/modes/blobs/tree, the public archive and a fresh canonical source bundle before any reviewed publication. Root owns native execution, publication and provider readback.
+3. Activation and attended guild acceptance remain separate: prove the genuine central mode, role inventory/hierarchy, original generation or accountless absence, bounded settlement and displayed staff observation on the exact configured release. These source fixtures do not establish live membership, signing, erasure, old-provider drain or private recovery readiness.
+
+Rollback requires an independently qualified .151 source/config binding and a separately reviewed provider action. It restores the previous capture/observation behavior; it does not reconstruct expired data, repeat unknown provider writes, drain older effects or authorize reopening. Lost deployment replies remain preserved for reconciliation.
+
