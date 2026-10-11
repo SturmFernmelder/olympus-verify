@@ -37,7 +37,7 @@ import type { Env } from "./env";
 import { intVar } from "./env";
 import { audit, now } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
-import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled } from './membership-role-transition';
+import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled,membershipTargetsCurrent,type MembershipTargets } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
 
 export const blockingRoleIds = (env: Env): string[] =>
@@ -125,12 +125,19 @@ export async function budgetExhausted(env: Env, budget: CallBudget, source: stri
  * bookkeeping only: the decision is made on a fresh member read and a fresh ban read, immediately before the write.
  * Throws what addRole throws, so every caller keeps its own failure handling and audit.
  */
-export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<GrantOutcome> {
+export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget, generationCapture?:{subjectGeneration:string|null;membershipContext?:Readonly<{central:boolean;targets:MembershipTargets|null}>}): Promise<GrantOutcome> {
+  // .152: an optional backfill selection stays original across this writer's own awaits. Other callers retain their existing contract.
+  const originalCapture=generationCapture===undefined?undefined:Object.freeze({subjectGeneration:generationCapture.subjectGeneration});
+  const context=generationCapture?.membershipContext;
+  const originalContext=context===undefined?undefined:Object.freeze({central:context.central,targets:context.targets===null?null:Object.freeze({guild:context.targets.guild,current:context.targets.current,retired:context.targets.retired,transition:context.targets.transition})});
+  const originalMembershipCurrent=()=>originalContext===undefined||durableServingRoles(env)===originalContext.central&&(!originalContext.central||originalContext.targets!==null&&membershipTargetsCurrent(env,originalContext.targets));
+  if(!originalMembershipCurrent())return 'held';
   if(durableServingRoles(env)){
     // The serving caller passes its ORIGINAL selection/cookie capture. Missing authority is never repaired by reading a new generation.
-    if(!generationCapture)return 'held';
+    if(!originalCapture)return 'held';
     try{const central=await import('./role-settlements'),snapshot=await env.DB.prepare('SELECT MAX(id) AS id FROM roster_snapshots').first<{id:number}>();
-      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,generationCapture.subjectGeneration),r=await central.settleRoleIntent(env,operation,false,undefined,budget);
+      if(!originalMembershipCurrent())return 'held';
+      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,originalCapture.subjectGeneration),r=await central.settleRoleIntent(env,operation,false,undefined,budget);
       return r.state==='settled'?(r.reason==='fresh_server_confirmed'?'has-role':'granted'):r.reason==='role_request_budget'?'budget':'held';
     }catch{return 'held';}
   }
@@ -148,6 +155,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   if (configured === "unknown") return "unverified"; // the inventory could not be read: nothing is granted, nothing cached
   if (!takeCall(budget)) return budgetExhausted(env, budget!, source); // .90: the run's budget, before each Discord call
   const m = await guildMember(env, userId, budget);
+  if(!originalMembershipCurrent())return 'held';
   if (!m) return "not-in-server";
   const blocker = heldBlockingRole(env, m.roles);
   if (blocker) {
@@ -164,6 +172,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   }
   // .95: the PUT and the removal it may owe, reserved together before the PUT
   if (!affords(budget, 2) || !takeCall(budget)) return budgetExhausted(env, budget!, source);
+  if(!originalMembershipCurrent())return 'held';
   await addRole(env, userId, role, reason, budget);
   // .60: and once more after the write: a ban that landed while the PUT was in flight is undone here, not left held
   if (await isBanned(env, userId)) {

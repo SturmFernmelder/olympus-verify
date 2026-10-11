@@ -71,6 +71,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".152", date: "2026-10-11", lines: [
+      "Role backfill preserves its selected membership mode across waits and its original account link when central settlement is in use. Changed selections stay held.",
+      "A configured Moderator is included in staff-access observations during erasure; staff roles are not automatically removed. These fixes enable no features.",
+    ],
+  },
+  {
     build: ".151", date: "2026-10-11", lines: [
       "A roster-history download without its original account link now asks for attended review. A fresh Discord sign-in alone cannot create that link.",
       "Other connection and data-validation failures keep their existing response; this guidance does not activate erasure or change access.",
