@@ -45,6 +45,8 @@ import './ruleset-publication-data';
  * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
+import { accountDataCoverage, PRIVACY_SUBJECT_COPY_SQL, PRIVACY_SUBJECT_COPY_FIELDS, projectPrivacySubjectRecord } from './privacy-account-coverage';
+
 import './qr-phase1-data';
 import { audit } from "./db";
 import { bnetFresh } from "./bnet-retention";
@@ -373,6 +375,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     env.DB.prepare("SELECT purpose,state,cleanup_requested,created_at,updated_at,retain_until FROM privacy_provider_messages WHERE EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1) ORDER BY created_at,operation_id LIMIT 1001").bind(id),
     env.DB.prepare('SELECT erased_at,retain_until,scope,recovery_custody FROM privacy_restore_replay WHERE subject_id=?1 ORDER BY erased_at,operation_id LIMIT 1001').bind(id),
     env.DB.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?1').bind(markerKey),
+    env.DB.prepare(PRIVACY_SUBJECT_COPY_SQL).bind(id),
   ];
   const out = await admittedReadAs(env, subject, "authenticatedIdentity", [
     env.DB.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS at"), // .76: the capture instant, the database's clock inside this batch
@@ -397,6 +400,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
   const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, decisionMeta, decisionRows, renames] = out;
+  if(privacyCopy&&out[22+plan.statements.length]!.results.length>1)return apiJson({error:"privacy_copy_unconfirmed"},503);
   type Rec = Record<string, unknown>;
   const a = (account!.results[0] ?? null) as Rec | null;
   if (!a) return apiJson({ error: "conflict", message: "The account row was not present in the admitted copy. Try again." }, 409);
@@ -410,7 +414,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   if (!decisionPage) return contributionDecisionsChanged();
   const body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
-    coverage: { kind: "curated_partial", ownAccountOnly: true, excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
+    coverage: { kind: "curated_partial", ownAccountOnly: true, storeInventory:accountDataCoverage('ordinary',privacyCopy), excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
     about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions, actor-linked eventChanges and subject/actor-linked contributionDecisions are separately captured retained ranges with their own capture.at and continuation. Contribution decisions include only current recognized actions, time and your relation; payment evidence, counterpart identities and arbitrary actor text are omitted. Later inserts are excluded from each continued range. A download continuing one range captures its other history datasets afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
@@ -436,7 +440,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     eventChanges: eventPage,
     contributionDecisions: decisionPage,
     community: plan.shape(out.slice(18,18+plan.statements.length)), // Three two-result history plans precede registry results.
-    ...(privacyCopy?{privacyLifecycle:{coverage:'own minimized serving controls; no private provider pointers, proof digests or other account identifiers',allCopiesErased:false,
+    ...(privacyCopy?{privacyLifecycle:{subjectRecord:projectPrivacySubjectRecord(out[22+plan.statements.length]!.results[0]),coverage:'own minimized serving controls; no private provider pointers, proof digests or other account identifiers',allCopiesErased:false,
       erasureRequests:{complete:out[18+plan.statements.length]!.results.length<=1000,rows:out[18+plan.statements.length]!.results.slice(0,1000)},
       providerCleanup:{complete:out[19+plan.statements.length]!.results.length<=1000,rows:out[19+plan.statements.length]!.results.slice(0,1000)},
       recoverySuppression:{complete:out[20+plan.statements.length]!.results.length<=1000,rows:out[20+plan.statements.length]!.results.slice(0,1000)},
