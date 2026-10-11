@@ -1530,3 +1530,12 @@ A configured Moderator is a staff-access observation during erasure, as in the e
 
 The isolated source prepares only these two fixes and the required BUILD/test-pin/docs/news conventions. Registered genuine-source SQLite fixtures cover QR-only and erasure-only captures, original absence/OAuth and withdrawal races, both mode directions, unchanged native deadlines, and Moderator-only/member-plus-Moderator observations. Their execution and exact counts are pending; this source is not a live activation, full-suite or private recovery qualification. Configuration, schema, assets, policies and dependencies remain unchanged.
 
+
+
+## 11 October 2026 - Original browser key custody (.153)
+
+An enrollment key must outlive an uncertain provider response. Preparing the original bounded context is a read; storing its private key and original context is a durable browser operation completed before its one-use POST. The HMAC binds purpose, original account/session/generation, Discord application, server/profile and immutable enrollment or revocation tuple. Native database receivers and method descriptors are captured before waits and compared afterward. A subsequent login may inspect the same account's exact correlated receipt, but cannot recreate or extend the original write authority.
+
+Browser state serializes a compare-and-spend before dispatch. Lost replies and failed local finalization preserve the original key. Recovery is GET-only and never substitutes a negative result, wall-clock timeout or renewed context for a known native receipt. Expiry inspection advances only the observation clock while preserving original creation and expiry values. Exact inactive revocation can clear the matching local key; active, absent, foreign, malformed or unmatched legacy state remains held. Stored public keys cannot reconstruct lost private keys.
+
+The current phase remains disabled. Native High Council eligibility, fresh original character/GUID/roster attribution, real game/browser signing and role settlement are separate acceptance work. Fern Melder's beta Officer rank is not a High Council exception. The private recovery prototype and its local test results are not part of this public source, and no origin capture, credential floor, old-effect drain or reopening is activated.
