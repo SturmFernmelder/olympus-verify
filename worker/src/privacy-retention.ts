@@ -7,6 +7,7 @@ import { privacyAccessPurgeStatements } from './privacy-access';
 import { PRIVACY_DB_NOW as T, PRIVACY_YEAR as YEAR } from './privacy-serving-authority';
 import {betaRetentionClockSql as betaAged} from './privacy-retention-clocks';
 import { rulesetPublicationRetentionStatement } from './ruleset-publication-data';
+import { bnetCustodyMarkerSql } from './bnet-retention';
 const expired=(clock:string)=>`${clock}<=${T}-${YEAR}`;
 const active=(identity:string)=>`EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=${identity} AND c.status NOT IN('unbound','denied','left'))`;
 /** Fixed statement census is part of the joined scheduled budget. Each selection has a finite deterministic page. */
@@ -43,7 +44,13 @@ export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return
  env.DB.prepare(`DELETE FROM roster_snapshots WHERE id IN(SELECT s.id FROM roster_snapshots s WHERE ${expired('s.first_received_at')}
   AND s.id<>(SELECT MAX(id) FROM roster_snapshots WHERE complete=1) AND NOT EXISTS(SELECT 1 FROM roster_members m WHERE m.snapshot_id=s.id)
   AND NOT EXISTS(SELECT 1 FROM roster_effect_runs r WHERE (r.snapshot_id=s.id OR r.prev_snapshot_id=s.id) AND r.done_at IS NULL AND r.superseded_at IS NULL) ORDER BY s.first_received_at,s.id LIMIT 1000)`),
- env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE ${expired('ts')} ORDER BY ts,id LIMIT 1000)`),
+ // .147: local audit expiry cannot erase the sole warning about an unconfirmed external BattleTag copy.
+ // Purge and retention are separate jobs: hold a raw successful account link until its exact minimal marker exists.
+ // Only the closed payload-free marker is a continuing exception; scrubbed duplicate history still expires.
+ env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT a.id FROM audit a WHERE ${expired('a.ts')}
+  AND NOT (${bnetCustodyMarkerSql('a')})
+  AND (a.action NOT IN('link.ok','bnet.linked') OR length(a.actor) NOT BETWEEN 17 AND 20 OR a.actor NOT GLOB '[1-9]*' OR a.actor GLOB '*[^0-9]*' OR typeof(a.ts)<>'integer'
+    OR EXISTS(SELECT 1 FROM audit m WHERE m.actor=a.actor AND ${bnetCustodyMarkerSql('m')})) ORDER BY a.ts,a.id LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_provider_messages WHERE operation_id IN(SELECT operation_id FROM privacy_provider_messages WHERE state IN('removed','refused') AND retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
  ];}
 export const SERVING_RETENTION_STATEMENTS=21;
