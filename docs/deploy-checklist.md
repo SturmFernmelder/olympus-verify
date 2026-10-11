@@ -5413,3 +5413,18 @@ Rollback: use the qualified marker-aware .147 admission-ON profile if necessary.
 #### .148 lifecycle inventory review correction
 
 Ordinary account copies skip the lifecycle query block when both erasure and retention are disabled. The download and account-page inventory now mark all five omitted lifecycle projections unavailable: subjects, serving jobs, provider cleanup, restore suppression and rejection markers. Identify-only account copies retain their existing read scope. The registered coverage fixture reproduces the original false selection and checks downloaded/rendered agreement for enabled and disabled ordinary copies. No lifecycle authority, flag, schema, SQL query, statement ceiling or complete-erasure claim is changed.
+
+
+## Worker .149 — Councillor authority snapshots (11 October 2026)
+
+This release consumes exact original key/request/challenge metadata across crypto and provider awaits. The two challenge routes preserve the original signed-cookie generation/version/expiry. The final admission statement compares the captured immutable native tuple before the unchanged atomic proof/link transaction. The mutable automatic-lease counter, one-code consumption and existing role-settlement/unknown-response custody remain intact. BUILD and its three exact fixture pins move to .149; historical release entries remain preserved.
+
+Configuration is byte-identical to .148. Keep QR_PHASE1_ENABLED=false, serving/inactive erasure and private-request intake OFF, membership transition and retired-role binding unset/OFF. Current installed admission, account access, local retention and independent native rank mapping retain their existing settings. This publication neither creates a councillor nor changes a role, profile, schema, scheduled allowance, browser/AddOn payload, asset or dependency.
+
+Qualification and rollout:
+1. Preserve the unchanged-source native baseline and the first own probe-hook failure. The corrected 24-case matrix uses real Ed25519 verification and SQLite mutations; it is source-await evidence, not a live exploit or game/browser acceptance. Retain all original 104 assertions, the 55 added regressions and the legitimate concurrent two-code lease case.
+2. Qualify this exact final composition through the canonical 86-suite gate, typecheck, applicable SQL/publication/deploy contracts, independent source/composition review, the current source archive and compiled bundle/map/assets, and all four original PR/main CI jobs. Earlier focused runs do not qualify changed BUILD/docs/archive bytes.
+3. Root publishes and deploys the exact qualified main once under the existing canonical commit exporter, preserving its original response. Read back .149 health and verify QR remains unavailable under the unchanged OFF profile. A lost provider reply is reconciled rather than blindly retried.
+4. Keep real councillor activation separate: verify genuine current native High Council eligibility and the exact supported guild/realm/build/profile, then perform attended game/browser signing, ingestion, replay/reload recovery and central role settlement under their existing authority checks. Synthetic councillor fixtures, current beta-five ranks and a successful deployment cannot substitute for that acceptance.
+
+Rollback may use the separately qualified .148 marker-aware admission-ON/local-retention-ON profile while retaining signing and destructive features OFF. Do not reinstall native guards, infer that old invocations drained, enable erasure/role cutover, reconstruct expired fields or repeat an uncertain deployment as part of rollback. If QR is enabled in a later release, reassess rollback against its original authority and effect custody before changing the active code.
