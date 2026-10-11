@@ -3,7 +3,95 @@ import { FormError } from './policy-form-core';
 import { escapeText as e } from './policy-render';
 import { secondsToIso } from './community-time';
 
-type CoverageKind='selected'|'derived'|'gap'|'shared'|'case'|'anonymous'|'unattributable';
+
+/** Closed own-copy projections share original stored metadata across the two admission lanes. */
+const ownCopyRefuse=():never=>{throw new FormError('privacy_copy_unconfirmed',503);};
+export function ownCopyDate(value:unknown,nullable=false):string|null {
+ if(nullable&&value===null)return null;
+ if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>999999999999)return ownCopyRefuse();
+ return secondsToIso(value);
+}
+const ownCopyText=(v:unknown,max:number,nullable=false):string|null=>{
+ if(nullable&&v===null)return null;
+ return typeof v==='string'&&v.length>0&&v.length<=max&&!/[\u0000-\u001f\u007f]/.test(v)?v:ownCopyRefuse();
+};
+const ownCopyInt=(v:unknown,min:number,max:number,nullable=false):number|null=>nullable&&v===null?null:typeof v==='number'&&Number.isSafeInteger(v)&&v>=min&&v<=max?v:ownCopyRefuse();
+const ownCopyEnum=(v:unknown,values:readonly string[],nullable=false):unknown=>nullable&&v===null?null:values.includes(v as string)?v:ownCopyRefuse();
+/** Owner finite next-metadata batch (2026-10-11): stored dates and bounded context, never staff/provider authority. */
+const ownCopyScope=(v:unknown):string=>typeof v==='string'&&/^[A-Za-z0-9][A-Za-z0-9:._-]{0,63}$/.test(v)?v:ownCopyRefuse();
+export function ownCopyObligationMetadata(r:Record<string,unknown>){return {guildScope:ownCopyScope(r.guild_scope),createdAt:ownCopyDate(r.created_at),updatedAt:ownCopyDate(r.updated_at),retainUntil:ownCopyDate(r.retain_until)};}
+export function ownCopyReceiptMetadata(r:Record<string,unknown>){return {guildScope:ownCopyScope(r.guild_scope),createdAt:ownCopyDate(r.created_at),retainUntil:ownCopyDate(r.retain_until)};}
+export function ownCopyDecisionMetadata(r:Record<string,unknown>){return {guildScope:ownCopyScope(r.guild_scope),retainUntil:ownCopyDate(r.retain_until)};}
+export function ownCopyQueueHold(r:Record<string,unknown>){return {lastWatcherHoldAt:ownCopyDate(r.claimed_at,true)};}
+export function projectOwnTrialCopy(r:Record<string,unknown>){
+ const status=ownCopyEnum(r.status,['active','extended','passed','ended']);
+ return {status,startedAt:ownCopyDate(r.started_at),reviewDueAt:ownCopyDate(r.review_due_at),outcome:status==='passed'||status==='ended'?status:null,reason:ownCopyEnum(r.outcome_reason,['review_passed','withdrew','inactive','staff_decision'],true),concludedAt:ownCopyDate(r.concluded_at,true),createdAt:ownCopyDate(r.created_at),updatedAt:ownCopyDate(r.updated_at),retainUntil:ownCopyDate(r.retain_until)};
+}
+export function projectOwnRestrictionCopy(r:Record<string,unknown>){
+ if(r.active!==0&&r.active!==1)return ownCopyRefuse();
+ return {category:ownCopyEnum(r.category,['ban','conduct_removal','tithe_removal']),setAt:ownCopyDate(r.set_at),reviewAt:ownCopyDate(r.review_at),expiresAt:ownCopyDate(r.expires_at,true),appealStatus:ownCopyEnum(r.appeal_status,['none','requested','upheld','overturned']),reviewOutcome:ownCopyEnum(r.review_outcome,['continued','lifted'],true),reviewedAt:ownCopyDate(r.reviewed_at,true),acknowledgedAt:ownCopyDate(r.acknowledged_at,true),resolvedAt:ownCopyDate(r.resolved_at,true),updatedAt:ownCopyDate(r.updated_at),retainUntil:ownCopyDate(r.retain_until,true),active:r.active===1};
+}
+export function projectOwnDepartureCopy(r:Record<string,unknown>){return {characterName:ownCopyText(r.character_name,40),kind:ownCopyEnum(r.kind,['left','removed','unknown']),observedAt:ownCopyDate(r.observed_at),status:ownCopyEnum(r.status,['open','acknowledged','restriction_opened']),createdAt:ownCopyDate(r.created_at),reviewedAt:ownCopyDate(r.reviewed_at,true),retainUntil:ownCopyDate(r.retain_until)};}
+const ownEventId=(v:unknown)=>typeof v==='string'&&/^[A-Za-z0-9_-]{22}$/.test(v)?v:ownCopyRefuse();
+const ownCleanup=(v:unknown)=>v===0?false:v===1?true:ownCopyRefuse();
+export function projectOwnPublicationCopy(r:Record<string,unknown>){
+ const result=typeof r.result_code==='string'&&['published','reconciled','removed','admission_changed','discord_refused','outcome_unknown'].includes(r.result_code)?r.result_code:null;
+ return {eventId:ownEventId(r.event_id),purpose:ownCopyEnum(r.purpose,['publication']),revision:ownCopyInt(r.event_revision,1,Number.MAX_SAFE_INTEGER),state:ownCopyEnum(r.state,['claimed','posted','refused','unknown','removed']),startsAt:ownCopyDate(r.starts_at),removalPending:ownCleanup(r.cleanup_requested),createdAt:ownCopyDate(r.created_at),updatedAt:ownCopyDate(r.updated_at),retainUntil:ownCopyDate(r.retain_until),result};
+}
+export function projectOwnReminderCopy(r:Record<string,unknown>){
+ const considered=ownCopyDate(r.last_attempt_at);
+ return {eventId:ownEventId(r.event_id),revision:ownCopyInt(r.event_revision,1,Number.MAX_SAFE_INTEGER),state:ownCopyEnum(r.state,['armed','claimed','posted','refused','unknown','cancelled','removed']),startsAt:ownCopyDate(r.starts_at),createdAt:ownCopyDate(r.created_at),updatedAt:ownCopyDate(r.updated_at),lastSchedulerConsideredAt:r.last_attempt_at===0?null:considered,removalPending:ownCleanup(r.cleanup_requested),retainUntil:ownCopyDate(r.retain_until)};
+}
+/** Closed scope descriptions travel with individual metadata pages as well as the aggregate inventory. */
+export function ownMetadataCollectionScope(collection:string):string|null {
+ switch(collection){
+  case 'community.contributions.obligations':return 'Own live weeks: original row creation/update/retention dates, existing contact/amount facts and bounded guild scope. Allocation events and staff evidence are omitted.';
+  case 'community.contributions.receipts':return 'Own matched receipt relationships and original creation/retention dates. Expired receipts remain only while allocated to live own weeks, with the existing minimized allocated/retired amount relationship. Payer/source identifiers and observers are omitted.';
+  case 'contributionDecisions':return 'Closed recognized actions, original time/retention deadline, bounded guild scope and exact own subject/actor relation. Own weeks are selected separately; no week join, counterpart identity or staff evidence is included.';
+  case 'community.trials.trials':return 'Own live trial status/reason and original row dates, including creation. Creator, reviewer and sponsor identities are omitted.';
+  case 'community.restrictions.cases':return 'Own retained restriction metadata and original update date; the nullable lifetime stays exactly as stored. This is no current permission or standing judgment. Staff identities and operational keys are omitted.';
+  case 'community.departures.departures':return 'Own retained departure metadata: row creation and observed departure are separate original dates. Staff, proof and case keys are omitted.';
+  case 'verification.inviteQueue':return 'Own queue metadata and nullable lastWatcherHoldAt, refreshed on watcher polls. It is not an original claim or invitation date. The claimant, officers and notes are omitted.';
+  case 'community.event_delivery.publications':return 'Current stored actor-associated publication row, stored start/row dates and removal-pending flag. Actor association can change while original row creation remains; no immutable original actor or publication attempt history is claimed. Payload and provider pointers are omitted.';
+  case 'community.event_reminders.reminders':return 'Current stored actor-associated reminder row. lastSchedulerConsideredAt records scheduler consideration, which may precede eligibility checks and any provider attempt; zero stays null. Actor can change while original row creation remains. No immutable original actor, lifetime consent or send-attempt history is claimed. Credentials and pointers are omitted.';
+  default:return null;
+ }
+}
+export function ownCopyRankFacts(r:Record<string,unknown>,name='native_rank_name'){
+ const nativeRank=ownCopyInt(r.native_rank,0,9,true),rankName=ownCopyText(r[name],64,true);
+ if((nativeRank===null)!==(rankName===null))return ownCopyRefuse();
+ return {native_rank:nativeRank,[name]:rankName};
+}
+export function ownCopyProofFacts(r:Record<string,unknown>){
+ if(r.own_part==='signer'){
+  if(r.requester_name!==null||r.native_rank!==null||r.rank_name!==null)return ownCopyRefuse();
+  return {requester_name:null,native_rank:null,rank_name:null};
+ }
+ if(r.own_part!=='requester')return ownCopyRefuse();
+ const rank=ownCopyRankFacts(r,'rank_name');if(rank.native_rank===null)return ownCopyRefuse();
+ return {requester_name:ownCopyText(r.requester_name,60),...rank};
+}
+export function projectOwnDirectoryCopy(kind:'professions'|'alts',r:Record<string,unknown>){
+ if(kind==='professions')return {name:ownCopyEnum(r.profession,['alchemy','blacksmithing','enchanting','engineering','herbalism','leatherworking','mining','skinning','tailoring','cooking','fishing','first_aid']),skill:ownCopyInt(r.skill,0,450,true),updatedAt:ownCopyDate(r.updated_at)};
+ return {name:ownCopyText(r.name,40),status:ownCopyEnum(r.status,['claimed','officer_confirmed','rejected']),proof:ownCopyEnum(r.proof,['self','keeper']),claimedAt:ownCopyDate(r.claimed_at),reviewedAt:ownCopyDate(r.reviewed_at,true),updatedAt:ownCopyDate(r.updated_at)};
+}
+export function projectOwnEventCopy(kind:'signups'|'created'|'attendance',r:Record<string,unknown>){
+ const id=ownCopyText(kind==='created'?r.id:r.event_id,22);if(!/^[A-Za-z0-9_-]{22}$/.test(id as string))return ownCopyRefuse();
+ if(kind==='signups')return {eventId:id,title:ownCopyText(r.title,80,true),startsAt:ownCopyDate(r.starts_at,true),status:ownCopyEnum(r.status,['yes','tentative','no']),character:ownCopyText(r.character_name,40,true),raidRole:ownCopyEnum(r.raid_role,['tank','healer','damage'],true),rsvpStartsAt:ownCopyDate(r.rsvp_starts_at),updatedAt:ownCopyDate(r.updated_at)};
+ if(kind==='attendance')return {eventId:id,title:ownCopyText(r.title,80,true),startsAt:ownCopyDate(r.starts_at,true),state:ownCopyEnum(r.state,['present','absent','excused','unknown']),source:ownCopyEnum(r.source,['officer','observed']),reasonCode:ownCopyEnum(r.reason_code,['late','left_early'],true),recordedAt:ownCopyDate(r.recorded_at)};
+ let roleTargets:Record<string,number>|null=null;
+ if(r.role_targets!==null){
+  if(typeof r.role_targets!=='string'||r.role_targets.length>128)return ownCopyRefuse();
+  let parsed:unknown;try{parsed=JSON.parse(r.role_targets);}catch{return ownCopyRefuse();}
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||Object.keys(parsed).some(k=>!['tank','healer','damage'].includes(k)))return ownCopyRefuse();
+  const p=parsed as Record<string,unknown>;roleTargets={tank:ownCopyInt(p.tank??0,0,100)!,healer:ownCopyInt(p.healer??0,0,100)!,damage:ownCopyInt(p.damage??0,0,100)!};
+ }
+ const duration=ownCopyInt(r.duration_min,15,720)!;
+ if(typeof r.starts_at!=='number'||r.ends_at!==r.starts_at+duration*60)return ownCopyRefuse();
+ return {id,title:ownCopyText(r.title,80),startsAt:ownCopyDate(r.starts_at),status:ownCopyEnum(r.status,['scheduled','cancelled']),createdAt:ownCopyDate(r.created_at),updatedAt:ownCopyDate(r.updated_at),endsAt:ownCopyDate(r.ends_at),durationMin:duration,capacity:ownCopyInt(r.capacity,1,100,true),roleTargets,retainUntil:ownCopyDate(r.retain_until)};
+}
+
+type CoverageKind='selected'|'collection'|'derived'|'gap'|'shared'|'case'|'anonymous'|'unattributable';
 export type AccountCoverageMode='identify'|'ordinary';
 interface StoreCoverage {store:string;label:string;coverage:CoverageKind;collections:readonly string[];description:string;handling:string}
 const rows:StoreCoverage[]=[
@@ -20,10 +108,12 @@ const rows:StoreCoverage[]=[
  {
   "store": "bnet_characters",
   "label": "Bnet characters",
-  "coverage": "gap",
-  "collections": [],
-  "description": "No own character projection.",
-  "handling": "Not in this download. Ask an Olympus officer for an attributable safe summary or attended account-data review; expired data is not reconstructed."
+  "coverage": "collection",
+  "collections": [
+   "verification.battleNetCharacters"
+  ],
+  "description": "Separate identity-only download of fresh historical own character name/realm/level/original fetch time. The dormant connector stays off; character and Battle.net account IDs/tags are withheld.",
+  "handling": "Not in the aggregate or ordinary copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
  },
  {
   "store": "characters",
@@ -42,7 +132,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.directory.alts"
   ],
-  "description": "Own name/status/proof/update; reviewer and review dates omitted.",
+  "description": "Own directly attributed name/status/proof and original claim/review/update dates, including rows without a profile; reviewer withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -60,7 +150,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "contributionDecisions"
   ],
-  "description": "Closed action/time + own actor/subject relation, four actor forms.",
+  "description": "Closed action/original time/retention deadline/bounded guild scope and own actor/subject relation, four exact actor forms. Own weeks are selected separately; no optional week join or counterpart identity.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -94,7 +184,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.contributions.obligations"
   ],
-  "description": "Own live-week amounts/contact dates/state/eligibility and derived paid sums.",
+  "description": "Own live-week amounts/contact dates/state/eligibility, original created/updated/retention dates and derived paid sums.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -112,7 +202,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.contributions.receipts"
   ],
-  "description": "Own matched retained relationship and safe amount/allocation/credit figures.",
+  "description": "Own matched retained relationship, original created/retention dates and safe amount/allocation/credit figures; expired allocated relations stay minimized.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -132,7 +222,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.departures.departures"
   ],
-  "description": "Own character/kind/status/dates; staff and proof/case keys omitted.",
+  "description": "Own character/kind/status and original observation/creation/review/retention dates; staff and proof/case keys omitted.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -150,7 +240,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.events.attendance"
   ],
-  "description": "Own event/state/reason-code/time; recorder/source/controls withheld.",
+  "description": "Own attendance state/source/reason/date with nullable event context; recorder withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -170,7 +260,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.event_delivery.publications"
   ],
-  "description": "Own actor publication state/removal pending/dates/result; payload/pointers omitted.",
+  "description": "Current stored actor-associated publication state/start/removal pending/row dates/result. Actor can change while original creation time stays; no original-actor or attempt history. Payload/pointers omitted.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -180,7 +270,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.event_reminders.reminders"
   ],
-  "description": "Own actor state/event/start/dates; consent details and cleanup pointers omitted.",
+  "description": "Current stored actor-associated reminder state/start/row dates, last scheduler consideration and removal-pending flag. Zero consideration stays null; this is not a send-attempt or lifetime consent history. Credentials/pointers omitted.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -190,7 +280,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.events.signups"
   ],
-  "description": "Own event/status/character/raid role/update; control fields omitted.",
+  "description": "Own signup/status/character/raid role/update and original answered-for start; missing event context stays null.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -200,7 +290,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.events.created"
   ],
-  "description": "Created event ID/title/start/status only; own-authored details/duration/capacity/role targets omitted.",
+  "description": "Own created event ID/title/status, original dates, duration/capacity and closed role targets; free-text details withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -234,7 +324,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.directory.professions"
   ],
-  "description": "Own profession/skill/update while profile exists.",
+  "description": "Own directly attributed profession/skill/update, including rows without a profile.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -244,7 +334,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "aggregate singleton"
   ],
-  "description": "Own public ref/listed/main/role/revision; creation/departure timestamps omitted.",
+  "description": "Own public ref/listed/main/role/revision and original creation/update/departure dates.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -255,7 +345,7 @@ const rows:StoreCoverage[]=[
    "aggregate singleton",
    "aggregate singleton"
   ],
-  "description": "Own public pseudonym ref only.",
+  "description": "Own public pseudonym ref and its original creation date.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -265,7 +355,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.restrictions.cases"
   ],
-  "description": "Own closed category/dates/appeal/outcome/active; staff identity and operational keys withheld.",
+  "description": "Own closed category/dates/appeal/outcome/active, original update and exact nullable lifetime; null remains indefinite when stored. Staff identity and operational keys withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -295,7 +385,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.trials.trials"
   ],
-  "description": "Own live trial outcome/dates/reason; supporting staff and creator relationships omitted.",
+  "description": "Own live trial outcome/reason and original start/creation/update/review/retention dates; supporting staff and creator relationships omitted.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -341,7 +431,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "verification.inviteQueue"
   ],
-  "description": "Own name/status/attempts/dates/closed reason; notes/officers/claim omitted.",
+  "description": "Own name/status/attempts/dates/closed reason and nullable last refreshed watcher-hold date. This is not an original claim or invite date; notes/officers/claimant omitted.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -351,7 +441,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "aggregate singleton"
   ],
-  "description": "Names, banned Boolean and fresh Battle.net-link flags/dates.",
+  "description": "Own verification flags, Discord names/dates and original genuine activity date; stale Battle.net facts remain filtered.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -457,7 +547,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.councillor_verification.roleOutcomes"
   ],
-  "description": "Own subject purpose/desired/state/reason/attempt/time outcomes.",
+  "description": "Own outcome/state/reason/attempt/dates and bounded native rank facts; provider pointers/proof/generation controls withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -471,10 +561,12 @@ const rows:StoreCoverage[]=[
  {
   "store": "roster_effects",
   "label": "Roster effects",
-  "coverage": "gap",
-  "collections": [],
-  "description": "Account-linked notice/promotion/departure intents and original generation, no own download.",
-  "handling": "Not in this download. Ask an Olympus officer for an attributable safe summary or attended account-data review; expired data is not reconstructed."
+  "coverage": "collection",
+  "collections": [
+   "verification.rosterEffects"
+  ],
+  "description": "Separate identity-only download of own original-generation intent kind/name/recorded processing time before provider work and nullable parent-run creation time. Missing original generation refuses; legacy null-generation rows need attended review. This is not provider role-settlement proof.",
+  "handling": "Not in the aggregate or ordinary copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
  },
  {
   "store": "roster_first_seen",
@@ -525,7 +617,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "aggregate singleton"
   ],
-  "description": "Own application answers/status/dates; reference structural keys and admin note/reviewer omitted.",
+  "description": "Own submitted answers/status/create/update/review date; staff reviewer and notes withheld.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -581,10 +673,12 @@ const rows:StoreCoverage[]=[
  {
   "store": "site_settings",
   "label": "Website settings",
-  "coverage": "gap",
-  "collections": [],
-  "description": "Public/global settings may contain appointments/person references; updater history not own export.",
-  "handling": "Not in this download. Ask an Olympus officer for an attributable safe summary or attended account-data review; expired data is not reconstructed."
+  "coverage": "collection",
+  "collections": [
+   "site.settingUpdates"
+  ],
+  "description": "Separate identity-only download of a closed known setting key and original timestamp only when you remain its current last updater. Values/appointments/counterparts are withheld; this is not edit history or consent evidence.",
+  "handling": "Not in the aggregate or ordinary copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
  },
  {
   "store": "site_users",
@@ -613,7 +707,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "community.councillor_verification.attestations"
   ],
-  "description": "Own requester/signer relation and proof creation/expiry; native/counterpart IDs withheld.",
+  "description": "Own involvement/create/expiry metadata; requester-only own character and bounded native rank facts; foreign requester facts withheld from signers.",
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {
@@ -628,7 +722,7 @@ const rows:StoreCoverage[]=[
  }
 ];
 export const ACCOUNT_DATA_STORES=Object.freeze(rows.map(r=>Object.freeze({...r,collections:Object.freeze(r.collections)})));
-const labels:Record<CoverageKind,string>={selected:'Selected own fields',derived:'Own derived summary',gap:'Attended review',shared:'Shared service state',case:'Saved case credentials',anonymous:'Anonymous browser flow',unattributable:'Attribution unavailable'};
+const labels:Record<CoverageKind,string>={selected:'Selected own fields',collection:'Separate identity-only download',derived:'Own derived summary',gap:'Attended review',shared:'Shared service state',case:'Saved case credentials',anonymous:'Anonymous browser flow',unattributable:'Attribution unavailable'};
 const LIFECYCLE_COPY_STORES=new Set(['privacy_subjects','privacy_serving_jobs','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers']);
 function accountCopyStores(lifecycleRead:boolean):Array<StoreCoverage&{selectedInThisFile:boolean}>{
  return ACCOUNT_DATA_STORES.map(r=>{

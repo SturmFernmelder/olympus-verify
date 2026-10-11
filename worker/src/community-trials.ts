@@ -48,6 +48,7 @@
  * erased or expired between the context read and that payload receives a refusal and no trial.
  */
 import type { Env } from "./env";
+import { projectOwnTrialCopy } from './privacy-account-coverage';
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
@@ -310,9 +311,9 @@ registerCommunityData(
   ],
   (env, id) => ({
     // .74: a plan, run in the copy's one admitted batch
-    statements: [env.DB.prepare(`SELECT t.status, t.started_at, t.review_due_at, t.outcome_reason, t.concluded_at, t.updated_at, t.retain_until FROM community_trials t WHERE t.discord_id = ?1 AND ${LIVE} ORDER BY t.started_at, t.id`).bind(id)],
+    statements: [env.DB.prepare(`SELECT CASE WHEN instr(t.status,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE t.status END AS status, t.started_at, t.review_due_at, CASE WHEN instr(t.outcome_reason,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE t.outcome_reason END AS outcome_reason, t.concluded_at, t.created_at,t.updated_at, t.retain_until FROM community_trials t WHERE t.discord_id = ?1 AND ${LIVE} ORDER BY t.started_at, t.id`).bind(id)],
     shape: ([rows]) => ({
-      trials: (rows!.results as { status: TrialStatus; started_at: number; review_due_at: number; outcome_reason: Reason | null; concluded_at: number | null; updated_at: number; retain_until: number }[]).map((r) => ({ status: r.status, startedAt: secondsToIso(r.started_at), reviewDueAt: secondsToIso(r.review_due_at), outcome: outcomeOf(r.status), reason: r.outcome_reason, concludedAt: r.concluded_at === null ? null : secondsToIso(r.concluded_at), updatedAt: secondsToIso(r.updated_at), retainUntil: secondsToIso(r.retain_until) })),
+      trials: (rows!.results as Record<string,unknown>[]).map(projectOwnTrialCopy),
     }),
   }),
 );

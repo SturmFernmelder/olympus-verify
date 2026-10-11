@@ -5,6 +5,7 @@
  * nothing), never changes, and goes with the account (deleteSiteData) or when nothing addresses it any more.
  */
 import type { Env } from "./env";
+import { ownCopyDate } from "./privacy-account-coverage";
 import { randomToken, registerCommunityData } from "./community-context";
 
 export const REF_RE = /^[A-Za-z0-9_-]{22}$/;
@@ -40,5 +41,5 @@ export async function refOf(env: Env, discordId: string): Promise<string | null>
 registerCommunityData(
   "refs",
   (env, id) => [env.DB.prepare("DELETE FROM community_refs WHERE discord_id = ?1").bind(id)],
-  (env, id) => ({ statements: [env.DB.prepare("SELECT ref FROM community_refs WHERE discord_id = ?1").bind(id)], shape: ([r]) => ({ ref: (r!.results as { ref: string }[])[0]?.ref ?? null }) }), // .74: a plan, run in the copy's one admitted batch
+  (env, id) => ({ statements: [env.DB.prepare("SELECT ref,created_at FROM community_refs WHERE discord_id = ?1").bind(id)], shape: ([r]) => ({ ref: (r!.results as { ref: string }[])[0]?.ref ?? null,createdAt:r!.results[0]?ownCopyDate((r!.results[0] as Record<string,unknown>).created_at):null }) }), // .74: a plan, run in the copy's one admitted batch
 );

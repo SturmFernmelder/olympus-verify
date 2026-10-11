@@ -36,5 +36,58 @@ async function run(snapshotId=1,parent=budget(),capture={subjectGeneration:gener
  reset();lookupHook=()=>snapshot(2,7);let changedRoster=await run();check('newer roster committed during inventory look cannot certify old absence or dispatch',changedRoster.result.state==='held'&&!requests.some(r=>r.startsWith('PUT')||r.startsWith('DELETE'))&&db.prepare("SELECT COUNT(*) AS n FROM role_settlements WHERE state='settled'").get().n===0);
  reset();env.DB.prepare=()=>({bind(){return this;},async first(){sqlCalls++;throw Error('synthetic unavailable D1');},async all(){sqlCalls++;throw Error('synthetic unavailable D1');}});let unreadable=await run();check('unreadable durable state rotates held with unknown counts rather than claiming done',unreadable.result.state==='held'&&unreadable.result.reason==='source_or_receipt_unavailable'&&unreadable.result.pending===null&&unreadable.result.unknown===null&&unreadable.result.rotate&&requests.length===0);
  reset();members[subject]=[labels[5]];inventory.find(r=>r.id===labels[5]).position=31;let held=await run();inventory.find(r=>r.id===labels[5]).position=7;check('held target returns rotation without granting ahead of a removal',held.result.state==='held'&&held.result.rotate&&members[subject].includes(labels[5])&&!members[subject].includes(labels[7]));
+ // Equal-clock fairness uses genuine source-produced receipts, not a manufactured priority marker.
+ // Numeric snapshot IDs increase as MAX(id) requires; newly generated operation IDs deliberately descend.
+ const fairness=[];
+ async function fairRun(snapshotId,effectLimit=1,capture={subjectGeneration:generation}){
+  const parent=budget(),start=sqlCalls,http=requests.length;
+  const result=await service.continueRosterRanks(env,subject,snapshotId,capture,parent,effectLimit);
+  const delta=sqlCalls-start,calls=requests.length-http;
+  maxSql=Math.max(maxSql,delta);maxHttp=Math.max(maxHttp,calls);
+  check('equal-clock source continuation obeys unchanged SQL/HTTP/shared budget '+n,
+   delta<=35&&calls<=20&&result.attempts===calls&&parent.attempts===calls&&parent.calls===calls&&parent.retries===0&&result.visited<=effectLimit);
+  const value={snapshotId,effectLimit,clock,sql:delta,http:requests.slice(http),result};fairness.push(value);return value;
+ }
+ const generationModule=load('account-generation-contracts'),originalRandomGeneration=generationModule.randomGeneration;
+ let descendingId=0xffffffffffffffffffffffffffffffffn;
+ generationModule.randomGeneration=()=>{descendingId--;return descendingId.toString(16).padStart(32,'0');};
+ try{
+  reset(4);const equalClock=clock;members[subject]=[labels[4],raidLeader];
+  const both=await fairRun(1,2),prior=db.prepare("SELECT * FROM role_settlements WHERE subject=? AND roster_id=1 AND desired=1 ORDER BY id").all(subject);
+  check('both prior roles are actually confirmed by current source without a PUT',both.result.state==='done'&&both.result.visited===2&&prior.length===2&&prior.every(r=>r.state==='settled'&&r.reason==='fresh_server_confirmed'&&r.attempts===0&&r.claim_nonce===null&&r.proof_id===null&&r.checked_at===equalClock&&r.subject_generation===generation)&&!both.http.some(r=>r.startsWith('PUT')));
+  const originalPrior=JSON.stringify(prior);
+  members[subject]=members[subject].filter(r=>r!==labels[4]);
+  const rotations=[];let restored=false;
+  for(let turn=1;turn<=14&&!restored;turn++){
+   snapshot(turn+1,4);
+   const value=await fairRun(turn+1),wanted=db.prepare("SELECT id,role_id,subject_generation,roster_id,created_at,expires_at,state,attempts FROM role_settlements WHERE subject=? AND roster_id=? AND desired=1 ORDER BY role_id").all(subject,turn+1);
+   rotations.push({...value,wanted});
+   check('fresh equal-clock original roster and distinct descending intent IDs remain represented '+turn,wanted.length===2&&wanted.every(r=>r.subject_generation===generation&&r.created_at===equalClock&&r.expires_at===equalClock+300)&&clock===equalClock&&wanted.every(r=>r.id<prior[0].id&&r.id<prior[1].id));
+   check('one-effect continuation does not issue a removal or repeated privileged PUT '+turn,!value.http.some(r=>r.startsWith('DELETE')||r.startsWith('PUT')&&!r.endsWith('/'+labels[4]))&&value.http.filter(r=>r.startsWith('PUT')).length<=1);
+   restored=members[subject].includes(labels[4]);
+  }
+  const puts=rotations.flatMap(r=>r.http).filter(r=>r.startsWith('PUT'));
+  check('newly absent cosmetic role after both prior confirmations receives one actual PUT within14 fresh equal-clock rotations',restored&&rotations.length<=14&&puts.length===1&&puts[0].endsWith('/'+labels[4]));
+  const landed=db.prepare("SELECT * FROM role_settlements WHERE subject=? AND role_id=? AND desired=1 AND attempts=1 AND state='settled' ORDER BY rowid DESC LIMIT 1").get(subject,labels[4]);
+  check('real new effect retains original generation/native profile/GUID/roster and spent nonce custody',landed&&landed.subject_generation===generation&&landed.native_guid===guid&&landed.native_profile==='ten-rank'&&landed.native_rank===4&&landed.native_rank_name===names[4]&&landed.roster_id===rotations.at(-1).snapshotId&&landed.created_at===equalClock&&landed.expires_at===equalClock+300&&/^[0-9a-f]{32}$/.test(landed.claim_nonce)&&landed.proof_id===null);
+  check('priority never renews or overwrites either original historical confirmation',JSON.stringify(db.prepare("SELECT * FROM role_settlements WHERE subject=? AND roster_id=1 AND desired=1 ORDER BY id").all(subject))===originalPrior);
+  for(const kind of ['generation','native-guid','newer-roster','profile','expiry']){
+   reset(4);members[subject]=[labels[4],raidLeader];await fairRun(1,2);snapshot(2,4);members[subject]=members[subject].filter(r=>r!==labels[4]);
+   await rolesWriter.queueRosterRankRoles(env,subject,2,generation);
+   const old=db.prepare("SELECT * FROM role_settlements WHERE subject=? AND roster_id=2 AND role_id=? AND desired=1").get(subject,labels[4]);
+   lookupHook=()=>{
+    if(kind==='generation')db.prepare('UPDATE privacy_subjects SET generation=? WHERE subject_id=?').run('c'.repeat(32),subject);
+    if(kind==='native-guid')db.prepare('UPDATE characters SET guid=? WHERE discord_id=?').run('Player-1234-000000ff',subject);
+    if(kind==='newer-roster')snapshot(3,4);
+    if(kind==='profile')env.QR_NATIVE_ROLE_MAP=JSON.stringify({profile:'beta-five',roles:labels.slice(0,5)});
+    if(kind==='expiry')clock+=301;
+   };
+   const value=await fairRun(2,2),after=db.prepare('SELECT * FROM role_settlements WHERE id=?').get(old.id);
+   check('matching historical priority cannot borrow changed current '+kind+' authority after qualification await',!value.http.some(r=>r.startsWith('PUT')||r.startsWith('DELETE'))&&!members[subject].includes(labels[4])&&after.attempts===0&&after.claim_nonce===null&&after.created_at===old.created_at&&after.expires_at===old.expires_at&&after.subject_generation===generation);
+   check('changed '+kind+' keeps the original missing-role effect represented and unspent',after.state==='pending'&&after.roster_id===2&&after.native_guid===guid&&after.native_profile==='ten-rank'&&after.proof_id===null);
+  }
+ }finally{generationModule.randomGeneration=originalRandomGeneration;}
+ console.log(JSON.stringify({equalClockRankFairness:fairness,providerIsFixedSynthetic:true,nativeProtocolColumns:7,epochModulesAdopted:false}));
+
  console.log(JSON.stringify({observedMax:{sql:maxSql,http:maxHttp},sourceReserve:{sql:35,http:20},effectLimit:2,newCronJobs:0,externalPrivacyABI:Object.values(cache).map(m=>m.sourcePin).filter(p=>peer&&p.path.startsWith(peer))}));console.log(`${n}/${n} role-rank continuation checks passed`);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{Date.now=realNow;});

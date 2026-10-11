@@ -11,7 +11,8 @@ async function coverageReview(){
  const manifest=coverage.accountDataCoverage('identify');eq('inventory remains partial and does not claim fields/copies/erasure complete',[manifest.kind,manifest.allStoredFieldsDelivered,manifest.allCopiesIncluded,manifest.completeErasure],['curated_partial',false,false,false]);
  eq('control is separate from business66',manifest.separateSharedControl.store,'privacy_write_admission');ok('control is not downloaded',manifest.separateSharedControl.included===false&&!manifest.stores.some(r=>r.store==='privacy_write_admission'));
  for(const r of manifest.stores){ok(r.store+' exact store is described',typeof r.description==='string'&&r.description.length>0);ok(r.store+' has concrete handling limit',typeof r.handling==='string'&&r.handling.length>0);ok(r.store+' never claims row existence or record total',!Object.hasOwn(r,'count')&&!Object.hasOwn(r,'recordPresent'));}
- for(const r of ['bnet_characters','relays','roster_effects','roster_members','roster_first_seen']){const item=manifest.stores.find(x=>x.store===r);eq(r+' actual remaining gap explicitly not in copy',item.coverage,'gap');eq(r+' false completeness refused',item.selectedInThisFile,false);}
+ for(const r of ['relays','roster_members','roster_first_seen']){const item=manifest.stores.find(x=>x.store===r);eq(r+' actual remaining gap explicitly not in copy',item.coverage,'gap');eq(r+' false completeness refused',item.selectedInThisFile,false);}
+ for(const r of ['bnet_characters','roster_effects','site_settings']){const item=manifest.stores.find(x=>x.store===r);eq(r+' own history is separately downloadable',item.coverage,'collection');eq(r+' not silently added to aggregate',item.selectedInThisFile,false);eq(r+' one exact history selector',item.collections.length,1);}
  for(const r of ['community_privacy_cases','community_privacy_messages','community_privacy_operations']){const item=manifest.stores.find(x=>x.store===r);eq(r+' requires existing case credentials',item.coverage,'case');ok(r+' hints never act as account proof',item.handling.includes('does not grant access'));}
  eq('interactions do not gain guessed ownership',manifest.stores.find(r=>r.store==='seen_interactions').coverage,'unattributable');
  const html=coverage.accountDataCoverageHtml();eq('static readable UI has exactly66 store rows',(html.match(/data-account-store=/g)||[]).length,66);ok('UI is script-free and explicit partial help',!/<script|<form|<input/.test(html)&&html.includes('curated partial copy')&&html.includes('Ask an Olympus officer')&&html.includes('/privacy/case'));
@@ -89,6 +90,68 @@ async function coverageReview(){
   eq('installed summary remains exactly one SELECT',statements.filter(x=>x.s.includes(coverage.PRIVACY_SUBJECT_COPY_SQL)).length,1);
   const neutral=f.db.prepare('SELECT active,nonce,purpose FROM privacy_write_admission').get();eq('installed one consumed write batch leaves native control neutral',[neutral.active,neutral.nonce,neutral.purpose],[0,'','']);
   eq('installed privacy grant remains consumed once',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,f.time());
+  f.db.close();
+ }
+ // Actual full-index requests: fixture schema/install/OAuth/page setup is excluded only before request accounting.
+ const index=load('index').default,admission=load('privacy-write-admission');
+ const fullRequestResult=async(name,r,statements,batches,pending)=>{
+  await Promise.all(pending);const text=await r.text();
+  // Preserve the full original HTTP response and native attempted statements before outcome predicates.
+  console.log('FULL_ROUTE_ORIGINAL '+JSON.stringify({name,status:r.status,headers:Object.fromEntries(r.headers),body:text,
+   accounting:'D1 statements attempted during this actual index.fetch request; all fixture/schema/install/connect/form setup occurred before reset',
+   attemptedStatements:statements.length,nativeBatchLengths:batches.map(b=>b.length),nativeBatchStatements:batches,
+   nativeStatementSQL:statements,waitUntilCount:pending.length,credentialBindingsRecorded:false}));
+  return JSON.parse(text);
+ };
+ {
+  const statements=[],batches=[],pending=[],f=fixture({statement:s=>statements.push(s),beforeBatch:ss=>batches.push(ss.map(s=>s.sql))});
+  subject(f);Object.assign(f.env,{PUBLIC_BASE_URL:'https://olympus-worker.example.test',PRIVACY_ACCESS_ENABLED:'true',PRIVACY_ERASURE_ENABLED:'false',PRIVACY_RETENTION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical'});
+  f.db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('auditTypedNames','115',1)").run();
+  const native=f.env.DB,installation=await admission.installCurrentPrivacyWriteAdmission(native);eq('full-index identify setup installs original198 guards',installation.triggers,198);
+  f.env.DB=admission.createPrivacyWriteAdmissionDatabase(native,'writer');
+  // Genuine OAuth/CSRF/grant setup uses its registered writer under installed guards. Measured index.fetch receives original native DB and creates its normal wrapper.
+  const connection=await connect(f),frm=await form(f,connection),beforeCalls=calls.length;
+  const setupNeutral=f.db.prepare('SELECT active,nonce,purpose FROM privacy_write_admission').get();eq('full-index identify guarded setup leaves native control neutral',[setupNeutral.active,setupNeutral.nonce,setupNeutral.purpose],[0,'','']);
+  statements.length=0;batches.length=0;
+  const r=await index.fetch(frm.request({collection:'copy',cursor:''}),{...f.env,DB:native},{waitUntil:p=>pending.push(p)});
+  const body=await fullRequestResult('identify /privacy/access/export installed full-index',r,statements,batches,pending);
+  eq('full-index identify original download succeeds',r.status,200);eq('full-index identify own original identity',body.identity.discordId,A);
+  eq('full-index identify actual curated copy remains partial',body.coverage.kind,'curated_partial');eq('full-index identify erasure never claimed',body.coverage.completeErasure,false);
+  eq('full-index identify exact94 attempted SQL includes schema1 grant1 and native writer92',statements.length,94);
+  eq('full-index identify original grant read batch1 plus native admitted writer batch92',batches.map(b=>b.length),[1,92]);
+  eq('full-index identify original installed schema SELECT once',statements.filter(s=>s.includes('privacy_current_schema_requires_attended_setup')).length,1);
+  ok('full-index identify stays below100 D1 attempts',statements.length<100);eq('full-index identify no background tasks',pending.length,0);eq('full-index identify no additional provider endpoints',calls.length,beforeCalls);
+  const neutral=f.db.prepare('SELECT active,nonce,purpose FROM privacy_write_admission').get();eq('full-index identify native writer neutral',[neutral.active,neutral.nonce,neutral.purpose],[0,'','']);
+  const grant=f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get();eq('full-index identify original grant consumed exactly once',grant.consumed_at,f.time());
+  eq('full-index identify original generation and revision unchanged',Array.from(Object.values(f.db.prepare('SELECT generation,revision FROM privacy_subjects WHERE subject_id=?').get(A))),[G,3]);
+  f.db.close();
+ }
+ {
+  const statements=[],batches=[],pending=[],f=fixture({statement:s=>statements.push(s),beforeBatch:ss=>batches.push(ss.map(s=>s.sql))});
+  subject(f);Object.assign(f.env,{PUBLIC_BASE_URL:'https://olympus-worker.example.test',PRIVACY_ACCESS_ENABLED:'true',PRIVACY_ERASURE_ENABLED:'false',PRIVACY_RETENTION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical'});
+  f.db.prepare('INSERT INTO site_users(discord_id,first_login,last_login,in_server,session_version,denied) VALUES(?,?,?,?,?,?)').run(A,f.time(),f.time(),0,7,1);
+  f.db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('auditTypedNames','115',1)").run();
+  const installation=await admission.installCurrentPrivacyWriteAdmission(f.env.DB);eq('full-index ordinary setup installs original198 guards',installation.triggers,198);
+  const ordinary=(await core.sessionCookie(f.env,A,7,G)).split(';')[0],nonce='n'.repeat(43),cookies=ordinary+'; '+fcore.FORM_COOKIE+'='+nonce;
+  provider=null;calls=[];
+  const page=await index.fetch(request('/privacy/account',cookies),f.env,{waitUntil:p=>pending.push(p)}),html=await page.text();
+  eq('full-index ordinary setup uses actual current page',page.status,200);
+  const section=/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/.exec(html);ok('full-index ordinary actual original export form',!!section);
+  const fields=Object.fromEntries([...section[1].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(x=>[x[1],x[2]]));fields.mode='download';
+  await Promise.all(pending);eq('full-index ordinary setup has no background tasks',pending.length,0);
+  statements.length=0;batches.length=0;pending.length=0;
+  const r=await index.fetch(request('/privacy/account/export',cookies,'POST',fields),f.env,{waitUntil:p=>pending.push(p)});
+  const body=await fullRequestResult('ordinary /privacy/account/export installed full-index',r,statements,batches,pending);
+  eq('full-index ordinary original signed session and CSRF copy succeeds',r.status,200);eq('full-index ordinary own identity',body.account.discordId,A);
+  eq('full-index ordinary denied/departed session keeps own data scope',[body.account.inServer,body.account.denied],[false,true]);eq('full-index ordinary erasure never claimed',body.coverage.completeErasure,false);
+  ok('full-index ordinary actual HTTP D1 attempts stay below100',statements.length<100);
+  eq('full-index ordinary actual installed schema SELECT once',statements.filter(s=>s.includes('privacy_current_schema_requires_attended_setup')).length,1);
+  // Ordinary export includes its separate audit write: preserve every batch instead of asserting a guessed cardinality.
+  const controlled=batches.filter(b=>b[0]?.includes('UPDATE privacy_write_admission'));
+  ok('full-index ordinary actual writes retain four original writer controls',controlled.length>=1&&controlled.every(b=>b.length>=4&&b[1].includes('privacy_write_admission')&&b.at(-2).includes('privacy_write_admission')&&b.at(-1).includes('privacy_write_admission')));
+  eq('full-index ordinary no background tasks',pending.length,0);eq('full-index ordinary no provider endpoint',calls.length,0);eq('full-index ordinary no identify grant substitution',count(f,'privacy_access_grants'),0);
+  const neutral=f.db.prepare('SELECT active,nonce,purpose FROM privacy_write_admission').get();eq('full-index ordinary native writer neutral',[neutral.active,neutral.nonce,neutral.purpose],[0,'','']);
+  eq('full-index ordinary original generation and revision unchanged',Array.from(Object.values(f.db.prepare('SELECT generation,revision FROM privacy_subjects WHERE subject_id=?').get(A))),[G,3]);
   f.db.close();
  }
  provider=null;console.log(`privacy_account_coverage_test: ${checks} checks PASS`);

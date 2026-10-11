@@ -1,5 +1,6 @@
 /** Five explicit source families. Export is an own-only bounded projection; erasure runs in its caller's ONE batch. */
 import type { Env } from './env';
+import { ownCopyProofFacts,ownCopyRankFacts } from './privacy-account-coverage';
 import {relatedUnresolvedStaffSql} from './privacy-erasure-staff-custody';
 import { registerCommunityData,type ExportPlan } from './community-context';
 import { registerServingPrivacyFamilies } from './privacy-business-catalog';
@@ -19,11 +20,11 @@ export function qrExportPlan(env:Env,id:string):ExportPlan {
  ['councillorKeys','SELECT id,signer_guid,created_at,expires_at,revoked_at FROM councillor_keys WHERE signer=?1 ORDER BY created_at,id'],
  ['challenges','SELECT created_at,expires_at,used_at,mode,max_proofs,proofs_used FROM councillor_challenges WHERE signer=?1 ORDER BY created_at,nonce'],
  ['requests','SELECT created_at,expires_at,used_at,state FROM verification_requests WHERE requester=?1 ORDER BY created_at,code'],
- ['attestations',"SELECT id,CASE WHEN requester=?1 THEN 'requester' ELSE 'signer' END AS own_part,created_at,expires_at FROM verification_proofs WHERE requester=?1 OR signer=?1 ORDER BY created_at,id"],
- ['roleOutcomes','SELECT id,purpose,desired,state,reason,attempts,created_at,expires_at,checked_at FROM role_settlements WHERE subject=?1 ORDER BY created_at,id'],
+ ['attestations',"SELECT id,CASE WHEN requester=?1 THEN 'requester' ELSE 'signer' END AS own_part,CASE WHEN requester=?1 THEN CASE WHEN typeof(requester_name)='text' AND length(requester_name) BETWEEN 1 AND 60 AND length(CAST(requester_name AS BLOB))<=240 AND instr(requester_name,char(0))=0 THEN requester_name ELSE json_extract('privacy_qr_copy_text_refused','$') END ELSE NULL END AS requester_name,CASE WHEN requester=?1 THEN native_rank ELSE NULL END AS native_rank,CASE WHEN requester=?1 THEN CASE WHEN typeof(rank_name)='text' AND length(rank_name) BETWEEN 1 AND 64 AND length(CAST(rank_name AS BLOB))<=256 AND instr(rank_name,char(0))=0 THEN rank_name ELSE json_extract('privacy_qr_copy_text_refused','$') END ELSE NULL END AS rank_name,created_at,expires_at FROM verification_proofs WHERE requester=?1 OR signer=?1 ORDER BY created_at,id"],
+ ['roleOutcomes',"SELECT id,purpose,desired,state,reason,attempts,native_rank,CASE WHEN native_rank_name IS NULL THEN NULL ELSE CASE WHEN typeof(native_rank_name)='text' AND length(native_rank_name) BETWEEN 1 AND 64 AND length(CAST(native_rank_name AS BLOB))<=256 AND instr(native_rank_name,char(0))=0 THEN native_rank_name ELSE json_extract('privacy_qr_copy_text_refused','$') END END AS native_rank_name,created_at,expires_at,checked_at FROM role_settlements WHERE subject=?1 ORDER BY created_at,id"],
  ] as const;
  return {statements:selects.flatMap(([,sql])=>[env.DB.prepare(`${sql} LIMIT 1000`).bind(id),env.DB.prepare(`SELECT COUNT(*) AS count FROM (${sql})`).bind(id)]),
- shape:(results)=>Object.fromEntries(selects.map(([name],i)=>[name,{rows:results[i*2]!.results,total:(results[i*2+1]!.results[0] as {count:number}).count,limit:1000,complete:(results[i*2+1]!.results[0] as {count:number}).count<=1000}]))};
+ shape:(results)=>Object.fromEntries(selects.map(([name],i)=>[name,{rows:results[i*2]!.results.map(raw=>{const r=raw as Record<string,unknown>;return name==='attestations'?{...r,...ownCopyProofFacts(r)}:name==='roleOutcomes'?{...r,...ownCopyRankFacts(r)}:r;}),total:(results[i*2+1]!.results[0] as {count:number}).count,limit:1000,complete:(results[i*2+1]!.results[0] as {count:number}).count<=1000}]))};
 }
 registerCommunityData('councillor_verification',qrErasureStatements,qrExportPlan);
 registerServingPrivacyFamilies('councillor_verification',[

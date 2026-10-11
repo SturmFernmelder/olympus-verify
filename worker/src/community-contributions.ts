@@ -65,6 +65,7 @@
  * journal that expires after a valid commitment is purged without undoing the effect, as before.
  */
 import type { Env } from "./env";
+import { ownCopyDate,ownCopyObligationMetadata,ownCopyReceiptMetadata,ownCopyDecisionMetadata } from './privacy-account-coverage';
 import { now } from "./db";
 import { admittedReadAs, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, registerCommunityData, type CommunitySubject } from "./community-context";
 import {
@@ -955,13 +956,15 @@ export function contributionDeletionStatements(env: Env, id: string): D1Prepared
   ];
 }
 
+/** The four exact actor spellings already recognized by deletion and the identify-only copy. */
+const OWN_DECISION_ACTOR = "(actor=?1 OR actor='user:'||?1 OR actor='member:'||?1 OR actor='staff:'||?1)";
 /** Own retained contribution decisions. This constructor executes nothing and grants no authority. */
 export function ownContributionDecisionStatements(env: Env, id: string, position: { high: number; seen: number; ts: number; id: number } | null): D1PreparedStatement[] {
   const bounded = position ? 1 : 0, after = position && position.seen > 0 ? 1 : 0;
-  const own = "(discord_id=?1 OR actor='member:'||?1 OR actor='staff:'||?1)", live = `retain_until>${DB_NOW}`;
+  const own = `(discord_id=?1 OR ${OWN_DECISION_ACTOR})`, live = `retain_until>${DB_NOW}`;
   return [
     env.DB.prepare(`SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR at>?5 OR (at=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM ${T}decisions WHERE ${own} AND ${live} AND (?2=0 OR id<=?3)`).bind(id, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
-    env.DB.prepare(`SELECT id,at,action,retain_until,(discord_id=?1) AS own_subject,(actor='member:'||?1 OR actor='staff:'||?1) AS own_actor FROM ${T}decisions WHERE ${own} AND ${live} AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM ${T}decisions WHERE ${own} AND ${live}) END AND (?4=0 OR at>?5 OR (at=?5 AND id>?6)) ORDER BY at,id LIMIT 1001`).bind(id, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
+    env.DB.prepare(`SELECT id,at,action,retain_until,CASE WHEN instr(guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE guild_scope END AS guild_scope,(discord_id=?1) AS own_subject,${OWN_DECISION_ACTOR} AS own_actor FROM ${T}decisions WHERE ${own} AND ${live} AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM ${T}decisions WHERE ${own} AND ${live}) END AND (?4=0 OR at>?5 OR (at=?5 AND id>?6)) ORDER BY at,id LIMIT 1001`).bind(id, bounded, position?.high ?? 0, after, position?.ts ?? 0, position?.id ?? 0),
   ];
 }
 
@@ -970,13 +973,13 @@ export function contributionExportPlan(env: Env, id: string): { statements: D1Pr
   return {
     statements: [
       env.DB.prepare(
-        `SELECT o.id, o.guild_scope, o.period_start, o.due_at, o.policy_version, o.amount_copper, o.eligible, o.state,
+        `SELECT o.id, CASE WHEN instr(o.guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE o.guild_scope END AS guild_scope, o.period_start, o.due_at, o.policy_version, o.amount_copper, o.eligible, o.state,o.created_at,o.updated_at,o.retain_until,
            o.acknowledged_at, o.officer_contact_at, o.final_notice_at, o.final_acknowledged_at, o.final_officer_contact_at,
            ${gatedSumSql(weekJournal("o.id"))} AS paid, ${magnitudeSql(weekJournal("o.id"))} AS paid_magnitude
          FROM ${T}obligations o WHERE o.discord_id = ? AND ${LIVE_WEEK("o")} ORDER BY o.guild_scope, o.period_start`,
       ).bind(id),
       env.DB.prepare(
-        `SELECT r.guild_scope, r.source, r.amount_copper, r.retired_copper, r.observed_at, r.status, r.voided_at, (r.retain_until <= ${DB_NOW}) AS expired,
+        `SELECT CASE WHEN instr(r.guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE r.guild_scope END AS guild_scope, r.source, r.amount_copper, r.retired_copper, r.observed_at, r.status, r.voided_at,r.created_at,r.retain_until, (r.retain_until <= ${DB_NOW}) AS expired,
            ${gatedSumSql(receiptJournal("r.id"))} AS allocated, ${magnitudeSql(receiptJournal("r.id"))} AS allocated_magnitude
          FROM ${T}receipts r WHERE r.matched_discord_id = ?1 ORDER BY r.guild_scope, r.observed_at`,
       ).bind(id),
@@ -987,11 +990,11 @@ export function contributionExportPlan(env: Env, id: string): { statements: D1Pr
 
 /** Pure identify-copy constructors. No execution, admission, mutation or renewal of ledger lifetimes. */
 export function ownContributionHistorySource(kind: 'obligations' | 'receipts'): string {
-  if (kind === 'obligations') return `SELECT o.rowid AS __history_id,0 AS __history_at,o.guild_scope,o.period_start,o.due_at,o.policy_version,o.amount_copper,o.eligible,o.state,
+  if (kind === 'obligations') return `SELECT o.rowid AS __history_id,0 AS __history_at,CASE WHEN instr(o.guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE o.guild_scope END AS guild_scope,o.period_start,o.due_at,o.policy_version,o.amount_copper,o.eligible,o.state,o.created_at,o.updated_at,o.retain_until,
     o.acknowledged_at,o.officer_contact_at,o.final_notice_at,o.final_acknowledged_at,o.final_officer_contact_at,
     ${gatedSumSql(weekJournal('o.id'))} AS paid,${magnitudeSql(weekJournal('o.id'))} AS paid_magnitude
     FROM ${T}obligations o WHERE o.discord_id=?1 AND ${LIVE_WEEK('o')}`;
-  const raw = `SELECT r.rowid AS __history_id,0 AS __history_at,r.guild_scope,r.source,r.amount_copper,r.retired_copper,r.observed_at,r.status,r.voided_at,(r.retain_until<=${DB_NOW}) AS expired,
+  const raw = `SELECT r.rowid AS __history_id,0 AS __history_at,CASE WHEN instr(r.guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE r.guild_scope END AS guild_scope,r.source,r.amount_copper,r.retired_copper,r.observed_at,r.status,r.voided_at,r.created_at,r.retain_until,(r.retain_until<=${DB_NOW}) AS expired,
     ${gatedSumSql(receiptJournal('r.id'))} AS allocated,${magnitudeSql(receiptJournal('r.id'))} AS allocated_magnitude
     FROM ${T}receipts r WHERE r.matched_discord_id=?1`;
   // Count only the established emitted relationship. Malformed/overflow rows remain visible to the refusing projector.
@@ -1009,25 +1012,25 @@ export function projectOwnContributionHistory(kind: 'obligations' | 'receipts', 
 }
 /** Same four actor forms recognized by erasure; raw/user forms cover retained legacy records. */
 export function ownContributionCopyDecisionSource():string {
-  const actor="(actor=?1 OR actor='user:'||?1 OR actor='member:'||?1 OR actor='staff:'||?1)";
-  return `SELECT id,at,action,retain_until,(discord_id=?1) AS own_subject,${actor} AS own_actor FROM ${T}decisions WHERE (discord_id=?1 OR ${actor}) AND retain_until>${DB_NOW}`;
+  const actor=OWN_DECISION_ACTOR;
+  return `SELECT id,at,action,retain_until,CASE WHEN instr(guild_scope,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE guild_scope END AS guild_scope,(discord_id=?1) AS own_subject,${actor} AS own_actor FROM ${T}decisions WHERE (discord_id=?1 OR ${actor}) AND retain_until>${DB_NOW}`;
 }
 function shapeExport(obligations: D1Result, receipts: D1Result): Record<string, unknown> {
-  const iso = (s: unknown) => (typeof s === "number" ? new Date(s * 1000).toISOString() : null);
+  const iso = (s: unknown) => ownCopyDate(s,true);
   try {
     return {
       obligations: (obligations!.results as Record<string, unknown>[]).map((o) => ({
-        guildScope: o.guild_scope, periodStart: iso(o.period_start), dueAt: iso(o.due_at), policyVersion: o.policy_version, amountCopper: storedCopper(o.amount_copper), paidCopper: exactSum(o.paid, o.paid_magnitude),
-        eligible: o.eligible === 1, state: o.state, acknowledgedAt: iso(o.acknowledged_at), officerContactAt: iso(o.officer_contact_at), finalNoticeAt: iso(o.final_notice_at), finalAcknowledgedAt: iso(o.final_acknowledged_at), finalOfficerContactAt: iso(o.final_officer_contact_at),
+        periodStart: iso(o.period_start), dueAt: iso(o.due_at), policyVersion: o.policy_version, amountCopper: storedCopper(o.amount_copper), paidCopper: exactSum(o.paid, o.paid_magnitude),
+        eligible: o.eligible === 1, state: o.state, acknowledgedAt: iso(o.acknowledged_at), officerContactAt: iso(o.officer_contact_at), finalNoticeAt: iso(o.final_notice_at), finalAcknowledgedAt: iso(o.final_acknowledged_at), finalOfficerContactAt: iso(o.final_officer_contact_at),...ownCopyObligationMetadata(o),
       })),
       receipts: (receipts!.results as Record<string, unknown>[]).flatMap((r) => {
         const amount = storedCopper(r.amount_copper), retired = storedCopper(r.retired_copper), allocated = exactSum(r.allocated, r.allocated_magnitude);
         if (r.expired === 1) {
           // .78: past its deadline, only while it still pays a live week, and only the allocated/retired relationship that week needs
-          return allocated > 0 ? [{ guildScope: r.guild_scope, source: r.source, amountCopper: plus(allocated, retired), allocatedCopper: allocated, retiredCopper: retired, unallocatedCopper: 0, observedAt: iso(r.observed_at), status: r.status, voidedAt: iso(r.voided_at) }] : [];
+          return allocated > 0 ? [{ source: r.source, amountCopper: plus(allocated, retired), allocatedCopper: allocated, retiredCopper: retired, unallocatedCopper: 0, observedAt: iso(r.observed_at), status: r.status, voidedAt: iso(r.voided_at),...ownCopyReceiptMetadata(r) }] : [];
         }
         const open = plus(plus(amount, -retired), -allocated);
-        return [{ guildScope: r.guild_scope, source: r.source, amountCopper: amount, allocatedCopper: allocated, retiredCopper: retired, unallocatedCopper: r.voided_at === null ? open : 0, observedAt: iso(r.observed_at), status: r.status, voidedAt: iso(r.voided_at) }];
+        return [{ source: r.source, amountCopper: amount, allocatedCopper: allocated, retiredCopper: retired, unallocatedCopper: r.voided_at === null ? open : 0, observedAt: iso(r.observed_at), status: r.status, voidedAt: iso(r.voided_at),...ownCopyReceiptMetadata(r) }];
       }),
       note: "Who observed or recorded a payment, payer names as written in the source, source identifiers and unmatched evidence are not included.",
     };

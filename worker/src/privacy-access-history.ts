@@ -2,13 +2,17 @@
 import type { Env } from './env';
 import { apiJson, sign, verify } from './site-core';
 import { secondsToIso } from './community-time';
+import { ownCopyDecisionMetadata,ownMetadataCollectionScope } from './privacy-account-coverage';
 import { ownContributionCopyDecisionSource } from './community-contributions';
-import { PRIVACY_FAMILY_HISTORY_COLLECTIONS, privacyFamilyHistoryDefinition } from './privacy-access-family-history';
+import { PRIVACY_FAMILY_HISTORY_COLLECTIONS, PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS, privacyFamilyHistoryDefinition, privacyCollectionOnlyHistoryDefinition, privacyCollectionOnlyHistoryNote } from './privacy-access-family-history';
 import { FormError } from './policy-form-core';
 import { privacyAccessActionStatements, privacyAccessConsumedReadFence, PRIVACY_ACCESS_NOW, type PrivacyAccessGrant } from './privacy-access';
 
 export const PRIVACY_HISTORY_COLLECTIONS=['actions','eventChanges','contributionDecisions'] as const;
-export const PRIVACY_ALL_HISTORY_COLLECTIONS=[...PRIVACY_HISTORY_COLLECTIONS,...PRIVACY_FAMILY_HISTORY_COLLECTIONS] as const;
+/** Exactly37 count/preview histories in the aggregate copy; the three extra histories require separate downloads. */
+export const PRIVACY_COPY_HISTORY_COLLECTIONS=[...PRIVACY_HISTORY_COLLECTIONS,...PRIVACY_FAMILY_HISTORY_COLLECTIONS] as const;
+export const PRIVACY_ALL_HISTORY_COLLECTIONS=[...PRIVACY_COPY_HISTORY_COLLECTIONS,...PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS] as const;
+export type PrivacyCopyHistoryCollection=typeof PRIVACY_COPY_HISTORY_COLLECTIONS[number];
 export type PrivacyHistoryCollection=typeof PRIVACY_ALL_HISTORY_COLLECTIONS[number];
 export const PRIVACY_HISTORY_SECONDS=86400;
 export const PRIVACY_HISTORY_LIMIT=1000;
@@ -39,11 +43,14 @@ export const PRIVACY_PROJECTED_ROW_BYTES=16384;
 // Conservative bound of every closed projected field, including escaping, replacement UTF-8, keys and fixed ISO/flag expansion.
 export function privacyProjectedByteSql(fields:readonly string[]):string {
  if(fields.length===0||fields.some(f=>!/^[A-Za-z_][A-Za-z0-9_]*$/.test(f)))throw new FormError('privacy_copy_unconfirmed',503);
- return '('+fields.map(f=>'3*length(CAST(json_quote('+f+') AS BLOB))+128').join('+')+')';
+ // SQLite/Node can truncate TEXT at NUL before DTO validation. Refuse in the existing closed SQL byte expression.
+ return '(CASE WHEN '+fields.map(f=>'instr('+f+',char(0))>0').join(' OR ')+" THEN json_extract('privacy_copy_unconfirmed','$') ELSE "+fields.map(f=>'3*length(CAST(json_quote('+f+') AS BLOB))+128').join('+')+' END)';
 }
-export function boundedPrivacyHistoryStatements(env:Env,id:string,source:string,fields:readonly string[],idField:string,timeField:string,p:Position|null,pageLimit:number):D1PreparedStatement[]{
+export function boundedPrivacyHistoryStatements(env:Env,id:string,source:string,fields:readonly string[],idField:string,timeField:string,p:Position|null,pageLimit:number,context?:Readonly<{originalGeneration:string}>):D1PreparedStatement[]{
  if((pageLimit!==25&&pageLimit!==1000)||![idField,timeField].every(f=>/^[A-Za-z_][A-Za-z0-9_]*$/.test(f)))throw new FormError('privacy_copy_unconfirmed',503);
- const bytes=privacyProjectedByteSql(fields),range='('+source+')',bounded=p?1:0,after=p&&p.seen>0?1:0,params=[id,bounded,p?.high??0,after,p?.ts??0,p?.id??0];
+ if(context!==undefined&&(typeof context!=='object'||context===null||!Object.isFrozen(context)||Object.keys(context).length!==1||!Object.hasOwn(context,'originalGeneration')||typeof context.originalGeneration!=='string'||!/^[0-9a-f]{32}$/.test(context.originalGeneration)))throw new FormError('privacy_copy_unconfirmed',503);
+ const bytes=privacyProjectedByteSql(fields),range='('+source+')',bounded=p?1:0,after=p&&p.seen>0?1:0,params:unknown[]=[id,bounded,p?.high??0,after,p?.ts??0,p?.id??0];
+ if(context)params.push(context.originalGeneration);
  const remains='(?4=0 OR '+timeField+'>?5 OR ('+timeField+'=?5 AND '+idField+'>?6))';
  return [
  env.DB.prepare('SELECT CASE WHEN COALESCE(MAX('+bytes+'),0)<='+PRIVACY_PROJECTED_ROW_BYTES+' THEN COALESCE(MAX('+idField+'),0) ELSE json_extract(\'privacy_copy_oversize\',\'$\') END AS high_water,COUNT(*) AS total_count,COALESCE(SUM(CASE WHEN '+remains+' THEN 1 ELSE 0 END),0) AS remaining_count FROM '+range+' WHERE (?2=0 OR '+idField+'<=?3)').bind(...params),
@@ -56,7 +63,7 @@ export function privacyBoundedScalarStatement(env:Env,id:string,source:string,fi
 }
 function statements(env:Env,id:string,c:PrivacyHistoryCollection,p:Position|null,pageLimit:number):D1PreparedStatement[]{
  const source=c==='actions'?'SELECT ts,id,action FROM audit WHERE subject=?1 OR actor=?1':c==='eventChanges'?'SELECT id,event_id,action,at,fields FROM community_event_changes WHERE actor=?1':ownContributionCopyDecisionSource();
- const fields=c==='actions'?['ts','action']:c==='eventChanges'?['event_id','action','at','fields']:['at','action','retain_until','own_subject','own_actor'];
+ const fields=c==='actions'?['ts','action']:c==='eventChanges'?['event_id','action','at','fields']:['at','action','retain_until','guild_scope','own_subject','own_actor'];
  return boundedPrivacyHistoryStatements(env,id,source,fields,'id',c==='actions'?'ts':'at',p,pageLimit);
 }
 const eventFields=new Set(['title','details','startsAt','durationMin','capacity','roleTargets']);
@@ -75,13 +82,13 @@ function project(c:PrivacyHistoryCollection,r:RecordValue,at:number):RecordValue
  }
  if(typeof r.action!=='string'||!decisions.has(r.action)||!whole(r.retain_until)||r.retain_until<=at||
   (r.own_subject!==0&&r.own_subject!==1)||(r.own_actor!==0&&r.own_actor!==1)||(r.own_subject!==1&&r.own_actor!==1))throw new FormError('privacy_copy_unconfirmed',503);
- return {action:r.action,at:secondsToIso(r.at as number),relation:r.own_subject===1?r.own_actor===1?'both':'subject':'actor'};
+ return {action:r.action,at:secondsToIso(r.at as number),...ownCopyDecisionMetadata(r),relation:r.own_subject===1?r.own_actor===1?'both':'subject':'actor'};
 }
 export async function preparePrivacyHistory(env:Env,g:PrivacyAccessGrant,c:PrivacyHistoryCollection,raw:string|null,pageLimit=PRIVACY_HISTORY_LIMIT){
  if(g.purpose!=='own_export'||!PRIVACY_ALL_HISTORY_COLLECTIONS.includes(c))throw new FormError('privacy_purpose_refused',403);
  if(pageLimit!==25&&pageLimit!==1000)throw new FormError('privacy_purpose_refused',403);
  const old=await position(env,g,c,raw);
- const definition:PrivacyHistoryDefinition=PRIVACY_FAMILY_HISTORY_COLLECTIONS.includes(c as typeof PRIVACY_FAMILY_HISTORY_COLLECTIONS[number])?privacyFamilyHistoryDefinition(c as typeof PRIVACY_FAMILY_HISTORY_COLLECTIONS[number]):{idField:'id',timeField:c==='actions'?'ts':'at',statements:(e,id,p,limit)=>statements(e,id,c,p,limit),project:(r,at)=>project(c,r,at)};
+ const definition:PrivacyHistoryDefinition=PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS.includes(c as typeof PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS[number])?privacyCollectionOnlyHistoryDefinition(c as typeof PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS[number],g):PRIVACY_FAMILY_HISTORY_COLLECTIONS.includes(c as typeof PRIVACY_FAMILY_HISTORY_COLLECTIONS[number])?privacyFamilyHistoryDefinition(c as typeof PRIVACY_FAMILY_HISTORY_COLLECTIONS[number]):{idField:'id',timeField:c==='actions'?'ts':'at',statements:(e,id,p,limit)=>statements(e,id,c,p,limit),project:(r,at)=>project(c,r,at)};
  return {old,definition,pageLimit,statements:definition.statements(env,g.subject,old,pageLimit)};
 }
 export async function finishPrivacyHistory(env:Env,g:PrivacyAccessGrant,c:PrivacyHistoryCollection,prepared:Awaited<ReturnType<typeof preparePrivacyHistory>>,at:unknown,m:RecordValue|undefined,rows:unknown){
@@ -115,8 +122,8 @@ export async function exportPrivacyHistory(env:Env,g:PrivacyAccessGrant,c:Privac
  if(out.length!==7||(out[6]?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||!whole(at))throw new FormError('privacy_copy_unconfirmed',503);
  const history=await finishPrivacyHistory(env,g,c,prepared,at,m,rows);
  return apiJson({generatedAt:secondsToIso(at),identity:{discordId:g.subject,authority:'fresh_identify_only',expiresAt:secondsToIso(g.expiresAt)},
-  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,collection:c,pageLimit:PRIVACY_HISTORY_LIMIT,
-   note:'Complete concerns this selected retained history range only. Other account sections are not included. Count and position changes refuse continuation; this is not an immutable content snapshot, proof of download or erasure.'},
+  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,collection:c,pageLimit:PRIVACY_HISTORY_LIMIT,collectionScope:privacyCollectionOnlyHistoryNote(c),
+   metadataScope:ownMetadataCollectionScope(c),note:'Complete concerns this selected retained history range only. Other account sections are not included. Count and position changes refuse continuation; this is not an immutable content snapshot, proof of download or erasure.'},
   history,
   continuation:'Save currentCursor to reread this page or nextCursor to continue. Connect Discord again at /privacy/access, select this history and paste the cursor into the form. Each page needs a fresh twelve-minute privacy grant. The original range and twenty-four-hour traversal deadline never extend; a changed range requires a new capture.'},
   200,{'Content-Disposition':`attachment; filename="olympus-my-${c}-history.json"`,'Referrer-Policy':'no-referrer'});

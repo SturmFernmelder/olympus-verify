@@ -45,7 +45,7 @@ function seedOne(f,c,i,who=A){const at=f.time()-100,keep=f.time()+100000;
  case 'community.councillor_verification.councillorKeys':put(f,'councillor_keys',{id:'key'+i,signer:who,signer_guid:'Own GUID '+i,public_key:'hidden-key'+i,subject_generation:G,roster_id:1,created_at:at,expires_at:keep});break;
  case 'community.councillor_verification.challenges':key(f);put(f,'councillor_challenges',{nonce:'hidden-nonce'+i,key_id:'key',signer:who,session_version:7,session_expires:keep,created_at:at,expires_at:keep,mode:'single',max_proofs:1});break;
  case 'community.councillor_verification.requests':put(f,'verification_requests',{code:'hidden-code'+i,requester:who,created_at:at,expires_at:keep,state:'pending'});break;
- case 'community.councillor_verification.attestations':challenge(f);put(f,'verification_requests',{code:'hidden-code'+i,requester:who,created_at:at,expires_at:keep});put(f,'verification_proofs',{id:'proof'+i,code:'hidden-code'+i,challenge:'private-lease',signer:B,key_id:'key',requester:who,requester_guid:'hiddenGUID',requester_name:'hidden-name',native_rank:1,rank_name:'Officer',native_profile:'beta-five',signer_guid:'hiddenGUID',snapshot_id:1,digest:'hidden-digest'+i,created_at:at,expires_at:keep});break;
+ case 'community.councillor_verification.attestations':challenge(f);put(f,'verification_requests',{code:'hidden-code'+i,requester:who,created_at:at,expires_at:keep});put(f,'verification_proofs',{id:'proof'+i,code:'hidden-code'+i,challenge:'private-lease',signer:B,key_id:'key',requester:who,requester_guid:'hiddenGUID',requester_name:who===A?'Own Character '+i:'hidden-name',native_rank:1,rank_name:'Officer',native_profile:'beta-five',signer_guid:'hiddenGUID',snapshot_id:1,digest:'hidden-digest'+i,created_at:at,expires_at:keep});break;
  case 'community.councillor_verification.roleOutcomes':put(f,'role_settlements',{id:'role'+i,subject:who,purpose:'membership',guild_id:B,role_id:STAFF,desired:1,state:'settled',reason:'granted',created_at:at,expires_at:keep});break;
  case 'community.ruleset_publication.operations':put(f,'ruleset_publications',{guild_id:STAFF,publication_id:'publication'+who+i,target_key:'olympus-info',selection_revision:i+1,profile_revision:load('ruleset-profile').currentRulesetProfile().revision,plan_hash:'hidden-plan',actor:who,actor_generation:G,session_version:7,session_expires:keep,channel_id:STAFF,message_id:B,frozen_payload:'hidden-public-copy',payload_hash:'hidden-digest',claim_nonce:'hidden-nonce',stage:'pin',state:'applied',result_code:'confirmed',created_at:at,updated_at:at,actor_retain_until:keep});break;
  default:throw Error('unknown test seed '+c);
@@ -58,13 +58,22 @@ async function download(f,c,cursor=null){const con=await connect(f),frm=await fo
 const sorted=a=>Array.from(a,x=>JSON.stringify(x)).sort();
 async function original(f,c){if(!c.startsWith('community.'))return null;const plan=community.communityExportPlan(f.env,A),out=await f.env.DB.batch(plan.statements.map(s=>/ LIMIT 1000$/.test(s.sql)?f.env.DB.prepare(s.sql.replace(/ LIMIT 1000$/,'')).bind(A):s)),body=plan.shape(out),parts=c.split('.');const value=body[parts[1]][parts[2]];return Array.isArray(value)?value:value.rows;}
 async function mainFamily(){
- eq('closed thirty-four family histories',family.PRIVACY_FAMILY_HISTORY_COLLECTIONS.length,34);eq('all histories thirty-seven',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,37);eq('actual producer graph13',community.communityDataNames().length,13);eq('actual producer graph34 statements',community.communityExportPlan(fixture().env,A).statements.length,34);
+ eq('closed thirty-four family histories',family.PRIVACY_FAMILY_HISTORY_COLLECTIONS.length,34);eq('aggregate histories thirty-seven',history.PRIVACY_COPY_HISTORY_COLLECTIONS.length,37);eq('individual histories forty',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,40);eq('actual producer graph13',community.communityDataNames().length,13);eq('actual producer graph34 statements',community.communityExportPlan(fixture().env,A).statements.length,34);
  for(const c of family.PRIVACY_FAMILY_HISTORY_COLLECTIONS){
   const f=fixture(),n=c==='community.directory.professions'?12:1002;await seed(f,c,n);const before=count(f,'sqlite_master');
   const baseline=await original(f,c);const first=(await download(f,c)).data.history;
   const want=c==='community.privacy_access.connections'?1004:n;
   eq(c+' full retained count',first.capture.count,want);eq(c+' bounded first',first.entries.length,Math.min(want,1000));eq(c+' complete truth',first.capture.complete,want<=1000);
   ok(c+' safe projection',!JSON.stringify(first.entries).includes(B)&&!JSON.stringify(first.entries).includes(STAFF)&&!JSON.stringify(first.entries).includes('hidden-')&&!JSON.stringify(first.entries).includes('__history'));
+   if(c==='community.councillor_verification.attestations'){
+    ok('requester proof exact seven safe fields',first.entries.every(r=>Object.keys(r).sort().join(',')==='created_at,expires_at,id,native_rank,own_part,rank_name,requester_name'));
+    eq('requester proof own facts and original native dates',first.entries[0],{id:'proof0',own_part:'requester',requester_name:'Own Character 0',native_rank:1,rank_name:'Officer',created_at:f.time()-100,expires_at:f.time()+100000});
+    ok('requester proof GUID profile lease credentials withheld',!['hiddenGUID','private-lease','beta-five','private-public-key','GUID-counterpart'].some(token=>JSON.stringify(first.entries).includes(token)));
+   }
+   if(c==='community.councillor_verification.roleOutcomes'){
+    ok('role outcome exact eleven safe fields',first.entries.every(r=>Object.keys(r).sort().join(',')==='attempts,checked_at,created_at,desired,expires_at,id,native_rank,native_rank_name,purpose,reason,state'));
+    eq('role outcome own nullable rank facts and original native dates',first.entries[0],{id:'role0',purpose:'membership',desired:1,state:'settled',reason:'granted',attempts:0,native_rank:null,native_rank_name:null,created_at:f.time()-100,expires_at:f.time()+100000,checked_at:null});
+   }
   let all=first.entries;
   if(first.nextCursor){const tail=(await download(f,c,first.nextCursor)).data.history;all=all.concat(tail.entries);eq(c+' tailcount',tail.entries.length,want-1000);eq(c+' fixed deadline',tail.capture.expiresAt,first.capture.expiresAt);eq(c+' complete aftertail',tail.capture.complete,true);eq(c+' terminates',tail.nextCursor,null);}
   eq(c+' all range delivered',all.length,want);if(baseline&&c!=='community.privacy_access.connections')eq(c+' exact existing own DTO parity',sorted(all),sorted(baseline));
@@ -75,9 +84,27 @@ async function mainFamily(){
   if(c==='community.directory.professions'){f.db.exec('PRAGMA ignore_check_constraints=ON');put(f,'community_professions',{discord_id:A,profession:'not-a-profession',skill:999,updated_at:f.time()});await refused('malformed restored profession no false completeness',()=>download(f,c));}
   f.db.close();
  }
- // Optional-profile semantics stay exact; crafts still appear with no profile, professions/alts do not.
- let f=fixture();seedOne(f,'community.directory.professions',0);seedOne(f,'community.directory.alts',0);seedOne(f,'community.directory.crafts',0);
- let data=(await download(f,'copy')).data;eq('no profile suppresses existing professions/alts',[data.community.directory.professions.length,data.community.directory.alts.length],[0,0]);eq('no profile preserves crafts',data.community.directory.crafts.length,1);f.db.close();
+  // An own signer relationship keeps the foreign requester's proof facts exactly NULL.
+  const signerFixture=fixture();seedOne(signerFixture,'community.councillor_verification.attestations',0,B);
+  signerFixture.db.prepare('UPDATE verification_proofs SET signer=? WHERE id=?').run(A,'proof0');
+  const signerHistory=(await download(signerFixture,'community.councillor_verification.attestations')).data.history;
+  eq('signer-only proof exact safe row and original dates',signerHistory.entries,[{id:'proof0',own_part:'signer',requester_name:null,native_rank:null,rank_name:null,created_at:signerFixture.time()-100,expires_at:signerFixture.time()+100000}]);
+  ok('signer-only proof exact seven fields',signerHistory.entries.every(r=>Object.keys(r).sort().join(',')==='created_at,expires_at,id,native_rank,own_part,rank_name,requester_name'));
+  ok('signer-only foreign requester and private facts withheld',![B,STAFF,'hidden-','hiddenGUID','private-lease','beta-five','private-public-key','GUID-counterpart','__history'].some(token=>JSON.stringify(signerHistory.entries).includes(token)));
+  signerFixture.db.close();
+  // Copy-only direct ownership preserves orphan professions/alts with absent profile context; crafts remain included.
+  let f=fixture();seedOne(f,'community.directory.professions',0);seedOne(f,'community.directory.alts',0);seedOne(f,'community.directory.crafts',0);
+  seedOne(f,'community.directory.professions',0,B);seedOne(f,'community.directory.alts',10000,B);
+  eq('orphan profile and own ref rows absent',[count(f,'community_profiles'),count(f,'community_refs')],[0,0]);
+  let data=(await download(f,'copy')).data;eq('no profile preserves directly owned professions/alts',[data.community.directory.professions.length,data.community.directory.alts.length],[1,1]);eq('no profile preserves crafts',data.community.directory.crafts.length,1);
+  const directory=data.community.directory,originalChildAt=new Date((f.time()-100)*1000).toISOString();
+  eq('orphan profile context remains explicitly absent',[directory.ref,directory.revision,directory.listed,directory.main,directory.raidRole,directory.createdAt,directory.updatedAt,directory.departedAt],[null,0,false,null,null,null,null,null]);
+  eq('orphan profession exact safe metadata',directory.professions,[{name:'alchemy',skill:0,updatedAt:originalChildAt}]);
+  eq('orphan alt exact safe original dates and nullable review',directory.alts,[{name:'Alt 0',status:'claimed',proof:'self',claimedAt:originalChildAt,reviewedAt:null,updatedAt:originalChildAt}]);
+  eq('orphan profession individual matches aggregate',(await download(f,'community.directory.professions')).data.history.entries,directory.professions);
+  eq('orphan alt individual matches aggregate',(await download(f,'community.directory.alts')).data.history.entries,directory.alts);
+  ok('orphan foreign children reviewer keys withheld',![B,STAFF,'Alt 10000','name_key','reviewed_by','__history'].some(token=>JSON.stringify(directory).includes(token)));
+  f.db.close();
  // Stored four actor forms are shared by aggregate and separate decisions; counterpart identity stays withheld.
  f=fixture();for(const [i,actor]of [A,'user:'+A,'member:'+A,'staff:'+A].entries())put(f,'community_contribution_decisions',{guild_scope:'I',discord_id:B,obligation_id:i+1,action:'state_open',actor,member_revision:1,nonce:'hidden',at:f.time(),retain_until:f.time()+1000});
  data=(await download(f,'copy')).data;eq('all four own actor forms aggregate',data.contributionDecisions.rows.map(r=>[r.own_subject,r.own_actor]),[[0,1],[0,1],[0,1],[0,1]]);eq('separate actor forms agree',(await download(f,'contributionDecisions')).data.history.entries.length,4);f.db.close();

@@ -10,6 +10,7 @@ async function review(){
  const first=load('privacy-access-history'),sql=[];
  const paused='Automatic serving-account erasure is temporarily paused while Olympus checks older account records.';
  const sizeCopy='The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer.';
+ const historyCurrent='The account copy previews 37 selected histories. There are 40 individual history download options. The three extra histories are fresh historical Battle.net character labels, roster processing intents attributable to your original account link, and current setting keys/times while you remain their last updater. Those three are not in the account-copy file. The Battle.net connector stays off. Roster rows missing the original linkage require attended review; processing records do not confirm provider success. Settings values and edit history are not included. To continue a history, save nextCursor from its file, reconnect Discord, select the same history and paste it below.';
  const scopeDisclosure='<p>This connection asks Discord only to identify your account. A returned token may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata. This privacy connection uses none of those permissions: it uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
  const baselineDir=process.env.PRIVACY_UI_BASELINE_DIR;
  function baseline(name){
@@ -39,21 +40,22 @@ async function review(){
  eq('enabled identify page status',onPage.status,200);safeHtml('enabled identify page',onPage,onHtml);
  eq('enabled identify page keeps export and original erasure forms',[...onHtml.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]),['/privacy/access/export','/privacy/access/erasure']);
  ok('enabled copy retains Root size-refusal disclosure',onHtml.includes(sizeCopy));
+ eq('enabled identify has exact37 aggregate and40 separate disclosure once',onHtml.split(historyCurrent).length,2);
  ok('enabled erasure original confirmation is present',section(onHtml,'/privacy/access/erasure').includes('name="confirm" value="yes" required'));
  const staleIdentity=fields(section(onHtml,'/privacy/access/erasure'));
  eq('enabled identify HTML includes the exact reviewed scope disclosure once',onHtml.split(scopeDisclosure).length,2);
  if(oldAccess){
   const oldHtml=await (await oldAccess.privacyAccessPage(request('/privacy/access',connection.cookie),f.env)).text();
   const history36='All 36 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below.';
-  const history37='All 37 listed histories have separate downloads: save nextCursor from the file, reconnect Discord, select the same history and paste it below.';
+  const history37=historyCurrent; // Finite original36 -> current37aggregate/40individual text transform; option source already imports current ALL.
   eq('immutable a947 did not contain the new disclosure',oldHtml.includes(scopeDisclosure),false);
   eq('immutable a947 contains the exact original history copy span once',oldHtml.split(history36).length,2);
   eq('immutable a947 has no current history copy span',oldHtml.includes(history37),false);
-  eq('current identify HTML contains the exact Task7 history copy span once',onHtml.split(history37).length,2);
+  eq('current identify HTML contains exact reviewed37aggregate/40individual history copy span once',onHtml.split(history37).length,2);
   eq('current identify HTML has no original history copy span',onHtml.includes(history36),false);
   eq('enabled identify HTML contains exact reviewed coverage section once',onHtml.split(coverageHtml).length,2);
   eq('immutable identify HTML contains no new coverage section',oldHtml.includes(coverageHtml),false);
-  eq('enabled identify HTML exactly equals immutable a947 apart from reviewed scope disclosure, exact Task7 history span and exact66-store coverage section',onHtml.replace(coverageHtml,'').replace(scopeDisclosure,''),oldHtml.replace(history36,history37));
+  eq('enabled identify HTML exactly equals immutable a947 apart from reviewed scope disclosure, exact37aggregate/40individual history span and exact66-store coverage section',onHtml.replace(coverageHtml,'').replace(scopeDisclosure,''),oldHtml.replace(history36,history37));
  }
  sql.length=0;const accountOn=await call(f,'/privacy/account',cookies),accountOnHtml=await accountOn.text(),onAccountSql=sql.length;
  eq('enabled ordinary page status',accountOn.status,200);safeHtml('enabled ordinary page',accountOn,accountOnHtml);
@@ -76,10 +78,13 @@ async function review(){
   ok('disabled '+String(flag)+' page offers officer help and existing status',html.includes('Ask an Olympus officer for attended help.')&&html.includes('Check an erasure request with its private status code'));
   ok('disabled '+String(flag)+' page retains corrected size disclosure',html.includes(sizeCopy));
   const exportFields=fields(section(html,'/privacy/access/export')),options=[...section(html,'/privacy/access/export').matchAll(/<option value="([^"]+)"/g)].map(x=>x[1]);
-  eq('disabled '+String(flag)+' select retains copy and exact 36 histories',options,['copy',...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS]);
+  eq('disabled '+String(flag)+' select retains copy and exact40 individual histories',options,['copy',...first.PRIVACY_ALL_HISTORY_COLLECTIONS]);
+  eq('disabled '+String(flag)+' exact41 select options',options.length,41);
+  eq('disabled '+String(flag)+' exact37aggregate/40individual disclosure once',html.split(historyCurrent).length,2);
   eq('disabled '+String(flag)+' copy retains exact original grant/CSRF',exportFields,fields(section(onHtml,'/privacy/access/export')));
   sql.length=0;const r=await call(f,'/privacy/account',cookies),h=await r.text();
   eq('disabled '+String(flag)+' ordinary page uses original current-user reads',sql.length,onAccountSql);safeHtml('disabled '+String(flag)+' ordinary page',r,h);
+  eq('disabled '+String(flag)+' ordinary coverage uses exact unavailable-lifecycle scope once',h.split(load('privacy-account-coverage').accountDataCoverageHtml(false)).length,2);
   eq('disabled '+String(flag)+' ordinary copy forms retained',(h.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
   eq('disabled '+String(flag)+' ordinary status form retained',(h.match(/action="\/privacy\/account\/erasure-status"/g)||[]).length,1);
   ok('disabled '+String(flag)+' ordinary page has no erase/unlink POST forms',!/<form[^>]+action="\/privacy\/account\/(?:full-erase|site-erase|bnet-unlink)"/.test(h));
@@ -88,7 +93,7 @@ async function review(){
   eq('disabled '+String(flag)+' page reads preserve all original grants and account authority',state(f)+'|'+grants(f),before+'|'+originalGrants);
  }
  f.env.PRIVACY_ERASURE_ENABLED='false';
- for(const collection of ['copy',...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS]){
+ for(const collection of ['copy',...first.PRIVACY_ALL_HISTORY_COLLECTIONS]){
   const action=await access.privacyAccessExportFormAction(request('/privacy/access/export',connection.cookie,'POST',{...fields(section(onHtml,'/privacy/access/export')),collection}),f.env);
   eq('disabled original form parser retains collection '+collection,action.collection,collection);
   eq('disabled collection '+collection+' retains genuine original grant',action.grant.grantId,fields(section(onHtml,'/privacy/access/export')).grant);

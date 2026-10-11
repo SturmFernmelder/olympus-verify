@@ -9,33 +9,33 @@ const SPECS=[
  ['site.reserved','site_reserved','name,status,created_at,approved_at,queued_at,released_at'],
  ['verification.characters','characters','name,status,bound_at,verified_at,member_since,left_at,source'],
  ['verification.codeRequests','pending','name,created_at,expires_at,consumed_at,consumed_source'],
- ['verification.inviteQueue','invite_queue','name,status,attempts,created_at,written_at,invited_at,joined_at,retry_after,last_reason,last_reason_at'],
+ ['verification.inviteQueue','invite_queue','name,status,attempts,created_at,written_at,invited_at,joined_at,retry_after,last_reason,last_reason_at,lastWatcherHoldAt'],
  ['verification.renameRecords','rename_holds','old_name,new_name,state,decided_at,closed_at'],
  ['privacyLifecycle.erasureRequests','privacy_serving_jobs','state,hold_reason,staff_access,created_at,completed_at,retain_until'],
  ['privacyLifecycle.providerCleanup','privacy_provider_messages','purpose,state,cleanup_requested,created_at,updated_at,retain_until'],
  ['privacyLifecycle.recoverySuppression','privacy_restore_replay','erased_at,retain_until,scope,recovery_custody'],
  ['community.directory.professions','community_professions','name,skill,updatedAt',12],
- ['community.directory.alts','community_alt_claims','name,status,proof,updatedAt'],
+ ['community.directory.alts','community_alt_claims','name,status,proof,updatedAt,claimedAt,reviewedAt'],
  ['community.directory.crafts','community_craft_offers','profession,recipe,source,updatedAt'],
- ['community.events.signups','community_event_signups','eventId,title,startsAt,status,character,raidRole,updatedAt'],
- ['community.events.created','community_events','id,title,startsAt,status'],
- ['community.events.attendance','community_event_attendance','eventId,title,startsAt,state,reasonCode,recordedAt'],
- ['community.trials.trials','community_trials','status,startedAt,reviewDueAt,outcome,reason,concludedAt,updatedAt,retainUntil'],
- ['community.restrictions.cases','community_restriction_cases','category,setAt,reviewAt,expiresAt,appealStatus,reviewOutcome,reviewedAt,acknowledgedAt,resolvedAt,active'],
+ ['community.events.signups','community_event_signups','eventId,title,startsAt,status,character,raidRole,updatedAt,rsvpStartsAt'],
+ ['community.events.created','community_events','id,title,startsAt,status,createdAt,updatedAt,endsAt,durationMin,capacity,roleTargets,retainUntil'],
+ ['community.events.attendance','community_event_attendance','eventId,title,startsAt,state,reasonCode,recordedAt,source'],
+ ['community.trials.trials','community_trials','status,startedAt,reviewDueAt,outcome,reason,concludedAt,updatedAt,retainUntil,createdAt'],
+ ['community.restrictions.cases','community_restriction_cases','category,setAt,reviewAt,expiresAt,appealStatus,reviewOutcome,reviewedAt,acknowledgedAt,resolvedAt,active,updatedAt,retainUntil'],
  ['community.restrictions.watchList','community_restriction_characters','category,characterName,addedAt,reviewAt,expiresAt,renewedAt,renewalReason'],
- ['community.departures.departures','community_departure_reviews','characterName,kind,observedAt,status,reviewedAt,retainUntil'],
- ['community.contributions.obligations','community_contribution_obligations','guildScope,periodStart,dueAt,policyVersion,amountCopper,paidCopper,eligible,state,acknowledgedAt,officerContactAt,finalNoticeAt,finalAcknowledgedAt,finalOfficerContactAt'],
- ['community.contributions.receipts','community_contribution_receipts','guildScope,source,amountCopper,allocatedCopper,retiredCopper,unallocatedCopper,observedAt,status,voidedAt'],
+ ['community.departures.departures','community_departure_reviews','characterName,kind,observedAt,status,reviewedAt,retainUntil,createdAt'],
+ ['community.contributions.obligations','community_contribution_obligations','guildScope,periodStart,dueAt,policyVersion,amountCopper,paidCopper,eligible,state,acknowledgedAt,officerContactAt,finalNoticeAt,finalAcknowledgedAt,finalOfficerContactAt,createdAt,updatedAt,retainUntil'],
+ ['community.contributions.receipts','community_contribution_receipts','guildScope,source,amountCopper,allocatedCopper,retiredCopper,unallocatedCopper,observedAt,status,voidedAt,createdAt,retainUntil'],
  ['community.news.notices','site_news_notices','id,title,postedAt,editedAt,keptUntil'],
  ['community.news.deletedNotices','site_news_ops','id,postedAt,keptUntil'],
- ['community.event_delivery.publications','community_event_deliveries','eventId,purpose,revision,state,removalPending,createdAt,updatedAt,retainUntil,result'],
- ['community.event_reminders.reminders','community_event_reminders','eventId,revision,state,startsAt,createdAt,retainUntil'],
+ ['community.event_delivery.publications','community_event_deliveries','eventId,purpose,revision,state,removalPending,createdAt,updatedAt,retainUntil,result,startsAt'],
+ ['community.event_reminders.reminders','community_event_reminders','eventId,revision,state,startsAt,createdAt,retainUntil,updatedAt,lastSchedulerConsideredAt,removalPending'],
  ['community.privacy_access.connections','privacy_access_grants','purpose,created_at,expires_at,consumed_at'],
  ['community.councillor_verification.councillorKeys','councillor_keys','id,signer_guid,created_at,expires_at,revoked_at'],
  ['community.councillor_verification.challenges','councillor_challenges','created_at,expires_at,used_at,mode,max_proofs,proofs_used'],
  ['community.councillor_verification.requests','verification_requests','created_at,expires_at,used_at,state'],
- ['community.councillor_verification.attestations','verification_proofs','id,own_part,created_at,expires_at'],
- ['community.councillor_verification.roleOutcomes','role_settlements','id,purpose,desired,state,reason,attempts,created_at,expires_at,checked_at'],
+ ['community.councillor_verification.attestations','verification_proofs','id,own_part,created_at,expires_at,requester_name,native_rank,rank_name'],
+ ['community.councillor_verification.roleOutcomes','role_settlements','id,purpose,desired,state,reason,attempts,created_at,expires_at,checked_at,native_rank,native_rank_name'],
  ['community.ruleset_publication.operations','ruleset_publications','profile_revision,selection_revision,target_key,state,result_code,created_at,updated_at,actor_retain_until'],
 ];
 const cases=SPECS.map(([key,table,fields,capacity=Infinity])=>Object.freeze({key,table,fields:fields.split(','),capacity}));
@@ -108,8 +108,8 @@ function seed(f,key,owner,n,ctx,offset=0){
    case 'community.councillor_verification.councillorKeys':qrKey(f,id,owner,i,ctx.G);continue;
    case 'community.councillor_verification.challenges':qrKey(f,id,owner,i,ctx.G);qrChallenge(f,token('challenge',i),id,owner,i);continue;
    case 'community.councillor_verification.requests':row={code:'PRIVATE-request-code-'+i,requester:owner,subject_generation:ctx.G,created_at:at,expires_at:t+1000,state:'pending',session_version:7,session_expires:t+1000};break;
-   case 'community.councillor_verification.attestations':{const key=token('key',i),challenge=token('challenge',i),code='PRIVATE-proof-request-'+i;qrKey(f,key,staff,i,ctx.G);qrChallenge(f,challenge,key,staff,i);put(f,'verification_requests',{code,requester:owner,created_at:at,expires_at:t+1000,state:'proved'});row={id,code,challenge,signer:staff,key_id:key,requester:owner,requester_guid:'PRIVATE-requester-guid',requester_name:name,native_rank:1,rank_name:'PRIVATE-rank-name',native_profile:'PRIVATE-native-profile',signer_guid:'PRIVATE-signer-guid',snapshot_id:1,subject_generation:ctx.G,digest:'PRIVATE-proof-digest-'+i,created_at:at,expires_at:t+1000};break;}
-   case 'community.councillor_verification.roleOutcomes':row={id,subject:owner,purpose:'verification',guild_id:staff,role_id:staff,desired:1,state:'held',reason:'native_review',claim_nonce:'PRIVATE-role-claim',subject_generation:ctx.G,request_digest:'PRIVATE-role-proof',roster_id:1,native_guid:'PRIVATE-native-guid',native_profile:'PRIVATE-native-profile',native_rank:1,native_rank_name:'PRIVATE-native-rank',created_at:at,expires_at:t+1000};break;
+   case 'community.councillor_verification.attestations':{const key=token('key',i),challenge=token('challenge',i),code='PRIVATE-proof-request-'+i;qrKey(f,key,staff,i,ctx.G);qrChallenge(f,challenge,key,staff,i);put(f,'verification_requests',{code,requester:owner,created_at:at,expires_at:t+1000,state:'proved'});row={id,code,challenge,signer:staff,key_id:key,requester:owner,requester_guid:'PRIVATE-requester-guid',requester_name:name,native_rank:1,rank_name:owner===ctx.A?'Officer':'PRIVATE-rank-name',native_profile:'PRIVATE-native-profile',signer_guid:'PRIVATE-signer-guid',snapshot_id:1,subject_generation:ctx.G,digest:'PRIVATE-proof-digest-'+i,created_at:at,expires_at:t+1000};break;}
+   case 'community.councillor_verification.roleOutcomes':row={id,subject:owner,purpose:'verification',guild_id:staff,role_id:staff,desired:1,state:'held',reason:'native_review',claim_nonce:'PRIVATE-role-claim',subject_generation:ctx.G,request_digest:'PRIVATE-role-proof',roster_id:1,native_guid:'PRIVATE-native-guid',native_profile:'PRIVATE-native-profile',native_rank:1,native_rank_name:owner===ctx.A?'Officer':'PRIVATE-native-rank',created_at:at,expires_at:t+1000};break;
    case 'community.ruleset_publication.operations':row={guild_id:staff,publication_id:token('publication-'+owner,i),target_key:'olympus-info',selection_revision:i+1,profile_revision:ctx.load('ruleset-profile').currentRulesetProfile().revision,plan_hash:'PRIVATE-plan-hash',actor:owner,actor_generation:ctx.G,session_version:7,session_expires:t+1000,channel_id:staff,message_id:peer,frozen_payload:'PRIVATE-shared-payload',payload_hash:'PRIVATE-payload-hash',claim_nonce:'PRIVATE-claim-nonce',stage:'pin',state:'applied',result_code:'confirmed',created_at:at,updated_at:at,actor_retain_until:at+365*86400};break;
    default:throw Error('Independent fixture not implemented '+key);
   }
