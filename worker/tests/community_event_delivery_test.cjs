@@ -13,7 +13,7 @@ function load(name) {
   new Function("module", "exports", "require", body)(mod, mod.exports, load);
   return mod.exports;
 }
-let db, hooks, requests, messages, SQL, maxParameters, counter;
+let db, hooks, requests, messages, SQL, maxParameters, counter, sessionCookies;
 const ORG = "300000000000000002", OTHER = "300000000000000003", MEMBER = "300000000000000004", STAFF = "300000000000000005";
 const GUILD = "300000000000000006", CHANNEL = "300000000000000007", BOT = "300000000000000008", WRONG = "300000000000000009";
 const EVENT = "E".repeat(22), OP = "P".repeat(22), NEXT = "Q".repeat(22);
@@ -80,7 +80,7 @@ stubs["./discord"] = { ...discord, logLine: async () => {}, staffNotice: async (
 const worker = load("./index").default, core = load("./site-core"), context = load("./community-context"), events = load("./community-events"), admin = load("./site-admin"), schema = load("./schema");
 function seed() {
   db?.close(); db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys=ON"); db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
-  hooks = {}; requests = []; messages = new Map(); SQL = []; maxParameters = 0; counter = 0; schema.forgetSchemaCheck();
+  hooks = {}; requests = []; messages = new Map(); SQL = []; maxParameters = 0; counter = 0; sessionCookies = new Map(); schema.forgetSchemaCheck();
   for (const who of [ORG, OTHER, MEMBER, STAFF]) {
     db.prepare("INSERT INTO site_users(discord_id,username,global_name,in_server,denied,session_version,first_login,last_login,checked_at) VALUES(?,?,?,1,0,1,?,?,?)").run(who, "Synthetic", "PRIVATE_MEMBER_SENTINEL", at(), at(), at());
     db.prepare("INSERT INTO members(discord_id,banned) VALUES(?,0)").run(who);
@@ -88,7 +88,10 @@ function seed() {
   }
 }
 async function call(method, route, body, who = ORG, over = {}, headers = {}) {
-  const cookie = who ? (await core.sessionCookie(env(over), who, 1)).split(";")[0] : "";
+  // A browser carries its original signed session across requests. Store the promise before awaiting
+  // signing so concurrent requests cannot issue competing expiries. A new seed is a new browser session.
+  if (who && !sessionCookies.has(who)) sessionCookies.set(who, core.sessionCookie(env(over), who, 1).then((value) => value.split(";")[0]));
+  const cookie = who ? await sessionCookies.get(who) : "";
   const request = new Request(`https://guild.example${route}`, { method, headers: { Cookie: cookie, Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const response = await worker.fetch(request, env(over), { waitUntil: () => {} });
   return { status: response.status, body: await response.json() };
@@ -301,6 +304,62 @@ async function erasureRequest(target, actor) {
   hooks.beforeStatement = (sql) => { if (/DELETE FROM community_events WHERE/.test(sql)) { hooks.beforeStatement = null; throw Error("synthetic expiry rollback"); } };
   let refused = false; try { await events.sweepCommunityEvents(env(), row().retain_until + 1); } catch { refused = true; }
   check("failed parent expiry rolls back closure latch and publication disposal in the same transaction", refused && !!row() && one("SELECT publication_closed FROM community_events WHERE id=?", EVENT).publication_closed === 0);
+  // Explicit second boundaries keep the genuine original cookie; no SQL clock or production fence is changed.
+  for (const seconds of [1, 2, 7, 59]) {
+    const originalNow = Date.now;
+    try {
+      seed(); await event();
+      hooks.afterEffect = () => { throw Error("synthetic lost POST response"); };
+      r = await publish(); hooks = {};
+      const original = { expires: row().session_expires, nonce: row().claim_nonce, content: row().frozen_content, retain: row().retain_until };
+      check(`boundary ${seconds}s begins with one durable unknown create`, r.status === 409 && row().state === "unknown" && row().message_id === null && effects().length === 1);
+      const instant = originalNow(); Date.now = () => instant + seconds * 1000;
+      r = await call("POST", "/api/community/events/discord/reconcile", { eventId: EVENT, opId: OP, messageId: ONE });
+      check(`boundary ${seconds}s exact custody reconciles with the same browser cookie`, r.status === 200 && row().state === "posted" && row().message_id === ONE && effects().length === 1);
+      check(`boundary ${seconds}s cannot renew stored authority or custody`, row().session_expires === original.expires && row().claim_nonce === original.nonce && row().frozen_content === original.content && row().retain_until === original.retain);
+    } finally { Date.now = originalNow; }
+  }
+  {
+    const originalNow = Date.now;
+    try {
+      seed(); await event();
+      hooks.afterEffect = () => { throw Error("synthetic lost POST response"); };
+      await publish(); hooks = {};
+      const original = { expires: row().session_expires, retain: row().retain_until };
+      const instant = originalNow(); Date.now = () => instant + 7000;
+      const renewed = (await core.sessionCookie(env(), ORG, 1)).split(";")[0];
+      r = await call("POST", "/api/community/events/discord/reconcile", { eventId: EVENT, opId: OP, messageId: ONE }, ORG, {}, { Cookie: renewed });
+      check("a different genuine renewed cookie cannot substitute for the original publication expiry", r.status === 409 && r.body.error === "delivery_held" && row().state === "unknown" && row().cleanup_requested === 1 && row().message_id === ONE && effects().length === 1);
+      check("renewed-cookie refusal preserves original expiry and custody deadline", row().session_expires === original.expires && row().retain_until === original.retain);
+    } finally { Date.now = originalNow; }
+  }
+  {
+    const originalNow = Date.now;
+    try {
+      seed(); await event();
+      hooks.afterEffect = () => { throw Error("synthetic lost POST response"); };
+      await publish(); hooks = {};
+      const before = JSON.stringify(row()), originalExpiry = row().session_expires;
+      requests = [];
+      Date.now = () => (originalExpiry + 1) * 1000;
+      r = await call("POST", "/api/community/events/discord/reconcile", { eventId: EVENT, opId: OP, messageId: ONE });
+      check("expired original browser cookie refuses without silently signing a replacement", r.status === 401 && requests.length === 0 && JSON.stringify(row()) === before);
+    } finally { Date.now = originalNow; }
+  }
+
+  seed();
+  check("new seed resets every synthetic browser cookie", sessionCookies.size === 0);
+  await event();
+  const originalOrgCookie = sessionCookies.get(ORG);
+  const otherPreview = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, OTHER);
+  const orgSession = await core.readSession(env(), new Request("https://guild.example", { headers: { Cookie: await originalOrgCookie } }));
+  const otherSession = await core.readSession(env(), new Request("https://guild.example", { headers: { Cookie: await sessionCookies.get(OTHER) } }));
+  check("different actors keep separate genuinely signed original browser sessions", otherPreview.status === 404 && orgSession.u === ORG && otherSession.u === OTHER && (await originalOrgCookie) !== (await sessionCookies.get(OTHER)));
+  requests = []; db.prepare("UPDATE site_users SET session_version=2 WHERE discord_id=?").run(ORG);
+  r = await call("GET", `/api/community/events/discord?eventId=${EVENT}`);
+  check("changed session authority refuses instead of silently issuing a new cookie", r.status === 401 && requests.length === 0 && sessionCookies.get(ORG) === originalOrgCookie);
+  check("another actor cannot replace the revoked browser cookie", sessionCookies.size === 2 && sessionCookies.get(ORG) !== sessionCookies.get(OTHER));
+
   const canonicalDDL = one("SELECT sql FROM sqlite_master WHERE name='community_event_deliveries'").sql.replace(/\s+/g, " ");
   db.exec("DROP TABLE community_event_deliveries"); schema.forgetSchemaCheck(); hooks = {}; await schema.ensureSchema(env());
   const initializedDDL = one("SELECT sql FROM sqlite_master WHERE name='community_event_deliveries'").sql.replace(/\s+/g, " ");
