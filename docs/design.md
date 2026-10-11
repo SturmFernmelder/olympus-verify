@@ -1478,3 +1478,16 @@ Yearly audit expiry must not remove the only account warning about a legacy Batt
 The keeper is chosen by original successful timestamp and then stable audit ID; repeated compaction and later fresh links do not renew it. Malformed or system-actor marker collisions are scrubbed and cannot count as a successful account link or an indefinite exception. Nonkeeper rows are minimized by the existing UPDATE and subsequently deleted by yearly pages, not deleted by that UPDATE. A failed Battle.net batch leaves the last successful warning held and overdue payload visible in health until compaction succeeds. Own account histories project only the original action/time; the existing administrative safe-audit projector withholds the unrecognized marker's actor/details.
 
 The canonical/root/generated policy now describes bounded local retention as enabled and distinguishes it from still-disabled serving-account and automatic inactive-account erasure, new privacy intake and QR signing. Statement counts, 67 stores, physical admission installation, role bindings and all other flags remain unchanged. Source qualification and actual release gates remain separate.
+
+
+## 11 October 2026 — account-data coverage (.148)
+
+Account access needs an honest distinction between the records it projects and the stores whose handling it describes. The new inventory names all 66 business stores, including shared/unattributable state and saved-case records that an identity-only connection cannot authorize. Selected-in-file describes a reviewed projection, not a stored-row count. Complete-history flags remain limited to the captured retained range; no inventory flag promises all fields, all copies or complete erasure. Staff notes and other people's data still require attended review, and a case hint is never an ownership credential.
+
+The only new account read projects privacy_subjects lifecycle state and original dates under the existing subject/purpose/generation/revision transaction. It adds one statement to the aggregate while selected history pages and the whole scheduled budget stay unchanged. Stored metadata is validated natively and at projection, with malformed values refusing rather than silently dropping a record. An own retired lifecycle row is legitimate read metadata; it does not issue a session, revive write authority, refresh a retention clock or grant a guild role.
+
+The publication retains .147's marker-aware bounded local retention and installed admission. Membership transition, serving/inactive erasure, new private-request intake and QR signing remain disabled. A fully inventoried copy is preparation toward comprehensive account controls, not proof of every-store export, recovery replay, external deletion, guild ratification or a real councillor verification.
+
+#### .148 lifecycle inventory review correction
+
+The ordinary lifecycle-copy gate covers five stores, not just subject metadata. A shared projection mapper describes the same unavailable scope in JSON and the ordinary account-page table; unavailable rows require attended review and do not assert that no records exist. The identify-only inventory keeps its independent existing lifecycle read scope. This repair changes disclosure only, preserving the original generation/session guards, selected data, read budget and disabled erasure/QR flags.

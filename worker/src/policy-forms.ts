@@ -1,5 +1,6 @@
 /** Short script-free contact/case interface over the existing case engine. Conversation access is not account authority. */
 import type { Env } from "./env";
+import { accountDataCoverageHtml } from "./privacy-account-coverage";
 import { currentUser, PAGE_VERSION } from "./site-core";
 import { handlePrivacyIntakeForm, INTAKE_KINDS, intakeOpen, intakeRetentionDays } from "./community-privacy-intake";
 import { communityFeatures } from "./community-context";
@@ -124,6 +125,7 @@ async function showContributionDecisions(request: Request, env: Env, nonce: stri
 async function accountPage(request: Request, env: Env, nonce: string): Promise<Response> {
   const user = await currentUser(env, request);
   let body = `<p>These controls concern your own data held by Olympus. They grant no guild or staff access. ${env.PRIVACY_ACCESS_ENABLED === 'true' ? '<a href="/privacy/access">Connect Discord for privacy actions</a>, including without a current website account or server membership.' : 'The separate account connection for privacy requests is not available yet.'}</p>`;
+  body+=accountDataCoverageHtml(env.PRIVACY_ERASURE_ENABLED==='true'||env.PRIVACY_RETENTION_ENABLED==='true');
   if(env.PRIVACY_ERASURE_ENABLED!=='true')body+=erasurePaused;
   if (user) {
     const b = `${user.discord_id}:${user.session_version}`;

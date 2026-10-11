@@ -12,7 +12,7 @@ async function download(f,c='copy',cursor=''){
  f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=x=>batch.push(x.length);
  const r=await copy.exportPrivacyAccess(frm.request({collection:c,cursor}),f.env);
  f.hooks.statement=null;f.hooks.beforeBatch=null;
- eq(c+' exact attempts',attempts,c==='copy'?88:8);eq(c+' exact batch',batch,[c==='copy'?87:7]);
+ eq(c+' exact attempts',attempts,c==='copy'?89:8);eq(c+' exact batch',batch,[c==='copy'?88:7]);
  return r.json();
 }
 async function mainRulesetPrivacy(){

@@ -1,5 +1,6 @@
 /** Fresh identify-only privacy access (owner takeover, 2026-10-10). No membership or ordinary session authority. */
 import type { Env } from './env';
+import { accountDataCoverageHtml } from './privacy-account-coverage';
 import { PRIVACY_ALL_HISTORY_COLLECTIONS, type PrivacyHistoryCollection } from './privacy-access-history';
 import { API, credentialFetch } from './discord';
 import { b64u, sign, siteHost, rateLimited } from './site-core';
@@ -270,6 +271,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  const session=cookieValue(request,PRIVACY_ACCESS_COOKIE);
  let body=erasureEnabled?'<p>Connect your Discord account to read a curated copy of your own retained records or request serving-account erasure. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each form can be used once.</p>':'<p>Connect your Discord account to read a curated copy of your own retained records. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each download form can be used once.</p>'+erasurePaused;
  body+='<p>This connection asks Discord only to identify your account. A returned token may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata. This privacy connection uses none of those permissions: it uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
+ body+=accountDataCoverageHtml();
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';

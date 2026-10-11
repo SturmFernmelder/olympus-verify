@@ -110,7 +110,7 @@ async function review(){
  // Aggregate source graph and coverage include every history, independently of registration order.
  const f=fixture(),frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
  const aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json();f.hooks.statement=null;f.hooks.beforeBatch=null;
- eq('aggregate actual88-attempt finite envelope',attempts,88);eq('aggregate one native87-statement batch',batches,[87]);
+ eq('aggregate actual89-attempt finite envelope including own lifecycle metadata',attempts,89);eq('aggregate one native88-statement batch',batches,[88]);
  eq('aggregate exact37 closed capture descriptors',Object.keys(aggregate.coverage.histories).sort(),nativeCases.collections.slice().sort());
  for(const c of nativeCases.collections){const h=aggregate.coverage.histories[c];eq(c+' aggregate metadata collection binding',h.collection,c);eq(c+' aggregate selected capture deadline86400',Date.parse(h.capture.expiresAt)-Date.parse(h.capture.at),86400*1000);}
  eq('aggregate actual thirteen community family projections',Object.keys(aggregate.community).sort(),Array.from(registry.communityDataNames()).sort());
