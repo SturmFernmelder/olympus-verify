@@ -29,8 +29,8 @@ export async function handleQrApi(request:Request,env:Env):Promise<Response>{
  if(path==='/api/qr/request'&&fields())return apiJson(await createWebsiteRequest(env,session.u,session));
  if(path==='/api/qr/enroll'&&fields('guid','publicKey')&&typeof b.guid==='string')return apiJson(await enrollKey(env,session.u,b.guid,b.publicKey,session));
  if(path==='/api/qr/revoke'&&fields('keyId')&&typeof b.keyId==='string'){await revokeKey(env,session.u,b.keyId,session);return apiJson({revoked:true});}
- if(path==='/api/qr/challenge'&&fields('keyId')&&typeof b.keyId==='string')return apiJson(await issueChallenge(env,session.u,b.keyId,session.v,session.e));
- if(path==='/api/qr/automatic-lease'&&fields('keyId','optIn')&&typeof b.keyId==='string'&&b.optIn===true)return apiJson(await issueChallenge(env,session.u,b.keyId,session.v,session.e,'automatic'));
+ if(path==='/api/qr/challenge'&&fields('keyId')&&typeof b.keyId==='string')return apiJson(await issueChallenge(env,session.u,b.keyId,session));
+ if(path==='/api/qr/automatic-lease'&&fields('keyId','optIn')&&typeof b.keyId==='string'&&b.optIn===true)return apiJson(await issueChallenge(env,session.u,b.keyId,session,'automatic'));
  if(path==='/api/qr/cancel-challenge'&&fields('nonce')&&typeof b.nonce==='string'){await cancelChallenge(env,session.u,b.nonce,session);return apiJson({cancelled:true});}
  if(path==='/api/qr/prepare'&&fields('wire')&&typeof b.wire==='string')return apiJson(await prepareAttestation(env,session.u,b.wire));
  const drain=async(operations:string[])=>{const first=operations.slice(0,2),r=await settleOwnedRoleBatch(env,first,{id:session.u,...session});return {...r,remaining:[...r.remaining,...operations.slice(first.length)]};};
