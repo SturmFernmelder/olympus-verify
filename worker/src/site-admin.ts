@@ -40,6 +40,7 @@ import { betaResetState, loadLeadership, NAME_WITHHELD, recordBetaClosed, runBet
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 import { handleNewsAdmin } from "./site-news";
 import { handleRulesetPublication } from './ruleset-publication';
+import { handleMembershipRetirement } from './membership-retirement-route';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -50,6 +51,7 @@ const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "wit
 const PROFESSIONS_OF_A = "json_each(CASE WHEN json_valid(a.answers) THEN a.answers ELSE '{}' END, '$.professions')";
 
 export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+  if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin);
   const m = request.method;
   const url = new URL(request.url);
   const q = url.searchParams;
