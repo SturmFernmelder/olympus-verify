@@ -5409,3 +5409,7 @@ Rollout:
 4. Keep membership cutover/retired binding, serving and inactive-account erasure, private-request intake and councillor signing OFF/unset. Current admission and .147 local retention remain ON. Genuine replacement-role grants/ordinary access, old capability retirement, recovery replay and the qualified councillor's real game/browser settlement remain separate gates.
 
 Rollback: use the qualified marker-aware .147 admission-ON profile if necessary. An admission-OFF predecessor leaves saves blocked after the installed guards. A pre-.147 predecessor can lose the minimized external-link custody warning and is not a warning-safe rollback. This release does not reconstruct expired fields, certify provider cleanup, retire Discord capabilities, enable erasure or supply Claude approval.
+
+#### .148 lifecycle inventory review correction
+
+Ordinary account copies skip the lifecycle query block when both erasure and retention are disabled. The download and account-page inventory now mark all five omitted lifecycle projections unavailable: subjects, serving jobs, provider cleanup, restore suppression and rejection markers. Identify-only account copies retain their existing read scope. The registered coverage fixture reproduces the original false selection and checks downloaded/rendered agreement for enabled and disabled ordinary copies. No lifecycle authority, flag, schema, SQL query, statement ceiling or complete-erasure claim is changed.

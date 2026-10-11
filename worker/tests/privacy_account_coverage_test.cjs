@@ -16,6 +16,20 @@ async function coverageReview(){
  eq('interactions do not gain guessed ownership',manifest.stores.find(r=>r.store==='seen_interactions').coverage,'unattributable');
  const html=coverage.accountDataCoverageHtml();eq('static readable UI has exactly66 store rows',(html.match(/data-account-store=/g)||[]).length,66);ok('UI is script-free and explicit partial help',!/<script|<form|<input/.test(html)&&html.includes('curated partial copy')&&html.includes('Ask an Olympus officer')&&html.includes('/privacy/case'));
  eq('metadata omitted if ordinary lifecycle copy is disabled',coverage.accountDataCoverage('ordinary',false).stores.find(r=>r.store==='privacy_subjects').selectedInThisFile,false);
+ const lifecycleStores=['privacy_serving_jobs','privacy_subjects','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers'];
+ for(const store of lifecycleStores){
+  const off=coverage.accountDataCoverage('ordinary',false).stores.find(r=>r.store===store);
+  eq(store+' disabled ordinary projection marked unavailable',off.selectedInThisFile,false);
+  eq(store+' disabled ordinary coverage needs review',off.coverage,'gap');
+  ok(store+' disabled connection has truthful handling',off.description.includes('not included through this connection')&&off.handling.includes('not proof'));
+  const on=coverage.accountDataCoverage('identify').stores.find(r=>r.store===store);
+  eq(store+' available identify projection still selected',on.selectedInThisFile,true);
+ }
+ const disabledHtml=coverage.accountDataCoverageHtml(false);
+ for(const store of lifecycleStores){
+  const row=new RegExp('<tr data-account-store="'+store+'">([\\s\\S]*?)</tr>').exec(disabledHtml);
+  ok(store+' disabled rendered row explains unavailable scope',row&&row[1].includes('Attended review')&&row[1].includes('not included through this connection')&&!row[1].includes('Selected own fields'));
+ }
  const labels=Object.keys(coverage.projectPrivacySubjectRecord(undefined));eq('missing row absence is a single factual Boolean',labels,['recordPresent']);
  const request=(route,cookie='',method='GET',fields={})=>new Request(BASE+route,{method,headers:{...(cookie?{Cookie:cookie}:{}),...(method==='POST'?{Origin:BASE,'Content-Type':'application/x-www-form-urlencoded'}:{})},...(method==='POST'?{body:new URLSearchParams(fields)}:{})});
  for(const state of ['absent','active','retiring','retired']){
@@ -53,6 +67,13 @@ async function coverageReview(){
   const section=/<form method="post" action="\/privacy\/account\/export">([\s\S]*?)<\/form>/.exec(text);ok('ordinary '+enabled+' original export form kept',!!section);const fields=Object.fromEntries([...section[1].matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)].map(x=>[x[1],x[2]]));fields.mode='download';
   calls=[];const r=await forms.handlePolicyForms(request('/privacy/account/export',cookies,'POST',fields),f.env,'/privacy/account/export',true),b=await r.json();eq('ordinary '+enabled+' denied/departed original session may read own copy',r.status,200);eq('ordinary '+enabled+' inventory66',b.coverage.storeInventory.stores.length,66);eq('ordinary '+enabled+' provider calls0',calls.length,0);
   eq('ordinary '+enabled+' summary query matches activated read scope',sql.filter(x=>x.s===coverage.PRIVACY_SUBJECT_COPY_SQL).length,enabled?1:0);
+  for(const store of lifecycleStores){
+   const item=b.coverage.storeInventory.stores.find(r=>r.store===store);
+   eq('ordinary '+enabled+' actual downloaded '+store+' scope',item.selectedInThisFile,enabled);
+   eq('ordinary '+enabled+' actual downloaded '+store+' coverage',item.coverage,enabled?'selected':'gap');
+   const row=new RegExp('<tr data-account-store="'+store+'">([\\s\\S]*?)</tr>').exec(text);
+   ok('ordinary '+enabled+' actual rendered '+store+' agrees with download',row&&row[1].includes(enabled?'Selected own fields':'Attended review'));
+  }
   if(enabled){eq('ordinary current lifecycle state',b.privacyLifecycle.subjectRecord.state,'active');ok('ordinary no generation credential',!JSON.stringify(b).includes(G));}else eq('ordinary OFF lifecycle metadata not misrepresented as absent',Object.hasOwn(b,'privacyLifecycle'),false);
   f.db.close();
  }

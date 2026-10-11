@@ -629,18 +629,27 @@ const rows:StoreCoverage[]=[
 ];
 export const ACCOUNT_DATA_STORES=Object.freeze(rows.map(r=>Object.freeze({...r,collections:Object.freeze(r.collections)})));
 const labels:Record<CoverageKind,string>={selected:'Selected own fields',derived:'Own derived summary',gap:'Attended review',shared:'Shared service state',case:'Saved case credentials',anonymous:'Anonymous browser flow',unattributable:'Attribution unavailable'};
-export function accountDataCoverage(mode:AccountCoverageMode,subjectMetadataRead=true){
+const LIFECYCLE_COPY_STORES=new Set(['privacy_subjects','privacy_serving_jobs','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers']);
+function accountCopyStores(lifecycleRead:boolean):Array<StoreCoverage&{selectedInThisFile:boolean}>{
+ return ACCOUNT_DATA_STORES.map(r=>{
+  const unavailable=LIFECYCLE_COPY_STORES.has(r.store)&&!lifecycleRead;
+  return {...r,coverage:unavailable?'gap':r.coverage,
+   description:unavailable?'Lifecycle records are not included through this connection.':r.description,
+   handling:unavailable?'Ask an Olympus officer for attended account-data review. Unavailable projections are not proof that nothing is retained.':r.handling,
+   selectedInThisFile:(r.coverage==='selected'||r.coverage==='derived')&&!unavailable};
+ });
+}
+export function accountDataCoverage(mode:AccountCoverageMode,lifecycleRead=true){
  return {schema:'olympus-account-coverage-v1',kind:'curated_partial',mode,totalBusinessStores:66,allStoresInventoried:true,
   allStoredFieldsDelivered:false,allCopiesIncluded:false,completeErasure:false,
   note:'This inventory accounts for the 66 business stores. It describes the selected projections and handling paths, not the existence or count of your records. selectedInThisFile describes a reviewed projection, not returned record presence; feature and retention filters still apply. Complete history flags cover only the selected retained range. Unavailable, filtered and expired records are not reported as zero retained data.',
-  stores:ACCOUNT_DATA_STORES.map(r=>({...r,coverage:r.store==='privacy_subjects'&&!subjectMetadataRead?'gap':r.coverage,
-   selectedInThisFile:(r.coverage==='selected'||r.coverage==='derived')&&(r.store!=='privacy_subjects'||subjectMetadataRead)})),
+  stores:accountCopyStores(lifecycleRead),
   separateSharedControl:{store:'privacy_write_admission',included:false,note:'Shared admission machinery is separate from the 66 business stores; no control private write credential or account authority is downloaded.'},
   otherCopies:['Discord posts, connections and role assignments','private recovery exports and Cloudflare recovery history','operator watcher and game files','previous browser downloads'],
   help:{attended:'Ask an Olympus officer for account-data review. Staff notes, safety exceptions and other people\'s data require separate review.',case:'/privacy/case',account:'/privacy/account'}};
 }
-export function accountDataCoverageHtml():string{
- return '<section data-account-coverage-schema="olympus-account-coverage-v1"><h2>What this copy covers</h2><p>Your download remains a curated partial copy. The inventory below accounts for all 66 business stores; it does not claim that every stored field or every external, recovery or local copy is included. It lists selected own fields and the handling path for records outside the download. Missing, filtered or expired records are not proof that nothing is retained.</p><p>Ask an Olympus officer for attended account-data review. Existing inbox conversations require their saved case ID and private code at <a href="/privacy/case">Read an existing case</a>. No credential, staff role or guild access is granted by this inventory.</p><details><summary>Review all 66 data stores</summary><table><caption>Selected records and remaining handling paths</caption><thead><tr><th scope="col">Data store</th><th scope="col">Download coverage</th><th scope="col">Limits and handling</th></tr></thead><tbody>'+ACCOUNT_DATA_STORES.map(r=>'<tr data-account-store="'+e(r.store)+'"><th scope="row">'+e(r.label)+' <code>'+e(r.store)+'</code></th><td>'+e(labels[r.coverage])+'<p>'+e(r.description)+'</p></td><td>'+e(r.handling)+'</td></tr>').join('')+'</tbody></table></details></section>';
+export function accountDataCoverageHtml(lifecycleRead=true):string{
+ return '<section data-account-coverage-schema="olympus-account-coverage-v1"><h2>What this copy covers</h2><p>Your download remains a curated partial copy. The inventory below accounts for all 66 business stores; it does not claim that every stored field or every external, recovery or local copy is included. It lists selected own fields and the handling path for records outside the download. Missing, filtered or expired records are not proof that nothing is retained.</p><p>Ask an Olympus officer for attended account-data review. Existing inbox conversations require their saved case ID and private code at <a href="/privacy/case">Read an existing case</a>. No credential, staff role or guild access is granted by this inventory.</p><details><summary>Review all 66 data stores</summary><table><caption>Selected records and remaining handling paths</caption><thead><tr><th scope="col">Data store</th><th scope="col">Download coverage</th><th scope="col">Limits and handling</th></tr></thead><tbody>'+accountCopyStores(lifecycleRead).map(r=>'<tr data-account-store="'+e(r.store)+'"><th scope="row">'+e(r.label)+' <code>'+e(r.store)+'</code></th><td>'+e(labels[r.coverage])+'<p>'+e(r.description)+'</p></td><td>'+e(r.handling)+'</td></tr>').join('')+'</tbody></table></details></section>';
 }
 export const PRIVACY_SUBJECT_COPY_SQL=`SELECT state,created_at,updated_at,erased_at,retain_until FROM privacy_subjects WHERE subject_id=?1 AND CASE WHEN
  state IN('active','retiring','retired') AND typeof(created_at)='integer' AND created_at BETWEEN 0 AND 999999999999
