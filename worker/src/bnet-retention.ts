@@ -42,13 +42,20 @@ export function bnetFresh(linkedAt: number | null | undefined, at = now()): bool
   return typeof linkedAt === "number" && Number.isFinite(linkedAt) && linkedAt > bnetCutoff(at) && linkedAt <= bnetFuture(at);
 }
 
+/** Minimal unresolved external-copy fact; never a BattleTag, payload, provider ID or fresh inactivity clock. */
+export const BNET_EXTERNAL_CUSTODY = "bnet.external_custody";
+/** Only this exact account-bound shape survives general yearly audit expiry. */
+export const bnetCustodyMarkerSql = (alias: string) => `${alias}.action='${BNET_EXTERNAL_CUSTODY}' AND ${alias}.subject IS NULL AND ${alias}.details IS NULL
+ AND length(${alias}.actor) BETWEEN 17 AND 20 AND ${alias}.actor GLOB '[1-9]*' AND ${alias}.actor NOT GLOB '*[^0-9]*' AND typeof(${alias}.ts)='integer'`;
 /**
  * Whether this Discord account ever completed a Battle.net link (the audit keeps the fact after the tag is gone).
  * .50: used by /verify-status to tell exactly those people about the copy of the tag that earlier builds pushed into
  * Discord's own record of the connection, which no purge of ours reaches.
  */
 export async function everLinked(env: Env, discordId: string): Promise<boolean> {
-  const row = await env.DB.prepare("SELECT 1 AS hit FROM audit WHERE actor = ?1 AND action IN ('link.ok', 'bnet.linked') LIMIT 1").bind(discordId).first<{ hit: number }>();
+  const row = await env.DB.prepare(`SELECT 1 AS hit FROM audit a WHERE a.actor=?1
+    AND ((a.action IN ('link.ok','bnet.linked') AND length(a.actor) BETWEEN 17 AND 20 AND a.actor GLOB '[1-9]*' AND a.actor NOT GLOB '*[^0-9]*' AND typeof(a.ts)='integer')
+      OR (${bnetCustodyMarkerSql('a')})) LIMIT 1`).bind(discordId).first<{ hit: number }>();
   return !!row;
 }
 
@@ -75,6 +82,16 @@ export interface BnetPurgeResult {
 export async function purgeBattleNetData(env: Env, at = now()): Promise<BnetPurgeResult> {
   const cutoff = bnetCutoff(at);
   const future = bnetFuture(at);
+  // .147: compact the warning's successful-link evidence inside the existing audit scrub statement. At most one
+  // minimal marker per account retains its ORIGINAL audit time; duplicate history loses payload and later expires.
+  // The marker means external cleanup is unconfirmed, never that Discord was read or cleaned by this local job.
+  const successful = "action IN ('link.ok','bnet.linked','bnet.external_custody')";
+  const oldSuccess = (a: string) => `${a}.action IN ('link.ok','bnet.linked') AND length(${a}.actor) BETWEEN 17 AND 20
+    AND ${a}.actor GLOB '[1-9]*' AND ${a}.actor NOT GLOB '*[^0-9]*' AND typeof(${a}.ts)='integer' AND (${a}.ts<=?1 OR ${a}.ts>?3)`;
+  // A malformed action collision is scrubbed, never promoted to evidence. Ordering preserves the oldest ORIGINAL
+  // successful fact (stable id breaks equal-clock ties), including an already-minimal marker on repeated runs.
+  const eligible = (a: string) => `((${oldSuccess(a)}) OR (${bnetCustodyMarkerSql(a)}))`;
+  const keeper = `${eligible('audit')} AND id=(SELECT s.id FROM audit s WHERE s.actor=audit.actor AND ${eligible('s')} ORDER BY s.ts,s.id LIMIT 1)`;
   // Stale: no timestamp, at or past the cutoff, or further in the future than a clock could explain.
   const [m, p3, ch, au] = await env.DB.batch([
     env.DB.prepare(
@@ -87,8 +104,14 @@ export async function purgeBattleNetData(env: Env, at = now()): Promise<BnetPurg
     ).bind(cutoff, future),
     env.DB.prepare("DELETE FROM bnet_characters WHERE fetched_at IS NULL OR fetched_at <= ?1 OR fetched_at > ?2").bind(cutoff, future),
     env.DB.prepare(
-      `UPDATE audit SET subject = ?2 WHERE action IN (${BNET_AUDIT_ACTIONS.map((_, i) => `?${i + 4}`).join(", ")})
-        AND (ts <= ?1 OR ts > ?3) AND subject IS NOT NULL AND subject <> ?2`,
+      `UPDATE audit SET subject=CASE WHEN ${keeper} THEN NULL ELSE ?2 END,
+        details=CASE WHEN ${successful} THEN NULL ELSE details END,
+        action=CASE WHEN ${keeper} THEN 'bnet.external_custody'
+          WHEN action='bnet.external_custody' THEN 'bnet.external_custody_duplicate' ELSE action END
+        WHERE (action='bnet.external_custody' OR (action IN (${BNET_AUDIT_ACTIONS.map((_, i) => `?${i + 4}`).join(", ")}) AND (ts<=?1 OR ts>?3)))
+        AND ((subject IS NOT NULL AND subject<>?2) OR (${successful} AND details IS NOT NULL)
+          OR (${keeper} AND action<>'bnet.external_custody')
+          OR (action='bnet.external_custody' AND (subject IS NOT NULL OR details IS NOT NULL OR NOT (${keeper}))))`,
     ).bind(cutoff, EXPIRED_SUBJECT, future, ...BNET_AUDIT_ACTIONS),
   ]);
   const result: BnetPurgeResult = {
@@ -158,16 +181,19 @@ export async function bnetRetentionStatus(env: Env, at = now()): Promise<BnetRet
   const cutoff = bnetCutoff(at);
   const future = bnetFuture(at);
   const actions = BNET_AUDIT_ACTIONS.map((_, i) => `?${i + 4}`).join(", ");
+  const auditPayload = `((action IN (${actions}) AND (ts<=?1 OR ts>?2) AND subject IS NOT NULL AND subject<>?3)
+    OR (action IN ('link.ok','bnet.linked') AND (ts<=?1 OR ts>?2) AND details IS NOT NULL)
+    OR (action='bnet.external_custody' AND (subject IS NOT NULL OR details IS NOT NULL)))`;
   const row = await env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM members WHERE (battletag IS NOT NULL OR bnet_conn_id IS NOT NULL) AND (linked_at IS NULL OR linked_at <= ?1 OR linked_at > ?2))
        + (SELECT COUNT(*) FROM members WHERE bnet_account_id IS NOT NULL AND (bnet_linked_at IS NULL OR bnet_linked_at <= ?1 OR bnet_linked_at > ?2))
        + (SELECT COUNT(*) FROM bnet_characters WHERE fetched_at IS NULL OR fetched_at <= ?1 OR fetched_at > ?2)
-       + (SELECT COUNT(*) FROM audit WHERE action IN (${actions}) AND (ts <= ?1 OR ts > ?2) AND subject IS NOT NULL AND subject <> ?3) AS overdue,
+       + (SELECT COUNT(*) FROM audit WHERE ${auditPayload}) AS overdue,
        (SELECT MIN(t) FROM (SELECT MIN(linked_at) AS t FROM members WHERE (battletag IS NOT NULL OR bnet_conn_id IS NOT NULL) AND linked_at <= ?2
                             UNION ALL SELECT MIN(bnet_linked_at) FROM members WHERE bnet_account_id IS NOT NULL AND bnet_linked_at <= ?2
                             UNION ALL SELECT MIN(fetched_at) FROM bnet_characters WHERE fetched_at <= ?2
-                            UNION ALL SELECT MIN(ts) FROM audit WHERE action IN (${actions}) AND ts <= ?2 AND subject IS NOT NULL AND subject <> ?3)) AS oldest`,
+                            UNION ALL SELECT MIN(ts) FROM audit WHERE ${auditPayload} AND ts<=?2)) AS oldest`,
   )
     .bind(cutoff, future, EXPIRED_SUBJECT, ...BNET_AUDIT_ACTIONS)
     .first<{ overdue: number; oldest: number | null }>();
