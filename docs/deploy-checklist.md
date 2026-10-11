@@ -5474,3 +5474,21 @@ Qualification and rollout:
 
 Rollback requires an independently qualified .151 source/config binding and a separately reviewed provider action. It restores the previous capture/observation behavior; it does not reconstruct expired data, repeat unknown provider writes, drain older effects or authorize reopening. Lost deployment replies remain preserved for reconciliation.
 
+
+
+## Worker .153 - Original browser key custody (11 October 2026)
+
+Councillor key enrollment and revocation have a signed, closed preparation context issued by an authenticated same-origin read. The context fixes the original account generation, session version/deadline, Discord application, server, role profile and exact key or roster tuple before writes. Captured native database methods and the original environment are checked around waits. Proper application IDs are strings; malformed text, NULs, oversized bodies and incomplete tuples are refused. Existing native write-admission, current eligibility, original deadlines and role fences remain authoritative.
+
+The browser stores a nonextractable signing key and original enrollment context durably before its single original POST. Serialized state spends dispatch authority before the network request. An uncertain answer retains the key and exact request; a same-account GET may inspect only the correlated native receipt. Inspection cannot refresh POST authority, repeat the write, replace the key or manufacture a successful result. Revocation clears the corresponding local key only after a correlated inactive native receipt. Legacy or mismatched local records remain held; a lost private key is not recoverable from its public key.
+
+Deployment configuration, schema, dependencies, official artwork, AddOn and provider role bindings remain byte-identical to .152. Account access, installed write admission and local retention retain their current settings. QR signing, serving/inactive erasure, new private-request intake and membership transition remain OFF/unset. This release creates no councillor and grants no roles.
+
+The secret-history scan retains its pinned scanner, default rules and history scope. A narrowly scoped scanner exception covers only the two exact public key-context HMAC purpose labels in the implementation and adversarial fixtures. These labels select MAC domains; they are not signing credentials. The exception does not suppress other findings in those files.
+
+Qualification and rollout:
+1. Independently review the exact finite source recipe, release metadata and final 483-file source tree. Run the real-source QR backend and browser fixtures, existing Lua-to-jsQR matrix fixture, current typecheck and the four affected metadata drivers. Preserve each original outcome, the actual Node process DAG and the separate actual Python child result. Node network-hook evidence does not cover Python or all native programs. Earlier .152 outcomes are predecessor evidence only.
+2. Bind the actual PR/main commit, tree, sole parent, all source blobs/modes and original CI. Qualify a fresh canonical source archive and bundle, source map, public assets and runtime resources on that exact main before Root deploys it once under the existing authorization. Preserve uncertain provider responses for reconciliation.
+3. Read back actual .153 health, unchanged feature flags and the disabled councillor page. Ordinary signed-in page rendering and genuine selected account downloads remain separate from signing acceptance. A current native High Council character, fresh verified roster/GUID and the supported guild/realm/build are required before any attended game/browser enrollment, member whisper, scan, ingestion and central settlement check.
+
+Rollback requires a separately qualified .152 source and reviewed provider action. It cannot recover a lost key, repeat an uncertain write, restore expired data, drain older providers or authorize erasure/reopening. No Claude signature, live signing, every-store deletion or private recovery activation is supplied by this publication.

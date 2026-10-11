@@ -1,21 +1,24 @@
 import type { Env } from './env';
 import { apiJson,currentUser,readSession,sameOrigin,PAGE_VERSION,rateLimited } from './site-core';
 import { readInteractionBody } from './discord';
-import { requireQr,createWebsiteRequest,enrollKey,revokeKey,issueChallenge,cancelChallenge,prepareAttestation,ingestAttestation,requestStatus,QrHeld,QR_PROFILE,type QrSession } from './qr-phase1';
+import { requireQr,captureKeyEnvironment,createWebsiteRequest,prepareKeyOperation,readKeyOperationReceipt,commitKeyOperation,issueChallenge,cancelChallenge,prepareAttestation,ingestAttestation,requestStatus,QrHeld,QR_PROFILE,type QrSession } from './qr-phase1';
 import { readPrivacySubject } from './privacy-serving-authority';
 import { queueProofRoles,queueRosterRankRoles,settleRoleIntent,settleOwnedRoleBatch } from './role-settlements';
 /** Registered before generic /api/ dispatch. Route-bound signed cookie + strict same-origin. Never uses a site token. */
 export async function handleQrApi(request:Request,env:Env):Promise<Response>{
- const u=new URL(request.url),path=u.pathname;
+ const u=new URL(request.url),path=u.pathname,keyPath=['/api/qr/key-context','/api/qr/key-receipt','/api/qr/enroll','/api/qr/revoke'].includes(path);
+ let originalEnv:Env=env,keyEnvCheck=()=>{};
  try{
- requireQr(env);
- const session=await readSession(env,request) as (QrSession&{u:string})|null,user=await currentUser(env,request);
+ requireQr(env);if(keyPath){const scope=captureKeyEnvironment(env);originalEnv=scope.env;keyEnvCheck=scope.check;}
+ const capturedSession=await readSession(keyPath?originalEnv:env,request) as (QrSession&{u:string})|null; if(keyPath)keyEnvCheck();
+ const session=capturedSession?Object.freeze({...capturedSession}):null,user=await currentUser(keyPath?originalEnv:env,request);if(keyPath)keyEnvCheck();
  if(!session||!user||session.u!==user.discord_id||!Number.isSafeInteger(session.v)||!Number.isSafeInteger(session.e))return apiJson({error:'signed_out'},401);
- const subject=await readPrivacySubject(env,session.u);if(!subject||subject.state!=='active'||subject.subjectGeneration!==session.g)return apiJson({error:'current_serving_generation_required'},409);
+ const subject=await readPrivacySubject(keyPath?originalEnv:env,session.u);if(keyPath)keyEnvCheck();if(!subject||subject.state!=='active'||subject.subjectGeneration!==session.g)return apiJson({error:'current_serving_generation_required'},409);
  if(env.SITE_GUILD_ID!==env.GUILD_ID)return apiJson({error:'guild_scope_mismatch'},503);
  if(request.method!=='GET'&&(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION))return apiJson({error:'bad_origin'},403);
  if(rateLimited('qr:'+session.u,20,60))return apiJson({error:'rate_limited'},429);
- if(request.method==='GET'&&path==='/api/qr/profile')return apiJson({phase:1,profile:QR_PROFILE,leaseHours:24,rankMappingEnabled:env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true',requires:'Verified GUID and native High Council slot 1; Officer and site admin do not qualify',trust:'councillor_browser_attestation'});
+ if(request.method==='GET'&&path==='/api/qr/profile')return apiJson({phase:1,profile:QR_PROFILE,keyActor:{actor:session.u,generation:session.g},leaseHours:24,rankMappingEnabled:env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true',requires:'Verified GUID and native High Council slot 1; Officer and site admin do not qualify',trust:'councillor_browser_attestation'});
+ if(request.method==='GET'&&keyPath){if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'bad_origin'},403);const raw=request.headers.get('X-Olympus-Key-Input');if(!raw||new TextEncoder().encode(raw).length>(path==='/api/qr/key-context'?512:1640)||/[^\x20-\x7e]/.test(raw))return apiJson({error:'invalid_key_context'},400);let input:unknown;try{input=JSON.parse(raw);}catch{return apiJson({error:'invalid_key_context'},400);}keyEnvCheck();const result=path==='/api/qr/key-context'?await prepareKeyOperation(originalEnv,session.u,session,input):await readKeyOperationReceipt(originalEnv,session.u,session,input);keyEnvCheck();return apiJson(result);}
  if(request.method==='GET'&&path==='/api/qr/status')return apiJson(await requestStatus(env,session.u,u.searchParams.get('code')||''));
  // Read-only recovery survives a lost proof response/reload. It exposes only this original generation's own receipts.
  const ownedProof=`EXISTS(SELECT 1 FROM verification_requests v JOIN councillor_keys k ON k.id=p.key_id WHERE v.code=p.code AND ((p.requester=?1 AND v.subject_generation=?2) OR (p.signer=?1 AND k.subject_generation=?2)))`;
@@ -27,8 +30,7 @@ export async function handleQrApi(request:Request,env:Env):Promise<Response>{
  if(!b||typeof b!=='object'||Array.isArray(b))return apiJson({error:'invalid_json'},400);
  const fields=(...keys:string[])=>Object.keys(b).sort().join(',')===keys.sort().join(',');
  if(path==='/api/qr/request'&&fields())return apiJson(await createWebsiteRequest(env,session.u,session));
- if(path==='/api/qr/enroll'&&fields('guid','publicKey')&&typeof b.guid==='string')return apiJson(await enrollKey(env,session.u,b.guid,b.publicKey,session));
- if(path==='/api/qr/revoke'&&fields('keyId')&&typeof b.keyId==='string'){await revokeKey(env,session.u,b.keyId,session);return apiJson({revoked:true});}
+ if((path==='/api/qr/enroll'||path==='/api/qr/revoke')&&fields('contextToken')&&typeof b.contextToken==='string'){keyEnvCheck();const result=await commitKeyOperation(originalEnv,session.u,session,path==='/api/qr/enroll'?'enroll':'revoke',b.contextToken);keyEnvCheck();return apiJson(result);}
  if(path==='/api/qr/challenge'&&fields('keyId')&&typeof b.keyId==='string')return apiJson(await issueChallenge(env,session.u,b.keyId,session));
  if(path==='/api/qr/automatic-lease'&&fields('keyId','optIn')&&typeof b.keyId==='string'&&b.optIn===true)return apiJson(await issueChallenge(env,session.u,b.keyId,session,'automatic'));
  if(path==='/api/qr/cancel-challenge'&&fields('nonce')&&typeof b.nonce==='string'){await cancelChallenge(env,session.u,b.nonce,session);return apiJson({cancelled:true});}

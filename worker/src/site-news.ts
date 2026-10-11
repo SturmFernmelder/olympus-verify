@@ -71,6 +71,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".153", date: "2026-10-11", lines: [
+      "Browser verification can preserve a request after an interrupted connection.",
+      "The feature remains unavailable until the game and browser check passes.",
+    ],
+  },
+  {
     build: ".152", date: "2026-10-11", lines: [
       "Role backfill preserves its selected membership mode across waits and its original account link when central settlement is in use. Changed selections stay held.",
       "A configured Moderator is included in staff-access observations during erasure; staff roles are not automatically removed. These fixes enable no features.",
