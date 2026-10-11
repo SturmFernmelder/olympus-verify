@@ -159,6 +159,12 @@ export async function beginPrivacyAccess(request:Request,env:Env):Promise<Respon
  const h=policyHeaders();h.set('Location',authorize.href);h.append('Set-Cookie',browserCookie(PRIVACY_ACCESS_FLOW_COOKIE,browser,300));
  return new Response(null,{status:303,headers:h});
 }
+/** A closed returned capability set, not a dictionary-based superset admission. */
+function closedFourPrivacyScope(scope:unknown):boolean{
+ if(typeof scope!=='string')return false;
+ const tokens=scope.split(' ');
+ return tokens.length===4&&new Set(tokens).size===4&&tokens.every(token=>['connections','guilds.members.read','identify','role_connections.write'].includes(token));
+}
 /** Callback state is consumed before any exchange. A spent callback cannot repeat a provider call. */
 export async function finishPrivacyAccess(request:Request,env:Env):Promise<Response>{
  const base=origin(env,request),u=new URL(request.url),params=u.searchParams;
@@ -185,10 +191,11 @@ export async function finishPrivacyAccess(request:Request,env:Env):Promise<Respo
  // RFC 6749 §5.1: token_type is case-insensitive; an omitted scope means the
  // original requested scope. Every flow in this lane requests only identify.
  if(typeof t.token_type!=='string'||t.token_type.toLowerCase()!=='bearer')throw new FormError('identity_exchange_type_refused',503);
- // .142 closed compatibility trial: accept only the ordinary app's exact extra
- // member-read permission, in either order. It is unused here; this does not
- // downscope the provider token or admit other scopes, duplicates or formatting.
-  if(Object.hasOwn(t,'scope')&&t.scope!=='identify'&&t.scope!=='identify guilds.members.read'&&t.scope!=='guilds.members.read identify')throw refusedScope(request,t.scope);
+ // Closed compatibility: retain .142's exact pair and accept only the four
+ // unique permissions established by .144's safe diagnostic (2026-10-10).
+ // All extra capabilities are unused; the token is not downscoped. Exact literal
+ // tokens/separators refuse subsets, additions, duplicates and normalization.
+ if(Object.hasOwn(t,'scope')&&t.scope!=='identify'&&t.scope!=='identify guilds.members.read'&&t.scope!=='guilds.members.read identify'&&!closedFourPrivacyScope(t.scope))throw refusedScope(request,t.scope);
  const response=await callbackStep('identity_read_transport_unconfirmed',()=>fetchPrivacyProvider(credentialFetch(API+'/users/@me',{signal:controller.signal,headers:{Authorization:'Bearer '+t.access_token}}),until,controller));
  if(!response.ok){discardPrivacyProvider(response);throw new FormError('identity_read_unconfirmed',503);}
  const identity=await callbackStep('identity_read_body_unconfirmed',()=>readPrivacyProviderJson(response,until,controller));
@@ -262,7 +269,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  const grants=await Promise.all([readPrivacyAccessGrant(request,env,'own_export'),readPrivacyAccessGrant(request,env,'own_erasure')]);
  const session=cookieValue(request,PRIVACY_ACCESS_COOKIE);
  let body=erasureEnabled?'<p>Connect your Discord account to read a curated copy of your own retained records or request serving-account erasure. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each form can be used once.</p>':'<p>Connect your Discord account to read a curated copy of your own retained records. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each download form can be used once.</p>'+erasurePaused;
- body+='<p>This connection asks Discord only to identify your account. A returned token may also permit a guild membership check. This connection uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
+ body+='<p>This connection asks Discord only to identify your account. A returned token may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata. This privacy connection uses none of those permissions: it uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';

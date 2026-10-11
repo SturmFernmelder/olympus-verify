@@ -20,6 +20,8 @@
  *
  * Dry by default. Applying is a bulk write against real people's accounts, so it takes an explicit ?apply=1.
  */
+import { membershipTransitionEnabled,membershipSettlementEnabled } from './membership-role-transition';
+import { privacyCaptureFromColumns } from './privacy-serving-authority';
 import type { Env } from "./env";
 import { DiscordError, guildMember } from "./discord";
 import { grantMemberRole, heldBlockingRole, callBudget, takeCall, affords, inventoryCalls, GRANT_CALLS } from "./roles";
@@ -48,11 +50,11 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
   ).first<{ n: number }>();
 
   const rows = await env.DB.prepare(
-    "SELECT DISTINCT discord_id FROM characters WHERE status = 'member' AND discord_id IS NOT NULL AND discord_id <> '' AND discord_id > ?1 " +
+    (membershipTransitionEnabled(env)?"SELECT DISTINCT discord_id,(SELECT generation FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_generation,(SELECT state FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_state,(SELECT revision FROM privacy_subjects WHERE subject_id=characters.discord_id) AS privacy_revision FROM characters WHERE":"SELECT DISTINCT discord_id FROM characters WHERE") + " status = 'member' AND discord_id IS NOT NULL AND discord_id <> '' AND discord_id > ?1 " +
       "AND NOT EXISTS (SELECT 1 FROM members m WHERE m.discord_id = characters.discord_id AND m.banned = 1) ORDER BY discord_id LIMIT ?2",
   )
     .bind(opts.after, opts.limit)
-    .all<{ discord_id: string }>();
+    .all<{ discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>();
 
   const granted: string[] = [];
   const already: string[] = [];
@@ -65,7 +67,9 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
   const calls = callBudget(env); // .90 (P-20): this page's Discord-call budget (.95: it bounds requests, retries included)
 
   /** One account; "done", or the note to stop the page with (this account not finished: the next page starts at it). */
-  const handle = async (r: { discord_id: string }): Promise<"done" | string> => {
+  const handle = async (r: { discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }): Promise<"done" | string> => {
+    if(membershipTransitionEnabled(env)&&r.privacy_state&&r.privacy_state!=='active')return "stopped: original privacy subject is held";
+    const originalCapture=membershipTransitionEnabled(env)?privacyCaptureFromColumns(r.discord_id,r):undefined;
     let member: Awaited<ReturnType<typeof guildMember>>;
     try {
       member = await guildMember(env, r.discord_id, calls);
@@ -97,7 +101,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
       return "done";
     }
     try {
-      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls);
+      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null});
       if (outcome === "budget") return "stopped: this run's Discord-call budget is used up (ROLE_CALL_BUDGET); run the page again from the cursor";
       if (outcome === "misconfigured") return "stopped: ROLE_GUILD_MEMBER is not a role of this server";
       if (outcome === "unverified") return "stopped: the guild's roles could not be read from Discord; run the page again";
@@ -105,6 +109,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
         blocked.push(r.discord_id);
         return "done";
       }
+      if(membershipTransitionEnabled(env)&&outcome==="held")return "stopped: original membership authority is held; no provider retry";
       if (outcome !== "granted") return "done";
       granted.push(r.discord_id);
       await audit(env, "system", "role.backfilled", r.discord_id, { role });
@@ -127,7 +132,8 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
     // inventory read when it is due, fresh look, PUT and mandatory removal, each with its possible 429 retry): stop before
     // an account the budget cannot finish, `next` after the last one finished
     const need = opts.apply ? 1 + GRANT_CALLS + inventoryCalls(env, calls) : 1;
-    if (!affords(calls, need) || !takeCall(calls)) return summary("stopped: this run's Discord-call budget is used up (ROLE_CALL_BUDGET); run the page again from the cursor", true);
+    const completeAccount=opts.apply&&membershipSettlementEnabled(env)?calls.limit-calls.attempts>=9:affords(calls,need);
+    if (!completeAccount || !takeCall(calls)) return summary("stopped: this run's Discord-call budget is used up (ROLE_CALL_BUDGET); run the page again from the cursor", true);
     const outcome = await handle(r);
     if (outcome !== "done") return summary(outcome, true);
     last = r.discord_id;

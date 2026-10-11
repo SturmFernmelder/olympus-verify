@@ -67,9 +67,13 @@ async function main(){
  }
  f=fixture();subject(f);const c3=await connect(f),frm3=await form(f,c3);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.includes('privacy_access_action_refused'))){f.hooks.beforeBatch=null;f.advance(721);}};await refused('expiry after grant read refuses native batch',()=>copy.exportPrivacyAccess(frm3.request(),f.env));eq('expired original action never consumed',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
  f=fixture();subject(f);oauthProvider();const flow=await start(f);f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))){f.hooks.beforeBatch=null;f.db.exec('UPDATE privacy_subjects SET revision=revision+1');}};await refused('callback original capture race refused',()=>finish(f,flow));eq('callback capture race issues no grants',count(f,'privacy_access_grants'),0);eq('callback capture race changes no site account',count(f,'site_users'),0);f.db.close();
+ const fourScopes=['connections','guilds.members.read','identify','role_connections.write'];
+ const scopePermutations=values=>values.length===1?[values]:values.flatMap((value,i)=>scopePermutations(values.filter((_,j)=>j!==i)).map(rest=>[value,...rest]));
+ const closedFourOrders=scopePermutations(fourScopes).map(tokens=>tokens.join(' '));
+ eq('closed four set has24 unique raw orders',new Set(closedFourOrders).size,24);
  // .142 changes only the closed returned-scope pair; frozen .140 refusal evidence
  // is preserved separately. Fresh handler authority is still identity/own-purpose.
- for(const scope of ['identify guilds.members.read','guilds.members.read identify']){
+ for(const scope of ['identify guilds.members.read','guilds.members.read identify',...closedFourOrders]){
   f=fixture();oauthProvider(A,scope);const flow=await start(f),canary='synthetic142-unused-provider-material';calls=[];
   provider=(url,init)=>{
    if(url==='https://discord.com/api/oauth2/token')return new Response(JSON.stringify({access_token:canary,refresh_token:canary,token_type:'Bearer',scope,private_error:canary}));
@@ -96,7 +100,7 @@ async function main(){
   const outputs=page+JSON.stringify(data)+allNative+JSON.stringify([...response.headers]);
   ok(scope+' no provider credentials or extra identity fields stored/reflected',!outputs.includes(canary)&&!outputs.includes(await access.privacyAccessHash(canary)));
   ok(scope+' returned scope never stored/reflected',!outputs.includes(scope));eq(scope+' no provider log output',recorded,[]);
-  ok(scope+' disclosure explains request and unused membership capability',page.includes('asks Discord only to identify your account')&&page.includes('may also permit a guild membership check')&&page.includes('uses only your account ID, keeps no Discord token'));
+  ok(scope+' disclosure explains request and unused membership capability',page.includes('asks Discord only to identify your account')&&page.includes('may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata')&&page.includes('uses none of those permissions')&&page.includes('uses only your account ID, keeps no Discord token'));
   f.db.close();
  }
  // RFC 6749 §5.1 variants preserve the original identify-only request, grant
@@ -128,7 +132,7 @@ async function main(){
   ok(name+' consumes original flow',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
   const priorCalls=calls.length;await refused(name+' cannot replay callback',()=>finish(f,flow));eq(name+' replay no further exchange',calls.length,priorCalls);f.db.close();
  }
- for(const scope of ['identify guilds.members.read','guilds.members.read identify']){
+ for(const scope of ['identify guilds.members.read','guilds.members.read identify',...closedFourOrders]){
   for(const [name,mutate] of [['absence created',f=>subject(f)],['generation ABA',f=>f.db.prepare('UPDATE privacy_subjects SET generation=?').run('b'.repeat(32))],['revision changed',f=>f.db.exec('UPDATE privacy_subjects SET revision=revision+1')],['retiring',f=>f.db.exec("UPDATE privacy_subjects SET state='retiring'")]]){
    f=fixture();if(name!=='absence created')subject(f);oauthProvider(A,scope);const flow=await start(f);calls=[];
    f.hooks.beforeBatch=stmts=>{if(stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_access_grants'))){f.hooks.beforeBatch=null;mutate(f);}};
@@ -141,15 +145,39 @@ async function main(){
    await refused(scope+' own export original '+name+' refuses',()=>copy.exportPrivacyAccess(frm.request(),f.env));
    eq(scope+' action race rolls back one-use consumption',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_export'").get().consumed_at,null);f.db.close();
   }
-  for(const fault of ['expiry during provider await','ignored native grant']){
+  for(const fault of ['expiry during provider await','ignored native grant','aborted native grant']){
    f=fixture();oauthProvider(A,scope);const flow=await start(f);calls=[];
    if(fault==='expiry during provider await'){const normal=provider;provider=(url,init)=>{const r=normal(url,init);if(url.endsWith('/oauth2/token'))f.advance(300);return r;};}
-   else f.db.exec("CREATE TRIGGER ignore_closed_trial_grant BEFORE INSERT ON privacy_access_grants WHEN NEW.purpose='own_erasure' BEGIN SELECT RAISE(IGNORE); END");
+   else f.db.exec("CREATE TRIGGER ignore_closed_trial_grant BEFORE INSERT ON privacy_access_grants WHEN NEW.purpose='own_erasure' BEGIN SELECT RAISE("+(fault==='aborted native grant'?"ABORT,'test_only_grant_abort'":"IGNORE")+"); END");
    await refused(scope+' '+fault+' refuses callback',()=>finish(f,flow));eq(scope+' '+fault+' native batch rolls back both grants',count(f,'privacy_access_grants'),0);
    const priorCalls=calls.length;await refused(scope+' '+fault+' cannot renew spent state',()=>finish(f,flow));eq(scope+' '+fault+' replay no provider call',calls.length,priorCalls);f.db.close();
   }
  }
  const secretSentinel='synthetic-private-code-cookie-token-identity-DO-NOT-REFLECT';
+ // Every proper subset except the already accepted identify/member pair stays
+ // refused. Public names in the diagnostic dictionary do not gain admission.
+ const rejectedFourShapes=[];
+ for(let mask=1;mask<15;mask++){
+  const subset=fourScopes.filter((_,i)=>mask&(1<<i));
+  if(subset.length===1&&subset[0]==='identify'||subset.length===2&&subset.includes('identify')&&subset.includes('guilds.members.read'))continue;
+  for(const order of scopePermutations(subset))rejectedFourShapes.push(['proper subset '+mask,order.join(' ')]);
+ }
+ for(const token of fourScopes)rejectedFourShapes.push(['duplicate '+token,[...fourScopes,token].join(' ')]);
+ for(const token of ['email','guilds','bot','applications.commands','test_unknown_permission']){
+  rejectedFourShapes.push(['added '+token,[...fourScopes,token].join(' ')]);
+  for(let i=0;i<fourScopes.length;i++)rejectedFourShapes.push(['substituted '+token+' slot'+i,fourScopes.map((value,j)=>i===j?token:value).join(' ')]);
+ }
+ for(const [name,scope] of [['leading',' '+closedFourOrders[0]],['trailing',closedFourOrders[0]+' '],['double space',fourScopes.join('  ')],['tab',fourScopes.join('\t')],['newline',closedFourOrders[0]+'\n'],['carriage return',closedFourOrders[0]+'\r'],['NUL',closedFourOrders[0]+'\0'],['Unicode',closedFourOrders[0].replace('identify','ｉdentify')],['uppercase',closedFourOrders[0].replace('identify','Identify')],['comma',fourScopes.join(',')],['huge',closedFourOrders[0]+' '+('test_unknown_permission'.repeat(900))]])rejectedFourShapes.push([name,scope]);
+ for(const [name,scope] of rejectedFourShapes){
+  f=fixture();const flow=await start(f),request=new Request(BASE+'/privacy/callback?state='+flow.state+'&code=original_code&iss=https%3A%2F%2Fdiscord.com',{headers:{Cookie:flow.flowCookie}});calls=[];
+  provider=()=>new Response(JSON.stringify({access_token:secretSentinel,refresh_token:secretSentinel,token_type:'Bearer',scope}));let failure;
+  try{await access.finishPrivacyAccess(request,f.env);}catch(error){failure=error;}
+  ok('closed four negative '+name+' refuses actual callback',!!failure);eq('closed four negative '+name+' no identity/extra API',calls.map(c=>c.url),['https://discord.com/api/oauth2/token']);
+  const response=access.privacyAccessRefusal(request,failure),html=await response.text();eq('closed four negative '+name+' status503',response.status,503);
+  ok('closed four negative '+name+' no credential/state/code reflection',!html.includes(secretSentinel)&&!html.includes(flow.state)&&!html.includes('original_code')&&!html.includes('test_unknown_permission'));
+  eq('closed four negative '+name+' no grants/normal account/member/roles',[count(f,'privacy_access_grants'),count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0,0]);
+  const n=calls.length;await refused('closed four negative '+name+' spent callback refuses',()=>finish(f,flow));eq('closed four negative '+name+' replay zero HTTP',calls.length,n);f.db.close();
+ }
  const diagnostics=[
   ['token request','PA-T1',(f)=>{provider=()=>{throw Error(secretSentinel);};}],
   ['token HTTP','PA-T2',(f)=>{provider=()=>new Response(secretSentinel,{status:503});}],

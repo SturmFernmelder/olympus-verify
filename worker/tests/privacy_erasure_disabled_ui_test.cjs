@@ -10,7 +10,7 @@ async function review(){
  const first=load('privacy-access-history'),sql=[];
  const paused='Automatic serving-account erasure is temporarily paused while Olympus checks older account records.';
  const sizeCopy='The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer.';
- const scopeDisclosure='<p>This connection asks Discord only to identify your account. A returned token may also permit a guild membership check. This connection uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
+ const scopeDisclosure='<p>This connection asks Discord only to identify your account. A returned token may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata. This privacy connection uses none of those permissions: it uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p>';
  const baselineDir=process.env.PRIVACY_UI_BASELINE_DIR;
  function baseline(name){
   if(!baselineDir)return null;

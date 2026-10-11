@@ -1,12 +1,13 @@
 /** Five explicit source families. Export is an own-only bounded projection; erasure runs in its caller's ONE batch. */
 import type { Env } from './env';
+import {relatedUnresolvedStaffSql} from './privacy-erasure-staff-custody';
 import { registerCommunityData,type ExportPlan } from './community-context';
 import { registerServingPrivacyFamilies } from './privacy-business-catalog';
 const related=`subject=?1 OR proof_id IN(SELECT id FROM verification_proofs WHERE requester=?1 OR signer=?1)`;
 export function qrErasureStatements(env:Env,id:string):D1PreparedStatement[]{return [
  // Never discard the sole durable no-repeat receipt while a provider effect remains unknown.
  env.DB.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM role_settlements WHERE (${related}) AND attempts=1
- AND state IN('dispatching','unknown')) THEN 1 ELSE json_extract('qr_provider_custody_held','$') END AS admitted`).bind(id),
+ AND state IN('dispatching','unknown')) AND NOT ${relatedUnresolvedStaffSql('?1')} THEN 1 ELSE json_extract('qr_provider_custody_held','$') END AS admitted`).bind(id),
  env.DB.prepare(`DELETE FROM role_settlements WHERE ${related}`).bind(id),
  env.DB.prepare('DELETE FROM verification_proofs WHERE requester=?1 OR signer=?1').bind(id),
  env.DB.prepare('DELETE FROM verification_requests WHERE requester=?1').bind(id),

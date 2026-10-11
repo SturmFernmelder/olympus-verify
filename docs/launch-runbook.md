@@ -607,3 +607,11 @@ export is 48 hours old. Fail closed, by design (Codex, 3 Oct 2026 13:15 UTC, fin
    When many linked characters reach the roster at once (launch day), one export applies what fits in its own request
    and the rest follows with the next exports and the cron every 30 minutes; nothing is refused and nothing is needed
    from anyone. `/olympus-admin sync` does the same and says "Not applied yet (N)": run it again until that line is gone.
+
+## Worker .145 source release and held activation
+
+Publish the exact CI-passed .145 commit after its joined source, native budget, bundle and asset checks. This is a source-only release: the recorded .144 admission layout and 198 installed guards do not change. Keep admission ON, erasure/retention/private-request intake/QR signing OFF, and the new membership-transition flag unset (OFF). No database migration or new backup is required for this release. The corrected ordinary schedule is667 and installed-admission schedule is700/700; its erasure descriptor is194. The existing role120 and roster56 envelopes stay fixed. The initial combined model and test-extractor failures are preserved; publish only the corrected successor after fresh qualification.
+
+After publication, open a fresh /privacy/access connection and complete its normal Discord sign-in. Confirm the identity-only account-data page and a real account download. Do not replay a spent callback or expose its code, state or returned token. Retain the actual result separately from source acceptance.
+
+Before activating membership-role replacement, finish the exact provider capability plan: a distinct access role, old positive-overwrite retirement, preserved visitor restrictions and linked-role metadata handling. Use only fresh complete genuine roster eligibility; do not migrate all existing role holders. Before erasure or QR signing, complete their custody/recovery and qualified real game/browser checks. An unknown privileged grant remains a hold even if a later role read shows absence.

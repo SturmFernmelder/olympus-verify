@@ -2,6 +2,7 @@
  * Known bot pointers have bounded automatic cleanup; unknown sends are retained and never blindly repeated.
  */
 import type { Env } from './env';
+import { membershipTransitionEnabled } from './membership-role-transition';
 import { rest,DiscordError } from './discord';
 import { PRIVACY_DB_NOW,PRIVACY_REPLAY,privacyProviderCustodyDatabase,privacyGenerationExpressionFenceSql,type PrivacySubject } from './privacy-serving-authority';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
@@ -15,7 +16,7 @@ const hash=async(value:string)=>[...new Uint8Array(await crypto.subtle.digest('S
 const cronPayload=(n:RosterCronNotice,kind:'welcome'|'log')=>kind==='welcome'?{content:`<@${n.subject}> Welcome to Olympus — **${n.name}** is on the guild roster.`,allowed_mentions:{parse:[],users:[n.subject]},nonce:n.welcome.operation,enforce_nonce:true}:{content:`➕ roster: **${n.name}** (<@${n.subject}>) confirmed on the roster — Guild Member pending the central role sweep.`,allowed_mentions:{parse:[]},nonce:n.log.operation,enforce_nonce:true};
 /** A cron-only second phase, saved by the original member claim. No account, purpose credential or new schema. */
 export async function prepareRosterCronNotice(env:Env,input:{run:number;seq:number;subject:string;generation:string|null;name:string;nameKey:string;guid:string|null;createdAt:number}):Promise<string>{
- if(!isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))||env.PRIVACY_ERASURE_ENABLED!=='true')throw Error('cron_notice_lane_disabled');
+ if(!isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))||env.PRIVACY_ERASURE_ENABLED!=='true'&&!membershipTransitionEnabled(env))throw Error('cron_notice_lane_disabled');
  const n:RosterCronNotice={...input,p:'roster_cron_notice_v1',v:1,nonce:random(),expiresAt:input.createdAt+86400,guild:env.GUILD_ID,bot:env.DISCORD_APP_ID,welcome:{channel:(env.CHANNEL_NOTICES??'').trim(),hash:'',operation:random(),state:'pending'},log:{channel:env.CHANNEL_SERVER_LOG??'',hash:'',operation:random(),state:'pending'}};
  n.welcome.hash=await hash(JSON.stringify(cronPayload(n,'welcome')));n.log.hash=await hash(JSON.stringify(cronPayload(n,'log')));return JSON.stringify(n);
 }
@@ -24,7 +25,7 @@ export function parseRosterCronNotice(claim:string):RosterCronNotice|null{
 }
 /** One original phase dispatch, followed by response-only native custody. Attempted/unknown phases never re-POST. */
 export async function settleRosterCronNotice(env:Env,claim:string):Promise<{state:'known'|'refused'|'unknown'|'held'|'pending';finished:boolean}>{
- const n=parseRosterCronNotice(claim),DB=privacyProviderCustodyDatabase(env);if(!n||!isPrivacyWriteAdmissionDatabase(DB)||env.PRIVACY_ERASURE_ENABLED!=='true')throw Error('cron_notice_proof_invalid');
+ const n=parseRosterCronNotice(claim),DB=privacyProviderCustodyDatabase(env);if(!n||!isPrivacyWriteAdmissionDatabase(DB)||env.PRIVACY_ERASURE_ENABLED!=='true'&&!membershipTransitionEnabled(env))throw Error('cron_notice_proof_invalid');
  // A second invocation cannot replace the original row while either phase awaits its provider response.
  if(n.welcome.state==='attempted'||n.log.state==='attempted')return{state:'held',finished:false};
  const kind=n.welcome.state==='pending'?'welcome':n.log.state==='pending'?'log':null;if(!kind)return{state:'held',finished:false};const x=n[kind];

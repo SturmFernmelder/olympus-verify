@@ -4,6 +4,7 @@ import './ruleset-publication-data';
  * Dormant .129 completion and restore authority are not enabled by this module.
  */
 import type { Env } from './env';
+import {readStaffCustody,staffAccessDetails,type StaffAccessDetails} from './privacy-erasure-staff-custody';
 import './community-routes';
 import './qr-phase1-data';
 import { communityDataNames,communityEraseStatements } from './community-context';
@@ -13,8 +14,8 @@ import { cleanupPrivacyMessages,privacyMessageDebt } from './privacy-provider-me
 import { CURRENT_ERASURE_SQL, PRIVACY_DB_NOW, PRIVACY_REPLAY, PRIVACY_YEAR, currentAccountErasureProof,
  privacySubjectKey, type AccountErasureProof, type MemberRoleSettlement } from './privacy-serving-authority';
 
-export type ServingCompletion={state:'held'|'unknown'|'complete';reason:string|null;servingAccountErased:boolean;allCopiesErased:false;providerMessages:'unqualified';recoveryCopies:'operator-held';staffAccess:MemberRoleSettlement['staffAccess'];messageDebt?:{known:number;unknown:number}};
-const held=(reason:string,state:'held'|'unknown'='held',staffAccess:MemberRoleSettlement['staffAccess']='unknown'):ServingCompletion=>({state,reason,servingAccountErased:false,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess});
+export type ServingCompletion={state:'held'|'unknown'|'complete';reason:string|null;servingAccountErased:boolean;allCopiesErased:false;providerMessages:'unqualified';recoveryCopies:'operator-held';staffAccess:MemberRoleSettlement['staffAccess'];staffAccessDetails:StaffAccessDetails;messageDebt?:{known:number;unknown:number}};
+const held=(reason:string,state:'held'|'unknown'='held',staffAccess:MemberRoleSettlement['staffAccess']='unknown',details=staffAccessDetails(staffAccess)):ServingCompletion=>({state,reason,servingAccountErased:false,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess,staffAccessDetails:details});
 type CentralRoleAdapter={settleAccountErasureMemberRole:(env:Env,proof:AccountErasureProof)=>Promise<MemberRoleSettlement>;accountErasureRoleSettledSql:string;reconcileAccountErasureRoleDebt:(env:Env,proof:AccountErasureProof)=>Promise<unknown>};
 /** There is exactly one role writer. Its adapter supplies a fixed authored SQL receipt predicate, never request SQL. */
 export async function continueServingErasure(env:Env,proof:AccountErasureProof):Promise<ServingCompletion>{
@@ -35,6 +36,10 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof):
 /** Trusted central adapter only. No HTTP caller chooses role outcome or the consuming receipt SQL. */
 async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string):Promise<ServingCompletion>{
  if(!await servingPrivacyCatalogCurrent(env))return held('unclassified_storage', 'held',role.staffAccess);
+ const staffCustody=await readStaffCustody(env,p.subject).catch(()=>null);
+ const details=staffAccessDetails(role.staffAccess,staffCustody);
+ if(!staffCustody)return held('staff_custody_unqualified','held',role.staffAccess,details);
+ if(staffCustody.unresolvedBotCustody>0)return held('bot_staff_custody_unresolved','held',role.staffAccess,details);
  const markerKey=await privacySubjectKey(env,p.subject);
  const v=[p.operationId,p.subject,p.subjectGeneration,p.requestDigest];
  const identity='?1';
@@ -161,10 +166,10 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  // A lost result is not a rollback assertion. Completion is claimed only if the durable terminal AND replay are found.
  const observed=await env.DB.prepare("SELECT 1 AS confirmed FROM privacy_serving_jobs j JOIN privacy_restore_replay r ON r.operation_id=j.operation_id WHERE j.operation_id=?1 AND j.state='complete' AND r.subject_id=?2 AND r.retired_generation=?3")
  .bind(p.operationId,p.subject,p.subjectGeneration).first<{confirmed:number}>().catch(()=>null);
- if(observed?.confirmed!==1)return held('local_commit_outcome_unknown','unknown',role.staffAccess);
+ if(observed?.confirmed!==1)return held('local_commit_outcome_unknown','unknown',role.staffAccess,details);
  }
  await cleanupPrivacyMessages(env,p.subject).catch(()=>{});
- return {state:'complete',reason:null,servingAccountErased:true,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess:role.staffAccess,messageDebt:await privacyMessageDebt(env,p.subject)};
+ return {state:'complete',reason:null,servingAccountErased:true,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess:role.staffAccess,staffAccessDetails:details,messageDebt:await privacyMessageDebt(env,p.subject)};
 }
 
 function characterReferenceScrub(env:Env,id:string):D1PreparedStatement{

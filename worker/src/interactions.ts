@@ -1,4 +1,6 @@
 /** Slash commands and message components. Discord calls POST /interactions (HTTP interactions, no gateway). */
+import { membershipSettlementEnabled } from './membership-role-transition';
+import { revokeForBan } from './roles';
 import type { Env } from "./env";
 import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound } from './privacy-serving-authority';
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
@@ -384,6 +386,7 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
     case "ban": {
       const target = option<string>(i, "user") ?? "";
       const reason = option<string>(i, "reason") ?? "";
+      const targetCapture=membershipSettlementEnabled(env)?await readPrivacySubject(env,target):undefined;
       await env.DB.prepare(
         "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
       )
@@ -402,8 +405,10 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       let roleNote = "";
       if (env.ROLE_GUILD_MEMBER) {
         try {
-          await removeRole(env, target, env.ROLE_GUILD_MEMBER, `olympus-verify: banned by ${actor}`);
-          roleNote = "\nGuild Member removed.";
+          if(membershipSettlementEnabled(env)){
+            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,"interaction:ban",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null});
+            roleNote=removed?"\nGuild Member absence confirmed.":"\nGuild Member removal is held or unconfirmed; no blind retry.";
+          }else{await removeRole(env, target, env.ROLE_GUILD_MEMBER, `olympus-verify: banned by ${actor}`);roleNote = "\nGuild Member removed.";}
         } catch (e) {
           roleNote = `\n\u26a0\ufe0f Could not remove Guild Member: ${explainDiscordError(e)}`;
           await audit(env, "system", "role.remove_failed", target, { error: String(e) });

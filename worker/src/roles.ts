@@ -37,7 +37,8 @@ import type { Env } from "./env";
 import { intVar } from "./env";
 import { audit, now } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
-const durableServingRoles=(env:Env)=>env.QR_PHASE1_ENABLED==='true'||env.PRIVACY_ERASURE_ENABLED==='true';
+import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled } from './membership-role-transition';
+import { privacyCaptureFromColumns } from './privacy-serving-authority';
 
 export const blockingRoleIds = (env: Env): string[] =>
   (env.BLOCKING_ROLE_IDS ?? "")
@@ -207,8 +208,8 @@ export const reapplyHeld = async (env: Env, userId: string): Promise<boolean> =>
  * needs nothing; a failed removal is recorded (`role.revoke_pending`) and reported to the administrator, who removes the
  * role by hand: the account may have no roster character left for the sweep to visit, and the hold keeps it from coming back.
  */
-export async function revokeForReapply(env: Env, userId: string, source: string): Promise<"removed" | "not-held" | "failed"> {
-  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'rename_hold');return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}
+export async function revokeForReapply(env: Env, userId: string, source: string, generationCapture?:{subjectGeneration:string|null}): Promise<"removed" | "not-held" | "failed"> {
+  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'rename_hold',generationCapture);return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return "not-held";
   let m: Awaited<ReturnType<typeof guildMember>>;
@@ -226,8 +227,8 @@ export async function revokeForReapply(env: Env, userId: string, source: string)
 }
 
 /** .114: remove Guild Member from an account under a reapply hold; a failure is recorded as pending for the sweep's reconciliation. */
-async function revokeHeld(env: Env, userId: string, role: string, source: string, budget?: CallBudget): Promise<boolean> {
-  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'rename_hold',budget)).state==='settled';}
+async function revokeHeld(env: Env, userId: string, role: string, source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<boolean> {
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'rename_hold',generationCapture,budget)).state==='settled';}
   try {
     await removeRole(env, userId, role, "olympus-verify: a rename Blizzard required; the account applies again", budget, true);
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_hold" : "role.revoked_reapply", userId, { source });
@@ -242,8 +243,8 @@ async function revokeHeld(env: Env, userId: string, role: string, source: string
  * .60: take Guild Member away from a banned account. A failed removal is recorded as pending; the sweep's banned
  * reconciliation (restore.ts) retries it on its next run, and a 403 there stops that run like any other grant failure.
  */
-export async function revokeForBan(env: Env, userId: string, role: string, source: string, budget?: CallBudget): Promise<boolean> {
-  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'ban',budget)).state==='settled';}
+export async function revokeForBan(env: Env, userId: string, role: string, source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<boolean> {
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'ban',generationCapture,budget)).state==='settled';}
   try {
     await removeRole(env, userId, role, "olympus-verify: banned from verifying; Guild Member removed", budget, true); // .95: mandatory: its retry is never refused
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_ban" : "role.revoked_banned", userId, { source });
@@ -272,13 +273,16 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
   // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
   // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
   const rows = await env.DB.prepare(
-    `SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply')
-      WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
-  ).bind(after, limit).all<{ discord_id: string }>();
+    membershipTransitionEnabled(env)?`SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
+      FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply') selected
+      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`:`SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply') WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
+  ).bind(after, limit).all<{ discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>();
   let stopped = false;
   for (const r of rows.results) {
+    if(membershipTransitionEnabled(env)&&r.privacy_state&&r.privacy_state!=='active'){out.failed.push(r.discord_id);out.cursor=r.discord_id;continue;}
+    const originalCapture=membershipTransitionEnabled(env)?privacyCaptureFromColumns(r.discord_id,r):undefined;
     // .90: a look and possibly a removal: stop before an account the run's budget cannot finish, the cursor at the last one done
-    if (!affords(budget, 2) || !takeCall(budget)) {
+    if ((membershipTransitionEnabled(env)?!!budget&&budget.limit-budget.attempts<17:!affords(budget, 2)) || !takeCall(budget)) {
       await budgetExhausted(env, budget!, "sweep:banned");
       stopped = true;
       break;
@@ -292,17 +296,17 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
       continue;
     }
     out.checked.push(r.discord_id);
-    if (!member || !member.roles.includes(role)) continue;
+    if (!member || !membershipTransitionEnabled(env)&&!member.roles.includes(role)) continue;
     if (await isBanned(env, r.discord_id)) {
-      takeMandatory(budget); // counted (the reservation above covers it and its retry); a removal for a ban is never skipped
-      if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget)) out.revoked.push(r.discord_id);
+      if(!durableServingRoles(env))takeMandatory(budget); // Central requests account for themselves; legacy removal includes its reserved retry.
+      if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null})) out.revoked.push(r.discord_id);
       else out.failed.push(r.discord_id);
       continue;
     }
     // .63: unbanned while the member read was in flight: nothing to take away for a ban; .114: unless a reapply hold is open
     if (!(await reapplyHeld(env, r.discord_id))) continue;
-    takeMandatory(budget);
-    if (await revokeHeld(env, r.discord_id, role, "sweep:held", budget)) out.held.push(r.discord_id);
+    if(!durableServingRoles(env))takeMandatory(budget);
+    if (await revokeHeld(env, r.discord_id, role, "sweep:held", budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null})) out.held.push(r.discord_id);
     else out.failed.push(r.discord_id);
   }
   if (!stopped && rows.results.length < limit) out.cursor = ""; // wrap at the end
@@ -310,8 +314,8 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
 }
 
 /** While a blocking role is held, Guild Member is taken away. Returns the blocking role id when it did, else null. */
-export async function removeIfBlocked(env: Env, userId: string, roles: readonly string[], source: string, budget?: CallBudget): Promise<string | null> {
-  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleVerifiedRemoval(env,userId,'blocking_role',budget);return r.state==='settled'?'current-server-restriction':null;}
+export async function removeIfBlocked(env: Env, userId: string, roles: readonly string[], source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<string | null> {
+  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'blocking_role',generationCapture,budget);return r.state==='settled'?'current-server-restriction':null;}
   const role = env.ROLE_GUILD_MEMBER;
   if (!role || !roles.includes(role)) return null;
   const blocker = heldBlockingRole(env, roles);
@@ -338,7 +342,7 @@ export async function settleAccountErasureMemberRole(env:Env,proof:import('./rol
 }
 /** Departure authority is the original capture plus current last-character roster absence, never an erasure proof. */
 export async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget) {
-  return (await import('./role-settlements')).settleGuildDepartureRole(env,subject,capture,budget);
+  return (await import('./role-settlements')).settleMembershipRemoval(env,subject,'guild_departure',capture,budget);
 }
 export async function reconcileAccountErasureRoleDebt(env:Env,proof:import('./role-settlements').ErasureProof) {
   return (await import('./role-settlements')).reconcileAccountErasureRoleDebt(env,proof);
