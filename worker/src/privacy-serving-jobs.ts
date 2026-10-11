@@ -6,7 +6,7 @@ import {CURRENT_ERASURE_SQL,PRIVACY_DB_NOW,admitInactiveServingAccount,type Acco
 import {continueServingErasure} from './privacy-serving-erase';
 import {cleanupPrivacyMessages} from './privacy-provider-messages';
 import {admitInactiveBotAccount} from './privacy-inactive-bot';
-export const SERVING_ERASURE_JOB_WORST=148;
+export const SERVING_ERASURE_JOB_WORST=151;
 
 export async function runServingErasureJob(env:Env):Promise<{attempted:number;completed:number;held:number}>{
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return{attempted:0,completed:0,held:0};
@@ -26,9 +26,9 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
  const claim=await env.DB.prepare(`UPDATE privacy_serving_jobs SET last_attempt_at=${PRIVACY_DB_NOW} WHERE operation_id=?1 AND last_attempt_at IS ?5 AND ${CURRENT_ERASURE_SQL}`)
  .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,row.last_attempt_at).run();
  if(claim.meta.changes!==1)return{attempted:0,completed:0,held:0};
- let completed=0,reason='continuation_failed';
- try{const out=await continueServingErasure(env,proof);if(out.state==='complete')completed=1;else reason=out.reason??'provider_or_storage_hold';}
- finally{if(!completed)await env.DB.prepare(`UPDATE privacy_serving_jobs SET state='held',hold_reason=?5 WHERE operation_id=?1 AND ${CURRENT_ERASURE_SQL}`)
- .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,reason).run();}
+ let completed=0,reason='continuation_failed',staffAccess:'human-managed'|'none'|'unknown'='unknown';
+ try{const out=await continueServingErasure(env,proof);staffAccess=out.staffAccess;if(out.state==='complete')completed=1;else reason=out.reason??'provider_or_storage_hold';}
+ finally{if(!completed)await env.DB.prepare(`UPDATE privacy_serving_jobs SET state='held',hold_reason=?5,staff_access=?6 WHERE operation_id=?1 AND ${CURRENT_ERASURE_SQL}`)
+ .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,reason,staffAccess).run();}
  return{attempted:1,completed,held:completed?0:1};
 }

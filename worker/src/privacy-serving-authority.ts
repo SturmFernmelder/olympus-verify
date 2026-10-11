@@ -3,6 +3,7 @@
  * A database restored from an old export is NEVER its own evidence of current replay authority.
  */
 import type { Env } from './env';
+import {staffCustodyProjectionSql,staffAccessDetails,type StaffAccessDetails,type StaffCustodyCounts} from './privacy-erasure-staff-custody';
 import type { PendingRow } from './db';
 import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson } from './site-core';
 import {inactiveBetaRetentionSatisfiedSql} from './privacy-retention-clocks';
@@ -135,15 +136,16 @@ export async function readErasureProof(env:Env,operationId:string):Promise<Accou
  const row=await env.DB.prepare("SELECT subject_id AS subject,subject_generation AS subjectGeneration,operation_id AS operationId,request_digest AS requestDigest FROM privacy_serving_jobs WHERE operation_id=?1 AND state IN('waiting_role','held')").bind(operationId).first<Omit<AccountErasureProof,'purpose'>>();
  if(!row)return null;const proof={purpose:'account_erasure' as const,...row};proofValues(proof);return proof;
 }
-export type ErasureRequestResult={operationId:string;state:'waiting_role'|'held'|'complete';holdReason:string|null;servingAccountErased:boolean;allCopiesErased:false;externalCleanup:{known:number;unknown:number;expiredUnresolved:number};recoveryCopies:'operator-held';staffAccess:'human-managed'|'none'|'unknown';statusToken:string;statusExpires:number};
+export type ErasureRequestResult={operationId:string;state:'waiting_role'|'held'|'complete';holdReason:string|null;servingAccountErased:boolean;allCopiesErased:false;externalCleanup:{known:number;unknown:number;expiredUnresolved:number};recoveryCopies:'operator-held';staffAccess:'human-managed'|'none'|'unknown';staffAccessDetails:StaffAccessDetails;statusToken:string;statusExpires:number};
 type StatusRow={state:ErasureRequestResult['state'];hold_reason:string|null;staff_access:ErasureRequestResult['staffAccess'];request_digest:string;subject_generation:string;retain_until:number};
 async function statusResult(env:Env,operationId:string,row:StatusRow):Promise<ErasureRequestResult>{
  const body=b64u(new TextEncoder().encode(JSON.stringify({o:operationId,d:row.request_digest,g:row.subject_generation,e:row.retain_until})));
  const debt=await privacyProviderCustodyDatabase(env).prepare(`SELECT COALESCE(SUM(m.state IN('known','cleaning')),0) AS known,COALESCE(SUM(m.state IN('claimed','unknown')),0) AS unknown,
- COALESCE(SUM(m.retain_until<=${PRIVACY_DB_NOW}),0) AS expiredUnresolved FROM privacy_provider_messages m
+ COALESCE(SUM(m.retain_until<=${PRIVACY_DB_NOW}),0) AS expiredUnresolved,
+ ${staffCustodyProjectionSql('(SELECT subject_id FROM privacy_serving_jobs WHERE operation_id=?1 AND request_digest=?2)')} FROM privacy_provider_messages m
  WHERE m.state NOT IN('removed','refused') AND EXISTS(SELECT 1 FROM privacy_serving_jobs j JOIN json_each(m.subjects)x WHERE j.operation_id=?1 AND j.request_digest=?2 AND json_extract(x.value,'$.id')=j.subject_id)`)
- .bind(operationId,row.request_digest).first<{known:number;unknown:number;expiredUnresolved:number}>();
- return {operationId,state:row.state,holdReason:row.hold_reason,servingAccountErased:row.state==='complete',allCopiesErased:false,externalCleanup:debt??{known:0,unknown:0,expiredUnresolved:0},recoveryCopies:'operator-held',staffAccess:row.staff_access,
+ .bind(operationId,row.request_digest).first<{known:number;unknown:number;expiredUnresolved:number}&StaffCustodyCounts>();
+ return {operationId,state:row.state,holdReason:row.hold_reason,servingAccountErased:row.state==='complete',allCopiesErased:false,externalCleanup:debt?{known:debt.known,unknown:debt.unknown,expiredUnresolved:debt.expiredUnresolved}:{known:0,unknown:0,expiredUnresolved:0},recoveryCopies:'operator-held',staffAccess:row.staff_access,staffAccessDetails:staffAccessDetails(row.staff_access,debt),
  statusToken:body+'.'+await sign(env.COOKIE_SECRET,'erasure-status-v1',body),statusExpires:row.retain_until};
 }
 /** Trusted purpose caller only: its genuine identity proof must be consumed before this adapter.

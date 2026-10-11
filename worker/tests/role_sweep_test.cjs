@@ -49,6 +49,9 @@ const stubs = {
   },
 };
 // .55: the real roles.ts (the one role writer) with the same stubs
+// .145 compatibility: execute the real default-OFF membership gate in this historical legacy fixture.
+const membershipMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','membership-role-transition.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(membershipMod,membershipMod.exports,()=>({}));
+stubs['./membership-role-transition']=membershipMod.exports;
 const rolesJs = ts.transpileModule(fs.readFileSync(path.join(__dirname, "..", "src", "roles.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const rolesMod = { exports: {} };
 new Function("module", "exports", "require", rolesJs)(rolesMod, rolesMod.exports, (p) => stubs[p]);

@@ -37,6 +37,7 @@
  * and the SQL that names a run as current. It imports nothing that reaches Discord.
  */
 import type { Env } from "./env";
+import { membershipTransitionEnabled } from './membership-role-transition';
 import { privacyDatabaseAdmissionOverhead,privacyProviderCustodyDatabase,registerPrivacyCountedDatabase } from './privacy-serving-authority';
 import { admissionTransportCost,isPrivacyWriteAdmissionDatabase,registerAdmissionCountedDatabase } from './privacy-write-admission';
 
@@ -121,8 +122,8 @@ export const room = (a: Admission, reserve: number): number => Math.floor((a.lim
 export const EFFECT_WORST = { promote: 20, note: 22, depart: 7 } as const;
 /** Durable central roles and bot-qualified message custody replace the old direct effects. Root's
  * joined gate must measure these envelopes against the exact composed central source before ON. */
-export const SERVING_EFFECT_WORST = {promote:40,note:42,depart:25} as const;
-export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'?SERVING_EFFECT_WORST:EFFECT_WORST;}
+export const SERVING_EFFECT_WORST = {promote:40,note:42,depart:44} as const;
+export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)?SERVING_EFFECT_WORST:EFFECT_WORST;}
 /**
  * The same when the run's Discord-call budget can no longer afford a grant (roles.ts affords(calls, GRANT_CALLS) is false):
  * the writer returns "budget" before any read, writing role.budget_exhausted at most once (counted here each time), and the

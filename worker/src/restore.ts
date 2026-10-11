@@ -20,6 +20,7 @@ import { SCHEDULED_CAPS } from "./scheduled-budget";
 import { privacyCaptureFromColumns,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
+import { membershipSettlementEnabled,membershipTransitionEnabled } from './membership-role-transition';
 type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;rank_snapshot_id:number|null};
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
@@ -259,7 +260,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     }
     // .55: a blocking role held (Quarantine, Flagellant) takes Guild Member away while it lasts, and no grant is made.
     try {
-      if (await removeIfBlocked(env, id, m.roles, `sweep:${trigger}`, calls)) {
+      if (await removeIfBlocked(env, id, m.roles, `sweep:${trigger}`, calls,{subjectGeneration:capture?.subjectGeneration??null})) {
         blocked.push(id);
         return "done";
       }
@@ -305,7 +306,10 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     // it is due, the writer's fresh look, the PUT and the mandatory removal after a ban, each with its possible 429 retry):
     // stop BEFORE an account the budget cannot finish, so nobody is half-handled; the rotation resumes at the last one done
     const membershipCalls=1+GRANT_CALLS+inventoryCalls(env,calls);
-    if (!affords(calls,membershipCalls) || calls.limit-calls.attempts<reserve(membershipCalls)+(rankMapping?RANK_CONTINUATION_HTTP_RESERVE:0) || !takeCall(calls)) {
+    // The blocking branch ends without a grant or native-rank work. Reserve the complete largest branch,
+    // including the caller's initial lookup, before touching this account; central requests never retry.
+    const completeCalls=membershipSettlementEnabled(env)?Math.max(9+(rankMapping?RANK_CONTINUATION_HTTP_RESERVE:0),membershipTransitionEnabled(env)&&env.MEMBERSHIP_RETIRED_ROLE_ID?17:9):reserve(membershipCalls)+(rankMapping?RANK_CONTINUATION_HTTP_RESERVE:0);
+    if (calls.limit-calls.attempts<completeCalls || !takeCall(calls)) {
       await budgetExhausted(env, calls, `sweep:${trigger}`);
       stopped = true;
       break;

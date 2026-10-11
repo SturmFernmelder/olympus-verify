@@ -28,6 +28,8 @@
  * was closed (sweepRenameHolds, from the cron). Bot data: listed in the member's copy, erased by hand with
  * queries/forget-member.sql. Nothing here reads the reason a name broke Blizzard's rules: there is no such data.
  */
+import { membershipSettlementEnabled } from './membership-role-transition';
+import { privacyCaptureFromColumns,privacyGenerationFenceSql } from './privacy-serving-authority';
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { normalizeCharacter } from "./codes";
@@ -126,15 +128,17 @@ const refused = (status: number, error: string, message: string): ForcedResult =
 
 /** An administrator marks the rename recorded by audit row `auditId` as required by Blizzard. */
 export async function markForcedRename(env: Env, actor: string, auditId: number): Promise<ForcedResult> {
-  const row = await env.DB.prepare("SELECT id, ts, subject, details FROM audit WHERE id = ?1 AND actor = 'system' AND action = 'roster.renamed'")
+  const row = await env.DB.prepare(membershipSettlementEnabled(env)?`SELECT a.id,a.ts,a.subject,a.details,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM audit a LEFT JOIN privacy_subjects p ON p.subject_id=CASE WHEN json_valid(a.details) AND json_type(a.details,'$.discordId')='text' THEN json_extract(a.details,'$.discordId') END WHERE a.id=?1 AND a.actor='system' AND a.action='roster.renamed'`:"SELECT id, ts, subject, details FROM audit WHERE id = ?1 AND actor = 'system' AND action = 'roster.renamed'")
     .bind(auditId)
-    .first<{ id: number; ts: number; subject: string | null; details: string | null }>();
+    .first<{ id: number; ts: number; subject: string | null; details: string | null;privacy_generation?:string|null;privacy_state?:string|null;privacy_revision?:number|null }>();
   const d = parse(row?.details ?? null);
   if (!row || !row.subject || !isId(d.discordId) || typeof d.from !== "string") return refused(404, "not_found", "That rename is not in the roster's record.");
   if (row.ts < now() - RENAMES_WINDOW_DAYS * 86400) return refused(409, "too_old", `That rename is older than ${RENAMES_WINDOW_DAYS} days; decide it by hand if it still matters.`);
   const existing = await env.DB.prepare("SELECT id FROM rename_holds WHERE audit_id = ?1").bind(auditId).first<{ id: number }>();
   if (existing) return refused(409, "decided", "That rename has already been decided.");
   const discordId = d.discordId;
+  if(membershipSettlementEnabled(env)&&row.privacy_state&&row.privacy_state!=='active')return refused(409,"subject_held","The original subject authority is no longer active.");
+  const originalCapture=membershipSettlementEnabled(env)?privacyCaptureFromColumns(discordId,row):undefined;
   const from = d.from.slice(0, 64);
   const to = row.subject.slice(0, 64);
   const guid = typeof d.guid === "string" && d.guid ? d.guid : null;
@@ -159,8 +163,8 @@ export async function markForcedRename(env: Env, actor: string, auditId: number)
         `INSERT INTO rename_holds (discord_id, old_name, new_name, char_key, guid, nonce, audit_id, state, decided_by, decided_at)
          SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'reapply', ?8, ?9
           WHERE EXISTS (SELECT 1 FROM characters WHERE name_key = ?4 AND discord_id = ?1 AND status NOT IN ('unbound','denied')
-                        AND ((?5 IS NULL AND guid IS NULL) OR guid = ?5))`,
-      ).bind(discordId, from, to, target.name_key, guid, nonce, auditId, actor, t),
+                        AND ((?5 IS NULL AND guid IS NULL) OR guid = ?5)) ${membershipSettlementEnabled(env)?`AND ${privacyGenerationFenceSql(1,10)}`:''}`,
+      ).bind(discordId, from, to, target.name_key, guid, nonce, auditId, actor, t,...(membershipSettlementEnabled(env)?[originalCapture?.subjectGeneration??null]:[])),
       env.DB.prepare(`UPDATE characters SET status = 'unbound', left_at = ?3, guid = NULL WHERE name_key = ?1 AND discord_id = ?2 AND ${mine(4)}`).bind(target.name_key, discordId, t, nonce),
       env.DB.prepare(`UPDATE pending SET consumed_at = ?2, consumed_source = 'rename' WHERE name_key = ?1 AND discord_id = ?3 AND consumed_at IS NULL AND ${mine(4)}`).bind(target.name_key, t, discordId, nonce),
       env.DB.prepare(`UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND discord_id = ?2 AND status IN ('queued','written') AND ${mine(3)}`).bind(target.name_key, discordId, nonce),
@@ -179,7 +183,7 @@ export async function markForcedRename(env: Env, actor: string, auditId: number)
   const applicationWithdrawn = Number(done[4]?.meta?.changes ?? 0) > 0;
   if (applicationWithdrawn) forgetBoardCounts();
   await audit(env, actor, "rename.forced", target.name, { from, discordId, holdId, unbound, applicationWithdrawn });
-  const role = await revokeForReapply(env, discordId, "rename-forced");
+  const role = await revokeForReapply(env, discordId, "rename-forced",{subjectGeneration:originalCapture?.subjectGeneration??null});
   await logLine(env, `\u{1F501} rename: **${from}** → **${target.name}** (<@${discordId}>) marked by a site administrator as required by Blizzard; that character is verified again and the member applies again. Guild Member: ${role === "removed" ? "removed and held until the new application is approved" : role === "failed" ? "could NOT be removed (remove it by hand); held until the new application is approved" : "kept where another member character of the account supports it, otherwise held"}.`);
   await notify(env, discordId, "A rename Blizzard required: run /verify-status.", "rename-reapply");
   return { ok: true, holdId, role, unbound, applicationWithdrawn };

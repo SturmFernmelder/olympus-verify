@@ -44,7 +44,7 @@ source+=`check=globalThis.protocolStageDiagnose;
   globalThis.protocolStageAssert('cold/warm current proof read1 '+r.mode+'/'+r.variant,r.jobCounts.ensureSchema===1,r.jobCounts.ensureSchema);
   globalThis.protocolStageAssert('every writer group plus4 only '+r.variant,r.protocol.groups.every(g=>!g.writer||g.statements>=5));
   globalThis.protocolStageAssert('installation charged separately270 '+r.variant,r.protocol.installationStatements===270,r.protocol.installationStatements);
-  globalThis.protocolStageAssert('actual whole joined invocation fits declared699 '+r.variant,r.statements<=budget.ADMISSION_SCHEDULED_WORST_CASE&&r.statements<=700,r.statements);
+  globalThis.protocolStageAssert('actual whole joined invocation fits declared700 '+r.variant,r.statements<=budget.ADMISSION_SCHEDULED_WORST_CASE&&r.statements<=700,r.statements);
   globalThis.protocolStageAssert('actual every job fits current joined envelope '+r.variant,budget.ADMISSION_SCHEDULED_BUDGET.every(j=>(r.jobCounts[j.job]||0)<=j.worst),r.jobCounts);
  }
  globalThis.protocolStageAssert('current warm/cold proof and non-rank jobs have identical costs',Object.keys(warm.jobCounts).every(job=>job==='sweepMemberRoles'?Math.abs(warm.jobCounts[job]-cold.jobCounts[job])<=1&&warm.jobCounts[job]<=120&&cold.jobCounts[job]<=120:warm.jobCounts[job]===cold.jobCounts[job]),{warm:warm.jobCounts,cold:cold.jobCounts});

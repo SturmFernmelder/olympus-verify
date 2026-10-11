@@ -45,6 +45,9 @@ stubs["./privacy-write-admission"] = load("privacy-write-admission.ts", {
 });
 const discord = load("discord.ts", stubs);
 stubs["./discord"] = discord;
+// .145 compatibility: execute the real default-OFF membership gate in this historical legacy fixture.
+const membershipMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','membership-role-transition.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(membershipMod,membershipMod.exports,()=>({}));
+stubs['./membership-role-transition']=membershipMod.exports;
 const roles = load("roles.ts", stubs);
 stubs["./roles"] = roles;
 const scheduled = load("scheduled-budget.ts", stubs);

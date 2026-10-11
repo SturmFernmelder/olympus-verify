@@ -21,7 +21,7 @@
  * written and every failure path that still dispatches a statement charged in our model, even one D1 refuses.
  * The release target is `SCHEDULED_STATEMENT_TARGET`; a new scheduled job, column or raised cap changes this table first.
  * The joined source has separate ordinary and installed-admission envelopes. Installation is an attended operation,
- * outside cron; the installed-admission schedule reserves 699 of the 700-statement release target.
+ * outside cron; the installed-admission schedule reserves 700 of the 700-statement release target.
  * `tests/scheduled_budget_test.cjs` runs the real `scheduled()` over a D1 that counts each batched statement, with every
  * capped workload past its cap, cold and warm schema, and holds each job and the whole run to these numbers; the role
  * sweep's per-account costs are measured exactly there (review of 3 Oct 2026), since its line is a bound the run's Discord
@@ -120,14 +120,14 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
-  {job:'runServingErasureJob',worst:150,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
+  {job:'runServingErasureJob',worst:151,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
   {job:'sweepServingRetention',worst:21,rule:'fixed21-statement native batch including shared-publication actor minimization; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
 ];
 
 /** The sum of the table: the whole scheduled invocation's worst case. */
 export const SCHEDULED_WORST_CASE = SCHEDULED_BUDGET.reduce((n, j) => n + j.worst, 0);
 
-/** Explicit installed-admission branch, selected only by the exact true flag (source profile OFF).
+/** Explicit installed-admission branch, selected only by the exact true flag (current production profile ON).
  * Every native writer group includes four control statements. Current schema is one proven read;
  * missing schema/markers hold and attended installation is charged separately (202 native statements).
  * The roster retains its whole 56 envelope; central roles reserve120 despite measured117/118 paths.
@@ -141,7 +141,7 @@ export const ADMISSION_SCHEDULED_BUDGET:ReadonlyArray<{job:string;worst:number}>
  {job:'runEventReminders',worst:19},{job:'sweepCommunityTrials',worst:11},{job:'sweepCommunityRestrictions',worst:13},
  {job:'departureIntake',worst:26},{job:'sweepCommunityDepartures',worst:11},{job:'openWeeklyObligations',worst:39},
  {job:'sweepCommunityContributions',worst:15},{job:'sweepCommunityPrivacy',worst:7},{job:'newsCron',worst:28},
- {job:'runOfficerDigest',worst:30},{job:'runServingErasureJob',worst:193},{job:'sweepServingRetention',worst:25},
+ {job:'runOfficerDigest',worst:30},{job:'runServingErasureJob',worst:194},{job:'sweepServingRetention',worst:25},
 ]);
 export const ADMISSION_SCHEDULED_WORST_CASE=ADMISSION_SCHEDULED_BUDGET.reduce((n,j)=>n+j.worst,0);
 

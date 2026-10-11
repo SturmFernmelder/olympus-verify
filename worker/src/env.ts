@@ -1,5 +1,7 @@
 /** Bindings, vars and secrets. Vars live in wrangler.toml; secrets are set with `wrangler secret put`. */
 export interface Env {
+  MEMBERSHIP_ROLE_SETTLEMENT_ENABLED?: string; // exact true only; independently enables central membership custody
+  MEMBERSHIP_RETIRED_ROLE_ID?: string; // unset by default; one reviewed removal/GET-only former target
   QR_PHASE1_ENABLED?: string;
   QR_RANK_MAPPING_ENABLED?: string;
   QR_NATIVE_ROLE_MAP?: string;

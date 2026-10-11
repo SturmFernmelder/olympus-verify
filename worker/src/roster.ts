@@ -1,4 +1,5 @@
 /** Roster snapshots and the diff that grants/strips the Guild Member role. The roster is the source of truth. */
+import { membershipSettlementEnabled,membershipTransitionEnabled } from './membership-role-transition';
 import type { Env } from "./env";
 import { audit, linksNotBefore, now,type PrivacyReference } from "./db";
 import { intVar, officerRankNames, rankCheckExempt, staffChannel, staffRoles } from "./env";
@@ -922,7 +923,7 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
     // .115 (finding A): admitted before it starts, at its worst case: a pin and a promotion cost what a worklist promotion
     // does (the pin in place of the claim; the grant's share smaller once the call budget cannot afford one), a removal
     // what a departure does, a pin alone one statement
-    const worst = promoting ? (env.PRIVACY_ERASURE_ENABLED==='true'||affords(calls, GRANT_CALLS) ? effectWorst(env).promote : EFFECT_DEFERRED_WORST.promote) : removing ? effectWorst(env).depart : pin ? 1 : 0;
+    const worst = promoting ? (env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)||affords(calls, GRANT_CALLS) ? effectWorst(env).promote : EFFECT_DEFERRED_WORST.promote) : removing ? effectWorst(env).depart : pin ? 1 : 0;
     if (!worst) continue;
     if (room(adm, SYNC_TAIL + noticeStatementsPending(notices)) < worst) {
       out.deferred++;
@@ -974,7 +975,7 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
     if (env.ROLE_GUILD_MEMBER) {
       try {
         const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null})=>Promise<{state:string;reason?:string}>};
-        if(env.PRIVACY_ERASURE_ENABLED!=='true'){await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}
+        if(!membershipSettlementEnabled(env)){await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}
         else if(!central.settleGuildDepartureRole)await audit(env,'system','role.remove_held',name,{reason:'central_departure_adapter_unavailable'},reference);
         else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null});
          removed=outcome.state==='absent'||outcome.state==='removed'||outcome.state==='settled';
@@ -1054,7 +1055,7 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
     try {
       // .55: through the one role writer (roles.ts): a held blocking role withholds the grant, fail-closed config too.
       const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
-      const roleEnv=env.PRIVACY_ERASURE_ENABLED==='true'?{...env,DB:privacyProviderCustodyDatabase(env)}:env;
+      const roleEnv=env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)?{...env,DB:privacyProviderCustodyDatabase(env)}:env;
       const roleCalls=deferCronRole&&calls?{...calls,limit:0}:calls;
       const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, roleCalls,{subjectGeneration:capture?.subjectGeneration??null});
       granted = outcome === "granted" || outcome === "has-role";
@@ -1411,7 +1412,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
   try {
     for (const it of rows) {
       if (it.seq === null) break;
-      const worst = it.kind === "depart" ? effectWorst(env).depart : env.PRIVACY_ERASURE_ENABLED==='true'||affords(calls, GRANT_CALLS) ? effectWorst(env)[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
+      const worst = it.kind === "depart" ? effectWorst(env).depart : env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)||affords(calls, GRANT_CALLS) ? effectWorst(env)[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
       // The kind's worst case reserves this item's notice; notices from all earlier items still owe SQL at flush.
       if (room(adm, keep + noticeStatementsPending(notices)) < worst) break;
       at = it.seq;
@@ -1542,7 +1543,7 @@ export async function continueRosterEffects(env: Env): Promise<EffectsSlice | nu
   const counted = countStatements(env, count);
   const notices = noticeBatch();
   try {
-    const dormant=count.protocol===true&&env.PRIVACY_ERASURE_ENABLED==='true';
+    const dormant=count.protocol===true&&(env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env));
     if(dormant){
       const owed=await counted.DB.prepare(`SELECT claim FROM roster_effects WHERE done_at IS NOT NULL AND ${CRON_NOTICE_CLAIM}
        AND json_extract(claim,'$.run')=run_id AND json_extract(claim,'$.seq')=seq AND json_extract(claim,'$.createdAt')=done_at
