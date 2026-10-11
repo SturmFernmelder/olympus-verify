@@ -33,6 +33,7 @@
  * answers and attendance and anonymizes them as creator or recorder.
  */
 import type { Env } from "./env";
+import { projectOwnEventCopy } from "./privacy-account-coverage";
 import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
@@ -858,16 +859,16 @@ registerCommunityData(
   (env, id) => ({
     // .74: a plan, run in the copy's one admitted batch
     statements: [
-      env.DB.prepare("SELECT s.event_id, e.title, e.starts_at, s.status, s.character_name, s.raid_role, s.updated_at FROM community_event_signups s JOIN community_events e ON e.id = s.event_id WHERE s.discord_id = ?1 ORDER BY e.starts_at").bind(id),
-      env.DB.prepare("SELECT id, title, starts_at, status FROM community_events WHERE created_by = ?1 ORDER BY starts_at").bind(id),
-      env.DB.prepare("SELECT a.event_id, e.title, e.starts_at, a.state, a.reason_code, a.recorded_at FROM community_event_attendance a JOIN community_events e ON e.id = a.event_id WHERE a.discord_id = ?1 ORDER BY e.starts_at").bind(id),
+      env.DB.prepare("SELECT s.event_id, e.title, e.starts_at, s.status, s.character_name, s.raid_role, s.rsvp_starts_at, s.updated_at FROM community_event_signups s LEFT JOIN community_events e ON e.id = s.event_id WHERE s.discord_id = ?1 ORDER BY e.starts_at").bind(id),
+      env.DB.prepare("SELECT id, title, starts_at, status,created_at,updated_at,ends_at,duration_min,capacity,CASE WHEN role_targets IS NULL THEN NULL ELSE CASE WHEN typeof(role_targets)='text' AND length(role_targets) BETWEEN 1 AND 128 AND length(CAST(role_targets AS BLOB))<=512 AND instr(role_targets,char(0))=0 THEN role_targets ELSE json_extract('privacy_event_copy_text_refused','$') END END AS role_targets,retain_until FROM community_events WHERE created_by = ?1 ORDER BY starts_at").bind(id),
+      env.DB.prepare("SELECT a.event_id, e.title, e.starts_at, a.state, a.source, a.reason_code, a.recorded_at FROM community_event_attendance a LEFT JOIN community_events e ON e.id = a.event_id WHERE a.discord_id = ?1 ORDER BY e.starts_at").bind(id),
     ],
     shape: ([signups, created, attendance]) => {
       const iso = (r: Record<string, unknown>, k: string) => (typeof r[k] === "number" ? secondsToIso(r[k] as number) : null);
       return {
-        signups: (signups!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, title: r.title, startsAt: iso(r, "starts_at"), status: r.status, character: r.character_name, raidRole: r.raid_role, updatedAt: iso(r, "updated_at") })),
-        created: (created!.results as Record<string, unknown>[]).map((r) => ({ id: r.id, title: r.title, startsAt: iso(r, "starts_at"), status: r.status })),
-        attendance: (attendance!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, title: r.title, startsAt: iso(r, "starts_at"), state: r.state, reasonCode: r.reason_code, recordedAt: iso(r, "recorded_at") })),
+        signups: (signups!.results as Record<string, unknown>[]).map((r) => projectOwnEventCopy('signups',r)),
+        created: (created!.results as Record<string, unknown>[]).map((r) => projectOwnEventCopy('created',r)),
+        attendance: (attendance!.results as Record<string, unknown>[]).map((r) => projectOwnEventCopy('attendance',r)),
       };
     },
   }),

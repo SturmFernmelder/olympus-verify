@@ -41,6 +41,7 @@
  * unchanged and nothing dropped, so a long run of candidates the site cannot record never starves a later valid one.
  */
 import type { Env } from "./env";
+import { projectOwnDepartureCopy } from './privacy-account-coverage';
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, type SiteUser } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
@@ -258,9 +259,9 @@ registerCommunityData(
   ],
   (env, id) => ({
     // .74: a plan, run in the copy's one admitted batch
-    statements: [env.DB.prepare(`SELECT d.character_name, d.kind, d.observed_at, d.status, d.reviewed_at, d.retain_until FROM community_departure_reviews d WHERE d.discord_id = ?1 AND ${LIVE} ORDER BY d.observed_at, d.id`).bind(id)],
+    statements: [env.DB.prepare(`SELECT CASE WHEN instr(d.character_name,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE d.character_name END AS character_name, CASE WHEN instr(d.kind,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE d.kind END AS kind, d.observed_at, CASE WHEN instr(d.status,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE d.status END AS status, d.created_at,d.reviewed_at, d.retain_until FROM community_departure_reviews d WHERE d.discord_id = ?1 AND ${LIVE} ORDER BY d.observed_at, d.id`).bind(id)],
     shape: ([rows]) => ({
-      departures: (rows!.results as { character_name: string; kind: Kind; observed_at: number; status: DepartureStatus; reviewed_at: number | null; retain_until: number }[]).map((r) => ({ characterName: r.character_name, kind: r.kind, observedAt: secondsToIso(r.observed_at), status: r.status, reviewedAt: r.reviewed_at === null ? null : secondsToIso(r.reviewed_at), retainUntil: secondsToIso(r.retain_until) })),
+      departures: (rows!.results as Record<string,unknown>[]).map(projectOwnDepartureCopy),
     }),
   }),
 );

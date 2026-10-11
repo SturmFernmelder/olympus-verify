@@ -19,7 +19,7 @@ async function mainRulesetPrivacy(){
  let f=fixture();subject(f);
  eq('actual families13',community.communityDataNames().length,13);
  eq('actual registry statements34',community.communityExportPlan(f.env,A).statements.length,34);
- eq('all curated histories37',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,37);
+ eq('aggregate curated histories37',history.PRIVACY_COPY_HISTORY_COLLECTIONS.length,37);eq('individual histories40',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,40);
  eq('new table has23 typed columns',f.db.prepare('PRAGMA table_info(ruleset_publications)').all().length,23);
  const insert=f.db.prepare('INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,claim_nonce,stage,state,result_code,created_at,updated_at,actor_retain_until) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
  for(let i=0;i<1002;i++)insert.run(B,String(i).padStart(22,'0'),'guide',i+1,'forever-beta-pvp2-v1','private-hash',A,G,7,f.time()+100,B,B,STAFF,'private-payload','private-hash','private-nonce','pin','applied','confirmed',f.time(),f.time(),f.time()+365*86400);

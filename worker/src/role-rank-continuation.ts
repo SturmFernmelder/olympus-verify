@@ -44,7 +44,17 @@ export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:nu
  const rows=await env.DB.prepare(`SELECT id,state,attempts FROM role_settlements WHERE subject=?1 AND subject_generation IS ?3 AND guild_id=?4
  AND purpose IN('roster_native_rank','roster_privileged_rank') AND ((roster_id=?2 AND state='pending' AND attempts=0)
  OR (roster_id<=?2 AND state IN('dispatching','unknown') AND attempts=1))
- ORDER BY CASE WHEN attempts=1 THEN 0 ELSE 1 END,desired,created_at,id LIMIT ?5`).bind(subject,snapshotId,capture.subjectGeneration,env.GUILD_ID,effectLimit).all<{id:string;state:string;attempts:number}>();
+ ORDER BY CASE WHEN attempts=1 THEN 0 ELSE 1 END,desired,
+ CASE WHEN attempts=0 AND desired=1 THEN COALESCE((SELECT MAX(prior.checked_at) FROM role_settlements prior
+ WHERE prior.subject=role_settlements.subject AND prior.guild_id=role_settlements.guild_id AND prior.role_id=role_settlements.role_id
+ AND prior.purpose=role_settlements.purpose AND prior.desired=role_settlements.desired AND prior.subject_generation IS role_settlements.subject_generation
+ AND prior.state='settled' AND prior.reason='fresh_server_confirmed' AND typeof(prior.checked_at)='integer'
+ AND prior.checked_at>=prior.created_at AND prior.checked_at<=CAST(strftime('%s','now') AS INTEGER)),-1) ELSE -1 END,
+ CASE WHEN attempts=0 AND desired=1 THEN COALESCE((SELECT prior.rowid FROM role_settlements prior
+ WHERE prior.subject=role_settlements.subject AND prior.guild_id=role_settlements.guild_id AND prior.role_id=role_settlements.role_id
+ AND prior.purpose=role_settlements.purpose AND prior.desired=role_settlements.desired AND prior.subject_generation IS role_settlements.subject_generation
+ AND prior.state='settled' AND prior.reason='fresh_server_confirmed' AND typeof(prior.checked_at)='integer'
+ AND prior.checked_at>=prior.created_at AND prior.checked_at<=CAST(strftime('%s','now') AS INTEGER) ORDER BY prior.checked_at DESC,prior.rowid DESC LIMIT 1),-1) ELSE -1 END,created_at,id LIMIT ?5`).bind(subject,snapshotId,capture.subjectGeneration,env.GUILD_ID,effectLimit).all<{id:string;state:string;attempts:number}>();
  for(const row of rows.results){if(b.limit-b.attempts<8){parent.exhausted=true;budgetHeld=true;break;}
   try{const r=await settleRoleIntent(env,row.id,row.attempts===1||row.state==='unknown'||row.state==='dispatching',undefined,b);outcomes.push(r);
    if(r.state==='unknown')break;}catch{outcomes.push({state:'held',reason:'central_settlement_failed',operationId:row.id,checkedAt:null});}

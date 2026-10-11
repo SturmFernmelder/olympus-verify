@@ -59,6 +59,7 @@ import { admitted, admittedRead, fenceSql, FENCE_REFUSED, randomToken, refusal, 
 import { refAfter } from "./community-refs";
 import { communityKey, resolveCharacter, validateName } from "./community-names";
 import { secondsToIso } from "./community-time";
+import { ownCopyDate, projectOwnDirectoryCopy } from "./privacy-account-coverage";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
 
 export const PROFESSIONS = ["alchemy", "blacksmithing", "enchanting", "engineering", "herbalism", "leatherworking", "mining", "skinning", "tailoring", "cooking", "fishing", "first_aid"] as const;
@@ -697,4 +698,13 @@ function eraseStatements(env: Env, id: string): D1PreparedStatement[] {
   ];
 }
 
-registerCommunityData("directory", eraseStatements, (env, id) => ({ statements: ownStatements(env, id), shape: (rows) => ownShape(ownFrom(rows)) })); // .74: a plan, run in the copy's one admitted batch
+// Copy-only projection: direct child ownership does not depend on a surviving directory profile.
+registerCommunityData("directory", eraseStatements, (env, id) => {
+ const statements=ownStatements(env,id);
+ statements[0]=env.DB.prepare(`SELECT ${PROFILE_COLUMNS},created_at,updated_at FROM community_profiles WHERE discord_id=?1`).bind(id);
+ return {statements,shape:(rows)=>{
+  const own=ownFrom(rows),p=rows[0]!.results[0] as Record<string,unknown>|undefined;
+  const professions=rows[1]!.results.map(r=>projectOwnDirectoryCopy('professions',r as Record<string,unknown>)),alts=rows[2]!.results.map(r=>projectOwnDirectoryCopy('alts',r as Record<string,unknown>));
+  return {...ownShape(own),createdAt:p?ownCopyDate(p.created_at):null,updatedAt:p?ownCopyDate(p.updated_at):null,departedAt:p?ownCopyDate(p.departed_at,true):null,professions,alts};
+ }};
+}); // Five existing statements, in the copy's one admitted batch; member-facing directory readers stay separate.

@@ -3,6 +3,7 @@
  * Consent is durable, but execution rechecks today's account/organizer/member facts; it never fabricates a session.
  */
 import type { Env } from "./env";
+import { projectOwnReminderCopy } from './privacy-account-coverage';
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, organizerIds, communityFeatures, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { privacyGenerationLiteralFenceSql, privacyProviderCustodyDatabase } from "./privacy-serving-authority";
@@ -248,8 +249,8 @@ export function eventReminderOwnerErase(env: Env, who: string): D1PreparedStatem
 registerCommunityData("event_reminders", (env, who) => [env.DB.prepare(`UPDATE community_event_reminders SET actor=NULL,consent_version=NULL,frozen_content=NULL,cleanup_requested=1,
   state=CASE WHEN state IN('claimed','unknown') THEN 'unknown' WHEN state='armed' THEN 'cancelled' ELSE state END,updated_at=${DB_NOW}
   WHERE actor=?1`).bind(who)],
-  (env, who) => ({ statements: [env.DB.prepare("SELECT event_id,event_revision,state,starts_at,created_at,retain_until FROM community_event_reminders WHERE actor=?1 ORDER BY event_id").bind(who)],
-    shape: ([rows]) => ({ reminders: (rows!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, revision: r.event_revision, state: r.state, startsAt: secondsToIso(r.starts_at as number), createdAt: secondsToIso(r.created_at as number), retainUntil: secondsToIso(r.retain_until as number) })) }) }));
+  (env, who) => ({ statements: [env.DB.prepare("SELECT CASE WHEN instr(event_id,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE event_id END AS event_id,event_revision,CASE WHEN instr(state,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE state END AS state,starts_at,created_at,updated_at,last_attempt_at,cleanup_requested,retain_until FROM community_event_reminders WHERE actor=?1 ORDER BY event_id").bind(who)],
+    shape: ([rows]) => ({ reminders: (rows!.results as Record<string,unknown>[]).map(projectOwnReminderCopy) }) }));
 registerServingPrivacyFamilies('event_reminders',[
   {table:'community_event_reminders',columns:'event_id,event_revision,starts_at,actor,consent_version,guild_id,channel_id,host,op_id,claim_nonce,state,message_id,frozen_content,cleanup_requested,created_at,updated_at,last_attempt_at,retain_until'},
   {table:'community_events',columns:'id,op_id,op_hash,title,details,starts_at,duration_min,ends_at,capacity,role_targets,status,created_by,revision,signup_generation,attendance_generation,nonce,attendance_nonce,publication_closed,reminder_closed,created_at,updated_at,retain_until'},

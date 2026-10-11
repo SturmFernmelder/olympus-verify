@@ -4,6 +4,7 @@
  * This is publication only: it registers no command, scheduler, reminder, role writer or new authority capability.
  */
 import type { Env } from "./env";
+import { projectOwnPublicationCopy } from './privacy-account-coverage';
 import { now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
@@ -364,6 +365,5 @@ export function eventDeliveryExpiry(env: Env, at: number, limit: number): D1Prep
 
 registerCommunityData("event_delivery", (env, who) => [env.DB.prepare(`UPDATE community_event_deliveries SET actor=NULL,session_version=NULL,session_expires=NULL,frozen_content=NULL,payload_hash=NULL,
   cleanup_requested=1,state=CASE WHEN state='claimed' THEN 'unknown' ELSE state END,updated_at=${DB_NOW} WHERE actor=?1`).bind(who)],
-  (env, who) => ({ statements: [env.DB.prepare("SELECT event_id,purpose,event_revision,state,cleanup_requested,created_at,updated_at,retain_until,result_code FROM community_event_deliveries WHERE actor=?1 ORDER BY event_id").bind(who)],
-    shape: ([rows]) => ({ publications: (rows!.results as Record<string, unknown>[]).map((r) => ({ eventId: r.event_id, purpose: r.purpose, revision: r.event_revision, state: r.state,
-      removalPending: r.cleanup_requested === 1, createdAt: secondsToIso(r.created_at as number), updatedAt: secondsToIso(r.updated_at as number), retainUntil: secondsToIso(r.retain_until as number), result: safeResult(r.result_code) })) }) }));
+  (env, who) => ({ statements: [env.DB.prepare("SELECT CASE WHEN instr(event_id,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE event_id END AS event_id,CASE WHEN instr(purpose,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE purpose END AS purpose,event_revision,starts_at,CASE WHEN instr(state,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE state END AS state,cleanup_requested,created_at,updated_at,retain_until,CASE WHEN instr(result_code,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE result_code END AS result_code FROM community_event_deliveries WHERE actor=?1 ORDER BY event_id").bind(who)],
+    shape: ([rows]) => ({ publications: (rows!.results as Record<string,unknown>[]).map(projectOwnPublicationCopy) }) }));

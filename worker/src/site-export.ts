@@ -45,7 +45,8 @@ import './ruleset-publication-data';
  * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
-import { accountDataCoverage, PRIVACY_SUBJECT_COPY_SQL, PRIVACY_SUBJECT_COPY_FIELDS, projectPrivacySubjectRecord } from './privacy-account-coverage';
+import { FormError } from "./policy-form-core";
+import { accountDataCoverage, PRIVACY_SUBJECT_COPY_SQL, PRIVACY_SUBJECT_COPY_FIELDS, projectPrivacySubjectRecord,ownCopyDate,ownCopyQueueHold,ownCopyDecisionMetadata } from './privacy-account-coverage';
 
 import './qr-phase1-data';
 import { audit } from "./db";
@@ -252,7 +253,7 @@ export const CONTRIBUTION_DECISION_CURSOR_LIMIT = 140;
 const CONTRIBUTION_DECISION_CURSOR = /^1\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.(0|[1-9]\d{0,11})\.([A-Za-z0-9_-]{43})$/;
 export const contributionDecisionCursorShape = (raw: string): boolean => raw.length <= CONTRIBUTION_DECISION_CURSOR_LIMIT && CONTRIBUTION_DECISION_CURSOR.test(raw);
 export interface OwnContributionDecisionPage {
-  entries: { action: string; at: string; relation: "subject" | "actor" | "both" }[];
+  entries: { action: string; at: string; guildScope:string;retainUntil:string|null;relation: "subject" | "actor" | "both" }[];
   truncated: boolean; currentCursor: string; nextCursor: string | null;
   capture: { kind: "retained_contribution_decision_range"; at: string; count: number; delivered: number; remaining: number; complete: boolean };
 }
@@ -317,7 +318,7 @@ async function finishContributionDecisions(env: Env, s: CommunitySubject, plan: 
     previous = { ts: r.at, id: r.id };
     if (index < 1000) {
       last = previous;
-      projected.push({ action: r.action, at: secondsToIso(r.at), relation: r.own_subject === 1 ? r.own_actor === 1 ? "both" : "subject" : "actor" });
+      projected.push({ action: r.action, at: secondsToIso(r.at), ...ownCopyDecisionMetadata(r),relation: r.own_subject === 1 ? r.own_actor === 1 ? "both" : "subject" : "actor" });
     }
   }
   const delivered = initial.seen + projected.length, remaining = initial.total - delivered;
@@ -338,7 +339,7 @@ export async function exportMyContributionDecisions(request: Request, env: Env, 
   const clock = out[0]?.results?.[0] as { at?: unknown } | undefined;
   if (!clock || !whole(clock.at)) return contributionDecisionsChanged();
   const at = clock.at;
-  const contributionDecisions = await finishContributionDecisions(env, start.subject, start.plan, at, out[1], out[2]);
+  let contributionDecisions;try{contributionDecisions = await finishContributionDecisions(env, start.subject, start.plan, at, out[1], out[2]);}catch(e){if(e instanceof FormError&&e.code==='privacy_copy_unconfirmed')return apiJson({error:'privacy_copy_unconfirmed'},503);throw e;}
   if (!contributionDecisions) return contributionDecisionsChanged();
   const body: OwnContributionDecisionHistoryView = { generatedAt: secondsToIso(at), coverage: { kind: "curated_partial", ownAccountOnly: true, contributionDecisionsPageLimit: 1000, completeErasure: false }, contributionDecisions };
   await audit(env, start.id, "site.copy_exported", start.id).catch(()=>{});
@@ -385,11 +386,11 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     env.DB.prepare("SELECT role_key, vote, created_at, updated_at FROM site_board_votes WHERE voter_id = ?1 ORDER BY role_key, created_at").bind(id),
     env.DB.prepare("SELECT friend_kind, friend_label, note, created_at FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label").bind(id),
     env.DB.prepare("SELECT name, status, created_at, approved_at, queued_at, released_at FROM site_reserved WHERE owner_id = ?1 ORDER BY id").bind(id),
-    env.DB.prepare("SELECT banned, linked_at, bnet_linked_at, username, global_name, names_at FROM members WHERE discord_id = ?1").bind(id),
+    env.DB.prepare("SELECT banned, linked_at, bnet_linked_at, username, global_name, names_at, activity_at FROM members WHERE discord_id = ?1").bind(id),
     env.DB.prepare("SELECT name, status, bound_at, verified_at, member_since, left_at, source FROM characters WHERE discord_id = ?1 ORDER BY bound_at, name").bind(id),
     env.DB.prepare("SELECT name, created_at, expires_at, consumed_at, consumed_source FROM pending WHERE discord_id = ?1 ORDER BY created_at").bind(id),
-    // .74: the member's own queue state, never the officer, the claim or the note; the actions naming them as subject OR actor, paged
-    env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
+    // .74: the member's own queue state, last refreshed watcher-hold date only, never the officer/claimant or note; the actions naming them as subject OR actor, paged
+    env.DB.prepare("SELECT name, status, attempts, created_at, written_at, invited_at, joined_at, retry_after, last_reason, last_reason_at,claimed_at FROM invite_queue WHERE discord_id = ?1 ORDER BY created_at, id").bind(id),
     ...history.statements,
     ...eventHistory.statements,
     ...decisionHistory.statements,
@@ -410,17 +411,18 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   if (!actionPage) return historyChanged();
   const eventPage = await finishEventChanges(env, subject, eventHistory, at, eventMeta!, eventRows!);
   if (!eventPage) return eventChangesChanged();
-  const decisionPage = await finishContributionDecisions(env, subject, decisionHistory, at, decisionMeta, decisionRows);
+  let decisionPage;try{decisionPage = await finishContributionDecisions(env, subject, decisionHistory, at, decisionMeta, decisionRows);}catch(e){if(e instanceof FormError&&e.code==='privacy_copy_unconfirmed')return apiJson({error:'privacy_copy_unconfirmed'},503);throw e;}
   if (!decisionPage) return contributionDecisionsChanged();
-  const body = {
+  let body:Record<string,unknown>;
+  try {body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
     coverage: { kind: "curated_partial", ownAccountOnly: true, storeInventory:accountDataCoverage('ordinary',privacyCopy), excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
-    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions, actor-linked eventChanges and subject/actor-linked contributionDecisions are separately captured retained ranges with their own capture.at and continuation. Contribution decisions include only current recognized actions, time and your relation; payment evidence, counterpart identities and arbitrary actor text are omitted. Later inserts are excluded from each continued range. A download continuing one range captures its other history datasets afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
+    about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions, actor-linked eventChanges and subject/actor-linked contributionDecisions are separately captured retained ranges with their own capture.at and continuation. Contribution decisions include only current recognized actions, original time/deadline, bounded guild scope and your relation; own weeks are separately selected; payment evidence, counterpart identities and arbitrary actor text are omitted. Later inserts are excluded from each continued range. A download continuing one range captures its other history datasets afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
       : null,
     site: {
-      application: app!.results[0] ? ownApplication(appOut(app!.results[0] as AppRow)) : null,
+      application: app!.results[0] ? { ...ownApplication(appOut(app!.results[0] as AppRow)),reviewedAt:(ownCopyDate((app!.results[0] as AppRow).reviewed_at,true),(app!.results[0] as AppRow).reviewed_at) } : null,
       votes: (votes!.results as Rec[]).map((v) => ({ ballot: v.ballot, slot: v.slot, nominee: { label: v.nominee_label }, reason: v.reason, createdAt: iso(v.created_at as number), updatedAt: iso(v.updated_at as number) })), // .74: the label chosen, no structural account reference
       boardVotes: (board!.results as Rec[]).map((v) => ({ role: v.role_key, vote: v.vote, createdAt: iso(v.created_at as number), updatedAt: iso(v.updated_at as number) })),
       friends: (friends!.results as Rec[]).map((f) => ({ label: f.friend_label, note: f.note, createdAt: iso(f.created_at as number) })),
@@ -429,12 +431,13 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     verification: {
       known: m !== null,
       bannedFromVerifying: m?.banned === 1,
+      lastActivityAt:m?ownCopyDate(m.activity_at,true):null,
       battleNet: m ? { linked: bnetFresh(m.linked_at as number | null), linkedAt: bnetFresh(m.linked_at as number | null) ? iso(m.linked_at as number) : null, profileLinkedAt: bnetFresh(m.bnet_linked_at as number | null) ? iso(m.bnet_linked_at as number) : null } : null,
       discordNames: m ? { username: m.username, displayName: m.global_name, readAt: iso(m.names_at as number | null) } : null,
       characters: (characters!.results as Rec[]).map((c) => ({ name: c.name, status: c.status, boundAt: iso(c.bound_at as number), verifiedAt: iso(c.verified_at as number | null), memberSince: iso(c.member_since as number | null), leftAt: iso(c.left_at as number | null), source: c.source })),
       codeRequests: (requests!.results as Rec[]).map((p) => ({ character: p.name, createdAt: iso(p.created_at as number), expiresAt: iso(p.expires_at as number), usedAt: iso(p.consumed_at as number | null), usedThrough: p.consumed_source })),
       renameRecords: (renames!.results as Rec[]).map((r) => ({ from: r.old_name, to: r.new_name, state: r.state, decidedAt: iso(r.decided_at as number), closedAt: iso(r.closed_at as number | null) })), // .114
-      inviteQueue: (queue!.results as Rec[]).map((q) => ({ character: q.name, status: q.status, attempts: q.attempts, createdAt: iso(q.created_at as number), writtenAt: iso(q.written_at as number | null), invitedAt: iso(q.invited_at as number | null), joinedAt: iso(q.joined_at as number | null), retryAfter: iso(q.retry_after as number | null), lastRefusal: q.last_reason ? { reason: q.last_reason, at: iso(q.last_reason_at as number | null) } : null })),
+      inviteQueue: (queue!.results as Rec[]).map((q) => ({ character: q.name, status: q.status, attempts: q.attempts, createdAt: iso(q.created_at as number), writtenAt: iso(q.written_at as number | null), invitedAt: iso(q.invited_at as number | null), joinedAt: iso(q.joined_at as number | null), retryAfter: iso(q.retry_after as number | null), ...ownCopyQueueHold(q),lastRefusal: q.last_reason ? { reason: q.last_reason, at: iso(q.last_reason_at as number | null) } : null })),
     },
     actions: actionPage,
     eventChanges: eventPage,
@@ -445,7 +448,10 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
       providerCleanup:{complete:out[19+plan.statements.length]!.results.length<=1000,rows:out[19+plan.statements.length]!.results.slice(0,1000)},
       recoverySuppression:{complete:out[20+plan.statements.length]!.results.length<=1000,rows:out[20+plan.statements.length]!.results.slice(0,1000)},
       rejectionMarker:out[21+plan.statements.length]!.results}}:{}),
-  };
+  };}catch(e){
+    if(e instanceof FormError && e.code==='privacy_copy_unconfirmed')return apiJson({error:'privacy_copy_unconfirmed'},503);
+    throw e;
+  }
   await audit(env, id, "site.copy_exported", id).catch(()=>{});
   return apiJson(body, 200, { "Content-Disposition": 'attachment; filename="olympus-my-data.json"' });
 }

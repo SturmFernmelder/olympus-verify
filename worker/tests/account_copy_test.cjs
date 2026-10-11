@@ -560,14 +560,14 @@ async function erasureRequest(target, actor) {
         const seedDecisions = (size, over={}) => {
           const f=newAccount(0,over), expected=[], rowIds=[], deadline=realNow()+86400;
           for(let i=0;i<size;i++) {
-            const at=T+3000+Math.floor(i/700), action=decisionActions[i%decisionActions.length], kind=i%4;
-            const subject=kind<2?f.id:OTHER, actor=kind===0?"member:"+f.id:kind===1?"user:"+f.id:kind===2?"member:"+f.id:"staff:"+f.id;
-            rowIds.push(Number(putDecision.run("private-scope",subject,999,action,actor,7,"private-nonce",at,deadline).lastInsertRowid));
-            expected.push({action,at:iso(at),relation:kind===0?"both":kind===1?"subject":"actor"});
+            const at=T+3000+Math.floor(i/700), action=decisionActions[i%decisionActions.length], kind=i%6;
+            const subject=kind<2?f.id:OTHER, actor=["member:"+f.id,"user:"+f.id,"member:"+f.id,"staff:"+f.id,f.id,"user:"+f.id][kind];
+            rowIds.push(Number(putDecision.run("Olympus-I",subject,999,action,actor,7,"private-nonce",at,deadline).lastInsertRowid));
+            expected.push({action,at:iso(at),guildScope:"Olympus-I",retainUntil:iso(deadline),relation:kind<2?"both":"actor"});
             putDecision.run("foreign-scope",OTHER,998,"state_open","staff:"+OTHER,8,"foreign-nonce",at,deadline);
           }
-          // Explicitly unresolved actor-only aliases, an expired own record, and another person's row are not owned live decisions.
-          for(const actor of [f.id,"user:"+f.id,"erased"]) putDecision.run("alias-scope",OTHER,997,"state_open",actor,9,"alias-nonce",T,deadline);
+          // Non-matching and erased aliases, expired own records and another person's rows remain excluded.
+          for(const actor of ["user:"+f.id+"0","staff:"+OTHER,"erased"]) putDecision.run("alias-scope",OTHER,997,"state_open",actor,9,"alias-nonce",T,deadline);
           putDecision.run("expired-scope",f.id,996,"state_open","member:"+f.id,10,"expired-nonce",T,realNow()-1);
           return {...f,expected,rowIds,deadline};
         };
@@ -582,12 +582,21 @@ async function erasureRequest(target, actor) {
         };
         for(const size of [0,1,1000,1001,2005]) {
           const f=seedDecisions(size), session=await cookieFor(f.id), first=await decisionPost(session), p=first.body.contributionDecisions;
-          check(`.120 ${size}: live subject/member/staff ownership deduplicates both and omits unresolved aliases/private fields`,first.status===200 && p.capture.kind==="retained_contribution_decision_range" && p.capture.count===size && p.entries.length===Math.min(size,1000) && p.capture.complete===(size<=1000) && first.body.coverage.contributionDecisionsPageLimit===1000 && first.body.coverage.completeErasure===false && p.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,relation") && !JSON.stringify(p).includes(OTHER) && !JSON.stringify(p).includes("private-"));
+          check(`.120 ${size}: exact subject/raw/user/member/staff ownership deduplicates both and omits foreign/erased aliases/private fields`,first.status===200 && p.capture.kind==="retained_contribution_decision_range" && p.capture.count===size && p.entries.length===Math.min(size,1000) && p.capture.complete===(size<=1000) && first.body.coverage.contributionDecisionsPageLimit===1000 && first.body.coverage.completeErasure===false && p.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,guildScope,relation,retainUntil") && !JSON.stringify(p).includes(OTHER) && p.entries.every(row=>row.guildScope==="Olympus-I"&&row.retainUntil===iso(f.deadline)) && !["foreign-scope","alias-scope","expired-scope","private-nonce","foreign-nonce","alias-nonce","expired-nonce"].some(token=>JSON.stringify(p).includes(token)));
           putDecision.run("later",f.id,999,"state_open","staff:"+f.id,11,"later",T-9000,f.deadline);putDecision.run("later",f.id,999,"state_open","staff:"+f.id,11,"later",T+9000,f.deadline);
           const pages=[p];let token=p.nextCursor;
           while(token){const next=await decisionPost(session,token);check(".120 real Next POST retains its contribution capture",next.status===200);pages.push(next.body.contributionDecisions);token=next.body.contributionDecisions.nextCursor;}
           check(`.120 ${size}: identical-time order and interleaved foreign ids traverse exactly once; later/backdated inserts stay outside H`,JSON.stringify(pages.flatMap(x=>x.entries))===JSON.stringify(f.expected) && pages.every(x=>x.capture.count===size && x.capture.at===p.capture.at) && pages.at(-1).capture.complete===true && token===null);
           if(size===1){const current=await decisionPost(session,p.currentCursor), original=await start(f.id,session);check(".120 Current contribution download and default JSON preserve separate action/event collections",current.status===200 && JSON.stringify(current.body.contributionDecisions.entries)===JSON.stringify(f.expected) && original.status===200 && original.body.actions.capture.kind==="retained_action_range" && original.body.eventChanges.capture.kind==="retained_event_change_range" && original.body.contributionDecisions.capture.count===3);}
+        }
+        for(const spelling of ["raw","user","member","staff"]) {
+          const f=seedDecisions(0), actor=spelling==="raw"?f.id:spelling+":"+f.id, at=T-123;
+          putDecision.run("Olympus-II",OTHER,123,"state_disputed",actor,9,"counterpart-private-nonce",at,f.deadline);
+          const ordinary=await decisionPost(await cookieFor(f.id));
+          check(".150 exact actor-only "+spelling+" is included once through actual ordinary HTTP",ordinary.status===200 && ordinary.body.contributionDecisions.capture.count===1 && JSON.stringify(ordinary.body.contributionDecisions.entries)===JSON.stringify([{action:"state_disputed",at:iso(at),guildScope:"Olympus-II",retainUntil:iso(f.deadline),relation:"actor"}]));
+          check(".150 actor-only "+spelling+" retains closed projection without counterpart or private linkage",!JSON.stringify(ordinary.body.contributionDecisions).includes(OTHER) && ordinary.body.contributionDecisions.entries.every(row=>row.guildScope==="Olympus-II"&&row.retainUntil===iso(f.deadline)) && !["counterpart-private-nonce","private-nonce","foreign-scope","foreign-nonce"].some(token=>JSON.stringify(ordinary.body.contributionDecisions).includes(token)) && ordinary.body.contributionDecisions.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,guildScope,relation,retainUntil"));
+          const selected=db.prepare(load("./community-contributions").ownContributionCopyDecisionSource()).all(f.id);
+          check(".150 identify and ordinary "+spelling+" select the same minimized relationship",selected.length===1 && selected[0].own_subject===0 && selected[0].own_actor===1 && selected[0].at===at && selected[0].action==="state_disputed" && selected[0].guild_scope==="Olympus-II" && selected[0].retain_until===f.deadline && Object.keys(selected[0]).sort().join(",")==="action,at,guild_scope,id,own_actor,own_subject,retain_until");
         }
         for(const mutation of ["delivered-delete","remaining-delete","ownership-drop","tuple-drop","retention-expired"]) {
           const f=seedDecisions(1001), session=await cookieFor(f.id), first=await decisionPost(session), token=first.body.contributionDecisions.nextCursor;
@@ -773,6 +782,115 @@ async function erasureRequest(target, actor) {
       BEFORE = savedBefore; AFTER = savedAfter; db = savedDb; fixtureDb?.close();
       stubs["./discord"].removeRole = oldRemove; stubs["./discord"].addRole = oldAdd;
     }
+  }
+  // .150: newly selected own QR text is bounded and NUL-refused natively before the bridge; older omitted fields retain their scope.
+  {
+    const savedDb=db,savedBefore=BEFORE,savedAfter=AFTER,savedJson=stubs['./discord'].json,g='a'.repeat(32);let serial=0,fixtureDb;
+    try {
+      BEFORE=null;AFTER=null;stubs["./discord"].json=realDiscord.json;
+      const cases=['requester_name','rank_name','native_rank_name'].flatMap(field=>['NUL','length','huge','blob','empty'].map(kind=>({field,kind}))).concat([{field:null,kind:'excluded and valid boundaries'}]);
+      for(const {field,kind} of cases){
+        const label=String(field)+' '+kind;
+        fixtureDb=freshDb();db=fixtureDb;
+        const id=String(970000000000000000n+BigInt(++serial)),other='969999999999999999',outside='968888888888888888';
+        siteUser(id,{in_server:0,denied:1});
+        db.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at) VALUES(?,?,'active',3,?,?)").run(id,g,T,T);
+        const proof=(suffix,requester,signer,name,rank)=>{
+          const key='qr-nul-key-'+suffix,challenge='qr-nul-challenge-'+suffix,code='qr-nul-code-'+suffix;
+          db.prepare('INSERT INTO councillor_keys(id,signer,signer_guid,public_key,subject_generation,roster_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)').run(key,signer,'Selected signer guid '+suffix,'synthetic-public-key-'+suffix,g,1,T-60,T+600);
+          db.prepare("INSERT INTO councillor_challenges(nonce,key_id,signer,session_version,session_expires,created_at,expires_at,mode,max_proofs) VALUES(?,?,?,1,?,?,?,'single',1)").run(challenge,key,signer,T+600,T-60,T+600);
+          db.prepare("INSERT INTO verification_requests(code,requester,subject_generation,created_at,expires_at,state) VALUES(?,?,?,?,?,'proved')").run(code,requester,g,T-60,T+600);
+          db.prepare('INSERT INTO verification_proofs(id,code,challenge,signer,key_id,requester,requester_guid,requester_name,native_rank,rank_name,native_profile,signer_guid,snapshot_id,subject_generation,digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run('qr-nul-proof-'+suffix,code,challenge,signer,key,requester,'OMITTED_QR_GUID\u0000suffix',name,2,rank,'OMITTED_QR_PROFILE\u0000'+'x'.repeat(20000),'OMITTED_QR_SIGNER_GUID',1,g,'qr-nul-digest-'+suffix,T-60,T+600);
+        };
+        proof('own',id,other,'名'.repeat(60),'級'.repeat(64));
+        // Selected signer-only proof: counterpart requester/rank text must remain literal NULL, including malformed text.
+        proof('signer',other,id,'FOREIGN_QR_NAME\u0000'+'x'.repeat(20000),'FOREIGN_QR_RANK\u0000'+'x'.repeat(20000));
+        // Entirely foreign proof and role rows remain outside the own predicates.
+        proof('outside',outside,other,'OUTSIDE_QR_NAME\u0000'+'x'.repeat(20000),'OUTSIDE_QR_RANK\u0000'+'x'.repeat(20000));
+        const role=db.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,native_profile,native_rank,native_rank_name,created_at,expires_at) VALUES(?,?,'rank','OMITTED_QR_GUILD','OMITTED_QR_ROLE',1,'held','roster',?,?,?, ?,?)");
+        role.run('qr-own-role',id,'OMITTED_QR_ROLE_PROFILE\u0000'+'x'.repeat(20000),2,'級'.repeat(64),T-55,T+600);
+        role.run('qr-null-role',id,null,null,null,T-54,T+600);
+        role.run('qr-outside-role',other,'OMITTED_QR_ROLE_PROFILE',2,'OUTSIDE_QR_RANK\u0000'+'x'.repeat(20000),T-53,T+600);
+        if(field){
+          const table=field==='native_rank_name'?'role_settlements':'verification_proofs',row=field==='native_rank_name'?'qr-own-role':'qr-nul-proof-own',prefix=field==='requester_name'?'Own Character':'Officer';
+          const max=field==='requester_name'?60:64,value=kind==='NUL'?prefix+'\u0000bad':kind==='length'?'n'.repeat(max+1):kind==='huge'?'n'.repeat(20000):kind==='blob'?Buffer.from('Officer'):'';
+          db.prepare('UPDATE '+table+' SET '+field+'=? WHERE id=?').run(value,row);
+          const raw=one('SELECT typeof('+field+') AS type,length('+field+') AS chars,length(CAST('+field+' AS BLOB)) AS bytes,instr('+field+',char(0)) AS nul FROM '+table+' WHERE id=?',row);
+          check('.150 QR '+label+' actual native malformed value is stored',kind==='NUL'?raw.nul>0:kind==='blob'?raw.type==='blob':kind==='empty'?raw.chars===0:raw.chars>max);
+          if(kind==='huge')check('.150 QR '+label+' actual native bytes exceed conservative cap',raw.bytes>(field==='requester_name'?240:256));
+        }
+        const e=env({...ON,PRIVACY_RETENTION_ENABLED:'true'}),session=await cookieFor(id),request=new Request('https://guild.example/api/me/export',{headers:{Cookie:session}});
+        const original=await siteCore.readSession(e,request);
+        check('.150 QR '+label+' original session MAC and generation admitted',original?.u===id&&original.v===1&&original.g===g);
+        const response=await indexMod.default.fetch(request,e,ctx);
+        check(".150 QR "+label+" actual source formatter returns native Response",response instanceof Response&&response.headers instanceof Headers);
+        const text=await response.text();let body={};try{body=JSON.parse(text);}catch{}
+        console.log('QR_ORDINARY_NATIVE_ORIGINAL '+JSON.stringify({field:field??'foreign and omitted controls',kind,status:response.status,headers:Object.fromEntries(response.headers),body:text,authority:'actual index.fetch with original signed ordinary session and stored generation',credentialBindingsRecorded:false}));
+        if(field){
+          check('.150 QR '+label+' own malformed native text refuses through actual ordinary route503',response.status===503&&body.error==='erasure_held');
+          check('.150 QR '+label+' no truncated success attachment or payload',!response.headers.get('Content-Disposition')&&!Object.hasOwn(body,'account')&&!Object.hasOwn(body,'community')&&!text.includes('Own Character')&&!text.includes('qr-own-role'));
+          check('.150 QR '+label+' native failed read adds no copy audit',one("SELECT COUNT(*) AS n FROM audit WHERE actor=? AND action='site.copy_exported'",id).n===0);
+        }else{
+          const qr=body.community?.councillor_verification,own=qr?.attestations.rows.find(r=>r.own_part==='requester'),signer=qr?.attestations.rows.find(r=>r.own_part==='signer');
+          check('.150 QR excluded/omitted NUL keeps genuine own ordinary copy200',response.status===200&&body.account.discordId===id&&response.headers.get('Content-Disposition')==='attachment; filename="olympus-my-data.json"');
+          check('.150 QR requester own valid strings unchanged',own?.requester_name==='名'.repeat(60)&&own.native_rank===2&&own.rank_name==='級'.repeat(64));
+          check('.150 QR signer-only counterpart NUL remains three literal nulls',signer?.requester_name===null&&signer.native_rank===null&&signer.rank_name===null);
+          check('.150 QR foreign rows and omitted pointers/profile not selected',qr.attestations.rows.length===2&&qr.roleOutcomes.rows.length===2&&!['FOREIGN_QR_NAME','FOREIGN_QR_RANK','OUTSIDE_QR_NAME','OUTSIDE_QR_RANK','OMITTED_QR'].some(t=>text.includes(t)));
+          check('.150 QR own role native rank64 boundary preserved',qr.roleOutcomes.rows.find(r=>r.id==='qr-own-role').native_rank_name==='級'.repeat(64));
+          const nullable=qr.roleOutcomes.rows.find(r=>r.id==='qr-null-role');check('.150 QR nullable own rank tuple remains explicit null',nullable.native_rank===null&&nullable.native_rank_name===null);
+        }
+        const current=one('SELECT generation,revision FROM privacy_subjects WHERE subject_id=?',id);
+        check('.150 QR '+label+' original generation/revision remains unchanged',current.generation===g&&current.revision===3);
+        fixtureDb.close();fixtureDb=null;
+      }
+    }finally{db=savedDb;BEFORE=savedBefore;AFTER=savedAfter;stubs["./discord"].json=savedJson;fixtureDb?.close();}
+  }
+  // .150: own created-event role JSON must be bounded and NUL-refused before native text materialization.
+  {
+    const savedDb=db,savedBefore=BEFORE,savedAfter=AFTER,savedJson=stubs['./discord'].json,g='c'.repeat(32);let serial=0,fixtureDb;
+    try {
+      BEFORE=null;AFTER=null;stubs['./discord'].json=realDiscord.json;
+      for(const kind of ['NUL','length','huge','blob','valid128','null']){
+        fixtureDb=freshDb();db=fixtureDb;
+        const id=String(980000000000000000n+BigInt(++serial)),other='979999999999999999',ownId='R'+String(serial).padStart(21,'0'),foreignId='F'+String(serial).padStart(21,'0');
+        siteUser(id,{in_server:0,denied:1});
+        db.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at) VALUES(?,?,'active',3,?,?)").run(id,g,T,T);
+        const json='{"tank":1,"healer":2,"damage":3}';
+        const targets=kind==='NUL'?json+'\u0000ignored':kind==='length'?json+' '.repeat(129-json.length):kind==='huge'?json+' '.repeat(20000):kind==='blob'?Buffer.from(json):kind==='valid128'?json+' '.repeat(128-json.length):null;
+        const event=db.prepare("INSERT INTO community_events(id,op_id,title,starts_at,duration_min,ends_at,capacity,role_targets,status,created_by,created_at,updated_at,retain_until) VALUES(?,?,?, ?,60,?,20,?,'scheduled',?,?,?,?)");
+        event.run(ownId,'own-event-role-'+serial,'Own role metadata',T+600,T+4200,targets,id,T-60,T-30,T+4200+30*86400);
+        event.run(foreignId,'foreign-event-role-'+serial,'Foreign public event',T+900,T+4500,json+'\u0000FOREIGN_ROLE_TARGETS'+'x'.repeat(20000),other,T-59,T-29,T+4500+30*86400);
+        // Own signup may include the foreign event's safe context, but never its creator-only role_targets.
+        db.prepare("INSERT INTO community_event_signups(event_id,discord_id,status,character_name,raid_role,rsvp_starts_at,updated_at) VALUES(?,?,'yes',NULL,'tank',?,?)").run(foreignId,id,T+900,T-20);
+        const raw=one('SELECT typeof(role_targets) AS type,length(role_targets) AS chars,length(CAST(role_targets AS BLOB)) AS bytes,instr(role_targets,char(0)) AS nul,json_valid(role_targets) AS valid FROM community_events WHERE id=?',ownId);
+        check('.150 event '+kind+' genuine schema stores nullable or JSON-valid native value',kind==='null'?raw.type==='null':raw.valid===1);
+        if(kind==='NUL')check('.150 event native json_valid permits stored NUL suffix',raw.nul>0&&raw.bytes>raw.chars);
+        if(kind==='length'||kind==='huge')check('.150 event '+kind+' original native text length over128',raw.chars>128);
+        if(kind==='huge')check('.150 event huge original native bytes over512',raw.bytes>512);
+        if(kind==='blob')check('.150 event native BLOB is genuinely stored',raw.type==='blob');
+        const e=env({...ON,PRIVACY_RETENTION_ENABLED:'true'}),session=await cookieFor(id),request=new Request('https://guild.example/api/me/export',{headers:{Cookie:session}});
+        const original=await siteCore.readSession(e,request);
+        check('.150 event '+kind+' genuine ordinary MAC/current generation admitted',original?.u===id&&original.v===1&&original.g===g);
+        const response=await indexMod.default.fetch(request,e,ctx);
+        check('.150 event '+kind+' real source formatter returns native Response/Headers',response instanceof Response&&response.headers instanceof Headers);
+        const text=await response.text();let body={};try{body=JSON.parse(text);}catch{}
+        console.log('EVENT_ROLE_TARGETS_NATIVE_ORIGINAL '+JSON.stringify({kind,status:response.status,headers:Object.fromEntries(response.headers),body:text,authority:'real index.fetch with genuine ordinary signed session and stored subject generation; actual source json formatter',credentialBindingsRecorded:false}));
+        if(!['valid128','null'].includes(kind)){
+          check('.150 event '+kind+' selected own malformed role targets refuses503',response.status===503&&body.error==='erasure_held');
+          check('.150 event '+kind+' no truncated success or attachment',!response.headers.get('Content-Disposition')&&!Object.hasOwn(body,'account')&&!Object.hasOwn(body,'community'));
+          check('.150 event '+kind+' refused read adds no export audit',one("SELECT COUNT(*) AS n FROM audit WHERE actor=? AND action='site.copy_exported'",id).n===0);
+        }else{
+          const events=body.community?.events,created=events?.created;
+          check('.150 event '+kind+' legitimate ordinary copy succeeds200 with exact attachment',response.status===200&&body.account.discordId===id&&response.headers.get('Content-Disposition')==='attachment; filename="olympus-my-data.json"');
+          check('.150 event '+kind+' own created event roles preserve exact structured facts',created?.length===1&&created[0].id===ownId&&(kind==='null'?created[0].roleTargets===null:JSON.stringify(created[0].roleTargets)===json));
+          check('.150 event '+kind+' foreign creator roles remain excluded despite own signup',events.signups.length===1&&events.signups[0].eventId===foreignId&&!text.includes('FOREIGN_ROLE_TARGETS')&&created.every(x=>x.id!==foreignId));
+          check('.150 event '+kind+' original created and updated dates preserved',created[0].createdAt===new Date((T-60)*1000).toISOString()&&created[0].updatedAt===new Date((T-30)*1000).toISOString());
+        }
+        const current=one('SELECT generation,revision FROM privacy_subjects WHERE subject_id=?',id);
+        check('.150 event '+kind+' original subject generation/revision unchanged',current.generation===g&&current.revision===3);
+        fixtureDb.close();fixtureDb=null;
+      }
+    }finally{db=savedDb;BEFORE=savedBefore;AFTER=savedAfter;stubs['./discord'].json=savedJson;fixtureDb?.close();}
   }
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

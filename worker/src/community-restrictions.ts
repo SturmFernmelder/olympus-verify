@@ -57,6 +57,7 @@
  * orphan-period cleanup honors the run's limit.
  */
 import type { Env } from "./env";
+import { projectOwnRestrictionCopy } from './privacy-account-coverage';
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, type SiteUser } from "./site-core";
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
@@ -546,14 +547,14 @@ registerCommunityData(
   (env, id) => ({
     // .74: a plan, run in the copy's one admitted batch; .73: live rows only, by the database clock (the effective cutoff)
     statements: [
-      env.DB.prepare(`SELECT category, set_at, review_at, expires_at, appeal_status, review_outcome, reviewed_at, acknowledged_at, resolved_at, ${ACTIVE("community_restriction_cases")} AS active FROM community_restriction_cases WHERE discord_id = ?1 AND ${LIVE_CASE("community_restriction_cases")} ORDER BY set_at, id`).bind(id),
+      env.DB.prepare(`SELECT CASE WHEN instr(category,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE category END AS category, set_at, review_at, expires_at, CASE WHEN instr(appeal_status,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE appeal_status END AS appeal_status, CASE WHEN instr(review_outcome,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE review_outcome END AS review_outcome, reviewed_at, acknowledged_at, resolved_at,updated_at,retain_until, ${ACTIVE("community_restriction_cases")} AS active FROM community_restriction_cases WHERE discord_id = ?1 AND ${LIVE_CASE("community_restriction_cases")} ORDER BY set_at, id`).bind(id),
       env.DB.prepare(`SELECT c.category, w.character_name, w.added_at, w.review_at, w.expires_at, w.renewed_at, w.renewal_reason FROM community_restriction_characters w JOIN community_restriction_cases c ON c.id = w.case_id WHERE c.discord_id = ?1 AND w.expires_at > ${DB_NOW} AND ${LIVE_CASE("c")} ORDER BY w.added_at, w.character_key`).bind(id),
       env.DB.prepare("SELECT opened_at, retain_until, renewed_at, renewal_reason FROM community_restriction_periods WHERE discord_id = ?1").bind(id),
     ],
     shape: ([cases, rows, period]) => {
       const p = (period!.results[0] ?? null) as { opened_at: number; retain_until: number; renewed_at: number | null; renewal_reason: string | null } | null;
       return {
-        cases: (cases!.results as Record<string, number | string | null>[]).map((r) => ({ category: r.category, setAt: secondsToIso(r.set_at as number), reviewAt: secondsToIso(r.review_at as number), expiresAt: iso(r.expires_at as number | null), appealStatus: r.appeal_status, reviewOutcome: r.review_outcome, reviewedAt: iso(r.reviewed_at as number | null), acknowledgedAt: iso(r.acknowledged_at as number | null), resolvedAt: iso(r.resolved_at as number | null), active: r.active === 1 })),
+        cases: (cases!.results as Record<string,unknown>[]).map(projectOwnRestrictionCopy),
         watchList: (rows!.results as Record<string, number | string | null>[]).map((r) => ({ category: r.category, characterName: r.character_name, addedAt: secondsToIso(r.added_at as number), reviewAt: secondsToIso(r.review_at as number), expiresAt: secondsToIso(r.expires_at as number), renewedAt: iso(r.renewed_at as number | null), renewalReason: r.renewal_reason })),
         watchListPeriod: p ? { openedAt: secondsToIso(p.opened_at), retainUntil: secondsToIso(p.retain_until), renewedAt: iso(p.renewed_at), renewalReason: p.renewal_reason } : null,
       };

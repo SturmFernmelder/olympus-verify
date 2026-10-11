@@ -8,6 +8,32 @@ if(source.split(boundary).length!==2)throw Error('genuine OAuth fixture boundary
 const casePath=path.join(__dirname,'privacy_history_native_cases.cjs');
 async function review(){
  load('index');const registry=load('community-context'),ctx={A,B,STAFF,G,load};
+ // Literal approved metadata from original fixture inputs, never derived from returned payloads.
+ function expectedOwnMetadata(key,index,t){
+  const at=t-10000+index,iso=seconds=>new Date(seconds*1000).toISOString();
+  switch(key){
+   case 'verification.inviteQueue':return {lastWatcherHoldAt:iso(at)};
+   case 'community.directory.alts':return {claimedAt:iso(at),reviewedAt:iso(at),updatedAt:iso(at)};
+   case 'community.events.signups':return {rsvpStartsAt:iso(t+100),updatedAt:iso(at)};
+   case 'community.events.created':return {createdAt:iso(t-100),updatedAt:iso(t-100),endsAt:iso(t+3700),durationMin:60,capacity:null,roleTargets:null,retainUntil:iso(t+3700+30*86400)};
+   case 'community.events.attendance':return {source:'officer',recordedAt:iso(at)};
+   case 'community.trials.trials':return {createdAt:iso(at),updatedAt:iso(at),retainUntil:iso(t+10000)};
+   case 'community.restrictions.cases':return {updatedAt:iso(t-100),retainUntil:iso(t+10000)};
+   case 'community.departures.departures':return {createdAt:iso(at),observedAt:iso(at),reviewedAt:iso(at),retainUntil:iso(t+10000)};
+   case 'community.contributions.obligations':return {guildScope:'own-scope-'+index,createdAt:iso(at),updatedAt:iso(at),retainUntil:iso(t+10000)};
+   case 'community.contributions.receipts':return {guildScope:'olympus',createdAt:iso(at),retainUntil:iso(t+10000)};
+   case 'community.event_delivery.publications':return {startsAt:iso(t+100),createdAt:iso(at),updatedAt:iso(at),retainUntil:iso(at+366*86400)};
+   case 'community.event_reminders.reminders':return {startsAt:iso(t+100),createdAt:iso(at),updatedAt:iso(at),lastSchedulerConsideredAt:null,removalPending:false,retainUntil:iso(at+366*86400)};
+   case 'community.councillor_verification.attestations':return {own_part:'requester',requester_name:'Own character '+index,native_rank:1,rank_name:'Officer',created_at:at,expires_at:t+1000};
+   case 'community.councillor_verification.roleOutcomes':return {native_rank:1,native_rank_name:'Officer',created_at:at,expires_at:t+1000,checked_at:null};
+   default:return null;
+  }
+ }
+ function exactOwnMetadata(key,entry,index,t,position){
+  const expected=expectedOwnMetadata(key,index,t);if(expected===null)return;
+  for(const [field,value]of Object.entries(expected))eq(key+' '+position+' original own metadata '+field+' index'+index,entry[field],value);
+ }
+
  eq('independent34 static retained array cases',nativeCases.cases.length,34);
  eq('independent37 exact history coverage',nativeCases.collections.length,37);
  eq('actual production registers thirteen export families',Array.from(registry.communityDataNames()).length,13);
@@ -69,7 +95,7 @@ async function review(){
  }
  // Every new physical array gets an independent own/counterpart fixture and full >1000 traversal when its schema permits.
  for(const item of nativeCases.cases){
-  const f=fixture();let expected=Math.min(1002,item.capacity);
+  const f=fixture(),seedAt=f.time();let expected=Math.min(1002,item.capacity);
   if(item.key==='community.privacy_access.connections'){
    for(let i=0;i<500;i++)await connect(f,A);await connect(f,B);expected=1000;
   }else{
@@ -94,19 +120,28 @@ async function review(){
   eq(item.key+' own count excludes all counterpart records',first.capture.count,expected);
   eq(item.key+' first payload count',first.entries.length,Math.min(1000,expected));
   eq(item.key+' selected original current cursor retains preview prefix',first.entries.slice(0,previewRows.length),previewRows);
-  for(const entry of first.entries)eq(item.key+' exact established projection keys',Object.keys(entry).sort(),item.fields.slice().sort());
+  for(const [index,entry]of first.entries.entries()){eq(item.key+' exact established projection keys',Object.keys(entry).sort(),item.fields.slice().sort());exactOwnMetadata(item.key,entry,index,seedAt,'first');}
   if(expected>1000){
    eq(item.key+' exact remaining tail',first.capture.remaining,expected-1000);eq(item.key+' first page incompleteness honest',first.capture.complete,false);
    const last=(await download(f,item.key,first.nextCursor)).body.history;
    eq(item.key+' retained tail entries reachable',last.entries.length,expected-1000);eq(item.key+' full selected count delivered',last.capture.delivered,expected);
    eq(item.key+' tail complete with no hidden rest',last.capture.complete,true);eq(item.key+' tail no next cursor',last.nextCursor,null);
    eq(item.key+' original capture never refreshed',last.capture.at,first.capture.at);eq(item.key+' original24h deadline never refreshed',last.capture.expiresAt,first.capture.expiresAt);
-   for(const entry of last.entries)eq(item.key+' tail exact established keys',Object.keys(entry).sort(),item.fields.slice().sort());
+   for(const [offset,entry]of last.entries.entries()){eq(item.key+' tail exact established keys',Object.keys(entry).sort(),item.fields.slice().sort());exactOwnMetadata(item.key,entry,first.entries.length+offset,seedAt,'tail');}
    const reread=(await download(f,item.key,first.currentCursor)).body.history;
    eq(item.key+' fresh original grant can reread exact first page',reread.entries,first.entries);
   }else{eq(item.key+' legal finite capacity complete',first.capture.complete,true);eq(item.key+' no invented impossible tail',first.nextCursor,null);}
   f.db.close();
  }
+ // Nullable queue hold remains explicitly NULL, never an invented claim or invitation date.
+ const nullQueue=fixture();nativeCases.seed(nullQueue,'verification.inviteQueue',A,1,ctx);nativeCases.seed(nullQueue,'verification.inviteQueue',B,1,ctx,10000);
+ nullQueue.db.prepare('UPDATE invite_queue SET claimed_at=NULL WHERE discord_id=?').run(A);
+ const nullHold=(await download(nullQueue,'verification.inviteQueue')).body.history.entries;
+ eq('queue native NULL hold owns exactly one retained row',nullHold.length,1);
+ eq('queue native NULL hold has exact closed keys',Object.keys(nullHold[0]).sort(),nativeCases.cases.find(c=>c.key==='verification.inviteQueue').fields.slice().sort());
+ eq('queue native NULL hold stays explicitly nullable',nullHold[0].lastWatcherHoldAt,null);
+ eq('queue original creation date survives null hold',nullHold[0].created_at,nullQueue.time()-10000);
+ nullQueue.db.close();
  // Aggregate source graph and coverage include every history, independently of registration order.
  const f=fixture(),frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
  const aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json();f.hooks.statement=null;f.hooks.beforeBatch=null;
