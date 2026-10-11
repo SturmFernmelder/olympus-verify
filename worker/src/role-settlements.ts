@@ -372,7 +372,7 @@ async function settleOwnedMembershipPair(env:Env,subject:string,purpose:RemovalP
   AND p.subject_generation IS ?6 AND p.state IN('settled','dispatching','unknown') AND ${fields.map(k=>`p.${k} IS json_extract(?10,'$.${k}')`).join(' AND ')})`;
  const base=`(${cause}) AND ${privacyGenerationFenceSql(2,6)}`;
  const args=(id:string,role:string,nonce:string)=>([id,subject,purpose,binding.guild,role,g,Number(env.LINKS_NOT_BEFORE||0),nonce,binding.retired!,parent] as (string|number|null)[]);
- let target:Member|null;try{target=await qualify(env,b,subject,binding.current,false,false,[{id:binding.retired!,cosmetic:false}]);}catch{return result('held','inventory_hierarchy_or_server_hold');}
+ let target:Member|null;try{target=await qualify(env,b,subject,binding.current,false,false,[{id:binding.retired!,cosmetic:false}],true);}catch{return result('held','inventory_hierarchy_or_server_hold');}
  const blocked=(m:Member|null)=>!!m&&(env.BLOCKING_ROLE_IDS||'').split(',').some(r=>r.trim()&&m.roles.includes(r.trim()));
  if(!membershipTargetsCurrent(env,binding)||purpose==='blocking_role'&&!blocked(target))return result('held','removal_cause_withdrawn');
  const active=roles.filter(role=>target?.roles.includes(role));

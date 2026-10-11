@@ -5355,3 +5355,8 @@ Rollout:
 4. Keep old capability closure, fresh complete genuine roster eligibility and rank settlement as separate activation gates. Do not grant from all historical role holders. A qualified native High Councillor must complete the genuine game/browser signing, ingestion and settlement test before QR acceptance. Native rank changes remain Guild Master actions; beta reset requires an exact UTC cutoff and reviewed affected assignments.
 
 Rollback: retain a qualified admission-ON profile with the exact installed layout. Reverting to an admission-OFF version after installation leaves wrapped saves unavailable; a guard-removal/recovery operation requires separate reviewed authorization. Keep destructive features and QR signing OFF throughout source rollback. Do not claim old provider effects have drained, erasure is complete, a guild appointment is issued, or Claude signed this release.
+
+
+## Membership custody .145: deleted retired-role review correction (10 October 2026)
+
+A permanently deleted configured retired membership role no longer vetoes removal of the still-present current role for a ban, blocking role, Blizzard rename reapplication hold or guild departure. The current role, bot identity, Manage Roles, hierarchy, original generation, cause and spent settlement custody remain required. Native regressions preserve all prior cases and check each cause, no old-target DELETE, exact current-target custody and missing/managed/too-high current-role holds. This is part of the unreleased .145 candidate; the membership cutover gate remains OFF and no roles are changed by publication.

@@ -149,5 +149,35 @@ async function measured(fn){const start=sqlCalls,http=requests.length,v=await fn
   const after=row(child.id);check('retirement final '+(committed?'committed lost reply':'refusal')+' stays spent GET-only',effects().length===deletes&&after.claim_nonce===original.claim_nonce&&after.created_at===original.created_at&&after.expires_at===original.expires_at&&after.attempts===1);
  }
 
+ // A permanently deleted retired ID is absent capability, never a veto on a still-qualified current removal.
+ for(const purpose of ['ban','blocking_role','rename_hold','guild_departure']){
+  reset();on();members[subject]=[memberRole];
+  if(purpose==='ban')db.prepare('UPDATE members SET banned=1 WHERE discord_id=?').run(subject);
+  if(purpose==='blocking_role'){env.BLOCKING_ROLE_IDS=blocker;members[subject].push(blocker);}
+  if(purpose==='rename_hold')db.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,guid,nonce,state,decided_by,decided_at) VALUES(?,'Old Name','Actual Member','actual member',?,?,'reapply',?,?)").run(subject,guid,'a'.repeat(32),bot,clock);
+  if(purpose==='guild_departure'){db.prepare("UPDATE characters SET status='left' WHERE discord_id=?").run(subject);db.prepare('DELETE FROM roster_members WHERE snapshot_id=1 AND guid=?').run(guid);db.prepare('UPDATE roster_snapshots SET member_count=9 WHERE id=1').run();}
+  const parent=ownership(),before=JSON.stringify(row(parent)),index=inventory.findIndex(r=>r.id===oldRole),deleted=inventory.splice(index,1)[0];
+  try{
+   const removed=await measured(()=>rolesWriter.settleMembershipRemoval(env,subject,purpose,{subjectGeneration:generation}));
+   check('deleted retired role does not veto current '+purpose+' removal',removed.state==='settled'&&!members[subject].includes(memberRole));
+   check('deleted retired '+purpose+' removes current exactly once without old-target DELETE',effects().length===1&&effects()[0]==='DELETE /api/v10/guilds/'+guild+'/members/'+subject+'/roles/'+memberRole);
+   check('deleted retired '+purpose+' leaves original owned grant byte-identical',JSON.stringify(row(parent))===before);
+   const children=db.prepare('SELECT * FROM role_settlements WHERE desired=0').all();
+   check('deleted retired '+purpose+' records only original current-target spent custody',children.length===1&&children[0].role_id===memberRole&&children[0].state==='settled'&&children[0].attempts===1&&!!children[0].claim_nonce&&children[0].subject_generation===generation&&children[0].expires_at-children[0].created_at===300);
+  }finally{inventory.splice(index,0,deleted);}
+ }
+ for(const unsafe of ['current-missing','current-managed','current-hierarchy','original-generation']){
+  reset();on();db.prepare('UPDATE members SET banned=1 WHERE discord_id=?').run(subject);members[subject]=[memberRole];
+  const parent=ownership(),before=JSON.stringify(row(parent)),oldIndex=inventory.findIndex(r=>r.id===oldRole),deleted=inventory.splice(oldIndex,1)[0],current=inventory.find(r=>r.id===memberRole),saved={...current};
+  let currentIndex=-1;
+  if(unsafe==='current-missing'){currentIndex=inventory.indexOf(current);inventory.splice(currentIndex,1);}
+  if(unsafe==='current-managed')current.managed=true;
+  if(unsafe==='current-hierarchy')current.position=30;
+  try{
+   const held=await measured(()=>rolesWriter.settleMembershipRemoval(env,subject,'ban',{subjectGeneration:unsafe==='original-generation'?'c'.repeat(32):generation}));
+   check('deleted retired role does not excuse '+unsafe,held.state==='held'&&effects().length===0&&members[subject].includes(memberRole));
+   check('deleted retired '+unsafe+' preserves original parent and creates no fresh removal',JSON.stringify(row(parent))===before&&db.prepare('SELECT COUNT(*) n FROM role_settlements WHERE desired=0').get().n===0);
+  }finally{if(currentIndex>=0)inventory.splice(currentIndex,0,current);Object.assign(current,saved);inventory.splice(oldIndex,0,deleted);}
+ }
  console.log(JSON.stringify({checks:n,observedMax:{sql:maxSql,http:maxHttp},newSchema:0,newCron:0,realProviderRequests:0,allCapturedSourcePins:Object.values(cache).map(x=>x.sourcePin)}));console.log(`${n}/${n} membership transition checks passed`);
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{Date.now=realNow;});
