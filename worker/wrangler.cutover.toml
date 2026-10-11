@@ -132,7 +132,7 @@ PRIVACY_ACCESS_ENABLED = "true"
 PRIVACY_WRITE_ADMISSION_ENABLED = "true"
 PRIVACY_WRITE_ADMISSION_LAYOUT = "recorded-live-20261010"
 PRIVACY_ERASURE_ENABLED = "false"
-PRIVACY_RETENTION_ENABLED = "false"
+PRIVACY_RETENTION_ENABLED = "true"
 # The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.
 # No native High Council exists in the observed beta ladder; enable only after qualified attended acceptance prerequisites.
 QR_PHASE1_ENABLED = "false"

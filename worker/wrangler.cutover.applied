@@ -30,3 +30,6 @@ activated_at = "2026-10-10T16:14:05Z"
 # Deployment is held until exact native202 install/readback. Erasure, retention, intake and QR Phase1 remain OFF.
 activation_profile_sha256 = "31d73161ae567bee5b1af0e7b875b557bdf173bf6de99cafe22bcffb800e33db"
 activated_at = "2026-10-10T22:04:26Z"
+# Activation (scripts/cutover-config.sh --activate): only the activation keys changed (PRIVACY_RETENTION_ENABLED); this is the profile now in force.
+activation_profile_sha256 = "9cb14557b64c7c7e37b1578e4df83f7e717aa247091fb4dcbf72da9b5cf37d17"
+activated_at = "2026-10-11T02:55:29Z"
