@@ -37,3 +37,17 @@ condition = "AND"
 paths = ['''^worker/src/privacy-serving-authority\.ts$''']
 regexTarget = "match"
 regexes = ['''^env\.COOKIE_SECRET,'privacy-denial-v1'$''']
+
+[[allowlists]]
+description = "QR key-context HMAC public purpose labels in their exact implementation and adversarial fixtures"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/src/qr-phase1\.ts$''',
+  '''^worker/tests/qr_phase1_test\.cjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^qr-key-revocation-v1$''',
+  '''^qr-key-enrollment-v1$''',
+]

@@ -1,6 +1,7 @@
 /** Browser-signed councillor attestation, NOT Blizzard-certified game origin. Phase1 only, disabled by default. */
 import type { Env } from './env';
-import { randomGeneration, sha256 } from './account-generation-contracts';
+import { sign,verify } from './site-core';
+import { randomGeneration, sha256,snapshotDataFields } from './account-generation-contracts';
 import { readPrivacySubject, privacyGenerationFenceSql, PRIVACY_DB_NOW as DB_NOW } from './privacy-serving-authority';
 import { currentRulesetProfile } from './ruleset-profile';
 import { guildMember, verifyInteraction } from './discord';
@@ -37,7 +38,7 @@ export const SIGNER_CURRENT=`EXISTS(SELECT 1 FROM councillor_keys k JOIN privacy
  AND (x.complete IS NOT 1 OR x.trusted IS NOT 1 OR x.exported_at>${DB_NOW} OR x.member_count<>(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id)
  OR (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=k.signer_guid)<>1
  OR (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=k.signer_guid AND rank='High Council' AND rank_index=1)<>1)))`;
-export async function enrollKey(env:QrEnv,id:string,guid:string,publicKey:unknown,session:QrSession){requireQr(env);bytesFromBase64(publicKey,32);const s=await active(env,id,session);await serverSigner(env,id,guid);const r=await rosterIdentity(env,guid,true),key=randomGeneration();
+export async function enrollKey(env:QrEnv,id:string,guid:string,publicKey:unknown,session:QrSession){const original=captureKeyScope(env,session);env=original.env;session=original.session;bytesFromBase64(publicKey,32);const s=await active(env,id,session);original.check();await serverSigner(env,id,guid);original.check();const r=await rosterIdentity(env,guid,true);original.check();const key=randomGeneration();
  const out=await env.DB.prepare(`INSERT INTO councillor_keys(id,signer,signer_guid,public_key,subject_generation,roster_id,created_at,expires_at) SELECT ?3,?1,?4,?5,?2,?6,${DB_NOW},${DB_NOW}+86400 WHERE ${privacyGenerationFenceSql(1,2)}
  AND NOT EXISTS(SELECT 1 FROM councillor_keys WHERE signer=?1 AND revoked_at IS NULL AND expires_at>${DB_NOW})
  AND EXISTS(SELECT 1 FROM roster_snapshots x JOIN roster_members r ON r.snapshot_id=x.id WHERE x.id=?6 AND x.id=(SELECT MAX(id) FROM roster_snapshots) AND x.complete=1 AND x.trusted=1 AND x.exported_at<=${DB_NOW} AND x.exported_at>${DB_NOW}-600 AND x.exported_at>=?7
@@ -46,9 +47,92 @@ export async function enrollKey(env:QrEnv,id:string,guid:string,publicKey:unknow
  AND EXISTS(SELECT 1 FROM characters c JOIN members m ON m.discord_id=c.discord_id WHERE c.discord_id=?1 AND c.guid=?4 AND c.status='member' AND m.banned=0)
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply')
  AND ?9>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?8 AND in_server=1)
- RETURNING id`).bind(id,s.subjectGeneration,key,guid,publicKey,r.snapshot_id,Number(env.LINKS_NOT_BEFORE||0),session.v,session.e).first<{id:string}>();if(!out)throw new QrHeld('enrollment_currentness_changed');return {id:key,leaseSeconds:86400};}
-export async function revokeKey(env:QrEnv,id:string,key:string,session:QrSession){requireQr(env);const s=await active(env,id,session);const r=await env.DB.prepare(`UPDATE councillor_keys SET revoked_at=${DB_NOW} WHERE id=?3 AND signer=?1 AND subject_generation=?2 AND revoked_at IS NULL AND ${privacyGenerationFenceSql(1,2)}
- AND ?5>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?4 AND in_server=1) RETURNING id`).bind(id,s.subjectGeneration,key,session.v,session.e).first();if(!r)throw new QrHeld('key_not_current');}
+ RETURNING id`).bind(id,s.subjectGeneration,key,guid,publicKey,r.snapshot_id,Number(env.LINKS_NOT_BEFORE||0),session.v,session.e).first<{id:string}>();original.check();if(!out)throw new QrHeld('enrollment_currentness_changed');return {id:key,leaseSeconds:86400};}
+export async function revokeKey(env:QrEnv,id:string,key:string,session:QrSession){const original=captureKeyScope(env,session);env=original.env;session=original.session;const s=await active(env,id,session);original.check();const r=await env.DB.prepare(`UPDATE councillor_keys SET revoked_at=${DB_NOW} WHERE id=?3 AND signer=?1 AND subject_generation=?2 AND revoked_at IS NULL AND ${privacyGenerationFenceSql(1,2)}
+ AND ?5>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?4 AND in_server=1) RETURNING id`).bind(id,s.subjectGeneration,key,session.v,session.e).first();original.check();if(!r)throw new QrHeld('key_not_current');}
+/** Key preparation is read-only admission context, not signing or role authority. Negative reads never prove dispatch ended. */
+const KEY_SCOPE_FIELDS=['QR_PHASE1_ENABLED','GUILD_ID','SITE_GUILD_ID','DISCORD_APP_ID','DISCORD_BOT_TOKEN','COOKIE_SECRET','BLOCKING_ROLE_IDS','LINKS_NOT_BEFORE'] as const;
+function keyDatabaseMethod(db:object,name:'prepare'|'batch'){
+ let owner:object|null=db;for(let depth=0;owner&&depth<4;depth++,owner=Object.getPrototypeOf(owner)){const descriptor=Object.getOwnPropertyDescriptor(owner,name);if(descriptor){if(!Object.hasOwn(descriptor,'value')||typeof descriptor.value!=='function')throw new QrHeld('original_key_database_changed');return {owner,descriptor,method:descriptor.value as (...args:unknown[])=>unknown};}}throw new QrHeld('original_key_database_changed');
+}
+/** Fixed original database receiver/methods, not a transport supplied by a recovery response. */
+export function captureKeyEnvironment(env:QrEnv){
+ const snapshot=Object.freeze({...env}),receiver=snapshot.DB;if(!receiver||typeof receiver!=='object')throw new QrHeld('original_key_database_changed');const prepare=keyDatabaseMethod(receiver,'prepare'),batch=keyDatabaseMethod(receiver,'batch');
+ const same=(name:'prepare'|'batch',original:ReturnType<typeof keyDatabaseMethod>)=>{const current=keyDatabaseMethod(receiver,name);return current.owner===original.owner&&current.method===original.method&&current.descriptor.configurable===original.descriptor.configurable&&current.descriptor.enumerable===original.descriptor.enumerable&&current.descriptor.writable===original.descriptor.writable;};
+ const check=()=>{if(env.DB!==receiver||KEY_SCOPE_FIELDS.some(k=>env[k]!==snapshot[k])||!same('prepare',prepare)||!same('batch',batch))throw new QrHeld('original_key_context_changed');requireQr(snapshot);};check();
+ const fixedDatabase=Object.freeze({prepare(...args:unknown[]){check();const statement=Reflect.apply(prepare.method,receiver,args);check();return statement;},async batch(...args:unknown[]){check();const result=await Reflect.apply(batch.method,receiver,args);check();return result;}}) as unknown as Env['DB'];
+ return {env:Object.freeze({...snapshot,DB:fixedDatabase}),check};
+}
+function captureKeyScope(env:QrEnv,session:QrSession){
+ const selected:Record<string,unknown>={};for(const k of ['v','e','g']){const d=session&&Object.getOwnPropertyDescriptor(session,k);if(!d||!Object.hasOwn(d,'value'))throw new QrHeld('invalid_session');selected[k]=d.value;}const original=Object.freeze({v:selected.v as number,e:selected.e as number,g:selected.g as string|null}),scope=captureKeyEnvironment(env);
+ if(!Number.isSafeInteger(original.v)||original.v<1||!Number.isSafeInteger(original.e)||original.e<1||!HEX.test(original.g??''))throw new QrHeld('invalid_session');
+ const check=()=>{scope.check();for(const k of ['v','e','g'] as const){const d=Object.getOwnPropertyDescriptor(session,k);if(!d||!Object.hasOwn(d,'value')||d.value!==original[k])throw new QrHeld('original_key_context_changed');}};check();return {env:scope.env,session:original,check};
+}
+const KEY_IMMUTABLE_SQL='json_array(k.id,k.signer,k.signer_guid,k.public_key,k.subject_generation,k.roster_id,k.created_at,k.expires_at)';
+const KEY_ROW_VALID_SQL=`typeof(k.id)='text' AND length(k.id)=32 AND k.id NOT GLOB '*[^0-9a-f]*' AND typeof(k.signer)='text' AND length(k.signer) BETWEEN 17 AND 20 AND k.signer NOT GLOB '*[^0-9]*'
+ AND typeof(k.signer_guid)='text' AND length(k.signer_guid) BETWEEN 17 AND 24 AND length(CAST(k.signer_guid AS BLOB))<=24 AND instr(k.signer_guid,char(0))=0
+ AND typeof(k.public_key)='text' AND length(k.public_key)=43 AND length(CAST(k.public_key AS BLOB))=43 AND k.public_key NOT GLOB '*[^A-Za-z0-9_-]*'
+ AND typeof(k.subject_generation)='text' AND length(k.subject_generation)=32 AND k.subject_generation NOT GLOB '*[^0-9a-f]*'
+ AND typeof(k.roster_id)='integer' AND k.roster_id BETWEEN 1 AND 9007199254740991 AND typeof(k.created_at)='integer' AND k.created_at BETWEEN 1 AND 9007199168340991
+ AND typeof(k.expires_at)='integer' AND k.expires_at=k.created_at+86400 AND (k.revoked_at IS NULL OR (typeof(k.revoked_at)='integer' AND k.revoked_at BETWEEN k.created_at AND 9007199254740991))`;
+const ENROLL_ROSTER_SQL=`EXISTS(SELECT 1 FROM roster_snapshots x JOIN roster_members r ON r.snapshot_id=x.id WHERE x.id=?6 AND x.id=(SELECT MAX(id) FROM roster_snapshots) AND x.complete=1 AND x.trusted=1 AND x.exported_at<=${DB_NOW} AND x.exported_at>${DB_NOW}-600 AND x.exported_at>=?7
+ AND x.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id) AND r.guid=?4 AND r.rank='High Council' AND r.rank_index=1 AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=x.id AND guid=?4)=1)
+ AND EXISTS(SELECT 1 FROM characters c JOIN members m ON m.discord_id=c.discord_id WHERE c.discord_id=?1 AND c.guid=?4 AND c.status='member' AND m.banned=0)
+ AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply')`;
+type KeyContext=readonly [string,'enroll'|'revoke',string,string,string,string,number,number,number,number,string,string,string,string,string,number,string|null,string];
+const KEY_CONTEXT_SCHEMA='OLY-QKEY1';
+const purpose=(a:'enroll'|'revoke')=>a==='enroll'?'qr-key-enrollment-v1':'qr-key-revocation-v1';
+function parsedKeyTuple(raw:string):[string,string,string,string,string,number,number,number]{
+ let x:unknown;try{x=JSON.parse(raw);}catch{throw new QrHeld('key_receipt_held');}if(!Array.isArray(x)||x.length!==8||JSON.stringify(x)!==raw||!HEX.test(x[0])||!ID.test(x[1])||!GUID.test(x[2])||!HEX.test(x[4])||!Number.isSafeInteger(x[5])||x[5]<1||!Number.isSafeInteger(x[6])||x[6]<1||!Number.isSafeInteger(x[7])||x[7]!==x[6]+86400)throw new QrHeld('key_receipt_held');bytesFromBase64(x[3],32);return x as [string,string,string,string,string,number,number,number];
+}
+async function ownKeyRow(env:QrEnv,id:string,g:string,keyId:string,session:QrSession){
+ const r=await env.DB.prepare(`SELECT CASE WHEN ${KEY_ROW_VALID_SQL} THEN ${KEY_IMMUTABLE_SQL} ELSE json_extract('key_row_held','$') END AS original,k.revoked_at AS revoked,${DB_NOW} AS observed
+ FROM councillor_keys k WHERE k.id=?3 AND k.signer=?1 AND k.subject_generation=?2 AND ${privacyGenerationFenceSql(1,2)} AND ?5>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?4 AND in_server=1)`).bind(id,g,keyId,session.v,session.e).first<{original:string;revoked:number|null;observed:number}>();
+ if(!r)return null;const x=parsedKeyTuple(r.original);if(x[0]!==keyId||x[1]!==id||x[4]!==g||!Number.isSafeInteger(r.observed)||r.observed<x[6]||r.revoked!==null&&(!Number.isSafeInteger(r.revoked)||r.revoked<x[6]||r.revoked>r.observed))throw new QrHeld('key_receipt_held');return {...r,x};
+}
+function contextShape(x:unknown):KeyContext{
+ if(!Array.isArray(x)||x.length!==18||x[0]!==KEY_CONTEXT_SCHEMA||!['enroll','revoke'].includes(x[1])||!HEX.test(x[2])||!HEX.test(x[3])||!ID.test(x[4])||!HEX.test(x[5])||!Number.isSafeInteger(x[6])||x[6]<1||!Number.isSafeInteger(x[7])||x[7]<1||!Number.isSafeInteger(x[8])||x[8]<1||!Number.isSafeInteger(x[9])||x[9]!==Math.min(x[8]+300,x[7])||!ID.test(x[10])||x[10]!==x[11]||x[12]!==QR_PROFILE.revision||!GUID.test(x[13])||!Number.isSafeInteger(x[15])||x[15]<1||typeof x[17]!=='string'||!ID.test(x[17]))throw new QrHeld('invalid_key_context');
+ bytesFromBase64(x[14],32);if(x[1]==='enroll'&&x[16]!==null||x[1]==='revoke'&&(typeof x[16]!=='string'||x[16].length>512))throw new QrHeld('invalid_key_context');
+ if(x[1]==='revoke'){const t=parsedKeyTuple(x[16]);if(t[0]!==x[3]||t[1]!==x[4]||t[2]!==x[13]||t[3]!==x[14]||t[4]!==x[5]||t[5]!==x[15])throw new QrHeld('invalid_key_context');}return Object.freeze(x) as unknown as KeyContext;
+}
+async function encodeKeyContext(env:QrEnv,x:KeyContext){if(!env.COOKIE_SECRET)throw new QrHeld('key_context_unavailable');const raw=JSON.stringify(x);if(new TextEncoder().encode(raw).length>1024)throw new QrHeld('invalid_key_context');const payload=base64url(new TextEncoder().encode(raw)),mac=await sign(env.COOKIE_SECRET,purpose(x[1]),raw);return payload+'.'+mac;}
+async function decodeKeyContext(env:QrEnv,token:unknown){
+ if(typeof token!=='string'||token.length>1536||!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token)||!env.COOKIE_SECRET)throw new QrHeld('invalid_key_context');const [payload,mac]=token.split('.');let raw:string;try{const b=Uint8Array.from(atob(payload.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));if(b.length>1024||base64url(b)!==payload)throw Error();raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(b);}catch{throw new QrHeld('invalid_key_context');}
+ let parsed:unknown;try{parsed=JSON.parse(raw);}catch{throw new QrHeld('invalid_key_context');}const x=contextShape(parsed);if(JSON.stringify(x)!==raw||!await verify(env.COOKIE_SECRET,purpose(x[1]),raw,mac))throw new QrHeld('invalid_key_context');return x;
+}
+function contextOwned(env:QrEnv,id:string,s:QrSession,x:KeyContext,consume=false){if(x[4]!==id||x[5]!==s.g||x[10]!==env.GUILD_ID||x[11]!==env.SITE_GUILD_ID||x[17]!==env.DISCORD_APP_ID||consume&&(x[6]!==s.v||x[7]!==s.e))throw new QrHeld('original_key_context_changed');}
+function keyReceipt(x:KeyContext|null,row:NonNullable<Awaited<ReturnType<typeof ownKeyRow>>>,digest:string|null){const k=row.x;return {schema:'OLY-QKEY-RECEIPT1',action:x?.[1]??'legacy',operationId:x?.[2]??null,contextDigest:digest,keyId:k[0],actor:k[1],generation:k[4],guid:k[2],publicKey:k[3],rosterId:k[5],createdAt:k[6],expiresAt:k[7],revokedAt:row.revoked,observedAt:row.observed,state:row.revoked!==null?'revoked':k[7]<=row.observed?'expired':'active'};}
+/** No write, key creation, lease extension or dispatch permission. */
+export async function prepareKeyOperation(env:QrEnv,id:string,session:QrSession,input:unknown){
+ const c=captureKeyScope(env,session),e=c.env,s=c.session;const keys=input&&typeof input==='object'&&!Array.isArray(input)?Object.keys(input).sort().join(','):'';const b=input as Record<string,unknown>;
+ if(!b||typeof b.operationId!=='string'||!HEX.test(b.operationId)||b.action!=='enroll'&&b.action!=='revoke'||keys!==(b.action==='enroll'?'action,guid,operationId,publicKey':'action,keyId,operationId'))throw new QrHeld('invalid_key_context');
+ const copied=snapshotDataFields(b,b.action==='enroll'?['action','operationId','guid','publicKey']:['action','operationId','keyId'],'invalid_key_context'),action=copied.action as 'enroll'|'revoke',op=copied.operationId as string,guid=copied.guid as string,pub=copied.publicKey as string,keyId=copied.keyId as string;await active(e,id,s);c.check();let nativeKey:string|null=null,rid:number,g:string,p:string,k:string;
+ if(action==='enroll'){if(!GUID.test(guid))throw new QrHeld('invalid_key_context');bytesFromBase64(pub,32);await serverSigner(e,id,guid);c.check();const r=await rosterIdentity(e,guid,true);c.check();rid=r.snapshot_id;g=guid;p=pub;k=(await sha256(JSON.stringify(['OLY-QKEY-ID1',id,s.g,op]))).slice(0,32);c.check();}
+ else{if(!HEX.test(keyId))throw new QrHeld('invalid_key_context');const r=await ownKeyRow(e,id,s.g!,keyId,s);c.check();if(!r||r.revoked!==null||r.x[7]<=r.observed)throw new QrHeld('key_not_current');nativeKey=r.original;rid=r.x[5];g=r.x[2];p=r.x[3];k=keyId;}
+ const n=await e.DB.prepare(`SELECT ${DB_NOW} AS n WHERE ${privacyGenerationFenceSql(1,2)} AND ?4>${DB_NOW} AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?3 AND in_server=1)`).bind(id,s.g,s.v,s.e).first<{n:number}>();c.check();if(!n||!Number.isSafeInteger(n.n))throw new QrHeld('key_context_held');
+ const x=contextShape([KEY_CONTEXT_SCHEMA,action,op,k,id,s.g,s.v,s.e,n.n,Math.min(n.n+300,s.e),e.GUILD_ID,e.SITE_GUILD_ID,QR_PROFILE.revision,g,p,rid,nativeKey,e.DISCORD_APP_ID]);const token=await encodeKeyContext(e,x);c.check();const digest=await sha256(token);c.check();return {contextToken:token,contextDigest:digest,action,operationId:op,keyId:k,actor:id,generation:s.g,sessionVersion:s.v,sessionExpires:s.e,guid:g,publicKey:p,rosterId:rid,preparedAt:n.n,deadline:x[9],createdAt:action==='enroll'?n.n:parsedKeyTuple(nativeKey!)[6],expiresAt:action==='enroll'?n.n+86400:parsedKeyTuple(nativeKey!)[7]};
+}
+/** Existing owned legacy material may be observed, never invented, silently rescaled or made into an original dispatch. */
+export async function readKeyOperationReceipt(env:QrEnv,id:string,session:QrSession,input:unknown){
+ const c=captureKeyScope(env,session),e=c.env,s=c.session,b=input as Record<string,unknown>;if(!b||typeof b!=='object'||Array.isArray(b))throw new QrHeld('invalid_key_context');let x:KeyContext|null=null,digest:string|null=null,keyId:string;
+ if(Object.keys(b).join(',')==='contextToken'){const copied=snapshotDataFields(b,['contextToken'],'invalid_key_context'),originalToken=copied.contextToken;x=await decodeKeyContext(e,originalToken);c.check();contextOwned(e,id,s,x);digest=await sha256(originalToken as string);c.check();keyId=x[3];}
+ else if(Object.keys(b).join(',')==='keyId'&&typeof b.keyId==='string'&&HEX.test(b.keyId))keyId=b.keyId;else throw new QrHeld('invalid_key_context');
+ await active(e,id,s);c.check();const r=await ownKeyRow(e,id,s.g!,keyId,s);c.check();if(!r)return {schema:'OLY-QKEY-UNKNOWN1',state:'unknown'};
+ if(x&&(x[13]!==r.x[2]||x[14]!==r.x[3]||x[15]!==r.x[5]||x[1]==='enroll'&&(x[8]!==r.x[6]||x[8]+86400!==r.x[7])||x[1]==='revoke'&&x[16]!==r.original))throw new QrHeld('key_receipt_held');return keyReceipt(x,r,digest);
+}
+/** HTTP consumes the MAC-bound original tuple. Native no-row/error remains held, never a retry or absence proof. */
+export async function commitKeyOperation(env:QrEnv,id:string,session:QrSession,action:'enroll'|'revoke',token:unknown){
+ const c=captureKeyScope(env,session),e=c.env,s=c.session,x=await decodeKeyContext(e,token);c.check();contextOwned(e,id,s,x,true);if(x[1]!==action)throw new QrHeld('invalid_key_context');const digest=await sha256(token as string);c.check();await active(e,id,s);c.check();
+ if(action==='enroll'){await serverSigner(e,id,x[13]);c.check();const r=await rosterIdentity(e,x[13],true);c.check();if(r.snapshot_id!==x[15])throw new QrHeld('original_key_context_changed');
+ const out=await e.DB.prepare(`INSERT INTO councillor_keys(id,signer,signer_guid,public_key,subject_generation,roster_id,created_at,expires_at) SELECT ?3,?1,?4,?5,?2,?6,?10,?10+86400 WHERE ${privacyGenerationFenceSql(1,2)} AND ${ENROLL_ROSTER_SQL}
+ AND NOT EXISTS(SELECT 1 FROM councillor_keys WHERE signer=?1 AND revoked_at IS NULL AND expires_at>${DB_NOW}) AND ?9>${DB_NOW} AND ?10<=${DB_NOW} AND ?11>${DB_NOW} AND ?11=MIN(?10+300,?9)
+ AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?8 AND in_server=1) ON CONFLICT DO NOTHING RETURNING id`).bind(id,s.g,x[3],x[13],x[14],x[15],Number(e.LINKS_NOT_BEFORE||0),s.v,s.e,x[8],x[9]).first();c.check();if(!out)throw new QrHeld('enrollment_currentness_changed');
+ }else{const r=await e.DB.prepare(`UPDATE councillor_keys AS k SET revoked_at=${DB_NOW} WHERE k.id=?3 AND k.signer=?1 AND k.subject_generation=?2 AND k.revoked_at IS NULL AND ${KEY_ROW_VALID_SQL} AND ${KEY_IMMUTABLE_SQL}=?6 AND ${privacyGenerationFenceSql(1,2)}
+ AND ?5>${DB_NOW} AND ?7<=${DB_NOW} AND ?8>${DB_NOW} AND ?8=MIN(?7+300,?5) AND EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?4 AND in_server=1) RETURNING id`).bind(id,s.g,x[3],s.v,s.e,x[16],x[8],x[9]).first();c.check();if(!r)throw new QrHeld('key_not_current');}
+ // A later read failure is uncertain; the browser retains custody and only reads the original receipt.
+ const row=await ownKeyRow(e,id,s.g!,x[3],s);c.check();if(!row||row.x[2]!==x[13]||row.x[3]!==x[14]||row.x[5]!==x[15]||action==='enroll'&&(row.x[6]!==x[8]||row.x[7]!==x[8]+86400)||action==='revoke'&&row.original!==x[16])throw new QrHeld('key_receipt_held');return keyReceipt(x,row,digest);
+}
+
 export async function issueChallenge(env:QrEnv,id:string,key:string,session:QrSession,mode:'single'|'automatic'='single'){
  requireQr(env);const original={v:session?.v,e:session?.e,g:session?.g};
  if(!HEX.test(key)||!Number.isSafeInteger(original.v)||original.v<1||!Number.isSafeInteger(original.e)||!HEX.test(original.g??'')||!['single','automatic'].includes(mode))throw new QrHeld('invalid_session');

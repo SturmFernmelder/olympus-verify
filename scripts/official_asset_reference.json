@@ -1031,14 +1031,14 @@
     {
       "path": "worker/public/static/qr-phase1.html",
       "mode": "100644",
-      "bytes": 3831,
-      "sha256": "4f4a25e8b9f4fd80aa301437f3ff30f2611462f54b7af5f44779c6fab7db114f"
+      "bytes": 4263,
+      "sha256": "cec0e42420c490862433671acec31d4f74a460286e21be7eea565803c2fce7b6"
     },
     {
       "path": "worker/public/static/qr-phase1.mjs",
       "mode": "100644",
-      "bytes": 13361,
-      "sha256": "773cff95e3c7e50bf5c0cfcb03fcb7e40d2757ebb6051fbb074551c63d5b2677"
+      "bytes": 22659,
+      "sha256": "d83d2c93f515311c115dbf8321aece26983a85c9e2d40958e7349818d7edc074"
     },
     {
       "path": "worker/public/static/qr-vendor/jsqr-1.4.0.LICENSE.txt",
