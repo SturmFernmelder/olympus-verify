@@ -243,8 +243,11 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   // for this server only, with 404 for "not a member".
   const memRes = await credentialFetch(`${API}/users/@me/guilds/${env.SITE_GUILD_ID}/member`, { headers: auth });
   if (memRes.status === 404) {
+    try {
+      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
     await audit(env, 'site', "site.login_not_member");
-    return flash("not_member", 403);
+    return siteSignIn(request, 403, 'not_member', [...clear, clearCookie(SESSION_COOKIE)]);
   }
   if (memRes.status === 429) return flash("busy", 429);
   if (!memRes.ok) {
@@ -253,7 +256,12 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   }
   const member = (await memRes.json()) as DiscordMember;
   // Membership screening not finished (the server's rules not accepted yet): not a member in any useful sense.
-  if (member.pending) return flash("pending", 403);
+  if (member.pending) {
+    try {
+      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
+    return siteSignIn(request, 403, 'pending', [...clear, clearCookie(SESSION_COOKIE)]);
+  }
 
   const t = now();
   const avatar = member.avatar ? `g:${member.avatar}` : me.avatar ? `u:${me.avatar}` : null;

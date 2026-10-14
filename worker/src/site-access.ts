@@ -1,6 +1,8 @@
 /** Member-site delivery boundary (.154). No application source or guild payload is sent before Discord sign-in. */
 import type { Env } from './env';
-import { currentUser, securityHeaders } from './site-core';
+import { currentUser, readSession, securityHeaders } from './site-core';
+import { stillMember } from './site-api';
+import { privacyBoundSiteEnv } from './privacy-serving-authority';
 import { policyHeaders, policyShell } from './policy-render';
 
 const AUTH_PATHS = new Set(['/auth/login', '/auth/callback']);
@@ -40,9 +42,19 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   catch {
     return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
   }
-  if (user && user.in_server === 1 && !user.denied) return null;
   // Preserve the existing signed-in own-record reads, including a departed or denied identity.
   if (user && request.method === 'GET' && (path === '/api/me' || path === '/api/application' || path === '/api/community/context')) return null;
+  if (user && user.in_server === 1 && !user.denied) {
+    try {
+      const session = await readSession(env, request);
+      if (!session) throw Error('site_session_unavailable');
+      const held = await stillMember(privacyBoundSiteEnv(env, session), user);
+      if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
+      return null;
+    } catch {
+      return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
+    }
+  }
   const status = user ? 403 : 401;
   if ((request.method === 'GET' || request.method === 'HEAD') && !path.startsWith('/api/') && !path.startsWith('/static/') && (!path.includes('.') || path === '/index.html')) {
     return siteSignIn(request, path === '/' || path === '/index.html' ? 200 : status, user ? user.denied ? 'denied' : 'not_member' : undefined);

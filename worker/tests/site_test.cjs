@@ -1268,6 +1268,16 @@ const bootOf = async (res) => {
   check("  but can still read what they entered", res.status === 200);
   res = await call("GET", "/api/board", { who: "300000000000000007" });
   check("  and no longer reads the voting board", res.status === 403 && (await J(res)).error === "not_member");
+  const absentId='300000000000000007', absentVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(absentId).session_version;
+  db.prepare('UPDATE site_users SET in_server=1,checked_at=? WHERE discord_id=?').run(T,absentId);
+  const absentStart=await call('GET','/auth/login',{who:absentId});
+  const absentState=new URL(absentStart.headers.get('Location')).searchParams.get('state');
+  res=await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${absentId}&state=${encodeURIComponent(absentState)}`,{headers:{Cookie:`__Host-olg_state=${cookiesFrom(absentStart)['__Host-olg_state']}; ${jar.get(absentId)}`}}),env(),ctx);
+  page=await bootOf(res);
+  const absentAfter=db.prepare('SELECT in_server,session_version FROM site_users WHERE discord_id=?').get(absentId);
+  check('authoritative OAuth absence clears the old browser session and withholds guild boot',res.status===403&&!page.boot&&page.html.includes('Join the Asmongold Discord server')&&/Max-Age=0/.test(res.headers.get('Set-Cookie')||'')&&absentAfter.in_server===0&&absentAfter.session_version===absentVersion+1);
+  res=await call('GET','/static/app.js',{who:absentId});
+  check('the pre-callback cookie cannot recover protected source after authoritative absence',res.status===401);
 
   console.log("\n== sign-out ==");
   res = await call("POST", "/auth/logout", { who: "300000000000000003" });

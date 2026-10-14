@@ -181,7 +181,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   let assetCalls = 0;
   const assetEnv = env({ ASSETS: { fetch: async () => { assetCalls++; return new Response('protected-source'); } } });
   const core = load('./site-core'), viewer = '300000000000000091';
-  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version) VALUES(?1,?2,?3,?3,1)').run(viewer,'member',Math.floor(Date.now()/1000));
+  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').run(viewer,'member',Math.floor(Date.now()/1000));
   const validCookie = (await core.sessionCookie(assetEnv,viewer,1)).split(';')[0];
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('current Discord session receives private assets with cookie-varying no-store delivery', res.status === 200 && await res.text() === 'protected-source' && assetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')));
@@ -203,14 +203,27 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: logoutHeaders });
   check('denied signed-in identity can reach original logout and clear its cookie', res.status === 200 && (await res.json()).ok === true && /__Host-olg=;/.test(res.headers.get('Set-Cookie') || '') && /Max-Age=0/.test(res.headers.get('Set-Cookie') || ''));
   check('denied logout revokes the actual original session version and leaves assets inaccessible', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 2 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  const staleViewer = '300000000000000092', staleAt = Math.floor(Date.now()/1000)-7200;
+  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').run(staleViewer,'stale-member',staleAt);
+  const staleCookie = (await core.sessionCookie(assetEnv,staleViewer,1)).split(';')[0];
+  for (const memberStatus of [404,503,200]) {
+    db.prepare('UPDATE site_users SET in_server=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
+    let memberChecks=0;
+    fetchResponder=async(url)=>{memberChecks++;if(!url.endsWith('/members/'+staleViewer))throw Error('Unexpected membership lookup');return new Response(JSON.stringify(memberStatus===200?{nick:'current member',pending:false}:{message:'membership unavailable',code:10007}),{status:memberStatus,headers:{'Content-Type':'application/json'}});};
+    const beforeAssets=assetCalls;
+    res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    const after=db.prepare('SELECT in_server,checked_at FROM site_users WHERE discord_id=?1').get(staleViewer);
+    check('stale signed session rechecks Discord before protected delivery: '+memberStatus,memberChecks===1&&res.status===(memberStatus===200?200:memberStatus===404?403:503)&&assetCalls===beforeAssets+(memberStatus===200?1:0)&&after.in_server===(memberStatus===404?0:1)&&(memberStatus===200?after.checked_at>staleAt:memberStatus===404||after.checked_at===staleAt));
+  }
+  fetchResponder=null;
   db.prepare('DELETE FROM site_users WHERE discord_id=?1').run(viewer);
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
-  check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 1);
+  check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 2);
   res = await get('https://guild.example/robots.txt');
   check('all website indexing is discouraged independently of authentication', (await res.text()).includes('Disallow: /') && /noindex/.test(res.headers.get('X-Robots-Tag')));
   for (const p of ['/', '/static/app.js']) {
     res = await get('http://guild.example' + p, assetEnv);
-    check('HTTP upgrades before sign-in or assets: ' + p, res.status === 301 && res.headers.get('Location') === 'https://guild.example' + p && assetCalls === 1);
+    check('HTTP upgrades before sign-in or assets: ' + p, res.status === 301 && res.headers.get('Location') === 'https://guild.example' + p && assetCalls === 2);
   }
   res = await get("https://guild.example/static/wow/morpheus.woff2", env(), { method: "HEAD" });
   check("  HEAD too", res.status === 200);

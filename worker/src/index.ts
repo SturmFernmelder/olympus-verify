@@ -110,13 +110,13 @@ export default {
     // .51: the site's static files. Every request reaches this code (run_worker_first in wrangler.toml), so the host
     // check above covers them too: on the site host they go to the assets binding; on any other host they get that
     // host's answer (the legacy 301 above, the unknown 404, the bot's 404 below). No database, no schema check.
-    if (host === 'site') {
-      const gate = await memberSiteGate(request, env, path);
-      if (gate) return gate;
-    }
-    if (host === "site" && (request.method === "GET" || request.method === "HEAD") && path.startsWith("/static/")) return privateSiteAsset(await env.ASSETS.fetch(request));
     try {
       env=writeAdmissionEnv(env);
+      if (host === 'site') {
+        const gate = await memberSiteGate(request, env, path);
+        if (gate) return gate;
+      }
+      if (host === "site" && (request.method === "GET" || request.method === "HEAD") && path.startsWith("/static/")) return privateSiteAsset(await env.ASSETS.fetch(request));
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
       // after a failure. Until it has succeeded, the watcher's endpoints answer 503 (the watcher keeps its work and
       // retries) and commands say to try again: the code below reads columns the check adds, so running it without them

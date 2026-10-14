@@ -843,13 +843,20 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
 
 // ---------- membership, deletion, plumbing ----------
 
-/** At most hourly on a save: still in SITE_GUILD_ID? Left = no more saving (reading still works). */
-async function stillMember(env: Env, user: SiteUser): Promise<Response | null> {
-  if (now() - (user.checked_at ?? 0) < MEMBER_RECHECK || !env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "")) {
-    return user.in_server ? null : notMember();
+/** At most hourly before protected delivery or a save. A due check fails closed. */
+export async function stillMember(env: Env, user: SiteUser): Promise<Response | null> {
+  if (user.in_server !== 1) return notMember();
+  const checked = user.checked_at ?? 0;
+  if (checked > 0 && checked <= now() && now() - checked < MEMBER_RECHECK) return null;
+  if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "")) {
+    return apiJson({ error: 'membership_unavailable', message: 'Discord membership must be confirmed before protected access. Please try again shortly.' }, 503);
   }
   try {
     const m = await rest<{ nick?: string | null; avatar?: string | null; pending?: boolean }>(env, "GET", `/guilds/${env.SITE_GUILD_ID}/members/${user.discord_id}`, undefined, 1);
+    if (m.pending) {
+      await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
+      return notMember();
+    }
     await env.DB.prepare(
       "UPDATE site_users SET nick = ?2, avatar = CASE WHEN ?3 IS NOT NULL THEN ?3 WHEN avatar LIKE 'g:%' THEN NULL ELSE avatar END, in_server = 1, checked_at = ?4 WHERE discord_id = ?1",
     )
@@ -862,9 +869,9 @@ async function stillMember(env: Env, user: SiteUser): Promise<Response | null> {
       await audit(env, user.discord_id, "site.left_server");
       return notMember();
     }
-    return null; // Discord busy or down: do not lock people out because of it
+    return apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);
   }
 }
 
 const notMember = () =>
-  apiJson({ error: "not_member", message: "You are no longer in Asmongold's Discord server, so this cannot be saved. Rejoin it, then sign in again." }, 403);
+  apiJson({ error: "not_member", message: "Current membership of Asmongold's Discord server is required for protected access. Rejoin and complete screening, then sign in again." }, 403);

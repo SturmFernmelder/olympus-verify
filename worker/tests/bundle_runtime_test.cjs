@@ -97,7 +97,7 @@ const text = (v) => ({ type: "text", value: v });
     res = await get("https://guild.example/static/app.css");
     check('anonymous application assets are blocked in real workerd', res.status === 401, res.status);
     const viewer = '300000000000000091', at = Math.floor(Date.now()/1000), secret = 'cookie-secret-for-tests-only-0123456789';
-    await d1.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version) VALUES(?1,?2,?3,?3,1)').bind(viewer,'Runtime member',at).run();
+    await d1.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').bind(viewer,'Runtime member',at).run();
     const b64u = b => Buffer.from(b).toString('base64url');
     const sessionBody = b64u(JSON.stringify({u:viewer,v:1,e:at+3600,g:null}));
     const sessionKey = await crypto.subtle.importKey('raw',new TextEncoder().encode('olympus-site/session|'+secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
