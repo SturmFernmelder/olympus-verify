@@ -9,8 +9,8 @@ async function review(){
  const index=load('index').default,policy=load('community-contribution-policy');
  let generation=0;
  function setup(){const t=reset(),staff=String(BigInt(OTHER)+1000n+BigInt(generation++));
-  db.prepare('UPDATE site_users SET in_server=1,denied=0 WHERE discord_id=?').run(ID);
-  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied)VALUES(?,?,?,?,7,1,0)').run(staff,'Native staff',t,t);
+  db.prepare('UPDATE site_users SET in_server=1,denied=0,checked_at=? WHERE discord_id=?').run(t,ID);
+  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version,in_server,denied)VALUES(?,?,?,?,?,7,1,0)').run(staff,'Native staff',t,t,t);
   const e={...env(),PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:staff,COMMUNITY_FEATURES:'contributions,restrictions',CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'400',CHANNEL_NOTICES:''};
   return{t,staff,e};
  }

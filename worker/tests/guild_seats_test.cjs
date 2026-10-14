@@ -161,7 +161,7 @@ const queued = (id, name, { priority = 0, createdAt = T - 600, character = true 
   if (character) run("INSERT INTO characters (name_key, name, discord_id, status, bound_at, verified_at) VALUES (?, ?, ?, 'queued', ?, ?)", codes.normalizeCharacter(name), name, id, T - DAY, T - DAY);
   return Number(run("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, priority) VALUES (?, ?, ?, 'queued', ?, 'auto', ?)", codes.normalizeCharacter(name), name, id, createdAt, priority).lastInsertRowid);
 };
-const siteUser = (id, denied = 0) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, 1, ?, 1) ON CONFLICT(discord_id) DO NOTHING", id, "u" + id.slice(-2), T, T, denied);
+const siteUser = (id, denied = 0) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, 1, ?, 1) ON CONFLICT(discord_id) DO NOTHING", id, "u" + id.slice(-2), T, T, T, denied);
 let iid = 0;
 const command = (name, user, { roles = [], options } = {}) => ({ type: 2, id: "9" + String(++iid).padStart(17, "0"), token: "t", guild_id: GUILD, member: { user: { id: user, username: "u" }, roles }, data: options ? { name, options } : { name } });
 const answer = async (payload, over = {}) => (await interactions.handleInteraction(env(over), payload)).json();

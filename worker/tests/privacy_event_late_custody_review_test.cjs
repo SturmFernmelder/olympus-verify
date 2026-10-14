@@ -22,7 +22,7 @@ async function review(){
   return canonicalFetch(url,init);
  };
  function setup(){const t=reset();providerMessages=new Map();onEffect=null;onRead=null;
-  db.prepare('UPDATE site_users SET in_server=1,denied=0 WHERE discord_id=?').run(ID);
+  db.prepare('UPDATE site_users SET in_server=1,denied=0,checked_at=? WHERE discord_id=?').run(t,ID);
   db.prepare('INSERT INTO members(discord_id,banned)VALUES(?,0)').run(ID);
   db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,source)VALUES(?,?,?,'member',?,'fixture')").run('probe name','Probe Name',ID,t);
   return{t,e:{...env(),PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:OTHER,COMMUNITY_ORGANIZERS:ID,COMMUNITY_FEATURES:'events,attendance',INTROS_GUILD_ID:GUILD,INTROS_CHANNELS:`raid-signups=${CHANNEL}`,EVENT_DISCORD_DELIVERY:'on',EVENT_DISCORD_REMINDERS:'on',CHANNEL_NOTICES:''}};

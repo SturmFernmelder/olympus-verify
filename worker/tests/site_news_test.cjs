@@ -153,7 +153,7 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
 const run = (sql, ...p) => db.prepare(sql).run(...p);
 const quiet = async (fn) => { const real = console.error, lines = []; console.error = (...a) => { lines.push(a.map(String).join(" ")); }; try { return { value: await fn(), lines }; } finally { console.error = real; } };
-const siteUser = (id, over = {}) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T);
+const siteUser = (id, over = {}) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T, over.checked_at === undefined ? T : over.checked_at);
 const confirm = (id, name) => {
   run("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING", id);
   run("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)", name.toLowerCase(), name, id, T - DAY);

@@ -1265,9 +1265,9 @@ const bootOf = async (res) => {
   res = await call("PUT", "/api/friends", { who: "300000000000000007", body: { friends: [] } });
   check("someone who left Asmongold's server can no longer save", res.status === 403 && (await J(res)).error === "not_member" && db.prepare("SELECT in_server FROM site_users WHERE discord_id = '300000000000000007'").get().in_server === 0);
   res = await call("GET", "/api/me", { who: "300000000000000007" });
-  check("  but can still read what they entered", res.status === 200);
+  check("  the revoked cookie cannot read /api/me, while the own account record remains for privacy access", res.status === 401 && (await J(res)).error === "signed_out" && !!db.prepare("SELECT 1 FROM site_users WHERE discord_id = ?").get("300000000000000007"));
   res = await call("GET", "/api/board", { who: "300000000000000007" });
-  check("  and no longer reads the voting board", res.status === 403 && (await J(res)).error === "not_member");
+  check("  the same revoked cookie cannot read the voting board", res.status === 401 && (await J(res)).error === "signed_out");
   const absentId='300000000000000007', absentVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(absentId).session_version;
   db.prepare('UPDATE site_users SET in_server=1,checked_at=? WHERE discord_id=?').run(T,absentId);
   const absentStart=await call('GET','/auth/login',{who:absentId});

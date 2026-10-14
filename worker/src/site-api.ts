@@ -854,7 +854,7 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
   try {
     const m = await rest<{ nick?: string | null; avatar?: string | null; pending?: boolean }>(env, "GET", `/guilds/${env.SITE_GUILD_ID}/members/${user.discord_id}`, undefined, 1);
     if (m.pending) {
-      await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
+      await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
       return notMember();
     }
     await env.DB.prepare(
@@ -865,8 +865,13 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
     return null;
   } catch (e) {
     if (e instanceof DiscordError && e.status === 404) {
-      await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
-      await audit(env, user.discord_id, "site.left_server");
+      // Record the known departure and revoke this cookie generation atomically.
+      // A slower successful lookup using that old generation must not restore access.
+      const at = now();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, ?3, NULL, NULL").bind(at, user.discord_id, "site.left_server"),
+        env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, at),
+      ]);
       return notMember();
     }
     return apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);

@@ -120,7 +120,14 @@ const stubs = {
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
     banMember: async () => {},
-    rest: async () => { throw new Error("no REST in tests"); },
+    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
+    rest: async (env, method, p) => {
+      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
+      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
+      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
+      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
+      return { nick: member.nick, pending: false, roles: [] };
+    },
     explainDiscordError: (e) => String(e),
   },
   "./dm": { notify: async () => true, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
@@ -163,7 +170,7 @@ globalThis.Date = class extends RealDate {
 const H = 3600, DAY = 86400;
 const GUILD = "236932545793490944";
 const ADMIN = "472099715253796864", MEMBER = "300000000000000003", BOT_ONLY = "300000000000000006", ERASED = "300000000000000007", UNKNOWN = "300000000000000008";
-const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: ADMIN, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: ADMIN, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why.map((w) => (typeof w === "string" ? w : JSON.stringify(w)))); console.log((cond ? "PASS " : "FAIL ") + name); };
@@ -197,12 +204,12 @@ const log = (params = {}, who = ADMIN) => http("GET", "/api/admin/audit-log" + (
 const put = (action, { actor = "system", subject = null, details = null, ts = T } = {}) => Number(run("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, ?, ?, ?)", ts, actor, action, subject, details).lastInsertRowid);
 const ids = (r) => (r.body && Array.isArray(r.body.entries) ? r.body.entries.map((e) => e.id) : null);
 const people = () => {
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, in_server, denied, session_version) VALUES (?, 'vik', 'Vik', NULL, NULL, ?, ?, 1, 0, 1)", ADMIN, T, T);
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, in_server, denied, session_version) VALUES (?, 'mia', 'Mia Lee', 'Mimi', 'u:0123456789abcdef0123456789abcdef', ?, ?, 1, 0, 1)", MEMBER, T, T);
+  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, 'vik', 'Vik', NULL, NULL, ?, ?, ?, 1, 0, 1)", ADMIN, T, T, T);
+  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, 'mia', 'Mia Lee', 'Mimi', 'u:0123456789abcdef0123456789abcdef', ?, ?, ?, 1, 0, 1)", MEMBER, T, T, T);
   run("INSERT INTO members (discord_id, username, global_name, battletag) VALUES (?, 'mia_bot', 'Mia Bot', 'Hidden#1111')", MEMBER);
   run("INSERT INTO members (discord_id, username, global_name, battletag, ban_reason) VALUES (?, 'bo', 'Bo Bot', 'Hidden#2222', 'never shown')", BOT_ONLY);
   // a denied account whose site data was deleted: the row keeps only the id and the denial (site-admin.ts deleteSiteData)
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, denied_reason, session_version) VALUES (?, NULL, NULL, NULL, ?, ?, 1, 1, 'kept reason', 2)", ERASED, T, T);
+  run("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, denied_reason, session_version) VALUES (?, NULL, NULL, NULL, ?, ?, ?, 1, 1, 'kept reason', 2)", ERASED, T, T, T);
   run("INSERT INTO members (discord_id, username, global_name) VALUES (?, 'er', NULL)", ERASED);
 };
 /** Every table's row count and SQLite's own count of changed rows on this connection: equal before and after means no write. */
@@ -633,6 +640,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   T -= 60 * DAY;
 
   console.log("\n== statements per request ==");
+  // The audit-only cost bound assumes the independently due membership check has completed through the real gate.
+  if ((await log({ window: "all" })).status !== 200 || one("SELECT checked_at FROM site_users WHERE discord_id = ?", ADMIN).checked_at !== T) throw new Error("fixture membership revalidation failed before audit-only measurement");
   const counts = [], privacyCosts = [];
   for (const params of [{}, { window: "all" }, { family: "site", actor: ADMIN, window: "30d" }, { before: String(w.h1) }, { window: "1d", before: String(w.h23) }, { family: "none" }]) {
     const m = await measured(() => log(params));
@@ -724,6 +733,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   // the early answers are fenced the same way
   T += 60 * DAY; // nothing stamped in the last 30 days now; cookies minted from here on carry the moved clock
   const lateCookie = await cookieFor(ADMIN);
+  // Confirm membership once at this new clock before isolating the early audit answer's three statements.
+  if ((await http("GET", "/api/admin/audit-log?window=all", { cookie: lateCookie })).status !== 200 || one("SELECT checked_at FROM site_users WHERE discord_id = ?", ADMIN).checked_at !== T) throw new Error("fixture late membership revalidation failed");
   c = await injected(null, { params: { window: "30d" }, cookie: lateCookie });
   check("(control) the early empty-window answer (nothing stamped in the last 30 days): 200, no page read, three statements, the admission the last", c.r.status === 200 && c.r.body.entries.length === 0 && c.r.body.scanned === null && c.page === -1 && c.at === c.last && c.calls.length - GATE === 3, c.r.status, c.calls.length - GATE);
   c = await injected(() => run(SIGN_OUT, ADMIN, 1), { params: { window: "30d" }, cookie: lateCookie });

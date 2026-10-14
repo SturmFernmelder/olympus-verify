@@ -88,7 +88,14 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    rest: async () => { throw new Error("no REST in tests"); },
+    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
+    rest: async (env, method, p) => {
+      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
+      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
+      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
+      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
+      return { nick: member.nick, pending: false, roles: [] };
+    },
     explainDiscordError: (e) => String(e),
   },
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
@@ -106,14 +113,14 @@ globalThis.Date = class extends RealDate {
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null; // .72: armed by the reader-admission section, each fires once
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const APPLICANT = "300000000000000001", MEMBER = "300000000000000003", SPONSOR = "300000000000000004", STAFF = "472099715253796864", STAFF2 = "472099715253796865", NEVER = "300000000000000099";
 const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.in_server, row.denied, row.session_version);
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, checked_at: T, ...over };
+  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.checked_at, row.in_server, row.denied, row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "trials", SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.

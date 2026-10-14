@@ -113,7 +113,7 @@ let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const audits = (action) => db.prepare("SELECT * FROM audit WHERE action = ?").all(action);
-const siteUser = (id, over = {}) => db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, 1, 0, 1)").run(id, over.username ?? "u" + id.slice(-2), over.global_name ?? null, over.nick ?? null, T, T);
+const siteUser = (id, over = {}) => db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 1)").run(id, over.username ?? "u" + id.slice(-2), over.global_name ?? null, over.nick ?? null, T, T, over.checked_at === undefined ? T : over.checked_at);
 const character = (id, name, guid, status = "member") => {
   db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
   db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, ?, ?, ?, ?)").run(name.toLowerCase(), name, id, status, T - DAY, guid, T - DAY);

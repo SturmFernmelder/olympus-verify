@@ -207,13 +207,36 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').run(staleViewer,'stale-member',staleAt);
   const staleCookie = (await core.sessionCookie(assetEnv,staleViewer,1)).split(';')[0];
   for (const memberStatus of [404,503,200]) {
-    db.prepare('UPDATE site_users SET in_server=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
+    db.prepare('UPDATE site_users SET in_server=1,session_version=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
     let memberChecks=0;
     fetchResponder=async(url)=>{memberChecks++;if(!url.endsWith('/members/'+staleViewer))throw Error('Unexpected membership lookup');return new Response(JSON.stringify(memberStatus===200?{nick:'current member',pending:false}:{message:'membership unavailable',code:10007}),{status:memberStatus,headers:{'Content-Type':'application/json'}});};
     const beforeAssets=assetCalls;
     res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
     const after=db.prepare('SELECT in_server,checked_at FROM site_users WHERE discord_id=?1').get(staleViewer);
     check('stale signed session rechecks Discord before protected delivery: '+memberStatus,memberChecks===1&&res.status===(memberStatus===200?200:memberStatus===404?403:503)&&assetCalls===beforeAssets+(memberStatus===200?1:0)&&after.in_server===(memberStatus===404?0:1)&&(memberStatus===200?after.checked_at>staleAt:memberStatus===404||after.checked_at===staleAt));
+  }
+  for (const absence of ['404', 'pending']) {
+    db.prepare('UPDATE site_users SET in_server=1,denied=0,session_version=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
+    let release200, memberChecks=0, entered200;
+    const delayed200=new Promise(resolve=>{release200=resolve;});
+    const entered=new Promise(resolve=>{entered200=resolve;});
+    fetchResponder=async(url)=>{
+      if(!url.endsWith('/members/'+staleViewer))throw Error('Unexpected raced membership lookup');
+      memberChecks++;
+      if(memberChecks===1){entered200();await delayed200;return new Response(JSON.stringify({nick:'old response',pending:false}),{headers:{'Content-Type':'application/json'}});}
+      return new Response(JSON.stringify(absence==='pending'?{pending:true}:{message:'Unknown Member',code:10007}),{status:absence==='pending'?200:404,headers:{'Content-Type':'application/json'}});
+    };
+    const beforeAssets=assetCalls, pendingAsset=get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    let timeout;
+    try { await Promise.race([entered,new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('membership race did not reach provider')),3000);})]); }
+    finally { clearTimeout(timeout); }
+    const absent=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    const absenceRow=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
+    release200();
+    const late=await pendingAsset,lateBody=await late.text(),after=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
+    check('authoritative '+absence+' revokes the original session before an earlier200 can resurrect membership or deliver assets',absent.status===403&&memberChecks===2&&absenceRow.in_server===0&&absenceRow.session_version===2&&JSON.stringify(after)===JSON.stringify(absenceRow)&&late.status===503&&!lateBody.includes('protected-source')&&assetCalls===beforeAssets);
+    res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    check('the same cookie remains signed out after raced '+absence+' and cannot reuse private assets',res.status===401&&assetCalls===beforeAssets);
   }
   fetchResponder=null;
   db.prepare('DELETE FROM site_users WHERE discord_id=?1').run(viewer);

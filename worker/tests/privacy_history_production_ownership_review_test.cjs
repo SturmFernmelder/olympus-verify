@@ -9,7 +9,7 @@ async function review(){
  const registry=load('community-context'),before=Array.from(registry.communityDataNames());
  const index=load('index').default,policy=load('community-contribution-policy');
  const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,COMMUNITY_FEATURES:'contributions,restrictions',CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'400'});
- for(const id of[A,B])f.db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied)VALUES(?,?,?,?,7,1,0)').run(id,'Native '+id,f.time(),f.time());
+ for(const id of[A,B])f.db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version,in_server,denied)VALUES(?,?,?,?,?,7,1,0)').run(id,'Native '+id,f.time(),f.time(),f.time());
  const cookie=(await core.sessionCookie(f.env,A,7)).split(';')[0];
  async function staffAction(body){
   const response=await index.fetch(new Request(BASE+'/api/admin/community/contributions',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json'},body:JSON.stringify(body)}),f.env,{waitUntil(){}});
