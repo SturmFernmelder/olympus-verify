@@ -33,7 +33,7 @@ SUITES = {
 def input_hashes() -> dict[str, str]:
     paths = [
         ADDON / "OlympusVerify" / name
-        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua")
+        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyGuild.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua")
     ]
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())

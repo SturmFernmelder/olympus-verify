@@ -35,6 +35,7 @@ import { handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sessionCookie, sign, verify, SESSION_COOKIE } from "./site-core";
 import { rankPlannerPage } from "./site-ranks";
 import { communityContext, contextDto } from "./community-context";
+import { siteSignIn } from './site-access';
 
 export { siteHost } from "./site-core";
 
@@ -102,11 +103,15 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
   let boot: Record<string, unknown>;
   try {
     const user = await currentUser(env, request);
+    if (!user || user.in_server !== 1 || user.denied) {
+      const flash = extra.flash as { kind?: string } | undefined;
+      return siteSignIn(request, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
+    }
     const settings = await loadSettings(env);
     boot = user ? await meData(env, user, settings) : { signedIn: false, settings, meta: meta(), now: now() };
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
-    boot = { signedIn: false, meta: meta(), now: now(), settings: null };
+    return siteSignIn(request, 503, 'updating', cookies);
   }
   // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker admits
   let community: ReturnType<typeof contextDto> | null = null;
@@ -126,7 +131,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
 <meta name="description" content="Register for Olympus, Asmongold's guild in World of Warcraft: Forever: apply for a role, vote on who leads it, and enter your reserved names. A free fan site.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0a08">
-<link rel="icon" href="/static/olympus-icon.png" type="image/png">
+<link rel="icon" href="/static/wow/icon-shield.png" type="image/png">
 <link rel="preload" href="/static/wow/friz-quadrata.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/wow/morpheus.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v=${encodeURIComponent(build)}">

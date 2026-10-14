@@ -189,7 +189,7 @@ Object.assign(stubs, {
 });
 const siteCore = load("./site-core"), indexMod = load("./index");
 const MEMBER = "300000000000000003", OTHER = "300000000000000004", DENIED = "300000000000000005", STAFF = "472099715253796864";
-// .128: the genuine Worker still routes static requests; ASSETS serves only these actual public candidate files.
+// The genuine Worker gates static requests; ASSETS serves only these actual candidate files after admission.
 const governanceAssets = { fetch: async (request) => {
   const pathname = new URL(request.url).pathname;
   const files = { "/static/governance/reconciled-book.md": "reconciled-book.md", "/static/governance/organization.json": "organization.json", "/static/governance/olympus-governance-r6.pdf": "olympus-governance-r6.pdf", "/static/governance/olympus-governance-r6.zip": "olympus-governance-r6.zip" };
@@ -220,7 +220,7 @@ async function waitFor(pred, what, ms = 2000) {
   return false;
 }
 const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
-/** The real page: GET / as `who` (or nobody), the boot from its HTML, the script run in a fresh window whose fetch is the real Worker as that person. */
+/** GET / as the existing identity; execute app.js only when the real HTML actually includes its boot. */
 async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   // .126: fixed DST form fixtures set both page Date.now and its boot clock; the real Worker's clock stays unchanged.
   const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return clockNow; } };
@@ -229,7 +229,8 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   const res = await indexMod.default.fetch(new Request("https://guild.example/", { headers }), env({ ASSETS: governanceAssets, ...over }), ctx);
   const html = await res.text();
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
-  const boot = m ? JSON.parse(m[1]) : {};
+  if (!m) return { response: res, cookie, html, boot: null, app: null };
+  const boot = JSON.parse(m[1]);
   if (clockNow !== undefined) boot.now = Math.floor(clockNow / 1000); // app.js otherwise cancels PageDate.now through server skew
   if (bootTransform) bootTransform(boot); // test-only malformed boot fixture; no production hook
   const w = makeWindow(JSON.stringify(boot));
@@ -259,7 +260,7 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
   vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });
   await settle();
-  return { ...w, boot: m ? boot : null, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
+  return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
 }
 // .116: current script-free policy forms, through the real Worker and genuine cookies/tokens.
 // This is a finite HTML field reader for these server templates, not a DOM or transport replacement.
@@ -327,24 +328,27 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   siteUser(MEMBER, { global_name: "Mia" }); character(MEMBER, "Mia One", "Player-1-0001"); siteUser(OTHER, { global_name: "Oz" }); character(OTHER, "Oz Two", "Player-1-0002"); siteUser(DENIED, { global_name: "Dan", denied: 1 }); siteUser(STAFF, { global_name: "Vik" });
 
   console.log("\n== the shell: signed out ==");
-  let page = await openPage(null);
+  const anonymous = await openPage(null);
+  check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
+  check(".154 anonymous gate exposes policy links, without guild navigation or payload", anonymous.html.includes('href="/privacy"') && anonymous.html.includes('href="/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
+  let page = await openPage(MEMBER);
   {
     const profile = load("./ruleset-profile"), expected = profile.rulesetLabel();
-    check("public-beta identity in actual anonymous Worker boot and home agrees with shared module", JSON.stringify(page.boot.meta.ruleset) === JSON.stringify(profile.currentRulesetProfile()) && page.app.querySelector('[data-ruleset-identity="current"]').textContent === expected && page.app.querySelector(".hero .tag").textContent.includes(expected));
+    check("public-beta identity in actual member Worker boot and home agrees with shared module", JSON.stringify(page.boot.meta.ruleset) === JSON.stringify(profile.currentRulesetProfile()) && page.app.querySelector('[data-ruleset-identity="current"]').textContent === expected);
     const memberProfile = await openPage(MEMBER);
     check("signed-in home uses the same beta profile without claiming a release switch", memberProfile.app.querySelector('[data-ruleset-identity="current"]').textContent === expected && !byText(memberProfile.app, "button", "Switch to full release"));
     const hostile = [null, [], {}, { ...profile.currentRulesetProfile(), phase: "full_release", realm: "Synthetic Future Realm" }, { ...profile.currentRulesetProfile(), realm: "Wrong Beta Realm" }, { ...profile.currentRulesetProfile(), realm: "</script><img src=x onerror=alert(1)>" }, { ...profile.currentRulesetProfile(), revision: "unsupported-revision" }, { ...profile.currentRulesetProfile(), faction: "Horde" }, { ...profile.currentRulesetProfile(), realm: 12 }, { ...profile.currentRulesetProfile(), secret: "SYNTHETIC_PRIVATE_SENTINEL" }];
     for (const [i, bad] of hostile.entries()) {
-      const malformed = await openPage(null, {}, { bootTransform: (boot) => { boot.meta.ruleset = bad; } });
+      const malformed = await openPage(MEMBER, {}, { bootTransform: (boot) => { boot.meta.ruleset = bad; } });
       check(`malformed/future ruleset boot ${i + 1} refuses display without HTML or private sentinel`, malformed.app.querySelector('[data-ruleset-identity="current"]').textContent === "Game identity unavailable" && !malformed.app.textContent.includes("SYNTHETIC_PRIVATE_SENTINEL") && !malformed.app.querySelector('img[src="x"]') && !malformed.app.textContent.includes("Synthetic Future Realm"));
     }
-    const missing = await openPage(null, {}, { bootTransform: (boot) => { delete boot.meta.ruleset; } });
+    const missing = await openPage(MEMBER, {}, { bootTransform: (boot) => { delete boot.meta.ruleset; } });
     check("missing old-version boot has an explicit unavailable identity instead of an invented default", missing.app.querySelector('[data-ruleset-identity="current"]').textContent === "Game identity unavailable");
   }
-  check("the boot carries the community context (features, no subject)", page.boot && page.boot.community && page.boot.community.subject === null && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === false);
-  check("signed out: Roles and public governance links in the top bar, sign-in offered", texts(page.app, "nav.nav a").join(",") === "Roles,Governance,Organization" && !!byText(page.app, "a", "Sign in with Discord"));
+  check("member boot carries only its own community subject and current capabilities", page.boot.community.subject.discordId === MEMBER && page.boot.community.features.directory === true && page.boot.community.capabilities.applicantWrite === true);
+  check("signed-in member has Roles, Governance and Organization navigation and Sign out", ["Roles", "Governance", "Organization"].every((label) => texts(page.app, "nav.nav a").includes(label)) && !!byText(page.app, "button", "Sign out"));
   // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.
-  check("(.117) signed out, the footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
+  check("(.117) member footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
   await page.go("#/data");
   check("saved Your data fragment uses the actual replacement navigation to account controls", page.location.navigated === "/privacy/account" && page.location.replaced === true);
@@ -369,7 +373,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("a genuine case-bound reply writes one message and rereads the conversation", replyReceipt.response.status === 200 && replyReceipt.text.includes("I also used the name Mia Two.") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === 2);
   const wrongCode = await policyCase({ caseId: values[0], caseCode: "x".repeat(43) }), missingCase = await policyCase({ caseId: "Q".repeat(22), caseCode: "x".repeat(43) });
   check("wrong code and missing case share the actual unavailable response, exposing no conversation", wrongCode.response.status === 404 && missingCase.response.status === 404 && wrongCode.text.includes("missing, expired or the code is incorrect") && missingCase.text.includes("missing, expired or the code is incorrect") && !wrongCode.text.includes("I lost my Discord account"));
-  const off = await openPage(null, { COMMUNITY_FEATURES: "directory" });
+  const off = await openPage(MEMBER, { COMMUNITY_FEATURES: "directory" });
   await off.go("#/request");
   const offContact = await policyHTML("/privacy/contact", { over: { COMMUNITY_FEATURES: "directory" } }), offRead = await policyHTML("/privacy/case", { over: { COMMUNITY_FEATURES: "directory" } });
   check("intake feature off drops the canonical footer link; contact refuses while the read-form route remains available", off.location.navigated === "/privacy/contact" && !off.app.querySelector('.footer-links a[href="/privacy/contact"]') && offContact.response.status === 503 && !offContact.text.includes('action="/privacy/contact"') && offRead.response.status === 200 && offRead.text.includes('action="/privacy/case"'));
@@ -675,10 +679,13 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(pform, "button", "Save").click();
   await waitFor(() => one("SELECT raid_role FROM community_profiles WHERE discord_id = ?", MEMBER).raid_role === "tank", "the deliberate save");
   check("  Save again applies the draft over the current version deliberately", one("SELECT raid_role FROM community_profiles WHERE discord_id = ?", MEMBER).raid_role === "tank");
+  const accessRefreshRequests = [];
+  pf.before((pathname) => { if (pathname === "/api/community/directory" || pathname === "/api/community/context") accessRefreshRequests.push(pathname); return false; });
   db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER);
   await pf.go("#/community/directory");
   await waitFor(() => pf.app.textContent.includes("no longer have access"), "the fresh shell");
-  check("F5: a 403 re-reads the context once and the shell follows it: the Community tab gone, the page says the access ended", pf.app.textContent.includes("no longer have access") && !texts(pf.app, "nav.nav a").includes("Community"));
+  check("F5: a 403 re-reads the context once and the shell follows it: the Community tab gone, the page says the access ended", pf.app.textContent.includes("no longer have access") && !texts(pf.app, "nav.nav a").includes("Community") && accessRefreshRequests.filter((pathname) => pathname === "/api/community/directory").length === 1 && accessRefreshRequests.filter((pathname) => pathname === "/api/community/context").length === 1);
+  pf.before(null);
   db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
   check("F6: a crafting continuation is bound to the query that produced it (a changed filter restarts the search)", /cursorFor/.test(APP_JS) && APP_JS.includes("The filters changed; the search starts again"));
   check("F7: the themed field style covers password and date inputs; long headings and case values wrap on narrow screens", APP_CSS.includes('input[type="password"]') && APP_CSS.includes('input[type="date"]') && /\.plaque h2[^}]*overflow-wrap: anywhere/.test(APP_CSS) && /\.case-value[^}]*overflow-wrap: anywhere/.test(APP_CSS));
@@ -1715,7 +1722,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
     // ---- the role copy, as the Roles page shows it. .115's rewrite of the lines was withdrawn on 3 Oct 2026 (the owner's
     // answer 6: the in-game ladder is the ten ranks the .46 lines describe); the check of the page path stays.
-    const roles5 = await openPage(null);
+    const roles5 = await openPage(MEMBER);
     await roles5.go("#/roles");
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
@@ -1837,9 +1844,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await settle();
   check("a signed-in member without a roster-confirmed character gets the standing notice instead of the directory", unconfirmed.app.textContent.includes("roster export has confirmed") && !byText(unconfirmed.app, "h2", "Member directory"));
   const denied = await openPage(DENIED);
-  await denied.go("#/data");
-  await settle();
-  check("a denied identity retains the actual account-controls redirect", denied.location.navigated === "/privacy/account" && denied.location.replaced === true);
+  check(".154 denied identity receives no app boot while account controls remain separately reachable", denied.boot === null && denied.app === null && denied.html.includes('href="/auth/login"') && !denied.html.includes("/static/app.js"));
   const deniedControls = await policyHTML("/privacy/account", { who: DENIED, client: "account" });
   check("a denied existing session receives its genuine copy form and private inbox link without a guild access grant", deniedControls.response.status === 200 && scriptFreePolicy(deniedControls) && deniedControls.text.includes('action="/privacy/account/export"') && deniedControls.text.includes("including when the account is denied") && deniedControls.text.includes('href="/privacy/contact"'));
   const deniedCopy = await policyPost(deniedControls, "/privacy/account/export", { actions: "" }, { who: DENIED, client: "account" });
@@ -1920,9 +1925,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".120 actual action form refuses contribution token before a fifth copy audit",crossed.response.status===400 && JSON.parse(crossed.text).error==="invalid_cursor" && copies().length===before+4);
   }
 
-  await denied.go("#/community");
-  await settle();
-  check("  but the community pages stay the denied view", denied.app.textContent.includes("Registration denied") && !byText(denied.app, "h2", "Community"));
+  const deniedCommunity = await indexMod.default.fetch(new Request("https://guild.example/api/community/directory", { headers: { Cookie: denied.cookie } }), env(), ctx);
+  check("  but the real community API stays denied without guild payload", deniedCommunity.status === 403 && (await deniedCommunity.json()).error === "denied");
   const nothing = await openPage(MEMBER, { COMMUNITY_FEATURES: "" });
   check("with every community flag off: no Community in the top bar, no private-request link", !texts(nothing.app, "nav.nav a").includes("Community") && !nothing.app.querySelector('.footer-links a[href="/privacy/contact"]'));
   await nothing.go("#/community");
@@ -2100,19 +2104,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     }
   }
 
-  // .128: actual public app -> actual Worker -> exact public book/model, including denied identities.
+  // .154: admitted member app -> actual Worker -> current R7 reader and historical R6 downloads.
   {
-    const p = await openPage(null), requests = [];
+    const p = await openPage(MEMBER), requests = [];
     p.before((pathname, init) => { requests.push({ pathname, method: init.method || "GET", credentials: init.credentials }); return false; });
     await p.go("#/governance");
-    await waitFor(() => !!p.app.querySelector('[data-chapter="reading-and-adopting-this-book"]'), ".128 public book");
+    await waitFor(() => !!p.app.querySelector('[data-chapter="reading-and-adopting-this-book"]'), ".154 current member book");
     const chapters = p.app.querySelectorAll("details.governance-chapter");
-    check(".128 unsigned visitor can read entire R6 with draft and no-issued-warrant banner", chapters.length === 13 && p.app.textContent.includes("Publication is not adoption") && p.app.textContent.includes("issues no appointments or warrants"), p.app.textContent.slice(0, 1600));
-    check(".128 reading, adoption and appointment entry links point at real chapters", ["reading-and-adopting-this-book", "adoption-and-office-registers", "3-letters-patent-and-warrants"].every((id) => chapters.some((c) => c.getAttribute("data-chapter") === id) && p.app.querySelector(`a[href="#/governance/${id}"]`)));
-    check("R6 download links expose exact public paths, names and download attributes", [["Download PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"], ["Download full package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"], ["Guide PDF", "/static/governance/olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf"], ["Adoption checklist PDF", "/static/governance/olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf"], ["Templates PDF", "/static/governance/olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf"], ["Release preparation PDF", "/static/governance/olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf"]].every(([label, href, filename]) => { const link = byText(p.app, "a", label); return link && link.getAttribute("href") === href && link.getAttribute("download") === filename; }));
+    check(".154 member can read all14 R7 chapters with authorized adoption and no issued appointments", chapters.length === 14 && p.app.textContent.includes("R7 • Guild rules adopted 13 October 2026") && p.app.textContent.includes("Adoption issues no individual appointment or named signature") && p.app.textContent.includes("changes no native rank, bank limit or platform permission"), p.app.textContent.slice(0, 1600));
+    check(".154 reading, adoption, appointment and operational entry links point at real chapters", ["reading-and-adopting-this-book", "adoption-and-office-registers", "3-letters-patent-and-warrants", "operational-charter-the-work-of-olympus"].every((id) => chapters.some((c) => c.getAttribute("data-chapter") === id) && p.app.querySelector(`a[href="#/governance/${id}"]`)));
+    check("current R7 source and historical R6 downloads have exact distinct labels, paths and filenames", [["Historical R6 PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"], ["Historical R6 package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"], ["Historical R6 guide", "/static/governance/olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf"], ["Historical R6 checklist", "/static/governance/olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf"], ["Historical R6 templates", "/static/governance/olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf"], ["Release preparation PDF", "/static/governance/olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf"], ["Download current R7 source", "/static/governance/reconciled-book.md", "Olympus Governance R7.md"]].every(([label, href, filename]) => { const link = byText(p.app, "a", label); return link && link.getAttribute("href") === href && link.getAttribute("download") === filename; }));
     for (const [assetPath, contentType] of [["/static/governance/olympus-governance-r6.pdf", "application/pdf"], ["/static/governance/olympus-governance-r6.zip", "application/zip"], ...["olympus-guide-r6", "olympus-adoption-checklist-r6", "olympus-templates-r6", "olympus-release-preparation"].map((name) => ["/static/governance/" + name + ".pdf", "application/pdf"])]) {
-      const assetResponse = await indexMod.default.fetch(new Request("https://guild.example" + assetPath), env({ ASSETS: governanceAssets }), ctx);
-      check("unsigned Worker serves exact R6 download bytes and type: " + assetPath, assetResponse.status === 200 && assetResponse.headers.get("Content-Type") === contentType && Buffer.from(await assetResponse.arrayBuffer()).equals(fs.readFileSync(path.join(root, "public", assetPath))));
+      const unsigned = await indexMod.default.fetch(new Request("https://guild.example" + assetPath), env({ ASSETS: governanceAssets }), ctx);
+      check("unsigned Worker denies private historical download: " + assetPath, unsigned.status === 401 && /no-store/.test(unsigned.headers.get("Cache-Control") || "") && (await unsigned.json()).error === "discord_sign_in_required");
+      const assetResponse = await indexMod.default.fetch(new Request("https://guild.example" + assetPath, { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
+      check("member Worker serves exact historical bytes privately: " + assetPath, assetResponse.status === 200 && assetResponse.headers.get("Content-Type") === contentType && assetResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && assetResponse.headers.get("Vary") === "Cookie" && Buffer.from(await assetResponse.arrayBuffer()).equals(fs.readFileSync(path.join(root, "public", assetPath))));
     }
     check(".128 complete book includes statute, bylaws, all20 ordinances, letters and all3 safe tables", p.app.textContent.includes("Article S12a") && p.app.textContent.includes("ORD 20 Pilot and expansion") && p.app.textContent.includes("Independent auditor warrant") && p.app.querySelectorAll("table.governance-table").length === 3);
     check(".128 OVERVIEW is a genuine chart link rather than an exposed placeholder", !p.app.textContent.includes("[[OVERVIEW]]") && !!p.app.querySelector('a[href="#/organization"]'));
@@ -2127,50 +2133,39 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await p.go("#/governance/adoption-and-office-registers");
     await waitFor(() => !!p.app.querySelector('[data-chapter="adoption-and-office-registers"]'), ".128 adoption deep link");
     check(".128 deep navigation selects and opens adoption with real previous/next links", p.app.querySelector('[data-chapter="adoption-and-office-registers"]').open && !!p.app.querySelector('a[href="#/governance/daily-news-template"]') && !!p.app.querySelector('a[href="#/governance/source-and-decision-register"]'));
-    await p.go("#/organization/emissary-heraldry");
-    await waitFor(() => p.app.querySelectorAll("[data-organization-term]").length === 95, ".128 organization");
-    check(".128 public diagram exposes genuine Founder->Council->portfolio and GM->Officer->five-liaison nesting", p.app.querySelector('[data-organization-branch="council"]').parentNode.closest('[data-organization-branch="founder"]') && p.app.querySelector('[data-organization-branch="war"]').parentNode.closest('[data-organization-branch="council"]') && p.app.querySelector('[data-organization-branch="officers"]').parentNode.closest('[data-organization-branch="guilds"]') && p.app.querySelector('[data-organization-branch="emissaries"]').querySelectorAll("[data-organization-node]").length === 6);
-    check(".128 ten ranks and ten unappointed I-X slots are separate from the hierarchy", p.app.querySelectorAll("[data-native-rank]").length === 10 && p.app.querySelectorAll(".organization-guilds li").length === 10 && p.app.querySelector(".organization-guilds").textContent.includes("Olympus XUnappointed placeholder"));
-    check(".128 deep selection exposes authority, parent relation and Heraldry coordination", p.app.querySelector(".organization-detail").textContent.includes("Emissary of Heraldry") && p.app.querySelector(".organization-detail").textContent.includes("Authority and limits") && p.app.querySelector(".organization-detail").textContent.includes("Five per-guild emissary liaisons") && p.app.querySelector(".organization-detail").textContent.includes("Department of Heraldry"));
-    const orgSearch = p.app.querySelector("#organization-search"); orgSearch.value = "Marshall"; orgSearch.dispatchEvent(new Event("input"));
-    const hits = p.app.querySelectorAll("[data-organization-term]").filter((c) => !c.hidden);
-    check(".128 exact-label search locates Marshall without inventing a native rank", hits.length === 1 && hits[0].textContent.includes("Marshall"));
-    let selectedScrolls = 0; p.window.scrollTo = () => { selectedScrolls++; };
-    hits[0].querySelector("button").click();
-    check(".128 requested alias selection explains spelling, event remit and no general authority", p.app.querySelector(".organization-detail").textContent.includes("Marshal is the book") && p.app.querySelector(".organization-detail").textContent.includes("event command is separately assigned"));
-    check(".128 alias selection focuses and scrolls to its detail explanation", p.app.querySelector(".organization-detail").focusCalls >= 2 && selectedScrolls === 1);
-    byText(p.app, "button", "Clear search").click();
-    byText(p.app, "button", "Expand all branches").click();
-    check(".128 keyboard-operable native hierarchy can expand all38 branches", p.app.querySelectorAll("details.organization-branch").length === 38 && p.app.querySelectorAll("details.organization-branch").every((c) => c.open && c.querySelector("summary")));
-    byText(p.app, "button", "Collapse all branches").click();
-    check(".128 hierarchy can collapse all branches", p.app.querySelectorAll("details.organization-branch").every((c) => !c.open));
-    check(".128 no public member/leadership API or write request; only cookie-free fixed assets", requests.length === 2 && requests.every((r) => r.pathname.startsWith("/static/governance/") && r.method === "GET" && r.credentials === "omit"));
-    await p.go("#/community/leadership");
-    check(".128 actual-name directory link still sends unsigned visitor to sign-in home", !p.app.querySelector(".organization-tree") && p.app.textContent.includes("Sign in with Discord") && !requests.some((r) => r.pathname === "/api/community/leadership"));
+    // Retired: the R6 recursive details graph and its old data-organization-branch selectors no longer exist.
+    // Do not import a substitute module in this miniDOM. Actual SVG layout, the 38-group model/95-term search,
+    // pan/zoom, list view, keyboard and pointer interaction require Root's separate real-browser check.
+    const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
+    const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
+    const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
+    check(".154 source wires the actual SVG organization module after the genuine model", APP_JS.includes('const { renderOrganization } = await import("/static/organization-view.js")') && APP_JS.includes('renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection })') && organizationSource.includes("export function renderOrganization(main, data, ui)") && organizationSource.includes("document.createElementNS(NS, tag)") && organizationSource.includes('const NS = "http://www.w3.org/2000/svg"'));
+    check(".154 actual private R7 model preserves38 groups/95 terms/10 native ranks/38 mandates", modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false && model.nodes.length === 38 && nodes.size === 38 && model.terms.length === 95 && new Set(model.terms.map((term) => term.label)).size === 95 && model.nativeRanks.length === 10 && model.officeMandates.length === 38);
+    check(".154 actual model keeps hierarchy, independent review and the five liaison remits", nodes.get("council").parent === "founder" && nodes.get("council").relation === "accountability" && nodes.get("war").parent === "council" && nodes.get("officers").parent === "guilds" && nodes.get("justice").relation === "independence" && nodes.get("auditor").relation === "independence" && model.nodes.filter((node) => node.parent === "emissaries").length === 5 && nodes.get("emissary-heraldry").coordinates.includes("heraldry"));
+    const marshal = model.terms.find((term) => term.label === "Marshall");
+    check(".154 actual model keeps I-X unappointed and Marshall as a bounded event alias, not a native slot", model.guildPlaceholders.length === 10 && model.guildPlaceholders.every((guild) => guild.state === "Unappointed placeholder") && marshal.classification === "local" && marshal.nodeId === "tactical" && marshal.note.includes("Marshal is the book") && nodes.get(marshal.nodeId).kind === "event assignments" && nodes.get(marshal.nodeId).limits.includes("event command is separately assigned and gives no general guild or bank authority") && !model.nativeRanks.some((rank) => rank.name === "Marshall"));
+    check(".154 member reader makes only its fixed credentialed book GET, no directory API or write", requests.length === 1 && requests[0].pathname === "/static/governance/reconciled-book.md" && requests[0].method === "GET" && requests[0].credentials === "same-origin");
+    const unsignedDirectory = await indexMod.default.fetch(new Request("https://guild.example/api/community/leadership"), env(), ctx);
+    check(".154 unsigned actual-name directory stays denied before guild payload", unsignedDirectory.status === 401 && (await unsignedDirectory.json()).error === "signed_out");
 
     const denied = await openPage(DENIED);
-    await denied.go("#/governance"); await waitFor(() => !!denied.app.querySelector(".governance-chapter"), ".128 denied public reader");
-    check(".128 denied identity may read public governance without gaining admission", !!denied.app.querySelector(".governance-chapter") && denied.boot.denied);
-    await denied.go("#/community/leadership");
-    check(".128 denied identity remains refused at the private directory", denied.app.textContent.includes("Registration denied") && !denied.app.querySelector(".organization-tree"));
+    check(".154 denied identity receives no governance app boot", denied.boot === null && denied.app === null && !denied.html.includes("/static/app.js"));
+    const deniedModel = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: denied.cookie } }), env({ ASSETS: governanceAssets }), ctx);
+    check(".154 denied identity cannot download the private organization model", deniedModel.status === 403 && (await deniedModel.json()).error === "denied");
 
-    const malformed = await openPage(null);
+    const malformed = await openPage(MEMBER);
     malformed.answer((pathname) => pathname === "/static/governance/organization.json" ? { schema: "bad" } : null);
     await malformed.go("#/organization"); await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
-    check(".128 invalid model refuses instead of drawing a misleading hierarchy", !malformed.app.querySelector(".organization-tree") && malformed.app.textContent.includes("unexpected shape"));
-    const hostile = await openPage(null), hostileModel = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));
-    hostileModel.nodes[0].title = '<img src="https://untrusted.invalid/image" onerror="alert(1)">';
-    hostile.answer((pathname) => pathname === "/static/governance/organization.json" ? hostileModel : null);
-    await hostile.go("#/organization"); await waitFor(() => !!hostile.app.querySelector(".organization-tree"), ".128 safe model text");
-    check(".128 organization data renders markup-like text without constructing an image or event handler", hostile.app.textContent.includes(hostileModel.nodes[0].title) && !hostile.app.querySelector('img[src="https://untrusted.invalid/image"]') && !hostile.app.querySelector("[onerror]"));
+    check(".154 invalid model refuses before the dynamic SVG import or any organization rendering", !malformed.app.querySelector(".org-workspace") && malformed.app.textContent.includes("unexpected shape"));
+    check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: n.title })') && organizationSource.includes('h("strong", { text: node.title })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
     const alteredBytes = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md")); alteredBytes[0] = 33;
-    const altered = await openPage(null, { ASSETS: { fetch: async () => new Response(alteredBytes) } });
+    const altered = await openPage(MEMBER, { ASSETS: { fetch: async () => new Response(alteredBytes) } });
     await altered.go("#/governance"); await waitFor(() => altered.app.textContent.includes("does not match the reviewed text"), ".128 source hash refusal");
     check(".128 same-size altered book is refused before presenting any chapter", !altered.app.querySelector(".governance-chapter") && altered.app.textContent.includes("does not match the reviewed text"));
-    const missing = await openPage(null); missing.before((pathname) => pathname === "/static/governance/reconciled-book.md");
+    const missing = await openPage(MEMBER); missing.before((pathname) => pathname === "/static/governance/reconciled-book.md");
     await missing.go("#/governance"); await waitFor(() => missing.app.textContent.includes("Something went wrong"), ".128 missing book refusal");
     check(".128 failed public fetch is visible without a partial book or false acceptance", missing.app.textContent.includes("Something went wrong") && !missing.app.querySelector(".governance-chapter"));
-    const slow = await openPage(null); slow.delay((pathname) => pathname === "/static/governance/reconciled-book.md" ? 60 : 0);
+    const slow = await openPage(MEMBER); slow.delay((pathname) => pathname === "/static/governance/reconciled-book.md" ? 60 : 0);
     await slow.go("#/governance"); await slow.go("#/roles"); await new Promise((r) => setTimeout(r, 100));
     check(".128 delayed public reply cannot append its book to a newer route", !slow.app.querySelector(".governance-chapter") && slow.app.textContent.includes("Roles in Olympus"));
   }

@@ -134,11 +134,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-11.153 Original browser key custody");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-13.154 Member guild hall");
   res = await get("https://guild.example/");
-  check("the site host serves the site", res.status === 200 && (await res.text()).includes("Guild Registration"));
+  check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
-  check("  and does not serve the bot's routes", res.status === 404);
+  check('the signed-out site host discloses no bot route', res.status === 401);
   res = await get("http://localhost:8787/health");
   check("wrangler dev on localhost is served", res.status === 200);
 
@@ -173,7 +173,45 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
 
   console.log("\n== the site's static files go through the host check (.51) ==");
   res = await get("https://guild.example/static/app.css?v=x");
-  check("on the site host a static file comes from the assets binding", res.status === 200 && (await res.text()).includes("/static/app.css"), res.status);
+  check('signed out, the application stylesheet is refused before the asset binding', res.status === 401 && !(await res.text()).includes('/* asset'), res.status);
+  for (const p of ['/static/app.js', '/static/governance/organization.json', '/static/governance/reconciled-book.md', '/static/governance/olympus-governance-r6.pdf', '/static/governance/olympus-governance-r6.zip', '/static/rank-planner/model.js', '/static/qr-phase1.html', '/api/public']) {
+    const r = await get('https://guild.example' + p);
+    check('signed out, no private source/data/download: ' + p, r.status === 401 && !(await r.text()).includes('/* asset'));
+  }
+  let assetCalls = 0;
+  const assetEnv = env({ ASSETS: { fetch: async () => { assetCalls++; return new Response('protected-source'); } } });
+  const core = load('./site-core'), viewer = '300000000000000091';
+  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version) VALUES(?1,?2,?3,?3,1)').run(viewer,'member',Math.floor(Date.now()/1000));
+  const validCookie = (await core.sessionCookie(assetEnv,viewer,1)).split(';')[0];
+  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
+  check('current Discord session receives private assets with cookie-varying no-store delivery', res.status === 200 && await res.text() === 'protected-source' && assetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  db.prepare('UPDATE site_users SET session_version=2 WHERE discord_id=?1').run(viewer);
+  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
+  check('revoked cookie never reaches the asset binding', res.status === 401 && assetCalls === 1);
+  db.prepare('UPDATE site_users SET session_version=1,in_server=0 WHERE discord_id=?1').run(viewer);
+  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
+  check('known departed account never reaches the asset binding', res.status === 403 && assetCalls === 1);
+  const logoutHeaders = { Cookie: validCookie, Origin: 'https://guild.example', 'X-Olympus': core.PAGE_VERSION };
+  res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: logoutHeaders });
+  check('departed signed-in identity can reach original logout and clear its cookie', res.status === 200 && (await res.json()).ok === true && /__Host-olg=;/.test(res.headers.get('Set-Cookie') || '') && /Max-Age=0/.test(res.headers.get('Set-Cookie') || ''));
+  check('departed logout revokes the actual original session version without opening private assets', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 2 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  db.prepare('UPDATE site_users SET session_version=1,in_server=1,denied=1 WHERE discord_id=?1').run(viewer);
+  res = await get('https://guild.example/auth/logout-extra', assetEnv, { method: 'POST', headers: logoutHeaders });
+  check('denied identity receives no widened auth-prefix exception or cookie change', res.status === 403 && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 1);
+  res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: { ...logoutHeaders, Origin: 'https://other.example' } });
+  check('denied logout still consumes the original same-origin guard', res.status === 403 && (await res.json()).error === 'bad_origin' && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 1);
+  res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: logoutHeaders });
+  check('denied signed-in identity can reach original logout and clear its cookie', res.status === 200 && (await res.json()).ok === true && /__Host-olg=;/.test(res.headers.get('Set-Cookie') || '') && /Max-Age=0/.test(res.headers.get('Set-Cookie') || ''));
+  check('denied logout revokes the actual original session version and leaves assets inaccessible', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 2 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  db.prepare('DELETE FROM site_users WHERE discord_id=?1').run(viewer);
+  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
+  check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 1);
+  res = await get('https://guild.example/robots.txt');
+  check('all website indexing is discouraged independently of authentication', (await res.text()).includes('Disallow: /') && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  for (const p of ['/', '/static/app.js']) {
+    res = await get('http://guild.example' + p, assetEnv);
+    check('HTTP upgrades before sign-in or assets: ' + p, res.status === 301 && res.headers.get('Location') === 'https://guild.example' + p && assetCalls === 1);
+  }
   res = await get("https://guild.example/static/wow/morpheus.woff2", env(), { method: "HEAD" });
   check("  HEAD too", res.status === 200);
   touched = 0;

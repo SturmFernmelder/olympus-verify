@@ -79,9 +79,27 @@ frame:SetScript('OnUpdate',function()
  if challenge and #pending>0 then collect() end
  if challenge and clock()>=displayUntil and #displayQueue>0 then local r=table.remove(displayQueue,1);if clock()<r.at or clock()-r.at>60 then say('Queued whisper expired; the member may send its still-valid code again') else local wire,reason=OlympusVerifyBrowser.Observe(r.message,r.sender);if wire then show(wire);displayUntil=clock()+5 else enqueue(r.message,r.sender,r.at);say(reason) end end end
 end)
-SLASH_OLYMPUSBROWSER1='/oly'
-SlashCmdList.OLYMPUSBROWSER=function(message)
- local code=message:match('^browser ([0-9a-f]+)$');if not code then say('Use /oly browser <challenge> from your enrolled browser. Members whisper !olympus <code>.');return end
+local function browserCommand(message)
+ if OlympusVerifyPreview and OlympusVerifyPreview.State and OlympusVerifyPreview.State() then say('Leave preview before starting a browser observation.');return end
+ local code=type(message)=='string' and message:match('^browser ([0-9a-f]+)$');if not code then say('Use /olv browser <challenge> from your enrolled browser. Members whisper !olympus <code>.');return end
  local ok,reason=OlympusVerifyBrowser.SetChallenge(code);say(ok and 'Challenge ready for five minutes; keep this game and browser open.' or reason)
+end
+-- Olympus Guild owns /oly. Never replace its dispatcher or steal its alias, even when disabled.
+local function olympusInstalled()
+ if type(SlashCmdList.OLYMPUS)=='function' then return true end
+ local exists=C_AddOns and C_AddOns.DoesAddOnExist
+ if type(exists)=='function' then local ok,yes=pcall(exists,'Olympus');return not ok or yes~=false end
+ local info=(C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+ if type(info)=='function' then local ok,name=pcall(info,'Olympus');return not ok or name~=nil end
+ return true -- unknown installation API: prefer the collision-free /olv command
+end
+SlashCmdList.OLYMPUSBROWSER=browserCommand
+if not olympusInstalled() then SLASH_OLYMPUSBROWSER1='/oly' end
+local previousSlash=SlashCmdList.OLYMPUSVERIFY
+if type(previousSlash)=='function' then
+ SlashCmdList.OLYMPUSVERIFY=function(message,...)
+  if type(message)=='string' and (message:match('^%s*browser[%s]') or message:match('^%s*browser%s*$')) then return browserCommand(message:match('^%s*(.-)%s*$')) end
+  return previousSlash(message,...)
+ end
 end
 OlympusVerifyBrowser.Clear=clear

@@ -215,8 +215,11 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   res = await http("GET", "/api/leadership", { who: MEMBER });
   out = await J(res);
   check("a confirmed member reads the directory and the Council's Discord link", res.status === 200 && out.guilds[0].gm === "Fern Melder" && out.councilUrl === "https://discord.com/channels/236932545793490944/1555636857621188669");
-  out = await J(await http("GET", "/api/public"));
-  check("the public settings carry neither the directory nor the Battle.net switch", !JSON.stringify(out).includes("Fern Melder") && !("leadership" in out.settings) && !("bnetLogin" in out.settings));
+  out = await J(await http("GET", "/api/public", { who: MEMBER }));
+  check("the member's settings carry neither the directory nor the Battle.net switch", !JSON.stringify(out).includes("Fern Melder") && !("leadership" in out.settings) && !("bnetLogin" in out.settings));
+  const anonymousPublic = await http("GET", "/api/public"), anonymousSettings = await J(anonymousPublic);
+  const anonymousPage = await http("GET", "/"), anonymousHtml = await anonymousPage.text();
+  check("anonymous entry sends only sign-in, with no settings or application bootstrap", anonymousPublic.status === 401 && anonymousSettings.error === "signed_out" && !("settings" in anonymousSettings) && anonymousPage.status === 200 && anonymousHtml.includes('href="/auth/login"') && !anonymousHtml.includes('id="boot"') && !anonymousHtml.includes('/static/app.js') && !anonymousHtml.includes("Fern Melder"));
   check("a listing is read by nothing that decides anything: only the directory's module and the members' page name the row", fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && !["site-leadership.ts", "site-api.ts"].includes(f)).every((f) => !fs.readFileSync(path.join(root, "src", f), "utf8").includes("LEADERSHIP_KEY")) && (fs.readFileSync(path.join(root, "src", "site-api.ts"), "utf8").match(/LEADERSHIP_KEY/g) || []).length === 2);
   const stampUsers = fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && fs.readFileSync(path.join(root, "src", f), "utf8").includes("leadershipStampStatement")).sort();
   const stamp = load("./site-leadership").leadershipStampStatement({ DB: { prepare: (sql) => ({ bind: (...p) => ({ sql, p }) }) } });
@@ -393,14 +396,19 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   // the default Treasurer (site-data.ts DEFAULT_APPOINTED) names a person until the list is first saved; removed on request
   const defaultHolder = siteData.DEFAULT_APPOINTED.treasurer;
   db.prepare("DELETE FROM site_settings WHERE key = 'appointed'").run();
-  const signedOutBoot = async () => ((await (await http("GET", "/")).text()).match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/) || [])[1] || "";
-  const publicJson = async () => JSON.stringify(await J(await http("GET", "/api/public")));
+  const signedMemberBoot = async () => {
+    const response = await http("GET", "/", { who: MEMBER });
+    const match = (await response.text()).match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
+    if (response.status !== 200 || !match) throw new Error("Expected the actual signed member's application bootstrap");
+    return match[1];
+  };
+  const memberJson = async () => JSON.stringify(await J(await http("GET", "/api/public", { who: MEMBER })));
   const meJson = async () => JSON.stringify(await J(await http("GET", "/api/me", { who: MEMBER })));
-  check("(fixture) with no saved list the default Treasurer's name is public: /api/public, the signed-out page, /api/me", (await publicJson()).includes(defaultHolder) && (await signedOutBoot()).includes(defaultHolder) && (await meJson()).includes(defaultHolder));
+  check("with no saved list the default Treasurer's name reaches the signed member's settings, actual page and /api/me", (await memberJson()).includes(defaultHolder) && (await signedMemberBoot()).includes(defaultHolder) && (await meJson()).includes(defaultHolder));
   res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: NAME_WITHHELD } } });
   out = await J(res);
   check("removal on request: typing Name withheld needs no tick", res.status === 200 && out.settings.appointed.treasurer === NAME_WITHHELD && JSON.parse(settingsAudits().at(-1).details).appointedNames === 1);
-  check("  the name leaves /api/public, the signed-out page and /api/me", !(await publicJson()).includes(defaultHolder) && !(await signedOutBoot()).includes(defaultHolder) && !(await meJson()).includes(defaultHolder));
+  check("  the name leaves the member's settings, actual page and /api/me", !(await memberJson()).includes(defaultHolder) && !(await signedMemberBoot()).includes(defaultHolder) && !(await meJson()).includes(defaultHolder));
   res = await http("GET", "/api/board/treasurer", { who: PLAIN });
   out = await J(res);
   check("  the role stays appointed: its board stays closed, held by Name withheld", res.status === 409 && out.error === "appointed" && out.appointed === NAME_WITHHELD, res.status, out);
@@ -644,12 +652,12 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
     db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3, updated_by = ?4").run(leadership.LEADERSHIP_KEY, JSON.stringify(ten({ 0: { gm: "Quenby Old", officers: ["Quenby Old"] } })), T - 20 * DAY, MEMBER);
   };
   restoreOlder();
-  check("(fixture) the restored rows hold the older names", (await publicJson()).includes("Quenby Old") && JSON.stringify(typedRows()).includes("Quenby Old"));
+  check("the restored rows hold the older names in the member's settings", (await memberJson()).includes("Quenby Old") && JSON.stringify(typedRows()).includes("Quenby Old"));
   db.exec(sqlFile);
   check("right after the restore the file puts both rows back exactly as preserved: value, time and editor, every character of every name intact", JSON.stringify(typedRows()) === JSON.stringify(preserved), typedRows());
   out = await J(await http("GET", "/api/admin/leadership", { who: ADMIN }));
-  const publicNow = await publicJson();
-  check("  the site shows the names as they stood, not the restored ones", publicNow.includes("D'Arcy Zoë") && !publicNow.includes("Quenby") && out.guilds[0].gm === "Ó'Brien" && out.guilds[0].officers.includes('Tess "Two" Lane') && !JSON.stringify(out).includes("Quenby"), out && out.guilds && out.guilds[0]);
+  const memberNow = await memberJson();
+  check("  the member site shows the names as they stood, not the restored ones", memberNow.includes("D'Arcy Zoë") && !memberNow.includes("Quenby") && out.guilds[0].gm === "Ó'Brien" && out.guilds[0].officers.includes('Tess "Two" Lane') && !JSON.stringify(out).includes("Quenby"), out && out.guilds && out.guilds[0]);
   check("  through no Worker route: no audit row added, none holds a typed or a restored name", auditRows() === auditAtPreserve && nobodyLogged(/D'Arcy|Ó'Brien|Tess "Two"|Quenby/));
   db.exec(sqlFile);
   check("  the file run again changes nothing", JSON.stringify(typedRows()) === JSON.stringify(preserved));
@@ -658,7 +666,7 @@ const status = async (id, over = {}) => (await interactions.handleInteraction(en
   check("a key without a row right before the restore is preserved as a DELETE (no row means the default appointment)", sqlFile2.trim().split("\n")[0] === "DELETE FROM site_settings WHERE key = 'appointed';" && sqlFile2.trim().split("\n")[1] === fileLines[1], sqlFile2);
   restoreOlder();
   db.exec(sqlFile2);
-  out = await J(await http("GET", "/api/public"));
+  out = await J(await http("GET", "/api/public", { who: MEMBER }));
   check("  written back, the restored row is gone and the default appointment shows, not the restored name", !one("SELECT 1 AS x FROM site_settings WHERE key = 'appointed'") && JSON.stringify(out.settings.appointed) === JSON.stringify(siteData.DEFAULT_APPOINTED) && JSON.stringify(typedRows()) === JSON.stringify(preserved.slice(1)), out && out.settings && out.settings.appointed);
 
   console.log("\n== smaller changes ==");

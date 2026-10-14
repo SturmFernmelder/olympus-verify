@@ -46,7 +46,7 @@ export function validateHtml(source, { mirror = false, slotStructural = false } 
       const attr = /^\s+([a-z][a-z0-9-]*)\s*=\s*"([^"<>]*)"/i.exec(rest); if (!attr) throw Error("malformed_attribute"); const k = attr[1].toLowerCase(), v = attr[2];
       if (!ATTRS.has(k) || seen.has(k) || /[\u0000-\u001f]/.test(v)) throw Error("forbidden_or_duplicate_attribute"); seen.add(k);
       if (k === "href" && !(name === "link" ? RESOURCES.has(v) : LINKS.has(v))) throw Error("undeclared_url");
-      if (k === "src" && (name !== "img" || v !== "/static/olympus-icon.png")) throw Error("undeclared_resource");
+      if (k === "src" && (name !== "img" || v !== "/static/wow/icon-shield.png")) throw Error("undeclared_resource");
       if (mirror && (name === "link" || name === "img" || k === "src")) throw Error("dependent_mirror");
       if (k === "style" && v !== "margin-top:2.5rem") throw Error("undeclared_inline_style");
       if (k === "rel" && v !== "stylesheet") throw Error("undeclared_link_relation");

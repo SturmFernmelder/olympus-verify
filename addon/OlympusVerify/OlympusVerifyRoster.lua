@@ -8,7 +8,8 @@
   writes into OlympusQueue.lua (Worker build .41 sends the verified list with the Discord names). Like every other part
   of that file, the lists are as fresh as the last /reload.
 
-  Read-only. Nothing here invites, removes, whispers or writes anything; it reads OlympusVerifyAPI.Roster. Open it with
+  Reads OlympusVerifyAPI.Roster. A current unverified member's status opens one editable whisper; it never sends it.
+  Nothing here invites, removes or changes verification. Open it with
   /olv members [search], or the Members button on the officer panel. Loads after OlympusVerify.lua (TOC order). Only
   client-shipped textures and fonts, in the palette the panel uses (see OlympusVerifyUI.lua). ]]
 
@@ -49,9 +50,10 @@ local STATUS_TEXT = {
   verified = GREEN .. "verified|r",
   pending = YELLOW .. "verifying|r",
   unverified = RED .. "not verified|r",
-  unknown = GREY .. "not in list|r",
+  unknown = GREY .. "unknown|r",
+  stale = YELLOW .. "stale list|r",
 }
-local STATUS_FILTERS = { { "all", "All members" }, { "verified", "Verified" }, { "not", "Not verified" }, { "pending", "Verifying now" }, { "unknown", "Not in the list" } }
+local STATUS_FILTERS = { { "all", "All members" }, { "verified", "Verified" }, { "not", "Not verified" }, { "pending", "Verifying now" }, { "unknown", "Unknown" }, { "stale", "Stale list" } }
 
 local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, summary, footer, rows, headers
 local offset = 0
@@ -146,6 +148,19 @@ local function SetButtonText(b, text) if b.label then b.label:SetText(text) end 
 -- ---------------------------------------------------------------- data
 local function Reload()
   local list, info = R.Members()
+  -- The native Guild column and this fallback window share the same GUID/freshness rules.
+  -- Older standalone installations without the optional module retain their existing display.
+  if R.Verification and info then
+    info.verified, info.pending, info.unverified, info.unknown, info.stale = 0, 0, 0, 0, 0
+    for _, m in ipairs(list or {}) do
+      local ok, r = pcall(R.Verification, m.full, m.guid)
+      m.verification = ok and r or { status = "unknown", reason = "The current native roster could not be read." }
+      m.status = m.verification.status
+      m.guid = m.verification.guid
+      info[m.status] = (info[m.status] or 0) + 1
+      if m.status ~= "verified" then m.discord, m.display, m.discordId = nil, nil, nil end
+    end
+  end
   cache.list, cache.info = list or {}, info
 end
 
@@ -175,6 +190,12 @@ local function RowTip(r)
   local m = r.member
   if not m then return end
   local lines = { string.format("Level %s %s, %s", tostring(m.level), className(m.class), tostring(m.rank)) }
+  if m.verification then
+    lines[#lines + 1] = m.verification.reason
+    if m.status == "unverified" then lines[#lines + 1] = "Click Status to open one editable reminder. You send it yourself." end
+    Tip(r, m.full or m.name, lines)
+    return
+  end
   if m.status == "verified" then
     if m.discord then
       lines[#lines + 1] = "Discord: @" .. m.discord .. (m.display and (" (" .. m.display .. ")") or "")
@@ -210,12 +231,14 @@ function W.Refresh()
       r.cells.level:SetText(WHITE .. tostring(m.level or "") .. "|r")
       r.cells.rank:SetText(WHITE .. trunc(m.rank, 16) .. "|r")
       r.cells.status:SetText(STATUS_TEXT[m.status] or m.status)
+      if r.remind then r.remind.member = m; r.remind:SetShown(m.status == "unverified" and m.online) end
       r.cells.discord:SetText(m.discord and (WHITE .. trunc("@" .. m.discord, 24) .. "|r") or (m.status == "verified" and (GREY .. "linked|r") or ""))
       r.cells.display:SetText(m.display and (WHITE .. trunc(m.display, 22) .. "|r") or "")
       r.cells.seen:SetText(seenText(m))
       r:Show()
     else
       r.member = nil
+      if r.remind then r.remind.member = nil; r.remind:Hide() end
       r:Hide()
     end
   end
@@ -227,7 +250,7 @@ function W.Refresh()
   local shown = #list
   summary:SetText(string.format("%s%d members|r  %s%d verified|r  %s%d not verified|r  %s%d verifying|r%s   %s%s|r",
     WHITE, info.total or 0, GREEN, info.verified or 0, RED, info.unverified or 0, YELLOW, info.pending or 0,
-    (info.unknown or 0) > 0 and string.format("  %s%d not in list|r", GREY, info.unknown) or "",
+    ((info.unknown or 0) > 0 and string.format("  %s%d unknown|r", GREY, info.unknown) or "") .. ((info.stale or 0) > 0 and string.format("  %s%d stale|r", YELLOW, info.stale) or ""),
     GREY, shown ~= (info.total or 0) and string.format("showing %d", shown) or ""))
   local names = info.hasNames and (info.listAt and ("Discord names as of " .. date("%d %b %H:%M", info.listAt)) or "Discord names loaded")
     or "No Discord names yet: they arrive with Worker build .41 and watcher 0.6.4, then a /reload"
@@ -311,7 +334,7 @@ local function Build()
   search.hint = hint
   statusBtn = Button(frame, "All members", 118, 24, function()
     view.status = view.status % #STATUS_FILTERS + 1; offset = 0; W.Refresh()
-  end, "Status", "Click to step through: all, verified, not verified, verifying now, not in the list.")
+  end, "Status", "Click to step through: all, verified, not verified, verifying now, unknown, stale list.")
   statusBtn:SetPoint("LEFT", search, "RIGHT", 8, 0)
   rankBtn = Button(frame, "All ranks", 118, 24, function()
     local n = #(cache.info and cache.info.ranks or {})
@@ -374,6 +397,18 @@ local function Build()
       r.cells[col.key] = fs
     end
     if r.EnableMouse then r:EnableMouse(true) end
+    if R.OpenWhisper then
+      local b = CreateFrame("Button", nil, r)
+      b:SetSize(100, ROW_H); b:SetPoint("LEFT", r, "LEFT", 318, 0)
+      b:SetScript("OnClick", function(self)
+        local m = self.member
+        if not m then return end
+        local called, ok, why = pcall(R.OpenWhisper, m.full, m.guid)
+        if (not called or not ok) and DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Olympus Verify: " .. (called and tostring(why) or "The current native whisper editor could not be opened.")) end
+      end)
+      b:SetScript("OnEnter", function() RowTip(r) end); b:SetScript("OnLeave", HideTip)
+      b:Hide(); r.remind = b
+    end
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
     r:SetScript("OnMouseWheel", Wheel)
     r:SetScript("OnEnter", function(self) hoverTex:Show(); RowTip(self) end)

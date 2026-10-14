@@ -47,7 +47,7 @@ const scenario=String.raw`
  check('malformed future/readable receipt has no payload or active buttons',malformed.app.querySelectorAll('pre').length===0&&byText(malformed.app,'button','Record current beta plan').disabled&&!malformed.app.querySelector('script'));
  const detached=byText(reload.app,'button','Refresh publication status');let reads=0;reload.before(url=>{if(url.startsWith('/api/admin/ruleset-publication'))reads++;return false;});await reload.go('#/roles');detached.click();await settle();
  check('detached real controls make zero requests',reads===0);
- const ordinary=await openPage(null,over);await ordinary.go('#/admin/ruleset-publication');await settle();check('anonymous has no staff publisher controls',!byText(ordinary.app,'button','Record current beta plan')&&effects.filter(e=>e[0]==='POST').length===2);
+ const ordinary=await openPage(null,over);check('anonymous receives only sign-in, with no app/bootstrap or staff publisher controls',ordinary.response.status===200&&ordinary.app===null&&ordinary.boot===null&&ordinary.html.includes('Sign in with Discord')&&!ordinary.html.includes('<script')&&!ordinary.html.includes('Record current beta plan')&&effects.filter(e=>e[0]==='POST').length===2);
  console.log(ok+'/'+n+' passed');process.exit(ok===n?0:1); // The real app's recurring UI timers are intentionally stopped by the house harness.
 })().catch(e=>{console.error(e);process.exit(1);});
 `;

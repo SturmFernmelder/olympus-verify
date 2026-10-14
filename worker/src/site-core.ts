@@ -68,6 +68,7 @@ export function securityHeaders(h: Headers, html = false) {
   // beacon script into every HTML page (seen live on 29 Sep): the CSP blocked it on the site's own pages, one console
   // error per load, and on the policy pages, which carry no CSP of their own until .42, it ran.
   h.set("Cache-Control", "no-store, no-transform");
+  h.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
   return h;
 }
 

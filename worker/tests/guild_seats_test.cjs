@@ -804,11 +804,11 @@ const quiet = async (fn) => { const real = console.error, lines = []; console.er
   siteUser(DENIED, 1);
   me = await (await site("GET", "/api/me", { who: DENIED })).json();
   check("a denied account: seats null, myQueue []", me.denied === true && me.seats === null && Array.isArray(me.myQueue) && me.myQueue.length === 0, me.seats);
-  const pub = await (await site("GET", "/api/public")).json();
-  check("/api/public has no seats", !("seats" in pub) && !("myQueue" in pub));
-  let boot = await bootOf(await site("GET", "/"));
-  check("the signed-out boot has no seats", boot.signedIn === false && !("seats" in boot) && !("myQueue" in boot));
-  boot = await bootOf(await site("GET", "/", { who: QUINN }));
+  const publicResponse = await site("GET", "/api/public"), pub = await publicResponse.json();
+  check("the signed-out /api/public is held without seats", publicResponse.status === 401 && pub.error === "signed_out" && !("seats" in pub) && !("myQueue" in pub));
+  const signedOutPage = await site("GET", "/"), signedOutHtml = await signedOutPage.text();
+  check("the signed-out page is a sign-in boundary with no bootstrap or application script", signedOutPage.status === 200 && signedOutHtml.includes('href="/auth/login"') && !signedOutHtml.includes('id="boot"') && !signedOutHtml.includes('/static/app.js'));
+  const boot = await bootOf(await site("GET", "/", { who: QUINN }));
   check("the signed-in boot carries them", boot.signedIn === true && boot.seats && boot.seats.state === "open");
 
   console.log("\n== the staff views: exact times ==");

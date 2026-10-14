@@ -43,7 +43,7 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 103 and len(ref["fixed_art_source_pins"]) == 5
+assert len(ref["assets"]) == 104 and len(ref["fixed_art_source_pins"]) == 5
 PY
 "$PY" -B scripts/tests/publication-resource.test.py || fail "the actual publication resource/result-tree gate"
 for d in LICENSE README.md CLAUDE.md THIRD_PARTY_NOTICES.md docs/source-provenance.md docs/design.md docs/deploy-checklist.md; do

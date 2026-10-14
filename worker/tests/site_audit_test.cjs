@@ -691,17 +691,17 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("  and it is indexed: site_users is searched by its primary key, never scanned", /SEARCH fu USING INDEX sqlite_autoindex_site_users_1 \(discord_id=\?\)/.test(admissionPlan) && !/SCAN fu/.test(admissionPlan), admissionPlan);
 
   const cases = [
-    ["the session's version revoked (a sign-out elsewhere, site.ts's statement)", () => run(SIGN_OUT, ADMIN, 1)],
-    ["a denial with the version bump (site-admin.ts deny's statement)", () => run(DENY, ADMIN, "test denial", T, MEMBER)],
-    ["the account erased (its site_users row deleted, deleteSiteData's statement)", () => run(ERASE, ADMIN)],
-    ["a denial without a version bump", () => run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", ADMIN)],
-    ["the account no longer in the server (in_server = 0, as the membership re-check records it)", () => run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN)],
+    ["the session's version revoked (a sign-out elsewhere, site.ts's statement)", () => run(SIGN_OUT, ADMIN, 1), 401, "signed_out"],
+    ["a denial with the version bump (site-admin.ts deny's statement)", () => run(DENY, ADMIN, "test denial", T, MEMBER), 401, "signed_out"],
+    ["the account erased (its site_users row deleted, deleteSiteData's statement)", () => run(ERASE, ADMIN), 401, "signed_out"],
+    ["a denial without a version bump", () => run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", ADMIN), 403, "denied"],
+    ["the account no longer in the server (in_server = 0, as the membership re-check records it)", () => run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN), 403, "not_member"],
   ];
-  for (const [label, change] of cases) {
+  for (const [label, change, followStatus, followError] of cases) {
     c = await injected(change, { cookie: adminCookie });
     check(`${label} after the page read, before the final admission: 401 signed_out with nothing of the page`, c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page >= 0 && c.page < c.at && c.calls[c.at].params[1] === 1, c.r.status, c.r.body, c.at, c.last, c.page);
     const follow = await http("GET", "/api/admin/audit-log?window=all", { cookie: adminCookie });
-    check("  the same cookie's next request: 401, no entries", follow.status === 401 && bare(follow, "signed_out"), follow.status, follow.body);
+    check(`  the same cookie's next request: ${followStatus} ${followError}, no entries`, follow.status === followStatus && bare(follow, followError), follow.status, follow.body);
     restoreAdmin();
   }
 

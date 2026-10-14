@@ -58,17 +58,17 @@ function d1(db) {
   const pageBoot = async (over = {}, headers = {}, ready = true) => {
     const res = await site.handleSite(new Request("https://guild.example/", { headers }), { ...env, ...over }, "/", ready, "synthetic-candidate", () => {});
     const html = await res.text(); const match = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
-    return { status: res.status, html, boot: JSON.parse(match[1]) };
+    return { status: res.status, html, boot: match ? JSON.parse(match[1]) : null };
   };
   const anon = await pageBoot();
-  check("actual anonymous Worker boot carries exact shared profile and no arbitrary environment field", anon.status === 200 && anon.boot.meta.ruleset.revision === current.revision && JSON.stringify(anon.boot.meta.ruleset) === JSON.stringify(current) && !anon.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !anon.html.includes("Synthetic Future Realm"));
+  check("actual anonymous Worker page is the script-free sign-in gate with no profile/settings boot or arbitrary environment field", anon.status === 200 && anon.boot === null && anon.html.includes('href="/auth/login"') && !/<script\b|id="boot"|\/static\/app\.(?:js|css)/i.test(anon.html) && !anon.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !anon.html.includes("Synthetic Future Realm"));
   db.prepare("INSERT INTO site_users(discord_id,username,in_server,denied,first_login,last_login,session_version) VALUES(?,?,1,0,?,?,1)").run(userId, "synthetic-member", t, t);
   const cookie = (await core.sessionCookie(env, userId, 1)).split(";")[0], member = await pageBoot({}, { Cookie: cookie });
-  check("actual signed-in Worker boot shares identity", member.status === 200 && member.boot.signedIn === true && JSON.stringify(member.boot.meta.ruleset) === JSON.stringify(anon.boot.meta.ruleset));
+  check("actual signed-in Worker boot carries the exact shared identity and unavailable switch without arbitrary environment fields", member.status === 200 && member.boot.signedIn === true && member.boot.meta.ruleset.revision === current.revision && JSON.stringify(member.boot.meta.ruleset) === JSON.stringify(current) && member.boot.meta.rulesetSwitch.available === false && !member.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !member.html.includes("Synthetic Future Realm"));
   const api = await site.handleSite(new Request("https://guild.example/api/me", { headers: { Cookie: cookie } }), env, "/api/me", true, "synthetic-candidate", () => {}), apiData = await api.json();
   check("actual authenticated /api/me identity agrees with boot and guide", api.status === 200 && JSON.stringify(apiData.meta.ruleset) === JSON.stringify(current) && reviewText.includes(profile.rulesetLabel(apiData.meta.ruleset)));
-  const broken = await pageBoot({ DB: { prepare() { throw new Error("synthetic DB outage"); } } }, {}, false);
-  check("actual DB-failure boot preserves public identity without eligibility promise", broken.status === 503 && broken.boot.settings === null && JSON.stringify(broken.boot.meta.ruleset) === JSON.stringify(current) && broken.boot.meta.rulesetSwitch.available === false);
+  const broken = await pageBoot({ DB: { prepare() { throw new Error("synthetic DB outage"); } } }, { Cookie: cookie }, false);
+  check("actual signed-cookie DB failure holds at the script-free sign-in gate without settings or eligibility promise", broken.status === 503 && broken.boot === null && broken.html.includes('href="/auth/login"') && broken.html.includes("updating") && !/<script\b|id="boot"|\/static\/app\.(?:js|css)/i.test(broken.html) && !broken.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !broken.html.includes("Synthetic Future Realm"));
   const settingsBefore = JSON.stringify(db.prepare("SELECT * FROM site_settings ORDER BY key").all());
   const refused = await site.handleSite(new Request("https://guild.example/api/admin/ruleset", { method: "PUT", headers: { Cookie: cookie, Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify(synthetic) }), env, "/api/admin/ruleset", true, "synthetic-candidate", () => {});
   check("unimplemented switch route refuses and cannot change settings", refused.status === 404 && JSON.stringify(db.prepare("SELECT * FROM site_settings ORDER BY key").all()) === settingsBefore && profile.currentRulesetProfile() === current);

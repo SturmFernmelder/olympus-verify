@@ -35,12 +35,13 @@ import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
+import { memberSiteGate, privateSiteAsset } from './site-access';
 import { POLICY_ASSETS, policyHeaders } from "./policy-render";
 import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
 import { handleSite } from "./site";
-import { rateLimited, siteAdmins, siteHost, siteLegacyHosts } from "./site-core";
+import { rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
 import { handleLookup, isAsmongoldLookup, LOOKUP_COMMAND } from "./lookup";
 import { recordNames, refreshNames, verifiedOnRoster } from "./names";
 import { autoQueueReserved } from "./site-queue";
@@ -88,7 +89,11 @@ export default {
       }
       return new Response("not found", { status: 404 });
     }
-    // .116b3: policies and their finite local CSS/crest/font closure need no database/session; host check still applies.
+    if (host === 'site' && url.protocol === 'http:' && url.hostname !== 'localhost') {
+      url.protocol = 'https:';
+      return new Response(null, { status: 301, headers: securityHeaders(new Headers({ Location: url.toString() })) });
+    }
+    // Public policies and their exact finite official-art closure are the login-wall exceptions.
     const policy = policyResponse(request, path);
     if (policy) {
       // the site's HTTP-to-HTTPS upgrade (site.ts), kept for these paths too
@@ -99,13 +104,17 @@ export default {
       return policy;
     }
     if ((POLICY_ASSETS as readonly string[]).includes(path)) {
-      if (request.method === "GET" || request.method === "HEAD") return env.ASSETS.fetch(request);
+      if (request.method === "GET" || request.method === "HEAD") return privateSiteAsset(await env.ASSETS.fetch(request));
       const headers = policyHeaders(); headers.set("Allow", "GET, HEAD"); return new Response("method not allowed", { status: 405, headers });
     }
     // .51: the site's static files. Every request reaches this code (run_worker_first in wrangler.toml), so the host
     // check above covers them too: on the site host they go to the assets binding; on any other host they get that
     // host's answer (the legacy 301 above, the unknown 404, the bot's 404 below). No database, no schema check.
-    if (host === "site" && (request.method === "GET" || request.method === "HEAD") && path.startsWith("/static/")) return env.ASSETS.fetch(request);
+    if (host === 'site') {
+      const gate = await memberSiteGate(request, env, path);
+      if (gate) return gate;
+    }
+    if (host === "site" && (request.method === "GET" || request.method === "HEAD") && path.startsWith("/static/")) return privateSiteAsset(await env.ASSETS.fetch(request));
     try {
       env=writeAdmissionEnv(env);
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
@@ -400,7 +409,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-11.153 Original browser key custody";
+const BUILD = "2026-10-13.154 Member guild hall";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
