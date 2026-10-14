@@ -35,6 +35,7 @@ import { handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sessionCookie, sign, verify, SESSION_COOKIE } from "./site-core";
 import { rankPlannerPage } from "./site-ranks";
 import { communityContext, contextDto } from "./community-context";
+import { siteSignIn } from './site-access';
 
 export { siteHost } from "./site-core";
 
@@ -102,11 +103,15 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
   let boot: Record<string, unknown>;
   try {
     const user = await currentUser(env, request);
+    if (!user || user.in_server !== 1 || user.denied) {
+      const flash = extra.flash as { kind?: string } | undefined;
+      return siteSignIn(request, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
+    }
     const settings = await loadSettings(env);
     boot = user ? await meData(env, user, settings) : { signedIn: false, settings, meta: meta(), now: now() };
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
-    boot = { signedIn: false, meta: meta(), now: now(), settings: null };
+    return siteSignIn(request, 503, 'updating', cookies);
   }
   // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker admits
   let community: ReturnType<typeof contextDto> | null = null;
@@ -126,7 +131,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
 <meta name="description" content="Register for Olympus, Asmongold's guild in World of Warcraft: Forever: apply for a role, vote on who leads it, and enter your reserved names. A free fan site.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0a08">
-<link rel="icon" href="/static/olympus-icon.png" type="image/png">
+<link rel="icon" href="/static/wow/icon-shield.png" type="image/png">
 <link rel="preload" href="/static/wow/friz-quadrata.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/wow/morpheus.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v=${encodeURIComponent(build)}">
@@ -238,8 +243,11 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   // for this server only, with 404 for "not a member".
   const memRes = await credentialFetch(`${API}/users/@me/guilds/${env.SITE_GUILD_ID}/member`, { headers: auth });
   if (memRes.status === 404) {
+    try {
+      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
     await audit(env, 'site', "site.login_not_member");
-    return flash("not_member", 403);
+    return siteSignIn(request, 403, 'not_member', [...clear, clearCookie(SESSION_COOKIE)]);
   }
   if (memRes.status === 429) return flash("busy", 429);
   if (!memRes.ok) {
@@ -248,7 +256,12 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   }
   const member = (await memRes.json()) as DiscordMember;
   // Membership screening not finished (the server's rules not accepted yet): not a member in any useful sense.
-  if (member.pending) return flash("pending", 403);
+  if (member.pending) {
+    try {
+      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
+    return siteSignIn(request, 403, 'pending', [...clear, clearCookie(SESSION_COOKIE)]);
+  }
 
   const t = now();
   const avatar = member.avatar ? `g:${member.avatar}` : me.avatar ? `u:${me.avatar}` : null;

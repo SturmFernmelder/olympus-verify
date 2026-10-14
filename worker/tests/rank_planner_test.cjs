@@ -1,5 +1,6 @@
 // Build .121: real planner source/DOM tests, owner policy, zero allowances and actual .120 export compatibility.
 const fs = require("fs"), path = require("path"), vm = require("vm"), crypto = require("crypto");
+const { spawnSync } = require("node:child_process");
 const root = path.join(__dirname, ".."), repo = path.join(root, "..");
 const staticDir = path.join(root, "public", "static"), dir = path.join(staticDir, "rank-planner");
 let ok = 0, n = 0;
@@ -9,9 +10,18 @@ const sha256 = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).dig
 
 console.log("\n== the page scripts parse ==");
 const scripts = [...fs.readdirSync(staticDir).filter((f) => f.endsWith(".js")).map((f) => path.join(staticDir, f)), ...fs.readdirSync(dir).filter((f) => f.endsWith(".js")).map((f) => path.join(dir, f))];
+const organizationModule = path.join(staticDir, "organization-view.js");
 const unparsed = [];
-for (const f of scripts) { try { new vm.Script(read(f), { filename: f }); } catch (e) { unparsed.push(`${path.relative(root, f)}: ${e.message}`); } }
-check("every script under public/static and public/static/rank-planner parses (app.js, the planner's app.js, catalogue.js and model.js)", scripts.length >= 4 && ["app.js", "catalogue.js", "model.js"].every((b) => scripts.some((f) => path.basename(f) === b)) && unparsed.length === 0, unparsed);
+for (const f of scripts) {
+  if (f === organizationModule) {
+    // The actual dynamic import is an ES module; parse its original bytes without evaluating or rewriting exports.
+    const result = spawnSync(process.execPath, ["--input-type=module", "--check"], { input: read(f), encoding: "utf8", windowsHide: true, timeout: 10000, maxBuffer: 1024 * 1024 });
+    if (result.error || result.status !== 0 || result.signal) unparsed.push(`${path.relative(root, f)}: ${result.error?.message || result.stderr || result.signal || result.status}`);
+  } else {
+    try { new vm.Script(read(f), { filename: f }); } catch (e) { unparsed.push(`${path.relative(root, f)}: ${e.message}`); }
+  }
+}
+check("every page script parses in its actual format: organization ES module and all existing classic scripts", scripts.length >= 4 && scripts.includes(organizationModule) && ["app.js", "catalogue.js", "model.js"].every((b) => scripts.some((f) => path.basename(f) === b)) && unparsed.length === 0, unparsed);
 
 console.log("\n== the current preset and preserved historical catalogue ==");
 const base = { console };

@@ -93,9 +93,24 @@ const text = (v) => ({ type: "text", value: v });
     check("  with the watcher's bearer the inventory comes back, retention clean", res.status === 200 && body.bnetRetention && body.bnetRetention.overdue === 0 && body.secrets, JSON.stringify(body).slice(0, 200));
     res = await get("https://guild.example/");
     const html = await res.text();
-    check("the site host serves the page", res.status === 200 && /<!doctype html>/i.test(html) && html.includes("/static/app.css"), res.status, html.slice(0, 80));
+    check('the site host serves only the script-free Discord gate before login', res.status === 200 && /<!doctype html>/i.test(html) && html.includes('Sign in with Discord') && !html.includes('/static/app.js') && !html.includes('id="boot"'), res.status, html.slice(0, 80));
     res = await get("https://guild.example/static/app.css");
-    check("  and its stylesheet through the assets binding", res.status === 200 && /text\/css/.test(res.headers.get("Content-Type") || ""), res.status, res.headers.get("Content-Type"));
+    check('anonymous application assets are blocked in real workerd', res.status === 401, res.status);
+    const viewer = '300000000000000091', at = Math.floor(Date.now()/1000), secret = 'cookie-secret-for-tests-only-0123456789';
+    await d1.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').bind(viewer,'Runtime member',at).run();
+    const b64u = b => Buffer.from(b).toString('base64url');
+    const sessionBody = b64u(JSON.stringify({u:viewer,v:1,e:at+3600,g:null}));
+    const sessionKey = await crypto.subtle.importKey('raw',new TextEncoder().encode('olympus-site/session|'+secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    const sessionMac = b64u(await crypto.subtle.sign('HMAC',sessionKey,new TextEncoder().encode(sessionBody)));
+    const cookie = '__Host-olg='+sessionBody+'.'+sessionMac;
+    res = await get('https://guild.example/static/app.css',{headers:{Cookie:cookie}});
+    check('a current signed session gets real CSS with private no-store headers',res.status===200&&/text\/css/.test(res.headers.get('Content-Type')||'')&&res.headers.get('Cache-Control')==='private, no-store, no-transform',res.status);
+    for (const asset of ['/static/governance/organization.json','/static/governance/reconciled-book.md','/static/organization-view.js']) {
+      res = await get('https://guild.example'+asset);
+      check('real workerd withholds private governance asset without login: '+asset,res.status===401);
+      res = await get('https://guild.example'+asset,{headers:{Cookie:cookie}});
+      check('real workerd serves the exact current member governance asset: '+asset,res.status===200&&Buffer.from(await res.arrayBuffer()).equals(fs.readFileSync(path.join(root,'public',asset))),res.status);
+    }
     res = await get("https://nobody.example/static/app.css");
     check("  which an unknown host cannot fetch (run_worker_first)", res.status === 404, res.status);
     res = await get("https://verify.example/privacy", { redirect: "manual" });

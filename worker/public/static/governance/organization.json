@@ -1,13 +1,13 @@
 {
   "schema": "olympus-public-organization-v1",
-  "revision": "R6",
-  "draft": true,
-  "ratified": false,
+  "revision": "R7",
+  "draft": false,
+  "ratified": true,
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 116006,
-    "sha256": "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca"
+    "bytes": 136532,
+    "sha256": "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163"
   },
   "legend": {
     "accountability": "Accountability within an accepted remit; no automatic platform permission.",
@@ -461,7 +461,7 @@
       "kind": "native ranks",
       "icon": "member",
       "remit": "Exactly ten administrative character rank slots, described in Article S3.",
-      "limits": "A draft preset changes no live rank, bank amount or permission.",
+      "limits": "A configuration preset changes no live rank, bank amount or permission.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -1236,7 +1236,7 @@
     {
       "order": 6,
       "name": "Veteran",
-      "meaning": "Sustained constructive service; Invite Member and Guild Bank Repairs remain a separately applied draft preset."
+      "meaning": "Sustained constructive service; Invite Member and Guild Bank Repairs remain a separately applied configuration preset."
     },
     {
       "order": 7,
@@ -1301,5 +1301,281 @@
       "state": "Unappointed placeholder"
     }
   ],
-  "directoryRoute": "#/community/leadership"
+  "directoryRoute": "#/community/leadership",
+  "adoption": {
+    "date": "2026-10-13",
+    "authority": "authorized guild administration",
+    "basis": "explicit owner authorization to adopt the guild rules",
+    "namedSignaturesClaimed": false,
+    "individualAppointmentsIssued": false,
+    "nativePermissionsApplied": false
+  },
+  "officeMandates": [
+    {
+      "nodeId": "executive",
+      "title": "Co-Guild Master",
+      "duty": "Coordinates the duties delegated by the Founder and resolves cross-guild dependencies.",
+      "output": "A current action register and reasoned escalations.",
+      "boundary": "Existing website appointment is distinct; reserved powers are not silently transferred."
+    },
+    {
+      "nodeId": "executive",
+      "title": "Vice Guild Master",
+      "duty": "Provides expressly assigned continuity and absence cover.",
+      "output": "A cover plan identifying when acting authority begins and ends.",
+      "boundary": "No automatic succession or permanent delegation."
+    },
+    {
+      "nodeId": "staff",
+      "title": "Chief of Staff",
+      "duty": "Owns meeting preparation, action follow-up and portfolio handoffs.",
+      "output": "Agenda, implementation owners, review dates and unresolved decisions.",
+      "boundary": "Coordinates officers; does not invent command over local Guild Masters."
+    },
+    {
+      "nodeId": "registrar",
+      "title": "Secretary and Registrar",
+      "duty": "Maintains accepted warrants, minutes, vacancies and versioned decisions.",
+      "output": "Dated register entries and visible corrections.",
+      "boundary": "Cannot create approval or fill a missing signature."
+    },
+    {
+      "nodeId": "war-pvp",
+      "title": "War Head for PvP",
+      "duty": "Coordinates shared readiness, PvP emissaries and legitimate operational planning.",
+      "output": "Readiness brief, participating guild agreement and post-operation lessons.",
+      "boundary": "A local Captain commands only the named event; chart references do not appoint a holder."
+    },
+    {
+      "nodeId": "war-raiding",
+      "title": "War Head for Raiding",
+      "duty": "Coordinates raid standards, emissaries, encounter research and training.",
+      "output": "Published preparation standards and event reviews.",
+      "boundary": "Local Raid Leaders own their events; no implicit loot, bank or demotion power."
+    },
+    {
+      "nodeId": "treasury",
+      "title": "Federal Treasurer",
+      "duty": "Reconciles actual receipts, agreed budgets and finance correspondence.",
+      "output": "Aggregate budget, commitments and reconciliation exceptions.",
+      "boundary": "Treasurer is a Council appointment, not a native rank or independent auditor of its own custody."
+    },
+    {
+      "nodeId": "artisanry",
+      "title": "Minister of Artisanry",
+      "duty": "Coordinates willing crafters, supply requests and approved procurement.",
+      "output": "Confirmed craft requests, material ownership and delivery commitments.",
+      "boundary": "No forced free labour, ownership of private materials or bank access by title."
+    },
+    {
+      "nodeId": "heraldry",
+      "title": "Minister of Heraldry",
+      "duty": "Coordinates the welcome, calendar, recruitment communication and public voice.",
+      "output": "Verified notices, event owners and clear member handoffs.",
+      "boundary": "Confidential cases and private financial details stay outside publicity."
+    },
+    {
+      "nodeId": "justice",
+      "title": "Council of Justice",
+      "duty": "Provides unconflicted case panels and independent appeal review.",
+      "output": "Reasoned decisions, recusals, correction and appeal routes.",
+      "boundary": "Default Council membership does not itself designate a case panel or grant moderation powers."
+    },
+    {
+      "nodeId": "auditor",
+      "title": "Independent Bank Auditor",
+      "duty": "Examines relevant records independently of custody and approval.",
+      "output": "Exceptions and recommendations to the unconflicted reviewing authority.",
+      "boundary": "Actual withdrawal, custody or approval rights over audited assets must be reconciled first."
+    },
+    {
+      "nodeId": "systems",
+      "title": "Technical Lead and Systems Architect",
+      "duty": "Coordinates AddOn, website, Discord and operating-tool maintainers.",
+      "output": "Reviewed artifacts, release outcomes, access inventories and recovery limits.",
+      "boundary": "An office grants no credential or production access; local checks are not live proof."
+    },
+    {
+      "nodeId": "strategy",
+      "title": "Chief Strategist and Head of Research",
+      "duty": "Develops tested recommendations and states version and uncertainty.",
+      "output": "Versioned plans, methods and useful lessons.",
+      "boundary": "Advice does not override the named event commander."
+    },
+    {
+      "nodeId": "strategy",
+      "title": "Intelligence and Scouting Lead",
+      "duty": "Filters relevant permitted in-game observations.",
+      "output": "Timely observations with source limits and confidence.",
+      "boundary": "No harassment, exploitation, private surveillance or real-world targeting."
+    },
+    {
+      "nodeId": "diplomacy",
+      "title": "Diplomatic Envoy / Ambassador",
+      "duty": "Maintains agreed external contacts and proposes cooperation.",
+      "output": "Written terms and a decision returned to competent authority.",
+      "boundary": "Binding commitments require a specific written delegation."
+    },
+    {
+      "nodeId": "intake",
+      "title": "Chief of Intake and Recruitment Lead",
+      "duty": "Keeps applications moving between applicant, local Recruiter and reviewer.",
+      "output": "Named contact, next step, required information and review date.",
+      "boundary": "An application acceptance is not an invitation, verified link or staff appointment."
+    },
+    {
+      "nodeId": "media",
+      "title": "Media and Communications Lead",
+      "duty": "Checks facts, consent and format for approved public notices.",
+      "output": "Dated issue, confirming source and visible corrections.",
+      "boundary": "No private evidence or invented appointment announcements."
+    },
+    {
+      "nodeId": "events",
+      "title": "Events Lead",
+      "duty": "Coordinates the public calendar and event handoffs.",
+      "output": "Owner, capacity, time zone, joining and cancellation instructions.",
+      "boundary": "The event owner retains operational responsibility; reminders need actual consent."
+    },
+    {
+      "nodeId": "events",
+      "title": "Academy and Training Lead",
+      "duty": "Arranges willing mentors, clinics and approachable learning resources.",
+      "output": "Agreed support goals and useful material.",
+      "boundary": "No compulsory play hours or extra native Training rank."
+    },
+    {
+      "nodeId": "guilds",
+      "title": "Affiliated Guild Master",
+      "duty": "Commands the individual guild within the shared charter.",
+      "output": "Local delegation, roster responsibility and succession cover.",
+      "boundary": "I–X are directory places until affiliations and actual holders are recorded."
+    },
+    {
+      "nodeId": "officers",
+      "title": "Local Officer and Officer Alt",
+      "duty": "Performs the Guild Master’s specific local delegation.",
+      "output": "Clear instructions and handover of sensitive custody.",
+      "boundary": "Officer Alt is a verified character relationship, not another person or Council vote."
+    },
+    {
+      "nodeId": "emissaries",
+      "title": "Five per-guild correspondents",
+      "duty": "Connect PvP, Raiding, Finance, Artisanry and Heraldry to local needs.",
+      "output": "An agreed local request and a useful return briefing.",
+      "boundary": "Portfolio liaison never supersedes local command."
+    },
+    {
+      "nodeId": "tactical",
+      "title": "Raid Leader, Marshal and Raid Assistant",
+      "duty": "Briefs and runs the named event under published roster and loot rules.",
+      "output": "Objective, roster, communication, withdrawal condition and event review.",
+      "boundary": "Only Raid Leader is a native slot; event command and actual permissions are separate."
+    },
+    {
+      "nodeId": "tactical",
+      "title": "PvP Captain",
+      "duty": "Leads the approved local operation and coordinates scouts.",
+      "output": "Operational briefing and lessons returned to the PvP emissary.",
+      "boundary": "No authority to bind a guild to an alliance or spend unapproved resources."
+    },
+    {
+      "nodeId": "custody",
+      "title": "Quartermaster, Bank Manager and Bank Steward",
+      "duty": "Issues entrusted stock under actual approved limits.",
+      "output": "Requisition, transfer, return and reconciliation record.",
+      "boundary": "Cannot independently audit the same assets or merge all guild banks."
+    },
+    {
+      "nodeId": "local-intake",
+      "title": "Guild Recruiter and Trial Officer",
+      "duty": "Explains the introduction, verification and review process.",
+      "output": "Criteria, support, decision and correction route.",
+      "boundary": "An activity trial does not silently remove established membership."
+    },
+    {
+      "nodeId": "local-events",
+      "title": "Social and Community Officer",
+      "duty": "Supports local community events and welcoming participation.",
+      "output": "Useful events, local news and member handoffs.",
+      "boundary": "Social service alone grants no private staff access or discipline power."
+    },
+    {
+      "nodeId": "welfare",
+      "title": "Welfare and Community Support",
+      "duty": "Offers a discreet contact and appropriate referrals.",
+      "output": "Proportionate practical support and escalation.",
+      "boundary": "A game-community office is not a clinical or emergency service."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Warrior Class Head",
+      "duty": "Coordinates willing Warrior mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Paladin Class Head",
+      "duty": "Coordinates willing Paladin mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Hunter Class Head",
+      "duty": "Coordinates willing Hunter mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Rogue Class Head",
+      "duty": "Coordinates willing Rogue mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Priest Class Head",
+      "duty": "Coordinates willing Priest mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Mage Class Head",
+      "duty": "Coordinates willing Mage mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Warlock Class Head",
+      "duty": "Coordinates willing Warlock mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Shaman Class Head",
+      "duty": "Coordinates willing Shaman mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Druid Class Head",
+      "duty": "Coordinates willing Druid mentors and advice relevant to the actual game version.",
+      "output": "Versioned resources, training opportunities and feedback to event leaders.",
+      "boundary": "Expertise grants no disciplinary, loot, bank or account-access authority."
+    },
+    {
+      "nodeId": "class-support",
+      "title": "Mentor",
+      "duty": "Agrees a useful introduction with a named member.",
+      "output": "Contact, learning goals and a review opportunity.",
+      "boundary": "Support is voluntary and separate from the membership decision."
+    }
+  ]
 }

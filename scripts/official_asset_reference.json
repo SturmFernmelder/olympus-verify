@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 445628,
-      "sha256": "50a9740d9d12e827cbf2e7d440f6ff32d3dd2d252884fafe5059e42e6eddd25d"
+      "bytes": 439695,
+      "sha256": "ca26776b61b91b6b2012d17c73a0585c54ea694e2019df00e5c71782d78b0dba"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 3885,
-      "sha256": "5415354e474e50d3fc68dad476b9a3598752e566352d0bc6af17149b5b20c13a"
+      "bytes": 6071,
+      "sha256": "f07bdc85527580660df55c8e314557f66b030e547d91daad757ba0bdf419424b"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -622,6 +622,12 @@
       "mode": "100644",
       "bytes": 3581,
       "sha256": "6edc22b92422d69192ca5556e776a3e41fe7936dd54ee1ee38128d59e34ec881"
+    },
+    {
+      "path": "worker/public/static/organization-view.css",
+      "mode": "100644",
+      "bytes": 4183,
+      "sha256": "d78b078b28efb8f5ca56212ef6db472c207539ba6ad2e40e62c24095d14553a5"
     }
   ],
   "official_paths": [
@@ -727,7 +733,8 @@
     "worker/public/static/rank-planner/app.js",
     "worker/public/static/rank-planner/catalogue.js",
     "worker/public/static/rank-planner/model.js",
-    "worker/public/static/rank-planner/styles.css"
+    "worker/public/static/rank-planner/styles.css",
+    "worker/public/static/organization-view.css"
   ],
   "runtime_paths": [
     "worker/public/static/app.css",
@@ -807,7 +814,9 @@
     "worker/src/site-queue.ts",
     "worker/src/site-ranks.ts",
     "worker/src/site.ts",
-    "worker/src/unverified.ts"
+    "worker/src/unverified.ts",
+    "worker/public/static/organization-view.css",
+    "worker/public/static/organization-view.js"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -925,8 +934,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 445628,
-      "sha256": "50a9740d9d12e827cbf2e7d440f6ff32d3dd2d252884fafe5059e42e6eddd25d"
+      "bytes": 439695,
+      "sha256": "ca26776b61b91b6b2012d17c73a0585c54ea694e2019df00e5c71782d78b0dba"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -937,8 +946,8 @@
     {
       "path": "worker/src/site-core.ts",
       "mode": "100644",
-      "bytes": 17584,
-      "sha256": "acb0e2d6101b2c20e21e61edc893c000086ad3afb9f726148558f22848536ad9"
+      "bytes": 17666,
+      "sha256": "151b8f7067899d98b8464045ca5ba61d70d5d550bc00567562a652b7271166c6"
     }
   ],
   "limitations": [
@@ -951,7 +960,8 @@
     "The owner-approved signed-in own-header Discord identity picture is external identity data, not a bundled interface-art asset: exact producer/renderer/CSP source pins and the source-bound coverage receipt carry this narrow exception. Eight other account-image sites remain official game icons; the static scanner does not validate external image addresses or prove account ownership.",
     "The .123 corrected source head includes R123-1 rendered rank-planner guidance and its real page test. Fresh finite coverage checks103assets and five fixed-art producer rows. The model invitation flag, site-data comment and site-ranks reference note differ from .122; all official image/font pixels, icon references, profile paths and approved crest remain unchanged. Final exact-head external contract and review remain separate.",
     "The .135 source successor binds the current site shell, scanner UI and role text. All 94 official game assets, fonts, provenance and approved crest pixels are unchanged; public QR decoding supplies protocol behavior rather than decorative artwork. This reference is byte evidence, not publication or deletion approval.",
-    "The .135 resource successor separately requires fifteen exact non-art public resources: nine governance document/data downloads and six QR runtime/license/source records. They are not official artwork, image/font exceptions, CSS image URLs, qualified QR activation or publication approval. The sole public ZIP archive exception requires its exact source-bound path, mode, length and digest; other archive/private-path refusals are unchanged."
+    "The .135 resource successor separately requires fifteen exact non-art public resources: nine governance document/data downloads and six QR runtime/license/source records. They are not official artwork, image/font exceptions, CSS image URLs, qualified QR activation or publication approval. The sole public ZIP archive exception requires its exact source-bound path, mode, length and digest; other archive/private-path refusals are unchanged.",
+    "The .154 metadata successor binds the frozen member sign-in shell, privacy-page stylesheet, adopted R7 book/model and unchanged-length QR module update. The organization stylesheet is an exact native asset; the organization ES module and operational charter are exact non-art resources. All 94 official image/font rows, approved crest bytes and historical R6 PDF/ZIP rows remain unchanged. Closed coverage is 104 assets plus 17 required non-art resources; byte-gate success grants no provider, publication or appointment authority."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -1013,14 +1023,14 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 43900,
-      "sha256": "fc5a10ad145fcd9d933b7cb4209bf812a2175a8be247582fb9d7f1d684125d18"
+      "bytes": 57362,
+      "sha256": "2dfd40530f2b1c16b0b099bb39fab3d894b9bfbb676924f4284f3a4df0e521be"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 116006,
-      "sha256": "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca"
+      "bytes": 136532,
+      "sha256": "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163"
     },
     {
       "path": "worker/public/static/qr-phase1-decoder.js",
@@ -1038,7 +1048,7 @@
       "path": "worker/public/static/qr-phase1.mjs",
       "mode": "100644",
       "bytes": 22659,
-      "sha256": "d83d2c93f515311c115dbf8321aece26983a85c9e2d40958e7349818d7edc074"
+      "sha256": "b586c701d307c98caee56753fe1448056c4ee55a0c117c91c188fb85f7e729bf"
     },
     {
       "path": "worker/public/static/qr-vendor/jsqr-1.4.0.LICENSE.txt",
@@ -1057,6 +1067,18 @@
       "mode": "100644",
       "bytes": 1057,
       "sha256": "100c248c28a009ce9f4156d054d0703f53a7bb965476e51a173c78d2f6aee204"
+    },
+    {
+      "path": "worker/public/static/governance/operational-charter.md",
+      "mode": "100644",
+      "bytes": 21004,
+      "sha256": "60ac4eb0ba996aaf226afd8ad25d35d732de4dcead378b10628c102e523b1821"
+    },
+    {
+      "path": "worker/public/static/organization-view.js",
+      "mode": "100644",
+      "bytes": 16229,
+      "sha256": "8fb03c020efd0ac8d982f54655792c1f44e3e4b98e0c25abce30e65a247b13e0"
     }
   ]
 }

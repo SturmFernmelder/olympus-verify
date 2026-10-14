@@ -113,8 +113,8 @@ let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const APPLICANT = "300000000000000001", MEMBER = "300000000000000002", MEMBER2 = "300000000000000003", BANNED = "300000000000000004", STAFF = "472099715253796864";
 const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.in_server, row.denied, row.session_version);
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, checked_at: T, ...over };
+  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.checked_at, row.in_server, row.denied, row.session_version);
 };
 const confirm = (id, name, guid = null) => {
   db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);

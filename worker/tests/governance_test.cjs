@@ -1,9 +1,10 @@
-// .128: exact reviewed public text, original request labels and structural/access boundaries.
-// Frontend interaction and Worker admission regressions are in frontend_check.cjs.
+// .154: exact adopted R7 text, original request labels and structural/appointment boundaries.
+// Actual module loading, chart interaction and Worker admission require their separate integration checks.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const root = path.join(__dirname, ".."), dir = path.join(root, "public/static/governance");
 const bytes = fs.readFileSync(path.join(dir, "reconciled-book.md"));
 const text = bytes.toString("utf8"), data = JSON.parse(fs.readFileSync(path.join(dir, "organization.json"), "utf8"));
+const app = fs.readFileSync(path.join(root, "public/static/app.js"), "utf8");
 let n = 0, ok = 0;
 function check(label, value) { n++; if (value) ok++; console.log((value ? "PASS " : "FAIL ") + label); }
 const requested = [
@@ -11,14 +12,16 @@ const requested = [
 ];
 const rankNames = ["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader", "Veteran", "Raider", "Member", "Alt", "Initiate"];
 const ids = new Map(data.nodes.map((node) => [node.id, node]));
-check("public book is byte-identical to independently reviewed R6, including line endings", bytes.length === 116006 && crypto.createHash("sha256").update(bytes).digest("hex") === "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca");
-check("model binds exact R6, not the old builder R5 banner", data.revision === "R6" && data.book.bytes === bytes.length && data.book.sha256 === crypto.createHash("sha256").update(bytes).digest("hex") && data.book.path === "/static/governance/reconciled-book.md");
-check("publication preserves unratified/no-issued-appointment status", data.draft === true && data.ratified === false && data.appointmentsIssued === false && text.includes("Successor draft R6 (distinct revision of R5)") && text.includes("The authoring date is not an adoption or effective date"));
-check("entire book has all13 chapters,20 ordinances and required adoption/template anchors", (text.match(/^# /gm) || []).length === 13 && (text.match(/^## ORD \d\d /gm) || []).length === 20 && ["# Reading and Adopting This Book", "# 3 Letters Patent and Warrants", "# Adoption and Office Registers", "# Daily News Template", "# Source and Decision Register"].every((s) => text.includes(s)));
+check("current R7 book has exact source bytes and SHA256, including line endings", bytes.length === 136532 && crypto.createHash("sha256").update(bytes).digest("hex") === "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163");
+check("model and reader bind the exact current R7 source", data.revision === "R7" && data.book.bytes === bytes.length && data.book.sha256 === crypto.createHash("sha256").update(bytes).digest("hex") && data.book.path === "/static/governance/reconciled-book.md" && app.includes('const GOVERNANCE_SHA256 = "' + data.book.sha256 + '";') && app.includes('bytes.length !== ' + bytes.length));
+check("authorized R7 adoption is recorded without issuing appointments, signatures or permissions", data.draft === false && data.ratified === true && data.appointmentsIssued === false && data.adoption.date === "2026-10-13" && data.adoption.authority === "authorized guild administration" && data.adoption.basis === "explicit owner authorization to adopt the guild rules" && data.adoption.namedSignaturesClaimed === false && data.adoption.individualAppointmentsIssued === false && data.adoption.nativePermissionsApplied === false && text.includes("Version: R7  Adoption date: 13 October 2026  Effective date: 13 October 2026") && text.includes("No named personal signature is represented by this publication."));
+check("entire book has all14 chapters,20 ordinances and current operational/adoption/template anchors", (text.match(/^# /gm) || []).length === 14 && (text.match(/^## ORD \d\d /gm) || []).length === 20 && ["# Reading and Adopting This Book", "# 3 Letters Patent and Warrants", "# Operational Charter — The Work of Olympus", "# Adoption and Office Registers", "# Daily News Template", "# Source and Decision Register"].every((s) => text.includes(s)));
 check("every95 original label is exact, once, in owner order", requested.length === 95 && data.terms.length === 95 && data.terms.every((term, i) => term.label === requested[i] && term.ordinal === i + 1) && new Set(data.terms.map((term) => term.label)).size === 95);
 check("all labels have an explicit classification, related structural node and limits", data.terms.every((term) => data.termGroups.some((group) => group.id === term.classification) && ids.has(term.nodeId) && term.note.length > 20 && ids.get(term.nodeId).limits.length > 20));
 check("ten native rank slots remain separate and complete", JSON.stringify(data.nativeRanks.map((r) => r.name)) === JSON.stringify(rankNames) && data.nativeRanks.every((r, i) => r.order === i + 1) && data.terms.filter((t) => t.classification === "native").length === 10);
-check("Veteran draft accurately includes Invite Member plus repairs without applying permissions", data.nativeRanks[5].meaning.includes("Invite Member and Guild Bank Repairs") && text.includes("Invite Member") && !data.nativeRanks[5].meaning.includes("Withdraw Gold"));
+check("Veteran configuration includes Invite Member plus repairs without applying permissions", data.nativeRanks[5].meaning.includes("Invite Member and Guild Bank Repairs") && text.includes("Invite Member") && !data.nativeRanks[5].meaning.includes("Withdraw Gold") && data.adoption.nativePermissionsApplied === false);
+check("38 organizational groups retain 38 distinct, bounded working office mandates", data.nodes.length === 38 && data.officeMandates.length === 38 && new Set(data.officeMandates.map((office) => office.title)).size === 38 && data.officeMandates.every((office) => ids.has(office.nodeId) && typeof office.title === "string" && office.title.length >= 6 && [office.duty, office.output, office.boundary].every((value) => typeof value === "string" && value.length > 10)));
+check("Council portfolio mandates and all nine class heads remain explicit offices", ["War Head for PvP", "War Head for Raiding", "Federal Treasurer", "Minister of Artisanry", "Minister of Heraldry", "Council of Justice", "Independent Bank Auditor", ...["Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Mage", "Warlock", "Shaman", "Druid"].map((name) => name + " Class Head")].every((title) => data.officeMandates.filter((office) => office.title === title).length === 1));
 check("Founder->Council and local GM->Officers are accountability links", ids.get("council").parent === "founder" && ids.get("council").relation === "accountability" && ids.get("guilds").parent === "council" && ids.get("officers").parent === "guilds");
 check("four portfolios and shared Systems have distinct meanings", ["war", "treasury", "artisanry", "heraldry"].every((id) => ids.get(id).parent === "council" && ids.get(id).kind === "core portfolio") && data.nodes.filter((node) => node.kind === "core portfolio").length === 4 && ids.get("systems").kind === "shared support division" && ids.get("systems").limits.includes("not a fifth"));
 check("Justice and auditor retain independent conflict-exclusion boundaries", ids.get("justice").relation === "independence" && ids.get("auditor").relation === "independence" && ids.get("auditor").limits.includes("Cannot audit their own custody"));
@@ -29,13 +32,13 @@ check("courtesy/review vocabulary does not create native powers", ["Privy Counci
 check("I-X placeholders are exact and expressly unappointed", JSON.stringify(data.guildPlaceholders.map((g) => g.name)) === JSON.stringify(["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"].map((s) => "Olympus " + s)) && data.guildPlaceholders.every((g) => g.state === "Unappointed placeholder"));
 const serialized = JSON.stringify(data);
 check("generic organization has no actual-name directory payload or unissued holders", !/richwcampbell|Fernmelder|Maxran|Akafoxslayer|discord_id|discordId|163042307090808833|602457634276376589/.test(serialized) && data.directoryRoute === "#/community/leadership");
-check("public draft does not expose held release ruleset details or private local artifacts", !/\bPVE\b|name.reservation|C:\\Users\\|\.dev\.vars|AppData|OlympusRecovery/.test(text + serialized));
+check("member rulebook does not expose held release ruleset details or private local artifacts", !/\bPVE\b|name.reservation|C:\\Users\\|\.dev\.vars|AppData|OlympusRecovery/.test(text + serialized));
 check("hierarchy has unique ids, valid references and no cycles", data.nodes.every((node) => {
   const visited = new Set(); let cursor = node;
   while (cursor) { if (visited.has(cursor.id)) return false; visited.add(cursor.id); if (cursor.parent !== null && !ids.has(cursor.parent)) return false; cursor = ids.get(cursor.parent); }
   return node.coordinates.every((id) => ids.has(id));
 }) && ids.size === data.nodes.length);
-// R6 download contract executes only stdlib asset checks and the exact public h/add quicklink slice.
+// Download contract preserves historical R6 bytes and checks the current reader's exact h/add quicklink slice.
 for (const result of require("./governance_download_contract.cjs").runChecks(root)) check(result.name, result.passed);
 console.log(`\n${ok}/${n} passed`);
 process.exit(ok === n ? 0 : 1);

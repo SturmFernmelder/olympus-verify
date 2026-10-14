@@ -1,4 +1,4 @@
-// R6 public downloads: exact accepted bytes, bounded archive CRC/payload contract and actual h()/add() quicklink attributes.
+// .154: exact historical R6 downloads, bounded archive CRC/payloads and current R7 h()/add() quicklink attributes.
 // Stdlib only. The isolated CLI uses candidate files; governance_test.cjs calls the same checks after integration.
 const fs = require("fs"), path = require("path"), crypto = require("crypto"), zlib = require("zlib"), vm = require("vm");
 const PAYLOADS = [
@@ -31,9 +31,9 @@ const PAYLOADS = [
 const PDF = { bytes: 1361567, sha256: "8bbd9517272718991823aad15920a6ff0250f452a7affbd9141eee3f5129e6de" };
 const ZIP = { bytes: 2081840, sha256: "7ead7b97d80477aa607ab13c419c527b25ff2c4be1ede79da51cca5ca4b5f0ed" };
 const EXTRA_DOWNLOADS = [
-  ["Guide PDF", "olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf", 135664, "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"],
-  ["Adoption checklist PDF", "olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf", 79878, "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"],
-  ["Templates PDF", "olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf", 81476, "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"],
+  ["Historical R6 guide", "olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf", 135664, "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"],
+  ["Historical R6 checklist", "olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf", 79878, "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"],
+  ["Historical R6 templates", "olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf", 81476, "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"],
   ["Release preparation PDF", "olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf", 4448, "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"]
 ];
 const sha = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
@@ -79,51 +79,56 @@ function inspectZip(bytes) {
 function renderedQuicklinks(app) {
   const hs = app.indexOf("  function h(tag, props, ...kids) {"), he = app.indexOf("  const clear = ", hs);
   const start = app.indexOf('      h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },');
-  const endLine = '        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R6.md", text: "Download the exact source" })),';
+  const endLine = '        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R7.md", text: "Download current R7 source" })),';
   const end = app.indexOf(endLine, start);
   if (hs < 0 || he < 0 || start < 0 || end < 0 || app.indexOf(endLine, end + 1) >= 0) throw Error("Unique actual h/quicklinks context");
   class Node { constructor() { this.childNodes = []; } appendChild(child) { this.childNodes.push(child); return child; } }
-  class Element extends Node { constructor(tag) { super(); this.tagName = tag.toUpperCase(); this.attributes = {}; } setAttribute(k, v) { this.attributes[k] = String(v); } getAttribute(k) { return this.attributes[k] ?? null; } }
+  class Element extends Node { constructor(tag) { super(); this.tagName = tag.toUpperCase(); this.attributes = {}; this.listeners = {}; } setAttribute(k, v) { this.attributes[k] = String(v); } getAttribute(k) { return this.attributes[k] ?? null; } addEventListener(name, handler) { this.listeners[name] = handler; } }
   const document = { createElement: (tag) => new Element(tag), createTextNode: (text) => Object.assign(new Node(), { textContent: String(text) }) };
-  // Execute only the exact current h/add functions and literal public navigation expression, never the app boot/API routes.
+  // Execute only current h/add and this navigation expression. Event handlers are retained but never invoked.
   const code = app.slice(hs, he) + '\nconst GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";\n(' + app.slice(start, end + endLine.length).trim().replace(/,$/, "") + ')';
   const nav = vm.runInNewContext(code, { document, Node }, { timeout: 1000 });
   if (!(nav instanceof Element) || nav.tagName !== "NAV") throw Error("Navigation element");
-  return nav.childNodes.filter((node) => node.tagName === "A");
+  return { links: nav.childNodes.filter((node) => node.tagName === "A"), buttons: nav.childNodes.filter((node) => node.tagName === "BUTTON") };
 }
 function runChecks(workerRoot = path.join(__dirname, "..")) {
   const dir = path.join(workerRoot, "public/static/governance"), app = fs.readFileSync(path.join(workerRoot, "public/static/app.js"), "utf8");
   const pdf = fs.readFileSync(path.join(dir, "olympus-governance-r6.pdf")), zip = fs.readFileSync(path.join(dir, "olympus-governance-r6.zip"));
   const checks = [], check = (name, passed) => checks.push({ name, passed: !!passed });
-  check("R6 public PDF has exact accepted size and SHA256", pdf.length === PDF.bytes && sha(pdf) === PDF.sha256);
-  check("R6 public PDF has PDF magic and EOF", pdf.subarray(0, 5).toString("ascii") === "%PDF-" && pdf.subarray(-128).includes(Buffer.from("%%EOF")));
-  check("R6 public ZIP has exact accepted size, SHA256 and ZIP magic", zip.length === ZIP.bytes && sha(zip) === ZIP.sha256 && zip.readUInt32LE(0) === 0x04034b50);
+  check("historical R6 PDF has exact accepted size and SHA256", pdf.length === PDF.bytes && sha(pdf) === PDF.sha256);
+  check("historical R6 PDF has PDF magic and EOF", pdf.subarray(0, 5).toString("ascii") === "%PDF-" && pdf.subarray(-128).includes(Buffer.from("%%EOF")));
+  check("historical R6 ZIP has exact accepted size, SHA256 and ZIP magic", zip.length === ZIP.bytes && sha(zip) === ZIP.sha256 && zip.readUInt32LE(0) === 0x04034b50);
   const entries = inspectZip(zip);
   check("ZIP closed five-entry census, every CRC and exact accepted payload hash passes", entries.length === 5);
   check("ZIP PDF payload is byte-identical to standalone public PDF", entries.find((entry) => entry.name.endsWith(".pdf")).data.equals(pdf));
   const book = entries.find((entry) => entry.name.endsWith("Source.txt")).data;
   check("ZIP source remains exact 116006-byte reviewed R6, not a rewritten book", book.length === 116006 && sha(book) === "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca");
-  const links = renderedQuicklinks(app);
+  const { links, buttons } = renderedQuicklinks(app);
   const download = (label, href, filename) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === filename).length === 1;
-  check("actual h/add renders Download PDF with correct public href and download filename", download("Download PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"));
-  check("actual h/add renders Download full package with correct href and filename", download("Download full package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"));
-  check("closed eleven-link census preserves source-download and all four reading/chart links", links.length === 11 && links.filter((link) => link.getAttribute("href") === "/static/governance/reconciled-book.md").length === 1 && ["Start here", "Adoption checklist", "Appointment templates", "Interactive organization"].every((label) => links.filter((link) => link.textContent === label).length === 1));
+  check("actual h/add labels the unchanged R6 PDF as historical with its exact download filename", download("Historical R6 PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"));
+  check("actual h/add labels the unchanged R6 package as historical with its exact filename", download("Historical R6 package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"));
+  const readingLinks = [["Start here", "#/governance/reading-and-adopting-this-book"], ["Adoption checklist", "#/governance/adoption-and-office-registers"], ["Appointment templates", "#/governance/3-letters-patent-and-warrants"], ["Interactive organization", "#/organization"], ["Operational charter", "#/governance/operational-charter-the-work-of-olympus"]];
+  check("closed twelve-link census retains five exact reading/chart links and the distinct current R7 source download", links.length === 12 && readingLinks.every(([label, href]) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === null).length === 1) && download("Download current R7 source", "/static/governance/reconciled-book.md", "Olympus Governance R7.md"));
+  check("current R7 print control is a button with the actual retained click handler", buttons.length === 1 && buttons[0].textContent === "Print current R7 book" && buttons[0].getAttribute("type") === "button" && typeof buttons[0].listeners.click === "function");
   for (const [label, file, filename, bytes, hash] of EXTRA_DOWNLOADS) {
     const data = fs.readFileSync(path.join(dir, file));
     check(label + " has accepted bytes and a matching real download link", data.length === bytes && sha(data) === hash && data.subarray(0, 5).toString("ascii") === "%PDF-" && data.subarray(-128).includes(Buffer.from("%%EOF")) && download(label, "/static/governance/" + file, filename));
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "downloads-manifest.json"), "utf8"));
-  check("additional PDF manifest preserves reviewed source identity and draft status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
-  check("public draft/unissued-appointment notice remains explicit", app.includes("R6 • Public draft for ratification") && app.includes("Publication is not adoption.") && app.includes("issues no appointments or warrants"));
+  check("historical PDF manifest retains its original R6 source and unratified/unissued status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
+  const currentBook = fs.readFileSync(path.join(dir, "reconciled-book.md"));
+  check("current R7 source is exact and distinct from the preserved R6 archive source", currentBook.length === 136532 && sha(currentBook) === "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163" && !currentBook.equals(book));
+  check("current R7 adoption notice separates appointments, signatures, permissions and historical status", app.includes("R7 • Guild rules adopted 13 October 2026") && app.includes("Adoption issues no individual appointment or named signature") && app.includes("changes no native rank, bank limit or platform permission") && app.includes("Dated archives retain their historical status"));
+  check("current governance loader sends same-origin credentials for private book/model delivery", app.includes('fetch(path, { credentials: "same-origin", redirect: "error" })'));
   const bad = Buffer.from(zip); bad.writeUInt32LE((bad.readUInt32LE(entries[0].centralOffset + 16) ^ 1) >>> 0, entries[0].centralOffset + 16);
   let crcRejected = false; try { inspectZip(bad); } catch { crcRejected = true; }
   check("negative archive control rejects changed central CRC", crcRejected);
-  const wrong = renderedQuicklinks(app.replace('download: "Olympus Guild Governance - Successor Draft.pdf"', 'download: "wrong.pdf"'));
-  check("negative UI control detects wrong PDF download filename", !wrong.some((link) => link.textContent === "Download PDF" && link.getAttribute("download") === "Olympus Guild Governance - Successor Draft.pdf"));
+  const wrong = renderedQuicklinks(app.replace('download: "Olympus Guild Governance - Successor Draft.pdf"', 'download: "wrong.pdf"')).links;
+  check("negative UI control detects wrong historical PDF download filename", !wrong.some((link) => link.textContent === "Historical R6 PDF" && link.getAttribute("download") === "Olympus Guild Governance - Successor Draft.pdf"));
   return checks;
 }
 module.exports = { runChecks };
 if (require.main === module) {
   try { const checks = runChecks(); for (const check of checks) console.log((check.passed ? "PASS " : "FAIL ") + check.name); console.log(checks.filter((check) => check.passed).length + "/" + checks.length + " passed"); process.exit(checks.every((check) => check.passed) ? 0 : 1); }
-  catch (error) { console.error("FAIL R6 download contract: " + error.message); process.exit(1); }
+  catch (error) { console.error("FAIL R7 reader / historical R6 download contract: " + error.message); process.exit(1); }
 }

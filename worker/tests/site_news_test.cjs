@@ -6,7 +6,7 @@
 //   - the switch: off by default (404 news_off, a create 409 news_off), switched on in Admin -> Settings and audited;
 //   - access: 401 signed out, 403 guild_unconfirmed, the exact DTO for a confirmed member, standing lost between the
 //     context read and the admitted batch (no payload), News switched off in that same seam (news_off, no payload),
-//     nothing in /api/public or the signed-out boot but the boolean;
+//     signed-out requests receive a sign-in boundary with no application bootstrap or notice payload;
 //   - notices: SITE_ADMINS only, the page check, exact field rules (nothing cut, control characters out, newlines kept,
 //     markup stored literally), lifetimes in database seconds, expired / period_passed / stale_revision, replay and
 //     op_conflict, the 20-notice cap, the tombstone after a delete and after expiry + cleanup, a replay whose author lost
@@ -153,7 +153,7 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
 const run = (sql, ...p) => db.prepare(sql).run(...p);
 const quiet = async (fn) => { const real = console.error, lines = []; console.error = (...a) => { lines.push(a.map(String).join(" ")); }; try { return { value: await fn(), lines }; } finally { console.error = real; } };
-const siteUser = (id, over = {}) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T);
+const siteUser = (id, over = {}) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T, over.checked_at === undefined ? T : over.checked_at);
 const confirm = (id, name) => {
   run("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING", id);
   run("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)", name.toLowerCase(), name, id, T - DAY);
@@ -211,8 +211,8 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("a confirmed member gets 404 news_off while News is off (the default; no row means off)", r.status === 404 && r.body.error === "news_off", r);
   r = await create(ADMIN, { id: op(1), title: "Raid night moved", body: "Thursday instead of Wednesday.", days: 30 });
   check("  a create is 409 news_off, and nothing is stored, not even an operation record", r.status === 409 && r.body.error === "news_off" && one("SELECT COUNT(*) AS c FROM site_news_ops").c === 0 && one("SELECT COUNT(*) AS c FROM site_news_notices").c === 0, r);
-  let pub = await http("GET", "/api/public");
-  check("  /api/public says newsOn false", pub.body.settings.newsOn === false);
+  let pub = await http("GET", "/api/public", { who: MEMBER });
+  check("  the member's /api/public says newsOn false", pub.status === 200 && pub.body.settings.newsOn === false);
   r = await switchNews(true);
   const settingsAudit = auditRows("site.settings").at(-1);
   check("PUT /api/admin/settings {newsOn: true} switches it on; the audit records newsOn '1'", r.status === 200 && r.body.settings.newsOn === true && JSON.parse(settingsAudit.details).newsOn === "1", settingsAudit);
@@ -298,7 +298,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("the member sees it: {title, body, postedAt, editedAt, until}, in seconds, no author and no id (the operation id is nowhere in the answer)", r.status === 200 && r.body.notices.length === 1 && keys(r.body.notices[0]) === "body,editedAt,postedAt,title,until" && r.body.notices[0].postedAt === n1.created_at && r.body.notices[0].until === n1.retain_until && r.body.notices[0].editedAt === null && !JSON.stringify(r.body).includes(op(1)), r.body.notices);
   pub = await http("GET", "/api/public");
   const signedOut = await http("GET", "/");
-  check("no notice text in /api/public or the signed-out page", [JSON.stringify(pub.body), signedOut.text].every((t) => typeof t === "string" && !t.includes("Raid night moved") && !t.includes("Thursday instead") && !t.includes("onerror=1")));
+  check("signed-out /api/public is held and the sign-in page has no bootstrap, application script or notice text", pub.status === 401 && pub.body?.error === "signed_out" && signedOut.status === 200 && signedOut.text.includes('href="/auth/login"') && !signedOut.text.includes('id="boot"') && !signedOut.text.includes('/static/app.js') && [JSON.stringify(pub.body), signedOut.text].every((t) => typeof t === "string" && !t.includes("Raid night moved") && !t.includes("Thursday instead") && !t.includes("onerror=1")));
 
   console.log("\n== edit ==");
   tick();
@@ -494,7 +494,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const lrow = one("SELECT updated_at FROM site_settings WHERE key = 'leadership'");
   r = await newsGet(MEMBER);
   check("leadership.updatedAt is the directory row's updated_at rounded down to the hour (review of 3 Oct 2026), and no name from the directory appears in the News JSON", r.body.leadership.updatedAt === Math.floor(lrow.updated_at / H) * H && r.body.leadership.updatedAt % H === 0 && !JSON.stringify(r.body).includes("Zed Leader") && !JSON.stringify(r.body).includes("Quill Officer"), r.body.leadership, lrow);
-  check("beta: the last full day and launchAt from the settings", r.body.beta.lastFullDay === "2026-10-21" && r.body.beta.launchAt === (await http("GET", "/api/public")).body.settings.launchAt);
+  check("beta: the last full day and launchAt from the member's settings", r.body.beta.lastFullDay === "2026-10-21" && r.body.beta.launchAt === (await http("GET", "/api/public", { who: MEMBER })).body.settings.launchAt);
   check("releases: the newest first, at most 5, plain {build, date, lines}", r.body.releases.length >= 1 && r.body.releases.length <= 5 && r.body.releases.every((x) => keys(x) === "build,date,lines"));
 
   console.log("\n== the figures ==");

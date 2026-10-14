@@ -1,0 +1,154 @@
+MEMBER EXPERIENCE 154 — SAVED DISCORD AND EXTERNAL INTEGRATION REVIEW
+Reviewed 13 October 2026 (America/Chicago)
+Author: Codex /root/floor_v3_native_gate_review/status_phase2_schema_census
+
+Scope: saved metadata and public primary sources only. No provider/API credential,
+Discord UI, permission, message, deployment, application or test action was taken.
+This file is the only workspace file authored for this review.
+
+1. DISCORD: SAME NAME DOES NOT MEAN THE SAME CHANNEL
+
+Server: Asmongold, guild ID 236932545793490944.
+The newest relevant saved permission inventory located was observed
+2026-10-10T19:29:16.047Z. It is not a live 13 October recheck.
+
+Saved channel ID       Saved name          Parent ID / name
+1551253084536049714    guild-chat          1554263207047073822 / Olympus
+1551936354357743716    guild-chat          none (uncategorized placeholder)
+1551936147788136579    server-chat         none (uncategorized placeholder)
+1551253115615838258    officer-chat        1554263207047073822 / Olympus
+1551936399824003093    officer-chat-legacy  480335467385192448 / archive
+
+The intended Olympus conversation is guild-chat 1551253084536049714. It has
+explicit View Channel allows for Olympus Guild Member 1552077551839617104,
+Olympus Raid Leader 1554262510650007602, Olympus Officer 1554262223038324840,
+Olympus Guild Leader 1554261979684933742, Discord Moderator 571363393555136512
+and Olympus Verify 1554290675288113163. @everyone has View Channel denied.
+This is deliberately a guild area, not evidence of two public chat rooms.
+
+Both uncategorized placeholders have @everyone View Channel deny 1024 and no
+channel-level View allow in the saved vectors. Muted 1313930158406766674 has
+Send Messages deny 2048; Quarantine 1399774654893133864 has deny 377957125121.
+Administrator bypass remains relevant. Do not synchronize these channels to a
+different category: that could change their audience.
+
+The 28 September category note historically called all three placeholders empty
+and admin-only. The 10 October receipt expressly says messagesRead=false and
+memberListRead=false; archived/private threads were outside its active-thread
+enumeration. Therefore current message counts, pins, attachments, thread history,
+owners' intended uses and remaining references are UNKNOWN. A saved channel map
+cannot justify deleting a channel or asserting that no history will be lost.
+
+The 30 September consolidation maps donor guild-chat 1549588859019460739 from
+the separate Olympus beta server 1549537348516188200 to canonical destination
+1551253084536049714. Do not merge or delete across these two server identities.
+
+Retention-safe consolidation proposal — NOT APPLIED:
+1) Confirm the five exact IDs above against a fresh, authorized channel inventory.
+   Before any retirement decision, inspect the bounded histories, pins, active and
+   archived/private threads, topic links, invites and bot/webhook/command wiring.
+2) Keep 1551253084536049714 as the canonical Olympus chat. Preserve original IDs,
+   authors, timestamps, attachments and links in the legacy channels. If their
+   purpose is confirmed redundant, a later authorized operation may label and
+   archive the two placeholders with their existing audience, rather than delete
+   them. Review ordinary-user send/thread permissions explicitly; admins bypass.
+3) Add a short pointer and update affected mappings only in that later authorized
+   operation. Preserve explicit overwrites when moving; never choose category sync
+   merely to tidy the sidebar. Keep staff material out of member/public channels.
+4) Do not republish history through a webhook as if it were original history.
+   Ordinary Discord Channel/Message APIs provide no native history-merge operation;
+   forwarding or recreating a message is different from moving its original record.
+   This is an inference from the documented API fields/endpoints, not a provider test.
+5) Archive preservation does not create a new perpetual retention rule. Existing
+   applicable retention and deletion obligations remain controlling. Any export or
+   later deletion needs its own bounded scope and confirmed records; none is done.
+
+Primary API references:
+https://docs.discord.com/developers/resources/channel
+https://docs.discord.com/developers/resources/message
+
+Saved provenance (originals unchanged):
+A. C:/Users/vikto/.codex/olympus-worktrees/privacy-review135-evidence/
+   discord139-current-old-access-readonly-v1/qualification.json
+   7,808 bytes; SHA256 a40a97ea24809f4d316aa7d5ae209d2e0a729a1e8285bb60abb29ce039a5d646
+   permission-metadata.json, same directory: 260,558 bytes;
+   SHA256 b2c74203fe1575c58d99aa23f3d5dd0d304423f10f10b43ac734a522a6b691d0
+   Relevant channel rows: /channels/rows/131–135.
+B. C:/Users/vikto/OneDrive/Apps/Olympus/consolidation-2026-09-30/evidence/
+   discord-donor-preferred-coverage-v4.json, 431,756 bytes;
+   SHA256 c428de621f1c7420676b99ba4180f6ec539506e482be936bf96a8dc72bde49ee
+C. docs/asmongold-category-2026-09-28.md:39,62–64 in this worktree.
+   expansion-2026-10-03/discord-change-plan.json records a separate 3 October
+   council-category consolidation preserving channel overwrites; it does not
+   authorize deletion of these placeholders.
+
+2. ONN — LINK AND LEARN; DO NOT IMPORT ITS COMMUNITY OR CLAIM ENDORSEMENT
+
+https://olympusnewsnetwork.com/
+https://olympusnewsnetwork.com/about
+
+ONN describes an independent fan service operated by Archway Point LLC. Its
+public navigation includes curated news, an archive, guides and community tools.
+The member guide describes availability/timezone profiles, officer-approved guild
+spaces, event responses and raid sign-ups. These are transferable product ideas:
+clear pending/approved membership, optional availability, role-aware sign-ups and
+timezone presentation. Use our own text, access checks and storage rather than
+copying ONN's interface or member data. Its self-claimed figures were not audited.
+https://olympusnewsnetwork.com/guide
+
+The footer advertises RSS. The research reader could not validate its linked XML
+or a stable endpoint; no feed URL or general public API contract is confirmed.
+Do not guess an API, scrape signed-in pages, import private profiles or mirror
+articles. Start with an attributed external ONN link and original short editorial
+summaries linking to their source. A feed integration needs its exact published
+URL, response/license terms and bounded polling verified first.
+
+ONN's terms prohibit bulk scraping; user posts remain their authors' property.
+Its footer reserves rights, and the site explicitly disclaims affiliation with
+the Olympus guild, Asmongold and Blizzard. Public availability does not establish
+permission to copy its articles, artwork, brand, private data or software.
+https://olympusnewsnetwork.com/terms
+
+The officer guide itself instructs leaders to check characters in game; an ONN
+profile is not proof of character control or a local office appointment.
+https://olympusnewsnetwork.com/guide/officers
+
+3. OLYMPUS GUILD ADDON — ATTRIBUTED, VERSION-PINNED INTEROPERABILITY
+
+https://www.curseforge.com/wow/addons/olympus-guild
+
+The author's current listing identifies project 1708200 by dnl_gentile, with
+Olympus-1.2.3.zip dated 12 October 2026. It advertises multi-guild census and
+leadership/map views. Useful reference patterns include a visible data freshness
+explanation, capacity shown as uncertain when unconfirmed, an LFG board, event
+sign-ups and a crafting directory. These are advertised capabilities, not a local
+compatibility or in-game acceptance result from this audit.
+
+https://github.com/dnl-gentile/olympus-addon
+
+The public source documents privacy choices and client-observed census limits.
+It also documents OlympusBridge for local addon interoperability and a separate
+Olympus Link contract, expressly not open until the bot/key setup is ready.
+Neither is a general web census API or authorization to ingest chat. Do not infer
+our backend compatibility, launch status or consent from the feature description.
+Its external signed Council list is not this project's appointment register.
+
+The repository and CurseForge listing identify MIT licensing. The source LICENSE
+names 2026 Olympus addon contributors. Reusing substantial licensed code requires
+retaining its copyright/permission notice; record the exact upstream revision and
+local changes. Review bundled libraries and artwork separately. MIT code licensing
+does not itself license every external logo, game asset or person's data.
+https://raw.githubusercontent.com/dnl-gentile/olympus-addon/main/LICENSE
+
+CurseForge's documented metadata REST API uses an x-api-key header. A future
+version-check integration can use documented project/file metadata with an
+authorized server-side key; it must not expose a key in public JavaScript. No API
+key was requested/read and no upload, download or API integration was performed.
+Use the official project link now; distinguish addon releases from our own build.
+https://docs.curseforge.com/rest-api/
+
+Recommendation: ship clear external news/addon links and original member-facing
+guidance first. Any later data/code integration should identify source, version,
+freshness, license and permission separately. External leadership labels, download
+counts, contributor credit or Discord role assignments establish no new local
+appointment, individual consent, endorsement or ratification.

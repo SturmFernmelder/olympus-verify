@@ -24,6 +24,8 @@ ROSTER = {
   { name = "Newbie Nell", rank = "Initiate", rankIndex = 4, level = 1, online = true, class = "PRIEST", guid = "Player-1-F" },   -- joined after the lists
 }
 local T = NOW
+GetGuildInfo = function() return "OLYMPUS", "Guild Master", 0, "ClassicBetaPvP" end
+GetRealmName = function() return "Classic Beta PvP 2" end
 OlympusQueue = {
   version = 1, generatedAt = T, setGuildNote = false,
   entries = {
@@ -51,12 +53,37 @@ local okLoad, err = pcall(function()
   assert(loadfile("../OlympusVerify/OlympusVerifyUI.lua"))("OlympusVerify", {})
   assert(loadfile("../OlympusVerify/OlympusVerifyPreview.lua"))("OlympusVerify", {})
   assert(loadfile("../OlympusVerify/OlympusVerifyRoster.lua"))("OlympusVerify", {})
+  assert(loadfile("../OlympusVerify/OlympusVerifyGuild.lua"))("OlympusVerify", {})
 end)
-check("all five files load in TOC order", okLoad, true)
+check("all six files including the guild column load in TOC order", okLoad, true)
 if not okLoad then print(err) os.exit(1) end
 local onEvent = OlympusVerifyFrame:GetScript("OnEvent")
 check("ADDON_LOADED + PLAYER_LOGIN run", pcall(function() onEvent(OlympusVerifyFrame, "ADDON_LOADED", "OlympusVerify"); onEvent(OlympusVerifyFrame, "PLAYER_LOGIN") end), true)
 local API = OlympusVerifyAPI
+for _, frame in ipairs(FRAMES) do
+  if frame ~= OlympusVerifyFrame and frame._events and frame._events.PLAYER_GUILD_UPDATE then
+    frame:GetScript("OnEvent")(frame, "PLAYER_LOGIN")
+  end
+end
+check("guild column uses current native GUID for Fern", API.Roster.Verification("Fern Melder-Forever", "Player-1-A").status, "verified")
+check("name-only legacy verification stays unknown", API.Roster.Verification("Grace Hope-Forever", "Player-1-B").status, "unknown")
+check("rename preserves exact GUID verification", API.Roster.Verification("Renamed Rita-Forever", "Player-1-C").status, "verified")
+check("current pending member is labelled verifying", API.Roster.Verification("Pending Pat-Forever", "Player-1-D").status, "pending")
+check("current unverified member has explicit status", API.Roster.Verification("Plain Paul-Forever", "Player-1-E").status, "unverified")
+check("new roster member absent from both lists is unknown", API.Roster.Verification("Newbie Nell-Forever", "Player-1-F").status, "unknown")
+check("offline unverified member cannot open a reminder", API.Roster.OpenWhisper("Plain Paul-Forever", "Player-1-E"), false)
+check("optional Olympus bridge defaults off", OlympusVerifyGuild.OlympusSnapshot(), nil)
+
+print("\n== explicit officer panel aliases ==")
+OlympusVerifyUI.Hide()
+SlashCmdList.OLYMPUSVERIFY("ui")
+check("/olv ui opens the existing officer panel", OlympusVerifyPanel:IsShown(), true)
+SlashCmdList.OLYMPUSVERIFY("ui")
+check("/olv ui toggles the same panel closed", OlympusVerifyPanel:IsShown(), false)
+SlashCmdList.OLYMPUSVERIFY("panel")
+check("/olv panel opens the same officer panel", OlympusVerifyPanel:IsShown(), true)
+SlashCmdList.OLYMPUSVERIFY("panel")
+check("/olv panel toggles the same panel closed", OlympusVerifyPanel:IsShown(), false)
 
 print("\n== reserved names go first ==")
 local byName = {}
@@ -145,8 +172,8 @@ check("  and is hidden while the box has text", W.search.hint:IsShown(), false)
 local shownRows = {}
 for _, frame in ipairs(FRAMES) do if frame._parent == W.frame and frame.cells and frame._shown then shownRows[#shownRows + 1] = frame end end
 check("  one row for the one match", #shownRows, 1)
-check("  showing the Discord username", plain(shownRows[1] and shownRows[1].cells.discord._text), "@grace_new")
-check("  and 'verified'", plain(shownRows[1] and shownRows[1].cells.status._text), "verified")
+check("  no asserted Discord username for name-only legacy link", plain(shownRows[1] and shownRows[1].cells.discord._text), "")
+check("  name-only legacy link is explicitly unknown", plain(shownRows[1] and shownRows[1].cells.status._text), "unknown")
 W.search:SetText(""); W.search:GetScript("OnTextChanged")(W.search)
 local all = 0
 for _, frame in ipairs(FRAMES) do if frame._parent == W.frame and frame.cells and frame._shown then all = all + 1 end end

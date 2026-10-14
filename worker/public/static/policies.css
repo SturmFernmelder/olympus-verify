@@ -39,3 +39,20 @@
 .olympus-policy .preserve-text{white-space:pre-wrap}
 .olympus-policy .case-messages{padding-left:1.25rem}
 .olympus-policy .case-messages li{padding:.5rem 0;border-bottom:1px solid #433821}
+/* .154: the same official game texture/font vocabulary as the member guild hall. */
+.olympus-policy{min-height:100vh;background:#0b0a08 url('/static/wow/rock.jpg') repeat;color:#f2e5c5}
+.olympus-policy .policy-header{max-width:72rem;padding:1.25rem 2rem;background:rgba(8,7,5,.94);border-bottom:3px ridge #a18b5b}
+.olympus-policy main{max-width:60rem;margin:2rem auto 4rem;padding:clamp(1.25rem,4vw,3rem);border:18px solid #806538;border-image:url('/static/wow/frame-gold.png') 16 stretch;background:#e9d7ae;background-image:linear-gradient(#fff0cebd,#fff0cebd),url('/static/wow/parchment.jpg');color:#29190c;box-shadow:0 15px 45px #0009}
+.olympus-policy main h1,.olympus-policy main h2,.olympus-policy main h3{color:#4c2d0d;text-shadow:0 1px #fff5;font-family:OlympusMorpheus,Georgia,serif}
+.olympus-policy main h1{font-size:clamp(2rem,5vw,3rem);border-bottom:1px solid #785a2f;padding-bottom:.5rem}
+.olympus-policy main h2{font-size:1.6rem;scroll-margin-top:1rem}
+.olympus-policy main p,.olympus-policy main li{color:#30200f}
+.olympus-policy main a{color:#65400d;font-weight:bold}
+.olympus-policy main code{background:#3c29121a;color:#34220e}
+.olympus-policy main .meta{color:#604b2b}
+.olympus-policy main form,.olympus-policy main .receipt,.olympus-policy main .data-controls{border-color:#8f703d;background:#eddcaf88;color:#30200f}
+.olympus-policy .policy-button{display:inline-block;min-height:48px;line-height:1.5;padding:.8rem 2rem;border:3px ridge #b79658;background:#681711 url('/static/wow/button-up.png') center/100% 100%;color:#ffe29a;text-decoration:none;text-align:center;text-shadow:1px 1px #000}
+.olympus-policy .policy-button:hover{background-image:url('/static/wow/button-hover.png');color:#fff}
+.olympus-policy .sign-in-gate{max-width:38rem;padding:1rem 0}.olympus-policy .sign-in-gate .eyebrow{text-transform:uppercase;letter-spacing:.18em;color:#78501e}
+.olympus-policy .sign-in-gate .meta{margin-top:1.5rem}.olympus-policy main :focus-visible{outline:3px solid #745014;outline-offset:3px}
+@media(max-width:40rem){.olympus-policy main{margin:1rem .5rem 2rem;border-width:12px}.olympus-policy .policy-header{padding:1rem}.olympus-policy .policy-button{width:100%}}

@@ -282,30 +282,23 @@ const bootOf = async (res) => {
   console.log("\n== hosts: the site answers only on SITE_HOST ==");
   let res = await call("GET", "/");
   let page = await bootOf(res);
-  check("GET / on the site host serves the page", res.status === 200 && page.boot && page.boot.signedIn === false);
-  check("  with a CSP that allows only this origin's scripts", /script-src 'self'/.test(res.headers.get("Content-Security-Policy") || "") && !/unsafe-inline/.test(res.headers.get("Content-Security-Policy")));
+  check('GET / before Discord sign-in delivers only the gate, without boot data or application scripts', res.status === 200 && !page.boot && page.html.includes('Sign in with Discord') && !page.html.includes('/static/app.js') && !page.html.includes('id="boot"'));
+  check('the sign-in screen permits no scripts or indexing', /script-src 'none'/.test(res.headers.get('Content-Security-Policy') || '') && /noindex/.test(res.headers.get('X-Robots-Tag')));
   check("  no-store, no-transform (Cloudflare injects nothing) and frame denial", res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY");
-  check("  the boot data carries the settings and the join link", page.boot.settings && page.boot.settings.namesOpenAt === data.DEFAULT_NAMES_OPEN_AT && page.boot.joinUrl === "https://discord.gg/example");
-  check("  and, for the Roles page open before signing in (.44), every role's description and who holds the appointed ones",
-    page.boot.meta.positions.length === 20 && page.boot.meta.positions.every((p) => p.info && p.info.about && p.info.duties.length && p.info.expect.length) && page.boot.settings.appointed.treasurer === "Fernmelder");
-  check("  and (.45) which roles have no public vote (the Co-Guild Master until the list is saved), and Forever's twelve professions",
-    JSON.stringify(page.boot.settings.noVote) === '["co_gm"]' && page.boot.meta.professions.length === 12 && page.boot.meta.limits.primaryProfessions === 2, page.boot.settings.noVote);
+  check('signed-out source contains no guild settings, appointment names or role descriptions', !page.html.includes('Fernmelder') && !page.html.includes('namesOpenAt') && !page.html.includes('primaryProfessions'));
   {
     // .111: the tab icon and the brand are the Olympus crest again (Viktor's decision of 1 Oct 2026: the website's one exception to
     // the official game art); the file is byte for byte the one live on guild.roachcouncil.com, and it is the only image outside wow/.
     const icon = path.join(root, "public", "static", "olympus-icon.png");
     const png = fs.existsSync(icon) ? fs.readFileSync(icon) : Buffer.alloc(0);
     const imagesOutsideWow = (function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? (d.name === "wow" ? [] : walk(path.join(dir, d.name))) : (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i.test(d.name) ? [path.relative(path.join(root, "public"), path.join(dir, d.name)).replace(/\\/g, "/")] : [])); })(path.join(root, "public"));
-    check("  its tab icon and brand use the Olympus crest (the 250x250 file live on guild.roachcouncil.com), the only image outside the official wow/ set",
-      page.html.includes('<link rel="icon" href="/static/olympus-icon.png" type="image/png">') && png.subarray(1, 4).toString() === "PNG" && png.readUInt32BE(16) === 250 && png.readUInt32BE(20) === 250 &&
-      require("node:crypto").createHash("sha256").update(png).digest("hex") === "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66" &&
-      fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8").includes('src: "/static/olympus-icon.png"') && JSON.stringify(imagesOutsideWow) === JSON.stringify(["static/olympus-icon.png"]), JSON.stringify(imagesOutsideWow));
+    check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !page.html.includes('/static/olympus-icon.png') && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     check("  .114: the member's own Discord picture shows in the top bar only (ownAvatar, Discord's avatar addresses only); the other eight account pictures stay accountArt (class icon or the Member icon)",
       !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 2 && (appJs.match(/accountArt\(/g) || []).length === 9 && appJs.includes(String.raw`const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/`) && !appJs.includes("DISCORD_SVG"));
   }
   res = await call("POST", "/interactions", { body: {} });
-  check("bot routes are not served on the site host", res.status === 404);
+  check("bot routes disclose nothing on the signed-out site host", res.status === 401);
   res = await call("GET", "/", { host: "verify.example" });
   check("the site is not served on the bot's host", res.status === 404);
   res = await call("GET", "/privacy");
@@ -323,7 +316,7 @@ const bootOf = async (res) => {
   check("  and sets a signed, host-only state cookie", /^__Host-olg_state=[^;]+\.[^;]+; Max-Age=600; Path=\/; HttpOnly; Secure; SameSite=Lax/.test(res.headers.get("Set-Cookie")));
   res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-300000000000000001&state=forged`, { headers: { Cookie: "__Host-olg_state=forged.bad" } }), env(), ctx);
   page = await bootOf(res);
-  check("a forged state is refused", !cookiesFrom(res)["__Host-olg"] && page.boot.flash.kind === "expired");
+  check("a forged state is refused", !cookiesFrom(res)["__Host-olg"] && !page.boot && page.html.includes('This sign-in attempt expired'));
   // prompt=none answered with an error (not a Cancel): start over once with consent, and never loop.
   let st = await call("GET", "/auth/login");
   let stState = new URL(st.headers.get("Location")).searchParams.get("state");
@@ -336,16 +329,16 @@ const bootOf = async (res) => {
   stCookie = cookiesFrom(st)["__Host-olg_state"];
   res = await index.fetch(new Request(`https://guild.example/auth/callback?error=interaction_required&state=${encodeURIComponent(stState)}`, { headers: { Cookie: `__Host-olg_state=${stCookie}` } }), env(), ctx);
   page = await bootOf(res);
-  check("  and an error then is shown, not retried again", res.status === 200 && page.boot.flash.kind === "discord_error");
+  check("  and an error then is shown, not retried again", res.status === 200 && !page.boot && page.html.includes('Discord sign-in could not be completed'));
   res = await index.fetch(new Request(`https://guild.example/auth/callback?error=access_denied&state=x`), env(), ctx);
   page = await bootOf(res);
-  check("Cancel on Discord's screen: 'sign-in cancelled'", page.boot.flash.kind === "cancelled");
+  check("Cancel on Discord's screen: 'sign-in cancelled'", !page.boot && page.html.includes('Discord sign-in was cancelled'));
   res = await signIn("300000000000000004");
   page = await bootOf(res);
-  check("someone not in Asmongold's server gets no session, and is told to join", !jar.has("300000000000000004") && res.status === 403 && page.boot.flash.kind === "not_member");
+  check("someone not in Asmongold's server gets no session, and is told to join", !jar.has("300000000000000004") && res.status === 403 && !page.boot && page.html.includes('Join the Asmongold Discord server'));
   res = await signIn("300000000000000005");
   page = await bootOf(res);
-  check("someone who has not finished membership screening gets no session", !jar.has("300000000000000005") && page.boot.flash.kind === "pending");
+  check("someone who has not finished membership screening gets no session", !jar.has("300000000000000005") && !page.boot && page.html.includes('Finish the Discord server membership screening'));
   res = await signIn("300000000000000001");
   check("a member signs in: 303 to / with a session cookie", res.status === 303 && res.headers.get("Location") === "/" && jar.has("300000000000000001"));
   const alice = db.prepare("SELECT * FROM site_users WHERE discord_id = '300000000000000001'").get();
@@ -357,6 +350,7 @@ const bootOf = async (res) => {
   res = await call("GET", "/", { who: "300000000000000001" });
   page = await bootOf(res);
   check("signed in, the page's boot data is the member's own", page.boot.signedIn && page.boot.user.id === "300000000000000001" && page.boot.user.isAdmin === false && page.boot.meta.positions.length === 20 && page.boot.meta.avail.prime.na.length === 7);
+  check('only signed-in boot carries settings, appointed roles, descriptions and professions', page.boot.settings.namesOpenAt === data.DEFAULT_NAMES_OPEN_AT && page.boot.joinUrl === 'https://discord.gg/example' && page.boot.settings.appointed.treasurer === 'Fernmelder' && page.boot.meta.positions.every(p => p.info && p.info.about && p.info.duties.length && p.info.expect.length) && JSON.stringify(page.boot.settings.noVote) === '["co_gm"]' && page.boot.meta.professions.length === 12 && page.boot.meta.limits.primaryProfessions === 2);
   res = await call("GET", "/", { who: "300000000000000006" });
   page = await bootOf(res);
   check("a display name with </script> cannot break out of the boot block", !page.html.includes("Frank </script>") && page.boot.user.displayName === "Frank </script><b>x</b>");
@@ -517,7 +511,7 @@ const bootOf = async (res) => {
     const js = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     const listed = (js.match(/icon\("pos-" \+ \((\[[^\]]+\])/) || [])[1];
     check("  and the page script shows each one (none falls back to the question mark)", !!listed && ps.every((p) => JSON.parse(listed).includes(p.key.replace(/_(na|eu)$/, ""))));
-    check("  public routes add only governance and organization to Roles/data/request; community stays protected", /ROUTES\.roles = function/.test(js) && /PUBLIC_ROUTES = new Set\(\["roles", "request", "data", "governance", "organization"\]\)/.test(js) && /!PUBLIC_ROUTES\.has\(head\)/.test(js));
+    check("  all guild client routes require sign-in; only identity redirects remain", /ROUTES\.roles = function/.test(js) && /PUBLIC_ROUTES = new Set\(\["request", "data"\]\)/.test(js) && /!PUBLIC_ROUTES\.has\(head\)/.test(js));
     const html = page.html; // the signed-in page: the descriptions travel in the boot data like every other list
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
@@ -1271,9 +1265,19 @@ const bootOf = async (res) => {
   res = await call("PUT", "/api/friends", { who: "300000000000000007", body: { friends: [] } });
   check("someone who left Asmongold's server can no longer save", res.status === 403 && (await J(res)).error === "not_member" && db.prepare("SELECT in_server FROM site_users WHERE discord_id = '300000000000000007'").get().in_server === 0);
   res = await call("GET", "/api/me", { who: "300000000000000007" });
-  check("  but can still read what they entered", res.status === 200);
+  check("  the revoked cookie cannot read /api/me, while the own account record remains for privacy access", res.status === 401 && (await J(res)).error === "signed_out" && !!db.prepare("SELECT 1 FROM site_users WHERE discord_id = ?").get("300000000000000007"));
   res = await call("GET", "/api/board", { who: "300000000000000007" });
-  check("  and no longer reads the voting board", res.status === 403 && (await J(res)).error === "not_member");
+  check("  the same revoked cookie cannot read the voting board", res.status === 401 && (await J(res)).error === "signed_out");
+  const absentId='300000000000000007', absentVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(absentId).session_version;
+  db.prepare('UPDATE site_users SET in_server=1,checked_at=? WHERE discord_id=?').run(T,absentId);
+  const absentStart=await call('GET','/auth/login',{who:absentId});
+  const absentState=new URL(absentStart.headers.get('Location')).searchParams.get('state');
+  res=await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${absentId}&state=${encodeURIComponent(absentState)}`,{headers:{Cookie:`__Host-olg_state=${cookiesFrom(absentStart)['__Host-olg_state']}; ${jar.get(absentId)}`}}),env(),ctx);
+  page=await bootOf(res);
+  const absentAfter=db.prepare('SELECT in_server,session_version FROM site_users WHERE discord_id=?').get(absentId);
+  check('authoritative OAuth absence clears the old browser session and withholds guild boot',res.status===403&&!page.boot&&page.html.includes('Join the Asmongold Discord server')&&/Max-Age=0/.test(res.headers.get('Set-Cookie')||'')&&absentAfter.in_server===0&&absentAfter.session_version===absentVersion+1);
+  res=await call('GET','/static/app.js',{who:absentId});
+  check('the pre-callback cookie cannot recover protected source after authoritative absence',res.status===401);
 
   console.log("\n== sign-out ==");
   res = await call("POST", "/auth/logout", { who: "300000000000000003" });
@@ -1335,7 +1339,7 @@ const bootOf = async (res) => {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-11.153 Original browser key custody" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-13.154 Member guild hall" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

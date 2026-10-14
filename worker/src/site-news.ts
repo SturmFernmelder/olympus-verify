@@ -71,6 +71,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".154", date: "2026-10-13", lines: [
+      "Guild pages and downloads require Discord sign-in. The sign-in screen and required privacy and terms pages remain public.",
+      "The adopted operational charter and organization explorer share the guild hall's Warcraft theme, with chart and list views, office mandates and rank distinctions.",
+      "The updated AddOn offers roster verification guidance and individual editable whisper reminders. Automatic erasure and QR signing remain paused.",
+    ],
+  },
+  {
     build: ".153", date: "2026-10-11", lines: [
       "Browser verification can preserve a request after an interrupted connection.",
       "The feature remains unavailable until the game and browser check passes.",

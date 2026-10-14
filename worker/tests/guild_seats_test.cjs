@@ -161,7 +161,7 @@ const queued = (id, name, { priority = 0, createdAt = T - 600, character = true 
   if (character) run("INSERT INTO characters (name_key, name, discord_id, status, bound_at, verified_at) VALUES (?, ?, ?, 'queued', ?, ?)", codes.normalizeCharacter(name), name, id, T - DAY, T - DAY);
   return Number(run("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, priority) VALUES (?, ?, ?, 'queued', ?, 'auto', ?)", codes.normalizeCharacter(name), name, id, createdAt, priority).lastInsertRowid);
 };
-const siteUser = (id, denied = 0) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, 1, ?, 1) ON CONFLICT(discord_id) DO NOTHING", id, "u" + id.slice(-2), T, T, denied);
+const siteUser = (id, denied = 0) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, 1, ?, 1) ON CONFLICT(discord_id) DO NOTHING", id, "u" + id.slice(-2), T, T, T, denied);
 let iid = 0;
 const command = (name, user, { roles = [], options } = {}) => ({ type: 2, id: "9" + String(++iid).padStart(17, "0"), token: "t", guild_id: GUILD, member: { user: { id: user, username: "u" }, roles }, data: options ? { name, options } : { name } });
 const answer = async (payload, over = {}) => (await interactions.handleInteraction(env(over), payload)).json();
@@ -804,11 +804,11 @@ const quiet = async (fn) => { const real = console.error, lines = []; console.er
   siteUser(DENIED, 1);
   me = await (await site("GET", "/api/me", { who: DENIED })).json();
   check("a denied account: seats null, myQueue []", me.denied === true && me.seats === null && Array.isArray(me.myQueue) && me.myQueue.length === 0, me.seats);
-  const pub = await (await site("GET", "/api/public")).json();
-  check("/api/public has no seats", !("seats" in pub) && !("myQueue" in pub));
-  let boot = await bootOf(await site("GET", "/"));
-  check("the signed-out boot has no seats", boot.signedIn === false && !("seats" in boot) && !("myQueue" in boot));
-  boot = await bootOf(await site("GET", "/", { who: QUINN }));
+  const publicResponse = await site("GET", "/api/public"), pub = await publicResponse.json();
+  check("the signed-out /api/public is held without seats", publicResponse.status === 401 && pub.error === "signed_out" && !("seats" in pub) && !("myQueue" in pub));
+  const signedOutPage = await site("GET", "/"), signedOutHtml = await signedOutPage.text();
+  check("the signed-out page is a sign-in boundary with no bootstrap or application script", signedOutPage.status === 200 && signedOutHtml.includes('href="/auth/login"') && !signedOutHtml.includes('id="boot"') && !signedOutHtml.includes('/static/app.js'));
+  const boot = await bootOf(await site("GET", "/", { who: QUINN }));
   check("the signed-in boot carries them", boot.signedIn === true && boot.seats && boot.seats.state === "open");
 
   console.log("\n== the staff views: exact times ==");

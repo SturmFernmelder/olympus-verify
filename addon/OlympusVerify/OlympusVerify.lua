@@ -3404,8 +3404,8 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     else
       Print(string.format("presence checks: %s — the queue lists everyone.", Presence.blocked and "refused by this client" or (Presence.enabled and "no /who API here" or "off in Config.lua")))
     end
-    Print("/olv (panel) | members [name] | ranks | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
-  elseif cmd == "show" or cmd == "hide" or cmd == "" then
+    Print("/olv [ui|panel] | members [name] | ranks | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
+  elseif cmd == "show" or cmd == "hide" or cmd == "ui" or cmd == "panel" or cmd == "" then
     if OlympusVerifyUI and OlympusVerifyUI.Toggle then
       if cmd == "show" then OlympusVerifyUI.Show() elseif cmd == "hide" then OlympusVerifyUI.Hide() else OlympusVerifyUI.Toggle() end
     else
