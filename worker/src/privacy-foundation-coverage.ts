@@ -1,6 +1,7 @@
 /** Dormant foundation diagnostics. Physical shape is not reference/purpose coverage. */
 import { snapshotDataArray, snapshotDataFields, type Database } from './account-generation-contracts';
 import { readAccountSchemaProfile } from './account-schema-profile';
+import {PROVIDER_METADATA_CURRENT_SQL,PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} from './privacy-provider-metadata';
 import { FOUNDATION_TABLES, STORE_CATALOG } from './privacy-store-catalog';
 
 // Owner-selected F3 v12 dispositions (2026-10-09). These are not terminal purge
@@ -33,7 +34,7 @@ const fixedNames = Object.freeze([...STORE_CATALOG.map(s => s.table), ...FOUNDAT
 // reads names only, not account data, and admits at most one overflow row.
 const fixedNamesSql = fixedNames.map(name => `('${name}')`).join(',');
 const nameCensusSql = `WITH expected(name) AS (VALUES ${fixedNamesSql})
- SELECT name FROM main.sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name LIMIT ${fixedNames.length + 2}`;
+ SELECT name FROM main.sqlite_master WHERE type='table' AND name<>'sqlite_sequence' AND ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} AND ${PROVIDER_METADATA_CURRENT_SQL} ORDER BY name LIMIT ${fixedNames.length + 2}`;
 
 export async function inspectFoundationCoverage(db: Database) {
   const profile = await readAccountSchemaProfile(db);

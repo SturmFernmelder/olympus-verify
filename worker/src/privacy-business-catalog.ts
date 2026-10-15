@@ -1,9 +1,12 @@
 /** Closed production table/column census. Presence in this list does not alone qualify erasure semantics. */
 import type { Env } from './env';
+import {PROVIDER_METADATA_CURRENT_SQL,PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} from './privacy-provider-metadata';
 import { communityDataNames } from './community-context';
-import { admissionCatalogueCurrent,isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
+import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
+import {staffCustodyProjectionSql,qualifiedStaffCustodyCounts,type StaffCustodyCounts} from './privacy-erasure-staff-custody';
 import { privacyProviderCustodyDatabase } from './privacy-serving-authority';
 export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
+{"table": "privacy_rejection_decisions", "columns": "decision_id,protocol,rejected_at,retain_until,scope,source,subject_key,target_account_incarnation,target_generation", "disposition": "owned_or_reference_projection"},{"table": "privacy_rejection_expiry_control", "columns": "observed_at,protocol,selected_count,singleton", "disposition": "shared_operation_metadata"},
   {
     "table": "audit",
     "columns": "id,ts,actor,action,subject,details",
@@ -91,12 +94,12 @@ export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   },
   {
     "table": "community_event_deliveries",
-    "columns": "event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,session_version,session_expires,created_at,updated_at,retain_until,result_code",
+    "columns": "event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,actor_account_incarnation,session_version,session_expires,created_at,updated_at,retain_until,result_code",
     "disposition": "owned_or_reference_projection"
   },
   {
     "table": "community_event_signups",
-    "columns": "event_id,discord_id,status,character_name,character_key,raid_role,revision,rsvp_starts_at,updated_at,write_nonce",
+    "columns": "event_id,discord_id,status,character_name,character_key,raid_role,revision,rsvp_starts_at,updated_at,write_nonce,remind_mention,decision,decided_by,decided_at,decision_revision",
     "disposition": "owned_or_reference_projection"
   },
   {
@@ -221,7 +224,7 @@ export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   },
   {
     "table": "site_applications",
-    "columns": "discord_id,position,class_lead,backup1,backup2,fallback,character,char_key,class,role,region,avail,avail_tz,fit_na,fit_eu,board_at,answers,status,admin_note,reviewed_by,reviewed_at,created_at,updated_at",
+    "columns": "discord_id,position,class_lead,backup1,backup2,fallback,character,char_key,class,role,region,avail,avail_tz,fit_na,fit_eu,board_at,answers,status,admin_note,reviewed_by,reviewed_at,created_at,updated_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired",
     "disposition": "owned_or_reference_projection"
   },
   {
@@ -256,7 +259,7 @@ export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   },
   {
     "table": "site_users",
-    "columns": "discord_id,username,global_name,nick,avatar,account_created,server_joined,first_login,last_login,checked_at,in_server,session_version,denied,denied_reason,denied_at,denied_by",
+    "columns": "discord_id,username,global_name,nick,avatar,account_created,server_joined,first_login,last_login,checked_at,in_server,session_version,denied,denied_reason,denied_at,denied_by,account_incarnation,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired",
     "disposition": "owned_or_reference_projection"
   },
   {
@@ -266,9 +269,9 @@ export const PRIVACY_BUSINESS_CATALOG = Object.freeze([
   }
 ] as const);
 const CONTROL_TABLES:Readonly<Record<string,string>>=Object.freeze({
- privacy_write_admission:'singleton,protocol,active,nonce,purpose,entry_changes,logical_changes',
+ privacy_write_admission:'singleton,protocol,active,nonce,purpose,entry_changes,logical_changes,epoch,mode',
  privacy_subjects:'subject_id,generation,state,revision,created_at,updated_at,erased_at,retain_until',
- privacy_serving_jobs:'operation_id,subject_id,subject_generation,request_digest,original_session_version,original_session_expires,state,hold_reason,role_checked_at,staff_access,created_at,completed_at,last_attempt_at,retain_until',
+ privacy_serving_jobs:'operation_id,subject_id,subject_generation,request_digest,original_session_version,original_session_expires,original_account_incarnation,state,hold_reason,role_checked_at,staff_access,created_at,completed_at,last_attempt_at,retain_until',
  privacy_denial_markers:'subject_key,denied_at,retain_until,reason',
  privacy_restore_replay:'operation_id,subject_id,retired_generation,erased_at,retain_until,scope,recovery_custody,custody_receipt_digest',
  privacy_provider_messages:'operation_id,purpose,subjects,channel_id,message_id,state,cleanup_requested,created_at,updated_at,retain_until',
@@ -283,20 +286,33 @@ export function registerServingPrivacyFamilies(registryName:string,entries:Reado
  extensions.set(registryName,Object.freeze(entries.map(e=>Object.freeze({...e}))));
 }
 /** A newly storing family or column closes completion until its real projection is reviewed. */
-export async function servingPrivacyCatalogCurrent(env:Env):Promise<boolean>{
+function servingPrivacyCatalogExpected(env:Env):Map<string,string>|null{
  const native=privacyProviderCustodyDatabase(env),protocol=isPrivacyWriteAdmissionDatabase(native);
- if(env.PRIVACY_WRITE_ADMISSION_ENABLED==='true'&&!protocol)return false;
- if(protocol&&!(await admissionCatalogueCurrent(native)))return false;
+ if(env.PRIVACY_WRITE_ADMISSION_ENABLED==='true'&&!protocol)return null;
+ // The branded epoch facade consumes the full original-epoch schema proof in the
+ // same native batch as this read. A second standalone current-schema read is redundant.
  const expected=new Map(PRIVACY_BUSINESS_CATALOG.map(e=>[e.table as string,e.columns as string]));
- for(const [registryName,entries] of extensions){if(!communityDataNames().includes(registryName))return false;for(const e of entries)expected.set(e.table,e.columns);}
+ for(const [registryName,entries] of extensions){if(!communityDataNames().includes(registryName))return null;for(const e of entries)expected.set(e.table,e.columns);}
  // Cloudflare's exact internal _cf_KV is provider-managed and rejects table_info. Materialize the finite
  // name filter BEFORE invoking the table-valued pragma; no other unknown table or prefix is exempted.
- const rows=await env.DB.prepare("WITH business AS MATERIALIZED(SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV') SELECT m.name AS table_name,group_concat(p.name,',') AS columns FROM business m JOIN pragma_table_info(m.name) p GROUP BY m.name ORDER BY m.name").all<{table_name:string;columns:string}>();
- const business=rows.results;
+ return expected;
+}
+const servingCatalogStatement=(env:Env)=>env.DB.prepare(`WITH business AS MATERIALIZED(SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV' AND ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL}) SELECT m.name AS table_name,group_concat(p.name,',') AS columns FROM business m JOIN pragma_table_info(m.name) p WHERE ${PROVIDER_METADATA_CURRENT_SQL} GROUP BY m.name ORDER BY m.name`);
+function servingCatalogRowsCurrent(expected:Map<string,string>,business:ReadonlyArray<{table_name:string;columns:string}>):boolean{
  if(!Array.isArray(business)||business.length!==expected.size+Object.keys(CONTROL_TABLES).length)return false;
  for(const row of business){const columns=CONTROL_TABLES[row.table_name]??expected.get(row.table_name);
   // Old additive migrations append fields in a different physical order. The exact finite column SET
   // is the storage contract; neither extra nor missing fields are accepted.
   if(!columns||columns.split(',').sort().join(',')!==row.columns.split(',').sort().join(','))return false;}
  return true;
+}
+
+/** Independent catalogue and staff custody facts share one atomic original-epoch read proof. */
+export async function servingPrivacyCatalogAndStaffCustody(env:Env,subject:string):Promise<{catalogCurrent:boolean;staffCustody:StaffCustodyCounts|null}>{
+ const expected=servingPrivacyCatalogExpected(env);if(!expected)return {catalogCurrent:false,staffCustody:null};
+ const out=await env.DB.batch([servingCatalogStatement(env),env.DB.prepare(`SELECT ${staffCustodyProjectionSql('?1')}`).bind(subject)]);
+ const staff=out[1]!.results[0];return {catalogCurrent:servingCatalogRowsCurrent(expected,out[0]!.results as {table_name:string;columns:string}[]),staffCustody:qualifiedStaffCustodyCounts(staff)?staff:null};
+}
+export async function servingPrivacyCatalogCurrent(env:Env):Promise<boolean>{
+ const expected=servingPrivacyCatalogExpected(env);return expected?servingCatalogRowsCurrent(expected,(await servingCatalogStatement(env).all<{table_name:string;columns:string}>()).results):false;
 }

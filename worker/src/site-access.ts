@@ -1,6 +1,6 @@
 /** Member-site delivery boundary (.154). No application source or guild payload is sent before Discord sign-in. */
 import type { Env } from './env';
-import { currentUser, readSession, securityHeaders } from './site-core';
+import { currentUser, originalUserSession, securityHeaders } from './site-core';
 import { stillMember } from './site-api';
 import { privacyBoundSiteEnv } from './privacy-serving-authority';
 import { policyHeaders, policyShell } from './policy-render';
@@ -47,9 +47,7 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   if (user && request.method === 'GET' && (path === '/api/me' || path === '/api/application' || path === '/api/community/context')) return null;
   if (user && user.in_server === 1 && !user.denied) {
     try {
-      const session = await readSession(env, request);
-      if (!session) throw Error('site_session_unavailable');
-      const held = await stillMember(privacyBoundSiteEnv(env, session), user);
+      const held = await stillMember(privacyBoundSiteEnv(env, originalUserSession(user)), user);
       if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
       return null;
     } catch {
@@ -71,4 +69,15 @@ export function privateSiteAsset(response: Response): Response {
   headers.set('Cache-Control', 'private, no-store, no-transform');
   headers.set('Vary', 'Cookie');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+/** The councillor verification page alone may use the device camera (owner item 32 fallback, 14 October 2026): an
+ * attended, local QR read of a screen this browser cannot capture. Same origin only, delivered only behind the member
+ * gate; every other response keeps camera=(). Microphone and the rest stay closed. */
+export const CAMERA_PAGE_PATH = '/static/qr-phase1.html';
+export function privateCameraPageAsset(response: Response): Response {
+  const asset = privateSiteAsset(response);
+  const headers = new Headers(asset.headers);
+  headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
+  return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
 }

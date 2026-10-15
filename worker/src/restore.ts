@@ -291,6 +291,10 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
       if (outcome !== "granted") return "done";
       restored.push(id);
       await audit(env, "system", "role.restored", id, { source: `sweep:${trigger}` },reference);
+      // An installed cron grant completes membership now. Keep this account ahead of the
+      // original promotion watermark/rotation cursor; its next fresh sweep continues ranks.
+      // This avoids combining two durable role phases in one 120-statement role slice.
+      if(isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))&&trigger==='cron'&&rankMapping)return 'unfinished';
       await continueRanks();
       await new Promise((res) => setTimeout(res, 250)); // keep a run of grants off Discord's rate limiter
       return "done";

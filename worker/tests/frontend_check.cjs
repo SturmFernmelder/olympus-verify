@@ -7,6 +7,7 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript"), vm = require("vm");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entry = require('./helpers/privacy129_fixture.cjs');
 
 // ---------- a minimal DOM: what app.js uses, nothing more ----------
 class Event {
@@ -140,36 +141,25 @@ function makeWindow(bootJson) {
 }
 
 // ---------- the real Worker behind fetch (the house harness) ----------
-const HOOKS = { afterBatch: null, afterStatement: null }; // .102: a test may act between the Worker's batches of ONE request (the member denied after the write, before the re-read); .106: or between two statements of one batch (the seam between a committed INSERT and the payload read that follows it)
+const HOOKS = { afterBatch: null }; // Existing races run only between complete Native transactions, before the next payload read.
 function d1(db) {
   let batches = 0;
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => { if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR"); params = p; return api; },
-      first: async () => db.prepare(sql).get(...params) ?? null,
-      all: async () => ({ results: db.prepare(sql).all(...params) }),
-      run: async () => exec(sql, params),
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return { prepare: stmt, batch: async (stmts) => { db.exec("BEGIN"); let out; try { out = stmts.map((s, j) => { const r = s._exec(); HOOKS.afterStatement?.(s._sql, j); return r; }); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; } if (!(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"))) HOOKS.afterBatch?.(++batches, stmts.map((s) => s._sql)); return out; } };
+  // Existing races identify the real business mutation by its SQL, so added
+  // authentication/control batches cannot move a race before that commit.
+  return entry.originalNativePort(db, {
+    afterBatch: async plan => { await HOOKS.afterBatch?.(++batches, plan.map(s => s.statement)); },
+  });
 }
 const db = new DatabaseSync(":memory:");
 db.exec("PRAGMA foreign_keys = ON");
-db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+entry.installCurrentEntryEpoch(db);
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-globalThis.fetch = async (url) => { throw new Error("no network in tests: " + url); };
+let originalTestFetch = async (url) => { throw new Error("no network in tests: " + url); };
+// Keep the original global transport slot stable for the real provider custody checks.
+globalThis.fetch = (...args) => originalTestFetch(...args);
 const stubs = {}, cache = {};
 function load(name) {
+  if (name === 'node:async_hooks') return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -197,20 +187,42 @@ const governanceAssets = { fetch: async (request) => {
   if (!Object.hasOwn(files, pathname)) return new Response("Not found", { status: 404 });
   return new Response(fs.readFileSync(path.join(root, "public", "static", "governance", files[pathname])), { headers: { "Content-Type": pathname.endsWith(".pdf") ? "application/pdf" : pathname.endsWith(".zip") ? "application/zip" : pathname.endsWith(".json") ? "application/json" : "text/plain; charset=utf-8" } });
 } };
-const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: STAFF, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "directory,crafting,privacy_intake,events,attendance,trials,contributions,departures,restrictions", COMMUNITY_ORGANIZERS: OTHER, CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", PRIVACY_INTAKE_ENABLED: "true", PRIVACY_INTAKE_MONITORED: "true", PRIVACY_INTAKE_RETENTION_DAYS: "90", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: STAFF, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "directory,crafting,privacy_intake,events,attendance,trials,contributions,departures,restrictions", COMMUNITY_ORGANIZERS: OTHER, CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", PRIVACY_INTAKE_ENABLED: "true", PRIVACY_INTAKE_MONITORED: "true", PRIVACY_INTAKE_RETENTION_DAYS: "90", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const now = Math.floor(Date.now() / 1000);
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: now, last_login: now, checked_at: now, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.checked_at, row.in_server, row.denied, row.session_version);
+function directEnv(over = {}) {
+  const e = env(over);
+  return { ...e, DB: load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB, 'writer', 'canonical', entry.ENTRY_EPOCH) };
+}
+async function fixtureRun(sql, ...params) {
+  // A separate source-admitted fixture writer never shares an in-flight Native transaction.
+  const e = env({ DB: entry.originalNativePort(db) });
+  const admitted = load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB, 'writer', 'canonical', entry.ENTRY_EPOCH);
+  const result = await admitted.prepare(sql).bind(...params).run();
+  return { changes: result.meta.changes, lastInsertRowid: result.meta.last_row_id };
+}
+async function fixtureRows(sql, rows) {
+  const admitted = directEnv({ DB: entry.originalNativePort(db) }).DB;
+  // Preserve the existing seed order within bounded source-admitted transactions.
+  for (let i = 0; i < rows.length; i += 100) await admitted.batch(rows.slice(i, i + 100).map(values => admitted.prepare(sql).bind(...values)));
+}
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: now, last_login: now, ...over };
+  (await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.in_server, row.denied, row.session_version));
 };
-const character = (id, name, guid) => {
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, 'member', ?, ?, ?)").run(name.toLowerCase().split("-")[0], name, id, now - 86400, guid, now - 86400);
+const character = async (id, name, guid) => {
+  (await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",id));
+  (await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, 'member', ?, ?, ?)",name.toLowerCase().split("-")[0], name, id, now - 86400, guid, now - 86400));
 };
-const cookieFor = async (id) => (await siteCore.sessionCookie(env(), id, 1)).split(";")[0];
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  // Issue once during explicit fixture setup; later requests retain the original
+  // session and cannot refresh revoked membership or incarnation facts.
+  if (!originalCookies.has(id)) originalCookies.set(id, await entry.issueOriginalEntryCookie(name => load('./' + name), db, env(), id));
+  return originalCookies.get(id).cookie;
+};
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const settle = () => new Promise((r) => setTimeout(r, 0));
 async function waitFor(pred, what, ms = 2000) {
@@ -223,7 +235,8 @@ const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "u
 /** GET / as the existing identity; execute app.js only when the real HTML actually includes its boot. */
 async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   // .126: fixed DST form fixtures set both page Date.now and its boot clock; the real Worker's clock stays unchanged.
-  const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return clockNow; } };
+  let pageClockNow = clockNow;
+  const PageDate = clockNow === undefined ? Date : class extends Date { static now() { return typeof pageClockNow === "function" ? pageClockNow() : pageClockNow; } };
   const cookie = who ? await cookieFor(who) : null;
   const headers = cookie ? { Cookie: cookie } : {};
   const res = await indexMod.default.fetch(new Request("https://guild.example/", { headers }), env({ ASSETS: governanceAssets, ...over }), ctx);
@@ -231,12 +244,12 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
   if (!m) return { response: res, cookie, html, boot: null, app: null };
   const boot = JSON.parse(m[1]);
-  if (clockNow !== undefined) boot.now = Math.floor(clockNow / 1000); // app.js otherwise cancels PageDate.now through server skew
+  if (clockNow !== undefined) boot.now = Math.floor((typeof clockNow === "function" ? clockNow() : clockNow) / 1000); // app.js otherwise cancels PageDate.now through server skew
   if (bootTransform) bootTransform(boot); // test-only malformed boot fixture; no production hook
   const w = makeWindow(JSON.stringify(boot));
   const sandbox = {
     document: w.document, window: w.window, location: w.location, history: w.history, sessionStorage: w.sessionStorage, navigator: { clipboard: { writeText: async () => {} } },
-    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, Uint8Array, TextDecoder, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
+    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, Uint8Array, TextDecoder, TextEncoder, AbortController, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
     __drop: null, // .100: when set, the real answer to a matching request is thrown away after the Worker handled it (a lost answer)
     __delay: null, // .102: when set, a matching request waits this many milliseconds before the Worker sees it (a slow reply)
     __garble: null, // .104: when set, the Worker's answer to a matching request is replaced by an unreadable 200 page
@@ -253,14 +266,14 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
       if (sandbox.__drop && sandbox.__drop(pathname, init)) throw new TypeError("the network dropped the answer");
       if (sandbox.__garble && sandbox.__garble(pathname, init)) return new Response("<!doctype html><title>an edge page</title>", { status: 200, headers: { "Content-Type": "text/html" } }); // .104: a 2xx the browser cannot read, after the Worker handled it
       { const ms2 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (ms2) await new Promise((res) => setTimeout(res, ms2)); } // .110: the answer is complete; the page sees it later
-      if (sandbox.__answer) { const sub = sandbox.__answer(pathname, init); if (sub !== null && sub !== undefined) return new Response(JSON.stringify(sub), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } }); } // .107: a readable but wrong 200, after the Worker handled it
+      if (sandbox.__answer) { const sub = sandbox.__answer(pathname, init); if (sub instanceof Response) return sub; if (sub !== null && sub !== undefined) return new Response(JSON.stringify(sub), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } }); } // .107: a readable but wrong 200, after the Worker handled it
       return r;
     },
   };
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
   vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });
   await settle();
-  return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; } };
+  return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; }, clock: clockNow === undefined ? null : (value) => { if (!Number.isSafeInteger(value)) throw new Error("invalid page fixture clock"); pageClockNow = value; } };
 }
 // .116: current script-free policy forms, through the real Worker and genuine cookies/tokens.
 // This is a finite HTML field reader for these server templates, not a DOM or transport replacement.
@@ -325,7 +338,7 @@ const byText = (root, sel, text) => root.querySelectorAll(sel).find((e) => e.tex
 const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
 (async () => {
-  siteUser(MEMBER, { global_name: "Mia" }); character(MEMBER, "Mia One", "Player-1-0001"); siteUser(OTHER, { global_name: "Oz" }); character(OTHER, "Oz Two", "Player-1-0002"); siteUser(DENIED, { global_name: "Dan", denied: 1 }); siteUser(STAFF, { global_name: "Vik" });
+  await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", "Player-1-0001"); await siteUser(OTHER, { global_name: "Oz" }); await character(OTHER, "Oz Two", "Player-1-0002"); await siteUser(DENIED, { global_name: "Dan", denied: 1 }); await siteUser(STAFF, { global_name: "Vik" });
 
   console.log("\n== the shell: signed out ==");
   const anonymous = await openPage(null);
@@ -437,8 +450,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const EVENT = r.body.event.id;
   r = await apiAs(OTHER, "POST", "/api/community/events", { opId: token22(), title: "Raid night", startsAt: isoAt(now + 2 * DAY), durationMin: 120 });
   const PAST = r.body.event.id;
-  db.prepare("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?").run(now - 2 * DAY, now - 2 * DAY + 7200, PAST);
-  db.prepare("INSERT INTO community_event_attendance (event_id, discord_id, state, source, reason_code, recorded_by, recorded_at) VALUES (?, ?, 'present', 'officer', 'late', ?, ?)").run(PAST, MEMBER, OTHER, now - DAY);
+  (await fixtureRun("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?",now - 2 * DAY, now - 2 * DAY + 7200, PAST));
+  (await fixtureRun("INSERT INTO community_event_attendance (event_id, discord_id, state, source, reason_code, recorded_by, recorded_at) VALUES (?, ?, 'present', 'officer', 'late', ?, ?)",PAST, MEMBER, OTHER, now - DAY));
   r = await apiAs(OTHER, "POST", "/api/community/events", { opId: token22(), title: "Cancelled run", startsAt: isoAt(now + 5 * DAY), durationMin: 60 });
   const GONE = r.body.event.id;
   r = await apiAs(OTHER, "POST", "/api/community/events/cancel", { eventId: GONE, revision: 1 });
@@ -474,7 +487,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("Answer goes through PUT /api/community/events/rsvp: yes, the character and the raid role stored", !!signup && signup.status === "yes" && signup.character_name === "Mia One" && signup.raid_role === "healer", JSON.stringify(signup));
   await waitFor(() => !!byText(m2.app, "span", "you: Yes"), "the redrawn event");
   check("  the page redraws from the Worker: the badge, the count, the signups list with the member by display name, character and role", !!byText(m2.app, "span", "you: Yes") && m2.app.textContent.includes("1 yes of 40 places") && !!byText(m2.app, "td", "Mia") && !!byText(m2.app, "td", "Mia One") && m2.app.textContent.includes("Healer"), m2.app.textContent.slice(0, 200));
-  db.prepare("UPDATE community_event_signups SET revision = revision + 1 WHERE event_id = ? AND discord_id = ?").run(EVENT, MEMBER);
+  (await fixtureRun("UPDATE community_event_signups SET revision = revision + 1 WHERE event_id = ? AND discord_id = ?",EVENT, MEMBER));
   rsvp = byText(m2.app, "button", "Change my answer").closest("form");
   rsvp.querySelectorAll("select")[0].value = "tentative";
   byText(rsvp, "button", "Change my answer").click();
@@ -486,6 +499,203 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await m2.go(`#/community/calendar/${"Q".repeat(22)}`);
   await waitFor(() => m2.app.textContent.includes("no such event"), "the missing event page");
   check("an unknown event id says so", m2.app.textContent.includes("no such event"));
+
+  // ---------- stage 2 (15 Oct 2026, Codex finding 4): the roster control's receipt discipline ----------
+  (await fixtureRun("UPDATE community_event_signups SET status = 'yes' WHERE event_id = ? AND discord_id = ?",EVENT, MEMBER));
+  const o2 = await openPage(OTHER);
+  await o2.go(`#/community/calendar/${EVENT}`);
+  await waitFor(() => !!byText(o2.app, "button", "Save") && !!o2.app.querySelector("table.data select"), "the organizer's roster controls");
+  const rosterPick = () => o2.app.querySelector("table.data select"), rosterSave = () => byText(o2.app, "button", "Save"), seen = () => o2.document.body.textContent;
+  const decided = () => one("SELECT decision, decision_revision AS revision FROM community_event_signups WHERE event_id = ? AND discord_id = ?", EVENT, MEMBER);
+  const lostBars = () => (seen().match(/Roster answer lost/g) || []).length;
+  check("the organizer's Who answered table carries a Roster column with a decision select and Save per row; members see no control", !!byText(o2.app, "th", "Roster") && rosterPick().value === "" && !m2.app.querySelector("table.data select"));
+  rosterPick().value = "accepted"; rosterSave().click();
+  await waitFor(() => seen().includes("Roster: accepted"), "the acknowledged acceptance");
+  check("a Save with the closed receipt (ok, the sent decision, revision + 1) is acknowledged in words; the row stays, the select keeps the decision", decided().decision === "accepted" && decided().revision === 1 && rosterPick().value === "accepted" && !rosterSave().disabled);
+  let bars = lostBars();
+  o2.answer((p) => p === "/api/community/events/decide" ? {} : null);
+  rosterPick().value = "bench"; rosterSave().click();
+  await waitFor(() => lostBars() > bars, "the lost-answer receipt for a readable but empty 2xx");
+  check("a readable 2xx without the receipt (`{}`) is a lost answer: the list is re-read from the Worker and shows the stored decision (bench, revision 2); it never says nothing changed", !seen().includes("Nothing was decided") && decided().decision === "bench" && decided().revision === 2 && rosterPick().value === "bench");
+  bars = lostBars();
+  o2.answer((p) => p === "/api/community/events/decide" ? { results: [{ ref: "X".repeat(22), result: "ok", decision: "declined", revision: 3 }] } : null);
+  rosterPick().value = "declined"; rosterSave().click();
+  await waitFor(() => lostBars() > bars, "the lost-answer receipt for a wrong-ref receipt");
+  check("a receipt for another ref is not this command's acknowledgement: lost answer, re-read, the stored decision shown (declined, revision 3)", decided().decision === "declined" && decided().revision === 3 && rosterPick().value === "declined");
+  o2.answer(null); bars = lostBars();
+  o2.drop((p) => p === "/api/community/events/decide");
+  rosterPick().value = "accepted"; rosterSave().click();
+  await waitFor(() => lostBars() > bars, "the lost-answer receipt for a dropped reply");
+  check("a dropped reply (the Worker committed, the page never saw it) re-reads: accepted at revision 4 is shown, nothing resubmitted", decided().decision === "accepted" && decided().revision === 4 && rosterPick().value === "accepted");
+  o2.drop(null); bars = lostBars();
+  o2.garble((p) => p === "/api/community/events/decide");
+  rosterPick().value = "bench"; rosterSave().click();
+  await waitFor(() => lostBars() > bars, "the lost-answer receipt for an unreadable reply");
+  check("an unreadable 200 is a lost answer too: re-read shows bench at revision 5", decided().decision === "bench" && decided().revision === 5 && rosterPick().value === "bench");
+  o2.garble(null);
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ? AND discord_id = ?",EVENT, MEMBER));
+  rosterPick().value = "accepted"; rosterSave().click();
+  await waitFor(() => seen().includes("Not decided."), "the definite refusal receipt");
+  check("a definite refusal (stale revision after another write) says why and re-reads: the select shows the Worker's state", seen().includes("Not decided.") && decided().decision === "bench" && rosterPick().value === "bench");
+
+  // ---------- F4a/F4b (Codex, 15 Oct 04:11): exact receipts; replies bound to the view; sequenced readbacks; truthful readback status ----------
+  const memberRef = one("SELECT ref FROM community_refs WHERE discord_id = ?", MEMBER).ref;
+  rosterPick().value = ""; rosterSave().click();
+  await waitFor(() => seen().includes("Decision cleared."), "the acknowledged clear");
+  check("a clear of a decided row is acknowledged by the changed receipt (no decision at revision + 1)", decided().decision === null && decided().revision === 7 && rosterPick().value === "" && !rosterSave().disabled);
+  bars = lostBars(); rosterPick().value = ""; rosterSave().click();
+  await waitFor(() => seen().includes("No decision to clear."), "the acknowledged no-op clear");
+  check("F4a: a clear of an undecided row is the Worker's valid no-op receipt (no decision, unchanged revision): acknowledged in words, never a lost answer", lostBars() === bars && decided().revision === 7 && decided().decision === null && !rosterSave().disabled);
+  // F4a coverage (Codex, 05:10): the falsy decisions ride on a genuine clear — where the old `(r.decision || null)` would have taken false/""/0 for null — and the wrong revision is derived from the dispatch-time revision
+  for (const [label, fake] of [["decision false on a clear", { decision: false }], ["decision empty string on a clear", { decision: "" }], ["decision 0 on a clear", { decision: 0 }], ["revision + 2", { decision: "accepted", revisionOffset: 2 }], ["revision as text", { decision: "accepted", revisionText: true }]]) {
+    const clearing = !(typeof fake.decision === "string" && fake.decision);
+    if (clearing) { rosterPick().value = "bench"; rosterSave().click(); await waitFor(() => decided().decision === "bench" && rosterPick().value === "bench" && !rosterSave().disabled, "a decided row to clear"); } // the row is decided (by the Worker and in the control), so the clear is a real command
+    bars = lostBars(); const before = decided().revision, revision = fake.revisionText ? String(before + 1) : before + (fake.revisionOffset || 1);
+    o2.answer((p) => p === "/api/community/events/decide" ? { results: [{ ref: memberRef, result: "ok", decision: fake.decision, revision }] } : null);
+    rosterPick().value = clearing ? "" : "accepted"; rosterSave().click();
+    await waitFor(() => lostBars() > bars, `the lost-answer receipt for a malformed receipt (${label})`);
+    const expected = clearing ? null : "accepted";
+    check(`F4a: a receipt with ${label} is not an acknowledgement: lost answer, re-read, the Worker's state shown (${expected === null ? "cleared" : "accepted"} at ${before + 1})`, decided().decision === expected && decided().revision === before + 1 && rosterPick().value === (expected || "") && !rosterSave().disabled);
+  }
+  o2.answer(null);
+  // F4b: a second row with a control; two overlapping commands whose readbacks come back in reverse order
+  const startsAt = one("SELECT starts_at FROM community_events WHERE id = ?", EVENT).starts_at, SECOND = "310000000000000006"; // an id no other case in this fixture seeds
+  await siteUser(SECOND, { global_name: "Sol" }); await character(SECOND, "Sol Six", "Player-1-0006");
+  (await fixtureRun("INSERT INTO community_refs(discord_id, ref, created_at) VALUES(?, ?, ?)", SECOND, "R".repeat(22), startsAt - 100));
+  (await fixtureRun("INSERT INTO community_event_signups(event_id, discord_id, status, revision, rsvp_starts_at, updated_at) VALUES(?, ?, 'yes', 1, ?, ?)", EVENT, SECOND, startsAt, startsAt - 100));
+  await o2.go("#/community/calendar"); await o2.go(`#/community/calendar/${EVENT}`); // leave and return: the same hash would not redraw
+  const picks = () => [...o2.app.querySelectorAll("table.data select")], saves = () => [...o2.app.querySelectorAll("table.data button")].filter((b) => b.textContent.trim() === "Save"), rows = () => o2.app.querySelectorAll("table.data tbody tr").length;
+  await waitFor(() => picks().length === 2 && saves().length === 2, "two rows with roster controls");
+  check("fixture: two rows with roster controls", rows() === 2);
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ?", EVENT)); // both commands below are definite refusals (stale)
+  const holds = [400, 50]; o2.hold((p) => p.startsWith("/api/community/event?id=") ? (holds.shift() ?? 0) : 0);
+  picks()[0].value = "accepted"; saves()[0].click(); picks()[1].value = "bench"; saves()[1].click();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  check("F4b: two overlapping row commands with reversed readbacks: the late readback is discarded, the list holds each row once and the latest readback's state", rows() === 2 && picks().length === 2 && JSON.stringify(picks().map((p) => p.value).sort()) === JSON.stringify(db.prepare("SELECT COALESCE(decision, '') AS d FROM community_event_signups WHERE event_id = ? ORDER BY d").all(EVENT).map((r) => r.d)) && (seen().match(/Not decided\./g) || []).length === 1 && holds.length === 0, JSON.stringify([rows(), picks().map((p) => p.value), (seen().match(/Not decided\./g) || []).length, holds]));
+  o2.hold(null);
+  // a failed readback says so, never that the list was re-read
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ?", EVENT));
+  o2.before((p) => p.startsWith("/api/community/event?id="));
+  picks()[0].value = "accepted"; saves()[0].click();
+  await waitFor(() => seen().includes("could not be re-read"), "the truthful failed-readback receipt");
+  check("F4b: when the readback after a refusal fails, the page says the list could not be re-read, never that it was", seen().includes("could not be re-read") && !seen().includes("was re-read"));
+  o2.before(null);
+  // a reply that arrives after the page moved on changes nothing on the new view; the Worker's state stands
+  await o2.go("#/community/calendar"); await o2.go(`#/community/calendar/${EVENT}`); await waitFor(() => picks().length === 2 && saves().length === 2, "reload with two rows");
+  o2.hold((p) => p === "/api/community/events/decide" ? 300 : 0);
+  picks()[0].value = "declined"; saves()[0].click();
+  await o2.go("#/community/calendar"); // leave while the Worker's answer is held
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  check("F4b: a reply held until after the page moved on changes nothing on the new view (no toast, no receipt bar, no roster controls), while the Worker's decision stands", !o2.app.querySelector("table.data select") && !seen().includes("Roster: declined") && !seen().includes("Roster answer lost") && one("SELECT COUNT(*) AS n FROM community_event_signups WHERE event_id = ? AND decision = 'declined'", EVENT).n === 1);
+  o2.hold(null);
+  const counts2 = () => o2.app.textContent;
+
+  // ---------- F4b.1/F4b.2 (Codex's independent v4 review, 15 Oct 05:10): replaced rows and pagination share the view's ownership; no shell effect from a departed operation ----------
+  const status401 = () => new Response('{"error":"signed_out"}', { status: 401, headers: { "Content-Type": "application/json" } });
+  const status409 = () => new Response('{"error":"reload","message":"The site has been updated."}', { status: 409, headers: { "Content-Type": "application/json" } });
+  const reload2 = async () => { await o2.go("#/community/calendar"); await o2.go(`#/community/calendar/${EVENT}`); await waitFor(() => picks().length === 2 && saves().length === 2, "the event page with two rows"); };
+  const dbDecisions = () => db.prepare("SELECT discord_id, decision FROM community_event_signups WHERE event_id = ? ORDER BY discord_id").all(EVENT).map((r) => r.decision || "");
+  const acceptedCount = () => db.prepare("SELECT COUNT(*) AS n FROM community_event_signups WHERE event_id = ? AND decision = 'accepted'").get(EVENT).n;
+  // F4b.2 (a): an older successful command whose reply is held while the rows are replaced and the replacement row is acknowledged anew
+  await reload2();
+  const holdDecide = [500]; o2.hold((p) => p === "/api/community/events/decide" ? (holdDecide.shift() ?? 0) : 0);
+  picks()[0].value = "declined"; saves()[0].click(); // held 500 ms; the Worker commits row 0's decline now
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  check("fixture: row 0's command is committed by the Worker while its reply is held", dbDecisions().includes("declined"));
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ? AND decision IS NULL", EVENT)); // row 1's next command is stale
+  picks()[1].value = "bench"; saves()[1].click();
+  await waitFor(() => seen().includes("Not decided."), "row 1's refusal and the readback that replaces the rows");
+  const fresh0 = picks().findIndex((p) => p.value === "declined");
+  check("fixture: the readback replaced the rows and shows row 0's committed decision", picks().length === 2 && fresh0 >= 0);
+  picks()[fresh0].value = "bench"; saves()[fresh0].click();
+  await waitFor(() => dbDecisions().filter((d) => d === "bench").length === 1 && seen().includes("Roster: on the bench."), "the replacement row's newer acknowledgement");
+  await new Promise((resolve) => setTimeout(resolve, 650)); // the older reply arrives now
+  check("F4b.2: the older command's reply, arriving after the rows were replaced and the replacement row acknowledged, says nothing and changes nothing (no 'declined' toast, the newest decision shown, the counts current)", !seen().includes("Roster: declined.") && picks()[fresh0].value === "bench" && !dbDecisions().includes("declined") && counts2().includes(`${acceptedCount()} accepted`));
+  o2.hold(null);
+  // F4b.2 (b): a pagination response held across a readback that replaced the table is discarded; the cursor stays the readback's
+  const extra = Array.from({ length: 100 }, (_, i) => "31000000000000" + String(100 + i));
+  for (const who of extra) { await siteUser(who, { global_name: "Page " + who.slice(-3) }); await character(who, "Page " + who.slice(-3), "Player-9-" + who.slice(-4)); }
+  await fixtureRows("INSERT INTO community_refs(discord_id, ref, created_at) VALUES(?, ?, ?)", extra.map((who, i) => [who, "P".repeat(19) + String(100 + i), startsAt - 50]));
+  await fixtureRows("INSERT INTO community_event_signups(event_id, discord_id, status, revision, rsvp_starts_at, updated_at) VALUES(?, ?, 'yes', 1, ?, ?)", extra.map((who, i) => [EVENT, who, startsAt, startsAt - 50 + i]));
+  const showMore = () => byText(o2.app, "button", "Show more");
+  await o2.go("#/community/calendar"); await o2.go(`#/community/calendar/${EVENT}`);
+  await waitFor(() => rows() === 100 && !!showMore() && !showMore().hidden, "the first page of 100 rows with Show more");
+  o2.hold((p) => p.includes("cursor=") ? 400 : 0);
+  showMore().click(); // page 2 held
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ?", EVENT));
+  picks()[0].value = "accepted"; saves()[0].click(); // a refusal: its readback replaces the first page (not held)
+  await waitFor(() => seen().includes("Not decided."), "the readback during the held page");
+  await new Promise((resolve) => setTimeout(resolve, 600)); // the held page arrives now
+  check("F4b.2: a page response held across a readback that replaced the table is discarded: 100 rows, no stale append", rows() === 100);
+  o2.hold(null);
+  showMore().click();
+  await waitFor(() => rows() === 102, "the second page appended from the readback's cursor");
+  check("F4b.2: the cursor stayed the readback's: Show more appends the second page once (102 rows) and then hides", rows() === 102 && showMore().hidden);
+  // F4b.1 (b): a 401 held until after the page moved on changes nothing on the new view
+  const o3 = await openPage(OTHER); await o3.go(`#/community/calendar/${EVENT}`);
+  const picks3 = () => [...o3.app.querySelectorAll("table.data select")], saves3 = () => [...o3.app.querySelectorAll("table.data button")].filter((b) => b.textContent.trim() === "Save");
+  await waitFor(() => picks3().length >= 2 && saves3().length >= 2, "a fresh organizer page");
+  const signedIn3 = () => !!byText(o3.app, "button", "Sign out"), said3 = (t) => o3.document.body.textContent.includes(t);
+  o3.hold((p) => p === "/api/community/events/decide" ? 300 : 0); o3.answer((p) => p === "/api/community/events/decide" ? status401() : null);
+  picks3()[0].value = "declined"; saves3()[0].click();
+  await o3.go("#/community/calendar"); await new Promise((resolve) => setTimeout(resolve, 600));
+  check("F4b.1: a 401 held until after the page moved on signs nothing out, toasts nothing and redraws nothing", signedIn3() && !said3("You were signed out") && !o3.document.body.querySelector(".reload-bar"));
+  o3.hold(null); o3.answer(null);
+  // F4b.1 (c): a reload reply held until after the page moved on, answering a departed readback, shows no reload notice
+  await o3.go(`#/community/calendar/${EVENT}`); await waitFor(() => picks3().length >= 2 && saves3().length >= 2, "the organizer page again");
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ?", EVENT)); // the next command is a definite refusal, so a readback follows
+  o3.hold((p) => p.startsWith("/api/community/event?id=") ? 300 : 0); o3.answer((p) => p.startsWith("/api/community/event?id=") ? status409() : null);
+  picks3()[0].value = "accepted"; saves3()[0].click();
+  await new Promise((resolve) => setTimeout(resolve, 100)); // the refusal is back; its readback is held
+  await o3.go("#/community/calendar"); await new Promise((resolve) => setTimeout(resolve, 600));
+  check("F4b.1: a reload reply held until after the page moved on shows no reload notice, no toast and no receipt bar", signedIn3() && !o3.document.body.querySelector(".reload-bar") && !said3("Roster answer lost") && !said3("Not decided."));
+  o3.hold(null); o3.answer(null);
+  // F4b.1 (a): a 401 to a current roster command still signs the shell out (the ordinary behaviour is kept)
+  await o3.go(`#/community/calendar/${EVENT}`); await waitFor(() => picks3().length >= 2 && saves3().length >= 2, "the organizer page a third time");
+  o3.answer((p) => p === "/api/community/events/decide" ? status401() : null);
+  picks3()[0].value = "accepted"; saves3()[0].click();
+  await waitFor(() => said3("You were signed out"), "the ordinary sign-out on a current 401");
+  check("F4b.1: a 401 to a current roster command still signs the shell out (ordinary behaviour kept)", said3("You were signed out") && !signedIn3());
+  o3.answer(null);
+
+  // ---------- F4b.1 follow-up (Codex Root's v5 review, 15 Oct 05:30): the context refresh after a current 403 carries the row's ownership ----------
+  const contextReal = await (await indexMod.default.fetch(new Request("https://guild.example/api/community/context", { headers: { Cookie: await cookieFor(OTHER), Origin: "https://guild.example", "X-Olympus": "2" } }), env({ ASSETS: governanceAssets }), ctx)).json();
+  const contextChanged = { ...contextReal, features: { ...contextReal.features, events: false } }; // a context whose adoption is visible: the Calendar tab goes
+  const status403 = () => new Response('{"error":"not_organizer"}', { status: 403, headers: { "Content-Type": "application/json" } });
+  const calendarTab = () => !!byText(o2.app, "a", "Calendar");
+  const reloadEvent = async () => { await o2.go("#/community/calendar"); await o2.go(`#/community/calendar/${EVENT}`); await waitFor(() => picks().length >= 2 && saves().length >= 2 && calendarTab(), "the event page with controls and the Calendar tab"); };
+  // (a) a changed context reply held until after the page moved on: nothing adopted, nothing redrawn
+  await reloadEvent();
+  let fakeContexts = 1, heldContexts = 1;
+  o2.answer((p) => p === "/api/community/events/decide" ? status403() : (p === "/api/community/context" && fakeContexts-- > 0 ? contextChanged : null));
+  o2.hold((p) => p === "/api/community/context" && heldContexts-- > 0 ? 300 : 0);
+  picks()[0].value = "accepted"; saves()[0].click();
+  await waitFor(() => fakeContexts === 0 || heldContexts === 0, "the refused command's context refresh in flight", 1500);
+  await o2.go("#/community/calendar"); await new Promise((resolve) => setTimeout(resolve, 600));
+  check("F4b.1 follow-up: a changed context reply held until after the page moved on adopts nothing and redraws nothing (the Calendar tab stays, still signed in, no reload notice)", calendarTab() && !!byText(o2.app, "button", "Sign out") && !o2.document.body.querySelector(".reload-bar"));
+  o2.answer(null); o2.hold(null);
+  // (b) the same after a readback replaced the rows: the controls stay, nothing adopted
+  await reloadEvent();
+  fakeContexts = 1; heldContexts = 1; let refusals = 0;
+  o2.answer((p) => p === "/api/community/events/decide" && refusals++ === 0 ? status403() : (p === "/api/community/context" && fakeContexts-- > 0 ? contextChanged : null));
+  o2.hold((p) => p === "/api/community/context" && heldContexts-- > 0 ? 300 : 0);
+  picks()[0].value = "accepted"; saves()[0].click(); // the refused command starts the held context refresh
+  await waitFor(() => heldContexts === 0, "the held context refresh", 1500);
+  (await fixtureRun("UPDATE community_event_signups SET decision_revision = decision_revision + 1 WHERE event_id = ?", EVENT));
+  picks()[1].value = "bench"; saves()[1].click(); // a definite refusal: its readback replaces the rows
+  await waitFor(() => seen().includes("Not decided."), "the readback that replaces the rows");
+  await new Promise((resolve) => setTimeout(resolve, 600)); // the held context reply arrives now
+  check("F4b.1 follow-up: a changed context reply arriving after the rows were replaced adopts nothing: the controls stay and the Calendar tab stays", calendarTab() && picks().length >= 2 && saves().length >= 2);
+  o2.answer(null); o2.hold(null);
+  // (c) the positive: a current refresh adopts the changed context and redraws
+  await reloadEvent();
+  fakeContexts = 1;
+  o2.answer((p) => p === "/api/community/events/decide" ? status403() : (p === "/api/community/context" && fakeContexts-- > 0 ? contextChanged : null));
+  picks()[0].value = "accepted"; saves()[0].click();
+  await waitFor(() => !calendarTab(), "the current refresh adopting the changed context");
+  check("F4b.1 follow-up: a current refusal's context refresh still adopts a changed context and redraws (the Calendar tab goes)", !calendarTab() && !!byText(o2.app, "button", "Sign out"));
+  o2.answer(null);
   await m2.go("#/community/trial");
   await waitFor(() => !!byText(m2.app, "span", "active"), "the trial page");
   check("the member's own trial: active, the start, the review date, what a trial is", !!byText(m2.app, "span", "active") && m2.app.textContent.includes("Review due") && m2.app.textContent.includes("Nothing on this page changes a role"));
@@ -535,7 +745,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(evForm, "button", "Save changes").click();
   await waitFor(() => one("SELECT title FROM community_events WHERE id = ?", ony.id).title === "Onyxia (40)", "the renamed event");
   check("Save changes goes through POST /api/community/events/update with the revision: the title changed, the revision advanced", one("SELECT title, revision FROM community_events WHERE id = ?", ony.id).revision === ony.revision + 1);
-  db.prepare("UPDATE community_events SET revision = revision + 1 WHERE id = ?").run(ony.id);
+  (await fixtureRun("UPDATE community_events SET revision = revision + 1 WHERE id = ?",ony.id));
   evForm = byText(org.app, "button", "Save changes").closest("form");
   evForm.querySelector('input[type="text"]').value = "Onyxia (stale)";
   byText(evForm, "button", "Save changes").click();
@@ -579,7 +789,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the list redraws with the new status", !!byText(adm.app, "span", "extended"));
   // a departure item, seeded as the intake writes it
   const DEP = "D".repeat(22);
-  db.prepare("INSERT INTO community_departure_reviews (id, discord_id, character_key, character_name, proof_key, kind, observed_at, status, created_at, revision, retain_until) VALUES (?, ?, 'oz two', 'Oz Two', 'oz', 'left', ?, 'open', ?, 1, ?)").run(DEP, OTHER, now - 3600, now - 3000, now + 30 * DAY);
+  (await fixtureRun("INSERT INTO community_departure_reviews (id, discord_id, character_key, character_name, proof_key, kind, observed_at, status, created_at, revision, retain_until) VALUES (?, ?, 'oz two', 'Oz Two', 'oz', 'left', ?, 'open', ?, 1, ?)",DEP, OTHER, now - 3600, now - 3000, now + 30 * DAY));
   await adm.go("#/admin/community/departures");
   await waitFor(() => !!byText(adm.app, "button", "Acknowledge"), "the departures page");
   const depRow = byText(adm.app, "button", "Acknowledge").closest("tr");
@@ -661,8 +871,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const sameFormReplay = await submitPolicyReply(heldFormReply), afterLostRead = await policyCase(originalCase, {}, "reconcile");
   check("resubmitting the exact original form replays one message and the real case read reconciles the lost answer", sameFormReplay.response.status === 200 && afterLostRead.text.includes("Did this arrive?") && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", values[0]).k === msgsBefore + 1);
   check("case access and submission uncertainty are explicitly distinguished from account authority", afterLostRead.text.includes("does not verify an account or authorise deletion") && contact.text.includes("not an automatic export or deletion"));
-  db.prepare("DELETE FROM community_privacy_messages WHERE case_id = ?").run(values[0]);
-  db.prepare("DELETE FROM community_privacy_cases WHERE case_id = ?").run(values[0]);
+  (await fixtureRun("DELETE FROM community_privacy_messages WHERE case_id = ?",values[0]));
+  (await fixtureRun("DELETE FROM community_privacy_cases WHERE case_id = ?",values[0]));
   const unavailableRead = await policyCase(originalCase, {}, "reconcile");
   check("a fresh read after case removal is unavailable and contains no old conversation", unavailableRead.response.status === 404 && unavailableRead.text.includes("missing, expired or the code is incorrect") && !unavailableRead.text.includes("Did this arrive?"));
 
@@ -671,7 +881,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await waitFor(() => !!byText(pf.app, "button", "Save"), "the profile form");
   let pform = byText(pf.app, "button", "Save").closest("form");
   check("F8: the profession and offer selects have accessible names, the removals name what they remove", !!pform.querySelector('select[aria-label="Profession"]') && !!pform.querySelector('select[aria-label="Offer profession"]') && !!pform.querySelector('button[aria-label="Remove this profession"]') && !!pform.querySelector('button[aria-label="Remove this alt"]'));
-  db.prepare("UPDATE community_profiles SET revision = revision + 1 WHERE discord_id = ?").run(MEMBER);
+  (await fixtureRun("UPDATE community_profiles SET revision = revision + 1 WHERE discord_id = ?",MEMBER));
   pform.querySelectorAll("select")[0].value = "tank";
   byText(pform, "button", "Save").click();
   await waitFor(() => pf.app.textContent.includes("changed elsewhere"), "the stale notice");
@@ -681,12 +891,12 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  Save again applies the draft over the current version deliberately", one("SELECT raid_role FROM community_profiles WHERE discord_id = ?", MEMBER).raid_role === "tank");
   const accessRefreshRequests = [];
   pf.before((pathname) => { if (pathname === "/api/community/directory" || pathname === "/api/community/context") accessRefreshRequests.push(pathname); return false; });
-  db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER);
+  (await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER));
   await pf.go("#/community/directory");
   await waitFor(() => pf.app.textContent.includes("no longer have access"), "the fresh shell");
   check("F5: a 403 re-reads the context once and the shell follows it: the Community tab gone, the page says the access ended", pf.app.textContent.includes("no longer have access") && !texts(pf.app, "nav.nav a").includes("Community") && accessRefreshRequests.filter((pathname) => pathname === "/api/community/directory").length === 1 && accessRefreshRequests.filter((pathname) => pathname === "/api/community/context").length === 1);
   pf.before(null);
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
+  (await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",MEMBER));
   check("F6: a crafting continuation is bound to the query that produced it (a changed filter restarts the search)", /cursorFor/.test(APP_JS) && APP_JS.includes("The filters changed; the search starts again"));
   check("F7: the themed field style covers password and date inputs; long headings and case values wrap on narrow screens", APP_CSS.includes('input[type="password"]') && APP_CSS.includes('input[type="date"]') && /\.plaque h2[^}]*overflow-wrap: anywhere/.test(APP_CSS) && /\.case-value[^}]*overflow-wrap: anywhere/.test(APP_CSS));
 
@@ -731,7 +941,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const dues2 = await openPage(MEMBER);
   await dues2.go("#/community/dues");
   await waitFor(() => !!byText(dues2.app, "button", "Acknowledge"), "the dues page with a week to acknowledge");
-  HOOKS.afterBatch = (i) => { if (i === 3) { HOOKS.afterBatch = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER); } }; // after the write commits, before the Worker's re-read
+  HOOKS.afterBatch = async (_i, sqls) => { if (sqls.some(sql => /UPDATE community_contribution_obligations SET acknowledged_at\s*=/.test(sql))) { HOOKS.afterBatch = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?", MEMBER); } }; // after the actual acknowledgement commits, before the Worker's re-read
   byText(dues2.app, "button", "Acknowledge").click();
   const bodyOf2 = () => dues2.document.body;
   await waitFor(() => bodyOf2().textContent.includes("Recorded."), "the durable receipt");
@@ -740,7 +950,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the private weeks and payments are gone (the fresh read was refused and the shell redrawn for the changed context); the receipt bar stays until dismissed", !byText(dues2.app, "h2", "Weeks") && !!bodyOf2().querySelector(".receipt-bar") && !!byText(bodyOf2(), "button", "Dismiss"));
   byText(bodyOf2(), "button", "Dismiss").click();
   check("  Dismiss removes the receipt deliberately", !bodyOf2().querySelector(".receipt-bar"));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
+  (await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",MEMBER));
   check("F96-3: the stylesheet lets frames, cards and grid children shrink, wraps the plaque controls and bounds tables to their wrapper on narrow screens", /\.frame, \.card, \.stack, \.grid > \*[^{]*\{ min-width: 0; \}/.test(APP_CSS) && APP_CSS.includes(".plaque .btn-row { flex-wrap: wrap; min-width: 0; }") && APP_CSS.includes(".table-wrap { max-width: 100%; }") && /@media \(max-width: 480px\) \{\s*\.plaque \{ flex-direction: column/.test(APP_CSS));
 
   console.log("\n== .103: the lost-answer rule for every id-keyed operation ==");
@@ -811,8 +1021,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("the admin CSV text names the six core record families and says what is not in them", APP_JS.includes("six core record families: applications, board votes, write-ins, friends, reserved names and accounts") && !APP_JS.includes("Spreadsheet files (CSV) of everything the site holds"));
 
   console.log("\n== .106: Codex's five .98 repair items (11:26) ==");
-  // (1) a committed attendance write whose target may no longer be shown: the Worker's own seam (the INSERT commits, the
-  // payload read that follows it in the same batch no longer finds the member) answers ok / entry null / withheld
+  // (1) The attendance INSERT and result payload share one Native transaction.
+  // A target denial after that commit cannot change its captured row; the next
+  // actual attendance read must omit the newly denied member.
   const org6 = await openPage(OTHER);
   await org6.go(`#/community/calendar/${PAST}/attendance`);
   await waitFor(() => !!byText(org6.app, "td", "Mia"), "the attendance list");
@@ -820,21 +1031,22 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const stateSel6 = attRow6.querySelectorAll("select")[0];
   check("(3) the attendance select: the blank choice reads 'not recorded', the explicit state 'unknown' reads 'unknown' (two different labels)", stateSel6.querySelectorAll("option").some((o) => o._value === "" && o.textContent === "not recorded") && stateSel6.querySelectorAll("option").some((o) => o._value === "unknown" && o.textContent === "unknown") && APP_JS.includes('unknown: "unknown" }'));
   const revBefore6 = one("SELECT revision FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", PAST, MEMBER).revision;
-  HOOKS.afterStatement = (sql) => { if (/INSERT INTO community_event_attendance/.test(sql)) { HOOKS.afterStatement = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER); } }; // after the organizer's own INSERT, before the payload read
+  HOOKS.afterBatch = async (_i, sqls) => { if (sqls.some(sql => /INSERT INTO community_event_attendance/.test(sql))) { HOOKS.afterBatch = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?", MEMBER); } };
   stateSel6.value = "excused";
   byText(attRow6, "button", "Change").click();
-  await waitFor(() => !!org6.document.body.querySelector(".receipt-bar"), "the receipt of the withheld write");
+  await waitFor(() => one("SELECT state FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", PAST, MEMBER).state === "excused" && HOOKS.afterBatch === null && !byText(attRow6, "button", "Change").disabled, "the atomic attendance receipt");
   const att6 = one("SELECT state, revision FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", PAST, MEMBER);
-  const bar6 = org6.document.body.querySelector(".receipt-bar");
-  check("(1) the write committed (excused, the revision advanced) and the Worker withheld the target: the member's row (name, answer, state) is gone from the page", att6.state === "excused" && att6.revision === revBefore6 + 1 && HOOKS.afterStatement === null && !byText(org6.app, "td", "Mia") && !org6.app.querySelector("tbody tr"), org6.app.textContent.slice(0, 200));
-  check("  the organizer keeps a receipt of their own write outside the list, without the member's name, and the empty list says why", !!bar6 && bar6.textContent.includes("Recorded.") && bar6.textContent.includes("no longer qualifies") && !bar6.textContent.includes("Mia") && org6.app.textContent.includes("No member who can be shown"), bar6 && bar6.textContent.slice(0, 200));
-  byText(org6.document.body, "button", "Dismiss").click();
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
+  check("(1) the committed attendance and its original payload are captured atomically before a later target denial", att6.state === "excused" && att6.revision === revBefore6 + 1 && HOOKS.afterBatch === null && !!byText(org6.app, "td", "Mia") && one("SELECT denied FROM site_users WHERE discord_id = ?", MEMBER).denied === 1 && !org6.document.body.querySelector(".receipt-bar"), org6.app.textContent.slice(0, 200));
+  await org6.go("#/community/calendar");
+  await org6.go(`#/community/calendar/${PAST}/attendance`);
+  await waitFor(() => org6.app.textContent.includes("Nobody has answered or been recorded yet."), "the newly denied target omitted on a fresh read");
+  check("  the next real attendance read withholds the denied member's name, answer and state while the committed record stands", !byText(org6.app, "td", "Mia") && !org6.app.querySelector("tbody tr") && org6.app.textContent.includes("Nobody has answered or been recorded yet.") && one("SELECT state, revision FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", PAST, MEMBER).revision === att6.revision, org6.app.textContent.slice(0, 200));
+  (await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",MEMBER));
 
   // (4) the organizer's stale edit reads as an organizer's refusal, never as RSVP guidance
   await org6.go(`#/community/calendar/${ony.id}/edit`);
   await waitFor(() => !!byText(org6.app, "button", "Save changes"), "the edit form");
-  db.prepare("UPDATE community_events SET revision = revision + 1 WHERE id = ?").run(ony.id);
+  (await fixtureRun("UPDATE community_events SET revision = revision + 1 WHERE id = ?",ony.id));
   let evForm6 = byText(org6.app, "button", "Save changes").closest("form");
   evForm6.querySelector('input[type="text"]').value = "Onyxia (stale again)";
   byText(evForm6, "button", "Save changes").click();
@@ -864,7 +1076,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await waitFor(() => !!byText(adm6.app, "button", "Set state"), "the member's ledger");
   adm6.app.querySelector('input[placeholder="source id"]').value = "mail-ui-6";
   adm6.app.querySelector('input[placeholder="copper"]').value = "5000";
-  HOOKS.afterBatch = (i, sqls) => { if (sqls.some((q) => /INSERT INTO community_contribution_receipts/.test(q))) { HOOKS.afterBatch = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(STAFF); } }; // the write commits; the staff reader's session no longer admits the re-read
+  HOOKS.afterBatch = async (i, sqls) => { if (sqls.some((q) => /INSERT INTO community_contribution_receipts/.test(q))) { HOOKS.afterBatch = null; (await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?",STAFF)); } }; // the write commits; the staff reader's session no longer admits the re-read
   byText(adm6.app, "button", "Record the payment").click();
   await waitFor(() => !!adm6.document.body.querySelector(".receipt-bar"), "the durable staff receipt");
   const bar6b = adm6.document.body.querySelector(".receipt-bar");
@@ -874,7 +1086,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the protected weeks and payments are cleared from the view (the fresh read is refused), the receipt stays until dismissed", !byText(adm6.app, "button", "Set state") && !adm6.app.textContent.includes("mail-ui-6") && !!adm6.document.body.querySelector(".receipt-bar"));
   byText(bar6b, "button", "Dismiss").click();
   check("  Dismiss removes it deliberately", !adm6.document.body.querySelector(".receipt-bar"));
-  db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(STAFF);
+  (await fixtureRun("UPDATE site_users SET session_version = 1 WHERE discord_id = ?",STAFF));
 
   console.log("\n== .107: Codex's five .104 groups (11:32) ==");
   const newCase = async (details) => createPolicyCase(details, "access", "twoCase");
@@ -961,7 +1173,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== .108: Codex's .105 handoff as refined at 12:11 (six items) and the receipt siblings ==");
   const U6 = "300000000000000006", U7 = "300000000000000007", U8 = "300000000000000008";
-  siteUser(U6, { global_name: "Pia" }); siteUser(U7, { global_name: "Quin" }); siteUser(U8, { global_name: "Rex" });
+  await siteUser(U6, { global_name: "Pia" }); await siteUser(U7, { global_name: "Quin" }); await siteUser(U8, { global_name: "Rex" });
   const adm8 = await openPage(STAFF);
   // the completed id lifecycle, trials: two trials from one page visit
   await adm8.go("#/admin/community/trials");
@@ -978,8 +1190,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const seeded = [];
   for (let i = 0; i < 100; i++) {
     const uid = "4" + String(i).padStart(17, "0"), tid = "S" + String(i).padStart(21, "0");
-    siteUser(uid, { global_name: `Seed ${i}` });
-    db.prepare("INSERT INTO community_trials (id, op_id, op_hash, discord_id, sponsor_discord_id, started_at, review_due_at, status, created_by, created_at, updated_at, incarnation, revision, retain_until) VALUES (?, ?, NULL, ?, NULL, ?, ?, 'active', ?, ?, ?, ?, 1, ?)").run(tid, tid, uid, now - 100, now + DAY, STAFF, now, now, "inc-" + i, now + 90 * DAY);
+    await siteUser(uid, { global_name: `Seed ${i}` });
+    (await fixtureRun("INSERT INTO community_trials (id, op_id, op_hash, discord_id, sponsor_discord_id, started_at, review_due_at, status, created_by, created_at, updated_at, incarnation, revision, retain_until) VALUES (?, ?, NULL, ?, NULL, ?, ?, 'active', ?, ?, ?, ?, 1, ?)",tid, tid, uid, now - 100, now + DAY, STAFF, now, now, "inc-" + i, now + 90 * DAY));
     seeded.push([uid, tid]);
   }
   tWho().value = U8;
@@ -996,7 +1208,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(adm8.app, "button", "Check whether it was stored").click();
   await waitFor(() => !byText(adm8.app, "button", "Retry the same"), "the stored trial found on the second page");
   check("  the check follows the continuation and finds the trial on the second page: stored, the form unlocked and cleared", tWho().disabled === false && tWho().value === "" && adm8.document.body.textContent.includes("It was stored."));
-  for (const [uid, tid] of seeded) { db.prepare("DELETE FROM community_trials WHERE id = ?").run(tid); db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(uid); }
+  for (const [uid, tid] of seeded) { (await fixtureRun("DELETE FROM community_trials WHERE id = ?",tid)); (await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",uid)); }
   // the completed id lifecycle, restriction cases: two cases from one page visit
   await adm8.go("#/admin/community/cases");
   await waitFor(() => !!byText(adm8.app, "button", "Open a case"), "the cases page");
@@ -1090,12 +1302,12 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const f8 = byText(org8.app, "button", "Schedule").closest("form");
   f8.querySelector('input[type="text"]').value = "ZG run";
   f8.querySelector('input[type="datetime-local"]').value = startLocal;
-  HOOKS.afterBatch = (i, sqls) => { if (sqls.some((q) => /INSERT INTO community_events/.test(q))) { HOOKS.afterBatch = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(OTHER); } };
+  HOOKS.afterBatch = async (i, sqls) => { if (sqls.some((q) => /INSERT INTO community_events/.test(q))) { HOOKS.afterBatch = null; (await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?",OTHER)); } };
   byText(f8, "button", "Schedule").click();
   await waitFor(() => !!org8.document.body.querySelector(".receipt-bar"), "the withheld receipt");
   const bar8 = org8.document.body.querySelector(".receipt-bar");
   check("(withheld receipt) a committed event whose re-read is withheld (event null, hydration refused) is a receipt, not a lost answer: one row, the receipt says it is stored, the form spent, no Retry", one("SELECT COUNT(*) AS k FROM community_events WHERE title = 'ZG run'").k === 1 && HOOKS.afterBatch === null && !!bar8 && bar8.textContent.includes("The event was stored") && !byText(org8.app, "button", "Retry the same") && !!byText(org8.app, "a", "Open the event") && f8.querySelector('input[type="text"]').disabled === true);
-  db.prepare("UPDATE site_users SET session_version = 1 WHERE discord_id = ?").run(OTHER);
+  (await fixtureRun("UPDATE site_users SET session_version = 1 WHERE discord_id = ?",OTHER));
   const org8b = await openPage(OTHER);
   await org8b.go(`#/community/calendar/${ony.id}/edit`);
   await waitFor(() => !!byText(org8b.app, "button", "Save changes"), "the edit form");
@@ -1189,7 +1401,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // attendance: a row changed meanwhile
   await org9.go(`#/community/calendar/${PAST}/attendance`);
   await waitFor(() => !!byText(org9.app, "td", "Mia"), "the attendance list");
-  db.prepare("UPDATE community_event_attendance SET revision = revision + 1 WHERE event_id = ? AND discord_id = ?").run(PAST, MEMBER);
+  (await fixtureRun("UPDATE community_event_attendance SET revision = revision + 1 WHERE event_id = ? AND discord_id = ?",PAST, MEMBER));
   const before9 = one("SELECT state, revision FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", PAST, MEMBER);
   const row9 = byText(org9.app, "td", "Mia").closest("tr");
   row9.querySelectorAll("select")[0].value = before9.state === "present" ? "absent" : "present";
@@ -1272,7 +1484,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // Admin → Settings: the Battle.net switch, the directory editor, the end of the beta
     const adm = await openPage(STAFF);
     await adm.go("#/admin/settings");
-    await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!adm.app.querySelector("#beta-closed-at"), "the .114 settings blocks");
+    await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!byText(adm.app, "button", "Refresh reset status"), "the .114 settings blocks");
     const bx = adm.app.querySelector("#bnet-switch");
     check("Admin settings expose future enable intent while collection remains immutable OFF", bx.checked === false && bx.disabled === false && adm.app.textContent.includes("Enable records a request only. Collection stays OFF") && adm.app.textContent.includes("Request future enablement") && !!byText(adm.app, "h2", "Battle.net sign-in"));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
@@ -1294,24 +1506,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await p114.go("#/community/leadership");
     await waitFor(() => p114.app.textContent.includes("Fern Melder"), "the listing on the member's page");
     check("  and a confirmed member sees it", p114.app.textContent.includes("Ana, Bo") && !p114.app.textContent.includes("No guild leadership is listed yet"));
-    check("  the end-of-beta reset is locked until the closing moment is recorded", byText(adm.app, "button", "Reset guild leadership").disabled === true && adm.app.textContent.includes("locked"));
-    const past = new Date(Date.now() - 3600 * 1000), pad = (x) => String(x).padStart(2, "0");
-    adm.app.querySelector("#beta-closed-at").value = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}T${pad(past.getHours())}:${pad(past.getMinutes())}`;
-    byText(adm.app, "button", "Record the closing moment").click();
-    await waitFor(() => { const b = byText(adm.app, "button", "Reset guild leadership"); return !!b && b.disabled === false; }, "the reset unlocked");
-    check("  recording a past closing moment unlocks it", !!one("SELECT 1 FROM site_settings WHERE key = 'betaClosedAt'") && byText(adm.app, "button", "Reset guild leadership").disabled === false);
-    byText(adm.app, "button", "Reset guild leadership").click();
-    await waitFor(() => !!adm.document.body.querySelector("dialog input"), "the RESET confirmation");
-    const dlgR = adm.document.body.querySelector("dialog"), inR = dlgR.querySelector("input");
-    check("  the reset asks for the typed word and names what it clears", dlgR.textContent.includes("Type RESET to confirm") && dlgR.textContent.includes("3 names"));
-    inR.value = "RESET"; fire(inR, "input");
-    byText(dlgR, "button", "Reset").click();
-    await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'betaResetAt'"), "the reset");
-    check("  typed RESET: the appointed roles become an explicit empty list and the directory empties", one("SELECT value FROM site_settings WHERE key = 'appointed'").value === "{}" && JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value).every((g) => !g.gm && !g.officers.length));
+    const savedResetDirectory = one("SELECT value FROM site_settings WHERE key='leadership'").value;
+    const savedResetAppointments = one("SELECT value FROM site_settings WHERE key='appointed'");
+    check("  reset preview fixes the owner cutoff and preserves leadership and appointments", adm.app.textContent.includes("22 October 2026, 17:00 UTC (noon CDT)") && adm.app.textContent.includes("website appointments and the leadership directory stay") && !byText(adm.app,"button","Reset guild leadership") && !adm.app.querySelector("#beta-closed-at"));
+    check("  reset distinguishes discovery, known removals, and awaiting a new source", adm.app.textContent.includes("Known progress is not the full server total") && adm.app.textContent.includes("old beta verification cannot grant") && adm.app.textContent.includes("not permanent completion"));
+    check("  mismatched legacy fixture configuration cannot arm fixed public scope", byText(adm.app,"button","Arm member and rank reset").disabled === true);
+    const legacyReset = await apiAs(STAFF,"POST","/api/admin/beta-reset",{confirm:"RESET",closedAt:now-60});
+    check("  retired wipe endpoint refuses while preserving exact appointments and directory", legacyReset.status===410 && one("SELECT value FROM site_settings WHERE key='leadership'").value===savedResetDirectory && JSON.stringify(one("SELECT value FROM site_settings WHERE key='appointed'"))===JSON.stringify(savedResetAppointments));
+    const oldRefreshReset = byText(adm.app,"button","Refresh reset status"), oldArmReset = byText(adm.app,"button","Arm member and rank reset");
+    let detachedResetRequests=0;adm.before(path=>{if(path.startsWith("/api/admin/beta-role-reset"))detachedResetRequests++;return false;});
+    await adm.go("#/roles");oldRefreshReset.click();oldArmReset.click();await settle();
+    check("  detached reset controls issue no requests",detachedResetRequests===0);adm.before(null);
 
     // Admin → Renames
-    db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.renamed', 'Oz Three', ?)").run(now - 600, JSON.stringify({ from: "Oz Two", discordId: OTHER, guid: "Player-1-0002" }));
-    db.prepare("UPDATE characters SET name_key = 'oz three', name = 'Oz Three' WHERE discord_id = ? AND name = 'Oz Two'").run(OTHER);
+    (await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.renamed', 'Oz Three', ?)",now - 600, JSON.stringify({ from: "Oz Two", discordId: OTHER, guid: "Player-1-0002" })));
+    (await fixtureRun("UPDATE characters SET name_key = 'oz three', name = 'Oz Three' WHERE discord_id = ? AND name = 'Oz Two'",OTHER));
     await adm.go("#/admin/renames");
     await waitFor(() => !!byText(adm.app, "button", "Blizzard required this rename"), "the renames list");
     check("(.114) Admin → Renames lists the roster's rename with the account and a button, nobody waiting yet", adm.app.textContent.includes("Oz Two") && adm.app.textContent.includes("Oz Three") && adm.app.textContent.includes("Nobody is waiting."));
@@ -1338,14 +1547,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm.document.body.querySelector("dialog"), "button", "Withdraw").click();
     await waitFor(() => !!one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'cancelled'", OTHER), "the withdrawal");
     check("  withdrawing a mistaken decision closes the hold", !one("SELECT 1 FROM rename_holds WHERE discord_id = ? AND state = 'reapply'", OTHER));
-    db.prepare("UPDATE characters SET status = 'member', guid = 'Player-1-0002' WHERE discord_id = ? AND name = 'Oz Three'").run(OTHER); // the later checks need OTHER confirmed again
+    (await fixtureRun("UPDATE characters SET status = 'member', guid = 'Player-1-0002' WHERE discord_id = ? AND name = 'Oz Three'",OTHER)); // the later checks need OTHER confirmed again
   }
 
   console.log("\n== .115: Olympus I's seats, News and the role copy (Viktor's items A, B and D, 2 Oct 2026) ==");
   {
     const NEWBIE = "300000000000000115", READER = "300000000000000116";
-    siteUser(NEWBIE, { global_name: "Nia" }); // signed in, no roster-confirmed character
-    siteUser(READER, { global_name: "Rae" }); character(READER, "Rae Five", "Player-1-0007");
+    await siteUser(NEWBIE, { global_name: "Nia" }); // signed in, no roster-confirmed character
+    await siteUser(READER, { global_name: "Rae" }); await character(READER, "Rae Five", "Player-1-0007");
     const VISITORS = { CHANNEL_VISITOR_CHAT: "1554265065509756989" };
     const nowS = () => Math.floor(Date.now() / 1000);
     const frameOf = (pg, title) => { const t = byText(pg.app, "h2", title); return t ? t.closest("section") : null; };
@@ -1353,8 +1562,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const home = async (who, over) => { const pg = await openPage(who, over); await pg.go("#/"); await waitFor(() => !!pg.app.querySelector("h1"), "the home page"); return pg; };
 
     // ---- B: the seat state (a complete, trusted export of 1000 an hour ago; MEMBER's second character waits in the queue)
-    const snap = Number(db.prepare("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', 1000, 'fe115', 1, 1, ?)").run(now - 3600, now - 3600, now - 3600).lastInsertRowid);
-    const queueRow = Number(db.prepare("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('mia alt', 'Mia Alt', ?, 'queued', ?)").run(MEMBER, now - 7200).lastInsertRowid);
+    const snap = Number((await fixtureRun("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', 1000, 'fe115', 1, 1, ?)",now - 3600, now - 3600, now - 3600)).lastInsertRowid);
+    const queueRow = Number((await fixtureRun("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('mia alt', 'Mia Alt', ?, 'queued', ?)",MEMBER, now - 7200)).lastInsertRowid);
     const queued = await home(MEMBER, VISITORS);
     const qb = seatBox(queued);
     check("(.115) a confirmed member with a character in the invite queue: Home says Olympus I is full, gives their own place and links the visitors channel", !!qb && qb.textContent.includes("Mia Alt is #1 in line for a seat.") && qb.textContent.includes("officers may remove inactive characters") && qb.textContent.includes("reserved names from the site go first") && qb.textContent.includes("never costs you an invite attempt") && !!qb.querySelector('a[href="https://discord.com/channels/1549537348516188200/1554265065509756989"]') && !!qb.querySelector('img[src="/static/wow/icon-clock.png"]'), qb && qb.textContent);
@@ -1375,25 +1584,25 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     };
     let line = await overviewLine();
     check("  Admin overview: one staff line above the tiles, full by the roster export, with the count and the queue", line.startsWith("Olympus I: full, 1000 of 1000 on the latest roster export of ") && line.endsWith(" · 1 waiting in the invite queue.") && adm5.app.querySelector("#overview-seats").className === "muted small", line);
-    db.prepare("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?").run(snap);
+    (await fixtureRun("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?",snap));
     line = await overviewLine();
     check("  open: the free seats", line.startsWith("5 seats free on Olympus I (995 of 1000, latest roster export of "), line);
     check("  while there is room nobody sees the notice", !seatBox(await home(NEWBIE)));
-    db.prepare("UPDATE roster_snapshots SET exported_at = ?, received_at = ? WHERE id = ?").run(now - 7200, now - 7200, snap);
-    const refusal = Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')").run(now - 600).lastInsertRowid);
+    (await fixtureRun("UPDATE roster_snapshots SET exported_at = ?, received_at = ? WHERE id = ?",now - 7200, now - 7200, snap));
+    const refusal = Number((await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')",now - 600)).lastInsertRowid);
     line = await overviewLine();
     check("  full by an invite refused for space after that export", line.startsWith("Olympus I: full (an invite was refused for space "), line);
     const rb = seatBox(await home(NEWBIE));
     check("  the member's notice gives the refusal and no count", !!rb && rb.textContent.includes("the last invite was refused for lack of space (about ") && !rb.textContent.includes("of 1000"), rb && rb.textContent);
-    db.prepare("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?").run(snap);
-    db.prepare("DELETE FROM audit WHERE id = ?").run(refusal);
+    (await fixtureRun("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?",snap));
+    (await fixtureRun("DELETE FROM audit WHERE id = ?",refusal));
     line = await overviewLine();
     check("  unknown: the reason in words", line.startsWith("Olympus I room: unknown (the latest export is not trusted: run /olympus-admin sync if the guild really shrank)"), line);
-    db.prepare("UPDATE roster_snapshots SET trusted = NULL, complete = 0, first_received_at = ? WHERE id = ?").run(now - 3600, snap);
+    (await fixtureRun("UPDATE roster_snapshots SET trusted = NULL, complete = 0, first_received_at = ? WHERE id = ?",now - 3600, snap));
     line = await overviewLine();
     check("  left unfinished (still complete 0 an hour after it arrived; review of 3 Oct 2026): the reason in words", line.startsWith("Olympus I room: unknown (the latest export was left unfinished; the addon's next export writes it again)"), line);
-    db.prepare("UPDATE roster_snapshots SET complete = 1 WHERE id = ?").run(snap);
-    db.prepare("UPDATE roster_snapshots SET trusted = 1, member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?").run(now - 3600, now - 3600, snap); // full again for News
+    (await fixtureRun("UPDATE roster_snapshots SET complete = 1 WHERE id = ?",snap));
+    (await fixtureRun("UPDATE roster_snapshots SET trusted = 1, member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?",now - 3600, now - 3600, snap)); // full again for News
 
     // ---- A: News, off until an administrator switches it on
     const calls = [];
@@ -1440,7 +1649,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await settle();
     check("  a member without a confirmed character gets the standing notice and no News request", unc.app.textContent.includes("roster export has confirmed") && !ucalls.some((p) => p.startsWith("/api/news")));
     const EV = "news115upcomingEventAA";
-    db.prepare("INSERT INTO community_events (id, op_id, title, starts_at, duration_min, ends_at, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, ?, 120, ?, ?, ?, ?, ?)").run(EV, EV, "Zul'Gurub", now + 900, now + 900 + 7200, OTHER, now, now, now + 900 + 7200 + 30 * 86400);
+    (await fixtureRun("INSERT INTO community_events (id, op_id, title, starts_at, duration_min, ends_at, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, ?, 120, ?, ?, ?, ?, ?)",EV, EV, "Zul'Gurub", now + 900, now + 900 + 7200, OTHER, now, now, now + 900 + 7200 + 30 * 86400));
     const news = await openPage(MEMBER);
     await news.go("#/community");
     await waitFor(() => !!byText(news.app, "h3", "News"), "the News card");
@@ -1459,35 +1668,35 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!byText(noEv.app, "h2", "Site updates"), "News without the calendar");
     check("  with the events feature off there is no Coming up frame", !frameOf(noEv, "Coming up") && !!frameOf(noEv, "Notices"));
     const lateOff = await openPage(MEMBER);
-    db.prepare("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'").run(); // switched off after the page loaded
+    (await fixtureRun("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'")); // switched off after the page loaded
     await lateOff.go("#/community/news");
     await waitFor(() => lateOff.app.textContent.includes("The News page is switched off."), "the news_off refusal");
     check("  switched off after the page loaded: the Worker's 404 news_off is said in words and nothing is shown", lateOff.app.textContent.includes("The News page is switched off.") && !frameOf(lateOff, "Notices"));
-    db.prepare("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'").run();
+    (await fixtureRun("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'"));
     // review of 3 Oct 2026: the member's other seat words, an empty calendar window and a directory never changed
     const newsFrameText = async (title) => { const pg = await openPage(MEMBER); await pg.go("#/community/news"); await waitFor(() => !!byText(pg.app, "h2", "Site updates"), "News"); const f = frameOf(pg, title); return f ? f.textContent : ""; };
-    db.prepare("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?").run(snap);
+    (await fixtureRun("UPDATE roster_snapshots SET member_count = 995 WHERE id = ?",snap));
     let seatWords = await newsFrameText("Olympus I");
     check("(.115) News, Olympus I open: the free seats and the export's hour and count", seatWords.includes("Olympus I has 5 free seats: the officers' roster export of about") && seatWords.includes("counts 995 of 1000 members."), seatWords);
-    db.prepare("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?").run(snap);
+    (await fixtureRun("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?",snap));
     seatWords = await newsFrameText("Olympus I");
     check("  not trusted: 'not known right now', no count", seatWords.includes("Whether Olympus I has room is not known right now") && !seatWords.includes("of 1000"), seatWords);
-    db.prepare("UPDATE roster_snapshots SET trusted = 1, exported_at = ?, received_at = ? WHERE id = ?").run(now - 7200, now - 7200, snap);
-    const newsRefusal = Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')").run(nowS() - 600).lastInsertRowid);
+    (await fixtureRun("UPDATE roster_snapshots SET trusted = 1, exported_at = ?, received_at = ? WHERE id = ?",now - 7200, now - 7200, snap));
+    const newsRefusal = Number((await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'guild.full', 'Nia Six', '{}')",nowS() - 600)).lastInsertRowid);
     seatWords = await newsFrameText("Olympus I");
     check("  an invite refused for space after that export: full by the refusal, with its hour and no count", seatWords.includes("Olympus I is full: the last invite was refused for lack of space (about ") && !seatWords.includes("of 1000"), seatWords);
-    db.prepare("DELETE FROM audit WHERE id = ?").run(newsRefusal);
-    db.prepare("UPDATE roster_snapshots SET member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?").run(now - 3600, now - 3600, snap);
+    (await fixtureRun("DELETE FROM audit WHERE id = ?",newsRefusal));
+    (await fixtureRun("UPDATE roster_snapshots SET member_count = 1000, exported_at = ?, received_at = ? WHERE id = ?",now - 3600, now - 3600, snap));
     const soon = db.prepare("SELECT id FROM community_events WHERE status = 'scheduled' AND starts_at > ? AND starts_at < ?").all(nowS() - 60, nowS() + 15 * 86400).map((r) => r.id);
-    for (const id of soon) db.prepare("UPDATE community_events SET status = 'cancelled' WHERE id = ?").run(id);
+    for (const id of soon) (await fixtureRun("UPDATE community_events SET status = 'cancelled' WHERE id = ?",id));
     const leadRow = one("SELECT key FROM site_settings WHERE key = 'leadership'");
-    if (leadRow) db.prepare("UPDATE site_settings SET key = 'leadership-kept-aside' WHERE key = 'leadership'").run();
+    if (leadRow) (await fixtureRun("UPDATE site_settings SET key = 'leadership-kept-aside' WHERE key = 'leadership'"));
     const emptyNews = await openPage(MEMBER);
     await emptyNews.go("#/community/news");
     await waitFor(() => !!byText(emptyNews.app, "h2", "Site updates"), "News with nothing coming up");
     check("  no scheduled event in the next 14 days: 'No events in the next 14 days.'; a directory never saved: 'Not changed yet.' and the link", frameOf(emptyNews, "Coming up").textContent.includes("No events in the next 14 days.") && frameOf(emptyNews, "Leadership directory").textContent.includes("Not changed yet.") && !!frameOf(emptyNews, "Leadership directory").querySelector('a[href="#/community/leadership"]'));
-    for (const id of soon) db.prepare("UPDATE community_events SET status = 'scheduled' WHERE id = ?").run(id);
-    if (leadRow) db.prepare("UPDATE site_settings SET key = 'leadership' WHERE key = 'leadership-kept-aside'").run();
+    for (const id of soon) (await fixtureRun("UPDATE community_events SET status = 'scheduled' WHERE id = ?",id));
+    if (leadRow) (await fixtureRun("UPDATE site_settings SET key = 'leadership' WHERE key = 'leadership-kept-aside'"));
 
     // the administrators' notices
     const issuedOf = (id) => Buffer.from(String(id).slice(0, 8), "base64url").readUIntBE(0, 6); // Codex's finding 5 (3 Oct 2026): the id's first eight characters are the time the Worker handed it out
@@ -1522,14 +1731,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const n1b = one("SELECT revision, retain_until - created_at AS life FROM site_news_notices WHERE id = ?", n1.id);
     check("  then POST /api/admin/news/update with the revision: revision 2, the period kept", n1b.revision === 2 && n1b.life === 7 * 86400 && listed("Raid night moved").textContent.includes("revision 2"));
     byText(listed("Raid night moved"), "button", "Edit").click();
-    db.prepare("UPDATE site_news_notices SET revision = revision + 1 WHERE id = ?").run(n1.id); // another administrator changed it meanwhile
+    (await fixtureRun("UPDATE site_news_notices SET revision = revision + 1 WHERE id = ?",n1.id)); // another administrator changed it meanwhile
     adm6.app.querySelector("#f-news-body").value = "Changed text";
     byText(adm6.app, "button", "Save changes").click();
     await waitFor(() => !!dialogOf(), "the save confirmation");
     byText(dialogOf(), "button", "Save changes").click();
     await waitFor(() => adm6.app.textContent.includes("Someone changed this notice first"), "the stale refusal");
     check("  a stale revision is refused in words (409 stale_revision), the list reloaded, the other change intact", adm6.app.textContent.includes("Someone changed this notice first: reload it. The list below has been reloaded.") && one("SELECT body FROM site_news_notices WHERE id = ?", n1.id).body !== "Changed text" && listed("Raid night moved").textContent.includes("revision 3"));
-    db.prepare("UPDATE site_news_notices SET created_at = created_at - 3 * 86400, updated_at = updated_at - 3 * 86400 WHERE id = ?").run(n1.id); // posted three days ago
+    (await fixtureRun("UPDATE site_news_notices SET created_at = created_at - 3 * 86400, updated_at = updated_at - 3 * 86400 WHERE id = ?",n1.id)); // posted three days ago
     byText(listed("Raid night moved"), "button", "Edit").click();
     adm6.app.querySelector("#f-news-days").value = "1";
     byText(adm6.app, "button", "Save changes").click();
@@ -1553,7 +1762,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(dialogOf(), "button", "Delete").click();
     await waitFor(() => !listed("Delete me"), "the deletion");
     check("  then POST /api/admin/news/delete: the notice is gone, its operation record stays as the tombstone", count("Delete me") === 0 && !!one("SELECT 1 FROM site_news_ops WHERE id = ?", del.id));
-    db.prepare("UPDATE site_news_notices SET retain_until = ? WHERE id = ?").run(nowS() - 1, n1.id); // its time is up; the cron has not run
+    (await fixtureRun("UPDATE site_news_notices SET retain_until = ? WHERE id = ?",nowS() - 1, n1.id)); // its time is up; the cron has not run
     await adm6.go("#/admin/settings");
     await adm6.go("#/admin/news");
     await waitFor(() => !!byText(adm6.app, "h2", "New notice"), "Admin → News again");
@@ -1582,7 +1791,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm6.app, "button", "Post notice").click();
     await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the third lost answer");
     adm6.drop(null);
-    db.prepare("DELETE FROM site_news_notices WHERE title = 'Gone meanwhile'").run(); // another administrator deleted it; its operation record stays
+    (await fixtureRun("DELETE FROM site_news_notices WHERE title = 'Gone meanwhile'")); // another administrator deleted it; its operation record stays
     byText(adm6.app, "button", "Check whether it was stored").click();
     await waitFor(() => adm6.document.body.textContent.includes("No live notice is shown under this form's id"), "the deleted notice absent from the live list");
     check("  a deleted notice absent from the live list proves no historical absence: the exact retry and locked payload stay", !!byText(adm6.app, "button", "Retry the same") && adm6.app.querySelector("#f-news-title").disabled === true && adm6.app.querySelector("#f-news-title").value === "Gone meanwhile" && !adm6.document.body.textContent.includes("Nothing was stored under this form's id"));
@@ -1594,7 +1803,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm6.app, "button", "Post notice").click();
     await waitFor(() => !!byText(adm6.app, "button", "Retry the same"), "the fourth lost answer");
     adm6.drop(null);
-    db.prepare("UPDATE site_news_notices SET op_hash = 'another' WHERE title = 'Conflicted'").run(); // the id now holds a different notice
+    (await fixtureRun("UPDATE site_news_notices SET op_hash = 'another' WHERE title = 'Conflicted'")); // the id now holds a different notice
     byText(adm6.app, "button", "Retry the same").click();
     await waitFor(() => adm6.app.textContent.includes("A different notice was already posted under this operation"), "the conflict refusal");
     check("  a retry whose id holds a different notice is refused in words (409 op_conflict); still one row", count("Conflicted") === 1);
@@ -1602,7 +1811,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // and a retry after the notice's time ran out; from a second administrator's page, so the first one's write limit (20 a
     // minute, on the real clock here) is left for the checks below
     const ADMIN2 = "472099715253796866";
-    siteUser(ADMIN2, { global_name: "Ada" });
+    await siteUser(ADMIN2, { global_name: "Ada" });
     const adm7 = await openPage(ADMIN2, { SITE_ADMINS: `${STAFF},${ADMIN2}` });
     const listed7 = (title) => { const t = byText(adm7.app, "h3", title); return t ? t.closest(".card") : null; };
     const dialog7 = () => adm7.document.body.querySelector("dialog");
@@ -1627,14 +1836,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     adm7.drop(null);
     check("  a lost answer to Delete: the same words, and the re-read list shows it gone (the Worker deleted it once)", count("Retried") === 0);
     await reopenNews();
-    db.prepare("UPDATE site_news_notices SET revision = revision + 1 WHERE title = 'Lost answer'").run(); // another administrator changed it
+    (await fixtureRun("UPDATE site_news_notices SET revision = revision + 1 WHERE title = 'Lost answer'")); // another administrator changed it
     byText(listed7("Lost answer"), "button", "Delete").click();
     await waitFor(() => !!dialog7(), "the delete confirmation");
     byText(dialog7(), "button", "Delete").click();
     await waitFor(() => adm7.app.textContent.includes("Someone changed this notice first: reload it. The list below has been reloaded."), "the refused delete");
     check("  a refused delete (409 stale_revision) is said in words, the list reloaded with the current revision, the notice kept", count("Lost answer") === 1 && listed7("Lost answer").textContent.includes("revision 2"));
     byText(listed7("Lost answer"), "button", "Edit").click();
-    db.prepare("DELETE FROM site_news_notices WHERE title = 'Lost answer'").run(); // another administrator deleted it meanwhile
+    (await fixtureRun("DELETE FROM site_news_notices WHERE title = 'Lost answer'")); // another administrator deleted it meanwhile
     adm7.app.querySelector("#f-news-body").value = "Too late";
     await confirmSave();
     await waitFor(() => adm7.app.textContent.includes("That notice no longer exists. The list below has been reloaded."), "the not_found refusal");
@@ -1655,7 +1864,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm7.app, "button", "Post notice").click();
     await waitFor(() => !!byText(adm7.app, "button", "Retry the same"), "the lost answer before the expiry");
     adm7.drop(null);
-    db.prepare("UPDATE site_news_notices SET created_at = created_at - 86400, updated_at = updated_at - 86400, retain_until = ? WHERE title = 'Expiring'").run(nowS() - 1); // its time ran out before the retry
+    (await fixtureRun("UPDATE site_news_notices SET created_at = created_at - 86400, updated_at = updated_at - 86400, retain_until = ? WHERE title = 'Expiring'",nowS() - 1)); // its time ran out before the retry
     byText(adm7.app, "button", "Retry the same").click();
     await waitFor(() => adm7.app.textContent.includes("That notice's time is up; it is no longer shown."), "the expired refusal");
     check("  a retry after the notice's time ran out is refused in words (409 expired): the page reloads for a new notice and nothing is posted again", adm7.app.textContent.includes("The page has been reloaded for a new notice.") && count("Expiring") === 1 && adm7.app.querySelector("#f-news-title").value === "" && !byText(adm7.app, "button", "Retry the same"));
@@ -1679,40 +1888,40 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     for (let i = one("SELECT COUNT(*) AS k FROM site_news_notices WHERE retain_until > ?", nowS()).k; i < 20; i++) {
       const id = `filler${i}`.padEnd(22, "x");
       filler.push(id);
-      db.prepare("INSERT INTO site_news_notices (id, op_hash, title, body, revision, created_at, updated_at, retain_until) VALUES (?, 'h', ?, 'b', 1, ?, ?, ?)").run(id, `Filler ${i}`, now, now, now + 86400);
+      (await fixtureRun("INSERT INTO site_news_notices (id, op_hash, title, body, revision, created_at, updated_at, retain_until) VALUES (?, 'h', ?, 'b', 1, ?, ?, ?)",id, `Filler ${i}`, now, now, now + 86400));
     }
     fill("One too many", "Body", 3);
     byText(adm6.app, "button", "Post notice").click();
     await waitFor(() => adm6.app.textContent.includes("At most 20 notices can be shown at once"), "the too_many refusal");
     check("  a 21st live notice is refused in words (409 too_many); nothing stored", count("One too many") === 0);
-    for (const id of filler) db.prepare("DELETE FROM site_news_notices WHERE id = ?").run(id);
+    for (const id of filler) (await fixtureRun("DELETE FROM site_news_notices WHERE id = ?",id));
 
     // the figures, the countdown's end, a lapsed standing and the read limit
-    const figures = (roster, since) => db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify({ v: 1, asOf: now - 600, latestId: snap, dayBaseId: null, weekBaseId: null, countingSince: since, roster, applications: { day: { firstSaved: "few", decided: 0 }, week: { firstSaved: 6, decided: "few" } } }), now);
-    figures({ day: null, week: null }, now - 5000);
+    const figures = async (roster, since) => (await fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",JSON.stringify({ v: 1, asOf: now - 600, latestId: snap, dayBaseId: null, weekBaseId: null, countingSince: since, roster, applications: { day: { firstSaved: "few", decided: 0 }, week: { firstSaved: 6, decided: "few" } } }), now));
+    await figures({ day: null, week: null }, now - 5000);
     const fig1 = await openPage(MEMBER);
     await fig1.go("#/community/news");
     await waitFor(() => !!byText(fig1.app, "h2", "The guild in figures"), "the figures");
     const fBox = frameOf(fig1, "The guild in figures");
     check("  the figures before a day of roster history: 'Not enough roster history yet; counting began', applications with 'fewer than 5' for 1 to 4", fBox.textContent.includes("Not enough roster history yet; counting began") && kvOf(fBox, "Last day") === "fewer than 5" && fBox.textContent.includes("New applications (first saved)") && fBox.textContent.includes("Decisions saved") && fBox.querySelectorAll("dd").map((x) => x.textContent).join() === "fewer than 5,6,0,fewer than 5" && fBox.textContent.includes("As of "));
-    figures({ day: { joined: 2, left: 1 }, week: null }, now - 90000);
+    await figures({ day: { joined: 2, left: 1 }, week: null }, now - 90000);
     const fig2 = await openPage(MEMBER);
     await fig2.go("#/community/news");
     await waitFor(() => !!byText(fig2.app, "h2", "The guild in figures"), "the figures again");
     check("  with a day of history: joined and left for the last day; the week says it has not enough history yet", kvOf(frameOf(fig2, "The guild in figures"), "Last day") === "2 joined, 1 left" && kvOf(frameOf(fig2, "The guild in figures"), "Last 7 days") === "not enough history yet");
     const launchRow = one("SELECT value FROM site_settings WHERE key = 'launchAt'");
-    db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('launchAt', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(now - 60), now);
+    (await fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('launchAt', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",String(now - 60), now));
     const live5 = await openPage(MEMBER);
     await live5.go("#/community/news");
     await waitFor(() => !!byText(live5.app, "h2", "The road to launch"), "the road to launch");
     check("  after the launch the countdown shows its done text", frameOf(live5, "The road to launch").textContent.includes("Live now"));
-    if (launchRow) db.prepare("UPDATE site_settings SET value = ? WHERE key = 'launchAt'").run(launchRow.value); else db.prepare("DELETE FROM site_settings WHERE key = 'launchAt'").run();
+    if (launchRow) (await fixtureRun("UPDATE site_settings SET value = ? WHERE key = 'launchAt'",launchRow.value)); else (await fixtureRun("DELETE FROM site_settings WHERE key = 'launchAt'"));
     const lapse = await openPage(READER);
-    db.prepare("UPDATE characters SET status = 'unbound' WHERE discord_id = ?").run(READER); // the roster no longer confirms the character after the page loaded
+    (await fixtureRun("UPDATE characters SET status = 'unbound' WHERE discord_id = ?",READER)); // the roster no longer confirms the character after the page loaded
     await lapse.go("#/community/news");
     await waitFor(() => lapse.app.textContent.includes("roster export has confirmed"), "the standing notice after the refusal");
     check("  a confirmation lost after the page loaded: the 403 re-reads the community context and the page shows the standing notice, no News", lapse.app.textContent.includes("roster export has confirmed") && !byText(lapse.app, "h2", "Notices"));
-    db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(READER);
+    (await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",READER));
     const readerCookie = await cookieFor(READER);
     for (let i = 0; i < 30; i++) await indexMod.default.fetch(new Request("https://guild.example/api/news", { headers: { Cookie: readerCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), env(), ctx);
     const slow = await openPage(READER);
@@ -1729,9 +1938,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
     check("(.122) the Roles page renders the real post-beta Treasurer appointment and preserves the Raider and Class Lead facts", ["treasurer", "raider", "class_lead"].every((k) => fact(k) === gameLine(k)) && fact("treasurer").startsWith("Post-beta guidance:") && /appointment within High Council, not a separate native rank/.test(fact("treasurer")) && fact("raider").startsWith("The Raider rank") && fact("class_lead").startsWith("No rank of its own"), fact("treasurer"), fact("raider"));
 
-    db.prepare("DELETE FROM invite_queue WHERE id = ?").run(queueRow);
-    db.prepare("DELETE FROM roster_snapshots WHERE id = ?").run(snap);
-    db.prepare("DELETE FROM community_events WHERE id = ?").run(EV);
+    (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
+    (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));
+    (await fixtureRun("DELETE FROM community_events WHERE id = ?",EV));
   }
 
   console.log("\n== Admin → Audit log (the owner's request of 7 Oct 2026, item 5) ==");
@@ -1739,7 +1948,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // sixty rows newer than anything above: the newest by the staff account, with a detail longer than the table shows
     const t0 = Math.floor(Date.now() / 1000), long = JSON.stringify({ reason: "AUDIT-PRIVATE-REASON", ticket: "AUDIT-PRIVATE-TICKET" });
     const rowsA = [];
-    for (let i = 0; i < 60; i++) rowsA.push(Number(db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, 'role.restored', ?, ?)").run(t0 - 60 + i, i === 59 ? STAFF : "system", MEMBER, i === 59 ? long : null).lastInsertRowid));
+    for (let i = 0; i < 60; i++) rowsA.push(Number((await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, 'role.restored', ?, ?)",t0 - 60 + i, i === 59 ? STAFF : "system", MEMBER, i === 59 ? long : null)).lastInsertRowid));
     const aud = await openPage(STAFF);
     const asked = [];
     aud.before((p) => { if (p.startsWith("/api/admin/audit-log")) asked.push(p); return false; });
@@ -1821,7 +2030,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  an audit answer arriving after navigation cannot replace the current admin overview", routeHeld && !!byText(aud.app, "button", "Show recent activity") && !aud.app.querySelector("tr[data-audit-id]"));
     aud.hold(null);
     const legacyMarker = "OVERVIEW-PRIVATE-AUDIT-MARKER";
-    const legacyId = Number(db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,'site.denied',?,?)").run(t0, STAFF, MEMBER, JSON.stringify({ released: 2, reason: legacyMarker, ticket: legacyMarker, code: legacyMarker, error: legacyMarker })).lastInsertRowid);
+    const legacyId = Number((await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,'site.denied',?,?)",t0, STAFF, MEMBER, JSON.stringify({ released: 2, reason: legacyMarker, ticket: legacyMarker, code: legacyMarker, error: legacyMarker }))).lastInsertRowid);
     const recentButton = byText(aud.app, "button", "Show recent activity");
     recentButton.click();
     await waitFor(() => aud.app.textContent.includes('"released":2'), "the safe recent activity summary");
@@ -1834,8 +2043,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     recentButton.click();
     await waitFor(() => aud.app.textContent.includes('"released":2'), "the recent activity retry");
     check("  the same recent activity control can be retried after a failure", recentButton.disabled === false && !aud.app.textContent.includes(legacyMarker));
-    db.prepare("DELETE FROM audit WHERE id = ?").run(legacyId);
-    for (const id of rowsA) db.prepare("DELETE FROM audit WHERE id = ?").run(id);
+    (await fixtureRun("DELETE FROM audit WHERE id = ?",legacyId));
+    for (const id of rowsA) (await fixtureRun("DELETE FROM audit WHERE id = ?",id));
   }
 
   console.log("\n== standing and identity ==");
@@ -1853,14 +2062,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // .119: both actual account forms, genuine dataset-bound CSRF and one unchanged signed session.
   {
     const EVENT_OWNER = "300000000000000099", EXPORT = "/privacy/account/export", EVENT_FORM = { collection: "event_changes" };
-    siteUser(EVENT_OWNER);
-    const expected = [], insertChange = db.prepare("INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)");
+    await siteUser(EVENT_OWNER);
+    const expected = [], seedChanges = [], changeSQL = "INSERT INTO community_event_changes(event_id,action,actor,at,fields) VALUES(?,?,?,?,?)", insertChange = (...values) => fixtureRun(changeSQL, ...values);
     for (let i = 0; i < 1001; i++) {
       const eventId = "T" + String(i).padStart(21, "0"), at = now + Math.floor(i / 700), action = i === 0 ? "created" : i === 1000 ? "cancelled" : "updated", changedFieldNames = action === "updated" ? ["title", "capacity"] : [];
-      insertChange.run(eventId, action, EVENT_OWNER, at, JSON.stringify(changedFieldNames));
-      insertChange.run("X" + String(i).padStart(21, "0"), "updated", OTHER, at, '["details"]');
+      seedChanges.push([eventId, action, EVENT_OWNER, at, JSON.stringify(changedFieldNames)], ["X" + String(i).padStart(21, "0"), "updated", OTHER, at, '["details"]']);
       expected.push({ eventId, action, at: new Date(at * 1000).toISOString(), changedFieldNames });
     }
+    await fixtureRows(changeSQL, seedChanges);
     const eventSession = await cookieFor(EVENT_OWNER), eventControls = await policyHTML("/privacy/account", { cookie: eventSession, client: "account" });
     const formCookieFor = page => [eventSession, page.cookie].filter(Boolean).join("; ");
     const actionFields = policyFields(eventControls, EXPORT), eventFields = policyFields(eventControls, EXPORT, EVENT_FORM);
@@ -1883,9 +2092,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     try { policyFields(firstEvent, EXPORT, EVENT_FORM); } catch (error) { unselectedModesRefused = error instanceof Error && error.message === "one actual policy form required: " + EXPORT; }
     const visible = Array.from(firstEvent.text.matchAll(/<textarea readonly rows="2" spellcheck="false" autocomplete="off">([^<]+)<\/textarea>/g), field => field[1]);
     check(".119 Current and Next require distinct actual modes and retain their private readonly POST continuations", unselectedModesRefused && currentEventFields.mode === "download" && nextEventFields.mode === "history" && currentEventFields.eventChanges !== nextEventFields.eventChanges && JSON.stringify(visible) === JSON.stringify([currentEventFields.eventChanges, nextEventFields.eventChanges]) && !firstEvent.text.includes("?eventChanges="));
-    insertChange.run("Y".repeat(22), "updated", EVENT_OWNER, now - 9000, '["title"]');
-    insertChange.run("Z".repeat(22), "updated", EVENT_OWNER, now + 9000, '["details"]');
-    db.prepare("UPDATE site_users SET nick=? WHERE discord_id=?").run("Fresh event-copy nickname", EVENT_OWNER);
+    await insertChange("Y".repeat(22), "updated", EVENT_OWNER, now - 9000, '["title"]');
+    await insertChange("Z".repeat(22), "updated", EVENT_OWNER, now + 9000, '["details"]');
+    (await fixtureRun("UPDATE site_users SET nick=? WHERE discord_id=?","Fresh event-copy nickname", EVENT_OWNER));
     const currentEventCopy = await policyPost(firstEvent, EXPORT, {}, { form: { collection: "event_changes", mode: "download" }, cookie: formCookieFor(firstEvent) }), currentBody = JSON.parse(currentEventCopy.text), currentPage = currentBody.eventChanges;
     check(".119 the actual Current form downloads the same event page with fresh account data and only the bounded own projection", currentEventCopy.response.status === 200 && /application\/json/.test(currentEventCopy.response.headers.get("Content-Type") || "") && currentBody.account.discordId === EVENT_OWNER && currentBody.account.nickname === "Fresh event-copy nickname" && currentBody.coverage.kind === "curated_partial" && currentBody.coverage.completeErasure === false && currentPage.currentCursor === currentEventFields.eventChanges && currentPage.nextCursor === nextEventFields.eventChanges && currentPage.capture.count === 1001 && currentPage.capture.delivered === 1000 && currentPage.capture.remaining === 1 && currentPage.capture.complete === false && JSON.stringify(currentPage.entries) === JSON.stringify(expected.slice(0, 1000)) && currentPage.entries.every(row => Object.keys(row).sort().join(",") === "action,at,changedFieldNames,eventId"));
     const nextEvent = await policyPost(firstEvent, EXPORT, {}, { form: { collection: "event_changes", mode: "history" }, cookie: formCookieFor(firstEvent) });
@@ -1900,13 +2109,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // .120: the third actual form, current/next POST and the same signed site's identity; no quota reset.
   {
     const OWNER="300000000000000096", EXPORT="/privacy/account/export", FORM={collection:"contribution_decisions"};
-    siteUser(OWNER);
-    const expected=[],insert=db.prepare("INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until) VALUES(?,?,?,?,?,?,?,?,?)"),deadline=now+86400;
+    await siteUser(OWNER);
+    const expected=[],seedDecisions=[],decisionSQL="INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until) VALUES(?,?,?,?,?,?,?,?,?)",insert=(...values)=>fixtureRun(decisionSQL,...values),deadline=now+86400;
     for(let i=0;i<1001;i++){
       const at=now+Math.floor(i/700),action=i%2?"state_disputed":"contact_acknowledged",kind=i%3,subject=kind===2?OTHER:OWNER,actor=kind===0?"member:"+OWNER:kind===1?"user:"+OWNER:"staff:"+OWNER,relation=kind<2?"both":"actor";
-      insert.run("Olympus-I",subject,77,action,actor,9,"hidden-nonce",at,deadline);insert.run("foreign",OTHER,78,"state_open","member:"+OTHER,9,"foreign",at,deadline);expected.push({action,at:new Date(at*1000).toISOString(),guildScope:"Olympus-I",retainUntil:new Date(deadline*1000).toISOString(),relation});
+      seedDecisions.push(["Olympus-I",subject,77,action,actor,9,"hidden-nonce",at,deadline],["foreign",OTHER,78,"state_open","member:"+OTHER,9,"foreign",at,deadline]);expected.push({action,at:new Date(at*1000).toISOString(),guildScope:"Olympus-I",retainUntil:new Date(deadline*1000).toISOString(),relation});
     }
-    insert.run("unknown-alias",OTHER,79,"state_open","user:"+OWNER+"0",9,"hidden-alias",now,deadline);insert.run("expired",OWNER,79,"state_open","member:"+OWNER,9,"expired",now,now-1);
+    seedDecisions.push(["unknown-alias",OTHER,79,"state_open","user:"+OWNER+"0",9,"hidden-alias",now,deadline],["expired",OWNER,79,"state_open","member:"+OWNER,9,"expired",now,now-1]);
+    await fixtureRows(decisionSQL, seedDecisions);
     const session=await cookieFor(OWNER),controls=await policyHTML("/privacy/account",{cookie:session,client:"account"}),join=page=>[session,page.cookie].filter(Boolean).join("; ");
     const action=policyFields(controls,EXPORT),event=policyFields(controls,EXPORT,{collection:"event_changes"}),decision=policyFields(controls,EXPORT,FORM),copies=()=>db.prepare("SELECT actor,subject,details FROM audit WHERE actor=? AND action='site.copy_exported' ORDER BY id").all(OWNER);
     check(".120 real three-form page separates datasets, body controls and genuine CSRF",controls.response.status===200 && scriptFreePolicy(controls) && decision.collection==="contribution_decisions" && new Set([action.csrf,event.csrf,decision.csrf]).size===3 && !Object.hasOwn(decision,"actions") && !Object.hasOwn(decision,"eventChanges"));
@@ -1916,7 +2126,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const items=page=>Array.from(page.text.matchAll(/<li>([\s\S]*?)<\/li>/g),row=>row[1]),project=rs=>rs.map(row=>`${row.at} · ${row.action} · ${row.relation}`);
     const visible=Array.from(first.text.matchAll(/<textarea readonly rows="2" spellcheck="false" autocomplete="off">([^<]+)<\/textarea>/g),row=>row[1]);
     check(".120 real contribution view is ordered/minimal and has readonly Current/Next body-only controls",first.response.status===200 && scriptFreePolicy(first) && JSON.stringify(items(first))===JSON.stringify(project(expected.slice(0,1000))) && JSON.stringify(visible)===JSON.stringify([current.contributionDecisions,next.contributionDecisions]) && first.text.includes("1000 of 1001 included records reached; 1 remain") && !first.text.includes("hidden-nonce") && !first.text.includes("Olympus-I") && ![OTHER,"hidden-alias","unknown-alias"].some(token=>first.text.includes(token)) && !first.text.includes("?contributionDecisions="));
-    insert.run("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now-9000,deadline);insert.run("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now+9000,deadline);db.prepare("UPDATE site_users SET nick=? WHERE discord_id=?").run("Fresh decision-copy nickname",OWNER);
+    await insert("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now-9000,deadline);await insert("later",OWNER,99,"state_open","member:"+OWNER,9,"later",now+9000,deadline);(await fixtureRun("UPDATE site_users SET nick=? WHERE discord_id=?","Fresh decision-copy nickname",OWNER));
     const copy=await policyPost(first,EXPORT,{}, {form:{...FORM,mode:"download"},cookie:join(first)}),body=JSON.parse(copy.text),page=body.contributionDecisions;
     check(".120 actual Current JSON keeps captured decisions and freshly reads other sections",copy.response.status===200 && body.account.discordId===OWNER && body.account.nickname==="Fresh decision-copy nickname" && body.actions.capture.kind==="retained_action_range" && body.eventChanges.capture.kind==="retained_event_change_range" && page.currentCursor===current.contributionDecisions && page.nextCursor===next.contributionDecisions && page.capture.count===1001 && JSON.stringify(page.entries)===JSON.stringify(expected.slice(0,1000)) && page.entries.every(row=>Object.keys(row).sort().join(",")==="action,at,guildScope,relation,retainUntil"&&row.guildScope==="Olympus-I"&&row.retainUntil===new Date(deadline*1000).toISOString()) && ![OTHER,"hidden-nonce","hidden-alias","unknown-alias"].some(token=>JSON.stringify(page.entries).includes(token)));
     const last=await policyPost(first,EXPORT,{}, {form:{...FORM,mode:"history"},cookie:join(first)}),lastFields=policyFields(last,EXPORT,{...FORM,mode:"download"}),lastCopy=await policyPost(last,EXPORT,{}, {form:{...FORM,mode:"download"},cookie:join(last)}),lastBody=JSON.parse(lastCopy.text),final=lastBody.contributionDecisions;
@@ -1938,7 +2148,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   console.log("\n== .126: actual event forms at clock changes and real Worker recovery ==");
   {
     const savedTZ = process.env.TZ, CLOCK_ORG = "126000000000000001";
-    siteUser(CLOCK_ORG); character(CLOCK_ORG, "Clock Organizer", "Player-clock-126");
+    await siteUser(CLOCK_ORG); await character(CLOCK_ORG, "Clock Organizer", "Player-clock-126");
     const eventConfig = { COMMUNITY_ORGANIZERS: CLOCK_ORG, COMMUNITY_FEATURES: "directory,events" };
     const fixedClock = Date.parse("2026-10-01T12:00:00Z");
     const earlier = Date.parse("2026-11-01T05:30:00Z") / 1000, later = Date.parse("2026-11-01T06:30:00Z") / 1000;
@@ -2172,18 +2382,18 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   console.log("\n== .130 organizer announcements: real Worker/SQLite, synthetic Discord only ==");
   {
     const ORG = "300000000000000093", CHANNEL = "300000000000000094", BOT = "1550176895671341076", GUILD = "236932545793490944";
-    siteUser(ORG, { global_name: "Announcement Organizer" }); character(ORG, "UI Organizer", "ui-organizer-guid");
+    await siteUser(ORG, { global_name: "Announcement Organizer" }); await character(ORG, "UI Organizer", "ui-organizer-guid");
     const over = { COMMUNITY_ORGANIZERS: ORG, DISCORD_BOT_TOKEN: "synthetic-announcement-only", INTROS_GUILD_ID: GUILD, INTROS_CHANNELS: `raid-signups=${CHANNEL}`, EVENT_DISCORD_DELIVERY: "on" };
-    const originalFetch = globalThis.fetch, effects = [], messages = new Map(); let nextMessage = 1, loseProviderAnswer = false, loseRemoveAnswer = false;
-    globalThis.fetch = async (input, init = {}) => {
-      const u = new URL(input), method = init.method || "GET";
+    const originalFetch = originalTestFetch, effects = [], messages = new Map(); let nextMessage = 1, loseProviderAnswer = false, loseRemoveAnswer = false;
+    originalTestFetch = async (input, init = {}) => {
+      const request = input instanceof Request ? input : null, u = new URL(request ? request.url : input), method = request ? request.method : init.method || "GET";
       if (u.origin !== "https://discord.com" || !u.pathname.startsWith("/api/v10/")) throw new Error("no external network in announcement fixtures");
       if (u.pathname === "/api/v10/users/@me") return Response.json({ id: BOT, bot: true });
       if (u.pathname === `/api/v10/channels/${CHANNEL}`) return Response.json({ id: CHANNEL, guild_id: GUILD, type: 0 });
       if (u.pathname.startsWith(`/api/v10/guilds/${GUILD}/members/`)) return Response.json({ user: { id: u.pathname.split("/").at(-1) }, roles: [] });
       if (u.pathname === `/api/v10/channels/${CHANNEL}/messages` && method === "POST") {
-        const b = JSON.parse(init.body), id = String(490000000000000000n + BigInt(nextMessage++));
-        const m = { id, channel_id: CHANNEL, author: { id: BOT, bot: true }, type: 0, content: b.content, nonce: b.nonce, embeds: [], attachments: [] };
+        const b = JSON.parse(request ? await request.text() : init.body), id = String(490000000000000000n + BigInt(nextMessage++));
+        const m = { id, channel_id: CHANNEL, author: { id: BOT, bot: true }, type: 0, content: b.content, nonce: b.nonce, embeds: [], attachments: [], components: b.components ?? [] };
         messages.set(id, m); effects.push({ method, id, body: b });
         if (loseProviderAnswer) throw new TypeError("synthetic lost provider answer after durable effect");
         return Response.json(m);
@@ -2191,7 +2401,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const messageId = u.pathname.match(new RegExp(`^/api/v10/channels/${CHANNEL}/messages/(\\d+)$`))?.[1], m = messages.get(messageId);
       if (messageId && method === "GET") return m ? Response.json(m) : new Response(null, { status: 404 });
       if (messageId && method === "DELETE") { effects.push({ method, id: messageId }); messages.delete(messageId); if (loseRemoveAnswer) throw new TypeError("synthetic lost delete answer"); return new Response(null, { status: 204 }); }
-      if (messageId && method === "PATCH" && m) { const b = JSON.parse(init.body); effects.push({ method, id: messageId, body: b }); m.content = b.content; return Response.json(m); }
+      if (messageId && method === "PATCH" && m) { const b = JSON.parse(request ? await request.text() : init.body); effects.push({ method, id: messageId, body: b }); m.content = b.content; return Response.json(m); }
       throw new Error("unexpected synthetic Discord request");
     };
     const create = async (title) => {
@@ -2247,7 +2457,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
       const off = await openPage(ORG, { ...over, EVENT_DISCORD_DELIVERY: "" }); await off.go(route(unknownId)); await loaded(off);
       check(".130 feature OFF disables publication but keeps guarded known-message removal", off.app.textContent.includes("switched off") && byText(off.app, "button", "Update announcement").disabled && !byText(off.app, "button", "Remove announcement").disabled);
-      const closedId = await create("Closed custody" ); db.prepare("UPDATE community_events SET publication_closed=1 WHERE id=?").run(closedId);
+      const closedId = await create("Closed custody" ); (await fixtureRun("UPDATE community_events SET publication_closed=1 WHERE id=?",closedId));
       const closed = await openPage(ORG, over); await closed.go(route(closedId)); await loaded(closed);
       check(".130 expired custody closure is visible and cannot be republished", closed.app.textContent.includes("Publication is closed") && byText(closed.app, "button", "Publish announcement").disabled && posts() === 2);
       const malformed = await openPage(ORG, over); malformed.answer((pathname) => pathname.startsWith("/api/community/events/discord?") ? { eventId: id, revision: 1, enabled: true, canPublish: true, publicationClosed: false, payload: { content: "wrong", allowed_mentions: { parse: ["everyone"] } }, payloadHash: "a".repeat(64), delivery: null } : null);
@@ -2293,7 +2503,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       rem.app.querySelector("#event-reminder-consent").checked=true;fire(rem.app.querySelector("#event-reminder-consent"),"change");byText(rem.app,"button","Enable one reminder").click();
       await waitFor(()=>rem.app.textContent.includes("One reminder is armed"),"lost consent browser response");
       check(".134 lost consent reply resolves exact durable row without sending or renewing consent automatically",one("SELECT state FROM community_event_reminders WHERE event_id=?",reminderId).state==="armed" && posts()===beforeReminderPost && !rem.app.querySelector("#event-reminder-consent").checked);
-      rem.drop(null);loseProviderAnswer=true;await load("./community-event-reminders").runEventReminders(env(reminderOver));loseProviderAnswer=false;
+      rem.drop(null);loseProviderAnswer=true;await load("./community-event-reminders").runEventReminders(directEnv(reminderOver));loseProviderAnswer=false;
       byText(rem.app,"button","Refresh reminder status").click();await waitFor(()=>rem.app.textContent.includes("Delivery is unresolved"),"unknown reminder readback");
       check(".134 unknown reminder cannot enable a resend and retains reconciliation controls",byText(rem.app,"button","Enable one reminder").disabled && !byText(rem.app,"button","Check existing reminder").disabled && posts()===beforeReminderPost+1);
       const remMessage=[...messages.values()].find((m)=>m.content.startsWith("**Raid reminder**"));
@@ -2310,7 +2520,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       check(".134 explicit removal with OFF never posts and deletes only known reminder",!messages.has(remMessage.id) && posts()===beforeReminderPost+1);
       const expiryId=await create("Expired reminder"), old=now-1;
       await apiAs(ORG,"POST","/api/community/events/reminder",{eventId:expiryId,revision:1,enabled:true},reminderOver);
-      db.prepare("UPDATE community_event_reminders SET retain_until=? WHERE event_id=?").run(old,expiryId);
+      (await fixtureRun("UPDATE community_event_reminders SET retain_until=? WHERE event_id=?",old,expiryId));
       const expired=await openPage(ORG,reminderOver);await expired.go(route(expiryId));await reminderLoaded(expired);
       check(".134 expired unswept custody shows closure and cannot arm invisible consent",expired.app.textContent.includes("Reminder custody expired") && byText(expired.app,"button","Enable one reminder").disabled);
       const actualReminder=(await apiAs(ORG,"GET",`/api/community/events/reminder?eventId=${reminderId}`,undefined,reminderOver)).body;
@@ -2323,8 +2533,223 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const oldArm=byText(rem.app,"button","Enable one reminder"),oldRefreshReminder=byText(rem.app,"button","Refresh reminder status");let detachedReminderReads=0;
       rem.before((pathname)=>{if(pathname.startsWith("/api/community/events/reminder"))detachedReminderReads++;return false});await rem.go("#/roles");oldArm.click();oldRefreshReminder.click();await settle();
       check(".134 detached reminder controls cannot write or refresh another route",detachedReminderReads===0 && posts()===beforeReminderPost+1);
-    } finally { globalThis.fetch = originalFetch; }
+    } finally { originalTestFetch = originalFetch; }
   }
+  console.log("\n== beta reset: bounded frontend response and lifecycle regressions ==");
+  {
+    // The existing answer hook substitutes transport payloads AFTER the actual Worker
+    // has handled each request. These are UI contract tests, not forged backend authority:
+    // synthetic form MACs cannot arm the Worker; beta_reset_route_test.cjs covers real MACs.
+    const endpoint = "/api/admin/beta-role-reset", cutoff = 1792688400, pageNow = cutoff - 600;
+    const roles = ["1552077551839617104","1558657538960916490","1557496182966587453","1557495772453281853","1557496796949909575","1557496812196208640","1557498239656136764","1557498252994285568","1557498673926242385","1557498969310101576","1557499139099590747","1557499286965719050"];
+    const snapshot = () => ({ cutoff, epoch: "olympus-beta-2026-10-22", roleIds: [...roles], phase: "before_cutoff", canArm: true, policyArmed: false, removalsActive: false,
+      discovery: { currentPassScanned: 0, completedPasses: 0 }, removals: { pending: 0, held: 0, unknown: 0, settledOperations: 0, unresolvedGrantCustody: 0, unresolvedOtherRoleCustody: 0 },
+      form: { expiresAt: pageNow + 240, formNonce: "a".repeat(32), token: "A".repeat(43) } });
+    const successfulReply = () => ({ ok: true, policyArmed: true, removalsEnabled: false, cutoff, roleIds: [...roles] });
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const savedPolicy = one("SELECT value FROM site_settings WHERE key='betaResetPolicyV1'");
+    const savedAppointments = one("SELECT value FROM site_settings WHERE key='appointed'");
+    const savedDirectory = one("SELECT value FROM site_settings WHERE key='leadership'");
+    const fixture = async ({ mutate = () => {}, reply, clock = pageNow } = {}) => {
+      const preview = snapshot(); mutate(preview);
+      const page = await openPage(STAFF, {}, { clockNow: clock * 1000 }), requests = [];
+      page.before((pathname, init) => { if (pathname.startsWith(endpoint)) requests.push({ pathname, method: init.method || "GET", body: init.body }); return false; });
+      page.answer((pathname, init) => pathname === endpoint ? clone(preview) : pathname === endpoint + "/arm" && init.method === "POST" && reply !== undefined ? clone(reply) : null);
+      await page.go("#/admin/settings");
+      if (!await waitFor(() => !!byText(page.app, "h2", "Beta member and rank reset"), "the beta reset fixture")) throw new Error("beta reset fixture did not render");
+      const arm = byText(page.app, "button", "Arm member and rank reset"), refresh = byText(page.app, "button", "Refresh reset status");
+      return { page, preview, requests, arm, refresh, posts: () => requests.filter(r => r.method === "POST"), reads: () => requests.filter(r => r.method === "GET") };
+    };
+    const quiet = async () => { await settle(); await settle(); };
+    const confirm = async f => {
+      f.arm.click();
+      if (!await waitFor(() => !!byText(f.page.document.body, "button", "Arm reset"), "the reset confirmation")) throw new Error("reset confirmation did not open");
+      return byText(f.page.document.body, "button", "Arm reset");
+    };
+    for (const [label, mutate] of [
+      ["wrong cutoff", s => { s.cutoff++; }],
+      ["wrong epoch", s => { s.epoch += "-replacement"; }],
+      ["missing reset role", s => { s.roleIds.pop(); }],
+      ["reordered reset roles", s => { [s.roleIds[0], s.roleIds[1]] = [s.roleIds[1], s.roleIds[0]]; }],
+      ["array-coerced role ID", s => { s.roleIds[0] = [s.roleIds[0]]; }],
+      ["string arm permission", s => { s.canArm = "true"; }],
+      ["string active flag", s => { s.removalsActive = "false"; }],
+      ["unknown phase", s => { s.phase = "completed"; }],
+      ["negative count", s => { s.removals.pending = -1; }],
+      ["unsafe count", s => { s.discovery.currentPassScanned = Number.MAX_SAFE_INTEGER + 1; }],
+      ["missing earlier-grant count", s => { delete s.removals.unresolvedGrantCustody; }],
+    ]) {
+      const f = await fixture({ mutate });
+      if (f.arm) f.arm.click(); await quiet();
+      check("beta reset malformed preview: " + label + " exposes no action", f.page.app.textContent.includes("The reset preview could not be verified") && !f.arm && !f.refresh && f.posts().length === 0 && !f.page.document.body.querySelector("dialog"));
+    }
+    for (const [label, mutate, clock] of [
+      ["missing form", s => { delete s.form; }],
+      ["extra form field", s => { s.form.roleIds = [...roles]; }],
+      ["expired form", s => { s.form.expiresAt = pageNow; }],
+      ["string expiry", s => { s.form.expiresAt = String(s.form.expiresAt); }],
+      ["expiry beyond five minutes", s => { s.form.expiresAt = pageNow + 301; }],
+      ["expiry beyond cutoff", s => { s.form.expiresAt = cutoff + 1; }, cutoff - 60],
+      ["malformed nonce", s => { s.form.formNonce = "a".repeat(31); }],
+      ["array-coerced nonce", s => { s.form.formNonce = [s.form.formNonce]; }],
+      ["noncanonical token", s => { s.form.token = "A".repeat(42) + "B"; }],
+      ["array-coerced token", s => { s.form.token = [s.form.token]; }],
+      ["owner cannot arm", s => { s.canArm = false; }],
+    ]) {
+      const f = await fixture({ mutate, ...(clock === undefined ? {} : { clock }) });
+      if (f.arm) f.arm.click(); await quiet();
+      check("beta reset closed form: " + label + " cannot open confirmation or POST", !!f.arm && f.arm.disabled && !!f.refresh && f.posts().length === 0 && !f.page.document.body.querySelector("dialog"));
+    }
+    for (const [label, detach] of [
+      ["entire document subtree detached", f => f.page.app.remove()],
+      ["route changed before repaint", f => f.page.history.replaceState(null, "", "#/roles")],
+    ]) {
+      const f = await fixture(), before = f.requests.length;
+      detach(f); f.arm.click(); f.refresh.click(); await quiet();
+      check("beta reset " + label + ": retained controls stay inert", f.requests.length === before && !f.page.document.body.querySelector("dialog"));
+    }
+    {
+      const f = await fixture(); await confirm(f);
+      const before = f.requests.length; f.arm.click(); f.refresh.click(); await quiet();
+      check("beta reset confirmation suppresses duplicate clicks and refresh", f.page.document.body.querySelectorAll("dialog").length === 1 && f.requests.length === before && f.arm.disabled);
+      byText(f.page.document.body.querySelector("dialog"), "button", "Cancel").click(); await quiet();
+      check("beta reset cancellation restores the current valid control without a POST", !f.page.document.body.querySelector("dialog") && !f.arm.disabled && f.posts().length === 0);
+    }
+    for (const [label, race] of [
+      ["form expires during confirmation", f => f.page.clock(f.preview.form.expiresAt * 1000)],
+      ["route changes during confirmation", f => f.page.history.replaceState(null, "", "#/roles")],
+      ["settings document detaches during confirmation", f => f.page.app.remove()],
+    ]) {
+      const f = await fixture(), accept = await confirm(f), before = f.requests.length;
+      race(f); accept.click(); await quiet();
+      check("beta reset " + label + " prevents POST and follow-up refresh", f.requests.length === before && f.posts().length === 0 && !f.page.document.body.querySelector("dialog"));
+    }
+    for (const [label, reply] of [
+      ["empty object", {}],
+      ["array", []],
+      ["unarmed receipt", { ...successfulReply(), policyArmed: false }],
+      ["string removal flag", { ...successfulReply(), removalsEnabled: "false" }],
+      ["wrong cutoff", { ...successfulReply(), cutoff: cutoff + 1 }],
+      ["wrong role scope", { ...successfulReply(), roleIds: roles.slice(1) }],
+    ]) {
+      const f = await fixture({ reply }), accept = await confirm(f); accept.click();
+      await waitFor(() => f.reads().length === 2 && f.page.document.body.textContent.includes("The arming outcome is unconfirmed"), "the rejected reset receipt and status reread");
+      check("beta reset malformed 200: " + label + " never announces armed", f.posts().length === 1 && f.reads().length === 2 && f.page.document.body.textContent.includes("The arming outcome is unconfirmed") && !f.page.document.body.textContent.includes("Reset policy armed.") && !f.page.document.body.querySelector(".toast.good"));
+    }
+    {
+      const f = await fixture({ reply: successfulReply() }), accept = await confirm(f); accept.click();
+      await waitFor(() => f.reads().length === 2 && f.page.document.body.textContent.includes("Reset policy armed."), "the valid reset transport receipt");
+      check("beta reset exact success receipt sends only the captured form once then rereads status", f.posts().length === 1 && f.reads().length === 2 && JSON.stringify(JSON.parse(f.posts()[0].body)) === JSON.stringify({ form: f.preview.form }) && !!f.page.document.body.querySelector(".toast.good"));
+    }
+    check("beta reset frontend response fixtures preserve policy, website appointments and leadership", JSON.stringify(one("SELECT value FROM site_settings WHERE key='betaResetPolicyV1'")) === JSON.stringify(savedPolicy) && JSON.stringify(one("SELECT value FROM site_settings WHERE key='appointed'")) === JSON.stringify(savedAppointments) && JSON.stringify(one("SELECT value FROM site_settings WHERE key='leadership'")) === JSON.stringify(savedDirectory));
+  }
+  // Optional census UI: existing real-Worker/DOM family, no new loader or authentication issuer.
+  {
+    console.log("\n== private unsigned census preview ==");
+    const censusWho = "300000000000090001", censusPath = "/api/community/census/preview", censusConfig = { COMMUNITY_FEATURES: "directory,census" };
+    await siteUser(censusWho, { global_name: "Census reader" }); await character(censusWho, "Census Reader", "Player-9-90001");
+    const observedAt = now - 8 * 86400, row = { name: "<img src=x onerror=alert(1)> Guild", reportedCharacters: 12, receivedAt: observedAt - 60, fresh: true, counted: true, online: 3 };
+    const snapshot = { format: "olympus-census-v1", addonVersion: "fixture-1", realmGroup: "Synthetic Realm", faction: "Horde", observedAt, source: "community-observation", membershipProof: false, guilds: [row] };
+    const raw = "\n  " + JSON.stringify(snapshot, null, 2) + "\n";
+    const receipt = (data = snapshot) => ({ format: "olympus-census-preview-v1", persisted: false, sourceVerified: false, membershipProof: false, receiptNow: now, snapshot: data, atReceipt: { receiptNow: now, snapshotAgeSeconds: now - data.observedAt, guilds: data.guilds.map(g => ({ name: g.name, ageSeconds: now - g.receivedAt, fresh: now - g.receivedAt <= 900, counted: now - g.receivedAt <= 86400, retained: now - g.receivedAt <= 604800 })) } });
+    const page = async options => { const p = await openPage(censusWho, censusConfig, options); await p.go("#/community/census"); return p; };
+    const input = p => p.app.querySelector("#census-json"), results = p => p.app.querySelector('[data-census-results="true"]'), form = p => p.app.querySelector('[data-census-form="true"]');
+    const send = (p, value = raw) => { input(p).value = value; fire(input(p), "input"); fire(form(p), "submit"); };
+    const accepted = p => p.app.textContent.includes("Preview accepted for this page only");
+    const cleared = p => input(p)?.value === "" && results(p)?.textContent === "";
+    const noFeature = await openPage(censusWho, { COMMUNITY_FEATURES: "directory" }); await noFeature.go("#/community/census");
+    check("census feature OFF hides navigation and refuses the page", !input(noFeature) && !byText(noFeature.app, "a", "Census preview"));
+    const unconfirmed = "300000000000090002"; await siteUser(unconfirmed);
+    const noStanding = await openPage(unconfirmed, censusConfig); await noStanding.go("#/community/census");
+    check("census requires confirmed member capability before exposing input", !input(noStanding) && !byText(noStanding.app, "a", "Census preview"));
+
+    let pageNow = Date.now(); const p = await page({ clockNow: () => pageNow }), sent = [], storage = [];
+    for (const name of ["getItem", "setItem", "removeItem"]) { const original = p.sessionStorage[name]; p.sessionStorage[name] = (...args) => { storage.push([name, ...args]); return original(...args); }; }
+    p.before((pathname, init) => { if (pathname === censusPath) sent.push(init); return false; });
+    check("census input and status have accessible labels and explicit controls", p.app.querySelector('label[for="census-json"]')?.textContent === "Census JSON export" && !!byText(p.app, "button", "Validate and preview") && !!byText(p.app, "button", "Clear") && !!p.app.querySelector('[role="status"]'));
+    send(p); await waitFor(() => accepted(p), "historical census preview");
+    check("census raw transport preserves whitespace and lexical JSON with exact headers and credentials", sent.length === 1 && sent[0].body === raw && sent[0].method === "POST" && sent[0].credentials === "same-origin" && sent[0].headers["X-Olympus"] === "2" && sent[0].headers["Content-Type"] === "application/json" && sent[0].signal instanceof AbortSignal);
+    check("census renders unsigned historical data as text with separate export and receipt freshness", accepted(p) && results(p).textContent.includes(row.name) && !p.app.querySelector('img[src="x"]') && results(p).textContent.includes("historical beyond seven days") && results(p).textContent.includes("Online at export") && results(p).textContent.includes("UTC") && !results(p).textContent.includes("online now"));
+    check("census does not store raw text or preview data in session storage", storage.length === 0);
+    pageNow += 900001; fire(form(p), "submit");
+    check("census fixed visible lifetime clears before another interaction without refreshing", cleared(p) && sent.length === 1 && p.app.textContent.includes("expired and was cleared"));
+    input(p).value = "\ud800"; fire(input(p), "input"); fire(form(p), "submit");
+    input(p).value = "é".repeat(163841); fire(input(p), "input"); fire(form(p), "submit");
+    check("census rejects lone UTF16 and multibyte overflow before fetch", sent.length === 1 && p.app.textContent.includes("Nothing was sent"));
+    byText(p.app, "button", "Clear").click(); check("census Clear removes both typed input and results", cleared(p));
+
+    const many = { ...snapshot, guilds: Array.from({ length: 300 }, (_, i) => ({ ...row, name: "Synthetic guild " + i })) }, full = await page();
+    send(full, JSON.stringify(many)); await waitFor(() => accepted(full), "300 guild census preview");
+    check("census preserves all 300 accepted rows without population aggregation", results(full).querySelectorAll("tbody tr").length === 300 && results(full).textContent.includes("300 guild observations") && !results(full).textContent.includes("3600"));
+    full.document.hidden = true; full.document.visibilityState = "hidden"; full.document.dispatchEvent(new Event("visibilitychange"));
+    check("census visibility loss clears all raw and preview state", cleared(full));
+    full.document.hidden = false; full.document.visibilityState = "visible"; full.document.dispatchEvent(new Event("visibilitychange"));
+    input(full).value = raw; full.window.dispatchEvent(new Event("pagehide"));
+    check("census pagehide and resumed page retain no prior export", cleared(full));
+
+    const invalid = await page(), rawDuplicate = raw.replace('"format": "olympus-census-v1"', '"format": "olympus-census-v1", "format": "olympus-census-v1"'); let duplicateSent;
+    invalid.before((pathname, init) => { if (pathname === censusPath) duplicateSent = init.body; return false; }); send(invalid, rawDuplicate);
+    await waitFor(() => invalid.app.textContent.includes("No rows were accepted"), "duplicate-key refusal");
+    check("census duplicate keys reach the real strict validator unchanged and yield no partial preview", duplicateSent === rawDuplicate && cleared(invalid) && invalid.app.textContent.includes("No rows were accepted"));
+    for (const [name, mutate] of [
+      ["source authority", d => { d.sourceVerified = true; }],
+      ["row identity", d => { d.atReceipt.guilds[0].name = "different"; }],
+      ["receipt clock", d => { d.atReceipt.receiptNow++; }],
+    ]) {
+      const bad = await page(), response = receipt(); mutate(response); bad.answer(pathname => pathname === censusPath ? response : null); send(bad);
+      await waitFor(() => bad.app.textContent.includes("answer could not be verified"), "closed census " + name);
+      check("census readable malformed " + name + " response never becomes a preview", cleared(bad) && bad.app.textContent.includes("answer could not be verified"));
+    }
+    const wide = await page(); let cancelledWide = false;
+    wide.answer(pathname => pathname === censusPath ? new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array(524289)); }, cancel() { cancelledWide = true; } }), { status: 200 }) : null);
+    send(wide); await waitFor(() => wide.app.textContent.includes("answer could not be verified"), "bounded census response"); await settle();
+    check("census response ceiling is enforced on actual chunks and cancels the reader", cancelledWide && cleared(wide) && wide.app.textContent.includes("answer could not be verified"));
+
+    const edited = await page(); let heldEdit = 0, editSignal;
+    edited.hold((pathname, init) => { if (pathname !== censusPath) return 0; heldEdit++; editSignal = init.signal; return 100; }); send(edited);
+    await waitFor(() => heldEdit === 1, "held census input answer"); input(edited).value = "different input"; fire(input(edited), "input"); await new Promise(resolve => setTimeout(resolve, 130));
+    check("census changed input aborts and discards a completed delayed answer", editSignal.aborted && input(edited).value === "different input" && results(edited).textContent === "" && !accepted(edited));
+    const departed = await page(); let heldRoute = 0, routeSignal;
+    departed.hold((pathname, init) => { if (pathname !== censusPath) return 0; heldRoute++; routeSignal = init.signal; return 100; });
+    departed.answer(pathname => pathname === censusPath ? new Response('{"error":"signed_out"}', { status: 401, headers: { "Content-Type": "application/json" } }) : null); send(departed);
+    await waitFor(() => heldRoute === 1, "held stale census 401"); const detachedInput = input(departed), detachedResults = results(departed); await departed.go("#/roles"); await new Promise(resolve => setTimeout(resolve, 130));
+    check("census route disposal clears before await and stale401 cannot sign out or toast another route", routeSignal.aborted && detachedInput.value === "" && detachedResults.textContent === "" && !!byText(departed.app, "button", "Sign out") && !departed.document.body.textContent.includes("You were signed out"));
+    const staleStanding = await page(); let heldStanding = 0, staleReloads = 0;
+    staleStanding.location.reload = () => { staleReloads++; };
+    staleStanding.hold(pathname => { if (pathname !== censusPath) return 0; heldStanding++; return 100; });
+    staleStanding.answer(pathname => pathname === censusPath ? new Response('{"error":"guild_access_changed"}', { status: 403, headers: { "Content-Type": "application/json" } }) : null); send(staleStanding);
+    await waitFor(() => heldStanding === 1, "held stale census 403"); await staleStanding.go("#/roles"); await new Promise(resolve => setTimeout(resolve, 130));
+    check("census obsolete standing refusal cannot reload a later route", staleReloads === 0 && !!byText(staleStanding.app, "button", "Sign out") && !staleStanding.document.body.textContent.includes("Your access changed"));
+    const stopped = await page(); let heldClear = 0, clearSignal;
+    stopped.hold((pathname, init) => { if (pathname !== censusPath) return 0; heldClear++; clearSignal = init.signal; return 100; }); send(stopped);
+    await waitFor(() => heldClear === 1, "held census Clear"); byText(stopped.app, "button", "Clear").click(); await new Promise(resolve => setTimeout(resolve, 130));
+    check("census Clear aborts an outstanding original attempt without repaint", clearSignal.aborted && cleared(stopped) && !accepted(stopped));
+    const refused = await page(); let contexts = 0, reloads = 0;
+    refused.location.reload = () => { reloads++; throw new Error("synthetic reload blocked"); };
+    refused.before(pathname => { if (pathname === "/api/community/context") contexts++; return false; });
+    refused.answer(pathname => pathname === censusPath ? new Response('{"error":"guild_access_changed"}', { status: 403, headers: { "Content-Type": "application/json" } }) : null); send(refused);
+    await waitFor(() => reloads === 1, "census standing reload");
+    check("census current standing refusal clears before reload and retains a fixed message if blocked", cleared(refused) && reloads === 1 && contexts === 0 && byText(refused.app, "button", "Validate and preview").disabled && refused.app.textContent.includes("Reload to check your access again"));
+    let heldDeadline = 0, deadlineAnswered = false; const deadline = await page();
+    deadline.hold(pathname => { if (pathname !== censusPath) return 0; heldDeadline++; return 16000; });
+    deadline.answer(pathname => { if (pathname === censusPath) deadlineAnswered = true; return null; }); send(deadline);
+    await waitFor(() => heldDeadline === 1, "held census deadline");
+    await waitFor(() => deadline.app.textContent.includes("cancelled or timed out"), "original real census deadline", 15500);
+    check("census fixed original attempt deadline terminates while fetch still ignores abort", !deadlineAnswered && cleared(deadline) && !accepted(deadline));
+    await waitFor(() => deadlineAnswered, "late census answer after deadline", 2500); await settle();
+    check("census delayed answer after the original deadline never returns a preview", cleared(deadline) && !accepted(deadline));
+    const limited = await page(); let limitAttempts = 0;
+    limited.before(pathname => { if (pathname === censusPath) limitAttempts++; return false; });
+    limited.answer(pathname => pathname === censusPath ? new Response('{"error":"slow_down"}', { status: 429, headers: { "Content-Type": "application/json" } }) : null); send(limited);
+    await waitFor(() => limited.app.textContent.includes("Wait a minute before submitting again"), "census limited refusal");
+    check("census current429 clears without an automatic retry", cleared(limited) && limitAttempts === 1 && !accepted(limited));
+    const signingOut = await page(); let heldLogout = 0, logoutSignal;
+    signingOut.hold((pathname, init) => { if (pathname !== censusPath) return 0; heldLogout++; logoutSignal = init.signal; return 100; }); send(signingOut);
+    await waitFor(() => heldLogout === 1, "held census logout"); const logoutInput = input(signingOut); byText(signingOut.app, "button", "Sign out").click();
+    check("census sign-out clears and aborts synchronously before the logout await", logoutSignal.aborted && logoutInput.value === "");
+    await new Promise(resolve => setTimeout(resolve, 130)); check("census late answer after sign-out never returns private rows", !accepted(signingOut) && results(signingOut).textContent === "");
+  }
+
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

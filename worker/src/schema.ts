@@ -10,26 +10,21 @@ import type { Env } from "./env";
 import { now } from "./db";
 import { errorRef } from "./log";
 import { QR_PHASE1_DDL } from './qr-phase1-schema';
+import { QR_BETA_FERN_DDL,QR_BETA_FERN_SEMANTICS } from './qr-beta-fern-schema';
 import { PRIVACY_SERVING_SCHEMA } from "./privacy-serving-schema";
 import { PRIVACY_ACCESS_SCHEMA } from "./privacy-access-schema";
-import { isPrivacyWriteAdmissionDatabase,assertAdmissionCurrentSchema } from './privacy-write-admission';
+import { isPrivacyWriteAdmissionDatabase,assertAdmissionCurrentSchema,PrivacyWriteAdmissionHeld } from './privacy-write-admission';
 import { privacyProviderCustodyDatabase } from './privacy-serving-authority';
 import { RULESET_PUBLICATION_SCHEMA } from './ruleset-publication-schema';
-import {ADMISSION_CONTROL_DDL,ADMISSION_PROTOCOL} from './privacy-write-admission-catalogue';
 
 let ready: Promise<void> | null = null;
 
-/** Resolves once the schema this build expects is in place. Cached per isolate; retried after a failure. */
+/** Consume the current admitted schema proof; epoch installation is a separate closed operation. */
 export function ensureSchema(env: Env): Promise<void> {
   const native=privacyProviderCustodyDatabase(env);
   if(isPrivacyWriteAdmissionDatabase(native))return assertAdmissionCurrentSchema(native);
-  if (!ready) {
-    ready = migrate(env).catch((e) => {
-      ready = null; // try again on the next request rather than caching the failure
-      throw e;
-    });
-  }
-  return ready;
+  // Epoch-2 installation is a separate source-owned closed operation, never a request migration.
+  throw new PrivacyWriteAdmissionHeld('epoch2_original_admitted_schema_required');
 }
 
 /** For tests: forget that this isolate has already checked. */
@@ -118,6 +113,13 @@ async function migrate(env: Env) {
   // .130: a parent-bound publication disposition; a separate probe/ALTER adds at most two cold statements.
   await addColumn(env, "community_events", "publication_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (publication_closed IN (0, 1))");
   await addColumn(env, "community_events", "reminder_closed", "INTEGER NOT NULL DEFAULT 0 CHECK (reminder_closed IN (0, 1))");
+  // stage 2 (15 Oct 2026): the member's reminder-mention choice and the organizer's roster decision on the sign-up row; the mention list a reminder sent. At most two cold statements each.
+  await addColumn(env, "community_event_signups", "remind_mention", "INTEGER NOT NULL DEFAULT 0 CHECK (remind_mention IN (0, 1))");
+  await addColumn(env, "community_event_signups", "decision", "TEXT CHECK (decision IS NULL OR decision IN ('accepted', 'bench', 'declined'))");
+  await addColumn(env, "community_event_signups", "decided_by", "TEXT");
+  await addColumn(env, "community_event_signups", "decided_at", "INTEGER");
+  await addColumn(env, "community_event_signups", "decision_revision", "INTEGER NOT NULL DEFAULT 0 CHECK (decision_revision >= 0)");
+  await addColumn(env, "community_event_reminders", "mention_ids", "TEXT CHECK(mention_ids IS NULL OR (json_valid(mention_ids) AND json_type(mention_ids)='array'))");
   await redactSettingsAudit(env);
 }
 
@@ -246,10 +248,10 @@ const LEGACY_ROLES = [
 
 export const SITE_SCHEMA = [
   RULESET_PUBLICATION_SCHEMA,
-  ADMISSION_CONTROL_DDL.replace('CREATE TABLE ','CREATE TABLE IF NOT EXISTS '),
-  `INSERT OR IGNORE INTO privacy_write_admission VALUES(1,'${ADMISSION_PROTOCOL}',0,'','',0,0)`,
   ...PRIVACY_ACCESS_SCHEMA,
+  ...QR_BETA_FERN_DDL,
   ...QR_PHASE1_DDL,
+  ...QR_BETA_FERN_SEMANTICS,
   ...PRIVACY_SERVING_SCHEMA,
   `CREATE TABLE IF NOT EXISTS site_users (
      discord_id      TEXT PRIMARY KEY,
@@ -452,7 +454,7 @@ export const SITE_SCHEMA = [
      revision       INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
      rsvp_starts_at INTEGER NOT NULL,
      updated_at     INTEGER NOT NULL,
-     write_nonce    TEXT,
+     write_nonce    TEXT, remind_mention INTEGER NOT NULL DEFAULT 0 CHECK (remind_mention IN (0, 1)), decision TEXT CHECK (decision IS NULL OR decision IN ('accepted', 'bench', 'declined')), decided_by TEXT, decided_at INTEGER, decision_revision INTEGER NOT NULL DEFAULT 0 CHECK (decision_revision >= 0),
      PRIMARY KEY (event_id, discord_id),
      CHECK ((character_name IS NULL) = (character_key IS NULL))
    )`,
@@ -811,7 +813,7 @@ export const SITE_SCHEMA = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     retain_until INTEGER NOT NULL,
-    result_code TEXT,
+    result_code TEXT, actor_account_incarnation TEXT CHECK(actor_account_incarnation IS NULL OR (typeof(actor_account_incarnation)='text' AND length(actor_account_incarnation)=32 AND length(CAST(actor_account_incarnation AS BLOB))=32 AND instr(actor_account_incarnation,char(0))=0 AND actor_account_incarnation NOT GLOB '*[^0-9a-f]*')),
     PRIMARY KEY (event_id,purpose)
   )`,
   "CREATE INDEX IF NOT EXISTS community_event_deliveries_retain ON community_event_deliveries(retain_until)",
@@ -834,7 +836,7 @@ export const SITE_SCHEMA = [
   updated_at INTEGER NOT NULL,
   last_attempt_at INTEGER NOT NULL DEFAULT 0,
   retain_until INTEGER NOT NULL
-)`,
+, consent_account_incarnation TEXT CHECK(consent_account_incarnation IS NULL OR (typeof(consent_account_incarnation)='text' AND length(consent_account_incarnation)=32 AND length(CAST(consent_account_incarnation AS BLOB))=32 AND instr(consent_account_incarnation,char(0))=0 AND consent_account_incarnation NOT GLOB '*[^0-9a-f]*')), mention_ids TEXT CHECK(mention_ids IS NULL OR (json_valid(mention_ids) AND json_type(mention_ids)='array')))`,
   "CREATE INDEX IF NOT EXISTS community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id)",
   // .115, third review round: a roster export's durable member effects (migrations/2026-10-03-roster-effects.sql).
   `CREATE TABLE IF NOT EXISTS roster_effect_runs (

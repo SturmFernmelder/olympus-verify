@@ -275,7 +275,7 @@ export async function resumeDigest(request: Request, env: Env, ctx: CommunityCon
   const next: DigestState = { ...st, day: dayOf(at), outcome: "resumed", final: true, notBefore: 0, lease: null, intent: null, halted: false };
   // ?1 key, ?2 the exact value read, ?3 the next value, ?4 now, ?5 the admin (also the fence's id), ?6 session version, ?7 expiry: the state write and its audit row only while the admin's fence holds
   const out = await admitted(env, ctx, [
-    env.DB.prepare(`UPDATE site_settings SET value = ?3, updated_at = ?4, updated_by = ?5 WHERE key = ?1 AND value = ?2 AND ${fenceSql("applicantWrite", 5, 6, 7)}`).bind(STATE_KEY, raw, JSON.stringify(next), at, admin.discord_id, ctx.subject.sessionVersion, ctx.subject.expiresAt),
+    env.DB.prepare(`UPDATE site_settings SET value = ?3, updated_at = ?4, updated_by = ?5 WHERE key = ?1 AND value = ?2 AND ${fenceSql("applicantWrite", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(STATE_KEY, raw, JSON.stringify(next), at, admin.discord_id, ctx.subject.sessionVersion, ctx.subject.expiresAt),
     env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, 'community.officer_digest_resumed', NULL, ?3 WHERE changes() = 1").bind(at, admin.discord_id, JSON.stringify({ from: st.outcome })),
   ]);
   if (out === FENCE_REFUSED) {

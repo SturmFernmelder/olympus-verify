@@ -9,51 +9,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
-  let batches = 0; // .73: numbered per request, for the beforeBatch/afterBatch hooks
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); hooks.beforeRun?.(sql); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
-      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
-      if (logical) hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      if (logical) hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  let batches = 0;
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -62,6 +43,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -96,42 +78,42 @@ Object.assign(stubs, {
 const context = load("./community-context"), refs = load("./community-refs"), time = load("./community-time"), names = load("./community-names");
 const siteCore = load("./site-core"), siteAdmin = load("./site-admin"), indexMod = load("./index");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null, RUN = null; // .73: armed by a test, each fires once
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i), beforeRun: (sql) => RUN?.(sql) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i), beforeRun: (sql) => RUN?.(sql) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const MEMBER = "300000000000000003", OTHER = "300000000000000004", NEVER = "300000000000000099", STAFF = "472099715253796864", STAFF2 = "472099715253796865";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,row.first_login,row.last_login,row.in_server,row.denied,row.session_version);
 };
-const departed = (id, name, leftAt, how = null) => {
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES (?, ?, ?, 'left', ?, ?)").run(name.toLowerCase().split("-")[0], name, id, leftAt - 86400, leftAt);
-  if (how !== null) db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.left', ?, ?)").run(leftAt + 1, name, JSON.stringify({ discordId: id, how, keptRoles: [] }));
+const departed = async (id, name, leftAt, how = null) => {
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",id);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES (?, ?, ?, 'left', ?, ?)",name.toLowerCase().split("-")[0],name,id,leftAt - 86400,leftAt);
+  if (how !== null) await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.left', ?, ?)",leftAt + 1,name,JSON.stringify({ discordId: id, how, keptRoles: [] }));
 };
 const ON = { COMMUNITY_FEATURES: "departures,restrictions", SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -142,27 +124,22 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const dep = load("./community-departures");
 
-// .133: construct an original signed staff Request before the real site-only eraser consumes it.
-// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
-async function erasureRequest(target, actor) {
-  const site = load("./site-core");
-  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
-  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
-  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
-  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
-  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
-    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
-  });
+// Exercise the actual staff preparation and delete route; no manufactured session/origin.
+async function deleteThroughOriginalRoute(target, actor) {
+  const prepared=await call('GET','/api/admin/users/'+target+'/decision-target?route=delete&decisionAction=partial_delete',actor);
+  if(prepared.status!==200 || typeof prepared.body.targetToken!=='string')throw Error('original delete target preparation held '+prepared.status);
+  const result=await call('POST','/api/admin/users/'+target+'/delete',actor,{mentions:false},ON,{'X-Olympus-Decision-Target':prepared.body.targetToken,'X-Olympus-Decision-Action':'partial_delete'});
+  if(result.status!==200)throw Error('original delete route held '+result.status+' '+JSON.stringify(result.body));
+  return result.body.ok === true;
 }
-
 (async () => {
-  siteUser(MEMBER, { global_name: "Mia" }); siteUser(OTHER, { global_name: "Oz" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
-  departed(MEMBER, "Mia One", T - 3 * 86400, "has been kicked out of the guild by Fern Melder");
-  departed(MEMBER, "Mia Two", T - 2 * 86400, "has left the guild");
-  departed(OTHER, "Oz Alt", T - 86400); // no audit row: kind unknown
-  departed(NEVER, "Nobody Here", T - 86400, "has left the guild"); // never signed in here
-  departed(STAFF2, "Ann Old", T - 40 * 86400, "has left the guild"); // outside the 30-day window
-  departed(STAFF, "Vik Fresh", T - 60, "has left the guild"); // not settled yet (under five minutes)
+  await siteUser(MEMBER, { global_name: "Mia" }); await siteUser(OTHER, { global_name: "Oz" }); await siteUser(STAFF, { global_name: "Vik" }); await siteUser(STAFF2, { global_name: "Ann" });
+  await departed(MEMBER, "Mia One", T - 3 * 86400, "has been kicked out of the guild by Fern Melder");
+  await departed(MEMBER, "Mia Two", T - 2 * 86400, "has left the guild");
+  await departed(OTHER, "Oz Alt", T - 86400); // no audit row: kind unknown
+  await departed(NEVER, "Nobody Here", T - 86400, "has left the guild"); // never signed in here
+  await departed(STAFF2, "Ann Old", T - 40 * 86400, "has left the guild"); // outside the 30-day window
+  await departed(STAFF, "Vik Fresh", T - 60, "has left the guild"); // not settled yet (under five minutes)
 
   console.log("\n== flag and gates ==");
   let r = await call("GET", "/api/admin/community/departures", STAFF, undefined, { ...ON, COMMUNITY_FEATURES: "" });
@@ -171,14 +148,14 @@ async function erasureRequest(target, actor) {
   check("a member is not staff: 403", r.status === 403);
 
   console.log("\n== the intake ==");
-  let made = await dep.departureIntake(env(ON), T);
+  let made = await dep.departureIntake(directEnv(ON), T);
   check("the cron records one item per confirmed departure of the last 30 days, settled, for accounts that signed in here: three", made === 3 && one("SELECT COUNT(*) AS n FROM community_departure_reviews").n === 3);
   check("  the kind comes from the keeper's own roster.left row: kicked is removed, left is left, none is unknown", one("SELECT kind FROM community_departure_reviews WHERE character_name = 'Mia One'").kind === "removed" && one("SELECT kind FROM community_departure_reviews WHERE character_name = 'Mia Two'").kind === "left" && one("SELECT kind FROM community_departure_reviews WHERE character_name = 'Oz Alt'").kind === "unknown");
   check("  an account that never signed in here, a departure outside the window, and one not yet settled create nothing", !one("SELECT 1 FROM community_departure_reviews WHERE discord_id IN (?, ?)", NEVER, STAFF2) && !one("SELECT 1 FROM community_departure_reviews WHERE character_name = 'Vik Fresh'"));
   check("  retention is 30 days after the departure; the exact provenance is kept", one("SELECT retain_until, proof_key FROM community_departure_reviews WHERE character_name = 'Mia One'").retain_until === T - 3 * 86400 + 30 * 86400 && one("SELECT proof_key FROM community_departure_reviews WHERE character_name = 'Mia One'").proof_key === "mia one");
-  made = await dep.departureIntake(env(ON), T);
+  made = await dep.departureIntake(directEnv(ON), T);
   check("a second run creates nothing (one item per account, character and departure)", made === 0);
-  made = await dep.departureIntake(env(ON), T + 600);
+  made = await dep.departureIntake(directEnv(ON), T + 600);
   check("  once settled, the fresh departure is taken", made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE character_name = 'Vik Fresh'"));
   check("  the intake is audited as a count", one("SELECT details FROM audit WHERE action = 'community.departures_recorded' ORDER BY id LIMIT 1").details === '{"created":3}');
   check("  nothing touched a role, a member row or a case", !one("SELECT 1 FROM audit WHERE action LIKE 'role.%'") && one("SELECT COUNT(*) AS n FROM community_restriction_cases").n === 0);
@@ -218,95 +195,104 @@ async function erasureRequest(target, actor) {
   check("  still nothing touched a role", !one("SELECT 1 FROM audit WHERE action LIKE 'role.%'"));
 
   console.log("\n== the fence, the lifetime, erasure, export, purge ==");
-  db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/departures/update", STAFF, { id: dOz.id, revision: 1, action: "acknowledge" });
   check("an admin who left the server is refused: 403 not_member, nothing written", r.status === 403 && r.body.error === "not_member" && one("SELECT status FROM community_departure_reviews WHERE id = ?", dOz.id).status === "open");
   r = await call("GET", "/api/admin/community/departures", STAFF);
   check("  and reads nothing", r.status === 403 && !("departures" in r.body));
-  db.prepare("UPDATE site_users SET in_server = 1 WHERE discord_id = ?").run(STAFF);
-  db.prepare("UPDATE community_departure_reviews SET retain_until = ? WHERE id = ?").run(T - 1, dOz.id);
+  await fixtureRun("UPDATE site_users SET in_server = 1 WHERE discord_id = ?",STAFF);
+  await fixtureRun("UPDATE community_departure_reviews SET retain_until = ? WHERE id = ?",T - 1,dOz.id);
   r = await call("GET", "/api/admin/community/departures", STAFF);
   check("an item past its lifetime is gone from the list by database time", r.body.departures.every((d) => d.id !== dOz.id));
   r = await call("POST", "/api/admin/community/departures/update", STAFF, { id: dOz.id, revision: 1, action: "acknowledge" });
   check("  and takes no decision: 404 not_found", r.status === 404);
-  const exported = await context.communityExport(env(), MEMBER);
+  const exported = await context.communityExport(directEnv(), MEMBER);
   check("the account copy lists the member's live items without the reviewer or the case", exported.departures.departures.length === 2 && exported.departures.departures.every((d) => !("reviewedBy" in d) && !("restrictionCaseId" in d)) && exported.departures.departures[0].kind === "removed");
-  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
+  await deleteThroughOriginalRoute(STAFF, STAFF2);
   check("erasing the reviewing admin anonymizes them on the items; the items stay", one("SELECT reviewed_by FROM community_departure_reviews WHERE id = ?", d2.id).reviewed_by === null && !!one("SELECT 1 FROM community_departure_reviews WHERE id = ?", d1.id));
-  siteUser(STAFF, { global_name: "Vik" });
-  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
+  await siteUser(STAFF, { global_name: "Vik" });
+  await deleteThroughOriginalRoute(MEMBER, STAFF);
   check("erasing the member removes their items (the case opened from one lives on under its own rules)", !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", MEMBER) && !!one("SELECT 1 FROM community_restriction_cases WHERE id = ?", caseId));
-  const sw = await dep.sweepCommunityDepartures(env({ COMMUNITY_FEATURES: "" }), T);
+  const sw = await dep.sweepCommunityDepartures(directEnv({ COMMUNITY_FEATURES: "" }), T);
   check("the purge runs with the flag off: the expired item goes, the backlog is reported", sw.deleted === 1 && sw.remaining === 0 && !one("SELECT 1 FROM community_departure_reviews WHERE id = ?", dOz.id) && JSON.parse(one("SELECT details FROM audit WHERE action = 'community.departures_expired'").details).remaining === 0);
 
   console.log("\n== .73: requalified at the insert, the same account's audit row, no starvation, the historical fact ==");
   const RM = "300000000000000061", RX = "300000000000000062", RY = "300000000000000063", RZ = "300000000000000064";
-  siteUser(RM, { global_name: "Rae" }); siteUser(RX, { global_name: "Rex" }); siteUser(RY, { global_name: "Ray" }); siteUser(RZ, { global_name: "Roz" });
-  db.prepare("UPDATE characters SET status = 'member', left_at = NULL WHERE name = 'Oz Alt'").run(); // its item was purged early above; keep it out of this intake
-  departed(RM, "Rae One", T - 5 * 86400); // no row of its own; a NAMESAKE's roster.left row (another account) sits in the window
-  db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.left', 'Rae One', ?)").run(T - 5 * 86400 + 1, JSON.stringify({ discordId: OTHER, how: "has been kicked out of the guild by Fern Melder", keptRoles: [] }));
-  departed(RX, "Rex Gone", T - 4 * 86400, "has left the guild"); // its account is erased right before the insert
-  departed(RZ, "Roz Held", T - 29 * 86400 - 43200); // observed 29.5 days ago: inside this process's window, past its lifetime by the database clock
-  RUN = (sql) => { if (/INSERT INTO community_departure_reviews/.test(sql)) { RUN = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(RX); } };
-  made = await dep.departureIntake(env(ON), T);
+  await siteUser(RM, { global_name: "Rae" }); await siteUser(RX, { global_name: "Rex" }); await siteUser(RY, { global_name: "Ray" }); await siteUser(RZ, { global_name: "Roz" });
+  await fixtureRun("UPDATE characters SET status = 'member', left_at = NULL WHERE name = 'Oz Alt'"); // its item was purged early above; keep it out of this intake
+  await departed(RM, "Rae One", T - 5 * 86400); // no row of its own; a NAMESAKE's roster.left row (another account) sits in the window
+  await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.left', 'Rae One', ?)",T - 5 * 86400 + 1,JSON.stringify({ discordId: OTHER, how: "has been kicked out of the guild by Fern Melder", keptRoles: [] }));
+  await departed(RX, "Rex Gone", T - 4 * 86400, "has left the guild"); // its account is erased right before the insert
+  await departed(RZ, "Roz Held", T - 30 * 86400 + 30); // scan window still open; Native time crosses the original lifetime before insert
+  RUN = async (sql) => { if (/INSERT INTO community_departure_reviews/.test(sql)) { RUN = null; await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",RX); } };
+  nativeTimeOverride = T + 60;
+  try { made = await dep.departureIntake(directEnv(ON), T); }
+  finally { nativeTimeOverride = null; }
   check("the insert requalifies each candidate: the account erased after the scan gets no item; the candidate past its lifetime by the database clock gets none; the valid one is recorded", made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RM) && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RX) && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RZ), made);
   check("  a namesake's roster.left row (another account) does not label the kind: unknown", one("SELECT kind FROM community_departure_reviews WHERE discord_id = ?", RM).kind === "unknown");
   check("(the run hook fired)", RUN === null);
-  siteUser(RX, { global_name: "Rex" });
-  db.prepare("UPDATE characters SET status = 'member', left_at = NULL WHERE name = 'Roz Held'").run(); // the held candidate would otherwise fill the one-row page below
+  await siteUser(RX, { global_name: "Rex" });
+  await fixtureRun("UPDATE characters SET status = 'member', left_at = NULL WHERE name = 'Roz Held'"); // the held candidate would otherwise fill the one-row page below
   // a candidate the site cannot show exactly (its stored key is not the name's proof key) sorts first; with a page of one it must not starve the next
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(RY);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES ('not the key', 'Ray Odd', ?, 'left', ?, ?)").run(RY, T - 7 * 86400, T - 6 * 86400);
-  made = await dep.departureIntake(env(ON), T, 1);
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",RY);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES ('not the key', 'Ray Odd', ?, 'left', ?, ?)",RY,T - 7 * 86400,T - 6 * 86400);
+  made = await dep.departureIntake(directEnv(ON), T, 1);
   check("the scan pages by keyset within the run: the invalid candidate is skipped and the next valid one (Rex) is recorded with a page of one", made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RX) && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RY), made);
-  db.prepare("UPDATE characters SET status = 'member', left_at = NULL WHERE discord_id = ?").run(RM);
-  made = await dep.departureIntake(env(ON), T);
+  await fixtureRun("UPDATE characters SET status = 'member', left_at = NULL WHERE discord_id = ?",RM);
+  made = await dep.departureIntake(directEnv(ON), T);
   check("a rejoin after the item was recorded changes nothing: the item is the historical event-time fact", made === 0 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RM));
 
   console.log("\n== .76: the captured incarnation at the insert; progress across runs ==");
   const RQ = "300000000000000065";
-  siteUser(RQ, { global_name: "Quin" }); departed(RQ, "Quin Gone", T - 3 * 86400, "has left the guild");
+  await siteUser(RQ, { global_name: "Quin" }); await departed(RQ, "Quin Gone", T - 3 * 86400, "has left the guild");
   // the account is erased and RECREATED under the same Discord id (a new first sign-in) between the scan and the insert
-  RUN = (sql) => { if (/INSERT INTO community_departure_reviews/.test(sql)) { RUN = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(RQ); siteUser(RQ, { global_name: "Quin", first_login: T + 5, last_login: T + 5 }); } };
-  made = await dep.departureIntake(env(ON), T);
+  RUN = async (sql) => { if (/INSERT INTO community_departure_reviews/.test(sql)) { RUN = null; await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",RQ); await siteUser(RQ, { global_name: "Quin", first_login: T + 5, last_login: T + 5 }); } };
+  made = await dep.departureIntake(directEnv(ON), T);
   check("an account erased and recreated under the same id before the insert records nothing: the insert binds the CAPTURED incarnation (first sign-in and session version), not a row's existence", made === 0 && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RQ) && RUN === null, made);
-  made = await dep.departureIntake(env(ON), T);
+  made = await dep.departureIntake(directEnv(ON), T);
   check("  the next run, scanning the recreated account itself, records the departure (a genuine confirmed fact about that account)", made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RQ));
   // 25 candidates the site cannot record (their stored key is not the name's proof key) sort before one valid departure;
-  // with a page of 2 and 10 pages a run, the first run cannot reach it: the second continues where the first stopped
+  // The current source admits two pages of two per run; later runs must continue
+  // across all 25 original invalid candidates to reach the same valid departure.
   const RW = "300000000000000066";
-  siteUser(RW, { global_name: "Wall" }); db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(RW);
-  for (let i = 0; i < 25; i++) db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES (?, ?, ?, 'left', ?, ?)").run(`wrong key ${String(i).padStart(2, "0")}`, `Wall ${String.fromCharCode(65 + i)}`, RW, T - 2 * 86400 - 1000, T - 2 * 86400 - 1000 + i);
+  await siteUser(RW, { global_name: "Wall" }); await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",RW);
+  for (let i = 0; i < 25; i++) await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, left_at) VALUES (?, ?, ?, 'left', ?, ?)",`wrong key ${String(i).padStart(2, "0")}`,`Wall ${String.fromCharCode(65 + i)}`,RW,T - 2 * 86400 - 1000,T - 2 * 86400 - 1000 + i);
   const RV = "300000000000000067";
-  siteUser(RV, { global_name: "Val" }); departed(RV, "Val Late", T - 2 * 86400, "has left the guild");
-  made = await dep.departureIntake(env(ON), T, 2);
-  check("a run that ends at its bounds (10 pages of 2) records nothing yet and keeps its scan position (no personal data)", made === 0 && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 1 && one("SELECT name_key FROM community_departure_scan").name_key === "wrong key 18", one("SELECT name_key FROM community_departure_scan")?.name_key); // Ray Odd (above) takes the first of the 20 slots
-  made = await dep.departureIntake(env(ON), T, 2);
-  check("  the next run continues from that position, reaches the valid departure and records it; having scanned to the end, it clears the position", made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RV) && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 0, made);
-  made = await dep.departureIntake(env(ON), T, 2);
-  check("  a third run starts over from the window's start (the invalid candidates are never dropped, only bounded per run)", made === 0 && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 1);
-  db.prepare("DELETE FROM community_departure_scan").run();
+  await siteUser(RV, { global_name: "Val" }); await departed(RV, "Val Late", T - 2 * 86400, "has left the guild");
+  made = await dep.departureIntake(directEnv(ON), T, 2);
+  check("a run that ends at its current bounds (two pages of two) records nothing yet and keeps its scan position (no personal data)", dep.DEPARTURE_LIMITS.intakePages === 2 && made === 0 && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 1 && one("SELECT name_key FROM community_departure_scan").name_key === "wrong key 02", one("SELECT name_key FROM community_departure_scan")?.name_key); // Ray Odd takes the first slot.
+  let continued = 0, previous = one("SELECT name_key FROM community_departure_scan").name_key, progressed = true;
+  while (continued < 7 && !one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RV)) {
+    made = await dep.departureIntake(directEnv(ON), T, 2);
+    const position = one("SELECT name_key FROM community_departure_scan")?.name_key;
+    if (made === 0) progressed = progressed && typeof position === "string" && position > previous;
+    previous = position; continued++;
+  }
+  check("  bounded subsequent runs continue from that position, reach the original valid departure and clear the position after exhausting the scan", progressed && continued > 1 && continued <= 7 && made === 1 && !!one("SELECT 1 FROM community_departure_reviews WHERE discord_id = ?", RV) && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 0, made, continued);
+  made = await dep.departureIntake(directEnv(ON), T, 2);
+  check("  the following run starts over from the window's start (the invalid candidates are never dropped, only bounded per run)", made === 0 && one("SELECT COUNT(*) AS n FROM community_departure_scan").n === 1);
+  await fixtureRun("DELETE FROM community_departure_scan");
 
   console.log("\n== .73: uniform reader admission on every payload ==");
   r = await call("GET", "/api/admin/community/departures", STAFF);
   const dRae = r.body.departures.find((d) => d.characterName === "Rae One");
-  const denyStaff = () => db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF);
-  const restoreStaff = () => db.prepare("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?").run(STAFF);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; denyStaff(); } };
+  const denyStaff = async () => await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF);
+  const restoreStaff = async () => await fixtureRun("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?",STAFF);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/departures/update", STAFF, { id: dRae.id, revision: 1, action: "acknowledge" });
   check("EARLY: an admin denied between the context read and the pre-decision read: 403 denied, no item in the answer, nothing written", r.status === 403 && r.body.error === "denied" && !("departure" in r.body) && one("SELECT status FROM community_departure_reviews WHERE id = ?", dRae.id).status === "open", JSON.stringify(r.body).slice(0, 200));
-  restoreStaff();
-  AFTER = (i) => { if (i === 1) db.prepare("UPDATE community_departure_reviews SET revision = revision + 1 WHERE id = ?").run(dRae.id); if (i === 2) { AFTER = null; db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(STAFF); } };
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 1) await fixtureRun("UPDATE community_departure_reviews SET revision = revision + 1 WHERE id = ?",dRae.id); if (i === 2) { AFTER = null; await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",STAFF); } };
   r = await call("POST", "/api/admin/community/departures/update", STAFF, { id: dRae.id, revision: 1, action: "acknowledge" });
   check("LOST CAS: another change lands after the pre-decision read, the write loses its compare-and-set, the admin leaves the server before the fallback read: 403 not_member, no item payload", r.status === 403 && r.body.error === "not_member" && !("departure" in r.body) && one("SELECT status FROM community_departure_reviews WHERE id = ?", dRae.id).status === "open", JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE community_departure_reviews SET revision = 1 WHERE id = ?").run(dRae.id);
-  restoreStaff();
-  AFTER = (i) => { if (i === 2) { AFTER = null; denyStaff(); } };
+  await fixtureRun("UPDATE community_departure_reviews SET revision = 1 WHERE id = ?",dRae.id);
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/departures/update", STAFF, { id: dRae.id, revision: 1, action: "acknowledge" });
   check("AFTER SUCCESS: the decision committed, then the admin denied: the answer is the item the write's own batch read and the write stands", r.status === 200 && r.body.departure.status === "acknowledged" && r.body.departure.revision === 2 && one("SELECT status FROM community_departure_reviews WHERE id = ?", dRae.id).status === "acknowledged", JSON.stringify(r.body).slice(0, 200));
   r = await call("GET", "/api/admin/community/departures", STAFF);
   check("  while the next read, newly unauthorized, is refused", r.status === 403 && !("departures" in r.body));
-  restoreStaff();
+  await restoreStaff();
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 
   console.log(`\n${ok}/${n} passed`);

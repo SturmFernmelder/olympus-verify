@@ -1,5 +1,17 @@
 # Design — membership verification for Olympus (rev. 2026-09-29, Claude Cowork)
 
+## Current Battle.net capability and release status — 15 October 2026
+
+The opening sketch and phase plan below are historical. They do not describe current activation instructions or promise future provider coverage.
+
+The reviewed integration157 source keeps Battle.net collection **OFF** in [`policy-release.ts`](../worker/src/policy-release.ts). Enabling requires an ON release with a matching policy digest, reviewed ownership API and recovery plan, a policy describing collection, configured credentials and the admin setting. The current admin control records enable intent only. Credentials, a profile publication or a checkbox cannot open this release; see [`bnet-switch.ts`](../worker/src/bnet-switch.ts).
+
+The dormant [`oauth.ts`](../worker/src/oauth.ts) connector requests `openid` and reads BattleTag/user ID through `userinfo`. It does not query WoW account-character ownership. The old Phase 3 routes and configuration names were removed in .50; the historical configuration instructions below cannot restore that implementation. See [`index.ts`](../worker/src/index.ts) and [`env.ts`](../worker/src/env.ts).
+
+Current official [WoW](https://community.developer.battle.net/documentation/world-of-warcraft/profile-apis) and [WoW Classic](https://community.developer.battle.net/documentation/world-of-warcraft-classic/profile-apis) references list account and protected-character endpoints requiring a user-authorized authorization-code token with `wow.profile`. This is public documentation evidence, not authenticated operational evidence, complete edition coverage or a mapping to another game operator. Item 14 remains pending an authoritative operator account/character ownership contract and a reviewed adapter. Account login, matching names and public profile selection must not substitute for that contract or grant guild authority.
+
+The next step is contract and adapter review with minimal retained facts, current-session/privacy binding, export/deletion and recovery evidence, followed by the existing exact-release and owner gates. Collection remains OFF meanwhile. The later dated removal and retention narratives below remain historical evidence.
+
 This is the sketch the owner brought on 17 September, checked against the current API documentation and rewritten
 where it did not hold. The premise stands: zero-touch exists today only at the Battle.net-account level; the
 character level arrives when Blizzard adds Forever to the profile API; in between, the in-game step is made
@@ -167,7 +179,10 @@ cancelled in D1 and then sent anyway by whichever client already held it. Rows q
 by this, an already-invited row is left alone, and an unreadable queue file changes nothing — the file returning
 garbage must not be able to empty the queue.
 
-## Phases
+## Historical phase plan (superseded for operation)
+
+> Retained historical design, not current activation instructions. Phase 1 linking now ships OFF; Phase 3's routes and flags were removed. Use the dated current-status note above.
+
 - **Phase 1 (live on deploy):** Linked Role via the Worker; `/verify` codes; review cards; roles from roster diffs.
 - **Phase 2 (the floor until the API exists):** addon + watcher as above. Residual manual input: an officer logged in
   with the addon, a key press per flush, an occasional `/reload` to write SavedVariables (approvals no longer wait
@@ -678,6 +693,8 @@ pickers) would be a different decision with a different privacy text, and was no
 private request form exists for people who can no longer sign in with Discord, and nothing else on a signed-out page links
 it, so hiding it would hide the form from exactly its people. The policies stay at their addresses, which the Discord
 application links (Discord's developer terms want the notice reachable from the application, which it still is).
+
+> Historical .114 switch design: the policy-marker-plus-setting sequence below is superseded by the immutable release and review gates described in the 15 October 2026 current-status note. The original narrative is preserved.
 
 **The Battle.net switch cannot get ahead of the policy.** the owner wanted no retention text while the login is useless, and a
 login that is "ready, switched off in admin settings". Those two meet in one rule: switching on needs the privacy policy to

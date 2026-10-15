@@ -1,4 +1,6 @@
 /** .116b3 dormant connector: immutable same-version OFF release plus immediate admin pause. */
+import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql} from './privacy-serving-authority';
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type { Env } from './env';
 import { now } from './db';
 import { isSiteAdmin } from './site-core';
@@ -25,18 +27,19 @@ export async function bnetLoginState(env:Env):Promise<BnetLoginState>{
 }
 export async function bnetLoginOn(env:Env):Promise<boolean>{return(await bnetLoginState(env)).effective;}
 export type SwitchResult={ok:true;state:BnetLoginState}|{ok:false;error:'not_configured'|'policy_not_ready'|'admission_refused';message:string};
-export type SwitchAdmission=Readonly<{sessionVersion:number;expiresAt:number}>;
+export type SwitchAdmission=Readonly<{sessionVersion:number;expiresAt:number;privacyGeneration:string|null;accountIncarnation:string;originalSession:OriginalSiteSession}>;
 /** Existing SITE_ADMINS/origin/page fence remains in site-admin.ts. Enable is an intent only; never writes adminOn=1. */
 export async function setBnetSwitch(env:Env,actor:string,on:boolean,admission?:SwitchAdmission):Promise<SwitchResult>{
  const at=now(), who=actor, requested=on===true, version=admission?.sessionVersion,expires=admission?.expiresAt;
  if(typeof who!=='string'||!isSiteAdmin(env,who)||!Number.isSafeInteger(version)||!Number.isSafeInteger(expires)||(expires??0)<=at)return{ok:false,error:'admission_refused',message:'Your staff session is no longer admitted. Reload before saving.'};
- const fence="EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?4 AND u.session_version=?5 AND u.denied=0 AND u.in_server=1) AND ?6>CAST(strftime('%s','now') AS INTEGER)";
+ const read=admission!.originalSession;assertOriginalSiteSessionRead(read);if(read.u!==who||read.v!==version||read.e!==expires||read.g!==admission!.privacyGeneration||read.n!==privacyAccountIncarnation(admission!.accountIncarnation))throw Error('privacy_switch_original_held');
+ const fence=`EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?4 AND u.session_version=?5 AND u.denied=0 AND u.in_server=1 AND ${privacyAccountIncarnationLiteralFenceSql('u.account_incarnation',read.n)} AND ${privacyGenerationLiteralFenceSql('u.discord_id',read.g)}) AND ?6>CAST(strftime('%s','now') AS INTEGER)`;
  const statement=(key:string,value:string)=>env.DB.prepare(`INSERT INTO site_settings(key,value,updated_at,updated_by) SELECT ?1,?2,?3,?4 WHERE ${fence} ON CONFLICT(key) DO UPDATE SET value=?2,updated_at=?3,updated_by=?4 WHERE ${fence}`).bind(key,value,at,who,version,expires);
  const mutations=requested?[statement(INTENT_KEY,'1')]:[statement(BNET_SWITCH_KEY,'0'),statement(INTENT_KEY,'0')];
  const audit=env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ?3,?4,'bnet.switch',NULL,?1 WHERE ${fence}`).bind(JSON.stringify({enableRequested:requested,collectionEnabled:false}),null,at,who,version,expires);
- const results=await env.DB.batch([...mutations,audit]);
+ assertOriginalSiteSessionRead(read);const results=await env.DB.batch([...mutations,audit]);assertOriginalSiteSessionRead(read);
  if(results[0]?.meta.changes!==1)return{ok:false,error:'admission_refused',message:'Your staff session changed before saving. Nothing was admitted.'};
- return{ok:true,state:await bnetLoginState(env)};
+ const state=await bnetLoginState(env);assertOriginalSiteSessionRead(read);return{ok:true,state};
 }
 export function bnetSwitchedOffPage(extraHeaders:Record<string,string>={}):Response{
  const h=policyHeaders();for(const[k,v]of Object.entries(extraHeaders))h.set(k,v);

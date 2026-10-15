@@ -3,24 +3,24 @@ export const QR_PHASE1_DDL = [
  `CREATE TABLE IF NOT EXISTS councillor_keys (
  id TEXT PRIMARY KEY, signer TEXT NOT NULL, signer_guid TEXT NOT NULL, public_key TEXT NOT NULL,
  subject_generation TEXT NOT NULL, roster_id INTEGER NOT NULL,
- created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, UNIQUE(signer,public_key))`,
+ created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, signer_account_incarnation TEXT CHECK(signer_account_incarnation IS NULL OR (typeof(signer_account_incarnation)='text' AND length(signer_account_incarnation)=32 AND length(CAST(signer_account_incarnation AS BLOB))=32 AND instr(signer_account_incarnation,char(0))=0 AND signer_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id), UNIQUE(signer,public_key))`,
  `CREATE TABLE IF NOT EXISTS councillor_challenges (
  nonce TEXT PRIMARY KEY, key_id TEXT NOT NULL REFERENCES councillor_keys(id), signer TEXT NOT NULL,
  session_version INTEGER NOT NULL, session_expires INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
  mode TEXT NOT NULL CHECK(mode IN('single','automatic')), max_proofs INTEGER NOT NULL CHECK(max_proofs IN(1,10)),
- proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs))`,
+ proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs), signer_account_incarnation TEXT CHECK(signer_account_incarnation IS NULL OR (typeof(signer_account_incarnation)='text' AND length(signer_account_incarnation)=32 AND length(CAST(signer_account_incarnation AS BLOB))=32 AND instr(signer_account_incarnation,char(0))=0 AND signer_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id))`,
  `CREATE TABLE IF NOT EXISTS verification_requests (
  code TEXT PRIMARY KEY, requester TEXT NOT NULL, subject_generation TEXT,
  created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
  state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN('pending','proved','expired')),
- session_version INTEGER, session_expires INTEGER)`,
+ session_version INTEGER, session_expires INTEGER, requester_account_incarnation TEXT CHECK(requester_account_incarnation IS NULL OR (typeof(requester_account_incarnation)='text' AND length(requester_account_incarnation)=32 AND length(CAST(requester_account_incarnation AS BLOB))=32 AND instr(requester_account_incarnation,char(0))=0 AND requester_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id))`,
  `CREATE TABLE IF NOT EXISTS verification_proofs (
  id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE REFERENCES verification_requests(code),
  challenge TEXT NOT NULL REFERENCES councillor_challenges(nonce), signer TEXT NOT NULL,
  key_id TEXT NOT NULL REFERENCES councillor_keys(id), requester TEXT NOT NULL,
  requester_guid TEXT NOT NULL, requester_name TEXT NOT NULL, native_rank INTEGER NOT NULL, rank_name TEXT NOT NULL, native_profile TEXT NOT NULL,
  signer_guid TEXT NOT NULL, snapshot_id INTEGER NOT NULL, subject_generation TEXT,
- digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)`,
+ digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, beta_window_id TEXT REFERENCES qr_beta_fern_windows(id))`,
  `CREATE TABLE IF NOT EXISTS role_settlements (
  id TEXT PRIMARY KEY, subject TEXT NOT NULL, purpose TEXT NOT NULL,
  proof_id TEXT, guild_id TEXT NOT NULL, role_id TEXT NOT NULL, desired INTEGER NOT NULL CHECK(desired IN(0,1)),

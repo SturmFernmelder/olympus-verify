@@ -9,7 +9,7 @@ import { FormError } from './policy-form-core';
 import { privacyAccessActionStatements, privacyAccessConsumedReadFence, PRIVACY_ACCESS_NOW, type PrivacyAccessGrant } from './privacy-access';
 
 export const PRIVACY_HISTORY_COLLECTIONS=['actions','eventChanges','contributionDecisions'] as const;
-/** Exactly37 count/preview histories in the aggregate copy; the three extra histories require separate downloads. */
+/** Exactly38 count/preview histories in the aggregate copy; the three extra histories require separate downloads. */
 export const PRIVACY_COPY_HISTORY_COLLECTIONS=[...PRIVACY_HISTORY_COLLECTIONS,...PRIVACY_FAMILY_HISTORY_COLLECTIONS] as const;
 export const PRIVACY_ALL_HISTORY_COLLECTIONS=[...PRIVACY_COPY_HISTORY_COLLECTIONS,...PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS] as const;
 export type PrivacyCopyHistoryCollection=typeof PRIVACY_COPY_HISTORY_COLLECTIONS[number];

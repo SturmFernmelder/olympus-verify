@@ -1,6 +1,6 @@
 /** The verification guide: one embed with three buttons, posted by `/olympus-admin post-guide` (meant for #join-guild, pinned). */
 import type { Env } from "./env";
-import { rulesetLabel } from "./ruleset-profile";
+import { rulesetLabel, type RulesetProfile } from "./ruleset-profile";
 
 export const GUIDE_VERIFY = "guide:verify"; // button → a request code, nothing to type (27 Sep; it opened a name modal before)
 export const GUIDE_STATUS = "guide:status"; // button → same answer as /verify-status
@@ -30,7 +30,8 @@ export const visitorLine = (env: Env) => `Olympus 2 and the later Olympus guilds
  * SET_NICKNAME is on, officer review only under ADMISSION_MODE=review, and no channel named that may not exist (the
  * footer no longer says #help-desk). Nothing is promised that the bot's permissions do not deliver.
  */
-export function guideMessage(env: Env) {
+/** 14 Oct 2026 (item 7): the caller resolves the active identity; a held identity means no guide. */
+export function guideMessage(env: Env, profile: RulesetProfile) {
   const officers = env.OFFICER_CHARACTERS || "an officer";
   const review = env.ADMISSION_MODE === "review";
   const role = !!env.ROLE_GUILD_MEMBER;
@@ -48,7 +49,7 @@ export function guideMessage(env: Env) {
         title: role ? "Join Olympus or restore your guild access" : "Join Olympus",
         color: GOLD,
         description: [
-          `Current game: **${rulesetLabel()}**.`,
+          `Current game: **${rulesetLabel(profile)}**.`,
           "",
           "For a character in, or applying to, the main Olympus guild. The website is optional for this verification flow.", // .114: no Battle.net promise while its sign-in is switched off (bnet-switch.ts)
           "",

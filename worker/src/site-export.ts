@@ -1,3 +1,4 @@
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import './privacy-access-data';
 import './ruleset-publication-data';
 /**
@@ -45,13 +46,14 @@ import './ruleset-publication-data';
  * all-store snapshot, erasure, identity grant or proof that a browser saved the response.
  */
 import type { Env } from "./env";
+import {rejectionSummaryStatement,projectRejectionSummary} from './privacy-rejection-decision';
 import { FormError } from "./policy-form-core";
 import { accountDataCoverage, PRIVACY_SUBJECT_COPY_SQL, PRIVACY_SUBJECT_COPY_FIELDS, projectPrivacySubjectRecord,ownCopyDate,ownCopyQueueHold,ownCopyDecisionMetadata } from './privacy-account-coverage';
 
 import './qr-phase1-data';
 import { audit } from "./db";
 import { bnetFresh } from "./bnet-retention";
-import { apiJson, appOut, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, originalUserSession, rateLimited, sign, verify, type AppRow, type SiteUser } from "./site-core";
 import { admittedReadAs, communityContext, communityExportPlan, FENCE_REFUSED, type CommunitySubject } from "./community-context";
 import { secondsToIso } from "./community-time";
 import { ownEventChangeStatements } from "./community-events";
@@ -76,11 +78,11 @@ export interface OwnActionHistoryView {
   coverage: { kind: "curated_partial"; ownAccountOnly: true; actionsPageLimit: number; completeErasure: false };
   actions: OwnActionHistoryPage;
 }
-const historyData = (payload: string, s: CommunitySubject) => JSON.stringify([payload, s.discordId, s.sessionVersion, s.expiresAt]);
+const historyData = (payload: string, s: CommunitySubject) => (assertOriginalSiteSessionRead(s.originalSession),JSON.stringify([payload, s.discordId, s.sessionVersion, s.expiresAt,s.privacyGeneration,s.accountIncarnation]));
 const historyPayload = (p: HistoryPosition) => `1.${p.high}.${p.total}.${p.seen}.${p.ts}.${p.id}.${p.expires}.${p.captured}`;
 async function historyToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
   const payload = historyPayload(p);
-  return `${payload}.${await sign(env.COOKIE_SECRET, "own-actions", historyData(payload, s))}`;
+  const read=s.originalSession;assertOriginalSiteSessionRead(read);const mac=await sign(env.COOKIE_SECRET,"own-actions-incarnation-v1",historyData(payload,s));assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");return `${payload}.${mac}`;
 }
 async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
   let p: HistoryPosition | null = null;
@@ -92,7 +94,7 @@ async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Prom
     if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
         (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
     const payload = historyPayload(p);
-    if (!await verify(env.COOKIE_SECRET, "own-actions", historyData(payload, s), parts[8]!)) return null;
+    const read=s.originalSession;assertOriginalSiteSessionRead(read);const valid=await verify(env.COOKIE_SECRET,"own-actions-incarnation-v1",historyData(payload,s),parts[8]!);assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");if(!valid)return null;
   }
   const bounded = p ? 1 : 0, after = p && p.seen > 0 ? 1 : 0;
   // These two statements run behind the original probe in the SAME batch. First-page SQL derives its own high-water.
@@ -106,14 +108,14 @@ async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Prom
 }
 type HistoryStart = { ok: true; id: string; subject: CommunitySubject; plan: HistoryPlan } | { ok: false; response: Response };
 async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
-  // Passed-user primitives are captured before awaiting; they never grant authority on their own.
-  const callerId = user.discord_id, callerVersion = user.session_version;
+  // Genuine original read and Native user correspondence are captured before awaiting; Native admission remains mandatory.
+  const caller=originalUserSession(user),callerId=caller.u,callerVersion=caller.v;assertOriginalSiteSessionRead(caller);
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
   if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form to continue history; cursors are not accepted in addresses." }, 400) };
-  const ctx = await communityContext(env, request), s = ctx.subject;
-  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+  const ctx = await communityContext(env, request), s = ctx.subject;assertOriginalSiteSessionRead(caller);
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || s.expiresAt!==caller.e || s.privacyGeneration!==caller.g || s.accountIncarnation!==caller.n || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
+  const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareHistory(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600))
@@ -166,10 +168,10 @@ export interface OwnEventChangeHistoryView {
   coverage: { kind: "curated_partial"; ownAccountOnly: true; eventChangesPageLimit: number; completeErasure: false };
   eventChanges: OwnEventChangePage;
 }
-const eventChangeData = (payload: string, s: CommunitySubject) => JSON.stringify(["site-session", "event_changes", payload, s.discordId, s.sessionVersion, s.expiresAt]);
+const eventChangeData = (payload: string, s: CommunitySubject) => (assertOriginalSiteSessionRead(s.originalSession),JSON.stringify(["site-session", "event_changes", payload, s.discordId, s.sessionVersion, s.expiresAt,s.privacyGeneration,s.accountIncarnation]));
 async function eventChangeToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
   const payload = historyPayload(p);
-  return `${payload}.${await sign(env.COOKIE_SECRET, "own-event-changes", eventChangeData(payload, s))}`;
+  const read=s.originalSession;assertOriginalSiteSessionRead(read);const mac=await sign(env.COOKIE_SECRET,"own-event-changes-incarnation-v1",eventChangeData(payload,s));assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");return `${payload}.${mac}`;
 }
 async function prepareEventChanges(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
   let p: HistoryPosition | null = null;
@@ -181,18 +183,18 @@ async function prepareEventChanges(env: Env, s: CommunitySubject, raw?: string):
     if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
         (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
     const payload = historyPayload(p);
-    if (!await verify(env.COOKIE_SECRET, "own-event-changes", eventChangeData(payload, s), parts[8]!)) return null;
+    const read=s.originalSession;assertOriginalSiteSessionRead(read);const valid=await verify(env.COOKIE_SECRET,"own-event-changes-incarnation-v1",eventChangeData(payload,s),parts[8]!);assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");if(!valid)return null;
   }
   return { position: p, statements: ownEventChangeStatements(env, s.discordId, p) };
 }
 async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
-  const callerId = user.discord_id, callerVersion = user.session_version;
+  const caller=originalUserSession(user),callerId=caller.u,callerVersion=caller.v;assertOriginalSiteSessionRead(caller);
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
   if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
-  const ctx = await communityContext(env, request), s = ctx.subject;
-  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+  const ctx = await communityContext(env, request), s = ctx.subject;assertOriginalSiteSessionRead(caller);
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || s.expiresAt!==caller.e || s.privacyGeneration!==caller.g || s.accountIncarnation!==caller.n || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
+  const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareEventChanges(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
@@ -262,10 +264,10 @@ export interface OwnContributionDecisionHistoryView {
   coverage: { kind: "curated_partial"; ownAccountOnly: true; contributionDecisionsPageLimit: number; completeErasure: false };
   contributionDecisions: OwnContributionDecisionPage;
 }
-const contributionDecisionData = (payload: string, s: CommunitySubject) => JSON.stringify(["site-session", "contribution_decisions", payload, s.discordId, s.sessionVersion, s.expiresAt]);
+const contributionDecisionData = (payload: string, s: CommunitySubject) => (assertOriginalSiteSessionRead(s.originalSession),JSON.stringify(["site-session", "contribution_decisions", payload, s.discordId, s.sessionVersion, s.expiresAt,s.privacyGeneration,s.accountIncarnation]));
 async function contributionDecisionToken(env: Env, s: CommunitySubject, p: HistoryPosition): Promise<string> {
   const payload = historyPayload(p);
-  return `${payload}.${await sign(env.COOKIE_SECRET, "own-contribution-decisions", contributionDecisionData(payload, s))}`;
+  const read=s.originalSession;assertOriginalSiteSessionRead(read);const mac=await sign(env.COOKIE_SECRET,"own-contribution-decisions-incarnation-v1",contributionDecisionData(payload,s));assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");return `${payload}.${mac}`;
 }
 async function prepareContributionDecisions(env: Env, s: CommunitySubject, raw?: string): Promise<HistoryPlan | null> {
   let p: HistoryPosition | null = null;
@@ -277,18 +279,18 @@ async function prepareContributionDecisions(env: Env, s: CommunitySubject, raw?:
     if (p.expires !== s.expiresAt || p.captured === 0 || p.captured >= p.expires || p.seen > p.total || p.id > p.high ||
         (p.total === 0) !== (p.high === 0) || (p.seen === 0 ? p.ts !== 0 || p.id !== 0 : p.id === 0 || p.seen >= p.total)) return null;
     const payload = historyPayload(p);
-    if (!await verify(env.COOKIE_SECRET, "own-contribution-decisions", contributionDecisionData(payload, s), parts[8]!)) return null;
+    const read=s.originalSession;assertOriginalSiteSessionRead(read);const valid=await verify(env.COOKIE_SECRET,"own-contribution-decisions-incarnation-v1",contributionDecisionData(payload,s),parts[8]!);assertOriginalSiteSessionRead(read);if(s.originalSession!==read)throw Error("privacy_history_original_held");if(!valid)return null;
   }
   return { position: p, statements: ownContributionDecisionStatements(env, s.discordId, p) };
 }
 async function beginContributionDecisions(request: Request, env: Env, user: SiteUser, raw?: string): Promise<HistoryStart> {
-  const callerId = user.discord_id, callerVersion = user.session_version;
+  const caller=originalUserSession(user),callerId=caller.u,callerVersion=caller.v;assertOriginalSiteSessionRead(caller);
   if (typeof callerId !== "string" || typeof callerVersion !== "number") return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
   if (["actions", "eventChanges", "contributionDecisions", "collection"].some(key => new URL(request.url).searchParams.has(key))) return { ok: false, response: apiJson({ error: "invalid_cursor", message: "Use the account form; continuations are not accepted in addresses." }, 400) };
-  const ctx = await communityContext(env, request), s = ctx.subject;
-  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
+  const ctx = await communityContext(env, request), s = ctx.subject;assertOriginalSiteSessionRead(caller);
+  if (!s || s.discordId !== callerId || s.sessionVersion !== callerVersion || s.expiresAt!==caller.e || s.privacyGeneration!==caller.g || s.accountIncarnation!==caller.n || !Number.isSafeInteger(s.sessionVersion) || s.sessionVersion < 0 || !whole(s.expiresAt))
     return { ok: false, response: apiJson({ error: "signed_out" }, 401) };
-  const subject: CommunitySubject = Object.freeze({ discordId: String(s.discordId), sessionVersion: Number(s.sessionVersion), expiresAt: Number(s.expiresAt),privacyGeneration:s.privacyGeneration });
+  const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareContributionDecisions(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
   if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
@@ -370,7 +372,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   if (!history || !eventHistory || !decisionHistory) return apiJson({ error: "invalid_cursor" }, 400);
   const plan = communityExportPlan(env, id);
   const privacyCopy=env.PRIVACY_ERASURE_ENABLED==='true'||env.PRIVACY_RETENTION_ENABLED==='true';
-  const markerKey=privacyCopy?await privacySubjectKey(env,id):null;
+  const markerKey=await privacySubjectKey(env,id);
   const privacyStatements=!privacyCopy?[]:[
     env.DB.prepare('SELECT state,hold_reason,staff_access,created_at,completed_at,retain_until FROM privacy_serving_jobs WHERE subject_id=?1 ORDER BY created_at,operation_id LIMIT 1001').bind(id),
     env.DB.prepare("SELECT purpose,state,cleanup_requested,created_at,updated_at,retain_until FROM privacy_provider_messages WHERE EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1) ORDER BY created_at,operation_id LIMIT 1001").bind(id),
@@ -398,6 +400,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     env.DB.prepare("SELECT old_name, new_name, state, decided_at, closed_at FROM rename_holds WHERE discord_id = ?1 ORDER BY decided_at, id").bind(id),
     ...plan.statements,
     ...privacyStatements,
+    rejectionSummaryStatement(env,id,markerKey),
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
   const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, decisionMeta, decisionRows, renames] = out;
@@ -416,7 +419,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
   let body:Record<string,unknown>;
   try {body = {
     generatedAt: secondsToIso((clock!.results[0] as { at: number }).at),
-    coverage: { kind: "curated_partial", ownAccountOnly: true, storeInventory:accountDataCoverage('ordinary',privacyCopy), excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
+    coverage: { kind: "curated_partial", ownAccountOnly: true, storeInventory:accountDataCoverage('ordinary',privacyCopy), excluded: ["staff notes/reasons/identities", "raw roster snapshots", "private payment details", "provider logs", "external Discord posts/connections", "private recovery backups and the separately minimized independent birth/rejection replay companion", "local watcher/game/download copies"], actionsPageLimit: 1000, eventChangesPageLimit: 1000, contributionDecisionsPageLimit: 1000, completeErasure: false },
     about: "A curated partial copy about your own Discord account, with account, site, verification and community sections read together in one database transaction at generatedAt (the database's clock inside that read). Actions, actor-linked eventChanges and subject/actor-linked contributionDecisions are separately captured retained ranges with their own capture.at and continuation. Contribution decisions include only current recognized actions, original time/deadline, bounded guild scope and your relation; own weeks are separately selected; payment evidence, counterpart identities and arbitrary actor text are omitted. Later inserts are excluded from each continued range. A download continuing one range captures its other history datasets afresh. Other sections are freshly read for this download, not frozen across pages; no all-store or immutable content snapshot is claimed. Continue through the account form. History completion concerns this retained range only, not every store, external service, recovery copy or erasure.",
     account: a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
@@ -442,6 +445,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     actions: actionPage,
     eventChanges: eventPage,
     contributionDecisions: decisionPage,
+    membershipRejection:projectRejectionSummary(out[18+plan.statements.length+privacyStatements.length]!.results),
     community: plan.shape(out.slice(18,18+plan.statements.length)), // Three two-result history plans precede registry results.
     ...(privacyCopy?{privacyLifecycle:{subjectRecord:projectPrivacySubjectRecord(out[22+plan.statements.length]!.results[0]),coverage:'own minimized serving controls; no private provider pointers, proof digests or other account identifiers',allCopiesErased:false,
       erasureRequests:{complete:out[18+plan.statements.length]!.results.length<=1000,rows:out[18+plan.statements.length]!.results.slice(0,1000)},

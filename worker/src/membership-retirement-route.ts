@@ -1,4 +1,5 @@
 /** Attended single-parent retirement. A site session is never a general Discord role capability. */
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type {Env} from './env';
 import {apiJson,isSiteAdmin,PAGE_VERSION,rateLimited,readSession,sameOrigin,sign,verify,type SiteUser} from './site-core';
 import {fenceSql} from './community-context';
@@ -7,7 +8,7 @@ import {DB_NOW,randomGeneration} from './account-generation-contracts';
 import {admitAttendedMembershipRetirement,retireOwnedMembershipRole,RETIREMENT_PARENT_FIELDS,type RetirementParent} from './role-settlements';
 
 const ROOT='/api/admin/membership-retirement',HEX=/^[0-9a-f]{32}$/,MAC=/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
-type Session={u:string;v:number;e:number;g:string|null};
+type Session=OriginalSiteSession;
 type Form={expiresAt:number;formNonce:string;token:string};
 type Captured={parent:RetirementParent;generation:string|null;active:boolean;at:number};
 class Refused extends Error{constructor(readonly code:string,readonly status=409){super(code);}}
@@ -32,7 +33,7 @@ async function capture(env:Env,s:Session,id:string,b:ReturnType<typeof membershi
  FROM role_settlements p LEFT JOIN privacy_subjects g ON g.subject_id=p.subject WHERE p.id=?1
  AND p.guild_id=?2 AND p.role_id=?3 AND p.purpose='roster_membership' AND p.proof_id IS NULL
  AND p.desired=1 AND p.attempts=1 AND p.state='settled' AND p.claim_nonce IS NOT NULL
- AND ${fenceSql('applicantWrite',4,5,6,s.g)}`).bind(id,b.guild,b.retired,s.u,s.v,s.e).first<RetirementParent&{capture_generation:string|null;capture_state:string|null;capture_at:number}>();
+ AND ${fenceSql('applicantWrite',4,5,6,s.g,s.n)}`).bind(id,b.guild,b.retired,s.u,s.v,s.e).first<RetirementParent&{capture_generation:string|null;capture_state:string|null;capture_at:number}>();
  if(!p||!isSiteAdmin(env,s.u)||!membershipTargetsCurrent(env,b))throw new Refused('retirement_original_admission_changed');
  const parent=Object.freeze(canonical(p)) as RetirementParent,generation=p.capture_generation??null;
  return {parent,generation,active:p.capture_state===null||p.capture_state==='active',at:p.capture_at};
@@ -52,7 +53,7 @@ export async function handleMembershipRetirement(request:Request,env:Env,path:st
   if(!binding.retired)throw new Refused('retirement_binding_absent');
   const s=await readSession(env,request);
   if(!s||!isSiteAdmin(env,s.u)||s.u!==admin.discord_id||s.v!==admin.session_version||s.g!==(admin.privacyGeneration??null)||!Number.isSafeInteger(s.v)||s.v<1||!Number.isSafeInteger(s.e))throw new Refused('retirement_staff_required',403);
-  const original=Object.freeze({...s});const url=new URL(request.url);
+  assertOriginalSiteSessionRead(s);const original=s;const url=new URL(request.url);
   if(url.pathname!==path)throw new Refused('not_found',404);
   if(request.method==='GET'&&path===ROOT){
    if([...url.searchParams.keys()].join(',')!=='parentGrantId'||!HEX.test(url.searchParams.get('parentGrantId')??''))throw new Refused('retirement_bad_request',400);

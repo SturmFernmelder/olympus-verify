@@ -1,3 +1,4 @@
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import { requestServingErasure, erasureRequestStatus, privacyBoundSiteEnv,readErasureProof } from './privacy-serving-authority';
 /**
  * The guild site's API for signed-in members (build .41; .43 adds the voting board, backup choices and the weekly
@@ -10,6 +11,7 @@ import { requestServingErasure, erasureRequestStatus, privacyBoundSiteEnv,readEr
  */
 import { errorRef } from "./log";
 import type { Env } from "./env";
+import type { RulesetSnapshot } from "./ruleset-profile";
 import { audit, now } from "./db";
 import { DiscordError, rest } from "./discord";
 import { guildSeats, memberSeats } from "./guild-seats";
@@ -32,6 +34,7 @@ import {
   isNoVote,
   LIMITS,
   loadSettings,
+  loadSiteState,
   meta,
   parseCharacterName,
   parseLink,
@@ -50,7 +53,9 @@ import {
   type SiteSettings,
 } from "./site-data";
 import { releaseReserved } from "./site-queue";
+import { handleAttendedBetaWindow } from "./site-beta-window";
 import { handleAdmin } from "./site-admin";
+import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembershipDecisionOrigin,MembershipDecisionHeld} from "./privacy-rejection-decision";
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
@@ -63,28 +68,34 @@ export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
 const MEMBER_RECHECK = 3600;
 
-export async function handleApi(request: Request, env: Env, path: string, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+export async function handleApi(request: Request, env: Env, path: string, waitUntil: (work: () => Promise<unknown>) => void): Promise<Response> {
   const m = request.method;
+  if (path === '/api/admin/qr/beta-window') return handleAttendedBetaWindow(request, env);
   if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env);
-  if (m === "GET" && path === "/api/public") return apiJson({ settings: await loadSettings(env), meta: meta(), now: now() });
+  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: state.settings, meta: meta(state.ruleset), now: now() }); }
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);
   if(m==='POST' && path==='/api/me/erasure'){
     const body=await readJson(request),operationId=typeof body?.operationId==='string'?body.operationId:'';
     const response=await requestServingErasure(env,request,operationId);
-    if(response.status===202)waitUntil((async()=>{const proof=await readErasureProof(env,operationId);if(proof){const {continueServingErasure}=await import('./privacy-serving-erase');await continueServingErasure(env,proof);}})().catch(e=>console.error('privacy erasure continuation failed',errorRef(e))));
+    if(response.status===202)waitUntil(()=>(async()=>{const proof=await readErasureProof(env,operationId);if(proof){const {continueServingErasure}=await import('./privacy-serving-erase');await continueServingErasure(env,proof);}})().catch(e=>console.error('privacy erasure continuation failed',errorRef(e))));
     return response;
   }
   if(m==='POST' && path==='/api/me/erasure/status'){if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'bad_origin'},403);const body=await readJson(request);const status=await erasureRequestStatus(env,request,typeof body?.operationId==='string'?body.operationId:'',typeof body?.statusToken==='string'?body.statusToken:undefined);return status?apiJson(status):apiJson({error:'not_found'},404);}
-  const user = await currentUser(env, request);
+  const decisionOrigin=membershipDecisionOrigin(request);
+  let decisionAuth:Awaited<ReturnType<typeof authenticateMembershipDecision>>=null;
+  try{if(decisionOrigin)decisionAuth=await authenticateMembershipDecision(decisionOrigin,env);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:'original_membership_decision_held'},409);throw e;}
+  const user = decisionOrigin?decisionAuth?.user??null:await currentUser(env, request);
   if (!user) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
   if (m !== "GET" && m !== "HEAD" && !sameOrigin(request)) return apiJson({ error: "bad_origin", message: "Refused: that request did not come from this page." }, 403);
-  const originalSession=await readSession(env,request);if(!originalSession)return apiJson({error:'signed_out'},401);
+  const originalSession=decisionOrigin?decisionAuth?.session??null:await readSession(env,request);if(!originalSession)return apiJson({error:'signed_out'},401);
+  const userRead=user.privacyOriginalSession; if(!userRead)return apiJson({error:'signed_out'},401);assertOriginalSiteSessionRead(userRead);assertOriginalSiteSessionRead(originalSession);
+  if(JSON.stringify(userRead)!==JSON.stringify(originalSession)||user.account_incarnation!==originalSession.n)return apiJson({error:'signed_out'},401);
   env=privacyBoundSiteEnv(env,originalSession);
   const admin = isSiteAdmin(env, user.discord_id);
   if (path.startsWith("/api/admin/")) {
     if (!admin) return apiJson({ error: "forbidden" }, 403);
-    return handleAdmin(request, env, path, user, waitUntil);
+    try{if(decisionOrigin)assertMembershipDecisionOrigin(decisionOrigin,env);return await handleAdmin(request, env, path, user, waitUntil,decisionOrigin??undefined);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:'original_membership_decision_held'},409);throw e;}
   }
   // .56: the community modules (consolidation batches 1-8) apply their own write fence (community-context.ts).
   if (path.startsWith("/api/community/")) return handleCommunity(request, env, path);
@@ -175,8 +186,9 @@ const reservedOut = (rows: ReservedRow[]) => rows.map((r) => ({ id: r.id, name: 
 /** A role members vote on and write people in for: neither appointed nor chosen without a public vote. */
 const boardOpenFor = (s: SiteSettings, key: string) => !isAppointed(s, key) && !isNoVote(s, key);
 
-export async function meData(env: Env, user: SiteUser, settings?: SiteSettings) {
-  const s = settings ?? (await loadSettings(env));
+export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
+  const state = settings && ruleset ? { settings, ruleset } : await loadSiteState(env);
+  const s = state.settings;
   const id = user.discord_id;
   const app = await env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id).first<AppRow>();
   const votes = await env.DB.prepare(
@@ -213,7 +225,7 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings) 
     denied: !!user.denied,
     deniedText: user.denied ? DENIED_TEXT : undefined,
     settings: s,
-    meta: meta(),
+    meta: meta(state.ruleset),
     application: app ? appOut(app) : null,
     votes: votes.results,
     boardVotes,
@@ -865,11 +877,9 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
     return null;
   } catch (e) {
     if (e instanceof DiscordError && e.status === 404) {
-      // Record the known departure and revoke this cookie generation atomically.
-      // A slower successful lookup using that old generation must not restore access.
       const at = now();
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, ?3, NULL, NULL").bind(at, user.discord_id, "site.left_server"),
+        env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,?2,?3,NULL,NULL").bind(at, user.discord_id, "site.left_server"),
         env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, at),
       ]);
       return notMember();

@@ -75,6 +75,17 @@ Declared in `worker/package.json` and installed only when developing or in CI: `
 CI through Lupa 2.8 (LuaJIT 2.1), installed by the workflow. The asset extractor needs Pillow, fontTools and brotli when
 it is run by hand. None of these is part of the repository.
 
+## Optional census tests: upstream files retrieved at test time
+
+`addon/tests/fixtures/community-census/` contains this project's synthetic fixture, proposed optional Bridge extension,
+contract and exact provenance pins. The tests read `Olympus/Data.lua` and `Olympus/Bridge.lua` from
+`dnl-gentile/olympus-addon` commit `f60f18814f2426a5c21f97e207611871a06366b4`, supplied locally or explicitly retrieved
+into temporary CI storage. Those upstream files are not bundled or copied into this repository; their original bytes
+are checked against the recorded SHA-256 before execution and afterward. No verified copying grant was present in
+the inspected subset, and this notice asserts none. The proposed extension is this project's local test proposal;
+upstream 1.2.3 does not provide that optional method. It is composed with the pinned original Bridge only in memory
+for the test, and is not represented as adopted upstream code. Existing dependency notices above still apply.
+
 ## Trademarks
 
 World of Warcraft, Battle.net and Blizzard Entertainment are trademarks or registered trademarks of Blizzard

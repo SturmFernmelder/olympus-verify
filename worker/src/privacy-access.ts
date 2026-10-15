@@ -1,4 +1,5 @@
 /** Fresh identify-only privacy access (owner takeover, 2026-10-10). No membership or ordinary session authority. */
+import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql} from './privacy-serving-authority';
 import type { Env } from './env';
 import { accountDataCoverageHtml } from './privacy-account-coverage';
 import { PRIVACY_ALL_HISTORY_COLLECTIONS, type PrivacyHistoryCollection } from './privacy-access-history';
@@ -15,7 +16,7 @@ export const PRIVACY_ACCESS_NOW="CAST(strftime('%s','now') AS INTEGER)";
 const TOKEN=/^[A-Za-z0-9_-]{43}$/,HEX32=/^[0-9a-f]{32}$/,HEX64=/^[0-9a-f]{64}$/,ID=/^\d{17,20}$/;
 export type PrivacyAccessPurpose='own_export'|'own_erasure';
 export type PrivacyAccessCapture={subject:string;generation:string|null;state:'active'|'retiring'|'retired'|null;revision:number|null};
-export type PrivacyAccessGrant=PrivacyAccessCapture&{sessionHash:string;purpose:PrivacyAccessPurpose;grantId:string;csrfHash:string;createdAt:number;expiresAt:number;consumedAt:number|null;erasureOperation:string|null};
+export type PrivacyAccessGrant=PrivacyAccessCapture&{sessionHash:string;purpose:PrivacyAccessPurpose;grantId:string;csrfHash:string;createdAt:number;expiresAt:number;consumedAt:number|null;erasureOperation:string|null;targetSitePresent:0|1;targetAccountIncarnation:string|null};
 const random=()=>b64u(crypto.getRandomValues(new Uint8Array(32)));
 export const privacyAccessRandomId=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
 export async function privacyAccessHash(value:string):Promise<string>{return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
@@ -140,7 +141,7 @@ function scopeRefusal(scope:unknown,diagnostic:ScopeDiagnostic|null):string{
 /** Two statements, each deleting at most 100 original expired rows. Composed with the counted retention job. */
 export function privacyAccessPurgeStatements(env:Env):D1PreparedStatement[]{return [
  env.DB.prepare(`DELETE FROM privacy_access_oauth WHERE state_hash IN(SELECT state_hash FROM privacy_access_oauth WHERE expires_at<=${PRIVACY_ACCESS_NOW} ORDER BY expires_at,state_hash LIMIT 100)`),
- env.DB.prepare(`DELETE FROM privacy_access_grants WHERE rowid IN(SELECT rowid FROM privacy_access_grants WHERE expires_at<=${PRIVACY_ACCESS_NOW} ORDER BY expires_at,session_hash,purpose LIMIT 100)`),
+ env.DB.prepare(`DELETE FROM privacy_access_grants WHERE rowid IN(SELECT a.rowid FROM privacy_access_grants a WHERE a.expires_at<=${PRIVACY_ACCESS_NOW} AND NOT(a.purpose='own_erasure' AND a.consumed_at IS NOT NULL AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=a.grant_id AND j.subject_id=a.subject_id AND j.original_session_version=0 AND j.original_session_expires=a.expires_at AND (a.subject_generation IS NULL OR a.subject_generation=j.subject_generation) AND j.state IN('waiting_role','held','erasing') AND j.retain_until>${PRIVACY_ACCESS_NOW})) ORDER BY expires_at,session_hash,purpose LIMIT 100)`),
  ];}
 export async function beginPrivacyAccess(request:Request,env:Env):Promise<Response>{
  const base=origin(env,request),u=new URL(request.url);
@@ -220,19 +221,26 @@ export async function finishPrivacyAccess(request:Request,env:Env):Promise<Respo
  const h=policyHeaders();h.set('Location','/privacy/access');h.append('Set-Cookie',browserCookie(PRIVACY_ACCESS_FLOW_COOKIE,'',0));h.append('Set-Cookie',browserCookie(PRIVACY_ACCESS_COOKIE,session,720));
  return new Response(null,{status:303,headers:h});
 }
+/** Identity-only target evidence from this grant read; no cookie fallback, generic tuple branding or late n lookup. */
+export function privacyAccessTargetBirthSql(g:PrivacyAccessGrant,id:string):string{
+ const presence=Object.getOwnPropertyDescriptor(g,'targetSitePresent'),birth=Object.getOwnPropertyDescriptor(g,'targetAccountIncarnation');if(!presence||!birth||!Object.hasOwn(presence,'value')||!Object.hasOwn(birth,'value'))throw new FormError('privacy_grant_target_held',503);
+ if(presence.value===0&&birth.value===null)return `NOT EXISTS(SELECT 1 FROM site_users WHERE discord_id=${id})`;
+ if(presence.value!==1)throw new FormError('privacy_grant_target_held',503);const n=privacyAccountIncarnation(birth.value);return `EXISTS(SELECT 1 FROM site_users WHERE discord_id=${id} AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',n)})`;
+}
 export async function readPrivacyAccessGrant(request:Request,env:Env,purpose:PrivacyAccessPurpose):Promise<PrivacyAccessGrant|null>{
  origin(env,request);const session=cookieValue(request,PRIVACY_ACCESS_COOKIE);if(!session)return null;
- const row=await env.DB.prepare(`SELECT session_hash AS sessionHash,purpose,grant_id AS grantId,csrf_hash AS csrfHash,subject_id AS subject,
- subject_generation AS generation,state,revision,created_at AS createdAt,expires_at AS expiresAt,consumed_at AS consumedAt,erasure_operation AS erasureOperation
- FROM privacy_access_grants WHERE session_hash=?1 AND purpose=?2 AND expires_at>${PRIVACY_ACCESS_NOW}`).bind(await privacyAccessHash(session),purpose).first<PrivacyAccessGrant>();
- if(!row)return null;
+ const nativeRow=await env.DB.prepare(`SELECT session_hash AS sessionHash,purpose,grant_id AS grantId,csrf_hash AS csrfHash,subject_id AS subject,
+ subject_generation AS generation,state,revision,created_at AS createdAt,expires_at AS expiresAt,consumed_at AS consumedAt,erasure_operation AS erasureOperation,EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=a.subject_id) AS targetSitePresent,(SELECT account_incarnation FROM site_users u WHERE u.discord_id=a.subject_id) AS targetAccountIncarnation
+ FROM privacy_access_grants a WHERE session_hash=?1 AND purpose=?2 AND expires_at>${PRIVACY_ACCESS_NOW}`).bind(await privacyAccessHash(session),purpose).first<PrivacyAccessGrant>();
+ if(!nativeRow)return null;
+ const keys=['subject','generation','state','revision','sessionHash','purpose','grantId','csrfHash','createdAt','expiresAt','consumedAt','erasureOperation','targetSitePresent','targetAccountIncarnation'] as const,copy:Record<string,unknown>={};for(const k of keys){const d=Object.getOwnPropertyDescriptor(nativeRow,k);if(!d||!Object.hasOwn(d,'value')||d.get||d.set)throw new FormError('privacy_grant_refused',503);copy[k]=d.value;}const row=Object.freeze(copy) as unknown as PrivacyAccessGrant;
  if(!validCapture(row)||row.purpose!==purpose||!HEX64.test(row.sessionHash)||!HEX32.test(row.grantId)||!HEX64.test(row.csrfHash)||!Number.isSafeInteger(row.createdAt)||row.expiresAt!==row.createdAt+720||row.consumedAt!==null&&!Number.isSafeInteger(row.consumedAt)||row.erasureOperation!==null&&!HEX32.test(row.erasureOperation))throw new FormError('privacy_grant_refused',503);
- return Object.freeze({...row});
+ privacyAccessTargetBirthSql(row,'subject_id');return row;
 }
 /** Native atomic action guard and consume are composed with the payload, never executed on their own. */
 export function privacyAccessActionStatements(env:Env,g:PrivacyAccessGrant):D1PreparedStatement[]{
  if(!validCapture(g)||!HEX64.test(g.sessionHash)||!HEX32.test(g.grantId)||!HEX64.test(g.csrfHash)||!['own_export','own_erasure'].includes(g.purpose)||g.expiresAt!==g.createdAt+720||g.consumedAt!==null)throw new FormError('privacy_grant_refused',403);
- return [env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL} AND EXISTS(SELECT 1 FROM privacy_access_grants
+ return [env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL} AND ${privacyAccessTargetBirthSql(g,'?1')} AND EXISTS(SELECT 1 FROM privacy_access_grants
  WHERE session_hash=?5 AND purpose=?6 AND grant_id=?7 AND csrf_hash=?8 AND subject_id=?1 AND subject_generation IS ?2 AND state IS ?3 AND revision IS ?4
  AND created_at=?9 AND expires_at=?10 AND expires_at>${PRIVACY_ACCESS_NOW} AND consumed_at IS NULL)
  THEN 1 ELSE json_extract('privacy_access_action_refused','$') END AS admitted`).bind(...captureValues(g),g.sessionHash,g.purpose,g.grantId,g.csrfHash,g.createdAt,g.expiresAt),
@@ -242,7 +250,7 @@ export function privacyAccessActionStatements(env:Env,g:PrivacyAccessGrant):D1Pr
 }
 /** Read payloads finish under the same original capture and absolute deadline; this never renews a grant. */
 export function privacyAccessConsumedReadFence(env:Env,g:PrivacyAccessGrant,historyExpires:number|null=null):D1PreparedStatement{
- return env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL} AND EXISTS(SELECT 1 FROM privacy_access_grants
+ return env.DB.prepare(`SELECT CASE WHEN ${PRIVACY_ACCESS_CAPTURE_SQL} AND ${privacyAccessTargetBirthSql(g,'?1')} AND EXISTS(SELECT 1 FROM privacy_access_grants
  WHERE session_hash=?5 AND purpose=?6 AND grant_id=?7 AND csrf_hash=?8 AND subject_id=?1 AND subject_generation IS ?2 AND state IS ?3 AND revision IS ?4
  AND created_at=?9 AND expires_at=?10 AND expires_at>${PRIVACY_ACCESS_NOW} AND consumed_at IS NOT NULL)
  AND (?11 IS NULL OR ${PRIVACY_ACCESS_NOW}<?11)
@@ -275,7 +283,7 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
  else for(const g of grants){if(!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';
- body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer. The account copy previews 37 selected histories. There are 40 individual history download options. The three extra histories are fresh historical Battle.net character labels, roster processing intents attributable to your original account link, and current setting keys/times while you remain their last updater. Those three are not in the account-copy file. The Battle.net connector stays off. Roster rows missing the original linkage require attended review; processing records do not confirm provider success. Settings values and edit history are not included. To continue a history, save nextCursor from its file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
+ body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer. The account copy previews 38 selected histories. There are 41 individual history download options. The three extra histories are fresh historical Battle.net character labels, roster processing intents attributable to your original account link, and current setting keys/times while you remain their last updater. Those three are not in the account-copy file. The Battle.net connector stays off. Roster rows missing the original linkage require attended review; processing records do not confirm provider success. Settings values and edit history are not included. To continue a history, save nextCursor from its file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
  }
  body+=erasureEnabled?'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh page grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>':'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh download grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
  return htmlResponse(request,'Privacy account connection',body);

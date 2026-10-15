@@ -8,7 +8,7 @@ export const RULESET_PUBLICATION_SCHEMA = `CREATE TABLE IF NOT EXISTS ruleset_pu
  parent_id TEXT, channel_id TEXT, message_id TEXT, frozen_payload TEXT, payload_hash TEXT, record_hash TEXT,
  claim_nonce TEXT, stage TEXT NOT NULL CHECK(stage IN('selection','pending','create','edit','pin')),
  state TEXT NOT NULL CHECK(state IN('selected','pending','claimed','unknown','known','applied','refused','superseded','held')),
- result_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, actor_retain_until INTEGER NOT NULL,
+ result_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, actor_retain_until INTEGER NOT NULL, actor_account_incarnation TEXT CHECK(actor_account_incarnation IS NULL OR (typeof(actor_account_incarnation)='text' AND length(actor_account_incarnation)=32 AND length(CAST(actor_account_incarnation AS BLOB))=32 AND instr(actor_account_incarnation,char(0))=0 AND actor_account_incarnation NOT GLOB '*[^0-9a-f]*')),
  PRIMARY KEY(guild_id,publication_id,target_key)
 )`;
-export const RULESET_PUBLICATION_COLUMNS='guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,record_hash,claim_nonce,stage,state,result_code,created_at,updated_at,actor_retain_until';
+export const RULESET_PUBLICATION_COLUMNS='guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,actor_account_incarnation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,record_hash,claim_nonce,stage,state,result_code,created_at,updated_at,actor_retain_until';

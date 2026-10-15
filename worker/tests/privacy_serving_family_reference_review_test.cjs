@@ -16,9 +16,9 @@ async function review(){
   const t=reset(),owner=String(BigInt(ID)+100n+BigInt(exportIndex++)),answers={references:value,text:'My own text'};
   db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version)VALUES(?,?,?,?,7)').run(owner,'Own export fixture',t,t);
   db.prepare("INSERT INTO site_applications(discord_id,position,answers,status,created_at,updated_at)VALUES(?,?,?,'submitted',?,?)").run(owner,'member',JSON.stringify(answers),t,t);
-  const cookie=(await core.sessionCookie(env(),owner,7)).split(';')[0],request=new Request('https://guild.example/api/me/export',{headers:{Cookie:cookie}}),user=await core.currentUser(env(),request);
+  const cookie=await originalCookie(owner),request=new Request('https://guild.example/api/me/export',{headers:{Cookie:cookie}});
+  let user,response,body,error;try{response=await originalServingWork(env(),async(e,originalRequest)=>{user=await core.currentUser(e,originalRequest);return load('site-export').exportMyData(originalRequest,e,user);},request);body=await response.json();}catch(e){error=e;}
   check('core '+label+' fixture is actually authenticated',user?.discord_id===owner);
-  let response,body,error;try{response=await load('site-export').exportMyData(request,env(),user);body=await response.json();}catch(e){error=e;}
   check('core '+label+' malformed projection returns a usable own copy',!error&&response?.status===200);
   check('core '+label+' omits foreign structural identity and malformed label/kind objects',!!body&&!JSON.stringify(body).includes(OTHER));
   check('core '+label+' preserves other own user text',body?.site?.application?.answers.text==='My own text');
@@ -28,19 +28,19 @@ async function review(){
  for(const lost of[false,true]){
   const t=reset();db.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,nonce,state,decided_by,decided_at,closed_by,closed_at)VALUES(?,?,?,?,?,'cancelled',?,?,?,?)").run(OTHER,'Other Old','Other New','other new','review-rename-fixture',ID,t,ID,t);
   db.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,nonce,state,decided_by,decided_at)VALUES(?,?,?,?,?,'reapply',?,?)").run(ID,'Own Old','Own New','own new','own-rename-fixture',OTHER,t);
-  const proof=await admission(),receipt=await roles.settleAccountErasureMemberRole(env(),proof);hooks.loseResponse=lost;
-  const out=await eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql),other=raw('SELECT * FROM rename_holds WHERE discord_id=?',OTHER);
-  check('rename '+(lost?'lost committed response':'native completion')+' terminal receipt confirmed',out.state==='complete'&&out.servingAccountErased);
+  const proof=await admission(),receipt=await originalServingWork(env(),e=>roles.settleAccountErasureMemberRole(e,proof));if(lost)hooks.beforeStatement=sql=>{if(sql.includes('privacy_terminal_unconfirmed')){hooks.beforeStatement=null;hooks.loseResponse=true;}};
+  const observed=await observeOriginalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql)),out=observed.value;hooks.loseResponse=false;const other=raw('SELECT * FROM rename_holds WHERE discord_id=?',OTHER);
+  check('rename '+(lost?'lost committed response retains unknown independent custody':'native completion terminal receipt confirmed'),lost?(observed.held||out?.state!=='complete')&&raw('SELECT state FROM privacy_serving_jobs').state==='complete':out?.state==='complete'&&out.servingAccountErased);
   check('rename own hold is deleted',!raw('SELECT * FROM rename_holds WHERE discord_id=?',ID));
   check('rename staff attribution is minimized',other?.decided_by==='erased'&&other.closed_by===null&&!JSON.stringify(other).includes(ID));
   check('rename other owner hold/state/name/clock preserved',other?.discord_id===OTHER&&other.state==='cancelled'&&other.old_name==='Other Old'&&other.new_name==='Other New'&&other.decided_at===t&&other.closed_at===t);
  }
  {const t=reset();db.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,nonce,state,decided_by,decided_at,closed_by,closed_at)VALUES(?,?,?,?,?,'cancelled',?,?,?,?)").run(OTHER,'Other Old','Other New','other new','review-rename-fixture',ID,t,ID,t);
- const proof=await admission(),receipt=await roles.settleAccountErasureMemberRole(env(),proof),before=snapshot();hooks.beforeStatement=sql=>{if(sql.includes('privacy_terminal_unconfirmed'))throw Error('independent terminal rename fault');};const out=await eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql);check('rename attribution projection rolls back with every other native family at terminal fault',out.state!=='complete'&&snapshot()===before);}
+ const proof=await admission(),receipt=await originalServingWork(env(),e=>roles.settleAccountErasureMemberRole(e,proof)),before=snapshot();hooks.beforeStatement=sql=>{if(sql.includes('privacy_terminal_unconfirmed'))throw Error('independent terminal rename fault');};const observed=await observeOriginalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql));check('rename attribution projection rolls back with every other native family at terminal fault',(observed.held||observed.value?.state!=='complete')&&snapshot()===before);}
  // The explicit safety exception preserves an active ban and its case, while unlinking serving names/connections.
  {const t=reset();db.prepare('INSERT INTO members(discord_id,username,discord_name,battletag,bnet_conn_id,bnet_account_id,banned,ban_reason,linked_at)VALUES(?,?,?,?,?,?,1,?,?)').run(ID,'Private Username','Private Name','Private#1234','private-connection',9,'Active safety reason',t);
  db.prepare("INSERT INTO community_restriction_cases(id,discord_id,category,set_by,set_at,review_at,updated_at,incarnation,acknowledged_at,acknowledged_by)VALUES(?,?,'ban',?,?,?,?,?,?,?)").run('c'.repeat(22),ID,OTHER,t,t+86400,t,'d'.repeat(22),t,OTHER);
- const proof=await admission(),out=await eraser.continueServingErasure(env(),proof),member=raw('SELECT * FROM members WHERE discord_id=?',ID),caseRow=raw('SELECT * FROM community_restriction_cases WHERE discord_id=?',ID);
+ const proof=await admission(),out=await originalServingWork(env(),e=>eraser.continueServingErasure(e,proof)),member=raw('SELECT * FROM members WHERE discord_id=?',ID),caseRow=raw('SELECT * FROM community_restriction_cases WHERE discord_id=?',ID);
  check('active ban/case exception is preserved during serving completion',out.state==='complete'&&member?.banned===1&&member.ban_reason==='Active safety reason'&&caseRow?.category==='ban');
  check('active ban loses serving name/link identifiers',member?.username===null&&member.discord_name===null&&member.battletag===null&&member.bnet_conn_id===null&&member.bnet_account_id===null&&member.linked_at===null);
  check('active case stale return acknowledgment cleared',caseRow?.acknowledged_at===null&&caseRow.acknowledged_by===null);

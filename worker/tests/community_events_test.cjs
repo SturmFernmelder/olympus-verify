@@ -11,44 +11,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      db.exec("BEGIN");
-      try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; }
-    },
-  };
+  let batches = 0;
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -57,6 +45,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -82,14 +71,7 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
-    rest: async (env, method, p) => {
-      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
-      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
-      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-      return { nick: member.nick, pending: false, roles: [] };
-    },
+    rest: async () => { throw new Error("no REST in tests"); },
     explainDiscordError: (e) => String(e),
   },
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
@@ -98,40 +80,40 @@ Object.assign(stubs, {
 const context = load("./community-context"), refs = load("./community-refs"), time = load("./community-time"), names = load("./community-names");
 const siteCore = load("./site-core"), siteAdmin = load("./site-admin"), indexMod = load("./index");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; } }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; } }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const APPLICANT = "300000000000000001", ORG = "300000000000000002", M1 = "300000000000000003", M2 = "300000000000000004", M3 = "300000000000000005", STAFF = "472099715253796864";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,T,T,row.in_server,row.denied,row.session_version);
 };
-const confirm = (id, name) => {
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)").run(name.toLowerCase(), name, id, T);
+const confirm = async (id, name) => {
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",id);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)",name.toLowerCase(),name,id,T);
 };
 const ON = { COMMUNITY_FEATURES: "directory,events,attendance", COMMUNITY_ORGANIZERS: ORG };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -142,24 +124,19 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
 
-// .133: construct an original signed staff Request before the real site-only eraser consumes it.
-// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
-async function erasureRequest(target, actor) {
-  const site = load("./site-core");
-  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
-  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
-  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
-  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
-  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
-    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
-  });
+// Exercise the actual staff preparation and delete route; no manufactured session/origin.
+async function deleteThroughOriginalRoute(target, actor) {
+  const prepared=await call('GET','/api/admin/users/'+target+'/decision-target?route=delete&decisionAction=partial_delete',actor);
+  if(prepared.status!==200 || typeof prepared.body.targetToken!=='string')throw Error('original delete target preparation held '+prepared.status);
+  const result=await call('POST','/api/admin/users/'+target+'/delete',actor,{mentions:false},ON,{'X-Olympus-Decision-Target':prepared.body.targetToken,'X-Olympus-Decision-Action':'partial_delete'});
+  if(result.status!==200)throw Error('original delete route held '+result.status+' '+JSON.stringify(result.body));
+  return result.body.ok === true;
 }
-
 (async () => {
-  siteUser(APPLICANT); siteUser(ORG, { global_name: "Org" }); confirm(ORG, "Org Char"); siteUser(M1, { global_name: "Mia" }); confirm(M1, "Mia One"); siteUser(M2, { global_name: "Ben" }); confirm(M2, "Ben Two"); siteUser(M3, { global_name: "Cat" }); confirm(M3, "Cat Three"); siteUser(STAFF, { global_name: "Vik" }); confirm(STAFF, "Vik Admin");
+  await siteUser(APPLICANT); await siteUser(ORG, { global_name: "Org" }); await confirm(ORG, "Org Char"); await siteUser(M1, { global_name: "Mia" }); await confirm(M1, "Mia One"); await siteUser(M2, { global_name: "Ben" }); await confirm(M2, "Ben Two"); await siteUser(M3, { global_name: "Cat" }); await confirm(M3, "Cat Three"); await siteUser(STAFF, { global_name: "Vik" }); await confirm(STAFF, "Vik Admin");
   // .67: whatever closes at an event's start is judged by the DATABASE clock, so the fixtures start in the real future and
   // "after the start" is produced by moving the stored start into the real past, not by moving the suite's frozen clock
-  const REAL = Math.floor(RealDate.now() / 1000);
+  const REAL = T;
   const start = REAL + 3 * 86400;
 
   console.log("\n== flags, gates, organizers ==");
@@ -227,12 +204,12 @@ async function erasureRequest(target, actor) {
   check("the third 'yes' is 409 event_full, judged inside the statement; nothing written", r.status === 409 && r.body.error === "event_full" && !one("SELECT 1 FROM community_event_signups WHERE event_id = ? AND discord_id = ?", OP1, M3));
   r = await call("PUT", "/api/community/events/rsvp", M3, { eventId: OP1, status: "tentative", revision: 0 });
   check("  but a 'tentative' needs no place", r.status === 200 && r.body.event.counts.tentative === 1);
-  db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(M2);
+  await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",M2);
   r = await call("GET", "/api/community/event?id=" + OP1, M1);
   check("a holder who left the roster no longer counts or appears (read time), their answer kept", r.status === 200 && r.body.event.counts.yes === 1 && r.body.signups.length === 2 && !!one("SELECT 1 FROM community_event_signups WHERE event_id = ? AND discord_id = ?", OP1, M2), JSON.stringify(r.body.signups));
   r = await call("PUT", "/api/community/events/rsvp", M3, { eventId: OP1, status: "yes", revision: 1 });
   check("  so the freed place can be taken", r.status === 200 && r.body.event.counts.yes === 2);
-  db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(M2);
+  await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",M2);
   r = await call("GET", "/api/community/event?id=" + OP1, ORG);
   check("the returned member counts again (the event is over capacity, which is allowed) and an organizer sees refs", r.body.event.counts.yes === 3 && r.body.signups.every((s) => typeof s.ref === "string") && r.body.signups[0].status === "yes");
   r = await call("GET", "/api/community/events", M1, undefined, { ...ON, COMMUNITY_DIRECTORY_LIMIT: "2" });
@@ -256,13 +233,13 @@ async function erasureRequest(target, actor) {
   check("an unknown event is 404", r.status === 404 && r.body.error === "event_not_found");
   r = await call("PUT", "/api/community/events/rsvp", M1, { eventId: OP2, status: "yes", revision: 0 }, { ...ON, COMMUNITY_DIRECTORY_LIMIT: "3" });
   check("the calendar's member bound: with three members already in it and a limit of three, a fourth... (M1 is in it already: admitted)", r.status === 200);
-  siteUser("300000000000000009", { global_name: "Dan" }); confirm("300000000000000009", "Dan Four");
+  await siteUser("300000000000000009", { global_name: "Dan" }); await confirm("300000000000000009", "Dan Four");
   r = await call("PUT", "/api/community/events/rsvp", "300000000000000009", { eventId: OP2, status: "yes", revision: 0 }, { ...ON, COMMUNITY_DIRECTORY_LIMIT: "3" });
   check("  a member not yet in the calendar is refused 409 calendar_full inside the statement, nothing written", r.status === 409 && r.body.error === "calendar_full" && !one("SELECT 1 FROM community_event_signups WHERE discord_id = '300000000000000009'"));
-  db.prepare("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?").run(REAL - 10, REAL - 10 + 7200, OP1);
+  await fixtureRun("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?",REAL - 10,REAL - 10 + 7200,OP1);
   r = await call("PUT", "/api/community/events/rsvp", M2, { eventId: OP1, status: "no", revision: 1 });
   check("after the start, by the database clock, an answer is 409 event_started although the request's own clock says otherwise (.67)", r.status === 409 && r.body.error === "event_started" && one("SELECT status FROM community_event_signups WHERE event_id = ? AND discord_id = ?", OP1, M2).status === "yes");
-  db.prepare("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?").run(start, start + 7200, OP1);
+  await fixtureRun("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?",start,start + 7200,OP1);
 
   console.log("\n== update and cancel ==");
   r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 1, capacity: 1 });
@@ -291,7 +268,7 @@ async function erasureRequest(target, actor) {
   r = await call("POST", "/api/community/attendance/record", ORG, { eventId: OP1, entries: [{ ref: refOf(M3), state: "present", revision: 0 }] });
   check("recording before the start is 409 event_not_started", r.status === 409 && r.body.error === "event_not_started");
   // ten minutes into the moved event, by the database clock: the stored start moves into the real past (.67)
-  db.prepare("UPDATE community_events SET starts_at = ?, ends_at = ?, retain_until = ? WHERE id = ?").run(REAL - 600, REAL - 600 + 7200, REAL - 600 + 7200 + 30 * 86400, OP1);
+  await fixtureRun("UPDATE community_events SET starts_at = ?, ends_at = ?, retain_until = ? WHERE id = ?",REAL - 600,REAL - 600 + 7200,REAL - 600 + 7200 + 30 * 86400,OP1);
   T = REAL;
   r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 3, title: "Too late" });
   check("an edit after the start is 409 event_started by the database clock (.67)", r.status === 409 && r.body.error === "event_started");
@@ -310,9 +287,10 @@ async function erasureRequest(target, actor) {
   check("an empty entries array is 400 invalid_entries", r.status === 400 && r.body.error === "invalid_entries");
   // CS-5: a row this request wrote and another write replaced before the read-back is reported as ok but superseded
   const dirMod = load("./community-events");
-  const origBatch = env().DB.batch;
+  const raceBase = env(ON);
+  const origBatch = raceBase.DB.batch;
   let raced = false; // .67: the hydration after the write is a batch too, so the simulated other writer fires once, after the write's batch
-  const raceEnv = { ...env(ON), DB: { ...env().DB, batch: async (stmts) => { const out = await origBatch(stmts); if (!raced && stmts.some(s => /^\s*INSERT INTO community_event_attendance\b/.test(s._sql))) { raced = true; db.prepare("UPDATE community_event_attendance SET write_nonce = 'other', revision = revision + 1 WHERE event_id = ? AND discord_id = ?").run(OP1, M2); } return out; } } };
+  const raceEnv = { ...raceBase, DB: { ...raceBase.DB, batch: async (stmts) => { const out = await origBatch(stmts); if (!raced && stmts.some(s => /^\s*INSERT INTO community_event_attendance\b/.test(s._sql))) { raced = true; await fixtureRun("UPDATE community_event_attendance SET write_nonce = 'other', revision = revision + 1 WHERE event_id = ? AND discord_id = ?",OP1,M2); } return out; } } };
   const cs5 = await indexMod.default.fetch(new Request("https://guild.example/api/community/attendance/record", { method: "POST", headers: { Cookie: await cookieFor(ORG), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ eventId: OP1, entries: [{ ref: refOf(M2), state: "present", revision: 1 }] }) }), raceEnv, ctx);
   const cs5b = await cs5.json();
   // .67: the result is read in the write's own transaction, so an overwrite that lands afterwards cannot be mistaken for
@@ -322,16 +300,16 @@ async function erasureRequest(target, actor) {
   r = await call("GET", "/api/community/event/attendance?id=" + OP1, ORG);
   check("  (the organizer's next read shows the overwriting writer's revision)", r.body.attendance.find((a) => a.ref === refOf(M2)).attendance.revision === 3);
   // .67: a target denied between the organizer's resolution of the refs and the batch: nothing private of theirs in any result
-  const denyEnv = { ...env(ON), DB: { ...env().DB, batch: async (stmts) => { db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(M1); return origBatch(stmts); } } };
+  const denyEnv = { ...raceBase, DB: { ...raceBase.DB, batch: async (stmts) => { await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",M1); return origBatch(stmts); } } };
   const denied = await indexMod.default.fetch(new Request("https://guild.example/api/community/attendance/record", { method: "POST", headers: { Cookie: await cookieFor(ORG), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ eventId: OP1, entries: [{ ref: refOf(M1), state: "absent", reasonCode: "late", revision: 0 }, { ref: refOf(M2), state: "present", revision: 3 }] }) }), denyEnv, ctx);
   const deniedB = await denied.json();
   check("a target denied before the batch: the invalid entry carries no name, answer or old attendance; a valid write for them is not committed (unknown_member)", denied.status === 200 && deniedB.results[0].result === "invalid" && deniedB.results[0].entry === null && !JSON.stringify(deniedB.results).includes("Mia") && !one("SELECT 1 FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", OP1, M1), JSON.stringify(deniedB.results));
   check("  the other, qualifying target in the same request is recorded as usual", deniedB.results[1].result === "ok" && deniedB.results[1].entry.attendance.revision === 4, JSON.stringify(deniedB.results[1]));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(M1);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",M1);
   const stillDenied = await indexMod.default.fetch(new Request("https://guild.example/api/community/attendance/record", { method: "POST", headers: { Cookie: await cookieFor(ORG), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ eventId: OP1, entries: [{ ref: refOf(M1), state: "present", revision: 0 }] }) }), denyEnv, ctx);
   const stillB = await stillDenied.json();
   check("  a valid write for a target denied before the batch is unknown_member with no entry, nothing written", stillDenied.status === 200 && stillB.results[0].result === "unknown_member" && stillB.results[0].entry === null && !one("SELECT 1 FROM community_event_attendance WHERE event_id = ? AND discord_id = ?", OP1, M1), JSON.stringify(stillB.results));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(M1);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",M1);
   r = await call("GET", "/api/community/attendance/me", M3);
   check("a member's own history lists their rows, newest first, with the event", r.status === 200 && r.body.entries.length === 1 && r.body.entries[0].event.id === OP1 && r.body.entries[0].state === "excused");
   r = await call("GET", "/api/community/attendance/me", M1);
@@ -342,15 +320,15 @@ async function erasureRequest(target, actor) {
   check("  and none while attendance is off", r.body.event.myAttendance === null);
 
   console.log("\n== erasure, export, retention ==");
-  const exported = await context.communityExport(env(), M3);
+  const exported = await context.communityExport(directEnv(), M3);
   check("the account copy carries sign-ups and attendance", exported.events && exported.events.signups.length === 1 && exported.events.attendance.length === 1);
-  const deleted = await siteAdmin.deleteSiteData(env(), M3, STAFF, false, await erasureRequest(M3, STAFF));
+  const deleted = await deleteThroughOriginalRoute(M3, STAFF);
   check("deleteSiteData removes the member's answers and attendance and moves the generations", deleted && !one("SELECT 1 FROM community_event_signups WHERE discord_id = ?", M3) && !one("SELECT 1 FROM community_event_attendance WHERE discord_id = ?", M3) && one("SELECT signup_generation FROM community_events WHERE id = ?", OP1).signup_generation >= 5);
-  await siteAdmin.deleteSiteData(env(), ORG, STAFF, false, await erasureRequest(ORG, STAFF));
+  await deleteThroughOriginalRoute(ORG, STAFF);
   r = await call("GET", "/api/community/event?id=" + OP1, M1);
   check("erasing the creator keeps the event for the others with the organizer anonymized and the history actor cleared", r.status === 200 && r.body.event.organizer.displayName === "Guild organizer" && one("SELECT COUNT(*) AS n FROM community_event_changes WHERE event_id = ? AND actor IS NOT NULL", OP1).n === 1);
   T = start + 3600 + 7200 + 31 * 86400;
-  const swept = await dirMod.sweepCommunityEvents(env());
+  const swept = await dirMod.sweepCommunityEvents(directEnv());
   check("thirty-one days after the end the event, its answers, attendance and history are gone, audited as a count", swept === 2 && !one("SELECT 1 FROM community_events WHERE id = ?", OP1) && !one("SELECT 1 FROM community_event_signups WHERE event_id = ?", OP1) && !one("SELECT 1 FROM community_event_attendance WHERE event_id = ?", OP1) && !!one("SELECT 1 FROM audit WHERE action = 'community.events_expired'"));
   check("  the admin's later event is still there", !!one("SELECT 1 FROM community_events WHERE id = ?", OP3));
 

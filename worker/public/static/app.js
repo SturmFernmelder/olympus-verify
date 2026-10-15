@@ -103,16 +103,21 @@
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
   const listText = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
   const M = () => S.meta || { positions: [], classes: [], roles: [], regions: [], hours: [], voice: [], questions: [], professions: [], ballots: [], limits: {}, avail: { reference: 0, prime: { na: [], eu: [], min: 3 } } };
-  // Only the supported public-beta schema/revision is rendered. Boot data cannot select a future phase.
-  function rulesetIdentity() {
-    const p = M().ruleset, keys = ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"];
+  // The boot carries the RESOLVED identity (item 7, 14 Oct 2026): the exact public beta, or an activated full-release profile
+  // whose opaque revision has the server's shape. A held identity, or anything else, renders as unavailable; boot data never
+  // selects a phase on its own.
+  function identityOf(p) {
+    const keys = ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"];
     if (!p || typeof p !== "object" || Array.isArray(p) || Object.keys(p).length !== keys.length
       || !keys.every((k) => Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] === "string")
-      || p.schema !== "olympus-ruleset-profile-v1" || p.revision !== "forever-beta-pvp2-v1" || p.phase !== "beta"
-      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || p.realm !== "Classic Beta PvP 2" || p.ruleset !== "PvP" || p.faction !== "Alliance"
-      || !/^[\p{L}\p{N} .:'()-]{1,80}$/u.test(p.realm) || p.realm !== p.realm.trim() || p.realm !== p.realm.normalize("NFC")) return "Game identity unavailable";
-    return `${p.game} · Beta · ${p.realm} · ${p.ruleset} · ${p.faction}`;
+      || p.schema !== "olympus-ruleset-profile-v1" || !["beta", "full_release"].includes(p.phase)
+      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || !["Normal", "PvP", "Roleplaying", "Hardcore"].includes(p.ruleset) || !["Alliance", "Horde"].includes(p.faction)
+      || !/^[\p{L}\p{N} .:'()-]{1,80}$/u.test(p.realm) || p.realm !== p.realm.trim() || p.realm !== p.realm.normalize("NFC")
+      || (p.phase === "beta" && (p.revision !== "forever-beta-pvp2-v1" || p.realm !== "Classic Beta PvP 2" || p.ruleset !== "PvP" || p.faction !== "Alliance"))
+      || (p.phase === "full_release" && !/^forever-release-[a-z0-9][a-z0-9.-]{0,31}$/.test(p.revision))) return "Game identity unavailable";
+    return `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
   }
+  function rulesetIdentity() { return M().rulesetHeld ? "Game identity unavailable" : identityOf(M().ruleset); }
   // .93: the community context from the boot (community-context.ts contextDto): flags for everyone, capabilities for the viewer
   const COM = () => S.community || { subject: null, capabilities: {}, features: {} };
   const feat = (f) => !!COM().features[f];
@@ -217,7 +222,9 @@
   // This page's version, sent with every call. The Worker refuses saves from a page older than itself (a page opened
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
-  async function api(method, path, body) {
+  // `options.live`: the view-liveness of the operation (F4b.1, 15 Oct 2026). When it is given and false at reply time, the shell is
+  // left alone (no sign-out, toast, render or reload notice from an operation whose view is gone); the error is still thrown.
+  async function api(method, path, body, options = {}) {
     const init = { method, headers: { "X-Olympus": PAGE_VERSION }, credentials: "same-origin" };
     if (body !== undefined) {
       init.headers["Content-Type"] = "application/json";
@@ -235,21 +242,120 @@
     // .104 (F100-1): a 2xx whose body is present but not readable JSON is an UNKNOWN outcome, never a success: the caller treats it as
     // a lost answer (nothing cleared, renumbered or re-sent on its own). An empty 2xx body (204) stays null for the endpoints that mean it.
     if (res.ok && raw && data === null) throw new ApiError(res.status, { error: "unreadable_answer" });
+    const current = typeof options.live !== "function" || options.live();
     if (res.status === 401) {
-      S.signedIn = false;
-      toast("You were signed out. Sign in with Discord again.", "bad");
-      dirtyKeys.clear();
-      render();
+      if (current) {
+        S.signedIn = false;
+        toast("You were signed out. Sign in with Discord again.", "bad");
+        dirtyKeys.clear();
+        render();
+      }
       throw new ApiError(401, data);
     }
     if (res.status === 409 && data && data.error === "reload") {
       // The site was updated while this page was open: nothing was saved. Offer the reload rather than a dead end.
-      reloadNotice(data.message);
+      if (current) reloadNotice(data.message);
       throw new ApiError(409, Object.assign({}, data, { message: "Nothing was saved: reload the page first (your typing is still on this page)." }));
     }
     if (!res.ok) throw new ApiError(res.status, data);
     return data;
   }
+  // Optional census previews keep their raw lexical JSON and never use api() reserialization.
+  const CENSUS_INPUT_BYTES = 327680, CENSUS_RESPONSE_BYTES = 524288, CENSUS_ATTEMPT_MS = 15000, CENSUS_VISIBLE_MS = 900000;
+  let disposeCensusPreview = null;
+  function censusBytes(value, limit) {
+    if (typeof value !== "string" || value.length > limit) return false;
+    for (let i = 0; i < value.length; i++) {
+      const c = value.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff) { const next = value.charCodeAt(++i); if (!(next >= 0xdc00 && next <= 0xdfff)) return false; }
+      else if (c >= 0xdc00 && c <= 0xdfff) return false;
+    }
+    return new TextEncoder().encode(value).byteLength <= limit;
+  }
+  function censusReceipt(value) {
+    const keys = (v, expected) => !!v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === expected.length && Object.keys(v).every(key => expected.includes(key));
+    const integer = (v, max = 253402300799) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+    const text = (v, max) => typeof v === "string" && v.length > 0 && !/[\x00-\x1f\x7f]/.test(v) && censusBytes(v, max);
+    if (!keys(value, ["format", "persisted", "sourceVerified", "membershipProof", "receiptNow", "snapshot", "atReceipt"]) || value.format !== "olympus-census-preview-v1" || value.persisted !== false || value.sourceVerified !== false || value.membershipProof !== false || !integer(value.receiptNow)) return false;
+    const s = value.snapshot, a = value.atReceipt;
+    if (!keys(s, ["format", "addonVersion", "realmGroup", "faction", "observedAt", "source", "membershipProof", "guilds"]) || s.format !== "olympus-census-v1" || s.source !== "community-observation" || s.membershipProof !== false || !text(s.addonVersion, 32) || !text(s.realmGroup, 128) || !["Alliance", "Horde"].includes(s.faction) || !integer(s.observedAt, value.receiptNow) || !Array.isArray(s.guilds) || s.guilds.length > 300) return false;
+    if (!keys(a, ["receiptNow", "snapshotAgeSeconds", "guilds"]) || a.receiptNow !== value.receiptNow || a.snapshotAgeSeconds !== value.receiptNow - s.observedAt || !Array.isArray(a.guilds) || a.guilds.length !== s.guilds.length) return false;
+    const names = new Set();
+    return s.guilds.every((row, i) => {
+      if (!row || !text(row.name, 128) || !integer(row.reportedCharacters, 1000) || !integer(row.receivedAt, s.observedAt)) return false;
+      const folded = row.name.replace(/[A-Z]/g, c => c.toLowerCase()), age = s.observedAt - row.receivedAt, receiptAge = value.receiptNow - row.receivedAt, fresh = age <= 900, counted = age <= 86400;
+      if (names.has(folded) || age > 604800 || row.fresh !== fresh || row.counted !== counted || !keys(row, fresh ? ["name", "reportedCharacters", "receivedAt", "fresh", "counted", "online"] : ["name", "reportedCharacters", "receivedAt", "fresh", "counted"]) || fresh && !integer(row.online, row.reportedCharacters)) return false;
+      names.add(folded);
+      const received = a.guilds[i];
+      return keys(received, ["name", "ageSeconds", "fresh", "counted", "retained"]) && received.name === row.name && received.ageSeconds === receiptAge && received.fresh === (receiptAge <= 900) && received.counted === (receiptAge <= 86400) && received.retained === (receiptAge <= 604800);
+    });
+  }
+  async function censusRawPreview(raw, controller, current, started, deadline) {
+    const cancelled = () => new ApiError(0, { error: "preview_cancelled" });
+    const ensure = () => { const t = Date.now(); if (controller.signal.aborted || t < started || t >= deadline || !current()) throw cancelled(); };
+    let reader = null, rejectAbort = null, finished = false;
+    try {
+      ensure();
+      const interrupted = new Promise((_, reject) => { rejectAbort = () => reject(cancelled()); controller.signal.addEventListener("abort", rejectAbort, { once: true }); });
+      interrupted.catch(() => {}); // also handled if fetch throws synchronously before the race is installed
+      const pending = Promise.resolve(fetch("/api/community/census/preview", { method: "POST", credentials: "same-origin", headers: { "X-Olympus": PAGE_VERSION, "Content-Type": "application/json" }, body: raw, signal: controller.signal })).then(response => {
+        try { ensure(); } catch (error) {
+          try { Promise.resolve(response.body?.cancel()).catch(() => {}); } catch { /* a late response has no adoption authority */ }
+          throw error;
+        }
+        return response;
+      });
+      const response = await Promise.race([pending, interrupted]);
+      ensure();
+      if (!response.body || typeof response.body.getReader !== "function") throw new ApiError(response.status, { error: "unreadable_answer" });
+      reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+      let size = 0, answer = "";
+      for (;;) {
+        ensure();
+        const packet = await Promise.race([reader.read(), interrupted]);
+        ensure();
+        if (!packet || typeof packet.done !== "boolean") throw new ApiError(response.status, { error: "unreadable_answer" });
+        if (packet.done) { finished = true; answer += decoder.decode(); break; }
+        if (!(packet.value instanceof Uint8Array) || packet.value.byteLength > CENSUS_RESPONSE_BYTES - size) throw new ApiError(response.status, { error: "unreadable_answer" });
+        size += packet.value.byteLength;
+        answer += decoder.decode(packet.value, { stream: true });
+      }
+      ensure();
+      let value;
+      try { value = JSON.parse(answer); } catch { throw new ApiError(response.status, { error: "unreadable_answer" }); }
+      if (!response.ok) throw new ApiError(response.status, { error: typeof value?.error === "string" ? value.error : "preview_failed" });
+      if (!censusReceipt(value)) throw new ApiError(response.status, { error: "unreadable_answer" });
+      return value;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(0, { error: controller.signal.aborted ? "preview_cancelled" : "preview_failed" });
+    } finally {
+      if (rejectAbort) controller.signal.removeEventListener("abort", rejectAbort);
+      if (!finished) controller.abort();
+      if (reader) {
+        if (!finished) { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch { /* no response adoption */ } }
+        try { reader.releaseLock(); } catch { /* pending cancellation retains no preview authority */ }
+      }
+    }
+  }
+  function censusFailure(error) {
+    const messages = {
+      invalid_census: "This export is not valid census JSON. No rows were accepted.",
+      body_too_large: "The export exceeds 320 KiB. Paste a smaller addon export.",
+      slow_down: "The preview is busy. Wait a minute before submitting again.",
+      body_timeout: "The upload did not finish in time. No preview was accepted.",
+      reload: "The site changed. Reload before starting a new preview.",
+      not_found: "Census preview is not switched on.",
+      guild_unconfirmed: "Your guild membership is not currently confirmed.",
+      guild_access_changed: "Your access changed. The preview was cleared.",
+      signed_out: "You were signed out. Sign in again before a new preview.",
+      preview_cancelled: "The preview was cancelled or timed out. Nothing is displayed.",
+      unreadable_answer: "The answer could not be verified. No preview was accepted."
+    };
+    return messages[codeOf(error)] || "The preview could not be completed. No data is displayed; submit again only when you choose.";
+  }
+
   let reloadShown = false;
   function reloadNotice(message) {
     if (reloadShown) return;
@@ -620,6 +726,7 @@
           S.signedIn ? h("p", null, "The picture next to your name is your own Discord picture, loaded from Discord; nobody else sees it here.") : null))); // .114
   }
   async function signOut() {
+    if (disposeCensusPreview) disposeCensusPreview();
     if (dirtyKeys.size && !(await confirmBox("Leave without saving?", "You have changes that are not saved yet.", "Sign out anyway"))) return;
     try { await api("POST", "/auth/logout"); } catch { /* signed out either way */ }
     location.href = "/";
@@ -656,6 +763,7 @@
   let lastHash = location.hash;
   let ignoreHash = false;
   window.addEventListener("hashchange", async () => {
+    if (disposeCensusPreview) disposeCensusPreview();
     if (ignoreHash) { ignoreHash = false; return; }
     if (dirtyKeys.size) {
       const target = location.hash;
@@ -689,6 +797,7 @@
   const setDirty = (key, on, el) => { if (on) dirtyKeys.add(key); else dirtyKeys.delete(key); if (el) el.hidden = !on; };
 
   function render() {
+    if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
     timers = [];
     dirtyKeys.clear();
@@ -708,7 +817,7 @@
     const main = h("main", { class: "shell", id: "main" });
     app.appendChild(main);
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
-    if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // the Roles page and the saved account/contact fragment redirects need no sign-in
+    if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // client fallback only; the server requires current membership for this shell and Roles data
     else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView;
     if (head === "admin" && !(S.user && S.user.isAdmin)) view = ROUTES[""];
     try {
@@ -731,7 +840,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163";
+  const GOVERNANCE_SHA256 = "892ce2c4e30b1fd6de70aad06dcf50c080831a27b4cf99ff351dff11d13bb677";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -743,7 +852,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
-      if (bytes.length !== 136532) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 142032) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -755,7 +864,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 136532 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 142032 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -1997,7 +2106,8 @@
     const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]; // .114: Renames; .115: News; .125: Audit log
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
-      h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" })); // .86
+      h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" }),
+      S.user?.id === "472099715253796864" ? h("a", { class: "btn small", href: "/admin/qr/beta-window", text: "Named beta verification", title: "Review the attended Fern Melder and Stavros Heuto membership test" }) : null);
   }
   ROUTES.admin = async function admin(main, parts) {
     const sub = parts[0] || "";
@@ -2323,32 +2433,74 @@
       h("p", { class: "muted small", text: "To remove a name on request, clear it or type Name withheld in its place." }),
       h("div", { class: "btn-row mt" }, save));
   }
-  /** .114: the end-of-beta reset (the Worker's site-leadership.ts): locked until the closing moment is recorded, then a typed confirmation. */
+  /** Fixed owner-approved member/rank reset. Only a fresh private preview can arm its immutable policy. */
   async function betaResetFrame(settingsBody) {
     let st;
-    try { st = await api("GET", "/api/admin/beta-reset"); } catch (e) { return frame("End of the beta", null, h("p", { class: "err small", text: explain(e, "The reset could not be read.") })); }
-    const when = h("input", { type: "datetime-local", value: st.betaClosedAt ? toLocalInput(st.betaClosedAt) : "", id: "beta-closed-at" });
-    const record = h("button", { class: "btn small", type: "button", text: "Record the closing moment" });
-    record.addEventListener("click", async () => {
-      const t = fromLocalInput(when.value);
-      if (!t) return toast("Enter when the beta closed.", "bad");
-      record.disabled = true;
-      try { await api("PUT", "/api/admin/beta-reset/closed", { betaClosedAt: t }); toast("Recorded.", "good"); adminSettings(settingsBody); } catch (err) { toast(explain(err), "bad"); } finally { record.disabled = false; }
+    try { st = await api("GET", "/api/admin/beta-role-reset"); } catch (e) { return frame("Beta member and rank reset", null, h("p", { class: "err small", text: explain(e, "The reset status could not be read.") })); }
+    const roleIds = ["1552077551839617104","1558657538960916490","1557496182966587453","1557495772453281853","1557496796949909575","1557496812196208640","1557498239656136764","1557498252994285568","1557498673926242385","1557498969310101576","1557499139099590747","1557499286965719050"];
+    const exactRoles = ids => Array.isArray(ids) && ids.length === roleIds.length && ids.every((id,i) => id === roleIds[i]);
+    const states = { before_cutoff: "Before the cutoff", inactive: "Removals inactive", discovering: "Discovering assignments", draining: "Removing known assignments", held: "Needs review", awaiting_new_source: "Awaiting new source" };
+    const valid = st && typeof st === "object" && st.cutoff === 1792688400 && st.epoch === "olympus-beta-2026-10-22" && Object.hasOwn(states, st.phase) &&
+      exactRoles(st.roleIds) && [st.canArm,st.policyArmed,st.removalsActive].every(v => typeof v === "boolean") &&
+      st.discovery && st.removals && [st.discovery.currentPassScanned, st.discovery.completedPasses, st.removals.pending, st.removals.held, st.removals.unknown, st.removals.settledOperations,st.removals.unresolvedGrantCustody,st.removals.unresolvedOtherRoleCustody].every(n => Number.isSafeInteger(n) && n >= 0);
+    if (!valid) return frame("Beta member and rank reset", null, h("p", { class: "err", text: "The reset preview could not be verified. Refresh the page before continuing." }));
+    const f = st.form, validForm = f && typeof f === "object" && Object.keys(f).sort().join(',') === "expiresAt,formNonce,token" &&
+      Number.isSafeInteger(f.expiresAt) && f.expiresAt > nowSec() && f.expiresAt <= nowSec()+300 && f.expiresAt <= st.cutoff &&
+      typeof f.formNonce === "string" && /^[0-9a-f]{32}$/.test(f.formNonce) && typeof f.token === "string" && /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(f.token);
+    const arm = h("button", { class: "btn", type: "button", text: "Arm member and rank reset", disabled: !st.canArm || !validForm });
+    const refresh = h("button", { class: "btn small", type: "button", text: "Refresh reset status" });
+    const retention = st.retention, rf = st.retentionForm;
+    const retentionValid = retention && retention.cutoff === st.cutoff && typeof retention.confirmed === "boolean" && typeof retention.canConfirm === "boolean" && retention.removalCompletion === false &&
+      ["absent","held","legacy","cutoff_anchor"].includes(retention.evidence) && (retention.confirmedCutoff === null || Number.isSafeInteger(retention.confirmedCutoff) && retention.confirmedCutoff > 0) && retention.confirmed === (retention.confirmedCutoff !== null) &&
+      (["legacy","cutoff_anchor"].includes(retention.evidence) === retention.confirmed) && (retention.evidence !== "cutoff_anchor" || retention.confirmedCutoff === st.cutoff) &&
+      (!retention.canConfirm || nowSec() >= st.cutoff && (retention.evidence === "absent" || retention.evidence === "legacy" && retention.confirmedCutoff === st.cutoff));
+    const retentionFormValid = rf && Object.keys(rf).sort().join(',') === "expiresAt,formNonce,token" && Number.isSafeInteger(rf.expiresAt) && rf.expiresAt > nowSec() && rf.expiresAt <= nowSec()+300 &&
+      typeof rf.formNonce === "string" && /^[0-9a-f]{32}$/.test(rf.formNonce) && typeof rf.token === "string" && /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(rf.token);
+    const confirmCutoff = h("button", { class: "btn small", type: "button", text: "Confirm cutoff for retention", disabled: !retentionValid || !retention.canConfirm || !retentionFormValid });
+    let panel, busy = false;
+    const attached = () => panel && document.body.contains(panel) && settingsBody.contains(panel) && currentRoute() === "admin/settings" && S.signedIn && !S.denied && S.user?.isAdmin;
+    refresh.addEventListener("click", () => { if (attached() && !busy) adminSettings(settingsBody); });
+    arm.addEventListener("click", async () => {
+      if (!attached() || busy || arm.disabled || !validForm || f.expiresAt <= nowSec()) return;
+      busy = true; arm.disabled = true;
+      const accepted = await confirmBox("Arm the member and rank reset?", "At 22 October 2026, 17:00 UTC (noon CDT), the reset will remove the two Guild Member roles and all ten Olympus Rank roles when removals are active. Manual leadership, Council, Developer, moderators and website appointments stay. Discovery and removals take time.", "Arm reset");
+      if (!attached()) return;
+      if (f.expiresAt <= nowSec()) { busy = false; return; }
+      if (!accepted) { busy = false; arm.disabled = false; return; }
+      try {
+        const out = await api("POST", "/api/admin/beta-role-reset/arm", { form: f });
+        if (!out || out.ok !== true || out.policyArmed !== true || typeof out.removalsEnabled !== "boolean" || out.cutoff !== st.cutoff || !exactRoles(out.roleIds)) throw new Error("The arming outcome is unconfirmed. Refresh status before any further action.");
+        if (attached()) toast("Reset policy armed. Check the removal state below.", "good");
+      }
+      catch (err) { if (attached()) toast(explain(err, "The arming outcome is unconfirmed. Refresh status before any further action."), "bad"); }
+      if (attached()) adminSettings(settingsBody);
     });
-    const notice = h("input", { type: "text", maxlength: "300", id: "beta-reset-notice", placeholder: "Optional, e.g. Guild roles are open again for the full release" });
-    const run = h("button", { class: "btn danger", type: "button", text: "Reset guild leadership", disabled: !st.armed });
-    run.addEventListener("click", async () => {
-      if (!(await confirmBox("Reset guild leadership for the full release?", `This clears the appointed roles (${plural(st.preview.appointed, "appointment")}) and the Olympus I–X directory (${plural(st.preview.directoryNames, "name")}). Applications, votes, memberships and history stay. Game ranks and Discord roles are changed by hand.`, "Reset", { danger: true, typeToConfirm: "RESET" }))) return;
-      run.disabled = true;
-      try { await api("POST", "/api/admin/beta-reset", { confirm: "RESET", notice: notice.value, closedAt: st.betaClosedAt }); toast("Guild leadership reset.", "good"); adminSettings(settingsBody); } catch (err) { toast(explain(err), "bad"); adminSettings(settingsBody); }
+    confirmCutoff.addEventListener("click", async () => {
+      if (!attached() || busy || confirmCutoff.disabled || !retentionFormValid || rf.expiresAt <= nowSec()) return;
+      busy = true; confirmCutoff.disabled = true;
+      const accepted = await confirmBox("Confirm that the beta cutoff has passed?", "This records the 22 October 2026, 17:00 UTC cutoff for the retention clocks of beta requests and first-seen records. It does not confirm role removals are complete, enable removals, or change appointments.", "Confirm cutoff");
+      if (!attached()) return;
+      if (rf.expiresAt <= nowSec()) { busy = false; return; }
+      if (!accepted) { busy = false; confirmCutoff.disabled = false; return; }
+      try {
+        const out = await api("POST", "/api/admin/beta-role-reset/confirm-cutoff", { form: rf });
+        if (!out || out.ok !== true || out.cutoff !== st.cutoff || out.removalCompletion !== false || !Number.isSafeInteger(out.confirmedAt) || out.confirmedAt < st.cutoff || out.confirmedAt > nowSec()+5) throw new Error("The cutoff confirmation is unconfirmed. Refresh status before continuing.");
+        if (attached()) toast("Cutoff recorded for retention. Role removal status is separate.", "good");
+      } catch (err) { if (attached()) toast(explain(err, "The cutoff confirmation is unconfirmed. Refresh status before continuing."), "bad"); }
+      if (attached()) adminSettings(settingsBody);
     });
-    return frame("End of the beta", h("span", { class: "badge " + (st.armed ? "warn" : "muted"), text: st.resetDone ? "done" : st.armed ? "unlocked" : "locked" }),
-      h("p", { class: "muted small", text: "Blizzard gives 21 October 2026 as the beta's last full day and no hour. Once it has really closed, record the moment; the reset then unlocks. It clears the appointed roles and the Olympus I–X directory so every leadership role is chosen again for the full release. Nothing runs on a timer." }),
-      kv([["Beta closed", st.betaClosedAt ? fmtDateTime(st.betaClosedAt) : "not recorded"], ["Reset", st.lastResetAt ? `done ${fmtDateTime(st.lastResetAt)} (it runs once)` : "not yet"], ["Would clear", st.resetDone ? "nothing: the reset has run" : `${plural(st.preview.appointed, "appointment")}, ${plural(st.preview.directoryNames, "directory name")}`]]),
-      h("div", { class: "btn-row" }, h("label", { class: "field" }, h("span", { class: "lab", text: "The beta closed at" }), when), record),
-      h("label", { class: "field" }, h("span", { class: "lab", text: "Notice to show after the reset" }), notice),
-      h("div", { class: "btn-row" }, run),
-      h("p", { class: "muted small", text: "Then, by hand: set game ranks in game as Guild Master; in Discord remove Olympus Officer, Guild Leader, Raid Leader and the Council roles from everyone you do not keep (keep yourself and at least one Guild Leader); fill the directory and the appointments again." }));
+    const d = st.discovery, r = st.removals;
+    panel = frame("Beta member and rank reset", h("span", { class: "badge", text: states[st.phase] }),
+      h("p", { text: "Cutoff: 22 October 2026, 17:00 UTC (noon CDT). This is the start of the reset, not an instant finish." }),
+      h("p", { class: "muted small", text: "After the cutoff, old beta verification cannot grant these roles, even while removals are inactive. A reviewed full-release source and fresh verification are required before reusing them." }),
+      h("p", { text: "Scope: both Guild Member roles and all ten Olympus Rank roles, including empty roles. Manual leadership, Council, Developer, server moderators, website appointments and the leadership directory stay." }),
+      kv([["Policy", st.policyArmed ? "Armed" : "Not armed"], ["Removals", st.removalsActive ? "Active" : "Inactive"], ["Discovery", `${d.currentPassScanned} members scanned in this pass; ${d.completedPasses} complete passes`], ["Known removals", `${r.pending} pending; ${r.held} held; ${r.unknown} unresolved`], ["Unresolved earlier grants", String(r.unresolvedGrantCustody)], ["Other unresolved role removals", String(r.unresolvedOtherRoleCustody)], ["Settled operations", String(r.settledOperations)]]),
+      h("p", { class: "muted small", text: "Discovery reads up to 1,000 server members per minute. Each minute handles up to six role assignments. A 100,000-member server needs about 100 minutes for one full scan. Known progress is not the full server total. Later assignments are discovered on repeated passes." }),
+      h("p", { class: "muted small", text: "A clean pass means awaiting the new source, not permanent completion. Removal stays inactive until the reviewed release enables it." }),
+      h("p", { class: "muted small", text: retentionValid && retention.confirmed ? "The retention cutoff is recorded. This does not certify that role removals are complete." : "After the cutoff, an owner must separately confirm it for retention clocks. Original record dates remain preserved; confirmation does not change roles or appointments." }),
+      h("details", {}, h("summary", { text: "Exact twelve role IDs" }), h("ul", {}, ...st.roleIds.map(id => h("li", { text: id })))),
+      h("div", { class: "btn-row" }, arm, refresh, confirmCutoff));
+    return panel;
   }
 
   // ---------- renames (.114) ----------
@@ -2476,9 +2628,10 @@
     const targets = ["guide", "olympus-info", "guild-announcements"];
     const formValid = (v) => obj(v) && token(v.operationId) && Number.isSafeInteger(v.expectedRevision) && v.expectedRevision >= 0 && Number.isSafeInteger(v.expiresAt) && v.expiresAt > nowSec() && typeof v.token === "string" && /^[A-Za-z0-9_-]{43}$/.test(v.token);
     const operationValid = (v) => obj(v) && token(v.publicationId) && targets.includes(v.target) && Number.isSafeInteger(v.revision) && v.revision > 0 && ["claimed", "unknown"].includes(v.state) && ["create", "edit", "pin"].includes(v.stage) && id(v.channelId) && (v.messageId === null || id(v.messageId));
-    const profileValid = (v) => obj(v) && Object.keys(v).sort().join(",") === ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"].sort().join(",") && Object.keys(v).every(k => v[k] === M().ruleset?.[k]) && rulesetIdentity() !== "Game identity unavailable";
+    // v2: the authenticated staff status is authoritative for this page; a shape-valid current profile replaces a stale boot copy (a lost switch answer) instead of being refused.
+    const profileValid = (v) => obj(v) && identityOf(v) !== "Game identity unavailable";
     let current = null, busy = false, pending = null, storageFailed = false;
-    try { const raw = sessionStorage.getItem(key); if (raw) { pending = JSON.parse(raw); if (!obj(pending) || pending.profileRevision !== "forever-beta-pvp2-v1" || !formValid(pending.form)) throw Error("unconfirmed original selection"); } }
+    try { const raw = sessionStorage.getItem(key); if (raw) { pending = JSON.parse(raw); if (!obj(pending) || pending.profileRevision !== M().ruleset?.revision || !formValid(pending.form)) throw Error("unconfirmed original selection"); } }
     catch { storageFailed = true; }
     const panel = h("div", { class: "stack" }); clear(body); add(body, panel);
     const live = () => document.body.contains(panel) && currentRoute() === "admin/ruleset-publication" && S.signedIn && !S.denied && S.user?.isAdmin;
@@ -2486,13 +2639,13 @@
     const review = h("input", { type: "checkbox", id: "ruleset-publication-reviewed" });
     const select = h("button", { class: "btn", type: "button", text: "Record current beta plan" });
     const refresh = h("button", { class: "btn small", type: "button", text: "Refresh publication status" });
-    const rows = h("div", { class: "stack" }), blockers = h("div", { class: "stack" });
+    const rows = h("div", { class: "stack" }), blockers = h("div", { class: "stack" }), switchBox = h("div", { class: "stack" });
     add(panel, frame("Ruleset publication", null,
       h("p", { text: "Review the exact approved current-beta copy and destinations below. Recording the plan sends nothing. Each Apply next step sends at most one post, edit or pin; inspect its status before continuing. No future profile or automatic publication is available." }),
       h("p", { class: "muted small", text: "Guide wording remains owner-approved. Erasing a publishing account removes its authorization metadata; the independent guild guide and original message custody remain. An unknown outcome is checked without sending again." }),
-      notice, h("label", null, review, " I reviewed these approved payloads and destinations."), h("div", { class: "btn-row" }, select, refresh), blockers, rows));
+      notice, h("label", null, review, " I reviewed these approved payloads and destinations."), h("div", { class: "btn-row" }, select, refresh), switchBox, blockers, rows));
     const buttons = () => {
-      select.textContent = pending ? "Retry original selection" : "Record current beta plan";
+      select.textContent = pending ? "Retry original selection" : (M().ruleset?.phase === "full_release" ? "Record current release plan" : "Record current beta plan");
       select.disabled = busy || storageFailed || !current || (!pending && (!review.checked || !formValid(current.form)));
       refresh.disabled = busy; review.disabled = busy;
       for (const b of rows.querySelectorAll("button")) b.disabled = busy || !current || b.dataset.allowed !== "yes";
@@ -2515,11 +2668,46 @@
       const check = h("button", { class: "btn small", type: "button", text: "Check existing message", "data-allowed": ["claimed", "unknown", "held"].includes(operation.state) ? "yes" : "no", onclick: () => { if (!check.disabled) action("reconcile", operation, pointer); } });
       return [h("div", { class: "btn-row" }, apply, check), pointer];
     };
+    // Item 7 (14 Oct 2026): the owner-only identity switch. Booleans from the staff status; one confirmed click posts to the
+    // Worker, which does everything in one batch or nothing. The page never holds or shows the future identity before activation.
+    const switchValid = (v) => obj(v) && ["beta", "full_release"].includes(v.mode) && (v.held === null || typeof v.held === "string") && typeof v.futureProfileConfigured === "boolean" && typeof v.ownerEligibilityQualified === "boolean" && typeof v.projectionSyncQualified === "boolean" && typeof v.activateAvailable === "boolean" && typeof v.returnAvailable === "boolean";
+    const drawSwitch = (sw) => {
+      clear(switchBox);
+      const confirm = h("input", { type: "checkbox", id: "ruleset-switch-confirmed" });
+      const activate = h("button", { class: "btn small", type: "button", text: "Activate the full-release identity" });
+      const revert = h("button", { class: "btn small", type: "button", text: "Return to the beta identity" });
+      const sync = () => { activate.disabled = busy || !confirm.checked || !sw.activateAvailable; revert.disabled = busy || !confirm.checked || !sw.returnAvailable; };
+      const flip = async (kind) => {
+        if (busy || !current || !live() || !confirm.checked) return;
+        busy = true; buttons(); sync();
+        try {
+          const r = await api("POST", path + "/" + kind, { form: current.form, confirm: true });
+          if (!obj(r) || !["beta", "full_release"].includes(r.mode) || !obj(r.profile)) throw new ApiError(200, { error: "unreadable_answer" });
+          if (S.meta) { S.meta.ruleset = r.profile; S.meta.rulesetHeld = null; }
+          notice.textContent = kind === "activate" ? "Full-release identity activated and its publication selected. Apply each target below." : "Beta identity restored and its publication selected. Apply each target below.";
+        } catch (e) { if (live()) notice.textContent = "The switch was refused or unconfirmed (" + ((e && e.data && e.data.error) || "unconfirmed") + "). Nothing was published; refresh the status."; }
+        finally { busy = false; }
+        if (live()) await load();
+      };
+      activate.onclick = () => flip("activate"); revert.onclick = () => flip("deactivate"); confirm.addEventListener("change", sync);
+      add(switchBox, frame("Game identity switch", h("span", { class: "badge", text: sw.held ? "held: " + sw.held : sw.mode === "full_release" ? "full release" : "beta" }),
+        h("p", { class: "small", text: "Mode " + sw.mode + (sw.revision ? " · revision " + sw.revision : "") + " · future profile configured: " + (sw.futureProfileConfigured ? "yes" : "no") + " · you may switch: " + (sw.ownerEligibilityQualified ? "yes" : "no") + " · publications settled: " + (sw.projectionSyncQualified ? "yes" : "no") }),
+        h("p", { class: "muted small", text: "The future identity is read from a private server value the owner sets on the day; it is shown nowhere before activation. The switch records the identity and selects its publication in one step; the three Discord messages still change only through Apply next step." }),
+        h("label", null, confirm, " I confirm the owner's condition is met and I intend to switch now."), h("div", { class: "btn-row" }, activate, revert)));
+      sync();
+    };
     const draw = (d) => {
-      if (!obj(d) || !profileValid(d.currentProfile) || d.futureSwitchAvailable !== false || d.automaticPublication !== false || !formValid(d.form) || !Array.isArray(d.targets) || d.targets.length !== 3 || !Array.isArray(d.blockingOperations) || d.blockingOperations.length > 3 || !d.blockingOperations.every(operationValid) ||
+      if (obj(d) && switchValid(d.rulesetSwitch) && d.rulesetSwitch.held) {
+        current = d; clear(rows); clear(blockers); review.checked = false;
+        if (S.meta) { S.meta.ruleset = null; S.meta.rulesetHeld = d.rulesetSwitch.held; }
+        notice.textContent = "The game identity is held (" + d.rulesetSwitch.held + "). Restore the configured future profile or return to the beta identity; nothing can be published meanwhile.";
+        drawSwitch(d.rulesetSwitch); buttons(); return;
+      }
+      if (!obj(d) || !switchValid(d.rulesetSwitch) || !profileValid(d.currentProfile) || d.futureSwitchAvailable !== false || d.automaticPublication !== false || !formValid(d.form) || !Array.isArray(d.targets) || d.targets.length !== 3 || !Array.isArray(d.blockingOperations) || d.blockingOperations.length > 3 || !d.blockingOperations.every(operationValid) ||
         !(d.selected === null || obj(d.selected) && token(d.selected.publicationId) && Number.isSafeInteger(d.selected.revision) && d.selected.revision > 0 && d.selected.profileRevision === d.currentProfile.revision) ||
         d.targets.some((t,i) => !obj(t) || t.target !== targets[i] || !id(t.channelId) || t.parentId !== t.channelId || !states.includes(t.state) || !(t.stage === null || ["pending", "create", "edit", "pin"].includes(t.stage)) || !(t.messageId === null || id(t.messageId)) || !obj(t.payload) || !Array.isArray(t.payload.embeds) || !obj(t.payload.allowed_mentions) || !Array.isArray(t.payload.allowed_mentions.parse) || t.payload.allowed_mentions.parse.length !== 0 || JSON.stringify(t.payload).length > 16000)) throw new ApiError(200, { error: "unreadable_answer" });
-      current = d;
+      if (S.meta && (M().rulesetHeld || !obj(M().ruleset) || M().ruleset.revision !== d.currentProfile.revision)) { S.meta.ruleset = d.currentProfile; S.meta.rulesetHeld = null; } // reconcile a lost switch answer through the authenticated status
+      current = d; drawSwitch(d.rulesetSwitch);
       if (pending && d.selected?.publicationId === pending.form.operationId) { sessionStorage.removeItem(key); pending = null; }
       review.checked = false; clear(rows); clear(blockers);
       notice.textContent = storageFailed ? "Original operation storage is unavailable or expired. Publication is held; use an attended status check." : pending ? "An original selection is unconfirmed. Retry that exact selection or refresh its status." : d.selected ? "Selected revision " + d.selected.revision + " · " + d.currentProfile.revision : "No publication revision selected. " + d.currentProfile.realm + " · " + d.currentProfile.ruleset + " · " + d.currentProfile.faction;
@@ -2589,10 +2777,24 @@
     const stopEdit = h("button", { class: "btn small", type: "button", text: "Cancel editing", hidden: true });
     const err = errorLine(""); err.hidden = true;
     const pending = h("div");
-    const touched = () => setDirty("admin-news", true);
+    // Item 29: an attended writing aid only; it cannot replace a draft or change a pending operation.
+    const brief = h("button", { class: "btn small", type: "button", text: "Start a Daily Brief" });
+    let locked = false;
+    const updateBrief = () => { brief.disabled = locked || !d.newsOn || !!editing || !!frozen || title.value !== "" || text.value !== ""; };
+    const touched = () => { setDirty("admin-news", true); updateBrief(); };
     title.addEventListener("input", touched);
     text.addEventListener("input", touched);
-    const lock = (on) => { for (const el of [title, text, daysSel, submit, stopEdit]) el.disabled = on || !d.newsOn; };
+    brief.addEventListener("click", () => {
+      updateBrief();
+      if (brief.disabled) return;
+      title.value = "Daily Brief — " + new Date(nowMs()).toISOString().slice(0, 10) + " (UTC)";
+      text.value = "Summary\n[The main update in your own words.]\n\nGuild updates\n[Confirmed decisions and practical details.]\n\nComing up\n[Event, date, time and time zone.]\n\nSources\n[Original source, date and full URL for each report.]\n\nCorrections\n[Any correction to an earlier brief, or None.]";
+      touched();
+      text.focus();
+      text.setSelectionRange?.(0, 0);
+      text.scrollTop = 0;
+    });
+    const lock = (on) => { locked = on; for (const el of [title, text, daysSel, submit, stopEdit]) el.disabled = on || !d.newsOn; updateBrief(); };
     const fail = (ex, fallback) => {
       err.textContent = explain(ex, fallback);
       err.hidden = false;
@@ -2669,6 +2871,7 @@
       submit.textContent = "Save changes";
       stopEdit.hidden = false;
       err.hidden = true;
+      updateBrief();
     };
     submit.addEventListener("click", () => { if (frozen) return; err.hidden = true; return editing ? change() : create(); });
     stopEdit.addEventListener("click", () => again());
@@ -2690,6 +2893,8 @@
       frame("Notices shown now", null, list.length ? list : h("p", { class: "muted small", text: "No notice is shown right now." })),
       frame(formTitle, null,
         h("p", { class: "muted small", text: "Write for the whole guild; do not name members. A notice is deleted when its time is up, at most 90 days after posting." }),
+        h("div", { class: "btn-row" }, brief),
+        h("p", { class: "muted small", text: "The Daily Brief starter fills a blank new notice. Replace its prompts with your own text and check dates and sources before posting." }),
         fieldBox("news-title", "Title", title, { required: true, hint: `Up to ${limits.titleMax || 80} characters.` }),
         fieldBox("news-body", "Text", text, { required: true, hint: `Up to ${limits.bodyMax || 2000} characters. A blank line starts a new paragraph.` }),
         fieldBox("news-days", "Show for", daysSel),
@@ -3118,7 +3323,7 @@
       forget);
   }
 
-  // ---------------------------------------------------------------- community (.93, .96, .98, .100, .101, .102, .103, .104, .105, .106, .107, .108, .109, .110, .111, .112): the shell, your data, the private request form, the directory
+  // ---------------------------------------------------------------- community (.93, .96, .98, .100, .101, .102, .103, .104, .105, .106, .107, .108, .109, .110, .111, .112): the shell, saved account/contact redirects, the directory
   // Every community call is the real keeper API (community-routes.ts); capabilities and flags come from the boot's
   // `community` (community-context.ts contextDto) and are re-read after a refusal. Nothing here changes a role or a
   // membership: the pages show what the Worker admits and say so when it does not.
@@ -3182,13 +3387,18 @@
   const PUBLIC_ROUTES = new Set(["request", "data"]); // only privacy identity redirects survive sign-out
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
-  async function refreshCommunity() {
+  // `options.live` (F4b.1 follow-up, 15 Oct 2026): the ownership of the operation that asked for the refresh. The generic api() effects are gated by it,
+  // and after the awaited context returns nothing is adopted and nothing is redrawn unless the operation still owns its view. Callers without it behave as before.
+  async function refreshCommunity(options = {}) {
+    const live = typeof options.live === "function" ? options.live : null, current = () => !live || live();
     try {
-      const fresh = await api("GET", "/api/community/context");
+      const fresh = await api("GET", "/api/community/context", undefined, live ? { live } : {});
+      if (!current()) return; // the operation's view is gone or its rows were replaced: the context it asked for is not its to adopt
       const changed = JSON.stringify([COM().capabilities, COM().features]) !== JSON.stringify([fresh.capabilities, fresh.features]);
       S.community = fresh;
       if (changed) render(); // .100 (F5): the shell and the page follow what the Worker admits NOW, once; an unchanged context redraws nothing, so a refusal cannot loop
     } catch (ex) {
+      if (!current()) return;
       // The delivery gate also refuses context once membership ends. A confirmed refusal may only remove UI access;
       // retaining the old boot here would leave member navigation and forms visible until a full reload.
       if (ex && ex.status === 403 && ["denied", "not_member"].includes(codeOf(ex))) {
@@ -3201,14 +3411,12 @@
     }
   }
   const b64url = (bytes) => { const a = new Uint8Array(bytes); crypto.getRandomValues(a); let s = ""; for (const b of a) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
-  const CASE_ID = /^[A-Za-z0-9_-]{22}$/, CASE_CODE = /^[A-Za-z0-9_-]{43}$/;
   const errorLine = (text) => h("p", { class: "err small", role: "alert", text });
 
   // .116 (6 Oct 2026): account controls belong to the bottom policy surface; retain saved fragment compatibility.
   ROUTES.data = function data() { location.replace("/privacy/account"); };
 
-  // ---------- the private request form (no sign-in) ----------
-  const REQUEST_KINDS = [["access", "Access: a copy of what is held about me"], ["deletion", "Deletion: remove what is held about me"], ["correction", "Correction: something stored is wrong"], ["objection", "Objection: stop using something"], ["other", "Something else"]];
+  // Saved request links continue to the policy contact surface.
   ROUTES.request = async function request() { location.replace("/privacy/contact"); };
 
   // ---------- the community pages ----------
@@ -3217,6 +3425,7 @@
     const tabs = [["", "Overview"]];
     if (feat("directory")) tabs.push(["directory", "Directory"], ["profile", "My profile"]);
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
+    if (feat("census") && can("confirmedGuildData")) tabs.push(["census", "Census preview"]);
     if (feat("trials")) tabs.push(["trial", "My trial"]);
     if (feat("contributions")) tabs.push(["dues", "My dues"]);
     if (newsOn()) tabs.push(["news", "News"]); // .115: only while an administrator has News switched on
@@ -3245,6 +3454,7 @@
     if (!can("confirmedGuildData")) { add(body, standingNotice()); return; }
     if (sub === "news" && newsOn()) return communityNews(body); // .115
     if (sub === "leadership") return communityLeadership(body); // .114
+    if (sub === "census" && feat("census")) return communityCensus(body);
     if (sub === "directory" && feat("directory")) return communityDirectory(body);
     if (sub === "profile" && feat("directory")) return communityProfile(body);
     if (sub === "calendar" && feat("events")) {
@@ -3259,6 +3469,7 @@
   };
   async function communityOverview(body) {
     const cards = [];
+    if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
       cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. Confirmed guild members only." })));
       cards.push(h("a", { class: "card", href: "#/community/profile" }, h("div", { class: "card-head" }, icon("pos-member"), h("h3", { text: "My profile" })), h("p", { class: "muted small", text: "Opt in to the directory, and say what you play and craft. Nothing is listed until you tick the box." })));
@@ -3270,6 +3481,102 @@
     cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. Confirmed guild members only." }))); // .114
     add(body, [can("confirmedGuildData") ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
+  function communityCensus(body) {
+    const subject = COM().subject, user = S.user, context = COM(), route = currentRoute();
+    let sequence = 0, disposed = false, controller = null, attemptTimer = null, lifetimeTimer = null, expires = 0, lastClock = Date.now(), receipt = null;
+    const input = h("textarea", { id: "census-json", rows: "10", maxlength: String(CENSUS_INPUT_BYTES), autocomplete: "off", spellcheck: "false", "aria-describedby": "census-input-help" });
+    const submit = h("button", { type: "submit", class: "btn primary", text: "Validate and preview" });
+    const clearButton = h("button", { type: "button", class: "btn", text: "Clear" });
+    const status = h("p", { role: "status", "aria-live": "polite", class: "small", text: "Paste an optional addon export to start a private preview." });
+    const output = h("div", { "data-census-results": "true", class: "stack" });
+    const form = h("form", { "data-census-form": "true" }, h("label", { for: "census-json", text: "Census JSON export" }), input,
+      h("p", { id: "census-input-help", class: "small muted", text: "Paste up to 320 KiB. This page does not read files or your clipboard automatically. Nothing here proves membership, ownership or guild capacity." }),
+      h("div", { class: "btn-row" }, submit, clearButton));
+    const hidden = () => document.hidden === true || document.visibilityState === "hidden";
+    const reset = (message, emptyInput = true) => {
+      sequence++;
+      if (controller) controller.abort();
+      controller = null;
+      clearTimeout(attemptTimer); clearTimeout(lifetimeTimer); attemptTimer = lifetimeTimer = null;
+      expires = 0; receipt = null; clear(output);
+      if (emptyInput) input.value = "";
+      submit.disabled = disposed;
+      status.textContent = message;
+    };
+    const present = () => !disposed && S.signedIn && !S.denied && S.user === user && COM() === context && COM().subject === subject && can("confirmedGuildData") && feat("census") && currentRoute() === route && app.contains(body) && !hidden();
+    const live = () => {
+      const now = Date.now();
+      if (now < lastClock || expires && now >= expires) { reset("The preview expired and was cleared."); lastClock = now; return false; }
+      lastClock = now;
+      return present();
+    };
+    const onVisibility = () => { if (hidden()) reset("The preview was cleared when the page was hidden."); else { live(); reset("Paste an export to start a new private preview."); } };
+    const onPageHide = () => reset("The preview was cleared when you left the page.");
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true; reset("The preview was cleared.");
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      if (disposeCensusPreview === dispose) disposeCensusPreview = null;
+    };
+    disposeCensusPreview = dispose;
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    input.addEventListener("input", () => { if (live()) reset("Input changed. Validate again to display a preview.", false); else reset("The previous preview was cleared."); });
+    clearButton.addEventListener("click", () => reset("Input and preview cleared."));
+    const utc = seconds => new Date(seconds * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC");
+    const draw = data => {
+      const s = data.snapshot;
+      add(output, frame("Private census preview", null,
+        h("p", { text: `${s.guilds.length} guild observations. Counts describe reported characters; they are not a unique-player population.` }),
+        kv([["Claimed addon version", s.addonVersion], ["Claimed realm group", s.realmGroup], ["Claimed faction", s.faction], ["Export observed at", utc(s.observedAt)], ["Authenticated server receipt", utc(data.receiptNow)], ["Export age at receipt", `${data.atReceipt.snapshotAgeSeconds} seconds`]]),
+        h("p", { class: "small muted", text: "Guild receipt times come from the upstream client. Online at export is historical, never an online-now count. Rows older than seven days at receipt remain visible here as history; no server retention is implied." }),
+        h("div", { class: "table-wrap" }, h("table", { class: "data", "aria-label": "Unsigned guild observations" },
+          h("thead", null, h("tr", null, ["Guild", "Reported characters", "Upstream local receipt (UTC)", "Age at server receipt", "At export", "At server receipt", "Online at export"].map(t => h("th", { scope: "col", text: t })))),
+          h("tbody", null, s.guilds.map((row, i) => {
+            const age = data.atReceipt.guilds[i];
+            return h("tr", null, h("th", { scope: "row", text: row.name }), h("td", { text: String(row.reportedCharacters) }), h("td", { text: utc(row.receivedAt) }), h("td", { text: `${age.ageSeconds} seconds` }),
+              h("td", { text: `${row.fresh ? "Fresh" : "Not fresh"}; ${row.counted ? "counted" : "not counted"}` }),
+              h("td", { text: `${age.fresh ? "Fresh" : "Not fresh"}; ${age.counted ? "counted" : "not counted"}; ${age.retained ? "within seven days" : "historical beyond seven days"}` }),
+              h("td", { text: row.fresh ? `${row.online} at ${utc(s.observedAt)}` : "Not reported" }));
+          }))))));
+    };
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!live() || controller) return;
+      reset("Checking the export…", false);
+      const raw = input.value;
+      if (!raw || !censusBytes(raw, CENSUS_INPUT_BYTES)) { status.textContent = "Paste valid Unicode text within 320 KiB. Nothing was sent."; return; }
+      const token = sequence, owned = new AbortController(), started = Date.now(), deadline = started + CENSUS_ATTEMPT_MS;
+      controller = owned; submit.disabled = true;
+      const current = () => token === sequence && controller === owned && input.value === raw && live();
+      attemptTimer = setTimeout(() => owned.abort(), CENSUS_ATTEMPT_MS);
+      try {
+        const data = await censusRawPreview(raw, owned, current, started, deadline);
+        if (!current()) return;
+        receipt = data; expires = started + CENSUS_VISIBLE_MS;
+        draw(receipt); status.textContent = "Preview accepted for this page only. It is not saved and clears within 15 minutes.";
+        lifetimeTimer = setTimeout(() => { if (!disposed && sequence === token) reset("The preview expired and was cleared."); }, Math.max(0, expires - Date.now()));
+      } catch (error) {
+        if (!current()) return;
+        const message = censusFailure(error);
+        reset(message);
+        if (error.status === 401) {
+          // Only the still-current original attempt may affect the signed-in shell.
+          dispose(); S.signedIn = false; dirtyKeys.clear(); render();
+        } else if (error.status === 403) {
+          dispose(); status.textContent = "Your access changed. The preview was cleared. Reload to check your access again.";
+          try { location.reload(); } catch { /* keep the cleared refusal visible if reload is blocked */ }
+        } else if (codeOf(error) === "reload") reloadNotice();
+      } finally {
+        if (controller === owned) { controller = null; clearTimeout(attemptTimer); attemptTimer = null; submit.disabled = disposed; }
+      }
+    });
+    add(body, frame("Census preview", null,
+      h("p", { class: "notice", text: "Unsigned community observations — private preview, not saved" }),
+      h("p", { text: "The export and its labels are submitted claims. Signing in and validation do not verify them. Clear the preview when finished; hiding or leaving this page clears it too." }), form, status, output));
+  }
+
   /** .114: the leadership of every Olympus guild, as the site's administrators list it. A record only: it grants nothing. */
   async function communityLeadership(body) {
     let data;
@@ -3317,6 +3624,28 @@
       return;
     }
     const notices = Array.isArray(d.notices) ? d.notices : [];
+    const query = h("input", { type: "search", maxlength: "160", autocomplete: "off", placeholder: "Title or text" });
+    const windowSel = selectOf([{ key: "all", label: "All current notices" }, { key: "1", label: "Last 24 hours" }, { key: "7", label: "Last 7 days" }, { key: "30", label: "Last 30 days" }], "all", { placeholder: null });
+    const results = h("div", { class: "stack", "data-news-notices": true });
+    const resultCount = h("p", { class: "muted small", role: "status", "aria-live": "polite", "aria-atomic": "true" });
+    const reset = h("button", { class: "btn small", type: "button", text: "Clear filters" });
+    const filterNotices = () => {
+      const at = nowSec(), term = query.value.trim().toLowerCase();
+      const active = notices.filter((n) => Number.isFinite(n.until) && n.until > at);
+      const since = windowSel.value === "all" ? null : at - Number(windowSel.value) * 86400;
+      const shown = active.filter((n) => (since === null || (Number.isFinite(n.postedAt) && n.postedAt >= since && n.postedAt <= at)) && (!term || `${n.title}\n${n.body}`.toLowerCase().includes(term)));
+      clear(results);
+      add(results, shown.length ? shown.map((n) => h("div", { class: "card" },
+        h("h3", { text: n.title }), noticeText(n.body),
+        h("p", { class: "muted small", text: `Posted ${fmtDateTime(n.postedAt)}${n.editedAt ? ` · changed ${fmtDateTime(n.editedAt)}` : ""} · shown until ${fmtDay(n.until)}` })))
+        : h("p", { class: "muted", text: active.length ? "No notices match these filters. Try another search or clear the filters." : "No notices right now." }));
+      resultCount.textContent = `Showing ${shown.length} of ${active.length} current notices.`;
+      reset.disabled = query.value === "" && windowSel.value === "all";
+    };
+    query.addEventListener("input", filterNotices);
+    windowSel.addEventListener("change", filterNotices);
+    reset.addEventListener("click", () => { query.value = ""; windowSel.value = "all"; filterNotices(); query.focus(); });
+    filterNotices();
     const f = d.figures;
     const moved = (w) => (w ? `${w.joined} joined, ${w.left} left` : "not enough history yet");
     const pair = (w) => [["Last day", w.day], ["Last 7 days", w.week]];
@@ -3336,12 +3665,9 @@
     add(body, [
       frame("Notices", null,
         h("p", { class: "muted small", text: "From the site's administrators, for the whole guild. Each notice is shown for a set time and then deleted." }),
-        notices.length
-          ? notices.map((n) => h("div", { class: "card" },
-              h("h3", { text: n.title }),
-              noticeText(n.body),
-              h("p", { class: "muted small", text: `Posted ${fmtDateTime(n.postedAt)}${n.editedAt ? ` · changed ${fmtDateTime(n.editedAt)}` : ""} · shown until ${fmtDay(n.until)}` })))
-          : h("p", { class: "muted", text: "No notices right now." })),
+        h("div", { class: "filters" }, fieldBox("news-search", "Search notices", query), fieldBox("news-window", "Posted", windowSel), reset),
+        h("p", { class: "muted small", text: "Search title and text in current notices. Time filters use the original posting time; older notices may already have expired." }),
+        resultCount, results),
       frame("Olympus I", null, h("p", { text: memberSeatsText(d.seats) })),
       frame("The guild in figures", null, figures),
       frame("The Herald's desk", null,
@@ -3571,6 +3897,7 @@
   // ledger (community-contributions-api.ts), read and written through the real API only; every refusal is shown in words
   // with the fresh state the Worker returns; nothing here changes a role, a rank or a membership.
   const RSVP_LABELS = { yes: "Yes", tentative: "Tentative", no: "No" };
+  const DECISION_WORDS = { accepted: "accepted", bench: "on the bench", declined: "declined" }; // stage 2 (15 Oct 2026): the organizer's roster decision
   const STAGE_WORDS = { not_due: "not due yet", due: "due", notice_available: "due; a notice may be given", acknowledged: "acknowledged", final_notice: "final notice", officer_review: "officer review", paid: "paid", exempt: "exempt", resolved: "resolved", needs_review: "needs an officer's review", unknown: "waiting for the officers' attestation" };
   const EVIDENCE_WORDS = { complete: "records complete", partial: "records partial", stale: "records out of date", unavailable: "records not attested" };
   const SOURCE_WORDS = { officer_manual: "entered by an officer", mail: "in-game mail", bank_log: "guild bank log" };
@@ -3603,7 +3930,8 @@
     const kv = h("dl", { class: "kv" },
       h("dt", { text: "When" }), h("dd", { text: `${fmtDateTime(start)} · ${plural(e.durationMin, "minute")}` }),
       h("dt", { text: "Organizer" }), h("dd", { text: e.organizer.displayName }),
-      h("dt", { text: "Answers" }), h("dd", { text: `${e.counts.yes} yes${e.capacity ? ` of ${e.capacity} places` : ""}, ${e.counts.tentative} tentative, ${e.counts.no} no · tanks ${e.counts.byRole.tank}, healers ${e.counts.byRole.healer}, damage ${e.counts.byRole.damage}` }),
+      h("dt", { text: "Answers" }), h("dd", { text: `${e.counts.yes} yes${e.capacity ? ` of ${e.capacity} places` : ""}, ${e.counts.tentative} tentative, ${e.counts.no} no · ${e.counts.accepted || 0} accepted${e.capacity ? ` of ${e.capacity}` : ""} · tanks ${e.counts.byRole.tank}, healers ${e.counts.byRole.healer}, damage ${e.counts.byRole.damage}` }),
+      e.mine && e.mine.decision ? [h("dt", { text: "Roster" }), h("dd", { text: `You are ${DECISION_WORDS[e.mine.decision] || e.mine.decision}.` })] : null,
       e.roleTargets ? [h("dt", { text: "Wanted" }), h("dd", { text: `${e.roleTargets.tank} tanks, ${e.roleTargets.healer} healers, ${e.roleTargets.damage} damage` })] : null,
       e.mine && e.mine.changedSinceRsvp ? [h("dt", { text: "Note" }), h("dd", { text: "The start time changed after you answered; answer again if it no longer suits you." })] : null,
       e.myAttendance ? [h("dt", { text: "Attendance" }), h("dd", { text: `${ATTENDANCE_WORDS[e.myAttendance.state] || e.myAttendance.state}${e.myAttendance.reasonCode ? ` (${REASON_WORDS[e.myAttendance.reasonCode] || e.myAttendance.reasonCode})` : ""}, recorded ${fmtShort(sec(e.myAttendance.recordedAt))}` })] : null);
@@ -3876,6 +4204,7 @@
     const status = selectOf(Object.keys(RSVP_LABELS).map((k) => ({ key: k, label: RSVP_LABELS[k] })), e.mine ? e.mine.status : "", { placeholder: "Choose…" });
     const character = h("input", { type: "text", value: e.mine && e.mine.character ? e.mine.character : "", placeholder: "First Last" });
     const raidRole = selectOf(Object.keys(RAID_ROLE_LABELS).map((k) => ({ key: k, label: RAID_ROLE_LABELS[k] })), e.mine && e.mine.raidRole ? e.mine.raidRole : "", { placeholder: "No raid role" });
+    const remind = h("input", { type: "checkbox", checked: !!(e.mine && e.mine.remindMention) }); // stage 2
     const err = errorLine(""); err.hidden = true;
     const save = h("button", { class: "btn", type: "submit", text: e.mine ? "Change my answer" : "Answer" });
     const form = h("form", { class: "stack", novalidate: true },
@@ -3883,15 +4212,16 @@
       fieldBox("rsvp-status", "Your answer", status, { required: true }),
       fieldBox("rsvp-character", "Character (optional)", character, { hint: "Which character you bring, as \"First Last\". Leave it empty to clear it." }),
       fieldBox("rsvp-role", "Raid role (optional)", raidRole),
+      fieldBox("rsvp-remind", "Mention me in the Discord reminder", remind, { hint: "If the organizer sends the raid reminder to Discord an hour before the start, it mentions you while your answer is yes; your Discord account then appears in that message." }),
       h("p", { class: "muted small", text: "Your answer is shown to confirmed members by your display name. A yes takes a place while places are limited; the organizers may record attendance afterwards." }),
       err, h("div", { class: "btn-row savebar" }, save));
-    if (closed) { status.disabled = true; character.disabled = true; raidRole.disabled = true; save.disabled = true; }
+    if (closed) { status.disabled = true; character.disabled = true; raidRole.disabled = true; remind.disabled = true; save.disabled = true; }
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       err.hidden = true;
       if (!status.value) { err.textContent = COMMUNITY_ERRORS.invalid_status; err.hidden = false; return; }
       save.disabled = true;
-      const payload = { eventId: e.id, status: status.value, revision: e.mine ? e.mine.revision : 0, character: character.value.trim() ? character.value.trim() : null, raidRole: raidRole.value || null };
+      const payload = { eventId: e.id, status: status.value, revision: e.mine ? e.mine.revision : 0, character: character.value.trim() ? character.value.trim() : null, raidRole: raidRole.value || null, remindMention: remind.checked };
       try {
         const out = await api("PUT", "/api/community/events/rsvp", payload);
         if (eventWithheld(out)) { receiptBar("Answer saved. ", `Your answer was stored, but the event cannot be shown to you right now (${HYDRATION_WORDS[out.hydration]}). The answer stands.`); await reload(); return; } // .108: a valid withheld receipt
@@ -3912,32 +4242,101 @@
   }
   function signupsPanel(id, firstPage, firstCursor, e) {
     const tbody = h("tbody");
-    const table = h("div", { class: "table-wrap", hidden: true }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Member" }), h("th", { text: "Answer" }), h("th", { text: "Character" }), h("th", { text: "Role" }))), tbody));
+    const table = h("div", { class: "table-wrap", hidden: true }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Member" }), h("th", { text: "Answer" }), h("th", { text: "Character" }), h("th", { text: "Role" }), h("th", { text: "Roster" }))), tbody));
     const status = h("p", { class: "muted small" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     let cursor = firstCursor;
+    const subtitle = (ev) => `${ev.counts.yes} yes · ${ev.counts.tentative} tentative · ${ev.counts.no} no · ${ev.counts.accepted || 0} accepted`;
+    const counts = h("span", { class: "muted small", text: subtitle(e) });
+    // stage 2 (15 Oct 2026): the roster column. Everyone sees the decision; the organizer who manages the event decides per row through
+    // POST /api/community/events/decide (the Worker enforces the capacity: accepted first, bench and declined never hold a place). A command
+    // is acknowledged only by one of the Worker's two exact outcomes for this ref: the sent decision at revision + 1, or — for a clear sent
+    // against a row that was undecided when the command was built — no decision at the unchanged revision. Any other readable 2xx, an
+    // unreadable or lost answer re-reads the list and says the answer was lost (the decision may be stored); a definite refusal says why and
+    // re-reads; nothing is resubmitted. Every reply is bound to this view (route, account, this table still on the page): a reply that arrives
+    // after the page moved on changes nothing; readbacks are sequenced and only the latest replaces the list; a failed readback says so (F4a/F4b, 15 Oct 04:11).
+    const REFUSED_WORDS = { full: "No place left: raise the capacity, or bench or decline someone first.", not_signed_up: "Only a member who answered yes or tentative can be accepted.", stale_revision: "This row changed meanwhile.", unknown_member: "That member no longer qualifies to be shown; nothing was decided.", invalid: "That decision was not understood; nothing was decided." };
+    // the view as this table was drawn: route, signed-in state, account, the context's subject, capabilities and features (by value), and the table still on the page
+    const fingerprint = () => JSON.stringify([currentRoute(), !!S.signedIn, S.user ? S.user.id : null, COM().subject ? COM().subject.discordId : null, COM().capabilities, COM().features]);
+    const view = fingerprint();
+    const attached = () => { for (let n = tbody; n; n = n.parentNode) if (n === document) return true; return false; };
+    const alive = () => attached() && fingerprint() === view;
+    // readSeq: the latest list read owns the table; generation: moves whenever the rows are replaced, so a command built from a replaced row is obsolete (F4b.2)
+    let readSeq = 0, generation = 0;
+    const reread = async (lead, text) => {
+      const my = ++readSeq, live = () => my === readSeq && alive();
+      let data = null, failure = null;
+      try { data = await fetchPage(null, live); } catch (again) { failure = again; }
+      if (!live()) return; // an obsolete readback (a newer one is in flight) or a departed view: nothing is replaced, nothing is said
+      if (data) { generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); if (data.event && data.event.counts) counts.textContent = subtitle(data.event); receiptBar(lead, `${text} The list was re-read from the Worker.`); }
+      else { status.textContent = explain(failure, "The list could not be re-read."); receiptBar(lead, `${text} The list could not be re-read; reload the page before deciding again.`); }
+    };
+    const rosterCell = (s) => {
+      const word = s.decision ? DECISION_WORDS[s.decision] || s.decision : "—";
+      if (!(e.canManage && s.ref)) return h("td", { text: word });
+      const pick = selectOf([{ key: "accepted", label: "Accepted" }, { key: "bench", label: "Bench" }, { key: "declined", label: "Declined" }], s.decision || "", { placeholder: "no decision" });
+      pick.setAttribute("aria-label", "Roster decision");
+      const saveBtn = h("button", { class: "btn small", type: "button", text: "Save" });
+      const born = generation, owned = () => alive() && born === generation; // this row's controls: the view alive and the rows not replaced since they were drawn
+      saveBtn.addEventListener("click", async () => {
+        const sent = { ref: s.ref, decision: pick.value || null, revision: s.decisionRevision || 0 }, prior = typeof s.decision === "string" ? s.decision : null; // the row as this command sees it
+        saveBtn.disabled = true; pick.disabled = true;
+        const settle = () => { if (owned()) { pick.disabled = false; saveBtn.disabled = false; } };
+        try {
+          const out = await api("POST", "/api/community/events/decide", { eventId: id, entries: [sent] }, { live: owned });
+          if (!owned()) return; // the page moved on, or the rows were replaced, while the Worker answered: the Worker's state stands and the current rows show it; nothing is said here
+          const r = out && Array.isArray(out.results) ? out.results.find((x) => x && typeof x === "object" && x.ref === sent.ref) : null;
+          const acknowledged = !!r && (r.result === "ok" || Object.prototype.hasOwnProperty.call(REFUSED_WORDS, r.result)) && Number.isInteger(r.revision);
+          if (!acknowledged) throw new ApiError(200, { error: "unreadable_answer" }); // .104 (F100-1): no closed receipt is a lost answer, never "nothing changed"
+          if (r.result === "ok") {
+            const changed = r.decision === sent.decision && r.revision === sent.revision + 1; // exact typed equality: one of the three words, or null
+            const noop = sent.decision === null && prior === null && r.decision === null && r.revision === sent.revision; // a clear of an undecided row: the Worker stores nothing and says so at the unchanged revision
+            if (!(changed || noop)) throw new ApiError(200, { error: "unreadable_answer" }); // any other receipt does not acknowledge this command
+            s.decision = r.decision; s.decisionRevision = r.revision;
+            toast(noop ? "No decision to clear." : r.decision ? `Roster: ${DECISION_WORDS[r.decision] || r.decision}.` : "Decision cleared.", "good");
+            if (out.event && out.event.counts) counts.textContent = subtitle(out.event);
+            settle();
+            return;
+          }
+          await reread("Not decided. ", REFUSED_WORDS[r.result]);
+        } catch (ex) {
+          if (!owned()) return; // a failure reported after the page moved on, or after the rows were replaced, changes nothing here
+          if (uncertain(ex)) { await reread("Roster answer lost. ", "The decision may have been stored. Check the row before deciding again."); return; }
+          toast(explain(ex, "Nothing was decided."), "bad"); settle();
+          if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity({ live: owned }); // the follow-up carries this row's ownership: a late context reply adopts nothing after the view departed or the rows were replaced
+        }
+      });
+      return h("td", null, pick, " ", saveBtn);
+    };
     const put = (rows) => {
-      for (const s of rows) tbody.appendChild(h("tr", null, h("td", { text: s.displayName || "(no name)" }), h("td", null, RSVP_LABELS[s.status] || s.status, s.changedSinceRsvp ? [" ", h("span", { class: "badge warn", text: "before the time changed" })] : null), h("td", { text: s.character || "—" }), h("td", null, s.raidRole ? [rrIcon(s.raidRole), " ", RAID_ROLE_LABELS[s.raidRole] || s.raidRole] : "—")));
+      for (const s of rows) tbody.appendChild(h("tr", null, h("td", { text: s.displayName || "(no name)" }), h("td", null, RSVP_LABELS[s.status] || s.status, s.changedSinceRsvp ? [" ", h("span", { class: "badge warn", text: "before the time changed" })] : null), h("td", { text: s.character || "—" }), h("td", null, s.raidRole ? [rrIcon(s.raidRole), " ", RAID_ROLE_LABELS[s.raidRole] || s.raidRole] : "—"), rosterCell(s)));
     };
     const finish = () => { more.hidden = !cursor; table.hidden = !tbody.firstChild; status.textContent = tbody.firstChild ? "" : "Nobody has answered yet."; };
-    const fetchPage = async (c) => api("GET", `/api/community/event?id=${encodeURIComponent(id)}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`);
+    const fetchPage = async (c, live) => api("GET", `/api/community/event?id=${encodeURIComponent(id)}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`, undefined, live ? { live } : {});
     put(firstPage); finish();
     more.addEventListener("click", async () => {
       more.disabled = true;
+      const my = readSeq, live = () => my === readSeq && alive(); // a list read that replaces the table while this page is in flight makes the page obsolete (F4b.2)
       try {
-        const data = await fetchPage(cursor);
+        const data = await fetchPage(cursor, live);
+        if (!live()) return; // the table was replaced meanwhile: this page and its cursor belong to the old rows
         put(data.signups); cursor = data.nextCursor; finish();
       } catch (ex) {
+        if (!live()) return;
         if (codeOf(ex) === "cursor_stale") {
           toast(COMMUNITY_ERRORS.cursor_stale);
-          clear(tbody);
-          try { const data = await fetchPage(null); put(data.signups); cursor = data.nextCursor; finish(); } catch (again) { status.textContent = explain(again, "The list could not be read."); }
+          const again = ++readSeq, still = () => again === readSeq && alive();
+          try {
+            const data = await fetchPage(null, still);
+            if (!still()) return;
+            generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); // the rows are replaced only by a read that still owns the table
+          } catch (again2) { if (still()) status.textContent = explain(again2, "The list could not be read."); }
           return;
         }
         status.textContent = explain(ex, "The list could not be read.");
-      } finally { more.disabled = false; }
+      } finally { if (alive()) more.disabled = false; }
     });
-    return frame("Who answered", h("span", { class: "muted small", text: `${e.counts.yes} yes · ${e.counts.tentative} tentative · ${e.counts.no} no` }), status, table, h("div", { class: "btn-row" }, more));
+    return frame("Who answered", counts, status, table, h("div", { class: "btn-row" }, more));
   }
   // ---------- the own trial ----------
   async function communityTrial(body) {
@@ -4100,7 +4499,7 @@
   const ORGANIZER_ERRORS = {
     not_organizer: "Only guild organizers can do that.",
     not_event_organizer: "Only the organizer who scheduled this event (or a site admin) can change it.",
-    capacity_below_signups: "The capacity cannot go below the places already taken. Lower it after the answers change.",
+    capacity_below_signups: "The capacity cannot go below the places already taken. Lower it after the answers change.", capacity_below_accepted: "The capacity cannot go below the members already accepted on the roster. Bench or decline someone first.",
     op_conflict: "A different event was already created from this form. Reload the page to start a new one.",
     invalid_title: "Give the event a title of up to 80 characters.",
     invalid_details: "The details are too long (up to 500 characters) or contain characters the form does not accept.",

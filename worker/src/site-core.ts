@@ -4,6 +4,7 @@
  * (members) and site-admin.ts (admins) all import from here and never from each other's internals.
  */
 import type { Env } from "./env";
+import {readOriginalSiteSession,assertOriginalSiteSessionRead,type OriginalSiteSession} from "./privacy-site-session-incarnation";
 import { now } from "./db";
 import { privacyGenerationLiteralFenceSql } from "./privacy-serving-authority";
 import { DiscordError, rest } from "./discord";
@@ -31,6 +32,10 @@ export interface SiteUser {
   checked_at: number | null;
   in_server: number;
   session_version: number;
+  /** Private native row incarnation; excluded from public DTOs. */
+  account_incarnation: string;
+  /** Internal original-read custody; public serializers omit this reference. */
+  privacyOriginalSession?:OriginalSiteSession;
   denied: number;
   denied_reason: string | null;
   denied_at: number | null;
@@ -38,7 +43,6 @@ export interface SiteUser {
 }
 
 export const SESSION_COOKIE = "__Host-olg";
-const SESSION_SECONDS = 7 * 86400;
 
 export const CSP = [
   "default-src 'none'",
@@ -117,15 +121,6 @@ export async function verify(secret: string, purpose: string, data: string, mac:
   }
 }
 
-export async function sessionCookie(env: Env, discordId: string, version: number,originalGeneration?:string|null): Promise<string> {
-  const issuedExpires=now()+SESSION_SECONDS;
-  const generation=originalGeneration===undefined?(await env.DB.prepare('SELECT generation FROM privacy_subjects WHERE subject_id=?1').bind(discordId).first<{generation:string}>())?.generation??null:originalGeneration;
-  if(generation!==null&&!/^[0-9a-f]{32}$/.test(generation))throw Error('privacy_cookie_generation_invalid');
-  const body = b64u(new TextEncoder().encode(JSON.stringify({ u: discordId, v: version, e: issuedExpires, g:generation })));
-  const mac = await sign(env.COOKIE_SECRET, "session", body);
-  return `${SESSION_COOKIE}=${body}.${mac}; Max-Age=${SESSION_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Lax`;
-}
-
 export const clearCookie = (name: string) => `${name}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
 
 export function cookie(request: Request, name: string): string {
@@ -135,29 +130,24 @@ export function cookie(request: Request, name: string): string {
   return "";
 }
 
-export async function readSession(env: Env, request: Request): Promise<{ u: string; v: number; e: number; g:string|null } | null> {
-  const raw = cookie(request, SESSION_COOKIE);
-  const dot = raw.indexOf(".");
-  if (dot < 1 || !env.COOKIE_SECRET) return null;
-  const body = raw.slice(0, dot);
-  if (!(await verify(env.COOKIE_SECRET, "session", body, raw.slice(dot + 1)))) return null;
-  try {
-    const s = JSON.parse(new TextDecoder().decode(unb64u(body))) as { u: string; v: number; e: number; g?:string|null };
-    if (typeof s.u !== "string" || typeof s.v !== "number" || typeof s.e !== "number" || s.e < now()) return null;
-    if(s.g!==undefined&&s.g!==null&&(typeof s.g!=='string'||!/^[0-9a-f]{32}$/.test(s.g)))return null;
-    return {...s,g:s.g??null};
-  } catch {
-    return null;
-  }
-}
+export async function readSession(env:Env,request:Request):Promise<OriginalSiteSession|null>{return readOriginalSiteSession(env,request);}
 
+/** Existing original-read witness only. Native row birth is compared, never adopted as a cookie. */
+export function originalUserSession(user:SiteUser):OriginalSiteSession{
+ const field=Object.getOwnPropertyDescriptor(user,'privacyOriginalSession');if(!field||!Object.hasOwn(field,'value'))throw Error('privacy_original_user_held');
+ const s=field.value as OriginalSiteSession;assertOriginalSiteSessionRead(s);
+ for(const [key,value]of [['discord_id',s.u],['session_version',s.v],['privacyGeneration',s.g],['account_incarnation',s.n]] as const){const d=Object.getOwnPropertyDescriptor(user,key);if(!d||!Object.hasOwn(d,'value')||d.value!==value)throw Error('privacy_original_user_held');}
+ return s;
+}
 /** The signed-in user, or null. A cookie from before the last sign-out (older version) no longer counts. */
 export async function currentUser(env: Env, request: Request): Promise<SiteUser | null> {
   const s = await readSession(env, request);
   if (!s) return null;
-  const row = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u).first<SiteUser>();
-  if (!row || row.session_version !== s.v) return null;
-  return {...row,privacyGeneration:s.g};
+  assertOriginalSiteSessionRead(s);
+  const row = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation = ?2 AND session_version = ?3 AND ?4>CAST(strftime('%s','now') AS INTEGER) AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u,s.n,s.v,s.e).first<SiteUser>();
+  assertOriginalSiteSessionRead(s);
+  if (!row || row.session_version !== s.v || row.account_incarnation !== s.n) return null;
+  return {...row,privacyGeneration:s.g,privacyOriginalSession:s};
 }
 
 /**

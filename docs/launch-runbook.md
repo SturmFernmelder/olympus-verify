@@ -16,11 +16,14 @@ secret put`, `db:init` against the remote database, `register`, the watcher agai
 
 ## 0. What "signed" means
 
-Before 3 Oct 2026 the procedure required the author's signature and the other agent's countersignature on the same SHA.
-the owner then instructed Codex to take over after Claude's usage limit and finish without dual sign-off. For new actions,
-the task log must hold Codex's own release qualification on the exact final commit/tree, with independent peer evidence
-and the applicable source, tests, bundle, policies/assets, CI and actual-version/live gates or expressly named residuals.
-No new Claude signature is required or implied. The interrupted .115 checkpoint
+For the owner's renewed 14 October 2026 request, the task log must hold genuine Claude Code and Codex signatures on
+the same exact final commit/tree and evidence tuple. Each records its own scope, independent peer evidence and the
+applicable source, tests, bundle, policies/assets, exact shipping-commit CI and actual-version/live gates or expressly
+named residuals. Prepared source, a component pass or a subagent review is not either agent's release signature.
+
+Historically, the procedure required two signatures before 3 October; the owner then instructed Codex to take over after
+Claude's usage limit and finish that earlier work without dual sign-off. That decision and its evidence remain history,
+not an exception to the renewed collaborative request. The interrupted .115 checkpoint
 `568c76d958eeee2f2786798bd959b0b2ae8ec299` preserves work only; it is not qualified for release.
 The keeper checkout has no remote and its
 history stays private, so hosted CI runs only on the public repository: a deploy takes the shipping commit below, and the
@@ -32,7 +35,7 @@ itself and never a working folder. P carries K when P's root tree holds exactly 
 IDs, plus `index.html`, `privacy.html` and `terms.html`, which are the same blobs as `policies/index.html`,
 `policies/privacy.html` and `policies/terms.html`; then `worker/`, `addon/`, `watcher/`, `scripts/`, `docs/` and every
 other entry are byte-identical to K. The check is `git ls-tree <P>` in the public clone against `git ls-tree <K>` in the
-keeper. Codex qualifies P under this section (the final tuple is regenerated on P), its push-to-`main` CI run is green, and the owner
+keeper. Both agents qualify P under this section (the final tuple is regenerated on P), its push-to-`main` CI run is green, and the owner
 deploys it from a clean clone of the public repository (`npm ci` in that clone's `worker/`, then
 `bash scripts/deploy-commit.sh <P>`); the dry-run bundles of P and of K (`--dry-run --outdir`) have a byte-identical
 `index.js` (the source map and wrangler's README name the temporary export folder and differ). If P reaches `main`
@@ -48,7 +51,7 @@ head and its tree; the policies served at `/privacy` and `/terms` from that head
 the source; the official asset tuple (the reviewed asset contract and manifest); the required documents; the reviewed
 literal classifications regenerated for that head; the deployment profile (`worker/wrangler.toml`,
 `worker/wrangler.cutover.toml`) and, after step 3, the opening marker (`worker/wrangler.cutover.applied` and its commit);
-the aggregate CI result on that head; and Codex's exact final qualification with attributable peer evidence. Throughout, these stay as reviewed: the
+the aggregate CI result on that head; and both agents' exact final signatures with attributable peer evidence. Throughout, these stay as reviewed: the
 bot's stable Interactions endpoint on the workers.dev host, the 18 cutover keys and nothing else, the donor's private
 database and owner limiter (its own contract), the sign-in callback restart on the legacy host, and every community flag
 off until step 4.
@@ -507,47 +510,77 @@ launch counts as accepted only once each is observed or explicitly named as a re
 - the first scheduled officer digest after 15:00 (counts only, in the private review channel);
 - Codex's whole-tool qualification on one final commit under section 0, with attributable independent peer evidence.
 
-## 8. The end of the beta (from 22 October 2026; the owner's item 8, build .114)
+## 8. Beta member and rank reset (owner scope confirmed 14 October 2026)
 
-Blizzard gives 21 October 2026 as the beta's last full day and no hour, and the launch as 4 November 2026. the owner's scope,
-confirmed through Codex (log 17:42 and 17:57 UTC, 2 Oct): Olympus guild ranks and guild leadership assignments are chosen
-again from scratch for the full release; Asmongold's general roles, applications, votes and private records are not
-touched. Nothing runs on a timer; every step below is a person's.
+**Candidate instructions, updated 15 October 2026 UTC.** The requested automatic reset starts at **22 October 2026,
+17:00 UTC (noon CDT)**. This is a start time, not an instant completion promise. The integrated source is not yet
+qualified or activated for that minute callback. The previous appointment-wipe and manual-leadership-reset procedure
+is superseded and preserved only in [the dated historical record](history/launch-runbook-beta-reset-superseded-2026-10-15.md).
 
-1. **Wait until the beta has actually closed.** Do not guess an hour.
-2. **Record the closing moment** on the site: Admin → Settings → End of the beta → "The beta closed at" → Record. It must
-   be in the past; the reset stays locked until it is recorded.
-3. **Reset**: same block → Reset guild leadership → type RESET. The appointed roles become an explicit empty list (the
-   default Treasurer appointment does not come back) and the Olympus I-X leadership directory empties. Optionally set a
-   notice such as "Guild roles are open again for the full release". Applications, votes, memberships, links, bans and the
-   dated log are kept. Suggested window: 22 to 26 October, so that applications and votes for the full release can finish
-   before 4 November.
-4. **In game**: the Guild Master (the owner, or an approved GM) sets the ranks by hand from the new decisions. The website
-   cannot change game ranks; the rank planner only drafts. The in-game ladder decision changed on 3 Oct 2026 (owner
-   answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation). The current recommended preset is
-   already available in `worker/public/static/rank-planner/model.js`; it does not apply live changes. Its permission and
-   bank-limit fields remain draft values. Native rank and bank permissions still need the Guild Master's attended review
-   and setup; rank order alone does not establish withdrawal rights.
-5. **In Discord** (a person with Manage Roles performs this reset): remove Olympus Officer, Olympus Guild Leader,
-   Olympus Raid Leader, Olympus Council GM and Olympus Council Officer from everyone who is not kept. The approved bot
-   role position is below Olympus Guild Leader and above Olympus Officer. Hierarchy permits managing eligible lower roles
-   only with Manage Roles and a reviewed action path; the bot cannot manage Olympus Guild Leader or roles at or above its
-   own role. This position is not authorization to reset leadership, grant private-channel visibility or change game ranks
-   or bank permissions. Keep the owner and at least one Olympus Guild Leader, and preserve role-authorized access to
-   /olympus-admin, /olympus-intros and the officer lookups. New assignments and permission changes remain separate reviews.
-6. **Assign the new leaders**: Discord roles by hand, each named person reviewed first (the Council roles only after that
-   review), the site's appointed roles in Admin → Settings, the I-X directory in the same place.
-7. **Announce once**: a site notice and, if wanted, one staff post in #guild-announcements; no per-member mentions.
+The fixed source epoch is `olympus-beta-2026-10-22`, for Discord guild `236932545793490944`. Reset only the two Guild
+Member roles (`1552077551839617104` and `1558657538960916490`) and the ten `Olympus Rank:` roles: Guild Master, the second
+native rank, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. The exact twelve IDs are listed in
+[the current reset guide](beta-reset-2026-10-22.md) and fixed by `worker/src/beta-reset-policy.ts`; names do not select
+targets. Preserve manual Guild Leader, Officer, Raid Leader and Council roles, Developer, bot and server-moderator roles,
+website appointments and the Olympus I-X leadership directory. The similarly named `Olympus Rank:` copies are in the
+reset scope; the separate manual leadership and Council roles are not. No game ranks, applications or votes are reset.
 
-Launch-day items that are not part of the reset and still need a reviewed path before 4 November: `LINKS_NOT_BEFORE` (it
-is not an activation key, so `scripts/cutover-config.sh` refuses it today) and a cutoff for invite-queue rows made during
-the beta (an invite to a beta name would reach whoever holds that name on live).
+1. **Finish qualification against the exact release source and profile.** Obtain the current Codex and actual Claude
+   reviews, complete final CI, policy/asset generation and parity, source/admission installation and deployment-profile
+   checks, and the applicable verified private backup/recovery evidence. Preserve the original ordinary callback,
+   24-job budget and 700-statement target. Qualify the reset-only original Native callback separately, including both
+   admission layouts, original controller/context capture, bounded physical/network/CPU work, delayed callbacks and
+   unknown operation custody. Component tests and the existing two-literal ordinary canary do not establish positive
+   minute qualification. An additional minute-qualifier canary needs its own review; the real database cutoff has not
+   arrived and must not be replaced by a synthetic clock or changed cutoff to claim a post-cutoff Native pass.
+2. **Verify the real Discord prerequisite and current target access.** Obtain fresh saved Server Members Intent
+   approval/enablement and usable member enumeration, plus the bot's actual permissions and hierarchy for all twelve
+   targets. At the latest recorded check, Server Members Intent was OFF; Discord refused the enable pending Privileged
+   Intents review. Submitted support ticket 69036738 is not approval. Historical role counts are not a fresh preview or
+   the server total. A bot-known-subject fallback would be incomplete and does not replace full-server discovery.
+3. **Preview and arm before the fixed cutoff, once the applicable release gates are satisfied.** An original current
+   `SITE_ADMINS` owner uses Admin → Settings → Beta member and rank reset → Refresh reset status. Check the fixed date,
+   twelve-role scope, preserved roles and separate discovery/removal/custody counters. The fresh signed arming form is
+   bound to that owner's session/generation and the database clock; it cannot choose another cutoff or role list.
+   Arming records the immutable policy once and does not enable removal. A lost reply requires fresh status readback,
+   not a success claim or a replacement policy. The old closing-moment and website-wipe endpoints are retired. The
+   current route cannot first arm after cutoff; do not backdate or bypass it if qualification misses that boundary.
+4. **Activate only the qualified reset entry and profile.** In this candidate, an absent or false
+   `BETA_RESET_REMOVALS_ENABLED` leaves removal OFF, `BETA_RESET_SCHEDULE_QUALIFIED` remains false, and both configuration
+   profiles contain only `*/15 * * * *`. No minute trigger is installed. Any later reviewed activation must retain the
+   original source/admission gates and add the separate exact `* * * * *` trigger with its qualified profile. It must
+   not accelerate or replace ordinary maintenance. This document changes no flag, trigger or provider setting.
+5. **Monitor bounded progress after the cutoff.** The reset component permits one page of at most 1,000 members and at
+   most six role intents per minute invocation. Inspect discovery and known pending/held/unknown work separately;
+   settled-operation counts are not a present holder count. Continuous passes find externally assigned target roles
+   behind an earlier cursor. An unknown PUT or DELETE remains unresolved even when a later GET shows absence. A clean
+   pass can report `awaiting_new_source`; it never establishes permanent completion or readiness to reuse the roles.
+   In this candidate, old-beta grants close at the database cutoff even with removal OFF or the policy absent. Deleting
+   the policy or toggling the removal flag cannot reopen those old proofs.
+6. **Confirm retention separately and qualify the new-source exit.** After the real cutoff, a fresh authenticated
+   owner can confirm that the fixed cutoff has passed through the separate retention form. This changes no roles,
+   appointments or directory and does not certify removal completion. Before the same role IDs receive full-release
+   assignments, qualify retirement of the old remover on every serving version, prove admitted/unknown work resolved
+   or drained, and introduce a new source epoch with fresh accepted roster/verification evidence. An ordinary redeploy,
+   a fixed wait or one absence observation is not that proof. The current candidate has no qualified reuse switch.
+
+The current native in-game ladder remains Guild Master, the second native rank, Officer, Officer Alt, Raid Leader, Veteran,
+Raider, Member, Alt and Initiate. Treasurer and Co-Guild Master are appointments. The 3 October native-Treasurer
+recommendation is superseded by the owner's 14 October confirmation. The rank planner only drafts; the Guild Master
+still reviews and applies native rank and bank permissions in game. Rank order alone does not establish withdrawal
+rights. No reset instruction appoints a person, changes manual leadership or authorizes an announcement.
+
+Separate full-release work still needs its own reviewed path: the accepted new source and roster evidence, link-opening
+configuration and safe handling of beta invite-queue entries. None is made ready by arming the reset.
 
 ## 9. Typed names (from build .115)
 
 Two places on the site hold names an administrator types, tied to no Discord account: the appointed roles (Admin →
-Settings; public on the open web, signed in or not) and the Olympus I-X leadership directory (confirmed members). The
-privacy policy promises consent and removal on request, so:
+Settings; displayed on the Roles page and signed-in guild pages) and the Olympus I-X leadership directory (confirmed
+members). The Roles page requires Discord sign-in and current server membership. Appointed names also appear in
+signed-in account settings: an existing valid session can read those settings even when that account can no longer
+enter guild pages because it left the server or was denied. Public sign-in and privacy pages do not list the names.
+The privacy policy promises consent and removal on request, so:
 
 1. **Ask first.** Type a name only after that person agreed to be named there. The page's consent box must be ticked to
    add a name or give a role another holder; the server checks that it was ticked, not that the person agreed, so the
@@ -560,8 +593,8 @@ privacy policy promises consent and removal on request, so:
 4. **The dated log records counts only**: which roles were appointed, how many names were saved, whether the notice was
    set and the box ticked; never a name. Since .115 the older log rows get the same shape: .115 rewrites them once at an
    isolate start, and a failure is logged and tried again at a later start, so the deploy is accepted only after the
-   read-back in item 5. Search engines and web archives may have copied a public name; removal here cannot recall their
-   copies, and the policy says so.
+   read-back in item 5. Earlier public names may have been copied by search engines or web archives, and people who can
+   read a name can still copy it; removal here cannot recall those copies, and the policy says so.
 5. **The rewrite's read-back, and the rollback boundary** (Codex, 3 Oct 2026 13:24 UTC). The marker `auditTypedNames`
    records that the rewrite ran once; it says nothing about rows written after it. An older writer resumed after the
    marker writes the old shape again (the appointed names and the notice's text): a .114 isolate that finishes a

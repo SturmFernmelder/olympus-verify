@@ -1,7 +1,7 @@
 /** Fixed reviewed local-subset catalog. A done plan means own rows only, never complete table/reference erasure. */
 import { sha256, type Database } from './account-generation-contracts';
-import { accountSchemaFenceSql, readAccountSchemaProfile } from './account-schema-profile';
-export const CATALOG_VERSION='lifecycle-local-subset-root-purpose-P-v1';
+import { DORMANT_SCHEMA_SOURCE_MARKER, readDormantSchema } from './privacy-foundation-schema-profile';
+export const CATALOG_VERSION='lifecycle-local-subset-dormant-catalog56-v1';
 export type StoreEntry=Readonly<{table:string;plan:Readonly<{owner:string}>|null;hold:string;referenceCoverage:'unqualified'}>;
 export const STORE_CATALOG:readonly StoreEntry[]=Object.freeze([
  Object.freeze({table:'pending',plan:Object.freeze({owner:'discord_id'}),hold:'shared_or_cross_subject_projection_unqualified',referenceCoverage:'unqualified' as const}),
@@ -58,10 +58,12 @@ export const STORE_CATALOG:readonly StoreEntry[]=Object.freeze([
  Object.freeze({table:'site_login_flows',plan:Object.freeze({owner:'subject'}),hold:'anonymous_expiry_and_shared_provenance_unqualified',referenceCoverage:'unqualified' as const}),
  Object.freeze({table:'role_grants',plan:null,hold:'role_reference_and_debt_projection_unqualified',referenceCoverage:'unqualified' as const}),
  Object.freeze({table:'role_attempts',plan:null,hold:'role_reference_and_debt_projection_unqualified',referenceCoverage:'unqualified' as const}),
+ Object.freeze({table:'privacy_rejection_decisions',plan:null,hold:'source_owned_serving_erasure_and_derived_copy_only',referenceCoverage:'unqualified' as const}),
+ Object.freeze({table:'privacy_rejection_expiry_control',plan:null,hold:'nonpersonal_shared_original_expiry_control',referenceCoverage:'unqualified' as const}),
 ]);
 export const FOUNDATION_TABLES=Object.freeze(['generation_control','account_generations','account_purpose_generations','privacy_erasure_jobs','privacy_erasure_progress','privacy_external_outbox','root_authority_scope']);
 /** Exact metadata admission in the consuming transaction, not only a pre-await schema lookup. Fixed authored names. */
-export const SCHEMA_CURRENT_SQL=accountSchemaFenceSql();
+export const SCHEMA_CURRENT_SQL=DORMANT_SCHEMA_SOURCE_MARKER;
 export async function catalogDigest():Promise<string>{return sha256('privacy-store-catalog\0'+CATALOG_VERSION+'\0'+JSON.stringify(STORE_CATALOG));}
 /** No SQL identifier is accepted from a request. An unknown schema closes execution, not just a completion label. */
-export async function catalogMatchesSchema(db:Database):Promise<boolean>{return (await readAccountSchemaProfile(db)).state==='qualified';}
+export async function catalogMatchesSchema(db:Database):Promise<boolean>{return readDormantSchema(db);}

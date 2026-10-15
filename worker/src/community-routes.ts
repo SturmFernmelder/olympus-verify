@@ -8,7 +8,7 @@ import { apiJson, type SiteUser } from "./site-core";
 import { communityContext, contextDto, refusal } from "./community-context";
 import "./community-refs"; // registers its erasure and export
 import { adminAltDecision, adminDirectory, craftingSearch, directoryList, profileGet, profilePut } from "./community-directory";
-import { attendanceList, cancelEvent, createEvent, getEvent, listEvents, myAttendance, recordAttendance, rsvp, updateEvent } from "./community-events";
+import { attendanceList, cancelEvent, createEvent, decideRoster, getEvent, listEvents, myAttendance, recordAttendance, rsvp, updateEvent } from "./community-events";
 import { eventDeliveryPreview, eventDeliveryPublish, eventDeliveryReconcile, eventDeliveryRemove } from "./community-event-delivery";
 import { eventReminderStatus, eventReminderConsent, eventReminderMessage } from "./community-event-reminders";
 import { createTrial, listTrials, trialMe, updateTrial } from "./community-trials";
@@ -17,10 +17,12 @@ import { listDepartures, updateDeparture } from "./community-departures";
 import { adminContributionAction, adminContributions, contributionsAcknowledge, contributionsMe } from "./community-contributions-api";
 import { adminListCases, adminReadCase, adminUpdateCase } from "./community-privacy-intake";
 import { coverageReport, digestStatus, resumeDigest } from "./community-digest";
+import { censusPreview } from "./community-census-route";
 
 export async function handleCommunity(request: Request, env: Env, path: string): Promise<Response> {
   const ctx = await communityContext(env, request);
   const m = request.method;
+  if (m === "POST" && path === "/api/community/census/preview") return censusPreview(request, env, ctx);
   if (m === "GET" && path === "/api/community/context") return apiJson(contextDto(ctx));
   if (m === "GET" && path === "/api/community/profile") return profileGet(request, env, ctx);
   if (m === "PUT" && path === "/api/community/profile") return profilePut(request, env, ctx);
@@ -30,6 +32,7 @@ export async function handleCommunity(request: Request, env: Env, path: string):
   if (m === "GET" && path === "/api/community/events") return listEvents(request, env, ctx);
   if (m === "GET" && path === "/api/community/event") return getEvent(request, env, ctx);
   if (m === "PUT" && path === "/api/community/events/rsvp") return rsvp(request, env, ctx);
+  if (m === "POST" && path === "/api/community/events/decide") return decideRoster(request, env, ctx); // stage 2 (15 Oct 2026)
   if (m === "POST" && path === "/api/community/events") return createEvent(request, env, ctx);
   if (m === "POST" && path === "/api/community/events/update") return updateEvent(request, env, ctx);
   if (m === "POST" && path === "/api/community/events/cancel") return cancelEvent(request, env, ctx);

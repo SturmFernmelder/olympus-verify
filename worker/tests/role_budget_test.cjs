@@ -5,8 +5,23 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+let originalTestFetch = async () => { throw Error('provider calls forbidden before synthetic handler setup'); };
+globalThis.fetch = (...args) => originalTestFetch(...args);
 const transpile = (name) => ts.transpileModule(fs.readFileSync(path.join(root, "src", name), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-const load = (name, stubs) => { const m = { exports: {} }; new Function("module", "exports", "require", transpile(name))(m, m.exports, (p) => { if (!(p in stubs)) throw new Error(`no stub for ${p} in ${name}`); return stubs[p]; }); return m.exports; };
+const loaderCaches = new WeakMap();
+const load = (name, stubs) => {
+  if (name === "node:async_hooks") return require(name);
+  if (!/^[a-z0-9-]+\.ts$/.test(name)) throw Error("source module required");
+  let cache=loaderCaches.get(stubs);if(!cache){cache=new Map();loaderCaches.set(stubs,cache);}
+  if(cache.has(name))return cache.get(name).exports;
+  const m={exports:{}};cache.set(name,m);
+  new Function("module","exports","require",transpile(name))(m,m.exports,p=>{
+    if(Object.hasOwn(stubs,p))return stubs[p];
+    if(p==="node:async_hooks")return require(p);
+    if(!/^\.\/[a-z0-9-]+$/.test(p))throw Error("external module refused");
+    return load(p.slice(2)+".ts",stubs);
+  });return m.exports;
+};
 
 const db = new DatabaseSync(":memory:");
 db.exec("PRAGMA foreign_keys = ON");
@@ -28,7 +43,7 @@ let NOW = 1790380800;
 const GUILD = "236932545793490944", ROLE = "1549581282227265566", BLOCK = "1399774654893133864";
 const stubs = {
   // This budget fixture has no privacy subject or rank mapping; refuse accidental expansion of its mocked lane.
-  "./privacy-serving-authority": { privacyCaptureFromColumns: (_subject, row) => { if (row.privacy_generation !== null || row.privacy_state !== null) throw Error("unexpected privacy fixture"); return null; } },
+  "./privacy-serving-authority": { ...require('./helpers/privacy129_fixture.cjs').load('privacy-serving-authority'), privacyCaptureFromColumns: (_subject, row) => { if (row.privacy_generation !== null || row.privacy_state !== null) throw Error("unexpected privacy fixture"); return null; } },
   "./role-rank-continuation": { RANK_CONTINUATION_HTTP_RESERVE: 20, continueRosterRanks: async () => { throw Error("rank continuation outside legacy role-budget fixture"); } },
   "./env": { intVar: (v, d) => { const n = parseInt(v ?? "", 10); return Number.isFinite(n) ? n : d; }, staffChannel: () => "" },
   "./db": {
@@ -40,14 +55,16 @@ const stubs = {
 };
 // The unregistered legacy D1 facade keeps its original retry lane. The real brand check is used;
 // installed-admission behavior is exercised by the dedicated native suites.
-stubs["./privacy-write-admission"] = load("privacy-write-admission.ts", {
-  "./privacy-write-admission-catalogue": load("privacy-write-admission-catalogue.ts", {}),
-});
+stubs["./privacy-write-admission"] = require('./helpers/privacy129_fixture.cjs').load('privacy-write-admission');
 const discord = load("discord.ts", stubs);
 stubs["./discord"] = discord;
 // .145 compatibility: execute the real default-OFF membership gate in this historical legacy fixture.
 const membershipMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','membership-role-transition.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(membershipMod,membershipMod.exports,()=>({}));
 stubs['./membership-role-transition']=membershipMod.exports;
+// Shared source scope constants are a real dependency; keep all historical checks unchanged.
+const betaPolicyMod={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(path.join(__dirname,'..','src','beta-reset-policy.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(betaPolicyMod,betaPolicyMod.exports,()=>{throw Error('unexpected beta policy runtime import');});
+stubs['./beta-reset-policy']=betaPolicyMod.exports;
+
 const roles = load("roles.ts", stubs);
 stubs["./roles"] = roles;
 const scheduled = load("scheduled-budget.ts", stubs);
@@ -60,7 +77,7 @@ const backfill = load("backfill.ts", stubs);
 // (a call is one method+path; its requests come in pairs, so the odd request of a key is the limited one): Codex's scenario
 let FETCHES = [], MEMBERS = {}, RATE = false, INVENTORY_DOWN = false, BAN_ON_PUT = null, hits = new Map(), LOOKUP_FAIL = new Set();
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
-globalThis.fetch = async (url, init = {}) => {
+originalTestFetch = async (url, init = {}) => {
   const u = new URL(String(url)), method = init.method || "GET", key = `${method} ${u.pathname}`;
   FETCHES.push(key);
   const hit = (hits.get(key) || 0) + 1;

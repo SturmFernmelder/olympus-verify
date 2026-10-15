@@ -10,10 +10,10 @@
 > commit from its `git archive` with `bash scripts/deploy-commit.sh <sha>`; the never-run list in `CLAUDE.md` applies
 > to agents throughout. Each dated section below records what was true and done on its date.
 >
-> **Current qualification (3 Oct 2026):** the owner instructed Codex to take over after Claude's usage limit and finish
-> without dual sign-off. Prospective actions use Codex's exact-commit qualification, attributable peer evidence and
-> the unchanged substantive source/live/owner gates (`docs/launch-runbook.md` section 0). Historical dual signatures
-> remain records of their actual scopes; this instruction is not new Claude approval.
+> **Current qualification (renewed request, 14–15 Oct 2026):** this integration requires genuine Claude Code and Codex
+> signatures on the same exact final commit/tree and evidence tuple, with the substantive source, tests, shipping-commit
+> CI, actual-version/live and owner gates in `docs/launch-runbook.md` section 0. The owner's 3 October single-Codex
+> takeover remains the historical procedure for that earlier work; it does not override this renewed request.
 
 Two things stay with you by design: secrets (bot token, client secret, the shared secrets) and the Cloudflare login.
 Everything else in the Discord Developer Portal and on the server is done or scripted.
@@ -5517,6 +5517,22 @@ Before owner deployment:
 
 Rollback is an owner-run deployment of the separately qualified public .153 snapshot, keeping its admission-ON profile and destructive/signing features OFF. No database downgrade or data restoration accompanies this presentation release. A rollback neither reverses expired retention nor establishes complete erasure, a new appointment or external publication.
 
+## Worker .155 — Recovery custody and named beta bridge (14 October 2026; source candidate)
+
+This is a source candidate, not a completed production release. The owner executes deployment, migration and publication commands in the already verified ordinary PowerShell terminal. Do not investigate or renew credentials from an agent process. Historical .153/.154 records and every original failed attempt remain preserved.
+
+The candidate joins original serving-request and scheduled-job recovery custody, original OAuth account/session incarnation, fixed-original-clock rejection/erasure retention, independent recovery reservations and known Discord response custody. The named B1 bridge permits only the approved Fern Melder Officer exception for Stavros Heuto; it does not appoint High Council or grant a staff role. AddOn 0.6.10 is the matching code package; keep private configuration, queues and SavedVariables. Its actual game/browser check remains separate from offline Lua/decoder and Native/browser-model tests.
+
+The existing local Workerd V10 completed six cases, seven callbacks and 37 assertions. Its maximum measured D1 cost was 602 statements at the unchanged 700 cap. Positive erasures preserved original deadlines and settled custody; lost ACK and uncertain provider cases preserved their original uncertainty without resending. This is an unpublished local canary with qualifier true and digest hour 0 only in the measurement copy. Actual elapsed phase wait was 581.381 seconds to the next 900-second boundary. The proper 159-input compiler, bundle/syntax and original Job closure passed; these do not qualify provider CPU, Worker 128 MiB, actual production cadence, deployed-writer drain or retained physical copies.
+
+Keep `EPOCH2_SCHEDULE_QUALIFIED=false`, `PRIVACY_ERASURE_ENABLED=false` and `QR_PHASE1_ENABLED=false` until their actual acceptance gates pass. Current private service configurations default off and omit unobserved production values. Never invent namespace/version IDs, epochs, source trees or accepted-release receipts. Do not use remote `schema.sql`, `db:init`, an ordinary request migration, a blind replay or a new lineage to clear a hold.
+
+Installation order, actual five serving bindings, original one-use commands and recovery-copy custody are documented in `docs/private-recovery-artifact.md`. It requires an exact final clean source tree, complete current CI, verified replacement backup and applicable cleanup receipt, actual deployed service/binding facts, original close/drain evidence, accepted immutable release evidence and the source-owned Native install/open sequence. An uncertain original operation remains spent; inspect its original outcome rather than retrying. After an epoch transition, an older deployment is not a valid rollback merely because its bundle is available: preserve the current fence and use an accepted same-lineage recovery/roll-forward procedure.
+
+Before publication, run the full current repository gate and the existing Native QR/B1 suites. `test:all` now also calls the existing `test:qr155`; its browser-model driver is deliberately retained even though the original QR script also invokes it. This adds no new fixture family. Required CI timing and all untested historical branches must remain explicit. The first current full run stopped in the old membership-retirement test loader; existing test ABI updates are being qualified, so full CI is not yet claimed.
+
+After installation/readback, verify ordinary Discord sign-in, protected downloads and current Native profile/epoch/mode, recovery journal/copy acknowledgements and all serving roots. Enable erasure only after complete-store, provider and retained-copy acceptance. Enable the named QR test only after its separate release/schema/roster/session prerequisites; follow `docs/councillor-verification.md` for Fern and Stavros's actual enrollment, AddOn-free whisper, scan/sign, ingestion and membership-only settlement. No synthetic result substitutes for that attended acceptance. No new Claude signature is claimed.
+
 
 ## Worker .156 - Olympus crawler boundary (14 October 2026)
 
@@ -5550,3 +5566,175 @@ uncertain deploy outcome for reconciliation before retry. Do not change the zone
 Rollback, if needed, is a separately reviewed deployment of the preserved public .154 commit. It restores the
 earlier crawler-rule conflict but does not downgrade the database or alter roles. Neither local parser results
 nor this document claim universal crawler compliance, full .155 qualification or whole-task completion.
+
+
+## Worker .157 or later — Private future game identity switch (14 October 2026; isolated candidate, owner item 7; .156 is reserved for the crawler release)
+
+Source candidate `renewed-request-2026-10-14/claude-future-profile/candidate`, not applied. The public game identity the
+site, the guide and the intros show is a RESOLVED SNAPSHOT (`ruleset-profile.ts resolveRulesetSnapshot`): the public beta
+until the owner activates the full-release identity. That identity lives only in the secret `RULESET_FUTURE_PROFILE`
+(JSON `olympus-ruleset-profile-v1`, phase `full_release`, an opaque `forever-release-*` revision that names nothing) which
+the owner sets with `wrangler secret put` on activation day; nothing in source, config, tests, docs or D1 carries it before.
+
+Activation: Admin → Ruleset publication → Game identity switch. The actor must be a site admin AND listed in the new var
+`RULESET_SWITCH_APPROVERS`. `POST /api/admin/ruleset-publication/activate` (`deactivate` to return) runs ONE admitted batch:
+the session fence, the expected current mode, no claimed or unknown publication target, the five `site_settings` pins
+(`rulesetMode`, `rulesetActiveRevision`, `rulesetActiveDigest`, `rulesetActivatedAt`, `rulesetActivatedBy`), the new
+`$selection` row and its three targets rendered from the new identity, the audit row `site.ruleset_switch` (mode, counts,
+booleans only) and a closing proof. Nothing is sent to Discord by the switch; the three messages change only through the
+existing Apply next step. While `full_release` is active, a missing, changed or malformed secret, a corrupt mode or
+incomplete pins HOLD every projection (boot meta `ruleset: null` with `rulesetHeld`, publication 409
+`publication_profile_held`, guide and intros refuse); nothing falls back to the beta. An absent mode row is the beta.
+
+After activation the three published payloads and their digests are public guild configuration in `ruleset_publications`
+(privacy text: "Game identity publications"). Tests: `tests/ruleset_switch_test.cjs` (fictional profile only), plus the
+adapted profile, intros, guide and publication suites. Config: `RULESET_SWITCH_APPROVERS` in `wrangler.toml` (owner id);
+the secret only on the day. Rollback: `deactivate` (one batch) and republish the beta targets.
+
+v2 (15 October 2026, Codex's cross-review of v1): an absent or `beta` mode row beside any surviving activation pin HOLDS
+(`ruleset_mode_corrupt`); the switch reads one database time and binds it to the five pins, the audit row and the
+rendered decision date; the closing proof confirms all five stored values; `rulesetActivatedBy` is attribution only (the
+registered publication scrub empties it, the identity stays resolved) and the five keys are own-setting export keys; the
+admin page takes the authenticated status as authoritative, so a lost switch answer is reconciled by Refresh; the return
+from a corrupt mode value compares the observed raw value, so it lands.
+
+v3 (15 October 2026, Codex's cross-review of v2): the switch batch binds its one captured database time to the two
+publication inserts as well (created_at, updated_at, actor_retain_until); and `rulesetActivationAttributionRetentionStatement`
+(ruleset-publication-data.ts) empties the actor pin a year after activation, bound to the database clock, leaving the
+nonpersonal activation facts. It is exported and tested but deliberately NOT added to the ordinary half-hour retention
+declaration (that envelope is full at 700); at integration it belongs in the existing captured beta retention phase
+of the 15-minute schedule, together with the three reset lifecycle statements. Its cost is one statement touching
+at most one row; the beta maximum becomes 12 native / 16 admitted, below the unchanged general 21 / 25 maximum.
+This source instruction does not qualify or activate the held ordinary epoch-2 schedule.
+
+## Raid sign-up buttons, stage 1 (14 October 2026; isolated candidate, owner item 3; no schema change)
+
+Source candidate `renewed-request-2026-10-14/claude-raid-signups/candidate`, not applied; lands with the future-profile
+candidate at the integration build (it is cut on that candidate's `interactions.ts`, `intros.ts`, `package.json` and this
+file). The organizer's announcement in #raid-signups (`community-event-delivery.ts`) carries one action row: Sign up,
+Tentative, Can't make it (`custom_id` `raid:rsvp:<eventId>:<eventRevision>:<status>`) and a link to the calendar page.
+The payload hash binds text, buttons and `allowed_mentions`; the frozen row keeps the text and recomputes the buttons from
+its revision; `exactPayload` compares text, buttons, embeds, attachments and the Message mention fields, and the right
+text with different buttons is `delivery_mismatch` (held, never posted). After deployment every announcement posted
+before this build shows "stale"; the organizer's Update re-publishes it with the buttons (one PATCH, explicit).
+
+A click (`community-event-buttons.ts`, routed from `interactions.ts`) is one signed, ledgered interaction: the
+`seen_interactions` ledger replays the first answer per interaction id. The handler checks the feature and destination,
+the guild and channel, the member role (text only), the per-member rate limit, then captures the live site account, its
+incarnation and its privacy generation and runs the calendar's own RSVP statements (`community-events.ts rsvpStatements`,
+shared with the website) in one batch behind a Discord member fence (in the server, not denied, captured incarnation and
+generation, roster-confirmed character, no ban, no open erasure job). Character and raid role stay as the member last set
+them on the site. A member without a site account is pointed to the site. Every answer is ephemeral with no mentions.
+No DM, no public message, no role, no new table, no scheduler change. Tests: `community_event_buttons_test.cjs` (genuine
+Ed25519-signed interactions through the Worker), the delivery suite's synthetic Discord now echoes components.
+
+### Stage 2 (built 15 Oct 2026, v3/v4; schema epoch; integration build only)
+
+Delivered as two candidates: `claude-raid-stage2-v4` (the schema: six column additions on two tables, no new table, the
+dated migration `migrations/2026-10-15-raid-decisions.sql` as the source of the six ALTERs — the closed epoch migration
+carries them with the original eleven in one migration; nothing runs separately against live data; the canonical DDL
+written exactly as the dated ALTERs leave it and proved so) and `claude-raid-stage2-logic-v4` (the logic, the privacy
+registrations, the tests; v4 = v3 + the retiring-recipient, receipt, view-binding and withdrawal-revision repairs; v5 = v4 + the two
+ownership repairs of Codex's independent v4 review: no shell effect from a departed roster operation — `api()` takes the operation's
+liveness and leaves sign-out/reload to a live one — and replaced rows and pagination share the view's read sequence and row generation; v6 = v5 + the context refresh after a current
+refusal carries the row's ownership through `refreshCommunity({ live })`, so a late context reply adopts nothing after the view departed). Prerequisite:
+the two altered tables re-pin the closed admission/schema profiles (`schema/rejection-provenance-next-profile-v1.json`
+with the live physical capture, `src/privacy-write-admission-catalogue.ts`, `src/privacy-schema-source-plan.ts`
+SOURCE_PROFILES and bounds, `src/account-schema-profile.ts` sentinel, the recovery-candidate census in
+`src/privacy-cookie-profile-migration.ts`, the closed changed-table set: `community_event_signups` added, reminders
+already in it; six field descriptors), which the epoch process regenerates at the integration build; the lane tool
+`lane_profiles.py` regenerates them in a lane only so the suites can run.
+
+- Roster decisions live on the sign-up row: `decision` (accepted | bench | declined | NULL), `decided_by`, `decided_at`,
+  `decision_revision` (monotonic, 0 = never decided; the row persists through a clear and through the member's `no`,
+  so no revision is ever reused). `POST /api/community/events/decide {eventId, entries:[{ref, decision|null, revision}]}`
+  for the organizer who manages the event (its creator, or staff), before the start, targets by community ref like
+  attendance. One admitted batch: the fence moves the sign-up generation, then one UPDATE per entry so the capacity rule
+  counts each acceptance against the ones before it: `accepted` lands only while the qualifying accepted sign-ups are
+  fewer than the capacity (no capacity: unlimited) and only for a yes or tentative answer; `bench` and `declined` never
+  hold a place; `null` clears in place; every write is a compare-and-set on `decision_revision`; the results requalify
+  every target. The member's `no` clears the decision in the same RSVP statement and moves the decision revision whenever it withdraws a
+  yes/tentative answer or clears a decision (a repeated `no` moves nothing), so every organizer command loaded before the
+  withdrawal is stale; a clear of an undecided row is a no-op at the unchanged revision. The capacity update is bounded below
+  by the qualifying accepted roster (`capacity_below_accepted`) as well as by the yes places. The event DTO carries
+  `counts.accepted` and `mine.decision`; the signups list carries `decision` on every row and `decisionRevision` for
+  organizers; the site's "Who answered" table has a Roster column with the organizer's controls, which acknowledge a
+  command only by one of the Worker's two exact outcomes (the sent decision at revision + 1, or a no-op clear of an undecided
+  row at the unchanged revision), treat any other 2xx, an unreadable or lost answer as lost (the list is re-read and a receipt
+  bar says so, or says the re-read failed; nothing is resubmitted), bind every reply to the view (route, account, the table
+  still on the page) and sequence readbacks so only the latest replaces the list; a readback moves the row generation, so a command built from a
+  replaced row is obsolete even though the table stays on the page, and Show more reads under the same sequence. Audit `community.roster_decided` (counts
+  only). The announcement text in Discord stays exact under the custody proof; the ephemeral button answer tells the
+  member the standing decision. Every schedule budget is unchanged (the sweep stays 8+1 logical / 17 Native; 700 holds).
+- Reminder mention: `community_event_signups.remind_mention` set by the site checkbox (`remindMention` on the RSVP write;
+  absent keeps the stored choice) or by the fifth button `raid:remind:<event>:<revision>` (toggles an existing sign-up
+  under the Discord member fence). The reminder's mention list is chosen inside the custody claim: yes answers with the
+  choice that still qualify at that instant, at most 50 (`MENTION_CAP`), earliest answers first, stored in
+  `community_event_reminders.mention_ids`; the posted content is the frozen text plus one line of `<@id>` with
+  `allowed_mentions: {parse: [], users: ids}`. A recipient's standing is the guild qualification plus the existing privacy-subject policy (no subject row, or an active
+  one; a member whose erasure has been admitted — subject retiring, role cleanup waiting — or retired is never selected;
+  Codex finding, 15 Oct 04:05). The proof before the POST and the settlement after it re-check every
+  selected recipient's current yes, choice and standing: a withdrawal (website opt-out, a `no`, the Discord toggle, a
+  lost standing, an admitted erasure) before the POST invalidates the claim — the reminder is cancelled for an explicit re-arm, nothing is
+  re-selected; during the POST or before a reconcile it keeps the pointer as unknown with removal pending, never
+  posted, and nothing is re-sent. A fresh consent starts with an empty list; removal clears it.
+- Privacy: the sign-up copy row gains `remindMention`, `decision` and `decidedAt` (the decider withheld) in both copies
+  (the 13 families, 36 export statements and 38/41 histories are unchanged; the business catalog's signups row gains the
+  five columns; the reminders registration gains `mention_ids`); erasure deletes the own sign-up rows (with their
+  decisions) as today, nulls `decided_by` where this account decided, replaces the account's id in every `mention_ids`
+  with the placeholder `"0"` (the vector keeps its shape, so a sent or lost message stays identifiable for reconcile
+  and removal without the id) and marks a reminder that may have mentioned the account for removal (nothing is re-sent);
+  the sweep's statements are unchanged. Moved pins: none of the counts (69 stores, 221 triggers, 84 indexes, 160
+  statements, 56 catalog rows); the native-case sign-up fields (+remindMention, decision, decidedAt); the reminder DDL
+  pin (the mention column).
+- Policy sentence for the composer (privacy, under the calendar): "If you ask to be mentioned in a raid reminder, the
+  reminder message in Discord mentions your account while your answer is yes; the list of mentioned accounts is kept
+  with the reminder, your erasure replaces you in it with a placeholder, and a reminder that mentioned you is then
+  marked for removal."
+
+
+## Worker .157 — Guild systems integration (prepared 15 October 2026; not yet released)
+
+**State.** This is the renewed request's assembled integration, not a deployment or an aggregate sign-off. The source
+identifies itself as `2026-10-15.157 Guild systems integration`, with matching exact pins in `site_test.cjs`,
+`hosts_test.cjs` and `bnet_retention_test.cjs`. This remains an unreleased candidate pending final-tree qualification.
+The earlier .157-or-later entry describes one narrower feature and remains
+its own record. No completed local check below replaces exact final-tree qualification.
+
+**Changes.** The integration composes raid RSVP buttons, organizer roster decisions and optional reminder mentions;
+the closed six-column schema-epoch migration and matching admission/recovery catalogues; member/rank reset safeguards
+and the bounded erasure preflight mitigation; the optional AddOn census consumer and authenticated clipboard preview;
+the current attended QR/browser work; and the joined news, guide, governance, policy and official-resource changes.
+The census preview transmits the pasted text to the Worker for validation, stores no census payload, and proves neither
+the source's authenticity nor guild membership. Guild leadership and Council appointments remain outside the reset's
+member/rank removal set. The schema change is carried by the reviewed epoch process, not by running the dated migration
+separately against the live database.
+
+**Configuration.** Preserve the reviewed deployment profile. Census is absent from `COMMUNITY_FEATURES`, automated
+erasure remains off, and bulk reset removals remain disabled. The reset minute qualifier remains false and the configured
+cron remains `*/15 * * * *`; deployment of this integration does not enable the minute reset path. The reset cutoff is
+22 October 2026 at noon CDT (17:00 UTC). Activation, required bot intent/access and attended source-epoch transitions
+need their own completed evidence and applicable existing owner authorization. Do not treat the preflight mitigation
+as resolution of races after preflight or historical reserved/unknown work.
+
+**Validation recorded and still required.** Scoped local results include the joined frontend 510/510, authenticated
+census serving-entry 89/89, the retiring-recipient probe 57/57 and selected-row reminder probe 132/132. Actual Edge
+desktop and 390px census/news checks used fictional local mock transport. Those results are separate from actual
+backend/provider, real raid, installed AddOn and attended enrollment checks. The first whole-Native attempt stopped
+during preparation before any scheduled callback; its evidence is retained. Registered fixture successors, the final
+aggregate suite result, whole-Native qualification and exact public shipping-commit Worker/watcher/AddOn CI remain
+release gates until their results are recorded on the final tuple. Do not omit a registered case to obtain a pass.
+
+**Rollout.** Compose the accepted source, tests and documentation into the release checkout; regenerate and verify
+policies/resources and the exact schema/admission profiles; confirm the public/keeper tree and dry-run bundle parity;
+and obtain both agents' exact signatures. Take and verify the fresh private backup/bookmark and applicable restore/copy
+evidence before the authorized migration/deployment. Use the clean public shipping commit and the runbook's
+`scripts/deploy-commit.sh` procedure. Confirm the cache-busted health build/version, authenticated gates, policies,
+resources, configured flags, and the required actual-version workflows after deployment. Keep optional activation
+separate and record any residual gate explicitly.
+
+**Rollback and custody.** Retain the prior deployment and private recovery evidence. Do not assume an older binary
+accepts a newer schema/admission epoch, reset the floor, drop admission guards, or restore a database while writers may
+still act. Follow the reviewed epoch/recovery procedure, including required drain, copy custody and re-open evidence;
+unknown outcomes remain held until their existing resolution protocol completes. This checklist authorizes no provider
+mutation, reset, erasure, account action or deployment by itself.

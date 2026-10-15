@@ -11,48 +11,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
   let batches = 0;
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement) || /^UPDATE site_settings SET value =/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -61,6 +45,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -72,6 +57,7 @@ function load(name) {
   new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(dir === "." ? p : p.startsWith("../") ? p.slice(3).replace(/^/, "./") : "./" + dir + "/" + p.replace(/^\.\//, "")));
   return mod.exports;
 }
+const discordStub = stubs["./discord"] = {};
 const realDiscord = (() => { const m = { exports: {} }; new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(m, m.exports, (p) => load(p)); return m.exports; })();
 // the scripted Discord side: every post and delete is recorded; POST/DELETE decide the answer
 class DiscordError extends Error { constructor(status) { super("discord " + status); this.status = status; this.body = ""; } }
@@ -79,7 +65,7 @@ let POSTS = [], DELETES = [], ATTEMPTS = [];
 let POST = async () => ({ id: "900000000000000001" });
 let DELETE = async () => undefined;
 Object.assign(stubs, {
-  "./discord": {
+  "./discord": Object.assign(discordStub, {
     ...realDiscord,
     json: (body, status = 200) => ({ status, body, json: async () => body }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
@@ -92,56 +78,55 @@ Object.assign(stubs, {
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
     rest: async (_env, method, p, body, attempt) => {
-      // Scheduled clock advances still require a real modeled membership response for staff HTTP reads.
-      const prefix = `/guilds/${_env.SITE_GUILD_ID}/members/`;
-      if (method === "GET" && p.startsWith(prefix) && /^\d{17,20}$/.test(p.slice(prefix.length))) {
-        const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-        if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-        return { nick: member.nick, pending: false, roles: [] };
+      const membership = /^\/guilds\/236932545793490944\/members\/(\d{17,20})$/.exec(p);
+      if (method === "GET" && membership) {
+        const account = db.prepare("SELECT in_server FROM site_users WHERE discord_id = ?").get(membership[1]);
+        if (!account || account.in_server !== 1) throw new realDiscord.DiscordError(404, "unknown member");
+        return { user: { id: membership[1] }, pending: false, roles: [] };
       }
       if (method === "DELETE" && p.startsWith("/channels/")) { DELETES.push(p); ATTEMPTS.push(attempt); return DELETE(p); }
       if (method === "POST" && /^\/channels\/\d+\/messages$/.test(p)) { const channelId = p.split("/")[2]; POSTS.push({ channelId, payload: body }); ATTEMPTS.push(attempt); return POST(channelId, body); }
       throw new Error("no REST in tests: " + method + " " + p);
     },
     explainDiscordError: (e) => String(e),
-  },
+  }),
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
   "./review": { onVerified: async () => {} },
 });
 const siteCore = load("./site-core"), indexMod = load("./index"), digest = load("./community-digest");
 
-let T = 1790500000; // Sun 27 Sep 2026 09:06:40 UTC
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null;
 const MODCH = "1554266499039105075", OTHERCH = "1554266647378919505";
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_BOT_TOKEN: "test-token-only", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const MEMBER = "300000000000000003", STAFF = "472099715253796864", STAFF2 = "472099715253796865";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,row.first_login,row.last_login,row.in_server,row.denied,row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "trials,restrictions,departures,contributions,privacy_intake,directory", OFFICER_DIGEST_ENABLED: "true", CHANNEL_MOD_ALERTS: MODCH, SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -151,19 +136,19 @@ const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
 const DAY = 86400;
-const REAL_NOW = Math.floor(RealDate.now() / 1000);
+const REAL_NOW = T;
 const EXPIRED = REAL_NOW - 1, FUTURE = REAL_NOW + 30 * DAY;
 const id22 = (c) => c.repeat(22);
 const state = () => { const r = one("SELECT value FROM site_settings WHERE key = 'officer_digest'"); return r ? JSON.parse(r.value) : null; };
-const setState = (s) => db.prepare("UPDATE site_settings SET value = ? WHERE key = 'officer_digest'").run(typeof s === "string" ? s : JSON.stringify(s));
+const setState = async (s) => await fixtureRun("UPDATE site_settings SET value = ? WHERE key = 'officer_digest'",typeof s === "string" ? s : JSON.stringify(s));
 const audits = (action) => all("SELECT * FROM audit WHERE action = ? ORDER BY id", action);
 const noIds = (s) => !/\d{17,20}/.test(s);
-const run = (over = ON) => digest.runOfficerDigest(env(over));
+const run = (over = ON) => digest.runOfficerDigest(directEnv(over));
 const dayOf = (t) => new RealDate(t * 1000).toISOString().slice(0, 10);
 const nextDay = () => { T += DAY; };
 
 (async () => {
-  siteUser(MEMBER, { global_name: "Mia" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
+  await siteUser(MEMBER, { global_name: "Mia" }); await siteUser(STAFF, { global_name: "Vik" }); await siteUser(STAFF2, { global_name: "Ann" });
 
   console.log("\n== the switch, the hour, the first post ==");
   check("off: nothing happens and no state row is written", (await run({ ...ON, OFFICER_DIGEST_ENABLED: "false" })) === "off" && state() === null && POSTS.length === 0);
@@ -184,31 +169,31 @@ const nextDay = () => { T += DAY; };
   check("the staff view for a member is refused", (await call("GET", "/api/admin/community/digest", MEMBER)).status >= 400);
 
   console.log("\n== the counts and their lifetimes ==");
-  const ins = (sql, ...p) => db.prepare(sql).run(...p);
-  ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('alpha', 'Alpha', ?, 'queued', ?)", MEMBER, T);
-  ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('beta', 'Beta', ?, 'written', ?)", MEMBER, T);
-  ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('gamma', 'Gamma', ?, 'joined', ?)", MEMBER, T);
-  const trial = (id, due, retain) => ins("INSERT INTO community_trials (id, op_id, discord_id, started_at, review_due_at, status, created_at, updated_at, incarnation, retain_until) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)", id, id, MEMBER, T - 30 * DAY, due, T, T, id22("i"), retain);
-  trial(id22("A"), T - 1, FUTURE); trial(id22("B"), T + DAY, FUTURE); trial(id22("C"), T - 1, EXPIRED);
-  const dep = (id, status) => ins("INSERT INTO community_departure_reviews (id, discord_id, character_key, character_name, proof_key, kind, observed_at, status, reviewed_by, reviewed_at, created_at, retain_until) VALUES (?, ?, ?, ?, ?, 'left', ?, ?, ?, ?, ?, ?)", id, MEMBER, "k" + id.slice(0, 3), "Name " + id.slice(0, 1), "k" + id.slice(0, 3), T - DAY, status, status === "open" ? null : STAFF, status === "open" ? null : T, T, FUTURE);
-  dep(id22("D"), "open"); dep(id22("E"), "acknowledged");
-  const kase = (id, reviewAt, resolved) => ins("INSERT INTO community_restriction_cases (id, discord_id, category, set_by, set_at, review_at, expires_at, resolved_at, updated_at, incarnation) VALUES (?, ?, 'conduct_removal', ?, ?, ?, ?, ?, ?, ?)", id, MEMBER, STAFF, T - 10 * DAY, reviewAt, FUTURE, resolved, T, id22("c"));
-  kase(id22("F"), T - 1, null); kase(id22("G"), T + DAY, null); kase(id22("H"), T - 1, T - DAY);
-  const priv = (id, closed, retain) => ins("INSERT INTO community_privacy_cases (case_id, code_hash, payload_hash, kind, status, retention_days, retain_until, created_at, updated_at, closed_at) VALUES (?, ?, 'p', 'access', ?, 90, ?, ?, ?, ?)", id, "h".repeat(64), closed ? "completed" : "received", retain, T, T, closed ? T : null);
-  priv(id22("P"), false, FUTURE); priv(id22("Q"), true, FUTURE); priv(id22("R"), false, EXPIRED);
-  ins("INSERT INTO community_alt_claims (discord_id, name, name_key, status, claimed_at, updated_at) VALUES (?, 'Alt One', 'alt one', 'claimed', ?, ?)", MEMBER, T, T);
-  ins("INSERT INTO community_alt_claims (discord_id, name, name_key, status, claimed_at, updated_at) VALUES (?, 'Alt Two', 'alt two', 'officer_confirmed', ?, ?)", MEMBER, T, T);
-  ins("INSERT INTO community_contribution_policies (version, amount_copper, anchor_weekday, anchor_hour_utc, grace_hours, final_notice_days, review_days, new_member_exempt_days, created_at) VALUES ('v1', 10000, 1, 0, 0, 7, 7, 14, ?)", T);
-  const oblig = (ps, finalNotice, finalContact, finalAck, retain) => ins("INSERT INTO community_contribution_obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, final_notice_at, final_officer_contact_at, final_acknowledged_at, retain_until, created_at, updated_at) VALUES ('olympus', ?, ?, ?, 'v1', 10000, 1, 'open', ?, ?, ?, ?, ?, ?)", MEMBER, ps, ps + 7 * DAY, finalNotice, finalContact, finalAck, retain, T, T);
-  oblig(T - 40 * DAY, T - 20 * DAY, T - 8 * DAY, null, FUTURE); // past its review date by the officer contact
-  oblig(T - 33 * DAY, T - 20 * DAY, null, T - 6 * DAY, FUTURE); // the acknowledgement is six days old: not yet
-  oblig(T - 26 * DAY, T - 20 * DAY, T - 8 * DAY, null, EXPIRED); // past, but gone by the database clock
-  oblig(T - 19 * DAY, null, null, null, FUTURE); // no final notice yet
-  let c = await digest.digestCounts(env(ON), T);
+  const ins = async (sql, ...p) => await fixtureRun(sql,...p);
+  await ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('alpha', 'Alpha', ?, 'queued', ?)", MEMBER, T);
+  await ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('beta', 'Beta', ?, 'written', ?)", MEMBER, T);
+  await ins("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('gamma', 'Gamma', ?, 'joined', ?)", MEMBER, T);
+  const trial = async (id, due, retain) => await ins("INSERT INTO community_trials (id, op_id, discord_id, started_at, review_due_at, status, created_at, updated_at, incarnation, retain_until) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)", id, id, MEMBER, T - 30 * DAY, due, T, T, id22("i"), retain);
+  await trial(id22("A"), T - 1, FUTURE); await trial(id22("B"), T + DAY, FUTURE); await trial(id22("C"), T - 1, EXPIRED);
+  const dep = async (id, status) => await ins("INSERT INTO community_departure_reviews (id, discord_id, character_key, character_name, proof_key, kind, observed_at, status, reviewed_by, reviewed_at, created_at, retain_until) VALUES (?, ?, ?, ?, ?, 'left', ?, ?, ?, ?, ?, ?)", id, MEMBER, "k" + id.slice(0, 3), "Name " + id.slice(0, 1), "k" + id.slice(0, 3), T - DAY, status, status === "open" ? null : STAFF, status === "open" ? null : T, T, FUTURE);
+  await dep(id22("D"), "open"); await dep(id22("E"), "acknowledged");
+  const kase = async (id, reviewAt, resolved) => await ins("INSERT INTO community_restriction_cases (id, discord_id, category, set_by, set_at, review_at, expires_at, resolved_at, updated_at, incarnation) VALUES (?, ?, 'conduct_removal', ?, ?, ?, ?, ?, ?, ?)", id, MEMBER, STAFF, T - 10 * DAY, reviewAt, FUTURE, resolved, T, id22("c"));
+  await kase(id22("F"), T - 1, null); await kase(id22("G"), T + DAY, null); await kase(id22("H"), T - 1, T - DAY);
+  const priv = async (id, closed, retain) => await ins("INSERT INTO community_privacy_cases (case_id, code_hash, payload_hash, kind, status, retention_days, retain_until, created_at, updated_at, closed_at) VALUES (?, ?, 'p', 'access', ?, 90, ?, ?, ?, ?)", id, "h".repeat(64), closed ? "completed" : "received", retain, T, T, closed ? T : null);
+  await priv(id22("P"), false, FUTURE); await priv(id22("Q"), true, FUTURE); await priv(id22("R"), false, EXPIRED);
+  await ins("INSERT INTO community_alt_claims (discord_id, name, name_key, status, claimed_at, updated_at) VALUES (?, 'Alt One', 'alt one', 'claimed', ?, ?)", MEMBER, T, T);
+  await ins("INSERT INTO community_alt_claims (discord_id, name, name_key, status, claimed_at, updated_at) VALUES (?, 'Alt Two', 'alt two', 'officer_confirmed', ?, ?)", MEMBER, T, T);
+  await ins("INSERT INTO community_contribution_policies (version, amount_copper, anchor_weekday, anchor_hour_utc, grace_hours, final_notice_days, review_days, new_member_exempt_days, created_at) VALUES ('v1', 10000, 1, 0, 0, 7, 7, 14, ?)", T);
+  const oblig = async (ps, finalNotice, finalContact, finalAck, retain) => await ins("INSERT INTO community_contribution_obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, final_notice_at, final_officer_contact_at, final_acknowledged_at, retain_until, created_at, updated_at) VALUES ('olympus', ?, ?, ?, 'v1', 10000, 1, 'open', ?, ?, ?, ?, ?, ?)", MEMBER, ps, ps + 7 * DAY, finalNotice, finalContact, finalAck, retain, T, T);
+  await oblig(T - 40 * DAY, T - 20 * DAY, T - 8 * DAY, null, FUTURE); // past its review date by the officer contact
+  await oblig(T - 33 * DAY, T - 20 * DAY, null, T - 6 * DAY, FUTURE); // the acknowledgement is six days old: not yet
+  await oblig(T - 26 * DAY, T - 20 * DAY, T - 8 * DAY, null, EXPIRED); // past, but gone by the database clock
+  await oblig(T - 19 * DAY, null, null, null, FUTURE); // no final notice yet
+  let c = await digest.digestCounts(directEnv(ON), T);
   check("the counts: 2 invites, 1 trial, 1 departure, 1 case, 1 private request, 1 claim, 1 dues week (lifetimes by the database clock)", JSON.stringify(c) === JSON.stringify({ invitesWaiting: 2, trialsDue: 1, departuresOpen: 1, casesReviewDue: 1, privateRequestsOpen: 1, claimsToReview: 1, duesPastReview: 1 }), JSON.stringify(c));
   let text = digest.digestContent(c);
   check("the text names every count in words, nothing else", text === "**Officer digest:** 2 invites are queued or written; 1 trial review is due; 1 departure item is open; 1 restriction case is due for review; 1 private request is open; 1 character claim waits for review; 1 dues week has passed its final review date. Review on the site's admin pages." && noIds(text), text);
-  c = await digest.digestCounts(env({ ...ON, COMMUNITY_FEATURES: "trials" }), T);
+  c = await digest.digestCounts(directEnv({ ...ON, COMMUNITY_FEATURES: "trials" }), T);
   check("a feature that is off contributes null and is not mentioned; the invites always count", c.invitesWaiting === 2 && c.trialsDue === 1 && c.departuresOpen === null && c.casesReviewDue === null && c.privateRequestsOpen === null && c.claimsToReview === null && c.duesPastReview === null && digest.digestContent(c) === "**Officer digest:** 2 invites are queued or written; 1 trial review is due. Review on the site's admin pages.", JSON.stringify(c));
   check("plural forms", digest.digestContent({ invitesWaiting: 0, trialsDue: 2, departuresOpen: 3, casesReviewDue: 2, privateRequestsOpen: 2, claimsToReview: 2, duesPastReview: 2 }) === "**Officer digest:** 2 trial reviews are due; 3 departure items are open; 2 restriction cases are due for review; 2 private requests are open; 2 character claims wait for review; 2 dues weeks have passed their final review date. Review on the site's admin pages.");
 
@@ -266,21 +251,21 @@ const nextDay = () => { T += DAY; };
   check("resumed: done for today, tomorrow posts (the message from before the halt is the administrator's to remove)", (await run()) === "done_today" && (nextDay(), POST = async () => ({ id: "900000000000000008" }), (await run()) === "posted") && POSTS.length === postsHalted + 1);
   v = await call("POST", "/api/admin/community/digest/resume", STAFF, {});
   check("resume when not halted: nothing to do", v.status === 200 && v.body.resumed === false && v.body.reason === "not_halted" && audits("community.officer_digest_resumed").length === 1);
-  db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF2);
+  await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF2);
   v = await call("POST", "/api/admin/community/digest/resume", STAFF2, {});
   check(".91 (4): a denied administrator's resume learns nothing from the state, not even not_halted: 403 denied", v.status === 403 && v.body.error === "denied" && !("reason" in v.body), v.status, JSON.stringify(v.body));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF2);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF2);
 
   console.log("\n== a crash between the frozen intent and the send; an unreadable state; a superseded run; a held lease ==");
   nextDay();
-  s = state(); setState({ ...s, intent: { channelId: MODCH, nonce: "od20260101abcdefghijkl", content: "frozen", day: s.day, startedAt: T - 1000 }, final: false });
+  s = state(); await setState({ ...s, intent: { channelId: MODCH, nonce: "od20260101abcdefghijkl", content: "frozen", day: s.day, startedAt: T - 1000 }, final: false });
   r = await run(); s = state();
   check("a frozen intent with no recorded outcome halts the digest at the next run", r === "uncertain" && s.halted === true && s.intent && s.intent.content === "frozen" && JSON.parse(audits("community.officer_digest_failed").at(-1).details).stage === "post" && POSTS.length === postsHalted + 1, r, JSON.stringify(s));
   v = await call("POST", "/api/admin/community/digest/resume", STAFF, {});
   check("resumed again", v.body.resumed === true && state().halted === false);
-  setState("not json at all");
+  await setState("not json at all");
   check("an unreadable state halts", (await run()) === "halted" && POSTS.length === postsHalted + 1);
-  setState(JSON.stringify({ day: "x", outcome: "posted" }));
+  await setState(JSON.stringify({ day: "x", outcome: "posted" }));
   check("an incomplete state halts too", (await run()) === "halted");
   v = await call("POST", "/api/admin/community/digest/resume", STAFF, {});
   s = state();
@@ -289,12 +274,12 @@ const nextDay = () => { T += DAY; };
   check("and the digest runs again", (await run()) === "posted" && state().posted.messageId === "900000000000000009");
   nextDay();
   let fired = false;
-  AFTER = (i) => { if (i === 1) { fired = true; setState({ ...state(), lease: null, outcome: "elsewhere" }); AFTER = null; } }; // the lease is batch 1 of this run; another writer takes the row right after it
+  AFTER = async (i) => { if (i === 1) { fired = true; await setState({ ...state(), lease: null, outcome: "elsewhere" }); AFTER = null; } }; // the lease is batch 1 of this run; another writer takes the row right after it
   r = await run(); s = state();
   check("a run whose compare-and-set loses after its lease stops: superseded, nothing posted, the other writer's state untouched", fired && r === "superseded" && s.outcome === "elsewhere" && POSTS.length === postsHalted + 2, r, JSON.stringify(s));
-  setState({ ...state(), lease: { token: "t", until: T + 100 } });
+  await setState({ ...state(), lease: { token: "t", until: T + 100 } });
   check("a held lease: busy", (await run()) === "busy");
-  setState({ ...state(), lease: null });
+  await setState({ ...state(), lease: null });
   check("released: posted", (await run()) === "posted");
   check("(every armed hook fired)", AFTER === null && BEFORE === null);
 
@@ -354,7 +339,15 @@ const nextDay = () => { T += DAY; };
   const waits = [];
   await indexMod.default.scheduled({ cron: "*/30 * * * *" }, env(ON), { waitUntil: (p) => waits.push(Promise.resolve(p).catch(() => {})) });
   await Promise.all(waits);
-  check("the cron runs the digest", state().posted && state().posted.messageId === "900000000000000013" && POSTS.at(-1).payload.content.includes("Officer digest"));
+  const heldBeforeQualification = !(state().posted && state().posted.messageId === "900000000000000013");
+  const serving = load("./privacy-global-serving-origin"), scheduledContext = { waitUntil: p => waits.push(Promise.resolve(p)) };
+  const originalEntry = serving.captureGlobalServingEntry(env(ON), scheduledContext, "scheduled");
+  await serving.dispatchGlobalServingEntry(originalEntry, async () => {
+    const admitted = { ...originalEntry.env, DB: load("./privacy-write-admission").createPrivacyWriteAdmissionDatabase(originalEntry.env.DB,"writer","canonical",entry.ENTRY_EPOCH) };
+    serving.deferOriginalServing(scheduledContext,"runOfficerDigest",()=>digest.runOfficerDigest(admitted));
+  });
+  await Promise.all(waits);
+  check("the unqualified production cron stays held; its registered digest executes through the original scheduled dispatch and admitted writer", heldBeforeQualification && state().posted && state().posted.messageId === "900000000000000013" && POSTS.at(-1).payload.content.includes("Officer digest"));
   check("no console line carried a secret or an id (the digest logs only error categories)", LOGS.every(noIds));
 
   console.log("\n== the coverage report ==");
@@ -362,31 +355,31 @@ const nextDay = () => { T += DAY; };
   v = await cov();
   check("no export: coverage null with the reason, the limitations stated", v.status === 200 && v.body.coverage === null && v.body.unavailableReason === "no_export" && v.body.snapshot === null && Array.isArray(v.body.limitations) && v.body.limitations.length === 4 && typeof v.body.generatedAt === "string", JSON.stringify(v.body));
   check("a member is refused", (await cov(MEMBER)).status >= 400);
-  const snap = (exportedAt, count) => { ins("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?, ?, 'addon', ?)", exportedAt, T, count); return one("SELECT id FROM roster_snapshots ORDER BY id DESC LIMIT 1").id; };
-  const rm = (sid, key, name, extra = {}) => ins("INSERT INTO roster_members (snapshot_id, name_key, name, rank, class, last_online) VALUES (?, ?, ?, ?, ?, ?)", sid, key, name, extra.rank ?? "Member", extra.cls ?? "Warrior", extra.lastOnline ?? null);
-  const REAL_NOW = Math.floor(RealDate.now() / 1000);
-  let sid = snap(REAL_NOW - 8 * DAY, 1); rm(sid, "old one", "Old One");
+  const snap = async (exportedAt, count) => { await ins("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?, ?, 'addon', ?)", exportedAt, T, count); return one("SELECT id FROM roster_snapshots ORDER BY id DESC LIMIT 1").id; };
+  const rm = async (sid, key, name, extra = {}) => await ins("INSERT INTO roster_members (snapshot_id, name_key, name, rank, class, last_online) VALUES (?, ?, ?, ?, ?, ?)", sid, key, name, extra.rank ?? "Member", extra.cls ?? "Warrior", extra.lastOnline ?? null);
+  const REAL_NOW = T;
+  let sid = await snap(REAL_NOW - 8 * DAY, 1); await rm(sid, "old one", "Old One");
   v = await cov();
   check("an export older than seven days by the database clock: stale, with the snapshot described", v.body.coverage === null && v.body.unavailableReason === "stale" && v.body.snapshot.memberCount === 1 && v.body.snapshot.rowsPresent === 1, JSON.stringify(v.body.snapshot), v.body.unavailableReason);
-  sid = snap(REAL_NOW - 7 * DAY - 1, 1); rm(sid, "edge one", "Edge One");
+  sid = await snap(REAL_NOW - 7 * DAY - 1, 1); await rm(sid, "edge one", "Edge One");
   v = await cov();
   const digestSrc = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "community-digest.ts"), "utf8");
   check(".97 (Codex's review of .91, group 1): the baseline is older-than-seven-days: one second older than seven days is stale, and the acquisition's freshness test is `exported_at >= DB_NOW - 7 days` (exactly seven days is fresh)", v.body.coverage === null && v.body.unavailableReason === "stale" && digestSrc.includes("(exported_at >= ${DB_NOW} - ${COVERAGE_STALE_S}) AS fresh") && !digestSrc.includes("(exported_at > ${DB_NOW}"), v.body.unavailableReason);
-  sid = snap(REAL_NOW - 7 * DAY + 3600, 1); rm(sid, "fresh one", "Fresh One");
+  sid = await snap(REAL_NOW - 7 * DAY + 3600, 1); await rm(sid, "fresh one", "Fresh One");
   v = await cov();
   check(".91 (5): freshness is judged by the database clock in the admitted acquisition, not the actor's clock (this suite's clock runs weeks ahead): an export six days and 23 hours old is fresh, and generatedAt is the database's time", v.body.unavailableReason === null && v.body.coverage !== null && Math.abs(new RealDate(v.body.generatedAt).getTime() / 1000 - REAL_NOW) < 120, v.body.unavailableReason, v.body.generatedAt);
-  sid = snap(REAL_NOW - 100, 3); rm(sid, "one", "One"); rm(sid, "two", "Two");
+  sid = await snap(REAL_NOW - 100, 3); await rm(sid, "one", "One"); await rm(sid, "two", "Two");
   v = await cov();
   check("a row count that does not match the export's member count: count_mismatch", v.body.coverage === null && v.body.unavailableReason === "count_mismatch" && v.body.snapshot.rowsPresent === 2 && v.body.snapshot.memberCount === 3, v.body.unavailableReason);
   // the good export: eight characters, seven accounts, one of each class
   const B = "400000000000000002", C = "400000000000000003", D = "400000000000000004", E = "400000000000000005", F = "400000000000000006", G = "400000000000000007", H = "400000000000000008";
-  for (const idd of [B, C, D, E, F, G, H]) ins("INSERT INTO members (discord_id, banned) VALUES (?, ?)", idd, idd === C ? 1 : 0);
-  const chr = (key, name, idd, status) => ins("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, ?, ?)", key, name, idd, status, T - DAY);
-  chr("bela", "Bela", B, "member"); chr("cato", "Cato", C, "member"); chr("dido", "Dido", D, "verified"); chr("echo", "Echo", E, "member"); chr("fern", "Fern", F, "member"); chr("gaia", "Gaia", G, "member"); chr("hera", "Hera", H, "member"); chr("hera two", "Hera Two", H, "member");
-  siteUser(B); siteUser(C); siteUser(E, { denied: 1 }); siteUser(F, { in_server: 0 }); siteUser(H);
-  ins("INSERT INTO community_restriction_cases (id, discord_id, category, set_by, set_at, review_at, expires_at, updated_at, incarnation) VALUES (?, ?, 'conduct_removal', ?, ?, ?, ?, ?, ?)", id22("Z"), H, STAFF, T, T + 30 * DAY, FUTURE, T, id22("z"));
-  sid = snap(REAL_NOW - 50, 9);
-  rm(sid, "alf", "Alf", { rank: "Initiate", cls: "Mage", lastOnline: T - 3600 }); rm(sid, "bela", "Bela"); rm(sid, "cato", "Cato"); rm(sid, "dido", "Dido"); rm(sid, "echo", "Echo"); rm(sid, "fern", "Fern"); rm(sid, "gaia", "Gaia"); rm(sid, "hera", "Hera"); rm(sid, "hera two", "Hera Two");
+  for (const idd of [B, C, D, E, F, G, H]) await ins("INSERT INTO members (discord_id, banned) VALUES (?, ?)", idd, idd === C ? 1 : 0);
+  const chr = async (key, name, idd, status) => await ins("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, ?, ?)", key, name, idd, status, T - DAY);
+  await chr("bela", "Bela", B, "member"); await chr("cato", "Cato", C, "member"); await chr("dido", "Dido", D, "verified"); await chr("echo", "Echo", E, "member"); await chr("fern", "Fern", F, "member"); await chr("gaia", "Gaia", G, "member"); await chr("hera", "Hera", H, "member"); await chr("hera two", "Hera Two", H, "member");
+  await siteUser(B); await siteUser(C); await siteUser(E, { denied: 1 }); await siteUser(F, { in_server: 0 }); await siteUser(H);
+  await ins("INSERT INTO community_restriction_cases (id, discord_id, category, set_by, set_at, review_at, expires_at, updated_at, incarnation) VALUES (?, ?, 'conduct_removal', ?, ?, ?, ?, ?, ?)", id22("Z"), H, STAFF, T, T + 30 * DAY, FUTURE, T, id22("z"));
+  sid = await snap(REAL_NOW - 50, 9);
+  await rm(sid, "alf", "Alf", { rank: "Initiate", cls: "Mage", lastOnline: T - 3600 }); await rm(sid, "bela", "Bela"); await rm(sid, "cato", "Cato"); await rm(sid, "dido", "Dido"); await rm(sid, "echo", "Echo"); await rm(sid, "fern", "Fern"); await rm(sid, "gaia", "Gaia"); await rm(sid, "hera", "Hera"); await rm(sid, "hera two", "Hera Two");
   v = await cov();
   const cv = v.body.coverage;
   check("a fresh matching export: the report", v.status === 200 && v.body.unavailableReason === null && cv && cv.rosterRows === 9 && cv.boundRows === 8 && cv.distinctPeople === 7 && v.body.snapshot.memberCount === 9, JSON.stringify(v.body).slice(0, 400));
@@ -394,9 +387,8 @@ const nextDay = () => { T += DAY; };
   check("the entries are ordered by name key with the account and class; an unbound row names no account", cv && cv.entries.map((e) => e.name).join(",") === "Alf,Bela,Cato,Dido,Echo,Fern,Gaia,Hera,Hera Two" && cv.entries[0].class === "unbound" && cv.entries[0].discordId === null && cv.entries[0].rank === "Initiate" && cv.entries[0].gameClass === "Mage" && cv.entries[0].lastOnline === new RealDate((T - 3600) * 1000).toISOString() && cv.entries[1].discordId === B && cv.entries[1].class === "covered" && cv.entries[3].class === "bound_not_member", cv && JSON.stringify(cv.entries));
   check("people group characters by account", cv && cv.people.length === 7 && cv.people.find((p) => p.discordId === H).characters.map((x) => x.name + ":" + x.class).join(",") === "Hera:restricted,Hera Two:restricted");
   check("the report is read behind the staff member's own admission: a signed-out session is refused", (await indexMod.default.fetch(new Request("https://guild.example/api/admin/community/coverage", { headers: { Origin: "https://guild.example", "X-Olympus": "2" } }), env(ON), ctx)).status >= 400);
-  sid = snap(REAL_NOW - 10, 2001);
-  const big = db.prepare("INSERT INTO roster_members (snapshot_id, name_key, name) VALUES (?, ?, ?)");
-  for (let i = 0; i < 2001; i++) big.run(sid, "n" + String(i).padStart(5, "0"), "N" + i);
+  sid = await snap(REAL_NOW - 10, 2001);
+  for (let i = 0; i < 2001; i++) await fixtureRun("INSERT INTO roster_members (snapshot_id, name_key, name) VALUES (?, ?, ?)", sid, "n" + String(i).padStart(5, "0"), "N" + i);
   v = await cov();
   check("more than 2000 rows: too_large, rowsPresent capped at 2000", v.body.coverage === null && v.body.unavailableReason === "too_large" && v.body.snapshot.rowsPresent === 2000 && v.body.snapshot.memberCount === 2001, v.body.unavailableReason, JSON.stringify(v.body.snapshot));
 

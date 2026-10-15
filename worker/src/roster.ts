@@ -9,8 +9,9 @@ import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget } fr
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { prepareRosterCronNotice,parseRosterCronNotice,settleRosterCronNotice } from './privacy-provider-messages';
 import { errorRef } from "./log";
-import { privacyProviderCustodyDatabase,privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,privacyGenerationFenceSql,privacyGenerationLiteralFenceSql,readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
+import { PRIVACY_DB_NOW,privacyProviderCustodyDatabase,privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,privacyGenerationFenceSql,privacyGenerationLiteralFenceSql,readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
 import { ROSTER_INGEST_STATEMENTS, ROSTER_SYNC_STATEMENTS, SCHEDULED_CAPS } from "./scheduled-budget";
+import {captureOriginalRosterSchedule,originalRosterScheduleFacts,type OriginalRosterSchedule} from './scheduled-budget';
 import {
   countStatements,
   derivationWorst,
@@ -29,6 +30,8 @@ import {
   RUN_IS_CURRENT,
   sightingsWorst,
   SLICE_FIXED,
+  SCHEDULED_EFFECT_PHYSICAL_WORST,
+  SCHEDULED_SLICE_PHYSICAL_FIXED,
   type Admission,
 } from "./roster-effects";
 
@@ -1051,7 +1054,11 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
   // including the role simply having been deleted — silently stopped nicknames as well.
   let granted = false;
   let blocked = false;
-  if (env.ROLE_GUILD_MEMBER) {
+  if (deferCronRole && env.ROLE_GUILD_MEMBER) {
+    // The original durable member claim and roster.member audit are the role sweep's
+    // continuation. Do not mint a five-minute role intent in a deliberately zero-HTTP phase.
+    await audit(env,"system","role.deferred",name,{discordId,source:"promote",reason:"central_role_sweep"},reference);
+  } else if (env.ROLE_GUILD_MEMBER) {
     try {
       // .55: through the one role writer (roles.ts): a held blocking role withholds the grant, fail-closed config too.
       const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
@@ -1400,19 +1407,21 @@ const EFFECT_DEPART = `UPDATE characters SET status = 'left', left_at = ?4 WHERE
  */
 async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<EffectsSlice> {
   const out: EffectsSlice = { run: null, applied: 0, skipped: 0, refused: false, promoted: [], noteBound: [], stripped: [], done: false, failed: false };
-  const fits = room(adm, after + SLICE_FIXED + noticeStatementsPending(notices));
-  if (fits < effectWorst(env).depart) return out; // not even the cheapest item: the next invocation
-  const rows = (await env.DB.prepare(SLICE_ROWS).bind(Math.floor(fits / effectWorst(env).depart) + 1).all<SliceRow>()).results;
+  const physicalCron=deferCronRole&&adm.count.protocol===true,fixed=physicalCron?SCHEDULED_SLICE_PHYSICAL_FIXED:SLICE_FIXED;
+  const cheapest=physicalCron?SCHEDULED_EFFECT_PHYSICAL_WORST.promote:Math.min(...Object.values(effectWorst(env)));
+  const fits = room(adm, after + fixed + noticeStatementsPending(notices));
+  if (fits < cheapest) return out; // even the cheapest original item remains pending
+  const rows = (await env.DB.prepare(SLICE_ROWS).bind(physicalCron?1:Math.floor(fits / cheapest) + 1).all<SliceRow>()).results;
   if (!rows.length) return out;
   const run = rows[0].run;
   out.run = run;
-  const keep = after + SLICE_FIXED - 1; // the selection is spent; the end batch (2) and a failure's audit (1) remain
+  const keep = after + fixed - (physicalCron?2:1); // physical cron keeps end6 + failure audit5 after selection2
   const nonce = crypto.randomUUID();
   let at = -1;
   try {
     for (const it of rows) {
       if (it.seq === null) break;
-      const worst = it.kind === "depart" ? effectWorst(env).depart : env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)||affords(calls, GRANT_CALLS) ? effectWorst(env)[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
+      const worst = physicalCron?SCHEDULED_EFFECT_PHYSICAL_WORST[it.kind]:it.kind === "depart" ? effectWorst(env).depart : env.PRIVACY_ERASURE_ENABLED==='true'||membershipSettlementEnabled(env)||affords(calls, GRANT_CALLS) ? effectWorst(env)[it.kind] : EFFECT_DEFERRED_WORST[it.kind];
       // The kind's worst case reserves this item's notice; notices from all earlier items still owe SQL at flush.
       if (room(adm, keep + noticeStatementsPending(notices)) < worst) break;
       at = it.seq;
@@ -1538,13 +1547,27 @@ async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: C
  * exports. It never derives (an export does: the identity rules may need more than this line). Never throws: it runs
  * inside waitUntil.
  */
-export async function continueRosterEffects(env: Env): Promise<EffectsSlice | null> {
+export async function continueRosterEffects(env: Env,originalSchedule?:OriginalRosterSchedule): Promise<EffectsSlice | null> {
   const count = { used: 0,protocol:false };
   const counted = countStatements(env, count);
   const notices = noticeBatch();
   try {
-    const dormant=count.protocol===true&&(env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env));
+    const schedule=originalRosterScheduleFacts(originalSchedule??captureOriginalRosterSchedule());
+    const dormant=count.protocol===true;
     if(dormant){
+      // One expired original24h claim per tick. No active/pending effect or fresh operation is reconstructed.
+      await counted.DB.batch([
+        counted.DB.prepare(`DELETE FROM roster_effects WHERE rowid IN(SELECT rowid FROM roster_effects
+         WHERE done_at IS NOT NULL AND ${CRON_NOTICE_CLAIM} AND json_extract(claim,'$.run')=run_id
+         AND json_extract(claim,'$.seq')=seq AND json_extract(claim,'$.createdAt')=done_at
+         AND json_extract(claim,'$.expiresAt')=done_at+86400 AND json_extract(claim,'$.expiresAt')<=${PRIVACY_DB_NOW}
+         AND json_extract(claim,'$.subject')=discord_id AND json_extract(claim,'$.generation') IS subject_generation
+         AND json_extract(claim,'$.name')=name AND json_extract(claim,'$.nameKey')=name_key AND json_extract(claim,'$.guid') IS guid
+         ORDER BY done_at,run_id,seq LIMIT 1)`),
+        counted.DB.prepare(`UPDATE roster_effect_runs SET done_at=${PRIVACY_DB_NOW} WHERE id IN(SELECT id FROM roster_effect_runs
+         WHERE done_at IS NULL AND derived_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM roster_effects WHERE run_id=roster_effect_runs.id)
+         ORDER BY id LIMIT 1)`)
+      ]);
       const owed=await counted.DB.prepare(`SELECT claim FROM roster_effects WHERE done_at IS NOT NULL AND ${CRON_NOTICE_CLAIM}
        AND json_extract(claim,'$.run')=run_id AND json_extract(claim,'$.seq')=seq AND json_extract(claim,'$.createdAt')=done_at
        AND json_extract(claim,'$.subject')=discord_id AND json_extract(claim,'$.generation') IS subject_generation
@@ -1554,7 +1577,7 @@ export async function continueRosterEffects(env: Env): Promise<EffectsSlice | nu
         const state=await settleRosterCronNotice(counted,owed.claim);return{run:original.run,applied:0,skipped:0,refused:false,promoted:[],noteBound:[],stripped:[],done:state.finished,failed:false,noticePending:!state.finished,noticeHeld:['held','refused','unknown'].includes(state.state)};
       }
     }
-    const slice=await applyEffects(counted, { count, limit: SCHEDULED_CAPS.rosterEffectsStatements }, NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant);
+    const slice=await applyEffects(counted, { count, limit: dormant?schedule.rosterEffectsStatements:SCHEDULED_CAPS.rosterEffectsStatements }, dormant?0:NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant);
     if(dormant&&slice.applied>0&&slice.stripped.length===0)slice.noticePending=true;
     return slice;
   } catch (e) {
@@ -1569,8 +1592,16 @@ export async function continueRosterEffects(env: Env): Promise<EffectsSlice | nu
  * Compare in-game rank against the Discord Officer role and post the differences. Deliberately a report, not a sync:
  * the Officer role is what gates /olympus-admin and every member's BattleTag, so deriving it from an in-game rank
  * would let anyone who can promote in game grant access to personal data with no Discord-side record of the decision.
- * It is also not currently possible — the bot's role sits below Officer, so Discord would refuse the assignment.
+ * 14 Oct 2026 (owner item 4): the bot's role now sits above the Olympus roles, and with the privileged native-rank
+ * mapping switched on (QR_PRIVILEGED_RANK_MAPPING_ENABLED, live since .154) the central role writer may queue the
+ * Officer role itself. The check stays a report; its closing line says which of the two worlds applies.
  */
+/** The closing line of the officer rank check, truthful under both configurations (owner item 4, 14 Oct 2026). */
+export function officerRankCheckClosing(env: Env): string {
+  return env.QR_PRIVILEGED_RANK_MAPPING_ENABLED === "true"
+    ? "With native-rank mapping on, the bot queues the Officer role through the central role writer after the membership checks; this list shows accounts the writer has not yet settled. The role still gates `/olympus-admin` and every member's BattleTag."
+    : "The bot does not grant it: that role gates `/olympus-admin` and every member's BattleTag, so it stays a human decision.";
+}
 async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promise<number> {
   const ranks = officerRankNames(env);
   const channel = staffChannel(env);
@@ -1619,7 +1650,7 @@ async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promis
       content:
         `**Officer rank check** \u2014 these accounts hold an officer rank in game but not the <@&${env.ROLE_OFFICER}> role in Discord:\n` +
         missing.map((m) => `\u2022 ${m}`).join("\n") +
-        `\nThe bot does not grant it: that role gates \`/olympus-admin\` and every member's BattleTag, so it stays a human decision.`,
+        `\n${officerRankCheckClosing(env)}`,
       allowed_mentions: { parse: [] },
     },
     "officer rank check",

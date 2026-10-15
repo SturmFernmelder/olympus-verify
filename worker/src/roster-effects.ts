@@ -38,7 +38,7 @@
  */
 import type { Env } from "./env";
 import { membershipTransitionEnabled } from './membership-role-transition';
-import { privacyDatabaseAdmissionOverhead,privacyProviderCustodyDatabase,registerPrivacyCountedDatabase } from './privacy-serving-authority';
+import { privacyDatabaseAdmissionOverhead,privacyProviderCustodyDatabase,registerPrivacyCountedDatabase,privacyCountedEnvironment } from './privacy-serving-authority';
 import { admissionTransportCost,isPrivacyWriteAdmissionDatabase,registerAdmissionCountedDatabase } from './privacy-write-admission';
 
 /** Statement attempts one invocation (or one job of the cron's) has made so far through a counted env. */
@@ -56,48 +56,7 @@ const RAW = Symbol("raw statement");
  * changes (the statements, their binds and their results are D1's own).
  */
 export function countStatements(env: Env, count: StatementCount): Env {
-  const overhead=privacyDatabaseAdmissionOverhead(env.DB),protocol=isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env));count.protocol=protocol;count.factor=protocol?1:1+overhead;
-  const decorate=(db:D1Database,overhead:number):D1Database=>{
-  const queries=new WeakMap<D1PreparedStatement,string>();
-  const wrap = (s: D1PreparedStatement,query:string): D1PreparedStatement => {
-    const w = {
-      bind: (...values: unknown[]) => wrap(s.bind(...values),query),
-      first: (...a: unknown[]) => {
-        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
-        return (s.first as (...x: unknown[]) => Promise<unknown>)(...a);
-      },
-      run: () => {
-        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
-        return s.run();
-      },
-      all: () => {
-        count.used+=1+overhead+(protocol?admissionTransportCost([query]):0);
-        return s.all();
-      },
-      raw: (...a: unknown[]) => {
-        count.used+=1+2*overhead;
-        return (s.raw as (...x: unknown[]) => Promise<unknown>)(...a);
-      },
-      [RAW]: s,
-    };
-    queries.set(w as unknown as D1PreparedStatement,query);return w as unknown as D1PreparedStatement;
-  };
-  const counted = {
-    prepare: (query: string) => wrap(db.prepare(query),query),
-    batch: (statements: D1PreparedStatement[]) => {
-      count.used += statements.length+overhead+(protocol?admissionTransportCost(statements.map(x=>{const q=queries.get(x);if(q===undefined)throw Error('roster_unknown_counted_constructor');return q;})):0);
-      return db.batch(statements.map((x) => (x as unknown as { [RAW]?: D1PreparedStatement })[RAW] ?? x));
-    },
-    exec: (query: string) => {
-      count.used++;
-      return db.exec(query);
-    },
-    dump: () => (db as unknown as { dump: () => Promise<ArrayBuffer> }).dump(),
-  };
-  const result=counted as unknown as D1Database;registerAdmissionCountedDatabase(result,db,()=>{count.used++;});return result;};
-  const counted=decorate(env.DB,overhead),native=privacyProviderCustodyDatabase(env);
-  registerPrivacyCountedDatabase(counted,native===env.DB?counted:decorate(native,0),overhead);
-  return {...env,DB:counted};
+  return privacyCountedEnvironment(env,count);
 }
 
 /** What an invocation may still spend: its limit, less what it has spent, less what it must keep for later (`reserve`). */
@@ -133,6 +92,17 @@ export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'
 export const EFFECT_DEFERRED_WORST = { promote: 16, note: 18 } as const;
 /** A slice's own statements: the selection, the end batch (done items removed, the run's done_at), a failure's audit. */
 export const SLICE_FIXED = 4;
+/** Registered cron custody has no buffered notices: its original claim settles those in later one-use phases.
+ * Attempted Native costs include every +4 write group and +1 proof read, including refused/unknown paths.
+ * promote27 = claim8 + G2 + role.deferred5 + nickname(G2 + refused audit5) + roster.member5.
+ * note29 adds its two claim payloads. depart63 = claim6 + remaining2 + central removal30 +
+ * held-role audit5 + failed staff-read audit5 + roster.left5 + ON guild-log custody10.
+ * Central single removal30 includes prior/G/fresh/read/final reads10, INSERT/claim/settle/unknown writes20;
+ * existing two-target grouped removal is no larger. Original removal deadlines/purpose/proofs are unchanged.
+ * A slice additionally reserves selection2 + end6 + failure audit5; original-expiry page6 + owed-notice selection2 are already spent. */
+export const SCHEDULED_EFFECT_PHYSICAL_WORST={promote:27,note:29,depart:63} as const;
+export const SCHEDULED_SLICE_PHYSICAL_FIXED=13;
+
 /** The notices' flush reads the post cap once and, when a write of its own is refused, records notice.flush_failed (dm.ts);
  *  everything else it writes is counted per item above. */
 export const NOTICE_FLUSH_FIXED = 2;

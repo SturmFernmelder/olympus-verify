@@ -1,5 +1,6 @@
 /** Bindings, vars and secrets. Vars live in wrangler.toml; secrets are set with `wrangler secret put`. */
 export interface Env {
+  BETA_RESET_REMOVALS_ENABLED?: string; // default OFF bulk removals; the old beta source epoch still closes target grants at the fixed cutoff
   MEMBERSHIP_ROLE_SETTLEMENT_ENABLED?: string; // exact true only; independently enables central membership custody
   MEMBERSHIP_RETIRED_ROLE_ID?: string; // unset by default; one reviewed removal/GET-only former target
   QR_PHASE1_ENABLED?: string;
@@ -79,10 +80,21 @@ export interface Env {
   PRIVACY_RETENTION_ENABLED?: string; // bounded fixed-deadline local sweeper; provider/recovery custody remains separate
   PRIVACY_WRITE_ADMISSION_ENABLED?: string; // .139: exact source-installed control/triggers required; absent/default OFF, no automatic installation
   PRIVACY_WRITE_ADMISSION_LAYOUT?: 'canonical'|'recorded-live-20261010'; // closed complete source layouts only; no per-table mix or live-schema learning
+  PRIVACY_WRITE_ADMISSION_EPOCH?: string; // original native epoch, never inferred or refreshed by a request
+  PRIVACY_CREDENTIAL_EPOCH?: string; // required source-held consumer epoch; not a rotation or origin proof
+  PRIVACY_RECOVERY_FLOOR?: {idFromName(name:string):unknown;get(id:unknown):{fetch(request:Request):Promise<Response>}};
+  PRIVACY_SERVING_GATE_SECRET?: string; // runtime serving only; no operator/initializer root at public entry
+  PRIVACY_SERVING_SOURCE_TREE?: string; // external exact source binding; missing or mismatched remains held
+  PRIVACY_SERVING_DATABASE_ID?: string; // externally qualified fixed DB binding; never discovered from a row
+  PRIVACY_PRODUCTION_CONTROL?: {fetch(request:Request):Promise<Response>}; // private service transport only; no operator secret in the serving Worker
+  PRIVACY_PRODUCTION_INITIALIZER?: {fetch(request:Request):Promise<Response>}; // separate initializer service; never mixes its root with operator/serving roots
+  CF_VERSION_METADATA?: {id:string;tag:string;timestamp:string}; // captured native platform version metadata
   OFFICER_DIGEST_ENABLED?: string;  // .85: "true" posts the daily officer digest (counts only) to the staff channel after 15:00 UTC (community-digest.ts); anything else only removes a digest it posted earlier
   NAME_RESERVATION_AT?: string;     // default for when Blizzard's name reservation opens (ISO or unix); the admin page overrides it
   LAUNCH_AT?: string;               // default launch time (ISO or unix): approved reserved names are queued from then
   NAMES_PER_RUN?: string;           // Discord names refreshed per cron run for linked members (names.ts, default 5)
+  RULESET_SWITCH_APPROVERS?: string; // 14 Oct 2026 (owner item 7): Discord ids (comma list) who may switch the public game identity; they must also be SITE_ADMINS
+  RULESET_FUTURE_PROFILE?: string;  // secret (item 7): the future game identity as olympus-ruleset-profile-v1 JSON with an opaque forever-release-* revision; set by the owner on activation day, never in wrangler.toml
   COOKIE_SECRET: string;            // signs the OAuth state cookie and the site's session cookie
   BNET_CLIENT_ID?: string;          // Battle.net API client (develop.battle.net) — enables the Battle.net-login fallback in /linked-role, and Phase 3
   BNET_CLIENT_SECRET?: string;      // same client; redirect URLs to register: <PUBLIC_BASE_URL>/bnet/link and, for Phase 3, /bnet/callback

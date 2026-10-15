@@ -35,77 +35,68 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entry = require("./helpers/privacy129_fixture.cjs");
 
 // ---------- a D1-shaped wrapper over SQLite that counts every statement and keeps its SQL and bindings ----------
-let COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [] };
-const resetCount = () => { COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [] }; };
+let COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [], setupNativeCalls: [], nativeErrors: [], nativeReads: [] };
+const resetCount = () => { COUNT = { statements: 0, calls: [], privacyGuards: 0, nativeCalls: [], setupNativeCalls: [], nativeErrors: [], nativeReads: [] }; };
 /**
  * A30-AUDIT-01: a change armed by a test runs once, right before the first statement whose SQL it names executes (the
  * final admission), so it lands after the page read and before the admission; a change that throws fails that statement.
  */
 let BEFORE = null;
-function d1(dbh) {
-  const exec = (sql, params) => {
-    const st = dbh.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const note = () => {
-      COUNT.nativeCalls.push({ sql, params });
-      // Preserve the audit payload budget while measuring every new native privacy guard separately.
-      if (sql.includes("json_extract('privacy_site_request_refused'")) COUNT.privacyGuards++;
-      else { COUNT.statements++; COUNT.calls.push({ sql, params }); }
-      if (BEFORE && BEFORE.when(sql)) { const armed = BEFORE; BEFORE = null; armed.run(COUNT.calls.length - 1); }
-    };
-    const api = {
-      _sql: sql,
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        if (Math.max(named, p.length) > 100) throw new Error("D1_ERROR: too many bound parameters");
-        params = p;
-        return api;
-      },
-      first: async () => { note(); return dbh.prepare(sql).get(...params) ?? null; },
-      all: async () => { note(); return { results: dbh.prepare(sql).all(...params) }; },
-      run: async () => { note(); return exec(sql, params); },
-      raw: async () => { note(); const st = dbh.prepare(sql); return [st.columns().map((c) => c.name), ...st.all(...params).map((r) => Object.values(r))]; },
-      _exec: () => { note(); return exec(sql, params); },
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      dbh.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); dbh.exec("COMMIT"); } catch (e) { dbh.exec("ROLLBACK"); throw e; }
-      return out;
+const nativePorts=new WeakMap(),directPorts=new WeakMap(),cookieCaches=new WeakMap();
+let setupDepth=0,executionFailure=null;
+function privacyGuard(sql) { return /'privacy_(?:current_schema_requires_attended_setup|write_catalogue_or_control_refused|site_request_refused|terminal_write_control_refused)'/.test(sql) || /^UPDATE privacy_write_admission_control\b/.test(sql); }
+function d1(database) {
+  if(!nativePorts.has(database))nativePorts.set(database,entry.originalNativePort(database,{
+    statement(sql,params) {
+      if(setupDepth){COUNT.setupNativeCalls.push({sql,params});return;}
+      COUNT.nativeCalls.push({sql,params});
+      if(privacyGuard(sql))COUNT.privacyGuards++;else{COUNT.statements++;COUNT.calls.push({sql,params});}
     },
-  };
+    readStatement(statement,params){
+      const call=setupDepth?COUNT.setupNativeCalls.at(-1):COUNT.nativeCalls.at(-1);
+      try{
+        if(executionFailure && call?.sql===executionFailure.sql){const failure=executionFailure;executionFailure=null;throw Error(failure.message);}
+        const rows=statement.all(...params);if(!setupDepth)COUNT.nativeReads.push({sql:call.sql,params:call.params,rowCount:rows.length});return rows;
+      }catch(error){if(!setupDepth)COUNT.nativeErrors.push({sql:call?.sql??null,params:call?.params??[],code:error.code??null,message:error.message});throw error;}
+    },
+    async beforeBatch(plan) {
+      if(setupDepth)return;
+      const target=plan.find(statement=>BEFORE && BEFORE.when(statement.statement));
+      if(target){const armed=BEFORE;BEFORE=null;await armed.run(COUNT.calls.length);}
+    },
+  }));
+  return nativePorts.get(database);
 }
 let db;
-const fresh = () => {
-  db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
-};
+const fresh=()=>{db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");entry.installCurrentEntryEpoch(db);};
 fresh();
+
+// The Worker's clock (db.ts now(), which stamps every audit row's ts) three hours behind SQLite's.
+const RealDate = Date;
+const realNow = () => Math.floor(RealDate.now() / 1000);
+let T = realNow() - 3 * 3600;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
 
 // ---------- the real modules; only Discord's HTTP side is stubbed ----------
 const transpiled = {};
 const transpile = (file) => (transpiled[file] ??= ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText);
 globalThis.fetch = async (url) => { throw new Error("no network in tests: " + url); };
-const realDiscord = (() => {
-  const mod = { exports: {} };
-  new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(mod, mod.exports, () => ({}));
-  return mod.exports;
-})();
-const stubs = {
+const stubs={},cache={};
+function load(name) {
+  if(name==="node:async_hooks")return require(name);
+  name="./"+name.replace(/^\.\//,"");
+  if(stubs[name])return stubs[name];if(cache[name])return cache[name].exports;
+  const mod={exports:{}};cache[name]=mod;
+  new Function("module","exports","require",transpile(path.join(root,"src",name.slice(2)+".ts")))(mod,mod.exports,p=>load(p));return mod.exports;
+}
+const realDiscord=load("./discord");
+const existingStubs={
   "./discord": {
     ...realDiscord,
     json: (body, status = 200) => ({ status, body, json: async () => body, text: async () => JSON.stringify(body) }),
@@ -120,13 +111,10 @@ const stubs = {
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
     banMember: async () => {},
-    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
-    rest: async (env, method, p) => {
-      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
-      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
-      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-      return { nick: member.nick, pending: false, roles: [] };
+    rest: async (_env,method,pathname) => {
+      const known=typeof pathname==="string" && pathname.match(/^\/guilds\/236932545793490944\/members\/(472099715253796864|300000000000000003)$/);
+      if(method==="GET" && known){const row=one("SELECT nick FROM site_users WHERE discord_id=?",known[1]);return {nick:row?.nick??null,roles:[]};}
+      throw new Error("no REST in tests");
     },
     explainDiscordError: (e) => String(e),
   },
@@ -134,19 +122,11 @@ const stubs = {
   // review.ts is the real module: under ADMISSION_MODE=auto its onVerified queues the invite with the actor "auto", a row
   // the actor filter must find
 };
-const cache = {};
-function load(name) {
-  if (stubs[name]) return stubs[name];
-  if (cache[name]) return cache[name].exports;
-  const mod = { exports: {} };
-  cache[name] = mod;
-  new Function("module", "exports", "require", transpile(path.join(root, "src", name.replace("./", "") + ".ts")))(mod, mod.exports, (p) => load(p));
-  return mod.exports;
-}
+for(const[name,replacements]of Object.entries(existingStubs)){const original=load(name);Object.assign(original,replacements);stubs[name]=original;}
 const indexMod = load("./index"), siteCore = load("./site-core"), dbMod = load("./db"), schema = load("./schema"), review = load("./review");
 const contextMod = load("./community-context"), adminMod = load("./site-admin");
 /** The final admission's exact SQL: the community fence with applicantWrite's semantics, over the bound id, version and expiry. */
-const ADMISSION = `SELECT (${contextMod.fenceSql("applicantWrite", 1, 2, 3, null)}) AS ok`; // fixture cookie captures original absence
+let ADMISSION; // assigned only from the genuine original OAuth G/native birth
 
 // The database's clock, movable (A30-AUDIT-01's expiry case): strftime is overridden on a connection by an application
 // function that asks a second, untouched SQLite connection for the real answer and adds SHIFT seconds to
@@ -159,30 +139,43 @@ const movableClock = (dbh) =>
     return SHIFT && a.length === 2 && a[0] === "%s" && a[1] === "now" ? String(Number(v) + SHIFT) : v;
   });
 
-// The Worker's clock (db.ts now(), which stamps every audit row's ts) three hours behind SQLite's.
-const RealDate = Date;
-const realNow = () => Math.floor(RealDate.now() / 1000);
-let T = realNow() - 3 * 3600;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 const H = 3600, DAY = 86400;
 const GUILD = "236932545793490944";
 const ADMIN = "472099715253796864", MEMBER = "300000000000000003", BOT_ONLY = "300000000000000006", ERASED = "300000000000000007", UNKNOWN = "300000000000000008";
-const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: ADMIN, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const rawEnv = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_BOT_TOKEN: "existing-audit-test-bot-only", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: ADMIN, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env=(over={})=>{const e=rawEnv(over);if(!directPorts.has(db))directPorts.set(db,load("./privacy-write-admission").createPrivacyWriteAdmissionDatabase(e.DB,"writer","canonical",entry.ENTRY_EPOCH));return {...e,DB:directPorts.get(db)};};
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why.map((w) => (typeof w === "string" ? w : JSON.stringify(w)))); console.log((cond ? "PASS " : "FAIL ") + name); };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
-const run = (sql, ...p) => db.prepare(sql).run(...p);
-// Original signed fixture captures absence (g=null); cookie setup SQL is outside request budget.
-const cookieFor = async (id) => cookieWith(id, 1, T + 7 * DAY);
-/** A session cookie with a chosen version and expiry, signed as site-core.ts sessionCookie signs it. */
-const cookieWith = async (u, v, e) => {
-  const body = siteCore.b64u(new TextEncoder().encode(JSON.stringify({ u, v, e, g: null })));
-  return `${siteCore.SESSION_COOKIE}=${body}.${await siteCore.sign(env().COOKIE_SECRET, "session", body)}`;
+const run=async(sql,...params)=>{setupDepth++;try{return (await env().DB.prepare(sql).bind(...params).run()).meta;}finally{setupDepth--;}};
+// Every token below comes from the sole real OAuth PROFILE issuer. Choosing an expiry uses an original
+// fixture login at e minus the fixed seven-day lifetime; no JSON tuple is signed by this test.
+function cookieCache(){if(!cookieCaches.has(db))cookieCaches.set(db,new Map());return cookieCaches.get(db);}
+const cookieFor=async id=>{
+  const cache=cookieCache(),saved=cache.get(id);
+  if(saved && saved.session.e>T){if(id===ADMIN)ADMISSION=`SELECT (${contextMod.fenceSql("applicantWrite",1,2,3,saved.session.g,saved.session.n)}) AS ok`;return saved.cookie;}
+  setupDepth++;let original;try{original=await entry.issueOriginalEntryCookie(load,db,rawEnv(),id);}finally{setupDepth--;}
+  cache.set(id,original);
+  if(id===ADMIN)ADMISSION=`SELECT (${contextMod.fenceSql("applicantWrite",1,2,3,original.session.g,original.session.n)}) AS ok`;
+  return original.cookie;
+};
+const cookieWith=async(u,v,e)=>{
+  const saved=one("SELECT * FROM site_users WHERE discord_id=?",u),originalT=T;
+  if(!saved)throw Error("original audit cookie requires its real setup account");
+  let cookie;
+  try{
+    await run("UPDATE site_users SET session_version=?1 WHERE discord_id=?2",v,u);
+    T=e-load("./privacy-site-session-incarnation").INCARNATION_SESSION_SECONDS;
+    setupDepth++;try{cookie=(await entry.issueOriginalEntryCookie(load,db,rawEnv(),u)).cookie;}finally{setupDepth--;}
+  }finally{
+    T=originalT;
+    const keys=Object.keys(saved).filter(key=>key!=="discord_id" && key!=="account_incarnation");
+    await run(`UPDATE site_users SET ${keys.map(key=>`"${key}"=?`).join(",")} WHERE discord_id=?`,...keys.map(key=>saved[key]),u);
+  }
+  if(expiryOf(cookie)!==e)throw Error("original issuer changed its fixed seven-day expiry");
+  return cookie;
 };
 /** The expiry a cookie carries. */
 const expiryOf = (c) => JSON.parse(Buffer.from(c.split("=")[1].split(".")[0], "base64url").toString("utf8")).e;
@@ -193,24 +186,32 @@ async function http(method, url, { who, cookie, body, headers = {} } = {}) {
   const u = new URL(url, "https://guild.example");
   if (method !== "GET" && method !== "HEAD") { h.set("X-Olympus", "2"); h.set("Origin", u.origin); }
   if (body !== undefined) h.set("Content-Type", "application/json");
-  const res = await indexMod.default.fetch(new Request(u, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), env(), ctx);
+  const res = await indexMod.default.fetch(new Request(u, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), rawEnv(), ctx);
   let json = null;
   const text = await res.text();
   try { json = JSON.parse(text); } catch { /* not JSON */ }
   return { status: res.status, body: json, text, headers: res.headers };
 }
 const log = (params = {}, who = ADMIN) => http("GET", "/api/admin/audit-log" + (typeof params === "string" ? params : Object.keys(params).length ? "?" + new URLSearchParams(params) : ""), { who });
+// An explicit modeled clock jump must not counterfeit checked_at. Reuse actual stillMember with the
+// original read/session-bound facade and the one known in-memory Discord membership response before measurement.
+async function settleOriginalMembershipAfterClockChange(){
+  setupDepth++;try{
+    for(const id of [ADMIN,MEMBER]){const cookie=await cookieFor(id),e=env(),request=new Request("https://guild.example/api/me",{headers:{Cookie:cookie}}),user=await siteCore.currentUser(e,request);if(!user)throw Error("clock fixture original session held");const original=siteCore.originalUserSession(user),bound=load("./privacy-serving-authority").privacyBoundSiteEnv(e,original);if(await load("./site-api").stillMember(bound,user))throw Error("clock fixture actual membership held");}
+  }finally{setupDepth--;}
+}
+
 /** An audit row as the Worker writes it; ts defaults to the Worker's clock. */
-const put = (action, { actor = "system", subject = null, details = null, ts = T } = {}) => Number(run("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, ?, ?, ?)", ts, actor, action, subject, details).lastInsertRowid);
+const put=async(action,{actor="system",subject=null,details=null,ts=T}={})=>Number((await run("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, ?, ?, ?, ?)",ts,actor,action,subject,action==="site.settings" && details===null?"{}":details)).last_row_id);
 const ids = (r) => (r.body && Array.isArray(r.body.entries) ? r.body.entries.map((e) => e.id) : null);
-const people = () => {
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, 'vik', 'Vik', NULL, NULL, ?, ?, ?, 1, 0, 1)", ADMIN, T, T, T);
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, 'mia', 'Mia Lee', 'Mimi', 'u:0123456789abcdef0123456789abcdef', ?, ?, ?, 1, 0, 1)", MEMBER, T, T, T);
-  run("INSERT INTO members (discord_id, username, global_name, battletag) VALUES (?, 'mia_bot', 'Mia Bot', 'Hidden#1111')", MEMBER);
-  run("INSERT INTO members (discord_id, username, global_name, battletag, ban_reason) VALUES (?, 'bo', 'Bo Bot', 'Hidden#2222', 'never shown')", BOT_ONLY);
+const people = async () => {
+  await run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, in_server, denied, session_version) VALUES (?, 'vik', 'Vik', NULL, NULL, ?, ?, 1, 0, 1)", ADMIN, T, T);
+  await run("INSERT INTO site_users (discord_id, username, global_name, nick, avatar, first_login, last_login, in_server, denied, session_version) VALUES (?, 'mia', 'Mia Lee', 'Mimi', 'u:0123456789abcdef0123456789abcdef', ?, ?, 1, 0, 1)", MEMBER, T, T);
+  await run("INSERT INTO members (discord_id, username, global_name, battletag) VALUES (?, 'mia_bot', 'Mia Bot', 'Hidden#1111')", MEMBER);
+  await run("INSERT INTO members (discord_id, username, global_name, battletag, ban_reason) VALUES (?, 'bo', 'Bo Bot', 'Hidden#2222', 'never shown')", BOT_ONLY);
   // a denied account whose site data was deleted: the row keeps only the id and the denial (site-admin.ts deleteSiteData)
-  run("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, denied_reason, session_version) VALUES (?, NULL, NULL, NULL, ?, ?, ?, 1, 1, 'kept reason', 2)", ERASED, T, T, T);
-  run("INSERT INTO members (discord_id, username, global_name) VALUES (?, 'er', NULL)", ERASED);
+  await run("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, denied_reason, session_version) VALUES (?, NULL, NULL, NULL, ?, ?, 1, 1, 'kept reason', 2)", ERASED, T, T);
+  await run("INSERT INTO members (discord_id, username, global_name) VALUES (?, 'er', NULL)", ERASED);
 };
 /** Every table's row count and SQLite's own count of changed rows on this connection: equal before and after means no write. */
 const footprint = () => {
@@ -223,13 +224,14 @@ const measured = async (fn) => { resetCount(); const r = await fn(); return { r,
 const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).map((r) => r.detail).join(" | ");
 
 (async () => {
-  people();
+  await people();
+  await cookieFor(ADMIN);await cookieFor(MEMBER);
   // the first request runs ensureSchema (once per isolate); everything after it is the steady state
   await log({}, ADMIN);
   resetCount();
   const gate = await http("GET", "/api/admin/no-such-route", { who: ADMIN });
   GATE = COUNT.statements;
-  check("(fixture) the gate's own statements on an admin GET are measured once: the 404 route reads nothing else", gate.status === 404 && GATE >= 1 && GATE <= 2, GATE);
+  check("(fixture) the gate's own statements on an admin GET are measured once: the 404 route reads nothing else", gate.status === 404 && GATE === 2, GATE);
 
   console.log("\n== access ==");
   let r = await log({});
@@ -284,15 +286,15 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
 
   console.log("\n== family exactness, actor and subject ==");
   const fam = {
-    granted: put("role.restored", { actor: "system", subject: MEMBER }),
-    synced: put("roles.synced", { actor: "cron" }),
-    upper: put("ROLE.granted", { actor: "system" }),
-    rolex: put("rolex.thing", { actor: "system" }),
-    bare: put("role", { actor: "system" }),
-    removed: put("role.revoked_banned", { actor: ADMIN, subject: MEMBER }),
-    site: put("site.settings", { actor: ADMIN }),
-    siteTo: put("role.deferred", { actor: ADMIN, subject: "Mia One" }),
-    watcher: put("roster.member", { actor: "watcher", subject: "Mia One" }),
+    granted: await put("role.restored", { actor: "system", subject: MEMBER }),
+    synced: await put("roles.synced", { actor: "cron" }),
+    upper: await put("ROLE.granted", { actor: "system" }),
+    rolex: await put("rolex.thing", { actor: "system" }),
+    bare: await put("role", { actor: "system" }),
+    removed: await put("role.revoked_banned", { actor: ADMIN, subject: MEMBER }),
+    site: await put("site.settings", { actor: ADMIN }),
+    siteTo: await put("role.deferred", { actor: ADMIN, subject: "Mia One" }),
+    watcher: await put("roster.member", { actor: "watcher", subject: "Mia One" }),
   };
   r = await log({ family: "role", window: "all" });
   check("family=role: exactly role.*, never roles.*, ROLE.*, rolex.* or a bare 'role'", JSON.stringify(ids(r)) === JSON.stringify([fam.siteTo, fam.removed, fam.granted]), ids(r));
@@ -305,15 +307,15 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   // the live ADMISSION_MODE=auto path (wrangler.toml): a confirmed code queues the invite through the real review.ts, which
   // audits invite.queued with the actor "auto"; the row goes again so the paging below sees only its own invite rows
   // Supply the actual pending proof with original captured absence, rather than an actor-only object.
-  const autoPendingId = run("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at) VALUES (?, ?, ?, ?, ?)", MEMBER, "auto one", "Auto One", T, T + 600).lastInsertRowid;
+  const autoPendingId = (await run("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at) VALUES (?, ?, ?, ?, ?)", MEMBER, "auto one", "Auto One", T, T + 600)).last_row_id;
   const autoPending = one("SELECT p.*, s.generation AS privacy_generation, s.state AS privacy_state, s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.id=?", autoPendingId);
   await review.onVerified(env(), autoPending, "whisper");
   const autoRow = one("SELECT id, actor FROM audit WHERE action = 'invite.queued' AND subject = 'Auto One'");
   r = await log({ actor: "auto", window: "all" });
   check("actor=auto: the invite.queued row the real review.ts writes under ADMISSION_MODE=auto", !!autoRow && autoRow.actor === "auto" && r.status === 200 && JSON.stringify(ids(r)) === JSON.stringify([autoRow.id]), autoRow, r.status, r.body);
   check("  and together with family=invite", !!autoRow && JSON.stringify(ids(await log({ family: "invite", actor: "auto", window: "all" }))) === JSON.stringify([autoRow.id]));
-  if (autoRow) run("DELETE FROM audit WHERE id = ?", autoRow.id);
-  run("DELETE FROM invite_queue WHERE name_key = 'auto one'");
+  if (autoRow) await run("DELETE FROM audit WHERE id = ?", autoRow.id);
+  await run("DELETE FROM invite_queue WHERE name_key = 'auto one'");
   r = await log({ subject: "Mia One", window: "all" });
   check("subject: exact match", JSON.stringify(ids(r)) === JSON.stringify([fam.watcher, fam.siteTo]), ids(r));
   check("  case and part of it match nothing", ids(await log({ subject: "mia one", window: "all" })).length === 0 && ids(await log({ subject: "Mia", window: "all" })).length === 0);
@@ -343,8 +345,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   ]) privateRows.push(await writeRow(ADMIN, action, MEMBER, details));
   const ackId = await writeRow(MEMBER, "community.contribution_acknowledged", MEMBER, { kind: "acknowledged" });
   privateRows.push(ackId);
-  run("UPDATE audit SET ts = ? WHERE id = ?", T - 60 * DAY, privateRows[0]); // retained log beyond the private case window
-  const futureId = put("community.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ kind: "acknowledged" }) });
+  await run("UPDATE audit SET ts = ? WHERE id = ?", T - 60 * DAY, privateRows[0]); // retained log beyond the private case window
+  const futureId = await put("community.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ kind: "acknowledged" }) });
   privateRows.push(futureId);
   const privateDefault = await measured(() => log({ family: "community", window: "all" }));
   const privateMap = new Map(privateDefault.r.body.entries.map(row => [row.id, row]));
@@ -365,19 +367,19 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   }
   check("all-time subject filtering still cannot recover an older retained private case while the community features are off", env().COMMUNITY_FEATURES === "" && one("SELECT ts FROM audit WHERE id = ?", privateRows[0]).ts === T - 60 * DAY && !ids(await log({ subject: MEMBER, window: "all" })).includes(privateRows[0]));
   check("a private action's staff actor remains filterable where the DTO actually discloses it", privateRows.slice(0, 4).every(id => ids(privateDefault.r).includes(id)) && JSON.stringify(ids(await log({ family: "community", actor: ADMIN, window: "all" }))) === JSON.stringify(privateRows.slice(0, 4).reverse()));
-  const malformedId = put("site.denied", { actor: ADMIN, subject: "Mia One" });
-  const malformedCharacter = put("roster.member", { actor: "system", subject: MEMBER });
+  const malformedId = await put("site.denied", { actor: ADMIN, subject: "Mia One" });
+  const malformedCharacter = await put("roster.member", { actor: "system", subject: MEMBER });
   check("a character filter cannot match an ID-only writer's malformed historical subject", !ids(await log({ subject: "Mia One", window: "all" })).includes(malformedId));
   check("an ID filter cannot match a character-only writer's malformed historical subject", !ids(await log({ subject: MEMBER, window: "all" })).includes(malformedCharacter));
   const privacyLegacy = await http("GET", "/api/admin/audit", { who: ADMIN });
   check("Overview's site-only surface cannot reveal the real community member acknowledgment or private branches", privacyLegacy.status === 200 && !/community\.|Mimi|Mia Lee/.test(privacyLegacy.text));
-  for (const id of [...privateRows, malformedId, malformedCharacter]) run("DELETE FROM audit WHERE id = ?", id);
+  for (const id of [...privateRows, malformedId, malformedCharacter]) await run("DELETE FROM audit WHERE id = ?", id);
 
   console.log("\n== names: the site's account row, the bot's member row, and only the name ==");
   const nm = {
-    adminActs: put("role.restored", { actor: ADMIN, subject: BOT_ONLY }),
-    erased: put("role.restored", { actor: ERASED, subject: UNKNOWN }),
-    member: put("role.restored", { actor: "system", subject: MEMBER }),
+    adminActs: await put("role.restored", { actor: ADMIN, subject: BOT_ONLY }),
+    erased: await put("role.restored", { actor: ERASED, subject: UNKNOWN }),
+    member: await put("role.restored", { actor: "system", subject: MEMBER }),
   };
   r = await log({ window: "all", limit: "10" });
   const byId = new Map(r.body.entries.map((e) => [e.id, e]));
@@ -395,29 +397,29 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   console.log("\n== action-specific safe projection of historical details ==");
   const secret = "AUDIT-PRIVATE-MARKER";
   const det = {
-    status: put("site.application_status", { subject: MEMBER, details: JSON.stringify({ status: "accepted", note: secret }) }),
-    count: put("site.mentions_deleted", { subject: MEMBER, details: JSON.stringify({ removed: 3 }) }),
-    bool: put("site.data_deleted", { subject: MEMBER, details: JSON.stringify({ mentions: true }) }),
-    empty: put("site.undenied", { subject: MEMBER }),
-    ticket: put("verify.confirmed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ ticket: secret, guid: secret, officer: secret, discordId: MEMBER, source: "whisper" }) }),
-    failed: put("invite.failed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ code: secret, detail: secret }) }),
-    reason: put("admin.ban", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ reason: secret }) }),
-    error: put("role.remove_failed", { subject: MEMBER, details: JSON.stringify({ error: secret }) }),
-    case: put("community.privacy_case_updated", { actor: ADMIN, details: JSON.stringify({ caseId: secret, status: "completed", replied: true }) }),
-    payment: put("community.contribution_receipt", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ result: "created" }) }),
-    tag: put("link.ok", { actor: MEMBER, subject: secret + "#1234", details: JSON.stringify({ source: "site", cleared: false, readback: true }) }),
-    unknown: put(secret, { actor: secret, subject: secret, details: JSON.stringify({ removed: 3, note: secret }) }),
-    long: put("site.mentions_deleted", { details: JSON.stringify({ removed: 3, note: secret.repeat(500) }) }),
-    bad: put("site.mentions_deleted", { details: "{removed:" + secret }),
-    primitive: put("site.mentions_deleted", { details: JSON.stringify(secret) }),
-    array: put("site.mentions_deleted", { details: JSON.stringify([3, secret]) }),
-    nested: put("site.mentions_deleted", { details: JSON.stringify({ removed: { value: 3, secret } }) }),
-    enum: put("site.application_status", { subject: secret, details: JSON.stringify({ status: secret }) }),
-    stringCount: put("site.mentions_deleted", { details: JSON.stringify({ removed: "3" }) }),
-    negative: put("site.mentions_deleted", { details: JSON.stringify({ removed: -1 }) }),
-    wideCount: put("site.mentions_deleted", { details: JSON.stringify({ removed: 1_000_000_001 }) }),
-    stringBool: put("site.data_deleted", { details: JSON.stringify({ mentions: "true" }) }),
-    wrongAction: put("site.undenied", { details: JSON.stringify({ status: "accepted", removed: 3 }) }),
+    status: await put("site.application_status", { subject: MEMBER, details: JSON.stringify({ status: "accepted", note: secret }) }),
+    count: await put("site.mentions_deleted", { subject: MEMBER, details: JSON.stringify({ removed: 3 }) }),
+    bool: await put("site.data_deleted", { subject: MEMBER, details: JSON.stringify({ mentions: true }) }),
+    empty: await put("site.undenied", { subject: MEMBER }),
+    ticket: await put("verify.confirmed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ ticket: secret, guid: secret, officer: secret, discordId: MEMBER, source: "whisper" }) }),
+    failed: await put("invite.failed", { actor: "watcher", subject: "Mia One", details: JSON.stringify({ code: secret, detail: secret }) }),
+    reason: await put("admin.ban", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ reason: secret }) }),
+    error: await put("role.remove_failed", { subject: MEMBER, details: JSON.stringify({ error: secret }) }),
+    case: await put("community.privacy_case_updated", { actor: ADMIN, details: JSON.stringify({ caseId: secret, status: "completed", replied: true }) }),
+    payment: await put("community.contribution_receipt", { actor: ADMIN, subject: MEMBER, details: JSON.stringify({ result: "created" }) }),
+    tag: await put("link.ok", { actor: MEMBER, subject: secret + "#1234", details: JSON.stringify({ source: "site", cleared: false, readback: true }) }),
+    unknown: await put(secret, { actor: secret, subject: secret, details: JSON.stringify({ removed: 3, note: secret }) }),
+    long: await put("site.mentions_deleted", { details: JSON.stringify({ removed: 3, note: secret.repeat(500) }) }),
+    bad: await put("site.mentions_deleted", { details: "{removed:" + secret }),
+    primitive: await put("site.mentions_deleted", { details: JSON.stringify(secret) }),
+    array: await put("site.mentions_deleted", { details: JSON.stringify([3, secret]) }),
+    nested: await put("site.mentions_deleted", { details: JSON.stringify({ removed: { value: 3, secret } }) }),
+    enum: await put("site.application_status", { subject: secret, details: JSON.stringify({ status: secret }) }),
+    stringCount: await put("site.mentions_deleted", { details: JSON.stringify({ removed: "3" }) }),
+    negative: await put("site.mentions_deleted", { details: JSON.stringify({ removed: -1 }) }),
+    wideCount: await put("site.mentions_deleted", { details: JSON.stringify({ removed: 1_000_000_001 }) }),
+    stringBool: await put("site.data_deleted", { details: JSON.stringify({ mentions: "true" }) }),
+    wrongAction: await put("site.undenied", { details: JSON.stringify({ status: "accepted", removed: 3 }) }),
   };
   r = await log({ window: "all", limit: "100" });
   const e = new Map(r.body.entries.map((row) => [row.id, row]));
@@ -437,12 +439,12 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("name resolution binds only approved Discord IDs, never private case/tag/unknown subject values", !!nameCall && JSON.parse(nameCall.params[0]).every(id => /^\d{17,20}$/.test(id)) && !nameCall.params[0].includes(secret));
   const boundaryBase = JSON.stringify({ removed: 3, padding: "" });
   const detail4000 = JSON.stringify({ removed: 3, padding: "x".repeat(4000 - boundaryBase.length) });
-  const boundaryIds = [put("site.mentions_deleted", { details: detail4000 }), put("site.mentions_deleted", { details: detail4000.replace('"padding":"', '"padding":"x') })];
+  const boundaryIds = [await put("site.mentions_deleted", { details: detail4000 }), await put("site.mentions_deleted", { details: detail4000.replace('"padding":"', '"padding":"x') })];
   const boundaryPage = await log({ family: "site", window: "all", limit: "100" });
   const boundaryRows = boundaryIds.map(id => boundaryPage.body.entries.find(row => row.id === id));
   check("the exact 4000-character/ASCII-byte boundary is parsed safely; 4001 is withheld whole", detail4000.length === 4000 && JSON.stringify(boundaryRows[0].details) === '{"removed":3}' && boundaryRows[0].detailsWithheld && boundaryRows[1].details === null && boundaryRows[1].detailsWithheld);
-  for (const id of boundaryIds) run("DELETE FROM audit WHERE id = ?", id);
-  for (const id of Object.values(det)) run("DELETE FROM audit WHERE id = ?", id);
+  for (const id of boundaryIds) await run("DELETE FROM audit WHERE id = ?", id);
+  for (const id of Object.values(det)) await run("DELETE FROM audit WHERE id = ?", id);
 
   console.log("\n== R3: the real role writers, with only Discord effects stubbed ==");
   const rosterMod = load("./roster"), roleMod = load("./roles"), interactionMod = load("./interactions");
@@ -469,20 +471,20 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     await rosterMod.promote(env(), MEMBER, "writer deferred", "Writer Deferred");
     stubs["./discord"].rest = async () => [{ id: env().ROLE_GUILD_MEMBER }];
     roleMod.forgetRolesCheck();
-    run("UPDATE members SET banned = 1 WHERE discord_id = ?", MEMBER);
+    await run("UPDATE members SET banned = 1 WHERE discord_id = ?", MEMBER);
     await rosterMod.promote(env(), MEMBER, "writer banned", "Writer Banned");
     stubs["./discord"].removeRole = async () => { throw new Error(roleMarker); };
     stubs["./discord"].guildMember = async () => { throw new Error(roleMarker); };
     // Real departure consumes the originally bound physical character.
-    run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER);
-    run("INSERT INTO characters (name_key,name,discord_id,status,bound_at) VALUES (?, ?, ?, 'member', ?)", "writer left", "Writer Left", MEMBER, T);
+    await run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER);
+    await run("INSERT INTO characters (name_key,name,discord_id,status,bound_at) VALUES (?, ?, ?, 'member', ?)", "writer left", "Writer Left", MEMBER, T);
     await rosterMod.demote(env(), MEMBER, "writer left", "Writer Left", "roster diff");
     // Real interaction writer: synthetic officer interaction against this in-memory DB, Discord calls still stubbed.
     await interactionMod.handleInteraction(env(), { type: 2, guild_id: GUILD, member: { user: { id: ADMIN }, roles: [env().ROLE_OFFICER] }, data: { name: "olympus-admin", options: [{ type: 1, name: "ban", options: [{ type: 6, name: "user", value: MEMBER }, { type: 3, name: "reason", value: roleMarker }] }] } });
   } finally {
     Object.assign(stubs["./discord"], discordSaved);
     roleMod.forgetRolesCheck();
-    run("UPDATE members SET banned = ?, ban_reason = ? WHERE discord_id = ?", memberSaved.banned, memberSaved.ban_reason, MEMBER);
+    await run("UPDATE members SET banned = ?, ban_reason = ? WHERE discord_id = ?", memberSaved.banned, memberSaved.ban_reason, MEMBER);
   }
   const writtenRoles = all("SELECT * FROM audit WHERE id >= ? AND action IN ('role.add_failed','role.deferred','role.refused_banned','role.remove_failed','roles.read_failed') ORDER BY id", roleStart);
   check("the real roster and interaction paths wrote six rows covering the five required actions and both removal subject kinds", writtenRoles.length === 6 && new Set(writtenRoles.map(row => row.action)).size === 5 && writtenRoles.filter(row => row.action === "role.remove_failed").map(row => row.subject).join() === ["Writer Left", MEMBER].join(), writtenRoles.map(({ action, subject }) => ({ action, subject })));
@@ -499,39 +501,39 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     check(`${row.action} / ${row.subject === MEMBER ? "ID" : "character"}: typed subject and actor filters find its actual writer row`, match.status === 200 && ids(match).includes(row.id));
   }
   const invalidRoleIds = [
-    put("role.add_failed", { subject: "Bad One", details: JSON.stringify({ discordId: "Hidden#1111" }) }),
-    put("role.deferred", { subject: "Bad Two", details: JSON.stringify({ discordId: 300000000000000003 }) }),
-    put("role.refused_banned", { subject: "Bad Three", details: JSON.stringify({ discordId: { id: MEMBER } }) }),
-    put("roles.read_failed", { subject: "Bad Four", details: JSON.stringify({ discordId: "1".repeat(21) }) }),
-    put("site.undenied", { subject: MEMBER, details: JSON.stringify({ discordId: BOT_ONLY }) }),
+    await put("role.add_failed", { subject: "Bad One", details: JSON.stringify({ discordId: "Hidden#1111" }) }),
+    await put("role.deferred", { subject: "Bad Two", details: JSON.stringify({ discordId: 300000000000000003 }) }),
+    await put("role.refused_banned", { subject: "Bad Three", details: JSON.stringify({ discordId: { id: MEMBER } }) }),
+    await put("roles.read_failed", { subject: "Bad Four", details: JSON.stringify({ discordId: "1".repeat(21) }) }),
+    await put("site.undenied", { subject: MEMBER, details: JSON.stringify({ discordId: BOT_ONLY }) }),
   ];
   const invalidRolePage = await log({ window: "all", limit: "100" });
   check("a detail ID must pass isId for its own reviewed rule; nested/numeric/tag/overlong and other-action IDs stay withheld", invalidRoleIds.every(id => { const row = invalidRolePage.body.entries.find(row => row.id === id); return row.details === null && row.detailsWithheld; }));
-  const unknownRoleId = put("role.deferred", { subject: "Unknown Person", details: JSON.stringify({ discordId: UNKNOWN }) });
+  const unknownRoleId = await put("role.deferred", { subject: "Unknown Person", details: JSON.stringify({ discordId: UNKNOWN }) });
   const unknownRolePage = await log({ subject: "Unknown Person", window: "all" });
   check("an approved detail ID absent from local tables remains an ID without a fabricated name", JSON.stringify(unknownRolePage.body.entries.find(row => row.id === unknownRoleId).details) === JSON.stringify({ discordId: UNKNOWN }));
-  const forgedNameId = put("role.deferred", { subject: "Forged Name", details: JSON.stringify({ discordId: MEMBER, discordIdName: roleMarker }) });
+  const forgedNameId = await put("role.deferred", { subject: "Forged Name", details: JSON.stringify({ discordId: MEMBER, discordIdName: roleMarker }) });
   const forgedNamePage = await log({ subject: "Forged Name", window: "all" });
   const forgedNameRow = forgedNamePage.body.entries.find(row => row.id === forgedNameId);
   check("a historical discordIdName cannot supply text: the generated name comes only from local tables", forgedNameRow.details.discordIdName === shown("mia", "Mia Lee", "Mimi") && forgedNameRow.detailsWithheld && !forgedNamePage.text.includes(roleMarker));
   const roleLegacy = await http("GET", "/api/admin/audit", { who: ADMIN });
   check("both staff surfaces exclude actual role error/reason sentinels", !rolePage.r.text.includes(roleMarker) && !roleLegacy.text.includes(roleMarker));
-  run("DELETE FROM audit WHERE id >= ?", roleStart);
+  await run("DELETE FROM audit WHERE id >= ?", roleStart);
 
   console.log("\n== N2/N13: current News and private producer vocabulary ==");
   const newsSrc = sourceOf("site-news.ts"), ingestSrc = sourceOf("ingest.ts"), oauthSrc = sourceOf("oauth.ts"), privacySrc = sourceOf("community-privacy-intake.ts");
   check("(writer fidelity) News edits say edited; private intake carries caseId with NULL subject; verification/invite/OAuth retain their real shapes", newsSrc.includes('auditIfWritten(env, id, nonce, me, "edited")') && privacySrc.includes("'community.privacy_case_updated', NULL, json_object('caseId'") && ingestSrc.includes('"verify.confirmed", name, { discordId: pending.discord_id, source: body.source, officer: body.officer, ticket, guid: whisperGuid }') && /"invite\.failed",\s*e\.name,\s*\{\s*detail:\s*e\.detail,\s*code\s*\},\s*reference/.test(ingestSrc) && oauthSrc.includes('ok ? "link.ok" : "link.metadata_failed", battletag'));
   const edited = await writeRow(ADMIN, "site.news_notice", "notice-key", { op: "edited", live: 2 });
-  const wrongNews = put("site.news_notice", { actor: ADMIN, details: JSON.stringify({ op: "updated", live: 2 }) });
+  const wrongNews = await put("site.news_notice", { actor: ADMIN, details: JSON.stringify({ op: "updated", live: 2 }) });
   const editedFull = await log({ family: "site", window: "all", limit: "100" });
   const editedOld = await http("GET", "/api/admin/audit", { who: ADMIN });
   check("the real edited enum is retained on both audit surfaces, with no notice identifier", JSON.stringify(editedFull.body.entries.find(row => row.id === edited).details) === '{"op":"edited","live":2}' && editedFull.body.entries.find(row => row.id === edited).subject === null && editedOld.body.audit.some(row => row.action === "site.news_notice" && row.details === '{"op":"edited","live":2}') && !editedOld.text.includes("notice-key"));
   check("an unwritten updated enum remains withheld, while a valid live count survives", editedFull.body.entries.find(row => row.id === wrongNews).detailsWithheld && JSON.stringify(editedFull.body.entries.find(row => row.id === wrongNews).details) === '{"live":2}');
-  run("DELETE FROM audit WHERE id IN (?, ?)", edited, wrongNews);
+  await run("DELETE FROM audit WHERE id IN (?, ?)", edited, wrongNews);
 
   console.log("\n== keyset paging across three pages ==");
   const paged = [];
-  for (let i = 0; i < 125; i++) { paged.push(put("invite.sent", { actor: "watcher", subject: "Char " + i })); put("site.noise"); }
+  for (let i = 0; i < 125; i++) { paged.push(await put("invite.sent", { actor: "watcher", subject: "Char " + i })); await put("site.noise"); }
   const seen = [];
   const pages = [];
   let cursor = null;
@@ -548,12 +550,11 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("  a cursor above the newest id starts at the newest (never a walk through empty ids)", (await log({ family: "invite", window: "all", before: "999999999" })).body.entries[0].id === paged[124]);
 
   console.log("\n== the SCAN bound: 5,000 rows and a rare filter ==");
-  const rareOld = put("rank.changed", { actor: ADMIN, subject: "Rare One" });
-  db.exec("BEGIN");
-  const bulk = db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'roster.seen', ?, NULL)");
-  for (let i = 0; i < 5000; i++) bulk.run(T, "Char " + i);
-  db.exec("COMMIT");
-  const rareNew = put("rank.changed", { actor: ADMIN, subject: "Rare Two" });
+  const rareOld = await put("rank.changed", { actor: ADMIN, subject: "Rare One" });
+  setupDepth++;try{
+    for(let start=0;start<5000;start+=100){const plan=[];for(let i=start;i<Math.min(start+100,5000);i++)plan.push(env().DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'roster.seen', ?, NULL)").bind(T,"Char "+i));await env().DB.batch(plan);}
+  }finally{setupDepth--;}
+  const rareNew = await put("rank.changed", { actor: ADMIN, subject: "Rare Two" });
   const newest = one("SELECT MAX(id) AS id FROM audit").id;
   let m1 = await measured(() => log({ family: "rank", window: "all" }));
   let b = m1.r.body;
@@ -590,16 +591,16 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
 
   console.log("\n== the window floor, on the clock that stamps the rows ==");
   fresh();
-  people();
+  await people();await cookieFor(ADMIN);await cookieFor(MEMBER);
   schema.forgetSchemaCheck();
   await log({}); // the fresh database's first request, as the isolate's
   const w = {
-    d40: put("site.a", { ts: T - 40 * DAY }),
-    d20: put("site.b", { ts: T - 20 * DAY }),
-    d3: put("site.c", { ts: T - 3 * DAY }),
-    h25: put("site.d", { ts: T - 25 * H }),
-    h23: put("site.e", { ts: T - 23 * H }),
-    h1: put("site.f", { ts: T - H }),
+    d40: await put("site.a", { ts: T - 40 * DAY }),
+    d20: await put("site.b", { ts: T - 20 * DAY }),
+    d3: await put("site.c", { ts: T - 3 * DAY }),
+    h25: await put("site.d", { ts: T - 25 * H }),
+    h23: await put("site.e", { ts: T - 23 * H }),
+    h1: await put("site.f", { ts: T - H }),
   };
   await dbMod.audit(env(), ADMIN, "site.votes_saved", undefined, { picks: 1 }); // the real audit(): ts is the Worker's now()
   const g = one("SELECT id, ts FROM audit WHERE action = 'site.votes_saved'");
@@ -616,32 +617,34 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("all: everything, from id 1", JSON.stringify(ids(r)) === JSON.stringify([g.id, w.h1, w.h23, w.h25, w.d3, w.d20, w.d40]) && r.body.scanned.lo === 1, ids(r));
   check("  the default window is 7d", JSON.stringify(ids(await log({}))) === JSON.stringify([g.id, w.h1, w.h23, w.h25, w.d3]));
   T += 2 * H; // the Worker's clock moves on two hours: 23 h becomes 25 h
+  await settleOriginalMembershipAfterClockChange();
   r = await log({ window: "1d" });
   check("as that clock moves on, the window moves with it", JSON.stringify(ids(r)) === JSON.stringify([g.id, w.h1]), ids(r));
   T -= 2 * H;
+  await settleOriginalMembershipAfterClockChange();
   r = await log({ window: "1d", before: String(w.h23) });
   check("a cursor below the window's earliest-stamped id: the rest of the log is still searched (a row stamped out of order would be found), nothing matches, exhausted only at the oldest id, and likelyEnd says why", r.body.entries.length === 0 && r.body.scanned && r.body.scanned.lo === one("SELECT MIN(id) AS id FROM audit").id && r.body.exhausted === true && r.body.likelyEnd === true, r.body);
   // Codex's review (7 Oct 19:58 UTC): ids and stamps need not run in the same order
-  const back = put("site.backfilled", { ts: T - 3 * DAY }); // the newest id, stamped three days ago
-  run("UPDATE audit SET ts = ? WHERE id = ?", T - 2 * H, w.d20); // an old id stamped two hours ago (out of order)
-  const fut = put("site.future", { ts: T + DAY }); // a stamp ahead of the clock
+  const back = await put("site.backfilled", { ts: T - 3 * DAY }); // the newest id, stamped three days ago
+  await run("UPDATE audit SET ts = ? WHERE id = ?", T - 2 * H, w.d20); // an old id stamped two hours ago (out of order)
+  const fut = await put("site.future", { ts: T + DAY }); // a stamp ahead of the clock
   r = await log({ window: "1d" });
   check("a newer id with an old stamp is outside the window; an older id with a recent stamp is inside it, though below the window's earliest-stamped id; a stamp ahead of the clock is inside", !ids(r).includes(back) && ids(r).includes(w.d20) && ids(r).includes(fut) && r.body.exhausted === true, ids(r));
   r = await log({ window: "1d", before: String(w.h23) });
   check("  and the out-of-order row is found by continuing below the earliest-stamped id: a terminal answer never rests on ids being in stamp order", JSON.stringify(ids(r)) === JSON.stringify([w.d20]) && r.body.exhausted === true, ids(r), r.body);
-  run("UPDATE audit SET ts = ? WHERE id = ?", T - 20 * DAY, w.d20);
-  run("DELETE FROM audit WHERE id IN (?, ?)", back, fut);
-  run("DELETE FROM audit WHERE id = ?", w.h25); // sparse ids
+  await run("UPDATE audit SET ts = ? WHERE id = ?", T - 20 * DAY, w.d20);
+  await run("DELETE FROM audit WHERE id IN (?, ?)", back, fut);
+  await run("DELETE FROM audit WHERE id = ?", w.h25); // sparse ids
   r = await log({ window: "all", limit: "10" });
   check("sparse ids (a deleted row in the middle): the page skips the gap, no row twice, none missing", JSON.stringify(ids(r)) === JSON.stringify(one("SELECT json_group_array(id) AS a FROM (SELECT id FROM audit ORDER BY id DESC LIMIT 10)").a ? JSON.parse(one("SELECT json_group_array(id) AS a FROM (SELECT id FROM audit ORDER BY id DESC LIMIT 10)").a) : []), ids(r));
+  const beforeFarClock=new Map(cookieCache());
   T += 60 * DAY;
+  await settleOriginalMembershipAfterClockChange();
   r = await log({ window: "30d" });
   check("a window with nothing stamped inside it: no entries, no stretch, exhausted", r.body.entries.length === 0 && r.body.scanned === null && r.body.exhausted === true && r.body.next === null, r.body);
-  T -= 60 * DAY;
+  T -= 60 * DAY;cookieCaches.set(db,beforeFarClock);await settleOriginalMembershipAfterClockChange();
 
   console.log("\n== statements per request ==");
-  // The audit-only cost bound assumes the independently due membership check has completed through the real gate.
-  if ((await log({ window: "all" })).status !== 200 || one("SELECT checked_at FROM site_users WHERE discord_id = ?", ADMIN).checked_at !== T) throw new Error("fixture membership revalidation failed before audit-only measurement");
   const counts = [], privacyCosts = [];
   for (const params of [{}, { window: "all" }, { family: "site", actor: ADMIN, window: "30d" }, { before: String(w.h1) }, { window: "1d", before: String(w.h23) }, { family: "none" }]) {
     const m = await measured(() => log(params));
@@ -654,7 +657,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("at most five statements of its own per request (the oldest and newest ids, the window's earliest-stamped id, the page, the names, the final admission), the admission always the last", counts.every((c) => typeof c === "number" && c <= 5) && counts.includes(5), counts);
   const empty0 = new DatabaseSync(":memory:"); // an empty audit table
   const saved = db;
-  db = empty0; db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8")); people();
+  db = empty0;db.exec("PRAGMA foreign_keys=ON");entry.installCurrentEntryEpoch(db);await people();await cookieFor(ADMIN);await cookieFor(MEMBER);
   const mEmpty = await measured(() => log({ window: "all" }));
   check("  an empty log: two statements (the ids, then the admission), no entries, exhausted", mEmpty.extra === 2 && mEmpty.calls.at(-1).sql === ADMISSION && mEmpty.r.body.entries.length === 0 && mEmpty.r.body.exhausted === true && mEmpty.r.body.scanned === null, mEmpty.extra, mEmpty.r.body);
   db = saved;
@@ -663,21 +666,23 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   // The gate (site-api.ts) judges the account once, before the reads. A change landing after the page read and before the
   // answer leaves must be caught by the one final admission statement; the D1 wrapper runs it right before that statement.
   const SRC_SITE = fs.readFileSync(path.join(root, "src", "site.ts"), "utf8");
-  const SIGN_OUT = "UPDATE site_users SET session_version = session_version + 1 WHERE discord_id = ?1 AND session_version = ?2";
+  const SIGN_OUT = "UPDATE site_users SET session_version = session_version + 1 WHERE discord_id = ?1 AND session_version = ?2 AND account_incarnation = ?3";
+  async function originalSignOut(cookie){setupDepth++;try{const response=await http("POST","/auth/logout",{cookie});if(response.status!==200 || !/__Host-olg=;/.test(response.headers.get("Set-Cookie")??""))throw Error("original logout injection held");}finally{setupDepth--;}}
   const DENY = "UPDATE site_users SET denied = 1, denied_reason = ?2, denied_at = ?3, denied_by = ?4, session_version = session_version + 1 WHERE discord_id = ?1";
   const ERASE = "DELETE FROM site_users WHERE discord_id = ?1";
   const SRC_ADMIN = fs.readFileSync(path.join(root, "src", "site-admin.ts"), "utf8");
-  check("(fixture) the injected changes are the Worker's own statements: the sign-out (site.ts), deny (site-admin.ts deny), the erasure of an account that was not denied (site-admin.ts deleteSiteData)", SRC_SITE.includes(SIGN_OUT) && SRC_ADMIN.includes(DENY) && SRC_ADMIN.includes(ERASE));
-  const adminRow = one("SELECT * FROM site_users WHERE discord_id = ?", ADMIN);
-  const restoreAdmin = () => {
-    run("DELETE FROM site_users WHERE discord_id = ?", ADMIN);
-    run(`INSERT INTO site_users (${Object.keys(adminRow).join(", ")}) VALUES (${Object.keys(adminRow).map(() => "?").join(", ")})`, ...Object.values(adminRow));
+  check("(fixture) the injected changes are the Worker's own statements: the sign-out (site.ts), deny (site-admin.ts deny), the erasure of an account that was not denied (site-admin.ts deleteSiteData)", SRC_SITE.includes(SIGN_OUT) && fs.readFileSync(path.join(root,"src/privacy-rejection-decision.ts"),"utf8").includes(DENY) && SRC_ADMIN.includes(ERASE));
+  let adminRow = one("SELECT * FROM site_users WHERE discord_id = ?", ADMIN);
+  const restoreAdmin=async()=>{
+    const exists=one("SELECT account_incarnation FROM site_users WHERE discord_id=?",ADMIN);
+    if(exists){const keys=Object.keys(adminRow).filter(key=>key!=="discord_id" && key!=="account_incarnation");await run(`UPDATE site_users SET ${keys.map(key=>`"${key}"=?`).join(",")} WHERE discord_id=?`,...keys.map(key=>adminRow[key]),ADMIN);}
+    else{const keys=Object.keys(adminRow).filter(key=>key!=="account_incarnation");await run(`INSERT INTO site_users (${keys.map(key=>`"${key}"`).join(",")}) VALUES (${keys.map(()=>"?").join(",")})`,...keys.map(key=>adminRow[key]));cookieCache().delete(ADMIN);adminCookie=await cookieFor(ADMIN);adminE=expiryOf(adminCookie);adminRow=one("SELECT * FROM site_users WHERE discord_id=?",ADMIN);}
   };
   const isPage = (c) => /ORDER BY id DESC LIMIT/.test(c.sql), isNames = (c) => /FROM json_each\(\?1\) j/.test(c.sql);
   /** One request with `change` run right before the final admission statement: the reply, what ran in order, and where. */
   async function injected(change, { params = { window: "all" }, cookie }) {
     let at = -1;
-    BEFORE = { when: (sql) => sql === ADMISSION, run: (i) => { at = i; if (change) change(); } };
+    BEFORE = { when: (sql) => sql === ADMISSION, run: async (i) => { at = i; if (change) await change(); } };
     resetCount();
     let r;
     try {
@@ -686,32 +691,43 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
       BEFORE = null;
     }
     const calls = COUNT.calls.slice();
-    return { r, calls, at, last: calls.length - 1, page: calls.findIndex(isPage), names: calls.findIndex(isNames) };
+    return { r, calls, at, last: calls.length - 1, page: calls.findIndex(isPage), names: calls.findIndex(isNames), nativeCalls: COUNT.nativeCalls.slice(), nativeErrors: COUNT.nativeErrors.slice(), nativeReads: COUNT.nativeReads.slice() };
   }
   /** Nothing of the page: exactly an error and its message. */
   const bare = (r, error) => !!r.body && r.body.error === error && Object.keys(r.body).sort().join() === "error,message" && !/"entries"|site\.[a-z]/.test(r.text);
-  const adminCookie = await cookieFor(ADMIN);
-  const adminE = expiryOf(adminCookie);
+  const cookieFields=cookie=>JSON.parse(Buffer.from(cookie.split("=")[1].split(".")[0],"base64url").toString("utf8"));
+  const originalGuardAborted=(result,cookie)=>{
+    const session=cookieFields(cookie),last=result.nativeCalls.at(-1),error=result.nativeErrors.at(-1);
+    return result.r.status===503 && bare(result.r,"unavailable") && result.r.body.message==="The audit log could not be checked just now, so nothing is shown. Try again in a moment."
+      && result.nativeErrors.length===1 && error.code==="ERR_SQLITE_ERROR" && error.message==="malformed JSON"
+      && !!last && last.sql===error.sql && last.sql.includes("json_extract('privacy_site_request_refused'")
+      && last.sql.includes(load("./privacy-serving-authority").privacyAccountIncarnationLiteralFenceSql("account_incarnation",session.n))
+      && JSON.stringify(last.params)===JSON.stringify([session.u,session.v,session.e,session.g])
+      && result.at===result.calls.length && !result.calls.some(call=>call.sql===ADMISSION);
+  };
+  let adminCookie = await cookieFor(ADMIN);
+  let adminE = expiryOf(adminCookie);
 
   let c = await injected(null, { cookie: adminCookie });
   check("control: nothing changes between the page read and the admission: 200 with the page; the admission is the last statement, after the page and the names", c.r.status === 200 && c.r.body.entries.length > 0 && c.at === c.last && c.page >= 0 && c.names > c.page && c.at > c.names, c.r.status, c.at, c.last, c.page, c.names);
-  check("  the admission is bound to the cookie's own id, version and expiry (never a later version or a renewed expiry)", JSON.stringify(c.calls[c.at].params) === JSON.stringify([ADMIN, 1, adminE]), c.calls[c.at].params);
-  const admissionPlan = planOf(c.calls[c.at]);
-  check("  and it is indexed: site_users is searched by its primary key, never scanned", /SEARCH fu USING INDEX sqlite_autoindex_site_users_1 \(discord_id=\?\)/.test(admissionPlan) && !/SCAN fu/.test(admissionPlan), admissionPlan);
+  check("  the admission is bound to the cookie's own id, version and expiry (never a later version or a renewed expiry)", !!c.calls[c.at] && JSON.stringify(c.calls[c.at].params) === JSON.stringify([ADMIN, 1, adminE]), c.calls[c.at]?.params);
+  const admissionPlan = c.calls[c.at]?planOf(c.calls[c.at]):"";
+  const birthIndex=require("../scripts/install-rejection-provenance-epoch.cjs").manifest.canonical.indexes.find(row=>row.name==="site_users_account_incarnation");
+  check("  and it uses the exact source unique Native-birth index, never scans site_users",/SEARCH fu USING INDEX site_users_account_incarnation \(account_incarnation=\?\)/.test(admissionPlan) && !/SCAN fu/.test(admissionPlan) && /^CREATE UNIQUE INDEX /.test(birthIndex.sql) && one("SELECT sql FROM sqlite_master WHERE type='index' AND name=?",birthIndex.name).sql===birthIndex.sql,admissionPlan);
 
   const cases = [
-    ["the session's version revoked (a sign-out elsewhere, site.ts's statement)", () => run(SIGN_OUT, ADMIN, 1), 401, "signed_out"],
-    ["a denial with the version bump (site-admin.ts deny's statement)", () => run(DENY, ADMIN, "test denial", T, MEMBER), 401, "signed_out"],
-    ["the account erased (its site_users row deleted, deleteSiteData's statement)", () => run(ERASE, ADMIN), 401, "signed_out"],
-    ["a denial without a version bump", () => run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", ADMIN), 403, "denied"],
-    ["the account no longer in the server (in_server = 0, as the membership re-check records it)", () => run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN), 403, "not_member"],
+    ["the session's version revoked (a sign-out elsewhere, site.ts's statement)", async () => originalSignOut(adminCookie), 401, "signed_out", true],
+    ["a denial with the version bump (site-admin.ts deny's statement)", async () => run(DENY, ADMIN, "test denial", T, MEMBER), 401, "signed_out", true],
+    ["the account erased (its site_users row deleted, deleteSiteData's statement)", async () => run(ERASE, ADMIN), 401, "signed_out", true],
+    ["a denial without a version bump", async () => run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", ADMIN), 403, "denied", false],
+    ["the account no longer in the server (in_server = 0, as the membership re-check records it)", async () => run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN), 403, "not_member", false],
   ];
-  for (const [label, change, followStatus, followError] of cases) {
+  for (const [label, change, followStatus, followError, guardFirst] of cases) {
     c = await injected(change, { cookie: adminCookie });
-    check(`${label} after the page read, before the final admission: 401 signed_out with nothing of the page`, c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page >= 0 && c.page < c.at && c.calls[c.at].params[1] === 1, c.r.status, c.r.body, c.at, c.last, c.page);
+    check(`${label} after the page read: ${guardFirst?"503 unavailable at original Native guard, final SQL unexecuted":"401 signed_out at final admission"}, no page`,c.page>=0 && c.page<c.at && (guardFirst?originalGuardAborted(c,adminCookie):c.r.status===401 && bare(c.r,"signed_out") && c.at===c.last && c.calls[c.at].sql===ADMISSION && c.calls[c.at].params[1]===1),c.r.status,c.r.body,c.at,c.last,c.page);
     const follow = await http("GET", "/api/admin/audit-log?window=all", { cookie: adminCookie });
     check(`  the same cookie's next request: ${followStatus} ${followError}, no entries`, follow.status === followStatus && bare(follow, followError), follow.status, follow.body);
-    restoreAdmin();
+    await restoreAdmin();
   }
 
   // the expiry: a cookie 60 s from expiry by the database's clock, which the Worker's clock (three hours behind) accepts
@@ -722,38 +738,38 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   c = await injected(null, { cookie: shortCookie });
   check("(control) a cookie 60 s from expiry by the database's clock: 200 while that clock stands, the admission bound to that expiry", c.r.status === 200 && c.r.body.entries.length > 0 && c.at === c.last && c.calls[c.at].params[2] === shortE, c.r.status, c.calls[c.at] && c.calls[c.at].params);
   c = await injected(() => { SHIFT = 120; }, { cookie: shortCookie });
-  check("the cookie's expiry passing after the page read, before the final admission (the database's clock moved on two minutes): 401 with nothing of the page", c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page >= 0 && c.page < c.at, c.r.status, c.r.body);
+  check("the original cookie expires by Native time after page read:503 unavailable at original guard, final SQL unexecuted and no page",originalGuardAborted(c,shortCookie) && c.page>=0 && c.page<c.at,c.r.status,c.r.body);
   check("  (fixture) the database's clock passed the expiry; the Worker's clock, which readSession uses, did not", dbNow() > shortE && T < shortE);
-  let follow = await http("GET", "/api/admin/audit-log?window=all", { cookie: shortCookie });
-  check("  the same cookie's next request: 503 erasure_held, no entries (native original-expiry guard refuses before payload)", follow.status === 503 && bare(follow, "erasure_held"), follow.status, follow.body);
+  resetCount();let follow = await http("GET", "/api/admin/audit-log?window=all", { cookie: shortCookie });
+  check("  the same expired cookie's next request:401 signed_out from original Native identity read, no audit payload",follow.status===401 && bare(follow,"signed_out") && COUNT.nativeReads.some(read=>read.rowCount===0 && /^SELECT \* FROM site_users WHERE discord_id = \?1 AND account_incarnation/.test(read.sql) && read.params[3]===shortE) && !COUNT.calls.some(call=>isPage(call)||call.sql===ADMISSION),follow.status,follow.body);
   SHIFT = 0;
   c = await injected(null, { cookie: await cookieWith(ADMIN, 1, dbNow() - 1) });
-  check("a cookie the database's clock has expired though the Worker's has not: native guard returns503 erasure_held before audit payload", c.r.status === 503 && bare(c.r, "erasure_held") && c.at === -1 && c.page === -1, c.r.status, c.r.body);
+  check("a source-issued cookie already expired by Native time:401 signed_out, original Native identity returns no row before audit reads",c.r.status===401 && bare(c.r,"signed_out") && c.at===-1 && c.page===-1 && c.nativeReads.some(read=>read.rowCount===0 && /^SELECT \* FROM site_users WHERE discord_id = \?1 AND account_incarnation/.test(read.sql)),c.r.status,c.r.body);
 
   // the early answers are fenced the same way
-  T += 60 * DAY; // nothing stamped in the last 30 days now; cookies minted from here on carry the moved clock
+  const beforeLateClock=new Map(cookieCache());
+  T += 60 * DAY; // the original scenario explicitly signs in anew after sixty days
+  await settleOriginalMembershipAfterClockChange();
   const lateCookie = await cookieFor(ADMIN);
-  // Confirm membership once at this new clock before isolating the early audit answer's three statements.
-  if ((await http("GET", "/api/admin/audit-log?window=all", { cookie: lateCookie })).status !== 200 || one("SELECT checked_at FROM site_users WHERE discord_id = ?", ADMIN).checked_at !== T) throw new Error("fixture late membership revalidation failed");
   c = await injected(null, { params: { window: "30d" }, cookie: lateCookie });
   check("(control) the early empty-window answer (nothing stamped in the last 30 days): 200, no page read, three statements, the admission the last", c.r.status === 200 && c.r.body.entries.length === 0 && c.r.body.scanned === null && c.page === -1 && c.at === c.last && c.calls.length - GATE === 3, c.r.status, c.calls.length - GATE);
-  c = await injected(() => run(SIGN_OUT, ADMIN, 1), { params: { window: "30d" }, cookie: lateCookie });
-  check("  the version revoked before that early answer's admission: 401 with nothing of it", c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last && c.page === -1, c.r.status, c.r.body);
+  c = await injected(async () => originalSignOut(lateCookie), { params: { window: "30d" }, cookie: lateCookie });
+  check("  version revoked before early empty-window admission:503 unavailable at original guard, no final SQL or page",originalGuardAborted(c,lateCookie) && c.page===-1,c.r.status,c.r.body);
   check("  the same cookie's next request: 401", (await http("GET", "/api/admin/audit-log?window=30d", { cookie: lateCookie })).status === 401);
-  restoreAdmin();
-  T -= 60 * DAY;
+  await restoreAdmin();
+  T -= 60 * DAY;cookieCaches.set(db,beforeLateClock);await settleOriginalMembershipAfterClockChange();
   c = await injected(null, { params: { window: "all", before: "1" }, cookie: adminCookie });
   check("(control) a cursor below the oldest id (the other early answer): 200, two statements, the admission the last", c.r.status === 200 && c.r.body.entries.length === 0 && c.at === c.last && c.calls.length - GATE === 2, c.r.status, c.calls.length - GATE);
-  c = await injected(() => run(ERASE, ADMIN), { params: { window: "all", before: "1" }, cookie: adminCookie });
-  check("  the account erased before that answer's admission: 401 with nothing of it", c.r.status === 401 && bare(c.r, "signed_out") && c.at === c.last, c.r.status, c.r.body);
-  restoreAdmin();
+  c = await injected(async () => run(ERASE, ADMIN), { params: { window: "all", before: "1" }, cookie: adminCookie });
+  check("  account erased before below-oldest answer:503 unavailable at original guard with final SQL unexecuted",originalGuardAborted(c,adminCookie),c.r.status,c.r.body);
+  await restoreAdmin();
 
   // the admission statement itself fails: fail closed
   const logged = [];
   const consoleError = console.error;
   console.error = (...a) => { logged.push(a); };
   try {
-    c = await injected(() => { throw new Error("D1_ERROR: injected failure of the admission statement"); }, { cookie: adminCookie });
+    c = await injected(() => { executionFailure={sql:ADMISSION,message:"D1_ERROR: injected failure of the admission statement"}; }, { cookie: adminCookie });
   } finally {
     console.error = consoleError;
   }
@@ -791,7 +807,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   console.log("\n== the Overview's compatible recent activity is safe and fenced ==");
   const marker = "LEGACY-AUDIT-PRIVATE-MARKER", recentIds = [];
   for (let i = 0; i < 180; i++) {
-    const id = put(i % 3 ? "site.denied" : "role.restored", { actor: ADMIN, subject: i % 2 ? MEMBER : null, details: JSON.stringify({ reason: marker, ticket: marker, code: marker, error: marker, caseId: marker, released: i }) });
+    const id = await put(i % 3 ? "site.denied" : "role.restored", { actor: ADMIN, subject: i % 2 ? MEMBER : null, details: JSON.stringify({ reason: marker, ticket: marker, code: marker, error: marker, caseId: marker, released: i }) });
     if (i % 3) recentIds.push(id);
   }
   const old = await http("GET", "/api/admin/audit", { who: ADMIN });
@@ -800,34 +816,35 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   check("Overview receives an approved string summary plus withholding, never reason/ticket/code/error/case text", old.body.audit.every(row => typeof row.details === "string" && row.details.includes("released") && row.details.includes("withheld")) && !old.text.includes(marker));
   const fullRecent = await log({ family: "site", window: "all", limit: "100" });
   check("both audit surfaces exclude the same historical confidential sentinels", fullRecent.status === 200 && !fullRecent.text.includes(marker) && !old.text.includes(marker));
-  const legacyUnknown = put("site.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ reason: marker }) });
+  const legacyUnknown = await put("site.unreviewed_future", { actor: MEMBER, subject: MEMBER, details: JSON.stringify({ reason: marker }) });
   const legacyUnknownPage = await http("GET", "/api/admin/audit", { who: ADMIN });
   const unknownFull = await measured(() => log({ family: "site", before: String(legacyUnknown + 1), window: "all", limit: "10" }));
   const unknownFirst = unknownFull.r.body.entries[0], unknownOldFirst = legacyUnknownPage.body.audit[0];
   check("future site actions with a well-shaped member ID still default to withheld actor/subject on both surfaces", unknownFirst.id === legacyUnknown && unknownFirst.action === "unknown" && unknownFirst.actor === "withheld" && unknownFirst.actorName === null && unknownFirst.subject === null && unknownFirst.subjectName === null && unknownOldFirst.action === "unknown" && unknownOldFirst.actor === "withheld" && unknownOldFirst.subject === null && !legacyUnknownPage.text.includes(marker));
   check("subject/actor filters cannot recover an unreviewed site action's otherwise valid ID", !ids(await log({ family: "site", actor: MEMBER, window: "all" })).includes(legacyUnknown) && !ids(await log({ family: "site", subject: MEMBER, window: "all" })).includes(legacyUnknown));
-  run("DELETE FROM audit WHERE id = ?", legacyUnknown);
+  await run("DELETE FROM audit WHERE id = ?", legacyUnknown);
   check("the compatible recent endpoint still refuses signed-out and non-admin users", (await http("GET", "/api/admin/audit")).status === 401 && (await http("GET", "/api/admin/audit", { who: MEMBER })).status === 403);
   resetCount();
   const recentControl = await http("GET", "/api/admin/audit", { cookie: adminCookie });
   check("the recent read also ends in the same final cookie-bound admission, after building its safe payload", recentControl.status === 200 && COUNT.calls.at(-1).sql === ADMISSION && COUNT.statements - GATE === 2 && JSON.stringify(COUNT.calls.at(-1).params) === JSON.stringify([ADMIN, 1, adminE]));
-  BEFORE = { when: sql => sql === ADMISSION, run: () => run(SIGN_OUT, ADMIN, 1) };
+  resetCount();
+  BEFORE = { when: sql => sql === ADMISSION, run: async () => originalSignOut(adminCookie) };
   let recentRevoked;
   try { recentRevoked = await http("GET", "/api/admin/audit", { cookie: adminCookie }); } finally { BEFORE = null; }
-  check("a session revoked after the recent read receives 401 with no activity payload", recentRevoked.status === 401 && bare(recentRevoked, "signed_out") && !recentRevoked.text.includes('"audit"'));
-  restoreAdmin();
+  check("a session revoked after the recent read receives503 unavailable at original Native guard and no activity payload",originalGuardAborted({r:recentRevoked,calls:COUNT.calls,at:COUNT.calls.length,nativeCalls:COUNT.nativeCalls,nativeErrors:COUNT.nativeErrors},adminCookie) && !recentRevoked.text.includes('"audit"'));
+  await restoreAdmin();
   const src = fs.readFileSync(path.join(root, "src", "site-admin.ts"), "utf8");
 
   console.log("\n== static ==");
   const auditSrc = src.slice(src.indexOf("// ---------- the audit log page ----------"));
   check("the handler writes nothing (no INSERT, UPDATE, DELETE or audit() call in its code)", auditSrc.length > 1000 && !/\b(INSERT|UPDATE|DELETE)\b/.test(auditSrc) && !/\baudit\(env/.test(auditSrc));
-  check("  its SQL interpolates reviewed bounds and the original session generation", [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]).every((x) => /^(AUDIT_DETAILS_MAX|args\.length( - 1)?|where\.map\(\(w\) => " AND " \+ w\)\.join\(""\)|fenceSql\("applicantWrite", 1, 2, 3,s\.g\))$/.test(x)), [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]));
+  check("  its SQL interpolates reviewed bounds and the original session generation", [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]).every((x) => /^(AUDIT_DETAILS_MAX|args\.length( - 1)?|where\.map\(\(w\) => " AND " \+ w\)\.join\(""\)|fenceSql\("applicantWrite", 1, 2, 3,s\.g,s\.n\))$/.test(x)), [...auditSrc.matchAll(/\$\{([^}]+)\}/g)].map((x) => x[1]));
   // A30-AUDIT-01, statically: the page is built without sending anything, the admission is the last await, and the route
   // hands the gate's account to the handler
   const fnOf = (name) => { const at = auditSrc.indexOf(`async function ${name}(`); return at < 0 ? "" : auditSrc.slice(at, auditSrc.indexOf("\n}\n", at) + 3); };
   const admitSrc = fnOf("admitAudit"), pageSrc = fnOf("auditPage"), logSrc = fnOf("auditLog");
   check("the page (auditPage) builds the answer and sends nothing: no apiJson in it; both early returns are the answer itself", pageSrc.length > 1000 && !/apiJson/.test(pageSrc) && (pageSrc.match(/return \{ entries: \[\]/g) || []).length === 2);
-  check("  the admission (admitAudit) has exactly one await, its one statement, and returns the prebuilt answer, a 401 or a 503", (admitSrc.match(/\bawait\b/g) || []).length === 1 && /return apiJson\(page\);\n\}/.test(admitSrc) && /fenceSql\("applicantWrite", 1, 2, 3,s\.g\)/.test(admitSrc) && /isSiteAdmin\(env, s\.u\)/.test(admitSrc));
+  check("  the admission (admitAudit) has exactly one await, its one statement, and returns the prebuilt answer, a 401 or a 503", (admitSrc.match(/\bawait\b/g) || []).length === 1 && /return apiJson\(page\);\n\}/.test(admitSrc) && /fenceSql\("applicantWrite", 1, 2, 3,s\.g,s\.n\)/.test(admitSrc) && /isSiteAdmin\(env, s\.u\)/.test(admitSrc));
   check("  the handler (auditLog) binds the session before the page and ends in the admission; the route hands it the gate's account", logSrc.indexOf("readSession(env, request)") > 0 && logSrc.indexOf("readSession(env, request)") < logSrc.indexOf("auditPage(env, p)") && /return admitAudit\(env, session, page\);\n\}/.test(logSrc) && src.includes("return auditLog(request, env, q, admin);"));
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   check("this suite runs in test:all, after owner_requests_test", /owner_requests_test\.cjs && node tests\/site_audit_test\.cjs/.test(pkg.scripts["test:all"]));

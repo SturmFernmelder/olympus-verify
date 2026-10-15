@@ -13,7 +13,7 @@
  */
 import type { Env } from "./env";
 import { normalizeCharacter } from "./codes";
-import { currentRulesetProfile, rulesetSwitchReadiness } from "./ruleset-profile";
+import { resolveRulesetSnapshot, rulesetSwitchReadiness, type RulesetSnapshot } from "./ruleset-profile";
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -725,11 +725,19 @@ export async function loadSettings(env: Env): Promise<SiteSettings> {
   return settingsFrom(env, rows.results);
 }
 
+/** One read for the settings and the resolved game identity (item 7, 14 Oct 2026); the boot and /api/public use it. */
+export async function loadSiteState(env: Env): Promise<{ settings: SiteSettings; ruleset: RulesetSnapshot }> {
+  const rows = await env.DB.prepare("SELECT key, value FROM site_settings").all<{ key: string; value: string }>();
+  return { settings: settingsFrom(env, rows.results), ruleset: await resolveRulesetSnapshot(rows.results, env) };
+}
+
 /** Everything the page needs to draw the forms; sent with /api/me and in the page's boot data. */
-export function meta() {
+export function meta(ruleset?: RulesetSnapshot) {
   return {
-    ruleset: currentRulesetProfile(),
-    rulesetSwitch: rulesetSwitchReadiness("full_release"),
+    // Item 7 (14 Oct 2026): the resolved identity, or null with the hold code; a caller without a snapshot gets no identity.
+    ruleset: ruleset?.profile ?? null,
+    rulesetHeld: ruleset ? ruleset.held : ("ruleset_unresolved" as const),
+    rulesetSwitch: rulesetSwitchReadiness(ruleset ?? "unresolved"),
     positions: POSITIONS,
     classes: CLASSES,
     roles: ROLES,

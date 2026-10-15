@@ -10,14 +10,14 @@ import { API, credentialFetch } from "./discord";
 import { apiJson, isSiteAdmin, PAGE_VERSION, sameOrigin } from "./site-core";
 import { admitted, admittedRead, communityFeatures, DB_NOW, fenceSql, FENCE_REFUSED, organizerIds, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { secondsToIso } from "./community-time";
-import { privacyProviderCustodyDatabase } from "./privacy-serving-authority";
+import { privacyAccountIncarnationLiteralFenceSql, privacyProviderCustodyDatabase } from "./privacy-serving-authority";
 
 const ID = /^[A-Za-z0-9_-]{22}$/;
 const SNOWFLAKE = /^[0-9]{17,20}$/;
 const BODY_LIMIT = 4096;
 const DISCORD_BODY_LIMIT = 32768;
 const START_HORIZON_S = 366 * 86400; // accepted event creation clock; an edit must not move this boundary forward
-const RESULTS = ["published", "reconciled", "removed", "admission_changed", "discord_refused", "outcome_unknown"] as const;
+const RESULTS = ["published", "reconciled", "removed", "admission_changed", "discord_refused", "outcome_unknown", "delivery_mismatch"] as const;
 const safeResult = (v: unknown) => typeof v === "string" && (RESULTS as readonly string[]).includes(v) ? v : null;
 type State = "claimed" | "posted" | "refused" | "unknown" | "removed";
 export interface Destination { guild: string; channel: string; host: string }
@@ -25,10 +25,10 @@ interface EventRow { id: string; title: string; starts_at: number; duration_min:
 interface Delivery {
   event_id: string; purpose: "publication"; event_revision: number; starts_at: number; guild_id: string; channel_id: string;
   message_id: string | null; frozen_content: string | null; payload_hash: string | null; op_id: string; claim_nonce: string;
-  state: State; cleanup_requested: number; actor: string | null; session_version: number | null; session_expires: number | null;
+  state: State; cleanup_requested: number; actor: string | null; actor_account_incarnation: string | null; session_version: number | null; session_expires: number | null;
   created_at: number; updated_at: number; retain_until: number; result_code: string | null;
 }
-interface Message { id: string; channel_id: string; author: { id: string; bot: boolean }; content: string; nonce?: string; webhook_id?: unknown; type: number; embeds: unknown[]; attachments: unknown[] }
+interface Message { id: string; channel_id: string; author: { id: string; bot: boolean }; content: string; nonce?: string; webhook_id?: unknown; type: number; embeds: unknown[]; attachments: unknown[]; components?: unknown; mention_everyone?: unknown; mention_roles?: unknown; mentions?: unknown }
 class Bad extends Error { constructor(public code: string, public status = 400) { super(code); } }
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const id = (v: unknown, code = "invalid_event_id") => { if (typeof v !== "string" || !ID.test(v)) throw new Bad(code); return v; };
@@ -79,7 +79,23 @@ const escapeTitle = (text: string) => text.replace(/[\\`*_{}\[\]()<>#|~]/g, "\\$
 export function contentOf(e: EventRow, d: Destination): string {
   return `**${escapeTitle(e.title)}**\n<t:${e.starts_at}:F> · <t:${e.starts_at}:R>\nDuration: ${e.duration_min} minutes\n[Sign up on the Olympus calendar](https://${d.host}/#/community/calendar/${e.id})\nA sign-up reserves a place; the organizer confirms the raid roster.`;
 }
-const hashOf = async (content: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+/** Owner item 3, stage 1 (14 Oct 2026): the sign-up buttons under the announcement. Deterministic from the event id, the
+ * event revision and the site host, so a stored delivery row reproduces them exactly; the revision in each custom_id
+ * makes a button from an earlier revision refuse in words (community-event-buttons.ts). */
+export const RAID_BUTTONS = [["yes", "Sign up", 3], ["tentative", "Tentative", 2], ["no", "Can't make it", 2]] as const;
+export type Button = { type: 2; style: number; label: string; custom_id?: string; url?: string };
+export type ActionRow = { type: 1; components: Button[] };
+export function componentsOf(eventId: string, revision: number, host: string): ActionRow[] {
+  return [{ type: 1, components: [
+    ...RAID_BUTTONS.map(([status, label, style]): Button => ({ type: 2, style, label, custom_id: `raid:rsvp:${eventId}:${revision}:${status}` })),
+    { type: 2, style: 2, label: "Remind me", custom_id: `raid:remind:${eventId}:${revision}` }, // stage 2: toggles the reminder mention of an existing sign-up
+    { type: 2, style: 5, label: "Open on the site", url: `https://${host}/#/community/calendar/${eventId}` },
+  ] }];
+}
+export interface Payload { content: string; components: ActionRow[]; allowed_mentions: { parse: [] } }
+export const payloadOf = (e: EventRow, d: Destination): Payload => ({ content: contentOf(e, d), components: componentsOf(e.id, e.revision, d.host), allowed_mentions: { parse: [] } });
+/** The hash binds the text, the buttons and the (constant) allowed_mentions; the frozen row stores the text, the buttons are recomputed from its revision. */
+const hashOf = async (p: Payload) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ content: p.content, components: p.components, allowed_mentions: p.allowed_mentions }))))].map((b) => b.toString(16).padStart(2, "0")).join("");
 function summary(row: Delivery | null, e: EventRow) {
   return row ? { state: row.state, revision: row.event_revision, stale: row.event_revision !== e.revision, removalPending: row.cleanup_requested === 1, operationId: ID.test(row.op_id) ? row.op_id : null,
     messageUrl: row.message_id ? `https://discord.com/channels/${row.guild_id}/${row.channel_id}/${row.message_id}` : null,
@@ -116,16 +132,16 @@ export async function eventDeliveryPreview(request: Request, env: Env, ctx: Comm
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
     if (!out) return apiJson({ error: "event_not_found" }, 404);
-    const d = destination(env), content = d ? contentOf(out.event, d) : null;
-    const payloadHash = content ? await hashOf(content) : null;
+    const d = destination(env), payload = d ? payloadOf(out.event, d) : null;
+    const payloadHash = payload ? await hashOf(payload) : null;
     // Hashing yields: a final original-session read refuses revocation or an intervening event revision.
     const current = await read(env, ctx, eventId);
     if (current === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
     if (!current) return apiJson({ error: "event_not_found" }, 404);
     if (current.event.revision !== out.event.revision || (d ? !sameDestination(d, destination(env)) : destination(env) !== null)) return apiJson({ error: "stale_revision" }, 409);
-    return apiJson({ eventId, revision: current.event.revision, enabled: enabled(env), payload: content ? { content, allowed_mentions: { parse: [] } } : null,
+    return apiJson({ eventId, revision: current.event.revision, enabled: enabled(env), payload,
       payloadHash, publicationClosed: current.event.publication_closed === 1, publicationBlock: current.event.publication_closed === 1 ? "publication_closed" : null,
-      canPublish: !!content && enabled(env) && current.event.publication_closed === 0 && current.event.status === "scheduled" && current.event.starts_at > now() && current.event.starts_at <= current.event.created_at + START_HORIZON_S && current.delivery?.cleanup_requested !== 1,
+      canPublish: !!payload && enabled(env) && current.event.publication_closed === 0 && current.event.status === "scheduled" && current.event.starts_at > now() && current.event.starts_at <= current.event.created_at + START_HORIZON_S && current.delivery?.cleanup_requested !== 1,
       delivery: summary(current.delivery, current.event) });
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }
@@ -162,6 +178,20 @@ export function ownMessage(v: unknown, d: Destination, bot: string): v is Messag
   return record(v) && typeof v.id === "string" && SNOWFLAKE.test(v.id) && v.channel_id === d.channel && record(v.author) && v.author.id === bot && v.author.bot === true && v.webhook_id == null && v.type === 0;
 }
 export const exactContent = (m: Message, content: string | null) => content !== null && m.content === content && Array.isArray(m.embeds) && m.embeds.length === 0 && Array.isArray(m.attachments) && m.attachments.length === 0;
+/** Enabled interactive semantics and exact authored content only (Codex raid reviews v1 and v2): a disabled button is not
+ * the payload; the only provider-added field tolerated is Discord's autogenerated component `id`. An `emoji` is authored
+ * content and a `sku_id` is premium content, so a button carrying either is not the payload. */
+const BUTTON_ECHO_KEYS = new Set(["type", "style", "label", "custom_id", "url", "disabled", "id"]);
+const sameButton = (a: unknown, b: Button) => record(a) && a.type === 2 && a.style === b.style && a.label === b.label && (a.disabled === undefined || a.disabled === false) && Object.keys(a).every((k) => BUTTON_ECHO_KEYS.has(k))
+  && (b.custom_id === undefined ? a.custom_id === undefined : a.custom_id === b.custom_id) && (b.url === undefined ? a.url === undefined : a.url === b.url);
+export function exactComponents(m: Message, rows: ActionRow[]): boolean {
+  const got = Array.isArray(m.components) ? m.components : [];
+  return got.length === rows.length && got.every((row, i) => record(row) && row.type === 1 && Array.isArray(row.components) && row.components.length === rows[i]!.components.length && row.components.every((c, j) => sameButton(c, rows[i]!.components[j]!)));
+}
+/** The announcement: the exact text, the exact buttons, and none of what a Message can carry that the payload did not
+ * (embeds, attachments, mentions). A Message object has no allowed_mentions; the hash binds that, this compares the rest. */
+export const exactPayload = (m: Message, content: string | null, rows: ActionRow[]) => exactContent(m, content) && exactComponents(m, rows)
+  && m.mention_everyone !== true && (!Array.isArray(m.mention_roles) || m.mention_roles.length === 0) && (!Array.isArray(m.mentions) || m.mentions.length === 0);
 export const knownRefusal = (status: number) => [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(status);
 
 /** Captured before the provider await; never refreshed from a replacement account or operation. */
@@ -186,9 +216,9 @@ export function eventAdoptedCustody(db: D1Database, purpose: "event_publication"
 /** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced. */
 async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
   const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0, db = privacyProviderCustodyDatabase(env);
-  const stillCurrent = `actor=?5 AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
+  const stillCurrent = `actor=?5 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',ctx.subject!.accountIncarnation)} AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
     AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
-    AND ${fenceSql("confirmedGuildData", 5, 6, 7, ctx.subject!.privacyGeneration ?? null)}`;
+    AND ${fenceSql("confirmedGuildData", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
   await db.batch([
     db.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
       state=CASE WHEN ?3='posted' THEN CASE WHEN state IN('claimed','unknown') AND ${stillCurrent} THEN 'posted' ELSE 'unknown' END ELSE ?3 END,
@@ -206,8 +236,8 @@ async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: s
   if (!organizer(env, ctx) || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
   const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
-  const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4)}) AS ok FROM community_event_deliveries d
-    WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
+  const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}) AS ok FROM community_event_deliveries d
+    WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND ${privacyAccountIncarnationLiteralFenceSql('d.actor_account_incarnation',s.accountIncarnation)} AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
     AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?7=1) AND retain_until>${DB_NOW} ${active})`)
     .bind(e.id, s.discordId, s.sessionVersion, s.expiresAt, e.revision, nonce, staff, d.guild, d.channel).first<{ ok: number }>();
   return proof?.ok === 1;
@@ -224,7 +254,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
     if (!out) return apiJson({ error: "event_not_found" }, 404);
-    const e = out.event, old = out.delivery, content = contentOf(e, d), hash = await hashOf(content);
+    const e = out.event, old = out.delivery, payload = payloadOf(e, d), content = payload.content, hash = await hashOf(payload);
     if (e.publication_closed !== 0) return answer(request, env, ctx, eventId, { error: "publication_closed" }, 409);
     if (e.revision !== rev) return answer(request, env, ctx, eventId, { error: "stale_revision" }, 409);
     if (e.status !== "scheduled" || e.starts_at <= now()) return answer(request, env, ctx, eventId, { error: "event_not_scheduled" }, 409);
@@ -243,17 +273,18 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       if (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== old.message_id) return answer(request, env, ctx, eventId, { error: "delivery_custody_unqualified" }, 409);
     }
     const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: e.revision, startsAt: e.starts_at, opId: op, nonce,
       guild: d.guild, channel: d.channel, pointer: old?.state === "removed" ? null : old?.message_id ?? null,
       retainUntil: Math.min(old?.retain_until ?? e.retain_until, e.retain_until) };
     const claimed = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO community_event_deliveries
-      (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,session_version,session_expires,created_at,updated_at,retain_until,result_code)
-      SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
+      (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,actor_account_incarnation,session_version,session_expires,created_at,updated_at,retain_until,result_code)
+      SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,'${s.accountIncarnation}',?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
       WHERE id=?1 AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ?7=1)
-      AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4)}
+      AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
       ON CONFLICT(event_id,purpose) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,guild_id=excluded.guild_id,channel_id=excluded.channel_id,
         message_id=excluded.message_id,frozen_content=excluded.frozen_content,payload_hash=excluded.payload_hash,op_id=excluded.op_id,claim_nonce=excluded.claim_nonce,state='claimed',
-        actor=excluded.actor,session_version=excluded.session_version,session_expires=excluded.session_expires,updated_at=excluded.updated_at,retain_until=MIN(community_event_deliveries.retain_until,excluded.retain_until),result_code=NULL
+        actor=excluded.actor,actor_account_incarnation=excluded.actor_account_incarnation,session_version=excluded.session_version,session_expires=excluded.session_expires,updated_at=excluded.updated_at,retain_until=MIN(community_event_deliveries.retain_until,excluded.retain_until),result_code=NULL
       WHERE community_event_deliveries.claim_nonce=?6 AND community_event_deliveries.state IN('posted','refused','removed') AND community_event_deliveries.cleanup_requested=0`)
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, rev, old?.claim_nonce ?? "", staff, d.guild, d.channel, old?.state === "removed" ? null : old?.message_id ?? null, content, hash, op, nonce, e.title, e.starts_at, e.duration_min)]);
     if (claimed === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
@@ -265,11 +296,12 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     try {
       const target = old?.state === "removed" ? null : old?.message_id ?? null;
       const response = await discord(env, target ? "PATCH" : "POST", `/channels/${d.channel}/messages${target ? `/${target}` : ""}`,
-        { content, allowed_mentions: { parse: [] }, attachments: [], ...(target ? {} : { nonce, enforce_nonce: true }) });
+        { content, components: payload.components, allowed_mentions: { parse: [] }, attachments: [], ...(target ? {} : { nonce, enforce_nonce: true }) });
       if (knownRefusal(response.status)) { result = "refused"; code = "discord_refused"; }
       else if (response.status >= 200 && response.status < 300 && ownMessage(response.value, d, bot)) {
         if (!target || response.value.id === target) pointer = response.value.id;
-        if (pointer && exactContent(response.value, content)) { result = "posted"; code = "published"; }
+        if (pointer && exactPayload(response.value, content, payload.components)) { result = "posted"; code = "published"; }
+        else if (pointer && exactContent(response.value, content)) code = "delivery_mismatch"; // right text, different buttons: held, never posted
       }
     } catch { /* transport/abort/redirect/unreadable outcome stays held; no retry */ }
     await settle(env, ctx, custody, result, code, pointer);
@@ -294,8 +326,14 @@ export async function eventDeliveryReconcile(request: Request, env: Env, ctx: Co
     const bot = await qualifyDestination(env, d); if (!bot) throw new Bad("delivery_destination_unqualified", 409);
     if (!(await memberPresent(env, ctx, d.guild))) throw new Bad("membership_unconfirmed", 409);
     const response = await discord(env, "GET", `/channels/${d.channel}/messages/${body.messageId}`);
-    if (response.status !== 200 || !ownMessage(response.value, d, bot) || response.value.id !== body.messageId || !exactContent(response.value, row.frozen_content)
+    if (response.status !== 200 || !ownMessage(response.value, d, bot) || response.value.id !== body.messageId
       || (!row.message_id && response.value.nonce !== row.claim_nonce)) throw new Bad("delivery_custody_unqualified", 409);
+    // Codex raid review v1, finding 2: the stored row holds the text and the hash of the COMPLETE original payload; the buttons
+    // are reconstructed from the row's revision and the current host and must hash back to that stored value before the observed
+    // message is compared. Current configuration never becomes evidence of an old effect.
+    const components = componentsOf(eventId, row.event_revision, d.host);
+    if (row.frozen_content === null || row.payload_hash === null || (await hashOf({ content: row.frozen_content, components, allowed_mentions: { parse: [] } })) !== row.payload_hash) throw new Bad("delivery_custody_unqualified", 409);
+    if (!exactPayload(response.value, row.frozen_content, components)) throw new Bad(exactContent(response.value, row.frozen_content) ? "delivery_mismatch" : "delivery_custody_unqualified", 409);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: row.op_id,
       nonce: row.claim_nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
     await settle(env, ctx, custody, "posted", "reconciled", body.messageId);
@@ -321,11 +359,12 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     const message = await discord(env, "GET", `/channels/${d.channel}/messages/${row.message_id}`);
     if (message.status !== 404 && (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== row.message_id)) throw new Bad("delivery_custody_unqualified", 409);
     const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: op,
       nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
-    const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1,claim_nonce=?5,op_id=?6,actor=?2,session_version=?3,session_expires=?4,updated_at=${DB_NOW}
+    const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1,claim_nonce=?5,op_id=?6,actor=?2,actor_account_incarnation='${s.accountIncarnation}',session_version=?3,session_expires=?4,updated_at=${DB_NOW}
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?7 AND message_id=?8 AND state IN('posted','refused','unknown') AND retain_until>${DB_NOW}
-      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?9=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4)}`)
+      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?9=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, nonce, op, row.claim_nonce, row.message_id, staff)]);
     if (claim === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, out.event, nonce, d, true))) {
@@ -347,7 +386,7 @@ export function eventDeliveryChanged(env: Env, eventId: string, eventNonce: stri
 }
 /** Erasure removes the only copied event text and actor evidence, preserving only finite known/unknown deletion custody. */
 export function eventDeliveryOwnerErase(env: Env, owner: string): D1PreparedStatement {
-  return env.DB.prepare(`UPDATE community_event_deliveries SET frozen_content=NULL,payload_hash=NULL,actor=NULL,session_version=NULL,session_expires=NULL,
+  return env.DB.prepare(`UPDATE community_event_deliveries SET frozen_content=NULL,payload_hash=NULL,actor=NULL,actor_account_incarnation=NULL,session_version=NULL,session_expires=NULL,
     cleanup_requested=1,state=CASE WHEN state='claimed' THEN 'unknown' ELSE state END,updated_at=${DB_NOW}
     WHERE event_id IN(SELECT id FROM community_events WHERE created_by=?1)`).bind(owner);
 }
@@ -363,7 +402,7 @@ export function eventDeliveryExpiry(env: Env, at: number, limit: number): D1Prep
     RETURNING CASE WHEN message_id IS NOT NULL OR state IN('claimed','unknown') THEN 1 ELSE 0 END AS incomplete`).bind(at, limit);
 }
 
-registerCommunityData("event_delivery", (env, who) => [env.DB.prepare(`UPDATE community_event_deliveries SET actor=NULL,session_version=NULL,session_expires=NULL,frozen_content=NULL,payload_hash=NULL,
+registerCommunityData("event_delivery", (env, who) => [env.DB.prepare(`UPDATE community_event_deliveries SET actor=NULL,actor_account_incarnation=NULL,session_version=NULL,session_expires=NULL,frozen_content=NULL,payload_hash=NULL,
   cleanup_requested=1,state=CASE WHEN state='claimed' THEN 'unknown' ELSE state END,updated_at=${DB_NOW} WHERE actor=?1`).bind(who)],
   (env, who) => ({ statements: [env.DB.prepare("SELECT CASE WHEN instr(event_id,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE event_id END AS event_id,CASE WHEN instr(purpose,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE purpose END AS purpose,event_revision,starts_at,CASE WHEN instr(state,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE state END AS state,cleanup_requested,created_at,updated_at,retain_until,CASE WHEN instr(result_code,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE result_code END AS result_code FROM community_event_deliveries WHERE actor=?1 ORDER BY event_id").bind(who)],
     shape: ([rows]) => ({ publications: (rows!.results as Record<string,unknown>[]).map(projectOwnPublicationCopy) }) }));

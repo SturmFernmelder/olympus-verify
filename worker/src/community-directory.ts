@@ -368,14 +368,14 @@ export async function profilePut(request: Request, env: Env, ctx: CommunityConte
         env.DB.prepare(
           `UPDATE community_profiles SET revision = revision + 1, listed = CASE WHEN ?4 = 0 THEN 0 WHEN listed = 1 THEN 1 WHEN ${roomSql("?13")} THEN 1 ELSE 0 END,
              main_name = ?5, main_key = ?6, main_source = ?7, main_updated_at = ?8, raid_role = ?9, role_updated_at = ?10, write_nonce = ?11, updated_at = ?12, departed_at = NULL
-           WHERE discord_id = ?1 AND revision = ?3 AND ${fenceSql("confirmedGuildData", 1, 2, 14)} ${nameFence}`,
+           WHERE discord_id = ?1 AND revision = ?3 AND ${fenceSql("confirmedGuildData", 1, 2, 14,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} ${nameFence}`,
         ).bind(id, version, p.revision, ...values, limit, expires, ...nameParams),
       ]
     : [
         env.DB.prepare(
           `INSERT INTO community_profiles (discord_id, ref, revision, listed, main_name, main_key, main_source, main_updated_at, raid_role, role_updated_at, write_nonce, created_at, updated_at)
            SELECT ?1, COALESCE((SELECT r.ref FROM community_refs r WHERE r.discord_id = ?1), ?3), 1, CASE WHEN ?4 = 1 AND ${roomSql("?13")} THEN 1 ELSE 0 END, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12
-           WHERE ${fenceSql("confirmedGuildData", 1, 2, 14)} ${nameFence}
+           WHERE ${fenceSql("confirmedGuildData", 1, 2, 14,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} ${nameFence}
            ON CONFLICT(discord_id) DO NOTHING`,
         ).bind(id, version, newRef, ...values, limit, expires, ...nameParams),
         refAfter(env, id, "community_profiles", nonce, newRef, t),
@@ -636,7 +636,7 @@ export async function adminAltDecision(request: Request, env: Env, ctx: Communit
     env.DB.prepare(
       `UPDATE community_profiles SET revision = revision + 1, write_nonce = ?3, updated_at = ?4
        WHERE ref = ?1 AND revision = ?2 AND discord_id <> ?6 AND EXISTS (SELECT 1 FROM community_alt_claims c WHERE c.discord_id = community_profiles.discord_id AND c.name_key = ?5)
-         AND ${fenceSql("applicantWrite", 6, 7, 8)}`,
+         AND ${fenceSql("applicantWrite", 6, 7, 8,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
     ).bind(ref, revision, nonce, t, key, admin.discord_id, ctx.subject?.sessionVersion ?? -1, ctx.subject?.expiresAt ?? 0),
     env.DB.prepare(
       `UPDATE community_alt_claims SET status = ?3, reviewed_by = ?4, reviewed_at = ?5, updated_at = ?5

@@ -12,6 +12,7 @@ import { explainRefusal } from "./ingest";
 import { guildSeats, seatsStaffLine, seatsText } from "./guild-seats";
 import { approvePending, denyPending } from "./review";
 import { GUIDE_FIELD, GUIDE_MODAL, GUIDE_STATUS, GUIDE_VERIFY, guideMessage, verifyModal, visitorChat } from "./guide";
+import { activeRulesetSnapshot } from "./ruleset-profile";
 import { unverifiedReport } from "./unverified";
 import { restoreMemberRole, restoreNote } from "./restore";
 import { relayStatus, ticketsReady, whisperInstructions } from "./relays";
@@ -38,7 +39,9 @@ async function refreshPinnedGuide(env: Env, channel: string): Promise<{ edited: 
   const mine = pins.filter((m) => m.author?.id === me.id && (m.embeds?.length ?? 0) > 0);
   if (mine.length === 0) return { error: "no pinned message from this bot in that channel" };
   if (mine.length > 1) return { error: `${mine.length} pinned bot messages in that channel — unpin the old ones so there is only one guide to edit` };
-  await editMessage(env, channel, mine[0].id, guideMessage(env));
+  const snapshot = await activeRulesetSnapshot(env); // item 7: a held identity edits nothing
+  if (!snapshot.profile) return { error: `the game identity is held (${snapshot.held}); no guide was edited` };
+  await editMessage(env, channel, mine[0].id, guideMessage(env, snapshot.profile));
   return { edited: mine[0].id };
 }
 
@@ -643,7 +646,9 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       const publicationChannels=(await import('./intros')).parseChannels(env.INTROS_CHANNELS);
       if(channel===publicationChannels['join-olympus'])return reply('This guide is managed by the staff ruleset publication operation. Inspect or reconcile it there; no second guide was posted.');
       try {
-        const msg = await postMessage(env, channel, guideMessage(env));
+        const snapshot = await activeRulesetSnapshot(env); // item 7: a held identity posts nothing
+        if (!snapshot.profile) return reply(`The game identity is held (${snapshot.held}); no guide was posted.`);
+        const msg = await postMessage(env, channel, guideMessage(env, snapshot.profile));
         await audit(env, actor, "admin.post_guide", channel, { message: msg.id });
         return reply(`Guide posted in <#${channel}>. Pin it from the message menu; after a later redeploy use \`refresh-guide\` to update it in place rather than posting a second copy.`);
       } catch (e) {
@@ -666,6 +671,11 @@ async function handleComponent(env: Env, i: Interaction): Promise<Response> {
   if (id === GUIDE_VERIFY) return issueTicket(env, i);
   if (id === GUIDE_STATUS) return cmdStatus(env, i);
   const [ns, action, arg] = id.split(":");
+
+  if (ns === "raid") { // owner item 3, stage 1 (14 Oct 2026): the sign-up buttons under a raid announcement
+    const { handleRaidComponent } = await import("./community-event-buttons");
+    return handleRaidComponent(env, i);
+  }
 
   if (ns === "ban") {
     if (action === "dismiss") {

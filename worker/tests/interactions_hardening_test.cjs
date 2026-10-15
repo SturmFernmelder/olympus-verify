@@ -6,11 +6,37 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [T * 1000])); }
+  static now() { return T * 1000; }
+};
+globalThis.fetch = async () => { throw new Error("no network in tests"); };
 
 // ---------- D1 over SQLite (the site test's shim: a batch is one transaction, run() reports changes) ----------
 // Review hooks (Codex 23:28 / 23:33 UTC): fail one statement once, hold one statement until a gate opens, and count
 // the statements that ARE effects (the handler's own writes), so a replay can be shown to run nothing.
 const hooks = { failOnce: null, holdOnce: null, effects: 0 };
+const nativePorts = new WeakMap(), admittedPorts = new WeakMap();
+function originalPort(db) {
+  if (!nativePorts.has(db)) nativePorts.set(db, entry.originalNativePort(db, {
+    statement(sql) {
+      if (/^\s*INSERT INTO (pending|audit|characters|invite_queue|members)\b/i.test(sql)) hooks.effects++;
+      if (hooks.failOnce && hooks.failOnce.test(sql)) {
+        hooks.failOnce = null;
+        throw new Error('synthetic transient D1 failure');
+      }
+    },
+    async beforeBatch(plan) {
+      if (hooks.holdOnce && plan.some(statement => hooks.holdOnce.test(statement.sql))) {
+        const gate = hooks.holdOnce; hooks.holdOnce = null; await gate.open;
+      }
+    },
+  }));
+  return nativePorts.get(db);
+}
 function d1(db) {
   const exec = (sql, params) => {
     if (/^\s*INSERT INTO (pending|audit|characters|invite_queue|members)\b/i.test(sql)) hooks.effects++;
@@ -66,14 +92,20 @@ function d1(db) {
 function freshDb(schemaPath = path.join(root, "schema.sql")) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(schemaPath, "utf8"));
+  if (schemaPath === path.join(root, 'schema.sql')) {
+    db.function('strftime', (format, value) => {
+      if (format !== '%s' || value !== 'now') throw Error('unexpected Native clock input');
+      return String(T);
+    });
+    entry.installCurrentEntryEpoch(db, {now:T});
+  } else db.exec(fs.readFileSync(schemaPath, "utf8"));
   return db;
 }
 
 // ---------- the real modules ----------
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const cache = {};
-function load(name) {
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   const file = path.join(root, "src", name.replace(/^\.\//, "") + ".ts");
   if (cache[file]) return cache[file].exports;
   const mod = { exports: {} };
@@ -85,21 +117,13 @@ const indexMod = load("./index");
 const index = indexMod.default;
 const discord = load("./discord");
 
-globalThis.fetch = async () => { throw new Error("no network in tests"); };
-
 // ---------- clock, keys, env ----------
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { super(...(a.length ? a : [T * 1000])); }
-  static now() { return T * 1000; }
-};
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 const APP = "1550176895671341076", OLYMPUS = "1549537348516188200", USER = "300000000000000001";
 let db = freshDb();
 let publicKeyHex = "";
-const env = () => ({
-  DB: d1(db),
+const rawEnv = () => entry.currentEntryEnvironment({
+  DB: originalPort(db),
   GUILD_ID: OLYMPUS,
   DISCORD_APP_ID: APP,
   DISCORD_PUBLIC_KEY: publicKeyHex,
@@ -120,6 +144,11 @@ const env = () => ({
   CHANNEL_NOTICES: "",
   OFFICER_CHARACTERS: "Fern Melder",
 });
+const env = () => {
+  const e = rawEnv();
+  if (!admittedPorts.has(db)) admittedPorts.set(db, load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB, 'writer', e.PRIVACY_WRITE_ADMISSION_LAYOUT, e.PRIVACY_WRITE_ADMISSION_EPOCH));
+  return {...e, DB:admittedPorts.get(db)};
+};
 const waits = [];
 const ctx = { waitUntil: (p) => waits.push(Promise.resolve(p).catch(() => {})) };
 const settle = async () => { while (waits.length) await waits.shift(); };
@@ -145,7 +174,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     } else {
       init = { method: "POST", headers: h, body: text };
     }
-    const res = await index.fetch(new Request("https://verify.example/interactions", init), env(), ctx);
+    const res = await index.fetch(new Request("https://verify.example/interactions", init), rawEnv(), ctx);
     await settle();
     return res;
   }
@@ -297,17 +326,22 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   await indexMod.purgeSeenInteractions(env());
   check("two hours later the ledger is empty", rows().length === 0);
 
-  console.log("\n== the schema check makes the table on an older database ==");
+  console.log("\n== ordinary serving holds an older database without migrating it ==");
   const old = new DatabaseSync(":memory:");
   old.exec(fs.readFileSync(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"), "utf8"));
   const schema = load("./schema");
   schema.forgetSchemaCheck();
-  await schema.ensureSchema({ DB: d1(old) });
-  check("ensureSchema adds seen_interactions to a .25-era database", old.prepare("SELECT name FROM sqlite_master WHERE name = 'seen_interactions'").get()?.name === "seen_interactions");
-  check("  with its index", old.prepare("SELECT name FROM sqlite_master WHERE name = 'seen_interactions_at'").get()?.name === "seen_interactions_at");
+  const legacySnapshot = () => JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all());
+  const legacyBefore = legacySnapshot();
+  async function legacyHeld() {
+    let error = null;
+    try { await schema.ensureSchema({DB:d1(old)}); } catch(e) { error = e; }
+    return error instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld && legacySnapshot() === legacyBefore;
+  }
+  check("unregistered legacy Native schema holds without creating seen_interactions", await legacyHeld() && !old.prepare("SELECT name FROM sqlite_master WHERE name = 'seen_interactions'").get());
+  check("  and without creating its index", !old.prepare("SELECT name FROM sqlite_master WHERE name = 'seen_interactions_at'").get());
   schema.forgetSchemaCheck();
-  await schema.ensureSchema({ DB: d1(old) });
-  check("  and a second run is a no-op", true);
+  check("  and a repeated request remains held with the schema unchanged", await legacyHeld());
 
   globalThis.Date = RealDate;
   console.log(`\n${ok}/${n} passed`);

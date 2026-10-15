@@ -3,7 +3,9 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript"), assert = require("node:assert/strict");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, ".."), cache = {};
+const entry = require("./helpers/privacy129_fixture.cjs");
 function load(name) {
+  if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   const relative = name.replace(/^\.\//, "");
   if (cache[relative]) return cache[relative].exports;
   const mod = { exports: {} }; cache[relative] = mod;
@@ -29,18 +31,21 @@ check("non-string extra key refused", profile.parseRulesetProfile(symbol) === nu
 const synthetic = profile.parseRulesetProfile({ ...current, phase: "full_release", revision: "synthetic-future-v1", realm: "Synthetic Future Realm", ruleset: "Normal", faction: "Horde" });
 check("synthetic future shape can be inspected without changing current profile", synthetic && profile.rulesetLabel(synthetic).includes("Synthetic Future Realm") && profile.currentRulesetProfile() === current);
 for (const target of ["full_release", synthetic, true, "beta", null]) check("shape/request input never opens activation: " + (typeof target), profile.rulesetSwitchReadiness(target).available === false && profile.rulesetSwitchReadiness(target).futureProfileConfigured === false && profile.currentRulesetProfile() === current);
-check("public meta uses shared revision and explicitly unavailable switch", data.meta().ruleset === current && data.meta().rulesetSwitch.code === "full_release_unavailable" && data.meta().rulesetSwitch.ownerEligibilityQualified === false && data.meta().rulesetSwitch.projectionSyncQualified === false);
+const betaSnapshot = profile.betaRulesetSnapshot();
+check("public meta uses the resolved beta snapshot and an explicitly unavailable switch", data.meta(betaSnapshot).ruleset === current && data.meta(betaSnapshot).rulesetSwitch.code === "full_release_unavailable" && data.meta(betaSnapshot).rulesetSwitch.ownerEligibilityQualified === false && data.meta(betaSnapshot).rulesetSwitch.projectionSyncQualified === false);
+check("meta without a resolved snapshot carries no identity and says so", data.meta().ruleset === null && data.meta().rulesetHeld === "ruleset_unresolved" && data.meta().rulesetSwitch.available === false);
 const guideEnv = { OFFICER_CHARACTERS: "Synthetic Officer", ADMISSION_MODE: "review", ROLE_GUILD_MEMBER: "700000000000000003", SET_NICKNAME: "true", SET_GUILD_NOTE: "false", CHANNEL_VISITOR_CHAT: "700000000000000004", RULESET_PROFILE: JSON.stringify(synthetic), FUTURE_IDENTITY: "SYNTHETIC_PRIVATE_SENTINEL" };
-const reviewGuide = guide.guideMessage(guideEnv), reviewText = reviewGuide.embeds[0].description;
+const reviewGuide = guide.guideMessage(guideEnv, current), reviewText = reviewGuide.embeds[0].description;
 check("real guide projects shared beta and ignores arbitrary future environment fields", reviewText.includes(label) && !JSON.stringify(reviewGuide).includes("SYNTHETIC_PRIVATE_SENTINEL") && !reviewText.includes("Synthetic Future Realm"));
 check("guide preserves officer review, checked-roster role, enabled nickname and visitor semantics", reviewText.includes("officer reviews") && reviewText.includes("officer-exported guild roster") && reviewText.includes("nickname updates") && reviewText.includes("<#700000000000000004>"));
-const simpleText = guide.guideMessage({ ...guideEnv, ADMISSION_MODE: "auto", ROLE_GUILD_MEMBER: "", SET_NICKNAME: "false" }).embeds[0].description;
+const simpleText = guide.guideMessage({ ...guideEnv, ADMISSION_MODE: "auto", ROLE_GUILD_MEMBER: "", SET_NICKNAME: "false" }, current).embeds[0].description;
 check("guide auto/unconfigured paths retain original conditional claims", !simpleText.includes("officer reviews") && !simpleText.includes("Guild Member** role") && !simpleText.includes("nickname updates") && simpleText.includes(label));
 check("guide preserves no-DM and empty mention policy", reviewText.includes("never sends you a DM") && JSON.stringify(reviewGuide.allowed_mentions) === '{"parse":[]}');
 const identityIntros = intros.INTROS.filter(i => ["olympus-info", "guild-announcements"].includes(i.key));
-for (const intro of identityIntros) check("real intro projects same profile: " + intro.key, JSON.stringify(intros.renderEmbeds(intro, {})).includes(label));
-for (const intro of intros.INTROS) check("real intro within Discord limits: " + intro.key, intros.validateEmbeds(intros.renderEmbeds(intro, {})).length === 0);
-check("original fixed ruleset/faction decision retained in guild announcement", intros.INTROS.find(i => i.key === "guild-announcements").embeds[0].description.includes("(decided 16 September 2026)"));
+for (const intro of identityIntros) check("real intro projects same profile: " + intro.key, JSON.stringify(intros.renderEmbeds(intro, {}, betaSnapshot)).includes(label));
+for (const intro of intros.INTROS) check("real intro within Discord limits: " + intro.key, intros.validateEmbeds(intros.renderEmbeds(intro, {}, betaSnapshot)).length === 0);
+check("original fixed ruleset/faction decision retained in the rendered guild announcement", JSON.stringify(intros.renderEmbeds(intros.INTROS.find(i => i.key === "guild-announcements"), {}, betaSnapshot)).includes("(decided 16 September 2026)"));
+check("a held snapshot renders no identity token", (() => { try { intros.renderEmbeds(identityIntros[0], {}, { mode: "full_release", profile: null, held: "future_profile_missing", revision: "", digest: null, activatedAt: null, activatedBy: null }); return false; } catch (e) { return e.message === "ruleset_profile_held"; } })());
 
 function d1(db) {
   const prepare = sql => {
@@ -52,8 +57,11 @@ function d1(db) {
   return { prepare, batch: async statements => { db.exec("BEGIN"); try { const results = statements.map(s => s._run()); db.exec("COMMIT"); return results; } catch(e) { db.exec("ROLLBACK"); throw e; } } };
 }
 (async () => {
-  const db = new DatabaseSync(":memory:"); db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(":memory:"); entry.installCurrentEntryEpoch(db);
   const userId = "700000000000000001", env = { DB: d1(db), COOKIE_SECRET: "synthetic-ruleset-cookie-secret-only", VERIFY_SECRET: "synthetic-ruleset-verify-secret", GUILD_ID: "700000000000000002", SITE_GUILD_ID: "700000000000000002", SITE_HOST: "guild.example", SITE_ADMINS: userId, COMMUNITY_FEATURES: "", ROLE_GUILD_MEMBER: "", ADMISSION_MODE: "review", SET_NICKNAME: "false", SET_GUILD_NOTE: "false", OFFICER_CHARACTERS: "Synthetic Officer", NAME_RESERVATION_AT: "0", LAUNCH_AT: "0", RULESET_PROFILE: JSON.stringify(synthetic), FUTURE_IDENTITY: "SYNTHETIC_PRIVATE_SENTINEL" };
+  Object.assign(env,entry.currentEntryEnvironment({...env, DB:entry.originalNativePort(db),DISCORD_APP_ID:"1550176895671341076",PUBLIC_BASE_URL:"https://verify.example"}));
+  const originalEnv = {...env};
+  env.DB=load("./privacy-write-admission").createPrivacyWriteAdmissionDatabase(originalEnv.DB,"writer","canonical",entry.ENTRY_EPOCH);
   const site = load("./site"), core = load("./site-core"), t = Math.floor(Date.now()/1000);
   const pageBoot = async (over = {}, headers = {}, ready = true) => {
     const res = await site.handleSite(new Request("https://guild.example/", { headers }), { ...env, ...over }, "/", ready, "synthetic-candidate", () => {});
@@ -62,8 +70,9 @@ function d1(db) {
   };
   const anon = await pageBoot();
   check("actual anonymous Worker page is the script-free sign-in gate with no profile/settings boot or arbitrary environment field", anon.status === 200 && anon.boot === null && anon.html.includes('href="/auth/login"') && !/<script\b|id="boot"|\/static\/app\.(?:js|css)/i.test(anon.html) && !anon.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !anon.html.includes("Synthetic Future Realm"));
-  db.prepare("INSERT INTO site_users(discord_id,username,in_server,denied,first_login,last_login,session_version) VALUES(?,?,1,0,?,?,1)").run(userId, "synthetic-member", t, t);
-  const cookie = (await core.sessionCookie(env, userId, 1)).split(";")[0], member = await pageBoot({}, { Cookie: cookie });
+  await env.DB.prepare("INSERT INTO site_users(discord_id,username,in_server,denied,first_login,last_login,session_version) VALUES(?,?,1,0,?,?,1)").bind(userId, "synthetic-member", t, t).run();
+  const issued=await entry.issueOriginalEntryCookie(name=>load("./"+name),db,originalEnv,userId);
+  const cookie = issued.cookie, member = await pageBoot({}, { Cookie: cookie });
   check("actual signed-in Worker boot carries the exact shared identity and unavailable switch without arbitrary environment fields", member.status === 200 && member.boot.signedIn === true && member.boot.meta.ruleset.revision === current.revision && JSON.stringify(member.boot.meta.ruleset) === JSON.stringify(current) && member.boot.meta.rulesetSwitch.available === false && !member.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !member.html.includes("Synthetic Future Realm"));
   const api = await site.handleSite(new Request("https://guild.example/api/me", { headers: { Cookie: cookie } }), env, "/api/me", true, "synthetic-candidate", () => {}), apiData = await api.json();
   check("actual authenticated /api/me identity agrees with boot and guide", api.status === 200 && JSON.stringify(apiData.meta.ruleset) === JSON.stringify(current) && reviewText.includes(profile.rulesetLabel(apiData.meta.ruleset)));

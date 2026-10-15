@@ -51,3 +51,46 @@ regexes = [
   '''^qr-key-revocation-v1$''',
   '''^qr-key-enrollment-v1$''',
 ]
+
+# 15 Oct 2026: exact source-reviewed public labels and fixed local fixture assignments.
+# Keep the original scan rules active; each addition requires the exact rule, relative path AND value.
+
+[[allowlists]]
+description = "Exact public environment key-name adjacency in the attended beta capture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/src/site\-beta\-window\.ts$''']
+regexTarget = "match"
+regexes = ['''^COOKIE_SECRET','QR_PHASE1_ENABLED'$''']
+
+[[allowlists]]
+description = "Exact fixed local client-secret assignment in privacy_serving_lifecycle_test.cjs"
+targetRules = ["discord-client-secret"]
+condition = "AND"
+paths = ['''^worker/tests/privacy_serving_lifecycle_test\.cjs$''']
+regexTarget = "match"
+regexes = ['''^DISCORD_CLIENT_SECRET:'existing\-lifecycle\-native\-client'$''']
+
+[[allowlists]]
+description = "Exact fixed local client-secret assignment in privacy_erasure_staff_custody_test.cjs"
+targetRules = ["discord-client-secret"]
+condition = "AND"
+paths = ['''^worker/tests/privacy_erasure_staff_custody_test\.cjs$''']
+regexTarget = "match"
+regexes = ['''^DISCORD_CLIENT_SECRET:'existing\-lifecycle\-native\-client'$''']
+
+[[allowlists]]
+description = "Exact public qr-key-revocation-incarnation-v2 purpose in the adversarial QR fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/qr_phase1_test\.cjs$''']
+regexTarget = "secret"
+regexes = ['''^qr\-key\-revocation\-incarnation\-v2$''']
+
+[[allowlists]]
+description = "Exact public qr-key-enrollment-incarnation-v2 purpose in the adversarial QR fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/qr_phase1_test\.cjs$''']
+regexTarget = "secret"
+regexes = ['''^qr\-key\-enrollment\-incarnation\-v2$''']

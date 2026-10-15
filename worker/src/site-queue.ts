@@ -41,20 +41,23 @@ async function queueReservedRounds(env: Env, actor: string, ids: number[]|undefi
   // names whose owner is banned from verifying. Leaving them out of the pick keeps them from blocking the rest.
   const contested = `EXISTS (SELECT 1 FROM site_reserved r2 WHERE r2.name_key = r.name_key AND r2.owner_id <> r.owner_id AND r2.status IN ('approved','queued'))`;
   const banned = `EXISTS (SELECT 1 FROM members m WHERE m.discord_id = r.owner_id AND m.banned = 1)`;
-  const held = await env.DB.prepare(
+  const heldStatement = env.DB.prepare(
     `SELECT SUM(CASE WHEN ${contested} THEN 1 ELSE 0 END) AS contested,
             SUM(CASE WHEN NOT ${contested} AND ${banned} THEN 1 ELSE 0 END) AS banned
        FROM site_reserved r WHERE r.status = 'approved' ${filter}`,
-  ).first<{ contested: number | null; banned: number | null }>();
-  out.contested = held?.contested ?? 0;
-  out.blocked = held?.banned ?? 0;
-  for (let round = 0; round < rounds; round++) {
-    const cand = await env.DB.prepare(
+  );
+  const candidateStatement = () => env.DB.prepare(
       `SELECT r.id AS id FROM site_reserved r
         WHERE r.status = 'approved' ${filter} AND NOT ${contested} AND NOT ${banned}
         ORDER BY r.approved_at, r.id
-        LIMIT ${CHUNK + 1}`,
-    ).all<{ id: number }>();
+        LIMIT ${CHUNK + 1}`);
+  // Independent counts and first selection share the original native epoch read proof.
+  const firstFacts = await env.DB.batch([heldStatement, candidateStatement()]);
+  const held = firstFacts[0]!.results[0] as { contested: number | null; banned: number | null } | undefined;
+  out.contested = held?.contested ?? 0;
+  out.blocked = held?.banned ?? 0;
+  for (let round = 0; round < rounds; round++) {
+    const cand = round === 0 ? { results: firstFacts[1]!.results as {id:number}[] } : await candidateStatement().all<{id:number}>();
     const go = cand.results.slice(0, CHUNK).map((r) => r.id);
     out.more = cand.results.length > CHUNK;
     if (!go.length) break;

@@ -23,6 +23,8 @@
  *   .115: GET news, POST news {id,title,body,days}, POST news/update {id,revision,title,body,days}, POST news/delete {id,revision}
  *         (site-news.ts); settings.newsOn
  */
+import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql} from './privacy-serving-authority';
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
@@ -36,11 +38,13 @@ import { communityEraseStatements, fenceSql } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
 import { rest } from "./discord";
 import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
-import { betaResetState, loadLeadership, NAME_WITHHELD, recordBetaClosed, runBetaReset, saveLeadership } from "./site-leadership";
+import { loadLeadership, NAME_WITHHELD, saveLeadership } from "./site-leadership";
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 import { handleNewsAdmin } from "./site-news";
 import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
+import {prepareMembershipDecision,membershipDecisionTargetToken,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
+import { handleBetaRoleReset } from './beta-reset-route';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -50,13 +54,17 @@ const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "wit
  */
 const PROFESSIONS_OF_A = "json_each(CASE WHEN json_valid(a.answers) THEN a.answers ELSE '{}' END, '$.professions')";
 
-export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (work: () => Promise<unknown>) => void,decisionOrigin?:MembershipDecisionOrigin): Promise<Response> {
   if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin);
+  if(path.startsWith('/api/admin/beta-role-reset'))return handleBetaRoleReset(request,env,path,admin);
+  if(path==='/api/admin/beta-reset'||path.startsWith('/api/admin/beta-reset/'))return apiJson({error:'beta_reset_scope_replaced',message:'The beta reset preserves website appointments and leadership. Use the member and rank role reset preview.'},410);
   const m = request.method;
   const url = new URL(request.url);
   const q = url.searchParams;
   const parts = path.slice("/api/admin/".length).split("/");
-  const body = m === "GET" ? {} : await readJson(request);
+  if(decisionOrigin&&m==='POST')await prepareMembershipDecision(decisionOrigin,env);
+  const body = m === "GET" ? {} : await readJson(decisionOrigin?membershipDecisionBodyRequest(decisionOrigin):request);
+  if(decisionOrigin)assertMembershipDecisionOrigin(decisionOrigin,env);
   if (body === null) return apiJson({ error: "bad_request" }, 400);
   const actor = admin.discord_id;
 
@@ -74,7 +82,7 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
       if (!session || session.u !== actor) return apiJson({ error: "signed_out" }, 401);
       const on = body.on === true;
       if (on && body.confirm !== "ENABLE") return apiJson({ error: "confirm", message: "Type ENABLE to record a future enable request. Collection stays off until its reviewed release gates pass." }, 400);
-      const r = await setBnetSwitch(env, actor, on, { sessionVersion: session.v, expiresAt: session.e });
+      const r = await setBnetSwitch(env, actor, on, {sessionVersion:session.v,expiresAt:session.e,privacyGeneration:session.g,accountIncarnation:session.n,originalSession:session});
       return r.ok ? apiJson({ ok: true, state: r.state }) : apiJson({ error: r.error, message: r.message }, 409);
     }
   }
@@ -86,17 +94,6 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
     }
   }
   if (parts[0] === "news") return handleNewsAdmin(request, env, parts.slice(1), admin, body); // .115: News notices (site-news.ts)
-  if (parts[0] === "beta-reset") {
-    if (m === "GET" && !parts[1]) return apiJson(await betaResetState(env));
-    if (m === "PUT" && parts[1] === "closed") {
-      const r = await recordBetaClosed(env, actor, body.betaClosedAt);
-      return r.ok ? apiJson({ ok: true, state: await betaResetState(env) }) : apiJson({ error: r.status === 409 ? "reset_done" : "invalid", message: r.message }, r.status);
-    }
-    if (m === "POST" && !parts[1]) {
-      const r = await runBetaReset(env, actor, body);
-      return r.ok ? apiJson({ ok: true, cleared: r.cleared, state: await betaResetState(env) }) : apiJson({ error: "refused", message: r.message }, r.status);
-    }
-  }
   if (parts[0] === "renames") {
     if (m === "GET" && !parts[1]) return apiJson(await listRenames(env));
     if (m === "POST" && parts[1] === "forced") {
@@ -112,15 +109,16 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
     }
   }
   if (m === "GET" && parts[0] === "applications" && !parts[1]) return listApplications(env, q);
+  if(m==='GET'&&parts[0]==='users'&&parts[2]==='decision-target'){if(!decisionOrigin)return apiJson({error:'original_membership_decision_held'},409);const route=q.get('route');if(!['status','deny','undeny','delete'].includes(route??''))return apiJson({error:'bad_request'},400);return apiJson({targetToken:await membershipDecisionTargetToken(decisionOrigin,env,route as 'status'|'deny'|'undeny'|'delete')});}
   if (m === "GET" && parts[0] === "applications" && parts[1]) return applicationDetail(env, parts[1]);
-  if (m === "POST" && parts[0] === "applications" && parts[2] === "status") return setStatus(env, actor, parts[1], body);
-  if (m === "POST" && parts[0] === "users" && parts[2] === "deny") return deny(env, actor, parts[1], body);
-  if (m === "POST" && parts[0] === "users" && parts[2] === "undeny") return undeny(env, actor, parts[1]);
+  if (m === "POST" && parts[0] === "applications" && parts[2] === "status") return setStatus(env, actor, parts[1], body,decisionOrigin);
+  if (m === "POST" && parts[0] === "users" && parts[2] === "deny") return deny(env, actor, parts[1], body,decisionOrigin);
+  if (m === "POST" && parts[0] === "users" && parts[2] === "undeny") return undeny(env, actor, parts[1],decisionOrigin);
   if (m === "POST" && parts[0] === "users" && parts[2] === "delete") {
     if (!isId(parts[1])) return apiJson({ error: "bad_request" }, 400);
     if (request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({ error: "reload" }, 409);
     try {
-      return (await deleteSiteData(env, parts[1], actor, body.mentions === true, request)) ? apiJson({ ok: true }) : apiJson({ error: "not_found", message: "That account has nothing on this site." }, 404);
+      return (await deleteSiteData(env, parts[1], actor, body.mentions === true, request,decisionOrigin)) ? apiJson({ ok: true }) : apiJson({ error: "not_found", message: "That account has nothing on this site." }, 404);
     } catch (e) {
       if (!(e instanceof SiteErasureHeld)) throw e;
       return apiJson({ error: "erasure_held", message: "Site-only deletion was not confirmed. Inspect the account and its audit record before trying again. Full erasure remains unavailable." }, 503);
@@ -420,7 +418,7 @@ async function applicationDetail(env: Env, id: string): Promise<Response> {
   });
 }
 
-async function setStatus(env: Env, actor: string, id: string, body: Record<string, unknown>): Promise<Response> {
+async function setStatus(env: Env, actor: string, id: string, body: Record<string, unknown>,origin?:MembershipDecisionOrigin): Promise<Response> {
   if (!isId(id)) return apiJson({ error: "bad_request" }, 400);
   const status = String(body.status ?? "");
   if (!STATUSES.has(status)) return apiJson({ error: "invalid", message: "Unknown status." }, 400);
@@ -431,25 +429,19 @@ async function setStatus(env: Env, actor: string, id: string, body: Record<strin
     const cur = await env.DB.prepare("SELECT status FROM site_applications WHERE discord_id = ?1").bind(id).first<{ status: string }>();
     if (cur?.status === "withdrawn") return apiJson({ error: "withdrawn", message: "This application is withdrawn: the member has to submit it again before it can be accepted." }, 409);
   }
-  const r = await env.DB.prepare(
-    `UPDATE site_applications SET status = ?2, reviewed_by = ?3, reviewed_at = ?4${note === undefined ? "" : ", admin_note = ?5"} WHERE discord_id = ?1 AND NOT (?2 = 'accepted' AND status = 'withdrawn')`,
-  )
-    .bind(...[id, status, actor, now(), ...(note === undefined ? [] : [note || null])])
-    .run();
+  if(!origin)return apiJson({error:'original_membership_decision_held'},409);
+  const r=await applyMembershipDecision(origin,env,'status',{status,note:note===undefined?undefined:note||null,at:now()});
   if (!r.meta.changes) return apiJson({ error: "not_found" }, 404);
   forgetBoardCounts();
   await audit(env, actor, "site.application_status", id, { status });
   return applicationDetail(env, id);
 }
 
-async function deny(env: Env, actor: string, id: string, body: Record<string, unknown>): Promise<Response> {
+async function deny(env: Env, actor: string, id: string, body: Record<string, unknown>,origin?:MembershipDecisionOrigin): Promise<Response> {
   if (!isId(id)) return apiJson({ error: "bad_request" }, 400);
   const reason = cleanText(body.reason, 300) || null;
-  const r = await env.DB.prepare(
-    "UPDATE site_users SET denied = 1, denied_reason = ?2, denied_at = ?3, denied_by = ?4, session_version = session_version + 1 WHERE discord_id = ?1",
-  )
-    .bind(id, reason, now(), actor)
-    .run();
+  if(!origin)return apiJson({error:'original_membership_decision_held'},409);
+  const r=await applyMembershipDecision(origin,env,'deny',{reason,at:now()});
   if (!r.meta.changes) return apiJson({ error: "not_found", message: "That account never signed in here." }, 404);
   const released = await releaseReserved(env, { ownerId: id }, actor);
   forgetBoardCounts();
@@ -457,11 +449,10 @@ async function deny(env: Env, actor: string, id: string, body: Record<string, un
   return applicationDetail(env, id);
 }
 
-async function undeny(env: Env, actor: string, id: string): Promise<Response> {
+async function undeny(env: Env, actor: string, id: string,origin?:MembershipDecisionOrigin): Promise<Response> {
   if (!isId(id)) return apiJson({ error: "bad_request" }, 400);
-  const r = await env.DB.prepare("UPDATE site_users SET denied = 0, denied_reason = NULL, denied_at = NULL, denied_by = NULL WHERE discord_id = ?1 AND denied = 1")
-    .bind(id)
-    .run();
+  if(!origin)return apiJson({error:'original_membership_decision_held'},409);
+  const r=await applyMembershipDecision(origin,env,'undeny',{at:now()});
   if (!r.meta.changes) return apiJson({ error: "not_found", message: "That account is not denied." }, 404);
   forgetBoardCounts();
   await audit(env, actor, "site.undenied", id);
@@ -517,22 +508,25 @@ class SiteErasureHeld extends Error {
   constructor() { super("site_erasure_held"); }
 }
 
-export async function deleteSiteData(env: Env, id: string, actor: string, mentions = false, request?: Request): Promise<boolean> {
+export async function deleteSiteData(env: Env, id: string, actor: string, mentions = false, request?: Request,decisionOrigin?:MembershipDecisionOrigin): Promise<boolean> {
   if (!request || !isId(id) || !isSiteAdmin(env, actor) || request.method !== "POST" ||
       new URL(request.url).pathname !== `/api/admin/users/${id}/delete` ||
       request.headers.get("X-Olympus") !== PAGE_VERSION || !sameOrigin(request)) throw new SiteErasureHeld();
-  const session = await readSession(env, request);
+  if(!decisionOrigin)throw new SiteErasureHeld();
+  const session = await readSession(env, membershipDecisionAuthRequest(decisionOrigin));
+  assertMembershipDecisionOrigin(decisionOrigin,env);
   if (!session || session.u !== actor || !Number.isSafeInteger(session.v) || session.v < 1 ||
       !Number.isSafeInteger(session.e)) throw new SiteErasureHeld();
-  const row = await env.DB.prepare("SELECT denied, denied_at, session_version, first_login FROM site_users WHERE discord_id = ?1")
-    .bind(id).first<{ denied: number; denied_at: number | null; session_version: number; first_login: number }>();
-  if (!row) return false;
+  const row = await env.DB.prepare("SELECT denied, denied_at, session_version, first_login, account_incarnation FROM site_users WHERE discord_id = ?1")
+    .bind(id).first<{ denied: number; denied_at: number | null; session_version: number; first_login: number;account_incarnation:string }>();
+  assertOriginalSiteSessionRead(session);if (!row) return false;const birth=Object.getOwnPropertyDescriptor(row,'account_incarnation');if(!birth||!Object.hasOwn(birth,'value'))throw new SiteErasureHeld();const targetBirth=privacyAccountIncarnation(birth.value);
   const statements = [
+    membershipDecisionPartialGuard(decisionOrigin,env,row.denied),
     // CASE is lazy: its invalid JSON branch deliberately aborts a refused transaction before any registry mutation.
     // D1 batch() rolls the complete sequence back when any statement fails. The database clock judges cookie expiry.
-    env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity", 1, 2, 3,session.g)}
+    env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity", 1, 2, 3,session.g,session.n)}
       AND EXISTS (SELECT 1 FROM site_users target WHERE target.discord_id = ?4 AND target.session_version = ?5
-        AND target.first_login = ?6 AND target.denied = ?7 AND target.denied_at IS ?8)
+        AND target.first_login = ?6 AND target.denied = ?7 AND target.denied_at IS ?8 AND ${privacyAccountIncarnationLiteralFenceSql('target.account_incarnation',targetBirth)})
       THEN 1 ELSE json_extract('site_erasure_refused', '$') END AS admitted`)
       .bind(actor, session.v, session.e, id, row.session_version, row.first_login, row.denied, row.denied_at),
     ...releaseReservedStatements(env, { ownerId: id }, actor),
@@ -569,9 +563,9 @@ export async function deleteSiteData(env: Env, id: string, actor: string, mentio
       .bind(actor, id, JSON.stringify({ mentions })),
   ];
   try {
-    const results = await env.DB.batch<{ admitted?: number; recorded?: number }>(statements);
+    assertOriginalSiteSessionRead(session);const results = await env.DB.batch<{ admitted?: number; recorded?: number }>(statements);assertOriginalSiteSessionRead(session);
     if (!Array.isArray(results) || results.length !== statements.length || results.some(r => !r || ("success" in r && r.success !== true)) ||
-        results[0]?.results?.[0]?.admitted !== 1 || results.at(-2)?.meta?.changes !== 1 ||
+        results[0]?.results?.[0]?.admitted !== 1 || results[1]?.results?.[0]?.admitted !== 1 || results.at(-2)?.meta?.changes !== 1 ||
         results.at(-1)?.results?.[0]?.recorded !== 1) throw new SiteErasureHeld();
   } catch {
     // A refused transaction or unreadable/lost result is held. Never infer success or run a partial repair/retry.
@@ -1046,9 +1040,10 @@ async function lookup(env: Env, q: URLSearchParams): Promise<Response> {
  * single request building the whole file took 15-45 ms of CPU for a few hundred voters in testing, and the free plan
  * allows 10. Pages are small enough to stay well under that; applications carry their answers, so theirs are smaller.
  */
-const EXPORTS: Record<string, { sql: string; page: number }> = {
+const EXPORTS: Record<string, { sql: string; page: number; columns: readonly string[] }> = {
   applications: {
     page: 150,
+    columns: ['discord_id','username','global_name','nick','position','class_lead','backup1','backup2','fallback','character','class','role','region','professions','avail_tz','avail','status','admin_note','created_at','updated_at','account_created','server_joined','denied','answers'],
     sql: `SELECT a.discord_id, u.username, u.global_name, u.nick, a.position, a.class_lead, a.backup1, a.backup2, a.fallback, a.character, a.class, a.role, a.region,
                  (SELECT group_concat(j.value, ' ') FROM ${PROFESSIONS_OF_A} j) AS professions,
                  a.avail_tz, a.avail, a.status, a.admin_note, a.created_at, a.updated_at, u.account_created, u.server_joined, u.denied, a.answers
@@ -1056,6 +1051,7 @@ const EXPORTS: Record<string, { sql: string; page: number }> = {
   },
   board: {
     page: 800,
+    columns: ['role_key','candidate_id','candidate_username','vote','voter_id','voter_username','account_created','server_joined','denied','in_server','updated_at'],
     sql: `SELECT v.role_key, v.candidate_id, c.username AS candidate_username, v.vote, v.voter_id, u.username AS voter_username,
                  u.account_created, u.server_joined, u.denied, u.in_server, v.updated_at
             FROM site_board_votes v JOIN site_users u ON u.discord_id = v.voter_id LEFT JOIN site_users c ON c.discord_id = v.candidate_id
@@ -1063,23 +1059,27 @@ const EXPORTS: Record<string, { sql: string; page: number }> = {
   },
   votes: {
     page: 800,
+    columns: ['voter_id','voter_username','account_created','server_joined','denied','in_server','ballot','slot','nominee_kind','nominee_key','nominee_label','reason','updated_at'],
     sql: `SELECT v.voter_id, u.username AS voter_username, u.account_created, u.server_joined, u.denied, u.in_server,
                  v.ballot, v.slot, v.nominee_kind, v.nominee_key, v.nominee_label, v.reason, v.updated_at
             FROM site_votes v JOIN site_users u ON u.discord_id = v.voter_id ORDER BY v.ballot, v.nominee_key, v.voter_id, v.slot`,
   },
   friends: {
     page: 800,
+    columns: ['owner_id','owner_username','friend_kind','friend_key','friend_label','note','created_at'],
     sql: `SELECT f.owner_id, u.username AS owner_username, f.friend_kind, f.friend_key, f.friend_label, f.note, f.created_at
             FROM site_friends f LEFT JOIN site_users u ON u.discord_id = f.owner_id ORDER BY f.owner_id, f.created_at, f.friend_key`,
   },
   reserved: {
     page: 800,
+    columns: ['id','name','status','owner_id','owner_username','created_at','approved_at','queued_at','queue_id','queue_status'],
     sql: `SELECT r.id, r.name, r.status, r.owner_id, u.username AS owner_username, r.created_at, r.approved_at, r.queued_at, r.queue_id,
                  (SELECT q.status FROM invite_queue q WHERE q.id = r.queue_id) AS queue_status
             FROM site_reserved r LEFT JOIN site_users u ON u.discord_id = r.owner_id ORDER BY r.id`,
   },
   users: {
     page: 800,
+    columns: ['discord_id','username','global_name','nick','account_created','server_joined','first_login','last_login','in_server','denied','denied_reason'],
     sql: `SELECT discord_id, username, global_name, nick, account_created, server_joined, first_login, last_login, in_server, denied, denied_reason
             FROM site_users ORDER BY first_login, discord_id`,
   },
@@ -1090,17 +1090,17 @@ async function exportPage(env: Env, kind: string, q: URLSearchParams): Promise<R
   const e = Object.prototype.hasOwnProperty.call(EXPORTS, key) ? EXPORTS[key] : undefined; // not "constructor" and the like
   if (!e) return apiJson({ error: "not_found" }, 404);
   const offset = intParam(q.get("offset"), 0, 10_000_000, 0);
-  const res = await env.DB.prepare(`${e.sql} LIMIT ${e.page + 1} OFFSET ${offset}`).raw({ columnNames: true });
-  const [columns, ...rows] = res as unknown[][];
-  const more = rows.length > e.page;
-  return apiJson({ columns: columns ?? [], rows: rows.slice(0, e.page), next: more ? offset + e.page : null });
+  const res = await env.DB.prepare(`${e.sql} LIMIT ${e.page + 1} OFFSET ${offset}`).all<Record<string, unknown>>();
+  const more = res.results.length > e.page;
+  const rows = res.results.slice(0,e.page).map(row=>e.columns.map(column=>row[column]));
+  return apiJson({ columns: e.columns, rows, next: more ? offset + e.page : null });
 }
 
 async function recentAudit(request: Request, env: Env, admin: SiteUser): Promise<Response> {
   // Keep Overview's five-field contract and newest 100 site actions, but share the safe projection and final admission.
   const s = await readSession(env, request);
   if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
-  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e,g:s.g });
+  const session: AuditSession = Object.freeze({u:s.u,v:s.v,e:s.e,g:s.g,n:s.n,originalSession:s});assertOriginalSiteSessionRead(s);
   const rows = await env.DB.prepare(
     `SELECT id, ts, actor, action, subject, substr(details, 1, ${AUDIT_DETAILS_MAX}) AS details,
             length(details) > ${AUDIT_DETAILS_MAX} AS cut
@@ -1167,6 +1167,7 @@ function auditRules(actions: string, subject: AuditRule["subject"], fields: Audi
 }
 auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
 auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
+auditRules("site.ruleset_switch", "none", { mode: ["beta", "full_release"], targets: "count", approver: "boolean" }); // item 7 (14 Oct 2026): the switch, never the identity
 auditRules("site.application_status", "id", { status: ["submitted", "reviewing", "accepted", "declined", "withdrawn"] });
 auditRules("site.denied", "id", { released: "count" });
 auditRules("site.undenied", "id");
@@ -1369,6 +1370,8 @@ interface AuditPage {
 /** The request's own signed session as readSession read it (id, version, expiry): the one identity the admission judges. */
 interface AuditSession {
   g:string|null;
+  n:string;
+  originalSession:OriginalSiteSession;
   readonly u: string;
   readonly v: number;
   readonly e: number;
@@ -1382,7 +1385,7 @@ async function auditLog(request: Request, env: Env, q: URLSearchParams, admin: S
   // read again, so neither a later version nor a renewed expiry can stand in for the cookie this request carried.
   const s = await readSession(env, request);
   if (!s || s.u !== admin.discord_id || s.v !== admin.session_version) return apiJson(AUDIT_SIGNED_OUT, 401);
-  const session: AuditSession = Object.freeze({ u: s.u, v: s.v, e: s.e,g:s.g });
+  const session: AuditSession = Object.freeze({u:s.u,v:s.v,e:s.e,g:s.g,n:s.n,originalSession:s});assertOriginalSiteSessionRead(s);
   const p = auditQuery(q);
   if ("field" in p) return apiJson({ error: "bad_request", field: p.field, message: AUDIT_REFUSALS[p.field] }, 400);
   const page = await auditPage(env, p);
@@ -1400,12 +1403,12 @@ async function auditLog(request: Request, env: Env, q: URLSearchParams, admin: S
 async function admitAudit(env: Env, s: AuditSession, page: AuditPage | { audit: { ts: number; actor: string; action: string; subject: string | null; details: string | null }[] }): Promise<Response> {
   let held: unknown;
   try {
-    held = (await env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3,s.g)}) AS ok`).bind(s.u, s.v, s.e).first<{ ok: number }>())?.ok;
+    assertOriginalSiteSessionRead(s.originalSession);held = (await env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3,s.g,s.n)}) AS ok`).bind(s.u, s.v, s.e).first<{ ok: number }>())?.ok;
   } catch (e) {
     console.error("admin audit log admission", errorRef(e));
     held = null;
   }
-  if (held !== 1 && held !== 0) return apiJson({ error: "unavailable", message: "The audit log could not be checked just now, so nothing is shown. Try again in a moment." }, 503);
+  assertOriginalSiteSessionRead(s.originalSession);if (held !== 1 && held !== 0) return apiJson({ error: "unavailable", message: "The audit log could not be checked just now, so nothing is shown. Try again in a moment." }, 503);
   if (held !== 1 || !isSiteAdmin(env, s.u)) return apiJson(AUDIT_SIGNED_OUT, 401);
   return apiJson(page);
 }

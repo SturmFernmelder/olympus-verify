@@ -7,7 +7,7 @@ press. Four pieces:
 
 | piece | where it runs | language | job |
 |---|---|---|---|
-| `worker/` | Cloudflare Worker + D1 | TypeScript | Discord interactions (`/verify`, `/verify-status`, `/olympus-admin`, review buttons), Linked Role OAuth, watcher endpoints, roster diff → roles behind truncated-export guards, Phase 3 Battle.net path behind a flag; since build .41 also the guild site on `SITE_HOST` (`src/site*.ts`, static files in `worker/public/`) |
+| `worker/` | Cloudflare Worker + D1 | TypeScript | Discord interactions (`/verify`, `/verify-status`, `/olympus-admin`, review buttons), Linked Role OAuth, watcher endpoints, roster diff → roles behind truncated-export guards; since build .41 also the guild site on `SITE_HOST` (`src/site*.ts`, static files in `worker/public/`) |
 | `addon/OlympusVerify/` | the officer's WoW client | Lua | validates `!verify CODE` whispers/mail offline, replies, queues invites, fires them on the flush key, notices accepted invites and whispers a signed confirmation, exports the whole roster (offline included), turns chat logging on; since 0.6.4 a Members window (verified or not, Discord names) |
 | `addon/OlympusProbe/` | any WoW client | Lua | read-only API probe (`/olp test`, `/olp doc <Namespace>`); its 17 Sep beta results are in `docs/beta-test-plan.md` |
 | `watcher/` | the officer's PC | Python 3 (stdlib) | tails `WoWChatLog.txt`, reads SavedVariables after `/reload`/logout, posts to the Worker through a durable outbox that survives an outage, writes `OlympusQueue.lua` |

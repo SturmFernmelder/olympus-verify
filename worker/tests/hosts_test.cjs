@@ -7,40 +7,19 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entryFixture = require("./helpers/privacy129_fixture.cjs");
 
-function d1(db, opts = {}) {
-  const exec = (sql, params) => {
-    if (opts.trap) opts.trap(sql);
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => { params = p; return api; },
-      first: async () => { if (opts.trap) opts.trap(sql); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { if (opts.trap) opts.trap(sql); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => exec(sql, params),
-      _exec: () => exec(sql, params),
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => { db.exec("BEGIN"); try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; } },
-  };
-}
+function d1(db, opts = {}) { return entryFixture.originalNativePort(db,{statement:opts.trap}); }
 function freshDb() {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  entryFixture.installCurrentEntryEpoch(db);
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const cache = {};
 function load(name) {
+  if(name === "node:async_hooks") return require(name);
   const file = path.join(root, "src", name.replace(/^\.\//, "") + ".ts");
   if (cache[file]) return cache[file].exports;
   const mod = { exports: {} };
@@ -48,8 +27,6 @@ function load(name) {
   new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(p));
   return mod.exports;
 }
-const indexMod = load("./index"), index = indexMod.default, ingest = load("./ingest"), discord = load("./discord");
-
 let FETCHES = [];
 let fetchResponder = null;
 globalThis.fetch = async (url, init = {}) => {
@@ -58,9 +35,12 @@ globalThis.fetch = async (url, init = {}) => {
   throw new Error("no network in tests: " + url);
 };
 
+
+const indexMod = load("./index"), index = indexMod.default, ingest = load("./ingest"), discord = load("./discord");
+
 const TOKEN = "watcher-token-for-tests-only-0123456789";
 let db = freshDb();
-const env = (over = {}) => ({
+const env = (over = {}) => entryFixture.currentEntryEnvironment({
   DB: d1(db),
   GUILD_ID: "1549537348516188200",
   DISCORD_APP_ID: "1550176895671341076",
@@ -134,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-14.156 Olympus crawler boundary");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-15.157 Guild systems integration");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -181,33 +161,72 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   let assetCalls = 0;
   const assetEnv = env({ ASSETS: { fetch: async () => { assetCalls++; return new Response('protected-source'); } } });
   const core = load('./site-core'), viewer = '300000000000000091';
-  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').run(viewer,'member',Math.floor(Date.now()/1000));
-  const validCookie = (await core.sessionCookie(assetEnv,viewer,1)).split(';')[0];
+  const admittedSetup=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(assetEnv.DB,'writer','canonical',entryFixture.ENTRY_EPOCH);
+  await admittedSetup.prepare('INSERT INTO site_users(discord_id,username,in_server,first_login,last_login,session_version) VALUES(?1,?2,1,?3,?3,1)').bind(viewer,'member',Math.floor(Date.now()/1000)).run();
+  const validCookie=(await entryFixture.issueOriginalEntryCookie(load,db,assetEnv,viewer)).cookie, originalVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(viewer).session_version;
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('current Discord session receives private assets with cookie-varying no-store delivery', res.status === 200 && await res.text() === 'protected-source' && assetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')));
-  db.prepare('UPDATE site_users SET session_version=2 WHERE discord_id=?1').run(viewer);
+  // The councillor page is the one response that may use the device camera (owner item 32 fallback); its own counter keeps the deliveries above intact.
+  let cameraAssetCalls = 0;
+  const cameraEnv = env({ ASSETS: { fetch: async () => { cameraAssetCalls++; return new Response('protected-source'); } } });
+  res = await get('https://guild.example/static/qr-phase1.html', cameraEnv, { headers: { Cookie: validCookie } });
+  check('signed in, the councillor page alone allows the same-origin camera and keeps every other private-asset header', res.status === 200 && await res.text() === 'protected-source' && cameraAssetCalls === 1 && res.headers.get('Permissions-Policy') === 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()' && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')) && res.headers.get('X-Frame-Options') === 'DENY');
+  res = await get('https://guild.example/static/qr-phase1.mjs', cameraEnv, { headers: { Cookie: validCookie } });
+  check('every other private asset keeps the camera closed', res.status === 200 && cameraAssetCalls === 2 && res.headers.get('Permissions-Policy') === 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  res = await get('https://guild.example/static/qr-phase1.html', cameraEnv);
+  check('signed out, the councillor page carries no camera allowance and reaches no asset', res.status === 401 && cameraAssetCalls === 2 && res.headers.get('Permissions-Policy') === 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  res = await get('https://guild.example/static/qr-phase1.html', cameraEnv, { method: 'POST', headers: { Cookie: validCookie } });
+  check('the camera page accepts only GET and HEAD', res.status !== 200 && cameraAssetCalls === 2);
+  await admittedSetup.prepare('UPDATE site_users SET session_version=? WHERE discord_id=?').bind(originalVersion+1,viewer).run();
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('revoked cookie never reaches the asset binding', res.status === 401 && assetCalls === 1);
-  db.prepare('UPDATE site_users SET session_version=1,in_server=0 WHERE discord_id=?1').run(viewer);
+  await admittedSetup.prepare('UPDATE site_users SET session_version=?,in_server=0 WHERE discord_id=?').bind(originalVersion,viewer).run();
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('known departed account never reaches the asset binding', res.status === 403 && assetCalls === 1);
   const logoutHeaders = { Cookie: validCookie, Origin: 'https://guild.example', 'X-Olympus': core.PAGE_VERSION };
   res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: logoutHeaders });
   check('departed signed-in identity can reach original logout and clear its cookie', res.status === 200 && (await res.json()).ok === true && /__Host-olg=;/.test(res.headers.get('Set-Cookie') || '') && /Max-Age=0/.test(res.headers.get('Set-Cookie') || ''));
-  check('departed logout revokes the actual original session version without opening private assets', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 2 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
-  db.prepare('UPDATE site_users SET session_version=1,in_server=1,denied=1 WHERE discord_id=?1').run(viewer);
+  check('departed logout revokes the actual original session version without opening private assets', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === originalVersion+1 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  await admittedSetup.prepare('UPDATE site_users SET session_version=?,in_server=1,denied=1 WHERE discord_id=?').bind(originalVersion,viewer).run();
   res = await get('https://guild.example/auth/logout-extra', assetEnv, { method: 'POST', headers: logoutHeaders });
-  check('denied identity receives no widened auth-prefix exception or cookie change', res.status === 403 && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 1);
+  check('denied identity receives no widened auth-prefix exception or cookie change', res.status === 403 && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === originalVersion);
   res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: { ...logoutHeaders, Origin: 'https://other.example' } });
-  check('denied logout still consumes the original same-origin guard', res.status === 403 && (await res.json()).error === 'bad_origin' && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 1);
+  check('denied logout still consumes the original same-origin guard', res.status === 403 && (await res.json()).error === 'bad_origin' && !res.headers.has('Set-Cookie') && db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === originalVersion);
   res = await get('https://guild.example/auth/logout', assetEnv, { method: 'POST', headers: logoutHeaders });
   check('denied signed-in identity can reach original logout and clear its cookie', res.status === 200 && (await res.json()).ok === true && /__Host-olg=;/.test(res.headers.get('Set-Cookie') || '') && /Max-Age=0/.test(res.headers.get('Set-Cookie') || ''));
-  check('denied logout revokes the actual original session version and leaves assets inaccessible', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === 2 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  check('denied logout revokes the actual original session version and leaves assets inaccessible', db.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').get(viewer).session_version === originalVersion+1 && await core.currentUser(assetEnv, new Request('https://guild.example/', { headers: { Cookie: validCookie } })) === null && assetCalls === 1);
+  await admittedSetup.prepare('DELETE FROM site_users WHERE discord_id=?').bind(viewer).run();
+  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
+  check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 1);
+  res = await get('https://guild.example/robots.txt');
+  check('origin robots denies all paths with an anchored wildcard stronger than managed Allow:/', (await res.text()) === 'User-agent: *\nDisallow: /\nDisallow: /*$\n' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  res = await index.fetch(new Request('https://guild.example/robots.txt', { method: 'HEAD' }), env(), ctx);
+  check('robots HEAD retains noindex and emits no body', res.status === 200 && (await res.text()) === '' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  check('robots HEAD remains uncached plain text', /no-store/.test(res.headers.get('Cache-Control')) && /text\/plain/.test(res.headers.get('Content-Type')));
+  for (const p of ['/', '/static/app.js']) {
+    res = await get('http://guild.example' + p, assetEnv);
+    check('HTTP upgrades before sign-in or assets: ' + p, res.status === 301 && res.headers.get('Location') === 'https://guild.example' + p && assetCalls === 1);
+  }
+  res = await get("https://guild.example/static/wow/morpheus.woff2", env(), { method: "HEAD" });
+  check("  HEAD too", res.status === 200);
+  touched = 0;
+  res = await get("https://nobody.example/static/app.css", env({ DB: d1(db, { trap: () => { touched++; } }) }));
+  check("on an unknown host the same path is 404 and nothing is touched", res.status === 404 && touched === 0, res.status);
+  res = await get("https://old.example/static/app.css");
+  check("on a legacy host it is the ordinary 301 to the site", res.status === 301 && res.headers.get("Location") === "https://guild.example/static/app.css");
+  res = await get("https://verify.example/static/app.css");
+  check("on the bot's host it is 404 (the bot has no files)", res.status === 404, res.status);
+  res = await get("https://guild.example/static/app.css", env(), { method: "POST" });
+  check("a POST for a static file is not handed to the binding", res.status !== 200, res.status);
+
+  // Carry forward the final .154 due-membership and delayed-provider regressions.
+  // Use the .155 original PROFILE issuer and admitted fixture setup; never fabricate a cookie.
   const staleViewer = '300000000000000092', staleAt = Math.floor(Date.now()/1000)-7200;
-  db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version) VALUES(?1,?2,?3,?3,?3,1)').run(staleViewer,'stale-member',staleAt);
-  const staleCookie = (await core.sessionCookie(assetEnv,staleViewer,1)).split(';')[0];
+  await admittedSetup.prepare('INSERT INTO site_users(discord_id,username,in_server,first_login,last_login,checked_at,session_version) VALUES(?1,?2,1,?3,?3,?3,1)').bind(staleViewer,'stale-member',staleAt).run();
+  const staleEntry = await entryFixture.issueOriginalEntryCookie(load,db,assetEnv,staleViewer);
+  const staleCookie = staleEntry.cookie, staleVersion = staleEntry.session.v;
   for (const memberStatus of [404,503,200]) {
-    db.prepare('UPDATE site_users SET in_server=1,session_version=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
+    await admittedSetup.prepare('UPDATE site_users SET in_server=1,session_version=?2,checked_at=?3 WHERE discord_id=?1').bind(staleViewer,staleVersion,staleAt).run();
     let memberChecks=0;
     fetchResponder=async(url)=>{memberChecks++;if(!url.endsWith('/members/'+staleViewer))throw Error('Unexpected membership lookup');return new Response(JSON.stringify(memberStatus===200?{nick:'current member',pending:false}:{message:'membership unavailable',code:10007}),{status:memberStatus,headers:{'Content-Type':'application/json'}});};
     const beforeAssets=assetCalls;
@@ -216,7 +235,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     check('stale signed session rechecks Discord before protected delivery: '+memberStatus,memberChecks===1&&res.status===(memberStatus===200?200:memberStatus===404?403:503)&&assetCalls===beforeAssets+(memberStatus===200?1:0)&&after.in_server===(memberStatus===404?0:1)&&(memberStatus===200?after.checked_at>staleAt:memberStatus===404||after.checked_at===staleAt));
   }
   for (const absence of ['404', 'pending']) {
-    db.prepare('UPDATE site_users SET in_server=1,denied=0,session_version=1,checked_at=?2 WHERE discord_id=?1').run(staleViewer,staleAt);
+    await admittedSetup.prepare('UPDATE site_users SET in_server=1,denied=0,session_version=?2,checked_at=?3 WHERE discord_id=?1').bind(staleViewer,staleVersion,staleAt).run();
     let release200, memberChecks=0, entered200;
     const delayed200=new Promise(resolve=>{release200=resolve;});
     const entered=new Promise(resolve=>{entered200=resolve;});
@@ -234,34 +253,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     const absenceRow=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
     release200();
     const late=await pendingAsset,lateBody=await late.text(),after=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
-    check('authoritative '+absence+' revokes the original session before an earlier200 can resurrect membership or deliver assets',absent.status===403&&memberChecks===2&&absenceRow.in_server===0&&absenceRow.session_version===2&&JSON.stringify(after)===JSON.stringify(absenceRow)&&late.status===503&&!lateBody.includes('protected-source')&&assetCalls===beforeAssets);
+    check('authoritative '+absence+' revokes the original session before an earlier200 can resurrect membership or deliver assets',absent.status===403&&memberChecks===2&&absenceRow.in_server===0&&absenceRow.session_version===staleVersion+1&&JSON.stringify(after)===JSON.stringify(absenceRow)&&late.status===503&&!lateBody.includes('protected-source')&&assetCalls===beforeAssets);
     res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
     check('the same cookie remains signed out after raced '+absence+' and cannot reuse private assets',res.status===401&&assetCalls===beforeAssets);
   }
   fetchResponder=null;
-  db.prepare('DELETE FROM site_users WHERE discord_id=?1').run(viewer);
-  res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
-  check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 2);
-  res = await get('https://guild.example/robots.txt');
-  check('origin robots denies all paths with an anchored wildcard stronger than managed Allow:/', (await res.text()) === 'User-agent: *\nDisallow: /\nDisallow: /*$\n' && /noindex/.test(res.headers.get('X-Robots-Tag')));
-  res = await index.fetch(new Request('https://guild.example/robots.txt', { method: 'HEAD' }), env(), ctx);
-  check('robots HEAD retains noindex and emits no body', res.status === 200 && (await res.text()) === '' && /noindex/.test(res.headers.get('X-Robots-Tag')));
-  check('robots HEAD remains uncached plain text', /no-store/.test(res.headers.get('Cache-Control')) && /text\/plain/.test(res.headers.get('Content-Type')));
-  for (const p of ['/', '/static/app.js']) {
-    res = await get('http://guild.example' + p, assetEnv);
-    check('HTTP upgrades before sign-in or assets: ' + p, res.status === 301 && res.headers.get('Location') === 'https://guild.example' + p && assetCalls === 2);
-  }
-  res = await get("https://guild.example/static/wow/morpheus.woff2", env(), { method: "HEAD" });
-  check("  HEAD too", res.status === 200);
-  touched = 0;
-  res = await get("https://nobody.example/static/app.css", env({ DB: d1(db, { trap: () => { touched++; } }) }));
-  check("on an unknown host the same path is 404 and nothing is touched", res.status === 404 && touched === 0, res.status);
-  res = await get("https://old.example/static/app.css");
-  check("on a legacy host it is the ordinary 301 to the site", res.status === 301 && res.headers.get("Location") === "https://guild.example/static/app.css");
-  res = await get("https://verify.example/static/app.css");
-  check("on the bot's host it is 404 (the bot has no files)", res.status === 404, res.status);
-  res = await get("https://guild.example/static/app.css", env(), { method: "POST" });
-  check("a POST for a static file is not handed to the binding", res.status !== 200, res.status);
 
   console.log("\n== /health: public versus the watcher's ==");
   res = await get("https://verify.example/health");
@@ -356,7 +352,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     check(`${f} makes no bare fetch call (every credential-bearing call goes through credentialFetch)`, bare === 0, bare);
   }
   const helper = fs.readFileSync(path.join(root, "src", "discord.ts"), "utf8");
-  check("credentialFetch itself sets redirect manual and an 8 s timeout", /redirect: "manual"/.test(helper) && /AbortSignal\.timeout\(ms\)/.test(helper) && /withDeadline\(init\.signal/.test(helper) && /CREDENTIAL_FETCH_TIMEOUT_MS = 8000/.test(helper));
+  check("credentialFetch itself sets redirect manual and an 8 s timeout", /redirect: "manual"/.test(helper) && /AbortSignal\.timeout\(ms\)/.test(helper) && /captureOriginalProviderInit\(init\)/.test(helper) && /withDeadline\(original\.signal \?\? undefined\)/.test(helper) && /CREDENTIAL_FETCH_TIMEOUT_MS = 8000/.test(helper));
 
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

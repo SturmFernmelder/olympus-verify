@@ -15,6 +15,7 @@
 name = "olympus-verify"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
 # Build .41: the guild site gets its own custom domain, and the workers.dev address stays on: Discord's interactions
 # endpoint, the linked-role and Battle.net callbacks and the watcher all use it. workers_dev is written out because
 # adding a route must not switch it off.
@@ -38,10 +39,22 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 
-# Every half hour: the invite-queue sweep, the Guild Member restore sweep, Discord-name refresh, reserved names into the
-# queue from launch, the replay-ledger purge (.47) and the Battle.net retention purge (.48).
+# Every fifteen minutes: the source-owned scheduled callback retains its original platform time and bounded rotation.
+# The current source qualification gate and each original per-operation deadline remain mandatory.
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["*/15 * * * *"]
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+# Fixed transport only: the private service verifies its own HMAC; no operator secret is public.
+[[services]]
+binding = "PRIVACY_PRODUCTION_CONTROL"
+service = "olympus-privacy-operator"
+
+[[services]]
+binding = "PRIVACY_PRODUCTION_INITIALIZER"
+service = "olympus-privacy-initializer"
 
 [[d1_databases]]
 binding = "DB"
@@ -147,3 +160,7 @@ QR_NATIVE_ROLE_MAP = '{"profile":"beta-five","roles":["1557496182966587453","155
 #                                        connections to apps, so Blizzard's own login is the only way to read a
 #                                        BattleTag. Redirect URLs to register at develop.battle.net:
 #                                        <PUBLIC_BASE_URL>/bnet/link and, for Phase 3, /bnet/callback.)
+
+# .155 source integration only: keep erasure and QR OFF. Before deployment the original private
+# installation/open result must supply PRIVACY_WRITE_ADMISSION_EPOCH and all five serving bindings.
+# Their actual epochs, accepted source tree, platform version and secrets are never placeholder values.

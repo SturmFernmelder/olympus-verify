@@ -71,6 +71,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".157", date: "2026-10-15", lines: [
+      "Raid events support organizer roster decisions, capacity limits and optional reminder mentions.",
+      "Guild guidance clarifies native ranks and appointed offices.",
+      "The planned beta reset preserves leadership and Council roles.",
+    ],
+  },
+  {
     build: ".154", date: "2026-10-13", lines: [
       "Guild pages and downloads require Discord sign-in. The sign-in screen and required privacy and terms pages remain public.",
       "The adopted operational charter and organization explorer share the guild hall's Warcraft theme, with chart and list views, office mandates and rank distinctions.",
@@ -419,7 +426,7 @@ async function createNotice(request: Request, env: Env, ctx: CommunityContext, b
     env.DB.prepare(
       `INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after)
        SELECT ?4, ?5, ?1, ${DB_NOW}, ${DB_NOW} + ${NEWS_LIMITS.opsKeepS}
-        WHERE ${fenceSql("applicantWrite", 1, 2, 3)} AND ${NEWS_ON_SQL}
+        WHERE ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} AND ${NEWS_ON_SQL}
           AND (SELECT COUNT(*) FROM site_news_notices WHERE ${LIVE}) < ${NEWS_LIMITS.liveMax}
           AND ?6 > ${DB_NOW} - ${NEWS_LIMITS.opIssueMaxAgeS} AND ?6 <= ${DB_NOW}
        ON CONFLICT(id) DO NOTHING`,
@@ -483,7 +490,7 @@ async function updateNotice(request: Request, env: Env, ctx: CommunityContext, b
   const out = await admitted(env, ctx, [
     env.DB.prepare(
       `UPDATE site_news_notices SET title = ?6, body = ?7, retain_until = created_at + ?8 * ${DAY_S}, revision = revision + 1, nonce = ?5, updated_by = ?1, updated_at = ${DB_NOW}
-        WHERE id = ?4 AND revision = ?9 AND ${LIVE} AND created_at + ?8 * ${DAY_S} > ${DB_NOW} AND ${NEWS_ON_SQL} AND ${fenceSql("applicantWrite", 1, 2, 3)}`,
+        WHERE id = ?4 AND revision = ?9 AND ${LIVE} AND created_at + ?8 * ${DAY_S} > ${DB_NOW} AND ${NEWS_ON_SQL} AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
     ).bind(me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, id, nonce, v.title, v.text, v.days, revision),
     auditIfWritten(env, id, nonce, me, "edited"),
     env.DB.prepare(`${ADMIN_COLUMNS} WHERE id = ?1 AND nonce = ?2`).bind(id, nonce),
@@ -518,7 +525,7 @@ async function deleteNotice(request: Request, env: Env, ctx: CommunityContext, b
   const me = ctx.subject!.discordId, nonce = randomToken();
   // Whatever the switch says and even after expiry: deleting is cleanup. The operation record stays as the tombstone.
   const out = await admitted(env, ctx, [
-    env.DB.prepare(`UPDATE site_news_notices SET nonce = ?5 WHERE id = ?4 AND revision = ?6 AND ${fenceSql("applicantWrite", 1, 2, 3)}`).bind(
+    env.DB.prepare(`UPDATE site_news_notices SET nonce = ?5 WHERE id = ?4 AND revision = ?6 AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(
       me,
       ctx.subject!.sessionVersion,
       ctx.subject!.expiresAt,

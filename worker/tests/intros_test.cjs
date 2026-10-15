@@ -6,24 +6,15 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+let originalTestFetch = async () => { throw Error('provider calls forbidden before synthetic handler setup'); };
+globalThis.fetch = (...args) => originalTestFetch(...args);
+const entry = require("./helpers/privacy129_fixture.cjs");
 const db = new DatabaseSync(":memory:");
-db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
-const D1 = {
-  prepare(sql) {
-    let params = [];
-    const api = {
-      bind: (...p) => { params = p; return api; },
-      first: async () => db.prepare(sql).get(...params) ?? null,
-      all: async () => ({ results: db.prepare(sql).all(...params) }),
-      run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-    };
-    return api;
-  },
-};
-
+entry.installCurrentEntryEpoch(db);
+const D1 = entry.originalNativePort(db);
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const cache = {};
-function load(name) {
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   if (cache[name]) return cache[name].exports;
   const mod = { exports: {} };
   cache[name] = mod;
@@ -51,7 +42,7 @@ const EXPECTED_INTRO_KEYS = [
 const ADDED_INTRO_KEYS = ["council-info", "council-chat", "council-decisions", "addon-development", "officer-chat", "guild-suggestions"];
 const EXPECTED_MAPPING_KEYS = [...EXPECTED_INTRO_KEYS, "server-rules", "join-olympus", "the-tavern", "dungeon-party-1", "dungeon-party-2"].sort();
 
-const env = { DB: D1, DISCORD_APP_ID: "1550176895671341076", DISCORD_BOT_TOKEN: "test-token", INTROS_GUILD_ID: GUILD, INTROS_ROLES: tomlVar("INTROS_ROLES"), INTROS_CHANNELS: CHANNELS_RAW };
+const env = { DB: load("./privacy-write-admission").createPrivacyWriteAdmissionDatabase(D1,"writer","canonical",entry.ENTRY_EPOCH), DISCORD_APP_ID: "1550176895671341076", DISCORD_BOT_TOKEN: "test-token", INTROS_GUILD_ID: GUILD, INTROS_ROLES: tomlVar("INTROS_ROLES"), INTROS_CHANNELS: CHANNELS_RAW };
 
 // ---------- a fake Discord ----------
 let D;
@@ -62,12 +53,13 @@ const resetDiscord = () => {
                   [CH["guild-suggestions"]]: [{ id: "7201", name: "Guide" }] } };
 };
 const nextId = () => String(D.next++);
-globalThis.fetch = async (url, init = {}) => {
+originalTestFetch = async (url, init = {}) => {
   const p = new URL(url).pathname.replace(/^\/api\/v10/, "");
   const m = init.method || "GET";
   const body = init.body ? JSON.parse(init.body) : undefined;
   D.calls.push(`${m} ${p}`);
-  if (init.headers && init.headers["X-Audit-Log-Reason"]) D.reasons.push(decodeURIComponent(init.headers["X-Audit-Log-Reason"]));
+  const auditReason = new Headers(init.headers).get("X-Audit-Log-Reason");
+  if (auditReason) D.reasons.push(decodeURIComponent(auditReason));
   const res = (status, obj) => new Response(obj === undefined ? null : JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
   let x;
   if (m === "PATCH" && p.startsWith("/webhooks/")) { D.followups.push(body.content); return res(200, {}); }
@@ -122,7 +114,7 @@ async function run(i) {
   let pending = null;
   const resp = await handleIntros(env, i, (p) => { pending = p; });
   const out = await resp.json();
-  if (pending) await pending;
+  if (pending) await pending();
   return out;
 }
 
@@ -141,15 +133,16 @@ async function run(i) {
   const missing = [...keys, ...INTROS.map((x) => x.channel)].filter((k) => !CH[k]);
   check("every {#channel} and every intro's channel is in INTROS_CHANNELS (wrangler.toml)", missing.length === 0 || console.log("   missing:", missing));
   check("intro keys are unique", new Set(INTROS.map((x) => x.key)).size === INTROS.length);
+  const BETA_SNAP = load("./ruleset-profile").betaRulesetSnapshot(); // item 7: intros render a resolved snapshot
   check("one intro per channel (a second would fight the first for the pin)", new Set(INTROS.map((x) => x.channel)).size === INTROS.length);
   let limitsOk = true;
   for (const intro of INTROS) {
-    const problems = validateEmbeds(renderEmbeds(intro, CH));
+    const problems = validateEmbeds(renderEmbeds(intro, CH, BETA_SNAP));
     if (problems.length) { limitsOk = false; console.log("   ", intro.key, problems); }
     if (intro.forum && intro.forum.title.length > 100) { limitsOk = false; console.log("   ", intro.key, "post title over 100"); }
   }
   check("every intro fits Discord's limits (embeds, fields, 6000 per message, post titles)", limitsOk);
-  const rendered = INTROS.map((x) => textOf(renderEmbeds(x, CH)) + "\n" + intros.resolveText(x.content || "", CH)).join("\n");
+  const rendered = INTROS.map((x) => textOf(renderEmbeds(x, CH, BETA_SNAP)) + "\n" + intros.resolveText(x.content || "", CH)).join("\n");
   check("content lines fit (2000) and every forum post has one, so its preview is not \"Click to see attachment\"",
     INTROS.every((x) => (x.content || "").length <= 2000) && INTROS.filter((x) => x.forum).every((x) => (x.content || "").length > 10));
   check("no placeholder is left after rendering", !/\{#/.test(rendered));
@@ -177,7 +170,7 @@ async function run(i) {
   const first = await run(interaction("refresh"));
   check("the reply is deferred and private (type 5, ephemeral)", first.type === 5 && first.data.flags === 64);
   const firstCallCount = D.calls.length;
-  check("first bounded refresh finishes sixteen legacy slots without publishing the two managed identities", !/Stopped early/.test(D.followups[0]) && [...D.threads.values()].some((t) => t.parent_id === CH["guild-suggestions"]) && ![...D.messages.values()].some(m=>[CH["olympus-info"],CH["guild-announcements"]].includes(m.channel_id)));
+  check("first bounded refresh finishes sixteen legacy slots without publishing the two managed identities", !/Stopped early/.test(D.followups[0]) && [...D.threads.values()].some((t) => t.parent_id === CH["guild-suggestions"]) && ![...D.messages.values()].some(m=>[CH["olympus-info"],CH["guild-announcements"]].includes(m.channel_id)), D.followups, D.calls);
   await run(interaction("refresh"));
   const continuedCallCount = D.calls.length - firstCallCount;
   check("a second bounded refresh finishes without duplicating earlier posts", !/Stopped early/.test(D.followups[1]) && [...D.messages.values()].length === LEGACY_INTROS.length);
@@ -210,7 +203,7 @@ async function run(i) {
 
   check("both refreshes are audited", db.prepare("SELECT COUNT(*) AS c FROM audit WHERE action = 'intros.refresh'").get().c === 2);
   check("the lock is released", db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
-  const infoMsg = {embeds:renderEmbeds(INTROS.find(x=>x.key==="olympus-info"),CH)}; // Source copy only; actual durable POST/pin is tested by ruleset_publication_test.
+  const infoMsg = {embeds:renderEmbeds(INTROS.find(x=>x.key==="olympus-info"),CH,BETA_SNAP)}; // Source copy only; actual durable POST/pin is tested by ruleset_publication_test.
   check("#olympus-info approved source has three embeds and legacy sends no copy", infoMsg.embeds.length === 3 && ![...D.messages.values()].some(m=>m.channel_id===CH["olympus-info"]));
   check("mentions resolve to real channel ids", JSON.stringify(infoMsg.embeds).includes(`<#${CH["join-olympus"]}>`));
   const infoText = JSON.stringify(infoMsg.embeds);
@@ -219,8 +212,8 @@ async function run(i) {
   check("  name reservation: three characters, and the planning list reserves nothing", /up to three characters/.test(infoText) && /does not reserve it in the game/.test(infoText));
   check("  the add-on paragraph makes no claim about an unpublished policy", !/hasn't published/.test(infoText) && /reviewed release/.test(infoText));
   check("  no guide claims an unpublished add-on policy; #classes-and-builds gives the same supported guidance (.113)",
-    !INTROS.some((x) => /hasn't published/.test(textOf(renderEmbeds(x, CH))))
-    && /reviewed release/.test(textOf(renderEmbeds(INTROS.find((x) => x.channel === "classes-and-builds"), CH))));
+    !INTROS.some((x) => /hasn't published/.test(textOf(renderEmbeds(x, CH, BETA_SNAP))))
+    && /reviewed release/.test(textOf(renderEmbeds(INTROS.find((x) => x.channel === "classes-and-builds"), CH, BETA_SNAP))));
   check("  the facts footer is dated 1 October 2026", /checked October 1, 2026/.test(infoText));
 
   console.log("== second refresh, nothing changed ==");
@@ -272,11 +265,11 @@ async function run(i) {
   check("a channel without an intro is answered, not refreshed", none.type === 4 && /no Olympus intro/.test(none.data.content));
 
   console.log("== suggestions text-to-forum migration preserves the legacy copy ==");
-  db.exec("DELETE FROM intro_posts"); resetDiscord();
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord();
   const legacyParent = "1555959199513575476", legacyMessage = nextId();
   D.messages.set(legacyMessage, { id: legacyMessage, channel_id: legacyParent, content: "Preserve this legacy discussion", embeds: [], pinned: true });
-  db.prepare("INSERT INTO intro_posts (guild_id,intro_key,parent_id,channel_id,message_id,hash,posted_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-    .run(GUILD,"guild-suggestions",legacyParent,legacyParent,legacyMessage,"legacy-text-hash",1,1);
+  await env.DB.prepare("INSERT INTO intro_posts (guild_id,intro_key,parent_id,channel_id,message_id,hash,posted_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
+    .bind(GUILD,"guild-suggestions",legacyParent,legacyParent,legacyMessage,"legacy-text-hash",1,1).run();
   const migrated = await refreshIntros(env,GUILD,"migration-officer",CH["guild-suggestions"]);
   const migratedThread = [...D.threads.values()][0];
   const migratedRow = db.prepare("SELECT parent_id,channel_id,message_id FROM intro_posts WHERE intro_key='guild-suggestions'").get();
@@ -287,23 +280,23 @@ async function run(i) {
   check("repeating the forum migration performs one read and creates no second thread", migrationCurrent.outcomes[0].action === "current" && D.calls.length === 1 && D.calls[0] === `GET /channels/${migratedThread.id}` && D.threads.size === 1 && D.messages.size === 2);
 
   console.log("== limits, locks and failures ==");
-  db.exec("DELETE FROM intro_posts"); resetDiscord();
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord();
   const small = await refreshIntros(env, GUILD, "111111111111111111", undefined, 9);
   check("a small budget stops early without breaking a half-done intro", small.stoppedEarly && small.outcomes.some((o) => o.action === "not-reached") && D.calls.length <= 9);
   check("…and says to run it again", /Run `\/olympus-intros refresh` again/.test(summarize(small)));
   const rest = await refreshIntros(env, GUILD, "111111111111111111");
   check("the next run finishes the rest without reposting the first ones", !rest.stoppedEarly && [...D.messages.values()].length === LEGACY_INTROS.length);
   check("two officers at once: the second is told to wait", await takeLock(env, GUILD, "someone-else") && (await refreshIntros(env, GUILD, "2")).busy === true);
-  db.exec("DELETE FROM intro_locks");
-  db.prepare("INSERT INTO intro_locks (guild_id, holder, until) VALUES (?, 'crashed', 1)").run(GUILD); // expired long ago
+  await env.DB.prepare("DELETE FROM intro_locks").run();
+  await env.DB.prepare("INSERT INTO intro_locks (guild_id, holder, until) VALUES (?, 'crashed', 1)").bind(GUILD).run(); // expired long ago
   check("a stale lock from a crashed run is taken over", !(await refreshIntros(env, GUILD, "3")).busy);
-  db.exec("DELETE FROM intro_posts"); resetDiscord(); D.failPin = true;
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord(); D.failPin = true;
   const noPin = await refreshIntros(env, GUILD, "4", CH["guild-chat"]);
   check("a pin the bot may not make: posted anyway, and the reason is shown", noPin.outcomes[0].action === "posted" && /not pinned: .*Missing Permissions/.test(noPin.outcomes[0].note));
-  db.exec("DELETE FROM intro_posts"); resetDiscord(); D.oldPinRouteOnly = true;
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord(); D.oldPinRouteOnly = true;
   await refreshIntros(env, GUILD, "5", CH["guild-chat"]);
   check("falls back to the old pin route when the new one is missing", [...D.messages.values()][0].pinned && count(/^PUT \/channels\/\d+\/pins\//) === 1);
-  db.exec("DELETE FROM intro_posts"); resetDiscord();
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord();
   const moved = { ...env, INTROS_CHANNELS: CHANNELS_RAW.replace(`guild-chat=${CH["guild-chat"]}`, "guild-chat=1554999999999999999") };
   await refreshIntros(env, GUILD, "6", CH["guild-chat"]);
   const mv = await refreshIntros(moved, GUILD, "6", "1554999999999999999");
@@ -311,7 +304,7 @@ async function run(i) {
 
   console.log("== expanded intro channels: missing configuration and retry ==");
   for (const key of ADDED_INTRO_KEYS) {
-    db.exec("DELETE FROM intro_posts"); resetDiscord();
+    await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord();
     const missingRaw = CHANNELS_RAW.split(",").filter((p) => !p.startsWith(key + "=")).join(",");
     const missingEnv = { ...env, INTROS_CHANNELS: missingRaw };
     const beforeStatusCalls = D.calls.length;
@@ -322,7 +315,7 @@ async function run(i) {
     check(`#${key}: refresh skips the missing parent and two managed identities, posts other fifteen, and never calls or records it`, missingResult.outcomes.length === 18 && !missingResult.stoppedEarly && own?.action === "skipped" && own.note === `no "${key}" channel in INTROS_CHANNELS` && missingResult.outcomes.filter((o) => o.action === "skipped").length === 3 && !D.calls.some((c) => c.includes("/channels/" + CH[key])) && db.prepare("SELECT COUNT(*) AS c FROM intro_posts").get().c === 15 && !db.prepare("SELECT 1 FROM intro_posts WHERE intro_key = ?").get(key) && [...D.messages.values()].length === 15 && db.prepare("SELECT COUNT(*) AS c FROM intro_locks").get().c === 0);
   }
   check("an invalid new-channel id is dropped and renders plain text", !parseChannels("addon-development=not-a-snowflake")["addon-development"] && intros.resolveText("see {#addon-development}", parseChannels("addon-development=not-a-snowflake")) === "see #addon-development");
-  db.exec("DELETE FROM intro_posts"); resetDiscord();
+  await env.DB.prepare("DELETE FROM intro_posts").run(); resetDiscord();
   const retryKey = "addon-development", retryChannel = CH[retryKey];
   D.failPostChannel = retryChannel;
   const failedPost = await refreshIntros(env, GUILD, "retry-officer", retryChannel);

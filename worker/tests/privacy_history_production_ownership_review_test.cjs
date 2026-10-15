@@ -8,11 +8,11 @@ if(source.split(boundary).length!==2)throw Error('canonical genuine OAuth fixtur
 async function review(){
  const registry=load('community-context'),before=Array.from(registry.communityDataNames());
  const index=load('index').default,policy=load('community-contribution-policy');
- const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,COMMUNITY_FEATURES:'contributions,restrictions',CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'400'});
- for(const id of[A,B])f.db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,session_version,in_server,denied)VALUES(?,?,?,?,?,7,1,0)').run(id,'Native '+id,f.time(),f.time(),f.time());
- const cookie=(await core.sessionCookie(f.env,A,7)).split(';')[0];
+ const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,PRIVACY_ERASURE_ENABLED:'false',COMMUNITY_FEATURES:'contributions,restrictions',CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'400'});
+ for(const id of[A,B])await fixtureWrite(f,'INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied,checked_at)VALUES(?,?,?,?,7,1,0,?)',id,'Native '+id,f.time(),f.time(),f.time());
+ const cookie=await issueFixtureCookie(f);
  async function staffAction(body){
-  const response=await index.fetch(new Request(BASE+'/api/admin/community/contributions',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json'},body:JSON.stringify(body)}),f.env,{waitUntil(){}});
+  const response=await index.fetch(new Request(BASE+'/api/admin/community/contributions',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json'},body:JSON.stringify(body)}),{...f.env,DB:f.native},{waitUntil(){}});
   const data=await response.json();if(response.status!==200)console.log('PRODUCER_DIAGNOSTIC',response.status,data);
   eq('real ordinary staff mutation admitted',response.status,200);return data;
  }
@@ -24,9 +24,9 @@ async function review(){
  const decision=f.db.prepare('SELECT * FROM community_contribution_decisions').get();
  eq('producer persisted original staff prefix',decision.actor,'staff:'+A);eq('producer decision concerns another member',decision.discord_id,B);
  const plan=registry.communityExportPlan(f.env,A),names=Array.from(registry.communityDataNames()),native=await f.env.DB.batch(plan.statements);
- const inventory={before,productionFamilies:names,productionStatementCount:plan.statements.length,queries:plan.statements.map((s,i)=>({index:i,tables:Array.from(new Set(Array.from(s.sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]+)/gi),x=>x[1]))),returned:native[i].results.length}))};
+ const inventory={before,productionFamilies:names,productionStatementCount:plan.statements.length,queries:load('privacy-write-admission').originalPrivacyAdmissionGroupProjection(f.env.DB,plan.statements).logical.map((s,i)=>({index:i,tables:Array.from(new Set(Array.from(s.sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]+)/gi),x=>x[1]))),returned:native[i].results.length}))};
  console.log('ACTUAL_PRODUCTION_EXPORT_CENSUS '+JSON.stringify(inventory));
- eq('actual index imports thirteen registered families',names.length,13);eq('actual index imports34 registered copy statements',plan.statements.length,34);
+ eq('actual index imports thirteen registered families',names.length,13);eq('actual index imports36 registered copy statements',plan.statements.length,36);
  ok('production census includes purpose and news families',names.includes('privacy_access')&&names.includes('news'));
  async function own(collection){const connection=await connect(f),frm=await form(f,connection);provider=null;const response=await copy.exportPrivacyAccess(frm.request({collection}),f.env);eq('genuine own '+collection+' download admitted',response.status,200);return response.json();}
  const history=await own('contributionDecisions'),aggregate=await own('copy');

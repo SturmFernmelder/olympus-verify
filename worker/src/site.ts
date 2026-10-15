@@ -1,4 +1,8 @@
+import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql} from './privacy-serving-authority';
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import { admittedPrivacyOAuthWrite, admittedPrivacySubjectWrite, readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
+import {captureSiteOAuthAccount,dispatchSiteOAuthProfile,siteOAuthCallbackInput,assertSiteOAuthCallbackCustody,verifySiteOAuthState,signSiteOAuthCookie,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
+import {RecoveryFloorHeld} from './privacy-recovery-floor';
 /**
  * The Olympus guild site (build .41, 29 Sep 2026; .43, 30 Sep: the game's own art, the voting board): registration,
  * applications, votes, friends and reserved names, at SITE_HOST (guild.roachcouncil.com).
@@ -30,10 +34,11 @@ import { recordNames } from "./names";
 import { policyResponse } from "./policies";
 import { handlePolicyForms } from "./policy-forms";
 import { policyHeaders } from "./policy-render";
-import { loadSettings, meta, snowflakeTime } from "./site-data";
+import { loadSiteState, meta, snowflakeTime } from "./site-data";
 import { handleApi, meData } from "./site-api";
-import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sessionCookie, sign, verify, SESSION_COOKIE } from "./site-core";
+import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
 import { rankPlannerPage } from "./site-ranks";
+import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
 import { siteSignIn } from './site-access';
 
@@ -51,8 +56,13 @@ export async function handleSite(
   path: string,
   schemaReady: boolean,
   build: string,
-  waitUntil: (p: Promise<unknown>) => void,
+  waitUntil: (work: () => Promise<unknown>) => void,
+  siteOAuthOrigin?:SiteOAuthOrigin,
 ): Promise<Response | null> {
+  if(path==="/auth/callback"){
+    if(!siteOAuthOrigin)return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});
+    try{const original=siteOAuthCallbackInput(siteOAuthOrigin,request,env);request=original.request;env=original.env;}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}
+  }
   const url = new URL(request.url);
   // Cloudflare serves the custom domain over HTTPS; a plain-HTTP request only reaches here if nothing upgraded it.
   if (url.protocol === "http:" && url.hostname !== "localhost") {
@@ -60,7 +70,9 @@ export async function handleSite(
     const headers = policyHeaders(); headers.set("Location", url.toString());
     return new Response(null, { status: 301, headers });
   }
+  if (path === '/admin/qr/beta-window') return attendedBetaWindowPage(request, env, schemaReady);
   const privacyForms = await handlePolicyForms(request, env, path, schemaReady);
+  if(path==='/auth/callback'){try{assertSiteOAuthCallbackCustody(siteOAuthOrigin!);}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}}
   if (privacyForms) return privacyForms;
   // .90 (P-17): the sign-in routes are the site's unauthenticated entry points that do work (a state cookie, a token exchange):
   // limited per client address, in memory (approximate per isolate; a first filter in front of the zone's own rules)
@@ -78,7 +90,7 @@ export async function handleSite(
   if (m === "GET" && path === "/auth/login") return login(env, url, url.searchParams.get("consent") === "1");
   if (m === "GET" && path === "/auth/callback") {
     if (!schemaReady) return page(env, request, build, { flash: { kind: "updating" } }, 503);
-    return callback(env, request, url, build, waitUntil);
+    try{return await callback(env,request,url,build,waitUntil,siteOAuthOrigin);}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}
   }
   if (m === "POST" && path === "/auth/logout") return logout(env, request);
   if (path === "/admin/ranks") return rankPlannerPage(request, env, schemaReady); // .86: the staff rank planner (SITE_ADMINS; GET/HEAD only, judged there)
@@ -107,8 +119,8 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
       const flash = extra.flash as { kind?: string } | undefined;
       return siteSignIn(request, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
     }
-    const settings = await loadSettings(env);
-    boot = user ? await meData(env, user, settings) : { signedIn: false, settings, meta: meta(), now: now() };
+    const state = await loadSiteState(env), settings = state.settings;
+    boot = user ? await meData(env, user, settings, state.ruleset) : { signedIn: false, settings, meta: meta(state.ruleset), now: now() };
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
     return siteSignIn(request, 503, 'updating', cookies);
@@ -190,14 +202,17 @@ interface DiscordMember {
   pending?: boolean;
 }
 
-async function callback(env: Env, request: Request, url: URL, build: string, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+async function callback(env: Env, request: Request, url: URL, build: string, waitUntil: (work: () => Promise<unknown>) => void,oauthOrigin?:SiteOAuthOrigin): Promise<Response> {
+  if(!oauthOrigin)return apiJson({error:'privacy_held'},503);
+  const original=oauthOrigin;
+  const step=async<T>(work:()=>Promise<T>):Promise<T>=>{assertSiteOAuthCallbackCustody(original);const value=await work();assertSiteOAuthCallbackCustody(original);return value;};
   const clear = [clearCookie(STATE_COOKIE)];
   const flash = (kind: string, status = 400, detail?: string) => page(env, request, build, { flash: { kind, detail } }, status, clear);
   const missing = missingConfig(env);
   if (missing) return flash("not_configured", 503, missing);
   const state = url.searchParams.get("state") ?? "";
   const [cState, cMac] = cookie(request, STATE_COOKIE).split(".");
-  const stateOk = !!state && cState === state && !!cMac && (await verify(env.COOKIE_SECRET, "state", state, cMac));
+  const stateOk = !!state && cState === state && !!cMac && (await step(()=>verifySiteOAuthState(original,state,cMac)));
   const error = url.searchParams.get("error");
   if (error) {
     // The person pressed Cancel: say so. Anything else on a silent (prompt=none) attempt: once more, with consent.
@@ -211,7 +226,7 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   const code = url.searchParams.get("code") ?? "";
   if (!code || !stateOk) return flash("expired");
 
-  const tokenRes = await credentialFetch(`${API}/oauth2/token`, {
+  const tokenRes = await step(()=>credentialFetch(`${API}/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -221,44 +236,48 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
       code,
       redirect_uri: `${url.origin}/auth/callback`,
     }),
-  });
+  }));
   if (!tokenRes.ok) {
-    await audit(env, "site", "site.login_failed", undefined, { step: "token", status: tokenRes.status });
+    await step(()=>audit(env, "site", "site.login_failed", undefined, { step: "token", status: tokenRes.status }));
     return flash("discord_error", 502, `token ${tokenRes.status}`);
   }
-  const token = (await tokenRes.json()) as { access_token?: string };
+  const token = (await step(()=>tokenRes.json())) as { access_token?: string };
   if (!token.access_token) return flash("discord_error", 502, "no token");
   const auth = { Authorization: `Bearer ${token.access_token}` };
 
-  const meRes = await credentialFetch(`${API}/users/@me`, { headers: auth });
+  const meRes = await step(()=>credentialFetch(`${API}/users/@me`, { headers: auth }));
   if (!meRes.ok) return flash("discord_error", 502, `user ${meRes.status}`);
-  const me = (await meRes.json()) as { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean };
+  const me = (await step(()=>meRes.json())) as { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean };
   if (!/^\d{17,20}$/.test(me.id ?? "") || me.bot) return flash("discord_error", 502, "user");
 
-  const privacyCapture = await readPrivacySubject(env,me.id);
+  const privacyCapture = await step(()=>readPrivacySubject(env,me.id));
   let privacyIssuedAt:number|null=null;
   try { const encoded=state.slice(0,-1);const parsed=JSON.parse(atob(encoded.replace(/-/g,'+').replace(/_/g,'/')));if(Number.isSafeInteger(parsed.issuedAt)&&parsed.issuedAt>0)privacyIssuedAt=parsed.issuedAt; } catch { /* old states cannot re-create a retired subject */ }
 
+  // Preserve the original authenticated me/G-or-absence before the awaited member lookup.
+  if(!oauthOrigin)return flash('privacy_held',409);
+  try{captureSiteOAuthAccount(oauthOrigin,me,privacyCapture,privacyIssuedAt);}catch{return flash('privacy_held',409);}
+
   // The one thing this site needs to know about someone's servers: are they in this one. guilds.members.read answers
   // for this server only, with 404 for "not a member".
-  const memRes = await credentialFetch(`${API}/users/@me/guilds/${env.SITE_GUILD_ID}/member`, { headers: auth });
+  const memRes = await step(()=>credentialFetch(`${API}/users/@me/guilds/${env.SITE_GUILD_ID}/member`, { headers: auth }));
   if (memRes.status === 404) {
     try {
-      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+      await step(()=>admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]));
     } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
-    await audit(env, 'site', "site.login_not_member");
+    await step(()=>audit(env, 'site', "site.login_not_member"));
     return siteSignIn(request, 403, 'not_member', [...clear, clearCookie(SESSION_COOKIE)]);
   }
   if (memRes.status === 429) return flash("busy", 429);
   if (!memRes.ok) {
-    await audit(env, 'site', "site.login_failed", undefined, { step: "member", status: memRes.status });
+    await step(()=>audit(env, 'site', "site.login_failed", undefined, { step: "member", status: memRes.status }));
     return flash("discord_error", 502, `member ${memRes.status}`);
   }
-  const member = (await memRes.json()) as DiscordMember;
+  const member = (await step(()=>memRes.json())) as DiscordMember;
   // Membership screening not finished (the server's rules not accepted yet): not a member in any useful sense.
   if (member.pending) {
     try {
-      await admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]);
+      await step(()=>admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]));
     } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
     return siteSignIn(request, 403, 'pending', [...clear, clearCookie(SESSION_COOKIE)]);
   }
@@ -269,23 +288,21 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   // A new row starts its session version at a random number, not at 1: someone who deleted their data and signs up
   // again must not bring a cookie from before the delete back to life (one from the same second, too).
   const firstVersion = 2 + (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0);
-  const privacyWrite = env.DB.prepare(
+  const privacyWrite = Object.freeze({sql:
     `INSERT INTO site_users (discord_id, username, global_name, nick, avatar, account_created, server_joined, first_login, last_login, checked_at, in_server, session_version)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?8, 1, ?9)
      ON CONFLICT(discord_id) DO UPDATE SET username = ?2, global_name = ?3, nick = ?4, avatar = ?5, account_created = ?6,
        server_joined = ?7, last_login = ?8, checked_at = ?8, in_server = 1
-     RETURNING session_version`,
-  )
-    .bind(me.id, me.username.slice(0, 64), me.global_name?.slice(0, 64) ?? null, member.nick?.slice(0, 64) ?? null, avatar,
-      snowflakeTime(me.id), Number.isFinite(joined) ? joined : null, t, firstVersion)
-    ;
-  let row:{session_version:number}|undefined,admittedSubject:PrivacySubject;
-  try { const result=await admittedPrivacyOAuthWrite(env,me.id,privacyCapture,privacyIssuedAt,privacyWrite);row=result.results[0] as {session_version:number}|undefined;admittedSubject=result.privacySubject; } catch { return flash('privacy_held',409); }
-  waitUntil(recordNames(env, me,false,admittedSubject).catch(() => {}));
-  try { await admittedPrivacySubjectWrite(env,me.id,admittedSubject,[env.DB.prepare('INSERT INTO audit(ts,actor,action)VALUES(?1,?2,?3)').bind(t,me.id,'site.login')]); } catch { return flash('privacy_held',409); }
+     RETURNING session_version, account_incarnation`,
+  binds:Object.freeze([me.id, me.username.slice(0, 64), me.global_name?.slice(0, 64) ?? null, member.nick?.slice(0, 64) ?? null, avatar,
+      snowflakeTime(me.id), Number.isFinite(joined) ? joined : null, t, firstVersion])});
+  let nativeReply:Awaited<ReturnType<typeof dispatchSiteOAuthProfile>>,admittedSubject:PrivacySubject;
+  try { nativeReply=await step(()=>dispatchSiteOAuthProfile(original,privacyWrite));admittedSubject=nativeReply.privacySubject; } catch { return flash('privacy_held',409); }
+  waitUntil(()=>recordNames(env, me,false,admittedSubject).catch(() => {}));
+  try { await step(()=>admittedPrivacySubjectWrite(env,me.id,admittedSubject,[env.DB.prepare('INSERT INTO audit(ts,actor,action)VALUES(?1,?2,?3)').bind(t,me.id,'site.login')])); } catch { return flash('privacy_held',409); }
   const h = securityHeaders(new Headers({ Location: "/" }));
   h.append("Set-Cookie", clear[0]);
-  h.append("Set-Cookie", await sessionCookie(env, me.id, row?.session_version ?? 1,admittedSubject.subjectGeneration));
+  try{h.append("Set-Cookie",await step(()=>signSiteOAuthCookie(original,nativeReply)));}catch{return flash('privacy_held',409);}
   return new Response(null, { status: 303, headers: h });
 }
 
@@ -293,7 +310,7 @@ async function logout(env: Env, request: Request): Promise<Response> {
   if (!sameOrigin(request)) return apiJson({ error: "bad_origin" }, 403);
   const s = await readSession(env, request);
   if (s) {
-    await env.DB.prepare("UPDATE site_users SET session_version = session_version + 1 WHERE discord_id = ?1 AND session_version = ?2").bind(s.u, s.v).run();
+    assertOriginalSiteSessionRead(s);await env.DB.prepare(`UPDATE site_users SET session_version = session_version + 1 WHERE discord_id = ?1 AND session_version = ?2 AND account_incarnation = ?3 AND ${privacyGenerationLiteralFenceSql('discord_id',s.g)} AND ${s.e}>CAST(strftime('%s','now') AS INTEGER)`).bind(s.u,s.v,s.n).run();assertOriginalSiteSessionRead(s);
   }
   return apiJson({ ok: true }, 200, { "Set-Cookie": clearCookie(SESSION_COOKIE) });
 }

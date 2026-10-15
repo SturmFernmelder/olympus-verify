@@ -16,7 +16,7 @@
  */
 import { errorRef } from "./log";
 import type { Env } from "./env";
-import { rulesetLabel } from "./ruleset-profile";
+import { activeRulesetSnapshot, rulesetDecidedText, rulesetLabel, type RulesetSnapshot } from "./ruleset-profile";
 import { audit, now } from "./db";
 import { DiscordError, EPHEMERAL, explainDiscordError, json, option, reply, rest, subcommand, userOf, type Interaction } from "./discord";
 
@@ -81,7 +81,7 @@ export const INTROS: Intro[] = [
         title: "Olympus — Asmongold's guild in World of Warcraft: Forever",
         color: GOLD,
         description: [
-          `Current game: **${rulesetLabel()}**.`,
+          "Current game: **{ruleset-label}**.",
           "",
           "**Get into the guild channels**",
           "1. Read the server rules in {#server-rules}; they apply here too.",
@@ -155,7 +155,7 @@ export const INTROS: Intro[] = [
     embeds: [{
       title: "Guild announcements",
       color: GOLD,
-      description: `News from Olympus leadership.\nCurrent game: **${rulesetLabel()}**.\n**Ruleset: PvP · Faction: Alliance** (decided 16 September 2026).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.`,
+      description: "News from Olympus leadership.\nCurrent game: **{ruleset-label}**.\n**Ruleset: {ruleset-ruleset} · Faction: {ruleset-faction}** ({ruleset-decided}).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.",
     }],
   },
   {
@@ -244,7 +244,7 @@ export const INTROS: Intro[] = [
       title: "Raid sign-ups",
       color: RAID,
       description: [
-        "Sign up in the thread linked from the raid notice:",
+        "Sign up with the buttons under each raid notice (Sign up · Tentative · Can't make it) or on the guild site's calendar; the buttons work for verified members who have signed in on the site once. For a notice without buttons, answer in its thread:",
         "**Character:**",
         "**Class / spec:**",
         "**Role:** Tank / Healer / DPS",
@@ -281,7 +281,7 @@ export const INTROS: Intro[] = [
       description: [
         "Shared coordination for Guild Masters and officers across Olympus I–X. These Council channels retain private access. The separate Olympus Council GM and Olympus Council Officer roles remain unassigned.",
         "",
-        "**Provisional until the Council charter is ratified.** The governance documents are drafts; no ratification or appointments under those drafts have been recorded. Existing Olympus I leadership and permissions remain separate.",
+        "**Governance adopted.** The Olympus governance book (R7) was adopted on 13 October 2026 by the Olympus guild administration and is published on the guild site. Council seats, votes and permissions exist only through recorded appointments; this channel creates none. Existing Olympus I leadership and permissions remain separate.",
         "",
         "Council roles are given by hand after review. They provide access to these Council channels and grant no website, bot or in-game authority.",
         "",
@@ -302,7 +302,7 @@ export const INTROS: Intro[] = [
       description: [
         "Discussion and coordination between the Guild Masters and officers of Olympus I–X. Keep the topic clear; record short agreed notes in {#council-decisions}.",
         "",
-        "Council arrangements remain provisional until the charter is ratified. Discussion here does not appoint anyone or grant website, bot or in-game authority.",
+        "Council arrangements follow the adopted Olympus governance book (R7, 13 October 2026). Discussion here does not appoint anyone or grant website, bot or in-game authority.",
         "",
         "No personal reports, appeals, member case details or credentials. Use the existing private staff tools or contact an officer. Server administrators and bots with Administrator can read this channel.",
       ].join("\n"),
@@ -317,7 +317,7 @@ export const INTROS: Intro[] = [
       description: [
         "Short factual notes of what the Council agreed: the topic, affected guilds, practical next step and anything still unresolved. Refer to {#council-chat} for the discussion where useful.",
         "",
-        "The Council charter and governance documents remain drafts. How binding decisions are made is set by the charter once ratified. A note here does not ratify a draft, appoint anyone or grant website, bot or in-game authority.",
+        "How binding decisions are made is set by the adopted Olympus governance book (R7, 13 October 2026). A note here does not amend it, appoint anyone or grant website, bot or in-game authority.",
         "",
         "Keep personal data, member case files, appeals and credentials out of these notes. Use the existing private staff tools or contact an officer.",
       ].join("\n"),
@@ -392,8 +392,16 @@ export function resolveText(text: string, channels: Record<string, string>): str
   return text.replace(/\{#([a-z0-9-]+)\}/g, (_m, k: string) => (channels[k] ? `<#${channels[k]}>` : `#${k}`));
 }
 
-export function renderEmbeds(intro: Intro, channels: Record<string, string>): Embed[] {
-  return JSON.parse(JSON.stringify(intro.embeds), (_k, v) => (typeof v === "string" ? resolveText(v, channels) : v)) as Embed[];
+const RULESET_TOKEN = /\{ruleset-(label|ruleset|faction|decided)\}/g;
+/** Item 7 (14 Oct 2026): the game identity is a resolved snapshot, substituted at render time; a held identity renders nothing that names it. */
+export function resolveRuleset(text: string, snapshot: RulesetSnapshot): string {
+  return text.replace(RULESET_TOKEN, (_m, k: string) => {
+    if (!snapshot.profile) throw new Error("ruleset_profile_held");
+    return k === "label" ? rulesetLabel(snapshot.profile) : k === "ruleset" ? snapshot.profile.ruleset : k === "faction" ? snapshot.profile.faction : rulesetDecidedText(snapshot);
+  });
+}
+export function renderEmbeds(intro: Intro, channels: Record<string, string>, snapshot: RulesetSnapshot): Embed[] {
+  return JSON.parse(JSON.stringify(intro.embeds), (_k, v) => (typeof v === "string" ? resolveRuleset(resolveText(v, channels), snapshot) : v)) as Embed[];
 }
 
 /** What the bot last posted is compared by this, so a refresh edits only what changed. A forum post's title counts. */
@@ -611,6 +619,7 @@ const cost = (intro: Intro) => (intro.forum ? 5 : 4);
 
 export async function refreshIntros(env: Env, guild: string, actor: string, only?: string, budget = BUDGET): Promise<RefreshResult> {
   const managed=['olympus-info','guild-announcements']; // These approved identity slots use the durable staff publisher.
+  const snapshot = await activeRulesetSnapshot(env); // item 7: resolved once; the managed slots never render here, so a hold stops nothing else
   const channels = parseChannels(env.INTROS_CHANNELS);
   const list = INTROS.filter((x) => !only || channels[x.channel] === only);
   const holder = `${actor}:${crypto.randomUUID()}`;
@@ -632,7 +641,7 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
         outcomes.push({ key: intro.key, action: "not-reached", channelId: parent });
         continue;
       }
-      const embeds = renderEmbeds(intro, channels);
+      const embeds = renderEmbeds(intro, channels, snapshot);
       const problems = validateEmbeds(embeds);
       if ((intro.content ?? "").length > 2000) problems.push(`the content line is ${intro.content!.length} characters (2000 allowed)`);
       if (problems.length) {
@@ -706,6 +715,7 @@ export function summarize(res: RefreshResult): string {
 
 /** From the records only (no Discord calls): posted or not, and whether the text changed since the last refresh. */
 export async function introStatus(env: Env, guild: string): Promise<string> {
+  const snapshot = await activeRulesetSnapshot(env); // item 7
   const channels = parseChannels(env.INTROS_CHANNELS);
   const rows = await loadRows(env, guild);
   const lines = [
@@ -725,7 +735,7 @@ export async function introStatus(env: Env, guild: string): Promise<string> {
       lines.push(`➕ <#${parent}>: not posted yet`);
       continue;
     }
-    const hash = await introHash(intro, renderEmbeds(intro, channels));
+    const hash = await introHash(intro, renderEmbeds(intro, channels, snapshot));
     const where = row.channel_id === parent ? `<#${parent}>` : `<#${row.channel_id}> in <#${parent}>`;
     lines.push(row.hash === hash ? `✅ ${where}: current` : `♻️ ${where}: text changed since the last refresh`);
   }
@@ -752,7 +762,7 @@ export function mayManageIntros(env: Env, i: Interaction): boolean {
  * Discord waits for an answer, so it is deferred (type 5, only the officer sees it) and finished in waitUntil, which
  * edits the reply with the summary.
  */
-export async function handleIntros(env: Env, i: Interaction, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+export async function handleIntros(env: Env, i: Interaction, waitUntil: (work: () => Promise<unknown>) => void): Promise<Response> {
   const guild = (env.INTROS_GUILD_ID ?? "").trim();
   if (!guild || i.guild_id !== guild) return reply("This command only works in the server that holds the Olympus intros.");
   if (!mayManageIntros(env, i)) return reply("Olympus officers only.");
@@ -777,7 +787,7 @@ export async function handleIntros(env: Env, i: Interaction, waitUntil: (p: Prom
           } catch (e) {
             console.error("intros: could not edit the deferred reply", errorRef(e));
           }
-        })(),
+        }),
       );
       return json({ type: 5, data: { flags: EPHEMERAL } });
     }

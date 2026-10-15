@@ -227,7 +227,15 @@ CREATE TABLE IF NOT EXISTS site_users (
   denied          INTEGER NOT NULL DEFAULT 0,   -- 1 = permanently denied (joke or abusive application)
   denied_reason   TEXT,
   denied_at       INTEGER,
-  denied_by       TEXT
+  denied_by       TEXT,
+  account_incarnation TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))) CHECK(typeof(account_incarnation)='text' AND length(account_incarnation)=32 AND length(CAST(account_incarnation AS BLOB))=32 AND instr(account_incarnation,char(0))=0 AND account_incarnation NOT GLOB '*[^0-9a-f]*'),
+  rejection_event_id TEXT CHECK(rejection_event_id IS NULL OR (typeof(rejection_event_id)='text' AND length(rejection_event_id)=32 AND length(CAST(rejection_event_id AS BLOB))=32 AND instr(rejection_event_id,char(0))=0 AND rejection_event_id NOT GLOB '*[^0-9a-f]*')),
+  rejection_subject_key TEXT CHECK(rejection_subject_key IS NULL OR (typeof(rejection_subject_key)='text' AND length(rejection_subject_key)=43 AND length(CAST(rejection_subject_key AS BLOB))=43 AND instr(rejection_subject_key,char(0))=0 AND rejection_subject_key NOT GLOB '*[^A-Za-z0-9_-]*' AND substr(rejection_subject_key,43,1) IN('A','E','I','M','Q','U','Y','c','g','k','o','s','w','0','4','8'))),
+  rejection_scope TEXT CHECK(rejection_scope IS NULL OR rejection_scope IN('pure_member_including_fallback0','pure_member_including_fallback1')),
+  rejection_window_expired INTEGER NOT NULL DEFAULT 0 CHECK(typeof(rejection_window_expired)='integer' AND rejection_window_expired IN(0,1)),
+  CHECK(CASE WHEN rejection_event_id IS NULL AND rejection_subject_key IS NULL AND rejection_scope IS NULL AND rejection_window_expired=0 THEN 1
+   WHEN rejection_event_id IS NOT NULL AND rejection_subject_key IS NOT NULL AND rejection_scope IS NOT NULL AND rejection_window_expired=0 THEN 1
+   WHEN rejection_event_id IS NULL AND rejection_subject_key IS NOT NULL AND rejection_scope IS NOT NULL AND rejection_window_expired=1 THEN 1 ELSE 0 END)
 );
 
 CREATE TABLE IF NOT EXISTS site_applications (
@@ -253,7 +261,14 @@ CREATE TABLE IF NOT EXISTS site_applications (
   reviewed_by TEXT,
   reviewed_at INTEGER,
   created_at  INTEGER NOT NULL,
-  updated_at  INTEGER NOT NULL
+  updated_at  INTEGER NOT NULL,
+  rejection_event_id TEXT CHECK(rejection_event_id IS NULL OR (typeof(rejection_event_id)='text' AND length(rejection_event_id)=32 AND length(CAST(rejection_event_id AS BLOB))=32 AND instr(rejection_event_id,char(0))=0 AND rejection_event_id NOT GLOB '*[^0-9a-f]*')),
+  rejection_subject_key TEXT CHECK(rejection_subject_key IS NULL OR (typeof(rejection_subject_key)='text' AND length(rejection_subject_key)=43 AND length(CAST(rejection_subject_key AS BLOB))=43 AND instr(rejection_subject_key,char(0))=0 AND rejection_subject_key NOT GLOB '*[^A-Za-z0-9_-]*' AND substr(rejection_subject_key,43,1) IN('A','E','I','M','Q','U','Y','c','g','k','o','s','w','0','4','8'))),
+  rejection_scope TEXT CHECK(rejection_scope IS NULL OR rejection_scope IN('pure_member_including_fallback0','pure_member_including_fallback1')),
+  rejection_window_expired INTEGER NOT NULL DEFAULT 0 CHECK(typeof(rejection_window_expired)='integer' AND rejection_window_expired IN(0,1)),
+  CHECK(CASE WHEN rejection_event_id IS NULL AND rejection_subject_key IS NULL AND rejection_scope IS NULL AND rejection_window_expired=0 THEN 1
+   WHEN rejection_event_id IS NOT NULL AND rejection_subject_key IS NOT NULL AND rejection_scope IS NOT NULL AND rejection_window_expired=0 THEN 1
+   WHEN rejection_event_id IS NULL AND rejection_subject_key IS NOT NULL AND rejection_scope IS NOT NULL AND rejection_window_expired=1 THEN 1 ELSE 0 END)
 );
 CREATE INDEX IF NOT EXISTS site_applications_position ON site_applications(position, status);
 
@@ -456,7 +471,7 @@ CREATE TABLE IF NOT EXISTS community_event_signups (               -- one effect
   revision       INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
   rsvp_starts_at INTEGER NOT NULL,                                 -- the start the member answered for (changedSinceRsvp)
   updated_at     INTEGER NOT NULL,
-  write_nonce    TEXT,
+  write_nonce    TEXT, remind_mention INTEGER NOT NULL DEFAULT 0 CHECK (remind_mention IN (0, 1)), decision TEXT CHECK (decision IS NULL OR decision IN ('accepted', 'bench', 'declined')), decided_by TEXT, decided_at INTEGER, decision_revision INTEGER NOT NULL DEFAULT 0 CHECK (decision_revision >= 0),
   PRIMARY KEY (event_id, discord_id),
   CHECK ((character_name IS NULL) = (character_key IS NULL))
 );
@@ -881,7 +896,7 @@ CREATE TABLE IF NOT EXISTS community_event_deliveries (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   retain_until INTEGER NOT NULL,
-  result_code TEXT,
+  result_code TEXT, actor_account_incarnation TEXT CHECK(actor_account_incarnation IS NULL OR (typeof(actor_account_incarnation)='text' AND length(actor_account_incarnation)=32 AND length(CAST(actor_account_incarnation AS BLOB))=32 AND instr(actor_account_incarnation,char(0))=0 AND actor_account_incarnation NOT GLOB '*[^0-9a-f]*')),
   PRIMARY KEY (event_id,purpose)
 );
 CREATE INDEX IF NOT EXISTS community_event_deliveries_retain ON community_event_deliveries(retain_until);
@@ -906,26 +921,53 @@ CREATE TABLE IF NOT EXISTS community_event_reminders (
   updated_at INTEGER NOT NULL,
   last_attempt_at INTEGER NOT NULL DEFAULT 0,
   retain_until INTEGER NOT NULL
-);
+, consent_account_incarnation TEXT CHECK(consent_account_incarnation IS NULL OR (typeof(consent_account_incarnation)='text' AND length(consent_account_incarnation)=32 AND length(CAST(consent_account_incarnation AS BLOB))=32 AND instr(consent_account_incarnation,char(0))=0 AND consent_account_incarnation NOT GLOB '*[^0-9a-f]*')), mention_ids TEXT CHECK(mention_ids IS NULL OR (json_valid(mention_ids) AND json_type(mention_ids)='array')));
 CREATE INDEX IF NOT EXISTS community_event_reminders_due ON community_event_reminders(state,last_attempt_at,starts_at,event_id);
 
 -- Councillor browser attestation and durable one-effect role outcomes. Activation remains OFF.
+CREATE TABLE IF NOT EXISTS qr_beta_fern_windows (
+ id TEXT PRIMARY KEY,actor TEXT NOT NULL CHECK(actor='472099715253796864'),
+ account_incarnation TEXT NOT NULL,subject_generation TEXT NOT NULL,session_version INTEGER NOT NULL,session_expires INTEGER NOT NULL,
+ guild_id TEXT NOT NULL CHECK(guild_id='236932545793490944'),application_id TEXT NOT NULL CHECK(application_id='1550176895671341076'),
+ signer_guid TEXT NOT NULL CHECK(signer_guid='Player-4613-005A70D8'),signer_name TEXT NOT NULL CHECK(signer_name='Fern Melder'),
+ guild_name TEXT NOT NULL CHECK(guild_name='OLYMPUS'),realm_name TEXT NOT NULL CHECK(realm_name='Classic Beta PvP 2'),guild_realm TEXT NOT NULL CHECK(guild_realm='ClassicBetaPvP'),
+ game_build INTEGER NOT NULL CHECK(game_build=70338),game_interface INTEGER NOT NULL CHECK(game_interface=16001),
+ native_rank TEXT NOT NULL CHECK(native_rank='Officer'),native_rank_index INTEGER NOT NULL CHECK(native_rank_index=1),native_rank_count INTEGER NOT NULL CHECK(native_rank_count=5),
+ roster_id INTEGER NOT NULL,links_not_before INTEGER NOT NULL,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,review_digest TEXT NOT NULL,revoked_at INTEGER,
+ requester_id TEXT NOT NULL CHECK(requester_id='102204162531430400'),requester_name TEXT NOT NULL CHECK(requester_name='Stavros Heuto'),requester_guid TEXT NOT NULL,requester_generation TEXT NOT NULL,requester_account_incarnation TEXT NOT NULL,request_code TEXT NOT NULL,request_created_at INTEGER NOT NULL,request_expires_at INTEGER NOT NULL,membership_role TEXT NOT NULL,
+ CHECK(typeof(created_at)='integer' AND created_at BETWEEN 1 AND 9007199168340991 AND typeof(expires_at)='integer' AND expires_at>created_at AND expires_at<=created_at+86400 AND expires_at<=session_expires),
+ CHECK(typeof(id)='text' AND length(id)=32 AND length(CAST(id AS BLOB))=32 AND id NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(account_incarnation)='text' AND length(account_incarnation)=32 AND length(CAST(account_incarnation AS BLOB))=32 AND account_incarnation NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(subject_generation)='text' AND length(subject_generation)=32 AND length(CAST(subject_generation AS BLOB))=32 AND subject_generation NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(review_digest)='text' AND length(review_digest)=64 AND length(CAST(review_digest AS BLOB))=64 AND review_digest NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(session_version)='integer' AND session_version BETWEEN 1 AND 9007199254740991 AND typeof(session_expires)='integer' AND session_expires BETWEEN 1 AND 9007199254740991),
+ CHECK(typeof(roster_id)='integer' AND roster_id BETWEEN 1 AND 9007199254740991),
+ CHECK(typeof(links_not_before)='integer' AND links_not_before BETWEEN 0 AND 9007199254740991),
+ CHECK(typeof(requester_guid)='text' AND length(requester_guid) BETWEEN 17 AND 24 AND length(CAST(requester_guid AS BLOB))=length(requester_guid) AND instr(requester_guid,char(0))=0 AND requester_guid<>signer_guid),
+ CHECK(typeof(requester_generation)='text' AND length(requester_generation)=32 AND length(CAST(requester_generation AS BLOB))=32 AND instr(requester_generation,char(0))=0 AND requester_generation NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(requester_account_incarnation)='text' AND length(requester_account_incarnation)=32 AND length(CAST(requester_account_incarnation AS BLOB))=32 AND instr(requester_account_incarnation,char(0))=0 AND requester_account_incarnation NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(request_code)='text' AND length(request_code)=32 AND length(CAST(request_code AS BLOB))=32 AND instr(request_code,char(0))=0 AND request_code NOT GLOB '*[^0-9a-f]*'),
+ CHECK(typeof(request_created_at)='integer' AND request_created_at>0 AND typeof(request_expires_at)='integer' AND request_expires_at>request_created_at AND request_expires_at<=request_created_at+600 AND expires_at<=request_expires_at),
+ CHECK(typeof(membership_role)='text' AND length(membership_role) BETWEEN 17 AND 20 AND length(CAST(membership_role AS BLOB))=length(membership_role) AND instr(membership_role,char(0))=0 AND membership_role NOT GLOB '*[^0-9]*'),
+ CHECK(revoked_at IS NULL OR (typeof(revoked_at)='integer' AND revoked_at BETWEEN created_at AND 9007199254740991)));
+CREATE INDEX IF NOT EXISTS qr_beta_fern_actor ON qr_beta_fern_windows(actor,expires_at);
+
 CREATE TABLE IF NOT EXISTS councillor_keys (
  id TEXT PRIMARY KEY, signer TEXT NOT NULL, signer_guid TEXT NOT NULL, public_key TEXT NOT NULL,
  subject_generation TEXT NOT NULL, roster_id INTEGER NOT NULL,
- created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, UNIQUE(signer,public_key));
+ created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, signer_account_incarnation TEXT CHECK(signer_account_incarnation IS NULL OR (typeof(signer_account_incarnation)='text' AND length(signer_account_incarnation)=32 AND length(CAST(signer_account_incarnation AS BLOB))=32 AND instr(signer_account_incarnation,char(0))=0 AND signer_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id), UNIQUE(signer,public_key));
 
 CREATE TABLE IF NOT EXISTS councillor_challenges (
  nonce TEXT PRIMARY KEY, key_id TEXT NOT NULL REFERENCES councillor_keys(id), signer TEXT NOT NULL,
  session_version INTEGER NOT NULL, session_expires INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
  mode TEXT NOT NULL CHECK(mode IN('single','automatic')), max_proofs INTEGER NOT NULL CHECK(max_proofs IN(1,10)),
- proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs));
+ proofs_used INTEGER NOT NULL DEFAULT 0 CHECK(proofs_used>=0 AND proofs_used<=max_proofs), signer_account_incarnation TEXT CHECK(signer_account_incarnation IS NULL OR (typeof(signer_account_incarnation)='text' AND length(signer_account_incarnation)=32 AND length(CAST(signer_account_incarnation AS BLOB))=32 AND instr(signer_account_incarnation,char(0))=0 AND signer_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id));
 
 CREATE TABLE IF NOT EXISTS verification_requests (
  code TEXT PRIMARY KEY, requester TEXT NOT NULL, subject_generation TEXT,
  created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
  state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN('pending','proved','expired')),
- session_version INTEGER, session_expires INTEGER);
+ session_version INTEGER, session_expires INTEGER, requester_account_incarnation TEXT CHECK(requester_account_incarnation IS NULL OR (typeof(requester_account_incarnation)='text' AND length(requester_account_incarnation)=32 AND length(CAST(requester_account_incarnation AS BLOB))=32 AND instr(requester_account_incarnation,char(0))=0 AND requester_account_incarnation NOT GLOB '*[^0-9a-f]*')), beta_window_id TEXT REFERENCES qr_beta_fern_windows(id));
 
 CREATE TABLE IF NOT EXISTS verification_proofs (
  id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE REFERENCES verification_requests(code),
@@ -933,7 +975,7 @@ CREATE TABLE IF NOT EXISTS verification_proofs (
  key_id TEXT NOT NULL REFERENCES councillor_keys(id), requester TEXT NOT NULL,
  requester_guid TEXT NOT NULL, requester_name TEXT NOT NULL, native_rank INTEGER NOT NULL, rank_name TEXT NOT NULL, native_profile TEXT NOT NULL,
  signer_guid TEXT NOT NULL, snapshot_id INTEGER NOT NULL, subject_generation TEXT,
- digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+ digest TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, beta_window_id TEXT REFERENCES qr_beta_fern_windows(id));
 
 CREATE TABLE IF NOT EXISTS role_settlements (
  id TEXT PRIMARY KEY, subject TEXT NOT NULL, purpose TEXT NOT NULL,
@@ -951,6 +993,15 @@ CREATE INDEX IF NOT EXISTS qr_key_subject ON councillor_keys(signer,revoked_at);
 
 CREATE INDEX IF NOT EXISTS role_settlement_subject ON role_settlements(subject,state);
 
+
+CREATE TRIGGER IF NOT EXISTS qr_beta_fern_window_immutable BEFORE UPDATE ON qr_beta_fern_windows WHEN
+ NEW.id IS NOT OLD.id OR NEW.actor IS NOT OLD.actor OR NEW.account_incarnation IS NOT OLD.account_incarnation OR NEW.subject_generation IS NOT OLD.subject_generation OR NEW.session_version IS NOT OLD.session_version OR NEW.session_expires IS NOT OLD.session_expires OR NEW.guild_id IS NOT OLD.guild_id OR NEW.application_id IS NOT OLD.application_id OR NEW.signer_guid IS NOT OLD.signer_guid OR NEW.signer_name IS NOT OLD.signer_name OR NEW.guild_name IS NOT OLD.guild_name OR NEW.realm_name IS NOT OLD.realm_name OR NEW.guild_realm IS NOT OLD.guild_realm OR NEW.game_build IS NOT OLD.game_build OR NEW.game_interface IS NOT OLD.game_interface OR NEW.native_rank IS NOT OLD.native_rank OR NEW.native_rank_index IS NOT OLD.native_rank_index OR NEW.native_rank_count IS NOT OLD.native_rank_count OR NEW.roster_id IS NOT OLD.roster_id OR NEW.links_not_before IS NOT OLD.links_not_before OR NEW.created_at IS NOT OLD.created_at OR NEW.expires_at IS NOT OLD.expires_at OR NEW.review_digest IS NOT OLD.review_digest OR NEW.requester_id IS NOT OLD.requester_id OR NEW.requester_name IS NOT OLD.requester_name OR NEW.requester_guid IS NOT OLD.requester_guid OR NEW.requester_generation IS NOT OLD.requester_generation OR NEW.requester_account_incarnation IS NOT OLD.requester_account_incarnation OR NEW.request_code IS NOT OLD.request_code OR NEW.request_created_at IS NOT OLD.request_created_at OR NEW.request_expires_at IS NOT OLD.request_expires_at OR NEW.membership_role IS NOT OLD.membership_role OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS NOT OLD.revoked_at) OR (NEW.revoked_at IS NOT NULL AND (typeof(NEW.revoked_at)<>'integer' OR NEW.revoked_at<OLD.created_at OR NEW.revoked_at>CAST(strftime('%s','now') AS INTEGER)))
+ BEGIN SELECT RAISE(ABORT,'beta_window_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS qr_beta_key_window_immutable BEFORE UPDATE OF beta_window_id ON councillor_keys WHEN NEW.beta_window_id IS NOT OLD.beta_window_id BEGIN SELECT RAISE(ABORT,'beta_key_window_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS qr_beta_challenge_window_immutable BEFORE UPDATE OF beta_window_id ON councillor_challenges WHEN NEW.beta_window_id IS NOT OLD.beta_window_id BEGIN SELECT RAISE(ABORT,'beta_challenge_window_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS qr_beta_proof_window_immutable BEFORE UPDATE OF beta_window_id ON verification_proofs WHEN NEW.beta_window_id IS NOT OLD.beta_window_id BEGIN SELECT RAISE(ABORT,'beta_proof_window_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS qr_beta_request_window_immutable BEFORE UPDATE OF beta_window_id ON verification_requests WHEN (OLD.beta_window_id IS NOT NULL AND NEW.beta_window_id IS NOT OLD.beta_window_id) OR (OLD.beta_window_id IS NULL AND NEW.beta_window_id IS NOT NULL AND (OLD.state<>'pending' OR NEW.state<>'proved' OR NOT EXISTS(SELECT 1 FROM verification_proofs p JOIN qr_beta_fern_windows w ON w.id=p.beta_window_id WHERE p.code=OLD.code AND p.requester=OLD.requester AND p.beta_window_id=NEW.beta_window_id AND w.request_code=OLD.code AND w.requester_id=OLD.requester))) BEGIN SELECT RAISE(ABORT,'beta_request_window_immutable'); END;
+
 -- Serving erasure lifecycle; dormant .129 foundation is unchanged.
 CREATE TABLE IF NOT EXISTS privacy_subjects (
   subject_id TEXT PRIMARY KEY CHECK(length(subject_id) BETWEEN 17 AND 20 AND subject_id NOT GLOB '*[^0-9]*'),
@@ -966,7 +1017,7 @@ CREATE TABLE IF NOT EXISTS privacy_serving_jobs (
   original_session_version INTEGER NOT NULL, original_session_expires INTEGER NOT NULL,
   state TEXT NOT NULL CHECK(state IN('waiting_role','held','erasing','complete')),
   hold_reason TEXT, role_checked_at INTEGER, staff_access TEXT NOT NULL DEFAULT 'unknown' CHECK(staff_access IN('human-managed','none','unknown')),
-  created_at INTEGER NOT NULL, completed_at INTEGER, last_attempt_at INTEGER, retain_until INTEGER NOT NULL,
+  created_at INTEGER NOT NULL, completed_at INTEGER, last_attempt_at INTEGER, retain_until INTEGER NOT NULL, original_account_incarnation TEXT CHECK(original_account_incarnation IS NULL OR (typeof(original_account_incarnation)='text' AND length(original_account_incarnation)=32 AND length(CAST(original_account_incarnation AS BLOB))=32 AND instr(original_account_incarnation,char(0))=0 AND original_account_incarnation NOT GLOB '*[^0-9a-f]*')),
   CHECK(retain_until=created_at+31622400), CHECK((state='complete' AND completed_at IS NOT NULL) OR (state<>'complete' AND completed_at IS NULL))
  );
 CREATE UNIQUE INDEX IF NOT EXISTS privacy_serving_jobs_open ON privacy_serving_jobs(subject_id) WHERE state<>'complete';
@@ -1025,15 +1076,40 @@ CREATE TABLE IF NOT EXISTS ruleset_publications (
  parent_id TEXT, channel_id TEXT, message_id TEXT, frozen_payload TEXT, payload_hash TEXT, record_hash TEXT,
  claim_nonce TEXT, stage TEXT NOT NULL CHECK(stage IN('selection','pending','create','edit','pin')),
  state TEXT NOT NULL CHECK(state IN('selected','pending','claimed','unknown','known','applied','refused','superseded','held')),
- result_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, actor_retain_until INTEGER NOT NULL,
+ result_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, actor_retain_until INTEGER NOT NULL, actor_account_incarnation TEXT CHECK(actor_account_incarnation IS NULL OR (typeof(actor_account_incarnation)='text' AND length(actor_account_incarnation)=32 AND length(CAST(actor_account_incarnation AS BLOB))=32 AND instr(actor_account_incarnation,char(0))=0 AND actor_account_incarnation NOT GLOB '*[^0-9a-f]*')),
  PRIMARY KEY(guild_id,publication_id,target_key)
 );
 
 -- Transaction control only. Trigger installation is a separate qualified source operation, never cron.
 CREATE TABLE IF NOT EXISTS privacy_write_admission (
- singleton INTEGER PRIMARY KEY CHECK(singleton=1), protocol TEXT NOT NULL CHECK(protocol='olympus-write-admission-experiment-1'),
+ singleton INTEGER PRIMARY KEY CHECK(singleton=1), protocol TEXT NOT NULL CHECK(protocol='olympus-write-admission-epoch-2'),
  active INTEGER NOT NULL CHECK(active IN(0,1)), nonce TEXT NOT NULL, purpose TEXT NOT NULL,
  entry_changes INTEGER NOT NULL CHECK(entry_changes>=0), logical_changes INTEGER NOT NULL CHECK(logical_changes>=0),
- CHECK((active=0 AND nonce='' AND purpose='') OR (active=1 AND length(nonce)=32 AND nonce NOT GLOB '*[^0-9a-f]*' AND purpose IN('writer','lifecycle')))
+ epoch TEXT NOT NULL CHECK(length(epoch)=32 AND epoch NOT GLOB '*[^0-9a-f]*'), mode TEXT NOT NULL CHECK(mode IN('closed','serving')),
+ CHECK((active=0 AND nonce='' AND purpose='') OR (active=1 AND mode='serving' AND length(nonce)=32 AND nonce NOT GLOB '*[^0-9a-f]*' AND purpose IN('writer','lifecycle')))
 );
-INSERT OR IGNORE INTO privacy_write_admission VALUES(1,'olympus-write-admission-experiment-1',0,'','',0,0);
+
+-- Source-owned immutable guild-rejection provenance; installed semantic triggers are separate.
+CREATE TABLE privacy_rejection_decisions (
+ decision_id TEXT PRIMARY KEY CHECK(typeof(decision_id)='text' AND length(decision_id)=32 AND length(CAST(decision_id AS BLOB))=32 AND instr(decision_id,char(0))=0 AND decision_id NOT GLOB '*[^0-9a-f]*'),
+ subject_key TEXT NOT NULL CHECK(typeof(subject_key)='text' AND length(subject_key)=43 AND length(CAST(subject_key AS BLOB))=43 AND instr(subject_key,char(0))=0 AND subject_key NOT GLOB '*[^A-Za-z0-9_-]*' AND substr(subject_key,43,1) IN('A','E','I','M','Q','U','Y','c','g','k','o','s','w','0','4','8')),
+ target_account_incarnation TEXT NOT NULL CHECK(typeof(target_account_incarnation)='text' AND length(target_account_incarnation)=32 AND length(CAST(target_account_incarnation AS BLOB))=32 AND instr(target_account_incarnation,char(0))=0 AND target_account_incarnation NOT GLOB '*[^0-9a-f]*'),
+ target_generation TEXT CHECK(target_generation IS NULL OR (typeof(target_generation)='text' AND length(target_generation)=32 AND length(CAST(target_generation AS BLOB))=32 AND instr(target_generation,char(0))=0 AND target_generation NOT GLOB '*[^0-9a-f]*')),
+ protocol TEXT NOT NULL CHECK(protocol='original-guild-membership-rejection-v1'),
+ source TEXT NOT NULL CHECK(source IN('member_application_decline','explicit_membership_deny')),
+ scope TEXT NOT NULL CHECK(scope IN('pure_member_including_fallback0','pure_member_including_fallback1')),
+ rejected_at INTEGER NOT NULL CHECK(typeof(rejected_at)='integer' AND rejected_at>0 AND rejected_at<=9007199223204991),
+ retain_until INTEGER NOT NULL CHECK(typeof(retain_until)='integer' AND retain_until=rejected_at+31536000)
+);
+CREATE TABLE privacy_rejection_expiry_control (
+ singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+ protocol TEXT NOT NULL CHECK(protocol='original-guild-rejection-expiry-v1'),
+ observed_at INTEGER NOT NULL DEFAULT 0 CHECK(typeof(observed_at)='integer' AND observed_at BETWEEN 0 AND 253402300799),
+ selected_count INTEGER NOT NULL DEFAULT 0 CHECK(typeof(selected_count)='integer' AND selected_count BETWEEN 0 AND 1000)
+);
+CREATE INDEX privacy_rejection_decisions_subject ON privacy_rejection_decisions(subject_key,decision_id);
+CREATE INDEX privacy_rejection_decisions_expiry ON privacy_rejection_decisions(retain_until,decision_id);
+CREATE UNIQUE INDEX site_users_rejection_event ON site_users(rejection_event_id) WHERE rejection_event_id IS NOT NULL;
+CREATE UNIQUE INDEX site_applications_rejection_event ON site_applications(rejection_event_id) WHERE rejection_event_id IS NOT NULL;
+CREATE UNIQUE INDEX site_users_account_incarnation ON site_users(account_incarnation);
+INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0);

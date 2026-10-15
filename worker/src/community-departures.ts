@@ -51,7 +51,7 @@ import { cursorParts, encodeCursor } from "./community-directory";
 import { isRestrictionCategory, RESTRICTION_DEFAULT_DAYS, restrictionCaseStatements } from "./community-restrictions";
 
 export const DEPARTURE_RETENTION_S = 30 * 86400;
-export const DEPARTURE_LIMITS = { pageSize: 100, intakeBatch: 500, intakePages: 10, settleSeconds: 300 } as const;
+export const DEPARTURE_LIMITS = { pageSize: 100, intakeBatch: 500, intakePages: 2, settleSeconds: 300 } as const;
 export const DEPARTURE_STATUSES = ["open", "acknowledged", "restriction_opened"] as const;
 type DepartureStatus = (typeof DEPARTURE_STATUSES)[number];
 type Kind = "left" | "removed" | "unknown";
@@ -219,7 +219,7 @@ export async function updateDeparture(request: Request, env: Env, ctx: Community
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_departure_reviews SET status = ?4, restriction_case_id = ?5, reviewed_by = ?6, reviewed_at = ?7, revision = revision + 1, nonce = ?8
-         WHERE id = ?1 AND revision = ?2 AND status = 'open' AND retain_until > ${DB_NOW} AND discord_id = ?3 AND discord_id <> ?6 AND ${fenceSql("applicantWrite", 6, 9, 10)}`,
+         WHERE id = ?1 AND revision = ?2 AND status = 'open' AND retain_until > ${DB_NOW} AND discord_id = ?3 AND discord_id <> ?6 AND ${fenceSql("applicantWrite", 6, 9, 10,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
       ).bind(id, revision, current.discord_id, caseId === null ? "acknowledged" : "restriction_opened", caseId, me, at, nonce, ctx.subject!.sessionVersion, ctx.subject!.expiresAt),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?1, ?2, ?3, discord_id, ?4 FROM community_departure_reviews WHERE id = ?5 AND nonce = ?6").bind(at, me, caseId === null ? "community.departure_acknowledged" : "community.departure_restriction_opened", JSON.stringify(caseId === null ? { kind: current.kind } : { kind: current.kind, category }), id, nonce),
       ...caseStatements,
