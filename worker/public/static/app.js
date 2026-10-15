@@ -2446,7 +2446,11 @@
       [st.removals.unresolvedGrantCustody,st.removals.unresolvedOtherRoleCustody].every(n => Number.isSafeInteger(n) && n >= 0)) {
       const refreshHeld = h("button", { class: "btn small", type: "button", text: "Refresh reset status" });
       const heldPanel = frame("Beta member and rank reset", h("span", { class: "badge", text: "Needs review" }),
-        h("p", { text: "Reset progress is unavailable because the retained policy could not be verified. Existing work is held; unavailable counts do not mean there is no unresolved work." }),
+        h("p", { text: "Reset progress is unavailable: configuration or policy reads may be unavailable, or the retained policy may be malformed or not yet applicable. Existing work is held; unavailable counts do not mean there is no unresolved work." }),
+        h("p", { text: "Cutoff: 22 October 2026, 17:00 UTC (noon CDT). This is the start of the reset, not an instant finish." }),
+        h("p", { class: "muted small", text: "After the cutoff, old beta verification cannot grant these roles, even while removals are inactive. A reviewed full-release source and fresh verification are required before reusing them." }),
+        h("p", { text: "Scope: both Guild Member roles and all ten Olympus Rank roles, including empty roles. Manual leadership, Council, Developer, server moderators, website appointments and the leadership directory stay." }),
+        h("p", { class: "muted small", text: "Known progress is not the full server total. A clean pass means awaiting the new source, not permanent completion." }),
         kv([["Unresolved earlier grants", String(st.removals.unresolvedGrantCustody)], ["Unresolved role removal custody", String(st.removals.unresolvedOtherRoleCustody)]]),
         h("p", { class: "muted small", text: "Arming and retirement are unavailable. Refresh status or have an owner review the retained policy. Role reuse remains held." }),
         h("div", { class: "btn-row" }, h("button", { class: "btn", type: "button", text: "Arm member and rank reset", disabled: true }), h("button", { class: "btn small", type: "button", text: "Retire reset policy", disabled: true }), refreshHeld));

@@ -5,7 +5,7 @@ import argparse,hashlib,json,os,re,subprocess,sys
 ROOT=Path(__file__).resolve().parent
 # The .135 resource successor adds exact resource/module coverage and staging tuple checks; these three pins bind it.
 # The other three V4 helpers and the network guard retain their reviewed raw pins.
-V4_PINS={'stage_publication.py':'c145d3bb467c973210457d233794aa65e505db3a959abf92a2f2b2cccbd3cf34','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'5f61c2fc31fff3a6ee40455c3ccdd638f35bffdc66e9b8d05df08c7252107cda','official_asset_reference.json':'9a1d5b0f90f1acb69ff205d2a93e4f65ac6014babc869f8590e7b22cb698080a'}
+V4_PINS={'stage_publication.py':'c145d3bb467c973210457d233794aa65e505db3a959abf92a2f2b2cccbd3cf34','validate_publication.py':'7dde5b31395831e9f243d9b0e88de3c097bbc4c018b1e4004c12e958db7bd851','publication_audit.py':'d4a059cb4d57b94ff540e626f1f5ab09d100bbb5208e139c9a4d293ed1df55ae','public_history.py':'77adf892a6366d0c8e3c20bd44ce516e8de5ad57f270c04bf07245452122e908','official_assets.py':'10edbc7d2d8f1401e7b613736c2a0ded5e8d41d016f32aa8eedb3daf491be921','official_asset_reference.json':'aface2d4d732017187ef91a547d6dcd5636ade6fdcb9dbb278bdc9367d935410'}
 for name,pin in V4_PINS.items():
  p=ROOT/name
  if p.is_symlink() or p.is_junction() or hashlib.sha256(p.read_bytes()).hexdigest()!=pin:raise ValueError('unchanged_v4_helper_pin_mismatch')
