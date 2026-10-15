@@ -32,8 +32,9 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
 
 /** Called only after the canonical host check. Public policies/assets are handled before this boundary. */
 export async function memberSiteGate(request: Request, env: Env, path: string): Promise<Response | null> {
+  // The anchored wildcard outranks a provider-injected Allow: / without changing other hostnames.
   if (path === '/robots.txt' && (request.method === 'GET' || request.method === 'HEAD')) {
-    return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nDisallow: /\n', { headers: securityHeaders(new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })) });
+    return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nDisallow: /\nDisallow: /*$\n', { headers: securityHeaders(new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })) });
   }
   if (AUTH_PATHS.has(path) || PRIVACY_PATHS.has(path) || path === '/api/me/export' || path === '/api/me/erasure/status' || path === '/api/me/erasure') return null;
   if (path === '/auth/logout' && request.method === 'POST') return null; // the original same-origin handler must clear even a departed/denied session

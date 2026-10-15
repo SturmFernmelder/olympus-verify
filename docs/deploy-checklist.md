@@ -5516,3 +5516,37 @@ Before owner deployment:
 5. Install the complete matching AddOn 0.6.9 separately, preserving Config.lua, queue data and SavedVariables. The owner checks real native rows, recycled-row identity, stale/unknown states, an existing chat draft and the exact addressed editable whisper without sending it. Check both AddOns together and preview OFF. Local Lua results do not establish this real-game outcome.
 
 Rollback is an owner-run deployment of the separately qualified public .153 snapshot, keeping its admission-ON profile and destructive/signing features OFF. No database downgrade or data restoration accompanies this presentation release. A rollback neither reverses expired retention nor establishes complete erasure, a new appointment or external publication.
+
+
+## Worker .156 - Olympus crawler boundary (14 October 2026)
+
+Build: `2026-10-14.156 Olympus crawler boundary`. This narrow successor starts from the public .154 merge
+`75671194ba47a775473d0a45e4e651542cf3cab2` (tree `db51e664236d15cf1b00391b41b7bef92f6aaf72`). The separate
+.155 development overlay remains held and is not an input to this release.
+
+Cloudflare Bot Preference Sync prepends a wildcard `Allow: /` to the origin robots response. An equally specific
+`Disallow: /` loses that tie for Google-compatible crawlers. Olympus now also emits `Disallow: /*$`, an anchored
+wildcard covering the full path with higher specificity. The owner explicitly keeps the domain-wide provider
+setting for the other sites. This change affects the Olympus origin response only; robots directives remain
+voluntary crawler instructions, and the existing Discord member gate remains the access control.
+
+Schema, migration files, all deployment configuration, feature flags, dependencies and public resources are
+byte-identical to public .154. There is no database migration or activation step. Erasure, QR signing and new
+private-request intake stay disabled. The beta-reset candidate is separate and is not armed by this release.
+
+Qualification: the isolated origin candidate passed 119 host checks. Its exact combined before/after Cloudflare
+response was tested with the unchanged official Google robotstxt parser at commit
+`22b355ff855419e6a3ff8ff09c0ad7fdb17116f9` using pinned Abseil
+`42e02c7ebfc4ac74de7a0e4676268c887436f3b4`: 36 agent tokens x 14 paths x 2 responses = 1008 cases.
+The original response reproduces Googlebot access; the candidate unexpectedly permits zero tested paths
+(robots.txt itself has the parser's required exception). Actual Claude accepted this source span in the shared
+collaboration log on 14 October. Final exact-commit CI and source/deployment signatures are separate receipts.
+
+Rollout: bind final commit/tree, successful CI, unchanged resource/config pins and both genuine review entries;
+take a fresh verified D1 backup; deploy the exact archived commit once; then inspect the actual combined robots
+body and run the same parser against it. Read back health/D1 and anonymous/member boundaries. Preserve any
+uncertain deploy outcome for reconciliation before retry. Do not change the zone-wide setting.
+
+Rollback, if needed, is a separately reviewed deployment of the preserved public .154 commit. It restores the
+earlier crawler-rule conflict but does not downgrade the database or alter roles. Neither local parser results
+nor this document claim universal crawler compliance, full .155 qualification or whole-task completion.
