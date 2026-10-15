@@ -2004,7 +2004,7 @@
       h("div", { class: "btn-row mt" }, save, unsaved));
   }
 
-  // ---------------------------------------------------------------- roles: what each one involves (.44, open to everyone)
+  // ---------------------------------------------------------------- roles: what each one involves (.44; member-site gate since .154)
   ROUTES.roles = function roles(main, parts) {
     const meta = M();
     const s = S.settings || {};
@@ -2335,7 +2335,7 @@
       h("label", { class: "field appointed-row" }, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input)));
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
-    const [namesOk, namesOkRow] = box(false, "Each person named here agreed to be named. Appointed names are public on the open web, signed in or not.");
+    const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");
     namesOk.id = "appointed-names-ok";
     const quietWas = new Set(s.noVote || []);
     const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);

@@ -253,7 +253,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (!noVote) return apiJson({ error: "invalid", field: "noVote", message: "The roles without a public vote could not be read." }, 400);
     next.noVote = JSON.stringify(noVote);
   }
-  // .115 (Viktor's item C, 2 Oct 2026): an appointed name is public on the open web, so it is typed only after that person
+  // .115 consent (2 Oct 2026), current member-site visibility (14 Oct 2026): a name is typed only after that person
   // agreed. A name added, or changed for a role, needs the administrator's namesConfirmed; keeping a name, clearing one
   // (the role reopens) or typing NAME_WITHHELD (the role stays appointed) does not. The comparison is with what is stored
   // now, read above; the atomic expected-value guard below also refuses a removal/replacement after this read. Refused
@@ -262,7 +262,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     const stored = cur.appointed;
     const changed = Object.entries(appointedObj).filter(([key, who]) => who !== NAME_WITHHELD && !(Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === who));
     if (changed.length > 0 && body.namesConfirmed !== true) {
-      return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names are public on the open web." }, 400);
+      return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
   }
   const entries = Object.entries(next) as Array<[string, string]>;

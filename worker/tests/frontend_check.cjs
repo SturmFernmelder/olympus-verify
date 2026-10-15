@@ -1489,7 +1489,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("Admin settings expose future enable intent while collection remains immutable OFF", bx.checked === false && bx.disabled === false && adm.app.textContent.includes("Enable records a request only. Collection stays OFF") && adm.app.textContent.includes("Request future enablement") && !!byText(adm.app, "h2", "Battle.net sign-in"));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
     check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
-      adm.app.textContent.includes("Each person named here agreed to be named. Appointed names are public on the open web, signed in or not.") && adm.app.textContent.includes("Each person listed here agreed to be listed. Confirmed members can read the directory.") &&
+      adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Confirmed members can read the directory.") &&
       adm.app.textContent.includes("type Name withheld (the role stays appointed) or clear it (the role reopens)"));
     adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
     adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
@@ -1632,7 +1632,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     apInput.value = "Tess Appointee";
     byText(adm6.app, "button", "Save settings").click();
     await waitFor(() => adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named."), "the confirm_names refusal");
-    check("(.115) an appointed name saved without the consent tick: the Worker's 400 confirm_names is shown in words and nothing is stored", adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named. Appointed names are public on the open web.") && appointedNow() === apBefore && !appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false);
+    check("(.115) an appointed name saved without the consent tick: the Worker's 400 confirm_names is shown in words and nothing is stored", adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial.") && !adm6.document.body.textContent.includes("Appointed names are public on the open web") && appointedNow() === apBefore && !appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false);
     adm6.app.querySelector("#appointed-names-ok").checked = true;
     byText(adm6.app, "button", "Save settings").click();
     await waitFor(() => appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false, "the saved name and the cleared box");
