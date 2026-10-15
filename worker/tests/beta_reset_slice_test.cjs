@@ -102,6 +102,19 @@ function unchangedPrivate(name,status){const privateData=JSON.stringify({jobs:jo
   await reset(installed,7);await slice(label+' backlog before page denial');pageStatus=403;out=await slice(label+' page 403 holds backlog');check(label+' failed discovery preserves cursor and backlog without effects',out.state==='held'&&effects().length===6&&targetCount()===1&&out.processed===0&&scan().lastError==='beta_reset_discovery_or_storage_held');pageStatus=200;
   await slice(label+' discovery recovers backlog');check(label+' backlog resumes after inventory recovery',effects().length===7&&targetCount()===0);
  }
+ // Retirement fences fresh work but cannot revoke a DELETE whose final SELECT already returned.
+ for(const installed of [false,true]){const label=installed?'admitted':'native';
+  const retire=()=>fixtureRun('UPDATE site_settings SET value=? WHERE key=?',JSON.stringify({version:3,state:'retired',originalPolicy:arm(),retiredAt:clock}),policy.BETA_RESET_POLICY_KEY);
+  await reset(installed);await retire();let out=await slice(label+' retired before capture');check(label+' retired policy admits no inventory or removal',out.state==='held'&&requests.length===0&&jobs().length===0&&scan()===null);
+  await reset(installed);pageHook=async()=>{pageHook=null;await retire();};out=await slice(label+' retire after page GET');check(label+' retired page cannot commit observations or dispatch',out.state==='held'&&jobs().length===0&&effects().length===0);
+  await reset(installed);let committed=false;batchAfter=async sqls=>{if(!committed&&sqls.some(sql=>sql.includes("reason='beta_reset_dispatching'"))){committed=true;batchAfter=null;await retire();}};
+  out=await slice(label+' retire after claim');check(label+' retirement after claim retains spent custody without DELETE',committed&&effects().length===0&&jobs().some(x=>x.state==='dispatching'&&x.attempts===1));
+  await reset(installed);committed=false;batchAfter=async sqls=>{if(!committed&&sqls.some(sql=>sql.startsWith('SELECT 1 FROM role_settlements')&&sql.includes("state='dispatching' AND attempts=1 AND expires_at"))){committed=true;batchAfter=null;await retire();}};
+  out=await slice(label+' retire after final read');const debt=jobs().find(x=>x.attempts===1),savedDebt=JSON.stringify(debt);
+  check(label+' already admitted DELETE may complete after retirement with original spent dispatching custody',committed&&effects().length===1&&out.unknown===1&&debt.state==='dispatching'&&!!debt.claim_nonce&&targetCount()===0);
+  const status=await engine.betaRoleResetStatus(env);check(label+' retired status preserves original digest debt and scan history without drain claim',status.phase==='retired_awaiting_drain'&&status.removals.unknown===1&&status.discovery.completedPasses===1&&!status.discovery.continuous&&!status.removalsActive&&!status.canArm&&!status.canRetire&&!status.finalCompletion&&!status.roleReuseReady);
+  clock+=1801;out=await slice(label+' retired cannot redispatch');check(label+' retired old debt never retries or disappears',out.state==='held'&&out.http===0&&effects().length===1&&JSON.stringify(jobs().find(x=>x.id===debt.id))===savedDebt);
+ }
  await reset();delete env.BETA_RESET_REMOVALS_ENABLED;let out=await slice('default OFF');check('default OFF does no database or provider work',out.state==='inactive'&&physical===0&&requests.length===0&&scan()===null);
  await reset();clock=policy.BETA_RESET_CUTOFF-1;out=await slice('before cutoff');check('before cutoff never scans or removes',out.state==='held'&&requests.length===0&&scan()===null);
  await reset();await fixtureRun('DELETE FROM site_settings WHERE key=?',policy.BETA_RESET_POLICY_KEY);out=await slice('missing control policy');check('enabled missing policy never scans or removes',out.state==='held'&&requests.length===0&&scan()===null);

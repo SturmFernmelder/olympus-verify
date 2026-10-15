@@ -5762,3 +5762,12 @@ or admission guard is relaxed.
 **Rollback.** The application-only delta is reversible to signed baseline `2e1f9409`; no database rollback accompanies
 this candidate. Preserve the baseline and failed evidence. If a deployed version ever needs replacement, the existing
 writer-drain, floor and epoch procedures still apply; restoring earlier code never authorizes bypassing those gates.
+
+
+## Worker .159 — Beta reset policy retirement
+
+**Scope.** Owner-only retirement after the fixed cutoff uses an exact existing-policy CAS and the normal owner/session, origin, page-version, HMAC and expiry fences. The retained tombstone is permanent denial, not a grant/removal policy. It preserves exact old policy bytes for aggregate debt inventory; scans, role-settlement rows, leadership and appointments are not rewritten. The independent account-retention cutoff can still be confirmed while removals are OFF or policy is retired.
+
+**Verification.** Run typecheck and the focused beta policy, owner route, actual slice race, frontend and lifecycle/custody suites against this exact candidate. Keep all original assertions and budgets. In particular, the final-SELECT/DELETE race must retain one spent unresolved row and never claim quiescence or retry the effect. Source review and local fixtures do not replace integrated CI, cross-version drain, real provider qualification or the original release gates.
+
+**Operations.** After source/CI/release approval, an owner uses the fresh private preview and types RETIRE. An unconfirmed response requires refreshing status; a signed retry only reads a matching retained result. Never delete the tombstone or restore an old policy to undo retirement. A deployment rollback must preserve the tombstone and debt; versions that do not understand version 3 must continue refusing it. Reusing the twelve roles requires separate resolved/drained effect evidence and a reviewed new source. No activation, live retirement or production deployment occurs in this change.

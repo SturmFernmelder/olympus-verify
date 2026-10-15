@@ -117,5 +117,21 @@ function fixture(flag='true'){
  }
  f=fixture();f.save();f.time=p.BETA_RESET_CUTOFF;c=await f.capture();f.env.BETA_RESET_REMOVALS_ENABLED='false';
  check('disabling removals neither revives old grant nor grants from fresh capture',!await p.betaGrantCurrent(f.env,c)&&!await p.betaGrantCurrent(f.env,await f.capture())&&!f.sql(await f.capture()));
+ // Retirement is a retained denial; the embedded old policy only identifies inventory.
+ f=fixture();f.save();const originalRaw=JSON.stringify(f.policy),open=await f.capture();f.time=p.BETA_RESET_CUTOFF;c=await f.capture();
+ const tombstone=JSON.stringify({version:3,state:'retired',originalPolicy:originalRaw,retiredAt:p.BETA_RESET_CUTOFF});
+ f.save(tombstone);const retired=await f.capture();
+ const admits=(helper,capture)=>{const g=helper(f.env,capture,1);return f.db.prepare('SELECT CASE WHEN '+g.sql+' THEN 1 ELSE 0 END allowed').get(...g.values).allowed===1;};
+ check('retirement retains exact actor-free original and old parser refuses it',p.parseBetaResetRetirement(tombstone,f.env).originalPolicy===originalRaw&&p.parseBetaResetPolicy(tombstone,f.env)===null);
+ check('retirement invalidates old grant and removal captures',!await p.betaGrantCurrent(f.env,open)&&!f.sql(open)&&!await p.betaResetCurrent(f.env,c)&&!f.resetSql(c));
+ check('retired capture cannot authorize grants or removals',retired.reason==='beta_reset_retired'&&!await p.betaGrantCurrent(f.env,retired)&&!f.sql(retired)&&!await p.betaResetCurrent(f.env,retired)&&!f.resetSql(retired));
+ check('retired source permits only exact-current cutoff confirmation and retirement readback',admits(p.betaRetentionSourceSql,retired)&&admits(p.betaPolicyRetirementSql,retired)&&!admits(p.betaRetentionSourceSql,c));
+ f.time=p.BETA_RESET_CUTOFF-1;check('clock rollback cannot confirm cutoff or retire',!admits(p.betaRetentionSourceSql,retired)&&!admits(p.betaPolicyRetirementSql,retired)&&(await f.capture()).reason==='beta_policy_not_yet_retired');
+ const t=JSON.parse(tombstone);
+ for(const bad of [{...t,extra:true},{...t,version:2},{...t,state:'paused'},{...t,retiredAt:p.BETA_RESET_CUTOFF-1},{...t,retiredAt:1.5},{...t,originalPolicy:tombstone},{...t,originalPolicy:JSON.stringify({...f.policy,version:1,armedBy:ADMIN})}])check('closed retirement grammar refuses '+JSON.stringify(bad).slice(0,70),p.parseBetaResetRetirement(JSON.stringify(bad),f.env)===null);
+ for(const raw of [tombstone.replace('{','{"version":3,'),tombstone.replace('"version"','"\\u0076ersion"'),' '.repeat(8193),JSON.stringify(t,null,2)])check('noncanonical retirement bytes refused',p.parseBetaResetRetirement(raw,f.env)===null);
+ f=fixture('false');f.save();f.time=p.BETA_RESET_CUTOFF;c=await f.capture();
+ check('owner may retire with removals OFF without obtaining removal authority',admits(p.betaPolicyRetirementSql,c)&&!f.resetSql(c));
+ f.env.SITE_ADMINS='700000000000000099';check('retirement capture retains original configuration fence',!admits(p.betaPolicyRetirementSql,c));
  console.log('\n'+passed+'/'+passed+' passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -5,7 +5,7 @@
 import type { Env } from './env';
 import { DB_NOW, randomGeneration, sha256 } from './account-generation-contracts';
 import { rest, type AttemptBudget } from './discord';
-import { BETA_RESET_POLICY_KEY,BETA_RESET_EPOCH,BETA_RESET_CUTOFF,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,parseBetaResetPolicy,
+import { BETA_RESET_POLICY_KEY,BETA_RESET_EPOCH,BETA_RESET_CUTOFF,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,parseBetaResetPolicy,parseBetaResetRetirement,betaPolicyRetirementSql,
  captureBetaGrant,resetGuardEnabled,betaResetCurrent,betaResetSql,captureBetaResetScan,betaResetScanSql,betaResetScanCurrent,
  type BetaGrantCapture,type BetaResetScanCapture } from './beta-reset-policy';
 import { settleBetaResetRemoval } from './role-settlements';
@@ -26,7 +26,10 @@ const control=(env:Env)=>env.DB.prepare(`SELECT (SELECT value FROM site_settings
 export async function betaRoleResetStatus(env:Env){
  const c=await captureBetaGrant(env,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS[0]!),r=await control(env);
  if(!r||!Number.isSafeInteger(r.at))throw Error('beta_reset_status_held');
- const policy=parseBetaResetPolicy(c.raw,env),digest=policy?await sha256(c.raw!):null,scan=digest&&r.raw!==null?parseScan(r.raw,digest):null;
+ const policy=parseBetaResetPolicy(c.raw,env),retirement=c.reason==='beta_reset_retired'?parseBetaResetRetirement(c.raw,env):null;
+ const inventoryRaw=retirement?.originalPolicy??(policy?c.raw:null),digest=inventoryRaw!==null?await sha256(inventoryRaw):null,scan=digest&&r.raw!==null?parseScan(r.raw,digest):null;
+ const inventoryKnown=digest!==null||['beta_source_epoch_open','beta_source_epoch_closed'].includes(c.reason);
+ const discoveryKnown=inventoryKnown&&(r.raw===null||scan!==null);
  const q=await env.DB.prepare(`SELECT
   SUM(CASE WHEN state='pending' THEN 1 ELSE 0 END) pending,
   SUM(CASE WHEN state='held' THEN 1 ELSE 0 END) held,
@@ -34,7 +37,7 @@ export async function betaRoleResetStatus(env:Env){
   SUM(CASE WHEN state='settled' THEN 1 ELSE 0 END) settled
   FROM role_settlements WHERE purpose='beta_reset' AND desired=0 AND guild_id=?1 AND request_digest=?2
   AND reason<>'beta_reset_observation_consumed'`).bind(BETA_RESET_GUILD_ID,digest).first<{pending:number|null;held:number|null;unknown:number|null;settled:number|null}>();
- const known={pending:q?.pending??0,held:q?.held??0,unknown:q?.unknown??0,settledOperations:q?.settled??0};
+ const known={pending:inventoryKnown?q?.pending??0:null,held:inventoryKnown?q?.held??0:null,unknown:inventoryKnown?q?.unknown??0:null,settledOperations:inventoryKnown?q?.settled??0:null};
  const custody=await env.DB.prepare(`SELECT
   SUM(CASE WHEN desired=1 OR purpose='grant_compensation' THEN 1 ELSE 0 END) AS n,
   SUM(CASE WHEN desired=0 AND purpose<>'grant_compensation' AND NOT(purpose='beta_reset' AND request_digest IS ?3) THEN 1 ELSE 0 END) AS other
@@ -43,15 +46,16 @@ export async function betaRoleResetStatus(env:Env){
   .bind(BETA_RESET_GUILD_ID,JSON.stringify(BETA_RESET_ROLE_IDS),digest).first<{n:number|null;other:number|null}>();
  const unresolvedGrantCustody=custody?.n??0,unresolvedOtherRoleCustody=custody?.other??0;
  const active=await betaResetCurrent(env,c),closed=r.at>=BETA_RESET_CUTOFF,clean=!!scan?.completedPasses&&scan.lastPassAssignments===0;
- const phase=!closed?(c.mode==='held'?'held':'before_cutoff'):!['beta_cutoff_reached','beta_source_epoch_closed'].includes(c.reason)?'held':!resetGuardEnabled(env)?'inactive':!active?'held':r.raw!==null&&!scan?'held':
+ const phase=retirement?'retired_awaiting_drain':!closed?(c.mode==='held'?'held':'before_cutoff'):!['beta_cutoff_reached','beta_source_epoch_closed'].includes(c.reason)?'held':!resetGuardEnabled(env)?'inactive':!active?'held':r.raw!==null&&!scan?'held':
   scan?.lastError?'held':known.unknown||known.held||unresolvedGrantCustody||unresolvedOtherRoleCustody?'held':known.pending?'draining':clean?'awaiting_new_source':'discovering';
  return {epoch:BETA_RESET_EPOCH,cutoff:BETA_RESET_CUTOFF,serverTime:r.at,guildId:BETA_RESET_GUILD_ID,roleIds:BETA_RESET_ROLE_IDS,
   sourcePhase:closed?'closed_awaiting_new_source':'beta_source_open',phase,policyArmed:!!policy,removalsActive:active,
   reason:c.reason,canArm:c.mode==='open'&&c.raw===null&&r.at<BETA_RESET_CUTOFF,
+  policyRetired:!!retirement,retiredAt:retirement?.retiredAt??null,canRetire:!!policy&&betaPolicyRetirementSql(env,c,1).sql!=='0=1',inventoryKnown,discoveryKnown,
   preserved:['manual leadership','manual Council','Developer','server moderators','website appointments','leadership directory'],
-  discovery:{membersPerPage:BETA_RESET_CAPS.membersPerPage,pagesPerMinute:1,continuous:active,completedPasses:scan?.completedPasses??0,
-   currentPassScanned:scan?.scanned??0,currentPassObservedAssignments:scan?.observedAssignments??0,
-   lastPassCompletedAt:scan?.lastPassCompletedAt??null,lastPassScanned:scan?.lastPassScanned??0,lastPassObservedAssignments:scan?.lastPassAssignments??0,
+  discovery:{membersPerPage:BETA_RESET_CAPS.membersPerPage,pagesPerMinute:1,continuous:active,completedPasses:discoveryKnown?scan?.completedPasses??0:null,
+   currentPassScanned:discoveryKnown?scan?.scanned??0:null,currentPassObservedAssignments:discoveryKnown?scan?.observedAssignments??0:null,
+   lastPassCompletedAt:scan?.lastPassCompletedAt??null,lastPassScanned:discoveryKnown?scan?.lastPassScanned??0:null,lastPassObservedAssignments:discoveryKnown?scan?.lastPassAssignments??0:null,
    lastError:scan?.lastError??null,fullServerCountKnown:false},
   removals:{roleIntentsPerMinute:BETA_RESET_CAPS.roleIntentsPerRun,...known,unresolvedGrantCustody,unresolvedOtherRoleCustody},finalCompletion:false,
   newSourceRequired:true,roleReuseReady:false};

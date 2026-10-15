@@ -1599,3 +1599,12 @@ for the reviewed proposal. Actual runtime and CI evidence determine its effect; 
 All existing scheduling qualification holds and production deployment/recovery gates remain separate. The census and
 scheduled experiment tests pin the reviewed SQL hashes; their exact comparisons remain intact. The owner approved
 raising only the Worker CI job limit from 15 to 45 minutes so the complete test chain can run (15 October 2026).
+
+
+## 2026-10-15 — .159 Beta reset policy retirement
+
+An owner can permanently retire an armed reset policy after the fixed beta cutoff, even while removals are OFF. The private preview signs the exact original policy, owner session/incarnation/generation, configuration and five-minute expiry. Typed RETIRE confirmation updates the existing policy with an exact-raw compare-and-swap; it never deletes or creates the policy row. The actor remains only in normal erasable update metadata. A repeated accepted form may read the same retained outcome without rewriting it.
+
+The retained version-3 tombstone embeds the actor-free original version-2 bytes only to identify existing scan and removal debt by their original SHA-256. It denies old and fresh reset/grant authority and cannot rearm. Status is retired_awaiting_drain, with all unresolved/dispatching custody and scan history retained. Malformed or future retirement metadata retains a held status with explicitly unavailable inventory instead of presenting invented empty counts; the UI shows a held preview with Refresh and disabled actions. A present invalid scan separately reports unavailable discovery progress while preserving known original-digest debt totals. The independent source-cutoff retention confirmation remains available under the actual current tombstone and its original owner/cutoff fences.
+
+Retirement stops new reset admissions. A DELETE whose final source check already returned may still complete; its original spent dispatching row can remain unresolved because the old-policy receipt fence refuses the changed row. Retirement does not resolve that effect, release erasure reservations, certify a drain, introduce a new source, or permit role reuse. Both schedule qualifiers and finalCompletion/roleReuseReady remain false. No provider configuration or deployment is changed by this candidate.

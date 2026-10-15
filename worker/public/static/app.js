@@ -2439,10 +2439,24 @@
     try { st = await api("GET", "/api/admin/beta-role-reset"); } catch (e) { return frame("Beta member and rank reset", null, h("p", { class: "err small", text: explain(e, "The reset status could not be read.") })); }
     const roleIds = ["1552077551839617104","1558657538960916490","1557496182966587453","1557495772453281853","1557496796949909575","1557496812196208640","1557498239656136764","1557498252994285568","1557498673926242385","1557498969310101576","1557499139099590747","1557499286965719050"];
     const exactRoles = ids => Array.isArray(ids) && ids.length === roleIds.length && ids.every((id,i) => id === roleIds[i]);
-    const states = { before_cutoff: "Before the cutoff", inactive: "Removals inactive", discovering: "Discovering assignments", draining: "Removing known assignments", held: "Needs review", awaiting_new_source: "Awaiting new source" };
+    const states = { before_cutoff: "Before the cutoff", inactive: "Removals inactive", discovering: "Discovering assignments", draining: "Removing known assignments", held: "Needs review", awaiting_new_source: "Awaiting new source", retired_awaiting_drain: "Policy retired; unresolved work retained" };
+    if (st && st.inventoryKnown === false && st.phase === "held" && st.cutoff === 1792688400 && st.epoch === "olympus-beta-2026-10-22" && exactRoles(st.roleIds) &&
+      st.canArm === false && st.canRetire === false && st.removalsActive === false && st.finalCompletion === false && st.roleReuseReady === false && st.discovery && st.removals &&
+      [st.discovery.currentPassScanned,st.discovery.completedPasses,st.removals.pending,st.removals.held,st.removals.unknown,st.removals.settledOperations].every(v => v === null) &&
+      [st.removals.unresolvedGrantCustody,st.removals.unresolvedOtherRoleCustody].every(n => Number.isSafeInteger(n) && n >= 0)) {
+      const refreshHeld = h("button", { class: "btn small", type: "button", text: "Refresh reset status" });
+      const heldPanel = frame("Beta member and rank reset", h("span", { class: "badge", text: "Needs review" }),
+        h("p", { text: "Reset progress is unavailable because the retained policy could not be verified. Existing work is held; unavailable counts do not mean there is no unresolved work." }),
+        kv([["Unresolved earlier grants", String(st.removals.unresolvedGrantCustody)], ["Unresolved role removal custody", String(st.removals.unresolvedOtherRoleCustody)]]),
+        h("p", { class: "muted small", text: "Arming and retirement are unavailable. Refresh status or have an owner review the retained policy. Role reuse remains held." }),
+        h("div", { class: "btn-row" }, h("button", { class: "btn", type: "button", text: "Arm member and rank reset", disabled: true }), h("button", { class: "btn small", type: "button", text: "Retire reset policy", disabled: true }), refreshHeld));
+      refreshHeld.addEventListener("click", () => { if (document.body.contains(heldPanel) && settingsBody.contains(heldPanel) && currentRoute() === "admin/settings" && S.signedIn && !S.denied && S.user?.isAdmin) adminSettings(settingsBody); });
+      return heldPanel;
+    }
     const valid = st && typeof st === "object" && st.cutoff === 1792688400 && st.epoch === "olympus-beta-2026-10-22" && Object.hasOwn(states, st.phase) &&
       exactRoles(st.roleIds) && [st.canArm,st.policyArmed,st.removalsActive].every(v => typeof v === "boolean") &&
-      st.discovery && st.removals && [st.discovery.currentPassScanned, st.discovery.completedPasses, st.removals.pending, st.removals.held, st.removals.unknown, st.removals.settledOperations,st.removals.unresolvedGrantCustody,st.removals.unresolvedOtherRoleCustody].every(n => Number.isSafeInteger(n) && n >= 0);
+      st.discovery && st.removals && (st.discoveryKnown === false ? st.discovery.currentPassScanned === null && st.discovery.completedPasses === null : [st.discovery.currentPassScanned,st.discovery.completedPasses].every(n => Number.isSafeInteger(n) && n >= 0)) &&
+      [st.removals.pending, st.removals.held, st.removals.unknown, st.removals.settledOperations,st.removals.unresolvedGrantCustody,st.removals.unresolvedOtherRoleCustody].every(n => Number.isSafeInteger(n) && n >= 0);
     if (!valid) return frame("Beta member and rank reset", null, h("p", { class: "err", text: "The reset preview could not be verified. Refresh the page before continuing." }));
     const f = st.form, validForm = f && typeof f === "object" && Object.keys(f).sort().join(',') === "expiresAt,formNonce,token" &&
       Number.isSafeInteger(f.expiresAt) && f.expiresAt > nowSec() && f.expiresAt <= nowSec()+300 && f.expiresAt <= st.cutoff &&
@@ -2457,6 +2471,12 @@
     const retentionFormValid = rf && Object.keys(rf).sort().join(',') === "expiresAt,formNonce,token" && Number.isSafeInteger(rf.expiresAt) && rf.expiresAt > nowSec() && rf.expiresAt <= nowSec()+300 &&
       typeof rf.formNonce === "string" && /^[0-9a-f]{32}$/.test(rf.formNonce) && typeof rf.token === "string" && /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(rf.token);
     const confirmCutoff = h("button", { class: "btn small", type: "button", text: "Confirm cutoff for retention", disabled: !retentionValid || !retention.canConfirm || !retentionFormValid });
+    const tf = st.retireForm, retirementValid = typeof st.policyRetired === "boolean" && typeof st.canRetire === "boolean" &&
+      (st.policyRetired ? st.phase === "retired_awaiting_drain" && !st.policyArmed && !st.removalsActive && !st.canArm && !st.canRetire && Number.isSafeInteger(st.retiredAt) && st.retiredAt >= st.cutoff && st.retiredAt <= nowSec()+5 : st.retiredAt === null && st.phase !== "retired_awaiting_drain") && st.finalCompletion === false && st.roleReuseReady === false;
+    const retireFormValid = retirementValid && st.canRetire && st.policyArmed && !st.policyRetired && nowSec() >= st.cutoff && tf &&
+      Object.keys(tf).sort().join(',') === "expiresAt,formNonce,token" && Number.isSafeInteger(tf.expiresAt) && tf.expiresAt > nowSec() && tf.expiresAt <= nowSec()+300 &&
+      typeof tf.formNonce === "string" && /^[0-9a-f]{32}$/.test(tf.formNonce) && typeof tf.token === "string" && /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(tf.token);
+    const retire = h("button", { class: "btn small danger", type: "button", text: "Retire reset policy", disabled: !retireFormValid });
     let panel, busy = false;
     const attached = () => panel && document.body.contains(panel) && settingsBody.contains(panel) && currentRoute() === "admin/settings" && S.signedIn && !S.denied && S.user?.isAdmin;
     refresh.addEventListener("click", () => { if (attached() && !busy) adminSettings(settingsBody); });
@@ -2489,17 +2509,32 @@
       } catch (err) { if (attached()) toast(explain(err, "The cutoff confirmation is unconfirmed. Refresh status before continuing."), "bad"); }
       if (attached()) adminSettings(settingsBody);
     });
+    retire.addEventListener("click", async () => {
+      if (!attached() || busy || retire.disabled || !retireFormValid || tf.expiresAt <= nowSec()) return;
+      busy = true; retire.disabled = true;
+      const accepted = await confirmBox("Retire this reset policy permanently?", "This stops new reset scans and removal admissions. A removal that already passed its final check may still complete. Unresolved work remains recorded; retirement does not certify a drain or make these roles ready for reuse. This policy cannot be rearmed.", "Retire policy", { danger: true, typeToConfirm: "RETIRE" });
+      if (!attached()) return;
+      if (tf.expiresAt <= nowSec()) { busy = false; return; }
+      if (!accepted) { busy = false; retire.disabled = false; return; }
+      try {
+        const out = await api("POST", "/api/admin/beta-role-reset/retire", { confirm: "RETIRE", form: tf });
+        if (!out || out.ok !== true || out.policyRetired !== true || out.cutoff !== st.cutoff || out.phase !== "retired_awaiting_drain" || out.finalCompletion !== false || out.roleReuseReady !== false || !Number.isSafeInteger(out.retiredAt) || out.retiredAt < st.cutoff || out.retiredAt > nowSec()+5) throw new Error("The retirement outcome is unconfirmed. Refresh status before continuing.");
+        if (attached()) toast("Reset policy retired. Unresolved work remains; role reuse is still held.", "good");
+      } catch (err) { if (attached()) toast(explain(err, "The retirement outcome is unconfirmed. Refresh status before continuing."), "bad"); }
+      if (attached()) adminSettings(settingsBody);
+    });
     const d = st.discovery, r = st.removals;
     panel = frame("Beta member and rank reset", h("span", { class: "badge", text: states[st.phase] }),
       h("p", { text: "Cutoff: 22 October 2026, 17:00 UTC (noon CDT). This is the start of the reset, not an instant finish." }),
       h("p", { class: "muted small", text: "After the cutoff, old beta verification cannot grant these roles, even while removals are inactive. A reviewed full-release source and fresh verification are required before reusing them." }),
       h("p", { text: "Scope: both Guild Member roles and all ten Olympus Rank roles, including empty roles. Manual leadership, Council, Developer, server moderators, website appointments and the leadership directory stay." }),
-      kv([["Policy", st.policyArmed ? "Armed" : "Not armed"], ["Removals", st.removalsActive ? "Active" : "Inactive"], ["Discovery", `${d.currentPassScanned} members scanned in this pass; ${d.completedPasses} complete passes`], ["Known removals", `${r.pending} pending; ${r.held} held; ${r.unknown} unresolved`], ["Unresolved earlier grants", String(r.unresolvedGrantCustody)], ["Other unresolved role removals", String(r.unresolvedOtherRoleCustody)], ["Settled operations", String(r.settledOperations)]]),
+      kv([["Policy", retirementValid && st.policyRetired ? "Retired permanently" : st.policyArmed ? "Armed" : "Not armed"], ["Removals", st.removalsActive ? "Active" : "Inactive"], ["Discovery", st.discoveryKnown === false ? "Unavailable; retained scan needs review" : `${d.currentPassScanned} members scanned in this pass; ${d.completedPasses} complete passes`], ["Known removals", `${r.pending} pending; ${r.held} held; ${r.unknown} unresolved`], ["Unresolved earlier grants", String(r.unresolvedGrantCustody)], ["Other unresolved role removals", String(r.unresolvedOtherRoleCustody)], ["Settled operations", String(r.settledOperations)]]),
       h("p", { class: "muted small", text: "Discovery reads up to 1,000 server members per minute. Each minute handles up to six role assignments. A 100,000-member server needs about 100 minutes for one full scan. Known progress is not the full server total. Later assignments are discovered on repeated passes." }),
       h("p", { class: "muted small", text: "A clean pass means awaiting the new source, not permanent completion. Removal stays inactive until the reviewed release enables it." }),
+      h("p", { class: "muted small", text: "After the cutoff, an owner can permanently retire the policy to stop new reset work. Already admitted removals may still finish. Retained progress and unresolved work do not prove a drain; a separate reviewed source is still required for role reuse." }),
       h("p", { class: "muted small", text: retentionValid && retention.confirmed ? "The retention cutoff is recorded. This does not certify that role removals are complete." : "After the cutoff, an owner must separately confirm it for retention clocks. Original record dates remain preserved; confirmation does not change roles or appointments." }),
       h("details", {}, h("summary", { text: "Exact twelve role IDs" }), h("ul", {}, ...st.roleIds.map(id => h("li", { text: id })))),
-      h("div", { class: "btn-row" }, arm, refresh, confirmCutoff));
+      h("div", { class: "btn-row" }, arm, refresh, confirmCutoff, retire));
     return panel;
   }
 

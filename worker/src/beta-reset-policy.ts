@@ -58,6 +58,21 @@ export function parseBetaResetPolicy(raw: unknown, _env: Pick<Env, 'SITE_ADMINS'
       guildId: BETA_RESET_GUILD_ID, roleIds: BETA_RESET_ROLE_IDS, armedAt: r.armedAt });
   } catch { return null; }
 }
+/** .159: retained denial of this epoch's mandate, never a replacement removal/grant policy.
+ * The original raw policy is inventory data only; its exact digest still names existing debt. */
+export type BetaResetRetirement = Readonly<{version:3;state:'retired';originalPolicy:string;retiredAt:number}>;
+export function parseBetaResetRetirement(raw:unknown,env:Pick<Env,'SITE_ADMINS'>):BetaResetRetirement|null{
+ try{
+  if(typeof raw!=='string'||raw.length>8192)return null;
+  const r=JSON.parse(raw);
+  if(!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).sort().join(',')!=='originalPolicy,retiredAt,state,version'
+   ||JSON.stringify(r)!==raw||r.version!==3||r.state!=='retired'||typeof r.originalPolicy!=='string'
+   ||!Number.isSafeInteger(r.retiredAt)||r.retiredAt<BETA_RESET_CUTOFF||r.retiredAt>253402300799)return null;
+  const original=parseBetaResetPolicy(r.originalPolicy,env);
+  if(!original||r.retiredAt<original.armedAt)return null;
+  return Object.freeze({version:3,state:'retired',originalPolicy:r.originalPolicy,retiredAt:r.retiredAt});
+ }catch{return null;}
+}
 /** Selects removal work only. The source-defined grant cutoff applies even when removal is inactive. */
 export function resetGuardEnabled(env: GuardEnv): boolean {
   try { return value(env, 'BETA_RESET_REMOVALS_ENABLED') === 'true'; }
@@ -137,6 +152,11 @@ export async function captureBetaGrant(env: GuardEnv, guildId: string, roleId: s
     if (row.matches === 0) return capture(original, guildId, roleId, row.at < BETA_RESET_CUTOFF ? 'open' : 'held', null,
       row.at < BETA_RESET_CUTOFF ? 'beta_source_epoch_open' : 'beta_source_epoch_closed');
     if (row.matches !== 1 || raw === null) return capture(original, guildId, roleId, 'held', raw, 'beta_policy_invalid');
+    const retirement=parseBetaResetRetirement(raw,env);
+    if(retirement){
+      original.armedAt=parseBetaResetPolicy(retirement.originalPolicy,env)!.armedAt;
+      return capture(original,guildId,roleId,'held',raw,row.at>=retirement.retiredAt?'beta_reset_retired':'beta_policy_not_yet_retired');
+    }
     const policy = parseBetaResetPolicy(raw, env);
     if (!policy) return capture(original, guildId, roleId, 'held', raw, 'beta_policy_invalid');
     original.armedAt = policy.armedAt;
@@ -196,13 +216,25 @@ export function betaResetSql(captured: BetaGrantCapture, startIndex: number): { 
     values: [captured.raw, BETA_RESET_CUTOFF, original.armedAt!] };
 }
 
+/** Owner retirement only: exact current raw policy/configuration, including a retained tombstone for retry readback.
+ * This helper grants no effect authority and works with removals OFF. No pre-cutoff retirement is admitted. */
+export function betaPolicyRetirementSql(env:GuardEnv,captured:BetaGrantCapture,startIndex:number):{sql:string;values:(string|number|null)[]}{
+ const original=originals.get(captured);
+ if(!original||!original.scoped||original.env!==env||captured.mode!=='held'||typeof captured.raw!=='string'
+  ||!['beta_cutoff_reached','beta_reset_retired'].includes(captured.reason)||!unchanged(original)||!configured(env)
+  ||!Number.isSafeInteger(original.armedAt)||!Number.isSafeInteger(startIndex)||startIndex<1||startIndex>97)return {sql:'0=1',values:[]};
+ const retired=parseBetaResetRetirement(captured.raw,env);
+ return {sql:`EXISTS(SELECT 1 FROM site_settings WHERE key='${BETA_RESET_POLICY_KEY}' AND value=?${startIndex} COLLATE BINARY)
+  AND ${DB_NOW}>=?${startIndex+1} AND ${DB_NOW}>=?${startIndex+2}`,values:[captured.raw,BETA_RESET_CUTOFF,retired?.retiredAt??original.armedAt!]};
+}
+
 /** The attended retention anchor confirms only the source cutoff. It remains available with
  * removals OFF and never adopts a replacement policy/configuration after the original capture.
  */
 export function betaRetentionSourceSql(env: GuardEnv, captured: BetaGrantCapture, startIndex: number): { sql: string; values: (string | number | null)[] } {
   const original=originals.get(captured);
   if(!original||!original.scoped||original.env!==env||captured.mode!=='held'||!unchanged(original)||!configured(env)
-    ||!['beta_source_epoch_closed','beta_cutoff_reached'].includes(captured.reason)
+    ||!['beta_source_epoch_closed','beta_cutoff_reached','beta_reset_retired'].includes(captured.reason)
     ||!Number.isSafeInteger(startIndex)||startIndex<1||startIndex>98)return {sql:'0=1',values:[]};
   if(captured.raw===null)return {sql:`NOT EXISTS(SELECT 1 FROM site_settings WHERE key='${BETA_RESET_POLICY_KEY}')
     AND ${DB_NOW}>=?${startIndex}`,values:[BETA_RESET_CUTOFF]};

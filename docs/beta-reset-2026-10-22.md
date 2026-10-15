@@ -87,7 +87,7 @@ After a clean pass with no known unresolved work, status is `awaiting_new_source
 
 The same twelve role IDs must not be reused for full-release grants while this remover can still run. A qualified future cutover must:
 
-1. Stop old-epoch reset admissions through a durable policy retirement/removal fence and disable the reset branch on every serving version. Current grant fences must remain closed; deleting policy alone is not permission to grant again.
+1. Stop old-epoch reset admissions through the .159 owner retirement route after the fixed cutoff. Its retained version-3 tombstone invalidates the exact old policy and preserves its original bytes only for debt inventory. Earlier version-2 parsers refuse it. Confirm every serving version respects the denial; never delete or restore the old policy. Current grant fences remain closed.
 2. Prove existing reset leases, admitted requests, post-response work and unknown original provider effects drained or resolved. A fixed wait, absence in one GET, a clean scan, an ordinary redeploy, or a policy deletion alone is not proof of quiescence. No old admitted DELETE or late compensation may remain able to remove a newly assigned role.
 3. Introduce a new source epoch with new accepted roster/source evidence and fresh verification. Old character/roster/QR proofs must not be adopted by the new writer. Its own writer/claim/receipt gates must bind that source epoch.
 4. Enable reuse only after exact-source tests and review demonstrate those cross-version invariants. Retire old removal intents and cursor while retaining required unknown-effect custody.
