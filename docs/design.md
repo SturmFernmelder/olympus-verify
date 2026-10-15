@@ -1582,3 +1582,18 @@ anchored Disallow:/*$ on Olympus only. The real Google parser verifies the combi
 exact-body and HEAD tests prevent a substring-only false positive. No authentication, policy availability or
 other hostname changes. Sources: https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec and
 https://www.rfc-editor.org/rfc/rfc9309.html .
+
+## 15 October 2026 — Factor the admission catalogue root (.158)
+
+The admission proof checks the complete expected table, column, index and trigger catalogue on every original proof
+path. The owner's V5 instruction applies the reviewed SQL factoring directly: materialize the three expected arrays
+from `json_each(?3)` once, then enumerate each selected array. The existing slot checks and catalogue comparisons still
+use the original bound JSON, and all policy, control, epoch and native refusal expressions are unchanged. The shared
+CTE feeds writer admission, boolean catalogue inspection and the current-schema proof; it creates no cached authority
+across statements, requests or epochs.
+
+This is a query execution change over the same canonical and recorded physical catalogues. It does not replace exact
+DDL comparisons, shorten the catalogue, change error handling, reduce test workloads or alter the admission transport.
+The existing native source suite gains both-layout positive and missing-trigger refusal coverage plus exact SQL pins
+for the reviewed proposal. Actual runtime and CI evidence determine its effect; source review makes no timing claim.
+All existing scheduling qualification holds and production deployment/recovery gates remain separate.

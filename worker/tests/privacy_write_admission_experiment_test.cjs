@@ -6,12 +6,12 @@ let checks=0,passed=0;
 function check(name,condition,data){checks++;if(condition)passed++;else console.error('FAIL',name,data??'');}
 function graph(){const cache={};function load(name){if(cache[name])return cache[name].exports;const filename=path.join(root,'src',name.replace(/^\.\//,'')+'.ts'),bytes=fs.readFileSync(filename);pins.set(filename,cryptoNode.createHash('sha256').update(bytes).digest('hex'));const mod={exports:{}};cache[name]=mod;new Function('require','module','exports',ts.transpileModule(bytes.toString('utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(p=>p.startsWith('.')?load(p):require(p),mod,mod.exports);return mod.exports;}load('./index');return load;}
 const load=graph(),a=load('./privacy-write-admission'),m=load('./privacy-write-admission-catalogue'),schema=load('./schema'),catalog=load('./privacy-business-catalog'),authority=load('./privacy-serving-authority'),manifest=JSON.parse(m.ADMISSION_EXPECTED_JSON);
-let db,native,protectedDb,count,plans,failAt=null,loseReply=false;
-function fresh(){db=new DatabaseSync(':memory:');for(const t of manifest.tables)db.exec(t.sql);for(const i of manifest.indexes)db.exec(i.sql);db.exec(m.ADMISSION_CONTROL_DDL);db.prepare("INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0)").run();db.prepare("INSERT INTO site_settings(key,value,updated_at)VALUES('auditTypedNames','115',1)").run();installer.installFixtureEpoch(db,'canonical',EPOCH);count=0;plans=[];failAt=null;loseReply=false;
+let db,native,protectedDb,count,plans,prepared,failAt=null,loseReply=false;
+function fresh(layout='canonical'){const profile=JSON.parse(layout==='canonical'?m.ADMISSION_EXPECTED_JSON:m.ADMISSION_PHYSICAL_EXPECTED_JSON);db=new DatabaseSync(':memory:');for(const t of profile.tables)db.exec(t.sql);for(const i of profile.indexes)db.exec(i.sql);db.exec(m.ADMISSION_CONTROL_DDL);db.prepare("INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0)").run();db.prepare("INSERT INTO site_settings(key,value,updated_at)VALUES('auditTypedNames','115',1)").run();installer.installFixtureEpoch(db,layout,EPOCH);count=0;plans=[];prepared=[];failAt=null;loseReply=false;
  const exec=(sql,values)=>{const st=db.prepare(sql);if(/^\s*(SELECT|WITH)\b/i.test(sql)||/\bRETURNING\b/i.test(sql)){const results=st.all(...values);return {success:true,results,meta:{changes:/^\s*(SELECT|WITH)\b/i.test(sql)?0:Number(db.prepare('SELECT changes()n').get().n),last_row_id:Number(db.prepare('SELECT last_insert_rowid()n').get().n)}};}const r=st.run(...values);return {success:true,results:[],meta:{changes:Number(r.changes),last_row_id:Number(r.lastInsertRowid)}};};
  const stmt=(sql,values=[])=>({sql,values,bind(...v){return stmt(sql,v);},async first(column){count++;const row=exec(sql,values).results[0]??null;return column&&row!==null?row[column]??null:row;},async all(){count++;return exec(sql,values);},async run(){count++;return exec(sql,values);},async raw(){count++;return db.prepare(sql).all(...values).map(Object.values);}});
- native={prepare:stmt,async batch(ss){count+=ss.length;plans.push(ss.map(s=>s.sql));db.exec('BEGIN');let out;try{out=ss.map((s,i)=>{if(i===failAt)throw Error('native injected failure');return exec(s.sql,s.values);});db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}if(loseReply)throw Error('native committed response lost');return out;}};
- protectedDb=a.createPrivacyWriteAdmissionDatabase(native,'writer','canonical',EPOCH);return {DB:protectedDb};
+ native={prepare(sql){prepared.push(sql);return stmt(sql);},async batch(ss){count+=ss.length;plans.push(ss.map(s=>s.sql));db.exec('BEGIN');let out;try{out=ss.map((s,i)=>{if(i===failAt)throw Error('native injected failure');return exec(s.sql,s.values);});db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}if(loseReply)throw Error('native committed response lost');return out;}};
+ protectedDb=a.createPrivacyWriteAdmissionDatabase(native,'writer',layout,EPOCH);return {DB:protectedDb};
 }
 const neutral=()=>{const row=db.prepare(`SELECT active,nonce,purpose FROM ${m.ADMISSION_CONTROL_TABLE}`).get();return row?.active===0&&row.nonce===''&&row.purpose==='';};
 async function refused(name,fn){let error;try{await fn();}catch(e){error=e;}check(name,!!error,String(error));return error;}
@@ -52,6 +52,21 @@ async function refused(name,fn){let error;try{await fn();}catch(e){error=e;}chec
  fresh();const gen='2'.repeat(32),did='100000000000000001';await protectedDb.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,'active',0,1,1)").bind(did,gen).run();
  const original=authority.privacyBoundSubjectEnv({DB:protectedDb},did,{subject:did,subjectGeneration:gen,state:'active',revision:0});
  await protectedDb.prepare("UPDATE privacy_subjects SET generation=?1,revision=1 WHERE subject_id=?2").bind('3'.repeat(32),did).run();const n=db.prepare('SELECT COUNT(*)n FROM audit').get().n;await refused('original generation fence retained through new global transport',()=>original.DB.prepare(audit).run());check('stale subject no payload and neutral control',db.prepare('SELECT COUNT(*)n FROM audit').get().n===n&&neutral());
+ // Exercise the optimized shared CTE through the genuine three entry points on both exact source catalogues.
+ // SQL pins bind the reviewed proposal; data and native refusal checks retain the proof's authority boundary.
+ for(const layout of['canonical','recorded-live-20261010']){
+  fresh(layout);check(layout+' factored catalogue proof accepts exact installed layout',await a.admissionCatalogueCurrent(protectedDb));
+  await a.assertAdmissionCurrentSchema(protectedDb);const result=await protectedDb.prepare(audit).run();
+  const admit=plans.at(-1)[1],current=prepared.find(sql=>sql.endsWith('THEN 1 ELSE 0 END AS current')),schemaProof=a.PRIVACY_ADMISSION_SCHEMA_PROOF_SQL;
+  check(layout+' generated ADMIT matches reviewed four-edit SQL',cryptoNode.createHash('sha256').update(admit).digest('hex')==='863e2b7e00c7c2d618dd4b91910343b1e494d93a82d12121243117f8496a7384');
+  check(layout+' generated CURRENT_SCHEMA matches reviewed four-edit SQL',cryptoNode.createHash('sha256').update(schemaProof).digest('hex')==='13727700584b154fcaa3b39b4bf5555b5fc4d97ceb0a464628d509d49ca0eeda'&&prepared.includes(schemaProof));
+  check(layout+' boolean CURRENT uses the same factored catalogue CTE',typeof current==='string'&&current.split(' SELECT CASE WHEN ')[0]===schemaProof.split(' SELECT CASE WHEN ')[0]);
+  check(layout+' factored writer preserves native ACK and neutral control',result.success===true&&result.meta.changes===1&&db.prepare('SELECT COUNT(*)n FROM audit').get().n===1&&neutral());
+  db.exec('DROP TRIGGER privacy_admit_audit_insert');check(layout+' factored catalogue refuses missing exact trigger',!(await a.admissionCatalogueCurrent(protectedDb)));
+  await refused(layout+' factored schema proof refuses missing exact trigger',()=>a.assertAdmissionCurrentSchema(protectedDb));
+  await refused(layout+' factored writer refuses missing exact trigger',()=>protectedDb.prepare(audit).run());
+  check(layout+' missing trigger refusal preserves payload and neutral control',db.prepare('SELECT COUNT(*)n FROM audit').get().n===1&&neutral());db.close();
+ }
  for(const[file,pin]of pins)check('source pin stable '+path.basename(file),cryptoNode.createHash('sha256').update(fs.readFileSync(file)).digest('hex')===pin);
  console.log(`${passed}/${checks} dormant write-admission native source checks passed`);if(passed!==checks)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1;});

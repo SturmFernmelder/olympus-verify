@@ -214,12 +214,14 @@ export function registerAdmissionCountedDatabase(_wrapper:D1Database,_base:D1Dat
 export const admissionPlanWrites=(sql:string):boolean=>/\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i.test(sql);
 export const admissionTransportCost=(sqls:readonly string[]):number=>sqls.some(admissionPlanWrites)?4:(sqls.length?1:0); // an aborting native epoch proof precedes every read group
 
+// Owner-directed query factoring (2026-10-15): retain each exact catalogue proof while sharing the root JSON scan.
 const CATALOGUE_CTE=`WITH business AS MATERIALIZED(SELECT name,sql FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV' AND ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} AND name<>'${SLOT}'),
- expected AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.columns') AS columns FROM json_each(?3,'$.tables')),
+ expected_root AS MATERIALIZED(SELECT key,value FROM json_each(?3) WHERE key IN('tables','triggers','indexes')),
+ expected AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.columns') AS columns FROM json_each((SELECT value FROM expected_root WHERE key='tables'))),
  actual_columns AS MATERIALIZED(SELECT m.name,p.name AS column_name FROM business m JOIN pragma_table_info(m.name) p),
  wanted_columns AS MATERIALIZED(SELECT e.name,j.value AS column_name FROM expected e JOIN json_each(e.columns) j),
- expected_triggers AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql FROM json_each(?3,'$.triggers')),
- expected_indexes AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.tbl_name') AS tbl_name FROM json_each(?3,'$.indexes'))`;
+ expected_triggers AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql FROM json_each((SELECT value FROM expected_root WHERE key='triggers'))),
+ expected_indexes AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.tbl_name') AS tbl_name FROM json_each((SELECT value FROM expected_root WHERE key='indexes')))`;
 const TABLES_CURRENT=`${PROVIDER_METADATA_CURRENT_SQL} AND (SELECT sql FROM sqlite_master WHERE type='table' AND name='${SLOT}')=json_extract(?3,'$.slotSQL')
  AND (SELECT COUNT(*) FROM pragma_table_info('${SLOT}'))=9
  AND NOT EXISTS(SELECT name FROM pragma_table_info('${SLOT}') EXCEPT SELECT value FROM json_each(?3,'$.slotColumns'))

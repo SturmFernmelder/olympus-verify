@@ -5738,3 +5738,24 @@ accepts a newer schema/admission epoch, reset the floor, drop admission guards, 
 still act. Follow the reviewed epoch/recovery procedure, including required drain, copy custody and re-open evidence;
 unknown outcomes remain held until their existing resolution protocol completes. This checklist authorizes no provider
 mutation, reset, erasure, account action or deployment by itself.
+
+## Worker .158 — Admission proof SQL (prepared 15 October 2026; not deployed)
+
+**Change.** The owner-directed V5 candidate factors the expected catalogue's tables, triggers and indexes through one
+materialized root JSON scan. The shared CTE serves writer admission, the boolean catalogue check and the current-schema
+proof. Every remaining SQL condition, original four bind positions, native error branch, payload/ACK check and epoch
+boundary stays unchanged. BUILD and its three health-test pins are `2026-10-15.158 Admission proof SQL`.
+
+**Configuration and rollout.** There is no schema, catalogue, dependency or configuration change. The .157 activation
+holds, floor/epoch safeguards and disabled features remain in force. This candidate is for source review and Draft PR
+CI; it does not authorize deployment, migration or a scheduled-path activation. Any later rollout still requires the
+.157 exact-tree and live qualification, backup and epoch/recovery procedures above.
+
+**Tests.** The existing admission suite retains all original assertions and adds both-layout checks for the exact
+reviewed ADMIT/CURRENT_SCHEMA SQL, shared CURRENT proof, native writer ACK, neutral control and missing-trigger refusals.
+Execution results, Owner/Roster timings and CI must be recorded against the final V5 commit; source factoring alone
+does not establish a speedup or a passing suite. No assertion, fixture size, deadline or admission guard is relaxed.
+
+**Rollback.** The application-only delta is reversible to signed baseline `2e1f9409`; no database rollback accompanies
+this candidate. Preserve the baseline and failed evidence. If a deployed version ever needs replacement, the existing
+writer-drain, floor and epoch procedures still apply; restoring earlier code never authorizes bypassing those gates.
