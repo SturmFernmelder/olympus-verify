@@ -1555,3 +1555,13 @@ The AddOn's new Guild module uses actual visible native roster rows and current 
 Optional upstream interoperability is session-only and display-only: the inspected Olympus Guild public bridge exposes Council hints, not a census API. No private cache or chat observer is consumed. Its labels cannot grant local proof or staff powers, and its `/oly` command remains its own. Olympus Verify uses `/olv browser` for its existing bounded browser challenge. The underlying QR profile remains disabled; this coexistence work is not the separate B1 signing release.
 
 There is no schema, D1 migration, journal or activation delta in .154. Public .153 remains the baseline, with its installed-admission/access/local-retention profile and erasure/intake/signing OFF. Frozen privacy580 and unpublished canary582 remain outside this release. Provider deployment, migration, publication and Discord actions belong to the owner. Exact final commit and observed qualification/deployment receipts are release evidence; source preparation, local UI/Lua tests and a polished charter do not establish all-store erasure, physical-copy replay or live game acceptance.
+
+
+## Olympus-only robots precedence (14 October 2026, .156)
+
+The owner keeps Cloudflare Bot Preference Sync for the domain. Its prepended wildcard Allow:/ ties the previous
+origin Disallow:/ and wins for compliant longest-match parsers. Retain the simple denial and add the stronger
+anchored Disallow:/*$ on Olympus only. The real Google parser verifies the combined provider/origin response;
+exact-body and HEAD tests prevent a substring-only false positive. No authentication, policy availability or
+other hostname changes. Sources: https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec and
+https://www.rfc-editor.org/rfc/rfc9309.html .
