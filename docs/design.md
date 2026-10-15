@@ -1596,4 +1596,6 @@ This is a query execution change over the same canonical and recorded physical c
 DDL comparisons, shorten the catalogue, change error handling, reduce test workloads or alter the admission transport.
 The existing native source suite gains both-layout positive and missing-trigger refusal coverage plus exact SQL pins
 for the reviewed proposal. Actual runtime and CI evidence determine its effect; source review makes no timing claim.
-All existing scheduling qualification holds and production deployment/recovery gates remain separate.
+All existing scheduling qualification holds and production deployment/recovery gates remain separate. The census and
+scheduled experiment tests pin the reviewed SQL hashes; their exact comparisons remain intact. The owner approved
+raising only the Worker CI job limit from 15 to 45 minutes so the complete test chain can run (15 October 2026).

@@ -5753,8 +5753,11 @@ CI; it does not authorize deployment, migration or a scheduled-path activation. 
 
 **Tests.** The existing admission suite retains all original assertions and adds both-layout checks for the exact
 reviewed ADMIT/CURRENT_SCHEMA SQL, shared CURRENT proof, native writer ACK, neutral control and missing-trigger refusals.
-Execution results, Owner/Roster timings and CI must be recorded against the final V5 commit; source factoring alone
-does not establish a speedup or a passing suite. No assertion, fixture size, deadline or admission guard is relaxed.
+The census and scheduled experiment suites retain their exact-SQL assertions with the reviewed V5 hashes. The owner
+approved a 45-minute Worker CI job limit so every suite can finish; all other job limits and every application/test
+assertion remain unchanged. Execution results, Owner/Roster timings and CI must be recorded against the final V5
+commit; source factoring alone does not establish a speedup or a passing suite. No fixture size, application deadline
+or admission guard is relaxed.
 
 **Rollback.** The application-only delta is reversible to signed baseline `2e1f9409`; no database rollback accompanies
 this candidate. Preserve the baseline and failed evidence. If a deployed version ever needs replacement, the existing
