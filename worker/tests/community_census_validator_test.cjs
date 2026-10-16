@@ -52,8 +52,10 @@ if (process.argv.includes('--json')) {
     else result = validateCensusJson(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes), Number(now));
   } catch { result = { ok: false, reason: 'invalid_utf8_or_file' }; }
   assert.equal(hash(contractPath), contractBefore);
+  // Let the complete large JSON write drain when stdout is a CI subprocess pipe.
+  process.exitCode = result.ok ? 0 : 2;
   process.stdout.write(JSON.stringify(result) + '\n');
-  process.exit(result.ok ? 0 : 2);
+  return;
 }
 
 const NOW = 1800000000;
