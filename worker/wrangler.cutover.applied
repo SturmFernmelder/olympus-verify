@@ -38,3 +38,6 @@ activated_at = "2026-10-11T02:55:29Z"
 # No provider deployment, privacy activation, epoch installation or serving-gate opening is asserted.
 activation_profile_sha256 = "954c1a05906e1986361b118d27f5729683c9b7cac1f0a601749110353e0abc38"
 activated_at = "2026-10-14T03:49:17Z"
+# Source configuration update for .161: private Floor binding and fixed D1 identity; no provider activation. Review and complete provisioning required before deployment.
+activation_profile_sha256 = "39826bad4922efe131fa4a11624651b312418ecd87ab5cd5b3c3fcdbfff4d2a9"
+activated_at = "2026-10-16T22:58:36Z"

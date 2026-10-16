@@ -56,6 +56,11 @@ service = "olympus-privacy-operator"
 binding = "PRIVACY_PRODUCTION_INITIALIZER"
 service = "olympus-privacy-initializer"
 
+[[durable_objects.bindings]]
+name = "PRIVACY_RECOVERY_FLOOR"
+class_name = "PrivacyRecoveryFloor"
+script_name = "olympus-privacy-recovery-floor"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "olympus-verify"
@@ -144,6 +149,7 @@ PRIVACY_ACCESS_ENABLED = "true"
 # .144 gated profile: deploy only after exact attended native installation/readback; no automatic installer.
 PRIVACY_WRITE_ADMISSION_ENABLED = "true"
 PRIVACY_WRITE_ADMISSION_LAYOUT = "recorded-live-20261010"
+PRIVACY_SERVING_DATABASE_ID = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
 PRIVACY_ERASURE_ENABLED = "false"
 PRIVACY_RETENTION_ENABLED = "true"
 # The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.
