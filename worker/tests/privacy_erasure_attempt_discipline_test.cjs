@@ -231,6 +231,27 @@ async function case4(){
  ticks=await quietTicks('4c',3,600,c);tickTable.push(...ticks.rows.map(r=>({case:'4c',...r})));
  caseCheck('4c later ticks never reselect the job or repeat the provider effect',ticks.rows.every(r=>r.attempted===0&&r.claims===0&&r.jobSame)&&ticks.providerDelta===0&&calls.filter(x=>x.startsWith('DELETE ')).length===1);
  hasRole=false;loseDelete=false;
+ // 4d: an explicit known hold whose finally write COMMITS but whose reply is lost after COMMIT.
+ t=fresh('true');seedCursor(t);await admission();let lostReply=0;const priorBatch=hooks.afterBatch;
+ hooks.afterBatch=async(stmts,out)=>{await priorBatch?.(stmts,out);if(lostReply===0&&stmts.some(s=>s._sql.includes(FINALLY_MARK))){lostReply++;throw Error('synthetic lost committed finally reply');}};
+ const committedLost=await cron('4d known hold whose committed finally reply is lost');hooks.afterBatch=priorBatch;
+ c=custody('4d after committed finally with lost reply');const unknown4d=unresolvedTickets(c).map(x=>x.ticket_id);
+ console.log('DISCIPLINE_COMMITTED_LOST_FINALLY '+JSON.stringify({lostReply,returned:committedLost.value,thrown:errorFact(committedLost.error),job:c.job,unresolved:unknown4d}));
+ caseCheck('4d the committed known reason remains although the finally reply is lost',lostReply===1&&committedLost.error!==null&&c.job.state==='held'&&c.job.hold_reason===KNOWN&&c.job.last_attempt_at===t&&c.journal.length===0&&c.companion.length===0,{job:c.job,thrown:errorFact(committedLost.error)});
+ caseCheck('4d the lost finally reply leaves its own serving custody unknown rather than acknowledged',unknown4d.length>0,{unresolved:unknown4d});
+ await cleanupCursor();clock+=121;
+ const retried=await cron('4d retry of the same proof after cleanup'),afterRetry=custody('4d after retry');
+ caseCheck('4d the committed known reason permits a later retry that completes the same proof',retried.value?.attempted===1&&retried.value.completed===1&&afterRetry.job.state==='complete'&&afterRetry.journal.length===1&&afterRetry.journal[0].state==='committed',{returned:retried.value,job:afterRetry.job});
+ caseCheck('4d the earlier unknown finally custody is still unknown after the retry completes',unknown4d.every(id=>unresolvedTickets(afterRetry).some(x=>x.ticket_id===id)),{before:unknown4d,after:unresolvedTickets(afterRetry).map(x=>x.ticket_id)});
+ // 4e: an unknown disposition (known=null) whose finally write COMMITS but whose reply is lost keeps the marker.
+ t=fresh('true');hasRole=true;loseDelete=true;await admission();let lostReply2=0;const priorBatch2=hooks.afterBatch;
+ hooks.afterBatch=async(stmts,out)=>{await priorBatch2?.(stmts,out);if(lostReply2===0&&stmts.some(s=>s._sql.includes(FINALLY_MARK))){lostReply2++;throw Error('synthetic lost committed finally reply');}};
+ const unknownLost=await cron('4e unknown disposition whose committed finally reply is lost');hooks.afterBatch=priorBatch2;
+ c=custody('4e after committed finally with lost reply');
+ caseCheck('4e an unknown disposition keeps the marker although its committed finally reply is lost',lostReply2===1&&c.job.state==='held'&&c.job.hold_reason===MARKER&&c.job.last_attempt_at===t&&c.journal.length===0,{job:c.job,thrown:errorFact(unknownLost.error)});
+ ticks=await quietTicks('4e',3,600,c);tickTable.push(...ticks.rows.map(r=>({case:'4e',...r})));
+ caseCheck('4e later ticks never reselect the job or repeat the provider effect',ticks.rows.every(r=>r.attempted===0&&r.claims===0&&r.jobSame)&&ticks.providerDelta===0);
+ hasRole=false;loseDelete=false;
 }
 
 async function case5(legacyRuns){
