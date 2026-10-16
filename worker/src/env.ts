@@ -76,6 +76,7 @@ export interface Env {
   PRIVACY_INTAKE_MONITORED?: string; // .82: "true" once someone actually reads the staff queue; without it no new case is accepted
   PRIVACY_INTAKE_RETENTION_DAYS?: string; // .82: 1..3650 days a case is kept from its last activity, fixed per case when it is created
   PRIVACY_ERASURE_ENABLED?: string; // serving request admission only; completion also needs current role/removal and all-store custody checks
+  PRIVACY_ERASURE_ATTEMPT_DISCIPLINE?: string; // .160: absent or "false" keeps legacy erasure SQL; "true" adds the exact post-scrub pre-check and the durable no-retry claim; anything else holds
   PRIVACY_ACCESS_ENABLED?: string; // identify-only privacy connection, separate from ordinary guild access
   PRIVACY_RETENTION_ENABLED?: string; // bounded fixed-deadline local sweeper; provider/recovery custody remains separate
   PRIVACY_WRITE_ADMISSION_ENABLED?: string; // .139: exact source-installed control/triggers required; absent/default OFF, no automatic installation

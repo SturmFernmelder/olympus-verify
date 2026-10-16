@@ -463,15 +463,19 @@ async function undeny(env: Env, actor: string, id: string,origin?:MembershipDeci
  * What other members entered about an account: write-ins naming it, friends-list entries, and references in their
  * applications (taken out of the list; the rest of the application stays as written). As statements for one batch.
  */
+/** The exact reference-entry predicate mentionDeletes uses, parameterised only by the bound subject slot. */
+export function mentionExactReferenceSql(id: '?1' | '?2') {
+  return `CASE WHEN e.type = 'object' THEN
+    (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'kind') = 1
+    AND (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'key') = 1
+    AND json_type(e.value, '$.kind') = 'text' AND json_extract(e.value, '$.kind') = 'discord'
+    AND json_type(e.value, '$.key') = 'text' AND json_extract(e.value, '$.key') = ${id} ELSE 0 END`;
+}
 export function mentionDeletes(env: Env, id: string) {
   // .133: scrub the consuming-time document, never a stale whole-answer copy prepared before the batch.
   // Descending index removal preserves every other value (including primitives and large numeric spellings).
   // Ambiguous duplicate keys and malformed/non-array legacy documents remain untouched; this is site-only erasure.
-  const exactReference = `CASE WHEN e.type = 'object' THEN
-    (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'kind') = 1
-    AND (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key = 'key') = 1
-    AND json_type(e.value, '$.kind') = 'text' AND json_extract(e.value, '$.kind') = 'discord'
-    AND json_type(e.value, '$.key') = 'text' AND json_extract(e.value, '$.key') = ?1 ELSE 0 END`;
+  const exactReference = mentionExactReferenceSql('?1');
   return [
     env.DB.prepare("DELETE FROM site_votes WHERE nominee_kind = 'discord' AND nominee_key = ?1").bind(id),
     env.DB.prepare("DELETE FROM site_friends WHERE friend_kind = 'discord' AND friend_key = ?1").bind(id),

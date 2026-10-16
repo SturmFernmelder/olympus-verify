@@ -78,7 +78,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if(m==='POST' && path==='/api/me/erasure'){
     const body=await readJson(request),operationId=typeof body?.operationId==='string'?body.operationId:'';
     const response=await requestServingErasure(env,request,operationId);
-    if(response.status===202)waitUntil(()=>(async()=>{const proof=await readErasureProof(env,operationId);if(proof){const {continueServingErasure}=await import('./privacy-serving-erase');await continueServingErasure(env,proof);}})().catch(e=>console.error('privacy erasure continuation failed',errorRef(e))));
+    if(response.status===202)waitUntil(()=>(async()=>{if(env.PRIVACY_ERASURE_ATTEMPT_DISCIPLINE!==undefined&&env.PRIVACY_ERASURE_ATTEMPT_DISCIPLINE!=='false'){const {continueSiteServingErasure}=await import('./privacy-serving-jobs');await continueSiteServingErasure(env,operationId);return;}const proof=await readErasureProof(env,operationId);if(proof){const {continueServingErasure}=await import('./privacy-serving-erase');await continueServingErasure(env,proof);}})().catch(e=>console.error('privacy erasure continuation failed',errorRef(e))));
     return response;
   }
   if(m==='POST' && path==='/api/me/erasure/status'){if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'bad_origin'},403);const body=await readJson(request);const status=await erasureRequestStatus(env,request,typeof body?.operationId==='string'?body.operationId:'',typeof body?.statusToken==='string'?body.statusToken:undefined);return status?apiJson(status):apiJson({error:'not_found'},404);}

@@ -14,7 +14,7 @@ import {originalPrivacyStatementGroupProjection} from './privacy-serving-authori
 import './community-routes';
 import {qrErasureCustodyClearSql} from './qr-phase1-data';
 import { communityDataNames,communityEraseStatements } from './community-context';
-import { mentionDeletes } from './site-admin';
+import { mentionDeletes, mentionExactReferenceSql } from './site-admin';
 import { servingPrivacyCatalogAndStaffCustody } from './privacy-business-catalog';
 import { cleanupPrivacyMessages,privacyMessageDebt } from './privacy-provider-messages';
 import { captureAccountErasureProof,originalErasureJobBirthSql,CURRENT_ERASURE_SQL, PRIVACY_DB_NOW, PRIVACY_REPLAY, PRIVACY_YEAR, currentAccountErasureProof,
@@ -33,8 +33,31 @@ export function originalAccountErasureProducerFacts(env:Env,statements:D1Prepare
  const stored=originalTerminalProducerGroups.get(statements);if(!stored||stored.env!==env)throw Error('privacy_terminal_source_unowned');stored.facts.check();return stored.facts;
 }
 
+/** Optional default-off attempt discipline. Absent or 'false' keeps every legacy SQL text and request sequence; any other value fails closed. */
+export const ERASURE_ATTEMPT_UNRESOLVED='attempt_unresolved';
+export function erasureAttemptDiscipline(env:Env):boolean|null{
+ const value=env.PRIVACY_ERASURE_ATTEMPT_DISCIPLINE;
+ return value===undefined||value==='false'?false:value==='true'?true:null;
+}
+/** The exact character-reference entry predicate characterReferenceScrub uses, parameterised only by the bound subject slot. */
+const characterReferenceMatchSql=(id:'?1'|'?2')=>`CASE WHEN e.type='object' THEN (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key='kind')=1
+ AND (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key='key')=1 AND json_extract(e.value,'$.kind')='name'
+ AND json_type(e.value,'$.key')='text' AND json_extract(e.value,'$.key') IN(SELECT name_key FROM characters WHERE discord_id=${id}) ELSE 0 END`;
+/** Attempt discipline only: an otherwise structured other-owner application that would still contain the subject
+ * after the batch's two ordered scrubs (character references, then exact Discord references). The consuming
+ * in-batch guard 'privacy_ambiguous_reference_held' stays unchanged and remains the authority. */
+function postScrubApplicationReferenceSql():string{
+ const removal=(input:string,match:string,name:string)=>`(WITH RECURSIVE ${name}_m(idx,ordinal) AS(SELECT CAST(e.key AS INTEGER),ROW_NUMBER() OVER(ORDER BY CAST(e.key AS INTEGER) DESC) FROM json_each(${input},'$.references')e WHERE ${match}),
+ ${name}_s(ordinal,text) AS(SELECT 0,${input} UNION ALL SELECT s.ordinal+1,json_remove(s.text,'$.references['||m.idx||']') FROM ${name}_s s JOIN ${name}_m m ON m.ordinal=s.ordinal+1)
+ SELECT text FROM ${name}_s ORDER BY ordinal DESC LIMIT 1)`;
+ const afterCharacter=removal('a.answers',characterReferenceMatchSql('?2'),'character_scrub');
+ const afterMention=removal(afterCharacter,mentionExactReferenceSql('?2'),'mention_scrub');
+ return `EXISTS(SELECT 1 FROM site_applications a WHERE a.discord_id<>?2 AND CASE WHEN NOT json_valid(a.answers) THEN 0
+ WHEN json_type(a.answers)<>'object' THEN 0 WHEN COALESCE(json_type(a.answers,'$.references'),'')<>'array' THEN 0
+ WHEN (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 THEN 0 ELSE instr(${afterMention},?2)>0 END)`;
+}
 /** One fixed authored predicate for negative preflight and the consuming atomic guard. */
-function ambiguousAccountReferencesSql():string{
+function ambiguousAccountReferencesSql(discipline=false):string{
  // The legacy watcher grouped names in a typed system audit row. Attribute only names
  // covered by the account's live character ownership interval, preserving the other names.
  const groupedShape=(a:string)=>`CASE WHEN NOT json_valid(${a}.details) THEN 0
@@ -55,7 +78,8 @@ function ambiguousAccountReferencesSql():string{
  AND NOT (${groupedShape('a')}) AND CASE WHEN json_valid(a.details) THEN
  EXISTS(SELECT 1 FROM json_tree(a.details) j WHERE j.type='text' AND
  (j.value=c.name COLLATE NOCASE OR j.value=c.name_key COLLATE NOCASE))
- ELSE instr(lower(COALESCE(a.details,'')),lower(c.name))>0 OR instr(lower(COALESCE(a.details,'')),lower(c.name_key))>0 END)`;
+ ELSE instr(lower(COALESCE(a.details,'')),lower(c.name))>0 OR instr(lower(COALESCE(a.details,'')),lower(c.name_key))>0 END)`+(discipline?`
+ OR ${postScrubApplicationReferenceSql()}`:'');
 }
 
 export type ServingCompletion={state:'held'|'unknown'|'complete';reason:string|null;servingAccountErased:boolean;allCopiesErased:false;providerMessages:'unqualified';recoveryCopies:'operator-held';staffAccess:MemberRoleSettlement['staffAccess'];staffAccessDetails:StaffAccessDetails;messageDebt?:{known:number;unknown:number}};
@@ -65,6 +89,7 @@ type CentralRoleAdapter={settleAccountErasureMemberRole:(env:Env,proof:AccountEr
 export async function continueServingErasure(env:Env,proof:AccountErasureProof):Promise<ServingCompletion>{
  proof=captureAccountErasureProof(proof).proof;
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return held('feature_disabled');
+ const discipline=erasureAttemptDiscipline(env);if(discipline===null)return held('erasure_attempt_discipline_invalid');
  // The original six-field job proof was captured before the feature check and first await.
  // Retain its original birth/absence purpose through the ED01 Native current/clear ACK.
  if(!await currentAccountErasureProof(env,proof))return held('request_not_current');
@@ -77,7 +102,7 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof):
  await central.reconcileAccountErasureRoleDebt(env,proof);
  // One bounded debt reconciliation does not resolve a second unknown provider effect.
  // Reuse both consuming predicates in this existing original Native read; a negative result grants no completion authority.
- const custody=await env.DB.prepare(`SELECT ((${CURRENT_ERASURE_SQL}) AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)})) AS current,CASE WHEN ${qrErasureCustodyClearSql('?2')} THEN 1 ELSE 0 END AS custody_clear,CASE WHEN NOT(${ambiguousAccountReferencesSql()}) THEN 1 ELSE 0 END AS references_clear`)
+ const custody=await env.DB.prepare(`SELECT ((${CURRENT_ERASURE_SQL}) AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)})) AS current,CASE WHEN ${qrErasureCustodyClearSql('?2')} THEN 1 ELSE 0 END AS custody_clear,CASE WHEN NOT(${ambiguousAccountReferencesSql(discipline)}) THEN 1 ELSE 0 END AS references_clear`)
  .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest).first<{current:number;custody_clear:number;references_clear:number}>();
  // Snapshot the original Native ACK immediately; never adopt a mutable bit after another await.
  const custodyRow:unknown=custody;
@@ -100,11 +125,11 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof):
  // Known local-read refusal leaves the original proof/job and any historical unknown custody untouched.
  if(originalReferencesClear!==1)return held('ambiguous_personal_reference','held',outcome.staffAccess);
  await cleanupPrivacyMessages(env,proof.subject);
- return completeServingAccount(env,proof,outcome,central.accountErasureRoleSettledSql);
+ return completeServingAccount(env,proof,outcome,central.accountErasureRoleSettledSql,discipline);
 }
 
 /** Trusted central adapter only. No HTTP caller chooses role outcome or the consuming receipt SQL. */
-async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string):Promise<ServingCompletion>{
+async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string,discipline=false):Promise<ServingCompletion>{
  p=captureAccountErasureProof(p).proof;
  const facts=await servingPrivacyCatalogAndStaffCustody(env,p.subject);
  if(!facts.catalogCurrent)return held('unclassified_storage', 'held',role.staffAccess);
@@ -115,7 +140,7 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  const markerKey=await privacySubjectKey(env,p.subject);
  const v=[p.operationId,p.subject,p.subjectGeneration,p.requestDigest];
  const identity='?1';
- const unqualified=ambiguousAccountReferencesSql();
+ const unqualified=ambiguousAccountReferencesSql(discipline);
  const before=env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(p)}) AND (${roleSettledSql})
  AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?6 AND r.role_id=?7 AND r.desired=0)
  AND ?5 BETWEEN ${PRIVACY_DB_NOW}-60 AND ${PRIVACY_DB_NOW}+5 AND NOT(${unqualified})
@@ -158,9 +183,7 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
 }
 
 function characterReferenceScrub(env:Env,id:string):D1PreparedStatement{
- const match=`CASE WHEN e.type='object' THEN (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key='kind')=1
- AND (SELECT COUNT(*) FROM json_each(e.value) f WHERE f.key='key')=1 AND json_extract(e.value,'$.kind')='name'
- AND json_type(e.value,'$.key')='text' AND json_extract(e.value,'$.key') IN(SELECT name_key FROM characters WHERE discord_id=?1) ELSE 0 END`;
+ const match=characterReferenceMatchSql('?1');
  return env.DB.prepare(`UPDATE site_applications AS a SET answers=(WITH RECURSIVE matches(idx,ordinal) AS(
  SELECT CAST(e.key AS INTEGER),ROW_NUMBER() OVER(ORDER BY CAST(e.key AS INTEGER) DESC) FROM json_each(a.answers,'$.references')e WHERE ${match}),
  scrubbed(ordinal,text) AS(SELECT 0,a.answers UNION ALL SELECT s.ordinal+1,json_remove(s.text,'$.references['||m.idx||']') FROM scrubbed s JOIN matches m ON m.ordinal=s.ordinal+1)
