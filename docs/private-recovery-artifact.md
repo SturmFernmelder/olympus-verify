@@ -52,19 +52,23 @@ The five serving values are `PRIVACY_RECOVERY_FLOOR` (the cross-script namespace
 7. Read back actual Native profile/epoch/mode, independent completed journals/copy ACK and managed-open Floor; verify the deployed main's complete five-value binding set and original ordinary OAuth/cookie/membership routes. Physical keeper/time-travel inventory, actual stale-writer exclusion and every retained source still require their own real evidence. Do not call this all-store erasure activation from an empty/current-source install alone.
 8. Enable erasure/QR only after their separate exact-source/provider/resource/all-copy acceptance. Existing local flags and `readyToReopen:false` reports remain truthful until that step.
 
-Owner command shapes, from the frozen final `worker` directory, using its pinned Node and local Wrangler (substitute only verified final paths/values; these lines have not been executed here):
+Owner command shapes, from the checkout containing the qualified shipping commit, using its existing pinned tools (substitute only verified final paths/values; these lines have not been executed here):
 
 ```powershell
-& $Node $Wrangler deploy --config .\wrangler.privacy-floor.private.toml
-& $Node $Wrangler deploy --config .\wrangler.privacy-release-evidence.private.toml
-& $Node $Wrangler deploy --config .\wrangler.privacy-initializer.private.toml
-& $Node $Wrangler deploy --config .\wrangler.privacy-operator.private.toml
+bash scripts/deploy-commit.sh $ShippingCommit --target privacy-floor
+bash scripts/deploy-commit.sh $ShippingCommit --target privacy-evidence
+bash scripts/deploy-commit.sh $ShippingCommit --target privacy-initializer --bind-source-tree
+bash scripts/deploy-commit.sh $ShippingCommit --target privacy-operator --bind-source-tree
 # Final main upload/version annotations used by the readonly evidence emitter:
-& $Node $Wrangler deploy --config .\wrangler.toml --tag $VerifiedSourceTree --message $VerifiedBundleSHA256
-& $Node .\scripts\private-control-command.mjs --input $OriginalCommandJSON
+bash scripts/deploy-commit.sh $ShippingCommit --tag $VerifiedSourceTree --message $VerifiedBundleSHA256 --bind-source-tree
+& $Node .\worker\scripts\private-control-command.mjs --input $OriginalCommandJSON
 # Append --execute-original-once only for the selected original command after its input is reviewed.
 ```
 
-`$Wrangler` is the qualified local `node_modules/wrangler/wrangler-dist/cli.js`, not a newly downloaded CLI. The configurations and original commands must contain actual qualified installation values before deployment/execution. No remote `schema.sql`, `db:init`, ad-hoc D1 mutation, public operator URL, automatic secret rotation or new deployment helper is part of this order.
+The existing helper exports only the selected commit with `git archive` and uses the checkout's existing local Wrangler through `npx --no-install`. Its fixed `--target` selector accepts only main (the default), privacy-floor, privacy-evidence, privacy-initializer and privacy-operator. Arbitrary configuration paths, names, environments and variables remain refused. The actual local CLI must still be the qualified `node_modules/wrangler/wrangler-dist/cli.js`, not a newly downloaded CLI.
+
+`--tag` and `--message` are accepted only together: the tag must equal the selected commit's complete Git tree, and the message must be the separately accepted bundle SHA256. These annotations do not themselves establish upload-byte provenance. `--bind-source-tree` derives exactly one non-secret binding from that same commit: `PRIVACY_SERVING_SOURCE_TREE` for main, or `PRIVACY_CONTROL_SOURCE_TREE` for the initializer/operator. The option is refused for the Floor/evidence targets and requires the annotation pair for main. Do not put a final tree hash in its own tracked TOML; that is a self-reference. This derived binding does not select the operator's current serving predecessor, supply epochs or enable any service.
+
+All other configuration, roots, epochs, actual provider versions, namespace IDs and original command inputs require their separately qualified installation/provisioning evidence before execution. The archived templates remain OFF and incomplete until those prerequisites are met; selecting a template is not activation authority. No remote `schema.sql`, `db:init`, ad-hoc D1 mutation, public operator URL, automatic secret rotation or new deployment helper is part of this order.
 
 The release emitter uses `observe-cut` rather than `status` so that a genuinely fresh initializer-created CLOSED Gate is supported without replacing its original initialization digest. The source-owned observe-cut checks the same original operation/nonce/clock/next epoch and returns the actual native cut; it requires local and provider-ticket counts to be zero. The emitter never substitutes an operator-body digest for the original initializer digest.
