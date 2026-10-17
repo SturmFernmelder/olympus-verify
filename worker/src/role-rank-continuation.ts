@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 /** Source-selected roster service, not a website session or a new scheduled job (10 October 2026).
  * Root's existing worklist owns account rotation and reserves membership plus this whole account before entry.
  * Only fresh qualified roster facts can create new intents; spent/unknown effects are GET-only forever.
@@ -28,7 +29,8 @@ function childBudget(parent:CallBudget):CallBudget {
   exhausted:false,audited:false,inventoryFailed:false
  };
 }
-export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:number,capture:Capture,parent:CallBudget,effectLimit:number=RANK_CONTINUATION_EFFECT_LIMIT):Promise<RankContinuation> {
+export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:number,capture:Capture,parent:CallBudget,effectLimit:number=RANK_CONTINUATION_EFFECT_LIMIT,originalDispatch?:BetaRoleDispatch):Promise<RankContinuation> {
+ const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
  const empty=(state:RankContinuation['state'],reason:string):RankContinuation=>({state,reason,rotate:true,visited:0,closedAbsent:0,pending:0,unknown:0,held:0,attempts:0,outcomes:[]});
  if(!Number.isInteger(effectLimit)||effectLimit<1||effectLimit>RANK_CONTINUATION_EFFECT_LIMIT)return empty('held','trusted_effect_limit_required');
  if(env.QR_RANK_MAPPING_ENABLED!=='true'&&env.QR_PRIVILEGED_RANK_MAPPING_ENABLED!=='true')return empty('held','rank_mapping_disabled');
@@ -37,7 +39,7 @@ export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:nu
  if(parent.limit-parent.attempts<RANK_CONTINUATION_HTTP_RESERVE){parent.exhausted=true;return empty('budget','whole_account_reservation_required');}
  const b=childBudget(parent),outcomes:Settlement[]=[];let closedAbsent=0,sourceHeld=false,budgetHeld=false;
  try{
- try{await queueRosterRankRoles(env,subject,snapshotId,capture.subjectGeneration);}catch{sourceHeld=true;}
+ try{await queueRosterRankRoles(env,subject,snapshotId,capture.subjectGeneration,roleDispatch);}catch{sourceHeld=true;}
  // The lookup fence is repeated by every receipt/effect. An unknown older dispatch gets only an outcome GET.
  try{if(!sourceHeld){const absence=await settleRosterRankAbsences(env,subject,snapshotId,capture.subjectGeneration,b);closedAbsent=absence.closed;if(absence.state==='held')sourceHeld=true;}}
  catch{sourceHeld=true;}
@@ -56,7 +58,7 @@ export async function continueRosterRanks(env:QrEnv,subject:string,snapshotId:nu
  AND prior.state='settled' AND prior.reason='fresh_server_confirmed' AND typeof(prior.checked_at)='integer'
  AND prior.checked_at>=prior.created_at AND prior.checked_at<=CAST(strftime('%s','now') AS INTEGER) ORDER BY prior.checked_at DESC,prior.rowid DESC LIMIT 1),-1) ELSE -1 END,created_at,id LIMIT ?5`).bind(subject,snapshotId,capture.subjectGeneration,env.GUILD_ID,effectLimit).all<{id:string;state:string;attempts:number}>();
  for(const row of rows.results){if(b.limit-b.attempts<8){parent.exhausted=true;budgetHeld=true;break;}
-  try{const r=await settleRoleIntent(env,row.id,row.attempts===1||row.state==='unknown'||row.state==='dispatching',undefined,b);outcomes.push(r);
+  try{const r=await settleRoleIntent(env,row.id,row.attempts===1||row.state==='unknown'||row.state==='dispatching',undefined,b,undefined,roleDispatch);outcomes.push(r);
    if(r.state==='unknown')break;}catch{outcomes.push({state:'held',reason:'central_settlement_failed',operationId:row.id,checkedAt:null});}
  }
  const counts=await env.DB.prepare(`SELECT COALESCE(SUM(state='pending'),0) AS pending,COALESCE(SUM(state IN('dispatching','unknown')),0) AS unknown,

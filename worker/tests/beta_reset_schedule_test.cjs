@@ -98,7 +98,10 @@ function sourceInventory(){
  const sf=parseSource('index.ts'),exports=sf.statements.filter(node=>ts.isExportAssignment(node)&&!node.isExportEquals);
  const defaultObject=sole(exports,'one default export').expression;assert.ok(ts.isObjectLiteralExpression(defaultObject));
  const method=sole(defaultObject.properties.filter(node=>ts.isMethodDeclaration(node)&&node.name.getText()==='scheduled'),'one scheduled method');
- const guarded=sole(method.body.statements.filter(ts.isTryStatement),'scheduled try');assert.equal(method.body.statements.length,1);
+ const guarded=sole(method.body.statements.filter(ts.isTryStatement),'scheduled try');assert.equal(method.body.statements.length,2);
+ exactSyntax(method.body.statements[0],'const roleDispatch=captureBetaRoleDispatch(env);','synchronous original beta dispatch capture before the first await');
+ assert.equal(method.body.statements[1],guarded,'the original guarded body follows the one entry capture');
+ sole(allNodes(method,node=>namedCall(node,'captureBetaRoleDispatch')),'one originating beta dispatch capture; never recaptured after an await');
  const expected=[
   "scheduledIntrinsics();",
   "const admission=scheduledDescriptor(env,'PRIVACY_WRITE_ADMISSION_ENABLED');",
@@ -113,12 +116,13 @@ function sourceInventory(){
   "originalScheduledCallback(original,event,ctx);",
   "const globalEntry=captureGlobalServingEntry(env,ctx,'scheduled',undefined,constraint);",
   "scheduledCostConstraints.set(original,constraint);",
-  "await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx):runSourceEpoch2ScheduledBody(globalEntry.env,ctx);});"
+  "await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch);});"
  ];
  assert.equal(guarded.tryBlock.statements.length,expected.length);expected.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[i],text,'scheduled guard/order '+i));
  exactSyntax(guarded.catchClause,"catch(e){console.error(\"schema check failed; skipping this run\",errorRef(e));}",'original redacted catch');
  assertFalseExport('beta-reset.ts','BETA_RESET_SCHEDULE_QUALIFIED');assertTrueExport('scheduled-budget.ts','EPOCH2_SCHEDULE_QUALIFIED');
  check('source scheduled capture precedes inactive/false qualifiers and global dispatch',true);
+ check('the synchronous entry restriction is passed unchanged to both minute and ordinary bodies, retaining the original schedule slot',true);
  check('.161: loaded minute qualifier remains false and the ordinary qualifier is true',engine.BETA_RESET_SCHEDULE_QUALIFIED===false&&load('scheduled-budget').EPOCH2_SCHEDULE_QUALIFIED===true);
  const capture=declaration(sf,'captureOriginalScheduledCallback');
  const shape=sole(capture.body.statements.filter(node=>ts.isIfStatement(node)&&node.expression.getText().startsWith('keys.length!==2')),'controller shape guard');
@@ -128,21 +132,27 @@ function sourceInventory(){
  assert.ok(shape.pos<context.pos&&context.pos<sole(allNodes(capture,node=>namedCall(node,'scheduledApply')&&node.arguments[0]?.getText()==='retry.value'),'original noRetry call').pos);
  check('source unowned descriptor guards precede native method invocation',true);
  const minute=declaration(sf,'runSourceBetaResetScheduledBody');assert.ok(!minute.modifiers?.some(mod=>mod.kind===ts.SyntaxKind.ExportKeyword));
- const minuteExpected=["assertGlobalServingDispatch(env);","if(!resetGuardEnabled(env))return;","try{env=writeAdmissionEnv(env);await ensureSchema(env);}catch(e){console.error('beta reset schema check held',errorRef(e));return;}","deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env).catch(e=>console.error('beta reset continuation held',errorRef(e))));"];
+ assert.equal(minute.parameters.length,3);exactSyntax(minute.parameters[2],'originalDispatch?:BetaRoleDispatch','private minute original entry pair parameter');
+ const minuteExpected=["const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);","assertGlobalServingDispatch(env);","if(!resetGuardEnabled(env))return;","try{env=writeAdmissionEnv(env);await ensureSchema(env);}catch(e){console.error('beta reset schema check held',errorRef(e));return;}","deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));"];
  assert.equal(minute.body.statements.length,minuteExpected.length);minuteExpected.forEach((text,i)=>exactSyntax(minute.body.statements[i],text,'private minute body '+i));
  check('private minute source retains dispatch guard schema and one reset defer',true);
  const ordinary=declaration(sf,'runSourceEpoch2ScheduledBody');
+ assert.equal(ordinary.parameters.length,4);exactSyntax(ordinary.parameters[2],'originalSchedule?:OriginalRosterSchedule','ordinary original schedule remains the third argument');exactSyntax(ordinary.parameters[3],'originalDispatch?:BetaRoleDispatch','ordinary original entry pair is additive fourth argument');
  const defers=allNodes(ordinary,node=>namedCall(node,'deferOriginalServing'));
  const labels=['sweepInviteQueue','sweepMemberRoles','continueRosterEffects','refreshNames','autoQueueReserved','purgeSeenInteractions','purgeBattleNetData','sweepRenameHolds','sweepCommunityProfiles','sweepCommunityEvents','runEventReminders','sweepCommunityTrials','sweepCommunityRestrictions','departureIntake','sweepCommunityDepartures','openWeeklyObligations','sweepCommunityContributions','sweepCommunityPrivacy','newsCron','runOfficerDigest','runServingErasureJob','sweepServingRetention','sweepRejectionExpiry'];
  assert.deepEqual(defers.map(call=>{assert.equal(call.arguments.length,3);assert.ok(ts.isIdentifier(call.arguments[0])&&call.arguments[0].text==='ctx'&&ts.isStringLiteral(call.arguments[1])&&ts.isArrowFunction(call.arguments[2]));return call.arguments[1].text;}),labels);
  for(let i=0;i<labels.length;i++){const call=sole(allNodes(defers[i].arguments[2],node=>namedCall(node,labels[i])),'original deferred job '+labels[i]);assert.equal(call.arguments[0].getText(),'env');}
  for(const [label,condition] of [['departureIntake','communityFeatures(env).has("departures")'],['openWeeklyObligations','communityFeatures(env).has("contributions")']]){const call=defers[labels.indexOf(label)],parent=call.parent.parent;assert.ok(ts.isIfStatement(parent)&&parent.thenStatement===call.parent);exactSyntax(parent.expression,condition,label+' condition');}
  exactSyntax(defers[labels.indexOf('newsCron')].arguments[2].body,'rosterCadence.newsEnabled?newsCron(env):Promise.resolve()','news cadence');
- exactSyntax(sole(allNodes(defers[2],node=>namedCall(node,'continueRosterEffects')),'roster dispatch'),'continueRosterEffects(env,rosterSchedule)','original roster schedule');
+ exactSyntax(sole(allNodes(defers[1],node=>namedCall(node,'sweepMemberRoles')),'member role dispatch'),'sweepMemberRoles(env,"cron",undefined,roleDispatch)','member role sweep retains cron mode and receives the original restriction');
+ exactSyntax(sole(allNodes(defers[2],node=>namedCall(node,'continueRosterEffects')),'roster dispatch'),'continueRosterEffects(env,rosterSchedule,roleDispatch)','original roster schedule and entry restriction');
+ exactSyntax(sole(allNodes(defers[7],node=>namedCall(node,'sweepRenameHolds')),'rename cleanup'),'sweepRenameHolds(env)','rename cleanup retains its original env-only invocation');
  exactSyntax(sole(allNodes(defers[21],node=>namedCall(node,'sweepServingRetention')),'retention dispatch'),'sweepServingRetention(env,originalRetentionSchedule)','original retention schedule');
- exactSyntax(ordinary.body.statements[0],'const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();','original schedule captures');
- exactSyntax(ordinary.body.statements[1],'const rosterCadence=originalRosterScheduleFacts(rosterSchedule);','original cadence facts');
- exactSyntax(ordinary.body.statements[2],'assertGlobalServingDispatch(env);','ordinary dispatch guard');
+ exactSyntax(ordinary.body.statements[0],'const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);','ordinary retains the entry restriction before schedule capture or await');
+ sole(allNodes(ordinary,node=>namedCall(node,'captureBetaRoleDispatch')),'ordinary fallback capture occurs only at its entry');
+ exactSyntax(ordinary.body.statements[1],'const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();','original schedule captures');
+ exactSyntax(ordinary.body.statements[2],'const rosterCadence=originalRosterScheduleFacts(rosterSchedule);','original cadence facts');
+ exactSyntax(ordinary.body.statements[3],'assertGlobalServingDispatch(env);','ordinary dispatch guard');
  check('ordinary source retains all 23 ordered jobs and original conditions/schedules',true);return labels;
 }
 (async()=>{

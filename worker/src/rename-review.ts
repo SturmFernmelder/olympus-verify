@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 /**
  * .114 (2 Oct 2026, Viktor's item 9): renames Blizzard required.
  *
@@ -127,7 +128,8 @@ export type ForcedResult =
 const refused = (status: number, error: string, message: string): ForcedResult => ({ ok: false, status, error, message });
 
 /** An administrator marks the rename recorded by audit row `auditId` as required by Blizzard. */
-export async function markForcedRename(env: Env, actor: string, auditId: number): Promise<ForcedResult> {
+export async function markForcedRename(env: Env, actor: string, auditId: number,originalDispatch?:BetaRoleDispatch): Promise<ForcedResult> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const row = await env.DB.prepare(membershipSettlementEnabled(env)?`SELECT a.id,a.ts,a.subject,a.details,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM audit a LEFT JOIN privacy_subjects p ON p.subject_id=CASE WHEN json_valid(a.details) AND json_type(a.details,'$.discordId')='text' THEN json_extract(a.details,'$.discordId') END WHERE a.id=?1 AND a.actor='system' AND a.action='roster.renamed'`:"SELECT id, ts, subject, details FROM audit WHERE id = ?1 AND actor = 'system' AND action = 'roster.renamed'")
     .bind(auditId)
     .first<{ id: number; ts: number; subject: string | null; details: string | null;privacy_generation?:string|null;privacy_state?:string|null;privacy_revision?:number|null }>();
@@ -183,7 +185,7 @@ export async function markForcedRename(env: Env, actor: string, auditId: number)
   const applicationWithdrawn = Number(done[4]?.meta?.changes ?? 0) > 0;
   if (applicationWithdrawn) forgetBoardCounts();
   await audit(env, actor, "rename.forced", target.name, { from, discordId, holdId, unbound, applicationWithdrawn });
-  const role = await revokeForReapply(env, discordId, "rename-forced",{subjectGeneration:originalCapture?.subjectGeneration??null});
+  const role = await revokeForReapply(env, discordId, "rename-forced",{subjectGeneration:originalCapture?.subjectGeneration??null},roleDispatch);
   await logLine(env, `\u{1F501} rename: **${from}** → **${target.name}** (<@${discordId}>) marked by a site administrator as required by Blizzard; that character is verified again and the member applies again. Guild Member: ${role === "removed" ? "removed and held until the new application is approved" : role === "failed" ? "could NOT be removed (remove it by hand); held until the new application is approved" : "kept where another member character of the account supports it, otherwise held"}.`);
   await notify(env, discordId, "A rename Blizzard required: run /verify-status.", "rename-reapply");
   return { ok: true, holdId, role, unbound, applicationWithdrawn };

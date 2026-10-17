@@ -39,7 +39,7 @@ import { audit, now } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
 import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled,membershipTargetsCurrent,type MembershipTargets } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
-import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
+import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,captureBetaRemovalDispatch,captureBetaRoleDispatch,betaRoleDispatchHeld,betaGrantDispatchHeld,betaSourceEpochState,type BetaRoleDispatch,type BetaRemovalDispatchCapture } from './beta-reset-policy';
 
 export const blockingRoleIds = (env: Env): string[] =>
   (env.BLOCKING_ROLE_IDS ?? "")
@@ -126,7 +126,9 @@ export async function budgetExhausted(env: Env, budget: CallBudget, source: stri
  * bookkeeping only: the decision is made on a fresh member read and a fresh ban read, immediately before the write.
  * Throws what addRole throws, so every caller keeps its own failure handling and audit.
  */
-export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget, generationCapture?:{subjectGeneration:string|null;membershipContext?:Readonly<{central:boolean;targets:MembershipTargets|null}>}): Promise<GrantOutcome> {
+export async function grantMemberRole(env: Env, userId: string, reason: string, source: string, _roles?: readonly string[], budget?: CallBudget, generationCapture?:{subjectGeneration:string|null;membershipContext?:Readonly<{central:boolean;targets:MembershipTargets|null}>},originalDispatch?:BetaRoleDispatch): Promise<GrantOutcome> {
+  const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
+  if(betaGrantDispatchHeld(env,dispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return 'held';
   // .152: an optional backfill selection stays original across this writer's own awaits. Other callers retain their existing contract.
   const originalCapture=generationCapture===undefined?undefined:Object.freeze({subjectGeneration:generationCapture.subjectGeneration});
   const context=generationCapture?.membershipContext;
@@ -142,16 +144,16 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   const betaFlag=Object.getOwnPropertyDescriptor(env,'BETA_RESET_REMOVALS_ENABLED');
   const betaSelected=betaFlag?!Object.hasOwn(betaFlag,'value')||betaFlag.value!==undefined&&betaFlag.value!=='false':'BETA_RESET_REMOVALS_ENABLED' in env;
   const betaPolicy=betaSelected||betaSourceTarget?await import('./beta-reset-policy'):null;
-  const betaCapture=betaPolicy?await betaPolicy.captureBetaGrant(env,env.GUILD_ID,env.ROLE_GUILD_MEMBER):null;
+  const betaCapture=betaPolicy?await betaPolicy.captureBetaGrant(env,env.GUILD_ID,env.ROLE_GUILD_MEMBER,dispatch):null;
   if(betaCapture?.mode==='held')return 'held';
   if(durableServingRoles(env)){
     // The serving caller passes its ORIGINAL selection/cookie capture. Missing authority is never repaired by reading a new generation.
     if(!originalCapture)return 'held';
     try{const central=await import('./role-settlements'),snapshot=await env.DB.prepare('SELECT MAX(id) AS id FROM roster_snapshots').first<{id:number}>();
       if(!originalMembershipCurrent()||betaCapture&&betaPolicy&&!await betaPolicy.betaGrantCurrent(env,betaCapture))return 'held';
-      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,originalCapture.subjectGeneration);
+      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,originalCapture.subjectGeneration,dispatch);
       if(betaCapture&&betaPolicy&&!await betaPolicy.betaGrantCurrent(env,betaCapture))return 'held';
-      const r=await central.settleRoleIntent(env,operation,false,undefined,budget,betaCapture??undefined);
+      const r=await central.settleRoleIntent(env,operation,false,undefined,budget,betaCapture??undefined,dispatch);
       return r.state==='settled'?(r.reason==='fresh_server_confirmed'?'has-role':'granted'):r.reason==='role_request_budget'?'budget':'held';
     }catch{return 'held';}
   }
@@ -170,6 +172,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   if (!takeCall(budget)) return budgetExhausted(env, budget!, source); // .90: the run's budget, before each Discord call
   const m = await guildMember(env, userId, budget);
   if(!originalMembershipCurrent())return 'held';
+  if(betaGrantDispatchHeld(env,dispatch,env.GUILD_ID,role))return 'held';
   if (!m) return "not-in-server";
   const blocker = heldBlockingRole(env, m.roles);
   if (blocker) {
@@ -187,6 +190,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   // .95: the PUT and the removal it may owe, reserved together before the PUT
   if (!affords(budget, 2)) return budgetExhausted(env, budget!, source);
   if(!originalMembershipCurrent())return 'held';
+  if(betaGrantDispatchHeld(env,dispatch,env.GUILD_ID,role))return 'held';
   if(betaCapture?.mode==='open'){
     const guarded=await import('./beta-reset-grants'),receipt=await guarded.beginBetaLegacyGrant(env,betaCapture,userId);
     if(!receipt||await guarded.dispatchBetaLegacyGrant(env,receipt,reason,budget)!=='granted')return 'held';
@@ -197,7 +201,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   // .60: and once more after the write: a ban that landed while the PUT was in flight is undone here, not left held
   if (await isBanned(env, userId)) {
     takeMandatory(budget); // .95: reserved above, counted here, never skipped
-    await revokeForBan(env, userId, role, `${source}:after-grant`, budget);
+    await revokeForBan(env, userId, role, `${source}:after-grant`, budget, undefined, removalDispatch,dispatch);
     return "banned";
   }
   // .114 (Codex, log 18:47 UTC): the reapply hold the same way: a hold stored, and its one-time removal done, while this PUT
@@ -205,7 +209,7 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   // removal that fails here.
   if (await reapplyHeld(env, userId)) {
     takeMandatory(budget); // the same reserved removal; only one of the two can be needed
-    await revokeHeld(env, userId, role, `${source}:after-grant`, budget);
+    await revokeHeld(env, userId, role, `${source}:after-grant`, removalDispatch, budget,undefined,dispatch);
     return "held";
   }
   return "granted";
@@ -237,8 +241,12 @@ export const reapplyHeld = async (env: Env, userId: string): Promise<boolean> =>
  * needs nothing; a failed removal is recorded (`role.revoke_pending`) and reported to the administrator, who removes the
  * role by hand: the account may have no roster character left for the sweep to visit, and the hold keeps it from coming back.
  */
-export async function revokeForReapply(env: Env, userId: string, source: string, generationCapture?:{subjectGeneration:string|null}): Promise<"removed" | "not-held" | "failed"> {
-  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'rename_hold',generationCapture);return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}
+export async function revokeForReapply(env: Env, userId: string, source: string, generationCapture?:{subjectGeneration:string|null},originalDispatch?:BetaRoleDispatch): Promise<"removed" | "not-held" | "failed"> {
+  const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
+  const held=()=>betaRoleDispatchHeld(env,dispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER);
+  if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return 'failed';
+  if(durableServingRoles(env)){const central=await import('./role-settlements');if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return 'failed';const r=await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture,undefined,dispatch);return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}
+  if(held())return 'failed';
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return "not-held";
   let m: Awaited<ReturnType<typeof guildMember>>;
@@ -252,12 +260,15 @@ export async function revokeForReapply(env: Env, userId: string, source: string,
   // .114 (Codex, log 18:47 and 19:17 UTC): the hold is read again after the member GET, at the effect: a hold withdrawn,
   // or another member character confirmed, while that read was in flight is not followed by a stale removal
   if (!(await reapplyHeld(env, userId))) return "not-held";
-  return (await revokeHeld(env, userId, role, source)) ? "removed" : "failed";
+  return (await revokeHeld(env, userId, role, source, removalDispatch,undefined,undefined,dispatch)) ? "removed" : "failed";
 }
 
 /** .114: remove Guild Member from an account under a reapply hold; a failure is recorded as pending for the sweep's reconciliation. */
-async function revokeHeld(env: Env, userId: string, role: string, source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<boolean> {
-  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'rename_hold',generationCapture,budget)).state==='settled';}
+async function revokeHeld(env: Env, userId: string, role: string, source: string, removalDispatch: BetaRemovalDispatchCapture, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null},originalDispatch?:BetaRoleDispatch): Promise<boolean> {
+  const dispatch=originalDispatch??{env,capture:removalDispatch},held=()=>betaRoleDispatchHeld(env,dispatch,env.GUILD_ID,role);
+  if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return false;
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return false;return (await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture,budget,dispatch)).state==='settled';}
+  if(held())return false;
   try {
     await removeRole(env, userId, role, "olympus-verify: a rename Blizzard required; the account applies again", budget, true);
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_hold" : "role.revoked_reapply", userId, { source });
@@ -272,8 +283,11 @@ async function revokeHeld(env: Env, userId: string, role: string, source: string
  * .60: take Guild Member away from a banned account. A failed removal is recorded as pending; the sweep's banned
  * reconciliation (restore.ts) retries it on its next run, and a 403 there stops that run like any other grant failure.
  */
-export async function revokeForBan(env: Env, userId: string, role: string, source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<boolean> {
-  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;return (await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'ban',generationCapture,budget)).state==='settled';}
+export async function revokeForBan(env: Env, userId: string, role: string, source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}, removalDispatch: BetaRemovalDispatchCapture=captureBetaRemovalDispatch(env),originalDispatch?:BetaRoleDispatch): Promise<boolean> {
+  const dispatch=originalDispatch??{env,capture:removalDispatch},held=()=>betaRoleDispatchHeld(env,dispatch,env.GUILD_ID,role);
+  if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return false;
+  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return false;return (await central.settleMembershipRemoval(env,userId,'ban',generationCapture,budget,dispatch)).state==='settled';}
+  if(held())return false;
   try {
     await removeRole(env, userId, role, "olympus-verify: banned from verifying; Guild Member removed", budget, true); // .95: mandatory: its retry is never refused
     await audit(env, "system", source.endsWith(":after-grant") ? "role.revoked_after_ban" : "role.revoked_banned", userId, { source });
@@ -295,7 +309,8 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
-export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string }> {
+export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string }> {
+  const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
   const role = env.ROLE_GUILD_MEMBER;
   const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after };
   if (!role) return out;
@@ -328,14 +343,14 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
     if (!member || !membershipTransitionEnabled(env)&&!member.roles.includes(role)) continue;
     if (await isBanned(env, r.discord_id)) {
       if(!durableServingRoles(env))takeMandatory(budget); // Central requests account for themselves; legacy removal includes its reserved retry.
-      if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null})) out.revoked.push(r.discord_id);
+      if (await revokeForBan(env, r.discord_id, role, "sweep:banned", budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null},removalDispatch,dispatch)) out.revoked.push(r.discord_id);
       else out.failed.push(r.discord_id);
       continue;
     }
     // .63: unbanned while the member read was in flight: nothing to take away for a ban; .114: unless a reapply hold is open
     if (!(await reapplyHeld(env, r.discord_id))) continue;
     if(!durableServingRoles(env))takeMandatory(budget);
-    if (await revokeHeld(env, r.discord_id, role, "sweep:held", budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null})) out.held.push(r.discord_id);
+    if (await revokeHeld(env, r.discord_id, role, "sweep:held", removalDispatch,budget,originalCapture===undefined?undefined:{subjectGeneration:originalCapture?.subjectGeneration??null},dispatch)) out.held.push(r.discord_id);
     else out.failed.push(r.discord_id);
   }
   if (!stopped && rows.results.length < limit) out.cursor = ""; // wrap at the end
@@ -343,8 +358,11 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
 }
 
 /** While a blocking role is held, Guild Member is taken away. Returns the blocking role id when it did, else null. */
-export async function removeIfBlocked(env: Env, userId: string, roles: readonly string[], source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null}): Promise<string | null> {
-  if(durableServingRoles(env)){const r=await (await import('./role-settlements')).settleMembershipRemoval(env,userId,'blocking_role',generationCapture,budget);return r.state==='settled'?'current-server-restriction':null;}
+export async function removeIfBlocked(env: Env, userId: string, roles: readonly string[], source: string, budget?: CallBudget, generationCapture?:{subjectGeneration:string|null},originalDispatch?:BetaRoleDispatch): Promise<string | null> {
+  const dispatch=originalDispatch??captureBetaRoleDispatch(env),held=()=>betaRoleDispatchHeld(env,dispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER);
+  if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return null;
+  if(durableServingRoles(env)){const central=await import('./role-settlements');if(held()&&betaSourceEpochState(dispatch.env,dispatch.capture).mode!=='active')return null;const r=await central.settleMembershipRemoval(env,userId,'blocking_role',generationCapture,budget,dispatch);return r.state==='settled'?'current-server-restriction':null;}
+  if(held())return null;
   const role = env.ROLE_GUILD_MEMBER;
   if (!role || !roles.includes(role)) return null;
   const blocker = heldBlockingRole(env, roles);
@@ -367,11 +385,20 @@ export const forgetRolesCheck = () => {
 
 /** New durable writer: privacy job proof, CAS dispatch and SQL-confirmable absence receipt. */
 export async function settleAccountErasureMemberRole(env:Env,proof:import('./role-settlements').ErasureProof) {
-  return (await import('./role-settlements')).settleErasure(env,proof);
+  // Item 15: the dispatch mode is captured here, before this export's first await, and threaded to the central writer.
+  const removalDispatch=captureBetaRemovalDispatch(env);
+  return (await import('./role-settlements')).settleErasure(env,proof,undefined,{env,capture:removalDispatch});
 }
-/** Departure authority is the original capture plus current last-character roster absence, never an erasure proof. */
-export async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget) {
-  return (await import('./role-settlements')).settleMembershipRemoval(env,subject,'guild_departure',capture,budget);
+/** Departure authority is the original capture plus current last-character roster absence, never an erasure proof.
+ * Item 15: the caller's entry capture (roster.ts passes one with the env it was read from) or one taken here before the
+ * first await, passed straight to the central writer. This export holds nothing itself: settleMembershipRemoval and
+ * settleVerifiedRemoval hold new dispatch on a fixed target (creation, claim and the final pre-effect point, the effect
+ * env's own mode descriptor included), while a prior spent guild_departure row is still reconciled GET-only and an
+ * existing intent can still settle its ACK-free absent receipt in every mode. A hold is a settlement with reason
+ * beta_dispatch_mode_held, which roster.ts audits as role.remove_held. */
+export async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget,removalDispatch?:import('./role-settlements').RemovalDispatch) {
+  const dispatch=removalDispatch??{env,capture:captureBetaRemovalDispatch(env)};
+  return (await import('./role-settlements')).settleMembershipRemoval(env,subject,'guild_departure',capture,budget,dispatch);
 }
 export async function reconcileAccountErasureRoleDebt(env:Env,proof:import('./role-settlements').ErasureProof) {
   return (await import('./role-settlements')).reconcileAccountErasureRoleDebt(env,proof);

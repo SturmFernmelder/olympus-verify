@@ -6,6 +6,8 @@ import { intVar, officerRankNames, rankCheckExempt, staffChannel, staffRoles } f
 import { normalizeCharacter } from "./codes";
 import { explainDiscordError, guildMember, logLine, postMessage, removeRole, setNickname, staffNotice } from "./discord";
 import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget } from "./roles";
+import {captureBetaRoleDispatch,betaRoleDispatchHeld,type BetaRoleDispatch} from './beta-reset-policy';
+import type { RemovalDispatch } from './role-settlements';
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { prepareRosterCronNotice,parseRosterCronNotice,settleRosterCronNotice } from './privacy-provider-messages';
 import { errorRef } from "./log";
@@ -33,7 +35,9 @@ import {
   SCHEDULED_EFFECT_PHYSICAL_WORST,
   SCHEDULED_SLICE_PHYSICAL_FIXED,
   type Admission,
+  type StatementCount,
 } from "./roster-effects";
+import type { LaneCapture } from "./full-release-roles";
 
 export interface RosterMemberIn {
   name: string;
@@ -177,7 +181,7 @@ const identityBinds = (c: BoundRow, fence: IdentityFence) => [c.name_key, c.disc
  * goes the usual way (a departure keeps it while another linked character is still in the guild), after the name is freed
  * so the character's actual owner can verify it; the old account keeps its history in the audit log.
  */
-async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, why: "namesake" | "stale", notices: NoticeBatch, fence: IdentityFence): Promise<boolean> {
+async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, why: "namesake" | "stale", notices: NoticeBatch, fence: IdentityFence, removal: RemovalDispatch): Promise<boolean> {
   const binds = identityBinds(c, fence);
   const done = await env.DB.batch([
     // Queue first: both predicates see the unchanged expected binding in the same transaction.
@@ -187,7 +191,7 @@ async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, 
   ]);
   if (!Number(done[1]?.meta?.changes ?? 0)) return false;
   if (c.status === "member" || c.status === "left_pending") {
-    await afterDeparture(env, c.discord_id, c.name, why === "namesake" ? "a different character now has this name" : "link predates LINKS_NOT_BEFORE", { batch: notices,capture:captureOf(c) });
+    await afterDeparture(env, c.discord_id, c.name, why === "namesake" ? "a different character now has this name" : "link predates LINKS_NOT_BEFORE", { batch: notices,capture:captureOf(c),removal });
   }
   await audit(env, "system", why === "namesake" ? "roster.namesake_released" : "roster.stale_link_released", c.name, {
     discordId: c.discord_id,
@@ -240,8 +244,9 @@ export async function reconcileIdentities(
   env: Env,
   roster: Array<{ name: string; guid?: unknown }>,
   byKey: Map<string, BoundRow>,
-  opts: { cap?: number; confirmWith?: Map<string, string | null>; notices: NoticeBatch; fence: IdentityFence; admit?: (cost: number) => boolean },
+  opts: { cap?: number; confirmWith?: Map<string, string | null>; notices: NoticeBatch; fence: IdentityFence; admit?: (cost: number) => boolean; removal?: RemovalDispatch },
 ): Promise<IdentityResult> {
+  const removal = opts.removal ?? departureDispatch(env); // Item 15: the caller's entry capture, else this export's own, before its first await
   const out: IdentityResult = { renamed: [], released: [], held: new Set(), deferred: 0 };
   const admitted = (cost: number) => !opts.admit || opts.admit(cost);
   const cutoff = linksNotBefore(env);
@@ -301,7 +306,7 @@ export async function reconcileIdentities(
         out.deferred++;
         continue;
       }
-      if (!(await releaseBinding(env, r.c, r.rosterGuid, r.why, opts.notices, opts.fence))) {
+      if (!(await releaseBinding(env, r.c, r.rosterGuid, r.why, opts.notices, opts.fence, removal))) {
         out.held.add(r.c.name_key);
         continue;
       }
@@ -483,14 +488,41 @@ async function reportDuplicateNames(env: Env, count: number, dupes: Array<{ key:
  * against ROSTER_INGEST_STATEMENTS (scheduled-budget.ts) before it starts; whatever does not fit stays in the worklist for
  * the next export or the cron.
  */
-export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api") {
+export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api", fresh?: FreshIngest,originalDispatch?:BetaRoleDispatch) {
+  const removal = originalDispatch??departureDispatch(env); // Original entry capture survives every facade and await.
   const count = { used: 0 };
   const counted = countStatements(env, count);
   const notices = noticeBatch();
+  const holder: { calls?: CallBudget } = {};
+  let summary: Awaited<ReturnType<typeof ingestRosterInner>>;
   try {
-    return await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices);
+    summary = await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices, removal, fresh?.cap.configured ? holder : undefined);
   } finally {
     await flushNotices(counted, notices);
+  }
+  if (fresh?.cap.configured) await deferFreshIngest(env, counted, count, holder, fresh);
+  return summary;
+}
+
+/**
+ * Revision 4 (fresh roles, A4 entry 2): one export's configured-mode hook. postRoster captures the lane configuration before
+ * any await and hands it here: roster.ts cannot import full-release-roles, which reaches roster.ts through qr-phase1, so a
+ * static import would be a module-load cycle. Absent, every line above is .160's.
+ */
+export type FreshIngest = Readonly<{ cap: LaneCapture; defer: (label: string, work: () => Promise<unknown>) => void }>;
+/** After the notices of a normal return (resume and refusals included): one fresh-role pass on this export's own call budget
+ * (what its promotions left) and what is left of its statement admission (freshAdmission: logical bounds against counted
+ * attempts), deferred past the response. A refused registration is audited and never changes the response; the next export
+ * or /queue poll runs the pass instead. */
+async function deferFreshIngest(env: Env, counted: Env, count: StatementCount, holder: { calls?: CallBudget }, fresh: FreshIngest): Promise<void> {
+  try {
+    fresh.defer("fresh_roles_ingest", () => import("./full-release-pass").then((m) => m.runFreshPass(counted, { calls: holder.calls ?? callBudget(env), adm: m.freshAdmission(count, ROSTER_INGEST_STATEMENTS) }, "ingest", fresh.cap)));
+  } catch {
+    try {
+      await audit(counted, "system", "role.fresh_failed", "ingest", { error: "registration_refused" }); // full-release-roles FRESH_AUDIT.failed
+    } catch {
+      /* the audit itself failed; nothing left to tell */
+    }
   }
 }
 
@@ -526,7 +558,7 @@ async function seatBase(env: Env, upTo: number, cut: number, maxShrinkPct: numbe
   return base;
 }
 
-async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api", notices: NoticeBatch) {
+async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api", notices: NoticeBatch, removal: RemovalDispatch, holder?: { calls?: CallBudget }) {
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export naming one character key twice is refused
   // before anything is read or written: no snapshot, no member rows, no first-seen dates, no link, character or role
   // change. ingest.ts answers 422, which the watcher takes as final (a 4xx is not retried); the next export is judged
@@ -537,6 +569,7 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
     return { refused: "duplicate_names" as const, members: members.length, duplicates: dupes.length };
   }
   const calls = callBudget(env); // .90 (P-20): one Discord-call budget for this export's promotions; a deferred grant is the sweep's
+  if (holder) holder.calls = calls; // Revision 4 (configured mode only): the fresh-role pass after this export shares what is left
   // .115 (finding A): the newest effects run comes with the newest snapshot, in the same read (LATEST_SNAPSHOT_AND_RUN)
   const prev = await env.DB.prepare(LATEST_SNAPSHOT_AND_RUN).first<LatestRow>();
   // .115 (review of 3 Oct 2026): a latest row left unfinished (SNAPSHOT_WRITE_GRACE_S) is not a snapshot to refresh. This
@@ -554,7 +587,7 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
     // .115 (finding A): an export older than the stored one, or the same one sent again, still changes no snapshot. But the
     // newest snapshot's effects may be unfinished (its invocation stopped partway, or its slice did not reach every item),
     // and a retry is exactly when the watcher is back: it resumes them rather than answering "older" and leaving them.
-    const effects = await resumeEffects(env, adm, prev, calls, notices);
+    const effects = await resumeEffects(env, adm, prev, calls, notices, removal);
     return { skipped: true, reason: "older than the last snapshot", effects };
   }
   const cut = linksNotBefore(env);
@@ -792,7 +825,7 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
   // every promotion, D: note and confirmed departure as an item of the worklist), then a slice of the worklist applied, each
   // item admitted at its worst case against what this invocation has left. The next export or the cron applies the rest.
   const rows = members.map((m) => ({ name_key: normalizeCharacter(m.name), name: m.name, guid: guidOf(m.guid), public_note: m.note ?? null }));
-  const derived = run ? await deriveRun(env, adm, run, rows, notices, SLICE_FIXED + INGEST_TAIL) : null;
+  const derived = run ? await deriveRun(env, adm, run, rows, notices, SLICE_FIXED + INGEST_TAIL, removal) : null;
   if (derived) {
     summary.renamed = derived.renamed;
     summary.released = derived.released;
@@ -801,7 +834,7 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
     summary.returned = derived.returned;
     summary.pendingLeft = derived.pendingLeft;
   }
-  const slice = await applyEffects(env, adm, INGEST_TAIL, calls, notices);
+  const slice = await applyEffects(env, adm, INGEST_TAIL, calls, notices, false, removal);
   summary.promoted = slice.promoted;
   summary.noteBound = slice.noteBound;
   summary.stripped = slice.stripped;
@@ -836,12 +869,13 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
  * what does not fit is left exactly as it is and counted in `deferred`, and the officer runs sync again (each run applies
  * only what is still due, so a repeat continues where the last one stopped).
  */
-export async function syncFromLatest(env: Env): Promise<SyncResult | SyncRefused | null> {
+export async function syncFromLatest(env: Env,originalDispatch?:BetaRoleDispatch): Promise<SyncResult | SyncRefused | null> {
+  const removal = originalDispatch??departureDispatch(env); // Original entry capture survives every facade and await.
   const count = { used: 0 };
   const counted = countStatements(env, count);
   const notices = noticeBatch();
   try {
-    return await syncFromLatestInner(counted, { count, limit: ROSTER_SYNC_STATEMENTS }, notices);
+    return await syncFromLatestInner(counted, { count, limit: ROSTER_SYNC_STATEMENTS }, notices, removal);
   } finally {
     await flushNotices(counted, notices);
   }
@@ -878,7 +912,7 @@ export interface SyncRefused {
 /** What a sync still needs after its effects: roster.sync (1) and the notices' read. */
 const SYNC_TAIL = 1 + NOTICE_FLUSH_FIXED;
 
-async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatch): Promise<SyncResult | SyncRefused | null> {
+async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatch, removal: RemovalDispatch): Promise<SyncResult | SyncRefused | null> {
   const calls = callBudget(env); // .90 (P-20)
   const snap = await env.DB.prepare("SELECT id, member_count, complete, first_received_at FROM roster_snapshots ORDER BY id DESC LIMIT 1").first<{
     id: number;
@@ -903,6 +937,7 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
   // Only a name swap between two linked characters is still held (reconcileIdentities).
   const ident = await reconcileIdentities(env, rows.results, byKey, {
     notices,
+    removal,
     fence: { snapshotId: snap.id },
     admit: (cost) => room(adm, IDENTITY_FIXED + SYNC_TAIL + noticeStatementsPending(notices)) >= cost,
   });
@@ -934,10 +969,10 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
     }
     if (pin) await env.DB.prepare(`UPDATE characters SET guid = ?2 WHERE name_key = ?1 AND guid IS NULL AND discord_id=?3 AND ${privacyGenerationFenceSql(3,4)}`).bind(c.name_key, g,c.discord_id,c.privacy_generation).run();
     if (promoting) {
-      await promote(env, c.discord_id, c.name_key, row!.name, notices, g, calls,captureOf(c));
+      await promote(env, c.discord_id, c.name_key, row!.name, notices, g, calls,captureOf(c),removal);
       out.promoted.push(row!.name);
     } else if (removing) {
-      await demote(env, c.discord_id, c.name_key, c.name, "manual sync", { batch: notices,capture:captureOf(c) });
+      await demote(env, c.discord_id, c.name_key, c.name, "manual sync", { batch: notices,capture:captureOf(c),removal });
       out.stripped.push(c.name);
     }
   }
@@ -953,21 +988,33 @@ async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatc
 }
 
 /** A member character is gone from the guild (roster diff, or a "has left/been kicked" line relayed by the watcher). */
-export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null } = {}) {
+export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null;removal?:RemovalDispatch } = {}) {
+  const removal=opts.removal??departureDispatch(env); // Item 15: the caller's entry capture, else this export's own, before its first await
   const capture=opts.capture===undefined?await readPrivacySubject(env,discordId):opts.capture;
   const changed=await env.DB.prepare(`UPDATE characters SET status = 'left', left_at = ?2 WHERE name_key = ?1 AND discord_id=?3 AND ${privacyGenerationFenceSql(3,4)}`).bind(nameKey, now(),discordId,capture?.subjectGeneration??null).run();
   if(!changed.meta.changes)return;
   opts={...opts,capture};
-  await afterDeparture(env, discordId, name, how, opts);
+  await afterDeparture(env, discordId, name, how, {...opts,removal});
 }
 
+/** Item 15: the beta dispatch mode captured at a roster entry before its first await, bound to the env it was read from.
+ * Departures check it at the effect on their actual fixed target; nothing here re-captures after an await. */
+function departureDispatch(env: Env): RemovalDispatch { return captureBetaRoleDispatch(env); }
+/** Item 15: restriction only. The raw departure DELETE is the original call only when the entry pair is absent and unchanged
+ * and (cross-env) the effect env itself carries no own, accessor or inherited mode descriptor for a fixed target.
+ * Pure: no getter call, SQL, await or request. */
+function departureLegacy(env: Env, removal: RemovalDispatch): boolean {
+  try {
+    return !betaRoleDispatchHeld(env,removal,env.GUILD_ID,env.ROLE_GUILD_MEMBER);
+  } catch { return false; }
+}
 /**
  * What follows a departure's status change (.115, finding A: shared by demote and the worklist's departures, whose status
  * change rides in the item's claim): Guild Member removed when it was the account's last member character, the staff roles
  * that still give access read, roster.left, the log line, and the seat notice when the seat was freed. At most four
  * statements (roster-effects.ts EFFECT_WORST.depart).
  */
-async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null }) {
+async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null;removal:RemovalDispatch }) {
   const capture=opts.capture===undefined?await readPrivacySubject(env,discordId):opts.capture,reference={subject:discordId,capture};
   const remaining = await env.DB.prepare(`SELECT COUNT(*) AS n,(${privacyGenerationFenceSql(1,2)}) AS current FROM characters WHERE discord_id = ?1 AND status = 'member'`).bind(discordId,capture?.subjectGeneration??null).first<{ n: number;current:number }>();
   if(!remaining?.current)return;
@@ -977,10 +1024,15 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
   if (last) {
     if (env.ROLE_GUILD_MEMBER) {
       try {
-        const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null})=>Promise<{state:string;reason?:string}>};
-        if(!membershipSettlementEnabled(env)){await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}
+        const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:undefined,removal?:RemovalDispatch)=>Promise<{state:string;reason?:string}>};
+        if(!membershipSettlementEnabled(env)){
+          // Item 15: v1, any other present mode or a changed one holds this raw DELETE on the fixed beta guild/roles and
+          // records it; absent and unchanged is the original call. Fresh roles and other guilds are never restricted.
+          if(!departureLegacy(env,opts.removal))await audit(env,'system','role.remove_held',name,{reason:'beta_dispatch_mode_held'},reference);
+          else{await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}
+        }
         else if(!central.settleGuildDepartureRole)await audit(env,'system','role.remove_held',name,{reason:'central_departure_adapter_unavailable'},reference);
-        else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null});
+        else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null},undefined,opts.removal);
          removed=outcome.state==='absent'||outcome.state==='removed'||outcome.state==='settled';
          if(!removed)await audit(env,'system','role.remove_held',name,{reason:outcome.reason??outcome.state},reference);
         }
@@ -1026,7 +1078,8 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
 }
 
 /** Character confirmed on the roster with a verified binding → member: Guild Member role, nickname, log line, DM. */
-export async function promote(env: Env, discordId: string, nameKey: string, name: string, batch?: NoticeBatch, guid?: string | null, calls?: CallBudget,originalCapture?:PrivacySubject|null) {
+export async function promote(env: Env, discordId: string, nameKey: string, name: string, batch?: NoticeBatch, guid?: string | null, calls?: CallBudget,originalCapture?:PrivacySubject|null,originalDispatch?:BetaRoleDispatch) {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const capture=originalCapture===undefined?await readPrivacySubject(env,discordId):originalCapture;
   if(capture&&capture.state!=='active')return;
   const t = now();
@@ -1037,7 +1090,7 @@ export async function promote(env: Env, discordId: string, nameKey: string, name
     ).bind(nameKey, t, g,discordId,capture?.subjectGeneration??null),
     env.DB.prepare(`UPDATE invite_queue SET status = 'joined', joined_at = ?2 WHERE name_key = ?1 AND discord_id=?3 AND status IN ('queued','written','invited') AND ${privacyGenerationFenceSql(3,4)}`).bind(nameKey, t,discordId,capture?.subjectGeneration??null),
   ]);
-  await afterPromotion(env, discordId, name, batch, calls,capture);
+  await afterPromotion(env, discordId, name, batch, calls,capture,false,roleDispatch);
 }
 
 /**
@@ -1046,7 +1099,8 @@ export async function promote(env: Env, discordId: string, nameKey: string, name
  * roster.member (which the role sweep reads to grant a deferred role), the log line and the welcome. At most twelve
  * statements, the welcome's share of the notices' flush included (roster-effects.ts EFFECT_WORST.promote less the claim).
  */
-async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget,capture:PrivacySubject|null=null,deferCronRole=false) {
+async function afterPromotion(env: Env, discordId: string, name: string, batch?: NoticeBatch, calls?: CallBudget,capture:PrivacySubject|null=null,deferCronRole=false,originalDispatch?:BetaRoleDispatch) {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const reference={subject:discordId,capture};
   if(!(await env.DB.prepare(`SELECT (${privacyGenerationFenceSql(1,2)}) AS current`).bind(discordId,capture?.subjectGeneration??null).first<{current:number}>())?.current)return;
   // The role grant is optional (ROLE_GUILD_MEMBER may be unset once the role is retired), and nothing below depends
@@ -1061,10 +1115,10 @@ async function afterPromotion(env: Env, discordId: string, name: string, batch?:
   } else if (env.ROLE_GUILD_MEMBER) {
     try {
       // .55: through the one role writer (roles.ts): a held blocking role withholds the grant, fail-closed config too.
-      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
+      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,CallBudget|undefined,{subjectGeneration:string|null},BetaRoleDispatch])=>ReturnType<typeof grantMemberRole>;
       const roleEnv=env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)?{...env,DB:privacyProviderCustodyDatabase(env)}:env;
       const roleCalls=deferCronRole&&calls?{...calls,limit:0}:calls;
-      const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, roleCalls,{subjectGeneration:capture?.subjectGeneration??null});
+      const outcome = await writer(roleEnv, discordId, `olympus-verify: ${name} confirmed on the guild roster`, "promote", undefined, roleCalls,{subjectGeneration:capture?.subjectGeneration??null},roleDispatch);
       granted = outcome === "granted" || outcome === "has-role";
       blocked = outcome === "blocked";
       if(deferCronRole)await audit(env,"system","role.deferred",name,{discordId,source:"promote",reason:outcome},reference);
@@ -1216,7 +1270,7 @@ const DERIVE_DONE = `UPDATE roster_effect_runs SET derived_at = ?2, items = (SEL
  * item, and derived_at. A statement per ROSTER_EFFECTS_PER_STATEMENT members at most, never one per member. `after` is
  * what the caller still needs once this returns, kept out of the identity rules' admission.
  */
-async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: RosterRow[] | null, notices: NoticeBatch, after: number): Promise<Derived> {
+async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: RosterRow[] | null, notices: NoticeBatch, after: number, removal: RemovalDispatch): Promise<Derived> {
   const rows =
     given ??
     (await env.DB.prepare(`SELECT name_key, name, guid, public_note FROM roster_members WHERE snapshot_id = ?1
@@ -1243,6 +1297,7 @@ async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: Roster
   const byKey = new Map(bound.results.filter(c=>c.status!=='privacy_note_capture'&&capturedActive(c)).map((c) => [c.name_key, c] as const));
   const batchWorst = derivationWorst(rows.length, byKey.size);
   const ident = await reconcileIdentities(env, rows, byKey, {
+    removal,
     cap: releaseCap(byKey.size),
     confirmWith: previous,
     notices,
@@ -1405,7 +1460,7 @@ const EFFECT_DEPART = `UPDATE characters SET status = 'left', left_at = ?4 WHERE
  * (the role, the audits, the log line, the welcome) is best effort, as before, and a grant it defers is the role sweep's.
  * A failure stops the slice and is audited (counts only); it is never thrown at the export, which is already stored.
  */
-async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<EffectsSlice> {
+async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false,removal: RemovalDispatch): Promise<EffectsSlice> {
   const out: EffectsSlice = { run: null, applied: 0, skipped: 0, refused: false, promoted: [], noteBound: [], stripped: [], done: false, failed: false };
   const physicalCron=deferCronRole&&adm.count.protocol===true,fixed=physicalCron?SCHEDULED_SLICE_PHYSICAL_FIXED:SLICE_FIXED;
   const cheapest=physicalCron?SCHEDULED_EFFECT_PHYSICAL_WORST.promote:Math.min(...Object.values(effectWorst(env)));
@@ -1425,7 +1480,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
       // The kind's worst case reserves this item's notice; notices from all earlier items still owe SQL at flush.
       if (room(adm, keep + noticeStatementsPending(notices)) < worst) break;
       at = it.seq;
-      const result = await applyEffect(env, run, it, nonce, calls, notices,deferCronRole);
+      const result = await applyEffect(env, run, it, nonce, calls, notices,deferCronRole,removal);
       if (result === "refused") {
         out.refused = true; // the run is no longer the current one, or another invocation is ahead in it: nothing more here
         break;
@@ -1466,7 +1521,7 @@ async function applyEffects(env: Env, adm: Admission, after: number, calls: Call
  * "skipped" when the item was claimed but its change was no longer due (the link changed, or the effect was made another
  * way since), so it is done with nothing done; "refused" when it could not be claimed.
  */
-async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<"applied" | "skipped" | "refused"> {
+async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch,deferCronRole=false,removal: RemovalDispatch): Promise<"applied" | "skipped" | "refused"> {
   const t = now();
   const seq = it.seq as number;
   const proof=deferCronRole&&it.kind!=='depart'?await prepareRosterCronNotice(env,{run,seq,subject:it.discord_id,generation:it.subject_generation,name:it.name,nameKey:it.name_key,guid:it.guid,createdAt:t}):nonce;
@@ -1475,7 +1530,7 @@ async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, c
     const res = await env.DB.batch([claim, env.DB.prepare(EFFECT_DEPART).bind(run, seq, nonce, t, it.name_key, it.discord_id)]);
     if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
     if (!Number(res[1]?.meta?.changes ?? 0)) return "skipped";
-    await afterDeparture(env, it.discord_id, it.name, "roster (absent from two exports)", { batch: notices,capture:it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active',revision:0} });
+    await afterDeparture(env, it.discord_id, it.name, "roster (absent from two exports)", { batch: notices,capture:it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active',revision:0},removal });
     return "applied";
   }
   const note = it.kind === "note";
@@ -1493,7 +1548,7 @@ async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, c
   if (!Number(res[0]?.meta?.changes ?? 0)) return "refused";
   if (!Number(res[promoteAt]?.meta?.changes ?? 0)) return "skipped";
   const capture=it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active' as const,revision:0};
-  await afterPromotion(env, it.discord_id, it.name, notices, calls,capture,deferCronRole);
+  await afterPromotion(env, it.discord_id, it.name, notices, calls,capture,deferCronRole,removal);
   return "applied";
 }
 
@@ -1530,14 +1585,14 @@ function effectsReport(runId: number | null, d: Derived | null, s: EffectsSlice,
  * deriving it), then apply a slice. The departures it arms are judged against the run's own stored snapshot, so a stop
  * between the stamp and the derivation loses nothing.
  */
-async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: CallBudget, notices: NoticeBatch): Promise<EffectsReport> {
+async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: CallBudget, notices: NoticeBatch, removal: RemovalDispatch): Promise<EffectsReport> {
   if (prev.complete !== 1 || prev.stored_count !== prev.member_count) throw new Error("Roster snapshot is incomplete; retry this export");
   let derived: Derived | null = null;
   const underived = prev.run_id !== null && prev.run_snapshot === prev.id && prev.run_derived === null;
   const stale = underived && now() - (prev.run_created ?? 0) >= SNAPSHOT_WRITE_GRACE_S;
   if (underived && !stale) throw new Error("Roster effects are awaiting derivation; retry this export");
-  if (stale) derived = await deriveRun(env, adm, runOf(prev), null, notices, SLICE_FIXED + NOTICE_FLUSH_FIXED);
-  const slice = await applyEffects(env, adm, NOTICE_FLUSH_FIXED, calls, notices);
+  if (stale) derived = await deriveRun(env, adm, runOf(prev), null, notices, SLICE_FIXED + NOTICE_FLUSH_FIXED, removal);
+  const slice = await applyEffects(env, adm, NOTICE_FLUSH_FIXED, calls, notices, false, removal);
   return effectsReport(prev.run_id, derived, slice, underived && !stale);
 }
 
@@ -1547,7 +1602,8 @@ async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: C
  * exports. It never derives (an export does: the identity rules may need more than this line). Never throws: it runs
  * inside waitUntil.
  */
-export async function continueRosterEffects(env: Env,originalSchedule?:OriginalRosterSchedule): Promise<EffectsSlice | null> {
+export async function continueRosterEffects(env: Env,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch): Promise<EffectsSlice | null> {
+  const removal = originalDispatch??departureDispatch(env); // Original entry capture survives every facade and await.
   const count = { used: 0,protocol:false };
   const counted = countStatements(env, count);
   const notices = noticeBatch();
@@ -1577,7 +1633,7 @@ export async function continueRosterEffects(env: Env,originalSchedule?:OriginalR
         const state=await settleRosterCronNotice(counted,owed.claim);return{run:original.run,applied:0,skipped:0,refused:false,promoted:[],noteBound:[],stripped:[],done:state.finished,failed:false,noticePending:!state.finished,noticeHeld:['held','refused','unknown'].includes(state.state)};
       }
     }
-    const slice=await applyEffects(counted, { count, limit: dormant?schedule.rosterEffectsStatements:SCHEDULED_CAPS.rosterEffectsStatements }, dormant?0:NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant);
+    const slice=await applyEffects(counted, { count, limit: dormant?schedule.rosterEffectsStatements:SCHEDULED_CAPS.rosterEffectsStatements }, dormant?0:NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant,removal);
     if(dormant&&slice.applied>0&&slice.stripped.length===0)slice.noticePending=true;
     return slice;
   } catch (e) {

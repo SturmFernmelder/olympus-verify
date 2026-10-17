@@ -16,7 +16,7 @@ function fresh(layout='canonical'){const profile=JSON.parse(layout==='canonical'
 const neutral=()=>{const row=db.prepare(`SELECT active,nonce,purpose FROM ${m.ADMISSION_CONTROL_TABLE}`).get();return row?.active===0&&row.nonce===''&&row.purpose==='';};
 async function refused(name,fn){let error;try{await fn();}catch(e){error=e;}check(name,!!error,String(error));return error;}
 (async()=>{
- check('source canonical69/221/84 and nine-column epoch slot exact vector',manifest.tables.length===69&&manifest.triggers.length===221&&manifest.indexes.length===84&&manifest.slotColumns.length===9);
+ check('source canonical69/224/84 and nine-column epoch slot exact vector',manifest.tables.length===69&&manifest.triggers.length===224&&manifest.indexes.length===84&&manifest.slotColumns.length===9);
  check('manifest hash exact source JSON',cryptoNode.createHash('sha256').update(m.ADMISSION_EXPECTED_JSON).digest('hex')===m.ADMISSION_MANIFEST_SHA256);
  check('schema raw pin exact immutable source',cryptoNode.createHash('sha256').update(fs.readFileSync(path.join(root,'schema.sql'))).digest('hex')===m.ADMISSION_SOURCE_SCHEMA_SHA256);
  let env=fresh();check('known complete catalogue recognized',await a.admissionCatalogueCurrent(protectedDb));check('finite ordinary erasure census recognizes sole validated control',await catalog.servingPrivacyCatalogCurrent(env));let rawError;try{await catalog.servingPrivacyCatalogCurrent({DB:native,PRIVACY_WRITE_ADMISSION_ENABLED:'true'});}catch(error){rawError=error;}check('unwrapped ordinary census holds original unregistered authority',rawError instanceof authority.PrivacySiteRequestHeld);

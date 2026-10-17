@@ -4,14 +4,14 @@
  * This privileged Native operation must be coupled to Root's external close/drain before remote execution.
  * All SQL is source-owned; the seven delayed stores are ALTERed in place with foreign keys enabled.
  */
-import {ADMISSION_COOKIE_MIGRATION_SOURCES_JSON,ADMISSION_COOKIE_MIGRATION_DECLARATIONS_JSON,
+import {ADMISSION_COOKIE_MIGRATION_SOURCES_JSON,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON,ADMISSION_COOKIE_MIGRATION_DECLARATIONS_JSON,
  ADMISSION_EXPECTED_JSON,ADMISSION_PHYSICAL_EXPECTED_JSON,ADMISSION_COOKIE_MIGRATION_OBJECTS_JSON} from './privacy-write-admission-catalogue';
 import {isPrivacyWriteAdmissionDatabase,PrivacyWriteAdmissionHeld,type AdmissionLayout} from './privacy-write-admission';
 import {originalPrivateNativeOpenCustody,originalPrivateNativeOpenDispatchCustody,type OriginalPrivateRecoveryReplayResult,originalPrivateNativeWriterFenceCustody,assertOriginalPrivateReplayMigration,consumeOriginalClosedRecoveryReplaySelection,type OriginalPrivateInstallation,type OriginalPrivateControlCut,type OriginalClosedRecoveryReplaySelection} from './privacy-production-control-origin';
 import type {OriginalAcceptedRecoverySource} from './privacy-accepted-recovery-source';
 import {PROVIDER_METADATA_CURRENT_SQL,PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} from './privacy-provider-metadata';
 type Profile={tables:{name:string;sql:string;columns:string[]}[];indexes:{name:string;sql:string;tbl_name:string}[];triggers:{name:string;sql:string}[];slotSQL:string;slotColumns:string[]};
-type SourceKind='pre-marker'|'marker'|'public-predecessor'|'current-cookie';
+type SourceKind='pre-marker'|'marker'|'public-predecessor'|'current-cookie'|'current-cookie-pre-seal';
 type Source={profile:Profile;objects:(string|null)[][]};
 type Original=Readonly<{operationId:string;layout:AdmissionLayout;sourceKind:SourceKind;originalEpoch:string|null;nextEpoch:string}>;
 export type WholeMigrationCapability=Readonly<Original&{kind:'original_native_cookie_profile_migration';createdAt:number;expiresAt:number;mode:'closed'|'legacy_control_without_mode';readyToReopen:false}>;
@@ -19,7 +19,7 @@ type Step=Readonly<{sql:string;binds:readonly (string|number)[]}>;
 type Witness={assert:()=>void};
 type Stored={native:D1Database;witness:Witness;rowWitness:Witness;old:Source;next:Profile;objects:(string|null)[][];tuple:string;plan:readonly Step[];epochStep:number;spent:boolean;executionExpiresAt:number;originalObjects?:(string|null)[][];captureEpoch?:string;captureLegacy?:boolean};
 const originalCaptures=new WeakMap<WholeMigrationCapability,Stored>();
-const sources=JSON.parse(ADMISSION_COOKIE_MIGRATION_SOURCES_JSON) as Record<SourceKind,Record<'canonical'|'recordedLive',Source>>;
+const sources={...JSON.parse(ADMISSION_COOKIE_MIGRATION_SOURCES_JSON),'current-cookie-pre-seal':JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON)} as Record<SourceKind,Record<'canonical'|'recordedLive',Source>>;
 const declarations=JSON.parse(ADMISSION_COOKIE_MIGRATION_DECLARATIONS_JSON) as Record<string,string>;
 const objects=JSON.parse(ADMISSION_COOKIE_MIGRATION_OBJECTS_JSON) as Record<'canonical'|'recordedLive',(string|null)[][]>;
 const fields=[['community_event_deliveries','actor_account_incarnation'],['community_event_reminders','consent_account_incarnation'],['ruleset_publications','actor_account_incarnation'],['councillor_keys','signer_account_incarnation'],['councillor_challenges','signer_account_incarnation'],['verification_requests','requester_account_incarnation'],['privacy_serving_jobs','original_account_incarnation'],['councillor_keys','beta_window_id'],['councillor_challenges','beta_window_id'],['verification_requests','beta_window_id'],['verification_proofs','beta_window_id']] as const;
@@ -73,7 +73,7 @@ function input(x:Original):Original{
  const operationId=own(x,'operationId'),layout=own(x,'layout'),sourceKind=own(x,'sourceKind'),originalEpoch=own(x,'originalEpoch'),nextEpoch=own(x,'nextEpoch');
  const legacy=sourceKind==='public-predecessor';
  if(!lower32(operationId)||!lower32(nextEpoch)||(legacy?originalEpoch!==null||layout!=='recorded-live-20261010':!lower32(originalEpoch)||originalEpoch===nextEpoch))throw new PrivacyWriteAdmissionHeld('migration_input');
- if(!['canonical','recorded-live-20261010'].includes(layout as string)||!['pre-marker','marker','public-predecessor','current-cookie'].includes(sourceKind as string))throw new PrivacyWriteAdmissionHeld('migration_input');
+ if(!['canonical','recorded-live-20261010'].includes(layout as string)||!['pre-marker','marker','public-predecessor','current-cookie','current-cookie-pre-seal'].includes(sourceKind as string))throw new PrivacyWriteAdmissionHeld('migration_input');
  return Object.freeze({operationId:operationId as string,layout:layout as AdmissionLayout,sourceKind:sourceKind as SourceKind,originalEpoch:originalEpoch as string|null,nextEpoch:nextEpoch as string});
 }
 function proof(checkOriginal:boolean,legacy=false,oneNativeClock=false):string{const tuple=legacy?LEGACY_TUPLE:TUPLE,protocol=legacy?'olympus-write-admission-experiment-1':VERSION,epoch=legacy?" AND ?3=''":" AND epoch=?3 AND mode='closed'";const observed=oneNativeClock?'(SELECT observed_at FROM native_clock)':NOW;return `WITH ${oneNativeClock?`native_clock AS MATERIALIZED(SELECT ${NOW} AS observed_at),`:''}actual AS MATERIALIZED(SELECT type,name,tbl_name,sql FROM sqlite_master WHERE ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL}),
@@ -148,9 +148,18 @@ function plan(old:Profile,next:Profile,kind:SourceKind,originalEpoch:string|null
  if(steps.length+4>MAX_QUERIES)throw new PrivacyWriteAdmissionHeld('migration_d1_query_limit');for(const step of steps)bounded(step.sql,step.binds);
  return {steps:Object.freeze(steps),epochStep};
 }
+/** Source-owned additive transition from the exact .160 cookie profile. No business writes or rebuild. */
+const dispatchSealTriggers=[{"name":"beta_dispatch_seal_no_replace","sql":"CREATE TRIGGER beta_dispatch_seal_no_replace BEFORE INSERT ON site_settings WHEN (NEW.key IN('betaResetDispatchSealV1','betaResetPolicyV1') AND EXISTS(SELECT 1 FROM site_settings WHERE key='betaResetDispatchSealV1')) OR EXISTS(SELECT 1 FROM site_settings AS protected WHERE protected.rowid=NEW.rowid AND (protected.key='betaResetDispatchSealV1' OR (protected.key='betaResetPolicyV1' AND EXISTS(SELECT 1 FROM site_settings WHERE key='betaResetDispatchSealV1')))) BEGIN SELECT RAISE(ABORT,'beta_dispatch_seal_immutable'); END"},{"name":"beta_dispatch_seal_no_update","sql":"CREATE TRIGGER beta_dispatch_seal_no_update BEFORE UPDATE ON site_settings WHEN ((OLD.key='betaResetDispatchSealV1' OR NEW.key='betaResetDispatchSealV1' OR ((OLD.key='betaResetPolicyV1' OR NEW.key='betaResetPolicyV1') AND EXISTS(SELECT 1 FROM site_settings WHERE key='betaResetDispatchSealV1'))) OR EXISTS(SELECT 1 FROM site_settings AS protected WHERE protected.rowid=NEW.rowid AND (protected.key='betaResetDispatchSealV1' OR (protected.key='betaResetPolicyV1' AND EXISTS(SELECT 1 FROM site_settings WHERE key='betaResetDispatchSealV1'))))) AND NOT (NEW.rowid IS OLD.rowid AND NEW.key IS OLD.key AND typeof(NEW.key)=typeof(OLD.key) AND NEW.value IS OLD.value AND typeof(NEW.value)=typeof(OLD.value) AND NEW.updated_at IS OLD.updated_at AND typeof(NEW.updated_at)=typeof(OLD.updated_at) AND OLD.updated_by IS NOT NULL AND NEW.updated_by IS NULL) BEGIN SELECT RAISE(ABORT,'beta_dispatch_seal_immutable'); END"},{"name":"beta_dispatch_seal_no_delete","sql":"CREATE TRIGGER beta_dispatch_seal_no_delete BEFORE DELETE ON site_settings WHEN OLD.key='betaResetDispatchSealV1' OR (OLD.key='betaResetPolicyV1' AND EXISTS(SELECT 1 FROM site_settings WHERE key='betaResetDispatchSealV1')) BEGIN SELECT RAISE(ABORT,'beta_dispatch_seal_immutable'); END"}] as const;
+function planDispatchSealProfile(old:Profile,next:Profile,originalEpoch:string,nextEpoch:string,originalTuple:string):{steps:readonly Step[];epochStep:number}{
+ if(JSON.stringify(next)!==JSON.stringify({...old,triggers:[...old.triggers,...dispatchSealTriggers]})
+  ||new Set(next.triggers.map(t=>t.name)).size!==next.triggers.length)throw new PrivacyWriteAdmissionHeld('migration_dispatch_seal_source_set');
+ const steps:Step[]=dispatchSealTriggers.map(t=>Object.freeze({sql:t.sql,binds:Object.freeze([])}));
+ steps.push(Object.freeze({sql:`UPDATE ${SLOT} SET epoch=?1 WHERE singleton=1 AND protocol='${VERSION}' AND epoch=?2 AND mode='closed' AND active=0 AND nonce='' AND purpose='' AND ${TUPLE}=?3 RETURNING epoch,mode`,binds:Object.freeze([nextEpoch,originalEpoch,originalTuple])}));
+ for(const step of steps)bounded(step.sql,step.binds);return {steps:Object.freeze(steps),epochStep:3};
+}
 /** The capture performs an actual Native complete-layout/FK/closed tuple read. It never accepts a boolean proof. */
 export async function captureWholeNativeMigration(native:D1Database,original:Original):Promise<WholeMigrationCapability>{
- const x=input(original);if(x.sourceKind==='current-cookie')return captureCurrentCookieProfileEpoch(native,x);const witness=methods(native),key=x.layout==='canonical'?'canonical':'recordedLive',old=sources[x.sourceKind]?.[key],next=JSON.parse(x.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON) as Profile;
+ const x=input(original);if(x.sourceKind==='current-cookie'||x.sourceKind==='current-cookie-pre-seal')return captureCurrentCookieProfileEpoch(native,x);const witness=methods(native),key=x.layout==='canonical'?'canonical':'recordedLive',old=sources[x.sourceKind]?.[key],next=JSON.parse(x.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON) as Profile;
  const legacy=x.sourceKind==='public-predecessor';if(!old||!next||old.profile.slotColumns.length!==(legacy?7:9))throw new PrivacyWriteAdmissionHeld('migration_installed_source_kind');
  assertClosedMigrationPlan(old.profile,next,x.sourceKind);
  const incoming=x.sourceKind!=='marker'?" AND NOT EXISTS(SELECT 1 FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) f WHERE m.type='table' AND f.\"table\" IN('site_users','site_applications','privacy_write_admission'))":'';
@@ -263,7 +272,7 @@ export async function executeWholeNativeMigration(c:WholeMigrationCapability):Pr
  const epochSnapshot=rowSnapshot(epoch,['epoch','mode']);if(first.values[0]!==1||first.values[1]!==s.tuple||last.values[0]!==1||epochSnapshot.values[0]!==c.nextEpoch||epochSnapshot.values[1]!=='closed'||own(own(own(out,String(s.epochStep+1)),'meta'),'changes')!==1)throw new PrivacyWriteAdmissionHeld('migration_commit_unconfirmed');
  if(typeof first.values[2]!=='number'||typeof last.values[2]!=='number'||!Number.isSafeInteger(first.values[2])||!Number.isSafeInteger(last.values[2])||first.values[2]<c.createdAt||last.values[2]<first.values[2]||last.values[2]>=s.executionExpiresAt)throw new PrivacyWriteAdmissionHeld('migration_original_clock_unconfirmed');
  first.witness.assert();last.witness.assert();epochSnapshot.witness.assert();s.witness.assert();s.rowWitness.assert();
- const returned=Object.freeze({operationId:c.operationId,originalEpoch:c.originalEpoch,epoch:c.nextEpoch,mode:'closed',statements:all.length,nativeSchemaCommitted:true,legacyValuesPreservedWithinOriginalAtomicGroup:true,legacyDelayedFieldsNull:c.sourceKind!=='current-cookie',providerQualification:'unqualified',authenticatedProductionOrigin:false,providerDrainQualified:false,readyToReopen:false,erasureActivationQualified:false}),returnedGraph=migrationGraph(returned);
+ const returned=Object.freeze({operationId:c.operationId,originalEpoch:c.originalEpoch,epoch:c.nextEpoch,mode:'closed',statements:all.length,nativeSchemaCommitted:true,legacyValuesPreservedWithinOriginalAtomicGroup:true,legacyDelayedFieldsNull:c.sourceKind!=='current-cookie'&&c.sourceKind!=='current-cookie-pre-seal',providerQualification:'unqualified',authenticatedProductionOrigin:false,providerDrainQualified:false,readyToReopen:false,erasureActivationQualified:false}),returnedGraph=migrationGraph(returned);
  const transportWitness={assert(){originalPacket.witness.assert();returnedGraph.witness.assert();preparedStatements.forEach(p=>p.witness.assert());first.witness.assert();last.witness.assert();epochSnapshot.witness.assert();s.witness.assert();s.rowWitness.assert();}};transportWitness.assert();
  originalMigrationExecutions.set(returned,{cap:c,copy:originalPacket.copy,witness:transportWitness,finishedAt:last.values[2] as number});return returned;
 }
@@ -436,16 +445,18 @@ export function originalClosedRecoveryErasureResultFacts(result:OriginalClosedRe
  * Rebinding their closed epoch must never rebuild accounts or adopt/change those values. */
 async function captureCurrentCookieProfileEpoch(native:D1Database,x:Original):Promise<WholeMigrationCapability>{
  const witness=methods(native),key=x.layout==='canonical'?'canonical':'recordedLive',next=JSON.parse(x.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON) as Profile;
+ const before=x.sourceKind==='current-cookie-pre-seal'?sources['current-cookie-pre-seal'][key]:{profile:next,objects:objects[key]};
  const optional=x.layout==='recorded-live-20261010'?sources['public-predecessor'].recordedLive.objects.filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'):[];
  const query=proof(false).replace("expected AS MATERIALIZED(SELECT json_extract(value,'$[0]') type,json_extract(value,'$[1]') name,json_extract(value,'$[2]') tbl_name,json_extract(value,'$[3]') sql FROM json_each(?1))","expected AS MATERIALIZED(SELECT json_extract(value,'$[0]') type,json_extract(value,'$[1]') name,json_extract(value,'$[2]') tbl_name,json_extract(value,'$[3]') sql FROM json_each(?1) UNION ALL SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]'),json_extract(value,'$[2]'),json_extract(value,'$[3]') FROM json_each(?6) WHERE EXISTS(SELECT 1 FROM actual WHERE name='_cf_KV'))")
  .replace('(SELECT COUNT(*) FROM actual)=json_array_length(?1)','(SELECT COUNT(*) FROM actual)=(SELECT COUNT(*) FROM expected)')
  .replace(' AS observed_at',' AS observed_at,EXISTS(SELECT 1 FROM actual WHERE name=\'_cf_KV\') AS cfkv_present');
- const p=prepared(native,witness,query,[JSON.stringify(objects[key]),'',x.originalEpoch!,'253402300500','1',JSON.stringify(optional)]),first=statementMethod(p.statement,'first');p.witness.assert();first.assert();
+ const p=prepared(native,witness,query,[JSON.stringify(before.objects),'',x.originalEpoch!,'253402300500','1',JSON.stringify(optional)]),first=statementMethod(p.statement,'first');p.witness.assert();first.assert();
  const row=await Reflect.apply(first.value,p.statement,[]),r=rowSnapshot(row,['admitted','original_tuple','observed_at','cfkv_present']);p.witness.assert();first.assert();witness.assert();r.witness.assert();
  const [admitted,originalTuple,createdAt,cfkv]=r.values;if(admitted!==1||typeof originalTuple!=='string'||typeof createdAt!=='number'||!Number.isSafeInteger(createdAt)||createdAt<1||createdAt>253402300499||cfkv!==0&&cfkv!==1||cfkv===1&&optional.length===0)throw new PrivacyWriteAdmissionHeld('current_cookie_epoch_capture_held');
- const currentObjects=[...objects[key],...(cfkv===1?optional:[])].sort((a,b)=>a[0]!<b[0]!?-1:a[0]!>b[0]!?1:a[1]!<b[1]!?-1:a[1]!>b[1]!?1:0),c=Object.freeze({...x,kind:'original_native_cookie_profile_migration' as const,createdAt,expiresAt:createdAt+300,mode:'closed' as const,readyToReopen:false as const});
+ const currentObjects=[...before.objects,...(cfkv===1?optional:[])].sort((a,b)=>a[0]!<b[0]!?-1:a[0]!>b[0]!?1:a[1]!<b[1]!?-1:a[1]!>b[1]!?1:0),c=Object.freeze({...x,kind:'original_native_cookie_profile_migration' as const,createdAt,expiresAt:createdAt+300,mode:'closed' as const,readyToReopen:false as const});
  const step=Object.freeze({sql:`UPDATE ${SLOT} SET epoch=?1 WHERE singleton=1 AND protocol='${VERSION}' AND epoch=?2 AND mode='closed' AND active=0 AND nonce='' AND purpose='' AND ${TUPLE}=?3 RETURNING epoch,mode`,binds:Object.freeze([x.nextEpoch,x.originalEpoch!,originalTuple])});
- originalCaptures.set(c,{native,witness,rowWitness:{assert(){p.witness.assert();first.assert();r.witness.assert();witness.assert();}},old:{profile:next,objects:currentObjects},next,objects:currentObjects,tuple:originalTuple,plan:Object.freeze([step]),epochStep:0,spent:false,executionExpiresAt:c.expiresAt});return c;
+ const selected=x.sourceKind==='current-cookie-pre-seal'?planDispatchSealProfile(before.profile,next,x.originalEpoch!,x.nextEpoch,originalTuple):{steps:Object.freeze([step]),epochStep:0},targetObjects=[...objects[key],...(cfkv===1?optional:[])].sort(writerFenceObjectOrder);
+ originalCaptures.set(c,{native,witness,rowWitness:{assert(){p.witness.assert();first.assert();r.witness.assert();witness.assert();}},old:{profile:before.profile,objects:currentObjects},next,objects:targetObjects,tuple:originalTuple,plan:selected.steps,epochStep:selected.epochStep,spent:false,executionExpiresAt:c.expiresAt});return c;
 }
 
 declare const originalNativeWriterFenceBrand:unique symbol;
@@ -469,7 +480,7 @@ export async function captureOriginalNativeWriterFence(native:D1Database,cut:Ori
  const input=originalPrivateNativeWriterFenceCustody(cut,native),check=input.check;check();const witness=methods(native),legacy=input.sourceKind==='public-predecessor',key=input.layout==='canonical'?'canonical':'recordedLive';
  const next=JSON.parse(input.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON) as Profile;
  const before=input.sourceKind==='current-cookie'?{profile:next,objects:objects[key]}:sources[input.sourceKind][key];
- const optional=input.sourceKind==='current-cookie'&&key==='recordedLive'?sources['public-predecessor'].recordedLive.objects.filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'):[];
+ const optional=(input.sourceKind==='current-cookie'||input.sourceKind==='current-cookie-pre-seal')&&key==='recordedLive'?sources['public-predecessor'].recordedLive.objects.filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'):[];
  let query=writerFenceProof(false,legacy,'both');
  // Only an authenticated original provider attempt permits Native to select its restored old epoch.
  // Full source schema, neutral control, original clock/FK/temp proofs remain in this SAME query.
@@ -516,12 +527,12 @@ export function originalNativeWriterFenceFacts(cap:OriginalNativeWriterFence,cut
 export async function captureWholeNativeMigrationAfterWriterFence(cap:OriginalNativeWriterFence,cut:OriginalPrivateControlCut,nextEpoch:string,operationId:string):Promise<WholeMigrationCapability>{
  assertOriginalNativeWriterFence(cap,cut);const s=writerFenceCurrent(cap),input=originalPrivateNativeWriterFenceCustody(cut,s.native);if(s.migrationSpent||nextEpoch!==input.nextEpoch||operationId!==input.operationId)return writerFenceHeld();s.migrationSpent=true;
  const next=JSON.parse(s.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON) as Profile;
- if(s.sourceKind!=='current-cookie')assertClosedMigrationPlan(s.before.profile,next,s.sourceKind);
+ if(s.sourceKind!=='current-cookie'&&s.sourceKind!=='current-cookie-pre-seal')assertClosedMigrationPlan(s.before.profile,next,s.sourceKind);
  const query=writerFenceProof(true,false,'closed'),p=prepared(s.native,s.witness,query,[JSON.stringify(s.objects),s.closedTuple,s.fenceEpoch,String(s.expires),String(s.closedAt)]),first=statementMethod(p.statement,'first');writerFenceCurrent(cap);p.witness.assert();first.assert();
  const row=await Reflect.apply(first.value,p.statement,[]),r=rowSnapshot(row,['admitted','original_tuple','observed_at']);writerFenceCurrent(cap);p.witness.assert();first.assert();r.witness.assert();
  if(r.values[0]!==1||r.values[1]!==s.closedTuple||typeof r.values[2]!=='number'||!Number.isSafeInteger(r.values[2])||r.values[2]<s.closedAt||r.values[2]>=s.expires)return writerFenceHeld();
  const at=r.values[2],x={operationId,layout:s.layout,sourceKind:s.sourceKind,originalEpoch:s.originalEpoch,nextEpoch},c=Object.freeze({...x,kind:'original_native_cookie_profile_migration' as const,createdAt:at,expiresAt:at+300,mode:'closed' as const,readyToReopen:false as const});
- const selected=s.sourceKind==='current-cookie'?{steps:Object.freeze([{sql:`UPDATE ${SLOT} SET epoch=?1 WHERE singleton=1 AND protocol='${VERSION}' AND epoch=?2 AND mode='closed' AND active=0 AND nonce='' AND purpose='' AND ${TUPLE}=?3 RETURNING epoch,mode`,binds:Object.freeze([nextEpoch,s.fenceEpoch,s.closedTuple])}]),epochStep:0}:plan(s.before.profile,next,s.sourceKind,s.originalEpoch,nextEpoch,s.closedTuple,s.sourceKind==='public-predecessor'?s.fenceEpoch:undefined);
+ const selected=s.sourceKind==='current-cookie'?{steps:Object.freeze([{sql:`UPDATE ${SLOT} SET epoch=?1 WHERE singleton=1 AND protocol='${VERSION}' AND epoch=?2 AND mode='closed' AND active=0 AND nonce='' AND purpose='' AND ${TUPLE}=?3 RETURNING epoch,mode`,binds:Object.freeze([nextEpoch,s.fenceEpoch,s.closedTuple])}]),epochStep:0}:s.sourceKind==='current-cookie-pre-seal'?planDispatchSealProfile(s.before.profile,next,s.fenceEpoch,nextEpoch,s.closedTuple):plan(s.before.profile,next,s.sourceKind,s.originalEpoch,nextEpoch,s.closedTuple,s.sourceKind==='public-predecessor'?s.fenceEpoch:undefined);
  const retainedCf=s.originalObjects.filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'),targetObjects=[...objects[s.layout==='canonical'?'canonical':'recordedLive'],...retainedCf].sort(writerFenceObjectOrder),witness={assert(){writerFenceCurrent(cap);p.witness.assert();first.assert();r.witness.assert();}};
  originalCaptures.set(c,{native:s.native,witness:s.witness,rowWitness:witness,old:s.before,next,objects:targetObjects,tuple:s.closedTuple,plan:selected.steps,epochStep:selected.epochStep,spent:false,executionExpiresAt:s.expires,originalObjects:s.originalObjects,captureEpoch:s.fenceEpoch,captureLegacy:false});return c;
 }

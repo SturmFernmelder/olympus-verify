@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import { requestServingErasure, erasureRequestStatus, privacyBoundSiteEnv,readErasureProof } from './privacy-serving-authority';
 /**
@@ -68,10 +69,11 @@ export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
 const MEMBER_RECHECK = 3600;
 
-export async function handleApi(request: Request, env: Env, path: string, waitUntil: (work: () => Promise<unknown>) => void): Promise<Response> {
+export async function handleApi(request: Request, env: Env, path: string, waitUntil: (work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const m = request.method;
   if (path === '/api/admin/qr/beta-window') return handleAttendedBetaWindow(request, env);
-  if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env);
+  if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env,roleDispatch);
   if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: state.settings, meta: meta(state.ruleset), now: now() }); }
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);
@@ -95,7 +97,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   const admin = isSiteAdmin(env, user.discord_id);
   if (path.startsWith("/api/admin/")) {
     if (!admin) return apiJson({ error: "forbidden" }, 403);
-    try{if(decisionOrigin)assertMembershipDecisionOrigin(decisionOrigin,env);return await handleAdmin(request, env, path, user, waitUntil,decisionOrigin??undefined);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:'original_membership_decision_held'},409);throw e;}
+    try{if(decisionOrigin)assertMembershipDecisionOrigin(decisionOrigin,env);return await handleAdmin(request, env, path, user, waitUntil,decisionOrigin??undefined,roleDispatch);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:'original_membership_decision_held'},409);throw e;}
   }
   // .56: the community modules (consolidation batches 1-8) apply their own write fence (community-context.ts).
   if (path.startsWith("/api/community/")) return handleCommunity(request, env, path);

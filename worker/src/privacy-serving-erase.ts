@@ -8,6 +8,7 @@ import {originalClosedRecoveryCleanupAccount,type OriginalClosedRecoveryReplaySe
 import {globalServingMode,dispatchOriginalAccountErasureTerminalBatch} from './privacy-global-serving-origin';
 import {captureOriginalAccountErasureJobRead,originalAccountErasureCompanionGuardStatement,originalErasureJobReadFacts} from './privacy-erasure-terminal-job-read';
 import {captureAccountErasureTerminalGroup} from './privacy-account-erasure-terminal-group';
+import {erasureAttemptFenceMode,enterOriginalErasureAttempt,originalErasureAttemptFacts,type OriginalErasureAttempt} from './privacy-erasure-attempt-identity';
 import {rejectionErasureMarkerStatements} from './privacy-rejection-decision';
 import {staffAccessDetails,type StaffAccessDetails} from './privacy-erasure-staff-custody';
 import {originalPrivacyStatementGroupProjection} from './privacy-serving-authority';
@@ -23,9 +24,9 @@ import { captureAccountErasureProof,originalErasureJobBirthSql,CURRENT_ERASURE_S
 type OriginalTerminalProducer=Readonly<{proof:Readonly<AccountErasureProof>;check:()=>void}>;
 const originalTerminalProducerGroups=new WeakMap<D1PreparedStatement[],{env:Env;facts:OriginalTerminalProducer}>();
 // This private registrar is called only by completeServingAccount's exact authored plan builder below.
-function retainOriginalTerminalProducer(env:Env,proof:AccountErasureProof,statements:D1PreparedStatement[]):void{
+function retainOriginalTerminalProducer(env:Env,proof:AccountErasureProof,statements:D1PreparedStatement[],attempt?:OriginalErasureAttempt):void{
  const original=captureAccountErasureProof(proof),db=Object.getOwnPropertyDescriptor(env,'DB');if(!db||!Object.hasOwn(db,'value'))throw Error('privacy_terminal_source_unowned');
- const projection=originalPrivacyStatementGroupProjection(db.value as D1Database,statements),prototype=Object.getPrototypeOf(env),check=()=>{original.check();projection.check();const now=Object.getOwnPropertyDescriptor(env,'DB');if(Object.getPrototypeOf(env)!==prototype||!now||!['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(now[k as keyof PropertyDescriptor],db[k as keyof PropertyDescriptor])))throw Error('privacy_terminal_source_changed');};check();
+ const projection=originalPrivacyStatementGroupProjection(db.value as D1Database,statements),prototype=Object.getPrototypeOf(env),check=()=>{original.check();if(attempt)originalErasureAttemptFacts(attempt,env,proof);projection.check();const now=Object.getOwnPropertyDescriptor(env,'DB');if(Object.getPrototypeOf(env)!==prototype||!now||!['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(now[k as keyof PropertyDescriptor],db[k as keyof PropertyDescriptor])))throw Error('privacy_terminal_source_changed');};check();
  originalTerminalProducerGroups.set(statements,{env,facts:Object.freeze({proof:original.proof,check})});
 }
 /** Lookup only. A copied array/env or unrelated normal admitted group cannot acquire this source custody. */
@@ -86,10 +87,12 @@ export type ServingCompletion={state:'held'|'unknown'|'complete';reason:string|n
 const held=(reason:string,state:'held'|'unknown'='held',staffAccess:MemberRoleSettlement['staffAccess']='unknown',details=staffAccessDetails(staffAccess)):ServingCompletion=>({state,reason,servingAccountErased:false,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess,staffAccessDetails:details});
 type CentralRoleAdapter={settleAccountErasureMemberRole:(env:Env,proof:AccountErasureProof)=>Promise<MemberRoleSettlement>;accountErasureRoleSettledSql:string;reconcileAccountErasureRoleDebt:(env:Env,proof:AccountErasureProof)=>Promise<unknown>};
 /** There is exactly one role writer. Its adapter supplies a fixed authored SQL receipt predicate, never request SQL. */
-export async function continueServingErasure(env:Env,proof:AccountErasureProof):Promise<ServingCompletion>{
+export async function continueServingErasure(env:Env,proof:AccountErasureProof,attempt?:OriginalErasureAttempt):Promise<ServingCompletion>{
  proof=captureAccountErasureProof(proof).proof;
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return held('feature_disabled');
  const discipline=erasureAttemptDiscipline(env);if(discipline===null)return held('erasure_attempt_discipline_invalid');
+ const fence=erasureAttemptFenceMode(env);if(fence===null)return held('erasure_attempt_fence_invalid');
+ if(fence){if(!attempt)return held('erasure_attempt_identity_required');enterOriginalErasureAttempt(attempt,env,proof);}else if(attempt)return held('erasure_attempt_identity_unexpected');
  // The original six-field job proof was captured before the feature check and first await.
  // Retain its original birth/absence purpose through the ED01 Native current/clear ACK.
  if(!await currentAccountErasureProof(env,proof))return held('request_not_current');
@@ -125,11 +128,11 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof):
  // Known local-read refusal leaves the original proof/job and any historical unknown custody untouched.
  if(originalReferencesClear!==1)return held('ambiguous_personal_reference','held',outcome.staffAccess);
  await cleanupPrivacyMessages(env,proof.subject);
- return completeServingAccount(env,proof,outcome,central.accountErasureRoleSettledSql,discipline);
+ return completeServingAccount(env,proof,outcome,central.accountErasureRoleSettledSql,discipline,attempt);
 }
 
 /** Trusted central adapter only. No HTTP caller chooses role outcome or the consuming receipt SQL. */
-async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string,discipline=false):Promise<ServingCompletion>{
+async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string,discipline=false,attempt?:OriginalErasureAttempt):Promise<ServingCompletion>{
  p=captureAccountErasureProof(p).proof;
  const facts=await servingPrivacyCatalogAndStaffCustody(env,p.subject);
  if(!facts.catalogCurrent)return held('unclassified_storage', 'held',role.staffAccess);
@@ -147,7 +150,7 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  THEN 1 ELSE json_extract('privacy_completion_refused','$') END AS admitted`).bind(...v,role.checkedAt,env.GUILD_ID,env.ROLE_GUILD_MEMBER);
  const target='?1';
  const rejectionMarker=await rejectionErasureMarkerStatements(env,p,markerKey);
- const configured=globalServingMode(env)==='configured',originalJob=configured?await captureOriginalAccountErasureJobRead(env,p):null;if(originalJob&&originalErasureJobReadFacts(originalJob).companion.markerKey!==markerKey)throw Error('privacy_original_marker_key_changed');
+ const configured=globalServingMode(env)==='configured',originalJob=configured?await captureOriginalAccountErasureJobRead(env,p,attempt):null;if(originalJob&&originalErasureJobReadFacts(originalJob).companion.markerKey!==markerKey)throw Error('privacy_original_marker_key_changed');
  const statements:D1PreparedStatement[]=[before,...(originalJob?[originalAccountErasureCompanionGuardStatement(env,originalJob)]:[]),
  env.DB.prepare("UPDATE privacy_serving_jobs SET state='erasing',role_checked_at=?2,staff_access=?3,hold_reason=NULL WHERE operation_id=?1 AND state IN('waiting_role','held')").bind(p.operationId,role.checkedAt,role.staffAccess),
  ...fixedAccountCleanupStatements(env,p,markerKey,rejectionMarker),
@@ -163,7 +166,7 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  AND NOT EXISTS(SELECT 1 FROM site_users WHERE discord_id=?2) AND NOT EXISTS(SELECT 1 FROM characters WHERE discord_id=?2)
  THEN 1 ELSE json_extract('privacy_terminal_unconfirmed','$') END AS recorded,(SELECT completed_at FROM privacy_serving_jobs j WHERE operation_id=?1 AND subject_id=?2 AND subject_generation=?3 AND state='complete' AND ${originalErasureJobBirthSql(p)}) AS erasedAt`).bind(p.operationId,p.subject,p.subjectGeneration),
  ];
- retainOriginalTerminalProducer(env,p,statements);
+ retainOriginalTerminalProducer(env,p,statements,attempt);
  try {
  const out=configured?await (async()=>{const job=originalJob;if(!job)throw Error('privacy_original_companion_unowned');const group=captureAccountErasureTerminalGroup(env,job,statements);return dispatchOriginalAccountErasureTerminalBatch(env,job,group,statements);})():await env.DB.batch<{admitted?:number;recorded?:number}>(statements);
  const originalAdmissionRow=out[0]?.results[0],originalTerminalRow=out.at(-1)?.results[0];

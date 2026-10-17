@@ -1,5 +1,6 @@
 /** Private source-owned lifecycle. Initialization is CLOSED; opening needs distinct original authenticated receipts and one native Floor/gate transaction. */
 import type {FloorStorage} from './privacy-recovery-floor';
+import {assertNoRecoveryAttemptData} from './privacy-recovery-attempt-schema';
 import {validateOriginalProfileMigrationReceipt} from './privacy-migration-receipt-validation';
 import {recoveryScalarArrayJSON,recoveryDataUtf8Bytes,assertOriginalRecoveryDataIntrinsics} from './privacy-recovery-data-json';
 import {ORIGINAL_REQUEST_DESCRIPTORS,ORIGINAL_HEADER_DESCRIPTORS,checkOriginalNativeRequest,checkOriginalNativeHeaders,captureOriginalNativeRequestBody,checkOriginalNativeBodyReader,readOriginalNativeBodyPacket,cancelOriginalNativeBodyReader,releaseOriginalNativeBodyReader} from './privacy-native-http-intrinsics';
@@ -187,6 +188,7 @@ export class ServingRecoveryGate{
   if(r.length!==1)return refuse();
  }
  private observeCut(native:string,gate:string):string{
+  assertNoRecoveryAttemptData(this.storage);
   this.lifecycleSchema();const g=this.parse(gate,11),f=this.parse(native,12);if(g[3]!=='closing_held')return refuse();
   const r=this.rows(`SELECT ${SERVING_CUT_TUPLE_SQL} tuple FROM recovery_serving_cut WHERE operation_id=?1`,g[4] as string);if(r.length!==1)return refuse();const c=this.parse(r[0]!.tuple,8);
   if(c[0]!==g[4]||c[1]!==gate||c[2]!==native||c[3]!==f[5]||c[4]!==g[7]||c[5]!==g[8])return refuse();
@@ -245,7 +247,7 @@ export class ServingRecoveryGate{
  /** Only a MAC-authenticated original opener with an ACTUAL independent physical copy ACK may
   * explain a restored old epoch. Normal M17 input retains the receiver's exact original Floor guard. */
  private physicalMigration(v:Record<string,unknown>,keyFingerprint:string,requestCheck:()=>void):OriginalPhysicalReplayMigration|undefined{
-  const m=this.parse(v.migrationReceipt,17),f=this.parse(v.originalFloor,12);if(m[8]===f[7]||m[7]!=='current-cookie')return undefined;
+  const m=this.parse(v.migrationReceipt,17),f=this.parse(v.originalFloor,12);if(m[8]===f[7]||m[7]!=='current-cookie'&&m[7]!=='current-cookie-pre-seal')return undefined;
   const c=this.parse(v.suppressionReceipt,17);if(!hex(m[8],32)||c[5]!=='private_export'&&c[5]!=='time_travel')return refuse();
   const native=v.originalFloor as string,gate=v.originalGate as string,raw=v.migrationReceipt as string;
   const check=()=>{requestCheck();const current=this.original();if(current.native!==native||current.gate!==gate)return refuse();suppressionOpenGuard(this.storage,native,gate,v.suppressionReceipt,keyFingerprint);};check();

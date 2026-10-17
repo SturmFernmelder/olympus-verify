@@ -6,7 +6,7 @@
 import type { Env } from './env';
 import { DB_NOW, randomGeneration } from './account-generation-contracts';
 import { rest, DiscordError, type AttemptBudget } from './discord';
-import { betaGrantCurrent, betaGrantSql, type BetaGrantCapture } from './beta-reset-policy';
+import { betaGrantCurrent, betaGrantSql, betaResetDispatchSql, betaResetDispatchMode, type BetaGrantCapture } from './beta-reset-policy';
 
 type Receipt=Readonly<{id:string;nonce:string;subject:string;guildId:string;roleId:string;capture:BetaGrantCapture}>;
 const receipts=new WeakSet<object>();
@@ -25,7 +25,7 @@ export async function beginBetaLegacyGrant(env:Env,capture:BetaGrantCapture,subj
  if(!validId(subject)||capture.mode!=='open'||!await betaGrantCurrent(env,capture))return null;
  const id=randomGeneration(),nonce=randomGeneration(),guard=betaGrantSql(capture,6);
  const row=await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,claim_nonce,attempts,created_at,expires_at)
- SELECT ?1,?2,'beta_guard_grant',?3,?4,1,'dispatching','beta_guard_before_put',?5,1,${DB_NOW},${DB_NOW}+300 WHERE ${guard.sql}
+ SELECT ?1,?2,'beta_guard_grant',?3,?4,1,'dispatching','beta_guard_before_put',?5,1,${DB_NOW},${DB_NOW}+300 WHERE ${betaResetDispatchSql(env,capture,guard.sql)}
  AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND guild_id=?3 AND role_id=?4
  AND (purpose='beta_guard_grant' OR purpose='grant_compensation') AND attempts=1 AND state IN('dispatching','unknown')) RETURNING id`)
  .bind(id,subject,capture.guildId,capture.roleId,nonce,...guard.values).first();
@@ -35,18 +35,19 @@ export async function beginBetaLegacyGrant(env:Env,capture:BetaGrantCapture,subj
 async function stillOwned(env:Env,r:Receipt):Promise<boolean>{
  if(!receipts.has(r)||!await betaGrantCurrent(env,r.capture))return false;
  const guard=betaGrantSql(r.capture,6);
- return !!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${tupleSql} AND state='dispatching'
- AND expires_at>${DB_NOW} AND ${guard.sql}`).bind(...args(r),...guard.values).first();
+ const row=await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${tupleSql} AND state='dispatching'
+ AND expires_at>${DB_NOW} AND ${betaResetDispatchSql(env,r.capture,guard.sql)}`).bind(...args(r),...guard.values).first();
+ return !!row&&betaResetDispatchMode(env,r.capture)!=='held';
 }
 /** Cleanup authority comes from this exact attempted PUT, never from a fabricated ban or roster fact. */
 async function compensate(env:Env,r:Receipt,b?:AttemptBudget,putAcknowledged=true):Promise<'held'>{
  const removal=randomGeneration(),nonce=randomGeneration();
  const claimed=await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,request_digest,claim_nonce,attempts,created_at,expires_at)
  SELECT ?6,subject,'grant_compensation',guild_id,role_id,0,'dispatching',?8,id,?7,1,${DB_NOW},${DB_NOW}+300
- FROM role_settlements WHERE ${tupleSql} AND (state IN('dispatching','unknown') OR state='settled' AND reason='legacy_put_acknowledged')
+ FROM role_settlements WHERE ${betaResetDispatchSql(env,r.capture,tupleSql)} AND (state IN('dispatching','unknown') OR state='settled' AND reason='legacy_put_acknowledged')
  AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='grant_compensation' AND request_digest=?1) RETURNING id`)
  .bind(...args(r),removal,nonce,putAcknowledged?'beta_acknowledged_put_cleanup':'beta_unknown_put_cleanup').first();
- if(!claimed)return 'held';
+ if(!claimed||betaResetDispatchMode(env,r.capture)==='held')return 'held';
  try{
   counted(b);await rest(env,'DELETE',`/guilds/${r.guildId}/members/${r.subject}/roles/${r.roleId}`,undefined,1,'Olympus beta cutoff: compensate this attempted grant',b);
   if(await memberPresent(env,r,b))throw Error('beta_compensation_present');
