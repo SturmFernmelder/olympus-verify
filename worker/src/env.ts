@@ -39,6 +39,7 @@ export interface Env {
   SET_GUILD_NOTE: "true" | "false";   // addon writes the Discord ID into the public note — forbidden for addons on the Forever beta (1.60.1.69893); keep false there
   OFFICER_CHARACTERS: string;         // names of the characters running the addon, shown in /verify instructions when no watcher reports presence
   LINKS_NOT_BEFORE?: string;          // links older than this (unix seconds or YYYY-MM-DD) count only once a roster pinned their GUID — set to the live launch
+  LINKS_NOT_BEFORE_CLOCK_GATED?: string; // explicit true: keep the existing0 baseline until the launch cutoff; absent/false preserves legacy immediate semantics
   REQUEST_CODES?: string;             // "auto" (default): the Verify button issues request codes once an upgraded officer PC has checked in; "on" / "off" force it
   PUBLIC_BASE_URL: string;            // https://verify.example.workers.dev
   // .50: the Phase 3 vars (PHASE3_BNET_API, BNET_REGION, BNET_PROFILE_NAMESPACE, BNET_GUILD_*) are gone with the path.

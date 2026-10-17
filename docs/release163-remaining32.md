@@ -6,7 +6,7 @@ The candidate composes the existing erasure-attempt identity/storage preparation
 
 The additional source-epoch profile is restriction only. Its immutable Native closure can associate the fixed beta source with one distinct, canonical fresh epoch after the cutoff and a consuming predecessor check. It has no mounted route, scheduled activation or production migration. It cannot issue provider drain, restore, all-version, physical-copy or old-role-reuse authority. Those qualification flags remain false. The new binding is absent in the live deployment plan.
 
-The fixed beta role IDs remain separate from the eleven newly provisioned, initially empty full-release roles. Staff mapping is configured with the existing November 4 launch gate, without enabling the legacy privileged rank producer. Before that gate, a valid fresh lane does no D1 or Discord work. Manual leadership/Council roles, website appointments and the directory remain preserved.
+The fixed beta role IDs remain separate from the eleven newly provisioned, initially empty full-release roles. Staff mapping is configured with the existing November 4 launch gate, without enabling the legacy privileged rank producer. Before that gate, a valid fresh lane does no D1 or Discord work. The explicit `LINKS_NOT_BEFORE_CLOCK_GATED="true"` setting also preserves the current zero beta link cutoff until launch: merely configuring the future timestamp must not release unpinned beta links early. Absent/false retains the existing immediate-cutoff contract. Manual leadership/Council roles, website appointments and the directory remain preserved.
 
 ## Deployment and rollback
 

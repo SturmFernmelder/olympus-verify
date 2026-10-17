@@ -118,9 +118,25 @@ export const openTicketFor = (env: Env, discordId: string) =>
  * live launch so a beta link can never pass to whoever takes the same name on live. Unix seconds or YYYY-MM-DD (UTC).
  */
 export function linksNotBefore(env: Env): number {
-  const raw = (env.LINKS_NOT_BEFORE ?? "").trim();
+  // Opt-in launch staging only. An absent/false switch retains the original parsing and immediate-cutoff semantics.
+  // Invalid/inherited/accessor switches cannot advance a cutoff or invoke configuration getters.
+  let clockGated=false;
+  try{
+    const gate=Object.getOwnPropertyDescriptor(env,'LINKS_NOT_BEFORE_CLOCK_GATED');
+    if(!gate){if('LINKS_NOT_BEFORE_CLOCK_GATED' in env)return 0;}
+    else if(!Object.hasOwn(gate,'value')||gate.value!=='true'&&gate.value!=='false')return 0;
+    else clockGated=gate.value==='true';
+  }catch{return 0;}
+  let raw:string;
+  if(clockGated){
+    try{const cutoff=Object.getOwnPropertyDescriptor(env,'LINKS_NOT_BEFORE');
+      if(!cutoff||!Object.hasOwn(cutoff,'value')||typeof cutoff.value!=='string')return 0;
+      raw=cutoff.value.trim();
+    }catch{return 0;}
+  }else raw=(env.LINKS_NOT_BEFORE??'').trim();
   if (!raw) return 0;
-  if (/^\d{9,11}$/.test(raw)) return Number(raw);
-  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00Z` : raw);
-  return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
+  const t=/^\d{9,11}$/.test(raw)?Number(raw):Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(raw)?`${raw}T00:00:00Z`:raw)/1000;
+  const cutoff=Number.isFinite(t)?Math.floor(t):0;
+  if(!clockGated)return cutoff;
+  const at=now();return Number.isSafeInteger(at)&&at>=cutoff?cutoff:0;
 }

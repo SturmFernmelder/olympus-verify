@@ -81,7 +81,7 @@ export const FRESH_CONFIG_MAX_BYTES=1024;
 export const LANE_OBSERVED_PRESENT_ENABLED=false;
 
 // --- configuration capture (A1, Q6). Synchronous, descriptor-based: an accessor or inherited key is never invoked.
-export const LANE_CONFIG_KEYS=Object.freeze(['FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',
+export const LANE_CONFIG_KEYS=Object.freeze(['FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','LINKS_NOT_BEFORE_CLOCK_GATED','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',
  'ROLE_CALL_BUDGET','GUILD_ID','DISCORD_APP_ID','DISCORD_BOT_TOKEN','ROLE_GUILD_MEMBER','ROLE_OFFICER','ROLE_MODERATOR','ROLE_GUILD_LEADER',
  'ROLE_GUILD_MASTER','ROLE_RAID_LEADER','MEMBERSHIP_RETIRED_ROLE_ID','BLOCKING_ROLE_IDS','INTROS_ROLES','QR_NATIVE_ROLE_MAP',
  'QR_PRIVILEGED_RANK_MAPPING_ENABLED','QR_BETA_FERN_EXCEPTION_ENABLED','PRIVACY_ERASURE_ENABLED'] as const);
@@ -154,9 +154,11 @@ export function captureLaneConfig(env:unknown):LaneCapture{
  const descriptorHeld=slots.some(s=>slotText(s)===null);
  const text=(k:LaneKey):string|undefined=>{const v=slotText(slot(k));return v===null?undefined:v;};
  const lnbText=text('LINKS_NOT_BEFORE'),linksNotBefore=lnbText!==undefined&&LINKS_DIGITS.test(lnbText)?Number(lnbText):0;
+ const clockGate=slot('LINKS_NOT_BEFORE_CLOCK_GATED');
+ const invalidClockGate=clockGate.kind!=='absent'&&(clockGate.kind!=='value'||clockGate.value!=='true'&&clockGate.value!=='false');
  const guildText=text('GUILD_ID'),appText=text('DISCORD_APP_ID'),token=text('DISCORD_BOT_TOKEN');
  const guild=laneRoleId(guildText)?guildText:'',appId=laneRoleId(appText)?appText:'';
- const base=descriptorHeld?'configuration_descriptor_held':!guild||!appId||!token?'discord_configuration':'';
+ const base=descriptorHeld?'configuration_descriptor_held':invalidClockGate?'links_clock_gate_invalid':!guild||!appId||!token?'discord_configuration':'';
  let fresh:LaneFreshMode='absent',freshReason='absent',cfg:LaneFreshConfig|null=null;
  if(freshPresent){
   if(base){fresh='held';freshReason=base;}

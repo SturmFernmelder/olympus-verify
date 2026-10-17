@@ -78,6 +78,7 @@ SET_NICKNAME = "false"                  # no nickname capability was requested o
 SET_GUILD_NOTE = "false"                # public note "D:<discord id>" — SetNote is forbidden for addons on the Forever beta; keep false
 OFFICER_CHARACTERS = "Fern Melder"     # shown in /verify instructions; the characters running the addon (two-part Forever name)
 LINKS_NOT_BEFORE = "1793833200"         # 4 Nov 2026 23:00 UTC; fresh-role grants cannot open before the owner-approved launch
+LINKS_NOT_BEFORE_CLOCK_GATED = "true"   # preserve current beta links until the launch timestamp; then apply the cut
 REQUEST_CODES = "auto"                 # auto: Get my code hands out request codes once an officer's watcher reports addon 0.6.0+; "off" = ask for the character name instead; "on" = always
 OFFICER_RANK_NAMES = "Guild Master,Officer"  # in-game rank names that ought to hold the Discord Officer role, comma separated. The legacy audit reports mismatches; guarded native rank mapping has its separate flags below.
 # Characters the officer-rank check never reports. The guild owner belongs here: a Discord server owner holds every
