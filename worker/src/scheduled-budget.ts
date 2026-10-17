@@ -178,8 +178,10 @@ export const ROSTER_EXTENDED_ADMISSION_SCHEDULED_WORST_CASE=ROSTER_EXTENDED_ADMI
 export function admissionScheduledBudget(cap:OriginalRosterSchedule):ReadonlyArray<{job:string;worst:number}>{return originalRosterScheduleFacts(cap).newsEnabled?ADMISSION_SCHEDULED_BUDGET:ROSTER_EXTENDED_ADMISSION_SCHEDULED_BUDGET;}
 
 /** Private epoch2 adds a native proof to every read group. The unchanged700 envelope is not transferred.
- * Do not deploy/migrate this candidate until current cron/calendar/retention are remeasured at the same bound. */
-export const EPOCH2_SCHEDULE_QUALIFIED=false as const;
+ * .161: qualified for the ordinary 15-minute schedule only after the exact-tree whole-Native measurement of this source at the same
+ * 700 bound (both layouts and roster/news phases). Production CPU, memory and cadence still need the post-deploy tick readback.
+ * The reset minute keeps its own false qualifier (beta-reset.ts). */
+export const EPOCH2_SCHEDULE_QUALIFIED=true as const;
 
 /**
  * .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): the other invocations that apply roster effects hold

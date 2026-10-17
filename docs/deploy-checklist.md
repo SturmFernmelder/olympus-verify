@@ -5796,3 +5796,47 @@ writer-drain, floor and epoch procedures still apply; restoring earlier code nev
 **Rollback.** Source-only and reversible to the .159 publication. Leave the flag absent when rolling back. Rows marked `attempt_unresolved` stay held only while .160 runs with the flag `"true"`; with the flag absent or `"false"`, or under older code, they are retried as in legacy.
 
 **CI metadata follow-up.** Run 38831980393 on `.159` successor `2098374` passed the complete Worker `test:all`, pinned census chain, SQL suites, app syntax, deploy argument contract and exact-success gate contract. Its strict cutover check then rejected an empty separator in the tracked marker before the historical source-only .155 record. The separator is now a comment; every retained record, timestamp, digest, Wrangler configuration value and strict grammar/refusal assertion is unchanged. This corrects invalid marker syntax without applying or activating anything. That failed run never reached the publication helper or final bundle step. The .160 successor retains those checks and needs its own complete CI result.
+
+## Worker .161 — Ordinary schedule qualification (prepared 16 October 2026; not deployed)
+
+**Why exact .160 must not ship.** As built, .160 (`5bea76e7`) silently holds every ordinary tick under its forced profile. Its `wrangler.toml` forces `PRIVACY_WRITE_ADMISSION_ENABLED = "true"` with cron `*/15`, so `index.ts:245` throws `epoch2_schedule_700_requires_current_native_qualification` because `scheduled-budget.ts:182` is `EPOCH2_SCHEDULE_QUALIFIED=false`. The throw is caught at `index.ts:252-253`, which logs only "schema check failed; skipping this run" with a redacted reference, and `scheduled()` still resolves normally. No ordinary job runs: invites, role sweeps, roster effects, retention purges, community sweeps, event reminders, news, the officer digest and serving retention all stop, and nothing visible reports the hold.
+
+**Change.**
+- `scheduled-budget.ts:184` is `EPOCH2_SCHEDULE_QUALIFIED=true as const`, and its comment now cites the exact-tree measurement. The reset minute keeps `BETA_RESET_SCHEDULE_QUALIFIED=false` (`beta-reset.ts:15`). `OFFICER_DIGEST_HOUR_UTC = 15` (`community-digest.ts:51`) and every budget, cap and guard are unchanged.
+- Test pins: `scheduled_budget_test.cjs:480` and `beta_reset_schedule_test.cjs:120/:122` assert the ordinary qualifier true and the minute qualifier false, through a new `assertTrueExport` (`:96`) beside the unchanged `assertFalseExport`.
+- BUILD and its three health pins (`site_test.cjs:1358`, `hosts_test.cjs:117`, `bnet_retention_test.cjs:467`) are `2026-10-16.161 Ordinary schedule qualification`.
+- Whole-Workerd harness, narrow production-15 mode. `privacy_normal_scheduled_whole_workerd_test.cjs` accepts exactly one of two markers in `NORMAL_SCHEDULE_LOCAL_CANARY`:
+  - the existing `unpublished-two-literal-branch-capacity-v1` canary (true/0), whose acceptance and evidence are unchanged;
+  - `exact-production-true-15utc-v1`, which requires the source to contain `EPOCH2_SCHEDULE_QUALIFIED=true as const` and `OFFICER_DIGEST_HOUR_UTC = 15` exactly once each. It refuses to start outside 15:00–23:25 UTC on the genuine clock, because the digest is due only from the hour until midnight (`community-digest.ts:171-177`) and the callback stage may run 2100 s.
+
+  The fixture checks the imported literals for the selected mode and records the mode and the digest hour in every preparation and observation. The host result states the mode, the source literals and the genuine start, end and callback times. No clock or handler is overridden. The production CPU, memory and 15:00 UTC cadence qualifiers stay false, because local Workerd cannot establish them.
+
+**Composed configuration.**
+- Deploy contract `249b0418` (tree `fd480bfe…`):
+  - `scripts/deploy-commit.sh` has a closed five-target selector: main, privacy-floor, privacy-evidence, privacy-initializer and privacy-operator;
+  - `--tag` and `--message` are accepted only as a pair: the tag is the selected commit's tree and the message is 64 lowercase hex;
+  - `--bind-source-tree` derives exactly one variable: `PRIVACY_SERVING_SOURCE_TREE` for main, or `PRIVACY_CONTROL_SOURCE_TREE` for the initializer and operator;
+  - arbitrary `--var`, `WRANGLER_ENV` and `CLOUDFLARE_ENV` are refused;
+  - `docs/private-recovery-artifact.md` replaces the five direct Wrangler deploys (the four private services and main), and `scripts/tests/deploy-commit.test.sh` covers the contract.
+- Configured-mode configuration `7a0766a` (tree `3910b5eb…`):
+  - both TOMLs (byte-equal) gain the cross-script `PRIVACY_RECOVERY_FLOOR` Durable Object binding to `PrivacyRecoveryFloor` on `olympus-privacy-recovery-floor` (`wrangler.toml:59-62`), and `PRIVACY_SERVING_DATABASE_ID = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"` (`:152`);
+  - `wrangler.cutover.applied` gains one appended record (profile `39826bad…`), labelled a source configuration update. It is not a provider activation.
+
+**Partial serving bindings hold everything.** `privacy-global-serving-origin.ts:36` lists five serving values. With all five absent, serving mode is off; with only some of them, every request and every scheduled tick is held (`:108-109`), and the tick hold is again caught silently at `index.ts:252-253`. This tree sets two of the five: the Floor binding and the database ID. Deploy main only after the attended CLOSED-transition provisioning has set all five values, together with `PRIVACY_WRITE_ADMISSION_EPOCH`, following `docs/private-recovery-artifact.md`. The gate secret and credential epoch come from that provisioning, and the source tree from `--bind-source-tree`.
+
+**Required before deploy.**
+- An exact-source whole-Native run of production true/15 on S's exact composed tree. It uses the existing five-stage owned-Job procedure of `owner-directed-minute-binding-v1` (600, 90, 90, 90 and 2100 s; at most 3 active processes), narrowly re-pinned, with a fresh private root outside `.codex` and the marker `exact-production-true-15utc-v1`.
+  - The procedure runs all five stages in **one** launch (`run-local-once.py:652-711`), and a second launch into the same root is refused, so stages 1-4 cannot be run ahead. Launch the single run **no earlier than 17 October 2026 15:00:00 UTC** and no later than about 23:10 UTC, so that stage 5 (the host) itself starts inside [15:00:00, 23:25:00) UTC after stages 1-4 (at most 870 s). A launch outside that window spends its root and is kept as a failed attempt; it is not retried in place.
+  - Stage 5 covers 6 cases and 7 callbacks, both layouts and both phases (the 15:00 slot is news, 15:15 roster), each at or under 700 statements and trips.
+  - The earlier V4 two-literal canary run is not exact for this tree and is not a substitute. A post-deploy observation is not a substitute either.
+- Full `test:all` and CI on the exact composed commit.
+
+**After deploy: two-tick readback.** Read back the first two `*/15` ticks, one per phase:
+- `wrangler tail` shows each scheduled event without the "schema check failed; skipping this run" line;
+- D1 shows a job effect from each tick, such as a new `role.sweep` audit row. Compare it with the .156 baseline taken on 16 October at 23:00 UTC.
+
+This readback is the first evidence of production CPU (30 s), memory (128 MiB) and cadence. A tick that logs the skip line is held, not running.
+
+**Still off.** Erasure (`PRIVACY_ERASURE_ENABLED = "false"`), private intake (`PRIVACY_INTAKE_ENABLED = "false"`), QR (`QR_PHASE1_ENABLED = "false"`) and beta-reset removals stay off until their own gates pass. For beta-reset removals, `BETA_RESET_REMOVALS_ENABLED` is absent and the minute qualifier stays false. .161 changes no feature flag.
+
+**Rollback.** This release is source and configuration only, with no schema change. Returning to exact .160 brings back the silent hold on every ordinary tick. Any earlier version still needs the existing writer-drain, Floor and epoch procedures, and restoring earlier code never authorizes bypassing those gates.

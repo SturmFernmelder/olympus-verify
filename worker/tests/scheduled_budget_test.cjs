@@ -477,7 +477,7 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
   check('cold ordinary callback is likewise held unchanged with zero Native work', cold.held && cold.unchanged && cold.jobs === 0 && cold.physicalStatements === 0 && cold.physicalTrips === 0, cold);
   const worst = await wholeRun('cold worst');
   check('legacy missing-column injection cannot bypass original callback admission', worst.held && worst.unchanged && worst.jobs === 0 && worst.physicalStatements === 0 && worst.physicalTrips === 0, worst);
-  check('the unchanged source qualifier remains false and the source target/Paid constants are not a measured whole acceptance', budget.EPOCH2_SCHEDULE_QUALIFIED === false && budget.SCHEDULED_STATEMENT_TARGET === 700 && budget.D1_STATEMENTS_PER_INVOCATION === 1000);
+  check('.161: the ordinary source qualifier is true at the unchanged source target/Paid constants (the whole measurement is the separate exact-tree Native run)', budget.EPOCH2_SCHEDULE_QUALIFIED === true && budget.SCHEDULED_STATEMENT_TARGET === 700 && budget.D1_STATEMENTS_PER_INVOCATION === 1000);
 
   console.log("\n== continuation over successive runs ==");
   await fresh(); HAS_ROLE = new Set();

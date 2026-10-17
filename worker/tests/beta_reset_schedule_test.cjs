@@ -93,6 +93,7 @@ function exactSyntax(node,text,label){assert.deepEqual(tokens(node.getText()),to
 function declaration(sf,name){return sole(sf.statements.filter(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name),'sole function '+name);}
 function namedCall(node,name){return ts.isCallExpression(node)&&ts.isIdentifier(node.expression)&&node.expression.text===name;}
 function assertFalseExport(file,name){const sf=parseSource(file),statement=sole(sf.statements.filter(node=>ts.isVariableStatement(node)&&node.declarationList.declarations.some(item=>ts.isIdentifier(item.name)&&item.name.text===name)),name);assert.ok(statement.modifiers?.some(mod=>mod.kind===ts.SyntaxKind.ExportKeyword));const variable=sole(statement.declarationList.declarations.filter(item=>item.name.text===name),name);exactSyntax(variable.initializer,'false as const',name+' remains literal false');}
+function assertTrueExport(file,name){const sf=parseSource(file),statement=sole(sf.statements.filter(node=>ts.isVariableStatement(node)&&node.declarationList.declarations.some(item=>ts.isIdentifier(item.name)&&item.name.text===name)),name);assert.ok(statement.modifiers?.some(mod=>mod.kind===ts.SyntaxKind.ExportKeyword));const variable=sole(statement.declarationList.declarations.filter(item=>item.name.text===name),name);exactSyntax(variable.initializer,'true as const',name+' is literal true');}
 function sourceInventory(){
  const sf=parseSource('index.ts'),exports=sf.statements.filter(node=>ts.isExportAssignment(node)&&!node.isExportEquals);
  const defaultObject=sole(exports,'one default export').expression;assert.ok(ts.isObjectLiteralExpression(defaultObject));
@@ -116,9 +117,9 @@ function sourceInventory(){
  ];
  assert.equal(guarded.tryBlock.statements.length,expected.length);expected.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[i],text,'scheduled guard/order '+i));
  exactSyntax(guarded.catchClause,"catch(e){console.error(\"schema check failed; skipping this run\",errorRef(e));}",'original redacted catch');
- assertFalseExport('beta-reset.ts','BETA_RESET_SCHEDULE_QUALIFIED');assertFalseExport('scheduled-budget.ts','EPOCH2_SCHEDULE_QUALIFIED');
+ assertFalseExport('beta-reset.ts','BETA_RESET_SCHEDULE_QUALIFIED');assertTrueExport('scheduled-budget.ts','EPOCH2_SCHEDULE_QUALIFIED');
  check('source scheduled capture precedes inactive/false qualifiers and global dispatch',true);
- check('loaded minute and ordinary qualifiers remain false',engine.BETA_RESET_SCHEDULE_QUALIFIED===false&&load('scheduled-budget').EPOCH2_SCHEDULE_QUALIFIED===false);
+ check('.161: loaded minute qualifier remains false and the ordinary qualifier is true',engine.BETA_RESET_SCHEDULE_QUALIFIED===false&&load('scheduled-budget').EPOCH2_SCHEDULE_QUALIFIED===true);
  const capture=declaration(sf,'captureOriginalScheduledCallback');
  const shape=sole(capture.body.statements.filter(node=>ts.isIfStatement(node)&&node.expression.getText().startsWith('keys.length!==2')),'controller shape guard');
  exactSyntax(shape.expression,"keys.length!==2||!(keys[0]==='scheduledTime'&&keys[1]==='cron'||keys[0]==='cron'&&keys[1]==='scheduledTime')||!time||!cron||!scheduledHasOwn(time,'value')||!scheduledHasOwn(cron,'value')||time.writable!==false||cron.writable!==false||time.enumerable!==true||cron.enumerable!==true||time.configurable!==true||cron.configurable!==true||typeof time.value!=='number'||!scheduledSafeInteger(time.value)||time.value<0||time.value>253402300799999||(cron.value!=='*/15 * * * *'&&cron.value!==BETA_RESET_CRON)||!prototype||!contextPrototype",'complete original controller shape guard');
