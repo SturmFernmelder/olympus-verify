@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 /**
  * Put Guild Member back on someone the database already counts as in the guild, when Discord says they lack it.
  *
@@ -15,7 +16,7 @@
 import { intVar, type Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
-import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS } from "./roles";
+import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS, type CallBudget } from "./roles";
 import { SCHEDULED_CAPS } from "./scheduled-budget";
 import { privacyCaptureFromColumns,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
@@ -25,7 +26,8 @@ type SweepSubject={discord_id:string;privacy_generation:string|null;privacy_stat
 
 export type RestoreResult = "has-role" | "restored" | "not-member" | "banned" | "blocked" | "held" | "failed" | "unknown";
 
-export async function restoreMemberRole(env: Env, userId: string, roles: string[] | undefined, source: string): Promise<RestoreResult> {
+export async function restoreMemberRole(env: Env, userId: string, roles: string[] | undefined, source: string,originalDispatch?:BetaRoleDispatch): Promise<RestoreResult> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return "has-role"; // no member role configured: nothing to restore
   if (!roles || !/^\d{5,25}$/.test(userId)) return "unknown"; // not a guild interaction, so no roles to compare
@@ -47,8 +49,8 @@ export async function restoreMemberRole(env: Env, userId: string, roles: string[
   }
   try {
     // .58: the writer re-reads the member and the ban at the effect; the payload's roles above were only the first look.
-    const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,undefined,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
-    const outcome = await writer(env, userId, `olympus-verify: Guild Member restored (${source}); the roster already has this member`, source, roles,undefined,{subjectGeneration:capture?.subjectGeneration??null});
+    const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,undefined,{subjectGeneration:string|null},BetaRoleDispatch])=>ReturnType<typeof grantMemberRole>;
+    const outcome = await writer(env, userId, `olympus-verify: Guild Member restored (${source}); the roster already has this member`, source, roles,undefined,{subjectGeneration:capture?.subjectGeneration??null},roleDispatch);
     if (outcome === "misconfigured" || outcome === "unverified") return "failed";
     if (outcome === "banned") return "banned";
     if (outcome === "blocked") return "blocked";
@@ -126,10 +128,12 @@ export interface SweepResult {
   unfinished: string[];
 }
 
-/** Never throws: it runs inside waitUntil, where an error would only vanish. */
-export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher"): Promise<SweepResult | null> {
+/** Never throws: it runs inside waitUntil, where an error would only vanish. `parent` (Revision 4, configured mode only): the
+ * /queue invocation's Discord-call budget, shared with the fresh-role pass that follows; without it the run makes its own. */
+export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher", parent?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<SweepResult | null> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   try {
-    return await sweepInner(env, trigger);
+    return await sweepInner(env, trigger, parent,roleDispatch);
   } catch (e) {
     try {
       await audit(env, "system", "role.sweep_failed", trigger, { error: String(e).slice(0, 300) });
@@ -147,7 +151,7 @@ export const forgetLocalThrottle = () => {
   lastLocal = 0;
 };
 
-async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepResult | null> {
+async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch): Promise<SweepResult | null> {
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return null;
   const t = now();
@@ -176,7 +180,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "" };
   }
   const budget = Math.min(SCHEDULED_CAPS.roleSweepAccounts, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT))); // .115: the scheduled D1 budget's cap (scheduled-budget.ts)
-  const calls = callBudget(env); // .90 (P-20): this run's Discord-call budget, shared with the banned reconciliation below
+  const calls = parent ?? callBudget(env); // .90 (P-20): this run's Discord-call budget, shared with the banned reconciliation below
 
   // 1. Promotions since the last sweep, oldest first. `id > ?` walks the primary key, so only new rows are read.
   const promos = await env.DB.prepare(
@@ -260,7 +264,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     }
     // .55: a blocking role held (Quarantine, Flagellant) takes Guild Member away while it lasts, and no grant is made.
     try {
-      if (await removeIfBlocked(env, id, m.roles, `sweep:${trigger}`, calls,{subjectGeneration:capture?.subjectGeneration??null})) {
+      if (await removeIfBlocked(env, id, m.roles, `sweep:${trigger}`, calls,{subjectGeneration:capture?.subjectGeneration??null},roleDispatch)) {
         blocked.push(id);
         return "done";
       }
@@ -273,12 +277,12 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
     const continueRanks=async()=>{
       const snapshot=rankSnapshots.get(id);
       if(rankMapping&&Number.isSafeInteger(snapshot)&&snapshot!>0)
-        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls,isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))&&trigger==='cron'?1:2);
+        await continueRosterRanks(env,id,snapshot!,{subjectGeneration:capture?.subjectGeneration??null},calls,isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))&&trigger==='cron'?1:2,roleDispatch);
     };
     if (m.roles.includes(role)) { await continueRanks(); return "done"; }
     try {
-      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,typeof calls,{subjectGeneration:string|null}])=>ReturnType<typeof grantMemberRole>;
-      const outcome = await writer(env, id, `olympus-verify: Guild Member restored (sweep); the roster has this member`, `sweep:${trigger}`, m.roles, calls,{subjectGeneration:capture?.subjectGeneration??null});
+      const writer=grantMemberRole as unknown as (...args:[Env,string,string,string,string[]|undefined,typeof calls,{subjectGeneration:string|null},BetaRoleDispatch])=>ReturnType<typeof grantMemberRole>;
+      const outcome = await writer(env, id, `olympus-verify: Guild Member restored (sweep); the roster has this member`, `sweep:${trigger}`, m.roles, calls,{subjectGeneration:capture?.subjectGeneration??null},roleDispatch);
       if (outcome === "blocked") {
         blocked.push(id);
         return "done";
@@ -371,7 +375,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher"): Promise<SweepR
   // 3. .60: banned accounts still holding Guild Member (a late grant that landed after the ban, or a removal that failed)
   //    lose it; up to BANNED_PER_RUN per run, in a rotation of their own. .63: every banned account, whatever its
   //    characters' status, and with the ban re-read after the member GET (Codex's review of .60).
-  const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls);
+  const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls,roleDispatch);
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
   if (banned.revoked.length) {
     await logLine(env, `🚫 role sweep: Guild Member removed from ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);

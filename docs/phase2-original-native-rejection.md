@@ -1,0 +1,11 @@
+# Original Native rejection provenance preparation
+
+This source slice retains a private opaque outcome only when the actual original terminal Native invocation rejects under a still-current, fence-mode acknowledged job and the captured `POST /api/me/erasure`. The first reserve and companion-association ACKs must both have succeeded without an observation recovery. A later valid POST following a known preterminal hold can create that first reservation; the original HTTP admission need not be the dispatching request.
+
+The eligible path separates prechecks, `Reflect.apply` plus its original await, and postchecks. Descriptor/materialization failures before dispatch, invalid returned packets, postcheck failures, lost reservation ACKs, expired contexts and a non-POST job invocation do not create this outcome. The caught Native rejection value is retained by identity, without classifying its message or accepting a caller-provided error. A committed-but-lost Native reply is still a rejection outcome, **not** proof of rollback or cancellation.
+
+The private record binds the exact original child, job, intent, reservation, frame and captured Request/clone. The original frame is permanently `unknown`; its existing acknowledgement accessor cannot consume it. Evidence survives the existing catch/finally collapse, but there is no production registrar, lookup API, fence receipt, successor reservation, retry dispatch or frame revival. No historical unknown can be imported. A future successor cannot use this original-reservation issuer merely by presenting scalar facts.
+
+Absent/false fence mode retains the existing Native call and SQL path. No query, RPC, production flag, budget or existing test changes. The new focused test reuses the actual serving integration fixture and its test-only appended read-only observation convention; it exercises signed POSTs, original Native SQLite/Floor custody, original and committed-lost rejections, wrapper/clock refusals, lost reserve/associate replies, known-hold replay and OFF parity. It neither registers evidence nor changes a production function body.
+
+Preparation is source-only. The new test and unchanged relevant suites must run in the coordinated runtime lane before this slice receives a runtime claim. This is not completed Phase 2 recovery, all-copy erasure, provider drain, deployment or activation.

@@ -77,7 +77,7 @@ function currentFixtureCatalogue() {
   const catalogueText = JSON.parse(encoded("ADMISSION_EXPECTED_JSON")), control = JSON.parse(encoded("ADMISSION_CONTROL_DDL")), protocolText = encoded("ADMISSION_PROTOCOL");
   if (typeof catalogueText !== "string" || typeof control !== "string" || !/^'[a-z0-9-]{1,96}'$/.test(protocolText)) throw Error("BUNDLE_FIXED_CATALOGUE_DATA_HELD");
   const catalogue = JSON.parse(catalogueText), protocol = protocolText.slice(1, -1);
-  if (!catalogue || typeof catalogue !== "object" || catalogue.tables.length !== 69 || catalogue.indexes.length !== 84 || catalogue.triggers.length !== 221 || catalogue.slotColumns.length !== 9 || catalogue.slotSQL !== control || protocol !== "olympus-write-admission-epoch-2") throw Error("BUNDLE_CURRENT_PROFILE_COUNT_HELD");
+  if (!catalogue || typeof catalogue !== "object" || catalogue.tables.length !== 69 || catalogue.indexes.length !== 84 || catalogue.triggers.length !== 224 || catalogue.slotColumns.length !== 9 || catalogue.slotSQL !== control || protocol !== "olympus-write-admission-epoch-2") throw Error("BUNDLE_CURRENT_PROFILE_COUNT_HELD");
   return { catalogue, catalogueText, control, protocol };
 }
 // Statements retain their complete trigger bodies. Quotes/comments cannot end a statement.
@@ -227,7 +227,7 @@ function splitFixtureSchema(source) {
     const fixed = currentFixtureCatalogue(), pending = [], append = (sql, ...values) => pending.push(values.length ? d1.prepare(sql).bind(...values) : d1.prepare(sql));
     const flush = async () => { while (pending.length) await d1.batch(pending.splice(0, 50)); };
     // Exact existing worker-fixture seed sequence120-124/159: fixed source catalogue,
-    // original neutral epoch/control and typed115 before source-owned221 trigger DDL.
+    // original neutral epoch/control and typed115 before source-owned224 trigger DDL.
     for (const row of fixed.catalogue.tables) append(row.sql);
     for (const row of fixed.catalogue.indexes) append(row.sql);
     append(fixed.control); await flush();
@@ -242,7 +242,7 @@ function splitFixtureSchema(source) {
     await flush();
     const physical = await d1.prepare("SELECT type,name,sql FROM sqlite_master WHERE (type IN('table','index','trigger')) AND substr(lower(name),1,7)<>'sqlite_' AND name NOT IN('privacy_write_admission','_cf_METADATA') ORDER BY type,name").all();
     const expected = [...fixed.catalogue.tables.map(row => ({ type: "table", name: row.name, sql: row.sql })), ...fixed.catalogue.indexes.map(row => ({ type: "index", name: row.name, sql: row.sql })), ...fixed.catalogue.triggers.map(row => ({ type: "trigger", name: row.name, sql: row.sql }))].sort((a, b) => a.type < b.type ? -1 : a.type > b.type ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
-    check("synthetic serving profile exactly matches current69tables84indexes221triggers", JSON.stringify(physical.results) === JSON.stringify(expected), physical.results.length);
+    check("synthetic serving profile exactly matches current69tables84indexes224triggers", JSON.stringify(physical.results) === JSON.stringify(expected), physical.results.length);
     const neutral = await d1.prepare("SELECT singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes FROM privacy_write_admission").all();
     check("synthetic current original epoch is neutral and explicit", neutral.results.length === 1 && JSON.stringify(neutral.results[0]) === JSON.stringify({ singleton: 1, protocol: fixed.protocol, epoch: BUNDLE_FIXTURE_EPOCH, mode: "serving", active: 0, nonce: "", purpose: "", entry_changes: 0, logical_changes: 0 }));
     const foreignKeys = await d1.prepare("PRAGMA foreign_key_check").all(); check("synthetic current profile has no Native foreign-key violations", foreignKeys.results.length === 0);

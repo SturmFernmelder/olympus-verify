@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 /**
  * One-off backfill of the Guild Member role.
  *
@@ -39,7 +40,8 @@ export function backfillOptions(q: URLSearchParams): BackfillOptions {
   return { apply: q.get("apply") === "1", limit, after };
 }
 
-export async function backfillRoles(env: Env, opts: BackfillOptions) {
+export async function backfillRoles(env: Env, opts: BackfillOptions,originalDispatch?:BetaRoleDispatch) {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return { error: "ROLE_GUILD_MEMBER is not set" };
   // .152: freeze the same central mode and target binding as the common writer before database/provider awaits.
@@ -108,7 +110,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions) {
       return "done";
     }
     try {
-      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls,{subjectGeneration:originalCapture?.subjectGeneration??null,membershipContext:{central:centralMembership,targets:originalTargets}});
+      const outcome = await grantMemberRole(env, r.discord_id, "olympus-verify: role backfill (member on the roster, role missing)", "backfill", member.roles, calls,{subjectGeneration:originalCapture?.subjectGeneration??null,membershipContext:{central:centralMembership,targets:originalTargets}},roleDispatch);
       if(!originalMembershipCurrent())return "stopped: original membership configuration is held; no provider retry";
       if (outcome === "budget") return "stopped: this run's Discord-call budget is used up (ROLE_CALL_BUDGET); run the page again from the cursor";
       if (outcome === "misconfigured") return "stopped: ROLE_GUILD_MEMBER is not a role of this server";

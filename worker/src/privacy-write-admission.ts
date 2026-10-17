@@ -2,18 +2,22 @@
  * Original generation/session/custody predicates remain payload authority. The global slot supplies
  * only transaction-local exclusion of old unwrapped writers. A committed active slot is refused.
  */
-import {ADMISSION_CONTROL_TABLE as SLOT,ADMISSION_PROTOCOL as VERSION,ADMISSION_EXPECTED_JSON,ADMISSION_PHYSICAL_EXPECTED_JSON,ADMISSION_CONTROL_DDL} from './privacy-write-admission-catalogue';
+import {ADMISSION_CONTROL_TABLE as SLOT,ADMISSION_PROTOCOL as VERSION,ADMISSION_EXPECTED_JSON,ADMISSION_PHYSICAL_EXPECTED_JSON,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON,ADMISSION_CONTROL_DDL} from './privacy-write-admission-catalogue';
 import {lowerOriginalSchemaSQL,captureOriginalPhysicalStatement,type OriginalPhysicalSchemaPlan} from './privacy-schema-source-plan';
 import {PROVIDER_METADATA_CURRENT_SQL,PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} from './privacy-provider-metadata';
 import {originalServingNativeCostContext} from './privacy-global-serving-origin';
 const registered=new WeakSet<D1Database>();
-export type AdmissionLayout='canonical'|'recorded-live-20261010';
+export type AdmissionLayout='canonical'|'recorded-live-20261010'|'recorded-live-pre-seal-20261017';
+// The owner's .163 OFF-mode transition keeps the exact installed .161 profile. This is an explicit
+// whole source profile, not live-schema learning or permission to issue the later dispatch seal.
+const PRE_SEAL_PHYSICAL_PROFILE=JSON.stringify(JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile);
 const catalogues=new WeakMap<D1Database,string>();
 const epochs=new WeakMap<D1Database,string>();
 const validEpoch=(x:unknown):x is string=>typeof x==='string'&&x.length===32&&!/[^0-9a-f]/.test(x);
 const expectedLayout=(layout:AdmissionLayout):string=>{
  if(layout==='canonical')return ADMISSION_EXPECTED_JSON;
  if(layout==='recorded-live-20261010')return ADMISSION_PHYSICAL_EXPECTED_JSON;
+ if(layout==='recorded-live-pre-seal-20261017')return PRE_SEAL_PHYSICAL_PROFILE;
  throw new PrivacyWriteAdmissionHeld('unqualified_layout');
 };
 const countedReads=new WeakMap<D1Database,()=>void>();
@@ -78,6 +82,9 @@ function admissionNativeSnapshot(native:D1Database):D1Database {
 }
 export const copyPrivacyAdmissionBind=(value:unknown):CapturedBind=>captureBind(value);
 export function assertPrivacyAdmissionWitness(db:D1Database):void{if(!registered.has(db))throw new PrivacyWriteAdmissionHeld('unregistered_database');proofWitnesses.get(db)?.();}
+/** Read-only identity comparison for a captured, registered admission wrapper. It does not
+ * expose Native D1 or admit a statement; the normal consuming transaction still checks its epoch. */
+export function privacyAdmissionEpochMatches(db:D1Database,epoch:string):boolean{if(!registered.has(db))return false;assertPrivacyAdmissionWitness(db);const matches=epochs.get(db)===epoch;assertPrivacyAdmissionWitness(db);return matches;}
 function admissionProofBefore(db:D1Database):void{proofWitnesses.get(db)?.();countedReads.get(db)?.();proofWitnesses.get(db)?.();}
 function admissionProofAfter(db:D1Database):void{proofWitnesses.get(db)?.();}
 /** Central constructs this exact closed alias; no caller-shaped object can obtain this brand. */

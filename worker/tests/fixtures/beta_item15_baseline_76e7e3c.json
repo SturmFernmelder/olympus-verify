@@ -1,0 +1,619 @@
+{
+ "schema": "item15-pinned-baseline-v2",
+ "commit": "76e7e3c4bee698e23f162ca0640d81a5b5298110",
+ "tree": "a6d520e14df5fc338aabaffe66859dad70daabae",
+ "generator": "worker/scripts/pin-item15-baseline.cjs",
+ "note": "Reverse edits from the current source back to the exact 76e7e3c files; applied in order, each anchor must occur exactly once. currentSha256 and sharedDigest bind the source state this pin was made for; regenerate (do not hand-edit) after any reviewed source change.",
+ "schemaSha256": "35a26ef424732eb2efdc1403162879a3d2912e30c65ff41a283eb888d76a6064",
+ "sharedDigest": "e99a7c6ffa4b5a26d7f471eeb12beb795c08d16be5fa3b8e3c2a00fbd39bd0e6",
+ "shared": [
+  "account-generation-contracts",
+  "account-lifecycle",
+  "account-privacy-generations",
+  "account-role-purposes",
+  "account-root-authority",
+  "account-root-fences",
+  "account-root-scope",
+  "account-schema-profile",
+  "backfill",
+  "beta-reset",
+  "beta-reset-grants",
+  "beta-reset-policy",
+  "beta-reset-retention",
+  "beta-reset-route",
+  "beta-reset-scan",
+  "beta-retention-anchor",
+  "bnet-retention",
+  "bnet-switch",
+  "codes",
+  "community-census-route",
+  "community-census-validator",
+  "community-context",
+  "community-contribution-policy",
+  "community-contributions",
+  "community-contributions-api",
+  "community-data-registry",
+  "community-departures",
+  "community-digest",
+  "community-directory",
+  "community-event-buttons",
+  "community-event-delivery",
+  "community-event-reminders",
+  "community-events",
+  "community-names",
+  "community-privacy-intake",
+  "community-refs",
+  "community-restrictions",
+  "community-routes",
+  "community-time",
+  "community-trials",
+  "db",
+  "discord",
+  "dm",
+  "env",
+  "guide",
+  "guild-seats",
+  "guildmap",
+  "index",
+  "intros",
+  "log",
+  "lookup",
+  "membership-role-transition",
+  "names",
+  "native-rank-adapter",
+  "network-profile",
+  "oauth",
+  "policies",
+  "policy-content",
+  "policy-form-core",
+  "policy-forms",
+  "policy-release",
+  "policy-render",
+  "privacy-accepted-recovery-source",
+  "privacy-access",
+  "privacy-access-data",
+  "privacy-access-erasure",
+  "privacy-access-export",
+  "privacy-access-family-history",
+  "privacy-access-history",
+  "privacy-access-schema",
+  "privacy-account-coverage",
+  "privacy-account-erasure-terminal-group",
+  "privacy-async-hooks.d",
+  "privacy-bnet-unlink",
+  "privacy-business-catalog",
+  "privacy-cookie-profile-migration",
+  "privacy-erasure",
+  "privacy-erasure-attempt-identity",
+  "privacy-erasure-staff-custody",
+  "privacy-erasure-status-credential",
+  "privacy-erasure-status-native-data",
+  "privacy-erasure-terminal-intent",
+  "privacy-erasure-terminal-job-read",
+  "privacy-foundation-coverage",
+  "privacy-foundation-schema-profile",
+  "privacy-global-serving-origin",
+  "privacy-identity",
+  "privacy-inactive-bot",
+  "privacy-migration-receipt-validation",
+  "privacy-native-http-intrinsics",
+  "privacy-private-control-adapter",
+  "privacy-private-floor-entry",
+  "privacy-private-initializer-entry",
+  "privacy-private-operator-entry",
+  "privacy-private-release-evidence",
+  "privacy-production-control-origin",
+  "privacy-production-initialization",
+  "privacy-production-migration-link",
+  "privacy-provider-body",
+  "privacy-provider-messages",
+  "privacy-provider-metadata",
+  "privacy-recovery-attempt-install",
+  "privacy-recovery-attempt-schema",
+  "privacy-recovery-data-json",
+  "privacy-recovery-erasure-companion",
+  "privacy-recovery-floor",
+  "privacy-recovery-held",
+  "privacy-recovery-original-clock",
+  "privacy-recovery-suppression",
+  "privacy-rejection-decision",
+  "privacy-restore-epoch",
+  "privacy-retention",
+  "privacy-retention-clocks",
+  "privacy-rights-hooks",
+  "privacy-schema-source-plan",
+  "privacy-serving-authority",
+  "privacy-serving-erase",
+  "privacy-serving-jobs",
+  "privacy-serving-names-d1",
+  "privacy-serving-production-origin",
+  "privacy-serving-recovery-context",
+  "privacy-serving-recovery-gate",
+  "privacy-serving-recovery-gate-client",
+  "privacy-serving-schema",
+  "privacy-serving-site-me",
+  "privacy-serving-site-oauth",
+  "privacy-site-session-incarnation",
+  "privacy-store-catalog",
+  "privacy-suppression-serving-sender",
+  "privacy-write-admission",
+  "privacy-write-admission-catalogue",
+  "qr-beta-fern",
+  "qr-beta-fern-bridge",
+  "qr-beta-fern-data",
+  "qr-beta-fern-schema",
+  "qr-phase1",
+  "qr-phase1-data",
+  "qr-phase1-route",
+  "qr-phase1-schema",
+  "qr-signer-current-sql",
+  "relays",
+  "rename-review",
+  "restore",
+  "review",
+  "role-rank-continuation",
+  "roster-effects",
+  "ruleset-pin-publication",
+  "ruleset-profile",
+  "ruleset-publication",
+  "ruleset-publication-data",
+  "ruleset-publication-schema",
+  "scheduled-budget",
+  "schema",
+  "site",
+  "site-access",
+  "site-admin",
+  "site-api",
+  "site-beta-window",
+  "site-core",
+  "site-data",
+  "site-export",
+  "site-leadership",
+  "site-news",
+  "site-queue",
+  "site-ranks",
+  "unverified"
+ ],
+ "files": {
+  "ingest": {
+   "sha256": "ca55c8181684215c949f44f47f6dc57ed7a81d124e83e46023b6e6cc72dad8ce",
+   "currentSha256": "9411581bf814fddf7bdddf9ad6dea5702f82755f5e1a00773c9a3f44b61fe4f1",
+   "reverse": [
+    [
+     "        await demote(env, c.discord_id, key, c.name, e.detail || \"removed to free a seat\", { space: e.reason === \"space\", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c),removal });\n",
+     "        await demote(env, c.discord_id, key, c.name, e.detail || \"removed to free a seat\", { space: e.reason === \"space\", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c) });\n"
+    ],
+    [
+     "          await demote(env, c.discord_id, key, c.name, e.detail || \"in game\", { batch: notices,capture:reference!.capture,removal });\n",
+     "          await demote(env, c.discord_id, key, c.name, e.detail || \"in game\", { batch: notices,capture:reference!.capture });\n"
+    ],
+    [
+     "async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch,context:WatcherCapture,removal:RemovalDispatch): Promise<Response> {\n",
+     "async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch,context:WatcherCapture): Promise<Response> {\n"
+    ],
+    [
+     "    result=await postEventsInner(env, body, notices,context,removal);\n",
+     "    result=await postEventsInner(env, body, notices,context);\n"
+    ],
+    [
+     "  // Item 15: the beta dispatch mode for every departure in this batch, captured before this entry's first await.\n  const removal: RemovalDispatch = Object.freeze({ env, capture: captureBetaRemovalDispatch(env) });\n",
+     ""
+    ],
+    [
+     "import { captureBetaRemovalDispatch } from './beta-reset-policy';\nimport type { RemovalDispatch } from './role-settlements';\n",
+     ""
+    ]
+   ]
+  },
+  "interactions": {
+   "sha256": "2e773311716c69b5bb947e2a10bf414eb58e1548daa53e5384bb20e31776ec8b",
+   "currentSha256": "3bf335ad992ee5bbfd26e8d4fd3236200a42665f341c3594da2bc80bfc360778",
+   "reverse": [
+    [
+     "          if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)){\n            // v1 or any other present/changed mode: no DELETE is sent; the hold is recorded and told to staff as a hold.\n            roleNote=\"\\nGuild Member removal is held by the beta dispatch mode; nothing was sent to Discord.\";\n            await audit(env, \"system\", \"role.remove_held\", target, { reason: \"beta_dispatch_mode_held\", source: \"interaction:ban\" });\n          }else if(membershipSettlementEnabled(env)){\n            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,\"interaction:ban\",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null},removalDispatch);\n",
+     "          if(membershipSettlementEnabled(env)){\n            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,\"interaction:ban\",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null});\n"
+    ],
+    [
+     "      // Item 15: the beta dispatch mode is captured here, before this case's first await, and decides the role removal\n      // below on the fixed beta guild and its twelve fixed roles. Absent and unchanged keeps the original path exactly.\n      const removalDispatch=captureBetaRemovalDispatch(env);\n",
+     ""
+    ],
+    [
+     "import { captureBetaRemovalDispatch, betaRemovalDispatchLegacy } from './beta-reset-policy';\n",
+     ""
+    ]
+   ]
+  },
+  "membership-retirement-route": {
+   "sha256": "48e7b9bc3e8a93eb1f99b1f573bce5ef559564acc47f1831421af72fca6faffe",
+   "currentSha256": "3f7db2e6e2379f58e00a174391a6d2bb28ff9cd6724060ce435d3bccdca9fdf2",
+   "reverse": [
+    [
+     "  const settled=await retireOwnedMembershipRole(env,c.parent.id,{subjectGeneration:c.generation},budget,admission,removalDispatch);\n",
+     "  const settled=await retireOwnedMembershipRole(env,c.parent.id,{subjectGeneration:c.generation},budget,admission);\n"
+    ],
+    [
+     " // Item 15: the beta dispatch mode is captured before this handler's first await and threaded to the attended removal.\n const removalDispatch=Object.freeze({env,capture:captureBetaRemovalDispatch(env)});\n",
+     ""
+    ],
+    [
+     "import {captureBetaRemovalDispatch} from './beta-reset-policy';\n",
+     ""
+    ]
+   ]
+  },
+  "role-settlements": {
+   "sha256": "bad16c4d3c773be54b76e85b8f3f8f871269e5cd9f3f1a0be6242be5e9caa37c",
+   "currentSha256": "edd9880d6eb2b781179555d8f38d6a797cac94c5add2be07fb7b0f0660844496",
+   "reverse": [
+    [
+     " const unknown=async()=>{await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='provider_or_confirmation_unknown' WHERE id=?1 AND claim_nonce=?2 AND state='dispatching'`).bind(proof.operationId,nonce).run();return {state:'unknown' as const,checkedAt:null,staffAccess};};\n if(removalHeld(env,removal,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return held;\n try{await request(env,b,'DELETE',`/guilds/${env.GUILD_ID}/members/${proof.subject}/roles/${env.ROLE_GUILD_MEMBER}`);\n",
+     " const unknown=async()=>{await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='provider_or_confirmation_unknown' WHERE id=?1 AND claim_nonce=?2 AND state='dispatching'`).bind(proof.operationId,nonce).run();return {state:'unknown' as const,checkedAt:null,staffAccess};};\n try{await request(env,b,'DELETE',`/guilds/${env.GUILD_ID}/members/${proof.subject}/roles/${env.ROLE_GUILD_MEMBER}`);\n"
+    ],
+    [
+     " if(removalHeld(env,removal,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return held;\n",
+     ""
+    ],
+    [
+     " SELECT ?1,?2,'account_erasure',?5,?6,0,'pending','awaiting_dispatch',?3,?4,${DB_NOW},${DB_NOW}+300 WHERE ${authority.CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${authority.originalErasureJobBirthSql(proof)})${createHeld?' AND 0=1':''}\n",
+     " SELECT ?1,?2,'account_erasure',?5,?6,0,'pending','awaiting_dispatch',?3,?4,${DB_NOW},${DB_NOW}+300 WHERE ${authority.CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${authority.originalErasureJobBirthSql(proof)})\n"
+    ],
+    [
+     " // Item 15: new dispatch only. A fixed target creates no new intent unless the mode is absent and unchanged (the INSERT keeps\n // its place in the batch and is restricted by AND 0=1); an existing intent is still read, observed by GET and may settle\n // its ACK-free absent receipt. The claim and the final pre-effect point hold below.\n const createHeld=removalHeld(env,removal,env.GUILD_ID,env.ROLE_GUILD_MEMBER);\n",
+     ""
+    ],
+    [
+     "export async function settleErasure(env:Env,proof:ErasureProof,b:AttemptBudget=budget(),removalDispatch?:RemovalDispatch) {\n const removal=originalRemovalDispatch(env,removalDispatch);\n",
+     "export async function settleErasure(env:Env,proof:ErasureProof,b:AttemptBudget=budget()) {\n"
+    ],
+    [
+     " if(!claimed||!membershipTargetsCurrent(env,binding)||!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${guarded} AND ?10 IS NOT NULL AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?1 AND state='dispatching' AND attempts=1 AND claim_nonce=?10)`).bind(...args).first())return result('held','retirement_original_cause_changed',id);\n if(removalHeld(env,removal,parent.guild_id,parent.role_id))return result('held',HELD_BY_MODE,id);\n  let settling=false;\n",
+     " if(!claimed||!membershipTargetsCurrent(env,binding)||!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${guarded} AND ?10 IS NOT NULL AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?1 AND state='dispatching' AND attempts=1 AND claim_nonce=?10)`).bind(...args).first())return result('held','retirement_original_cause_changed',id);\n  let settling=false;\n"
+    ],
+    [
+     " if(removalHeld(env,removal,parent.guild_id,parent.role_id))return result('held',HELD_BY_MODE,id);\n",
+     ""
+    ],
+    [
+     " const original=`EXISTS(SELECT 1 FROM role_settlements p WHERE p.id=?3 AND p.subject=?2 AND p.guild_id=?4 AND p.role_id=?5 AND p.purpose='roster_membership' AND p.proof_id IS NULL AND p.desired=1 AND p.attempts=1 AND p.state='settled' AND p.claim_nonce=?7 AND p.created_at=?8 AND p.expires_at=?9 AND p.subject_generation IS ?6 AND ${parentFields.map(k=>`p.${k} IS json_extract(?11,'$.${k}')`).join(' AND ')}) AND ${privacyGenerationFenceSql(2,6)}`;\n if(removalHeld(env,removal,parent.guild_id,parent.role_id))return result('held',HELD_BY_MODE);\n const child=await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,request_digest,subject_generation,created_at,expires_at)\n",
+     " const original=`EXISTS(SELECT 1 FROM role_settlements p WHERE p.id=?3 AND p.subject=?2 AND p.guild_id=?4 AND p.role_id=?5 AND p.purpose='roster_membership' AND p.proof_id IS NULL AND p.desired=1 AND p.attempts=1 AND p.state='settled' AND p.claim_nonce=?7 AND p.created_at=?8 AND p.expires_at=?9 AND p.subject_generation IS ?6 AND ${parentFields.map(k=>`p.${k} IS json_extract(?11,'$.${k}')`).join(' AND ')}) AND ${privacyGenerationFenceSql(2,6)}`;\n const child=await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,request_digest,subject_generation,created_at,expires_at)\n"
+    ],
+    [
+     " // Item 15 (producer4): new dispatch only. The existing-child GET-only reconcile above runs in every mode; the retired\n // target holds here, before any request, and again at child creation, claim and the final pre-effect point.\n if(removalHeld(env,removal,parent.guild_id,parent.role_id))return result('held',HELD_BY_MODE);\n",
+     ""
+    ],
+    [
+     "export async function retireOwnedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget=budget(),admission?:AttendedRetirementAdmission,removalDispatch?:RemovalDispatch):Promise<Settlement>{\n const removal=originalRemovalDispatch(env,removalDispatch);\n if(admission)return retireAttendedMembershipRole(env,grantId,capture,b,admission,removal);\n",
+     "export async function retireOwnedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget=budget(),admission?:AttendedRetirementAdmission):Promise<Settlement>{\n if(admission)return retireAttendedMembershipRole(env,grantId,capture,b,admission);\n"
+    ],
+    [
+     " const response=`${dispatching} AND ${originalParent}`,responseArgs=args.slice(0,13);\n if(removalHeld(env,removal,p.guild_id,p.role_id))return result('held',HELD_BY_MODE,id);\n let settling=false;\n",
+     " const response=`${dispatching} AND ${originalParent}`,responseArgs=args.slice(0,13);\n let settling=false;\n"
+    ],
+    [
+     " if(removalHeld(env,removal,p.guild_id,p.role_id))return result('held',HELD_BY_MODE,id);\n",
+     ""
+    ],
+    [
+     " if(!target?.roles.includes(binding.current)||!live())return result('held','retirement_replacement_not_current');\n if(removalHeld(env,removal,p.guild_id,p.role_id))return result('held',HELD_BY_MODE);\n const out=await env.DB.batch<{id?:string;created_at?:number;expires_at?:number;admitted?:number}>([\n",
+     " if(!target?.roles.includes(binding.current)||!live())return result('held','retirement_replacement_not_current');\n const out=await env.DB.batch<{id?:string;created_at?:number;expires_at?:number;admitted?:number}>([\n"
+    ],
+    [
+     " // Item 15 (producer3): new dispatch only. The attended GET-only child recovery above runs in every mode; the exact parent\n // target holds here, before any request, and again at child creation, claim and the final pre-effect point.\n if(removalHeld(env,removal,p.guild_id,p.role_id))return result('held',HELD_BY_MODE);\n",
+     ""
+    ],
+    [
+     "async function retireAttendedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget,a:AttendedRetirementAdmission,removal:RemovalDispatch):Promise<Settlement>{\n",
+     "async function retireAttendedMembershipRole(env:Env,grantId:string,capture:{subjectGeneration:string|null},b:AttemptBudget,a:AttendedRetirementAdmission):Promise<Settlement>{\n"
+    ],
+    [
+     " return heldByMode?result('held',HELD_BY_MODE,last.operationId,last.checkedAt):last;\n",
+     " return last;\n"
+    ],
+    [
+     "  // A fixed target whose mode changed after its claim stays spent with no DELETE; a fresh target still proceeds.\n  if(removalHeld(env,removal,i.guild_id,i.role_id)){heldByMode=true;continue;}\n",
+     ""
+    ],
+    [
+     " // Item 15: new dispatch only (the prior receipt reconcile and the no-write absent result above run in every mode). A fixed\n // current target holds the whole delegation, a fresh retired partner included.\n if(removalHeld(env,removal,binding.guild,binding.current))return result('held',HELD_BY_MODE);\n // Each spent INSERT below is creation and claim at once. A fixed target held by the mode (a fixed retired target, or a\n // mode change since the line above) gets no INSERT; a fresh target of the pair keeps its removal and the result reports the hold.\n let heldByMode=active.some(role=>removalHeld(env,removal,binding.guild,role));\n const plans=active.filter(role=>!heldByMode||!removalHeld(env,removal,binding.guild,role)).map(role=>({role,id:randomGeneration(),nonce:randomGeneration()}));\n if(!plans.length)return result('held',HELD_BY_MODE);\n",
+     " const plans=active.map(role=>({role,id:randomGeneration(),nonce:randomGeneration()}));\n"
+    ],
+    [
+     "async function settleOwnedMembershipPair(env:Env,subject:string,purpose:RemovalPurpose,g:string|null,b:AttemptBudget,binding:ReturnType<typeof membershipTargets>,owned:Intent,removal:RemovalDispatch):Promise<Settlement>{\n",
+     "async function settleOwnedMembershipPair(env:Env,subject:string,purpose:RemovalPurpose,g:string|null,b:AttemptBudget,binding:ReturnType<typeof membershipTargets>,owned:Intent):Promise<Settlement>{\n"
+    ],
+    [
+     " for(const role of retiredHeld?[binding.current]:targets){if(!membershipTargetsCurrent(env,binding))return result('held','frozen_configuration_changed');\n last=await settleVerifiedRemoval(env,subject,purpose,b,capture.subjectGeneration,role,role===binding.retired?owned!:undefined,removal);if(last.state!=='settled')return last;}\n  return retiredHeld?result('held',HELD_BY_MODE,last.operationId,last.checkedAt):last;\n",
+     " for(const role of targets){if(!membershipTargetsCurrent(env,binding))return result('held','frozen_configuration_changed');\n last=await settleVerifiedRemoval(env,subject,purpose,b,capture.subjectGeneration,role,role===binding.retired?owned!:undefined);if(last.state!=='settled')return last;}\n  return last;\n"
+    ],
+    [
+     "  // Item 15 (retired target): a fixed retired target with bot-owned custody is held; a fresh current target keeps its\n  // own existing single-target removal, and the result still reports the hold.\n  const retiredHeld=!!owned&&!!binding.retired&&removalHeld(env,removal,binding.guild,binding.retired);\n  // The pair's prior spent removal (either target) is still reconciled GET-only while the fixed retired target is held.\n  const priorPair=retiredHeld?(owned as Intent&{original_remove_id:string|null}).original_remove_id:null;\n  if(priorPair)return reconcileRemovalReceipt(env,priorPair,b);\n  if(owned&&binding.retired&&!retiredHeld)return settleOwnedMembershipPair(env,subject,purpose,capture.subjectGeneration,b,binding,owned,removal);\n",
+     "  if(owned&&binding.retired)return settleOwnedMembershipPair(env,subject,purpose,capture.subjectGeneration,b,binding,owned);\n"
+    ],
+    [
+     " // Item 15: no entry hold here. The current target goes through settleVerifiedRemoval (its prior receipt reconcile and\n // absent receipt run in every mode) or through the pair below, which holds a fixed current target's whole delegation.\n",
+     ""
+    ],
+    [
+     "export async function settleMembershipRemoval(env:Env,subject:string,purpose:RemovalPurpose,capture?:{subjectGeneration:string|null},b:AttemptBudget={limit:16,attempts:0,retries:0},removalDispatch?:RemovalDispatch):Promise<Settlement>{\n const removal=originalRemovalDispatch(env,removalDispatch);\n if(!membershipTransitionEnabled(env))return settleVerifiedRemoval(env,subject,purpose,b,capture?.subjectGeneration,undefined,undefined,removal);\n",
+     "export async function settleMembershipRemoval(env:Env,subject:string,purpose:RemovalPurpose,capture?:{subjectGeneration:string|null},b:AttemptBudget={limit:16,attempts:0,retries:0}):Promise<Settlement>{\n if(!membershipTransitionEnabled(env))return settleVerifiedRemoval(env,subject,purpose,b,capture?.subjectGeneration);\n"
+    ],
+    [
+     "export const settleGuildDepartureRole=(env:Env,subject:string,capture:{subjectGeneration:string|null},b?:AttemptBudget,removalDispatch?:RemovalDispatch)=>settleVerifiedRemoval(env,subject,'guild_departure',b,capture.subjectGeneration,undefined,undefined,removalDispatch);\n",
+     "export const settleGuildDepartureRole=(env:Env,subject:string,capture:{subjectGeneration:string|null},b?:AttemptBudget)=>settleVerifiedRemoval(env,subject,'guild_departure',b,capture.subjectGeneration);\n"
+    ],
+    [
+     " AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?8 AND subject=?2 AND role_id=?1 AND guild_id=?12 AND purpose=?13 AND subject_generation IS ?6 AND desired=0 AND state='dispatching' AND attempts=1 AND claim_nonce=?9 AND created_at=?10 AND expires_at=?11 AND expires_at>${DB_NOW})`).bind(...finalValues).first())return result('held','removal_cause_withdrawn',i.id);\n if(removalHeld(env,removal,env.GUILD_ID,role))return result('held',HELD_BY_MODE,i.id);\n try{await request(env,b,'DELETE',`/guilds/${env.GUILD_ID}/members/${subject}/roles/${role}`);const after=await member(env,b,subject);if(after?.roles.includes(role)||!await settle())throw Error();return result('settled','removed',i.id,now());\n",
+     " AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?8 AND subject=?2 AND role_id=?1 AND guild_id=?12 AND purpose=?13 AND subject_generation IS ?6 AND desired=0 AND state='dispatching' AND attempts=1 AND claim_nonce=?9 AND created_at=?10 AND expires_at=?11 AND expires_at>${DB_NOW})`).bind(...finalValues).first())return result('held','removal_cause_withdrawn',i.id);\n try{await request(env,b,'DELETE',`/guilds/${env.GUILD_ID}/members/${subject}/roles/${role}`);const after=await member(env,b,subject);if(after?.roles.includes(role)||!await settle())throw Error();return result('settled','removed',i.id,now());\n"
+    ],
+    [
+     " if(removalHeld(env,removal,env.GUILD_ID,role))return result('held',HELD_BY_MODE,i.id);\n",
+     ""
+    ],
+    [
+     " const i=await env.DB.prepare(\"SELECT * FROM role_settlements WHERE subject=?1 AND purpose=?2 AND guild_id=?3 AND role_id=?4 AND state<>'settled' ORDER BY created_at,id LIMIT 1\").bind(subject,purpose,env.GUILD_ID,role).first<Intent>();if(!i)return result('held',createHeld?HELD_BY_MODE:'removal_intent_held');\n",
+     " const i=await env.DB.prepare(\"SELECT * FROM role_settlements WHERE subject=?1 AND purpose=?2 AND guild_id=?3 AND role_id=?4 AND state<>'settled' ORDER BY created_at,id LIMIT 1\").bind(subject,purpose,env.GUILD_ID,role).first<Intent>();if(!i)return result('held','removal_intent_held');\n"
+    ],
+    [
+     " if(!createHeld)await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,created_at,expires_at,subject_generation)\n",
+     " await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,created_at,expires_at,subject_generation)\n"
+    ],
+    [
+     " // Item 15: new dispatch only. The prior spent receipt above is reconciled GET-only in every mode; a fixed target creates no\n // new intent unless the mode is absent and unchanged, while an existing intent is still read for its ACK-free absent receipt.\n const createHeld=removalHeld(env,removal,env.GUILD_ID,role);\n",
+     ""
+    ],
+    [
+     "export async function settleVerifiedRemoval(env:Env,subject:string,purpose:RemovalPurpose,b:AttemptBudget=budget(),capturedGeneration?:string|null,targetRole?:string,originalOwned?:Intent,removalDispatch?:RemovalDispatch):Promise<Settlement>{\n const removal=originalRemovalDispatch(env,removalDispatch);\n",
+     "export async function settleVerifiedRemoval(env:Env,subject:string,purpose:RemovalPurpose,b:AttemptBudget=budget(),capturedGeneration?:string|null,targetRole?:string,originalOwned?:Intent):Promise<Settlement>{\n"
+    ],
+    [
+     " if(policy.betaResetDispatchMode(env,captured)==='held')return result('held',HELD_BY_MODE,i.id);\n",
+     ""
+    ],
+    [
+     "  AND state='dispatching' AND attempts=1 AND expires_at>${DB_NOW} AND ${policy.betaResetDispatchSql(env,captured,finalGuard.sql)}`).bind(...values(i),...finalGuard.values).first()\n",
+     "  AND state='dispatching' AND attempts=1 AND expires_at>${DB_NOW} AND ${finalGuard.sql}`).bind(...values(i),...finalGuard.values).first()\n"
+    ],
+    [
+     "  WHERE ${owned} AND attempts=0 AND expires_at>${DB_NOW} AND ${policy.betaResetDispatchSql(env,captured,claimGuard.sql)} RETURNING *`).bind(...values(i),nonce,...claimGuard.values).first<Intent>();\n",
+     "  WHERE ${owned} AND attempts=0 AND expires_at>${DB_NOW} AND ${claimGuard.sql} RETURNING *`).bind(...values(i),nonce,...claimGuard.values).first<Intent>();\n"
+    ],
+    [
+     "   WHERE ${owned} AND ${policy.betaResetDispatchSql(env,captured,g.sql)} AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?7 AND reason='beta_reset_fresh_target')`).bind(...transfer)\n",
+     "   WHERE ${owned} AND ${g.sql} AND EXISTS(SELECT 1 FROM role_settlements WHERE id=?7 AND reason='beta_reset_fresh_target')`).bind(...transfer)\n"
+    ],
+    [
+     "   WHERE ${owned} AND ${policy.betaResetDispatchSql(env,captured,g.sql)} AND attempts=0 AND NOT EXISTS(SELECT 1 FROM role_settlements other\n",
+     "   WHERE ${owned} AND ${g.sql} AND attempts=0 AND NOT EXISTS(SELECT 1 FROM role_settlements other\n"
+    ],
+    [
+     " // Mode checked again after the claim ACK: a held child stays spent with no DELETE; parent and shared writers are untouched.\n if(removalHeld(env,removal,i.guild_id,i.role_id))return result('unknown',HELD_BY_MODE,i.id);\n",
+     ""
+    ],
+    [
+     "async function compensateGrant(env:Env,b:AttemptBudget,i:Intent,parentNonce:string,betaReceiptReplyLost=false,putAcknowledged=true,removal:RemovalDispatch):Promise<Settlement>{\n // Item 15 (compensation producer2): the parent's entry capture holds a fixed-target child before its attempted INSERT.\n if(removalHeld(env,removal,i.guild_id,i.role_id))return result('unknown',HELD_BY_MODE,i.id);\n",
+     "async function compensateGrant(env:Env,b:AttemptBudget,i:Intent,parentNonce:string,betaReceiptReplyLost=false,putAcknowledged=true):Promise<Settlement>{\n"
+    ],
+    [
+     " }catch(cause){if(!(cause instanceof OriginalSettlementFactsHeld)&&i.desired===1&&betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return await checked(()=>compensateGrant(env,b,i,nonce,true,true,removal));\n",
+     " }catch(cause){if(!(cause instanceof OriginalSettlementFactsHeld)&&i.desired===1&&betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return await checked(()=>compensateGrant(env,b,i,nonce,true));\n"
+    ],
+    [
+     " if(i.beta_window_id&&i.desired===1&&after?.roles.includes(i.role_id)){let originalBeta=false;try{if(betaOriginal){assertBetaConfiguration(betaOriginal);const at=Date.now();originalBeta=Number.isSafeInteger(at)&&at<i.expires_at*1000;}}catch{}if(!originalBeta)return await checked(()=>compensateGrant(env,b,i,nonce,false,true,removal));}\n if(!r&&i.desired===1&&after?.roles.includes(i.role_id))return await checked(()=>compensateGrant(env,b,i,nonce,false,true,removal));\n",
+     " if(i.beta_window_id&&i.desired===1&&after?.roles.includes(i.role_id)){let originalBeta=false;try{if(betaOriginal){assertBetaConfiguration(betaOriginal);const at=Date.now();originalBeta=Number.isSafeInteger(at)&&at<i.expires_at*1000;}}catch{}if(!originalBeta)return await checked(()=>compensateGrant(env,b,i,nonce));}\n if(!r&&i.desired===1&&after?.roles.includes(i.role_id))return await checked(()=>compensateGrant(env,b,i,nonce));\n"
+    ],
+    [
+     " if(i.desired===1&&after?.roles.includes(i.role_id)&&(!await checked(()=>intentCurrent(env,i,betaOriginal))||restricted||membershipBinding&&(!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,membershipBinding))||betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture))))return await checked(()=>compensateGrant(env,b,i,nonce,false,true,removal));\n",
+     " if(i.desired===1&&after?.roles.includes(i.role_id)&&(!await checked(()=>intentCurrent(env,i,betaOriginal))||restricted||membershipBinding&&(!membershipSettlementEnabled(env)||!membershipTargetsCurrent(env,membershipBinding))||betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture))))return await checked(()=>compensateGrant(env,b,i,nonce));\n"
+    ],
+    [
+     " if(!(cause instanceof OriginalSettlementFactsHeld)&&betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return await checked(()=>compensateGrant(env,b,i,nonce,false,false,removal));\n",
+     " if(!(cause instanceof OriginalSettlementFactsHeld)&&betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return await checked(()=>compensateGrant(env,b,i,nonce,false,false));\n"
+    ],
+    [
+     " if(betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return result('held','beta_grant_policy_changed',id);\n if(i.desired===0&&removalHeld(env,removal,i.guild_id,i.role_id))return result('held',HELD_BY_MODE,id);\n try{check();providerEffectStarted=true;await checked(()=>request(env,b,effectMethod,effectPath));}catch(cause){\n",
+     " if(betaCapture&&betaPolicy&&!await checked(()=>betaPolicy.betaGrantCurrent(env,betaCapture)))return result('held','beta_grant_policy_changed',id);\n try{check();providerEffectStarted=true;await checked(()=>request(env,b,effectMethod,effectPath));}catch(cause){\n"
+    ],
+    [
+     " check();if(!claimed)return result('held','claim_changed',id);\n if(i.desired===0&&removalHeld(env,removal,i.guild_id,i.role_id))return result('held',HELD_BY_MODE,id);\n if(!await checked(()=>update(\"reason='admitted_before_effect'\",`AND claim_nonce=?${base.nonce} AND state='dispatching'`).first()))return result('held','proof_changed_before_effect',id);\n",
+     " check();if(!claimed)return result('held','claim_changed',id);\n if(!await checked(()=>update(\"reason='admitted_before_effect'\",`AND claim_nonce=?${base.nonce} AND state='dispatching'`).first()))return result('held','proof_changed_before_effect',id);\n"
+    ],
+    [
+     " // Item 15: new dispatch only. The compensation/beta/past-effect reconciliation and the fresh_server_confirmed receipt above\n // run in every mode; a fixed-target removal holds here, before its claim, at admit and at the final pre-effect point.\n if(i.desired===0&&removalHeld(env,removal,i.guild_id,i.role_id))return result('held',HELD_BY_MODE,id);\n",
+     ""
+    ],
+    [
+     "export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,actor?:OriginalRoleActor,b:AttemptBudget=budget(),originalBetaCapture?:BetaGrantCapture,removalDispatch?:RemovalDispatch):Promise<Settlement> {\n const removal=originalRemovalDispatch(env,removalDispatch);\n",
+     "export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,actor?:OriginalRoleActor,b:AttemptBudget=budget(),originalBetaCapture?:BetaGrantCapture):Promise<Settlement> {\n"
+    ],
+    [
+     " owner.check();if(!own)throw Error('operation_not_owned');const r=await settleRoleIntent(env,id,reconcileOnly,actor,b,undefined,removal);owner.check();outcomes.push(r);if(r.state!=='settled')break;}\n",
+     " owner.check();if(!own)throw Error('operation_not_owned');const r=await settleRoleIntent(env,id,reconcileOnly,actor,b);owner.check();outcomes.push(r);if(r.state!=='settled')break;}\n"
+    ],
+    [
+     " const removal=originalRemovalDispatch(env);\n",
+     ""
+    ],
+    [
+     "/** Item 15 (17 Oct 2026): restriction-only fence for central removals of the twelve fixed beta roles in the fixed guild.\n * The mode is captured with captureBetaRemovalDispatch (mode descriptor only: no policy read, SQL or request) before the\n * originating entry's first await, and travels with the env it was read from, so a caller's spread env cannot replace it.\n * Absent and unchanged mode changes no statement, bind, request or order. v1, every other present value and a changed\n * descriptor hold new dispatch only: before creation, claim and the final pre-effect point. GET-only reconciliation of\n * spent rows and ACK-free receipts (fresh_server_confirmed, absent, past_effect_absent) stay available in every mode.\n * Fresh roles and other guilds are not restricted, except that a fixed current membership target holds its whole\n * delegation (settleOwnedMembershipPair). Shared ACK/unknown writers, seals, receipts and policy reads are untouched. */\nexport type RemovalDispatch=Readonly<{env:Env;capture:BetaRemovalDispatchCapture}>;\nconst HELD_BY_MODE='beta_dispatch_mode_held',DISPATCH_MODE_KEY='BETA_RESET_DISPATCH_SEAL_MODE';\nfunction originalRemovalDispatch(env:Env,given?:RemovalDispatch):RemovalDispatch{\n if(given===undefined)return Object.freeze({env,capture:captureBetaRemovalDispatch(env)});\n const own=(key:'env'|'capture')=>{const d=given!==null&&typeof given==='object'?Object.getOwnPropertyDescriptor(given,key):undefined;return d&&Object.hasOwn(d,'value')?d.value:undefined;};\n return Object.freeze({env:own('env') as Env,capture:own('capture') as BetaRemovalDispatchCapture});\n}\n/** Holds a fixed target unless the entry capture is absent and unchanged against the env it was read from. Cross-env\n * (restriction only): the effect env itself holds a fixed target when it carries any own, accessor or inherited mode\n * descriptor, so another env can add a hold but never lift one. Pure: no getter call, SQL, await, request or audit. */\nconst removalHeld=(effect:Env,d:RemovalDispatch,guildId:string,roleId:string):boolean=>{try{return !betaRemovalDispatchLegacy(d.env,d.capture,guildId,roleId)||guildId===BETA_RESET_GUILD_ID&&BETA_RESET_ROLE_IDS.includes(roleId)&&DISPATCH_MODE_KEY in effect;}catch{return true;}};\n",
+     ""
+    ],
+    [
+     "import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,betaRemovalDispatchLegacy,captureBetaRemovalDispatch,type BetaGrantCapture,type BetaRemovalDispatchCapture } from './beta-reset-policy';\n",
+     "import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,type BetaGrantCapture } from './beta-reset-policy';\n"
+    ]
+   ]
+  },
+  "roles": {
+   "sha256": "a133aa7d7efb93cc4bb3cd32f8a000db8bb2cbed54c4bd0ed76cad43fb3996eb",
+   "currentSha256": "863344ed0ab09a8ecc360468908acc2f91f8c408b1d9b8629b221ed6df3d43a2",
+   "reverse": [
+    [
+     "/** Departure authority is the original capture plus current last-character roster absence, never an erasure proof.\n * Item 15: the caller's entry capture (roster.ts passes one with the env it was read from) or one taken here before the\n * first await, passed straight to the central writer. This export holds nothing itself: settleMembershipRemoval and\n * settleVerifiedRemoval hold new dispatch on a fixed target (creation, claim and the final pre-effect point, the effect\n * env's own mode descriptor included), while a prior spent guild_departure row is still reconciled GET-only and an\n * existing intent can still settle its ACK-free absent receipt in every mode. A hold is a settlement with reason\n * beta_dispatch_mode_held, which roster.ts audits as role.remove_held. */\nexport async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget,removalDispatch?:import('./role-settlements').RemovalDispatch) {\n  const dispatch=removalDispatch??{env,capture:captureBetaRemovalDispatch(env)};\n  return (await import('./role-settlements')).settleMembershipRemoval(env,subject,'guild_departure',capture,budget,dispatch);\n",
+     "/** Departure authority is the original capture plus current last-character roster absence, never an erasure proof. */\nexport async function settleGuildDepartureRole(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:AttemptBudget) {\n  return (await import('./role-settlements')).settleMembershipRemoval(env,subject,'guild_departure',capture,budget);\n"
+    ],
+    [
+     "  // Item 15: the dispatch mode is captured here, before this export's first await, and threaded to the central writer.\n  const removalDispatch=captureBetaRemovalDispatch(env);\n  return (await import('./role-settlements')).settleErasure(env,proof,undefined,{env,capture:removalDispatch});\n",
+     "  return (await import('./role-settlements')).settleErasure(env,proof);\n"
+    ],
+    [
+     "  if(durableServingRoles(env)){const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return null;const r=await central.settleMembershipRemoval(env,userId,'blocking_role',generationCapture,budget,{env,capture:removalDispatch});return r.state==='settled'?'current-server-restriction':null;}\n",
+     "  if(durableServingRoles(env)){const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return null;const r=await central.settleMembershipRemoval(env,userId,'blocking_role',generationCapture,budget);return r.state==='settled'?'current-server-restriction':null;}\n"
+    ],
+    [
+     "  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,role))return false;return (await central.settleMembershipRemoval(env,userId,'ban',generationCapture,budget,{env,capture:removalDispatch})).state==='settled';}\n",
+     "  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,role))return false;return (await central.settleMembershipRemoval(env,userId,'ban',generationCapture,budget)).state==='settled';}\n"
+    ],
+    [
+     "  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,role))return false;return (await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture,budget,{env,capture:removalDispatch})).state==='settled';}\n",
+     "  if(durableServingRoles(env)){if(role!==env.ROLE_GUILD_MEMBER)return false;const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,role))return false;return (await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture,budget)).state==='settled';}\n"
+    ],
+    [
+     "  if(durableServingRoles(env)){const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return 'failed';const r=await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture,undefined,{env,capture:removalDispatch});return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}\n",
+     "  if(durableServingRoles(env)){const central=await import('./role-settlements');if(!betaRemovalDispatchLegacy(env,removalDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER))return 'failed';const r=await central.settleMembershipRemoval(env,userId,'rename_hold',generationCapture);return r.state==='settled'?'removed':r.reason==='removal_cause_withdrawn'?'not-held':'failed';}\n"
+    ],
+    [
+     "      const r=await central.settleRoleIntent(env,operation,false,undefined,budget,betaCapture??undefined,{env,capture:removalDispatch});\n",
+     "      const r=await central.settleRoleIntent(env,operation,false,undefined,budget,betaCapture??undefined);\n"
+    ]
+   ]
+  },
+  "roster": {
+   "sha256": "7873ec2ae0cbae3196bc884732b8b60cad5484d169e8a301e037123daf8f9b6d",
+   "currentSha256": "e0e332756e5cb1e4ec5bd0dbd7cf7a2e335351cc69a2d3893f32d83be097865f",
+   "reverse": [
+    [
+     "    const slice=await applyEffects(counted, { count, limit: dormant?schedule.rosterEffectsStatements:SCHEDULED_CAPS.rosterEffectsStatements }, dormant?0:NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant,removal);\n",
+     "    const slice=await applyEffects(counted, { count, limit: dormant?schedule.rosterEffectsStatements:SCHEDULED_CAPS.rosterEffectsStatements }, dormant?0:NOTICE_FLUSH_FIXED, callBudget(env), notices,dormant);\n"
+    ],
+    [
+     "export async function continueRosterEffects(env: Env,originalSchedule?:OriginalRosterSchedule): Promise<EffectsSlice | null> {\n  const removal = departureDispatch(env); // Item 15: captured before this entry's first await, threaded to every departure\n  const count = { used: 0,protocol:false };\n",
+     "export async function continueRosterEffects(env: Env,originalSchedule?:OriginalRosterSchedule): Promise<EffectsSlice | null> {\n  const count = { used: 0,protocol:false };\n"
+    ],
+    [
+     "  if (stale) derived = await deriveRun(env, adm, runOf(prev), null, notices, SLICE_FIXED + NOTICE_FLUSH_FIXED, removal);\n  const slice = await applyEffects(env, adm, NOTICE_FLUSH_FIXED, calls, notices, false, removal);\n",
+     "  if (stale) derived = await deriveRun(env, adm, runOf(prev), null, notices, SLICE_FIXED + NOTICE_FLUSH_FIXED);\n  const slice = await applyEffects(env, adm, NOTICE_FLUSH_FIXED, calls, notices);\n"
+    ],
+    [
+     "async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: CallBudget, notices: NoticeBatch, removal: RemovalDispatch): Promise<EffectsReport> {\n",
+     "async function resumeEffects(env: Env, adm: Admission, prev: LatestRow, calls: CallBudget, notices: NoticeBatch): Promise<EffectsReport> {\n"
+    ],
+    [
+     "    await afterDeparture(env, it.discord_id, it.name, \"roster (absent from two exports)\", { batch: notices,capture:it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active',revision:0},removal });\n",
+     "    await afterDeparture(env, it.discord_id, it.name, \"roster (absent from two exports)\", { batch: notices,capture:it.subject_generation===null?null:{subject:it.discord_id,subjectGeneration:it.subject_generation,state:'active',revision:0} });\n"
+    ],
+    [
+     "async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch,deferCronRole=false,removal: RemovalDispatch): Promise<\"applied\" | \"skipped\" | \"refused\"> {\n",
+     "async function applyEffect(env: Env, run: number, it: SliceRow, nonce: string, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<\"applied\" | \"skipped\" | \"refused\"> {\n"
+    ],
+    [
+     "      const result = await applyEffect(env, run, it, nonce, calls, notices,deferCronRole,removal);\n",
+     "      const result = await applyEffect(env, run, it, nonce, calls, notices,deferCronRole);\n"
+    ],
+    [
+     "async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false,removal: RemovalDispatch): Promise<EffectsSlice> {\n",
+     "async function applyEffects(env: Env, adm: Admission, after: number, calls: CallBudget, notices: NoticeBatch,deferCronRole=false): Promise<EffectsSlice> {\n"
+    ],
+    [
+     "  const ident = await reconcileIdentities(env, rows, byKey, {\n    removal,\n    cap: releaseCap(byKey.size),\n",
+     "  const ident = await reconcileIdentities(env, rows, byKey, {\n    cap: releaseCap(byKey.size),\n"
+    ],
+    [
+     "async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: RosterRow[] | null, notices: NoticeBatch, after: number, removal: RemovalDispatch): Promise<Derived> {\n",
+     "async function deriveRun(env: Env, adm: Admission, run: EffectRun, given: RosterRow[] | null, notices: NoticeBatch, after: number): Promise<Derived> {\n"
+    ],
+    [
+     "        else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null},undefined,opts.removal);\n",
+     "        else {const outcome=await central.settleGuildDepartureRole({...env,DB:privacyProviderCustodyDatabase(env)},discordId,{subjectGeneration:capture?.subjectGeneration??null});\n"
+    ],
+    [
+     "        const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:undefined,removal?:RemovalDispatch)=>Promise<{state:string;reason?:string}>};\n        if(!membershipSettlementEnabled(env)){\n          // Item 15: v1, any other present mode or a changed one holds this raw DELETE on the fixed beta guild/roles and\n          // records it; absent and unchanged is the original call. Fresh roles and other guilds are never restricted.\n          if(!departureLegacy(env,opts.removal))await audit(env,'system','role.remove_held',name,{reason:'beta_dispatch_mode_held'},reference);\n          else{await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}\n        }\n",
+     "        const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null})=>Promise<{state:string;reason?:string}>};\n        if(!membershipSettlementEnabled(env)){await removeRole(env,discordId,env.ROLE_GUILD_MEMBER,`olympus-verify: ${name} left the guild (${how})`);removed=true;}\n"
+    ],
+    [
+     "async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null;removal:RemovalDispatch }) {\n",
+     "async function afterDeparture(env: Env, discordId: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null }) {\n"
+    ],
+    [
+     "/** Item 15: the beta dispatch mode captured at a roster entry before its first await, bound to the env it was read from.\n * Departures check it at the effect on their actual fixed target; nothing here re-captures after an await. */\nfunction departureDispatch(env: Env): RemovalDispatch { return Object.freeze({ env, capture: captureBetaRemovalDispatch(env) }); }\n/** Item 15: restriction only. The raw departure DELETE is the original call only when the entry pair is absent and unchanged\n * and (cross-env) the effect env itself carries no own, accessor or inherited mode descriptor for a fixed target.\n * Pure: no getter call, SQL, await or request. */\nfunction departureLegacy(env: Env, removal: RemovalDispatch): boolean {\n  try {\n    return betaRemovalDispatchLegacy(removal.env, removal.capture, env.GUILD_ID, env.ROLE_GUILD_MEMBER)\n      && !(env.GUILD_ID === BETA_RESET_GUILD_ID && BETA_RESET_ROLE_IDS.includes(env.ROLE_GUILD_MEMBER) && 'BETA_RESET_DISPATCH_SEAL_MODE' in env);\n  } catch { return false; }\n}\n",
+     ""
+    ],
+    [
+     "  await afterDeparture(env, discordId, name, how, {...opts,removal});\n",
+     "  await afterDeparture(env, discordId, name, how, opts);\n"
+    ],
+    [
+     "export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null;removal?:RemovalDispatch } = {}) {\n  const removal=opts.removal??departureDispatch(env); // Item 15: the caller's entry capture, else this export's own, before its first await\n",
+     "export async function demote(env: Env, discordId: string, nameKey: string, name: string, how: string, opts: { space?: boolean; batch?: NoticeBatch;capture?:PrivacySubject|null } = {}) {\n"
+    ],
+    [
+     "      await demote(env, c.discord_id, c.name_key, c.name, \"manual sync\", { batch: notices,capture:captureOf(c),removal });\n",
+     "      await demote(env, c.discord_id, c.name_key, c.name, \"manual sync\", { batch: notices,capture:captureOf(c) });\n"
+    ],
+    [
+     "    removal,\n",
+     ""
+    ],
+    [
+     "async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatch, removal: RemovalDispatch): Promise<SyncResult | SyncRefused | null> {\n",
+     "async function syncFromLatestInner(env: Env, adm: Admission, notices: NoticeBatch): Promise<SyncResult | SyncRefused | null> {\n"
+    ],
+    [
+     "    return await syncFromLatestInner(counted, { count, limit: ROSTER_SYNC_STATEMENTS }, notices, removal);\n",
+     "    return await syncFromLatestInner(counted, { count, limit: ROSTER_SYNC_STATEMENTS }, notices);\n"
+    ],
+    [
+     "export async function syncFromLatest(env: Env): Promise<SyncResult | SyncRefused | null> {\n  const removal = departureDispatch(env); // Item 15: captured before this entry's first await, threaded to every departure\n  const count = { used: 0 };\n",
+     "export async function syncFromLatest(env: Env): Promise<SyncResult | SyncRefused | null> {\n  const count = { used: 0 };\n"
+    ],
+    [
+     "  const slice = await applyEffects(env, adm, INGEST_TAIL, calls, notices, false, removal);\n",
+     "  const slice = await applyEffects(env, adm, INGEST_TAIL, calls, notices);\n"
+    ],
+    [
+     "  const derived = run ? await deriveRun(env, adm, run, rows, notices, SLICE_FIXED + INGEST_TAIL, removal) : null;\n",
+     "  const derived = run ? await deriveRun(env, adm, run, rows, notices, SLICE_FIXED + INGEST_TAIL) : null;\n"
+    ],
+    [
+     "    const effects = await resumeEffects(env, adm, prev, calls, notices, removal);\n",
+     "    const effects = await resumeEffects(env, adm, prev, calls, notices);\n"
+    ],
+    [
+     "async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: \"addon\" | \"api\", notices: NoticeBatch, removal: RemovalDispatch) {\n",
+     "async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: \"addon\" | \"api\", notices: NoticeBatch) {\n"
+    ],
+    [
+     "    return await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices, removal);\n",
+     "    return await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices);\n"
+    ],
+    [
+     "  const removal = departureDispatch(env); // Item 15: captured before this entry's first await, threaded to every departure\n",
+     ""
+    ],
+    [
+     "      if (!(await releaseBinding(env, r.c, r.rosterGuid, r.why, opts.notices, opts.fence, removal))) {\n",
+     "      if (!(await releaseBinding(env, r.c, r.rosterGuid, r.why, opts.notices, opts.fence))) {\n"
+    ],
+    [
+     "  const removal = opts.removal ?? departureDispatch(env); // Item 15: the caller's entry capture, else this export's own, before its first await\n",
+     ""
+    ],
+    [
+     "  opts: { cap?: number; confirmWith?: Map<string, string | null>; notices: NoticeBatch; fence: IdentityFence; admit?: (cost: number) => boolean; removal?: RemovalDispatch },\n",
+     "  opts: { cap?: number; confirmWith?: Map<string, string | null>; notices: NoticeBatch; fence: IdentityFence; admit?: (cost: number) => boolean },\n"
+    ],
+    [
+     "    await afterDeparture(env, c.discord_id, c.name, why === \"namesake\" ? \"a different character now has this name\" : \"link predates LINKS_NOT_BEFORE\", { batch: notices,capture:captureOf(c),removal });\n",
+     "    await afterDeparture(env, c.discord_id, c.name, why === \"namesake\" ? \"a different character now has this name\" : \"link predates LINKS_NOT_BEFORE\", { batch: notices,capture:captureOf(c) });\n"
+    ],
+    [
+     "async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, why: \"namesake\" | \"stale\", notices: NoticeBatch, fence: IdentityFence, removal: RemovalDispatch): Promise<boolean> {\n",
+     "async function releaseBinding(env: Env, c: BoundRow, rosterGuid: string | null, why: \"namesake\" | \"stale\", notices: NoticeBatch, fence: IdentityFence): Promise<boolean> {\n"
+    ],
+    [
+     "import { BETA_RESET_GUILD_ID, BETA_RESET_ROLE_IDS, betaRemovalDispatchLegacy, captureBetaRemovalDispatch } from './beta-reset-policy';\nimport type { RemovalDispatch } from './role-settlements';\n",
+     ""
+    ]
+   ]
+  }
+ }
+}

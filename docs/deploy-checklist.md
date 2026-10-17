@@ -5786,14 +5786,14 @@ writer-drain, floor and epoch procedures still apply; restoring earlier code nev
 
 **Guarantee and limits.** The guarantee is no new terminal suppression reservation, companion or terminal child beyond the known-hold baseline; the original-proof reads and role/debt work before the reference check still run. Not covered, and stated plainly:
 - Unknown outcomes before any terminal work (for example `member_role_outcome_unknown`, `current_role_custody_ack_changed`, a transient D1 or provider throw) now stay held instead of retrying, and nothing in source clears the marker. Releasing them needs a separate attended, audited path.
-- Turning the flag off, or serving an older writer, restores the legacy retry behaviour. Flag rollback is not a drain and not a cross-version no-retry guarantee.
+- Legacy source without the discipline would retry these markers. That is a source-level limit, not an authorized configured rollback: the serving Floor pins the admitted source version. Each code or flag change requires an attended CLOSED reopen, which refuses running or unknown tickets and reserved, unknown or expired-unknown journal custody. An unresolved original attempt therefore freezes the configured serving version; an attended close remains possible. Removing the flag or restoring older code cannot establish drain or authorize bypassing that barrier.
 - Historical unknown custody (reserved journals, unknown tickets) is preserved unchanged; no recovery, void or adoption is added.
 
 **Before setting `"true"`.** Compare every non-complete `privacy_serving_jobs` row with the independent suppression journal. The legacy site continuation recorded no hold reason, so a job it left with a reservation is not yet marked; mark such jobs (`attempt_unresolved`) by an attended write first. `PRIVACY_ERASURE_ENABLED` stays `"false"`; this release activates nothing.
 
 **Tests.** New `privacy_erasure_attempt_discipline_test.cjs` (96 checks) in `test:all`: flag-absent and `"false"` byte-identical SQL; every legacy application shape through the real preflight; the after-preflight race through cron with later ticks adding no claim, provider call or unresolved ticket; final writes that never land and final writes that commit but lose their reply; a known hold replacing the marker and later completing; same-second stale snapshots; site and cron interleavings; invalid values. Existing erasure suites are unchanged and pass.
 
-**Rollback.** Source-only and reversible to the .159 publication. Leave the flag absent when rolling back. Rows marked `attempt_unresolved` stay held only while .160 runs with the flag `"true"`; with the flag absent or `"false"`, or under older code, they are retried as in legacy.
+**Rollback.** The unpublished source delta can be reverted to the .159 publication. A configured deployment or flag rollback is a separate attended CLOSED-reopen operation, and is refused while any original ticket or journal custody remains unresolved. Do not turn the flag off or introduce an older writer to release an unresolved marker. Outside that admitted version boundary, older source would retry the markers as in legacy; this release supplies no cross-version or unmanaged-restore drain proof.
 
 **CI metadata follow-up.** Run 38831980393 on `.159` successor `2098374` passed the complete Worker `test:all`, pinned census chain, SQL suites, app syntax, deploy argument contract and exact-success gate contract. Its strict cutover check then rejected an empty separator in the tracked marker before the historical source-only .155 record. The separator is now a comment; every retained record, timestamp, digest, Wrangler configuration value and strict grammar/refusal assertion is unchanged. This corrects invalid marker syntax without applying or activating anything. That failed run never reached the publication helper or final bundle step. The .160 successor retains those checks and needs its own complete CI result.
 
@@ -5840,3 +5840,183 @@ This readback is the first evidence of production CPU (30 s), memory (128 MiB) a
 **Still off.** Erasure (`PRIVACY_ERASURE_ENABLED = "false"`), private intake (`PRIVACY_INTAKE_ENABLED = "false"`), QR (`QR_PHASE1_ENABLED = "false"`) and beta-reset removals stay off until their own gates pass. For beta-reset removals, `BETA_RESET_REMOVALS_ENABLED` is absent and the minute qualifier stays false. .161 changes no feature flag.
 
 **Rollback.** This release is source and configuration only, with no schema change. Returning to exact .160 brings back the silent hold on every ordinary tick. Any earlier version still needs the existing writer-drain, Floor and epoch procedures, and restoring earlier code never authorizes bypassing those gates.
+
+## Fresh full-release roles — Revision 4 (prepared 16 October 2026; source candidate; not deployed; default OFF)
+
+**Change.** A new member role and ten new rank roles sit alongside the twelve beta roles, which stay as they are
+(`beta-reset-policy.ts:9-14`). Officer, Guild Leader and Raid Leader follow the live ten-rank roster automatically. On a
+leave or a ban the bot removes the new member role, every new rank role, and only those staff roles it gave itself (a
+settled PUT of its own); a staff role given by hand is never touched. While a ban stands, a bot-given staff role that
+reappears is removed again. Modules: `full-release-roles.ts` (configuration capture and every lane SQL text),
+`lane-budget.ts`, the lane block appended to `role-settlements.ts`, and `full-release-pass.ts` (the passes, loaded only by
+dynamic import). There is no schema change and no migration.
+
+**Two variables, both absent by default.**
+- `FULL_RELEASE_ROLES`: canonical compact JSON, keys in this order:
+  `{"version":1,"epoch":"olympus-full-release-<label>","epochStart":1793833200,"grants":true,"membership":"<id>","native":[10 ids in rank order]}`.
+  The owner supplies the 11 role IDs and the label; agents never choose them.
+- `STAFF_TEN_RANK_ROLES`: `"true"` (all three staff roles) or `"raid-leader"`. `"false"` counts as absent. The staff lane
+  opens at `LINKS_NOT_BEFORE` and holds (`links_not_before_before_cutoff`) when that value is before the beta-reset cutoff
+  1792688400, while the twelve are still granted. It also holds (`legacy_privileged_producer_reachable`, audited) while
+  `QR_PRIVILEGED_RANK_MAPPING_ENABLED` is `"true"` (Codex P1-B, 16 Oct 22:44 UTC): .160's privileged mapping then writes the
+  same three role IDs (`role-settlements.ts` :136-140, consumed at :268-272) for beta-five and ten-rank exports alike, and its
+  fences (`ROSTER_CURRENT` :79-80, `PROOF_CURRENT` :60-61) never see a spent lane PUT. One staff producer at a time:
+
+  | `STAFF_TEN_RANK_ROLES` | `QR_PRIVILEGED_RANK_MAPPING_ENABLED` | `QR_RANK_MAPPING_ENABLED` | Staff writer on Officer, Guild Leader, Raid Leader |
+  |---|---|---|---|
+  | absent, `""`, `"false"` | any | any | .160 only (its privileged mapping when `"true"`) |
+  | `"true"` / `"raid-leader"` | `"true"` | any (with `"true"` and a beta-five map, beta-five exports still reach it) | .160 only; the staff lane is held and audited |
+  | `"true"` / `"raid-leader"` | anything else (absent, `""`, `"false"`) | any (cosmetic map roles never include the staff IDs) | the staff lane only; .160 never produces or dispatches a privileged row |
+  | anything else | any | any | none: held (`staff_switch_invalid`) |
+
+  Switching .160's privileged mapping back on after the staff lane has run is supported only when a census shows no
+  `staff_roster_rank` row in `dispatching` or `unknown` (the .160 fences cannot see one).
+- Absent or `""` (and `"false"` for staff): every statement, request and response is .160's
+  (`full_release_roles_identity_test.cjs` pins it against recorded .160 traces). Any other value is configured. An
+  invalid value is **held**: no role changes, one `role.fresh_config_held` audit and one officer line per five minutes.
+- The configuration is captured once per entry, before any await, and passed on: the `/queue` deferral (`index.ts`),
+  `handleInteraction`, and `postRoster` for `ingestRoster` (`roster.ts` takes the capture by parameter; a static import
+  there would be a module-load cycle). Nothing re-reads it later.
+
+**Where the passes run (configured mode only).**
+- `/queue`: the legacy Guild Member sweep, then one fresh pass, in the same deferral and on one shared Discord-call
+  allowance (`ROLE_CALL_BUDGET`). The pass runs even when the sweep is throttled or has no `ROLE_GUILD_MEMBER`.
+- `/ingest/roster`: after the export's notices, one fresh pass on what the export's promotions left of its allowance and
+  of its statement budget. Within five minutes of the last pass it runs only when the newest snapshot changed.
+- `/olympus-admin ban`: with the fresh or staff lane open, one deferral after the reply removes the banned member's new
+  roles and bot-given staff roles, within `ROLE_CALL_BUDGET` less the legacy 16. The reply and the staff card gain one
+  line: "New guild roles: removal runs right after this reply (or at the next role pass)."
+- A refused deferral registration writes `role.fresh_failed`, and the next pass covers it. The ingest and ban deferrals
+  never change a response; at `/queue` the deferral also carries the legacy sweep, so the request then fails exactly as
+  .160's does.
+- Departures: a `roster.left` or `roster.freed_seat` event is handled at the next pass. Each pass reads one window of 200
+  events and walks only those of accounts that may owe something, so a burst owing nothing (the `LINKS_NOT_BEFORE`
+  release writes one per released binding) costs one statement per window. An unbind or a forced rename writes no such
+  event: the 50-account window walk finds it within ceil(N/50) passes, N being the accounts with role rows sorted before it.
+- Before `epochStart` (and `LINKS_NOT_BEFORE` for staff) a pass makes no D1 statement and no request. Only a held
+  configuration is audited before then.
+
+**Texts (configured, from `epochStart`; .160 wording before).** `/verify <name>` for an already linked member points to the
+guide's **Verify** button; the code replies, the guide (`post-guide`, `refresh-guide`) and `unbind` name the guild roles.
+Raid sign-up buttons accept the new member role whenever `FULL_RELEASE_ROLES` is valid (a read-only check, no clock). The
+staff ruleset publication of the guide keeps the .160 wording:
+after the epoch, refresh a pinned guide outside the managed `join-olympus` channel with `refresh-guide`.
+
+### Activation (attended; agents never deploy, create roles or set live configuration)
+
+0. **Approvals and gates.** The owner approves Revision 4. Codex accepts, before commit A: the narrowed fences
+   (`TARGET_FENCE` without epoch, digest or generation filters, on unresolved custody: a spent row, or an attempted row some
+   path closed from an absence read (P1-A); the family fences, historical targets included, and the
+   Officer → Raid Leader dependency; `LANE_RANK_ORDER`; `GRANT_AFTER_REMOVAL`; `LIVE_BASELINE` with a live-only predecessor);
+   the configuration-carried epoch as the accepted source epoch; `ACK_FOR` and the generation bound by construction;
+   `settleLaneIntent` as a separate consumer (M2 included); a missing role read as absent; the cause rotation's screen GET
+   and new removal rows; the staff custody definition and `EVER_LIVE`; `laneChildBudget`'s equivalence to `childBudget`.
+   Still open and optional: `past_effect_observed_present` (`LANE_OBSERVED_PRESENT_ENABLED` stays false; now a PUT only,
+   never past an unresolved row on its target) and whether a received 429 counts as not dispatched.
+1. **Census** (attended, read-only; agents only prepare the SQL): unresolved role rows split into twelve, staff family
+   and other; attempted rows (`attempts=1`) on the three staff IDs that .160 closed from an absence read (`held
+   past_effect_absent`, `settled absent`, or `settled fresh_server_confirmed` with `desired=0`), which fence those members'
+   staff targets for the lane until resolved (P1-A); beta `member`/`left_pending` characters (NULL-GUID ones
+   separately); snapshot count and growth and the
+   watcher acknowledgement audits; banned and reapply-held accounts; staff custody rows by purpose; trusted complete
+   snapshots exported at or after 1793833200 (expect 0); the time of the last beta-realm export (must be before
+   1793833200); the bot role's position. Also measure, on D1, `rows_read` of the walks, `ACK_FOR`, `LIVE_SEEN` and
+   `EVER_LIVE` (an activation gate: node:sqlite cannot measure them).
+2. **Ship the reviewed source unconfigured**, rebased onto the reset-capable base that is actually deployed; the identity
+   test runs against that base. CI, both agents' sign-off on the exact commit, then the owner's deploy with an attended
+   CLOSED reopen.
+3. **The owner creates the 11 roles**: no permissions, not managed, nothing under Links, names unlike the beta roles; the
+   member role gets Olympus Guild Member's channel access, the rank roles none. Place the Olympus Verify role above all
+   11 and above Officer, Guild Leader and Raid Leader. Check each new role has zero members, then send the 11 IDs and an
+   epoch label. Confirm the live rank names are exactly: Guild Master, High Council, Officer, Officer Alt, Raid Leader,
+   Veteran, Raider, Member, Alt, Initiate.
+4. **Commit A** (any time after step 2): `FULL_RELEASE_ROLES` with the IDs, `"grants":true` and `"epochStart":1793833200`,
+   with an attended CLOSED reopen. Until commit B the lane is removals-only (`LINKS_NOT_BEFORE` is `""`), and nothing
+   runs before the launch hour anyway.
+5. **Commit B**, after the last beta-realm export and before 1793833200 (4 Nov 2026, 3:00 p.m. PST), with an attended
+   CLOSED reopen: `LINKS_NOT_BEFORE = "1793833200"`, `ROSTER_MIN_MEMBERS = "200"`, `STAFF_TEN_RANK_ROLES = "true"`, and
+   `QR_PRIVILEGED_RANK_MAPPING_ENABLED = "false"` (P1-B: otherwise the staff lane holds and .160 keeps the staff roles).
+   **`LINKS_NOT_BEFORE` is unix seconds, never the date form**: `"2026-11-04"` would mean midnight UTC, and the fresh
+   grants hold on anything but exact digits. (The `worker/wrangler.toml` comment on line 80 still shows the date form: the
+   applied cutover marker binds that file byte-for-byte to `wrangler.cutover.toml`, so a comment-only edit would fail
+   `scripts/cutover-config.sh --check` in CI. Commit B rewrites the value and its comment together, through the reviewed
+   configuration procedure.)
+6. **Launch preconditions**: `REQUEST_CODES` stays `"auto"` and an officer's watcher with addon 0.6.0 or later has checked
+   in (`/health` → `relays.requestCodes: true`). Without that, the Verify button falls back to asking for a name.
+7. Raising the floor after launch week is a separate owner change, never above the live guild's real size.
+
+If commit B is missed, fresh grants are held (an audit and an officer line), staff stays at .160 behaviour, and no member
+role is granted from the cutoff. Fall back to hand-assigning and manual removal, or announce the delay.
+
+### Launch day
+
+- **Announcement, from 1793833200:** "Everyone, beta members included: press **Verify** in the pinned guide and whisper the
+  code once from your highest-ranked character in the guild. If the bot does not answer, press **Verify** again for a new
+  code and whisper that one once." A used code cannot be whispered again (it answers that nothing is pending and grants
+  nothing). Beta members whose character keeps the same name must use the button: `/verify <name>` only answers that the
+  character is already linked.
+- Officers `/reload` regularly: grants follow current exports (at most ten minutes old), about 4–6 members per reload
+  while a backlog lasts.
+- **Identity holds (`roster.identity_held`).** The line "N links would be released at once" means an old beta link under
+  the same name points to a different character than the live one listed. Nothing changes for those names, and a live
+  player's whisper under such a name cannot link, until an officer runs `/olympus-admin sync` (they really are different
+  characters, as on the first export after launch) or clears the pins ("Re-pinning").
+- **The post-cutoff promotion line.** After 22 Oct, a live promotion may log "… must apply again after a rename Blizzard
+  required; Guild Member withheld …" (`roster.ts` afterPromotion, the `held` outcome). It concerns the old Guild Member
+  role, which the beta reset closed, and can be ignored for the new roles.
+- Never hand out the new roles. To take the member role away use the ban command or a Quarantine/Flagellant role; a hand
+  removal is put back by the presence pass. A new role found on a verified member without a bot grant (given by hand, or
+  MEE6's stale copy after an unban) is recorded once with no request and from then on counts as the bot's: a leave or a ban
+  removes it like any other new role.
+- When someone leaves, the old departure line may still list staff roles as kept; the bot removes the ones it gave at the
+  next pass, usually within minutes (see "Departures" above for unbinds and forced renames).
+- A new role or a bot-given staff role that MEE6 (or anyone) puts back **after** a settled departure removal is not removed
+  again, as .160 leaves Guild Member: remove it by hand. Only a standing ban removes reappearing roles again.
+
+### Unconfirmed removals
+
+A removal or grant whose request was answered with a 429 or lost its answer stays `unknown`, fences that role for that
+member (and, for a rank or staff role, the replacement grant) and is never retried. Codex P1-A (16 Oct, 22:44 and 23:18
+UTC): absence is not custody discharge. A later read never closes such a row, whether the role then reads absent or
+present, because the lost request may still land after that read and after any successor; a visit only records the read
+(`checked_at`, after which the walks skip the row for an hour). The one exception is M2: a lost grant whose role reads present while its intent is still
+current is confirmed, unless an earlier removal of that role is itself unresolved. The officer line counts these rows as
+"unconfirmed"; resolving one is an attended action outside the Worker. Rows that .160 closed from an absence read (stale
+absence, a compensation read absent) count as unresolved for the lane too. A member whose highest role sits at or above
+the bot is held as before: no new role is given, and on a leave or ban the new roles stay until the hierarchy is fixed.
+
+### Stop and rollback
+
+- **Pause grants:** `"grants":false` in `FULL_RELEASE_ROLES` (attended CLOSED reopen). The digest changes, so unspent rows
+  can no longer be claimed and spent rows are only read; removals continue.
+- **Emergency stop without a deploy:** move the 11 roles above the Olympus Verify role. Grants and fresh removals hold;
+  every central effect on holders of those roles holds too. Move them back to resume.
+- **Withdraw `FULL_RELEASE_ROLES`:** the fresh lane stops. Only with no banned or departed holders, or with manual cleanup.
+- **Withdraw `STAFF_TEN_RANK_ROLES`:** staff returns to .160 behaviour; staff lane rows hold. Turning .160's privileged
+  mapping back on needs the census above first (P1-B). Narrowing it to `"raid-leader"` keeps reading spent Officer and
+  Guild Leader rows hourly; they no longer close by an outcome read (P1-A), so while one is unresolved it holds that
+  member's Raid Leader grant.
+- **Source rollback** (to the unconfigured new source or to .157–.160): no lane PUT or DELETE happens (.160 holds the lane
+  purposes); every rollback deploy carries the launch-day variables, because a plain 5bea76e7 redeploy restores
+  `LINKS_NOT_BEFORE ""` and the floor 800. Never roll back to .156 after the epoch-2 install.
+- **Replace a new role:** only when the census shows no unresolved row on it: deleting a role does not close its spent
+  rows (P1-A), and an unresolved rank row keeps holding that member's new rank grant.
+- **D1 restore:** re-check the members of the new roles and re-apply bans and holds made after the restore point.
+
+**Tests.** `npm run test:fresh-roles` (appended to `test:all`): `lane_budget_test`, `full_release_roles_config_test`,
+`full_release_roles_sql_test`, `full_release_lane_consumer_test`, `full_release_pass_test`, `full_release_review_test`
+(the review regressions: departure cause, custody, fences, permissions, events, the review fixes, and the P1-B
+configuration matrix run against the real .160 roster producer) and the differential
+`full_release_roles_identity_test`. The identity test runs the real Worker entries (the `/queue` deferral,
+`/ingest/roster`, signed ban, unbind, post-guide, `/verify` and Verify-button interactions, and the cron sweep) in two
+phases and two legacy role-writer profiles: unconfigured runs equal the recorded .160 traces exactly, and configured runs
+leave every legacy statement and request unchanged (only the texts above differ, from the epoch), never name a twelve
+role in lane work, and leave the twelve rows as .160 does. Its base environment keeps .160's privileged mapping on, so
+there the staff lane is held and audited (P1-B). The P1-A regressions (no route closes an attempted effect from a read: the
+spent-row reader, the compensation path, M2 for a DELETE, the staff walk's old-purpose rows) are in the consumer, pass,
+review and SQL suites.
+
+
+## 2026-10-17 — .163 Source fences, fresh roles and planned OFF deployment
+
+The owner authorized solo integration and a new production release. The candidate composes the corrected Item 15 and fresh-role work with original entry capture, exact claimed-row closure before HTTP, conservative unknown custody, and an unmounted Native-only source closure. The separate full-release roles retain the November 4 grant gate. An explicit whole preseal catalogue permits ordinary new-code serving in OFF mode against the current Native epoch; the managed gate cannot use that layout. No physical migration, erasure activation or reset arming follows from this source change. See `release163-remaining32.md` for the exact transition, rollback, qualification and remaining external acceptance limits.

@@ -6,8 +6,8 @@ import type { Env } from './env';
 import { DB_NOW, randomGeneration, sha256 } from './account-generation-contracts';
 import { rest, type AttemptBudget } from './discord';
 import { BETA_RESET_POLICY_KEY,BETA_RESET_EPOCH,BETA_RESET_CUTOFF,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,parseBetaResetPolicy,parseBetaResetRetirement,betaPolicyRetirementSql,
- captureBetaGrant,resetGuardEnabled,betaResetCurrent,betaResetSql,captureBetaResetScan,betaResetScanSql,betaResetScanCurrent,
- type BetaGrantCapture,type BetaResetScanCapture } from './beta-reset-policy';
+ captureBetaGrant,resetGuardEnabled,betaResetCurrent,betaResetSql,captureBetaResetScan,betaResetScanSql,betaResetDispatchScanCurrent,betaResetDispatchSql,betaResetDispatchMode,
+ captureBetaRoleDispatch,type BetaRoleDispatch,type BetaGrantCapture,type BetaResetScanCapture } from './beta-reset-policy';
 import { settleBetaResetRemoval } from './role-settlements';
 
 export const BETA_RESET_CRON='* * * * *';
@@ -45,12 +45,12 @@ export async function betaRoleResetStatus(env:Env){
   AND attempts=1 AND state IN('unknown','dispatching')`)
   .bind(BETA_RESET_GUILD_ID,JSON.stringify(BETA_RESET_ROLE_IDS),digest).first<{n:number|null;other:number|null}>();
  const unresolvedGrantCustody=custody?.n??0,unresolvedOtherRoleCustody=custody?.other??0;
- const active=await betaResetCurrent(env,c),closed=r.at>=BETA_RESET_CUTOFF,clean=!!scan?.completedPasses&&scan.lastPassAssignments===0;
+ const policyActive=await betaResetCurrent(env,c),dispatchMode=betaResetDispatchMode(env,c),active=policyActive&&dispatchMode==='legacy',closed=r.at>=BETA_RESET_CUTOFF,clean=!!scan?.completedPasses&&scan.lastPassAssignments===0;
  const phase=retirement?'retired_awaiting_drain':!closed?(c.mode==='held'?'held':'before_cutoff'):!['beta_cutoff_reached','beta_source_epoch_closed'].includes(c.reason)?'held':!resetGuardEnabled(env)?'inactive':!active?'held':r.raw!==null&&!scan?'held':
   scan?.lastError?'held':known.unknown||known.held||unresolvedGrantCustody||unresolvedOtherRoleCustody?'held':known.pending?'draining':clean?'awaiting_new_source':'discovering';
  return {epoch:BETA_RESET_EPOCH,cutoff:BETA_RESET_CUTOFF,serverTime:r.at,guildId:BETA_RESET_GUILD_ID,roleIds:BETA_RESET_ROLE_IDS,
   sourcePhase:closed?'closed_awaiting_new_source':'beta_source_open',phase,policyArmed:!!policy,removalsActive:active,
-  reason:c.reason,canArm:c.mode==='open'&&c.raw===null&&r.at<BETA_RESET_CUTOFF,
+  reason:policyActive&&dispatchMode==='v1'?'beta_dispatch_effect_fence_pending':c.reason,canArm:c.mode==='open'&&c.raw===null&&r.at<BETA_RESET_CUTOFF,
   policyRetired:!!retirement,retiredAt:retirement?.retiredAt??null,canRetire:!!policy&&betaPolicyRetirementSql(env,c,1).sql!=='0=1',inventoryKnown,discoveryKnown,
   preserved:['manual leadership','manual Council','Developer','server moderators','website appointments','leadership directory'],
   discovery:{membersPerPage:BETA_RESET_CAPS.membersPerPage,pagesPerMinute:1,continuous:active,completedPasses:discoveryKnown?scan?.completedPasses??0:null,
@@ -78,26 +78,27 @@ async function page(env:Env,after:string,b:AttemptBudget,readAdmission:()=>Promi
  }
  return out;
 }
-export async function runBetaResetSlice(env:Env):Promise<BetaResetSlice>{
+export async function runBetaResetSlice(env:Env,originalDispatch?:BetaRoleDispatch):Promise<BetaResetSlice>{
+ const dispatch=originalDispatch??captureBetaRoleDispatch(env);
  if(!resetGuardEnabled(env))return outcome('inactive','beta_reset_off');
- const captured=await captureBetaGrant(env,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS[0]!);
+ const captured=await captureBetaGrant(env,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS[0]!,dispatch);
  if(!await betaResetCurrent(env,captured))return outcome('held',captured.reason);
  const digest=await sha256(captured.raw!),read=await control(env);if(!read||!Number.isSafeInteger(read.at))return outcome('held','beta_reset_control_read');
  let scan=read.raw===null?freshScan(digest,read.at):parseScan(read.raw,digest);if(!scan)return outcome('held','beta_reset_control_invalid');
  if(scan.lease&&scan.leaseUntil>read.at)return outcome('busy','beta_reset_lease');
  scan={...scan,lease:randomGeneration(),leaseUntil:read.at+120};let raw=JSON.stringify(scan);
- const g=betaResetSql(captured,4);
+ const g=betaResetSql(captured,4),claimSql=betaResetDispatchSql(env,captured,g.sql);
  const claimed=read.raw===null?await env.DB.prepare(`INSERT INTO site_settings(key,value,updated_at,updated_by)
- SELECT ?1,?2,${DB_NOW},'system:beta-reset' WHERE ?3 IS NULL AND ${DB_NOW}<json_extract(?2,'$.leaseUntil') AND ${g.sql}
+ SELECT ?1,?2,${DB_NOW},'system:beta-reset' WHERE ?3 IS NULL AND ${DB_NOW}<json_extract(?2,'$.leaseUntil') AND ${claimSql}
  ON CONFLICT(key) DO NOTHING RETURNING key`).bind(BETA_RESET_SCAN_KEY,raw,read.raw,...g.values).first():
  await env.DB.prepare(`UPDATE site_settings SET value=?2,updated_at=${DB_NOW},updated_by='system:beta-reset'
- WHERE key=?1 AND value=?3 COLLATE BINARY AND ${DB_NOW}<json_extract(?2,'$.leaseUntil') AND ${g.sql} RETURNING key`).bind(BETA_RESET_SCAN_KEY,raw,read.raw,...g.values).first();
- if(!claimed)return outcome('busy','beta_reset_claim_changed');
+ WHERE key=?1 AND value=?3 COLLATE BINARY AND ${DB_NOW}<json_extract(?2,'$.leaseUntil') AND ${claimSql} RETURNING key`).bind(BETA_RESET_SCAN_KEY,raw,read.raw,...g.values).first();
+ if(!claimed)return betaResetDispatchMode(env,captured)==='legacy'?outcome('busy','beta_reset_claim_changed'):outcome('held','beta_dispatch_scan_claim_held');
  let original=captureBetaResetScan(env,captured,raw);if(!original)return outcome('held','beta_reset_scan_held');
  const b:AttemptBudget={limit:BETA_RESET_CAPS.network,attempts:0,retries:0};let discovered=0,assignments=0,pages=0,processed=0,settled=0,unknown=0,held=0;
  try{
-  const members=await page(env,scan.after,b,()=>betaResetScanCurrent(env,captured,original!));
-  if(!await betaResetScanCurrent(env,captured,original))return outcome('held','beta_reset_scan_held',{http:b.attempts});
+  const members=await page(env,scan.after,b,()=>betaResetDispatchScanCurrent(env,captured,original!));
+  if(!await betaResetDispatchScanCurrent(env,captured,original))return outcome('held','beta_reset_scan_held',{http:b.attempts});
   const observed:{id:string;subject:string;role:string}[]=[];
   for(const m of members)for(const role of m.roles)observed.push({id:(await sha256(`${digest}:${scan.pass}:${m.subject}:${role}`)).slice(0,32),subject:m.subject,role});
   discovered=members.length;assignments=observed.length;
@@ -107,26 +108,33 @@ export async function runBetaResetSlice(env:Env):Promise<BetaResetSlice>{
    observedAssignments:ended?0:scan.observedAssignments+observed.length,lastError:null,
    ...(ended?{pass:scan.pass+1,passStartedAt:at.at,completedPasses:scan.completedPasses+1,lastPassCompletedAt:at.at,
     lastPassScanned:scan.scanned+members.length,lastPassAssignments:scan.observedAssignments+observed.length}:{})};
-  const nextRaw=JSON.stringify(next),guard=betaResetScanSql(captured,original,7);
+  const nextRaw=JSON.stringify(next),guard=betaResetScanSql(captured,original,7),discoverySql=betaResetDispatchSql(env,captured,guard.sql);
   const result=await env.DB.batch([
    env.DB.prepare(`INSERT OR IGNORE INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,request_digest,created_at,expires_at)
     SELECT json_extract(j.value,'$.id'),json_extract(j.value,'$.subject'),'beta_reset',?3,json_extract(j.value,'$.role'),0,'pending','beta_inventory_observed',?4,${DB_NOW},${DB_NOW}+300
-    FROM json_each(?5) j WHERE ${guard.sql} AND EXISTS(SELECT 1 FROM site_settings WHERE key=?1 AND value=?2 COLLATE BINARY)
+    FROM json_each(?5) j WHERE ${discoverySql} AND EXISTS(SELECT 1 FROM site_settings WHERE key=?1 AND value=?2 COLLATE BINARY)
     AND NOT EXISTS(SELECT 1 FROM role_settlements r WHERE r.subject=json_extract(j.value,'$.subject') AND r.guild_id=?3
      AND r.role_id=json_extract(j.value,'$.role') AND r.purpose='beta_reset' AND r.request_digest=?4
      AND r.state<>'settled' AND r.reason<>'beta_reset_observation_consumed') AND ?6 IS NOT NULL`)
     .bind(BETA_RESET_SCAN_KEY,raw,BETA_RESET_GUILD_ID,digest,JSON.stringify(observed),nextRaw,...guard.values),
    env.DB.prepare(`UPDATE site_settings SET value=?6,updated_at=${DB_NOW},updated_by='system:beta-reset'
-    WHERE key=?1 AND value=?2 COLLATE BINARY AND ?3 IS NOT NULL AND ?4 IS NOT NULL AND ?5 IS NOT NULL AND ${guard.sql} RETURNING key`)
+    WHERE key=?1 AND value=?2 COLLATE BINARY AND ?3 IS NOT NULL AND ?4 IS NOT NULL AND ?5 IS NOT NULL AND ${discoverySql} RETURNING key`)
     .bind(BETA_RESET_SCAN_KEY,raw,BETA_RESET_GUILD_ID,digest,JSON.stringify(observed),nextRaw,...guard.values)
   ]);
   if(!result[1]?.results.length)return outcome('held','beta_reset_scan_commit_held',{http:b.attempts});
   const nextOriginal=captureBetaResetScan(env,captured,nextRaw,original);if(!nextOriginal)return outcome('held','beta_reset_scan_held',{http:b.attempts});
   original=nextOriginal;scan=next;raw=nextRaw;pages=1;
+  // The role-file claim and pre-DELETE consumers are a separate, not-yet-integrated cut.
+  // Discovery is real, but v1 cannot delegate an effect through their legacy predicates.
+  if(betaResetDispatchMode(env,captured)!=='legacy'){
+   await release(env,captured,original,{...scan,lease:'',leaseUntil:0});
+   return outcome('held','beta_dispatch_effect_fence_pending',{discoveryPages:pages,discoveredMembers:discovered,
+    observedAssignments:assignments,http:b.attempts,completedPasses:scan.completedPasses});
+  }
   const selection=betaResetScanSql(captured,original,3);
   const selected=await env.DB.prepare(`SELECT id FROM role_settlements WHERE purpose='beta_reset' AND desired=0 AND guild_id=?1 AND request_digest=?2
    AND state<>'settled' AND reason<>'beta_reset_observation_consumed'
-   AND (state='pending' OR checked_at IS NULL OR checked_at<=${DB_NOW}-1800) AND ${selection.sql}
+   AND (state='pending' OR checked_at IS NULL OR checked_at<=${DB_NOW}-1800) AND ${betaResetDispatchSql(env,captured,selection.sql)}
    ORDER BY CASE WHEN state='pending' THEN 0 ELSE 1 END,COALESCE(checked_at,0),created_at,id LIMIT ${BETA_RESET_CAPS.roleIntentsPerRun}`)
    .bind(BETA_RESET_GUILD_ID,digest,...selection.values).all<{id:string}>();
   for(const row of selected.results){

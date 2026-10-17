@@ -1,12 +1,15 @@
 /** Bindings, vars and secrets. Vars live in wrangler.toml; secrets are set with `wrangler secret put`. */
 export interface Env {
   BETA_RESET_REMOVALS_ENABLED?: string; // default OFF bulk removals; the old beta source epoch still closes target grants at the fixed cutoff
+  BETA_RESET_SOURCE_EPOCH?: string; // absent by default; restriction-only preparation for an immutable new source epoch
   MEMBERSHIP_ROLE_SETTLEMENT_ENABLED?: string; // exact true only; independently enables central membership custody
   MEMBERSHIP_RETIRED_ROLE_ID?: string; // unset by default; one reviewed removal/GET-only former target
   QR_PHASE1_ENABLED?: string;
   QR_RANK_MAPPING_ENABLED?: string;
   QR_NATIVE_ROLE_MAP?: string;
   QR_PRIVILEGED_RANK_MAPPING_ENABLED?: string;
+  FULL_RELEASE_ROLES?: string; // unset by default; owner-supplied canonical JSON for the fresh member and ten rank roles (full-release-roles.ts); invalid present holds
+  STAFF_TEN_RANK_ROLES?: string; // unset, "" or "false" = .160; "true" or "raid-leader" = staff roles from the live ten-rank roster; anything else holds
   DB: D1Database;
   ASSETS: Fetcher;                  // .51: the site's static files (wrangler.toml [assets] binding; run_worker_first, so index.ts hands them over itself)
 
@@ -77,10 +80,11 @@ export interface Env {
   PRIVACY_INTAKE_RETENTION_DAYS?: string; // .82: 1..3650 days a case is kept from its last activity, fixed per case when it is created
   PRIVACY_ERASURE_ENABLED?: string; // serving request admission only; completion also needs current role/removal and all-store custody checks
   PRIVACY_ERASURE_ATTEMPT_DISCIPLINE?: string; // .160: absent or "false" keeps legacy erasure SQL; "true" adds the exact post-scrub pre-check and the durable no-retry claim; anything else holds
+  PRIVACY_ERASURE_ATTEMPT_FENCE?: string; // default OFF preparation: acknowledged increasing claim + consuming guard only; requires discipline and configured admission; no fence/retry is implemented
   PRIVACY_ACCESS_ENABLED?: string; // identify-only privacy connection, separate from ordinary guild access
   PRIVACY_RETENTION_ENABLED?: string; // bounded fixed-deadline local sweeper; provider/recovery custody remains separate
   PRIVACY_WRITE_ADMISSION_ENABLED?: string; // .139: exact source-installed control/triggers required; absent/default OFF, no automatic installation
-  PRIVACY_WRITE_ADMISSION_LAYOUT?: 'canonical'|'recorded-live-20261010'; // closed complete source layouts only; no per-table mix or live-schema learning
+  PRIVACY_WRITE_ADMISSION_LAYOUT?: 'canonical'|'recorded-live-20261010'|'recorded-live-pre-seal-20261017'; // closed whole layouts; pre-seal compatibility is OFF-mode serving only
   PRIVACY_WRITE_ADMISSION_EPOCH?: string; // original native epoch, never inferred or refreshed by a request
   PRIVACY_CREDENTIAL_EPOCH?: string; // required source-held consumer epoch; not a rotation or origin proof
   PRIVACY_RECOVERY_FLOOR?: {idFromName(name:string):unknown;get(id:unknown):{fetch(request:Request):Promise<Response>}};

@@ -9,12 +9,13 @@ import {qrErasureCustodyClearSql} from './qr-phase1-data';
 import {ORIGINAL_REJECTION_COMPANION_READ_SQL,canonicalRejectionKey} from './privacy-rejection-decision';
 import {privacySubjectKey} from './privacy-serving-authority';
 import {recoveryParseDataJSON,recoveryScalarArrayJSON} from './privacy-recovery-data-json';
+import {erasureAttemptFenceMode,consumeOriginalErasureAttemptJobRead,originalErasureAttemptFacts,type OriginalErasureAttempt} from './privacy-erasure-attempt-identity';
 
 declare const originalJobReadBrand:unique symbol;
 export type OriginalErasureJobRead=Readonly<{[originalJobReadBrand]:true}>;
 export type OriginalErasureJobFacts=Readonly<{proof:Readonly<AccountErasureProof>;jobReadDigest:string;observedAt:number;originalCreatedAt:number;originalRetainUntil:number;originalState:'waiting_role'|'held';roleCheckedAt:number;roleOutcome:'absent'|'removed';originalStaffAccess:'none'|'human-managed'|'unknown';companion:Readonly<{birthKind:'site'|'absence';markerKey:string;markerState:'active'|'none';originalRejectedAt:number|null;markerRetainUntil:number|null;nativeScalar:string;companionDigest:string}>}>;
 type Method=Readonly<{receiver:object;name:string;fn:Function;chain:readonly Readonly<{ref:object;prototype:object|null;descriptor:PropertyDescriptor|undefined}>[]}>;
-type RecordState={check:()=>void;facts:OriginalErasureJobFacts;env:Env;db:D1Database;used:boolean};
+type RecordState={check:()=>void;facts:OriginalErasureJobFacts;env:Env;db:D1Database;used:boolean;attempt?:OriginalErasureAttempt};
 const originalReads=new WeakMap<OriginalErasureJobRead,RecordState>();
 const held=():never=>{throw new RecoveryFloorHeld();};
 const same=(a:PropertyDescriptor|undefined,b:PropertyDescriptor|undefined)=>a===undefined?b===undefined:!!b&&['value','get','set','writable','enumerable','configurable'].every(k=>a[k as keyof PropertyDescriptor]===b[k as keyof PropertyDescriptor]);
@@ -28,22 +29,24 @@ const hex=(value:unknown,size:number):value is string=>typeof value==='string'&&
 const sha=recoveryScalarArraySha256;
 
 /** Source-fixed statement only; no caller row, predicate, SQL, hash or current incarnation is accepted. */
-export async function captureOriginalAccountErasureJobRead(env:Env,input:AccountErasureProof):Promise<OriginalErasureJobRead>{
+export async function captureOriginalAccountErasureJobRead(env:Env,input:AccountErasureProof,attempt?:OriginalErasureAttempt):Promise<OriginalErasureJobRead>{
  const captured=captureAccountErasureProof(input),proof=captured.proof;
+ const fence=erasureAttemptFenceMode(env);if(fence===null||fence&&!attempt||!fence&&attempt)return held();
+ const attemptFacts=attempt?consumeOriginalErasureAttemptJobRead(attempt,env,proof):null;
  const envPrototype=Object.getPrototypeOf(env),dbDescriptor=Object.getOwnPropertyDescriptor(env,'DB'),guildDescriptor=Object.getOwnPropertyDescriptor(env,'GUILD_ID'),roleDescriptor=Object.getOwnPropertyDescriptor(env,'ROLE_GUILD_MEMBER'),secretDescriptor=Object.getOwnPropertyDescriptor(env,'COOKIE_SECRET');
  if(!dbDescriptor||!guildDescriptor||!roleDescriptor||!secretDescriptor||[dbDescriptor,guildDescriptor,roleDescriptor,secretDescriptor].some(d=>!Object.hasOwn(d,'value')))return held();
  const db=dbDescriptor.value as D1Database,guild=guildDescriptor.value,memberRole=roleDescriptor.value;
  if(!db||typeof db!=='object'||typeof guild!=='string'||guild.length<17||guild.length>20||/[^0-9]/.test(guild)||typeof memberRole!=='string'||memberRole.length<17||memberRole.length>20||/[^0-9]/.test(memberRole))return held();
  const custody=privacyProviderCustodyDatabase(env);assertPrivacyAdmissionWitness(custody);
  const prepare=method(db,'prepare'),batch=method(db,'batch');
- const envCheck=()=>{captured.check();if(Object.getPrototypeOf(env)!==envPrototype||!same(dbDescriptor,Object.getOwnPropertyDescriptor(env,'DB'))||!same(guildDescriptor,Object.getOwnPropertyDescriptor(env,'GUILD_ID'))||!same(roleDescriptor,Object.getOwnPropertyDescriptor(env,'ROLE_GUILD_MEMBER'))||!same(secretDescriptor,Object.getOwnPropertyDescriptor(env,'COOKIE_SECRET')))return held();checkMethod(prepare);checkMethod(batch);assertPrivacyAdmissionWitness(custody);};
+ const envCheck=()=>{captured.check();if(attempt)originalErasureAttemptFacts(attempt,env,proof);if(Object.getPrototypeOf(env)!==envPrototype||!same(dbDescriptor,Object.getOwnPropertyDescriptor(env,'DB'))||!same(guildDescriptor,Object.getOwnPropertyDescriptor(env,'GUILD_ID'))||!same(roleDescriptor,Object.getOwnPropertyDescriptor(env,'ROLE_GUILD_MEMBER'))||!same(secretDescriptor,Object.getOwnPropertyDescriptor(env,'COOKIE_SECRET')))return held();checkMethod(prepare);checkMethod(batch);assertPrivacyAdmissionWitness(custody);};
  envCheck();const markerKey=await privacySubjectKey(env,proof.subject);envCheck();if(!canonicalRejectionKey(markerKey))return held();
  const sql=`SELECT ${ORIGINAL_REJECTION_COMPANION_READ_SQL} AS recovery_companion,j.operation_id,j.subject_id,j.subject_generation,j.request_digest,j.original_account_incarnation,j.original_session_version,j.original_session_expires,j.state,j.created_at,j.last_attempt_at,j.retain_until,r.checked_at AS role_checked_at,r.reason AS role_outcome,j.staff_access,s.generation AS current_generation,s.state AS subject_state,${PRIVACY_DB_NOW} AS observed_at,a.session_hash AS grant_session,a.subject_generation AS grant_generation,a.state AS grant_state,a.revision AS grant_revision,a.grant_id AS grant_id,a.csrf_hash AS grant_csrf,a.created_at AS grant_created,a.expires_at AS grant_expires,a.consumed_at AS grant_consumed,(SELECT COUNT(*) FROM privacy_access_grants ag WHERE ag.grant_id=j.operation_id AND ag.subject_id=j.subject_id AND ag.purpose='own_erasure' AND ag.consumed_at IS NOT NULL) AS grant_count
  FROM privacy_serving_jobs j JOIN privacy_subjects s ON s.subject_id=j.subject_id JOIN role_settlements r ON r.id=j.operation_id LEFT JOIN privacy_access_grants a ON a.grant_id=j.operation_id AND a.subject_id=j.subject_id AND a.purpose='own_erasure' AND a.consumed_at IS NOT NULL
  WHERE j.operation_id=?1 AND j.subject_id=?2 AND j.subject_generation=?3 AND j.request_digest=?4 AND ${originalErasureJobBirthSql(proof)}
  AND (${CURRENT_ERASURE_SQL}) AND (${accountErasureRoleSettledSql}) AND ${qrErasureCustodyClearSql('?2')}
- AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?5 AND r.role_id=?6 AND r.desired=0)`;
- const binds=Object.freeze([proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,guild,memberRole,markerKey]);
+ AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?5 AND r.role_id=?6 AND r.desired=0)${attemptFacts?" AND j.last_attempt_at=?8 AND j.hold_reason='attempt_unresolved'":''}`;
+ const binds=Object.freeze([proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,guild,memberRole,markerKey,...(attemptFacts?[attemptFacts.claimed]:[])]);
  envCheck();const prepared=invoke(prepare,[sql]);if(!prepared||typeof prepared!=='object')return held();const bind=method(prepared,'bind');
  const bound=invoke(bind,binds);if(!bound||typeof bound!=='object')return held();const first=method(bound,'first');
  const statementCheck=()=>{envCheck();checkMethod(bind);checkMethod(first);};statementCheck();
@@ -52,6 +55,7 @@ export async function captureOriginalAccountErasureJobRead(env:Env,input:Account
  // Capture the returned Native row immediately, before the digest await. Null-prototype transport is legitimate.
  const keys=['recovery_companion','operation_id','subject_id','subject_generation','request_digest','original_account_incarnation','original_session_version','original_session_expires','state','created_at','last_attempt_at','retain_until','role_checked_at','role_outcome','staff_access','current_generation','subject_state','observed_at','grant_session','grant_generation','grant_state','grant_revision','grant_id','grant_csrf','grant_created','grant_expires','grant_consumed','grant_count'] as const;
  const original=snapshot(row,keys),v=original.values;
+ if(attemptFacts&&v.last_attempt_at!==attemptFacts.claimed)return held();
  if(v.operation_id!==proof.operationId||v.subject_id!==proof.subject||v.subject_generation!==proof.subjectGeneration||v.request_digest!==proof.requestDigest||v.original_account_incarnation!==proof.accountIncarnation||v.current_generation!==proof.subjectGeneration||v.subject_state!=='retiring'||!['waiting_role','held'].includes(v.state as string)||!['absent','removed'].includes(v.role_outcome as string)||!['none','human-managed','unknown'].includes(v.staff_access as string))return held();
  if(!integer(v.original_session_version)||!integer(v.original_session_expires)||!integer(v.created_at,1)||!integer(v.retain_until,1)||v.retain_until!==v.created_at+366*86400||!integer(v.observed_at,1)||v.observed_at<v.created_at||v.observed_at>=v.retain_until||!integer(v.role_checked_at,1)||v.role_checked_at>v.observed_at||v.role_checked_at<=v.observed_at-60||v.last_attempt_at!==null&&!integer(v.last_attempt_at,1))return held();
  if(proof.accountIncarnation!==null&&!hex(proof.accountIncarnation,32))return held();
@@ -74,7 +78,7 @@ export async function captureOriginalAccountErasureJobRead(env:Env,input:Account
  const companionDigest=await sha(['source-erasure-minimal-recovery-companion-v1',proof.operationId,proof.subject,proof.subjectGeneration,proof.accountIncarnation,markerKey,markerState,originalRejectedAt,markerRetainUntil,v.observed_at,jobReadDigest]);check();
  const companion=Object.freeze({birthKind:proof.accountIncarnation===null?'absence' as const:'site' as const,markerKey,markerState,originalRejectedAt:originalRejectedAt as number|null,markerRetainUntil:markerRetainUntil as number|null,nativeScalar:v.recovery_companion as string,companionDigest});
  const facts=Object.freeze({proof,jobReadDigest,companion,observedAt:v.observed_at,originalCreatedAt:v.created_at,originalRetainUntil:v.retain_until,originalState:v.state as 'waiting_role'|'held',roleCheckedAt:v.role_checked_at,roleOutcome:v.role_outcome as 'absent'|'removed',originalStaffAccess:v.staff_access as 'none'|'human-managed'|'unknown'});
- const handle=Object.freeze({}) as OriginalErasureJobRead;originalReads.set(handle,{check,facts,env,db,used:false});return handle;
+ const handle=Object.freeze({}) as OriginalErasureJobRead;originalReads.set(handle,{check,facts,env,db,used:false,attempt});return handle;
 }
 export function assertOriginalErasureJobRead(read:OriginalErasureJobRead,env?:Env):void{const state=originalReads.get(read);if(!state||env!==undefined&&state.env!==env)return held();state.check();}
 export function originalErasureJobReadFacts(read:OriginalErasureJobRead):OriginalErasureJobFacts{assertOriginalErasureJobRead(read);return originalReads.get(read)!.facts;}
@@ -84,5 +88,6 @@ export function consumeOriginalErasureJobRead(read:OriginalErasureJobRead):void{
 /** Exact same Native fact expression at the actual deletion boundary. No JSON/caller clock can issue it. */
 export function originalAccountErasureCompanionGuardStatement(env:Env,read:OriginalErasureJobRead):D1PreparedStatement{
  assertOriginalErasureJobRead(read,env);const f=originalErasureJobReadFacts(read),p=f.proof,c=f.companion;
- return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND j.subject_id=?2 AND j.subject_generation=?3 AND j.request_digest=?4 AND ${originalErasureJobBirthSql(p)} AND j.state IN('waiting_role','held') AND j.created_at=${f.originalCreatedAt} AND j.retain_until=${f.originalRetainUntil} AND ${ORIGINAL_REJECTION_COMPANION_READ_SQL}=?5 COLLATE BINARY) AND ?6<=${PRIVACY_DB_NOW} THEN 1 ELSE json_extract('original_recovery_companion_changed_held','$') END AS admitted`).bind(p.operationId,p.subject,p.subjectGeneration,p.requestDigest,c.nativeScalar,f.observedAt,c.markerKey);
+ const attempt=originalReads.get(read)!.attempt,attemptFacts=attempt?originalErasureAttemptFacts(attempt,env,p):null;
+ return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND j.subject_id=?2 AND j.subject_generation=?3 AND j.request_digest=?4 AND ${originalErasureJobBirthSql(p)} AND j.state IN('waiting_role','held') AND j.created_at=${f.originalCreatedAt} AND j.retain_until=${f.originalRetainUntil} AND ${ORIGINAL_REJECTION_COMPANION_READ_SQL}=?5 COLLATE BINARY${attemptFacts?" AND j.last_attempt_at=?8 AND j.hold_reason='attempt_unresolved'":''}) AND ?6<=${PRIVACY_DB_NOW} THEN 1 ELSE json_extract('original_recovery_companion_changed_held','$') END AS admitted`).bind(p.operationId,p.subject,p.subjectGeneration,p.requestDigest,c.nativeScalar,f.observedAt,c.markerKey,...(attemptFacts?[attemptFacts.claimed]:[]));
 }
