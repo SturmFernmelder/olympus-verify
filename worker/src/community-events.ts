@@ -43,7 +43,7 @@ import { validateName } from "./community-names";
 import { isoToSeconds, secondsToIso } from "./community-time";
 import { RAID_ROLES, scanLimit, type RaidRole, orderDigest, encodeCursor, cursorParts } from "./community-directory";
 import { eventDeliveryChanged, eventDeliveryCloseExpired, eventDeliveryExpiry, eventDeliveryOwnerErase } from "./community-event-delivery";
-import { eventReminderChanged, eventReminderCloseExpired, eventReminderExpiry, eventReminderOwnerErase } from "./community-event-reminders";
+import { eventReminderChanged, eventReminderCloseExpired, eventReminderExpiry, eventReminderMentionErase, eventReminderOwnerErase } from "./community-event-reminders";
 
 /*
  * .67 (Codex's independent calendar review on .59, 1 Oct 02:50 UTC; four grouped repairs and two contract decisions):
@@ -71,8 +71,8 @@ export const EVENT_LIMITS = { titleMax: 80, detailsMax: 500, durationMin: 15, du
 export const ORGANIZER_PLACEHOLDER = "Guild organizer";
 const ID = /^[A-Za-z0-9_-]{22}$/;
 const HEX32 = /^[0-9a-f]{32}$/;
-const RSVP_STATUSES = ["yes", "tentative", "no"] as const;
-type RsvpStatus = (typeof RSVP_STATUSES)[number];
+export const RSVP_STATUSES = ["yes", "tentative", "no"] as const;
+export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 export const ATTENDANCE_STATES = ["present", "absent", "excused", "unknown"] as const;
 type AttendanceState = (typeof ATTENDANCE_STATES)[number];
 const ATTENDANCE_REASONS = ["late", "left_early"] as const;
@@ -85,6 +85,8 @@ const EVENT_COLUMNS = `e.id, e.title, e.details, e.starts_at, e.duration_min, e.
   (SELECT ${DISPLAY} FROM site_users u WHERE u.discord_id = e.created_by) AS creator_name`;
 /** The 'yes' answers to `eventExpr` whose owners qualify at the moment of the statement. */
 const placesHeld = (eventExpr: string) => `(SELECT COUNT(*) FROM community_event_signups o WHERE o.event_id = ${eventExpr} AND o.status = 'yes' AND ${qualifiesSql("o.discord_id")})`;
+/** Stage 2: the qualifying accepted sign-ups also hold places (Codex finding 2): the capacity cannot go below them. */
+const acceptedHeld = (eventExpr: string) => `(SELECT COUNT(*) FROM community_event_signups a WHERE a.event_id = ${eventExpr} AND a.decision = 'accepted' AND ${qualifiesSql("a.discord_id")})`;
 const inCalendar = (idExpr: string) => `(EXISTS (SELECT 1 FROM community_event_signups cs WHERE cs.discord_id = ${idExpr}) OR EXISTS (SELECT 1 FROM community_event_attendance ca WHERE ca.discord_id = ${idExpr}))`;
 const calendarMembers = (limitExpr: string) => `(SELECT COUNT(*) FROM (SELECT discord_id FROM community_event_signups UNION SELECT discord_id FROM community_event_attendance LIMIT ${limitExpr}))`;
 /** True when the distinct ids of the JSON array `newcomersExpr` not yet in the calendar still fit under `limitExpr`. */
@@ -172,11 +174,17 @@ function parseField(field: EventField, raw: unknown, at: number): EventValues[Ev
 
 // ---------- shapes ----------
 type EventRow = { id: string; title: string; details: string; starts_at: number; duration_min: number; ends_at: number; capacity: number | null; role_targets: string | null; status: "scheduled" | "cancelled"; revision: number; signup_generation: number; attendance_generation: number; created_by: string | null; creator_name: string | null };
-type MineRow = { event_id: string; status: RsvpStatus; character_name: string | null; raid_role: RaidRole | null; revision: number; rsvp_starts_at: number };
+type MineRow = { event_id: string; status: RsvpStatus; character_name: string | null; raid_role: RaidRole | null; revision: number; rsvp_starts_at: number; remind_mention: number; decision: Decision | null };
 type OwnAttendance = { event_id: string; state: string; source: string; reason_code: string | null; recorded_at: number };
-type Counts = { yes: number; tentative: number; no: number; byRole: Record<RaidRole, number> };
-const tally = (rows: { status: RsvpStatus; raid_role: RaidRole | null; n: number }[]): Counts => {
-  const c: Counts = { yes: 0, tentative: 0, no: 0, byRole: { tank: 0, healer: 0, damage: 0 } };
+/** Stage 2 (15 Oct 2026): the organizer's roster decision, kept on the sign-up row with its own monotonic revision. `accepted` holds one of the event's places; bench and declined never do. */
+export const ROSTER_DECISIONS = ["accepted", "bench", "declined"] as const;
+export type Decision = (typeof ROSTER_DECISIONS)[number];
+type AcceptedRow = { event_id: string; n: number };
+const DECISION_MAX_ENTRIES = 25; // one statement per entry inside one admitted batch, so the capacity rule counts each acceptance against the ones before it
+const MINE_SELECT = "SELECT s.event_id, s.status, s.character_name, s.raid_role, s.revision, s.rsvp_starts_at, s.remind_mention, s.decision FROM community_event_signups s";
+type Counts = { yes: number; tentative: number; no: number; accepted: number; byRole: Record<RaidRole, number> };
+const tally = (rows: { status: RsvpStatus; raid_role: RaidRole | null; n: number }[], accepted = 0): Counts => {
+  const c: Counts = { yes: 0, tentative: 0, no: 0, accepted, byRole: { tank: 0, healer: 0, damage: 0 } };
   for (const r of rows) {
     c[r.status] += r.n;
     if (r.status === "yes" && r.raid_role) c.byRole[r.raid_role] += r.n;
@@ -199,7 +207,7 @@ function eventShape(e: EventRow, counts: Counts, mine: MineRow | undefined, view
     signupGeneration: e.signup_generation,
     organizer: { displayName: e.created_by !== null && e.creator_name && creatorQualifies ? e.creator_name : ORGANIZER_PLACEHOLDER },
     counts,
-    mine: mine ? { status: mine.status, character: mine.character_name, raidRole: mine.raid_role, revision: mine.revision, changedSinceRsvp: mine.rsvp_starts_at !== e.starts_at } : null,
+    mine: mine ? { status: mine.status, character: mine.character_name, raidRole: mine.raid_role, revision: mine.revision, changedSinceRsvp: mine.rsvp_starts_at !== e.starts_at, remindMention: mine.remind_mention === 1, decision: mine.decision ?? null } : null,
     myAttendance: own ? { state: own.state, source: own.source, reasonCode: own.reason_code, recordedAt: secondsToIso(own.recorded_at) } : null,
     canManage: viewer.organizer && (viewer.staff || (e.created_by !== null && e.created_by === viewer.id)),
   };
@@ -209,8 +217,8 @@ const QUAL_CREATOR = `(e.created_by IS NOT NULL AND ${qualifiesSql("e.created_by
 type CountRow = { event_id: string; status: RsvpStatus; raid_role: RaidRole | null; n: number };
 type EventDto = ReturnType<typeof eventShape>;
 /** Events (already read, in their order) with counts over qualifying answers, the viewer's own answer and attendance, all from one batch. */
-const shapeFrom = (rows: (EventRow & { creator_ok: number })[], countRows: CountRow[], mineRows: MineRow[], ownRows: OwnAttendance[], viewer: Viewer): EventDto[] =>
-  rows.map((e) => eventShape(e, tally(countRows.filter((r) => r.event_id === e.id)), mineRows.find((m) => m.event_id === e.id), viewer, e.creator_ok === 1, ownRows.find((a) => a.event_id === e.id)));
+const shapeFrom = (rows: (EventRow & { creator_ok: number })[], countRows: CountRow[], mineRows: MineRow[], ownRows: OwnAttendance[], viewer: Viewer, acceptedRows: AcceptedRow[] = []): EventDto[] =>
+  rows.map((e) => eventShape(e, tally(countRows.filter((r) => r.event_id === e.id), acceptedRows.find((a) => a.event_id === e.id)?.n ?? 0), mineRows.find((m) => m.event_id === e.id), viewer, e.creator_ok === 1, ownRows.find((a) => a.event_id === e.id)));
 /**
  * One event as the viewer may read it now: one fenced batch (.67). `hydration` says why `event` is null although the
  * event may exist: the reader's admission did not hold at the payload, or the answers behind the counts exceed the bound.
@@ -222,15 +230,16 @@ async function readEvent(env: Env, ctx: CommunityContext, id: string): Promise<{
     env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM (SELECT 1 FROM community_event_signups s WHERE s.event_id = ?1 AND ${qualifiesSql("s.discord_id")} LIMIT ?2)`).bind(id, limit + 1),
     env.DB.prepare(`SELECT s.event_id, s.status, s.raid_role, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id = ?1 AND ${qualifiesSql("s.discord_id")} GROUP BY s.event_id, s.status, s.raid_role`).bind(id),
-    env.DB.prepare("SELECT event_id, status, character_name, raid_role, revision, rsvp_starts_at FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
+    env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
     env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
+    env.DB.prepare(`SELECT s.event_id, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id = ?1 AND s.decision = 'accepted' AND ${qualifiesSql("s.discord_id")} GROUP BY s.event_id`).bind(id),
   ]);
   if (out === FENCE_REFUSED) return { event: null, hydration: "refused" };
-  const [ev, pre, counts, mine, own] = out;
+  const [ev, pre, counts, mine, own, accepted] = out;
   const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
   if (!e) return { event: null };
   if (((pre!.results[0] as { n: number } | undefined)?.n ?? 0) > limit) return { event: null, hydration: "too_large" };
-  return { event: shapeFrom([e], counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], viewer)[0] ?? null };
+  return { event: shapeFrom([e], counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], viewer, accepted!.results as AcceptedRow[])[0] ?? null };
 }
 const loadEvent = async (env: Env, ctx: CommunityContext, id: string): Promise<EventDto | null> => (await readEvent(env, ctx, id)).event;
 /** Only after a returned mutation batch: preserve its acknowledgement without a newly refused event payload. */
@@ -298,11 +307,12 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id IN (${pageSql}) ORDER BY e.starts_at, e.id`).bind(...pageParams),
       env.DB.prepare(`SELECT COUNT(*) AS n FROM (SELECT 1 FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND ${qualifiesSql("s.discord_id")} LIMIT ?7)`).bind(...pageParams, limit + 1),
       env.DB.prepare(`SELECT s.event_id, s.status, s.raid_role, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND ${qualifiesSql("s.discord_id")} GROUP BY s.event_id, s.status, s.raid_role`).bind(...pageParams),
-      env.DB.prepare(`SELECT event_id, status, character_name, raid_role, revision, rsvp_starts_at FROM community_event_signups WHERE discord_id = ?7 AND event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
+      env.DB.prepare(`${MINE_SELECT} WHERE s.discord_id = ?7 AND s.event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
       env.DB.prepare(`SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE discord_id = ?7 AND event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
+      env.DB.prepare(`SELECT s.event_id, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND s.decision = 'accepted' AND ${qualifiesSql("s.discord_id")} GROUP BY s.event_id`).bind(...pageParams),
     ]);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
-    const [win, evs, pre, counts, mine, own] = out;
+    const [win, evs, pre, counts, mine, own, accepted] = out;
     const windowRows = win!.results as { starts_at: number; id: string }[];
     if (windowRows.length > limit || ((pre!.results[0] as { n: number } | undefined)?.n ?? 0) > limit) return apiJson({ error: "events_too_large" }, 503);
     const digest = await orderDigest(windowRows.map((r) => [r.starts_at, r.id]));
@@ -310,7 +320,7 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
     const rows = evs!.results as (EventRow & { creator_ok: number })[];
     const page = rows.slice(0, EVENT_LIMITS.pageSize);
     const last = page.at(-1);
-    const events = shapeFrom(page, counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], viewer);
+    const events = shapeFrom(page, counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], viewer, accepted!.results as AcceptedRow[]);
     return apiJson({ from: secondsToIso(from), to: secondsToIso(to), events, nextCursor: rows.length > EVENT_LIMITS.pageSize && last ? encodeCursor([2, "events", from, to, digest, last.starts_at, last.id]) : null });
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
@@ -346,11 +356,11 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
     const out = await admittedRead(env, ctx, "confirmedGuildData", [
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
       env.DB.prepare(
-        `SELECT s.discord_id, s.status, s.character_name, s.raid_role, s.updated_at, s.rsvp_starts_at, ${DISPLAY} AS display_name, (SELECT r.ref FROM community_refs r WHERE r.discord_id = s.discord_id) AS ref
+        `SELECT s.discord_id, s.status, s.character_name, s.raid_role, s.updated_at, s.rsvp_starts_at, ${DISPLAY} AS display_name, (SELECT r.ref FROM community_refs r WHERE r.discord_id = s.discord_id) AS ref, s.decision, s.decision_revision
          FROM community_event_signups s JOIN site_users u ON u.discord_id = s.discord_id
          WHERE s.event_id = ?1 AND ${qualifiesSql("s.discord_id")} LIMIT ?2`,
       ).bind(id, limit + 1),
-      env.DB.prepare("SELECT event_id, status, character_name, raid_role, revision, rsvp_starts_at FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
+      env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
       env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
     ]);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData"); // .67: the reader's admission at the payload
@@ -358,10 +368,10 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
     const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
     if (!e) return apiJson({ error: "event_not_found" }, 404);
     if (after && (after.revision !== e.revision || after.generation !== e.signup_generation)) return apiJson({ error: "cursor_stale" }, 409);
-    type SignupRow = { discord_id: string; status: RsvpStatus; character_name: string | null; raid_role: RaidRole | null; updated_at: number; rsvp_starts_at: number; display_name: string; ref: string | null };
+    type SignupRow = { discord_id: string; status: RsvpStatus; character_name: string | null; raid_role: RaidRole | null; updated_at: number; rsvp_starts_at: number; display_name: string; ref: string | null; decision: Decision | null; decision_revision: number };
     const all = signups!.results as SignupRow[];
     if (all.length > limit) return apiJson({ error: "events_too_large" }, 503);
-    const counts = tally(all.map((r) => ({ status: r.status, raid_role: r.raid_role, n: 1 })));
+    const counts = tally(all.map((r) => ({ status: r.status, raid_role: r.raid_role, n: 1 })), all.filter((r) => r.decision === "accepted").length);
     const ordered = (await Promise.all(all.map(async (r) => ({ r, key: [RANK[r.status], fold(r.display_name), await tie(id, r.discord_id)] as OrderKey })))).sort((a, b) => cmp(a.key, b.key));
     const digest = await orderDigest(ordered.map((x) => x.key));
     if (after && after.digest !== digest) return apiJson({ error: "cursor_stale" }, 409);
@@ -370,7 +380,7 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
     const last = page.at(-1);
     return apiJson({
       event: eventShape(e, counts, (mine!.results as MineRow[])[0], viewer, e.creator_ok === 1, ctx.features.has("attendance") ? (own!.results as OwnAttendance[])[0] : undefined),
-      signups: page.map(({ r }) => ({ ...(viewer.organizer ? { ref: r.ref } : {}), displayName: r.display_name, status: r.status, character: r.character_name, raidRole: r.raid_role, updatedAt: secondsToIso(r.updated_at), changedSinceRsvp: r.rsvp_starts_at !== e.starts_at })),
+      signups: page.map(({ r }) => ({ ...(viewer.organizer ? { ref: r.ref, decisionRevision: r.decision_revision } : {}), displayName: r.display_name, status: r.status, character: r.character_name, raidRole: r.raid_role, updatedAt: secondsToIso(r.updated_at), changedSinceRsvp: r.rsvp_starts_at !== e.starts_at, decision: r.decision ?? null })),
       nextCursor: remaining.length > EVENT_LIMITS.pageSize && last ? encodeCursor([1, "signups", id, e.revision, e.signup_generation, digest, ...last.key]) : null,
     });
   } catch (e) {
@@ -379,6 +389,53 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
 }
 
 // ---------- RSVP ----------
+/**
+ * Owner item 3, stage 1 (14 Oct 2026): the RSVP write as ONE builder shared by the website (`rsvp`) and the Discord
+ * buttons (community-event-buttons.ts). The first statement is the admitted one: the event is open, the answer's own
+ * revision matches (or `anyRevision`, for a button, which states the member's answer now rather than editing a known
+ * one), the event revision matches when `eventRevision` is given (a button carries the revision it was posted for),
+ * capacity and calendar room are judged in the statement, and `fence` is the caller's admission predicate (the site's
+ * session fence at ?2/?3/?14, or the Discord member fence at ?2). Every later statement requires the nonce.
+ */
+export interface RsvpWrite { eventId: string; me: string; status: RsvpStatus; character: { name: string; key: string } | null; raidRole: RaidRole | null; keepChar: boolean; keepRole: boolean; revision: number; anyRevision: boolean; eventRevision: number; nonce: string; newRef: string; at: number; limit: number; fence: string; sessionVersion: number; expiresAt: number; remindMention: 0 | 1 | null }
+export function rsvpStatements(env: Env, w: RsvpWrite): D1PreparedStatement[] {
+  // ?1 event, ?2 me, ?3 version (fence), ?4 status, ?5 name, ?6 key, ?7 role, ?8 now, ?9 revision, ?10 keepChar, ?11 keepRole, ?12 nonce, ?13 limit, ?14 expiry (fence), ?15 anyRevision, ?16 eventRevision (0 = any), ?17 remindMention (NULL = keep)
+  return [
+    env.DB.prepare(
+      `INSERT INTO community_event_signups (event_id, discord_id, status, character_name, character_key, raid_role, revision, rsvp_starts_at, updated_at, write_nonce, remind_mention)
+       SELECT e.id, ?2, ?4, ?5, ?6, ?7, 1, e.starts_at, ?8, ?12, COALESCE(?17, 0) FROM community_events e
+       WHERE e.id = ?1 AND e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND (?16 = 0 OR e.revision = ?16)
+         AND (?15 = 1 OR ?9 = 0 OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.revision = ?9))
+         AND (?4 <> 'yes' OR e.capacity IS NULL OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.status = 'yes') OR ${placesHeld("?1")} < e.capacity)
+         AND ${calendarRoom("json_array(?2)", "?13")}
+         AND ${w.fence}
+       ON CONFLICT(event_id, discord_id) DO UPDATE SET
+         status = excluded.status,
+         character_name = CASE WHEN ?10 = 1 THEN community_event_signups.character_name ELSE excluded.character_name END,
+         character_key = CASE WHEN ?10 = 1 THEN community_event_signups.character_key ELSE excluded.character_key END,
+         raid_role = CASE WHEN ?11 = 1 THEN community_event_signups.raid_role ELSE excluded.raid_role END,
+         remind_mention = CASE WHEN ?17 IS NULL THEN community_event_signups.remind_mention ELSE ?17 END,
+         decision = CASE WHEN excluded.status = 'no' THEN NULL ELSE community_event_signups.decision END,
+         decided_by = CASE WHEN excluded.status = 'no' THEN NULL ELSE community_event_signups.decided_by END,
+         decided_at = CASE WHEN excluded.status = 'no' THEN NULL ELSE community_event_signups.decided_at END,
+         decision_revision = CASE WHEN excluded.status = 'no' AND (community_event_signups.status <> 'no' OR community_event_signups.decision IS NOT NULL) THEN community_event_signups.decision_revision + 1 ELSE community_event_signups.decision_revision END,
+         revision = community_event_signups.revision + 1, rsvp_starts_at = excluded.rsvp_starts_at, updated_at = excluded.updated_at, write_nonce = excluded.write_nonce
+       WHERE ?15 = 1 OR community_event_signups.revision = ?9`,
+    ).bind(w.eventId, w.me, w.sessionVersion, w.status, w.character?.name ?? null, w.character?.key ?? null, w.raidRole, w.at, w.revision, w.keepChar ? 1 : 0, w.keepRole ? 1 : 0, w.nonce, w.limit, w.expiresAt, w.anyRevision ? 1 : 0, w.eventRevision, w.remindMention),
+    env.DB.prepare("UPDATE community_events SET signup_generation = signup_generation + 1 WHERE id = ?1 AND EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?3)").bind(w.eventId, w.me, w.nonce),
+    refAfterSignup(env, w.eventId, w.me, w.nonce, w.newRef, w.at),
+    env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?3, ?2, 'community.rsvp', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?4)").bind(w.eventId, w.me, w.at, w.nonce),
+  ];
+}
+export type RsvpState = { status: string; revision: number; started: number; capacity: number | null; yes: number; mine_revision: number | null; mine_status: string | null; in_calendar: number; calendar_room: number };
+/** Why an RSVP write did not land, from fresh facts in one statement: the same questions the write asked. */
+export const rsvpRefusalState = (env: Env, eventId: string, me: string, limit: number) => env.DB.prepare(
+  `SELECT e.status, e.revision, (e.starts_at <= ${DB_NOW}) AS started, e.capacity, ${placesHeld("e.id")} AS yes,
+          (SELECT revision FROM community_event_signups o WHERE o.event_id = e.id AND o.discord_id = ?2) AS mine_revision,
+          (SELECT status FROM community_event_signups o WHERE o.event_id = e.id AND o.discord_id = ?2) AS mine_status,
+          ${inCalendar("?2")} AS in_calendar, ${calendarRoom("json_array(?2)", "?3")} AS calendar_room
+   FROM community_events e WHERE e.id = ?1`,
+).bind(eventId, me, limit).first<RsvpState>();
 /** PUT /api/community/events/rsvp {eventId, status, character?, raidRole?, revision} → {event} */
 export async function rsvp(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   const no = await gate(request, env, ctx, "events");
@@ -388,7 +445,7 @@ export async function rsvp(request: Request, env: Env, ctx: CommunityContext): P
   const me = ctx.subject!.discordId;
   if (rateLimited(`cr:${me}`, 30, 60)) return apiJson({ error: "slow_down", message: "Too many answers in one minute. Wait a moment, then try again." }, 429);
   try {
-    const body = await bodyOf(request, ["eventId", "status", "character", "raidRole", "revision"]);
+    const body = await bodyOf(request, ["eventId", "status", "character", "raidRole", "revision", "remindMention"]);
     const eventId = idOf(body.eventId);
     const revision = revisionOf(body.revision, 0);
     if (!(RSVP_STATUSES as readonly unknown[]).includes(body.status)) throw new Bad("invalid_status");
@@ -401,39 +458,21 @@ export async function rsvp(request: Request, env: Env, ctx: CommunityContext): P
     }
     if (body.raidRole !== undefined && body.raidRole !== null && !(RAID_ROLES as readonly unknown[]).includes(body.raidRole)) throw new Bad("invalid_raid_role");
     const raidRole = (body.raidRole ?? null) as RaidRole | null;
+    // stage 2: the reminder-mention choice; absent or null keeps the stored choice
+    let remindMention: 0 | 1 | null = null;
+    if (body.remindMention !== undefined && body.remindMention !== null) {
+      if (body.remindMention !== true && body.remindMention !== false) throw new Bad("invalid_remind_mention");
+      remindMention = body.remindMention ? 1 : 0;
+    }
     const t = now();
     const nonce = randomToken(), newRef = randomToken();
     const limit = scanLimit(env);
-    // ?1 event, ?2 me, ?3 version (fence), ?4 status, ?5 name, ?6 key, ?7 role, ?8 now, ?9 revision, ?10 keepChar, ?11 keepRole, ?12 nonce, ?13 limit, ?14 expiry (fence)
-    const out = await admitted(env, ctx, [
-      env.DB.prepare(
-        `INSERT INTO community_event_signups (event_id, discord_id, status, character_name, character_key, raid_role, revision, rsvp_starts_at, updated_at, write_nonce)
-         SELECT e.id, ?2, ?4, ?5, ?6, ?7, 1, e.starts_at, ?8, ?12 FROM community_events e
-         WHERE e.id = ?1 AND e.status = 'scheduled' AND e.starts_at > ${DB_NOW}
-           AND (?9 = 0 OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.revision = ?9))
-           AND (?4 <> 'yes' OR e.capacity IS NULL OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.status = 'yes') OR ${placesHeld("?1")} < e.capacity)
-           AND ${calendarRoom("json_array(?2)", "?13")}
-           AND ${fenceSql("confirmedGuildData", 2, 3, 14)}
-         ON CONFLICT(event_id, discord_id) DO UPDATE SET
-           status = excluded.status,
-           character_name = CASE WHEN ?10 = 1 THEN community_event_signups.character_name ELSE excluded.character_name END,
-           character_key = CASE WHEN ?10 = 1 THEN community_event_signups.character_key ELSE excluded.character_key END,
-           raid_role = CASE WHEN ?11 = 1 THEN community_event_signups.raid_role ELSE excluded.raid_role END,
-           revision = community_event_signups.revision + 1, rsvp_starts_at = excluded.rsvp_starts_at, updated_at = excluded.updated_at, write_nonce = excluded.write_nonce
-         WHERE community_event_signups.revision = ?9`,
-      ).bind(eventId, me, ctx.subject!.sessionVersion, status, character?.name ?? null, character?.key ?? null, raidRole, t, revision, body.character === undefined ? 1 : 0, body.raidRole === undefined ? 1 : 0, nonce, limit, ctx.subject!.expiresAt),
-      env.DB.prepare("UPDATE community_events SET signup_generation = signup_generation + 1 WHERE id = ?1 AND EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?3)").bind(eventId, me, nonce),
-      refAfterSignup(env, eventId, me, nonce, newRef, t),
-      env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?3, ?2, 'community.rsvp', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?4)").bind(eventId, me, t, nonce),
-    ]);
+    const out = await admitted(env, ctx, rsvpStatements(env, {
+      eventId, me, status, character, raidRole, keepChar: body.character === undefined, keepRole: body.raidRole === undefined, revision, anyRevision: false, eventRevision: 0, nonce, newRef, at: t, limit, remindMention,
+      fence: fenceSql("confirmedGuildData", 2, 3, 14, ctx.subject!.privacyGeneration, ctx.subject!.accountIncarnation), sessionVersion: ctx.subject!.sessionVersion, expiresAt: ctx.subject!.expiresAt,
+    }));
     if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
-    const state = await env.DB.prepare(
-      `SELECT e.status, (e.starts_at <= ${DB_NOW}) AS started, e.capacity, ${placesHeld("e.id")} AS yes,
-              (SELECT revision FROM community_event_signups o WHERE o.event_id = e.id AND o.discord_id = ?2) AS mine_revision,
-              (SELECT status FROM community_event_signups o WHERE o.event_id = e.id AND o.discord_id = ?2) AS mine_status,
-              ${inCalendar("?2")} AS in_calendar, ${calendarRoom("json_array(?2)", "?3")} AS calendar_room
-       FROM community_events e WHERE e.id = ?1`,
-    ).bind(eventId, me, limit).first<{ status: string; started: number; capacity: number | null; yes: number; mine_revision: number | null; mine_status: string | null; in_calendar: number; calendar_room: number }>();
+    const state = await rsvpRefusalState(env, eventId, me, limit);
     if (!state) return apiJson({ error: "event_not_found" }, 404);
     const event = await loadEvent(env, ctx, eventId);
     if (state.status === "cancelled") return apiJson({ error: "event_cancelled", event }, 410);
@@ -483,7 +522,7 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `INSERT INTO community_events (id, op_id, op_hash, title, details, starts_at, duration_min, ends_at, capacity, role_targets, status, created_by, revision, nonce, created_at, updated_at, retain_until)
-         SELECT ?1, ?1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'scheduled', ?2, 1, ?12, ?13, ?13, ?14 WHERE ${fenceSql("confirmedGuildData", 2, 3, 15)}
+         SELECT ?1, ?1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'scheduled', ?2, 1, ?12, ?13, ?13, ?14 WHERE ${fenceSql("confirmedGuildData", 2, 3, 15,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
          ON CONFLICT DO NOTHING`,
       ).bind(id, me, ctx.subject!.sessionVersion, hash, v.title, v.details, v.startsAt, v.durationMin, endsAt, v.capacity, roleTargetsText(v.roleTargets), nonce, t, endsAt + EVENT_RETENTION_S, ctx.subject!.expiresAt),
       historyStatement(env, id, "created", me, t, [], nonce),
@@ -499,8 +538,8 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
   }
 }
 
-type Stored = { id: string; title: string; details: string; starts_at: number; duration_min: number; capacity: number | null; role_targets: string | null; status: string; revision: number; created_by: string | null; created_at: number; yes: number; started: number };
-const stored = (env: Env, id: string) => env.DB.prepare(`SELECT id, title, details, starts_at, duration_min, capacity, role_targets, status, revision, created_by, created_at, ${placesHeld("community_events.id")} AS yes, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(id).first<Stored>();
+type Stored = { id: string; title: string; details: string; starts_at: number; duration_min: number; capacity: number | null; role_targets: string | null; status: string; revision: number; created_by: string | null; created_at: number; yes: number; accepted: number; started: number };
+const stored = (env: Env, id: string) => env.DB.prepare(`SELECT id, title, details, starts_at, duration_min, capacity, role_targets, status, revision, created_by, created_at, ${placesHeld("community_events.id")} AS yes, ${acceptedHeld("community_events.id")} AS accepted, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(id).first<Stored>();
 async function organizerRefusal(env: Env, ctx: CommunityContext, row: Stored | null, viewer: Viewer, revision: number, at: number): Promise<Response | null> {
   if (!row) return apiJson({ error: "event_not_found" }, 404);
   const event = () => loadEvent(env, ctx, row.id);
@@ -538,7 +577,9 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     const lowers = next.capacity !== null && (current.capacity === null || next.capacity < current.capacity);
     const belowHeld = (held: number) => lowers && next.capacity !== null && next.capacity < held;
     const capacityRefusal = async () => apiJson({ error: "capacity_below_signups", event: await loadEvent(env, ctx, eventId) }, 409);
+    const acceptedRefusal = async () => apiJson({ error: "capacity_below_accepted", event: await loadEvent(env, ctx, eventId) }, 409); // stage 2
     if (belowHeld(row!.yes)) return capacityRefusal();
+    if (belowHeld(row!.accepted)) return acceptedRefusal();
     const endsAt = next.startsAt + next.durationMin * 60;
     const me = ctx.subject!.discordId, nonce = randomToken();
     // ?1 id, ?2 revision, ?3 me, ?4 version, ?5.. values
@@ -546,8 +587,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
       env.DB.prepare(
         `UPDATE community_events SET title = ?5, details = ?6, starts_at = ?7, duration_min = ?8, ends_at = ?9, capacity = ?10, role_targets = ?11, retain_until = ?12, revision = revision + 1, nonce = ?13, updated_at = ?14
          WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND ?7 <= created_at + ${EVENT_LIMITS.horizonDays * 86400} AND (created_by = ?3 OR ?15 = 1)
-           AND (?10 IS NULL OR (capacity IS NOT NULL AND ?10 >= capacity) OR ?10 >= ${placesHeld("community_events.id")})
-           AND ${fenceSql("confirmedGuildData", 3, 4, 16)}`,
+           AND (?10 IS NULL OR (capacity IS NOT NULL AND ?10 >= capacity) OR (?10 >= ${placesHeld("community_events.id")} AND ?10 >= ${acceptedHeld("community_events.id")}))
+           AND ${fenceSql("confirmedGuildData", 3, 4, 16,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
       ).bind(eventId, revision, me, ctx.subject!.sessionVersion, next.title, next.details, next.startsAt, next.durationMin, endsAt, next.capacity, roleTargetsText(next.roleTargets), endsAt + EVENT_RETENTION_S, nonce, t, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
       eventDeliveryChanged(env, eventId, nonce),
       eventReminderChanged(env, eventId, nonce),
@@ -560,6 +601,7 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     if (refusedAfter) return refusedAfter;
     if (next.startsAt > after!.created_at + EVENT_LIMITS.horizonDays * 86400) throw new Bad("invalid_starts_at");
     if (belowHeld(after!.yes)) return capacityRefusal();
+    if (belowHeld(after!.accepted)) return acceptedRefusal();
     if (lowers && (await communityContext(env, request)).capabilities.organizer) return capacityRefusal();
     return refusal(env, request, "confirmedGuildData");
   } catch (e) {
@@ -585,7 +627,7 @@ export async function cancelEvent(request: Request, env: Env, ctx: CommunityCont
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_events SET status = 'cancelled', revision = revision + 1, nonce = ?5, updated_at = ?6, retain_until = MIN(retain_until, ?7)
-         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?8 = 1) AND ${fenceSql("confirmedGuildData", 3, 4, 9)}`,
+         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?8 = 1) AND ${fenceSql("confirmedGuildData", 3, 4, 9,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
       ).bind(eventId, revision, me, ctx.subject!.sessionVersion, nonce, t, t + EVENT_RETENTION_S, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
       eventDeliveryChanged(env, eventId, nonce, true),
       eventReminderChanged(env, eventId, nonce),
@@ -631,7 +673,7 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
       env.DB.prepare(`SELECT s.status, s.raid_role, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id = ?1 AND ${qualifiesSql("s.discord_id")} GROUP BY s.status, s.raid_role`).bind(id),
       env.DB.prepare(`${UNION_SQL} LIMIT ?2`).bind(id, limit + 1),
-      env.DB.prepare("SELECT event_id, status, character_name, raid_role, revision, rsvp_starts_at FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
+      env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
       env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
     ]);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData"); // .67
@@ -712,7 +754,7 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
     const member = "json_extract(j.value, '$[0]')";
     const statements: D1PreparedStatement[] = [
       // the admitted first statement: the event is open for recording, the calendar has room for every member this may add, the organizer still qualifies
-      env.DB.prepare(`UPDATE community_events SET attendance_nonce = ?2 WHERE id = ?1 AND status = 'scheduled' AND starts_at <= ${DB_NOW} AND ?3 = ?3 AND ${calendarRoom("?4", "?5")} AND ${fenceSql("confirmedGuildData", 6, 7, 8)}`).bind(eventId, nonce, t, JSON.stringify(creating), limit, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt),
+      env.DB.prepare(`UPDATE community_events SET attendance_nonce = ?2 WHERE id = ?1 AND status = 'scheduled' AND starts_at <= ${DB_NOW} AND ?3 = ?3 AND ${calendarRoom("?4", "?5")} AND ${fenceSql("confirmedGuildData", 6, 7, 8,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(eventId, nonce, t, JSON.stringify(creating), limit, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt),
     ];
     if (writes.length > 0) {
       statements.push(
@@ -812,6 +854,124 @@ export async function myAttendance(request: Request, env: Env, ctx: CommunityCon
   }
 }
 
+// ---------- stage 2 (15 Oct 2026): the organizer's roster decisions, kept on the sign-up row ----------
+type DecisionEntry = { ref: string; value: { decision: Decision | null; revision: number } | null };
+function parseDecisionEntries(raw: unknown): DecisionEntry[] {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > DECISION_MAX_ENTRIES) throw new Bad("invalid_entries");
+  const seen = new Set<string>();
+  return raw.map((item) => {
+    if (!isRecord(item) || !text(item.ref) || !ID.test(item.ref) || seen.has(item.ref) || Object.keys(item).some((k) => !["ref", "decision", "revision"].includes(k))) throw new Bad("invalid_entries");
+    seen.add(item.ref);
+    const decision = item.decision ?? null, revision = item.revision;
+    const ok = (decision === null || (ROSTER_DECISIONS as readonly unknown[]).includes(decision)) && safeInt(revision) && revision >= 0;
+    return { ref: item.ref, value: ok ? { decision: decision as Decision | null, revision: revision as number } : null };
+  });
+}
+type DecisionRow = { discord_id: string; ref: string; display_name: string | null; rsvp: RsvpStatus | null; decision: Decision | null; revision: number | null; decided_at: number | null };
+type DecisionResult = { ref: string; result: "ok" | "invalid" | "unknown_member" | "stale_revision" | "not_signed_up" | "full"; decision: Decision | null; revision: number; displayName?: string | null; withheld?: "target_unqualified" };
+/**
+ * POST /api/community/events/decide {eventId, entries:[{ref, decision|null, revision}]} → {event, results}: the organizer
+ * who manages the event (its creator, or staff) decides who is on the roster, before the start. One admitted batch:
+ * the first statement moves the sign-up generation under the organizer's fence (pages of the list restart), then one
+ * statement per entry so the capacity rule counts each acceptance against the ones already there: `accepted` lands only
+ * while the accepted members who still qualify are fewer than the capacity (no capacity: unlimited) and only for a
+ * member whose answer is yes or tentative; `bench` and `declined` never hold a place; `null` clears. Every write is a
+ * compare-and-set on the sign-up row's own `decision_revision` (0 = never decided), which only ever moves forward: the
+ * row persists through a clear and through the member's `no`, so no revision is reused. The member's `no` moves the revision
+ * whenever it withdraws a yes/tentative answer or clears a decision (a repeated `no` moves nothing), so every organizer command
+ * loaded before the withdrawal is stale, decided row or not; a clear of an undecided row is a no-op at the unchanged revision. The results requalify every
+ * target in the same batch, as attendance does.
+ */
+export async function decideRoster(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
+  const no = await gate(request, env, ctx, "events", true);
+  if (no) return no;
+  const reload = needPage(request);
+  if (reload) return reload;
+  try {
+    const body = await bodyOf(request, ["eventId", "entries"]);
+    const eventId = idOf(body.eventId);
+    const entries = parseDecisionEntries(body.entries);
+    const t = now();
+    const s = ctx.subject!, me = s.discordId, staff = ctx.capabilities.communityStaff ? 1 : 0;
+    const refuse = async (): Promise<Response | null> => {
+      const e = await env.DB.prepare(`SELECT status, created_by, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(eventId).first<{ status: string; created_by: string | null; started: number }>();
+      if (!e) return apiJson({ error: "event_not_found" }, 404);
+      if (!(staff === 1 || (e.created_by !== null && e.created_by === me))) return apiJson({ error: "not_organizer", message: "Only the organizer of this event, or staff, decides its roster." }, 403);
+      if (e.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId) }, 410);
+      if (e.started === 1) return apiJson({ error: "event_started", event: await loadEvent(env, ctx, eventId) }, 409);
+      return null;
+    };
+    const refused = await refuse();
+    if (refused) return refused;
+    const nonce = randomToken();
+    const open = `e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND (e.created_by = ?5 OR ?8 = 1)`;
+    const fence = fenceSql("confirmedGuildData", 5, 9, 10, s.privacyGeneration, s.accountIncarnation);
+    const target = `discord_id = (SELECT r.discord_id FROM community_refs r WHERE r.ref = ?3 AND ${qualifiesSql("r.discord_id")})`;
+    const bind = (ref: string, decision: Decision | null, revision: number) => [eventId, nonce, ref, decision, me, t, revision, staff, s.sessionVersion, s.expiresAt] as const;
+    const statements: D1PreparedStatement[] = [
+      // the admitted first statement: the event is open and this organizer manages it; the list's pages restart
+      env.DB.prepare(`UPDATE community_events AS e SET signup_generation = signup_generation + 1 WHERE e.id = ?1 AND ${open} AND ${fence}`).bind(...bind("", null, 0)),
+    ];
+    const valid = entries.filter((x) => x.value !== null);
+    for (const x of valid) {
+      const v = x.value!;
+      if (v.decision === null) statements.push(env.DB.prepare(
+        `UPDATE community_event_signups SET decision = NULL, decided_by = NULL, decided_at = NULL, decision_revision = decision_revision + 1
+         WHERE event_id = ?1 AND ${target} AND decision_revision = ?7 AND decision IS NOT NULL
+           AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND ${open}) AND ${fence}
+         RETURNING discord_id, decision, decision_revision AS revision, decided_at`).bind(...bind(x.ref, null, v.revision)));
+      else statements.push(env.DB.prepare(
+        `UPDATE community_event_signups SET decision = ?4, decided_by = ?5, decided_at = ?6, decision_revision = decision_revision + 1
+         WHERE event_id = ?1 AND ${target} AND decision_revision = ?7 AND (?4 <> 'accepted' OR status IN ('yes', 'tentative'))
+           AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND ${open}
+             AND (?4 <> 'accepted' OR e.capacity IS NULL OR community_event_signups.decision = 'accepted' OR ${acceptedHeld("e.id")} < e.capacity))
+           AND ${fence}
+         RETURNING discord_id, decision, decision_revision AS revision, decided_at`).bind(...bind(x.ref, v.decision, v.revision)));
+    }
+    statements.push(
+      env.DB.prepare(`INSERT INTO audit (ts, actor, action, subject, details) SELECT ?6, ?5, 'community.roster_decided', ?1, ?11 FROM community_events e WHERE e.id = ?1 AND ${open} AND ${fence}`)
+        .bind(...bind("", null, 0), JSON.stringify({ entries: valid.length })),
+      // the result's payload, read in the same batch and requalifying every target: a member who no longer qualifies has no row here
+      env.DB.prepare(
+        `SELECT r.discord_id, r.ref, ${DISPLAY} AS display_name, s.status AS rsvp, s.decision, s.decision_revision AS revision, s.decided_at
+         FROM community_refs r JOIN site_users u ON u.discord_id = r.discord_id
+         LEFT JOIN community_event_signups s ON s.event_id = ?1 AND s.discord_id = r.discord_id
+         WHERE r.ref IN (SELECT value FROM json_each(?2)) AND ${qualifiesSql("r.discord_id")}`,
+      ).bind(eventId, JSON.stringify(entries.map((x) => x.ref))),
+    );
+    const out = await admitted(env, ctx, statements);
+    if (out === FENCE_REFUSED) {
+      const r2 = await refuse();
+      if (r2) return r2;
+      return refusal(env, request, "confirmedGuildData");
+    }
+    const current = new Map((out[out.length - 1]!.results as DecisionRow[]).map((r) => [r.ref, r]));
+    const results: DecisionResult[] = [];
+    let i = 1;
+    for (const x of entries) {
+      if (x.value === null) { results.push({ ref: x.ref, result: "invalid", decision: null, revision: 0 }); continue; }
+      const wrote = (out[i++]!.results[0] as { discord_id: string; decision: Decision | null; revision: number } | undefined) ?? null;
+      const row = current.get(x.ref) ?? null; // absent when the member no longer qualified at the payload
+      if (wrote) {
+        if (!row) results.push({ ref: x.ref, result: "ok", decision: x.value.decision, revision: x.value.revision + 1, withheld: "target_unqualified" });
+        else results.push({ ref: x.ref, result: "ok", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
+        continue;
+      }
+      if (!row) { results.push({ ref: x.ref, result: "unknown_member", decision: null, revision: 0 }); continue; }
+      if (row.rsvp === null) { results.push({ ref: x.ref, result: "not_signed_up", decision: null, revision: 0, displayName: row.display_name }); continue; }
+      const stale = (row.revision ?? 0) !== x.value.revision;
+      if (stale) results.push({ ref: x.ref, result: "stale_revision", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
+      else if (x.value.decision === null) results.push({ ref: x.ref, result: "ok", decision: null, revision: row.revision ?? 0, displayName: row.display_name }); // a clear of an undecided row at its revision is a no-op receipt
+      else if (x.value.decision === "accepted" && !(row.rsvp === "yes" || row.rsvp === "tentative")) results.push({ ref: x.ref, result: "not_signed_up", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
+      else if (x.value.decision === "accepted") results.push({ ref: x.ref, result: "full", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
+      else results.push({ ref: x.ref, result: "stale_revision", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
+    }
+    return apiJson({ ...(await readEvent(env, ctx, eventId)), results });
+  } catch (e) {
+    return bad(e) ?? Promise.reject(e);
+  }
+}
+
 /** Own retained event-change statements only. Construction executes nothing and grants no authority. */
 export function ownEventChangeStatements(env: Env, actor: string, position: { high: number; seen: number; ts: number; id: number } | null): D1PreparedStatement[] {
   const bounded = position ? 1 : 0, after = position && position.seen > 0 ? 1 : 0;
@@ -853,13 +1013,16 @@ registerCommunityData(
     env.DB.prepare("DELETE FROM community_event_signups WHERE discord_id = ?1").bind(id),
     env.DB.prepare("DELETE FROM community_event_attendance WHERE discord_id = ?1").bind(id),
     env.DB.prepare("UPDATE community_event_attendance SET recorded_by = NULL WHERE recorded_by = ?1").bind(id),
+    // stage 2: the decisions this account made stay without the decider (own decisions go with the own sign-up rows above); a reminder that mentioned this account forgets the id and is marked for removal
+    env.DB.prepare("UPDATE community_event_signups SET decided_by = NULL WHERE decided_by = ?1").bind(id),
+    eventReminderMentionErase(env, id),
     env.DB.prepare("UPDATE community_events SET created_by = NULL WHERE created_by = ?1").bind(id),
     env.DB.prepare("UPDATE community_event_changes SET actor = NULL WHERE actor = ?1").bind(id),
   ],
   (env, id) => ({
     // .74: a plan, run in the copy's one admitted batch
     statements: [
-      env.DB.prepare("SELECT s.event_id, e.title, e.starts_at, s.status, s.character_name, s.raid_role, s.rsvp_starts_at, s.updated_at FROM community_event_signups s LEFT JOIN community_events e ON e.id = s.event_id WHERE s.discord_id = ?1 ORDER BY e.starts_at").bind(id),
+      env.DB.prepare("SELECT s.event_id, e.title, e.starts_at, s.status, s.character_name, s.raid_role, s.rsvp_starts_at, s.updated_at, s.remind_mention, s.decision, s.decided_at FROM community_event_signups s LEFT JOIN community_events e ON e.id = s.event_id WHERE s.discord_id = ?1 ORDER BY e.starts_at").bind(id), // stage 2: + the reminder-mention choice and the organizer's decision for this sign-up (the decider withheld)
       env.DB.prepare("SELECT id, title, starts_at, status,created_at,updated_at,ends_at,duration_min,capacity,CASE WHEN role_targets IS NULL THEN NULL ELSE CASE WHEN typeof(role_targets)='text' AND length(role_targets) BETWEEN 1 AND 128 AND length(CAST(role_targets AS BLOB))<=512 AND instr(role_targets,char(0))=0 THEN role_targets ELSE json_extract('privacy_event_copy_text_refused','$') END END AS role_targets,retain_until FROM community_events WHERE created_by = ?1 ORDER BY starts_at").bind(id),
       env.DB.prepare("SELECT a.event_id, e.title, e.starts_at, a.state, a.source, a.reason_code, a.recorded_at FROM community_event_attendance a LEFT JOIN community_events e ON e.id = a.event_id WHERE a.discord_id = ?1 ORDER BY e.starts_at").bind(id),
     ],

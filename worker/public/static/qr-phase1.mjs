@@ -1,8 +1,10 @@
 const $=id=>document.getElementById(id),status=$('status');
+let betaMode=false;
 let record=null,code=null,signed=null,stream=null,worker=null,scanGeneration=0,automaticLease=null,autoBusy=false;
+let reviewGeneration=0,imageTimer=null,imagePickGeneration=null,automaticStarting=false;
 const seenCodes=new Set();
 const show=v=>{status.textContent=String(v);};
-const controlIds=['request','check','enroll','revoke','challenge','automatic-lease','scan','sign','rank-sync','recover','recover-key'];
+const controlIds=['request','check','enroll','revoke','challenge','automatic-lease','scan','sign','rank-sync','recover','recover-key','image-file','image-paste','camera'];
 for(const id of controlIds)$(id).disabled=true;
 const unavailable={phase1_disabled:'In-game browser verification is not open yet. Your existing Olympus verification remains available.',signed_out:'Sign in with Discord to continue.',current_serving_generation_required:'Sign in again to use the current account session.',fresh_complete_roster_required:'A fresh, complete in-game roster is needed. Ask a qualified councillor to refresh it.',no_qualified_high_council:'This character must hold the native High Council rank to enroll. Officer and website access do not qualify.'};
 const bytes=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -38,12 +40,14 @@ async function recoverKey(){let k=await keyStore();if(!k)throw Error('no_local_k
  const r=await keyRead('key-receipt',{contextToken:k.contextToken});return finalizeReceipt(k,r);
 }
 async function key(){const k=await keyStore();record=k;if(!k||k.schema!==KEY_SCHEMA||k.phase!=='active')throw Error('recover_original_key_first');owned(k);await verifyLocalKey(k);return k;}
+function betaKeyWindow(k){if(!k||typeof k.contextToken!=='string')return null;try{const p=k.contextToken.split('.')[0],x=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(p.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0))));return Array.isArray(x)&&x.length===18&&typeof x[12]==='string'&&x[12].startsWith('B1:')&&x[12].length===35&&[...x[12].slice(3)].every(c=>c>='0'&&c<='9'||c>='a'&&c<='f')?x[12].slice(3):null;}catch{return null;}}
+function betaChallengeCommand(r,k){const windowId=betaKeyWindow(k);if(!windowId)return '/olv browser '+r.nonce;const p=r.profile;if(!p||p.mode!=='B1'||p.windowId!==windowId||p.domain!=='OLY-P1-BETA-FERN1'||![r.createdAt,r.expiresAt,p.windowStart,p.windowExpires].every(n=>Number.isSafeInteger(n)&&n>=1000000000&&n<=9999999999)||p.windowStart>r.createdAt||r.expiresAt>r.createdAt+300||r.expiresAt>p.windowExpires||p.windowExpires>p.windowStart+86400||r.gameEnvelope!==['OLG2C','B1',r.nonce,r.createdAt,r.expiresAt,p.windowStart,p.windowExpires].join('|'))throw Error('invalid_beta_challenge');return '/olv browser beta enable\n/olv browser beta '+r.gameEnvelope;}
 async function enrollBrowser(){if(await keyStore())throw Error('recover_or_revoke_original_browser_key_first');const pair=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']),pub=bytes(await crypto.subtle.exportKey('raw',pair.publicKey)),guid=$('guid').value;
- const op=operationId(),p=await keyRead('key-context',{action:'enroll',operationId:op,guid,publicKey:pub});if(p.action!=='enroll'||p.operationId!==op||p.guid!==guid||p.publicKey!==pub)throw Error('invalid_key_context');const k=await contextRecord(p,pair.privateKey);await keyCAS(null,k);const spent={...k,phase:'enroll_spent'};await keyCAS(k,spent);record=spent;
+ const op=operationId(),p=await keyRead('key-context',{action:'enroll',operationId:op,guid,publicKey:pub,...(betaMode?{profile:'B1'}:{})});if(p.action!=='enroll'||p.operationId!==op||p.guid!==guid||p.publicKey!==pub)throw Error('invalid_key_context');const k=await contextRecord(p,pair.privateKey);await keyCAS(null,k);const spent={...k,phase:'enroll_spent'};await keyCAS(k,spent);record=spent;
  try{const r=await api('enroll',{contextToken:spent.contextToken});await finalizeReceipt(spent,r);}catch{show('Enrollment outcome is unknown. The original key is saved. Recover this key using read-only checks; do not enroll again.');}
 }
 async function revokeBrowser(){stop();automaticLease=null;signed=null;$('submit').disabled=true;let k=await keyStore();if(!k)throw Error('no_local_key_custody');if(k.schema!==KEY_SCHEMA){await recoverKey();k=await keyStore();}if(!k)return;if(k.phase!=='active'&&k.phase!=='legacy_held')throw Error('recover_original_key_first');owned(k);
- const op=operationId(),p=await keyRead('key-context',{action:'revoke',operationId:op,keyId:k.id});if(p.action!=='revoke'||p.operationId!==op||p.keyId!==k.id)throw Error('invalid_key_context');const prepared=await contextRecord(p,k.privateKey,k.origin);for(const f of ['id','actor','generation','guid','publicKey','rosterId','createdAt','expiresAt'])if(prepared[f]!==k[f])throw Error('original_key_custody_changed');await keyCAS(k,prepared);const spent={...prepared,phase:'revoke_spent'};await keyCAS(prepared,spent);record=spent;
+ const op=operationId(),p=await keyRead('key-context',{action:'revoke',operationId:op,keyId:k.id,...(betaKeyWindow(k)?{profile:'B1'}:{})});if(p.action!=='revoke'||p.operationId!==op||p.keyId!==k.id)throw Error('invalid_key_context');const prepared=await contextRecord(p,k.privateKey,k.origin);for(const f of ['id','actor','generation','guid','publicKey','rosterId','createdAt','expiresAt'])if(prepared[f]!==k[f])throw Error('original_key_custody_changed');await keyCAS(k,prepared);const spent={...prepared,phase:'revoke_spent'};await keyCAS(prepared,spent);record=spent;
  try{const r=await api('revoke',{contextToken:spent.contextToken});await finalizeReceipt(spent,r);}catch{show('Revocation outcome is unknown. Local custody is retained. Recover by read-only checks; no revocation write will be repeated.');}
 }
 
@@ -53,22 +57,111 @@ $('enroll').onclick=run(enrollBrowser);
 $('revoke').onclick=run(revokeBrowser);
 $('recover-key').onclick=run(recoverKey);
 async function cancelAutomatic(){const old=automaticLease;automaticLease=null;seenCodes.clear();stop();if(old)await api('cancel-challenge',{nonce:old.nonce});}
-$('challenge').onclick=run(async()=>{await cancelAutomatic();const k=await key(),r=await api('challenge',{keyId:k.id});$('game-command').textContent='/olv browser '+r.nonce;show('Enter the exact command in your High Council client; challenge expires in five minutes.');});
-$('automatic-lease').onclick=run(async()=>{await cancelAutomatic();const k=await key(),r=await api('automatic-lease',{keyId:k.id,optIn:true});if(r.mode!=='automatic'||r.maxProofs!==10||!Number.isSafeInteger(r.expiresAt)||r.expiresAt>Math.floor(Date.now()/1000)+300||typeof r.nonce!=='string'||!/^[0-9a-f]{32}$/.test(r.nonce))throw Error('invalid_lease_projection');automaticLease={...r,keyId:k.id};seenCodes.clear();signed=null;$('submit').disabled=true;$('game-command').textContent='/olv browser '+r.nonce;show('Automatic signing opted in. Enter this command, then select your game window. At most ten matching request codes; five minutes.');});
-function stop(){scanGeneration++;for(const t of stream?.getTracks()||[])t.stop();stream=null;worker?.terminate();worker=null;$('video').srcObject=null;}
-$('stop').onclick=run(async()=>{await cancelAutomatic();show('Capture and automatic signing stopped. An already accepted operation can still finish.');});window.addEventListener('pagehide',()=>{automaticLease=null;seenCodes.clear();stop();signed=null;$('wire').value='';});
-$('scan').onclick=run(async()=>{stop();const generation=scanGeneration,captured=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'window'},audio:false});if(generation!==scanGeneration){for(const t of captured.getTracks())t.stop();return;}stream=captured;const video=$('video');video.srcObject=stream;await video.play();if(generation!==scanGeneration)return;worker=new Worker('/static/qr-phase1-decoder.js');const canvas=$('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+$('challenge').onclick=run(async()=>{await cancelAutomatic();const k=await key(),r=await api('challenge',{keyId:k.id,...(betaKeyWindow(k)?{profile:'B1'}:{})});$('game-command').textContent=betaChallengeCommand(r,k);show(betaKeyWindow(k)?'Enable the exact Fern beta mode, then enter the complete original challenge envelope. This window admits only the named member request.':'Enter the exact command in your High Council client; challenge expires in five minutes.');});
+// The opt-in is bound to the capture generation taken synchronously, after its own stop and before its first await.
+// Stop, pagehide or another input during ANY await (the previous lease's cancellation, the key read, the lease request)
+// ends the opt-in: no new lease is requested after it, and a late lease is cancelled through the existing path and never
+// becomes local authority. An unconfirmed cancellation is reported as such.
+// Every pending wait is bounded (and its timer cleared on settlement, so no stray rejection): a hung cancellation, key
+// read, lease request or camera preview can never leave the page refusing attended input or holding a camera track.
+const bounded=(promise,ms,label)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(label)),ms);promise.then(v=>{clearTimeout(timer);resolve(v);},e=>{clearTimeout(timer);reject(e);});});
+$('automatic-lease').onclick=run(async()=>{if(automaticStarting)return;automaticStarting=true;try{const old=automaticLease;automaticLease=null;seenCodes.clear();stop();const generation=scanGeneration;if(old){let cancelled=false;try{cancelled=(await bounded(api('cancel-challenge',{nonce:old.nonce}),8000,'cancel_timeout')).cancelled===true;}catch{}if(!cancelled){show('The previous automatic lease could not be confirmed cancelled; it expires on its own. Opt in again when ready.');return;}}if(generation!==scanGeneration){show('Automatic opt-in was stopped before it took effect.');return;}let k;try{k=await bounded(key(),8000,'key_timeout');}catch(error){if(generation!==scanGeneration){show('Automatic opt-in was stopped before it took effect.');return;}throw error;}if(generation!==scanGeneration){show('Automatic opt-in was stopped before it took effect.');return;}let r;try{r=await bounded(api('automatic-lease',{keyId:k.id,optIn:true,...(betaKeyWindow(k)?{profile:'B1'}:{})}),15000,'lease_timeout');}catch(error){if(error?.message==='lease_timeout'){show('The automatic opt-in request timed out before a lease was confirmed. This page holds no lease; opt in again when ready.');return;}throw error;}
+ if(generation!==scanGeneration){let cancelled=false;if(typeof r?.nonce==='string'&&/^[0-9a-f]{32}$/.test(r.nonce)){try{cancelled=(await bounded(api('cancel-challenge',{nonce:r.nonce}),8000,'cancel_timeout')).cancelled===true;}catch{}}show(cancelled?'Automatic opt-in was stopped before it took effect; the late lease was cancelled.':'Automatic opt-in was stopped before it took effect; the late lease could not be confirmed cancelled. This page will not use it; the server expires it on its own.');return;}
+ if(r.mode!=='automatic'||r.maxProofs!==(betaKeyWindow(k)?1:10)||!Number.isSafeInteger(r.expiresAt)||r.expiresAt>Math.floor(Date.now()/1000)+300||typeof r.nonce!=='string'||!/^[0-9a-f]{32}$/.test(r.nonce))throw Error('invalid_lease_projection');
+ automaticLease={...r,keyId:k.id};seenCodes.clear();signed=null;$('submit').disabled=true;$('game-command').textContent=betaChallengeCommand(r,k);show(betaKeyWindow(k)?'Automatic signing opted in for the one named original beta request. Enter both commands, then select your game window.':'Automatic signing opted in. Enter this command, then select your game window. At most ten matching request codes; five minutes.');}finally{automaticStarting=false;}});
+function invalidateReview(){reviewGeneration++;signed=null;$('submit').disabled=true;$('review').textContent='';}
+function stop(){scanGeneration++;imagePickGeneration=null;clearTimeout(imageTimer);imageTimer=null;for(const t of stream?.getTracks()||[])t.stop();stream=null;worker?.terminate();worker=null;$('video').srcObject=null;$('video').hidden=true;$('canvas').width=$('canvas').height=0;$('image-file').value='';invalidateReview();}
+$('stop').onclick=run(async()=>{$('wire').value='';await cancelAutomatic();show('Capture and automatic signing stopped. An already accepted operation can still finish.');});window.addEventListener('pagehide',()=>{automaticLease=null;seenCodes.clear();stop();$('wire').value='';});
+
+// Images supply an attended observation only. They never enroll, sign, submit or call an API.
+function imageInputAllowed(event){
+ if($('image-file').disabled||!ownActor){event?.preventDefault();show('Sign in and confirm verification availability first.');return false;}
+ if(automaticStarting||automaticLease||autoBusy){event?.preventDefault();show('Stop automatic scanning and create a single observation challenge before reading an image.');return false;}
+ return true;
+}
+function imageFailure(generation,message){if(generation!==scanGeneration)return;stop();show(message);}
+async function readScreenshot(files){
+ stop();$('wire').value='';const generation=scanGeneration;
+ if(files.length!==1||!(files[0] instanceof File)){show('Choose or paste exactly one screenshot.');return;}
+ const file=files[0];
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||!Number.isSafeInteger(file.size)||file.size<1||file.size>8*1024*1024){show('Use one PNG, JPEG or WebP screenshot between 1 byte and 8 MiB.');return;}
+ if(typeof createImageBitmap!=='function'){show('This browser cannot read screenshot files here. Use game-window capture or paste the complete observation text.');return;}
+ imageTimer=setTimeout(()=>imageFailure(generation,'Screenshot reading timed out. Try a smaller crop or paste the complete observation text.'),10000);
+ let bitmap,pixels;
+ try{
+  // Check the container signature before asking the browser to decode its full contents.
+  const header=new Uint8Array(await file.slice(0,12).arrayBuffer());
+  if(generation!==scanGeneration)return;
+  const signature=(offset,bytes)=>bytes.every((byte,i)=>header[offset+i]===byte);
+  if(!(file.type==='image/png'&&signature(0,[137,80,78,71,13,10,26,10])||file.type==='image/jpeg'&&signature(0,[255,216,255])||file.type==='image/webp'&&signature(0,[82,73,70,70])&&signature(8,[87,69,66,80])))throw Error('image_format');
+  bitmap=await createImageBitmap(file);
+  if(generation!==scanGeneration)return;
+  const width=bitmap.width,height=bitmap.height;
+  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<49||height<49||width>8192||height>8192||width*height>16000000)throw Error('image_dimensions');
+  const scale=Math.min(1,1280/Math.max(width,height)),canvas=$('canvas');
+  canvas.width=Math.floor(width*scale);canvas.height=Math.floor(height*scale);
+  if(canvas.width<49||canvas.height<49)throw Error('image_dimensions');
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)throw Error('image_canvas');
+  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+  pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  bitmap.close();bitmap=null;
+  const imageWidth=canvas.width,imageHeight=canvas.height;canvas.width=canvas.height=0;
+  worker=new Worker('/static/qr-phase1-decoder.js');const requestId=generation;
+  worker.onmessage=({data:r})=>{
+   if(generation!==scanGeneration||!r||r.id!==requestId)return;
+   const wire=r.text;stop();
+   if(typeof wire==='string'&&new TextEncoder().encode(wire).length<=512){$('wire').value=wire;show('Screenshot read locally. Review and sign the observation before submission.');}
+   else show('No complete Olympus QR was found. Try a tighter screenshot crop or paste the complete observation text.');
+  };
+  worker.onerror=()=>imageFailure(generation,'Screenshot decoder unavailable. Paste the complete observation text.');
+  worker.postMessage({id:requestId,width:imageWidth,height:imageHeight,buffer:pixels.data.buffer},[pixels.data.buffer]);
+ }catch(error){imageFailure(generation,error.message==='image_dimensions'?'Screenshot dimensions are unsupported. Crop around the QR and try again.':'This screenshot could not be read. Try a PNG, JPEG or WebP image, or paste the complete observation text.');}
+ finally{bitmap?.close();if(pixels?.data.byteLength)pixels.data.fill(0);}
+}
+$('image-file').onclick=event=>{if(!imageInputAllowed(event))return;stop();$('wire').value='';imagePickGeneration=scanGeneration;};
+$('image-file').onchange=event=>{if(!imageInputAllowed(event)){$('image-file').value='';return;}if(imagePickGeneration!==scanGeneration){$('image-file').value='';return;}return readScreenshot(Array.from($('image-file').files||[]));};
+$('image-paste').addEventListener('paste',event=>{if(!imageInputAllowed(event))return;event.preventDefault();return readScreenshot(Array.from(event.clipboardData?.files||[]));});
+// Camera: an attended, local read of a QR shown on another screen (a phone pointed at the monitor is the common case).
+// Same decoder, same review/sign/submit, same capture generation and Stop as every other input. Video never leaves the device.
+$('camera').onclick=run(async()=>{if(!imageInputAllowed())return;stop();$('wire').value='';const generation=scanGeneration;let captured;
+ try{if(typeof navigator.mediaDevices?.getUserMedia!=='function')throw Error('camera_unavailable');captured=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});}
+ catch{if(generation!==scanGeneration)return;stop();show('Camera unavailable or permission refused. Use game-window capture, a screenshot, or paste the complete observation text.');return;}
+ if(generation!==scanGeneration){for(const t of captured.getTracks())t.stop();return;}
+ // From here every failure (preview, canvas, decoder construction, a frame draw) releases the acquired tracks through stop().
+ stream=captured;
+ try{
+  for(const t of captured.getTracks())t.onended=()=>{if(generation!==scanGeneration)return;stop();show('Camera ended before a complete QR was read. Start it again or use another input.');};
+  const video=$('video');video.srcObject=stream;video.hidden=false;await bounded(video.play(),10000,'camera_preview_timeout');if(generation!==scanGeneration)return;
+  const canvas=$('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('camera_canvas');
+  worker=new Worker('/static/qr-phase1-decoder.js');let sequence=0,pending=false;const deadline=performance.now()+30000;
+  worker.onmessage=({data:r})=>{pending=false;if(generation!==scanGeneration||!r)return;if(typeof r.text==='string'){const wire=r.text;stop();if(new TextEncoder().encode(wire).length<=512){$('wire').value=wire;show('Camera read locally. Review and sign the observation before submission.');}else show('No complete Olympus QR was read. Hold the camera steady and closer, or paste the complete observation text.');}};
+  worker.onerror=()=>{if(generation!==scanGeneration)return;stop();show('Camera decoder unavailable. Paste the complete observation text.');};
+  const capture=()=>{if(generation!==scanGeneration)return;try{if(performance.now()>deadline||sequence>=120){stop();show('Camera capture ended after 30 seconds without a complete QR. Start it again or use another input.');return;}if(!pending&&video.videoWidth>0){const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.floor(video.videoWidth*scale);canvas.height=Math.floor(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);const image=ctx.getImageData(0,0,canvas.width,canvas.height);pending=true;worker.postMessage({id:++sequence,width:canvas.width,height:canvas.height,buffer:image.data.buffer},[image.data.buffer]);}setTimeout(capture,250);}catch{stop();show('Camera frame could not be read. Use another input.');}};capture();
+ }catch{if(generation!==scanGeneration)return;stop();show('Camera could not start here. Use game-window capture, a screenshot, or paste the complete observation text.');}
+});
+// Game-window capture (primary display path; Codex review 14 Oct 2026 23:54 UTC): the same bounded preview and the same
+// release-through-stop() discipline as the camera path. Acquisition itself (the browser's picker) is unchanged.
+$('scan').onclick=run(async()=>{stop();const generation=scanGeneration,captured=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'window'},audio:false});if(generation!==scanGeneration){for(const t of captured.getTracks())t.stop();return;}stream=captured;
+ // From here every failure (a hung or rejected preview, a missing canvas context, a decoder that cannot be constructed, a frame draw, a track the browser ends) releases the acquired window stream through stop().
+ try{
+  for(const t of captured.getTracks())t.onended=()=>{if(generation!==scanGeneration)return;stop();show('Game-window capture ended before a complete QR was read. Start it again or use another input.');};
+  const video=$('video');video.srcObject=stream;await bounded(video.play(),10000,'display_preview_timeout');if(generation!==scanGeneration)return;
+  const canvas=$('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('display_canvas');
+  worker=new Worker('/static/qr-phase1-decoder.js');
  let sequence=0,pending=false;const lease=automaticLease,deadline=performance.now()+(lease?Math.max(0,Math.min(300000,lease.expiresAt*1000-Date.now())):30000);
  worker.onmessage=({data:r})=>{pending=false;if(generation!==scanGeneration)return;if(typeof r.text==='string'){
  if(lease){if(autoBusy)return;const parts=r.text.split('|');if(parts[1]!==lease.nonce||seenCodes.has(parts[2]))return;autoBusy=true;processAutomatic(r.text,lease,generation).catch(e=>{automaticLease=null;stop();show(e.message+' · Automatic signing held. Reconcile accepted operations without repeating writes.');}).finally(()=>{autoBusy=false;});}
  else{$('wire').value=r.text;stop();show('Observation captured. Review and sign before submission.');}}};
  worker.onerror=()=>{stop();show('Decoder unavailable; paste the complete game observation.');};
- const capture=()=>{if(generation!==scanGeneration)return;if(performance.now()>deadline||sequence>=(lease?1200:120)){automaticLease=null;stop();show('Capture lease ended; opt in again deliberately or use the attended path.');return;}if(!pending&&!autoBusy&&video.videoWidth>0){const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.floor(video.videoWidth*scale);canvas.height=Math.floor(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);const image=ctx.getImageData(0,0,canvas.width,canvas.height);pending=true;worker.postMessage({id:++sequence,width:canvas.width,height:canvas.height,buffer:image.data.buffer},[image.data.buffer]);}setTimeout(capture,250);};capture();});
-$('wire').addEventListener('input',()=>{signed=null;$('submit').disabled=true;});
+ const capture=()=>{if(generation!==scanGeneration)return;try{if(performance.now()>deadline||sequence>=(lease?1200:120)){automaticLease=null;stop();show('Capture lease ended; opt in again deliberately or use the attended path.');return;}if(!pending&&!autoBusy&&video.videoWidth>0){const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.floor(video.videoWidth*scale);canvas.height=Math.floor(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);const image=ctx.getImageData(0,0,canvas.width,canvas.height);pending=true;worker.postMessage({id:++sequence,width:canvas.width,height:canvas.height,buffer:image.data.buffer},[image.data.buffer]);}setTimeout(capture,250);}catch{stop();show('Game-window frame could not be read. Use another input.');}};capture();
+ }catch{if(generation!==scanGeneration)return;stop();show('Game-window capture could not start here. Use the camera, a screenshot, or paste the complete observation text.');}
+});
+$('wire').addEventListener('input',()=>{if(imageTimer!==null)stop();else invalidateReview();});
 async function signObservation(wire,lease=null,generation=null){const k=await key();if(new TextEncoder().encode(wire).length>512)throw Error('observation_too_large');const r=await api('prepare',{wire});if(r.keyId!==k.id||typeof r.signer!=='string'||r.signer===r.requester)throw Error('challenge_actor_key_mismatch');
  if(lease&&(automaticLease!==lease||generation!==scanGeneration||lease.keyId!==k.id||r.mode!=='automatic'||r.expiresAt!==lease.expiresAt||r.signerGuid!==lease.signerGuid||wire.split('|')[1]!==lease.nonce||r.remaining<1||r.remaining>10))throw Error('automatic_lease_changed');
- const canonical=new TextEncoder().encode(JSON.stringify(['OLY-P1',k.id,r.requester,r.signer,r.profile.revision,wire]));const signature=bytes(await crypto.subtle.sign('Ed25519',k.privateKey,canonical));return {input:{keyId:k.id,signature,wire},projection:r};}
-$('sign').onclick=run(async()=>{const r=await signObservation($('wire').value);signed=r.input;$('review').textContent='Requester Discord: '+r.projection.requester+'\nSigner Discord: '+r.projection.signer+'\nGame profile: '+r.projection.profile.guild+' · '+r.projection.profile.realm+'\nYou attest this observation came from your qualified game client. No Blizzard cryptographic certificate exists.';$('submit').disabled=false;show('Review the distinct actors and game observation, then submit.');});
+ const bw=betaKeyWindow(k);if(bw&&(r.profile?.mode!=='B1'||r.profile.windowId!==bw||r.profile.domain!=='OLY-P1-BETA-FERN1'||r.profile.revision!=='beta-five-70338'||r.requester!=='102204162531430400'||r.signer!=='472099715253796864'||!wire.startsWith('OLG2|')))throw Error('beta_original_projection_changed');if(!bw&&r.profile?.mode==='B1')throw Error('beta_original_projection_changed');const canonical=new TextEncoder().encode(JSON.stringify(bw?['OLY-P1-BETA-FERN1',k.id,r.requester,r.signer,'beta-five-70338',wire,bw]:['OLY-P1',k.id,r.requester,r.signer,r.profile.revision,wire]));const signature=bytes(await crypto.subtle.sign('Ed25519',k.privateKey,canonical));return {input:{keyId:k.id,signature,wire},projection:r};}
+$('sign').onclick=run(async()=>{const generation=reviewGeneration,wire=$('wire').value;let r;try{r=await signObservation(wire);}catch(error){if(generation!==reviewGeneration||wire!==$('wire').value)return;throw error;}if(generation!==reviewGeneration||wire!==$('wire').value)return;signed=r.input;$('review').textContent='Requester Discord: '+r.projection.requester+'\nSigner Discord: '+r.projection.signer+'\nGame profile: '+r.projection.profile.guild+' · '+r.projection.profile.realm+'\nYou attest this observation came from your qualified game client. No Blizzard cryptographic certificate exists.';$('submit').disabled=false;show('Review the distinct actors and game observation, then submit.');});
 async function processAutomatic(wire,lease,generation){if(seenCodes.size>=10||automaticLease!==lease||generation!==scanGeneration||lease.expiresAt<=Math.floor(Date.now()/1000))throw Error('automatic_lease_ended');const code=wire.split('|')[2];if(typeof code!=='string'||!/^[0-9a-f]{32}$/.test(code))throw Error('invalid_request_code');seenCodes.add(code);
  const r=await signObservation(wire,lease,generation);if(automaticLease!==lease||generation!==scanGeneration)throw Error('automatic_lease_changed');const accepted=await api('proof',r.input);$('wire').value=wire;if(!await finishOperations(accepted))throw Error('role_settlement_held');if(accepted.leaseRemaining===0||seenCodes.size>=10){automaticLease=null;stop();show('Ten-code signing lease completed.');}else show('Automatically attested matching observation; '+accepted.leaseRemaining+' codes remain in this original lease.');}
 async function finishOperations(v){
@@ -78,11 +171,11 @@ async function finishOperations(v){
  if(!Array.isArray(current.outcomes)||!Array.isArray(remaining)||remaining.some(id=>!labels.has(id)))throw Error('invalid_operation_projection');
  for(const r of current.outcomes){if(!labels.has(r.operationId))throw Error('invalid_operation_projection');labels.get(r.operationId).textContent=r.state+' · '+r.reason;}
  if(current.outcomes.some(r=>r.state!=='settled')){show('Role processing held. Reconcile checks the current result without repeating a write.');return false;}
- if(!remaining.length){show('Current member and configured native rank roles settled.');return true;}
+ if(!remaining.length){show(betaMode?'Current membership settled. This named beta proof changes no native rank roles.':'Current member and configured native rank roles settled.');return true;}
  const selected=remaining.slice(0,2),tail=remaining.slice(selected.length);current=await api('settle-batch',{operationIds:selected,reconcileOnly:false});remaining=[...current.remaining,...tail];
  }throw Error('bounded_continuation_held');
 }
 $('submit').onclick=run(async()=>{if(!signed||signed.wire!==$('wire').value)throw Error('review_again');const v=await api('proof',signed);signed=null;$('submit').disabled=true;await finishOperations(v);});
 $('rank-sync').onclick=run(async()=>finishOperations(await api('rank-sync',{})));
 $('recover').onclick=run(async()=>{const v=await api('receipts');if(!Array.isArray(v.receipts)||v.receipts.length>10)throw Error('invalid_receipt_projection');$('receipts').replaceChildren();for(const r of v.receipts){if(typeof r.proofId!=='string'||!/^[0-9a-f]{32}$/.test(r.proofId)||!Array.isArray(r.operations)||r.operations.length>14)throw Error('invalid_receipt_projection');const row=document.createElement('section'),title=document.createElement('p');title.textContent='Accepted request '+r.code;row.append(title);for(const operation of r.operations){if(typeof operation.operationId!=='string'||!/^[0-9a-f]{32}$/.test(operation.operationId))throw Error('invalid_receipt_projection');const line=document.createElement('p'),label=document.createElement('span'),button=document.createElement('button');label.textContent=operation.state+' · '+operation.reason+' ';button.type='button';button.textContent='Reconcile only';button.onclick=run(async()=>{const result=await api('settle',{operationId:operation.operationId,reconcileOnly:true});label.textContent=result.state+' · '+result.reason+' ';});line.append(label,button);row.append(line);}const resume=document.createElement('button');resume.type='button';resume.textContent='Continue admitted pending operations';resume.onclick=run(async()=>finishOperations(await api('resume-proof',{proofId:r.proofId})));row.append(resume);$('receipts').append(row);}show(v.receipts.length?'Recovered own receipts. Unknown outcomes require Reconcile; continuing never repeats a spent write.':'No accepted requests in this original generation.');});
-api('profile').then(p=>{if(p.phase!==1||!p.keyActor||!actorId.test(p.keyActor.actor)||!hex.test(p.keyActor.generation))throw Error('verification_held');ownActor=Object.freeze({actor:p.keyActor.actor,generation:p.keyActor.generation});for(const id of controlIds)$(id).disabled=false;$('rank-sync').disabled=p.rankMappingEnabled!==true;show('Phase '+p.phase+' available. '+p.requires);}).catch(e=>show(unavailable[e.message]||'Verification availability could not be confirmed. Try again after signing in.'));
+api('profile').then(p=>{if(p.phase!==1||!p.keyActor||!actorId.test(p.keyActor.actor)||!hex.test(p.keyActor.generation))throw Error('verification_held');ownActor=Object.freeze({actor:p.keyActor.actor,generation:p.keyActor.generation});betaMode=p.betaFern?.mode==='B1'&&p.betaFern.configured===true&&p.betaFern.membershipOnly===true&&ownActor.actor==='472099715253796864';if(betaMode)$('guid').value=p.betaFern.guid;for(const id of controlIds)$(id).disabled=false;$('rank-sync').disabled=betaMode||p.rankMappingEnabled!==true;show('Phase '+p.phase+' available. '+p.requires);}).catch(e=>show(unavailable[e.message]||'Verification availability could not be confirmed. Try again after signing in.'));

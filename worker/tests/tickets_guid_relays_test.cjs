@@ -7,38 +7,17 @@ const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
 // ---------- a D1-shaped wrapper over SQLite ----------
-function d1(db) {
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => { params = p; return api; },
-      first: async () => db.prepare(sql).get(...params) ?? null,
-      all: async () => ({ results: db.prepare(sql).all(...params) }),
-      run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-      // Like D1, batch reads include results as well as metadata; the fenced identity transaction reads its binding.
-      _exec: () => {
-        const st = db.prepare(sql);
-        if (/^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-        const r = st.run(...params);
-        return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-      },
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      db.exec("BEGIN");
-      try { const out = stmts.map((s) => s._exec()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; }
-    },
-  };
-}
-function freshDb(schemaPath = path.join(root, "schema.sql")) {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(schemaPath, "utf8"));
-  return db;
-}
+const entry = require('./helpers/privacy129_fixture.cjs');
+// Start beside SQLite's native clock: the production one-use fence also checks database expiry.
+let T = Math.floor(Date.now() / 1000);
+const RealDate = Date;
+// The clock every module reads: Date.now() and new Date() alike (codes.ts takes "now" from new Date()).
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+function d1(db){return load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(entry.originalNativePort(db),'writer','canonical',entry.ENTRY_EPOCH);}
+function freshDb(schemaPath){const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');if(schemaPath)db.exec(fs.readFileSync(schemaPath,'utf8'));else entry.installCurrentEntryEpoch(db,{now:T});return db;}
 
 // ---------- load the real modules, stub only the outside world ----------
 let LOGS = [], ROLE_ADDS = [], ROLE_REMOVES = [], VERIFIED = [], NOTICES = [];
@@ -65,7 +44,7 @@ const stubs = {
   },
 };
 const cache = {};
-function load(name) {
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   if (stubs[name]) return stubs[name];
   if (cache[name]) return cache[name].exports;
   const file = path.join(root, "src", name.replace("./", "") + ".ts");
@@ -84,14 +63,6 @@ const { auditReason } = (() => {
   return mod.exports;
 })();
 
-// Start beside SQLite's native clock: the production one-use fence also checks database expiry.
-let T = Math.floor(Date.now() / 1000);
-const RealDate = Date;
-// The clock every module reads: Date.now() and new Date() alike (codes.ts takes "now" from new Date()).
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 const SECRET = "worker-test-secret";
 const ROLE = "1549581282227265566";
 const A = "111111111111111111", B = "222222222222222222", C = "333333333333333333";
@@ -103,10 +74,11 @@ const today = () => codes.dayBucket(new Date(T * 1000));
 (async () => {
   let db = freshDb();
   let env = { DB: d1(db), VERIFY_SECRET: SECRET, ROLE_GUILD_MEMBER: ROLE, ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MAX_SHRINK_PCT: "10", ROSTER_MIN_MEMBERS: "0" };
+  const fixtureRun = (sql,...p) => d1(db).prepare(sql).bind(...p).run();
   const q = (sql, ...p) => db.prepare(sql).all(...p);
   const one = (sql, ...p) => db.prepare(sql).get(...p);
-  const ticketRow = (discordId, nonce, createdAt = T) =>
-    db.prepare("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce) VALUES (?1, '', '', ?2, ?3, ?4)").run(discordId, createdAt, createdAt + 86400, nonce);
+  const ticketRow = async (discordId, nonce, createdAt = T) =>
+    await fixtureRun("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce) VALUES (?1, '', '', ?2, ?3, ?4)",discordId,createdAt,createdAt + 86400,nonce);
   const snapshot = (members, exportedAt) => roster.ingestRoster(env, exportedAt, members, "addon");
 
   const batchRead = await env.DB.batch([env.DB.prepare("SELECT ?1 AS valid").bind(1), env.DB.prepare("SELECT COUNT(*) AS n FROM characters")]);
@@ -115,7 +87,7 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   // ================= request codes =================
   console.log("\n== a request code links whichever character whispers it ==");
   reset();
-  ticketRow(A, "K7Q");
+  await ticketRow(A, "K7Q");
   const tk = await codes.ticketFor(SECRET, "K7Q", today());
   let r = await ingest.postVerify(env, { character: "Aelin Stormwarden", code: tk.toLowerCase(), source: "whisper" });
   check("a valid request code from a new character is verified", r.body.result === "verified");
@@ -127,19 +99,19 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   r = await ingest.postVerify(env, { character: "Some Friend", code: tk, source: "whisper" });
   check("the same code a second time, from another character, links nobody", r.body.result === "no_pending" && !one("SELECT 1 FROM characters WHERE name_key = 'some friend'"));
   const forged = tk.slice(0, 3) + (tk[3] === "A" ? "B" : "A") + tk.slice(4);
-  ticketRow(B, "ZZ9");
+  await ticketRow(B, "ZZ9");
   r = await ingest.postVerify(env, { character: "Guesser Guy", code: "ZZ9" + forged.slice(3), source: "whisper" });
   check("a right nonce with a wrong mac is refused", r.body.result === "invalid");
 
   console.log("\n== a request code cannot take a character someone else holds ==");
-  db.prepare("INSERT INTO members (discord_id) VALUES (?1)").run(C);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES ('taken tom', 'Taken Tom', ?1, 'member', 1)").run(C);
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?1)",C);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES ('taken tom', 'Taken Tom', ?1, 'member', 1)",C);
   const tkB = await codes.ticketFor(SECRET, "ZZ9", today());
   r = await ingest.postVerify(env, { character: "Taken Tom", code: tkB, source: "whisper" });
   check("bound to another account: refused and flagged", r.body.result === "bound_elsewhere" && LOGS.some((l) => l.includes("Taken Tom")));
   // The addon and the watcher have tied that code to Taken Tom by now, so an open request would be stuck for a day.
   check("  the request is closed, so the next press of Get my code gives a fresh code", one("SELECT consumed_source FROM pending WHERE nonce = 'ZZ9'").consumed_source === "refused");
-  ticketRow(B, "2M4");
+  await ticketRow(B, "2M4");
   const tkB2 = await codes.ticketFor(SECRET, "2M4", today());
 
   console.log("\n== a request code from a character already on the roster: role now, GUID pinned ==");
@@ -151,7 +123,7 @@ const today = () => codes.dayBucket(new Date(T * 1000));
 
   console.log("\n== character codes work as before ==");
   reset();
-  db.prepare("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at) VALUES (?1, 'thrall', 'Thrall', ?2, ?3)").run(C, T, T + 86400);
+  await fixtureRun("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at) VALUES (?1, 'thrall', 'Thrall', ?2, ?3)",C,T,T + 86400);
   const cc = await codes.codeFor(SECRET, "Thrall", today());
   r = await ingest.postVerify(env, { character: "Thrall", code: cc, source: "whisper" });
   check("a 6-symbol code for its own character is verified", r.body.result === "verified" && one("SELECT discord_id FROM characters WHERE name_key = 'thrall'").discord_id === C);
@@ -159,22 +131,21 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   check("  and refused from any other character", r.body.result === "invalid");
 
   console.log("\n== open requests: unique nonce lookup, expiry ==");
-  ticketRow(A, "Q3R", T - 90000); // created more than a day ago: expired
+  await ticketRow(A, "Q3R", T - 90000); // created more than a day ago: expired
   check("an expired request is not found", (await dbm.openTicket(env, "Q3R")) === null);
-  ticketRow(A, "HJK");
+  await ticketRow(A, "HJK");
   check("an account's open request is found for the Verify button to show again", (await dbm.openTicketFor(env, A)).nonce === "HJK");
 
   // ================= GUID-pinned links =================
   console.log("\n== first sighting pins the GUID; a namesake never inherits the link ==");
   db = freshDb(); env = { ...env, DB: d1(db) };
-  const bind = (key, name, did, status, extra = {}) => {
-    db.prepare("INSERT INTO members (discord_id) VALUES (?1) ON CONFLICT DO NOTHING").run(did);
-    db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
-      .run(key, name, did, status, extra.boundAt ?? T - 1000, extra.guid ?? null);
+  const bind = async (key, name, did, status, extra = {}) => {
+    await fixtureRun("INSERT INTO members (discord_id) VALUES (?1) ON CONFLICT DO NOTHING",did);
+    await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",key,name,did,status,extra.boundAt ?? T - 1000,extra.guid ?? null);
   };
-  bind("vera vane", "Vera Vane", A, "member");
-  bind("nora name", "Nora Name", B, "member", { guid: "Player-1-000000AA" });
-  db.prepare("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('nora name', 'Nora Name', ?1, 'queued', 1)").run(B);
+  await bind("vera vane", "Vera Vane", A, "member");
+  await bind("nora name", "Nora Name", B, "member", { guid: "Player-1-000000AA" });
+  await fixtureRun("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at) VALUES ('nora name', 'Nora Name', ?1, 'queued', 1)",B);
   reset();
   let s = await snapshot([{ name: "Vera Vane", guid: "Player-1-000000V1" }, { name: "Nora Name", guid: "Player-1-000000BB" }], T);
   check("an unpinned member gets its GUID", one("SELECT guid FROM characters WHERE name_key = 'vera vane'").guid === "Player-1-000000V1" && s.pinned === 1);
@@ -188,7 +159,7 @@ const today = () => codes.dayBucket(new Date(T * 1000));
 
   console.log("\n== a rename keeps the link ==");
   reset();
-  bind("old olga", "Old Olga", C, "member", { guid: "Player-1-000000CC" });
+  await bind("old olga", "Old Olga", C, "member", { guid: "Player-1-000000CC" });
   s = await snapshot([{ name: "Vera Vane", guid: "Player-1-000000V1" }, { name: "Nora Name", guid: "Player-1-000000BB" }, { name: "Old Olga", guid: "Player-1-000000CC" }], T + 10);
   s = await snapshot([{ name: "Vera Vane", guid: "Player-1-000000V1" }, { name: "Nora Name", guid: "Player-1-000000BB" }, { name: "New Olga", guid: "Player-1-000000CC" }], T + 20);
   check("the binding moved to the new name, still a member", one("SELECT status, discord_id FROM characters WHERE name_key = 'new olga'")?.status === "member" && !one("SELECT 1 FROM characters WHERE name_key = 'old olga'"));
@@ -198,8 +169,8 @@ const today = () => codes.dayBucket(new Date(T * 1000));
 
   console.log("\n== a rename onto a name another account linked without a GUID: the GUID decides ==");
   reset();
-  bind("pat pinned", "Pat Pinned", A, "member", { guid: "Player-1-000000DD" });
-  bind("claimed name", "Claimed Name", B, "verified");
+  await bind("pat pinned", "Pat Pinned", A, "member", { guid: "Player-1-000000DD" });
+  await bind("claimed name", "Claimed Name", B, "verified");
   s = await snapshot([{ name: "Vera Vane", guid: "Player-1-000000V1" }, { name: "New Olga", guid: "Player-1-000000CC" }, { name: "Pat Pinned", guid: "Player-1-000000DD" }], T + 40);
   s = await snapshot([{ name: "Vera Vane", guid: "Player-1-000000V1" }, { name: "New Olga", guid: "Player-1-000000CC" }, { name: "Claimed Name", guid: "Player-1-000000DD" }], T + 50);
   check("first export with the new name: both links held, nobody demoted for the old name's absence", s.held === 2 && ROLE_REMOVES.length === 0 && one("SELECT status FROM characters WHERE name_key = 'pat pinned'").status === "member");
@@ -213,9 +184,9 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   console.log("\n== LINKS_NOT_BEFORE: old unpinned links never pass to a namesake ==");
   db = freshDb(); env = { ...env, DB: d1(db), LINKS_NOT_BEFORE: String(T) };
   reset();
-  bind("beta bob", "Beta Bob", A, "left", { boundAt: T - 86400 });          // linked on beta, never pinned
-  bind("fresh fay", "Fresh Fay", B, "verified", { boundAt: T + 100 });      // linked after the cutoff
-  bind("pinned pia", "Pinned Pia", C, "left", { boundAt: T - 86400, guid: "Player-9-00000P1A" });
+  await bind("beta bob", "Beta Bob", A, "left", { boundAt: T - 86400 });          // linked on beta, never pinned
+  await bind("fresh fay", "Fresh Fay", B, "verified", { boundAt: T + 100 });      // linked after the cutoff
+  await bind("pinned pia", "Pinned Pia", C, "left", { boundAt: T - 86400, guid: "Player-9-00000P1A" });
   s = await snapshot([{ name: "Beta Bob", guid: "Player-9-0000B0B2" }, { name: "Fresh Fay", guid: "Player-9-00000FAY" }, { name: "Pinned Pia", guid: "Player-9-00000P1A" }], T + 200);
   check("an unpinned link from before the cutoff is released, not promoted", one("SELECT status FROM characters WHERE name_key = 'beta bob'").status === "unbound" && !ROLE_ADDS.some((g) => g.id === A));
   check("a link made after the cutoff is promoted and pinned", one("SELECT status, guid FROM characters WHERE name_key = 'fresh fay'").guid === "Player-9-00000FAY" && ROLE_ADDS.some((g) => g.id === B));
@@ -224,7 +195,7 @@ const today = () => codes.dayBucket(new Date(T * 1000));
 
   console.log("\n== a join line cannot promote a stale link either ==");
   reset();
-  bind("stale sam", "Stale Sam", A, "queued", { boundAt: T - 86400 });
+  await bind("stale sam", "Stale Sam", A, "queued", { boundAt: T - 86400 });
   await ingest.postEvents(env, { events: [{ type: "joined", name: "Stale Sam", origin: "token", ok: true }] });
   check("a signed join for a pre-cutoff unpinned link grants nothing", !ROLE_ADDS.some((g) => g.id === A) && one("SELECT status FROM characters WHERE name_key = 'stale sam'").status === "queued");
 
@@ -232,8 +203,8 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   reset();
   await snapshot([{ name: "Fresh Fay", guid: "Player-9-00000FAY" }, { name: "Pinned Pia", guid: "Player-9-00000P1A" }, { name: "Sync Sid", guid: "Player-9-000051D1" }], T + 400);
   // linked after that export, to a character the roster does not have under this name (a GUID pinned elsewhere)
-  bind("sync sid", "Sync Sid", B, "verified", { boundAt: T + 300, guid: "Player-9-000051D0" });
-  db.prepare("UPDATE characters SET status = 'verified' WHERE name_key = 'fresh fay'").run();
+  await bind("sync sid", "Sync Sid", B, "verified", { boundAt: T + 300, guid: "Player-9-000051D0" });
+  await fixtureRun("UPDATE characters SET status = 'verified' WHERE name_key = 'fresh fay'");
   const out = await roster.syncFromLatest(env);
   check("sync releases the namesake it finds", out.released.includes("Sync Sid"));
   check("  and promotes a matching link", out.promoted.includes("Fresh Fay"));
@@ -293,16 +264,17 @@ const today = () => codes.dayBucket(new Date(T * 1000));
   check("configured list is parsed", JSON.stringify(relays.configuredOfficers({ OFFICER_CHARACTERS: "Fern Melder, Other Officer or Third One" })) === JSON.stringify(["Fern Melder", "Other Officer", "Third One"]));
 
   // ================= schema self-migration =================
-  console.log("\n== the Worker brings the live schema up to date itself ==");
+  console.log("\n== a legacy schema is held for attended installation ==");
   const old = freshDb(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"));
   const oldEnv = { DB: d1(old) };
-  await schema.ensureSchema(oldEnv);
   const cols = (t) => old.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
-  check("pending.nonce and characters.guid added, relays created", cols("pending").includes("nonce") && cols("characters").includes("guid") && cols("relays").includes("online"));
+  const beforeSchema = JSON.stringify(old.prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name").all());
+  let firstHeld = false; try { await schema.ensureSchema(oldEnv); } catch { firstHeld = true; }
+  check("original pending/character/relay fixture is refused unchanged; requests cannot perform epoch installation", firstHeld && !cols("pending").includes("nonce") && !cols("characters").includes("guid") && !cols("relays").includes("online") && JSON.stringify(old.prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name").all()) === beforeSchema);
   schema.forgetSchemaCheck();
   let again = true;
   try { await schema.ensureSchema(oldEnv); } catch { again = false; }
-  check("  and running it again changes nothing and does not fail", again);
+  check("  a second request remains held and cannot silently migrate the historical fixture", !again && JSON.stringify(old.prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name").all()) === beforeSchema);
 
   // ================= audit reason =================
   console.log("\n== audit-log reason header ==");

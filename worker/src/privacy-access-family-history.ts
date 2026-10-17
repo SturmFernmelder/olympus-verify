@@ -11,6 +11,8 @@ import type { PrivacyHistoryDefinition, PrivacyHistoryPosition } from './privacy
 import { boundedPrivacyHistoryStatements } from './privacy-access-history';
 import type { PrivacyAccessGrant } from './privacy-access';
 import { BNET_TTL_S, BNET_FUTURE_SLACK_S } from './bnet-retention';
+import { BETA_WINDOW_OWN_FIELDS,betaWindowOwnHistorySelect,projectOwnBetaWindowCopy } from './qr-beta-fern-data';
+import { BETA_RESET_SCAN_KEY,betaResetScanValidSql } from './beta-reset-scan';
 
 export const PRIVACY_FAMILY_HISTORY_COLLECTIONS=[
  'site.votes','site.boardVotes','site.friends','site.reserved',
@@ -21,7 +23,7 @@ export const PRIVACY_FAMILY_HISTORY_COLLECTIONS=[
  'community.restrictions.cases','community.restrictions.watchList','community.departures.departures',
  'community.contributions.obligations','community.contributions.receipts','community.news.notices','community.news.deletedNotices',
  'community.event_delivery.publications','community.event_reminders.reminders','community.privacy_access.connections',
- 'community.councillor_verification.councillorKeys','community.councillor_verification.challenges','community.councillor_verification.requests',
+ 'community.councillor_verification.betaFernWindows','community.councillor_verification.councillorKeys','community.councillor_verification.challenges','community.councillor_verification.requests',
  'community.councillor_verification.attestations','community.councillor_verification.roleOutcomes',
  'community.ruleset_publication.operations',
 ] as const;
@@ -49,7 +51,7 @@ const sources:Record<PrivacyFamilyHistoryCollection,string>={
  'community.directory.professions':`SELECT rowid AS __history_id,0 AS __history_at,profession,skill,updated_at FROM community_professions WHERE discord_id=?1`,
  'community.directory.alts':`SELECT rowid AS __history_id,0 AS __history_at,name,status,proof,claimed_at,reviewed_at,updated_at FROM community_alt_claims WHERE discord_id=?1`,
  'community.directory.crafts':'SELECT rowid AS __history_id,0 AS __history_at,profession,recipe_name,updated_at FROM community_craft_offers WHERE discord_id=?1',
- 'community.events.signups':'SELECT s.rowid AS __history_id,0 AS __history_at,s.event_id,e.title,e.starts_at,s.status,s.character_name,s.raid_role,s.rsvp_starts_at,s.updated_at FROM community_event_signups s LEFT JOIN community_events e ON e.id=s.event_id WHERE s.discord_id=?1',
+ 'community.events.signups':'SELECT s.rowid AS __history_id,0 AS __history_at,s.event_id,e.title,e.starts_at,s.status,s.character_name,s.raid_role,s.rsvp_starts_at,s.updated_at,s.remind_mention,s.decision,s.decided_at FROM community_event_signups s LEFT JOIN community_events e ON e.id=s.event_id WHERE s.discord_id=?1',
  'community.events.created':'SELECT rowid AS __history_id,0 AS __history_at,id,title,starts_at,status,created_at,updated_at,ends_at,duration_min,capacity,role_targets,retain_until FROM community_events WHERE created_by=?1',
  'community.events.attendance':'SELECT a.rowid AS __history_id,0 AS __history_at,a.event_id,e.title,e.starts_at,a.state,a.source,a.reason_code,a.recorded_at FROM community_event_attendance a LEFT JOIN community_events e ON e.id=a.event_id WHERE a.discord_id=?1',
  'community.trials.trials':`SELECT t.rowid AS __history_id,0 AS __history_at,CASE WHEN instr(t.status,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE t.status END AS status,t.started_at,t.review_due_at,CASE WHEN instr(t.outcome_reason,char(0))>0 THEN json_extract('privacy_copy_unconfirmed','$') ELSE t.outcome_reason END AS outcome_reason,t.concluded_at,t.created_at,t.updated_at,t.retain_until FROM community_trials t WHERE t.discord_id=?1 AND t.retain_until>${now}`,
@@ -63,6 +65,7 @@ const sources:Record<PrivacyFamilyHistoryCollection,string>={
  'community.event_delivery.publications':'SELECT rowid AS __history_id,0 AS __history_at,CASE WHEN instr(event_id,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE event_id END AS event_id,CASE WHEN instr(purpose,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE purpose END AS purpose,event_revision,starts_at,CASE WHEN instr(state,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE state END AS state,cleanup_requested,created_at,updated_at,retain_until,CASE WHEN instr(result_code,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE result_code END AS result_code FROM community_event_deliveries WHERE actor=?1',
  'community.event_reminders.reminders':'SELECT rowid AS __history_id,0 AS __history_at,CASE WHEN instr(event_id,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE event_id END AS event_id,event_revision,CASE WHEN instr(state,char(0))>0 THEN json_extract(\'privacy_copy_unconfirmed\',\'$\') ELSE state END AS state,starts_at,created_at,updated_at,last_attempt_at,cleanup_requested,retain_until FROM community_event_reminders WHERE actor=?1',
  'community.privacy_access.connections':'SELECT rowid AS __history_id,0 AS __history_at,purpose,created_at,expires_at,consumed_at FROM privacy_access_grants WHERE subject_id=?1',
+ 'community.councillor_verification.betaFernWindows':betaWindowOwnHistorySelect,
  'community.councillor_verification.councillorKeys':'SELECT rowid AS __history_id,0 AS __history_at,id,signer_guid,created_at,expires_at,revoked_at FROM councillor_keys WHERE signer=?1',
  'community.councillor_verification.challenges':'SELECT rowid AS __history_id,0 AS __history_at,created_at,expires_at,used_at,mode,max_proofs,proofs_used FROM councillor_challenges WHERE signer=?1',
  'community.councillor_verification.requests':'SELECT rowid AS __history_id,0 AS __history_at,created_at,expires_at,used_at,state FROM verification_requests WHERE requester=?1',
@@ -83,8 +86,9 @@ const rawFields:Partial<Record<PrivacyFamilyHistoryCollection,string>>={
 };
 const results=['published','reconciled','removed','admission_changed','discord_refused','outcome_unknown'];
 const projectedFields:Partial<Record<PrivacyFamilyHistoryCollection,string>>={
+ 'community.councillor_verification.betaFernWindows':BETA_WINDOW_OWN_FIELDS,
  'community.directory.professions':'profession,skill,updated_at','community.directory.alts':'name,status,proof,claimed_at,reviewed_at,updated_at','community.directory.crafts':'profession,recipe_name,updated_at',
- 'community.events.signups':'event_id,title,starts_at,status,character_name,raid_role,rsvp_starts_at,updated_at','community.events.created':'id,title,starts_at,status,created_at,updated_at,ends_at,duration_min,capacity,role_targets,retain_until','community.events.attendance':'event_id,title,starts_at,state,source,reason_code,recorded_at',
+ 'community.events.signups':'event_id,title,starts_at,status,character_name,raid_role,rsvp_starts_at,updated_at,remind_mention,decision,decided_at','community.events.created':'id,title,starts_at,status,created_at,updated_at,ends_at,duration_min,capacity,role_targets,retain_until','community.events.attendance':'event_id,title,starts_at,state,source,reason_code,recorded_at',
  'community.trials.trials':'status,started_at,review_due_at,outcome_reason,concluded_at,created_at,updated_at,retain_until','community.restrictions.cases':'category,set_at,review_at,expires_at,appeal_status,review_outcome,reviewed_at,acknowledged_at,resolved_at,updated_at,retain_until,active',
  'community.restrictions.watchList':'category,character_name,added_at,review_at,expires_at,renewed_at,renewal_reason','community.departures.departures':'character_name,kind,observed_at,status,created_at,reviewed_at,retain_until',
  'community.contributions.obligations':'guild_scope,period_start,due_at,policy_version,amount_copper,paid,paid_magnitude,eligible,state,acknowledged_at,officer_contact_at,final_notice_at,final_acknowledged_at,final_officer_contact_at,created_at,updated_at,retain_until',
@@ -93,6 +97,7 @@ const projectedFields:Partial<Record<PrivacyFamilyHistoryCollection,string>>={
  'community.event_delivery.publications':'event_id,purpose,event_revision,starts_at,state,cleanup_requested,created_at,updated_at,retain_until,result_code','community.event_reminders.reminders':'event_id,event_revision,state,starts_at,created_at,updated_at,last_attempt_at,cleanup_requested,retain_until',
 };
 function project(c:PrivacyFamilyHistoryCollection,r:Rec):Rec {
+ if(c==='community.councillor_verification.betaFernWindows')return projectOwnBetaWindowCopy(r);
  if(c==='community.ruleset_publication.operations')return projectOwnRulesetPublication(r);
   if(c==='verification.inviteQueue')return {...pick(r,'name,status,attempts,created_at,written_at,invited_at,joined_at,retry_after,last_reason,last_reason_at'),...ownCopyQueueHold(r)};
  const fields=rawFields[c];if(fields){const value=pick(r,fields);return c==='community.councillor_verification.attestations'?{...value,...ownCopyProofFacts(r)}:c==='community.councillor_verification.roleOutcomes'?{...value,...ownCopyRankFacts(r)}:value;}
@@ -120,7 +125,7 @@ function project(c:PrivacyFamilyHistoryCollection,r:Rec):Rec {
 export const PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS=['verification.battleNetCharacters','verification.rosterEffects','site.settingUpdates'] as const;
 export type PrivacyCollectionOnlyHistoryCollection=typeof PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS[number];
 /** These human writes update actor and time together. Background state such as officer_digest does not. */
-export const PRIVACY_OWN_SETTING_KEYS=['namesOpenAt','namesTimeConfirmed','namesOpen','launchAt','autoQueue','applicationsOpen','votingOpen','notice','appointed','noVote','newsOn','leadership','betaClosedAt','betaResetAt','betaResetFor','bnetLogin','bnetEnableIntent'] as const;
+export const PRIVACY_OWN_SETTING_KEYS=['namesOpenAt','namesTimeConfirmed','namesOpen','launchAt','autoQueue','applicationsOpen','votingOpen','notice','appointed','noVote','newsOn','leadership','betaClosedAt','betaResetAt','betaResetFor','bnetLogin','bnetEnableIntent','rulesetMode','rulesetActiveRevision','rulesetActiveDigest','rulesetActivatedAt','rulesetActivatedBy','betaResetPolicyV1','betaRetentionAnchorV1'] as const; // five identity-switch keys and two reset settings; values remain withheld
 const originalWhole=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<=999999999999;
 const originalTime=(v:unknown,nullable=false):string|null=>nullable&&v===null?null:originalWhole(v)?secondsToIso(v):fail();
 // No active Phase3 producer or schema text/level maximum exists. SQL's fixed projected byte bound is the text cap.
@@ -128,7 +133,7 @@ const originalLabel=(v:unknown,nullable=false):string|null=>nullable&&v===null?n
 export function privacyCollectionOnlyHistoryNote(c:string):string|null {
  if(c==='verification.battleNetCharacters')return 'Historical own character labels read from retained data, with original fetch time and existing freshness filters. The dormant Battle.net connector remains off. IDs and tags are withheld. Missing, filtered or expired rows do not prove no data is retained.';
  if(c==='verification.rosterEffects')return 'Retained own roster processing intents attributable to the original account link captured when you connected Discord. Missing original linkage refuses this download; legacy unlinked rows need attended review. An absent parent run and unrecorded processing time remain null. Recorded processing time is recorded before provider work and does not confirm a successful role change.';
- if(c==='site.settingUpdates')return 'Key and original update time only for 17 known settings while you remain the current last updater. Setting values and other people are withheld. This is current metadata, not edit history, consent evidence, appointment or access authority.';
+ if(c==='site.settingUpdates')return 'Key and original update time only for 24 known settings while you remain the current last updater. A current valid beta scan cursor matching your account adds its key and update time only. Setting values and other people are withheld. This is current metadata, not edit history, consent evidence, appointment or access authority.';
  return null;
 }
 
@@ -141,7 +146,8 @@ export function privacyCollectionOnlyHistoryDefinition(c:PrivacyCollectionOnlyHi
  }
  const source=c==='verification.battleNetCharacters'?`SELECT rowid AS __history_id,0 AS __history_at,name,realm_or_ruleset,level,fetched_at FROM bnet_characters WHERE discord_id=?1 AND fetched_at>${now}-${BNET_TTL_S} AND fetched_at<=${now}+${BNET_FUTURE_SLACK_S}`:
   c==='verification.rosterEffects'?`SELECT e.rowid AS __history_id,0 AS __history_at,e.kind,e.name,e.done_at,CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS run_present,r.created_at AS run_created_at FROM roster_effects e LEFT JOIN roster_effect_runs r ON r.id=e.run_id WHERE e.discord_id=?1 AND e.subject_generation=?7 AND EXISTS(SELECT 1 FROM privacy_subjects s WHERE s.subject_id=?1 AND s.generation=?7)`:
-  `SELECT rowid AS __history_id,0 AS __history_at,key,updated_at FROM site_settings WHERE updated_by=?1 AND key IN (${PRIVACY_OWN_SETTING_KEYS.map(k=>"'"+k+"'").join(',')})`;
+  `SELECT rowid AS __history_id,0 AS __history_at,key,updated_at FROM site_settings WHERE (updated_by=?1 AND key IN (${PRIVACY_OWN_SETTING_KEYS.map(k=>"'"+k+"'").join(',')}))
+   OR (key='${BETA_RESET_SCAN_KEY}' AND CASE WHEN ${betaResetScanValidSql('site_settings.value')} THEN json_extract(value,'$.after')=?1 ELSE 0 END)`;
  const fields=c==='verification.battleNetCharacters'?['name','realm_or_ruleset','level','fetched_at']:c==='verification.rosterEffects'?['kind','name','done_at','run_present','run_created_at']:['key','updated_at'];
  return {idField:'__history_id',timeField:'__history_at',statements:(env,id,p,limit)=>boundedPrivacyHistoryStatements(env,id,source,fields,'__history_id','__history_at',p,limit,context),project:(r,at)=>{
   if(c==='verification.battleNetCharacters'){
@@ -152,7 +158,7 @@ export function privacyCollectionOnlyHistoryDefinition(c:PrivacyCollectionOnlyHi
    if(!['promote','note','depart'].includes(r.kind as string)||(r.run_present!==0&&r.run_present!==1)||(r.run_present===0&&r.run_created_at!==null))return fail();
    return {kind:r.kind,characterName:originalLabel(r.name),processingStatus:r.done_at===null?'pending':'recorded',processingRecordedAt:originalTime(r.done_at,true),run:r.run_present===0?null:{createdAt:originalTime(r.run_created_at)}};
   }
-  if(!PRIVACY_OWN_SETTING_KEYS.includes(r.key as typeof PRIVACY_OWN_SETTING_KEYS[number]))return fail();
+  if(r.key!==BETA_RESET_SCAN_KEY&&!PRIVACY_OWN_SETTING_KEYS.includes(r.key as typeof PRIVACY_OWN_SETTING_KEYS[number]))return fail();
   return {key:r.key,updatedAt:originalTime(r.updated_at)};
  }};
 }

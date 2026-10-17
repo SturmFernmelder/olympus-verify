@@ -1,0 +1,80 @@
+'use strict';
+// Attended, fixed-target original CLI adapter. No provider work occurs without --execute-original-once.
+// The release key signs only the original closed child + API EOF + exact local byte observation below.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
+const hold=()=>{throw Error('PRIVATE_RECOVERY_ARTIFACT_HELD');},sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+const hex=(x,n)=>typeof x==='string'&&x.length===n&&!/[^0-9a-f]/.test(x),whole=x=>Number.isSafeInteger(x)&&x>0;
+function exact(v,keys){if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).sort().join('|')!==keys.slice().sort().join('|'))hold();}
+function small(file,max){const fd=fs.openSync(file,'r');try{const s=fs.fstatSync(fd);if(!s.isFile()||fs.lstatSync(file).isSymbolicLink()||s.size>max)hold();const b=Buffer.alloc(s.size+1),n=fs.readSync(fd,b,0,b.length,0);if(n!==s.size)hold();return b.subarray(0,n);}finally{fs.closeSync(fd);}}
+function durable(file,value){const fd=fs.openSync(file,'wx');try{fs.writeFileSync(fd,JSON.stringify(value)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
+function directory(file){try{fs.mkdirSync(file);}catch(e){if(e.code!=='EEXIST')throw e;}const s=fs.lstatSync(file);if(!s.isDirectory()||s.isSymbolicLink())hold();}
+async function fingerprint(file,max){
+ const fd=fs.openSync(file,'r'),s=fs.fstatSync(fd);try{if(!s.isFile()||s.size<1||s.size>max||fs.lstatSync(file).isSymbolicLink())hold();const hash=crypto.createHash('sha256'),md5=crypto.createHash('md5'),b=Buffer.alloc(65536);let bytes=0;
+  for(;;){const n=fs.readSync(fd,b,0,b.length,null);if(!n)break;bytes+=n;if(bytes>max)hold();hash.update(b.subarray(0,n));md5.update(b.subarray(0,n));}
+  const after=fs.fstatSync(fd),named=fs.statSync(file);for(const k of ['dev','ino','size','mtimeMs','ctimeMs','birthtimeMs'])if(s[k]!==after[k]||s[k]!==named[k])hold();if(bytes!==s.size)hold();return{bytes,sha256:hash.digest('hex'),md5:md5.digest('hex'),identity:[s.dev,s.ino,s.size,s.mtimeMs,s.ctimeMs,s.birthtimeMs]};
+ }finally{fs.closeSync(fd);}
+}
+const argv=process.argv.slice(2),execute=argv[0]==='--execute-original-once';
+if((!execute&&argv[0]!=='--check')||argv.length!==3||!path.isAbsolute(argv[1])||path.resolve(argv[1])!==argv[1]||!hex(argv[2],64))hold();
+const bytes=small(argv[1],16384);if(sha(bytes)!==argv[2])hold();const p=JSON.parse(bytes);
+exact(p,['schema','kind','operationId','accountId','databaseId','databaseBinding','config','outputRoot','ledgerRoot','maximumBytes','originalCreatedAt','originalExpiresAt','originalFloor','originalGate','nextEpoch','profileDigest64','sourceTree','releasePublicKey','artifact','bookmark']);
+if(p.schema!=='private-recovery-artifact-original-intent-v1'||!['export','private_export','time_travel'].includes(p.kind)||!hex(p.operationId,32)||p.accountId!=='e3c65eaa984aeb7a2df849e5a066cb54'||p.databaseId!=='7e2cf8fd-a9e3-48f6-975a-890f1360e5d0'||p.databaseBinding!=='DB'||!whole(p.originalCreatedAt)||p.originalExpiresAt!==p.originalCreatedAt+300||!hex(p.nextEpoch,32)||!hex(p.profileDigest64,64)||!hex(p.sourceTree,40)||!hex(p.releasePublicKey,64)||!whole(p.maximumBytes)||p.maximumBytes>1073741824)hold();
+const floor=JSON.parse(p.originalFloor),gate=JSON.parse(p.originalGate);if(!Array.isArray(floor)||floor.length!==12||!Array.isArray(gate)||gate.length!==11||JSON.stringify(floor)!==p.originalFloor||JSON.stringify(gate)!==p.originalGate||floor[2]!==p.accountId||floor[3]!==p.databaseId||floor[4]!=='olympus-verify'||gate[2]!==p.originalFloor||gate[3]!=='closing_held'||gate[4]!==p.operationId||gate[7]!==p.originalCreatedAt||gate[8]!==p.originalExpiresAt||gate[9]!==p.nextEpoch)hold();
+exact(p.config,['path','bytes','sha256']);if(!path.isAbsolute(p.config.path)||path.resolve(p.config.path)!==p.config.path||!/^wrangler(?:\.[A-Za-z0-9_-]+)*\.toml$/.test(path.basename(p.config.path))||!whole(p.config.bytes)||!hex(p.config.sha256,64))hold();const config=small(p.config.path,65536);if(config.length!==p.config.bytes||sha(config)!==p.config.sha256)hold();
+for(const dir of [p.outputRoot,p.ledgerRoot])if(typeof dir!=='string'||!path.isAbsolute(dir)||path.resolve(dir)!==dir||fs.existsSync(dir)&&fs.lstatSync(dir).isSymbolicLink())hold();
+if(p.ledgerRoot!=='C:\\Users\\vikto\\.codex\\private155-original-artifact-spends-v1'||!p.outputRoot.startsWith('C:\\Users\\vikto\\.codex\\private155-original-artifact-'))hold();
+if(fs.existsSync(p.outputRoot))hold();
+let originalArtifactCreatedAt=p.originalCreatedAt;
+if(p.kind==='time_travel'){if(p.artifact!==null||!whole(p.bookmark)||p.bookmark>p.originalCreatedAt||p.bookmark<=p.originalCreatedAt-2592000)hold();originalArtifactCreatedAt=p.bookmark;}
+else if(p.kind==='export'){if(p.artifact!==null||p.bookmark!==null)hold();}
+else{
+ exact(p.artifact,['path','bytes','sha256','originMetadata']);exact(p.artifact.originMetadata,['path','bytes','sha256']);
+ if(!path.isAbsolute(p.artifact.path)||path.resolve(p.artifact.path)!==p.artifact.path||path.extname(p.artifact.path)!=='.sql'||!whole(p.artifact.bytes)||p.artifact.bytes>p.maximumBytes||!hex(p.artifact.sha256,64)||p.bookmark!==null||!path.isAbsolute(p.artifact.originMetadata.path)||!['verification-metadata.json','signed-attempt.json'].includes(path.basename(p.artifact.originMetadata.path)))hold();
+ const origin=small(p.artifact.originMetadata.path,65536);if(origin.length!==p.artifact.originMetadata.bytes||sha(origin)!==p.artifact.originMetadata.sha256)hold();
+ // The one existing keeper is admitted as original INVENTORY, not a new backup or restore attempt.
+ // Future artifacts require the actual signed export receipt produced by this same adapter.
+ const legacy=p.artifact.originMetadata.bytes===6766&&p.artifact.originMetadata.sha256==='6c8a76fc689127adaeabe1d7e214cbf2b964795ace3c152e5700ab1fb988a399';
+ if(legacy){if(p.artifact.bytes!==50543544||p.artifact.sha256!=='ee38f3670f3ac2bb1e505331b25805a771084d8ccf764bdf865294f0d7ec8c22')hold();const metadata=JSON.parse(origin);originalArtifactCreatedAt=Math.floor(Date.parse(metadata.startedUTC)/1000);if(!whole(originalArtifactCreatedAt)||metadata.exportMaximumAgeDays!==365)hold();}
+ else{
+  const signed=JSON.parse(origin),a=JSON.parse(signed.receipt);if(signed.schema!=='original-private-recovery-signed-attempt-v1'||signed.publicKey!==p.releasePublicKey||!hex(signed.signature,128)||!Array.isArray(a)||a.length!==25||JSON.stringify(a)!==signed.receipt||a[0]!=='immutable-original-recovery-artifact-attempt-v1'||a[1]!=='export'||a[3]!==p.accountId||a[4]!==p.databaseId||a[10]!==p.artifact.bytes||a[11]!==p.artifact.sha256||!whole(a[24])||a[24]!==a[7])hold();originalArtifactCreatedAt=a[24];
+  const publicKey=crypto.createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(p.releasePublicKey,'hex')]),format:'der',type:'spki'});if(!crypto.verify(null,Buffer.from(signed.receipt),publicKey,Buffer.from(signed.signature,'hex')))hold();
+ }
+}
+if(originalArtifactCreatedAt>p.originalCreatedAt||originalArtifactCreatedAt<=p.originalCreatedAt-31536000)hold();
+const cli=path.resolve(__dirname,'../node_modules/wrangler/wrangler-dist/cli.js'),observer=path.join(__dirname,'private-recovery-artifact-observer.cjs'),cliRaw=small(cli,16000000);if(cliRaw.length!==14551141||sha(cliRaw)!=='e080023d5f709ece8f5b8838280f24cd54b896e635fb314b9a1a3079ef01f2a1')hold();small(observer,65536);
+if(!execute){process.stdout.write(JSON.stringify({schema:'private-recovery-artifact-preparation-v1',kind:p.kind,providerRequest:false,originalAttemptStarted:false,readyToReopen:false})+'\n');return;}
+async function main(){
+ const at=Date.now();if(at<p.originalCreatedAt*1000||at>=p.originalExpiresAt*1000)hold();
+ // Explicit runtime input only; no auth config, token cache, credential file or secret output.
+ const encoded=process.env.OLYMPUS_PRIVATE_RELEASE_SIGNING_KEY;if(typeof encoded!=='string'||!hex(encoded,96)&&!hex(encoded,128))hold();
+ const key=crypto.createPrivateKey({key:Buffer.from(encoded,'hex'),format:'der',type:'pkcs8'}),publicKey=crypto.createPublicKey(key).export({format:'der',type:'spki'});if(publicKey.length!==44||publicKey.subarray(0,12).toString('hex')!=='302a300506032b6570032100'||publicKey.subarray(12).toString('hex')!==p.releasePublicKey)hold();
+ let artifact=null;if(p.kind==='private_export'){artifact=await fingerprint(p.artifact.path,p.maximumBytes);if(artifact.bytes!==p.artifact.bytes||artifact.sha256!==p.artifact.sha256)hold();}
+ directory(p.ledgerRoot);const slot=path.join(p.ledgerRoot,p.accountId+'-'+p.databaseId);directory(slot);
+ const files=fs.readdirSync(slot).sort();if(files.some(n=>!/^\d{4}-(reserve|complete)\.json$/.test(n)))hold();const count=files.filter(n=>n.endsWith('-reserve.json')).length;if(count>=1024||files.length!==count*2)hold();
+ for(let i=1;i<=count;i++){const prefix=String(i).padStart(4,'0'),r=small(path.join(slot,prefix+'-reserve.json'),16384),reserve=JSON.parse(r),done=JSON.parse(small(path.join(slot,prefix+'-complete.json'),16384));if(reserve.operationId===p.operationId||done.reserveSHA256!==sha(r)||done.originalExitCode!==0||done.knownOriginalChildClosed!==true||done.signedAttemptReceiptSHA256===null)hold();}
+ const prefix=String(count+1).padStart(4,'0'),reservePath=path.join(slot,prefix+'-reserve.json');durable(reservePath,{schema:'original-private-recovery-resource-spend-v1',operationId:p.operationId,kind:p.kind,accountId:p.accountId,databaseId:p.databaseId,inputSHA256:argv[2],createdAt:p.originalCreatedAt,expiresAt:p.originalExpiresAt,automaticRetry:false});
+ fs.mkdirSync(p.outputRoot);durable(path.join(p.outputRoot,'spend.json'),{schema:'original-private-recovery-artifact-spend-v1',state:'spent_before_original_cli',operationId:p.operationId,inputSHA256:argv[2],createdAt:p.originalCreatedAt,expiresAt:p.originalExpiresAt});
+ const env={...process.env,WRANGLER_WRITE_LOGS:'false',WRANGLER_LOG:'error',WRANGLER_HIDE_BANNER:'true',WRANGLER_SEND_METRICS:'false',CI:'true',NODE_OPTIONS:'',OLYMPUS_RECOVERY_ARTIFACT_INPUT:argv[1],OLYMPUS_RECOVERY_ARTIFACT_INPUT_SHA256:argv[2],OLYMPUS_RECOVERY_ARTIFACT_OUTPUT:p.outputRoot};
+ for(const name of ['OLYMPUS_PRIVATE_RELEASE_SIGNING_KEY','OLYMPUS_PRIVATE_CONTROL_AUTH_SECRET','PRIVACY_PRODUCTION_CONTROL_AUTH_SECRET','PRIVACY_RECOVERY_OPERATOR_SECRET','PRIVACY_RECOVERY_INITIALIZER_SECRET','PRIVACY_SERVING_GATE_SECRET','COOKIE_SECRET'])delete env[name];
+ const command=['--require',observer,cli,'d1',...(p.kind==='export'?['export','DB','--remote','--output',path.join(p.outputRoot,'original-export.sql'),'--skip-confirmation']:p.kind==='private_export'?['execute','DB','--remote','--file',p.artifact.path,'--yes']:['time-travel','restore','DB','--timestamp',String(p.bookmark),'--json']),'--config',p.config.path];
+ const child=cp.spawn(process.execPath,command,{cwd:path.dirname(p.config.path),env,stdio:'ignore',shell:false,windowsHide:true});let expired=false,spawned=Number.isSafeInteger(child.pid),timer;
+ durable(path.join(p.outputRoot,'original-child.json'),{schema:'original-private-recovery-artifact-child-v1',operationId:p.operationId,originalParentPID:process.pid,originalChildPID:child.pid??null,createdAt:p.originalCreatedAt,expiresAt:p.originalExpiresAt});
+ const closed=await new Promise(resolve=>{timer=setTimeout(()=>{expired=true;try{child.kill();}catch{}},Math.max(1,p.originalExpiresAt*1000-Date.now()));child.once('error',()=>resolve({code:null,signal:null,knownOriginalChildClosed:false}));child.once('close',(code,signal)=>resolve({code,signal:signal??null,knownOriginalChildClosed:true}));});clearTimeout(timer);
+ const outcome={schema:'original-private-recovery-artifact-child-outcome-v1',operationId:p.operationId,originalParentPID:process.pid,originalChildPID:child.pid??null,originalExitCode:closed.code,originalSignal:closed.signal,knownOriginalChildClosed:closed.knownOriginalChildClosed,deadlineExpired:expired,allDescendantClosureQualified:false,automaticRetry:false};durable(path.join(p.outputRoot,'original-child-outcome.json'),outcome);
+ if(!spawned||closed.code!==0||closed.signal!==null||!closed.knownOriginalChildClosed||expired||Date.now()>=p.originalExpiresAt*1000)hold();
+ const observationRaw=small(path.join(p.outputRoot,'original-artifact-attempt.json'),16384),o=JSON.parse(observationRaw);
+ if(o.schema!=='original-private-recovery-artifact-attempt-v1'||o.kind!==p.kind||o.operationId!==p.operationId||o.accountId!==p.accountId||o.databaseId!==p.databaseId||o.createdAt!==p.originalCreatedAt||o.expiresAt!==p.originalExpiresAt||o.providerRequestObserved!==true||o.originalAPIResponseEOF!==true||o.apiAttempts<1||o.apiResponses!==o.apiAttempts||!whole(o.observedAtMilliseconds)||o.observedAtMilliseconds<p.originalCreatedAt*1000||o.observedAtMilliseconds>=p.originalExpiresAt*1000)hold();
+ if(p.kind==='time_travel'&&(o.originalBookmarkLookupEOF!==true||o.originalSnapshotTimestamp!==p.bookmark||typeof o.requestedBookmark!=='string'))hold();
+ if(p.kind==='private_export'){const after=await fingerprint(p.artifact.path,p.maximumBytes);if(after.bytes!==artifact.bytes||after.sha256!==artifact.sha256||after.identity.some((v,i)=>v!==artifact.identity[i])||o.originalImportETag!==artifact.md5||o.originalUploadBytesObserved!==true)hold();}
+ const exported=p.kind==='export'?await fingerprint(path.join(p.outputRoot,'original-export.sql'),p.maximumBytes):null;if(exported&&(exported.bytes!==o.exportBytes||exported.sha256!==o.exportSHA256||o.actualOutputBytesMatch!==true||o.originalDownloadCloneEOF!==true))hold();
+ if(Date.now()<p.originalCreatedAt*1000||Date.now()>=p.originalExpiresAt*1000)hold();
+ const artifactKey=p.kind==='time_travel'?sha(Buffer.from(JSON.stringify(['original-provider-time-travel-source-v1',p.accountId,p.databaseId,o.requestedBookmark]))):sha(Buffer.from(JSON.stringify(['original-private-artifact-bytes-v1',p.accountId,p.databaseId,(artifact??exported).sha256,(artifact??exported).bytes])));
+ // This binds an actual attempted original provider operation. The Worker must still verify its SAME
+ // post-restore Native profile/epoch/cut; this receipt cannot turn a local artifact into an open capability.
+ const receipt=JSON.stringify(['immutable-original-recovery-artifact-attempt-v1',p.kind,p.operationId,p.accountId,p.databaseId,p.originalFloor,p.originalGate,p.originalCreatedAt,p.originalExpiresAt,artifactKey,(artifact??exported)?.bytes??null,(artifact??exported)?.sha256??null,p.kind==='time_travel'?o.requestedBookmark:null,o.providerBookmark,o.previousBookmark??null,sha(observationRaw),p.nextEpoch,p.profileDigest64,p.sourceTree,sha(cliRaw),child.pid,Math.floor(o.observedAtMilliseconds/1000),p.kind==='private_export'?p.artifact.originMetadata.sha256:null,p.kind==='private_export'?p.artifact.originMetadata.bytes:null,originalArtifactCreatedAt]);
+ const signature=crypto.sign(null,Buffer.from(receipt),key).toString('hex');if(!crypto.verify(null,Buffer.from(receipt),crypto.createPublicKey(key),Buffer.from(signature,'hex')))hold();
+ const signed={schema:'original-private-recovery-signed-attempt-v1',receipt,signature,publicKey:p.releasePublicKey,originalObservationSHA256:sha(observationRaw),artifactInventoryOnly:p.kind==='export',nativePostRestoreReadbackRequired:true,allPhysicalCopiesErased:false,readyToReopen:false};
+ durable(path.join(p.outputRoot,'signed-attempt.json'),signed);durable(path.join(slot,prefix+'-complete.json'),{schema:'original-private-recovery-resource-complete-v1',operationId:p.operationId,reserveSHA256:sha(small(reservePath,16384)),originalExitCode:0,knownOriginalChildClosed:true,signedAttemptReceiptSHA256:sha(Buffer.from(receipt)),automaticRetry:false});
+ process.stdout.write(JSON.stringify({schema:'original-private-recovery-artifact-complete-v1',kind:p.kind,operationId:p.operationId,signedAttemptPath:path.join(p.outputRoot,'signed-attempt.json'),nativePostRestoreReadbackRequired:true,allPhysicalCopiesErased:false,readyToReopen:false})+'\n');
+}
+main().catch(()=>{process.stderr.write('PRIVATE_RECOVERY_ARTIFACT_UNKNOWN_OR_HELD\n');process.exitCode=1;});

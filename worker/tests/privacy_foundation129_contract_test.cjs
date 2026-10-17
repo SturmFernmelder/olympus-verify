@@ -31,11 +31,12 @@ const config = f => ({ db: f.port, origin, guildId: GUILD, roleGuildId: GUILD, a
 async function run() {
   eq('all six lifecycle composition gates remain off', Object.values(core.LIFECYCLE_COMPOSITION), [false, false, false, false, false, false]);
   eq('root dispatcher entry remains off', authority.ROOT_AUTHORITY_ENTRY_ENABLED, false);
-  eq('54 immutable logical stores have 19 local plans and 35 holds', [catalog.STORE_CATALOG.length,
-    catalog.STORE_CATALOG.filter(s => s.plan).length, catalog.STORE_CATALOG.filter(s => !s.plan).length], [54, 19, 35]);
-  eq('role-ledger stores occupy original final ordinals and remain held', catalog.STORE_CATALOG.slice(52).map(s => [s.table, s.plan, s.referenceCoverage]),
+  eq('56 current logical stores retain19 historical plans and37 explicit holds', [catalog.STORE_CATALOG.length,
+    catalog.STORE_CATALOG.filter(s => s.plan).length, catalog.STORE_CATALOG.filter(s => !s.plan).length], [56, 19, 37]);
+  eq('role-ledger stores occupy original final ordinals and remain held', catalog.STORE_CATALOG.slice(52,54).map(s => [s.table, s.plan, s.referenceCoverage]),
     [['role_grants', null, 'unqualified'], ['role_attempts', null, 'unqualified']]);
-  ok('all 54 reference projections remain unqualified', catalog.STORE_CATALOG.every(s => s.referenceCoverage === 'unqualified'));
+  eq('two rejection stores append as explicit holds without promoting dormant lifecycle',catalog.STORE_CATALOG.slice(54).map(s=>[s.table,s.plan,s.hold,s.referenceCoverage]),[['privacy_rejection_decisions',null,'source_owned_serving_erasure_and_derived_copy_only','unqualified'],['privacy_rejection_expiry_control',null,'nonpersonal_shared_original_expiry_control','unqualified']]);
+  ok('all56 reference projections remain unqualified', catalog.STORE_CATALOG.every(s => s.referenceCoverage === 'unqualified'));
   const entry = fs.readFileSync(path.join(root, 'src/index.ts'), 'utf8');
   ok('production entry imports none of the dormant foundation modules', !/from\s+['"]\.\/(?:account-lifecycle|account-root-authority|privacy-erasure|privacy-foundation-coverage)['"]/.test(entry));
 
@@ -43,7 +44,7 @@ async function run() {
   eq('actual baseline schema cannot qualify planned profile', report.physicalProfile, 'held');
   eq('current 67-table baseline keeps the dormant 63-name census explicitly truncated', report.censusMayBeTruncated, true);
   eq('bounded baseline missing-name vector is reported exactly', [...report.missingStores].sort(),
-    [...catalog.FOUNDATION_TABLES, 'site_login_flows', 'role_grants', 'role_attempts', 'site_users', 'site_votes'].sort());
+    [...catalog.FOUNDATION_TABLES, 'site_login_flows', 'role_grants', 'role_attempts', 'site_settings', 'site_users', 'site_votes'].sort());
   eq('the truncated names are physically present rather than claimed absent',
     f.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN('site_users','site_votes') ORDER BY name").all().map(r => r.name), ['site_users', 'site_votes']);
   eq('baseline report never provides full erasure authority', [report.completeErasureQualified, report.accountAuthorityAdopted], [false, false]);
@@ -55,11 +56,11 @@ async function run() {
 
   f = fixture(); report = await coverage.inspectFoundationCoverage(f.port);
   eq('planned fixture has 62 raw physical tables including SQLite sequence', f.db.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type='table'").get().n, 62);
-  eq('test-local fixture qualifies only exact physical profile', [report.physicalProfile, report.reason], ['qualified', 'physical_shape_only_all_reference_and_completion_gates_held']);
-  eq('complete field/reference purpose disposition is still held', [report.referenceCoverageUnqualified.length, report.foundationDispositionUnqualified.length, report.completeErasureQualified], [54, 7, false]);
+  eq('historical paused-P fixture cannot qualify current physical profile', [report.physicalProfile, report.reason], ['held', 'unqualified_physical_schema']);
+  eq('complete field/reference purpose disposition is still held', [report.referenceCoverageUnqualified.length, report.foundationDispositionUnqualified.length, report.completeErasureQualified], [56, 7, false]);
   for (const s of catalog.STORE_CATALOG) {
     const columns = f.db.prepare(`PRAGMA table_info('${s.table}')`).all().map(c => c.name);
-    ok(s.table + ' has real authored physical fields', columns.length > 0);
+    if(['privacy_rejection_decisions','privacy_rejection_expiry_control'].includes(s.table))eq(s.table+' is honestly absent from preserved historical paused-P schema',columns,[]);else ok(s.table+' retains historical authored physical fields',columns.length>0);
     if (s.plan) ok(s.table + ' exact local-owner field exists', columns.includes(s.plan.owner));
   }
   eq('global controls are distinct from five ordinary/custody foundations', coverage.FOUNDATION_DISPOSITIONS.filter(s => s.finalDisposition === 'preserve_control').map(s => s.table), ['generation_control', 'root_authority_scope']);
@@ -68,7 +69,7 @@ async function run() {
   f.db.exec('CREATE TABLE community_event_deliveries(event_id TEXT,actor TEXT,session_version INTEGER,session_expires INTEGER)');
   report = await coverage.inspectFoundationCoverage(f.port);
   eq('new delivery130 store cannot silently qualify the old profile', [report.physicalProfile, report.unexpectedTables], ['held', ['community_event_deliveries']]);
-  eq('delivery future extension is explicit rather than an ordinal 54 append', [coverage.FUTURE_DELIVERY_STORE.coverage, catalog.STORE_CATALOG.length], ['unqualified', 54]);
+  eq('delivery future extension is explicit rather than an ordinal 54 append', [coverage.FUTURE_DELIVERY_STORE.coverage, catalog.STORE_CATALOG.length], ['unqualified', 56]);
   f.db.close();
 
   for (const [name, change] of [
@@ -85,7 +86,7 @@ async function run() {
     const status = await erase.runErasureSlice(f.port, core.reference(op));
     eq(name + ' refuses a destructive local slice', f.db.prepare('SELECT COUNT(*) n FROM pending').get().n, 1);
     ok(name + ' cannot claim completion or local completion', status.status === 'held' && !status.allStoresErased && !status.localPlansFinished);
-    eq(name + ' retains unresolved role-removal custody', f.db.prepare('SELECT state FROM privacy_external_outbox').get().state, 'held');
+    eq(name+' held historical source creates no invented role-removal custody', f.db.prepare('SELECT COUNT(*) n FROM privacy_external_outbox').get().n,0);
     f.db.close();
   }
 
@@ -98,7 +99,7 @@ async function run() {
     ['own current rejection', x => x.db.prepare('UPDATE site_users SET denied=1 WHERE discord_id=?').run(A)],
   ]) {
     f = fixture(); await seed(f); const issuer = authority.createRootAuthority(config(f)), request = await signedRequest(f);
-    const positive = await issuer.captureSite(request, 'account_write'); eq(name + ' begins with fresh fixture ticket', positive.state, 'captured');
+    const positive = await issuer.captureSite(request, 'account_write'); eq(name+' historical profile cannot mint current ticket', positive.state, 'held');
     change(f); eq(name + ' holds a new protected capture', (await issuer.captureSite(request, 'account_write')).state, 'held');
     eq(name + ' also holds original ticket at consuming SQL', (await issuer.current(positive.ticket)).state, 'held');
     issuer.close(); f.db.close();
@@ -106,22 +107,22 @@ async function run() {
   f = fixture(); await seed(f);
   f.db.prepare('UPDATE site_users SET denied=1 WHERE discord_id=?').run(B);
   let issuer = authority.createRootAuthority(config(f)), result = await issuer.captureSite(await signedRequest(f), 'account_write');
-  eq('another account rejection cannot reject this account', result.state, 'captured');
+  eq('another account rejection cannot make historical profile qualify', result.state, 'held');
   eq('copied shaped ticket cannot become purpose authority', issuer.consumePlan({ ...issuer.describe(result.ticket) }).state, 'held');
   f.advance(3600); eq('an outage cannot renew original membership proof', (await issuer.current(result.ticket)).state, 'held');
   issuer.close(); f.db.close();
 
   f = fixture(); await seed(f); const op = operation(f); await core.retireExistingAccount(f.port, op);
   assert.throws(() => f.db.prepare('DELETE FROM account_generations WHERE account_id=?').run(A), /FOREIGN KEY/); checks++;
-  eq('ordinary account cannot disappear beneath unresolved request custody', f.db.prepare('SELECT state FROM account_generations WHERE account_id=?').get(A).state, 'retiring');
+  eq('held historical retirement never changes ordinary active generation', f.db.prepare('SELECT state FROM account_generations WHERE account_id=?').get(A).state, 'active');
   // Test-native FK demonstration only, not a product completion executor.
   f.db.prepare('DELETE FROM privacy_erasure_jobs WHERE subject=?').run(A);
-  eq('qualified fixture job deletion cascades dependent progress/outbox by actual FK', [f.db.prepare('SELECT COUNT(*) n FROM privacy_erasure_progress').get().n, f.db.prepare('SELECT COUNT(*) n FROM privacy_external_outbox').get().n], [0, 0]);
+  eq('held historical profile never creates progress or outbox rows', [f.db.prepare('SELECT COUNT(*) n FROM privacy_erasure_progress').get().n, f.db.prepare('SELECT COUNT(*) n FROM privacy_external_outbox').get().n], [0, 0]);
   f.db.prepare('DELETE FROM account_purpose_generations WHERE account_id=?').run(A);
   f.db.prepare('DELETE FROM account_generations WHERE account_id=?').run(A);
   eq('test-native subject purge preserves independent global controls', [f.db.prepare('SELECT epoch FROM generation_control').get().epoch, f.db.prepare('SELECT guild_id FROM root_authority_scope').get().guild_id], [E, GUILD]);
   eq('test-native subject purge preserves other account', f.db.prepare('SELECT COUNT(*) n FROM account_generations WHERE account_id=?').get(B).n, 1);
   f.db.close();
-  console.log(JSON.stringify({ suite: 'privacy-foundation129-contract', passed: checks, total: checks, providerCalls: 0, schema: 'actual baseline plus separate test-local planned fixture', activated: false }));
+  console.log(JSON.stringify({ suite: 'privacy-foundation129-contract', passed: checks, total: checks, providerCalls: 0, schema: 'current baseline plus immutable historical paused-P fixture, current admission held', activated: false }));
 }
 run().catch(e => { console.error(e); process.exitCode = 1; });

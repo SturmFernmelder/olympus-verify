@@ -1,0 +1,17 @@
+# Dormant private immutable evidence service. No signer/provider credentials or Native bindings.
+# Root must separately approve the public key and exact ORIGINAL signed receipt/signature.
+# The stored receipt cannot be refreshed by a request; its original close300 expiry is permanent.
+# This config contains no receipt, signature, key, secret, provider token or enabled binding value.
+name = "olympus-privacy-release-evidence"
+account_id = "e3c65eaa984aeb7a2df849e5a066cb54"
+main = "src/privacy-private-release-evidence.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+preview_urls = false
+routes = []
+
+[observability]
+enabled = false
+
+[vars]
+PRIVACY_IMMUTABLE_RELEASE_ENABLED = "false"

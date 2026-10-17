@@ -1,5 +1,17 @@
 # Design — membership verification for Olympus (rev. 2026-09-29, Claude Cowork)
 
+## Current Battle.net capability and release status — 15 October 2026
+
+The opening sketch and phase plan below are historical. They do not describe current activation instructions or promise future provider coverage.
+
+The reviewed integration157 source keeps Battle.net collection **OFF** in [`policy-release.ts`](../worker/src/policy-release.ts). Enabling requires an ON release with a matching policy digest, reviewed ownership API and recovery plan, a policy describing collection, configured credentials and the admin setting. The current admin control records enable intent only. Credentials, a profile publication or a checkbox cannot open this release; see [`bnet-switch.ts`](../worker/src/bnet-switch.ts).
+
+The dormant [`oauth.ts`](../worker/src/oauth.ts) connector requests `openid` and reads BattleTag/user ID through `userinfo`. It does not query WoW account-character ownership. The old Phase 3 routes and configuration names were removed in .50; the historical configuration instructions below cannot restore that implementation. See [`index.ts`](../worker/src/index.ts) and [`env.ts`](../worker/src/env.ts).
+
+Current official [WoW](https://community.developer.battle.net/documentation/world-of-warcraft/profile-apis) and [WoW Classic](https://community.developer.battle.net/documentation/world-of-warcraft-classic/profile-apis) references list account and protected-character endpoints requiring a user-authorized authorization-code token with `wow.profile`. This is public documentation evidence, not authenticated operational evidence, complete edition coverage or a mapping to another game operator. Item 14 remains pending an authoritative operator account/character ownership contract and a reviewed adapter. Account login, matching names and public profile selection must not substitute for that contract or grant guild authority.
+
+The next step is contract and adapter review with minimal retained facts, current-session/privacy binding, export/deletion and recovery evidence, followed by the existing exact-release and owner gates. Collection remains OFF meanwhile. The later dated removal and retention narratives below remain historical evidence.
+
 This is the sketch the owner brought on 17 September, checked against the current API documentation and rewritten
 where it did not hold. The premise stands: zero-touch exists today only at the Battle.net-account level; the
 character level arrives when Blizzard adds Forever to the profile API; in between, the in-game step is made
@@ -167,7 +179,10 @@ cancelled in D1 and then sent anyway by whichever client already held it. Rows q
 by this, an already-invited row is left alone, and an unreadable queue file changes nothing — the file returning
 garbage must not be able to empty the queue.
 
-## Phases
+## Historical phase plan (superseded for operation)
+
+> Retained historical design, not current activation instructions. Phase 1 linking now ships OFF; Phase 3's routes and flags were removed. Use the dated current-status note above.
+
 - **Phase 1 (live on deploy):** Linked Role via the Worker; `/verify` codes; review cards; roles from roster diffs.
 - **Phase 2 (the floor until the API exists):** addon + watcher as above. Residual manual input: an officer logged in
   with the addon, a key press per flush, an occasional `/reload` to write SavedVariables (approvals no longer wait
@@ -678,6 +693,8 @@ pickers) would be a different decision with a different privacy text, and was no
 private request form exists for people who can no longer sign in with Discord, and nothing else on a signed-out page links
 it, so hiding it would hide the form from exactly its people. The policies stay at their addresses, which the Discord
 application links (Discord's developer terms want the notice reachable from the application, which it still is).
+
+> Historical .114 switch design: the policy-marker-plus-setting sequence below is superseded by the immutable release and review gates described in the 15 October 2026 current-status note. The original narrative is preserved.
 
 **The Battle.net switch cannot get ahead of the policy.** the owner wanted no retention text while the login is useless, and a
 login that is "ready, switched off in admin settings". Those two meet in one rule: switching on needs the privacy policy to
@@ -1565,3 +1582,37 @@ anchored Disallow:/*$ on Olympus only. The real Google parser verifies the combi
 exact-body and HEAD tests prevent a substring-only false positive. No authentication, policy availability or
 other hostname changes. Sources: https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec and
 https://www.rfc-editor.org/rfc/rfc9309.html .
+
+## 15 October 2026 — Factor the admission catalogue root (.158)
+
+The admission proof checks the complete expected table, column, index and trigger catalogue on every original proof
+path. The owner's V5 instruction applies the reviewed SQL factoring directly: materialize the three expected arrays
+from `json_each(?3)` once, then enumerate each selected array. The existing slot checks and catalogue comparisons still
+use the original bound JSON, and all policy, control, epoch and native refusal expressions are unchanged. The shared
+CTE feeds writer admission, boolean catalogue inspection and the current-schema proof; it creates no cached authority
+across statements, requests or epochs.
+
+This is a query execution change over the same canonical and recorded physical catalogues. It does not replace exact
+DDL comparisons, shorten the catalogue, change error handling, reduce test workloads or alter the admission transport.
+The existing native source suite gains both-layout positive and missing-trigger refusal coverage plus exact SQL pins
+for the reviewed proposal. Actual runtime and CI evidence determine its effect; source review makes no timing claim.
+All existing scheduling qualification holds and production deployment/recovery gates remain separate. The census and
+scheduled experiment tests pin the reviewed SQL hashes; their exact comparisons remain intact. The owner approved
+raising only the Worker CI job limit from 15 to 45 minutes so the complete test chain can run (15 October 2026).
+
+
+## 2026-10-15 — .159 Beta reset policy retirement
+
+An owner can permanently retire an armed reset policy after the fixed beta cutoff, even while removals are OFF. The private preview signs the exact original policy, owner session/incarnation/generation, configuration and five-minute expiry. Typed RETIRE confirmation updates the existing policy with an exact-raw compare-and-swap; it never deletes or creates the policy row. The actor remains only in normal erasable update metadata. A repeated accepted form may read the same retained outcome without rewriting it.
+
+The retained version-3 tombstone embeds the actor-free original version-2 bytes only to identify existing scan and removal debt by their original SHA-256. It denies old and fresh reset/grant authority and cannot rearm. Status is retired_awaiting_drain, with all unresolved/dispatching custody and scan history retained. Malformed or future retirement metadata retains a held status with explicitly unavailable inventory instead of presenting invented empty counts; the UI shows a held preview with Refresh and disabled actions. A present invalid scan separately reports unavailable discovery progress while preserving known original-digest debt totals. The independent source-cutoff retention confirmation remains available under the actual current tombstone and its original owner/cutoff fences.
+
+Retirement stops new reset admissions. A DELETE whose final source check already returned may still complete; its original spent dispatching row can remain unresolved because the old-policy receipt fence refuses the changed row. Retirement does not resolve that effect, release erasure reservations, certify a drain, introduce a new source, or permit role reuse. Both schedule qualifiers and finalCompletion/roleReuseReady remain false. No provider configuration or deployment is changed by this candidate.
+
+The unpublished .159 frontend follow-up preserves the fixed cutoff, protected appointments/directory, discovery limits, old-grant closure and non-final completion explanations even when configuration or policy inventory is unavailable. This restores the existing frontend contract without treating an unverified read as policy absence or enabling held actions.
+
+The 45-minute Worker CI run 38821260557 was cancelled after 94 of 113 suite invocations completed. Its retained tail reports cancellation, not an assertion failure; 19 suites and subsequent CI steps remained unfinished. The .159 follow-up raises only that job ceiling to 90 minutes so the complete existing chain can run. It changes no test command, assertion, application deadline, scheduled cap or production qualifier.
+
+## 2026-10-16 — .160 Erasure attempt discipline (default OFF)
+
+A refusal inside the erasure terminal batch leaves a reserved suppression journal and unknown tickets that nothing can settle, and the legacy cron retried such jobs every tick, adding unknown tickets each time. Phase 1 prevents new debt without claiming to resolve old debt. With `PRIVACY_ERASURE_ATTEMPT_DISCIPLINE="true"`, the shared reference predicate also predicts the batch's own post-scrub application check, so stable refusal shapes stop before any terminal child ticket or reservation; and one compare-and-set claim writes a durable `attempt_unresolved` marker that only a known held outcome of the same attempt can replace, so an attempt that may have reached terminal custody is never retried automatically. Site and cron share the claim. The in-batch guard, the atomic transaction, the suppression journal and every recovery boundary are unchanged. The race after preflight remains a held residual; outcome recovery (a per-attempt fence and void) and historical unknowns remain separate proposals that need their own acknowledged authority.

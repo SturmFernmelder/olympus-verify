@@ -7,6 +7,16 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790000000;
+let nativeTimeOverride = null;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [T * 1000])); }
+  static now() { return T * 1000; }
+};
+let originalTestFetch = async () => { throw Error('provider calls forbidden before synthetic handler setup'); };
+globalThis.fetch = (...args) => originalTestFetch(...args);
 
 // ---------- D1 over SQLite: a batch is one transaction; SELECTs in a batch return their rows ----------
 let PREPARE_HOOK = null; // .114: a test may act when a statement is prepared (between a handler's read and its write)
@@ -58,14 +68,17 @@ function d1(db) {
 function freshDb(schemaPath = path.join(root, "schema.sql")) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(schemaPath, "utf8"));
+  if(schemaPath === path.join(root,'schema.sql')) {
+    db.function('strftime',(format,value)=>{if(format!=='%s'||value!=='now')throw Error('unexpected Native clock input');return String(nativeTimeOverride ?? T);});
+    entry.installCurrentEntryEpoch(db,{now:T});
+  } else db.exec(fs.readFileSync(schemaPath, "utf8"));
   return db;
 }
 
 // ---------- the real modules ----------
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const cache = {};
-function load(name) {
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   const file = path.join(root, "src", name.replace(/^\.\//, "") + ".ts");
   if (cache[file]) return cache[file].exports;
   const mod = { exports: {} };
@@ -105,12 +118,11 @@ addUser(U("300000000000000005", "erin", "Erin"), { pending: true });    // scree
 addUser(U("300000000000000006", "frank", "Frank </script><b>x</b>"), {}); // a hostile display name
 addUser(U("300000000000000007", "grace", "Grace"), {});
 let D = { calls: [], searchLimited: false, usersLimited: false };
-globalThis.fetch = async (url, init = {}) => {
+originalTestFetch = async (url, init = {}) => {
   const u = new URL(url);
   const p = u.pathname.replace(/^\/api\/v10/, "");
   const m = init.method || "GET";
-  const hdrs = init.headers || {};
-  const auth = hdrs.Authorization || hdrs.authorization || "";
+  const auth = new Headers(init.headers).get('Authorization') || '';
   D.calls.push(`${m} ${p}`);
   const res = (status, obj) => new Response(obj === undefined ? null : JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
   if (m === "POST" && p === "/oauth2/token") {
@@ -145,14 +157,16 @@ globalThis.fetch = async (url, init = {}) => {
 
 // ---------- env and helpers ----------
 let db = freshDb();
-let T = 1790000000; // 21 Sep 2026: before the reservation opens
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { super(...(a.length ? a : [T * 1000])); }
-  static now() { return T * 1000; }
-};
-const env = () => ({
-  DB: d1(db),
+const nativePorts = new WeakMap(), directPorts = new WeakMap();
+function currentPort() {
+  if(!nativePorts.has(db))nativePorts.set(db,entry.originalNativePort(db,{
+    beforeBatch: async plan=>{for(const row of plan)await PREPARE_HOOK?.(row.statement);},
+    beforeRead: (sql,params)=>{for(const m of sql.matchAll(/\bLIKE\s+\?(\d+)/gi)){const value=params[Number(m[1])-1];if(typeof value==='string'&&Buffer.byteLength(value,'utf8')>50)throw Error('D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR');}},
+  }));
+  return nativePorts.get(db);
+}
+const rawEnv = () => entry.currentEntryEnvironment({
+  DB: currentPort(),
   GUILD_ID: OLYMPUS,
   DISCORD_APP_ID: "1550176895671341076",
   DISCORD_CLIENT_SECRET: "client-secret",
@@ -178,6 +192,8 @@ const env = () => ({
   CHANNEL_SERVER_LOG: "",
   CHANNEL_NOTICES: "",
 });
+const env = () => {const e=rawEnv();if(!directPorts.has(db))directPorts.set(db,load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH));return {...e,DB:directPorts.get(db)};};
+async function fixtureRun(sql,...params){return env().DB.prepare(sql).bind(...params).run();}
 const waits = [];
 const ctx = { waitUntil: (p) => waits.push(Promise.resolve(p).catch(() => {})) };
 const settle = async () => { while (waits.length) await waits.shift(); };
@@ -200,7 +216,19 @@ async function call(method, pathname, { who, body, host = "guild.example", heade
     h.set("Origin", origin ?? `https://${host}`);
   }
   if (body !== undefined) h.set("Content-Type", "application/json");
-  const res = await index.fetch(new Request(`https://${host}${pathname}`, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), env(), ctx);
+  const decision = method==='POST' && pathname.match(/^\/api\/admin\/(users|applications)\/(\d+)\/(deny|undeny|delete|status)$/);
+  if(decision) {
+    const action=decision[3]==='delete'?'partial_delete':'business_only';
+    if(!h.has('X-Olympus-Decision-Action'))h.set('X-Olympus-Decision-Action',action);
+    if(who===VIKTOR && !h.has('X-Olympus-Decision-Target') && h.get('Origin')===`https://${host}` && h.get('X-Olympus')==='2') {
+      const prep=await call('GET',`/api/admin/users/${decision[2]}/decision-target?route=${decision[3]}&decisionAction=${action}`,{who,host});
+      if(prep.status!==200)return prep;
+      const prepared=await prep.json();
+      if(typeof prepared.targetToken!=='string')throw Error('actual decision target preparation held');
+      h.set('X-Olympus-Decision-Target',prepared.targetToken);
+    }
+  }
+  const res = await index.fetch(new Request(`https://${host}${pathname}`, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), rawEnv(), ctx);
   await settle();
   return res;
 }
@@ -214,18 +242,13 @@ async function signIn(id) {
   const start = await call("GET", "/auth/login");
   const state = new URL(start.headers.get("Location")).searchParams.get("state");
   const stateCookie = cookiesFrom(start)["__Host-olg_state"];
-  const res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${id}&state=${encodeURIComponent(state)}`, { headers: { Cookie: `__Host-olg_state=${stateCookie}` } }), env(), ctx);
+  const res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${id}&state=${encodeURIComponent(state)}`, { headers: { Cookie: `__Host-olg_state=${stateCookie}` } }), rawEnv(), ctx);
   await settle();
   const c = cookiesFrom(res)["__Host-olg"];
   if (c) {
-    // .133: business dates stay in September, but the real consuming SQLite fence uses its wall clock.
-    // Authenticate the actual OAuth cookie first; preserve its u/v and adjust only fixture expiry at sign-in.
-    // Never refresh a protected request or replace the production database clock/session fence.
     const original = await core.readSession(env(), new Request("https://guild.example/", { headers: { Cookie: `__Host-olg=${c}` } }));
     if (!original || original.u !== id) throw new Error("Actual OAuth cookie did not authenticate");
-    const wallNow = Number(db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").get().t);
-    const body = Buffer.from(JSON.stringify({ ...original, e: Math.max(original.e, wallNow + 3600) })).toString("base64url");
-    jar.set(id, `__Host-olg=${body}.${await core.sign(env().COOKIE_SECRET, "session", body)}`);
+    jar.set(id, `__Host-olg=${c}`);
   }
   return res;
 }
@@ -234,22 +257,26 @@ const bootOf = async (res) => {
   const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
   return { html, boot: m ? JSON.parse(m[1]) : null };
 };
+async function legacySchemaHeld(old) {
+  const before=JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all());
+  let error=null;try{await schema.ensureSchema({DB:d1(old)});}catch(e){error=e;}
+  if(!(error instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld))throw Error('legacy schema did not reach exact current unregistered-Native hold');
+  return before===JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all());
+}
 
 (async () => {
-  console.log("== schema: the Worker adds the site's tables and columns to an old database itself ==");
+  console.log("== schema: ordinary serving cannot migrate historical databases ==");
   {
     const old = freshDb(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"));
     schema.forgetSchemaCheck();
-    await schema.ensureSchema({ DB: d1(old) });
+    const held=await legacySchemaHeld(old);
     const cols = (t) => old.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
-    check("site tables created, members.username/global_name/names_at and invite_queue.priority added",
-      ["site_users", "site_applications", "site_votes", "site_friends", "site_reserved", "site_settings"].every((t) => cols(t).length) &&
-      ["username", "global_name", "names_at"].every((c) => cols("members").includes(c)) && cols("invite_queue").includes("priority"));
-    check("  the queue order index exists", !!old.prepare("SELECT name FROM sqlite_master WHERE name = 'invite_queue_order'").get());
+    check("historical schema holds unchanged without public creation of site tables or columns",
+      held && !cols('site_users').length && !cols('invite_queue').includes('priority'));
+    check("the held legacy request creates no queue order index", !old.prepare("SELECT name FROM sqlite_master WHERE name = 'invite_queue_order'").get());
     schema.forgetSchemaCheck();
-    let again = true;
-    try { await schema.ensureSchema({ DB: d1(old) }); } catch (e) { again = false; console.log(e); }
-    check("  running it again is harmless", again);
+    const again=await legacySchemaHeld(old);
+    check("a repeated legacy request remains held and preserves its schema", again);
     schema.forgetSchemaCheck();
   }
   {
@@ -264,18 +291,18 @@ const bootOf = async (res) => {
     ins.run("800000000000000001", "raid_leader", "eu"); ins.run("800000000000000002", "raid_leader", "na_west"); ins.run("800000000000000003", "raid_assist", "eu"); ins.run("800000000000000004", "raid_assist", null);
     const vote = old.prepare("INSERT INTO site_votes (voter_id, ballot, slot, nominee_kind, nominee_key, nominee_label, created_at, updated_at) VALUES ('800000000000000009', 'raid_leader', ?1, ?2, ?3, 'x', 1, 1)");
     vote.run(1, "discord", "800000000000000001"); vote.run(2, "name", "someone");
-    await schema.ensureSchema({ DB: d1(old) });
+    const held=await legacySchemaHeld(old);
     const cols = old.prepare("PRAGMA table_info(site_applications)").all().map((c) => c.name);
-    check(".41 to .43: backup1, backup2, avail and avail_tz added, and the board table created",
-      ["backup1", "backup2", "avail", "avail_tz"].every((c) => cols.includes(c)) && !!old.prepare("SELECT name FROM sqlite_master WHERE name = 'site_board_votes'").get());
+    check("historical application schema holds without adding columns or the board table",
+      held && ['backup1','backup2','avail','avail_tz'].every(c=>!cols.includes(c)) && !old.prepare("SELECT name FROM sqlite_master WHERE name = 'site_board_votes'").get());
     const pos = Object.fromEntries(old.prepare("SELECT discord_id, position FROM site_applications").all().map((r) => [r.discord_id.slice(-1), r.position]));
-    check("  Raid Leader and Raid Assist applications go to EU for Europe, NA for anywhere else",
-      pos[1] === "raid_leader_eu" && pos[2] === "raid_leader_na" && pos[3] === "raid_assist_eu" && pos[4] === "raid_assist_na", pos);
+    check("the held request preserves all four original application positions",
+      pos[1] === "raid_leader" && pos[2] === "raid_leader" && pos[3] === "raid_assist" && pos[4] === "raid_assist", pos);
     const ballots = old.prepare("SELECT slot, ballot FROM site_votes ORDER BY slot").all().map((r) => r.ballot).join(",");
-    check("  a Raid Leader nomination follows the nominee's own application (EU), a typed name goes to NA", ballots === "raid_leader_eu,raid_leader_na", ballots);
+    check("the held request preserves both original nomination ballots", ballots === "raid_leader,raid_leader", ballots);
     schema.forgetSchemaCheck();
-    await schema.ensureSchema({ DB: d1(old) });
-    check("  and a second run changes nothing", old.prepare("SELECT COUNT(*) AS n FROM site_applications WHERE position LIKE 'raid_%_eu'").get().n === 2);
+    const again=await legacySchemaHeld(old);
+    check("a repeated historical application request remains held without row rewrites", again && old.prepare("SELECT COUNT(*) AS n FROM site_applications WHERE position LIKE 'raid_%_eu'").get().n === 0);
     schema.forgetSchemaCheck();
   }
 
@@ -314,23 +341,23 @@ const bootOf = async (res) => {
   const loc = new URL(res.headers.get("Location"));
   check("login redirects to Discord with identify + guilds.members.read", loc.origin === "https://discord.com" && loc.searchParams.get("scope") === "identify guilds.members.read" && loc.searchParams.get("redirect_uri") === "https://guild.example/auth/callback");
   check("  and sets a signed, host-only state cookie", /^__Host-olg_state=[^;]+\.[^;]+; Max-Age=600; Path=\/; HttpOnly; Secure; SameSite=Lax/.test(res.headers.get("Set-Cookie")));
-  res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-300000000000000001&state=forged`, { headers: { Cookie: "__Host-olg_state=forged.bad" } }), env(), ctx);
+  res = await index.fetch(new Request(`https://guild.example/auth/callback?code=code-300000000000000001&state=forged`, { headers: { Cookie: "__Host-olg_state=forged.bad" } }), rawEnv(), ctx);
   page = await bootOf(res);
   check("a forged state is refused", !cookiesFrom(res)["__Host-olg"] && !page.boot && page.html.includes('This sign-in attempt expired'));
   // prompt=none answered with an error (not a Cancel): start over once with consent, and never loop.
   let st = await call("GET", "/auth/login");
   let stState = new URL(st.headers.get("Location")).searchParams.get("state");
   let stCookie = cookiesFrom(st)["__Host-olg_state"];
-  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=interaction_required&state=${encodeURIComponent(stState)}`, { headers: { Cookie: `__Host-olg_state=${stCookie}` } }), env(), ctx);
+  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=interaction_required&state=${encodeURIComponent(stState)}`, { headers: { Cookie: `__Host-olg_state=${stCookie}` } }), rawEnv(), ctx);
   check("an error on the silent attempt retries once with consent", res.status === 302 && res.headers.get("Location") === "/auth/login?consent=1");
   st = await call("GET", "/auth/login?consent=1");
   check("  the retry asks with prompt=consent", new URL(st.headers.get("Location")).searchParams.get("prompt") === "consent");
   stState = new URL(st.headers.get("Location")).searchParams.get("state");
   stCookie = cookiesFrom(st)["__Host-olg_state"];
-  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=interaction_required&state=${encodeURIComponent(stState)}`, { headers: { Cookie: `__Host-olg_state=${stCookie}` } }), env(), ctx);
+  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=interaction_required&state=${encodeURIComponent(stState)}`, { headers: { Cookie: `__Host-olg_state=${stCookie}` } }), rawEnv(), ctx);
   page = await bootOf(res);
   check("  and an error then is shown, not retried again", res.status === 200 && !page.boot && page.html.includes('Discord sign-in could not be completed'));
-  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=access_denied&state=x`), env(), ctx);
+  res = await index.fetch(new Request(`https://guild.example/auth/callback?error=access_denied&state=x`), rawEnv(), ctx);
   page = await bootOf(res);
   check("Cancel on Discord's screen: 'sign-in cancelled'", !page.boot && page.html.includes('Discord sign-in was cancelled'));
   res = await signIn("300000000000000004");
@@ -386,10 +413,10 @@ const bootOf = async (res) => {
   const cookieNow = jar.get("300000000000000001");
   const at = cookieNow.lastIndexOf(".") + 10;
   const tampered = cookieNow.slice(0, at) + (cookieNow[at] === "A" ? "B" : "A") + cookieNow.slice(at + 1);
-  res = await index.fetch(new Request("https://guild.example/api/me", { headers: { Cookie: tampered } }), env(), ctx);
+  res = await index.fetch(new Request("https://guild.example/api/me", { headers: { Cookie: tampered } }), rawEnv(), ctx);
   check("a tampered session cookie: 401", res.status === 401);
   const forgedBody = Buffer.from(JSON.stringify({ u: VIKTOR, v: 1, e: T + 9999 })).toString("base64url");
-  res = await index.fetch(new Request("https://guild.example/api/me", { headers: { Cookie: `__Host-olg=${forgedBody}.${jar.get("300000000000000001").split(".")[1]}` } }), env(), ctx);
+  res = await index.fetch(new Request("https://guild.example/api/me", { headers: { Cookie: `__Host-olg=${forgedBody}.${jar.get("300000000000000001").split(".")[1]}` } }), rawEnv(), ctx);
   check("someone else's id under a valid-looking signature: 401", res.status === 401);
   const appBody = {
     position: "raid_leader_eu", backups: ["officer", "class_lead:priest"], class: "priest", role: "healer", region: "eu", character: "fern melder", fallback: true, ack: true, board: true,
@@ -458,11 +485,11 @@ const bootOf = async (res) => {
   check("  and applying again reopens it", (await J(res)).application.status === "submitted");
   // .114 (Codex, log 19:56 UTC): staff decide while a save is in flight (after its read, before its write): the decision wins
   const answersBefore = db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000002'").get().answers;
-  PREPARE_HOOK = (sql) => { if (/^\s*INSERT INTO site_applications/.test(sql)) db.prepare("UPDATE site_applications SET status = 'accepted', reviewed_at = ? WHERE discord_id = '300000000000000002'").run(T); };
+  PREPARE_HOOK = async (sql) => { if (/^\s*INSERT INTO site_applications/.test(sql)) await fixtureRun("UPDATE site_applications SET status = 'accepted', reviewed_at = ? WHERE discord_id = '300000000000000002'",T); };
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, answers: { ...memberBody.answers, why: "Changed while staff were deciding." } } });
   PREPARE_HOOK = null;
   check("  a save racing a staff decision does not overwrite the decided application (409 decided; answers unchanged)", res.status === 409 && (await J(res)).error === "decided" && db.prepare("SELECT answers, status FROM site_applications WHERE discord_id = '300000000000000002'").get().answers === answersBefore);
-  db.prepare("UPDATE site_applications SET status = 'submitted', reviewed_at = NULL WHERE discord_id = '300000000000000002'").run(); // back to open for the checks below
+  await fixtureRun("UPDATE site_applications SET status = 'submitted', reviewed_at = NULL WHERE discord_id = '300000000000000002'"); // back to open for the checks below
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, position: "pvp_team", backups: ["raider"] } });
   out = await J(res);
   check("PvP Team (.44) is a way in like Raider: no leadership answers or board consent, and Raider as its backup",
@@ -669,9 +696,8 @@ const bootOf = async (res) => {
     // Pages: 24 more Officer applications; 20 a page, no one twice, and every page in the voter's own order.
     for (let i = 0; i < 24; i++) {
       const id = String(710000000000000000n + BigInt(i));
-      db.prepare("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES (?1, ?2, ?3, ?3)").run(id, "applicant" + i, T);
-      db.prepare("INSERT INTO site_applications (discord_id, position, class, role, region, answers, status, created_at, updated_at, avail, fit_na, fit_eu, board_at) VALUES (?1, 'officer', 'rogue', 'dps', 'eu', ?2, 'submitted', ?3, ?3, ?4, 0, 7, ?3)")
-        .run(id, JSON.stringify({ experience: "x".repeat(1500), why: "y", logs: "https://secret.example/" }), T, EU_EVENINGS);
+      await fixtureRun("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES (?1, ?2, ?3, ?3)",id,"applicant" + i,T);
+      await fixtureRun("INSERT INTO site_applications (discord_id, position, class, role, region, answers, status, created_at, updated_at, avail, fit_na, fit_eu, board_at) VALUES (?1, 'officer', 'rogue', 'dps', 'eu', ?2, 'submitted', ?3, ?3, ?4, 0, 7, ?3)",id,JSON.stringify({ experience: "x".repeat(1500), why: "y", logs: "https://secret.example/" }),T,EU_EVENINGS);
     }
     const p1 = await J(await call("GET", "/api/board/officer", { who: B }));
     const p2 = await J(await call("GET", "/api/board/officer?offset=20", { who: B }));
@@ -731,20 +757,19 @@ const bootOf = async (res) => {
     res = await bv(B, G, "officer", 1);
     check("  and can no longer be voted on", res.status === 409);
     // An application saved before the board existed was promised privacy: it stays off the board until re-saved.
-    db.prepare("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES ('720000000000000001', 'oldtimer', ?1, ?1)").run(T);
-    db.prepare("INSERT INTO site_applications (discord_id, position, class, role, region, answers, status, created_at, updated_at) VALUES ('720000000000000001', 'officer', 'mage', 'dps', 'eu', ?1, 'submitted', ?2, ?2)")
-      .run(JSON.stringify({ experience: "Written when the site said nobody else would read it." }), T);
+    await fixtureRun("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES ('720000000000000001', 'oldtimer', ?1, ?1)",T);
+    await fixtureRun("INSERT INTO site_applications (discord_id, position, class, role, region, answers, status, created_at, updated_at) VALUES ('720000000000000001', 'officer', 'mage', 'dps', 'eu', ?1, 'submitted', ?2, ?2)",JSON.stringify({ experience: "Written when the site said nobody else would read it." }),T);
     res = await call("GET", "/api/board/officer", { who: B });
     check("an application from before the board (no consent) is not on it", !(await J(res)).candidates.some((x) => x.id === "720000000000000001"));
     res = await call("GET", "/api/admin/board", { who: VIKTOR });
     check("  nor counted as an applicant there (Alice, Carol and the 24; Grace withdrew)", (await J(res)).roles.find((r) => r.key === "officer").applicants === 26);
-    db.prepare("UPDATE site_applications SET board_at = ?1 WHERE discord_id = '720000000000000001'").run(T);
+    await fixtureRun("UPDATE site_applications SET board_at = ?1 WHERE discord_id = '720000000000000001'",T);
     res = await call("GET", "/api/board/officer", { who: B });
     check("  until its applicant saves it with the box ticked", (await J(res)).total === 27);
-    db.prepare("DELETE FROM site_applications WHERE discord_id = '720000000000000001'").run();
-    db.prepare("DELETE FROM site_users WHERE discord_id = '720000000000000001'").run();
-    db.prepare("DELETE FROM site_applications WHERE discord_id LIKE '7100%'").run();
-    db.prepare("DELETE FROM site_users WHERE discord_id LIKE '7100%'").run();
+    await fixtureRun("DELETE FROM site_applications WHERE discord_id = '720000000000000001'");
+    await fixtureRun("DELETE FROM site_users WHERE discord_id = '720000000000000001'");
+    await fixtureRun("DELETE FROM site_applications WHERE discord_id LIKE '7100%'");
+    await fixtureRun("DELETE FROM site_users WHERE discord_id LIKE '7100%'");
     await call("DELETE", "/api/application", { who: C });
     res = await call("GET", "/api/admin/board?role=officer", { who: VIKTOR });
     out = await J(res);
@@ -923,6 +948,7 @@ const bootOf = async (res) => {
     check("  every filter at once (position with backups, profession, status, search) binds cleanly", res.status === 200 && out.total === 1 && out.items[0].user.id === C, out);
     res = await call("GET", "/api/admin/export/applications", { who: VIKTOR });
     out = await J(res);
+    if(res.status!==200||!Array.isArray(out?.columns))throw Error('current admin applications export refused '+res.status+' '+JSON.stringify(out));
     const pcol = out.columns.indexOf("professions");
     const bRow = out.rows.find((r) => r[0] === B);
     check("  and the export has a professions column", pcol > 0 && bRow && bRow[pcol] === "blacksmithing mining cooking", bRow && bRow[pcol]);
@@ -1003,11 +1029,11 @@ const bootOf = async (res) => {
   check("  a member never sees 'approved' (the list is private)", (await J(res)).reserved.every((r) => r.status === "saved"));
 
   // Existing traffic in the queue: two ordinary verified applicants.
-  const qdb = (sql, ...p) => db.prepare(sql).run(...p);
-  qdb("INSERT INTO members (discord_id) VALUES ('400000000000000001'), ('400000000000000002'), ('300000000000000003')");
-  qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('early bird', 'Early Bird', '400000000000000001', 'queued', ?1, 'auto')", T - 500);
-  qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('carol light', 'Carol Light', '300000000000000003', 'queued', ?1, 'auto')", T - 400);
-  qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('late comer', 'Late Comer', '400000000000000002', 'queued', ?1, 'auto')", T - 300);
+  const qdb = async (sql, ...p) => await fixtureRun(sql,...p);
+  await qdb("INSERT INTO members (discord_id) VALUES ('400000000000000001'), ('400000000000000002'), ('300000000000000003')");
+  await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('early bird', 'Early Bird', '400000000000000001', 'queued', ?1, 'auto')", T - 500);
+  await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('carol light', 'Carol Light', '300000000000000003', 'queued', ?1, 'auto')", T - 400);
+  await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('late comer', 'Late Comer', '400000000000000002', 'queued', ?1, 'auto')", T - 300);
   let auto = await siteQueue.autoQueueReserved(env());
   check("before launch the cron queues nothing", auto === null && !db.prepare("SELECT 1 FROM invite_queue WHERE priority > 0").get());
   await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { launchAt: T - 30 } });
@@ -1029,14 +1055,14 @@ const bootOf = async (res) => {
     db.prepare("SELECT COUNT(*) AS n FROM invite_queue WHERE name_key = 'carol light'").get().n === 1);
   check("  and the site's record still points at it", db.prepare("SELECT queue_id FROM site_reserved WHERE name = 'Carol Light'").get().queue_id === carol.id);
   // An ordinary applicant whose invite is out verifies again: the row is taken over in place, not sent to the back.
-  qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, attempts, claimed_by, claimed_at, last_reason, last_reason_at, retry_after) VALUES ('anna out', 'Anna Out', '400000000000000003', 'invited', ?1, 'auto', 2, 'fern melder', ?1, 'in_another_guild', ?1, ?2)", T - 250, T + 3600);
+  await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, attempts, claimed_by, claimed_at, last_reason, last_reason_at, retry_after) VALUES ('anna out', 'Anna Out', '400000000000000003', 'invited', ?1, 'auto', 2, 'fern melder', ?1, 'in_another_guild', ?1, ?2)", T - 250, T + 3600);
   const annaId = db.prepare("SELECT id FROM invite_queue WHERE name_key = 'anna out'").get().id;
   await review.enqueueInvite(env(), "anna out", "Anna Out", "400000000000000003", "auto");
   const anna = db.prepare("SELECT id, status, attempts, claimed_by, last_reason, retry_after FROM invite_queue WHERE name_key = 'anna out'").all();
   check("an applicant with an invite out who verifies again keeps the row: queued again, refusals kept, same officer",
     anna.length === 1 && anna[0].id === annaId && anna[0].status === "queued" && anna[0].attempts === 2 && anna[0].claimed_by === "fern melder", anna);
   check("  the old refusal and its backoff are cleared", anna[0].last_reason === null && anna[0].retry_after === null);
-  qdb("DELETE FROM invite_queue WHERE name_key = 'anna out'");
+  await qdb("DELETE FROM invite_queue WHERE name_key = 'anna out'");
   // Release: the site's own row is cancelled; a row that was there on its own only loses the front.
   res = await call("POST", "/api/admin/reserved/release", { who: VIKTOR, body: { ids: [rid("300000000000000002", "Bob Stone"), rid("300000000000000003", "Carol Light")] } });
   check("release two", (await J(res)).changed === 2);
@@ -1060,8 +1086,8 @@ const bootOf = async (res) => {
   out = await J(res);
   check("'Everything' (status=all) includes released names", out.items.some((r) => r.status === "released") && out.items.some((r) => r.status !== "released"));
   // in_guild
-  qdb("INSERT INTO members (discord_id) VALUES ('300000000000000007')");
-  qdb("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES ('grace hope', 'Grace Hope', '300000000000000007', 'member', ?1)", T);
+  await qdb("INSERT INTO members (discord_id) VALUES ('300000000000000007')");
+  await qdb("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES ('grace hope', 'Grace Hope', '300000000000000007', 'member', ?1)", T);
   await call("PUT", "/api/reserved", { who: "300000000000000007", body: { names: ["Grace Hope"] } });
   await call("POST", "/api/admin/reserved/approve", { who: VIKTOR, body: { ids: [rid("300000000000000007", "Grace Hope")] } });
   out = await siteQueue.queueReserved(env(), "test");
@@ -1073,8 +1099,8 @@ const bootOf = async (res) => {
   await call("POST", "/api/admin/reserved/approve", { who: VIKTOR, body: { ids: [rid(C, "Carol Dawn"), rid(C, "Carol Dusk")] } });
   out = await J(await call("POST", "/api/admin/reserved/queue", { who: VIKTOR, body: { ids: [rid(C, "Carol Dawn"), rid(C, "Carol Dusk")] } }));
   check("two more names queued by hand", out.queued === 2, out);
-  qdb("UPDATE invite_queue SET status = 'declined' WHERE name_key = 'carol dawn' AND status = 'queued'");
-  qdb("UPDATE invite_queue SET status = 'expired' WHERE name_key = 'carol dusk' AND status = 'queued'");
+  await qdb("UPDATE invite_queue SET status = 'declined' WHERE name_key = 'carol dawn' AND status = 'queued'");
+  await qdb("UPDATE invite_queue SET status = 'expired' WHERE name_key = 'carol dusk' AND status = 'queued'");
   out = await J(await call("GET", "/api/me", { who: C }));
   check("a queued name whose invite ended reads 'ended' to its owner", out.reserved.map((r) => `${r.name}:${r.status}`).join("|") === "Carol Dawn:ended|Carol Dusk:ended", out.reserved);
   res = await call("PUT", "/api/reserved", { who: C, body: { names: ["Carol Dusk"] } });
@@ -1097,22 +1123,22 @@ const bootOf = async (res) => {
   await call("POST", "/api/admin/reserved/approve", { who: VIKTOR, body: { ids: [rid(G, "Grace Late")] } });
   await call("POST", "/api/admin/reserved/queue", { who: VIKTOR, body: { ids: [rid(G, "Grace Late")] } });
   const lateRow = () => db.prepare("SELECT id, priority FROM invite_queue WHERE name_key = 'grace late' AND status = 'queued'").get();
-  qdb("UPDATE invite_queue SET status = 'declined' WHERE name_key = 'grace late'");
+  await qdb("UPDATE invite_queue SET status = 'declined' WHERE name_key = 'grace late'");
   await review.enqueueInvite(env(), "grace late", "Grace Late", G, "auto");
   let late = lateRow();
   check("after declining the site's invite, verifying again goes to the back of the line like anyone's decline",
     late && late.priority === 0 && db.prepare("SELECT queue_id FROM site_reserved WHERE name = 'Grace Late'").get().queue_id === late.id &&
     (await J(await call("GET", "/api/me", { who: G }))).reserved.some((r) => r.name === "Grace Late" && r.status === "queued"));
-  qdb("UPDATE invite_queue SET status = 'expired' WHERE name_key = 'grace late' AND status = 'queued'");
+  await qdb("UPDATE invite_queue SET status = 'expired' WHERE name_key = 'grace late' AND status = 'queued'");
   await review.enqueueInvite(env(), "grace late", "Grace Late", G, "auto");
   late = lateRow();
   check("  after it ran out of tries, verifying again puts the reserved name back at the top", late && late.priority === 1);
-  qdb("UPDATE invite_queue SET status = 'joined' WHERE name_key = 'grace late' AND status = 'queued'");
+  await qdb("UPDATE invite_queue SET status = 'joined' WHERE name_key = 'grace late' AND status = 'queued'");
   await review.enqueueInvite(env(), "grace late", "Grace Late", G, "auto");
   late = lateRow();
   check("  and once it had joined (left or removed later), it is an ordinary applicant", late && late.priority === 0);
   await call("POST", "/api/admin/reserved/release", { who: VIKTOR, body: { ids: [rid(G, "Grace Late")] } });
-  qdb("DELETE FROM invite_queue WHERE name_key = 'grace late'");
+  await qdb("DELETE FROM invite_queue WHERE name_key = 'grace late'");
   check("what a member sees follows the invite", ["saved:claimed:", "saved:approved:", "queued:queued:written", "queued:queued:invited", "in_guild:queued:joined", "ended:queued:cancelled", "ended:queued:", "in_guild:in_guild:"]
     .every((x) => { const [want, st, qs] = x.split(":"); return siteApi.shownReserved(st, qs || null) === want; }));
 
@@ -1133,20 +1159,20 @@ const bootOf = async (res) => {
   check("  unless the admin asks to include denied accounts", (await J(res)).nominees.some((x) => x.key === "300000000000000007"));
   res = await call("DELETE", "/api/me", { who: "300000000000000006" });
   check("there is no 'delete my data' for members any more", res.status === 403 || res.status === 404);
+  const deniedBeforeMemberDelete=JSON.stringify(db.prepare("SELECT * FROM site_users WHERE discord_id='300000000000000006'").get());
   res = await call("POST", "/api/admin/users/300000000000000006/delete", { who: "300000000000000001" });
-  check("  and a member cannot use the admin's", res.status === 403);
+  const memberDeleteReply=await J(res);
+  check("a member without the original staff authentication cannot delete or read the target", res.status===401 && memberDeleteReply.error==='signed_out' && JSON.stringify(db.prepare("SELECT * FROM site_users WHERE discord_id='300000000000000006'").get())===deniedBeforeMemberDelete, res.status, memberDeleteReply);
   // The admin writes Frank in and lists him as a friend; deleting Frank's data with "mentions" takes those too.
   await call("PUT", "/api/votes", { who: VIKTOR, body: { votes: [vote("professions", 1, "discord", "300000000000000006", "Frank")] } });
   await call("PUT", "/api/friends", { who: VIKTOR, body: { friends: [{ kind: "discord", key: "300000000000000006", label: "Frank", note: "met in Stormwind" }] } });
   {
     const original = await core.readSession(env(), new Request("https://guild.example/", { headers: { Cookie: jar.get(VIKTOR) } }));
-    const wallNow = Number(db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").get().t);
-    const body = Buffer.from(JSON.stringify({ ...original, e: wallNow - 1 })).toString("base64url");
-    const expired = `__Host-olg=${body}.${await core.sign(env().COOKIE_SECRET, "session", body)}`;
-    const snapshot = () => JSON.stringify(db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(({ name }) => [name, db.prepare(`SELECT * FROM "${name}"`).all()]));
+    const snapshot = () => JSON.stringify(db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'privacy_write_admission' ORDER BY name").all().map(({ name }) => [name, db.prepare(`SELECT * FROM "${name}"`).all()]));
     const before = snapshot();
-    const held = await call("POST", "/api/admin/users/300000000000000006/delete", { headers: { Cookie: expired }, body: { mentions: true } });
-    check(".133 an original staff cookie expired on the database clock holds every table without refreshing the request", held.status === 503 && (await J(held)).error === "erasure_held" && snapshot() === before);
+    nativeTimeOverride=original.e+1;
+    let held;try{held=await call("POST", "/api/admin/users/300000000000000006/delete", { headers: { Cookie: jar.get(VIKTOR) }, body: { mentions: true } });}finally{nativeTimeOverride=null;}
+    check("the genuine original staff cookie expired only to Native holds deletion without refreshing its claims", held.status!==200 && snapshot()===before);
   }
   res = await call("POST", "/api/admin/users/300000000000000006/delete", { who: VIKTOR, body: { mentions: true } });
   const denRow = db.prepare("SELECT * FROM site_users WHERE discord_id = '300000000000000006'").get();
@@ -1156,7 +1182,7 @@ const bootOf = async (res) => {
   {
     // References too: Alice's application names Frank as one here.
     const before = JSON.parse(db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000001'").get().answers);
-    db.prepare("UPDATE site_applications SET answers = ?1 WHERE discord_id = '300000000000000001'").run(JSON.stringify({ ...before, references: [...(before.references || []), { kind: "discord", key: "300000000000000006", label: "Frank" }] }));
+    await fixtureRun("UPDATE site_applications SET answers = ?1 WHERE discord_id = '300000000000000001'",JSON.stringify({ ...before, references: [...(before.references || []), { kind: "discord", key: "300000000000000006", label: "Frank" }] }));
     await call("POST", "/api/admin/users/300000000000000006/delete", { who: VIKTOR, body: { mentions: true } });
     const after = JSON.parse(db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000001'").get().answers);
     check("  and so do references to them in other applications, with the rest of the application as it was",
@@ -1171,7 +1197,7 @@ const bootOf = async (res) => {
     !["site_users WHERE discord_id", "site_applications WHERE discord_id", "site_votes WHERE voter_id", "site_board_votes WHERE voter_id", "site_board_votes WHERE candidate_id", "site_friends WHERE owner_id", "site_reserved WHERE owner_id"].some((w) => db.prepare(`SELECT 1 FROM ${w} = '300000000000000002'`).get()));
   check("  and their session no longer works", (await call("GET", "/api/me", { who: "300000000000000002" })).status === 401);
   res = await call("POST", "/api/admin/users/300000000000000002/delete", { who: VIKTOR });
-  check("  deleting again: nothing there", res.status === 404);
+  check("repeating a completed deletion cannot prepare a new original target or recreate the account", res.status===409 && (await J(res)).error==='original_membership_decision_held' && !db.prepare("SELECT 1 FROM site_users WHERE discord_id='300000000000000002'").get());
   // Someone who never signed in here can still be named by others; a request to be forgotten covers that too. It has a
   // route of its own, which never touches an account that has signed in.
   const NEVER = "300000000000000099";
@@ -1180,13 +1206,13 @@ const bootOf = async (res) => {
   const aliceApp = db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000001'").get();
   const withRef = JSON.parse(aliceApp.answers);
   withRef.references = [...(withRef.references || []), { kind: "discord", key: NEVER, label: "Never Here" }];
-  db.prepare("UPDATE site_applications SET answers = ?1 WHERE discord_id = '300000000000000001'").run(JSON.stringify(withRef));
+  await fixtureRun("UPDATE site_applications SET answers = ?1 WHERE discord_id = '300000000000000001'",JSON.stringify(withRef));
   res = await call("GET", `/api/admin/account/${NEVER}`, { who: VIKTOR });
   out = await J(res);
   check("the admin lookup counts where a never-signed-in account is named: write-ins, friends lists, references",
     out.site.signedUp === false && out.site.writtenIn === 1 && out.site.listedBy === 1 && out.site.referencedBy === 1, out.site);
   res = await call("POST", `/api/admin/users/${NEVER}/delete`, { who: VIKTOR, body: { mentions: true } });
-  check("  the full delete is for accounts that signed in (404 here)", res.status === 404);
+  check("the site-only delete refuses a never-created account without an original target", res.status===409 && (await J(res)).error==='original_membership_decision_held' && !db.prepare('SELECT 1 FROM site_users WHERE discord_id=?').get(NEVER));
   res = await call("POST", `/api/admin/users/${NEVER}/mentions`, { who: VIKTOR });
   const aliceRefs = JSON.parse(db.prepare("SELECT answers FROM site_applications WHERE discord_id = '300000000000000001'").get().answers).references;
   check("  'remove mentions': the write-in, the friends entry and the reference naming them go, and it is logged",
@@ -1230,10 +1256,10 @@ const bootOf = async (res) => {
   res = await call("GET", "/api/admin/lookup?q=al", { who: VIKTOR });
   out = await J(res);
   check("lookup by Discord name (search) and among signed-up accounts", out.discord.some((m) => m.id === "300000000000000001") && out.site.some((u) => u.id === "300000000000000001"));
-  qdb("UPDATE site_users SET global_name = 'Ärger Carol' WHERE discord_id = '300000000000000003'");
+  await qdb("UPDATE site_users SET global_name = 'Ärger Carol' WHERE discord_id = '300000000000000003'");
   res = await call("GET", "/api/admin/lookup?q=" + encodeURIComponent("Ärger"), { who: VIKTOR });
   check("  and by a display name with non-English capitals", (await J(res)).site.some((u) => u.id === "300000000000000003"));
-  qdb("UPDATE site_users SET global_name = '=HYPERLINK(\"x\")' WHERE discord_id = '300000000000000003'");
+  await qdb("UPDATE site_users SET global_name = '=HYPERLINK(\"x\")' WHERE discord_id = '300000000000000003'");
   res = await call("GET", "/api/admin/export/users", { who: VIKTOR });
   out = await J(res);
   check("export: a JSON page of rows with the column names (the page builds the CSV)", res.status === 200 && out.columns[0] === "discord_id" && out.rows.length === out.rows.filter((r) => Array.isArray(r)).length && out.next === null);
@@ -1241,15 +1267,15 @@ const bootOf = async (res) => {
   // pages: 150 applications a page; with 151 the second page holds one
   for (let i = 0; i < 151; i++) {
     const id = String(700000000000000000n + BigInt(i));
-    qdb("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES (?1, ?2, ?3, ?3)", id, "bulk" + i, T);
-    qdb("INSERT INTO site_applications (discord_id, position, answers, status, created_at, updated_at) VALUES (?1, 'member', '{}', 'submitted', ?2, ?2)", id, T + i);
+    await qdb("INSERT INTO site_users (discord_id, username, first_login, last_login) VALUES (?1, ?2, ?3, ?3)", id, "bulk" + i, T);
+    await qdb("INSERT INTO site_applications (discord_id, position, answers, status, created_at, updated_at) VALUES (?1, 'member', '{}', 'submitted', ?2, ?2)", id, T + i);
   }
   let pageA = await J(await call("GET", "/api/admin/export/applications", { who: VIKTOR }));
   let pageB = await J(await call("GET", `/api/admin/export/applications?offset=${pageA.next}`, { who: VIKTOR }));
   const totalApps = db.prepare("SELECT COUNT(*) AS n FROM site_applications").get().n;
   check("  applications come 150 to a page, and the pages add up", pageA.rows.length === 150 && pageB.next === null && pageA.rows.length + pageB.rows.length === totalApps);
-  qdb("DELETE FROM site_applications WHERE discord_id LIKE '7000%'");
-  qdb("DELETE FROM site_users WHERE discord_id LIKE '7000%'");
+  await qdb("DELETE FROM site_applications WHERE discord_id LIKE '7000%'");
+  await qdb("DELETE FROM site_users WHERE discord_id LIKE '7000%'");
   res = await call("GET", "/api/admin/export/constructor", { who: VIKTOR });
   check("an export named after Object's own properties is just unknown (404)", res.status === 404);
   res = await call("GET", "/api/admin/export/secrets", { who: VIKTOR });
@@ -1265,19 +1291,9 @@ const bootOf = async (res) => {
   res = await call("PUT", "/api/friends", { who: "300000000000000007", body: { friends: [] } });
   check("someone who left Asmongold's server can no longer save", res.status === 403 && (await J(res)).error === "not_member" && db.prepare("SELECT in_server FROM site_users WHERE discord_id = '300000000000000007'").get().in_server === 0);
   res = await call("GET", "/api/me", { who: "300000000000000007" });
-  check("  the revoked cookie cannot read /api/me, while the own account record remains for privacy access", res.status === 401 && (await J(res)).error === "signed_out" && !!db.prepare("SELECT 1 FROM site_users WHERE discord_id = ?").get("300000000000000007"));
+  check("the membership loss invalidates the original cookie before another account-page read", res.status===401 && (await J(res)).error==='signed_out');
   res = await call("GET", "/api/board", { who: "300000000000000007" });
-  check("  the same revoked cookie cannot read the voting board", res.status === 401 && (await J(res)).error === "signed_out");
-  const absentId='300000000000000007', absentVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(absentId).session_version;
-  db.prepare('UPDATE site_users SET in_server=1,checked_at=? WHERE discord_id=?').run(T,absentId);
-  const absentStart=await call('GET','/auth/login',{who:absentId});
-  const absentState=new URL(absentStart.headers.get('Location')).searchParams.get('state');
-  res=await index.fetch(new Request(`https://guild.example/auth/callback?code=code-${absentId}&state=${encodeURIComponent(absentState)}`,{headers:{Cookie:`__Host-olg_state=${cookiesFrom(absentStart)['__Host-olg_state']}; ${jar.get(absentId)}`}}),env(),ctx);
-  page=await bootOf(res);
-  const absentAfter=db.prepare('SELECT in_server,session_version FROM site_users WHERE discord_id=?').get(absentId);
-  check('authoritative OAuth absence clears the old browser session and withholds guild boot',res.status===403&&!page.boot&&page.html.includes('Join the Asmongold Discord server')&&/Max-Age=0/.test(res.headers.get('Set-Cookie')||'')&&absentAfter.in_server===0&&absentAfter.session_version===absentVersion+1);
-  res=await call('GET','/static/app.js',{who:absentId});
-  check('the pre-callback cookie cannot recover protected source after authoritative absence',res.status===401);
+  check("the same revoked cookie cannot read the voting board", res.status===401 && (await J(res)).error==='signed_out');
 
   console.log("\n== sign-out ==");
   res = await call("POST", "/auth/logout", { who: "300000000000000003" });
@@ -1308,9 +1324,9 @@ const bootOf = async (res) => {
   check("  and so does /verify's character autocomplete", verifyAc.type === 8 && Array.isArray(verifyAc.data.choices));
 
   console.log("\n== Discord names for the roster window ==");
-  qdb("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?1, ?1, 'addon', 2)", T);
+  await qdb("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?1, ?1, 'addon', 2)", T);
   const snap = db.prepare("SELECT MAX(id) AS id FROM roster_snapshots").get().id;
-  qdb("INSERT INTO roster_members (snapshot_id, name_key, name, rank, rank_index) VALUES (?1, 'grace hope', 'Grace Hope', 'Member', 5), (?1, 'nobody here', 'Nobody Here', 'Initiate', 6)", snap);
+  await qdb("INSERT INTO roster_members (snapshot_id, name_key, name, rank, rank_index) VALUES (?1, 'grace hope', 'Grace Hope', 'Member', 5), (?1, 'nobody here', 'Nobody Here', 'Initiate', 6)", snap);
   let v = await names.verifiedOnRoster(env(), snap);
   check("verified list: linked roster members only", v.length === 1 && v[0].name === "Grace Hope" && v[0].discordId === "300000000000000007");
   // Grace's display name is "Grace": the same as her username but for the capital, so it is not repeated.
@@ -1319,12 +1335,12 @@ const bootOf = async (res) => {
   check("the cron reads stale names from Discord", refreshed.refreshed >= 1 && db.prepare("SELECT username FROM members WHERE discord_id = '300000000000000007'").get().username === "grace");
   users.set("300000000000000007", U("300000000000000007", "grace", "grace")); // display name equal to the username
   await names.refreshNames(env(), 5); // not stale yet: nothing read
-  qdb("UPDATE members SET names_at = 0 WHERE discord_id = '300000000000000007'");
+  await qdb("UPDATE members SET names_at = 0 WHERE discord_id = '300000000000000007'");
   await names.refreshNames(env(), 5);
   v = await names.verifiedOnRoster(env(), snap);
   check("  a display name that is just the username again is not shown twice", v[0].displayName === null);
   D.usersLimited = true;
-  qdb("UPDATE members SET names_at = 0 WHERE discord_id = '300000000000000007'");
+  await qdb("UPDATE members SET names_at = 0 WHERE discord_id = '300000000000000007'");
   const callsBefore = D.calls.length;
   const limitedRun = await names.refreshNames(env(), 5);
   check("a 429 stops the names refresh at once, without waiting it out (the next run carries on)",
@@ -1334,12 +1350,12 @@ const bootOf = async (res) => {
   check("an interaction's names update a linked member at once when they changed", db.prepare("SELECT username FROM members WHERE discord_id = '300000000000000007'").get().username === "grace_new");
   await names.recordNames(env(), { id: "999999999999999999", username: "stranger", global_name: null });
   check("  and never create a record of anyone", !db.prepare("SELECT 1 FROM members WHERE discord_id = '999999999999999999'").get());
-  res = await index.fetch(new Request("https://verify.example/queue/unverified", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
+  res = await index.fetch(new Request("https://verify.example/queue/unverified", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
-  res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), ctx);
+  res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-14.156 Olympus crawler boundary" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-16.161 Ordinary schedule qualification" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");
@@ -1351,12 +1367,12 @@ const bootOf = async (res) => {
     const kept = db;
     db = freshDb();
     const e2 = () => ({ ...env(), QUEUE_CLAIM_LIMIT: "2", QUEUE_CLAIM_PRIORITY_EXTRA: "1" });
-    const ins = (key, prio) => db.prepare("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, priority) VALUES (?1, ?1, '400000000000000009', 'queued', ?2, 'auto', ?3)").run(key, T, prio);
+    const ins = async (key, prio) => await fixtureRun("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by, priority) VALUES (?1, ?1, '400000000000000009', 'queued', ?2, 'auto', ?3)",key,T,prio);
     const names = (x) => x.entries.map((e) => e.character).join(",");
-    ins("row a", 0); ins("row b", 0); ins("row c", 0);
+    await ins("row a", 0); await ins("row b", 0); await ins("row c", 0);
     let a = await (await ingest.getQueue(e2(), "officer a")).json();
     check("officer A claims the first two", names(a) === "row a,row b", names(a));
-    ins("vip one", 1); ins("vip two", 1);
+    await ins("vip one", 1); await ins("vip two", 1);
     T += 60;
     a = await (await ingest.getQueue(e2(), "officer a")).json();
     check("  reserved names arriving later do not take A's rows away (A's game client still holds them)", names(a).endsWith("row a,row b"), names(a));
@@ -1368,8 +1384,8 @@ const bootOf = async (res) => {
     check("  B keeps its own while it polls, and its spare reserved slot takes A's abandoned reserved name", names(bq) === "vip one,vip two,row c", names(bq));
     const cq = await (await ingest.getQueue(e2(), "officer c")).json();
     check("  A's other rows move on only once A has stopped polling", names(cq) === "row a,row b", names(cq));
-    db.prepare("UPDATE invite_queue SET status = 'invited' WHERE name_key = 'vip one'").run();
-    ins("vip three", 1);
+    await fixtureRun("UPDATE invite_queue SET status = 'invited' WHERE name_key = 'vip one'");
+    await ins("vip three", 1);
     bq = await (await ingest.getQueue(e2(), "officer b")).json();
     check("  a sent invite frees a place, which the next reserved name fills", names(bq) === "vip two,vip three,row c", names(bq));
     db = kept;

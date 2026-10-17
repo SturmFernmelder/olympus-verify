@@ -6,8 +6,8 @@ if(source.split(marker).length!==2)throw Error('canonical setup boundary changed
 async function review(){
  function setup(){const t=reset();db.prepare('INSERT INTO members(discord_id,banned)VALUES(?,0)').run(ID);db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,source)VALUES(?,?,?,'verified',?,'fixture')").run('probe name','Probe Name',ID,t-10);return t;}
  function insert(t,details,over={}){return Number(db.prepare('INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)').run(over.ts??t,over.actor??'system',over.action??'roster.identity_held',over.subject??null,typeof details==='string'?details:JSON.stringify(details)).lastInsertRowid);}
- async function proofAndReceipt(){const proof=await admission(),receipt=await roles.settleAccountErasureMemberRole(env(),proof);return{proof,receipt};}
- async function complete(){const{proof,receipt}=await proofAndReceipt();return eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql);}
+ async function proofAndReceipt(){const proof=await admission(),receipt=await originalServingWork(env(),e=>roles.settleAccountErasureMemberRole(e,proof));return{proof,receipt};}
+ async function complete(){const{proof,receipt}=await proofAndReceipt();return originalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql));}
  for(const[names,expected]of[[['Probe Name'],[]],[['Other Name','Probe Name'],['Other Name']],[['Probe Name','Probe Name','Other Name'],['Other Name']],[['probe name','Other Name'],['Other Name']]]){
   const t=setup(),id=insert(t,{count:names.length,stale:1,cap:5,names}),preserved=[];
   preserved.push(insert(t,{count:1,stale:1,cap:5,names:['Probe Name']},{ts:t-11}));
@@ -30,15 +30,15 @@ async function review(){
   '{"count":1,"stale":1,"cap":5,"names":["Other Name"],"names":["Probe Name"]}',
   '{"names":["Probe Name"]',
  ];
- for(const details of malformed){const t=setup();insert(t,details);const{proof,receipt}=await proofAndReceipt(),before=snapshot(),out=await eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql);
-  check('malformed explicit grouped legacy reference honestly holds original serving completion '+details,out.state!=='complete'&&!out.servingAccountErased);
+ for(const details of malformed){const t=setup();insert(t,details);const{proof,receipt}=await proofAndReceipt(),before=snapshot(),observed=await observeOriginalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql)),out=observed.value;
+  check('malformed explicit grouped legacy reference honestly holds original serving completion '+details,(observed.held||out?.state!=='complete')&&!out?.servingAccountErased);
   check('malformed explicit grouped legacy reference rolls all native family/control changes back',snapshot()===before&&!!raw('SELECT * FROM site_users WHERE discord_id=?',ID));
  }
- {const t=setup(),id=insert(t,{count:2,stale:1,cap:5,names:['Probe Name','Other Name']}),{proof,receipt}=await proofAndReceipt(),before=snapshot();hooks.beforeStatement=sql=>{if(sql.startsWith('UPDATE audit'))throw Error('independent grouped audit projection failure');};const out=await eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql);hooks.beforeStatement=null;
-  check('grouped audit UPDATE failure keeps all families and exact original grouped row via native rollback',out.state!=='complete'&&snapshot()===before&&JSON.parse(raw('SELECT * FROM audit WHERE id=?',id).details).names.length===2);
+ {const t=setup(),id=insert(t,{count:2,stale:1,cap:5,names:['Probe Name','Other Name']}),{proof,receipt}=await proofAndReceipt(),before=snapshot();hooks.beforeStatement=sql=>{if(sql.startsWith('UPDATE audit'))throw Error('independent grouped audit projection failure');};const observed=await observeOriginalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql));hooks.beforeStatement=null;
+  check('grouped audit UPDATE failure keeps all families and exact original grouped row via native rollback',(observed.held||observed.value?.state!=='complete')&&snapshot()===before&&JSON.parse(raw('SELECT * FROM audit WHERE id=?',id).details).names.length===2);
  }
- {const t=setup(),id=insert(t,{count:2,stale:1,cap:5,names:['Probe Name','Other Name']}),{proof,receipt}=await proofAndReceipt();hooks.loseResponse=true;const out=await eraser.testOnlyLocalCompletion(env(),proof,receipt,roles.accountErasureRoleSettledSql);hooks.loseResponse=false;
-  check('lost committed grouped projection recovers genuine terminal proof without duplicate work',out.state==='complete'&&JSON.stringify(JSON.parse(raw('SELECT * FROM audit WHERE id=?',id).details).names)==='["Other Name"]'&&raw('SELECT state FROM privacy_subjects WHERE subject_id=?',ID)?.state==='retired');
+ {const t=setup(),id=insert(t,{count:2,stale:1,cap:5,names:['Probe Name','Other Name']}),{proof,receipt}=await proofAndReceipt();hooks.beforeStatement=sql=>{if(sql.includes('privacy_terminal_unconfirmed')){hooks.beforeStatement=null;hooks.loseResponse=true;}};const observed=await observeOriginalServingWork(env(),e=>eraser.testOnlyLocalCompletion(e,proof,receipt,roles.accountErasureRoleSettledSql));hooks.loseResponse=false;
+  check('lost committed grouped projection preserves genuine Native retirement with independent custody openly unknown',(observed.held||observed.value?.state!=='complete')&&JSON.stringify(JSON.parse(raw('SELECT * FROM audit WHERE id=?',id).details).names)==='["Other Name"]'&&raw('SELECT state FROM privacy_subjects WHERE subject_id=?',ID)?.state==='retired');
  }
  for(const[file,bytes]of pins)check('review source pin stable '+path.basename(file),fs.readFileSync(file).equals(bytes));
  console.log(`${passes}/${checks} independent legacy grouped-audit checks passed`);db.close();if(passes!==checks)process.exitCode=1;

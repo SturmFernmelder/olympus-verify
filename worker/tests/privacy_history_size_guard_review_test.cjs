@@ -19,36 +19,36 @@ async function review(){
   const frm=await prepared(f);let batches=0,error;f.hooks.beforeBatch=()=>batches++;
   try{await copy.exportPrivacyAccess(frm.request({collection:c,cursor}),f.env);}catch(e){error=e;}
   f.hooks.beforeBatch=null;ok(c+' oversized original projection refused',!!error);eq(c+' oversize refusal503',error.status,503);
-  eq(c+' no native retry after oversize',batches,1);eq(c+' oversize rollback leaves original fresh grant unconsumed',latest(f),null);
+  eq(c+' one original read and one attempted payload, no native retry after oversize',batches,2);eq(c+' oversize rollback leaves original fresh grant unconsumed',latest(f),null);
   eq(c+' oversize has no ordinary authority creation',[count(f,'site_users'),count(f,'members'),count(f,'privacy_subjects'),count(f,'role_settlements')],[0,0,0,0]);
  }
  // A bounded retained legacy display row below the conservative limit remains complete and untruncated.
- let f=fixture();nativeCases.seed(f,'site.friends',A,31,ctx);f.db.prepare('UPDATE site_friends SET note=? WHERE owner_id=?').run('F'.repeat(3000),A);
+ let f=fixture();await nativeCases.seed(f,'site.friends',A,31,ctx);await fixtureWrite(f,'UPDATE site_friends SET note=? WHERE owner_id=?','F'.repeat(3000),A);
  const aggregate=await own(f);eq('large safe preview bounded25',aggregate.site.friends.rows.length,25);eq('large safe preview truthful count31',aggregate.coverage.histories['site.friends'].capture.count,31);
  const all=await own(f,'site.friends',aggregate.coverage.histories['site.friends'].currentCursor);
  eq('safe selected31 complete',all.history.entries.length,31);for(const row of all.history.entries){eq('safe legacy text remains untruncated',row.note,'F'.repeat(3000));ok('safe serialized own row within16KiB',bytes(row)<=16384);}f.db.close();
  // Oversize beyond aggregate25 and selected1000 is still in the original retained range and must hold both.
  for(const c of['copy','site.friends']){
-  f=fixture();nativeCases.seed(f,'site.friends',A,1002,ctx);f.db.prepare('UPDATE site_friends SET note=? WHERE rowid=(SELECT MAX(rowid)FROM site_friends)').run('X'.repeat(20000));
+  f=fixture();await nativeCases.seed(f,'site.friends',A,1002,ctx);await fixtureWrite(f,'UPDATE site_friends SET note=? WHERE rowid=(SELECT MAX(rowid)FROM site_friends)','X'.repeat(20000));
   await held(f,c);f.db.close();
  }
  // Neither a captured current page nor its final tail can silently drop a newly oversized original position.
  for(const position of['currentCursor','nextCursor']){
-  f=fixture();nativeCases.seed(f,'site.friends',A,1002,ctx);const first=(await own(f,'site.friends')).history;
-  f.db.prepare('UPDATE site_friends SET note=? WHERE rowid=(SELECT MAX(rowid)FROM site_friends)').run('😀'.repeat(10000));
+  f=fixture();await nativeCases.seed(f,'site.friends',A,1002,ctx);const first=(await own(f,'site.friends')).history;
+  await fixtureWrite(f,'UPDATE site_friends SET note=? WHERE rowid=(SELECT MAX(rowid)FROM site_friends)','😀'.repeat(10000));
   await held(f,'site.friends',first[position]);f.db.close();
  }
  // Other owners and withheld raw provider payloads are outside the safe field/owner projection.
- f=fixture();nativeCases.seed(f,'site.friends',A,1,ctx);nativeCases.seed(f,'site.friends',B,1,ctx,10000);
- f.db.prepare('UPDATE site_friends SET note=? WHERE owner_id=?').run('Other owner '.repeat(20000),B);
+ f=fixture();await nativeCases.seed(f,'site.friends',A,1,ctx);await nativeCases.seed(f,'site.friends',B,1,ctx,10000);
+ await fixtureWrite(f,'UPDATE site_friends SET note=? WHERE owner_id=?','Other owner '.repeat(20000),B);
  const scoped=await own(f);eq('oversize counterpart cannot block own copy',scoped.site.friends.rows.length,1);eq('oversize counterpart not returned',scoped.site.friends.rows[0].note,'Own note 0');f.db.close();
  for(const [c,field] of[['community.councillor_verification.councillorKeys','public_key'],['community.contributions.receipts','source_id'],['privacyLifecycle.providerCleanup','message_id']]){
-  f=fixture();const item=nativeCases.cases.find(x=>x.key===c);nativeCases.seed(f,c,A,1,ctx);
-  f.db.prepare('UPDATE '+item.table+' SET '+field+'=?').run('PRIVATE-omitted-'.repeat(20000));
+  f=fixture();const item=nativeCases.cases.find(x=>x.key===c);await nativeCases.seed(f,c,A,1,ctx);
+  await fixtureWrite(f,'UPDATE '+item.table+' SET '+field+'=?','PRIVATE-omitted-'.repeat(20000));
   const result=await own(f,c);eq(c+' omitted oversized data does not refuse safe page',result.history.entries.length,1);ok(c+' omitted oversized data never serialized',!JSON.stringify(result).includes('PRIVATE-omitted-'));f.db.close();
  }
  // Native invalid UTF8 is replaced by the runtime, with the conservative estimate covering the final bytes.
- f=fixture();nativeCases.seed(f,'site.friends',A,1,ctx);f.db.exec("UPDATE site_friends SET note=CAST(x'"+'ff'.repeat(2000)+"' AS TEXT)");
+ f=fixture();await nativeCases.seed(f,'site.friends',A,1,ctx);await fixtureWrite(f,"UPDATE site_friends SET note=CAST(x'"+'ff'.repeat(2000)+"' AS TEXT)");
  const invalid=await own(f,'site.friends');ok('native replacement projection remains below final16KiB',bytes(invalid.history.entries[0])<=16384);eq('native invalid UTF8 source is not silently truncated',Array.from(invalid.history.entries[0].note).length,2000);f.db.close();
  provider=null;console.log('privacy_history_size_guard_review_test: '+checks+' checks PASS');
 }

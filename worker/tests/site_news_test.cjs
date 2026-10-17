@@ -1,6 +1,6 @@
 // Build .115 (3 Oct 2026, Viktor's item A of 2 Oct): News (src/site-news.ts), through the REAL src/*.ts (transpiled by
 // TypeScript itself) against the REAL schema.sql in SQLite (node:sqlite), every HTTP request through the real index.ts
-// fetch and the cron through the real scheduled(). Only Discord's HTTP side is stubbed; nothing leaves the process. The
+// fetch and ordinary held attempts through the real scheduled(). Only Discord's HTTP side is stubbed; nothing leaves the process. The
 // suite's clock runs two hours behind the database's (SQLite's own strftime('%s','now')), so a lifetime computed from the
 // actor's clock instead of the database's would show. Covers:
 //   - the switch: off by default (404 news_off, a create 409 news_off), switched on in Admin -> Settings and audited;
@@ -17,8 +17,9 @@
 //   - the figures: complete and trusted endpoints only, the three-hour throttle, no anti-join when nothing moved, a latest
 //     snapshot that does not count keeps the stored row, a probe between member batches, masked application counts, off,
 //     and switched off between a run's reads and its write (nothing written; Codex's finding 4);
-//   - the real scheduled(): the .115 lines' D1 round trips on a throttled and on a computing run, and the whole run's count
-//     (the figures read the switch from the cleanup's batch: no round trip of their own when off or fresh);
+//   - the real scheduled(): ordinary Node callbacks remain held unchanged, with real or stubbed News; the direct News
+//     checks retain their exact 4/1/0 logical-trip bounds, with Native overhead counted separately. Actual whole-schedule
+//     acceptance belongs to the separately coordinated original Workerd run, and the source qualifier remains false;
 //   - events, the directory's stamp (on the hour), the beta's dates and the release notes;
 //   - static checks, the vocabulary guard over every source file .115 changes (digests only: this file names nobody), the
 //     schema in all three places;
@@ -32,67 +33,54 @@ const fs = require("fs"), path = require("path"), ts = require("typescript"), cr
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 const repo = path.join(root, "..");
+const entryFixture = require('./helpers/privacy129_fixture.cjs');
+const RealDate = Date;
+const realNow = () => Math.floor(RealDate.now() / 1000);
+let T = realNow() - 7200; // Preserve the existing actor/database clock skew before source capture.
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
 
 // ---------- a D1-shaped wrapper over SQLite, with hooks and a round-trip counter ----------
-let HOOK = null; // (sql, phase) => void: act when a statement is prepared ("prepare")
-let BEFORE_BATCH = null; // (sqls) => void: act just before a batch runs
+let HOOK = null; // async (sql, phase) => void: act at the real before-transaction seam (legacy phase name "prepare")
+let BEFORE_BATCH = null; // async (sqls) => void: act just before an original multi-statement payload batch runs
 let AFTER_BATCH = null; // async (sqls) => void: act between two batches (roster.ts writes members 50 to a batch)
-let COUNT = { trips: 0, statements: 0, sqls: [] };
-const resetCount = () => { COUNT = { trips: 0, statements: 0, sqls: [] }; };
+let COUNT = { trips: 0, statements: 0, sqls: [], physicalTrips: 0, physicalStatements: 0 };
+const resetCount = () => { COUNT = { trips: 0, statements: 0, sqls: [], physicalTrips: 0, physicalStatements: 0 }; };
 function d1(dbh) {
-  const exec = (sql, params) => {
-    const st = dbh.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    HOOK?.(sql, "prepare");
-    let params = [];
-    const api = {
-      _sql: sql,
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        if (named > 99) throw new Error("D1_ERROR: too many bound parameters");
-        params = p;
-        return api;
-      },
-      first: async () => { COUNT.trips++; COUNT.statements++; COUNT.sqls.push(sql); return dbh.prepare(sql).get(...params) ?? null; },
-      all: async () => { COUNT.trips++; COUNT.statements++; COUNT.sqls.push(sql); return { results: dbh.prepare(sql).all(...params) }; },
-      run: async () => { COUNT.trips++; COUNT.statements++; COUNT.sqls.push(sql); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      COUNT.trips++;
-      COUNT.statements += stmts.length;
-      COUNT.sqls.push(...stmts.map((s) => s._sql));
-      BEFORE_BATCH?.(stmts.map((s) => s._sql));
-      dbh.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); dbh.exec("COMMIT"); } catch (e) { dbh.exec("ROLLBACK"); throw e; }
-      if (AFTER_BATCH) await AFTER_BATCH(stmts.map((s) => s._sql));
-      return out;
+  const logical = plan => plan.filter(s => !s.statement.includes('privacy_write_admission'));
+  return entryFixture.originalNativePort(dbh, {
+    count: () => { COUNT.physicalTrips++; COUNT.physicalStatements++; },
+    beforeBatch: async plan => {
+      COUNT.physicalStatements += plan.length - 1;
+      const rows = logical(plan), sqls = rows.map(s => s.statement);
+      if (rows.length) { COUNT.trips++; COUNT.statements += rows.length; COUNT.sqls.push(...sqls); }
+      for (const s of plan) {
+        const named = Math.max(0, ...[...s.statement.matchAll(/\?(\d+)/g)].map(m => Number(m[1])));
+        if (named && s.params.length !== named || s.params.length > 99) throw Error('D1_ERROR: invalid parameter count');
+      }
+      // Existing payload refusals counted original multi-statement batches, not
+      // the standalone authentication reads now transported by central admission.
+      for (const sql of sqls) await HOOK?.(sql, 'prepare');
+      if (rows.length > 1) await BEFORE_BATCH?.(sqls);
     },
-  };
+    afterBatch: async plan => { const rows = logical(plan); if (rows.length) await AFTER_BATCH?.(rows.map(s => s.statement)); },
+  });
 }
 let db;
 function fresh() {
   db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  entryFixture.installCurrentEntryEpoch(db, { now: T });
 }
 fresh();
 
 // ---------- the real modules; only Discord's HTTP side and the notice poster are stubbed ----------
 const transpiled = {};
 const transpile = (file) => (transpiled[file] ??= ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText);
-globalThis.fetch = async (url) => { throw new Error("no network in tests: " + url); };
+const originalTestFetch = async (url) => { throw new Error("no network in tests: " + url); };
+globalThis.fetch = (...args) => originalTestFetch(...args);
 const realDiscord = (() => {
   const mod = { exports: {} };
   new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(mod, mod.exports, () => ({}));
@@ -123,6 +111,7 @@ const stubs = {
 function makeLoader(extra = {}) {
   const cache = {};
   const load = (name) => {
+    if (name === 'node:async_hooks') return require(name);
     if (extra[name]) return extra[name];
     if (stubs[name]) return stubs[name];
     if (cache[name]) return cache[name].exports;
@@ -136,37 +125,60 @@ function makeLoader(extra = {}) {
 const load = makeLoader();
 const indexMod = load("./index"), news = load("./site-news"), siteCore = load("./site-core"), roster = load("./roster"), schema = load("./schema"), leadership = load("./site-leadership");
 
-const RealDate = Date;
-const realNow = () => Math.floor(RealDate.now() / 1000);
-let T = realNow() - 7200; // the actor's clock, two hours behind the database's
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 const H = 3600, DAY = 86400;
 const GUILD = "236932545793490944", ADMIN = "472099715253796864", ADMIN2 = "472099715253796865", MEMBER = "300000000000000003", PLAIN = "300000000000000004", MEMBER2 = "300000000000000005";
-const env = (over = {}) => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: `${ADMIN},${ADMIN2}`, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "directory,events", ...over });
+const rawEnv = (over = {}) => entryFixture.currentEntryEnvironment({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", DISCORD_CLIENT_SECRET: "client-secret", DISCORD_PUBLIC_KEY: "00", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: GUILD, SITE_ADMINS: `${ADMIN},${ADMIN2}`, ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Officer Olly", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "directory,events", ...over });
 const ctx = { waitUntil: () => {} };
+function env(over = {}) {
+  const e = rawEnv(over);
+  return { ...e, DB: load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB, 'writer', 'canonical', entryFixture.ENTRY_EPOCH) };
+}
+function fixtureDatabase() {
+  return load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(entryFixture.originalNativePort(db), 'writer', 'canonical', entryFixture.ENTRY_EPOCH);
+}
+async function fixtureRows(sql, rows) {
+  const writer = fixtureDatabase();
+  for (let i = 0; i < rows.length; i += 100) await writer.batch(rows.slice(i, i + 100).map(values => writer.prepare(sql).bind(...values)));
+}
+async function replayFixtureSql(sql) {
+  for (const line of sql.split('\n').map(s => s.trim()).filter(Boolean)) await run(line.replace(/;$/, ''));
+}
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why.map((w) => (typeof w === "string" ? w : JSON.stringify(w)))); console.log((cond ? "PASS " : "FAIL ") + name); };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 const all = (sql, ...p) => db.prepare(sql).all(...p);
-const run = (sql, ...p) => db.prepare(sql).run(...p);
+const run = async (sql, ...p) => { const r = await fixtureDatabase().prepare(sql).bind(...p).run(); return { changes: r.meta.changes, lastInsertRowid: r.meta.last_row_id }; };
 const quiet = async (fn) => { const real = console.error, lines = []; console.error = (...a) => { lines.push(a.map(String).join(" ")); }; try { return { value: await fn(), lines }; } finally { console.error = real; } };
-const siteUser = (id, over = {}) => run("INSERT INTO site_users (discord_id, username, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T, over.checked_at === undefined ? T : over.checked_at);
-const confirm = (id, name) => {
-  run("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING", id);
-  run("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)", name.toLowerCase(), name, id, T - DAY);
+const siteUser = async (id, over = {}) => {
+  const changed = await run("INSERT INTO site_users (discord_id, username, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, 1, 0, 1) ON CONFLICT(discord_id) DO NOTHING", id, over.username ?? "u" + id.slice(-2), T, T);
+  if (changed.changes) originalCookies.get(db)?.delete(id); // explicit fixture account recreation only
 };
-const people = () => { siteUser(ADMIN); confirm(ADMIN, "Admin Ada"); siteUser(ADMIN2); confirm(ADMIN2, "Admin Abe"); siteUser(MEMBER); confirm(MEMBER, "Mia One"); siteUser(MEMBER2); confirm(MEMBER2, "Max Two"); siteUser(PLAIN); };
-const cookieFor = async (id) => (await siteCore.sessionCookie(env(), id, 1)).split(";")[0];
+const confirm = async (id, name) => {
+  await run("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING", id);
+  await run("INSERT INTO characters (name_key, name, discord_id, status, bound_at) VALUES (?, ?, ?, 'member', ?)", name.toLowerCase(), name, id, T - DAY);
+};
+const people = async () => { await siteUser(ADMIN); await confirm(ADMIN, "Admin Ada"); await siteUser(ADMIN2); await confirm(ADMIN2, "Admin Abe"); await siteUser(MEMBER); await confirm(MEMBER, "Mia One"); await siteUser(MEMBER2); await confirm(MEMBER2, "Max Two"); await siteUser(PLAIN); };
+const originalCookies = new WeakMap();
+const cookieFor = async (id) => {
+  let cookies = originalCookies.get(db);
+  if (!cookies) { cookies = new Map(); originalCookies.set(db, cookies); }
+  if (!cookies.has(id)) cookies.set(id, await entryFixture.issueOriginalEntryCookie(name => load('./' + name), db, rawEnv(), id));
+  return cookies.get(id).cookie;
+};
 async function http(method, url, { who, body, page = "2", over = {} } = {}) {
   const h = new Headers();
   if (who) h.set("Cookie", await cookieFor(who));
   const u = new URL(url, "https://guild.example");
   if (method !== "GET" && method !== "HEAD") { if (page !== null) h.set("X-Olympus", page); h.set("Origin", u.origin); }
   if (body !== undefined) h.set("Content-Type", "application/json");
-  const res = await indexMod.default.fetch(new Request(u, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
+  const deleted = method === 'POST' && u.pathname.match(/^\/api\/admin\/users\/(\d+)\/delete$/);
+  if (deleted) {
+    const prepared = await http('GET', `/api/admin/users/${deleted[1]}/decision-target?route=delete&decisionAction=partial_delete`, { who, over });
+    if (prepared.status !== 200 || typeof prepared.body?.targetToken !== 'string') return prepared;
+    h.set('X-Olympus-Decision-Target', prepared.body.targetToken);
+    h.set('X-Olympus-Decision-Action', 'partial_delete');
+  }
+  const res = await indexMod.default.fetch(new Request(u, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), rawEnv(over), ctx);
   let json = null;
   try { json = await res.clone().json(); } catch { /* the HTML pages */ }
   return { status: res.status, body: json, text: json === null ? await res.text() : null };
@@ -189,22 +201,22 @@ const op = (k) => idAt(ISSUED, "Op" + String(k));
 const tick = () => { T += 61; };
 const keys = (o) => Object.keys(o).sort().join(",");
 // Expire a notice by the DATABASE clock (its CHECK needs retain_until > created_at).
-const expire = (id) => { const r = realNow() - 1; run("UPDATE site_news_notices SET created_at = ?, updated_at = ?, retain_until = ? WHERE id = ?", r - DAY, r - DAY, r, id); };
+const expire = async (id) => { const r = realNow() - 1; await run("UPDATE site_news_notices SET created_at = ?, updated_at = ?, retain_until = ? WHERE id = ?", r - DAY, r - DAY, r, id); };
 const auditRows = (action) => all("SELECT * FROM audit WHERE action = ? ORDER BY id", action);
 // Roster snapshots as roster.ts leaves them, with their member rows.
-const snap = (names, { first, exportedAt = first, receivedAt = first, trusted = 1, complete = 1 } = {}) => {
-  const id = Number(run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', ?, 'h', ?, ?, ?)", exportedAt, receivedAt, names.length, trusted, complete, first).lastInsertRowid);
-  for (const nm of names) run("INSERT INTO roster_members (snapshot_id, name_key, name) VALUES (?, ?, ?)", id, nm.toLowerCase(), nm);
+const snap = async (names, { first, exportedAt = first, receivedAt = first, trusted = 1, complete = 1 } = {}) => {
+  const id = Number((await run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', ?, 'h', ?, ?, ?)", exportedAt, receivedAt, names.length, trusted, complete, first)).lastInsertRowid);
+  for (const nm of names) await run("INSERT INTO roster_members (snapshot_id, name_key, name) VALUES (?, ?, ?)", id, nm.toLowerCase(), nm);
   return id;
 };
 const figuresRow = () => one("SELECT value, updated_at, updated_by FROM site_settings WHERE key = 'newsFigures'");
 const storedFigures = () => { const r = figuresRow(); return r ? JSON.parse(r.value) : null; };
-const newsOnRow = () => run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsOn', '1', ?, NULL) ON CONFLICT(key) DO UPDATE SET value = '1'", T);
-const app = (id, { created, status = "submitted", reviewed = null }) =>
-  run("INSERT INTO site_applications (discord_id, position, answers, status, reviewed_at, created_at, updated_at) VALUES (?, 'member', '{}', ?, ?, ?, ?)", id, status, reviewed, created, created);
+const newsOnRow = async () => await run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsOn', '1', ?, NULL) ON CONFLICT(key) DO UPDATE SET value = '1'", T);
+const app = async (id, { created, status = "submitted", reviewed = null }) =>
+  await run("INSERT INTO site_applications (discord_id, position, answers, status, reviewed_at, created_at, updated_at) VALUES (?, 'member', '{}', ?, ?, ?, ?)", id, status, reviewed, created, created);
 
 (async () => {
-  people();
+  await people();
 
   console.log("\n== the switch: off by default ==");
   let r = await newsGet(MEMBER);
@@ -224,7 +236,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   r = await newsGet(PLAIN);
   check("in the server without a roster-confirmed character: 403 guild_unconfirmed", r.status === 403 && r.body.error === "guild_unconfirmed", r.body);
   const DENIED = "300000000000000006";
-  siteUser(DENIED); confirm(DENIED, "Den Ied"); run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", DENIED);
+  await siteUser(DENIED); await confirm(DENIED, "Den Ied"); await run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", DENIED);
   r = await newsGet(DENIED);
   check("a permanently denied account with a confirmed character: 403 denied", r.status === 403 && r.body.error === "denied", r.body);
   r = await newsGet(MEMBER);
@@ -233,15 +245,15 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("  no figures yet (null), no notices, the release notes, the beta's last full day", r.body.figures === null && r.body.notices.length === 0 && r.body.releases.length >= 1 && r.body.beta.lastFullDay === "2026-10-21");
   check("  no digest field and no author anywhere", !/digest/i.test(JSON.stringify(r.body)) && !JSON.stringify(r.body).includes("createdBy"));
   // standing lost between the context read and the admitted batch: the probe is prepared last, just before the batch runs
-  HOOK = (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS \(SELECT 1 FROM site_users fu/.test(sql)) { run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER); HOOK = null; } };
+  HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER); HOOK = null; } };
   r = await newsGet(MEMBER);
   check("a member whose roster proof goes between the context read and the batch: 403 guild_unconfirmed, no payload", r.status === 403 && r.body.error === "guild_unconfirmed" && !("notices" in r.body), r.body);
-  run("UPDATE characters SET status = 'member' WHERE discord_id = ?", MEMBER);
+  await run("UPDATE characters SET status = 'member' WHERE discord_id = ?", MEMBER);
   // review of 3 Oct 2026: the switch is judged inside the admitted batch, so a read racing "switch off" gets no payload
-  HOOK = (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS \(SELECT 1 FROM site_users fu/.test(sql)) { run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); HOOK = null; } };
+  HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); HOOK = null; } };
   r = await newsGet(MEMBER);
   check("News switched off between the switch read and the admitted batch: 404 news_off, no payload", r.status === 404 && r.body.error === "news_off" && !("notices" in r.body) && !("seats" in r.body), r.body);
-  run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
+  await run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
   check("  the admitted batch's first payload statement reads the switch (NEWS_ON_SQL)", /admittedRead\(env, ctx, "confirmedGuildData", \[\s*env\.DB\.prepare\(`SELECT \(\$\{NEWS_ON_SQL\}\) AS news_on`\)/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")));
   let reads = [];
   for (let k = 0; k < 31; k++) reads.push((await newsGet(MEMBER2)).status);
@@ -318,12 +330,12 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("  an edit is validated like a create (81-character title: 400)", r.status === 400 && r.body.field === "title");
   // a notice posted two days ago (by the database clock): a one-day period has already passed
   r = await create(ADMIN, { id: op(2), title: "Old notice", body: "Posted earlier", days: 30 });
-  { const c = realNow() - 2 * DAY; run("UPDATE site_news_notices SET created_at = ?, updated_at = ?, retain_until = ? WHERE id = ?", c, c, c + 30 * DAY, op(2)); }
+  { const c = realNow() - 2 * DAY; await run("UPDATE site_news_notices SET created_at = ?, updated_at = ?, retain_until = ? WHERE id = ?", c, c, c + 30 * DAY, op(2)); }
   r = await update(ADMIN, { id: op(2), revision: 1, title: "Old notice", body: "Shorter", days: 1 });
   check("an edit whose new period has already passed since posting: 400 period_passed", r.status === 400 && r.body.error === "period_passed" && one("SELECT body FROM site_news_notices WHERE id = ?", op(2)).body === "Posted earlier", r.body);
   r = await update(ADMIN, { id: op(2), revision: 1, title: "Old notice", body: "Longer", days: 3 });
   check("  three days still lie ahead: saved, retain_until = posting + 3 days", r.status === 200 && one("SELECT retain_until - created_at AS d FROM site_news_notices WHERE id = ?", op(2)).d === 3 * DAY);
-  expire(op(2));
+  await expire(op(2));
   r = await update(ADMIN, { id: op(2), revision: 2, title: "Old notice", body: "Again", days: 30 });
   check("an edit after expiry: 409 expired", r.status === 409 && r.body.error === "expired", r.body);
   r = await newsGet(MEMBER);
@@ -351,10 +363,10 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("  create, expire, sweep, replay: 409 deleted, zero rows", r.status === 409 && r.body.error === "deleted" && !one("SELECT 1 FROM site_news_notices WHERE id = ?", op(2)));
   r = await create(ADMIN, { id: op(4), title: "Fresh", body: "New", days: 14 });
   check("(another notice posted)", r.status === 200);
-  BEFORE_BATCH = (sqls) => { if (sqls.some((q) => /INSERT INTO site_news_ops/.test(q))) { run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN); BEFORE_BATCH = null; } };
+  BEFORE_BATCH = async (sqls) => { if (sqls.some((q) => /INSERT INTO site_news_ops/.test(q))) { await run("UPDATE site_users SET in_server = 0 WHERE discord_id = ?", ADMIN); BEFORE_BATCH = null; } };
   r = await create(ADMIN, { id: op(4), title: "Fresh", body: "New", days: 14 });
   check("a replay whose author left the server between the gate and the batch: a refusal (403 not_member), not the notice", r.status === 403 && r.body.error === "not_member" && !r.body.notice, r.body);
-  run("UPDATE site_users SET in_server = 1 WHERE discord_id = ?", ADMIN);
+  await run("UPDATE site_users SET in_server = 1 WHERE discord_id = ?", ADMIN);
   r = await create(ADMIN, { id: op(4), title: "Fresh", body: "New", days: 14 }, { over: { SITE_ADMINS: ADMIN2 } });
   check("  a replay after the author lost SITE_ADMINS: refused (403), not replayed", r.status === 403 && !r.body.notice);
   r = await remove(ADMIN, { id: op(4), revision: 3 });
@@ -377,7 +389,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("(posted, then edited by another admin: revision 2)", r.status === 200 && r.body.notice.revision === 2, r.body);
   r = await remove(ADMIN, { id: op(6), revision: 1 });
   check("a stale delete of a LIVE notice: 409 stale_revision with the admitted live notice, its title and text; the notice kept", r.status === 409 && r.body.error === "stale_revision" && r.body.notice.id === op(6) && r.body.notice.revision === 2 && r.body.notice.title === "Expiring headline" && r.body.notice.body === "Expiring words, edited" && !!one("SELECT 1 FROM site_news_notices WHERE id = ?", op(6)), r.body);
-  expire(op(6));
+  await expire(op(6));
   const noticeAuditsAt = auditRows("site.news_notice").length;
   r = await remove(ADMIN, { id: op(6), revision: 1 });
   check("the same stale delete once its time is up by the database clock: 409 stale_revision with only {id, revision}; no title and no text anywhere in the answer", r.status === 409 && r.body.error === "stale_revision" && keys(r.body.notice) === "id,revision" && r.body.notice.id === op(6) && r.body.notice.revision === 2 && !/Expiring/.test(JSON.stringify(r.body)), r.body);
@@ -421,18 +433,18 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   // purge_after and the cleanup removes it. The page's frozen "Retry the same" is refused for its age; without the
   // window it would have posted the notice again.
   const ancientId = idAt(realNow() - 121 * DAY, "Ancient");
-  { const c = realNow() - 121 * DAY + 60; run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", ancientId, ADMIN, c, c + 120 * DAY); }
+  { const c = realNow() - 121 * DAY + 60; await run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", ancientId, ADMIN, c, c + 120 * DAY); }
   sw = await news.sweepSiteNews(env(), realNow());
   check("(the cleanup removes that record: past purge_after, its notice gone)", sw.opsDeleted >= 1 && !one("SELECT 1 FROM site_news_ops WHERE id = ?", ancientId), sw);
   r = await create(ADMIN, { id: ancientId, title: "Deleted long ago", body: "Body", days: 7 });
   check("its 'Retry the same' after the record is gone: 409 stale_page, nothing posted again", r.status === 409 && r.body.error === "stale_page" && nothingFor(ancientId), r.body);
   const keptId = idAt(realNow() - 31 * DAY, "Kept");
-  { const c = realNow() - 31 * DAY + 60; run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", keptId, ADMIN, c, c + 120 * DAY); }
+  { const c = realNow() - 31 * DAY + 60; await run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", keptId, ADMIN, c, c + 120 * DAY); }
   r = await create(ADMIN, { id: keptId, title: "Deleted a month ago", body: "Body", days: 7 });
   check("  an id past its window whose record is still kept: the record answers first (409 deleted), nothing posted", r.status === 409 && r.body.error === "deleted" && !one("SELECT 1 FROM site_news_notices WHERE id = ?", keptId), r.body);
 
   console.log("\n== at most 20 live notices ==");
-  run("DELETE FROM site_news_notices");
+  await run("DELETE FROM site_news_notices");
   tick();
   for (let k = 0; k < 20; k++) await create(ADMIN, { id: op(100 + k), title: `Notice ${k}`, body: "Body", days: 1 });
   tick();
@@ -445,7 +457,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("every site.news_notice audit row holds only {op, live}: no title or body anywhere in the log", noticeAudits.length > 20 && noticeAudits.every((x) => keys(JSON.parse(x.details)) === "live,op") && !all("SELECT details FROM audit").some((x) => /Notice 1|Raid night|Thursday|Old notice|Short-lived/.test(x.details ?? "")));
 
   console.log("\n== the cleanup ==");
-  for (let k = 0; k < 3; k++) expire(op(100 + k));
+  for (let k = 0; k < 3; k++) await expire(op(100 + k));
   sw = await news.sweepSiteNews(env(), realNow(), 2);
   let swAudit = auditRows("site.news_expired").at(-1);
   check("bounded: limit 2 deletes 2 of the 3 expired and reports 1 remaining", sw.deleted === 2 && sw.remaining === 1 && swAudit.actor === "cron" && keys(JSON.parse(swAudit.details)) === "deleted,opsDeleted,remaining" && JSON.parse(swAudit.details).remaining === 1, sw);
@@ -454,13 +466,13 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const auditsBefore = auditRows("site.news_expired").length;
   sw = await news.sweepSiteNews(env(), realNow(), 2);
   check("  a run with nothing to do writes no audit row", sw.deleted === 0 && sw.opsDeleted === 0 && sw.remaining === 0 && auditRows("site.news_expired").length === auditsBefore);
-  run("UPDATE site_news_ops SET purge_after = created_at + 1");
+  await run("UPDATE site_news_ops SET purge_after = created_at + 1");
   sw = await news.sweepSiteNews(env(), realNow() + 10, 500);
   check("operation records past purge_after go, except those whose notice still exists", one("SELECT COUNT(*) AS c FROM site_news_ops").c === 17 && sw.opsDeleted > 0 && all("SELECT id FROM site_news_ops").every((x) => !!one("SELECT 1 FROM site_news_notices WHERE id = ?", x.id)), sw);
 
   console.log("\n== erasure and the account copy ==");
   tick();
-  run("DELETE FROM site_news_notices"); run("DELETE FROM site_news_ops");
+  await run("DELETE FROM site_news_notices"); await run("DELETE FROM site_news_ops");
   await create(ADMIN2, { id: op(300), title: "By the second admin", body: "Body", days: 30 });
   await create(ADMIN, { id: op(301), title: "By the first admin", body: "Body", days: 30 });
   await update(ADMIN2, { id: op(301), revision: 1, title: "By the first admin", body: "Edited by the second", days: 30 });
@@ -475,16 +487,16 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   r = await http("POST", `/api/admin/users/${ADMIN2}/delete`, { who: ADMIN, body: {} });
   check("deleteSiteData of the second admin: the notices stay, their author and editor fields are NULL, the ledger row's author too", r.status === 200 && one("SELECT COUNT(*) AS c FROM site_news_notices").c === 2 && !one("SELECT 1 FROM site_news_notices WHERE created_by = ? OR updated_by = ?", ADMIN2, ADMIN2) && !one("SELECT 1 FROM site_news_ops WHERE created_by = ?", ADMIN2) && one("SELECT created_by FROM site_news_notices WHERE id = ?", op(301)).created_by === ADMIN, r);
   check("  the registry names the feature", load("./community-context").communityDataNames().includes("news"));
-  siteUser(ADMIN2); // back for the rest of the suite
+  await siteUser(ADMIN2); // back for the rest of the suite
 
   console.log("\n== events, the directory's stamp, the beta, the release notes ==");
   tick();
-  const ev = (id, title, startsAt, status = "scheduled") =>
-    run("INSERT INTO community_events (id, op_id, title, details, starts_at, duration_min, ends_at, status, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, 'secret details', ?, 60, ?, ?, ?, ?, ?, ?)", id, id, title, startsAt, startsAt + 3600, status, ADMIN, T, T, startsAt + 3600 + 30 * DAY);
-  for (let k = 0; k < 6; k++) ev(("E" + k).padEnd(22, "e"), `Raid ${k}`, T + (k + 1) * DAY);
-  ev("Ecancel".padEnd(22, "e"), "Cancelled raid", T + 2 * H, "cancelled");
-  ev("Efar".padEnd(22, "e"), "Far raid", T + 15 * DAY);
-  ev("Epast".padEnd(22, "e"), "Past raid", T - DAY);
+  const ev = async (id, title, startsAt, status = "scheduled") =>
+    await run("INSERT INTO community_events (id, op_id, title, details, starts_at, duration_min, ends_at, status, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, 'secret details', ?, 60, ?, ?, ?, ?, ?, ?)", id, id, title, startsAt, startsAt + 3600, status, ADMIN, T, T, startsAt + 3600 + 30 * DAY);
+  for (let k = 0; k < 6; k++) await ev(("E" + k).padEnd(22, "e"), `Raid ${k}`, T + (k + 1) * DAY);
+  await ev("Ecancel".padEnd(22, "e"), "Cancelled raid", T + 2 * H, "cancelled");
+  await ev("Efar".padEnd(22, "e"), "Far raid", T + 15 * DAY);
+  await ev("Epast".padEnd(22, "e"), "Past raid", T - DAY);
   r = await newsGet(MEMBER);
   check("events on: the next scheduled ones in 14 days, at most 5, {id, title, startsAt, durationMin} only", r.body.events.length === 5 && r.body.events.every((e) => keys(e) === "durationMin,id,startsAt,title") && r.body.events[0].title === "Raid 0" && r.body.events[0].startsAt === T + DAY && r.body.events[0].durationMin === 60, r.body.events);
   check("  nothing cancelled, far or past; no creator, details or sign-ups", !JSON.stringify(r.body.events).match(/Cancelled|Far raid|Past raid|secret|created|signup/i));
@@ -498,52 +510,55 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   check("releases: the newest first, at most 5, plain {build, date, lines}", r.body.releases.length >= 1 && r.body.releases.length <= 5 && r.body.releases.every((x) => keys(x) === "build,date,lines"));
 
   console.log("\n== the figures ==");
-  fresh(); people(); newsOnRow();
+  fresh(); await people(); await newsOnRow();
   // pre-.115 rows only: an old one never checked, and the latest back-filled (complete, trusted, no first arrival)
-  run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?, ?, 'addon', 3)", T - 3 * DAY, T - 3 * DAY);
-  run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, trusted, complete) VALUES (?, ?, 'addon', 3, 1, 1)", T - 2 * H, T - H);
+  await run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count) VALUES (?, ?, 'addon', 3)", T - 3 * DAY, T - 3 * DAY);
+  await run("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, trusted, complete) VALUES (?, ?, 'addon', 3, 1, 1)", T - 2 * H, T - H);
   let outcome = await news.refreshNewsFigures(env(), T);
   let f = storedFigures();
   check("only pre-.115 snapshots: computed, roster day and week null, counting not begun", outcome === "computed" && f.roster.day === null && f.roster.week === null && f.countingSince === null && f.dayBaseId === null, f);
   r = await newsGet(MEMBER);
   check("  the member's figures are exactly {asOf, countingSince, roster, applications}; no snapshot id anywhere", keys(r.body.figures) === "applications,asOf,countingSince,roster" && !/latestId|BaseId|"v":/.test(JSON.stringify(r.body)), r.body.figures);
-  fresh(); people(); newsOnRow();
-  const sA = snap(["Ana", "Bo", "Cy"], { first: T - 30 * H });
-  const sB = snap(["Ana", "Bo", "Dee", "Eve"], { first: T - H });
+  fresh(); await people(); await newsOnRow();
+  const sA = await snap(["Ana", "Bo", "Cy"], { first: T - 30 * H });
+  const sB = await snap(["Ana", "Bo", "Dee", "Eve"], { first: T - H });
   resetCount();
   outcome = await news.refreshNewsFigures(env(), T);
   f = storedFigures();
   check("first arrivals T-30h (Ana, Bo, Cy) and T-1h (Ana, Bo, Dee, Eve): day {joined 2, left 1}; no week base yet", outcome === "computed" && JSON.stringify(f.roster.day) === JSON.stringify({ joined: 2, left: 1 }) && f.roster.week === null && f.latestId === sB && f.dayBaseId === sA && f.weekBaseId === null, f);
-  check("  four round trips on a computing run (switch, ids, counts, the compare-and-set write)", COUNT.trips === 4, COUNT.trips);
+  check("  four logical round trips on a computing run (switch, ids, counts, the compare-and-set write)", COUNT.trips === 4, COUNT.trips);
+  console.log(JSON.stringify({ newsFigures: "computing", logicalTrips: COUNT.trips, logicalStatements: COUNT.statements, physicalTrips: COUNT.physicalTrips, physicalStatements: COUNT.physicalStatements }));
   check("  counting began at the first complete trusted export; members see it on the hour", f.countingSince === T - 30 * H && (await newsGet(MEMBER)).body.figures.countingSince === Math.floor((T - 30 * H) / H) * H);
   check("  the cache is written by nobody (updated_by NULL)", figuresRow().updated_by === null);
   resetCount();
   outcome = await news.refreshNewsFigures(env(), T + 2 * H);
-  check("a second run within 3 h does nothing: one round trip, no write", outcome === "fresh" && COUNT.trips === 1 && storedFigures().asOf === T, COUNT);
+  check("a second run within 3 h does nothing: one logical round trip, no write", outcome === "fresh" && COUNT.trips === 1 && storedFigures().asOf === T, COUNT);
+  console.log(JSON.stringify({ newsFigures: "fresh", logicalTrips: COUNT.trips, logicalStatements: COUNT.statements, physicalTrips: COUNT.physicalTrips, physicalStatements: COUNT.physicalStatements }));
   const settingRows = () => all("SELECT key, value FROM site_settings WHERE key IN ('newsOn', 'newsFigures')");
   resetCount();
   outcome = await news.refreshNewsFigures(env(), T + 2 * H, settingRows());
-  check("  given the rows the cleanup's batch read (newsCron), a fresh run costs no round trip at all", outcome === "fresh" && COUNT.trips === 0, COUNT);
+  check("  given the rows the cleanup's batch read (newsCron), a fresh run costs no logical round trip", outcome === "fresh" && COUNT.trips === 0, COUNT);
+  console.log(JSON.stringify({ newsFigures: "fresh with supplied settings", logicalTrips: COUNT.trips, logicalStatements: COUNT.statements, physicalTrips: COUNT.physicalTrips, physicalStatements: COUNT.physicalStatements }));
   resetCount();
   outcome = await news.refreshNewsFigures(env(), T + 3 * H + 1);
   check("after 3 h with the same snapshot ids: recomputed without any anti-join", outcome === "computed" && !COUNT.sqls.some((q) => /NOT EXISTS \(SELECT 1 FROM roster_members b/.test(q)) && JSON.stringify(storedFigures().roster.day) === JSON.stringify({ joined: 2, left: 1 }) && storedFigures().asOf === T + 3 * H + 1, COUNT.sqls);
   const keep = figuresRow().value;
   const unusable = async (label, prep, over = {}) => {
-    run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
+    await run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
     const stored = figuresRow().value;
-    const id = prep();
+    const id = await prep();
     resetCount();
     const o = await news.refreshNewsFigures(env(over), T);
     check(`a ${label} latest keeps the stored row and writes nothing`, o === "unusable" && figuresRow().value === stored && !COUNT.sqls.some((q) => /UPDATE site_settings|INSERT OR IGNORE INTO site_settings/.test(q)), o);
-    if (id) run("DELETE FROM roster_snapshots WHERE id = ?", id);
+    if (id) await run("DELETE FROM roster_snapshots WHERE id = ?", id);
   };
-  await unusable("distrusted", () => snap(["Ana"], { first: T - 600, trusted: 0 }));
-  await unusable("still being written (complete 0)", () => snap(["Ana"], { first: T - 600, complete: 0 }));
+  await unusable("distrusted", async () => await snap(["Ana"], { first: T - 600, trusted: 0 }));
+  await unusable("still being written (complete 0)", async () => await snap(["Ana"], { first: T - 600, complete: 0 }));
   await unusable("pre-LINKS_NOT_BEFORE", () => null, { LINKS_NOT_BEFORE: String(T - 30 * 60) });
-  await unusable("stale (exported more than 48 h ago)", () => snap(["Ana"], { first: T - 600, exportedAt: T - 49 * H }));
+  await unusable("stale (exported more than 48 h ago)", async () => await snap(["Ana"], { first: T - 600, exportedAt: T - 49 * H }));
   check("(the stored figures are those of the last good run)", JSON.parse(figuresRow().value).latestId === JSON.parse(keep).latestId);
   // a probe between two member batches of a real export: the new snapshot is complete 0, so nothing is cached from it
-  run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
+  await run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
   const storedBefore = figuresRow().value;
   let probe = null;
   AFTER_BATCH = async (sqls) => {
@@ -555,20 +570,20 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   AFTER_BATCH = null;
   check("a run between two member batches of an export: unusable, the stored row unchanged", probe && probe.outcome === "unusable" && probe.value === storedBefore, probe && probe.outcome);
   // applications: masked below five, decisions only accepted or declined
-  for (let k = 0; k < 6; k++) app(`40000000000000000${k}`, { created: T - H });
-  app("400000000000000010", { created: T - 10 * DAY, status: "accepted", reviewed: T - H });
-  app("400000000000000011", { created: T - 10 * DAY, status: "declined", reviewed: T - 2 * H });
-  app("400000000000000012", { created: T - 10 * DAY, status: "accepted", reviewed: T - 3 * DAY });
-  app("400000000000000013", { created: T - 10 * DAY, status: "withdrawn", reviewed: T - H });
-  run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
+  for (let k = 0; k < 6; k++) await app(`40000000000000000${k}`, { created: T - H });
+  await app("400000000000000010", { created: T - 10 * DAY, status: "accepted", reviewed: T - H });
+  await app("400000000000000011", { created: T - 10 * DAY, status: "declined", reviewed: T - 2 * H });
+  await app("400000000000000012", { created: T - 10 * DAY, status: "accepted", reviewed: T - 3 * DAY });
+  await app("400000000000000013", { created: T - 10 * DAY, status: "withdrawn", reviewed: T - H });
+  await run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
   outcome = await news.refreshNewsFigures(env(), T);
   f = storedFigures();
   check("applications: 6 first saved today show 6; 2 decided today and 3 this week show 'few'; a withdrawal is not a decision", outcome === "computed" && f.applications.day.firstSaved === 6 && f.applications.day.decided === "few" && f.applications.week.decided === "few" && f.applications.week.firstSaved === 6, f.applications);
   check("  no raw count below five is stored", !/"(firstSaved|decided)":[1-4][,}]/.test(figuresRow().value));
   r = await newsGet(MEMBER);
   check("  the member reads the same masked figures", r.body.figures.applications.day.decided === "few" && r.body.figures.applications.day.firstSaved === 6);
-  run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'");
-  run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
+  await run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'");
+  await run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
   const offBefore = figuresRow().value;
   resetCount();
   outcome = await news.refreshNewsFigures(env(), T);
@@ -579,53 +594,56 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   // backend-review.md control 4 (Codex's finding 4, 3 Oct 2026 13:15 UTC): a run paused after its reads (the switch, the
   // snapshot ids, the counts), News switched off, then its write released
   const midRun = async (switchOff) => {
-    run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
+    await run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
     let paused = false;
-    AFTER_BATCH = async (sqls) => { if (!paused && sqls.some((q) => /FROM site_applications/.test(q))) { paused = true; if (switchOff) run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); } };
+    AFTER_BATCH = async (sqls) => { if (!paused && sqls.some((q) => /FROM site_applications/.test(q))) { paused = true; if (switchOff) await run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); } };
     try { return { outcome: await news.refreshNewsFigures(env(), T), paused }; } finally { AFTER_BATCH = null; }
   };
-  run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
+  await run("UPDATE site_settings SET value = json_set(value, '$.asOf', ?) WHERE key = 'newsFigures'", T - 4 * H);
   const midBefore = figuresRow().value;
   let mid = await midRun(true);
   check("News switched off after a run's reads and before its write: the write reads the switch again, nothing is written, the stored row stays (superseded)", mid.paused && mid.outcome === "superseded" && figuresRow().value === midBefore, mid);
   tick();
   r = await newsGet(MEMBER);
   check("  members still get news_off", r.status === 404 && r.body.error === "news_off" && !("figures" in r.body), r.body);
-  run("DELETE FROM site_settings WHERE key = 'newsFigures'");
+  await run("DELETE FROM site_settings WHERE key = 'newsFigures'");
   mid = await midRun(true);
   check("  with no stored figures yet: no row is inserted either", mid.paused && mid.outcome === "superseded" && figuresRow() === undefined, mid);
-  run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value", midBefore, T - 4 * H);
+  await run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value", midBefore, T - 4 * H);
   mid = await midRun(false);
   check("  the same pause with News left on: computed and written", mid.paused && mid.outcome === "computed" && figuresRow().value !== midBefore && storedFigures().asOf === T, mid);
-  run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
-  run("UPDATE site_settings SET value = 'not json' WHERE key = 'newsFigures'");
+  await run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
+  await run("UPDATE site_settings SET value = 'not json' WHERE key = 'newsFigures'");
   check("an unreadable cached row reads as no figures for members", (await newsGet(MEMBER)).body.figures === null);
 
-  console.log("\n== the real scheduled(): the .115 lines' D1 budget ==");
+  console.log("\n== ordinary scheduled() attempts remain held; whole-schedule qualification is separate ==");
   const ALL_ON = { COMMUNITY_FEATURES: "directory,crafting,events,attendance,trials,restrictions,departures,privacy_intake,contributions", CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", PRIVACY_INTAKE_ENABLED: "true" };
   const validFigures = (asOf) => JSON.stringify({ v: 1, asOf, latestId: 1, dayBaseId: null, weekBaseId: null, countingSince: null, roster: { day: null, week: null }, applications: { day: { firstSaved: 0, decided: 0 }, week: { firstSaved: 0, decided: 0 } } });
-  const seed = (throttled) => () => {
-    people(); newsOnRow();
-    if (throttled) run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL)", validFigures(T - 60), T - 60);
-    snap(["Ana", "Bo", "Cy"], { first: T - 8 * DAY, exportedAt: T - 8 * DAY });
-    snap(["Ana", "Bo", "Dee"], { first: T - 30 * H });
-    snap(["Ana", "Bo", "Dee", "Eve"], { first: T - H });
+  const seed = (throttled) => async () => {
+    await people(); await newsOnRow();
+    if (throttled) await run("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL)", validFigures(T - 60), T - 60);
+    await snap(["Ana", "Bo", "Cy"], { first: T - 8 * DAY, exportedAt: T - 8 * DAY });
+    await snap(["Ana", "Bo", "Dee"], { first: T - 30 * H });
+    await snap(["Ana", "Bo", "Dee", "Eve"], { first: T - H });
     const c = T - 10 - DAY;
-    run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", op(900), ADMIN, c, c + 120 * DAY);
-    run("INSERT INTO site_news_notices (id, op_hash, title, body, revision, nonce, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'h', 'Old', 'Old', 1, 'n', ?, ?, ?, ?, ?)", op(900), ADMIN, c, ADMIN, c, T - 10);
+    await run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'n', ?, ?, ?)", op(900), ADMIN, c, c + 120 * DAY);
+    await run("INSERT INTO site_news_notices (id, op_hash, title, body, revision, nonce, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'h', 'Old', 'Old', 1, 'n', ?, ?, ?, ?, ?)", op(900), ADMIN, c, ADMIN, c, T - 10);
   };
   const NEWS_STUB = { "./site-news": { newsCron: async () => {}, sweepSiteNews: async () => ({}), refreshNewsFigures: async () => "off", newsPage: async () => null, handleNewsAdmin: async () => null } };
   const scheduledRun = async (seedFn, extra) => {
-    fresh(); seedFn();
+    fresh(); await seedFn();
     const loadRun = makeLoader(extra);
     const idx = loadRun("./index");
     const pending = [];
+    const before = JSON.stringify([all('SELECT * FROM site_news_notices ORDER BY id'), all('SELECT * FROM site_settings ORDER BY key')]);
     resetCount();
-    await quiet(async () => {
-      await idx.default.scheduled({}, env(ALL_ON), { waitUntil: (p) => { pending.push(Promise.resolve(p).catch(() => {})); } });
+    const held = await quiet(async () => {
+      await idx.default.scheduled({}, rawEnv(ALL_ON), { waitUntil: (p) => { pending.push(Promise.resolve(p).catch(() => {})); } });
       await Promise.all(pending);
     });
-    return { trips: COUNT.trips, statements: COUNT.statements };
+    return { trips: COUNT.trips, statements: COUNT.statements, physicalTrips: COUNT.physicalTrips, physicalStatements: COUNT.physicalStatements,
+      held: held.lines.length === 1 && held.lines[0] === 'schema check failed; skipping this run error',
+      unchanged: before === JSON.stringify([all('SELECT * FROM site_news_notices ORDER BY id'), all('SELECT * FROM site_settings ORDER BY key')]) };
   };
   for (const throttled of [true, false]) {
     const label = throttled ? "throttled" : "computing";
@@ -633,11 +651,10 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     const without2 = await scheduledRun(seed(throttled), NEWS_STUB);
     const withNews = await scheduledRun(seed(throttled), {});
     const extra = withNews.trips - without1.trips;
-    const limit = throttled ? 2 : 5; // review of 3 Oct 2026: the figures read the switch from the cleanup's batch
-    check(`(the comparison is deterministic: two runs without the .115 lines count the same, ${without1.trips} round trips)`, without1.trips === without2.trips && without1.statements === without2.statements, without1, without2);
-    check(`a ${label} run: the .115 lines add ${extra} D1 round trips (at most ${limit}) and ${withNews.statements - without1.statements} statements`, extra >= 1 && extra <= limit, { withNews, without1 });
-    console.log(`    the whole scheduled run with every community feature on (${label}): ${withNews.trips} round trips, ${withNews.statements} statements`);
-    check(`  the ${label} run did its work: the expired notice swept${throttled ? ", the figures left as they were" : ", the figures computed"}`, !one("SELECT 1 FROM site_news_notices WHERE id = ?", op(900)) && (throttled ? storedFigures().asOf === T - 60 : storedFigures().asOf === T && storedFigures().roster.week !== null));
+    check(`ordinary ${label} scheduled attempts with News stubbed are deterministically held unchanged`, without1.held && without2.held && without1.unchanged && without2.unchanged && without1.trips === 0 && without2.trips === 0 && without1.physicalStatements === 0 && without2.physicalStatements === 0, without1, without2);
+    check(`ordinary ${label} scheduled attempt with real News is also held before any logical or Native work`, withNews.held && withNews.unchanged && extra === 0 && withNews.trips === 0 && withNews.statements === 0 && withNews.physicalTrips === 0 && withNews.physicalStatements === 0, withNews);
+    console.log(`    ${label}: ordinary callback held; direct News 4/1/0-trip checks above remain separate from whole-schedule qualification`);
+    check(`  the held ${label} callback leaves the expired notice and cached figures unchanged`, !!one("SELECT 1 FROM site_news_notices WHERE id = ?", op(900)) && (throttled ? storedFigures().asOf === T - 60 : figuresRow() === undefined));
   }
 
   // The second review round (3 Oct 2026): a restore used to replay only the deletions, so a notice changed on request
@@ -652,7 +669,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     const os = require("os"), { execFileSync } = require("child_process");
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "olympus-news-restore-"));
     try {
-      fresh(); people(); newsOnRow(); tick();
+      fresh(); await people(); await newsOnRow(); tick();
       const A = 510, B = 511, C = 512, D = 513, E = 514; // A changed after the copy, B deleted, C left alone; D posted and deleted after it, E posted after it
       const form = (k) => ({ id: op(k), title: `Restore ${k}`, body: `Text ${k} names Quill Quester`, days: 30 });
       const made = [];
@@ -700,7 +717,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
 
       // the restore as the runbook has it: the file right after it
       restore(copies[1]);
-      if (sqlFile) db.exec(sqlFile);
+      if (sqlFile) await replayFixtureSql(sqlFile);
       const tables = () => JSON.stringify([all("SELECT * FROM site_news_notices ORDER BY id"), all("SELECT * FROM site_news_ops ORDER BY id")]);
       const afterFile = tables();
       check("after the file: A (changed since) and B (deleted since) are gone, C is as it was; no notice holds the old text", !one("SELECT 1 AS x FROM site_news_notices WHERE id IN (?, ?)", op(A), op(B)) && one("SELECT body FROM site_news_notices WHERE id = ?", op(C)).body === "Text 512 names Quill Quester" && !one("SELECT 1 AS x FROM site_news_notices WHERE body = 'Text 510 names Quill Quester'"));
@@ -713,7 +730,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       const retries = [];
       for (const k of [A, B, D, E]) retries.push(await create(ADMIN, form(k)));
       check("  every frozen \"Retry the same\" from a page opened before the restore is 409 deleted: A, B, D and E are never posted again", retries.every((x) => x.status === 409 && x.body.error === "deleted") && one("SELECT COUNT(*) AS c FROM site_news_notices").c === 1, retries.map((x) => x.status + " " + (x.body && x.body.error)));
-      if (sqlFile) db.exec(sqlFile);
+      if (sqlFile) await replayFixtureSql(sqlFile);
       check("  the file run again changes nothing", !!sqlFile && tables() === afterFile);
       const swept = await news.sweepSiteNews(env());
       check("  the cleanup keeps the records until their 120 days are up", swept.opsDeleted === 0 && one("SELECT COUNT(*) AS c FROM site_news_ops WHERE id IN (?, ?)", op(D), op(E)).c === 2);
@@ -739,7 +756,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const users = fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && fs.readFileSync(path.join(root, "src", f), "utf8").includes("leadershipStampStatement"));
   check("  only site-news.ts uses it (besides its own module)", users.sort().join() === "site-leadership.ts,site-news.ts", users);
   const idx = fs.readFileSync(path.join(root, "src", "index.ts"), "utf8");
-  check("the cron line: newsCron, the sweep always, then the figures behind their own switch, each step's failure logged through errorRef", /ctx\.waitUntil\(newsCron\(env\)\);/.test(idx) && src.includes('console.error("site news sweep failed", errorRef(e));') && src.includes('console.error("news figures failed", errorRef(e));') && /known = \(await sweepSiteNews\(env\)\)\.settings;[\s\S]*?await refreshNewsFigures\(env, now\(\), known\);/.test(src));
+  check("the source scheduled body dispatches newsCron through its original cadence; News sweeps before its switch-controlled figures, with each failure logged through errorRef", idx.includes("deferOriginalServing(ctx,'newsCron',()=>rosterCadence.newsEnabled?newsCron(env):Promise.resolve());") && src.includes('console.error("site news sweep failed", errorRef(e));') && src.includes('console.error("news figures failed", errorRef(e));') && /known = \(await sweepSiteNews\(env\)\)\.settings;[\s\S]*?await refreshNewsFigures\(env, now\(\), known\);/.test(src));
 
   // .116 News policy regression: real account forms, current curated export and held self-service actions.
   // These requests use the actual index and original native signing/verification, never a policy/profile override.
@@ -748,20 +765,24 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     let controlDb = null;
     try {
       controlDb = new DatabaseSync(":memory:"); db = controlDb;
-      db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
       T = realNow() - 7200; HOOK = null; BEFORE_BATCH = null; AFTER_BATCH = null; resetCount();
+      db.exec('PRAGMA foreign_keys = ON'); entryFixture.installCurrentEntryEpoch(db, { now: T });
       const controlLoad = makeLoader(), controlIndex = controlLoad("./index"), controlCore = controlLoad("./site-core"), controlForm = controlLoad("./policy-form-core");
-      controlLoad("./schema").forgetSchemaCheck(); people();
+      controlLoad("./schema").forgetSchemaCheck(); await people();
       const liveId = "N".repeat(22), goneId = "G".repeat(22), otherId = "F".repeat(22);
-      const putNotice = (id, author, title) => run("INSERT INTO site_news_notices (id, op_hash, title, body, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'fixture-only', ?, 'Fixture notice body', ?, ?, ?, ?, ?)", id, title, author, T, author, T, T + 30 * DAY);
-      putNotice(liveId, ADMIN2, "Own fixture notice"); putNotice(otherId, ADMIN, "Other fixture notice");
-      run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'fixture-only', ?, ?, ?)", goneId, ADMIN2, T, T + 120 * DAY);
-      const sessionFor = async (who, version = 1) => (await controlCore.sessionCookie(env(), who, version)).split(";")[0];
+      const putNotice = async (id, author, title) => await run("INSERT INTO site_news_notices (id, op_hash, title, body, created_by, created_at, updated_by, updated_at, retain_until) VALUES (?, 'fixture-only', ?, 'Fixture notice body', ?, ?, ?, ?, ?)", id, title, author, T, author, T, T + 30 * DAY);
+      await putNotice(liveId, ADMIN2, "Own fixture notice"); await putNotice(otherId, ADMIN, "Other fixture notice");
+      await run("INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after) VALUES (?, 'fixture-only', ?, ?, ?)", goneId, ADMIN2, T, T + 120 * DAY);
+      const sessionFor = async (who, version = 1) => {
+        const issued = await entryFixture.issueOriginalEntryCookie(name => controlLoad('./' + name), db, rawEnv(), who);
+        if (issued.session.v !== version) throw Error('actual account fixture session version differs');
+        return issued.cookie;
+      };
       const sendAccount = async (method, route, { session = "", nonce = "", fields, origin = "https://guild.example" } = {}) => {
         const headers = new Headers();
         if (session || nonce) headers.set("Cookie", [session, nonce].filter(Boolean).join("; "));
         if (method === "POST") { headers.set("Origin", origin); headers.set("Content-Type", "application/x-www-form-urlencoded"); }
-        const result = await controlIndex.default.fetch(new Request("https://guild.example" + route, { method, headers, body: fields === undefined ? undefined : new URLSearchParams(fields).toString() }), env(), ctx);
+        const result = await controlIndex.default.fetch(new Request("https://guild.example" + route, { method, headers, body: fields === undefined ? undefined : new URLSearchParams(fields).toString() }), rawEnv(), ctx);
         const text = await result.text(); let body = null;
         try { body = JSON.parse(text); } catch { /* script-free HTML */ }
         return { status: result.status, headers: result.headers, text, body };
@@ -774,13 +795,14 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       const recordsSnapshot = () => JSON.stringify(recordTables.map(table => all("SELECT * FROM " + table + " ORDER BY 1")));
       const auditRecords = () => all("SELECT * FROM audit ORDER BY id");
       const snapshot = () => JSON.stringify([recordsSnapshot(), auditRecords()]);
+      const adminSession = await sessionFor(ADMIN2), memberSession = await sessionFor(MEMBER);
       const priorAudit = auditRecords(), recordsBefore = recordsSnapshot();
       const expectedCopyAudits = (actors) => {
         const rows = auditRecords(), added = rows.slice(priorAudit.length);
         return rows.length === priorAudit.length + actors.length && JSON.stringify(rows.slice(0, priorAudit.length)) === JSON.stringify(priorAudit)
           && added.every((row, i) => keys(row) === "action,actor,details,id,subject,ts" && Number.isSafeInteger(row.id) && row.id > 0 && row.ts === T && row.actor === actors[i] && row.subject === actors[i] && row.action === "site.copy_exported" && row.details === null);
       };
-      const before = snapshot(), adminSession = await sessionFor(ADMIN2), memberSession = await sessionFor(MEMBER);
+      const before = snapshot();
       let page = await sendAccount("GET", "/privacy/account");
       check("current account page without a site session offers no copy form and states that automatic deletion/unlink are unavailable", page.status === 200 && !page.text.includes('action="/privacy/account/export"') && page.text.includes("Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.") && snapshot() === before);
       page = await sendAccount("GET", "/privacy/account", { session: adminSession });
@@ -797,7 +819,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       response = await sendAccount("POST", "/privacy/account/export", { session: adminSession, nonce, fields: { csrf } });
       const ownNews = response.body?.community?.news;
       check("a valid actual SSR export contains only the account's authored/edited News and deleted-notice metadata with original exact field lists", response.status === 200 && ownNews?.notices.length === 1 && ownNews.notices[0].id === liveId && keys(ownNews.notices[0]) === "editedAt,id,keptUntil,postedAt,title" && ownNews.deletedNotices.length === 1 && ownNews.deletedNotices[0].id === goneId && keys(ownNews.deletedNotices[0]) === "id,keptUntil,postedAt" && !JSON.stringify(ownNews).includes(otherId) && recordsSnapshot() === recordsBefore && expectedCopyAudits([ADMIN2]), ownNews);
-      check("the actual SSR copy states curated partial coverage and completeErasure false, with a genuine database capture time and no-referrer response", response.status === 200 && response.body?.coverage?.kind === "curated_partial" && response.body.coverage.ownAccountOnly === true && response.body.coverage.completeErasure === false && response.body.coverage.excluded.includes("private recovery backups") && Math.abs(Date.parse(response.body.generatedAt) / 1000 - realNow()) < 30 && response.headers.get("Referrer-Policy") === "no-referrer");
+      check("the actual SSR copy states curated partial coverage and completeErasure false, excludes recovery backups and the replay companion, and has a genuine database capture time and no-referrer response", response.status === 200 && response.body?.coverage?.kind === "curated_partial" && response.body.coverage.ownAccountOnly === true && response.body.coverage.completeErasure === false && response.body.coverage.excluded.includes("private recovery backups and the separately minimized independent birth/rejection replay companion") && Math.abs(Date.parse(response.body.generatedAt) / 1000 - realNow()) < 30 && response.headers.get("Referrer-Policy") === "no-referrer");
       const memberPage = await sendAccount("GET", "/privacy/account", { session: memberSession }), memberNonce = (memberPage.headers.get("Set-Cookie") || "").split(";")[0], memberCsrf = formFor(memberPage.text, "/privacy/account/export");
       response = await sendAccount("POST", "/privacy/account/export", { session: memberSession, nonce: memberNonce, fields: { csrf: memberCsrf } });
       check("a valid member SSR export preserves the registered empty News lists rather than exposing another author's notices", response.status === 200 && JSON.stringify(response.body?.community?.news) === JSON.stringify({ notices: [], deletedNotices: [] }) && recordsSnapshot() === recordsBefore && expectedCopyAudits([ADMIN2, MEMBER]));
@@ -808,7 +830,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
         response = await sendAccount("POST", "/privacy/account/" + action, { session: adminSession, nonce, fields: { csrf: token } });
         check("a genuine saved " + action + " form returns not performed and leaves News authors/account rows untouched", response.status === 503 && response.text.includes("not performed") && response.text.includes(action === "full-erase" ? "No new erasure request was submitted by this attempt." : "No rows were deleted, no roles changed and no remote connection removed.") && snapshot() === postCopies);
       }
-      run("UPDATE site_users SET session_version = 2 WHERE discord_id = ?", ADMIN2);
+      await run("UPDATE site_users SET session_version = 2 WHERE discord_id = ?", ADMIN2);
       const changed = snapshot(), newerSession = await sessionFor(ADMIN2, 2);
       response = await sendAccount("POST", "/privacy/account/export", { session: newerSession, nonce, fields: { csrf } });
       check("the actual export token is bound to the site-session version and refuses a freshly signed replacement version", response.status === 403 && response.text.includes("form_expired") && snapshot() === changed);
@@ -826,17 +848,18 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
     let historyDb = null;
     try {
       historyDb = new DatabaseSync(":memory:"); db = historyDb;
-      db.exec(fs.readFileSync(path.join(root,"schema.sql"),"utf8"));
       T = realNow()-7200; HOOK = null; BEFORE_BATCH = null; AFTER_BATCH = null; resetCount();
-      const real = makeLoader(), entry = real("./index"), core = real("./site-core"); real("./schema").forgetSchemaCheck(); people();
-      const own = MEMBER2, malicious = '<img src=x onerror="oops">&', insert = db.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)");
-      for(let i=0;i<1001;i++) insert.run(T,own,i===0?malicious:"rendered."+i,own);
-      insert.run(T,ADMIN,"foreign.rendered",ADMIN);
-      const session = (await core.sessionCookie(env(),own,1)).split(";")[0];
+      db.exec('PRAGMA foreign_keys = ON'); entryFixture.installCurrentEntryEpoch(db, { now: T });
+      const real = makeLoader(), entry = real("./index"), core = real("./site-core"); real("./schema").forgetSchemaCheck(); await people();
+      const own = MEMBER2, malicious = '<img src=x onerror="oops">&', auditSQL = "INSERT INTO audit(ts,actor,action,subject,details) VALUES(?,?,?,?,NULL)", initialHistory = [];
+      for(let i=0;i<1001;i++) initialHistory.push([T,own,i===0?malicious:"rendered."+i,own]);
+      initialHistory.push([T,ADMIN,"foreign.rendered",ADMIN]);
+      await fixtureRows(auditSQL, initialHistory);
+      const session = (await entryFixture.issueOriginalEntryCookie(name => real('./' + name), db, rawEnv(), own)).cookie;
       const send = async (method,route,{cookie=session,nonce="",fields,origin="https://guild.example"}={}) => {
         const headers = new Headers({Cookie:[cookie,nonce].filter(Boolean).join("; ")});
         if(method==="POST") { headers.set("Origin",origin); headers.set("Content-Type","application/x-www-form-urlencoded"); }
-        const result = await entry.default.fetch(new Request("https://guild.example"+route,{method,headers,body:fields===undefined?undefined:new URLSearchParams(fields).toString()}),env(),ctx);
+        const result = await entry.default.fetch(new Request("https://guild.example"+route,{method,headers,body:fields===undefined?undefined:new URLSearchParams(fields).toString()}),rawEnv(),ctx);
         const text=await result.text(); let body=null; try{body=JSON.parse(text);}catch{ /* Actual script-free HTML. */ }
         return {status:result.status,headers:result.headers,text,body};
       };
@@ -850,7 +873,7 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       check(".118 the real history view is script-free HTML with bounded own records, private caching and no file-saved claim", history.status===200 && /text\/html/.test(history.headers.get("Content-Type")||"") && !history.headers.get("Content-Disposition") && /script-src 'none'/.test(history.headers.get("Content-Security-Policy")||"") && /no-store/.test(history.headers.get("Cache-Control")||"") && /no-transform/.test(history.headers.get("Cache-Control")||"") && history.headers.get("Referrer-Policy")==="same-origin" && !/<script\b/i.test(history.text) && history.text.includes("1000 of 1001") && history.text.includes("1 remain") && history.text.includes("does not prove a file was saved"));
       check(".118 own action markup is escaped literally and foreign account rows are absent", history.text.includes("&lt;img src=x onerror=&quot;oops&quot;&gt;&amp;") && !history.text.includes(malicious) && !history.text.includes("foreign.rendered") && (history.text.match(/<li>/g)||[]).length===1000);
       check(".118 Current Download and Next carry signed cursors only in hidden same-path POST fields", forms.length===2 && downloadForm?.csrf && nextForm?.csrf && downloadForm.actions?.length<=140 && nextForm.actions?.length<=140 && /^1\./.test(downloadForm.actions) && /^1\./.test(nextForm.actions) && downloadForm.actions!==nextForm.actions && !/[?&]actions=/.test(history.text) && !history.headers.get("Location") && ![...history.text.matchAll(/(?:action|href)="([^"]*)"/g)].some(x=>x[1].includes(downloadForm.actions)||x[1].includes(nextForm.actions)) && history.text.includes("five copy reads per hour") && history.text.includes("freshly reads its other sections"));
-      run("UPDATE site_users SET nick='New name at download' WHERE discord_id=?",own);
+      await run("UPDATE site_users SET nick='New name at download' WHERE discord_id=?",own);
       const download=await send("POST","/privacy/account/export",{nonce,fields:downloadForm});
       check(".118 the rendered Current Download returns exactly that history page and labels other sections fresh", download.status===200 && download.headers.get("Content-Disposition")==='attachment; filename="olympus-my-data.json"' && download.headers.get("Referrer-Policy")==="no-referrer" && download.body.actions.entries.length===1000 && download.body.actions.entries[0].action===malicious && download.body.actions.currentCursor===downloadForm.actions && download.body.actions.capture.count===1001 && download.body.actions.capture.delivered===1000 && download.body.account.nickname==="New name at download" && download.body.about.includes("Other sections are freshly read") && download.body.coverage.completeErasure===false);
       const last=await send("POST","/privacy/account/export",{nonce,fields:nextForm}), lastForms=exportForms(last.text);
@@ -879,18 +902,18 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
       const queried=await send("POST","/privacy/account/export?actions="+encodeURIComponent(nextForm.actions),{nonce,fields:nextForm});
       check(".118 canonical account forms retain the blanket query-string refusal without changing audit", queried.status===400 && queried.text.includes("Use the form without a query string") && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===before);
       // Finite refusal pages must not reflect continuation values except an authenticated 429 retry.
-      const isolatedSession=(await core.sessionCookie(env(),MEMBER,1)).split(";")[0];
-      for(let i=0;i<1001;i++) insert.run(T,MEMBER,"isolated."+i,MEMBER);
+      const isolatedSession=(await entryFixture.issueOriginalEntryCookie(name => real('./' + name), db, rawEnv(), MEMBER)).cookie;
+      await fixtureRows(auditSQL, Array.from({length:1001}, (_,i) => [T,MEMBER,"isolated."+i,MEMBER]));
       const isolatedPage=await send("GET","/privacy/account",{cookie:isolatedSession}), isolatedNonce=(isolatedPage.headers.get("Set-Cookie")||"").split(";")[0], isolatedStart=exportForms(isolatedPage.text)[0];
       const isolatedFirst=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:{csrf:isolatedStart.csrf,mode:"history"}}), isolatedNext=exportForms(isolatedFirst.text).find(x=>x.mode==="history");
-      run("DELETE FROM audit WHERE actor=? AND action='isolated.1000'",MEMBER);
+      await run("DELETE FROM audit WHERE actor=? AND action='isolated.1000'",MEMBER);
       const isolatedAudit=JSON.stringify(all("SELECT * FROM audit ORDER BY id"));
       const changed=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext});
       check(".118 a captured-range 409 retains no submitted token, retry form or false completion", changed.status===409 && changed.text.includes("history_changed") && !changed.text.includes(isolatedNext.actions) && Object.keys(savedCursors(changed.text)).length===0 && exportForms(changed.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
-      run("UPDATE site_users SET session_version=2 WHERE discord_id=?",MEMBER);
+      await run("UPDATE site_users SET session_version=2 WHERE discord_id=?",MEMBER);
       const signedOut=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext});
       check(".118 an invalidated-session 401 does not reflect its old continuation or offer a retry", signedOut.status===401 && !signedOut.text.includes(isolatedNext.actions) && exportForms(signedOut.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
-      run("UPDATE site_users SET session_version=1 WHERE discord_id=?",MEMBER);
+      await run("UPDATE site_users SET session_version=1 WHERE discord_id=?",MEMBER);
       BEFORE_BATCH=()=>{throw new Error("finite synthetic D1 interruption before BEGIN");};
       const interrupted=await send("POST","/privacy/account/export",{cookie:isolatedSession,nonce:isolatedNonce,fields:isolatedNext}); BEFORE_BATCH=null;
       check(".118 an unconfirmed 503 retains no submitted token or retry and creates no export audit", interrupted.status===503 && !interrupted.text.includes(isolatedNext.actions) && Object.keys(savedCursors(interrupted.text)).length===0 && exportForms(interrupted.text).length===0 && JSON.stringify(all("SELECT * FROM audit ORDER BY id"))===isolatedAudit);
@@ -1026,20 +1049,22 @@ const app = (id, { created, status = "submitted", reviewed = null }) =>
   const idxNames = ["site_news_notices_order", "site_news_notices_retain", "site_news_notices_created_by", "site_news_notices_updated_by", "site_news_ops_purge", "site_news_ops_created_by"];
   check("  the six indexes in all three", idxNames.every((x) => sqlFile.includes(`INDEX IF NOT EXISTS ${x} `) && mig.includes(`INDEX IF NOT EXISTS ${x} `) && schemaTs.includes(`INDEX IF NOT EXISTS ${x} `)));
   const tables = (d) => d.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").get().c;
-  check("schema.sql makes 67 noninternal stores: 66 business and one transaction admission control", tables(db) === 67, tables(db));
+  check("schema.sql makes 70 noninternal stores: 69 business and one transaction admission control", tables(db) === 70, tables(db));
   const old = new DatabaseSync(":memory:");
   old.exec(fs.readFileSync(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"), "utf8"));
   schema.forgetSchemaCheck();
-  await schema.ensureSchema({ DB: d1(old) });
+  const oldState = () => JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all());
+  const beforeOld = oldState(); let held = null;
+  try { await schema.ensureSchema({ DB: d1(old) }); } catch (e) { held = e; }
   const have = (name) => !!old.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
-  check("ensureSchema over the 25 Sep database creates both tables", have("site_news_notices") && have("site_news_ops"));
+  check("ordinary ensureSchema holds the unregistered 25 Sep schema without creating News stores", held instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld && !have("site_news_notices") && !have("site_news_ops") && oldState() === beforeOld);
   schema.forgetSchemaCheck();
-  let again = true;
-  try { await schema.ensureSchema({ DB: d1(old) }); } catch { again = false; }
-  check("  a second run is harmless", again);
+  let again = null;
+  try { await schema.ensureSchema({ DB: d1(old) }); } catch (e) { again = e; }
+  check("  a second ordinary schema attempt is held with the original schema unchanged", again instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld && oldState() === beforeOld);
   let tooLong = false;
-  try { old.prepare("INSERT INTO site_news_notices (id, op_hash, title, body, created_at, updated_at, retain_until) VALUES (?, 'h', 't', 'b', 100, 100, ?)").run(op(1), 100 + 91 * DAY); } catch { tooLong = true; }
-  check("  the table refuses a lifetime over 90 days (CHECK)", tooLong);
+  try { await run("INSERT INTO site_news_notices (id, op_hash, title, body, created_at, updated_at, retain_until) VALUES (?, 'h', 't', 'b', 100, 100, ?)", op(1), 100 + 91 * DAY); } catch (e) { tooLong = String(e.message).includes('CHECK constraint failed'); }
+  check("  the current admitted table refuses a lifetime over 90 days by CHECK", tooLong);
 
   globalThis.Date = RealDate;
   console.log(`\n${ok}/${n} passed`);

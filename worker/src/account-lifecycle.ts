@@ -1,5 +1,6 @@
 /** Internal local foundation only. No route, identity minting, writer adoption or restore authority is composed here. */
 import { DB_NOW, digest, id, randomGeneration, snapshotDataArray, snapshotDataFields, token, type Database, type Statement } from './account-generation-contracts';
+import { compileDormantSchemaSQL } from './privacy-foundation-schema-profile';
 import { CATALOG_VERSION, STORE_CATALOG, SCHEMA_CURRENT_SQL, catalogDigest, catalogMatchesSchema } from './privacy-store-catalog';
 
 export const LIFECYCLE_COMPOSITION = Object.freeze({ routes: false, writers: false, restoreAuthority: false, identity: false, retention: false, externalEffects: false });
@@ -29,10 +30,17 @@ export interface AttemptBudget { used: number }
 /** Conservative statement-attempt accounting, including refused batches/readback. Never a provider billing claim. */
 export function boundedDatabase(db:Database,budget:AttemptBudget):Database {
  const take=(n:number)=>{if(budget.used+n>SLICE_ATTEMPTS)throw Error('lifecycle_budget');budget.used+=n;};
- const wrap=(s:Statement):Statement=>({bind:(...v)=>wrap(s.bind(...v)),run:()=>{take(1);return s.run();},first:<T>()=>{take(1);return s.first<T>();},all:<T>()=>{take(1);return s.all<T>();},[RAW]:s} as Statement);
- // Claude F3 (2026-10-08): the bound applies to every lifecycle prepare, including
- // status and erasure readback, before the underlying database sees any SQL.
- return {prepare:q=>{if(new TextEncoder().encode(q).length>=100000)throw Error('lifecycle_statement_size');return wrap(db.prepare(q));},batch:ss=>{take(ss.length);return db.batch(ss.map(s=>(s as unknown as {[RAW]?:Statement})[RAW]??s));}};
+ const wrap=(s:Statement):Statement=>({bind:(...v)=>wrap(s.bind(...v)),run:()=>{take(1);return s.run();},first:<T>()=>{take(1);return s.first<T>();},all:<T>()=>{take(1);return s.all<T>();},[RAW]:()=>s} as Statement);
+ return {prepare:q=>{
+  if(new TextEncoder().encode(q).length>=100000)throw Error('lifecycle_statement_size');
+  const plan=compileDormantSchemaSQL(q),base=db.prepare(plan.sql);
+  if(!plan.fences)return wrap(base);
+  const bound=(s:Statement|null):Statement=>{
+   const current=()=>{if(s===null)throw Error('dormant_schema_plan_held:unbound');return s;};
+   return {bind:(...values)=>bound(base.bind(...plan.bind(values))),run:()=>{take(1);return current().run();},first:<T>()=>{take(1);return current().first<T>();},all:<T>()=>{take(1);return current().all<T>();},[RAW]:current} as Statement;
+  };
+  return bound(plan.maximum===0?base.bind(...plan.bind([])):null);
+ },batch:ss=>{take(ss.length);return db.batch(ss.map(s=>{const raw=(s as unknown as {[RAW]?:()=>Statement})[RAW];return raw?raw():s;}));}};
 }
 /** Parameters 1..5: operation, subject, account generation, epoch, request digest. */
 // Source successor (2026-10-10): the complete authored catalog is a slice admission
@@ -208,7 +216,7 @@ export const ACCOUNT_LIFECYCLE_DDL = [
  `CREATE TABLE IF NOT EXISTS account_generations(account_id TEXT NOT NULL PRIMARY KEY CHECK(length(account_id) BETWEEN 17 AND 20 AND account_id NOT GLOB '*[^0-9]*'),generation TEXT NOT NULL CHECK(length(generation)=32 AND generation NOT GLOB '*[^0-9a-f]*'),state TEXT NOT NULL CHECK(state IN('active','retiring','retired')),revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),provenance_kind TEXT NOT NULL CHECK(provenance_kind IN('reviewed-legacy','verified-new')),provenance_digest TEXT NOT NULL CHECK(length(provenance_digest)=64 AND provenance_digest NOT GLOB '*[^0-9a-f]*'))`,
  `CREATE TABLE IF NOT EXISTS account_purpose_generations(account_id TEXT NOT NULL REFERENCES account_generations(account_id),account_generation TEXT NOT NULL CHECK(length(account_generation)=32 AND account_generation NOT GLOB '*[^0-9a-f]*'),purpose TEXT NOT NULL CHECK(purpose IN('account_write','role_grant','role_remove','erasure','beta_reset','restore','bot_post','privacy_identity','privacy_export','privacy_site_erase','privacy_full_erase','privacy_bnet_unlink')),generation TEXT NOT NULL CHECK(length(generation)=32 AND generation NOT GLOB '*[^0-9a-f]*'),revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),updated_at INTEGER NOT NULL,PRIMARY KEY(account_id,purpose))`,
  `CREATE TABLE IF NOT EXISTS privacy_erasure_jobs(operation_id TEXT NOT NULL PRIMARY KEY CHECK(length(operation_id)=32 AND operation_id NOT GLOB '*[^0-9a-f]*'),subject TEXT NOT NULL REFERENCES account_generations(account_id),account_generation TEXT NOT NULL,epoch TEXT NOT NULL,request_digest TEXT NOT NULL CHECK(length(request_digest)=64 AND request_digest NOT GLOB '*[^0-9a-f]*'),catalog_version TEXT NOT NULL,catalog_digest TEXT NOT NULL CHECK(length(catalog_digest)=64),cleanup_generation TEXT NOT NULL CHECK(length(cleanup_generation)=32),claim_nonce TEXT NOT NULL CHECK(length(claim_nonce)=32),created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL CHECK(expires_at>created_at AND expires_at<=created_at+86400),control_revision INTEGER NOT NULL CHECK(control_revision BETWEEN 0 AND 9007199254740989),original_session_version INTEGER NOT NULL CHECK(original_session_version BETWEEN 1 AND 9007199254740990),completion_admitted INTEGER NOT NULL DEFAULT 0 CHECK(completion_admitted IN(0,1)))`,
- `CREATE TABLE IF NOT EXISTS privacy_erasure_progress(operation_id TEXT NOT NULL REFERENCES privacy_erasure_jobs(operation_id) ON DELETE CASCADE,ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<54),store_key TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('pending','held','done')),held_reason TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0 CHECK(cursor>=0),high_water INTEGER CHECK(high_water IS NULL OR high_water>=0),revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),claim_nonce TEXT,purged_rows INTEGER NOT NULL DEFAULT 0 CHECK(purged_rows>=0),PRIMARY KEY(operation_id,store_key),UNIQUE(operation_id,ordinal))`,
+ `CREATE TABLE IF NOT EXISTS privacy_erasure_progress(operation_id TEXT NOT NULL REFERENCES privacy_erasure_jobs(operation_id) ON DELETE CASCADE,ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<56),store_key TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('pending','held','done')),held_reason TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0 CHECK(cursor>=0),high_water INTEGER CHECK(high_water IS NULL OR high_water>=0),revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),claim_nonce TEXT,purged_rows INTEGER NOT NULL DEFAULT 0 CHECK(purged_rows>=0),PRIMARY KEY(operation_id,store_key),UNIQUE(operation_id,ordinal))`,
  `CREATE TABLE IF NOT EXISTS privacy_external_outbox(operation_id TEXT NOT NULL REFERENCES privacy_erasure_jobs(operation_id) ON DELETE CASCADE,effect_key TEXT NOT NULL CHECK(effect_key='guild-member-remove'),subject TEXT NOT NULL,account_generation TEXT NOT NULL,epoch TEXT NOT NULL,state TEXT NOT NULL CHECK(state='held'),held_reason TEXT NOT NULL,expires_at INTEGER NOT NULL,PRIMARY KEY(operation_id,effect_key))`,
  `CREATE INDEX IF NOT EXISTS privacy_erasure_expiry ON privacy_erasure_jobs(expires_at,operation_id)`,
  `CREATE INDEX IF NOT EXISTS privacy_erasure_pending ON privacy_erasure_progress(operation_id,state,ordinal)`,

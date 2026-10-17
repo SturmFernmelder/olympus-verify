@@ -11,51 +11,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
-  let batches = 0; // .72: numbered per request, for the beforeBatch/afterBatch hooks
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
-      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
-      if (logical) hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      if (logical) hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  let batches = 0;
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -64,6 +45,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -98,41 +80,41 @@ Object.assign(stubs, {
 const context = load("./community-context"), refs = load("./community-refs"), time = load("./community-time"), names = load("./community-names");
 const siteCore = load("./site-core"), siteAdmin = load("./site-admin"), indexMod = load("./index");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null; // .72: armed by the reader-admission section, each fires once
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const APPLICANT = "300000000000000001", MEMBER = "300000000000000002", MEMBER2 = "300000000000000003", BANNED = "300000000000000004", STAFF = "472099715253796864";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,T,T,row.in_server,row.denied,row.session_version);
 };
-const confirm = (id, name, guid = null) => {
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?, ?, ?, 'member', ?, ?)").run(name.toLowerCase().split("-")[0], name, id, T, guid);
+const confirm = async (id, name, guid = null) => {
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",id);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES (?, ?, ?, 'member', ?, ?)",name.toLowerCase().split("-")[0],name,id,T,guid);
 };
 const ON = { COMMUNITY_FEATURES: "directory,crafting" };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -141,49 +123,39 @@ const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
 };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 
-// .133: construct an original signed staff Request before the real site-only eraser consumes it.
-// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
-async function erasureRequest(target, actor) {
-  const site = load("./site-core");
-  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
-  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
-  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
-  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
-  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
-    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
-  });
+// Exercise the actual staff preparation and delete route; no manufactured session/origin.
+async function deleteThroughOriginalRoute(target, actor) {
+  const prepared=await call('GET','/api/admin/users/'+target+'/decision-target?route=delete&decisionAction=partial_delete',actor);
+  if(prepared.status!==200 || typeof prepared.body.targetToken!=='string')throw Error('original delete target preparation held '+prepared.status);
+  const result=await call('POST','/api/admin/users/'+target+'/delete',actor,{mentions:false},ON,{'X-Olympus-Decision-Target':prepared.body.targetToken,'X-Olympus-Decision-Action':'partial_delete'});
+  if(result.status!==200)throw Error('original delete route held '+result.status+' '+JSON.stringify(result.body));
+  return result.body.ok === true;
 }
-
 (async () => {
-  siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Fern" }); confirm(MEMBER, "Fern Melder", "Player-1-0001"); siteUser(MEMBER2, { global_name: "Bea" }); confirm(MEMBER2, "Bea Stormer", "Player-1-0002");
-  siteUser(BANNED); confirm(BANNED, "Bad Actor"); db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(BANNED); siteUser(STAFF);
+  await siteUser(APPLICANT); await siteUser(MEMBER, { global_name: "Fern" }); await confirm(MEMBER, "Fern Melder", "Player-1-0001"); await siteUser(MEMBER2, { global_name: "Bea" }); await confirm(MEMBER2, "Bea Stormer", "Player-1-0002");
+  await siteUser(BANNED); await confirm(BANNED, "Bad Actor"); await fixtureRun("UPDATE members SET banned = 1 WHERE discord_id = ?",BANNED); await siteUser(STAFF);
 
   console.log("\n== cookie issuance and the genuine database clock ==");
   const clockActor = T, clockRealBefore = Math.floor(RealDate.now() / 1000);
   const clockCookie = await cookieFor(MEMBER);
-  const clockEnv = env(ON);
+  const clockEnv = directEnv(ON);
   const clockRequest = new Request("https://guild.example/clock-fixture", { headers: { Cookie: clockCookie } });
   const clockSession = await siteCore.readSession(clockEnv, clockRequest);
-  check("fresh feature-cookie issuance restores the actor clock and retains the original signed seven-day session", T === clockActor && clockSession?.u === MEMBER && clockSession.v === 1 && clockSession.e >= Math.max(clockActor, clockRealBefore) + 7 * 86400 && clockSession.e <= Math.max(clockActor, Math.floor(RealDate.now() / 1000)) + 7 * 86400);
+  check("sole original PROFILE issuer retains Native birth, generation and seven-day session", T === clockActor && clockSession?.u === MEMBER && clockSession.v === 1 && clockSession.e === clockActor + 7 * 86400 && /^[0-9a-f]{32}$/.test(clockSession.n) && /^[0-9a-f]{32}$/.test(clockSession.g));
   const clockContext = await context.communityContext(clockEnv, clockRequest);
   const clockBeforeRead = statements;
   const clockRead = await context.admittedRead(clockEnv, clockContext, "confirmedGuildData", [clockEnv.DB.prepare("SELECT 1 AS marker")]);
   check("a freshly signed feature session reaches one genuine SQLite admission batch and releases the read payload", T === clockActor && statements === clockBeforeRead + 1 && clockRead !== context.FENCE_REFUSED && clockRead[0]?.results[0]?.marker === 1);
-  // Deliberately bypass cookieFor: use the original signer at an issuance time already expired to SQLite.
-  let clockExpiredIssued;
-  try {
-    T = Math.floor(RealDate.now() / 1000) - 7 * 86400 - 60;
-    clockExpiredIssued = siteCore.sessionCookie(clockEnv, MEMBER, 1);
-  } finally {
-    T = clockActor;
-  }
-  const clockExpiredCookie = (await clockExpiredIssued).split(";")[0];
-  const clockExpiredRequest = new Request("https://guild.example/clock-fixture", { headers: { Cookie: clockExpiredCookie } });
-  const clockExpiredContext = await context.communityContext(clockEnv, clockExpiredRequest);
+  // The genuinely issued cookie remains valid to the browser's original clock,
+  // while the existing Native clock seam advances past its ORIGINAL expiry.
+  nativeTimeOverride = clockSession.e + 60;
+  const clockExpiredRequest = new Request('https://guild.example/clock-fixture', {headers:{Cookie:clockCookie}});
+  const stillSigned = await siteCore.readSession(clockEnv,clockExpiredRequest);
+  const clockExpiredContext = await context.communityContext(clockEnv,clockExpiredRequest);
   const clockBeforeExpiredRead = statements;
-  const clockExpiredRead = await context.admittedRead(clockEnv, clockExpiredContext, "confirmedGuildData", [clockEnv.DB.prepare("SELECT 1 AS marker")]);
-  check("an original signed cookie valid to the actor is still refused inside a genuine SQLite batch when expired to the database", T === clockActor && clockExpiredContext.capabilities.confirmedGuildData && clockExpiredContext.subject.expiresAt > clockActor && clockExpiredContext.subject.expiresAt < Math.floor(RealDate.now() / 1000) && statements === clockBeforeExpiredRead + 1 && clockExpiredRead === context.FENCE_REFUSED);
-
+  const clockExpiredRead = await context.admittedRead(clockEnv,clockExpiredContext,'confirmedGuildData',[clockEnv.DB.prepare('SELECT 1 AS marker')]);
+  check('browser-valid original cookie expired to Native is refused by the actual Native payload fence', T === clockActor && stillSigned?.e === clockSession.e && clockExpiredContext.capabilities.confirmedGuildData && statements === clockBeforeExpiredRead + 1 && clockExpiredRead === context.FENCE_REFUSED, {signed:!!stillSigned,cap:clockExpiredContext.capabilities.confirmedGuildData,before:clockBeforeExpiredRead,after:statements,held:clockExpiredRead === context.FENCE_REFUSED});
+  nativeTimeOverride = null;
   console.log("\n== flags and the guild-only gate ==");
   let r = await call("GET", "/api/community/profile", MEMBER, undefined, { COMMUNITY_FEATURES: "" });
   check("with the directory off the routes answer 503 feature_disabled", r.status === 503 && r.body.error === "feature_disabled");
@@ -211,7 +183,7 @@ async function erasureRequest(target, actor) {
   check("claiming a character bound to ANOTHER account is refused: 409 name_conflict naming it, nothing written", r.status === 409 && r.body.error === "name_conflict" && r.body.names[0] === "Bea Stormer" && one("SELECT revision FROM community_profiles WHERE discord_id = ?", MEMBER).revision === 1);
   check("  and audited with a count, not the name", !!one("SELECT 1 FROM audit WHERE action = 'community.name_conflict' AND actor = ?", MEMBER) && !one("SELECT 1 FROM audit WHERE action = 'community.name_conflict' AND details LIKE '%Bea%'"));
   // the keeper holds "Anne-Marie Smith" for this account under the proof key "anne" (its first-hyphen cut); the other full name sharing that key is not that character
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES ('anne', 'Anne-Marie Smith', ?, 'member', ?, 'Player-1-0009')").run(MEMBER, T);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid) VALUES ('anne', 'Anne-Marie Smith', ?, 'member', ?, 'Player-1-0009')",MEMBER,T);
   r = await call("PUT", "/api/community/profile", MEMBER, { revision: 1, main: "Anne-Beth Smith" });
   check("a different full name under the keeper's proof key is a conflict too (name_mismatch), never silently merged", r.status === 409 && r.body.error === "name_conflict" && one("SELECT revision FROM community_profiles WHERE discord_id = ?", MEMBER).revision === 1, JSON.stringify(r.body));
   r = await call("PUT", "/api/community/profile", MEMBER, { revision: 1, alts: ["Fern Alt", "Anne-Marie Smith"] });
@@ -249,10 +221,10 @@ async function erasureRequest(target, actor) {
   check("  with crafting off the listing carries no crafts", r.body.members[0].crafts.length === 0);
   r = await call("PUT", "/api/community/profile", MEMBER2, { revision: 0, listed: true, main: "Bea Stormer" });
   check("a second member lists", r.status === 200);
-  db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(MEMBER2);
+  await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",MEMBER2);
   r = await call("GET", "/api/community/directory", MEMBER);
   check("a listed member whose character left the roster disappears from the listing at read time", r.body.members.length === 1 && r.body.members[0].ref === ref1 && r.body.counts.listed === 1);
-  db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(MEMBER2);
+  await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",MEMBER2);
   r = await call("GET", "/api/community/directory", MEMBER);
   check("  and is back once the roster has them again; order is by display name (Bea before Fern)", r.body.members.length === 2 && r.body.members[0].displayName === "Bea");
   // paging: force a page of one with a tiny PAGE... the page size is a constant (100), so paging is exercised through the cursor contract
@@ -269,7 +241,7 @@ async function erasureRequest(target, actor) {
   check("  the current digest continues after the given row", rightDigest.status === 200 && rd.members.length === 1 && rd.members[0].displayName === "Fern");
 
   console.log("\n== the directory is full (HL-1) ==");
-  siteUser("300000000000000010", { global_name: "Cal" }); confirm("300000000000000010", "Cal Third");
+  await siteUser("300000000000000010", { global_name: "Cal" }); await confirm("300000000000000010", "Cal Third");
   r = await call("PUT", "/api/community/profile", "300000000000000010", { revision: 0, listed: true, raidRole: "tank" }, { ...ON, COMMUNITY_DIRECTORY_LIMIT: "2" });
   check("with two listed profiles and a limit of two, a third listing is 409 directory_full, and the profile IS saved unlisted with everything else (.64)", r.status === 409 && r.body.error === "directory_full" && r.body.saved === true && r.body.profile.listed === false && r.body.profile.raidRole.value === "tank" && one("SELECT listed FROM community_profiles WHERE discord_id = '300000000000000010'").listed === 0, JSON.stringify(r.body).slice(0, 300));
   check("  the audit row says listing was asked for and the statement left it unlisted", JSON.parse(one("SELECT details FROM audit WHERE action = 'community.profile_created' AND subject = '300000000000000010'").details).listed === 0);
@@ -307,19 +279,19 @@ async function erasureRequest(target, actor) {
   check("a cursor whose digest is not the visible order's (a rename, an edit, a departure) is 409 cursor_stale (D20, .64)", cur.status === 409 && (await cur.json()).error === "cursor_stale");
   cur = await craftCursor([2, "crafting", "fort", null, craftDigest, "elixir of fortitude", "Fern", ref1]);
   check("  the current digest continues after the given offer (nothing left here)", cur.status === 200 && (await cur.json()).results.length === 0);
-  db.prepare("UPDATE site_users SET nick = 'Renamed' WHERE discord_id = ?").run(MEMBER);
+  await fixtureRun("UPDATE site_users SET nick = 'Renamed' WHERE discord_id = ?",MEMBER);
   cur = await craftCursor([2, "crafting", "fort", null, craftDigest, "elixir of fortitude", "Fern", ref1]);
   check("  a display-name change between pages makes the cursor stale", cur.status === 409);
-  db.prepare("UPDATE site_users SET nick = NULL WHERE discord_id = ?").run(MEMBER);
-  db.prepare("UPDATE community_profiles SET listed = 0 WHERE discord_id = ?").run(MEMBER);
+  await fixtureRun("UPDATE site_users SET nick = NULL WHERE discord_id = ?",MEMBER);
+  await fixtureRun("UPDATE community_profiles SET listed = 0 WHERE discord_id = ?",MEMBER);
   r = await call("GET", "/api/community/crafting?q=fort", MEMBER2);
   check("an unlisted profile's offers vanish from the search", r.body.results.length === 0);
-  db.prepare("UPDATE community_profiles SET listed = 1 WHERE discord_id = ?").run(MEMBER);
-  db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER);
+  await fixtureRun("UPDATE community_profiles SET listed = 1 WHERE discord_id = ?",MEMBER);
+  await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER);
   r = await call("GET", "/api/community/crafting?q=fort", MEMBER2);
   const dl = await call("GET", "/api/community/directory", MEMBER2);
   check("a denied owner's offers and profile are absent from the search and the listing: the payload statements judge eligibility themselves (.64)", r.body.results.length === 0 && dl.body.members.every((m) => m.ref !== ref1));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",MEMBER);
   r = await call("GET", "/api/community/crafting?q=fort", MEMBER2, undefined, { COMMUNITY_FEATURES: "directory" });
   check("with crafting off the search is 503", r.status === 503);
 
@@ -338,7 +310,7 @@ async function erasureRequest(target, actor) {
   check("a claim that does not exist is 404 claim_not_found", r.status === 404 && r.body.error === "claim_not_found");
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: "A".repeat(22), key: "fern alt", decision: "reject", revision: 1 });
   check("an unknown ref is 404 profile_not_found", r.status === 404 && r.body.error === "profile_not_found");
-  confirm(STAFF, "Staff Char");
+  await confirm(STAFF, "Staff Char");
   r = await call("PUT", "/api/community/profile", STAFF, { revision: 0, alts: ["Staff Alt"] });
   const staffRef = r.body.profile.ref;
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: staffRef, key: "staff alt", decision: "confirm", revision: 1 });
@@ -352,15 +324,15 @@ async function erasureRequest(target, actor) {
   const ref2 = r.body.profile.ref;
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: ref2, key: "second alt", decision: "confirm", revision: 3 }, ON, { "X-Olympus": "1" });
   check("a staff write from a page before the current version is told to reload, nothing written", r.status === 409 && r.body.error === "reload" && one("SELECT status FROM community_alt_claims WHERE discord_id = ? AND name_key = 'second alt'", MEMBER2).status === "claimed");
-  db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: ref2, key: "second alt", decision: "confirm", revision: 3 });
   check("an admin who left the server is refused inside the first statement: 403 not_member, claim and revision unchanged, no reviewer recorded", r.status === 403 && r.body.error === "not_member" && one("SELECT status, reviewed_by FROM community_alt_claims WHERE discord_id = ? AND name_key = 'second alt'", MEMBER2).reviewed_by === null && one("SELECT revision FROM community_profiles WHERE discord_id = ?", MEMBER2).revision === 3);
   r = await call("GET", "/api/admin/community/directory", STAFF);
   check("  and the staff directory read is refused to them too: communityStaff is required of every community staff route (.66)", r.status === 403 && r.body.error === "not_member");
-  db.prepare("UPDATE site_users SET in_server = 1, denied = 1 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 1, denied = 1 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: ref2, key: "second alt", decision: "confirm", revision: 3 });
   check("  a denied admin too: 403, nothing committed", r.status === 403 && one("SELECT status FROM community_alt_claims WHERE discord_id = ? AND name_key = 'second alt'", MEMBER2).status === "claimed" && !one("SELECT 1 FROM audit WHERE action = 'community.alt_confirmed' AND subject = ?", MEMBER2));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: ref2, key: "second alt", decision: "confirm", revision: 3 });
   check("  the same decision by the admin in good standing is committed", r.status === 200 && r.body.claim.status === "officer_confirmed");
 
@@ -369,103 +341,103 @@ async function erasureRequest(target, actor) {
   const beforeRev = one("SELECT revision FROM community_profiles WHERE discord_id = ?", MEMBER2).revision;
   const realResolve = names.resolveCharacter;
   let armed = true;
-  names.resolveCharacter = async (e, did, claim) => { const res = await realResolve(e, did, claim); if (armed && claim === "Ally Name") { armed = false; confirm("300000000000000077", "Ally Name"); } return res; };
+  names.resolveCharacter = async (e, did, claim) => { const res = await realResolve(e, did, claim); if (armed && claim === "Ally Name") { armed = false; await confirm("300000000000000077", "Ally Name"); } return res; };
   r = await call("PUT", "/api/community/profile", MEMBER2, { revision: beforeRev, alts: ["Fern Alt", "Second Alt", "Ally Name"] });
   names.resolveCharacter = realResolve;
   check("a self label whose proof key another account took between the resolution and the write is refused as name_conflict, nothing written", r.status === 409 && r.body.error === "name_conflict" && one("SELECT revision FROM community_profiles WHERE discord_id = ?", MEMBER2).revision === beforeRev && !one("SELECT 1 FROM community_alt_claims WHERE discord_id = ? AND name_key = 'ally name'", MEMBER2), JSON.stringify(r.body).slice(0, 200));
-  db.prepare("DELETE FROM characters WHERE discord_id = '300000000000000077'").run();
+  await fixtureRun("DELETE FROM characters WHERE discord_id = '300000000000000077'");
   // a keeper-proven label (a NEW main, so the save is a change) whose row is transferred to another account in that window:
   // refused, never stored as stale keeper proof. (An unchanged save writes nothing, so it has nothing to re-state.)
-  confirm(MEMBER2, "Bea Alt", "Player-1-0003");
+  await confirm(MEMBER2, "Bea Alt", "Player-1-0003");
   armed = true;
-  db.prepare("INSERT INTO members (discord_id) VALUES ('300000000000000078')").run();
-  names.resolveCharacter = async (e, did, claim) => { const res = await realResolve(e, did, claim); if (armed && claim === "Bea Alt") { armed = false; db.prepare("UPDATE characters SET discord_id = '300000000000000078' WHERE name = 'Bea Alt'").run(); } return res; };
+  await fixtureRun("INSERT INTO members (discord_id) VALUES ('300000000000000078')");
+  names.resolveCharacter = async (e, did, claim) => { const res = await realResolve(e, did, claim); if (armed && claim === "Bea Alt") { armed = false; await fixtureRun("UPDATE characters SET discord_id = '300000000000000078' WHERE name = 'Bea Alt'"); } return res; };
   r = await call("PUT", "/api/community/profile", MEMBER2, { revision: beforeRev, main: "Bea Alt" });
   names.resolveCharacter = realResolve;
   check("a keeper-proven main transferred to another account before the write is refused (now a conflict), not saved as keeper proof", r.status === 409 && r.body.error === "name_conflict" && one("SELECT revision, main_name FROM community_profiles WHERE discord_id = ?", MEMBER2).revision === beforeRev && one("SELECT main_name FROM community_profiles WHERE discord_id = ?", MEMBER2).main_name === "Bea Stormer", JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE characters SET discord_id = ? WHERE name = 'Bea Alt'").run(MEMBER2);
+  await fixtureRun("UPDATE characters SET discord_id = ? WHERE name = 'Bea Alt'",MEMBER2);
   r = await call("PUT", "/api/community/profile", MEMBER2, { revision: beforeRev, main: "Bea Alt" });
   check("  with the facts unchanged the same save is admitted as keeper proof", r.status === 200 && r.body.profile.main.name === "Bea Alt" && r.body.profile.main.source === "keeper" && r.body.profile.revision === beforeRev + 1, JSON.stringify(r.body).slice(0, 200));
   r = await call("GET", "/api/community/profile", MEMBER);
   check("the member sees the confirmed claim", r.body.profile.alts[0].status === "officer_confirmed");
 
   console.log("\n== erasure, export, departure ==");
-  const exported = await context.communityExport(env(), MEMBER);
+  const exported = await context.communityExport(directEnv(), MEMBER);
   check("the account copy carries the profile with professions, alts and crafts", exported.directory && exported.directory.revision === 6 && exported.directory.crafts.length === 2 && exported.directory.alts.length === 1);
-  const deleted = await siteAdmin.deleteSiteData(env(), MEMBER2, STAFF, false, await erasureRequest(MEMBER2, STAFF));
+  const deleted = await deleteThroughOriginalRoute(MEMBER2, STAFF);
   check("deleteSiteData removes a member's profile, claims and ref in its batch", deleted && !one("SELECT 1 FROM community_profiles WHERE discord_id = ?", MEMBER2) && !one("SELECT 1 FROM community_alt_claims WHERE discord_id = ?", MEMBER2) && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", MEMBER2));
-  await siteAdmin.deleteSiteData(env(), STAFF, STAFF, false, await erasureRequest(STAFF, STAFF));
+  await deleteThroughOriginalRoute(STAFF, STAFF);
   check("  erasing the reviewing admin clears their identity from the claims they reviewed", one("SELECT reviewed_by FROM community_alt_claims WHERE discord_id = ? AND name_key = 'fern alt'", MEMBER).reviewed_by === null);
-  db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(MEMBER);
-  let sw = await dir.sweepCommunityProfiles(env());
+  await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",MEMBER);
+  let sw = await dir.sweepCommunityProfiles(directEnv());
   check("the sweep starts the departure clock for a profile whose owner no longer qualifies", sw.departed === 1 && one("SELECT departed_at FROM community_profiles WHERE discord_id = ?", MEMBER).departed_at === T);
-  db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(MEMBER);
-  sw = await dir.sweepCommunityProfiles(env());
+  await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",MEMBER);
+  sw = await dir.sweepCommunityProfiles(directEnv());
   check("  and clears it when the owner qualifies again", sw.returned === 1 && one("SELECT departed_at FROM community_profiles WHERE discord_id = ?", MEMBER).departed_at === null);
-  db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(MEMBER);
-  await dir.sweepCommunityProfiles(env());
+  await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",MEMBER);
+  await dir.sweepCommunityProfiles(directEnv());
   T += 31 * 86400;
-  sw = await dir.sweepCommunityProfiles(env());
+  sw = await dir.sweepCommunityProfiles(directEnv());
   check("thirty-one days departed, the profile and everything under it are deleted and the deletion audited as a count", sw.deleted === 1 && !one("SELECT 1 FROM community_profiles WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_craft_offers WHERE discord_id = ?", MEMBER) && !one("SELECT 1 FROM community_refs WHERE discord_id = ?", MEMBER) && !!one("SELECT 1 FROM audit WHERE action = 'community.profiles_expired'"));
   T -= 31 * 86400;
-  sw = await dir.sweepCommunityProfiles(env({ COMMUNITY_FEATURES: "" }));
+  sw = await dir.sweepCommunityProfiles(directEnv({ COMMUNITY_FEATURES: "" }));
   check("the sweep runs with the feature off (nothing left to do here, no error)", sw.deleted === 0);
 
   console.log("\n== uniform reader admission on every payload (.72, Codex's independent directory reader review, 03:55) ==");
   // BEFORE(i) changes the facts between the context read and payload batch i; AFTER(i) right after batch i committed
   const RM = "300000000000000061";
-  siteUser(RM, { global_name: "Rae" }); confirm(RM, "Rae Reader", "Player-1-0061"); siteUser(STAFF, { global_name: "Vik" });
+  await siteUser(RM, { global_name: "Rae" }); await confirm(RM, "Rae Reader", "Player-1-0061"); await siteUser(STAFF, { global_name: "Vik" });
   r = await call("PUT", "/api/community/profile", RM, { revision: 0, listed: true, main: "Rae Reader", alts: ["Rae Alt"], crafts: [{ profession: "alchemy", recipe: "Elixir of Fortitude" }] });
   check("(fixture) a listed profile with a claim and an offer", r.status === 200 && r.body.profile.revision === 1, JSON.stringify(r.body).slice(0, 200));
   const refR = r.body.profile.ref;
-  const denyRM = () => db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(RM);
-  const restoreRM = () => db.prepare("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?").run(RM);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; denyRM(); } };
+  const denyRM = async () => await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",RM);
+  const restoreRM = async () => await fixtureRun("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?",RM);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await denyRM(); } };
   r = await call("GET", "/api/community/profile", RM);
   check("GET profile: denied between the context read and the payload batch: 403 denied, no profile", r.status === 403 && r.body.error === "denied" && !("profile" in r.body), JSON.stringify(r.body).slice(0, 200));
-  restoreRM();
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(RM); } };
+  await restoreRM();
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",RM); } };
   r = await call("GET", "/api/community/directory", RM);
   check("GET directory: departed from the server before the payload batch: 403 not_member, no members", r.status === 403 && r.body.error === "not_member" && !("members" in r.body));
-  restoreRM();
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(RM); } };
+  await restoreRM();
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?",RM); } };
   r = await call("GET", "/api/community/crafting?q=fort", RM);
   check("GET crafting: original session closed before the payload batch: 503 erasure_held, no results", r.status === 503 && r.body.error === "erasure_held" && !("results" in r.body));
-  restoreRM();
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(RM); } };
+  await restoreRM();
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",RM); } };
   r = await call("GET", "/api/community/directory", RM);
   check("GET directory: the roster proof lost before the payload batch: 403 guild_unconfirmed, no members", r.status === 403 && r.body.error === "guild_unconfirmed" && !("members" in r.body));
-  db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(RM);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF); } };
+  await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",RM);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF); } };
   r = await call("GET", "/api/admin/community/directory", STAFF);
   check("GET staff review: the admin denied before the payload batch: 403 denied, no entries (the staff read is admitted too)", r.status === 403 && r.body.error === "denied" && !("entries" in r.body), JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(RM); } };
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",RM); } };
   r = await call("GET", "/api/community/profile", RM);
   check("GET profile: the reader's row removed before the payload batch: 503 erasure_held, no profile", r.status === 503 && r.body.error === "erasure_held" && !("profile" in r.body));
-  siteUser(RM, { global_name: "Rae" });
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?").run(RM); } };
+  await siteUser(RM, { global_name: "Rae" });
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE members SET banned = 1 WHERE discord_id = ?",RM); } };
   r = await call("PUT", "/api/community/profile", RM, { revision: 1, raidRole: "tank" });
   check("PUT, EARLY: banned between the context read and the pre-write read: 403 guild_unconfirmed, no profile, nothing written", r.status === 403 && r.body.error === "guild_unconfirmed" && !("profile" in r.body) && one("SELECT revision FROM community_profiles WHERE discord_id = ?", RM).revision === 1, JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE members SET banned = 0 WHERE discord_id = ?").run(RM);
-  AFTER = (i) => { if (i === 1) db.prepare("UPDATE community_profiles SET revision = revision + 1 WHERE discord_id = ?").run(RM); if (i === 2) { AFTER = null; denyRM(); } };
+  await fixtureRun("UPDATE members SET banned = 0 WHERE discord_id = ?",RM);
+  AFTER = async (i) => { if (i === 1) await fixtureRun("UPDATE community_profiles SET revision = revision + 1 WHERE discord_id = ?",RM); if (i === 2) { AFTER = null; await denyRM(); } };
   r = await call("PUT", "/api/community/profile", RM, { revision: 1, raidRole: "tank" });
   check("PUT, LOST CAS: another save lands after the pre-write read and the member is denied after the refused write: 403 denied, no profile payload, nothing written", r.status === 403 && r.body.error === "denied" && !("profile" in r.body) && one("SELECT raid_role FROM community_profiles WHERE discord_id = ?", RM).raid_role === null, JSON.stringify(r.body).slice(0, 200));
-  restoreRM();
-  AFTER = (i) => { if (i === 2) { AFTER = null; denyRM(); } };
+  await restoreRM();
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await denyRM(); } };
   r = await call("PUT", "/api/community/profile", RM, { revision: 2, raidRole: "tank" });
   check("PUT, AFTER SUCCESS: the save committed, then the member denied: the answer is what the write's own batch read (revision 3, the role) and the save stands", r.status === 200 && r.body.profile.revision === 3 && r.body.profile.raidRole.value === "tank" && one("SELECT raid_role FROM community_profiles WHERE discord_id = ?", RM).raid_role === "tank", JSON.stringify(r.body).slice(0, 200));
   r = await call("GET", "/api/community/profile", RM);
   check("  while the next read, newly unauthorized, is refused", r.status === 403 && !("profile" in r.body));
-  restoreRM();
-  AFTER = (i) => { if (i === 2) { AFTER = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF); } };
+  await restoreRM();
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF); } };
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: refR, key: "rae alt", decision: "confirm", revision: 1 });
   check("staff decision, LOST CAS: a stale revision's write is refused and the admin denied before the fallback read: 403 denied, no revision payload, the claim untouched", r.status === 403 && r.body.error === "denied" && !("revision" in r.body) && one("SELECT status FROM community_alt_claims WHERE discord_id = ? AND name_key = 'rae alt'", RM).status === "claimed", JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
-  AFTER = (i) => { if (i === 2) { AFTER = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF); } };
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF); } };
   r = await call("POST", "/api/admin/community/directory/alt", STAFF, { ref: refR, key: "rae alt", decision: "confirm", revision: 3 });
   check("staff decision, AFTER SUCCESS: the decision committed (RETURNING in its own batch), then the admin denied: acknowledged with what the batch wrote", r.status === 200 && r.body.claim.status === "officer_confirmed" && r.body.revision === 4 && one("SELECT status FROM community_alt_claims WHERE discord_id = ? AND name_key = 'rae alt'", RM).status === "officer_confirmed", JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 
   console.log(`\n${ok}/${n} passed`);

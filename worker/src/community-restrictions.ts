@@ -226,7 +226,7 @@ export async function restrictionAction(request: Request, env: Env, ctx: Communi
     if (!text(caseId) || !ID.test(caseId)) throw new Bad("invalid_request");
     const at = now();
     const me = admin.discord_id, actor = me;
-    const session = { v: ctx.subject!.sessionVersion, e: ctx.subject!.expiresAt };
+    const session = Object.freeze({v:ctx.subject!.sessionVersion,e:ctx.subject!.expiresAt,g:ctx.subject!.privacyGeneration,n:ctx.subject!.accountIncarnation,originalSession:ctx.subject!.originalSession});
     if (action === "create") return await createCase(request, env, ctx, body, caseId, me, at, session);
     const tokenMatch = text(body.expectedRevision) ? TOKEN.exec(body.expectedRevision) : null;
     if (!tokenMatch) throw new Bad("invalid_request");
@@ -284,7 +284,7 @@ export async function restrictionAction(request: Request, env: Env, ctx: Communi
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_restriction_cases SET ${set}, revision = revision + 1, nonce = ?3, updated_at = ?4, updated_by = ?5
-         WHERE id = ?1 AND incarnation = ?6 AND revision = ?2 AND discord_id = ?7 AND discord_id <> ?5 AND ${ACTIVE("community_restriction_cases")} AND ${LIVE_CASE("community_restriction_cases")} AND (${where}) AND ${fenceSql("applicantWrite", 5, 8, 9)}`,
+         WHERE id = ?1 AND incarnation = ?6 AND revision = ?2 AND discord_id = ?7 AND discord_id <> ?5 AND ${ACTIVE("community_restriction_cases")} AND ${LIVE_CASE("community_restriction_cases")} AND (${where}) AND ${fenceSql("applicantWrite", 5, 8, 9,session.g,session.n)}`,
       ).bind(caseId, expected.revision, nonce, at, me, expected.incarnation, current.row.discord_id, session.v, session.e, ...binds),
       auditIfAdmitted(env, caseId, nonce, at, actor, auditAction, { category: current.row.category }),
       ...(resolving
@@ -329,7 +329,7 @@ export function restrictionCaseStatements(env: Env, input: { caseId: string; dis
   ];
 }
 
-async function createCase(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, caseId: string, me: string, at: number, session: { v: number; e: number }): Promise<Response> {
+async function createCase(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, caseId: string, me: string, at: number, session: {v:number;e:number;g:string|null;n:string;originalSession:import("./privacy-site-session-incarnation").OriginalSiteSession}): Promise<Response> {
   for (const k of Object.keys(body)) if (!["action", "caseId", "discordId", "category", "reviewAt", "expiresAt"].includes(k)) throw new Bad("invalid_request");
   const { discordId, category } = body;
   if (!text(discordId) || !DISCORD_ID.test(discordId) || discordId === me) throw new Bad("invalid_request");
@@ -342,7 +342,7 @@ async function createCase(request: Request, env: Env, ctx: CommunityContext, bod
   const out = await admitted(env, ctx, [
     env.DB.prepare(
       `INSERT INTO community_restriction_cases (id, discord_id, category, set_by, set_at, review_at, expires_at, retain_until, incarnation, revision, nonce, updated_at)
-       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8, 1, ?9, ?5 WHERE ${fenceSql("applicantWrite", 4, 10, 11)} ON CONFLICT DO NOTHING`,
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8, 1, ?9, ?5 WHERE ${fenceSql("applicantWrite", 4, 10, 11,session.g,session.n)} ON CONFLICT DO NOTHING`,
     ).bind(caseId, discordId, category, me, at, reviewAt, expiresAt, incarnation, nonce, session.v, session.e),
     auditIfAdmitted(env, caseId, nonce, at, me, "community.restriction_set", { category }),
     ...writtenCase(env, caseId, nonce), // .73: the payload, in the write's own transaction
@@ -370,7 +370,7 @@ async function provenCharacters(env: Env, discordId: string): Promise<{ key: str
   });
 }
 
-async function watchListAction(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, current: CaseRead, expected: { token: string; incarnation: string; revision: number }, me: string, at: number, session: { v: number; e: number }): Promise<Response> {
+async function watchListAction(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, current: CaseRead, expected: { token: string; incarnation: string; revision: number }, me: string, at: number, session: {v:number;e:number;g:string|null;n:string;originalSession:import("./privacy-site-session-incarnation").OriginalSiteSession}): Promise<Response> {
   const action = body.action as "add_characters" | "renew_characters" | "remove_character";
   const allowed = ["action", "caseId", "expectedRevision", ...(action === "renew_characters" ? ["reason"] : action === "remove_character" ? ["key"] : [])];
   for (const k of Object.keys(body)) if (!allowed.includes(k)) throw new Bad("invalid_request");
@@ -390,7 +390,7 @@ async function watchListAction(request: Request, env: Env, ctx: CommunityContext
   const caseUpdate = (pin: string, binds: unknown[]) =>
     env.DB.prepare(
       `UPDATE community_restriction_cases SET revision = revision + 1, nonce = ?3, updated_at = ?4, updated_by = ?5
-       WHERE id = ?1 AND incarnation = ?6 AND revision = ?2 AND discord_id = ?7 AND discord_id <> ?5 AND ${ACTIVE("community_restriction_cases")} AND ${LIVE_CASE("community_restriction_cases")} AND ${fenceSql("applicantWrite", 5, 8, 9)} ${pin}`,
+       WHERE id = ?1 AND incarnation = ?6 AND revision = ?2 AND discord_id = ?7 AND discord_id <> ?5 AND ${ACTIVE("community_restriction_cases")} AND ${LIVE_CASE("community_restriction_cases")} AND ${fenceSql("applicantWrite", 5, 8, 9,session.g,session.n)} ${pin}`,
     ).bind(c.id, expected.revision, nonce, at, me, expected.incarnation, member, session.v, session.e, ...binds);
   const PERIOD_NONE = "AND NOT EXISTS (SELECT 1 FROM community_restriction_periods p WHERE p.discord_id = ?7)";
   // .73: the period as read AND still open by the database clock: a period that ended meanwhile admits no addition

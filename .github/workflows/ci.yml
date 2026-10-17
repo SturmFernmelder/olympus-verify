@@ -17,7 +17,7 @@ jobs:
   # in Python, the site script's syntax, the deploy script's argument contract, and a dry-run bundle.
   worker:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     env:
       WRANGLER_SEND_METRICS: 'false'
     steps:
@@ -37,6 +37,14 @@ jobs:
       - name: Typecheck, code vectors and every Worker suite
         run: npm run test:all
         working-directory: worker
+      - name: Reuse Lupa 2.8 for the optional census consumer chain
+        run: python3 -m pip install --user 'lupa==2.8'
+      - name: Actual pinned census Bridge to Lua JSON to strict server
+        timeout-minutes: 3
+        run: |
+          CENSUS_RUN_DIR="$(mktemp -d "$RUNNER_TEMP/olympus-census.XXXXXX")"
+          python3 -E -P addon/tests/run_census_consumer.py --fetch-upstream --run-dir "$CENSUS_RUN_DIR/lua"
+          python3 -E -P addon/tests/run_census_server_chain.py --lua-receipt "$CENSUS_RUN_DIR/lua/run-receipt.json" --evidence-root "$CENSUS_RUN_DIR" --run-dir "$CENSUS_RUN_DIR/server"
       - name: SQL suites (real extracted SQL against SQLite)
         run: |
           python3 tests/unverified_sql_test.py

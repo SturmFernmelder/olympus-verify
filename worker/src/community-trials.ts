@@ -186,7 +186,7 @@ export async function createTrial(request: Request, env: Env, ctx: CommunityCont
          SELECT ?1, ?1, ?2, ?3, ?4, ?5, ?6, 'active', ?7, NULL, ?5, ?5, ?8, 1, ?9, ?10
          WHERE EXISTS (SELECT 1 FROM site_users su WHERE su.discord_id = ?3)
            AND NOT EXISTS (SELECT 1 FROM community_trials o WHERE o.discord_id = ?3 AND o.status IN ('active', 'extended') AND o.retain_until > ${DB_NOW})
-           AND ${fenceSql("applicantWrite", 7, 11, 12)}
+           AND ${fenceSql("applicantWrite", 7, 11, 12,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
          ON CONFLICT DO NOTHING`,
       ).bind(opId, hash, discordId, sponsor, t, due, me, incarnation, nonce, due + TRIAL_RETENTION_S, ctx.subject!.sessionVersion, ctx.subject!.expiresAt),
       auditIfAdmitted(env, opId, nonce, t, me, "community.trial_created", null),
@@ -257,7 +257,7 @@ export async function updateTrial(request: Request, env: Env, ctx: CommunityCont
         `UPDATE community_trials SET status = ?4, outcome_reason = ?5, review_due_at = COALESCE(?6, review_due_at), concluded_at = CASE WHEN ?6 IS NULL THEN ?7 ELSE NULL END,
            retain_until = COALESCE(?6, ?7) + ${TRIAL_RETENTION_S}, revision = revision + 1, nonce = ?8, updated_by = ?9, updated_at = ?7
          WHERE id = ?1 AND incarnation = ?2 AND revision = ?3 AND status IN ('active', 'extended') AND discord_id <> ?9 AND (?6 IS NULL OR ?6 > review_due_at)
-           AND retain_until > ${DB_NOW} AND ${fenceSql("applicantWrite", 9, 10, 11)}`,
+           AND retain_until > ${DB_NOW} AND ${fenceSql("applicantWrite", 9, 10, 11,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
       ).bind(id, current.incarnation, revision, next.status, next.reason, due, t, nonce, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt),
       auditIfAdmitted(env, id, nonce, t, me, auditAction, next.reason === null ? null : { reason: next.reason }),
       writtenTrial(env, id, nonce), // .72: the payload, in the write's own transaction

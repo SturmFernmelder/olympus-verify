@@ -1,0 +1,90 @@
+{
+  "schema": "olympus-census-portable-test-pins-v1",
+  "upstream": {
+    "repository": "dnl-gentile/olympus-addon",
+    "commit": "f60f18814f2426a5c21f97e207611871a06366b4",
+    "tree": "af42a86de016588ee3aefa046deb68eb75169ae9",
+    "files": [
+      {
+        "path": "Bridge.lua",
+        "url": "https://raw.githubusercontent.com/dnl-gentile/olympus-addon/f60f18814f2426a5c21f97e207611871a06366b4/Olympus/Bridge.lua",
+        "sha256": "56b7300818d15c37ef61a5fb01996d646b417bbe88e59128e842e35ab39492fd",
+        "bytes": 3421
+      },
+      {
+        "path": "Data.lua",
+        "url": "https://raw.githubusercontent.com/dnl-gentile/olympus-addon/f60f18814f2426a5c21f97e207611871a06366b4/Olympus/Data.lua",
+        "sha256": "d57fe3e33ca04511b19c21ae2272dba5ea3f5e8a9561925fac3e17ce50006974",
+        "bytes": 43801
+      }
+    ]
+  },
+  "fixtures": {
+    "addon/tests/fixtures/community-census/fixture.lua": {
+      "bytes": 3203,
+      "sha256": "e20f7f42fe64edde3de44538057ead2e2d3fd2a2f8014d6e2c6f9a0a35144d8e"
+    },
+    "addon/tests/fixtures/community-census/contract-v2.json": {
+      "bytes": 6296,
+      "sha256": "d90d371987af0ba914cde8c96ee9205599984b7a3dbaec8b0bfa2733754b2a0f"
+    },
+    "addon/tests/fixtures/community-census/bridge-extension.lua": {
+      "bytes": 2763,
+      "sha256": "23d352a43def269be4d66a4d1e5932ff61e124a5930ab0dee00ece2e9f96dc32"
+    }
+  },
+  "combinedBridgeSHA256": "6956256a73a9670dd1545113cdd3f2ed72c264c86143b13c3c2d3b1db0753416",
+  "originalAddonGuardPaths": [
+    "addon/OlympusVerify/.gitignore",
+    "addon/OlympusVerify/Bindings.xml",
+    "addon/OlympusVerify/Config.example.lua",
+    "addon/OlympusVerify/Libs/OlympusHmac.lua",
+    "addon/OlympusVerify/Libs/OlympusQr.lua",
+    "addon/OlympusVerify/OlympusQueue.lua",
+    "addon/OlympusVerify/OlympusVerify.lua",
+    "addon/OlympusVerify/OlympusVerify.toc",
+    "addon/OlympusVerify/OlympusVerifyBrowser.lua",
+    "addon/OlympusVerify/OlympusVerifyGuild.lua",
+    "addon/OlympusVerify/OlympusVerifyPreview.lua",
+    "addon/OlympusVerify/OlympusVerifyRanks.lua",
+    "addon/OlympusVerify/OlympusVerifyRoster.lua",
+    "addon/OlympusVerify/OlympusVerifyUI.lua"
+  ],
+  "checkoutInputPaths": [
+    ".gitattributes",
+    ".github/workflows/ci.yml",
+    "THIRD_PARTY_NOTICES.md",
+    "addon/OlympusVerify/.gitignore",
+    "addon/OlympusVerify/Bindings.xml",
+    "addon/OlympusVerify/Config.example.lua",
+    "addon/OlympusVerify/Libs/OlympusHmac.lua",
+    "addon/OlympusVerify/Libs/OlympusQr.lua",
+    "addon/OlympusVerify/OlympusQueue.lua",
+    "addon/OlympusVerify/OlympusVerify.lua",
+    "addon/OlympusVerify/OlympusVerify.toc",
+    "addon/OlympusVerify/OlympusVerifyBrowser.lua",
+    "addon/OlympusVerify/OlympusVerifyCensus.lua",
+    "addon/OlympusVerify/OlympusVerifyGuild.lua",
+    "addon/OlympusVerify/OlympusVerifyPreview.lua",
+    "addon/OlympusVerify/OlympusVerifyRanks.lua",
+    "addon/OlympusVerify/OlympusVerifyRoster.lua",
+    "addon/OlympusVerify/OlympusVerifyUI.lua",
+    "addon/tests/fixtures/community-census/README.md",
+    "addon/tests/fixtures/community-census/bridge-extension.lua",
+    "addon/tests/fixtures/community-census/contract-v2.json",
+    "addon/tests/fixtures/community-census/fixture.lua",
+    "addon/tests/fixtures/community-census/pins.json",
+    "addon/tests/run_census_consumer.py",
+    "addon/tests/run_census_server_chain.py",
+    "worker/package.json",
+    "worker/src/community-census-validator.ts",
+    "worker/tests/community_census_validator_test.cjs"
+  ],
+  "historicalEvidence": {
+    "consumerManifestSHA256": "0aa47ae6862f1f5c1f84913d32f17ac0f12cd9efa2a909b966d9f06677e171d3",
+    "original34InputManifestSHA256": "8adaf51d8e31b82f4cc1739f32434e76a9baf0f2c880dea6aaecdac4b9a5e037",
+    "contractV2ManifestSHA256": "5fb8951e5e1ba9943a2f79b97b1f71f77f2d0638ec3920cc103093449c409074",
+    "mapping": "Two historical 14-file external addon trees stay historical. This checkout guards the same 14 relative paths plus every current consumer/test/config input. Immutable consumed fixtures and upstream files retain exact pins; combined Bridge is checked in memory."
+  },
+  "scope": "Synthetic offline consumer/server test inputs; no upstream adoption, install, authenticated transport or native game qualification. Upstream source is fetched only by explicit CI option or supplied locally, never bundled here."
+}

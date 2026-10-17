@@ -9,13 +9,13 @@ async function review(){
  const index=load('index').default,site=load('site-data'),news=load('site-news');
  const bytes=value=>new TextEncoder().encode(typeof value==='string'?value:JSON.stringify(value)).byteLength;
  async function producer(){
-  const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A});
-  f.db.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied,checked_at)VALUES(?,?,?,?,7,1,0,?)').run(A,'Original writer',f.time(),f.time(),f.time());
-  f.db.prepare("INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn','1',?)").run(f.time());
-  const cookie=(await core.sessionCookie(f.env,A,7)).split(';')[0];
+  const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,PRIVACY_ERASURE_ENABLED:'false'});
+  await fixtureWrite(f,'INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied,checked_at)VALUES(?,?,?,?,7,1,0,?)',A,'Original writer',f.time(),f.time(),f.time());
+  await fixtureWrite(f,"INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn','1',?)",f.time());
+  const cookie=await issueFixtureCookie(f);
   async function api(route,method,body){
    provider=null;const before=calls.length;
-   const response=await index.fetch(new Request(BASE+route,{method,headers:{Cookie:cookie,Origin:BASE,'X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),f.env,{waitUntil(){}});
+   const response=await index.fetch(new Request(BASE+route,{method,headers:{Cookie:cookie,Origin:BASE,'X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),{...f.env,DB:f.native},{waitUntil(){}});
    const result=await response.json();if(response.status!==200)console.log('WRITER_DIAGNOSTIC',route,response.status,result);
    eq(route+' genuine ordinary writer admitted',response.status,200);eq(route+' performs no provider call',calls.length,before);return result;
   }

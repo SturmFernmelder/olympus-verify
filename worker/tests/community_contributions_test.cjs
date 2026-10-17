@@ -13,52 +13,36 @@ const root = path.join(__dirname, "..");
 // D1 hands an INTEGER past 2^53 to JavaScript as a (rounded) number; node:sqlite throws instead, so the shim reads such rows as BigInts and rounds them the same way
 const lossy = (fn) => { try { return fn(false); } catch (e) { if (!(e instanceof RangeError)) throw e; return fn(true); } };
 const asNumbers = (row) => (row && typeof row === "object" ? Object.fromEntries(Object.entries(row).map(([k, v]) => [k, typeof v === "bigint" ? Number(v) : v])) : row);
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
-  let batches = 0; // numbered per request, for the beforeBatch/afterBatch hooks
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: lossy((big) => { st.setReadBigInts(big); return st.all(...params).map(asNumbers); }), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); const st = db.prepare(sql); return lossy((big) => { st.setReadBigInts(big); return asNumbers(st.get(...params)) ?? null; }); },
-      all: async () => { hooks.count?.(); const st = db.prepare(sql); return { results: lossy((big) => { st.setReadBigInts(big); return st.all(...params).map(asNumbers); }) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      hooks.sql?.(stmts.map((s) => s._sql));
-      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
-      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
-      if (logical) hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      if (logical) hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  let batches = 0;
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  // Observe original logical payloads for the old race positions. The full
+  // physical guard/header/terminal statements remain in nativeTrace/nativeGroups.
+  const sourcePlan = plan => /^UPDATE privacy_write_admission SET entry_changes=/.test(plan[0]?.statement ?? "") ? plan.slice(2,-2) : /^WITH business AS MATERIALIZED/.test(plan[0]?.statement ?? "") ? plan.slice(1) : plan;
+  const payloadBatch = plan => { const source=sourcePlan(plan); return source.length > 1 && !(source.length === 2 && source[0].statement.includes("privacy_site_request_refused")); };
+  return entry.originalNativePort(db, {...hooks,
+    readStatement: (statement,params) => lossy(big => { statement.setReadBigInts(big); return statement.all(...params).map(asNumbers); }),
+    beforeBatch: (plan) => { if (!payloadBatch(plan)) return; hooks.sql?.(sourcePlan(plan).map(s=>s.statement)); return hooks.beforeBatch?.(++batches, plan); },
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -67,6 +51,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -78,9 +63,10 @@ function load(name) {
   new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(dir === "." ? p : p.startsWith("../") ? p.slice(3).replace(/^/, "./") : "./" + dir + "/" + p.replace(/^\.\//, "")));
   return mod.exports;
 }
+const discordStub = stubs["./discord"] = {};
 const realDiscord = (() => { const m = { exports: {} }; new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(m, m.exports, (p) => load(p)); return m.exports; })();
 Object.assign(stubs, {
-  "./discord": {
+  "./discord": Object.assign(discordStub, {
     ...realDiscord,
     json: (body, status = 200) => ({ status, body, json: async () => body }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
@@ -92,58 +78,59 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
-    rest: async (env, method, p) => {
-      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
-      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
-      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-      return { nick: member.nick, pending: false, roles: [] };
+    rest: async (_env, method, p) => {
+      const membership = /^\/guilds\/236932545793490944\/members\/(\d{17,20})$/.exec(p);
+      if (method === 'GET' && membership) {
+        const account = db.prepare('SELECT in_server FROM site_users WHERE discord_id = ?').get(membership[1]);
+        if (!account || account.in_server !== 1) throw new realDiscord.DiscordError(404, 'unknown member');
+        return { user: { id: membership[1] }, pending: false, roles: [] };
+      }
+      throw new Error('no REST in tests: '+method+' '+p);
     },
     explainDiscordError: (e) => String(e),
-  },
+  }),
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
   "./review": { onVerified: async () => {} },
 });
 const context = load("./community-context"), siteCore = load("./site-core"), siteAdmin = load("./site-admin"), indexMod = load("./index");
 const pol = load("./community-contribution-policy"), led = load("./community-contributions");
 
-let T = 1790500000; // Sunday 27 Sep 2026, 09:06:40 UTC
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null; // armed by a test, each fires once
 let SQLS = null; // .88: when armed, receives every batch's statement texts
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i), sql: (a) => SQLS?.(a) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i, plan) => AFTER?.(i, plan), sql: (a) => SQLS?.(a) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_BOT_TOKEN: "test-token-only", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const MEMBER = "300000000000000003", OTHER = "300000000000000004", APPLICANT = "300000000000000001", STAFF = "472099715253796864", STAFF2 = "472099715253796865";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,row.first_login,row.last_login,row.in_server,row.denied,row.session_version);
 };
-const character = (id, name, memberSince, guid = null) => {
-  db.prepare("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING").run(id);
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, 'member', ?, ?, ?)").run(name.toLowerCase().split("-")[0], name, id, memberSince, guid, memberSince);
+const character = async (id, name, memberSince, guid = null) => {
+  await fixtureRun("INSERT INTO members (discord_id) VALUES (?) ON CONFLICT(discord_id) DO NOTHING",id);
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, guid, member_since) VALUES (?, ?, ?, 'member', ?, ?, ?)",name.toLowerCase().split("-")[0],name,id,memberSince,guid,memberSince);
 };
 const ON = { COMMUNITY_FEATURES: "contributions,restrictions", CONTRIBUTIONS_MODE: "ledger", CONTRIBUTIONS_RETENTION_DAYS: "400", SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -159,21 +146,16 @@ const act = (body, who = STAFF, over = ON, extraHeaders = {}) => call("POST", "/
 const staffView = async (id = MEMBER) => (await call("GET", "/api/admin/community/contributions?discordId=" + id, STAFF)).body.ledger;
 const week = (ledger, start) => ledger.obligations.find((o) => o.periodStart === iso(start));
 
-// .133: construct an original signed staff Request before the real site-only eraser consumes it.
-// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
-async function erasureRequest(target, actor) {
-  const site = load("./site-core");
-  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
-  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
-  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
-  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
-  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
-    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
-  });
+// Exercise the actual staff preparation and delete route; no manufactured session/origin.
+async function deleteThroughOriginalRoute(target, actor) {
+  const prepared=await call('GET','/api/admin/users/'+target+'/decision-target?route=delete&decisionAction=partial_delete',actor);
+  if(prepared.status!==200 || typeof prepared.body.targetToken!=='string')throw Error('original delete target preparation held '+prepared.status);
+  const result=await call('POST','/api/admin/users/'+target+'/delete',actor,{mentions:false},ON,{'X-Olympus-Decision-Target':prepared.body.targetToken,'X-Olympus-Decision-Action':'partial_delete'});
+  if(result.status!==200)throw Error('original delete route held '+result.status+' '+JSON.stringify(result.body));
+  return result.body.ok === true;
 }
-
 (async () => {
-  siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Mia" }); character(MEMBER, "Mia One", T - 30 * DAY, "Player-1-0001"); siteUser(OTHER, { global_name: "Oz" }); character(OTHER, "Oz New", T - 3 * DAY); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
+  await siteUser(APPLICANT); await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", T - 30 * DAY, "Player-1-0001"); await siteUser(OTHER, { global_name: "Oz" }); await character(OTHER, "Oz New", T - 3 * DAY); await siteUser(STAFF, { global_name: "Vik" }); await siteUser(STAFF2, { global_name: "Ann" });
 
   console.log("\n== the pure policy (seconds) ==");
   check("periodStart is the Monday 00:00 UTC at or before the instant", pol.periodStart(T, P) === THIS_WEEK && pol.periodStart(THIS_WEEK, P) === THIS_WEEK && pol.isPeriodStart(THIS_WEEK, P) && !pol.isPeriodStart(T, P));
@@ -197,7 +179,7 @@ async function erasureRequest(target, actor) {
   check("  a member write in that mode is 503 contributions_disabled", r.status === 503 && r.body.error === "contributions_disabled");
   r = await act({ action: "obligation", discordId: MEMBER, periodStart: iso(THIS_WEEK) }, STAFF, { ...ON, CONTRIBUTIONS_RETENTION_DAYS: "" });
   check("  a staff write without a retention is 503 too (storage never starts without a purge)", r.status === 503 && r.body.error === "contributions_disabled");
-  check("  the opener does nothing in that mode", (await led.openWeeklyObligations(env({ ...ON, CONTRIBUTIONS_MODE: "off" }), T)) === 0);
+  check("  the opener does nothing in that mode", (await led.openWeeklyObligations(directEnv({ ...ON, CONTRIBUTIONS_MODE: "off" }), T)) === 0);
   r = await call("GET", "/api/community/contributions/me", APPLICANT);
   check("a signed-in applicant (no character, no Battle.net) reads their own empty ledger: applicantWrite is the member boundary", r.status === 200 && r.body.ledger.obligations.length === 0);
   r = await call("GET", "/api/admin/community/contributions?discordId=" + MEMBER, MEMBER);
@@ -206,10 +188,10 @@ async function erasureRequest(target, actor) {
   check("a staff write from an old page is told to reload", r.status === 409 && r.body.error === "reload");
 
   console.log("\n== the weekly opener ==");
-  let made = await led.openWeeklyObligations(env(ON), T);
+  let made = await led.openWeeklyObligations(directEnv(ON), T);
   check("the opener records this week's obligation for every roster-confirmed account that signed in here: the 30-day member eligible, the 3-day member exempt by age (eligible = 0), the applicant without a character none", made === 2 && one("SELECT eligible FROM community_contribution_obligations WHERE discord_id = ?", MEMBER).eligible === 1 && one("SELECT eligible FROM community_contribution_obligations WHERE discord_id = ?", OTHER).eligible === 0 && !one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ?", APPLICANT), made);
   check("  the week, the due date, the pinned policy and the retention fixed from the configuration in force", one("SELECT period_start, due_at, policy_version, retain_until FROM community_contribution_obligations WHERE discord_id = ?", MEMBER).period_start === THIS_WEEK && one("SELECT due_at FROM community_contribution_obligations WHERE discord_id = ?", MEMBER).due_at === THIS_WEEK + WEEK && one("SELECT policy_version FROM community_contribution_obligations WHERE discord_id = ?", MEMBER).policy_version === "v1" && one("SELECT retain_until FROM community_contribution_obligations WHERE discord_id = ?", MEMBER).retain_until === THIS_WEEK + WEEK + 400 * DAY && one("SELECT amount_copper FROM community_contribution_policies WHERE version = 'v1'").amount_copper === 10000);
-  check("  a second run records nothing; nothing touched a role or a case", (await led.openWeeklyObligations(env(ON), T)) === 0 && !one("SELECT 1 FROM audit WHERE action LIKE 'role.%'") && one("SELECT COUNT(*) AS n FROM community_restriction_cases").n === 0);
+  check("  a second run records nothing; nothing touched a role or a case", (await led.openWeeklyObligations(directEnv(ON), T)) === 0 && !one("SELECT 1 FROM audit WHERE action LIKE 'role.%'") && one("SELECT COUNT(*) AS n FROM community_restriction_cases").n === 0);
 
   console.log("\n== the member's own view ==");
   r = await call("GET", "/api/community/contributions/me", MEMBER);
@@ -320,38 +302,38 @@ async function erasureRequest(target, actor) {
   check("  and reopening it clears the old contacts", r.body.result.status === "updated" && week(r.body.ledger, THIS_WEEK).state === "open");
 
   console.log("\n== the overflow guard: a stored amount past the exact bound ==");
-  db.prepare("INSERT INTO community_contribution_receipts (id, guild_scope, source, source_id, payload_hash, amount_copper, retired_copper, observed_at, matched_discord_id, status, retain_until, created_at) VALUES (?, 'olympus', 'bank_log', 'huge', 'h', ?, 0, ?, ?, 'matched', ?, ?)").run("Z".repeat(22), 9007199254740993n, T, MEMBER, T + 400 * DAY, T);
+  await fixtureRun("INSERT INTO community_contribution_receipts (id, guild_scope, source, source_id, payload_hash, amount_copper, retired_copper, observed_at, matched_discord_id, status, retain_until, created_at) VALUES (?, 'olympus', 'bank_log', 'huge', 'h', 9007199254740993, 0, ?, ?, 'matched', ?, ?)","Z".repeat(22),T,MEMBER,T + 400 * DAY,T);
   r = await call("GET", "/api/community/contributions/me", MEMBER);
   check("the member's view is 409 contribution_overflow, never a rounded amount and never a 500", r.status === 409 && r.body.error === "contribution_overflow", JSON.stringify(r.body).slice(0, 200));
   r = await call("GET", "/api/admin/community/contributions?discordId=" + MEMBER, STAFF);
   check("  the staff view too", r.status === 409 && r.body.error === "contribution_overflow");
   r = await act({ action: "allocate", discordId: MEMBER });
   check("  and an allocation is refused before planning", r.status === 409 && r.body.error === "contribution_overflow");
-  let exported = await context.communityExport(env(ON), MEMBER);
+  let exported = await context.communityExport(directEnv(ON), MEMBER);
   check("  the account copy says so instead of copying a wrong number", exported.contributions.error === "contribution_overflow");
-  db.prepare("DELETE FROM community_contribution_receipts WHERE id = ?").run("Z".repeat(22));
+  await fixtureRun("DELETE FROM community_contribution_receipts WHERE id = ?","Z".repeat(22));
 
   console.log("\n== reader admission on every payload ==");
-  const denyStaff = () => db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF);
-  const restore = (id) => db.prepare("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?").run(id);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; denyStaff(); } };
+  const denyStaff = async () => await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF);
+  const restore = async (id) => await fixtureRun("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?",id);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await denyStaff(); } };
   r = await call("GET", "/api/admin/community/contributions?discordId=" + MEMBER, STAFF);
   check("the staff view: an admin denied between the context read and the payload batch is 403 denied, no ledger", r.status === 403 && r.body.error === "denied" && !("ledger" in r.body));
-  restore(STAFF);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(MEMBER); } };
+  await restore(STAFF);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",MEMBER); } };
   r = await call("GET", "/api/community/contributions/me", MEMBER);
   check("the own view: a member departed before the payload batch is 403 not_member, no ledger", r.status === 403 && r.body.error === "not_member" && !("ledger" in r.body));
-  restore(MEMBER);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; denyStaff(); } };
+  await restore(MEMBER);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await denyStaff(); } };
   r = await act({ action: "allocate", discordId: MEMBER });
   check("EARLY: a staff write whose admin is denied before the snapshot read is refused there: 403, nothing written", r.status === 403 && r.body.error === "denied" && !("ledger" in r.body));
-  restore(STAFF);
+  await restore(STAFF);
   v = await staffView();
   check("(fixture) this week, now due with complete evidence, calls for an acknowledgement", week(v, THIS_WEEK).canAcknowledge === "acknowledged", JSON.stringify(week(v, THIS_WEEK)));
-  AFTER = (i) => { if (i === 3) { AFTER = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER); } };
+  AFTER = async (i) => { if (i === 3) { AFTER = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER); } };
   r = await call("POST", "/api/community/contributions/acknowledge", MEMBER, { obligationId: thisId, kind: "acknowledged", expectedRevision: v.revision });
   check("AFTER SUCCESS: the acknowledgement committed, then the member denied: the write stands and is acknowledged, the ledger (a new read) is withheld", r.status === 200 && r.body.ok === true && r.body.result.status === "recorded" && r.body.ledger === null && r.body.withheld === "reader_refused" && one("SELECT acknowledged_at FROM community_contribution_obligations WHERE id = ?", thisId).acknowledged_at === T, JSON.stringify(r.body).slice(0, 300));
-  restore(MEMBER);
+  await restore(MEMBER);
   r = await call("GET", "/api/community/contributions/me", MEMBER);
   check("  restored, the member sees the acknowledgement", week(r.body.ledger, THIS_WEEK).stage === "acknowledged");
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
@@ -359,12 +341,12 @@ async function erasureRequest(target, actor) {
   console.log("\n== .78: the lifetime contract (Codex's selection, 05:19) ==");
   const WEEK2 = LAST_WEEK - WEEK, WEEK3 = LAST_WEEK - 2 * WEEK; // Mondays 7 September and 31 August 2026
   // this process's clock T is now 16 days ahead of the database's (the real one): "expired by the database clock" is a real-clock value
-  const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
+  const EXPIRED = T - 1;
   const keep = one("SELECT retain_until FROM community_contribution_obligations WHERE id = ?", thisId).retain_until;
-  db.prepare("UPDATE community_contribution_obligations SET retain_until = ? WHERE id = ?").run(EXPIRED, thisId);
+  await fixtureRun("UPDATE community_contribution_obligations SET retain_until = ? WHERE id = ?",EXPIRED,thisId);
   r = await call("GET", "/api/community/contributions/me", MEMBER);
   v = await staffView();
-  exported = await context.communityExport(env(ON), MEMBER);
+  exported = await context.communityExport(directEnv(ON), MEMBER);
   check("an expired week (retain_until past by the database clock, not yet purged) is absent from the member's view, the staff view and the account copy", r.body.ledger.obligations.every((o) => o.id !== thisId) && v.obligations.every((o) => o.id !== thisId) && exported.contributions.obligations.every((o) => o.periodStart !== iso(THIS_WEEK)));
   r = await act({ action: "state", discordId: MEMBER, obligationId: thisId, state: "exempt", expectedRevision: v.revision });
   check("  it takes no state change: 404 not_found, the row untouched", r.status === 404 && r.body.error === "not_found" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", thisId).state === "open");
@@ -372,25 +354,25 @@ async function erasureRequest(target, actor) {
   check("  no acknowledgement: 404", r.status === 404);
   r = await act({ action: "removal", discordId: MEMBER, obligationId: thisId, expectedRevision: v.revision, caseId: null });
   check("  no removal record: 404", r.status === 404);
-  db.prepare("UPDATE community_contribution_obligations SET retain_until = ? WHERE id = ?").run(keep, thisId);
+  await fixtureRun("UPDATE community_contribution_obligations SET retain_until = ? WHERE id = ?",keep,thisId);
   r = await act({ action: "obligation", discordId: MEMBER, periodStart: iso(WEEK2) });
   const week2Id = week(r.body.ledger, WEEK2).id;
   r = await act({ action: "receipt", source: "mail", sourceId: "mail-3", payerName: "Mia One", amountCopper: 10000, observedAt: iso(T - 7200), matchedDiscordId: MEMBER, status: "matched" });
   const receipt3 = r.body.ledger.receipts.find((x) => x.sourceId === "mail-3").id;
   const keep3 = one("SELECT retain_until FROM community_contribution_receipts WHERE id = ?", receipt3).retain_until;
-  AFTER = (i) => { if (i === 1) { AFTER = null; db.prepare("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?").run(EXPIRED, receipt3); } };
+  AFTER = async (i) => { if (i === 1) { AFTER = null; await fixtureRun("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?",EXPIRED,receipt3); } };
   r = await act({ action: "allocate", discordId: MEMBER });
   check("a receipt whose deadline passes between the snapshot and the write funds nothing: the journal insert requires it live at the write; the week stays unpaid", r.status === 200 && r.body.result.allocations.length === 0 && week(r.body.ledger, WEEK2).paidCopper === 0 && !one("SELECT 1 FROM community_contribution_allocation_events WHERE receipt_id = ?", receipt3), JSON.stringify(r.body).slice(0, 300));
-  db.prepare("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?").run(keep3, receipt3);
+  await fixtureRun("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?",keep3,receipt3);
   r = await act({ action: "allocate", discordId: MEMBER });
   check("  live again, it pays the week", r.body.result.status === "applied" && week(r.body.ledger, WEEK2).paidCopper === 10000);
   r = await act({ action: "receipt", source: "mail", sourceId: "mail-4", payerName: "Mia One", amountCopper: 5000, observedAt: iso(T - 7000), matchedDiscordId: MEMBER, status: "matched" });
   const receipt4 = r.body.ledger.receipts.find((x) => x.sourceId === "mail-4").id;
-  db.prepare("UPDATE community_contribution_receipts SET retain_until = ? WHERE id IN (?, ?)").run(EXPIRED, receipt3, receipt4);
+  await fixtureRun("UPDATE community_contribution_receipts SET retain_until = ? WHERE id IN (?, ?)",EXPIRED,receipt3,receipt4);
   v = await staffView();
   const seen3 = v.receipts.find((x) => x.id === receipt3);
   check("an expired receipt still paying a live week shows only the allocated/retired relationship that week needs: no source id, payer or recorder, the amount = what it paid, no credit; one paying nothing live is not shown; the week stays paid", !!seen3 && seen3.sourceId === null && seen3.payerName === null && seen3.recordedBy === null && seen3.amountCopper === 10000 && seen3.allocatedCopper === 10000 && seen3.unallocatedCopper === 0 && !("expiredCopper" in seen3) && !v.receipts.some((x) => x.id === receipt4) && week(v, WEEK2).paidCopper === 10000, JSON.stringify(v.receipts).slice(0, 300));
-  exported = await context.communityExport(env(ON), MEMBER);
+  exported = await context.communityExport(directEnv(ON), MEMBER);
   check("  the account copy does the same", exported.contributions.receipts.some((x) => x.amountCopper === 10000 && x.allocatedCopper === 10000) && !exported.contributions.receipts.some((x) => x.amountCopper === 5000) && !JSON.stringify(exported.contributions).includes("expiredCopper"));
   r = await act({ action: "allocate", discordId: MEMBER });
   check("  expired credit never funds a new allocation (nothing to do)", r.body.result.status === "nothing");
@@ -399,10 +381,10 @@ async function erasureRequest(target, actor) {
   r = await act({ action: "evidence", periodStart: iso(WEEK3), state: "complete" });
   v = await staffView();
   check("(fixture) an older unpaid week with complete evidence calls for an acknowledgement", week(v, WEEK3).canAcknowledge === "acknowledged", JSON.stringify(week(v, WEEK3)));
-  AFTER = (i) => { if (i === 2) { AFTER = null; db.prepare("UPDATE community_contribution_evidence SET state = 'partial' WHERE period_start = ?").run(WEEK3); } };
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await fixtureRun("UPDATE community_contribution_evidence SET state = 'partial' WHERE period_start = ?",WEEK3); } };
   r = await call("POST", "/api/community/contributions/acknowledge", MEMBER, { obligationId: week3Id, kind: "acknowledged", expectedRevision: v.revision });
   check("a contact whose attestation changed between the evaluation and the write is facts_stale: the first statement re-states the evidence it relied on; no contact, no decision journaled", r.status === 200 && r.body.result.status === "facts_stale" && one("SELECT acknowledged_at FROM community_contribution_obligations WHERE id = ?", week3Id).acknowledged_at === null && !one("SELECT 1 FROM community_contribution_decisions WHERE obligation_id = ? AND action = 'contact_acknowledged'", week3Id), JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE community_contribution_evidence SET state = 'complete' WHERE period_start = ?").run(WEEK3);
+  await fixtureRun("UPDATE community_contribution_evidence SET state = 'complete' WHERE period_start = ?",WEEK3);
   v = await staffView();
   r = await call("POST", "/api/community/contributions/acknowledge", MEMBER, { obligationId: week3Id, kind: "acknowledged", expectedRevision: v.revision });
   check("  with the attestation back the acknowledgement is recorded, with its decision", r.body.result.status === "recorded" && !!one("SELECT 1 FROM community_contribution_decisions WHERE obligation_id = ? AND action = 'contact_acknowledged'", week3Id));
@@ -416,54 +398,60 @@ async function erasureRequest(target, actor) {
   const CASE = "C".repeat(22);
   r = await call("POST", "/api/admin/community/restrictions", STAFF, { action: "create", caseId: CASE, discordId: MEMBER, category: "tithe_removal", reviewAt: iso(T + 30 * DAY), expiresAt: iso(T + 180 * DAY) });
   check("(fixture) a restriction case about the member, opened through the restrictions module itself", r.status === 200, JSON.stringify(r.body).slice(0, 200));
-  AFTER = (i) => { if (i === 3) { AFTER = null; db.prepare("UPDATE community_restriction_cases SET retain_until = ? WHERE id = ?").run(EXPIRED, CASE); } };
+  AFTER = async (i) => { if (i === 3) { AFTER = null; await fixtureRun("UPDATE community_restriction_cases SET retain_until = ? WHERE id = ?",EXPIRED,CASE); } };
   r = await act({ action: "removal", discordId: MEMBER, obligationId: week3Id, expectedRevision: v.revision, caseId: CASE });
   check("a removal whose linked case expires between the evaluation and the write is facts_changed: the first statement requires the case live about this member; the week stays open, no decision", r.body.result.status === "facts_changed" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", week3Id).state === "open" && !one("SELECT 1 FROM community_contribution_decisions WHERE obligation_id = ? AND action = 'removal_recorded'", week3Id), JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE community_restriction_cases SET retain_until = ? WHERE id = ?").run(T + 180 * DAY, CASE);
+  await fixtureRun("UPDATE community_restriction_cases SET retain_until = ? WHERE id = ?",T + 180 * DAY,CASE);
   v = await staffView();
   r = await act({ action: "removal", discordId: MEMBER, obligationId: week3Id, expectedRevision: v.revision, caseId: CASE });
   check("  with the case live the removal is recorded and LINKS it (never opens one): resolved, the case id on the week, one case in all", r.body.result.status === "recorded" && one("SELECT removal_case_id FROM community_contribution_obligations WHERE id = ?", week3Id).removal_case_id === CASE && one("SELECT COUNT(*) AS n FROM community_restriction_cases").n === 1);
   const NOW_WEEK = pol.periodStart(T, P);
-  BEFORE = (i) => { if (i === 2) { BEFORE = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(OTHER); siteUser(OTHER, { global_name: "Oz", first_login: T + 5, last_login: T + 5 }); } };
-  made = await led.openWeeklyObligations(env(ON), T);
+  BEFORE = async (i) => { if (i === 2) { BEFORE = null; await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",OTHER); await siteUser(OTHER, { global_name: "Oz", first_login: T + 5, last_login: T + 5 }); } };
+  made = await led.openWeeklyObligations(directEnv(ON), T);
   check("the opener: an account erased and recreated between the scan and its insert gets no obligation (the captured incarnation is re-stated at the insert); the other account's is recorded", made === 1 && !!one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", MEMBER, NOW_WEEK) && !one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", OTHER, NOW_WEEK) && BEFORE === null, made);
-  made = await led.openWeeklyObligations(env(ON), T);
+  made = await led.openWeeklyObligations(directEnv(ON), T);
   check("  the next run records the recreated account's own obligation (its own incarnation)", made === 1 && !!one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", OTHER, NOW_WEEK));
-  db.prepare("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?").run(OTHER, NOW_WEEK);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE characters SET status = 'left' WHERE discord_id = ?").run(OTHER); } };
-  made = await led.openWeeklyObligations(env(ON), T);
+  await fixtureRun("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?",OTHER,NOW_WEEK);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",OTHER); } };
+  made = await led.openWeeklyObligations(directEnv(ON), T);
   check("  an account whose roster proof is gone at the insert gets none either", made === 0 && !one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", OTHER, NOW_WEEK) && BEFORE === null, made);
-  db.prepare("UPDATE characters SET status = 'member' WHERE discord_id = ?").run(OTHER);
+  await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",OTHER);
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 
   console.log("\n== .80: later standalone reads admitted; the fence by the database clock; no replay of an expired receipt; the purge bounded to its run ==");
   const W4 = LAST_WEEK - 3 * WEEK; // Monday 24 August 2026
-  AFTER = (i) => { if (i === 1) { AFTER = null; denyStaff(); } };
+  AFTER = async (_i, plan) => { if (plan.some(s => /^INSERT INTO community_contribution_obligations/.test(s.statement.trim()))) { AFTER = null; await denyStaff(); } };
   r = await act({ action: "obligation", discordId: MEMBER, periodStart: iso(W4) });
   check("a committed create followed by the admin's denial: the week exists (the write stands) and the later standalone read of its id is refused: 403 denied, no ledger", r.status === 403 && r.body.error === "denied" && !!one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", MEMBER, W4) && !("ledger" in r.body), JSON.stringify(r.body).slice(0, 200));
-  restore(STAFF);
-  const fenceOf = (id) => ({ discordId: id, sessionVersion: 1, expiresAt: Math.floor(RealDate.now() / 1000) + 3600 });
-  check("fenceRefusal judges by the database's clock and facts in SQL: a live session in good standing is admitted; a bumped version or a passed expiry is session_expired", (await led.fenceRefusal(env(ON), fenceOf(STAFF))) === null && (await led.fenceRefusal(env(ON), { ...fenceOf(STAFF), sessionVersion: 2 })) === "session_expired" && (await led.fenceRefusal(env(ON), { ...fenceOf(STAFF), expiresAt: Math.floor(RealDate.now() / 1000) - 1 })) === "session_expired");
-  db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF);
-  check("  a denial is standing_lost", (await led.fenceRefusal(env(ON), fenceOf(STAFF))) === "standing_lost");
-  restore(STAFF);
+  await restore(STAFF);
+  const fenceOf = async (id) => {
+    const request = new Request("https://guild.example/", { headers: { Cookie: await cookieFor(id) } });
+    const original = await context.communityContext(directEnv(ON), request);
+    if (!original.subject) throw Error("actual original community subject required");
+    return original.subject;
+  };
+  const fenceStaff = await fenceOf(STAFF);
+  check("fenceRefusal judges by the database's clock and facts in SQL: a live original session in good standing is admitted; a bumped version or a passed expiry is session_expired", (await led.fenceRefusal(directEnv(ON), fenceStaff)) === null && (await led.fenceRefusal(directEnv(ON), { ...fenceStaff, sessionVersion: fenceStaff.sessionVersion + 1 })) === "session_expired" && (await led.fenceRefusal(directEnv(ON), { ...fenceStaff, expiresAt: T - 1 })) === "session_expired");
+  await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF);
+  check("  a denial is standing_lost", (await led.fenceRefusal(directEnv(ON), fenceStaff)) === "standing_lost");
+  await restore(STAFF);
   r = await act({ action: "receipt", source: "bank_log", sourceId: "bank-9", payerName: null, amountCopper: 700, observedAt: iso(T - 60), matchedDiscordId: MEMBER, status: "matched" });
   const receipt9 = r.body.ledger.receipts.find((x) => x.sourceId === "bank-9").id;
-  db.prepare("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?").run(EXPIRED, receipt9);
+  await fixtureRun("UPDATE community_contribution_receipts SET retain_until = ? WHERE id = ?",EXPIRED,receipt9);
   r = await act({ action: "receipt", source: "bank_log", sourceId: "bank-9", payerName: null, amountCopper: 700, observedAt: iso(T - 60), matchedDiscordId: MEMBER, status: "matched" });
   check("the identical receipt retried after its deadline is 409 past_retention, never a replay (the source id stays taken until the purge frees it)", r.status === 409 && r.body.error === "past_retention" && one("SELECT COUNT(*) AS n FROM community_contribution_receipts WHERE source_id = 'bank-9'").n === 1, JSON.stringify(r.body).slice(0, 200));
   const P1 = "300000000000000081", P2 = "300000000000000082", P3 = "300000000000000083";
-  for (const id of [P1, P2, P3]) await led.createObligation(env(ON), { guildScope: "olympus", discordId: id, periodStart: W4, eligible: true }, T);
-  db.prepare("UPDATE community_contribution_obligations SET retain_until = ? WHERE discord_id IN (?, ?)").run(T - 1, P1, P2);
+  for (const id of [P1, P2, P3]) await led.createObligation(directEnv(ON), { guildScope: "olympus", discordId: id, periodStart: W4, eligible: true }, T);
+  await fixtureRun("UPDATE community_contribution_obligations SET retain_until = ? WHERE discord_id IN (?, ?)",T - 1,P1,P2);
   const revs = () => Object.fromEntries([P1, P2, P3].map((id) => [id, one("SELECT revision FROM community_contribution_members WHERE discord_id = ?", id)?.revision ?? null]));
   const before = revs();
-  const purged1 = await led.sweepCommunityContributions(env({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T, 1);
+  const purged1 = await led.sweepCommunityContributions(directEnv({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T, 1);
   const after1 = revs();
   check("a purge run bounded to one week touches one member: that week and its member row go; the other expired member's and the live member's revisions are untouched", purged1 >= 1 && after1[P1] === null && after1[P2] === before[P2] && after1[P3] === before[P3], JSON.stringify({ before, after1, purged1 }));
-  const purged2 = await led.sweepCommunityContributions(env({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T, 1);
+  const purged2 = await led.sweepCommunityContributions(directEnv({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T, 1);
   check("  the next run takes the other, the live member still untouched", purged2 >= 1 && revs()[P2] === null && revs()[P3] === before[P3], JSON.stringify(revs()));
-  db.prepare("DELETE FROM community_contribution_obligations WHERE discord_id = ?").run(P3);
-  db.prepare("DELETE FROM community_contribution_members WHERE discord_id = ?").run(P3);
+  await fixtureRun("DELETE FROM community_contribution_obligations WHERE discord_id = ?",P3);
+  await fixtureRun("DELETE FROM community_contribution_members WHERE discord_id = ?",P3);
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 
   console.log("\n== .88: the four ledger repairs (Codex's frozen .80 review) ==");
@@ -477,49 +465,49 @@ async function erasureRequest(target, actor) {
   check("the new-receipt batch's magnitude probe acquires nothing unless the acting session's fence holds in that same statement, and the insert requires the deadline by the database clock", r.status === 200 && !!probeSql && /WHERE 1 AND [\s\S]*session_version/.test(probeSql) && /CAST\(strftime/.test(probeSql) && !!insertSql && /AND \?12 > CAST\(strftime\('%s', 'now'\) AS INTEGER\)/.test(insertSql), r.status, JSON.stringify(r.body).slice(0, 160), !!probeSql, !!insertSql, insertSql && insertSql.replace(/\s+/g, " ").slice(0, 400));
   // (2) the removal requires the SAME linked case it evaluated (its incarnation)
   const W5 = LAST_WEEK - 5 * WEEK;
-  db.prepare("INSERT INTO community_contribution_obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, acknowledged_at, final_notice_at, final_acknowledged_at, retain_until, created_at, updated_at) VALUES ('olympus', ?, ?, ?, 'v1', 10000, 1, 'open', ?, ?, ?, ?, ?, ?)").run(MEMBER, W5, W5 + WEEK, W5 + WEEK + DAY, W5 + WEEK + 8 * DAY, W5 + WEEK + 8 * DAY, T + 400 * DAY, T, T);
-  db.prepare("INSERT INTO community_contribution_evidence (guild_scope, period_start, state, attested_at, retain_until, nonce) VALUES ('olympus', ?, 'complete', ?, ?, 'ev88')").run(W5, T, T + 400 * DAY);
+  await fixtureRun("INSERT INTO community_contribution_obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, acknowledged_at, final_notice_at, final_acknowledged_at, retain_until, created_at, updated_at) VALUES ('olympus', ?, ?, ?, 'v1', 10000, 1, 'open', ?, ?, ?, ?, ?, ?)",MEMBER,W5,W5 + WEEK,W5 + WEEK + DAY,W5 + WEEK + 8 * DAY,W5 + WEEK + 8 * DAY,T + 400 * DAY,T,T);
+  await fixtureRun("INSERT INTO community_contribution_evidence (guild_scope, period_start, state, attested_at, retain_until, nonce) VALUES ('olympus', ?, 'complete', ?, ?, 'ev88')",W5,T,T + 400 * DAY);
   const week5Id = one("SELECT id FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", MEMBER, W5).id;
   v = await staffView();
   check("(fixture) an old week in officer_review", week(v, W5) && week(v, W5).stage === "officer_review", JSON.stringify(week(v, W5)));
   const CASE2 = "D".repeat(22);
   r = await call("POST", "/api/admin/community/restrictions", STAFF, { action: "create", caseId: CASE2, discordId: MEMBER, category: "tithe_removal", reviewAt: iso(T + 30 * DAY), expiresAt: iso(T + 180 * DAY) });
   check("(fixture) a second restriction case about the member", r.status === 200, JSON.stringify(r.body).slice(0, 200));
-  AFTER = (i) => { if (i === 3) { AFTER = null; db.prepare("UPDATE community_restriction_cases SET incarnation = 'replaced-under-the-same-id' WHERE id = ?").run(CASE2); } };
+  AFTER = async (i) => { if (i === 3) { AFTER = null; await fixtureRun("UPDATE community_restriction_cases SET incarnation = 'replaced-under-the-same-id' WHERE id = ?",CASE2); } };
   r = await act({ action: "removal", discordId: MEMBER, obligationId: week5Id, expectedRevision: v.revision, caseId: CASE2 });
   check("a removal whose linked case is REPLACED under the same id (a new incarnation, still live) between the evaluation and the write is facts_changed: the week stays open, no decision", r.body.result.status === "facts_changed" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", week5Id).state === "open" && !one("SELECT 1 FROM community_contribution_decisions WHERE obligation_id = ? AND action = 'removal_recorded'", week5Id) && AFTER === null, JSON.stringify(r.body).slice(0, 200));
   v = await staffView();
   r = await act({ action: "removal", discordId: MEMBER, obligationId: week5Id, expectedRevision: v.revision, caseId: CASE2 });
   check("  evaluated against the replaced case itself, the removal is recorded and links it", r.body.result.status === "recorded" && one("SELECT removal_case_id FROM community_contribution_obligations WHERE id = ?", week5Id).removal_case_id === CASE2);
   // (3) the opener restates the eligibility it writes from the member's CURRENT characters
-  db.prepare("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?").run(OTHER, NOW_WEEK);
+  await fixtureRun("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?",OTHER,NOW_WEEK);
   const openerSql = [];
   SQLS = (a) => openerSql.push(a);
   const ozSince = one("SELECT member_since FROM characters WHERE discord_id = ?", OTHER).member_since; // joined a month ago by now: scanned as eligible
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE characters SET member_since = ? WHERE discord_id = ?").run(T - 3 * DAY, OTHER); } }; // by the insert the earliest member_since is three days old: exempt
-  made = await led.openWeeklyObligations(env(ON), T);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE characters SET member_since = ? WHERE discord_id = ?",T - 3 * DAY,OTHER); } }; // by the insert the earliest member_since is three days old: exempt
+  made = await led.openWeeklyObligations(directEnv(ON), T);
   SQLS = null;
   check("the opener: a member scanned as eligible whose earliest member_since makes them exempt by the insert gets no row (proof_changed: the eligibility is restated from the characters as they are then)", made === 0 && !one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", OTHER, NOW_WEEK) && BEFORE === null, made, JSON.stringify(one("SELECT discord_id, eligible FROM community_contribution_obligations WHERE period_start = ? AND discord_id = ?", NOW_WEEK, OTHER)), JSON.stringify(one("SELECT member_since, status FROM characters WHERE discord_id = ?", OTHER)), openerSql.length, (openerSql[0] || [""])[0].replace(/\s+/g, " ").slice(0, 900));
-  made = await led.openWeeklyObligations(env(ON), T);
+  made = await led.openWeeklyObligations(directEnv(ON), T);
   check("  the next run records them with the eligibility their current age gives (exempt, eligible = 0)", made === 1 && one("SELECT eligible FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", OTHER, NOW_WEEK).eligible === 0, made);
-  db.prepare("UPDATE characters SET member_since = ? WHERE discord_id = ?").run(ozSince, OTHER);
+  await fixtureRun("UPDATE characters SET member_since = ? WHERE discord_id = ?",ozSince,OTHER);
   // (4) nothing is born at or past its deadline by the database clock, even when the actor's clock is behind
-  const REAL = Math.floor(RealDate.now() / 1000);
+  const REAL = T;
   const PS = pol.periodStart(REAL - 8 * DAY, P); // a week whose one-day retention ended before the real clock
   const behind = PS + WEEK + 12 * 3600; // an actor clock before that deadline
   const ONE_DAY = { ...ON, CONTRIBUTIONS_RETENTION_DAYS: "1" };
   threw = null;
-  try { await led.createObligation(env(ONE_DAY), { guildScope: "olympus-born", discordId: MEMBER, periodStart: PS, eligible: true }, behind); } catch (e) { threw = e.code; }
+  try { await led.createObligation(directEnv(ONE_DAY), { guildScope: "olympus-born", discordId: MEMBER, periodStart: PS, eligible: true }, behind); } catch (e) { threw = e.code; }
   check("a week whose deadline has passed by the database clock is not born, even when the actor's clock says otherwise: past_retention, no row", threw === "past_retention" && !one("SELECT 1 FROM community_contribution_obligations WHERE guild_scope = 'olympus-born'"), threw);
   threw = null;
-  try { await led.recordReceipt(env(ONE_DAY), { guildScope: "olympus", source: "bank_log", sourceId: "bank-born-expired", payerName: null, amountCopper: 300, observedAt: REAL - 2 * DAY, observerDiscordId: STAFF, matchedDiscordId: MEMBER, status: "matched" }, REAL - 36 * 3600); } catch (e) { threw = e.code; }
+  try { await led.recordReceipt(directEnv(ONE_DAY), { guildScope: "olympus", source: "bank_log", sourceId: "bank-born-expired", payerName: null, amountCopper: 300, observedAt: REAL - 2 * DAY, observerDiscordId: STAFF, matchedDiscordId: MEMBER, status: "matched" }, REAL - 36 * 3600); } catch (e) { threw = e.code; }
   check("  a receipt likewise: past_retention, no row", threw === "past_retention" && !one("SELECT 1 FROM community_contribution_receipts WHERE source_id = 'bank-born-expired'"), threw);
   threw = null;
-  try { await led.attestEvidence(env(ONE_DAY), { guildScope: "olympus-born", periodStart: PS, state: "complete" }, behind); } catch (e) { threw = e.code; }
+  try { await led.attestEvidence(directEnv(ONE_DAY), { guildScope: "olympus-born", periodStart: PS, state: "complete" }, behind); } catch (e) { threw = e.code; }
   check("  an attestation likewise: past_retention, no row", threw === "past_retention" && !one("SELECT 1 FROM community_contribution_evidence WHERE guild_scope = 'olympus-born'"), threw);
   // (5) .94: no decision is journaled born expired: the journal deadline is required ahead of the database clock in the FIRST
   // mutation (the member compare-and-set), before any effect; the actor's clock stands in for Codex's moved SQL clock
-  const fence94 = { ...fenceOf(STAFF), expiresAt: T + 3600 }; // the fast expiry check in code reads the process clock (T, weeks ahead); the SQL fence reads the database clock
+  const fence94 = await fenceOf(STAFF); // capture the actual original session for all direct mutation checks
   const W4id = one("SELECT id FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?", MEMBER, W4).id;
   const receipt88 = one("SELECT id FROM community_contribution_receipts WHERE source_id = 'bank-88'").id;
   r = await act({ action: "evidence", periodStart: iso(W4), state: "complete" });
@@ -534,60 +522,60 @@ async function erasureRequest(target, actor) {
   const sql94 = [];
   SQLS = (a) => sql94.push(a);
   threw = null;
-  try { await led.setObligationState(env(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: "exempt", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
+  try { await led.setObligationState(directEnv(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: "exempt", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
   SQLS = null;
   const write94 = sql94.find((b) => b.some((x) => x.includes("UPDATE community_contribution_members"))) || [];
   const cas94 = write94[0] || "", journal94 = write94.find((x) => x.includes("INSERT INTO community_contribution_decisions")) || "";
   check("a state change whose journal would be born expired (the actor's clock two days behind, a one-day retention) is refused in the FIRST statement, before any effect: past_retention, the week unchanged, no journal row, the member's revision unchanged", threw === "past_retention" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", thisId).state === stateBefore && decisions() === dec94 && memberRev() === rev94, threw);
   check("  that first statement is the member compare-and-set carrying the deadline by the database clock; the journal insert restates it; the probe closes the batch", /^\s*UPDATE community_contribution_members[\s\S]*\?7 > CAST\(strftime/.test(cas94) && /\?9 > CAST\(strftime/.test(journal94) && /^\s*SELECT \(\?1 > CAST\(strftime/.test(write94[write94.length - 1] || ""), cas94.replace(/\s+/g, " ").slice(0, 300));
   threw = null;
-  try { await led.voidReceipt(env(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, receiptId: receipt88, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
+  try { await led.voidReceipt(directEnv(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, receiptId: receipt88, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
   check("  a void likewise: past_retention; the receipt stays unvoided and still paying its week, no journal row", threw === "past_retention" && one("SELECT voided_at FROM community_contribution_receipts WHERE id = ?", receipt88).voided_at === null && one("SELECT SUM(amount_copper) AS paid FROM community_contribution_allocation_events WHERE receipt_id = ?", receipt88).paid === 500 && decisions() === dec94 && memberRev() === rev94, threw);
   threw = null;
-  try { await led.reverseAllocation(env(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, receiptId: receipt88, obligationId: pair88.obligation_id, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
+  try { await led.reverseAllocation(directEnv(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, receiptId: receipt88, obligationId: pair88.obligation_id, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
   check("  a reversal likewise: past_retention; the allocation stands", threw === "past_retention" && one("SELECT SUM(amount_copper) AS paid FROM community_contribution_allocation_events WHERE receipt_id = ?", receipt88).paid === 500 && decisions() === dec94 && memberRev() === rev94, threw);
   threw = null;
-  try { await led.recordContact(env(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: W4id, kind: "officer_contact", evidence: "complete", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
+  try { await led.recordContact(directEnv(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: W4id, kind: "officer_contact", evidence: "complete", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, REAL - 2 * DAY); } catch (e) { threw = e.code; }
   check("  a contact likewise (the week notice_available under complete evidence at that clock): past_retention; no contact fact, no journal row", threw === "past_retention" && one("SELECT officer_contact_at FROM community_contribution_obligations WHERE id = ?", W4id).officer_contact_at === null && decisions() === dec94 && memberRev() === rev94, threw);
   // the paired observation: the same actor clock behind the database's, the journal deadline still ahead of it: the write commits, its journal deadline truthful and live
   const behind94 = REAL - 12 * 3600;
-  const updated = await led.setObligationState(env(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: "exempt", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, behind94);
+  const updated = await led.setObligationState(directEnv(ONE_DAY), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: "exempt", expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, behind94);
   const journalRow = one("SELECT retain_until FROM community_contribution_decisions WHERE obligation_id = ? AND action = 'state_exempt' ORDER BY id DESC LIMIT 1", thisId);
   check("an actor clock behind the database's with the journal deadline still ahead of it commits: updated, the journal row's deadline is the captured one (actor now + retention), live by the database clock", updated === "updated" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", thisId).state === "exempt" && decisions() === dec94 + 1 && memberRev() === rev94 + 1 && journalRow.retain_until === behind94 + DAY && journalRow.retain_until > REAL, updated, JSON.stringify(journalRow));
   v = await staffView();
-  BEFORE = (i) => { if (i === 2) { BEFORE = null; db.prepare("UPDATE community_contribution_members SET revision = revision + 1 WHERE guild_scope = 'olympus' AND discord_id = ?").run(MEMBER); } };
-  const raced = await led.setObligationState(env(ON), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: stateBefore, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, T);
+  BEFORE = async (i) => { if (i === 2) { BEFORE = null; await fixtureRun("UPDATE community_contribution_members SET revision = revision + 1 WHERE guild_scope = 'olympus' AND discord_id = ?",MEMBER); } };
+  const raced = await led.setObligationState(directEnv(ON), { guildScope: "olympus", discordId: MEMBER, obligationId: thisId, state: stateBefore, expectedRevision: v.revision, actor: "staff:" + STAFF, fence: fence94 }, T);
   check("  a snapshot that loses the race at the compare-and-set with a live deadline is stale, never past_retention (the probe tells them apart)", raced === "stale" && BEFORE === null && one("SELECT state FROM community_contribution_obligations WHERE id = ?", thisId).state === "exempt", raced);
   v = await staffView();
   r = await act({ action: "state", discordId: MEMBER, obligationId: thisId, state: stateBefore, expectedRevision: v.revision });
   check("  (restored) the ordinary request clock, far ahead of the database's, commits as before", r.body.result.status === "updated" && one("SELECT state FROM community_contribution_obligations WHERE id = ?", thisId).state === stateBefore);
-  db.prepare("DELETE FROM community_contribution_evidence WHERE guild_scope = 'olympus' AND period_start = ?").run(W4);
+  await fixtureRun("DELETE FROM community_contribution_evidence WHERE guild_scope = 'olympus' AND period_start = ?",W4);
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null && SQLS === null);
   // this section's own fixtures go, so the export and purge controls below keep the state they were written against
-  db.prepare("DELETE FROM community_contribution_allocation_events WHERE receipt_id IN (SELECT id FROM community_contribution_receipts WHERE source_id = 'bank-88')").run();
-  db.prepare("DELETE FROM community_contribution_receipts WHERE source_id = 'bank-88'").run();
-  db.prepare("DELETE FROM community_contribution_decisions WHERE obligation_id = ?").run(week5Id);
-  db.prepare("DELETE FROM community_contribution_obligations WHERE id = ?").run(week5Id);
-  db.prepare("DELETE FROM community_contribution_evidence WHERE nonce = 'ev88'").run();
-  db.prepare("DELETE FROM community_restriction_characters WHERE case_id = ?").run(CASE2);
-  db.prepare("DELETE FROM community_restriction_cases WHERE id = ?").run(CASE2);
-  db.prepare("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?").run(OTHER, NOW_WEEK);
+  await fixtureRun("DELETE FROM community_contribution_allocation_events WHERE receipt_id IN (SELECT id FROM community_contribution_receipts WHERE source_id = 'bank-88')");
+  await fixtureRun("DELETE FROM community_contribution_receipts WHERE source_id = 'bank-88'");
+  await fixtureRun("DELETE FROM community_contribution_decisions WHERE obligation_id = ?",week5Id);
+  await fixtureRun("DELETE FROM community_contribution_obligations WHERE id = ?",week5Id);
+  await fixtureRun("DELETE FROM community_contribution_evidence WHERE nonce = 'ev88'");
+  await fixtureRun("DELETE FROM community_restriction_characters WHERE case_id = ?",CASE2);
+  await fixtureRun("DELETE FROM community_restriction_cases WHERE id = ?",CASE2);
+  await fixtureRun("DELETE FROM community_contribution_obligations WHERE discord_id = ? AND period_start = ?",OTHER,NOW_WEEK);
 
   console.log("\n== erasure, export, purge ==");
-  exported = await context.communityExport(env(ON), MEMBER);
+  exported = await context.communityExport(directEnv(ON), MEMBER);
   text = JSON.stringify(exported.contributions);
   check("the account copy lists the member's live weeks with paid sums and contact dates and their receipts' amounts; never who observed or recorded, payer names or source ids", exported.contributions.obligations.length === 6 && exported.contributions.receipts.length === 2 && exported.contributions.receipts.some((x) => x.voidedAt !== null) && exported.contributions.receipts.some((x) => x.allocatedCopper === 10000) && !/"(payerName|payer_name|observer|observerDiscordId|sourceId|source_id|recordedBy)"|mail-1|mail-3|staff:/.test(text) && !text.includes(STAFF), text.slice(0, 300));
-  await siteAdmin.deleteSiteData(env(ON), STAFF, STAFF2, false, await erasureRequest(STAFF, STAFF2));
+  await deleteThroughOriginalRoute(STAFF, STAFF2);
   check("erasing the officer removes them as the receipt's observer and anonymizes them as the actor of journal rows and decisions", one("SELECT observer_discord_id FROM community_contribution_receipts WHERE id = ?", receiptId).observer_discord_id === null && !one("SELECT 1 FROM community_contribution_allocation_events WHERE actor = ?", "staff:" + STAFF) && !one("SELECT 1 FROM community_contribution_decisions WHERE actor = ?", "staff:" + STAFF) && !!one("SELECT 1 FROM community_contribution_decisions WHERE actor = 'erased'"));
-  siteUser(STAFF, { global_name: "Vik" });
-  await siteAdmin.deleteSiteData(env(ON), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
+  await siteUser(STAFF, { global_name: "Vik" });
+  await deleteThroughOriginalRoute(MEMBER, STAFF);
   const left = ["community_contribution_members.discord_id", "community_contribution_obligations.discord_id", "community_contribution_receipts.matched_discord_id", "community_contribution_decisions.discord_id"].filter((tc) => { const [t, c] = tc.split("."); return one(`SELECT 1 FROM ${t} WHERE ${c} = ?`, MEMBER); });
   check("erasing the member removes every ledger row about them (all scopes) and the journal rows of their weeks and receipts", left.length === 0 && one("SELECT COUNT(*) AS n FROM community_contribution_allocation_events").n === 0, left.join(" "));
-  db.prepare("UPDATE community_contribution_obligations SET retain_until = ? WHERE discord_id = ?").run(T - 1, OTHER);
-  const purged = await led.sweepCommunityContributions(env({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T);
+  await fixtureRun("UPDATE community_contribution_obligations SET retain_until = ? WHERE discord_id = ?",T - 1,OTHER);
+  const purged = await led.sweepCommunityContributions(directEnv({ ...ON, COMMUNITY_FEATURES: "", CONTRIBUTIONS_MODE: "off" }), T);
   check("the purge runs with the flag and the mode off: the expired week goes with its member row (its later week was removed above), and the scope's horizon keeps that week from being recorded again", purged >= 1 && !one("SELECT 1 FROM community_contribution_obligations WHERE discord_id = ?", OTHER) && !one("SELECT 1 FROM community_contribution_members WHERE discord_id = ?", OTHER) && one("SELECT horizon FROM community_contribution_horizons WHERE kind = 'obligation'").horizon === THIS_WEEK, purged, JSON.stringify(one("SELECT horizon FROM community_contribution_horizons WHERE kind = 'obligation'")), JSON.stringify(one("SELECT COUNT(*) AS n FROM community_contribution_obligations WHERE discord_id = ?", OTHER)), JSON.stringify(one("SELECT COUNT(*) AS n FROM community_contribution_members WHERE discord_id = ?", OTHER)));
   threw = null;
-  try { await led.createObligation(env(ON), { guildScope: "olympus", discordId: OTHER, periodStart: THIS_WEEK, eligible: true }, T); } catch (e) { threw = e.code; }
+  try { await led.createObligation(directEnv(ON), { guildScope: "olympus", discordId: OTHER, periodStart: THIS_WEEK, eligible: true }, T); } catch (e) { threw = e.code; }
   check("  a week at or before the horizon is refused (past_retention), never recorded twice", threw === "past_retention");
 
   console.log(`\n${ok}/${n} passed`);

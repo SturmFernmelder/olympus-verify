@@ -10,10 +10,10 @@
 > commit from its `git archive` with `bash scripts/deploy-commit.sh <sha>`; the never-run list in `CLAUDE.md` applies
 > to agents throughout. Each dated section below records what was true and done on its date.
 >
-> **Current qualification (3 Oct 2026):** the owner instructed Codex to take over after Claude's usage limit and finish
-> without dual sign-off. Prospective actions use Codex's exact-commit qualification, attributable peer evidence and
-> the unchanged substantive source/live/owner gates (`docs/launch-runbook.md` section 0). Historical dual signatures
-> remain records of their actual scopes; this instruction is not new Claude approval.
+> **Current qualification (renewed request, 14–15 Oct 2026):** this integration requires genuine Claude Code and Codex
+> signatures on the same exact final commit/tree and evidence tuple, with the substantive source, tests, shipping-commit
+> CI, actual-version/live and owner gates in `docs/launch-runbook.md` section 0. The owner's 3 October single-Codex
+> takeover remains the historical procedure for that earlier work; it does not override this renewed request.
 
 Two things stay with you by design: secrets (bot token, client secret, the shared secrets) and the Cloudflare login.
 Everything else in the Discord Developer Portal and on the server is done or scripted.
@@ -5517,6 +5517,22 @@ Before owner deployment:
 
 Rollback is an owner-run deployment of the separately qualified public .153 snapshot, keeping its admission-ON profile and destructive/signing features OFF. No database downgrade or data restoration accompanies this presentation release. A rollback neither reverses expired retention nor establishes complete erasure, a new appointment or external publication.
 
+## Worker .155 — Recovery custody and named beta bridge (14 October 2026; source candidate)
+
+This is a source candidate, not a completed production release. The owner executes deployment, migration and publication commands in the already verified ordinary PowerShell terminal. Do not investigate or renew credentials from an agent process. Historical .153/.154 records and every original failed attempt remain preserved.
+
+The candidate joins original serving-request and scheduled-job recovery custody, original OAuth account/session incarnation, fixed-original-clock rejection/erasure retention, independent recovery reservations and known Discord response custody. The named B1 bridge permits only the approved Fern Melder Officer exception for Stavros Heuto; it does not appoint High Council or grant a staff role. AddOn 0.6.10 is the matching code package; keep private configuration, queues and SavedVariables. Its actual game/browser check remains separate from offline Lua/decoder and Native/browser-model tests.
+
+The existing local Workerd V10 completed six cases, seven callbacks and 37 assertions. Its maximum measured D1 cost was 602 statements at the unchanged 700 cap. Positive erasures preserved original deadlines and settled custody; lost ACK and uncertain provider cases preserved their original uncertainty without resending. This is an unpublished local canary with qualifier true and digest hour 0 only in the measurement copy. Actual elapsed phase wait was 581.381 seconds to the next 900-second boundary. The proper 159-input compiler, bundle/syntax and original Job closure passed; these do not qualify provider CPU, Worker 128 MiB, actual production cadence, deployed-writer drain or retained physical copies.
+
+Keep `EPOCH2_SCHEDULE_QUALIFIED=false`, `PRIVACY_ERASURE_ENABLED=false` and `QR_PHASE1_ENABLED=false` until their actual acceptance gates pass. Current private service configurations default off and omit unobserved production values. Never invent namespace/version IDs, epochs, source trees or accepted-release receipts. Do not use remote `schema.sql`, `db:init`, an ordinary request migration, a blind replay or a new lineage to clear a hold.
+
+Installation order, actual five serving bindings, original one-use commands and recovery-copy custody are documented in `docs/private-recovery-artifact.md`. It requires an exact final clean source tree, complete current CI, verified replacement backup and applicable cleanup receipt, actual deployed service/binding facts, original close/drain evidence, accepted immutable release evidence and the source-owned Native install/open sequence. An uncertain original operation remains spent; inspect its original outcome rather than retrying. After an epoch transition, an older deployment is not a valid rollback merely because its bundle is available: preserve the current fence and use an accepted same-lineage recovery/roll-forward procedure.
+
+Before publication, run the full current repository gate and the existing Native QR/B1 suites. `test:all` now also calls the existing `test:qr155`; its browser-model driver is deliberately retained even though the original QR script also invokes it. This adds no new fixture family. Required CI timing and all untested historical branches must remain explicit. The first current full run stopped in the old membership-retirement test loader; existing test ABI updates are being qualified, so full CI is not yet claimed.
+
+After installation/readback, verify ordinary Discord sign-in, protected downloads and current Native profile/epoch/mode, recovery journal/copy acknowledgements and all serving roots. Enable erasure only after complete-store, provider and retained-copy acceptance. Enable the named QR test only after its separate release/schema/roster/session prerequisites; follow `docs/councillor-verification.md` for Fern and Stavros's actual enrollment, AddOn-free whisper, scan/sign, ingestion and membership-only settlement. No synthetic result substitutes for that attended acceptance. No new Claude signature is claimed.
+
 
 ## Worker .156 - Olympus crawler boundary (14 October 2026)
 
@@ -5550,3 +5566,277 @@ uncertain deploy outcome for reconciliation before retry. Do not change the zone
 Rollback, if needed, is a separately reviewed deployment of the preserved public .154 commit. It restores the
 earlier crawler-rule conflict but does not downgrade the database or alter roles. Neither local parser results
 nor this document claim universal crawler compliance, full .155 qualification or whole-task completion.
+
+
+## Worker .157 or later — Private future game identity switch (14 October 2026; isolated candidate, owner item 7; .156 is reserved for the crawler release)
+
+Source candidate `renewed-request-2026-10-14/claude-future-profile/candidate`, not applied. The public game identity the
+site, the guide and the intros show is a RESOLVED SNAPSHOT (`ruleset-profile.ts resolveRulesetSnapshot`): the public beta
+until the owner activates the full-release identity. That identity lives only in the secret `RULESET_FUTURE_PROFILE`
+(JSON `olympus-ruleset-profile-v1`, phase `full_release`, an opaque `forever-release-*` revision that names nothing) which
+the owner sets with `wrangler secret put` on activation day; nothing in source, config, tests, docs or D1 carries it before.
+
+Activation: Admin → Ruleset publication → Game identity switch. The actor must be a site admin AND listed in the new var
+`RULESET_SWITCH_APPROVERS`. `POST /api/admin/ruleset-publication/activate` (`deactivate` to return) runs ONE admitted batch:
+the session fence, the expected current mode, no claimed or unknown publication target, the five `site_settings` pins
+(`rulesetMode`, `rulesetActiveRevision`, `rulesetActiveDigest`, `rulesetActivatedAt`, `rulesetActivatedBy`), the new
+`$selection` row and its three targets rendered from the new identity, the audit row `site.ruleset_switch` (mode, counts,
+booleans only) and a closing proof. Nothing is sent to Discord by the switch; the three messages change only through the
+existing Apply next step. While `full_release` is active, a missing, changed or malformed secret, a corrupt mode or
+incomplete pins HOLD every projection (boot meta `ruleset: null` with `rulesetHeld`, publication 409
+`publication_profile_held`, guide and intros refuse); nothing falls back to the beta. An absent mode row is the beta.
+
+After activation the three published payloads and their digests are public guild configuration in `ruleset_publications`
+(privacy text: "Game identity publications"). Tests: `tests/ruleset_switch_test.cjs` (fictional profile only), plus the
+adapted profile, intros, guide and publication suites. Config: `RULESET_SWITCH_APPROVERS` in `wrangler.toml` (owner id);
+the secret only on the day. Rollback: `deactivate` (one batch) and republish the beta targets.
+
+v2 (15 October 2026, Codex's cross-review of v1): an absent or `beta` mode row beside any surviving activation pin HOLDS
+(`ruleset_mode_corrupt`); the switch reads one database time and binds it to the five pins, the audit row and the
+rendered decision date; the closing proof confirms all five stored values; `rulesetActivatedBy` is attribution only (the
+registered publication scrub empties it, the identity stays resolved) and the five keys are own-setting export keys; the
+admin page takes the authenticated status as authoritative, so a lost switch answer is reconciled by Refresh; the return
+from a corrupt mode value compares the observed raw value, so it lands.
+
+v3 (15 October 2026, Codex's cross-review of v2): the switch batch binds its one captured database time to the two
+publication inserts as well (created_at, updated_at, actor_retain_until); and `rulesetActivationAttributionRetentionStatement`
+(ruleset-publication-data.ts) empties the actor pin a year after activation, bound to the database clock, leaving the
+nonpersonal activation facts. It is exported and tested but deliberately NOT added to the ordinary half-hour retention
+declaration (that envelope is full at 700); at integration it belongs in the existing captured beta retention phase
+of the 15-minute schedule, together with the three reset lifecycle statements. Its cost is one statement touching
+at most one row; the beta maximum becomes 12 native / 16 admitted, below the unchanged general 21 / 25 maximum.
+This source instruction does not qualify or activate the held ordinary epoch-2 schedule.
+
+## Raid sign-up buttons, stage 1 (14 October 2026; isolated candidate, owner item 3; no schema change)
+
+Source candidate `renewed-request-2026-10-14/claude-raid-signups/candidate`, not applied; lands with the future-profile
+candidate at the integration build (it is cut on that candidate's `interactions.ts`, `intros.ts`, `package.json` and this
+file). The organizer's announcement in #raid-signups (`community-event-delivery.ts`) carries one action row: Sign up,
+Tentative, Can't make it (`custom_id` `raid:rsvp:<eventId>:<eventRevision>:<status>`) and a link to the calendar page.
+The payload hash binds text, buttons and `allowed_mentions`; the frozen row keeps the text and recomputes the buttons from
+its revision; `exactPayload` compares text, buttons, embeds, attachments and the Message mention fields, and the right
+text with different buttons is `delivery_mismatch` (held, never posted). After deployment every announcement posted
+before this build shows "stale"; the organizer's Update re-publishes it with the buttons (one PATCH, explicit).
+
+A click (`community-event-buttons.ts`, routed from `interactions.ts`) is one signed, ledgered interaction: the
+`seen_interactions` ledger replays the first answer per interaction id. The handler checks the feature and destination,
+the guild and channel, the member role (text only), the per-member rate limit, then captures the live site account, its
+incarnation and its privacy generation and runs the calendar's own RSVP statements (`community-events.ts rsvpStatements`,
+shared with the website) in one batch behind a Discord member fence (in the server, not denied, captured incarnation and
+generation, roster-confirmed character, no ban, no open erasure job). Character and raid role stay as the member last set
+them on the site. A member without a site account is pointed to the site. Every answer is ephemeral with no mentions.
+No DM, no public message, no role, no new table, no scheduler change. Tests: `community_event_buttons_test.cjs` (genuine
+Ed25519-signed interactions through the Worker), the delivery suite's synthetic Discord now echoes components.
+
+### Stage 2 (built 15 Oct 2026, v3/v4; schema epoch; integration build only)
+
+Delivered as two candidates: `claude-raid-stage2-v4` (the schema: six column additions on two tables, no new table, the
+dated migration `migrations/2026-10-15-raid-decisions.sql` as the source of the six ALTERs — the closed epoch migration
+carries them with the original eleven in one migration; nothing runs separately against live data; the canonical DDL
+written exactly as the dated ALTERs leave it and proved so) and `claude-raid-stage2-logic-v4` (the logic, the privacy
+registrations, the tests; v4 = v3 + the retiring-recipient, receipt, view-binding and withdrawal-revision repairs; v5 = v4 + the two
+ownership repairs of Codex's independent v4 review: no shell effect from a departed roster operation — `api()` takes the operation's
+liveness and leaves sign-out/reload to a live one — and replaced rows and pagination share the view's read sequence and row generation; v6 = v5 + the context refresh after a current
+refusal carries the row's ownership through `refreshCommunity({ live })`, so a late context reply adopts nothing after the view departed). Prerequisite:
+the two altered tables re-pin the closed admission/schema profiles (`schema/rejection-provenance-next-profile-v1.json`
+with the live physical capture, `src/privacy-write-admission-catalogue.ts`, `src/privacy-schema-source-plan.ts`
+SOURCE_PROFILES and bounds, `src/account-schema-profile.ts` sentinel, the recovery-candidate census in
+`src/privacy-cookie-profile-migration.ts`, the closed changed-table set: `community_event_signups` added, reminders
+already in it; six field descriptors), which the epoch process regenerates at the integration build; the lane tool
+`lane_profiles.py` regenerates them in a lane only so the suites can run.
+
+- Roster decisions live on the sign-up row: `decision` (accepted | bench | declined | NULL), `decided_by`, `decided_at`,
+  `decision_revision` (monotonic, 0 = never decided; the row persists through a clear and through the member's `no`,
+  so no revision is ever reused). `POST /api/community/events/decide {eventId, entries:[{ref, decision|null, revision}]}`
+  for the organizer who manages the event (its creator, or staff), before the start, targets by community ref like
+  attendance. One admitted batch: the fence moves the sign-up generation, then one UPDATE per entry so the capacity rule
+  counts each acceptance against the ones before it: `accepted` lands only while the qualifying accepted sign-ups are
+  fewer than the capacity (no capacity: unlimited) and only for a yes or tentative answer; `bench` and `declined` never
+  hold a place; `null` clears in place; every write is a compare-and-set on `decision_revision`; the results requalify
+  every target. The member's `no` clears the decision in the same RSVP statement and moves the decision revision whenever it withdraws a
+  yes/tentative answer or clears a decision (a repeated `no` moves nothing), so every organizer command loaded before the
+  withdrawal is stale; a clear of an undecided row is a no-op at the unchanged revision. The capacity update is bounded below
+  by the qualifying accepted roster (`capacity_below_accepted`) as well as by the yes places. The event DTO carries
+  `counts.accepted` and `mine.decision`; the signups list carries `decision` on every row and `decisionRevision` for
+  organizers; the site's "Who answered" table has a Roster column with the organizer's controls, which acknowledge a
+  command only by one of the Worker's two exact outcomes (the sent decision at revision + 1, or a no-op clear of an undecided
+  row at the unchanged revision), treat any other 2xx, an unreadable or lost answer as lost (the list is re-read and a receipt
+  bar says so, or says the re-read failed; nothing is resubmitted), bind every reply to the view (route, account, the table
+  still on the page) and sequence readbacks so only the latest replaces the list; a readback moves the row generation, so a command built from a
+  replaced row is obsolete even though the table stays on the page, and Show more reads under the same sequence. Audit `community.roster_decided` (counts
+  only). The announcement text in Discord stays exact under the custody proof; the ephemeral button answer tells the
+  member the standing decision. Every schedule budget is unchanged (the sweep stays 8+1 logical / 17 Native; 700 holds).
+- Reminder mention: `community_event_signups.remind_mention` set by the site checkbox (`remindMention` on the RSVP write;
+  absent keeps the stored choice) or by the fifth button `raid:remind:<event>:<revision>` (toggles an existing sign-up
+  under the Discord member fence). The reminder's mention list is chosen inside the custody claim: yes answers with the
+  choice that still qualify at that instant, at most 50 (`MENTION_CAP`), earliest answers first, stored in
+  `community_event_reminders.mention_ids`; the posted content is the frozen text plus one line of `<@id>` with
+  `allowed_mentions: {parse: [], users: ids}`. A recipient's standing is the guild qualification plus the existing privacy-subject policy (no subject row, or an active
+  one; a member whose erasure has been admitted — subject retiring, role cleanup waiting — or retired is never selected;
+  Codex finding, 15 Oct 04:05). The proof before the POST and the settlement after it re-check every
+  selected recipient's current yes, choice and standing: a withdrawal (website opt-out, a `no`, the Discord toggle, a
+  lost standing, an admitted erasure) before the POST invalidates the claim — the reminder is cancelled for an explicit re-arm, nothing is
+  re-selected; during the POST or before a reconcile it keeps the pointer as unknown with removal pending, never
+  posted, and nothing is re-sent. A fresh consent starts with an empty list; removal clears it.
+- Privacy: the sign-up copy row gains `remindMention`, `decision` and `decidedAt` (the decider withheld) in both copies
+  (the 13 families, 36 export statements and 38/41 histories are unchanged; the business catalog's signups row gains the
+  five columns; the reminders registration gains `mention_ids`); erasure deletes the own sign-up rows (with their
+  decisions) as today, nulls `decided_by` where this account decided, replaces the account's id in every `mention_ids`
+  with the placeholder `"0"` (the vector keeps its shape, so a sent or lost message stays identifiable for reconcile
+  and removal without the id) and marks a reminder that may have mentioned the account for removal (nothing is re-sent);
+  the sweep's statements are unchanged. Moved pins: none of the counts (69 stores, 221 triggers, 84 indexes, 160
+  statements, 56 catalog rows); the native-case sign-up fields (+remindMention, decision, decidedAt); the reminder DDL
+  pin (the mention column).
+- Policy sentence for the composer (privacy, under the calendar): "If you ask to be mentioned in a raid reminder, the
+  reminder message in Discord mentions your account while your answer is yes; the list of mentioned accounts is kept
+  with the reminder, your erasure replaces you in it with a placeholder, and a reminder that mentioned you is then
+  marked for removal."
+
+
+## Worker .157 — Guild systems integration (prepared 15 October 2026; not yet released)
+
+**State.** This is the renewed request's assembled integration, not a deployment or an aggregate sign-off. The source
+identifies itself as `2026-10-15.157 Guild systems integration`, with matching exact pins in `site_test.cjs`,
+`hosts_test.cjs` and `bnet_retention_test.cjs`. This remains an unreleased candidate pending final-tree qualification.
+The earlier .157-or-later entry describes one narrower feature and remains
+its own record. No completed local check below replaces exact final-tree qualification.
+
+**Changes.** The integration composes raid RSVP buttons, organizer roster decisions and optional reminder mentions;
+the closed six-column schema-epoch migration and matching admission/recovery catalogues; member/rank reset safeguards
+and the bounded erasure preflight mitigation; the optional AddOn census consumer and authenticated clipboard preview;
+the current attended QR/browser work; and the joined news, guide, governance, policy and official-resource changes.
+The census preview transmits the pasted text to the Worker for validation, stores no census payload, and proves neither
+the source's authenticity nor guild membership. Guild leadership and Council appointments remain outside the reset's
+member/rank removal set. The schema change is carried by the reviewed epoch process, not by running the dated migration
+separately against the live database.
+
+**Configuration.** Preserve the reviewed deployment profile. Census is absent from `COMMUNITY_FEATURES`, automated
+erasure remains off, and bulk reset removals remain disabled. The reset minute qualifier remains false and the configured
+cron remains `*/15 * * * *`; deployment of this integration does not enable the minute reset path. The reset cutoff is
+22 October 2026 at noon CDT (17:00 UTC). Activation, required bot intent/access and attended source-epoch transitions
+need their own completed evidence and applicable existing owner authorization. Do not treat the preflight mitigation
+as resolution of races after preflight or historical reserved/unknown work.
+
+**Validation recorded and still required.** Scoped local results include the joined frontend 510/510, authenticated
+census serving-entry 89/89, the retiring-recipient probe 57/57 and selected-row reminder probe 132/132. Actual Edge
+desktop and 390px census/news checks used fictional local mock transport. Those results are separate from actual
+backend/provider, real raid, installed AddOn and attended enrollment checks. The first whole-Native attempt stopped
+during preparation before any scheduled callback; its evidence is retained. Registered fixture successors, the final
+aggregate suite result, whole-Native qualification and exact public shipping-commit Worker/watcher/AddOn CI remain
+release gates until their results are recorded on the final tuple. Do not omit a registered case to obtain a pass.
+
+**Rollout.** Compose the accepted source, tests and documentation into the release checkout; regenerate and verify
+policies/resources and the exact schema/admission profiles; confirm the public/keeper tree and dry-run bundle parity;
+and obtain both agents' exact signatures. Take and verify the fresh private backup/bookmark and applicable restore/copy
+evidence before the authorized migration/deployment. Use the clean public shipping commit and the runbook's
+`scripts/deploy-commit.sh` procedure. Confirm the cache-busted health build/version, authenticated gates, policies,
+resources, configured flags, and the required actual-version workflows after deployment. Keep optional activation
+separate and record any residual gate explicitly.
+
+**Rollback and custody.** Retain the prior deployment and private recovery evidence. Do not assume an older binary
+accepts a newer schema/admission epoch, reset the floor, drop admission guards, or restore a database while writers may
+still act. Follow the reviewed epoch/recovery procedure, including required drain, copy custody and re-open evidence;
+unknown outcomes remain held until their existing resolution protocol completes. This checklist authorizes no provider
+mutation, reset, erasure, account action or deployment by itself.
+
+## Worker .158 — Admission proof SQL (prepared 15 October 2026; not deployed)
+
+**Change.** The owner-directed V5 candidate factors the expected catalogue's tables, triggers and indexes through one
+materialized root JSON scan. The shared CTE serves writer admission, the boolean catalogue check and the current-schema
+proof. Every remaining SQL condition, original four bind positions, native error branch, payload/ACK check and epoch
+boundary stays unchanged. BUILD and its three health-test pins are `2026-10-15.158 Admission proof SQL`.
+
+**Configuration and rollout.** There is no schema, catalogue, dependency or configuration change. The .157 activation
+holds, floor/epoch safeguards and disabled features remain in force. This candidate is for source review and Draft PR
+CI; it does not authorize deployment, migration or a scheduled-path activation. Any later rollout still requires the
+.157 exact-tree and live qualification, backup and epoch/recovery procedures above.
+
+**Tests.** The existing admission suite retains all original assertions and adds both-layout checks for the exact
+reviewed ADMIT/CURRENT_SCHEMA SQL, shared CURRENT proof, native writer ACK, neutral control and missing-trigger refusals.
+The census and scheduled experiment suites retain their exact-SQL assertions with the reviewed V5 hashes. The owner
+approved a 45-minute Worker CI job limit so every suite can finish; all other job limits and every application/test
+assertion remain unchanged. Execution results, Owner/Roster timings and CI must be recorded against the final V5
+commit; source factoring alone does not establish a speedup or a passing suite. No fixture size, application deadline
+or admission guard is relaxed.
+
+**Rollback.** The application-only delta is reversible to signed baseline `2e1f9409`; no database rollback accompanies
+this candidate. Preserve the baseline and failed evidence. If a deployed version ever needs replacement, the existing
+writer-drain, floor and epoch procedures still apply; restoring earlier code never authorizes bypassing those gates.
+
+
+## Worker .159 — Beta reset policy retirement
+
+**Scope.** Owner-only retirement after the fixed cutoff uses an exact existing-policy CAS and the normal owner/session, origin, page-version, HMAC and expiry fences. The retained tombstone is permanent denial, not a grant/removal policy. It preserves exact old policy bytes for aggregate debt inventory; scans, role-settlement rows, leadership and appointments are not rewritten. The independent account-retention cutoff can still be confirmed while removals are OFF or policy is retired.
+
+**Verification.** Run typecheck and the focused beta policy, owner route, actual slice race, frontend and lifecycle/custody suites against this exact candidate. Keep all original assertions and budgets. In particular, the final-SELECT/DELETE race must retain one spent unresolved row and never claim quiescence or retry the effect. Source review and local fixtures do not replace integrated CI, cross-version drain, real provider qualification or the original release gates.
+
+**Operations.** After source/CI/release approval, an owner uses the fresh private preview and types RETIRE. An unconfirmed response requires refreshing status; a signed retry only reads a matching retained result. Never delete the tombstone or restore an old policy to undo retirement. A deployment rollback must preserve the tombstone and debt; versions that do not understand version 3 must continue refusing it. Reusing the twelve roles requires separate resolved/drained effect evidence and a reviewed new source. No activation, live retirement or production deployment occurs in this change.
+
+**.159 UI follow-up.** The held preview must retain the same fixed cutoff/scope/lifecycle explanations as the normal preview; the unchanged frontend assertions cover this contract. Configuration/read failures and malformed/future policy data still expose unavailable counts and disabled mutations. The correction changes presentation and its asset pins only. Reverting this presentation follow-up must never restore a retired policy, delete its tombstone, or alter unresolved custody.
+
+**CI execution budget.** Run 38821260557 reached 94 of 113 suite invocations before the 45-minute job ceiling cancelled it; 19 suite invocations and later Worker steps did not complete. The .159 follow-up raises only the Worker job ceiling to 90 minutes. Every command, assertion, individual test deadline and the three-minute census-chain sublimit remains unchanged. This provides execution headroom, not a completion or qualification claim.
+
+**Census CI follow-up.** Exact-head run 38826717698 on `d78fa258` passed the complete Worker `test:all` step in 49 minutes 17 seconds, plus addon and watcher jobs, but failed in the subsequent pinned census chain. The actual Lua producer passed 89/89; Python then received a truncated maximum-export JSON response from the Node test CLI, which called `process.exit` immediately after its stdout write. The CLI now sets the same success/refusal exit code and returns from its CommonJS module so the pending write drains. Validator/application source, every assertion, the exact 300-row snapshot comparison and all deadlines remain unchanged. This is a test-output correction with no application build change. The failed run and skipped later steps remain failed evidence; the successor needs its own complete CI result.
+
+## Worker .160 — Erasure attempt discipline (prepared 16 October 2026; not deployed; flag default OFF)
+
+**Change.** Item 11 Phase 1, behind a new optional variable `PRIVACY_ERASURE_ATTEMPT_DISCIPLINE`. Absent or `"false"` keeps every legacy erasure SQL text, statement count and request order byte-identical; `"true"` enables the discipline; any other value holds new erasure attempts and inactive-account admission (`erasure_attempt_discipline_invalid`) while the independent provider-message debt lane continues. With the flag on:
+- The shared account-reference predicate (preflight and the consuming atomic guard, still one builder and byte-identical) adds one clause: an other-owner structured application that would still contain the subject after the batch's two ordered scrubs. It is composed from the two scrub matchers, extracted unchanged. Shapes that the unchanged in-batch guard refuses therefore become a known `ambiguous_personal_reference` hold before any terminal child ticket, suppression reservation or companion exists (the entry and earlier child tickets of that attempt still exist). The in-batch guard remains the authority.
+- The cron claim (and, when the flag is set, the site continuation through the same helper and original proof) is one compare-and-set that also writes `hold_reason='attempt_unresolved'`. Selection and the claim exclude `attempt_unresolved` and `independent_suppression_outcome_unknown`. Only an explicit `held` outcome of the same claimed attempt replaces the marker. Throws, unknown outcomes and final writes that never land keep it; an unknown outcome keeps it even when its final write commits. A known reason whose final write commits but whose reply is lost remains and permits a later retry, while that write's own serving child and root stay unknown. No scheduled statement is added; the flag-on site continuation adds its own select, claim and final write on the deferred fetch path.
+
+**Guarantee and limits.** The guarantee is no new terminal suppression reservation, companion or terminal child beyond the known-hold baseline; the original-proof reads and role/debt work before the reference check still run. Not covered, and stated plainly:
+- Unknown outcomes before any terminal work (for example `member_role_outcome_unknown`, `current_role_custody_ack_changed`, a transient D1 or provider throw) now stay held instead of retrying, and nothing in source clears the marker. Releasing them needs a separate attended, audited path.
+- Turning the flag off, or serving an older writer, restores the legacy retry behaviour. Flag rollback is not a drain and not a cross-version no-retry guarantee.
+- Historical unknown custody (reserved journals, unknown tickets) is preserved unchanged; no recovery, void or adoption is added.
+
+**Before setting `"true"`.** Compare every non-complete `privacy_serving_jobs` row with the independent suppression journal. The legacy site continuation recorded no hold reason, so a job it left with a reservation is not yet marked; mark such jobs (`attempt_unresolved`) by an attended write first. `PRIVACY_ERASURE_ENABLED` stays `"false"`; this release activates nothing.
+
+**Tests.** New `privacy_erasure_attempt_discipline_test.cjs` (96 checks) in `test:all`: flag-absent and `"false"` byte-identical SQL; every legacy application shape through the real preflight; the after-preflight race through cron with later ticks adding no claim, provider call or unresolved ticket; final writes that never land and final writes that commit but lose their reply; a known hold replacing the marker and later completing; same-second stale snapshots; site and cron interleavings; invalid values. Existing erasure suites are unchanged and pass.
+
+**Rollback.** Source-only and reversible to the .159 publication. Leave the flag absent when rolling back. Rows marked `attempt_unresolved` stay held only while .160 runs with the flag `"true"`; with the flag absent or `"false"`, or under older code, they are retried as in legacy.
+
+**CI metadata follow-up.** Run 38831980393 on `.159` successor `2098374` passed the complete Worker `test:all`, pinned census chain, SQL suites, app syntax, deploy argument contract and exact-success gate contract. Its strict cutover check then rejected an empty separator in the tracked marker before the historical source-only .155 record. The separator is now a comment; every retained record, timestamp, digest, Wrangler configuration value and strict grammar/refusal assertion is unchanged. This corrects invalid marker syntax without applying or activating anything. That failed run never reached the publication helper or final bundle step. The .160 successor retains those checks and needs its own complete CI result.
+
+## Worker .161 — Ordinary schedule qualification (prepared 16 October 2026; not deployed)
+
+**Why exact .160 must not ship.** As built, .160 (`5bea76e7`) silently holds every ordinary tick under its forced profile. Its `wrangler.toml` forces `PRIVACY_WRITE_ADMISSION_ENABLED = "true"` with cron `*/15`, so `index.ts:245` throws `epoch2_schedule_700_requires_current_native_qualification` because `scheduled-budget.ts:182` is `EPOCH2_SCHEDULE_QUALIFIED=false`. The throw is caught at `index.ts:252-253`, which logs only "schema check failed; skipping this run" with a redacted reference, and `scheduled()` still resolves normally. No ordinary job runs: invites, role sweeps, roster effects, retention purges, community sweeps, event reminders, news, the officer digest and serving retention all stop, and nothing visible reports the hold.
+
+**Change.**
+- `scheduled-budget.ts:184` is `EPOCH2_SCHEDULE_QUALIFIED=true as const`, and its comment now cites the exact-tree measurement. The reset minute keeps `BETA_RESET_SCHEDULE_QUALIFIED=false` (`beta-reset.ts:15`). `OFFICER_DIGEST_HOUR_UTC = 15` (`community-digest.ts:51`) and every budget, cap and guard are unchanged.
+- Test pins: `scheduled_budget_test.cjs:480` and `beta_reset_schedule_test.cjs:120/:122` assert the ordinary qualifier true and the minute qualifier false, through a new `assertTrueExport` (`:96`) beside the unchanged `assertFalseExport`.
+- BUILD and its three health pins (`site_test.cjs:1358`, `hosts_test.cjs:117`, `bnet_retention_test.cjs:467`) are `2026-10-16.161 Ordinary schedule qualification`.
+- Whole-Workerd harness, narrow production-15 mode. `privacy_normal_scheduled_whole_workerd_test.cjs` accepts exactly one of two markers in `NORMAL_SCHEDULE_LOCAL_CANARY`:
+  - the existing `unpublished-two-literal-branch-capacity-v1` canary (true/0), whose acceptance and evidence are unchanged;
+  - `exact-production-true-15utc-v1`, which requires the source to contain `EPOCH2_SCHEDULE_QUALIFIED=true as const` and `OFFICER_DIGEST_HOUR_UTC = 15` exactly once each. It refuses to start outside 15:00–23:25 UTC on the genuine clock, because the digest is due only from the hour until midnight (`community-digest.ts:171-177`) and the callback stage may run 2100 s.
+
+  The fixture checks the imported literals for the selected mode and records the mode and the digest hour in every preparation and observation. The host result states the mode, the source literals and the genuine start, end and callback times. No clock or handler is overridden. The production CPU, memory and 15:00 UTC cadence qualifiers stay false, because local Workerd cannot establish them.
+
+**Composed configuration.**
+- Deploy contract `249b0418` (tree `fd480bfe…`):
+  - `scripts/deploy-commit.sh` has a closed five-target selector: main, privacy-floor, privacy-evidence, privacy-initializer and privacy-operator;
+  - `--tag` and `--message` are accepted only as a pair: the tag is the selected commit's tree and the message is 64 lowercase hex;
+  - `--bind-source-tree` derives exactly one variable: `PRIVACY_SERVING_SOURCE_TREE` for main, or `PRIVACY_CONTROL_SOURCE_TREE` for the initializer and operator;
+  - arbitrary `--var`, `WRANGLER_ENV` and `CLOUDFLARE_ENV` are refused;
+  - `docs/private-recovery-artifact.md` replaces the five direct Wrangler deploys (the four private services and main), and `scripts/tests/deploy-commit.test.sh` covers the contract.
+- Configured-mode configuration `7a0766a` (tree `3910b5eb…`):
+  - both TOMLs (byte-equal) gain the cross-script `PRIVACY_RECOVERY_FLOOR` Durable Object binding to `PrivacyRecoveryFloor` on `olympus-privacy-recovery-floor` (`wrangler.toml:59-62`), and `PRIVACY_SERVING_DATABASE_ID = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"` (`:152`);
+  - `wrangler.cutover.applied` gains one appended record (profile `39826bad…`), labelled a source configuration update. It is not a provider activation.
+
+**Partial serving bindings hold everything.** `privacy-global-serving-origin.ts:36` lists five serving values. With all five absent, serving mode is off; with only some of them, every request and every scheduled tick is held (`:108-109`), and the tick hold is again caught silently at `index.ts:252-253`. This tree sets two of the five: the Floor binding and the database ID. Deploy main only after the attended CLOSED-transition provisioning has set all five values, together with `PRIVACY_WRITE_ADMISSION_EPOCH`, following `docs/private-recovery-artifact.md`. The gate secret and credential epoch come from that provisioning, and the source tree from `--bind-source-tree`.
+
+**Required before deploy.**
+- An exact-source whole-Native run of production true/15 on S's exact composed tree. It uses the existing five-stage owned-Job procedure of `owner-directed-minute-binding-v1` (600, 90, 90, 90 and 2100 s; at most 3 active processes), narrowly re-pinned, with a fresh private root outside `.codex` and the marker `exact-production-true-15utc-v1`.
+  - The procedure runs all five stages in **one** launch (`run-local-once.py:652-711`), and a second launch into the same root is refused, so stages 1-4 cannot be run ahead. Launch the single run **no earlier than 17 October 2026 15:00:00 UTC** and no later than about 23:10 UTC, so that stage 5 (the host) itself starts inside [15:00:00, 23:25:00) UTC after stages 1-4 (at most 870 s). A launch outside that window spends its root and is kept as a failed attempt; it is not retried in place.
+  - Stage 5 covers 6 cases and 7 callbacks, both layouts and both phases (the 15:00 slot is news, 15:15 roster), each at or under 700 statements and trips.
+  - The earlier V4 two-literal canary run is not exact for this tree and is not a substitute. A post-deploy observation is not a substitute either.
+- Full `test:all` and CI on the exact composed commit.
+
+**After deploy: two-tick readback.** Read back the first two `*/15` ticks, one per phase:
+- `wrangler tail` shows each scheduled event without the "schema check failed; skipping this run" line;
+- D1 shows a job effect from each tick, such as a new `role.sweep` audit row. Compare it with the .156 baseline taken on 16 October at 23:00 UTC.
+
+This readback is the first evidence of production CPU (30 s), memory (128 MiB) and cadence. A tick that logs the skip line is held, not running.
+
+**Still off.** Erasure (`PRIVACY_ERASURE_ENABLED = "false"`), private intake (`PRIVACY_INTAKE_ENABLED = "false"`), QR (`QR_PHASE1_ENABLED = "false"`) and beta-reset removals stay off until their own gates pass. For beta-reset removals, `BETA_RESET_REMOVALS_ENABLED` is absent and the minute qualifier stays false. .161 changes no feature flag.
+
+**Rollback.** This release is source and configuration only, with no schema change. Returning to exact .160 brings back the silent hold on every ordinary tick. Any earlier version still needs the existing writer-drain, Floor and epoch procedures, and restoring earlier code never authorizes bypassing those gates.

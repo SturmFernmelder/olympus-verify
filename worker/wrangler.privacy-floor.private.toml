@@ -1,0 +1,23 @@
+# Source preparation only. No provider deployment or migration has been authorized by this file.
+# No HTTP routes/preview. The owner receives three distinct secrets through separately reviewed provisioning:
+# PRIVACY_RECOVERY_OPERATOR_SECRET, PRIVACY_RECOVERY_INITIALIZER_SECRET, PRIVACY_SERVING_GATE_SECRET.
+# None is present in this file. With no roots, authenticated DO commands remain held.
+name = "olympus-privacy-recovery-floor"
+account_id = "e3c65eaa984aeb7a2df849e5a066cb54"
+main = "src/privacy-private-floor-entry.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+routes = []
+
+[observability]
+enabled = false
+
+[[durable_objects.bindings]]
+name = "PRIVACY_RECOVERY_FLOOR"
+class_name = "PrivacyRecoveryFloor"
+
+[[migrations]]
+tag = "privacy-recovery-floor-v1"
+new_sqlite_classes = ["PrivacyRecoveryFloor"]

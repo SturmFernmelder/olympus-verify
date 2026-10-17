@@ -39,6 +39,7 @@ import { audit, now } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
 import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled,membershipTargetsCurrent,type MembershipTargets } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
+import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
 
 export const blockingRoleIds = (env: Env): string[] =>
   (env.BLOCKING_ROLE_IDS ?? "")
@@ -132,12 +133,25 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
   const originalContext=context===undefined?undefined:Object.freeze({central:context.central,targets:context.targets===null?null:Object.freeze({guild:context.targets.guild,current:context.targets.current,retired:context.targets.retired,transition:context.targets.transition})});
   const originalMembershipCurrent=()=>originalContext===undefined||durableServingRoles(env)===originalContext.central&&(!originalContext.central||originalContext.targets!==null&&membershipTargetsCurrent(env,originalContext.targets));
   if(!originalMembershipCurrent())return 'held';
+  // The old beta source epoch expires independently of the bulk-removal activation flag.
+  // This fixed-scope fast gate leaves unrelated guilds and roles unchanged; the policy module
+  // revalidates the exact scope and configuration before deciding anything.
+  const betaSourceTarget=env.GUILD_ID===BETA_RESET_GUILD_ID&&BETA_RESET_ROLE_IDS.includes(env.ROLE_GUILD_MEMBER);
+  // Capture once before any writer/provider await;
+  // a policy armed or changed later is never substituted for this original capture.
+  const betaFlag=Object.getOwnPropertyDescriptor(env,'BETA_RESET_REMOVALS_ENABLED');
+  const betaSelected=betaFlag?!Object.hasOwn(betaFlag,'value')||betaFlag.value!==undefined&&betaFlag.value!=='false':'BETA_RESET_REMOVALS_ENABLED' in env;
+  const betaPolicy=betaSelected||betaSourceTarget?await import('./beta-reset-policy'):null;
+  const betaCapture=betaPolicy?await betaPolicy.captureBetaGrant(env,env.GUILD_ID,env.ROLE_GUILD_MEMBER):null;
+  if(betaCapture?.mode==='held')return 'held';
   if(durableServingRoles(env)){
     // The serving caller passes its ORIGINAL selection/cookie capture. Missing authority is never repaired by reading a new generation.
     if(!originalCapture)return 'held';
     try{const central=await import('./role-settlements'),snapshot=await env.DB.prepare('SELECT MAX(id) AS id FROM roster_snapshots').first<{id:number}>();
-      if(!originalMembershipCurrent())return 'held';
-      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,originalCapture.subjectGeneration),r=await central.settleRoleIntent(env,operation,false,undefined,budget);
+      if(!originalMembershipCurrent()||betaCapture&&betaPolicy&&!await betaPolicy.betaGrantCurrent(env,betaCapture))return 'held';
+      const operation=await central.queueRosterMembershipRole(env,userId,snapshot?.id??0,originalCapture.subjectGeneration);
+      if(betaCapture&&betaPolicy&&!await betaPolicy.betaGrantCurrent(env,betaCapture))return 'held';
+      const r=await central.settleRoleIntent(env,operation,false,undefined,budget,betaCapture??undefined);
       return r.state==='settled'?(r.reason==='fresh_server_confirmed'?'has-role':'granted'):r.reason==='role_request_budget'?'budget':'held';
     }catch{return 'held';}
   }
@@ -171,9 +185,15 @@ export async function grantMemberRole(env: Env, userId: string, reason: string, 
     return "held";
   }
   // .95: the PUT and the removal it may owe, reserved together before the PUT
-  if (!affords(budget, 2) || !takeCall(budget)) return budgetExhausted(env, budget!, source);
+  if (!affords(budget, 2)) return budgetExhausted(env, budget!, source);
   if(!originalMembershipCurrent())return 'held';
-  await addRole(env, userId, role, reason, budget);
+  if(betaCapture?.mode==='open'){
+    const guarded=await import('./beta-reset-grants'),receipt=await guarded.beginBetaLegacyGrant(env,betaCapture,userId);
+    if(!receipt||await guarded.dispatchBetaLegacyGrant(env,receipt,reason,budget)!=='granted')return 'held';
+  }else{
+    if (!takeCall(budget)) return budgetExhausted(env, budget!, source);
+    await addRole(env, userId, role, reason, budget);
+  }
   // .60: and once more after the write: a ban that landed while the PUT was in flight is undone here, not left held
   if (await isBanned(env, userId)) {
     takeMandatory(budget); // .95: reserved above, counted here, never skipped

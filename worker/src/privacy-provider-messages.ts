@@ -2,7 +2,6 @@
  * Known bot pointers have bounded automatic cleanup; unknown sends are retained and never blindly repeated.
  */
 import type { Env } from './env';
-import { membershipTransitionEnabled } from './membership-role-transition';
 import { rest,DiscordError } from './discord';
 import { PRIVACY_DB_NOW,PRIVACY_REPLAY,privacyProviderCustodyDatabase,privacyGenerationExpressionFenceSql,type PrivacySubject } from './privacy-serving-authority';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
@@ -16,7 +15,7 @@ const hash=async(value:string)=>[...new Uint8Array(await crypto.subtle.digest('S
 const cronPayload=(n:RosterCronNotice,kind:'welcome'|'log')=>kind==='welcome'?{content:`<@${n.subject}> Welcome to Olympus — **${n.name}** is on the guild roster.`,allowed_mentions:{parse:[],users:[n.subject]},nonce:n.welcome.operation,enforce_nonce:true}:{content:`➕ roster: **${n.name}** (<@${n.subject}>) confirmed on the roster — Guild Member pending the central role sweep.`,allowed_mentions:{parse:[]},nonce:n.log.operation,enforce_nonce:true};
 /** A cron-only second phase, saved by the original member claim. No account, purpose credential or new schema. */
 export async function prepareRosterCronNotice(env:Env,input:{run:number;seq:number;subject:string;generation:string|null;name:string;nameKey:string;guid:string|null;createdAt:number}):Promise<string>{
- if(!isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env))||env.PRIVACY_ERASURE_ENABLED!=='true'&&!membershipTransitionEnabled(env))throw Error('cron_notice_lane_disabled');
+ if(!isPrivacyWriteAdmissionDatabase(privacyProviderCustodyDatabase(env)))throw Error('cron_notice_lane_disabled');
  const n:RosterCronNotice={...input,p:'roster_cron_notice_v1',v:1,nonce:random(),expiresAt:input.createdAt+86400,guild:env.GUILD_ID,bot:env.DISCORD_APP_ID,welcome:{channel:(env.CHANNEL_NOTICES??'').trim(),hash:'',operation:random(),state:'pending'},log:{channel:env.CHANNEL_SERVER_LOG??'',hash:'',operation:random(),state:'pending'}};
  n.welcome.hash=await hash(JSON.stringify(cronPayload(n,'welcome')));n.log.hash=await hash(JSON.stringify(cronPayload(n,'log')));return JSON.stringify(n);
 }
@@ -25,7 +24,7 @@ export function parseRosterCronNotice(claim:string):RosterCronNotice|null{
 }
 /** One original phase dispatch, followed by response-only native custody. Attempted/unknown phases never re-POST. */
 export async function settleRosterCronNotice(env:Env,claim:string):Promise<{state:'known'|'refused'|'unknown'|'held'|'pending';finished:boolean}>{
- const n=parseRosterCronNotice(claim),DB=privacyProviderCustodyDatabase(env);if(!n||!isPrivacyWriteAdmissionDatabase(DB)||env.PRIVACY_ERASURE_ENABLED!=='true'&&!membershipTransitionEnabled(env))throw Error('cron_notice_proof_invalid');
+ const n=parseRosterCronNotice(claim),DB=privacyProviderCustodyDatabase(env);if(!n||!isPrivacyWriteAdmissionDatabase(DB))throw Error('cron_notice_proof_invalid');
  // A second invocation cannot replace the original row while either phase awaits its provider response.
  if(n.welcome.state==='attempted'||n.log.state==='attempted')return{state:'held',finished:false};
  const kind=n.welcome.state==='pending'?'welcome':n.log.state==='pending'?'log':null;if(!kind)return{state:'held',finished:false};const x=n[kind];
@@ -41,19 +40,33 @@ export async function settleRosterCronNotice(env:Env,claim:string):Promise<{stat
   const cap=Math.max(1,Number.isSafeInteger(Number(env.NOTICE_RATE_CAP))?Number(env.NOTICE_RATE_CAP):10);if((recent?.n??0)>=cap)return{state:'pending',finished:false};
  }
  n[kind].state='attempted';const attempted=JSON.stringify(n),refs=JSON.stringify([{id:n.subject,g:n.generation}]);
+ const custody=env.PRIVACY_ERASURE_ENABLED==='true';
  const out=await DB.batch([
   DB.prepare(`UPDATE roster_effects SET claim=?10 WHERE ${base} AND ${privacyGenerationExpressionFenceSql('discord_id','subject_generation')}
    AND ${PRIVACY_DB_NOW}<?11 AND EXISTS(SELECT 1 FROM characters c WHERE c.name_key=?8 AND c.name=?7 AND c.discord_id=?5 AND c.guid IS ?9 AND c.status='member')
    AND NOT EXISTS(SELECT 1 FROM privacy_provider_messages WHERE operation_id=?12)`).bind(...values,attempted,n.expiresAt,x.operation),
-  DB.prepare(`INSERT INTO privacy_provider_messages(operation_id,purpose,subjects,channel_id,state,created_at,updated_at,retain_until)
+  ...(custody?[DB.prepare(`INSERT INTO privacy_provider_messages(operation_id,purpose,subjects,channel_id,state,created_at,updated_at,retain_until)
    SELECT ?10,?11,?12,?13,'claimed',?14,?14,?14+${PRIVACY_REPLAY}
-   WHERE changes()=1 AND ?14<=${PRIVACY_DB_NOW} AND EXISTS(SELECT 1 FROM roster_effects WHERE ${base})`).bind(n.run,n.seq,attempted,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid,x.operation,kind==='welcome'?'notice':'guild_log',refs,x.channel,n.createdAt)
+   WHERE changes()=1 AND ?14<=${PRIVACY_DB_NOW} AND EXISTS(SELECT 1 FROM roster_effects WHERE ${base})`).bind(n.run,n.seq,attempted,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid,x.operation,kind==='welcome'?'notice':'guild_log',refs,x.channel,n.createdAt)]:[])
  ]);
- if(out[0]?.meta.changes!==1||out[1]?.meta.changes!==1)return disposition();
+ if(out[0]?.meta.changes!==1||custody&&out[1]?.meta.changes!==1)return disposition();
  let state:'known'|'refused'|'unknown'='unknown',pointer:string|null=null;
  try{const response=await rest<{id:string}>(env,'POST',`/channels/${x.channel}/messages`,cronPayload(n,kind),1);if(response&&ID.test(response.id)){pointer=response.id;state='known';}}
  catch(e){if(e instanceof DiscordError&&[400,401,403,404,429].includes(e.status))state='refused';}
  n[kind].state=state;const settled=JSON.stringify(n),finished=n.welcome.state==='known'&&n.log.state==='known';
+ if(!custody){
+  // Ordinary OFF creates no privacy cleanup ledger. The exact original roster claim is CAS-spent before
+  // one POST; refused/unknown/attempted never regain pending state, nonce or original24h deadline.
+  await DB.batch([
+   DB.prepare(`UPDATE roster_effects SET claim=?10 WHERE ${base}`).bind(n.run,n.seq,attempted,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid,settled),
+   DB.prepare(`SELECT CASE WHEN changes()=1 THEN 1 ELSE json_extract('cron_notice_original_unconfirmed','$') END AS recorded`),
+   ...(state==='known'&&kind==='welcome'?[DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ${PRIVACY_DB_NOW},'system','notice.posted',NULL,'{"users":1}'
+    WHERE EXISTS(SELECT 1 FROM roster_effects WHERE ${base})`).bind(n.run,n.seq,settled,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid)]:[]),
+   ...(finished?[DB.prepare(`DELETE FROM roster_effects WHERE ${base}`).bind(n.run,n.seq,settled,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid),DB.prepare(`UPDATE roster_effect_runs SET done_at=${PRIVACY_DB_NOW} WHERE id=?1 AND done_at IS NULL AND NOT EXISTS(SELECT 1 FROM roster_effects WHERE run_id=?1)`).bind(n.run)]:[]),
+   DB.prepare(`SELECT CASE WHEN ${finished?'NOT EXISTS(SELECT 1 FROM roster_effects WHERE run_id=?1 AND seq=?2)':'EXISTS(SELECT 1 FROM roster_effects WHERE '+base+')'} THEN 1 ELSE json_extract('cron_notice_original_unconfirmed','$') END AS recorded`).bind(...(finished?[n.run,n.seq]:[n.run,n.seq,settled,n.createdAt,n.subject,n.generation,n.name,n.nameKey,n.guid]))
+  ]);
+  return{state,finished};
+ }
  // Original operation/channel/refs and original row only. No generation refresh, payload resurrection or admission renewal.
  await DB.batch([
   DB.prepare(`UPDATE privacy_provider_messages SET message_id=?2,state=?3,updated_at=${PRIVACY_DB_NOW},cleanup_requested=MAX(cleanup_requested,
@@ -80,18 +93,21 @@ export async function postPrivacyMessage(env:Env,purpose:'review'|'notice'|'guil
  SELECT ?1,?2,?3,?4,'claimed',${PRIVACY_DB_NOW},${PRIVACY_DB_NOW},${PRIVACY_DB_NOW}+${PRIVACY_REPLAY}
  WHERE NOT EXISTS(SELECT 1 FROM json_each(?3)x WHERE NOT(${CURRENT})) ON CONFLICT(operation_id)DO NOTHING`).bind(operationId,purpose,refs,channel).run();
  if(claim.meta.changes!==1)return null;
+ let recording=false;
  try{
   // attempt=1 disables the generic 429 retry. This logical operation dispatches once.
   const response=await rest<{id:string}>(env,'POST',`/channels/${channel}/messages`,payload,1);
   if(!response||typeof response.id!=='string'||!ID.test(response.id))throw Error('privacy_message_pointer_unknown');
-  const recorded=await DB.prepare(`UPDATE privacy_provider_messages SET message_id=?2,state='known',updated_at=${PRIVACY_DB_NOW},
+  const recordingPlan=DB.prepare(`UPDATE privacy_provider_messages SET message_id=?2,state='known',updated_at=${PRIVACY_DB_NOW},
    cleanup_requested=MAX(cleanup_requested,CASE WHEN EXISTS(SELECT 1 FROM json_each(subjects)x WHERE NOT(${CURRENT}))THEN 1 ELSE 0 END)
-   WHERE operation_id=?1 AND state='claimed'`).bind(operationId,response.id).run();
+   WHERE operation_id=?1 AND state='claimed'`).bind(operationId,response.id);
+  recording=true; // an unknown ACK never triggers a second Native custody write
+  const recorded=await recordingPlan.run();
   if(recorded.meta.changes!==1)throw Error('privacy_message_custody_unknown');
   return response;
  }catch(error){
   const refused=error instanceof DiscordError&&[400,401,403,404,429].includes(error.status);
-  await DB.prepare(`UPDATE privacy_provider_messages SET state=?2,updated_at=${PRIVACY_DB_NOW},cleanup_requested=MAX(cleanup_requested,
+  if(!recording)await DB.prepare(`UPDATE privacy_provider_messages SET state=?2,updated_at=${PRIVACY_DB_NOW},cleanup_requested=MAX(cleanup_requested,
    CASE WHEN EXISTS(SELECT 1 FROM json_each(subjects)x WHERE NOT(${CURRENT}))THEN 1 ELSE 0 END) WHERE operation_id=?1 AND state='claimed'`).bind(operationId,refused?'refused':'unknown').run().catch(()=>{});
   throw Error(refused?'privacy_message_refused':'privacy_message_outcome_unknown');
  }

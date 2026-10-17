@@ -2,16 +2,55 @@
  * All clocks are consumed from the database; historical beta requests/first-seen dates age from the
  * recorded cutoff only after the attended beta reset confirms that same cutoff.
  */
+import {betaProvenanceRetentionStatements} from './qr-beta-fern-data';
+import {betaResetCursorRetentionStatement} from './beta-reset-scan';
+import {betaResetReceiptRetentionStatements} from './beta-reset-retention';
 import type { Env } from './env';
 import { privacyAccessPurgeStatements } from './privacy-access';
 import { PRIVACY_DB_NOW as T, PRIVACY_YEAR as YEAR } from './privacy-serving-authority';
 import {betaRetentionClockSql as betaAged} from './privacy-retention-clocks';
-import { rulesetPublicationRetentionStatement } from './ruleset-publication-data';
+import { rulesetPublicationRetentionStatement,rulesetActivationAttributionRetentionStatement } from './ruleset-publication-data';
 import { bnetCustodyMarkerSql } from './bnet-retention';
 const expired=(clock:string)=>`${clock}<=${T}-${YEAR}`;
 const active=(identity:string)=>`EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=${identity} AND c.status NOT IN('unbound','denied','left'))`;
+/** Source scheduling custody only; this supplies no account, ticket, epoch or provider authority. */
+declare const originalRetentionScheduleBrand:unique symbol;
+export type OriginalServingRetentionSchedule=Readonly<{[originalRetentionScheduleBrand]:true}>;
+const retentionScheduleHeld=():never=>{throw Error('privacy_retention_original_schedule_held');};
+type RetentionClockSlot=Readonly<{target:object;prototype:object|null;descriptor:PropertyDescriptor|undefined}>;
+const retentionGlobalDateSlots:RetentionClockSlot[]=[];
+let retentionGlobalDateTarget:object|null=globalThis,retentionGlobalDateDescriptor:PropertyDescriptor|undefined;
+while(retentionGlobalDateTarget){
+ if(retentionGlobalDateSlots.length>=16)retentionScheduleHeld();
+ const descriptor=Object.getOwnPropertyDescriptor(retentionGlobalDateTarget,'Date'),prototype=Object.getPrototypeOf(retentionGlobalDateTarget);
+ retentionGlobalDateSlots.push(Object.freeze({target:retentionGlobalDateTarget,prototype,descriptor:descriptor?Object.freeze({...descriptor}):undefined}));
+ if(descriptor){retentionGlobalDateDescriptor=descriptor;break;}retentionGlobalDateTarget=prototype;
+}
+if(!retentionGlobalDateDescriptor||!Object.hasOwn(retentionGlobalDateDescriptor,'value')||typeof retentionGlobalDateDescriptor.value!=='function')retentionScheduleHeld();
+const retentionDate=retentionGlobalDateDescriptor!.value as DateConstructor,retentionNow=Object.getOwnPropertyDescriptor(retentionDate,'now');
+const originalRetentionSchedules=new WeakMap<OriginalServingRetentionSchedule,{phase:'general'|'beta';check:()=>void;spent:boolean}>();
+function retentionGlobalDateCurrent():void{
+ for(const slot of retentionGlobalDateSlots){
+  if(Object.getPrototypeOf(slot.target)!==slot.prototype)return retentionScheduleHeld();
+  const descriptor=Object.getOwnPropertyDescriptor(slot.target,'Date');
+  if(slot.descriptor===undefined){if(descriptor!==undefined)return retentionScheduleHeld();}
+  else if(!descriptor||!['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(descriptor[k as keyof PropertyDescriptor],slot.descriptor![k as keyof PropertyDescriptor])))return retentionScheduleHeld();
+ }
+}
+function retentionClockMethod():Function{
+ retentionGlobalDateCurrent();const now=Object.getOwnPropertyDescriptor(retentionDate,'now');
+ if(!retentionNow||!now||!Object.hasOwn(retentionNow,'value')||typeof retentionNow.value!=='function'||!['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(now[k as keyof PropertyDescriptor],retentionNow[k as keyof PropertyDescriptor])))return retentionScheduleHeld();return retentionNow.value;
+}
+/** Shared index body calls this once before its first await. Phase never comes from a later clock. */
+export function captureServingRetentionSchedule():OriginalServingRetentionSchedule{
+ const read=()=>{const ms=Reflect.apply(retentionClockMethod(),retentionDate,[]) as unknown;if(typeof ms!=='number'||!Number.isSafeInteger(ms)||ms<1||ms>253402300799999)return retentionScheduleHeld();return ms;};
+ const original=read(),phase=Math.floor(original/900000)%2===0?'general':'beta';let latest=original;
+ const check=()=>{const now=read();if(now<latest)return retentionScheduleHeld();latest=now;};check();
+ const cap=Object.freeze({}) as OriginalServingRetentionSchedule;originalRetentionSchedules.set(cap,{phase,check,spent:false});return cap;
+}
+function originalRetentionSchedule(cap:OriginalServingRetentionSchedule):{phase:'general'|'beta';check:()=>void;spent:boolean}{const s=originalRetentionSchedules.get(cap);if(!s)return retentionScheduleHeld();s.check();return s;}
 /** Fixed statement census is part of the joined scheduled budget. Each selection has a finite deterministic page. */
-export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return [
+function generalServingRetentionStatements(env:Env):D1PreparedStatement[]{return [
  rulesetPublicationRetentionStatement(env),
  ...privacyAccessPurgeStatements(env),
  env.DB.prepare(`DELETE FROM privacy_denial_markers WHERE subject_key IN(SELECT subject_key FROM privacy_denial_markers WHERE retain_until<=${T} ORDER BY retain_until,subject_key LIMIT 1000)`),
@@ -53,13 +92,29 @@ export function servingRetentionStatements(env:Env):D1PreparedStatement[]{return
     OR EXISTS(SELECT 1 FROM audit m WHERE m.actor=a.actor AND ${bnetCustodyMarkerSql('m')})) ORDER BY a.ts,a.id LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_provider_messages WHERE operation_id IN(SELECT operation_id FROM privacy_provider_messages WHERE state IN('removed','refused') AND retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
  ];}
-export const SERVING_RETENTION_STATEMENTS=21;
-export async function sweepServingRetention(env:Env):Promise<number>{
- // Short privacy credentials keep their own fixed deadlines even while account-retention work is paused.
- const statements=env.PRIVACY_RETENTION_ENABLED==='true'?servingRetentionStatements(env)
-  :env.PRIVACY_ACCESS_ENABLED==='true'?privacyAccessPurgeStatements(env):[];
- if(statements.length===0)return 0;
- const out=await env.DB.batch(statements);
+/** Complete manual batch remains all27; only the scheduled wrapper alternates its bounded pages. */
+export function servingRetentionStatements(env:Env):D1PreparedStatement[]{
+ const beta=betaProvenanceRetentionStatements(env),general=generalServingRetentionStatements(env);if(beta.length!==6||general.length!==21)throw Error('privacy_retention_statement_census');return [...beta,...general];
+}
+export const SERVING_RETENTION_STATEMENTS=27;
+export async function sweepServingRetention(env:Env,originalSchedule?:OriginalServingRetentionSchedule):Promise<number>{
+ // Shared index supplies its original entry capture. Direct trusted calls capture once before construction.
+ const cap=originalSchedule??captureServingRetentionSchedule(),schedule=originalRetentionSchedule(cap);if(schedule.spent)return retentionScheduleHeld();schedule.spent=true;
+ // Every15-minute tick still purges short credentials; all general and B1 pages run every30minutes.
+ // Source Native predicates consume original row expiry; wall-clock phase supplies no deletion authority.
+ let statements:D1PreparedStatement[]=[];
+ if(env.PRIVACY_RETENTION_ENABLED==='true'){
+  if(schedule.phase==='general'){statements=generalServingRetentionStatements(env);if(statements.length!==21)throw Error('privacy_retention_statement_census');}
+  else{const beta=betaProvenanceRetentionStatements(env),credentials=privacyAccessPurgeStatements(env);if(beta.length!==6||credentials.length!==2)throw Error('privacy_retention_statement_census');statements=[...beta,...credentials];}
+ }else if(env.PRIVACY_ACCESS_ENABLED==='true'){statements=privacyAccessPurgeStatements(env);if(statements.length!==2)throw Error('privacy_retention_statement_census');}
+ // Local source lifecycle is unconditional in the original beta phase. Removal/access/retention
+ // switches cannot strand its personal cursor or acknowledged terminal records. No new trigger,
+ // second capture, later-clock phase selection, provider call, or admission path is introduced.
+ if(schedule.phase==='beta'){const receipts=betaResetReceiptRetentionStatements(env);if(receipts.length!==2)throw Error('privacy_retention_statement_census');statements.push(betaResetCursorRetentionStatement(env),...receipts,rulesetActivationAttributionRetentionStatement(env));}
+ // General remains21; beta is at most12 (6 provenance + 2 credentials + 3 reset lifecycle + 1 attribution).
+ if(statements.length>21)throw Error('privacy_retention_statement_census');
+ schedule.check();if(statements.length===0)return 0;
+ const out=await env.DB.batch(statements);schedule.check();
  if(out.length!==statements.length)throw Error('privacy_retention_outcome_unknown');
  return out.reduce((n,r)=>n+(r.meta?.changes??0),0);
 }

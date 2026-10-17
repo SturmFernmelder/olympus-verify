@@ -1,4 +1,6 @@
-import { privacyGenerationLiteralFenceSql, privacySubjectWritableSql } from './privacy-serving-authority';
+export {registerCommunityData,communityDataNames,communityEraseStatements,communityExportPlan,communityExport,type Eraser,type ExportPlan,type Exporter} from './community-data-registry';
+import { privacyGenerationLiteralFenceSql, privacyAccountIncarnation, privacyAccountIncarnationLiteralFenceSql } from './privacy-serving-authority';
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 /**
  * .56 (1 Oct 2026): the adapter contract for the community modules ported from Olympus Forever (consolidation batch 1
  * of Codex's keeper adapter map, evidence/forever-keeper-adapter-map.md, 1 Oct 01:07 UTC).
@@ -36,7 +38,7 @@ import type { Env } from "./env";
 import { now } from "./db";
 import { apiJson, isSiteAdmin, readSession, type SiteUser } from "./site-core";
 
-export const COMMUNITY_FEATURES = ["directory", "crafting", "events", "attendance", "trials", "restrictions", "departures", "contributions", "privacy_intake", "rights"] as const;
+export const COMMUNITY_FEATURES = ["directory", "crafting", "events", "attendance", "trials", "restrictions", "departures", "contributions", "privacy_intake", "rights", "census"] as const;
 export type CommunityFeature = (typeof COMMUNITY_FEATURES)[number];
 
 /** COMMUNITY_FEATURES is a comma list of the names above; unknown names are ignored; crafting needs directory. */
@@ -53,7 +55,10 @@ export function communityFeatures(env: Env): Set<CommunityFeature> {
 
 export interface CommunitySubject {
   discordId: string;
-  privacyGeneration?:string|null;
+  privacyGeneration:string|null;
+  accountIncarnation:string;
+  /** Private original read witness. DTOs never serialize this reference. */
+  originalSession:OriginalSiteSession;
   sessionVersion: number;
   /** Unix seconds, from the cookie: bound into the fence and compared with the database clock inside the first statement (.59); the code check in admitted() is only a zero-I/O fast refusal. */
   expiresAt: number;
@@ -138,11 +143,13 @@ export async function communityContext(env: Env, request: Request): Promise<Comm
   const features = communityFeatures(env);
   const s = await readSession(env, request);
   if (!s) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
-  const user = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u).first<SiteUser>();
-  if (!user || user.session_version !== s.v) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
-  user.privacyGeneration=s.g;
-  const facts = await communityFacts(env, user);
-  return { subject: { discordId: s.u, sessionVersion: s.v, expiresAt: s.e,privacyGeneration:s.g }, user, facts, capabilities: capabilitiesOf(facts), features };
+  assertOriginalSiteSessionRead(s);
+  const user = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)} AND ${privacyAccountIncarnationLiteralFenceSql("account_incarnation",s.n)}`).bind(s.u).first<SiteUser>();
+  assertOriginalSiteSessionRead(s);
+  if (!user || user.session_version !== s.v || user.account_incarnation !== s.n) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
+  user.privacyGeneration=s.g;user.privacyOriginalSession=s;
+  assertOriginalSiteSessionRead(s);const facts = await communityFacts(env, user);assertOriginalSiteSessionRead(s);
+  return { subject: Object.freeze({ discordId:s.u,sessionVersion:s.v,expiresAt:s.e,privacyGeneration:s.g,accountIncarnation:s.n,originalSession:s }), user, facts, capabilities: capabilitiesOf(facts), features };
 }
 
 /** What the page may know: the capabilities, the flags, and the member's own id (which /api/me already gives them). */
@@ -166,14 +173,24 @@ export const DB_NOW = "CAST(strftime('%s', 'now') AS INTEGER)";
  * caller binds them at those positions. Mirrors capabilitiesOf exactly, evaluated inside the statement so nothing can
  * change between the check and the write, and the expiry is compared with the database clock at execution.
  */
-export function fenceSql(cap: FenceCapability, id: number, version: number, expires: number,generation?:string|null): string {
-  const lifecycle=generation===undefined?privacySubjectWritableSql("fu.discord_id"):privacyGenerationLiteralFenceSql("fu.discord_id",generation);
-  if (cap === "authenticatedIdentity") return `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version} AND ${lifecycle}) AND ?${expires} > ${DB_NOW}`;
-  const applicant = `EXISTS (SELECT 1 FROM site_users fu WHERE fu.discord_id = ?${id} AND fu.session_version = ?${version} AND fu.denied = 0 AND fu.in_server = 1 AND ${lifecycle}) AND ?${expires} > ${DB_NOW}`;
-  if (cap === "applicantWrite") return applicant;
-  return `${applicant} AND EXISTS (SELECT 1 FROM characters fc WHERE fc.discord_id = ?${id} AND fc.status = 'member') AND NOT EXISTS (SELECT 1 FROM members fm WHERE fm.discord_id = ?${id} AND fm.banned = 1)`;
+export function fenceSql(cap:FenceCapability,id:number,version:number,expires:number,generation:string|null,accountIncarnation:string):string{
+ const birth=privacyAccountIncarnationLiteralFenceSql('fu.account_incarnation',accountIncarnation),lifecycle=privacyGenerationLiteralFenceSql('fu.discord_id',generation);
+ if(cap==='authenticatedIdentity')return `EXISTS(SELECT 1 FROM site_users fu WHERE fu.discord_id=?${id} AND fu.session_version=?${version} AND ${birth} AND ${lifecycle}) AND ?${expires}>${DB_NOW}`;
+ const applicant=`EXISTS(SELECT 1 FROM site_users fu WHERE fu.discord_id=?${id} AND fu.session_version=?${version} AND fu.denied=0 AND fu.in_server=1 AND ${birth} AND ${lifecycle}) AND ?${expires}>${DB_NOW}`;
+ if(cap==='applicantWrite')return applicant;
+ return `${applicant} AND EXISTS(SELECT 1 FROM characters fc WHERE fc.discord_id=?${id} AND fc.status='member') AND NOT EXISTS(SELECT 1 FROM members fm WHERE fm.discord_id=?${id} AND fm.banned=1)`;
 }
 
+/** Existing read identity is retained; these copies mint no session or operation authority. */
+export function captureCommunitySubject(value:CommunitySubject):Readonly<{subject:Readonly<CommunitySubject>;check:()=>void}>{
+ const names=['discordId','sessionVersion','expiresAt','privacyGeneration','accountIncarnation','originalSession'] as const;
+ const slots=names.map(key=>{const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw Error('privacy_community_original_held');return Object.freeze({key,value:d.value});});
+ const row=Object.fromEntries(slots.map(s=>[s.key,s.value])) as unknown as CommunitySubject;
+ const s=row.originalSession;assertOriginalSiteSessionRead(s);
+ if(row.discordId!==s.u||row.sessionVersion!==s.v||row.expiresAt!==s.e||row.privacyGeneration!==s.g||privacyAccountIncarnation(row.accountIncarnation)!==s.n)throw Error('privacy_community_original_held');
+ const check=()=>{assertOriginalSiteSessionRead(s);for(const slot of slots){const d=Object.getOwnPropertyDescriptor(value,slot.key);if(!d||!Object.hasOwn(d,'value')||d.value!==slot.value)throw Error('privacy_community_original_held');}};
+ check();return Object.freeze({subject:Object.freeze(row),check});
+}
 export const FENCE_REFUSED = Symbol("fence_refused");
 
 /** 22 base64url characters from 16 random bytes: write nonces and member refs. */
@@ -190,9 +207,9 @@ export function randomToken(): string {
  */
 export async function admitted(env: Env, ctx: CommunityContext, statements: D1PreparedStatement[]): Promise<D1Result[] | typeof FENCE_REFUSED> {
   if (!ctx.subject || ctx.subject.expiresAt <= now() || statements.length === 0) return FENCE_REFUSED;
-  const original=ctx.subject;
-  const probe=env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity",1,2,3,original.privacyGeneration??null)} THEN 1 ELSE json_extract('privacy_community_request_refused','$') END AS admitted`).bind(original.discordId,original.sessionVersion,original.expiresAt);
-  const results = (await env.DB.batch([probe,...statements])).slice(1);
+  const originalSubject=ctx.subject,capture=captureCommunitySubject(originalSubject),original=capture.subject;capture.check();
+  const probe=env.DB.prepare(`SELECT CASE WHEN ${fenceSql("authenticatedIdentity",1,2,3,original.privacyGeneration,original.accountIncarnation)} THEN 1 ELSE json_extract('privacy_community_request_refused','$') END AS admitted`).bind(original.discordId,original.sessionVersion,original.expiresAt);
+  capture.check();const results = (await env.DB.batch([probe,...statements])).slice(1);capture.check();if(ctx.subject!==originalSubject)throw Error("privacy_community_original_held");
   if ((results[0]?.meta?.changes ?? 0) === 0) return FENCE_REFUSED;
   return results;
 }
@@ -212,8 +229,9 @@ export async function admittedRead(env: Env, ctx: CommunityContext, cap: FenceCa
 /** .75: the same reader admission for a module that holds the acting session itself (community-contributions.ts readAs). */
 export async function admittedReadAs(env: Env, subject: CommunitySubject, cap: FenceCapability, statements: D1PreparedStatement[]): Promise<D1Result[] | typeof FENCE_REFUSED> {
   if (subject.expiresAt <= now()) return FENCE_REFUSED;
-  const probe = env.DB.prepare(`SELECT (${fenceSql(cap, 1, 2, 3,subject.privacyGeneration??null)}) AS ok`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt);
-  const results = await env.DB.batch([probe, ...statements]);
+  const originalSubject=subject,capture=captureCommunitySubject(originalSubject);subject=capture.subject;capture.check();
+  const probe = env.DB.prepare(`SELECT (${fenceSql(cap, 1, 2, 3,subject.privacyGeneration,subject.accountIncarnation)}) AS ok`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt);
+  capture.check();const results = await env.DB.batch([probe, ...statements]);capture.check();
   if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
   return results.slice(1);
 }
@@ -230,49 +248,4 @@ export async function refusal(env: Env, request: Request, cap: FenceCapability):
   return apiJson({ error: "conflict", message: "Someone else saved this first, or the page is out of date. Reload and try again." }, 409);
 }
 
-// ---------- erasure and export registry ----------
-
-export type Eraser = (env: Env, discordId: string) => D1PreparedStatement[];
-/** .74: a feature's section of the account copy: its statements, and the shaper that reads exactly their results, in order. */
-export type ExportPlan = { statements: D1PreparedStatement[]; shape: (results: D1Result[]) => Record<string, unknown> };
-export type Exporter = (env: Env, discordId: string) => ExportPlan;
-const registry: Array<{ name: string; erase: Eraser; export: Exporter }> = [];
-
-/** Every feature registers once at module load; nothing may store member data without an eraser and an exporter. */
-export function registerCommunityData(name: string, erase: Eraser, exporter: Exporter): void {
-  if (registry.some((r) => r.name === name)) return;
-  registry.push({ name, erase, export: exporter });
-}
-export const communityDataNames = () => registry.map((r) => r.name);
-
-/** Statements for site-admin.ts deleteSiteData: run in the same batch as the keeper's own deletions. */
-export function communityEraseStatements(env: Env, discordId: string): D1PreparedStatement[] {
-  return registry.flatMap((r) => r.erase(env, discordId));
-}
-
-/**
- * .74 (Codex's review of .71, 1 Oct 04:24 UTC: a registry read made after the reader lost standing returned a case): the
- * community part of an account copy as ONE plan, every registered section's statements in order and a shaper keyed by
- * feature name, so site-export.ts runs them in the SAME admitted batch as the keeper's own statements: one transaction,
- * one instant, the whole copy or a refusal.
- */
-export function communityExportPlan(env: Env, discordId: string): ExportPlan {
-  const parts = registry.map((r) => ({ name: r.name, plan: r.export(env, discordId) }));
-  return {
-    statements: parts.flatMap((p) => p.plan.statements),
-    shape: (results) => {
-      const out: Record<string, unknown> = {};
-      let i = 0;
-      for (const p of parts) {
-        out[p.name] = p.plan.shape(results.slice(i, i + p.plan.statements.length));
-        i += p.plan.statements.length;
-      }
-      return out;
-    },
-  };
-}
-/** The plan run as one plain batch, for the test suites. The member's copy (site-export.ts) runs it behind the reader's admission. */
-export async function communityExport(env: Env, discordId: string): Promise<Record<string, unknown>> {
-  const plan = communityExportPlan(env, discordId);
-  return plan.shape(await env.DB.batch(plan.statements));
-}
+// Erasure/export registry implementation is reexported from the data-only leaf above.

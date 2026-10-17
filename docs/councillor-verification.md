@@ -1,8 +1,10 @@
-# Councillor browser verification candidate
+# Councillor browser verification and the named beta test
 
-This is the composed .135 Phase 1 source candidate. Missing feature values fail closed. The candidate
-keeps `QR_PHASE1_ENABLED` OFF because the observed beta ladder has no native High Council; privacy
-downloads and the independent beta-five rank-mapping gates are enabled; new erasure and lifecycle-retention workloads stay OFF until legacy-writer transition qualification.
+The .155 source integrates the browser/backend B1 bridge with AddOn 0.6.10. Its roster, guild-frame
+placement and ordinary panel behavior retain the accepted 0.6.9 implementation. Missing feature
+values fail closed. Signing and the named exception remain OFF until the exact combined release is
+qualified and configured. The exception is independent of erasure activation; erasure readiness is
+not established by a successful QR test.
 No native rank, appointment or game permission is changed by source publication. Command registration,
 browser enrollment, intended role effects and qualified real game/browser acceptance are separate actions.
 The reader is `/static/qr-phase1.html`; its authenticated navigation stays hidden while Phase 1 is OFF.
@@ -11,9 +13,10 @@ A member needs no AddOn. The signed-in member creates a ten-minute code (or uses
 Discord-signed, accountless `/olympus-qr` interaction) and whispers `!olympus <code>` in game.
 An eligible councillor keeps their AddOn and browser running. Enrollment requires a current verified
 GUID, a complete trusted fresh native roster showing **High Council, zero-based index 1**, the
-original active privacy generation and current Discord membership. Officer and site administration
-never substitute. The current five-rank beta roster has no High Council: real enrollment and game
-acceptance remain unavailable until an independently authorized eligible actor exists.
+original active privacy generation, account incarnation and current Discord membership. Generic Officer
+or site administration never substitutes. The current five-rank beta roster has no High Council.
+The owner's separately authorized B1 exception permits only Fern Melder's exact Officer character in
+one attended window for Stavros Heuto; it does not create or claim a High Council promotion.
 
 The private Ed25519 key is a nonextractable browser CryptoKey in IndexedDB. The AddOn contains no
 private key. The signed message is a **councillor attestation**, not a Blizzard origin certificate.
@@ -90,9 +93,10 @@ provider record is aged out merely because the five-minute proof expired.
 
 ## Composition and attended acceptance
 
-The five source families are registered with the serving privacy catalogue and real own-only
-export/atomic-erasure hooks. Unknown provider custody holds erasure until fresh reconciliation; no
-sole no-repeat receipt is discarded. Eight additive cold DDL statements are required. Root composes
+The six source families, including the B1 window, are registered with the serving privacy catalogue and
+real own-only export/atomic-erasure hooks. Unknown provider custody holds erasure until fresh
+reconciliation; no sole no-repeat receipt is discarded. The B1 table, provenance columns and immutable
+triggers are required alongside the normal QR tables; the complete source profile must match. Root composes
 the actual `privacy-serving-authority` and `privacy-business-catalog` modules, original cookie/generation
 admission at existing grant callers, shared schema/route/front-end/test integration and retention budgets.
 No dormant `account_generations`/`purpose_generations` SQL authority is used. Private generation
@@ -106,6 +110,54 @@ do not establish native game behavior, actual browser capture availability or li
 Before activation: review the combined source/schema/budgets, preserve a verified database export,
 confirm current bot identity/hierarchy/configured maps, install the reviewed AddOn/command through
 the owner-controlled release, and perform the concrete member/councillor game/browser flow. Keep
-the Phase 1 signer gate OFF while qualified native High Council eligibility is absent; independent
+the Phase 1 signer gate OFF until qualified native High Council eligibility or the exact approved
+named B1 test prerequisites are established; independent
 native rank mapping retains its own exact-profile gates. Battle.net and the attended beta reset
 retain their existing gates. No appointments or native bank permissions are issued here.
+
+## The named B1 acceptance sequence
+
+The exact participant is Discord `472099715253796864`, native GUID `Player-4613-005A70D8`,
+Fern Melder, OLYMPUS Officer at zero-based index 1 of the five-rank beta profile. The source requires
+realm `Classic Beta PvP 2`, guild realm `ClassicBetaPvP`, game version 1.60.1, build 70338 and
+interface 16001. The requester is Discord `102204162531430400`, native name Stavros Heuto, with
+his distinct GUID read from the current complete trusted roster. Stavros needs no AddOn.
+
+Before the attended test, qualify the combined schema/profile, original signed-session incarnation,
+QR enrollment, native membership-only role consumer and browser/AddOn package. Review the target
+Guild Member role, bot identity and hierarchy, the exact staff-window POST path in the request
+firewall, and the release's approved review digest. Install the matching AddOn without replacing
+private configuration or queues. Keep the ten-rank normal High Council profile separate.
+
+1. Configure signing and the exact named exception only on the accepted release. The exception needs
+   `QR_BETA_FERN_EXCEPTION_ENABLED=true`, one fresh `QR_BETA_FERN_WINDOW_ID`, and
+   `QR_BETA_FERN_REVIEW_DIGEST`; missing or malformed values hold. These are operator release steps,
+   not effects of opening a web page. No actual value is supplied by this document.
+2. Both participants sign in normally. Refresh the actual complete trusted roster immediately before
+   the test; the server requires it to be less than ten minutes old, coherent and at or after the
+   configured links cutoff. Fern's verified main link must identify the exact Officer GUID. Both
+   original accounts and current Discord memberships must remain eligible.
+3. Stavros uses the scanner page to create his own fresh ten-minute request code. Fern opens
+   `/admin/qr/beta-window`, reviews that code and the exact release plan, and types
+   `OPEN NAMED BETA TEST`. The one-use action opens a fixed four-minute window, bounded by that
+   original code and both sessions. Checking an uncertain result never opens a second window.
+4. Fern enrolls a nonextractable Ed25519 key in his own browser at `/static/qr-phase1.html`, then
+   creates a B1 challenge. Use the generated commands verbatim: `/olv browser beta enable`, then
+   `/olv browser beta <original OLG2C envelope>`. The seven-field envelope preserves the original
+   absolute deadlines; copying it again cannot renew them. The AddOn keeps no signing key.
+5. Stavros whispers his complete `!olympus <code>` command to Fern. Following a fresh native roster
+   update, Fern's AddOn shows the OLG2/B1 observation. Scan it in that enrolled browser or copy the
+   complete bounded wire, review the distinct named actors, sign and submit. The B1 automatic
+   opt-in admits only this one original request, rather than the normal ten-code lease.
+6. Read the original proof and durable settlement outcome. B1 can settle only the original configured
+   membership role, even when both rank-mapping switches are enabled. An already-present role is
+   confirmation of the desired state, not evidence of a fresh grant. A timeout or unknown result
+   requires read-only reconciliation; do not repeat a spent write. Revoke the exact browser key and
+   close local beta mode deliberately when the test is finished.
+
+Backend Native tests use real local SQLite and cryptography with synthetic provider responses.
+The browser tests use the actual module and real Ed25519 with a DOM/storage boundary shim; Lua
+tests and the real QR decoder cover both wire formats. None of these are a live game observation,
+browser capture, role write, or attended acceptance receipt. Those final checks remain explicit.
+The browser-only attempt-data page `/static/qr-beta-window-data.html` offers local export and
+personal-detail redaction without an API request or guild access, including after account erasure.

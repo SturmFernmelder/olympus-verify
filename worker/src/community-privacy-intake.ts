@@ -448,7 +448,7 @@ export async function adminUpdateCase(request: Request, env: Env, ctx: Community
       env.DB.prepare(
         `INSERT INTO community_privacy_operations (case_id, op_id, payload_hash, nonce, created_at)
          SELECT ?1, ?2, ?5, ?4, ?3
-         WHERE ${fenceSql("applicantWrite", 6, 7, 8)}
+         WHERE ${fenceSql("applicantWrite", 6, 7, 8,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
            AND EXISTS (SELECT 1 FROM community_privacy_cases c WHERE c.case_id = ?1 AND ${LIVE("c")})
            AND NOT EXISTS (SELECT 1 FROM community_privacy_operations WHERE case_id = ?1 AND op_id = ?2)
            AND NOT EXISTS (SELECT 1 FROM community_privacy_messages WHERE case_id = ?1 AND message_id = ?2)

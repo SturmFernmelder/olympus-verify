@@ -6,8 +6,8 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 136532,
-    "sha256": "ee288f5d5a72056c020ee45ab4679f4b684190bfb9fb25b864c9d0918aebc163"
+    "bytes": 142032,
+    "sha256": "892ce2c4e30b1fd6de70aad06dcf50c080831a27b4cf99ff351dff11d13bb677"
   },
   "legend": {
     "accountability": "Accountability within an accepted remit; no automatic platform permission.",
@@ -24,7 +24,7 @@
       "kind": "constitutional office",
       "icon": "guild_master",
       "remit": "Reserved constitutional decisions and reasoned final authority.",
-      "limits": "Draft publication confirms no appointment, sovereignty, access or ratification.",
+      "limits": "Ratification of this charter does not appoint any person, grant platform access or confer sovereignty outside the guild.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },

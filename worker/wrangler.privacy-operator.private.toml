@@ -1,0 +1,37 @@
+# Private authenticated install/reopen implementation; the production operator remains default OFF.
+# Provision only PRIVACY_PRODUCTION_CONTROL_AUTH_SECRET and PRIVACY_RECOVERY_OPERATOR_SECRET,
+# plus independently accepted control/serving source trees, serving deployment version and two epochs.
+# No initializer or public serving root belongs to this service. No secret value is stored here.
+name = "olympus-privacy-operator"
+account_id = "e3c65eaa984aeb7a2df849e5a066cb54"
+main = "src/privacy-private-operator-entry.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+routes = []
+
+[observability]
+enabled = false
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[[durable_objects.bindings]]
+name = "PRIVACY_RECOVERY_FLOOR"
+class_name = "PrivacyRecoveryFloor"
+script_name = "olympus-privacy-recovery-floor"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "olympus-verify"
+database_id = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
+remote = false
+
+[[services]]
+binding = "PRIVACY_RELEASE_EVIDENCE"
+service = "olympus-privacy-release-evidence"
+
+[vars]
+PRIVACY_PRODUCTION_CONTROL_ENABLED = "false"
+PRIVACY_SERVING_DATABASE_ID = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"

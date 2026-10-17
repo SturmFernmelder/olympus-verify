@@ -6,24 +6,11 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require("./helpers/privacy129_fixture.cjs");
 const db = new DatabaseSync(":memory:");
 db.exec("PRAGMA foreign_keys = ON");
-db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
-const D1 = {
-  prepare(sql) {
-    let params = [];
-    const api = {
-      bind: (...p) => { params = p; return api; },
-      first: async () => db.prepare(sql).get(...params) ?? null,
-      all: async () => ({ results: db.prepare(sql).all(...params) }),
-      run: async () => { const r = db.prepare(sql).run(...params); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-      // like D1, a batch reports each statement as { meta: { changes, last_row_id } }
-      _exec: () => { const st = db.prepare(sql); if (st.columns().length) return { results: st.all(...params), meta: { changes: 0 } }; const r = st.run(...params); return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
-    };
-    return api;
-  },
-  batch: async (stmts) => { db.exec("BEGIN"); try { const o = stmts.map((s) => s._exec()); db.exec("COMMIT"); return o; } catch (e) { db.exec("ROLLBACK"); throw e; } },
-};
+entry.installCurrentEntryEpoch(db);
+const D1 = entry.originalNativePort(db);
 
 let VERIFIED = [];
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -34,7 +21,7 @@ const stubs = {
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
 };
 const cache = {};
-function load(name) {
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
   if (stubs[name]) return stubs[name];
   if (cache[name]) return cache[name].exports;
   const mod = { exports: {} };
@@ -47,7 +34,7 @@ const { postVerify } = load("./ingest");
 const { recordRelay } = load("./relays");
 
 const GUILD = "1549537348516188200", A = "111111111111111111", B = "222222222222222222";
-const env = { DB: D1, GUILD_ID: GUILD, VERIFY_SECRET: "button-test-secret", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROLE_GUILD_MEMBER: "1549581282227265566", CHANNEL_VISITOR_CHAT: "" };
+const env = { DB: load("./privacy-write-admission").createPrivacyWriteAdmissionDatabase(D1,"writer","canonical",entry.ENTRY_EPOCH), GUILD_ID: GUILD, VERIFY_SECRET: "button-test-secret", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROLE_GUILD_MEMBER: "1549581282227265566", CHANNEL_VISITOR_CHAT: "" };
 const button = (user) => ({ type: 3, guild_id: GUILD, data: { custom_id: "guide:verify" }, member: { user: { id: user }, roles: [] } });
 const slash = (user, character) => ({ type: 2, guild_id: GUILD, data: { name: "verify", options: character ? [{ name: "character", type: 3, value: character }] : [] }, member: { user: { id: user }, roles: [] } });
 const content = async (res) => (await res.json()).data.content;
@@ -115,7 +102,7 @@ const check = (name, cond) => { n++; if (cond) ok++; console.log((cond ? "PASS "
 
   console.log("\n== the guide promises only what the config delivers (.51/.52, Codex 00:38 and the content candidate) ==");
   const { guideMessage } = load("./guide");
-  const guideText = (e) => JSON.stringify(guideMessage(e));
+  const guideText = (e) => JSON.stringify(guideMessage(e, load("./ruleset-profile").currentRulesetProfile()));
   const off = guideText({ ...env, SET_NICKNAME: "false" });
   check("with the role configured and nicknames off, the guide names the role, the roster and the access checks, and no nickname", /Olympus Guild Member\*\* role opens the member channels once your verified character appears on the officer-exported guild roster and the access checks pass/.test(off) && !/nickname/i.test(off));
   check("  with nicknames on, the nickname is described as staff-enabled", /When enabled by guild staff, your Discord nickname updates/.test(guideText({ ...env, SET_NICKNAME: "true" })));

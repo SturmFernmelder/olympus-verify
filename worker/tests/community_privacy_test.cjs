@@ -9,48 +9,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
   let batches = 0;
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -59,6 +43,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -70,9 +55,10 @@ function load(name) {
   new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(dir === "." ? p : p.startsWith("../") ? p.slice(3).replace(/^/, "./") : "./" + dir + "/" + p.replace(/^\.\//, "")));
   return mod.exports;
 }
+const discordStub = stubs["./discord"] = {};
 const realDiscord = (() => { const m = { exports: {} }; new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(m, m.exports, (p) => load(p)); return m.exports; })();
 Object.assign(stubs, {
-  "./discord": {
+  "./discord": Object.assign(discordStub, {
     ...realDiscord,
     json: (body, status = 200) => ({ status, body, json: async () => body }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
@@ -84,54 +70,54 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
-    rest: async (env, method, p) => {
-      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
-      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
-      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-      return { nick: member.nick, pending: false, roles: [] };
+    rest: async (_env, method, p) => {
+      const membership = /^\/guilds\/236932545793490944\/members\/(\d{17,20})$/.exec(p);
+      if (method === 'GET' && membership) {
+        const account = db.prepare('SELECT in_server FROM site_users WHERE discord_id = ?').get(membership[1]);
+        if (!account || account.in_server !== 1) throw new realDiscord.DiscordError(404, 'unknown member');
+        return { user: { id: membership[1] }, pending: false, roles: [] };
+      }
+      throw new Error('no REST in tests: '+method+' '+p);
     },
     explainDiscordError: (e) => String(e),
-  },
+  }),
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
   "./review": { onVerified: async () => {} },
 });
 const siteCore = load("./site-core"), indexMod = load("./index"), intake = load("./community-privacy-intake");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null;
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_BOT_TOKEN: "test-token-only", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const MEMBER = "300000000000000003", STAFF = "472099715253796864", STAFF2 = "472099715253796865";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, row.first_login, row.last_login, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, first_login: T, last_login: T, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,row.first_login,row.last_login,row.in_server,row.denied,row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "privacy_intake", PRIVACY_INTAKE_ENABLED: "true", PRIVACY_INTAKE_MONITORED: "true", PRIVACY_INTAKE_RETENTION_DAYS: "90", SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
-/** A signed-in call (staff and member routes). */
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
   const res = await indexMod.default.fetch(new Request("https://guild.example" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env(over), ctx);
@@ -147,7 +133,7 @@ const pub = async (path, body, { over = ON, headers = {}, raw, routeProfile = "l
   for (const k of Object.keys(h)) if (h[k] === null) delete h[k];
   const request = new Request("https://guild.example" + path, { method: body === undefined && raw === undefined ? "GET" : "POST", headers: h, body: raw !== undefined ? raw : body === undefined ? undefined : JSON.stringify(body) });
   const res = routeProfile === "legacy-engine" && path === "/api/privacy/requests" && request.method === "POST"
-    ? await intake.handlePrivacyIntakeForm(request, env(over), path)
+    ? await intake.handlePrivacyIntakeForm(request, directEnv(over), path)
     : await indexMod.default.fetch(request, env(over), ctx);
   return { status: res.status, body: await res.json().catch(() => ({})), headers: res.headers };
 };
@@ -157,10 +143,10 @@ const iso = (s) => new Date(s * 1000).toISOString();
 const DAY = 86400;
 const id22 = (c) => c.repeat(22), code43 = (c) => c.repeat(43);
 const C1 = id22("A"), K1 = code43("k");
-const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
+const EXPIRED = T - 1;
 
 (async () => {
-  siteUser(MEMBER, { global_name: "Mia" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
+  await siteUser(MEMBER, { global_name: "Mia" }); await siteUser(STAFF, { global_name: "Vik" }); await siteUser(STAFF2, { global_name: "Ann" });
 
   console.log("\n== current public JSON and actual SSR contact boundaries ==");
   const privacyLegacyDb = db;
@@ -296,10 +282,10 @@ const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
   check("  an operation id equal to an existing message id is 409 operation_conflict", r.status === 409 && r.body.error === "operation_conflict");
   r = await call("POST", "/api/admin/community/privacy-requests/update", STAFF, { caseId: C1, messageId: id22("P"), status: "in_review" }, ON, { "X-Olympus": "1" });
   check("  a staff write from an old page is told to reload", r.status === 409 && r.body.error === "reload");
-  db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/privacy-requests/update", STAFF, { caseId: C1, messageId: id22("P"), status: "in_review" });
   check("  a denied admin is refused inside the first statement: 403 denied, no operation, no audit row", r.status === 403 && r.body.error === "denied" && !one("SELECT 1 FROM community_privacy_operations WHERE op_id = ?", id22("P")) && one("SELECT COUNT(*) AS n FROM audit WHERE action = 'community.privacy_case_updated'").n === 1);
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
   T += DAY;
   r = await call("POST", "/api/admin/community/privacy-requests/update", STAFF2, { caseId: C1, messageId: id22("P"), status: "completed", reply: "Done: everything linked to that account is deleted." });
   check("closing (completed) pins the deadline under the case's own retention from this activity and sets closed_at", r.status === 200 && one("SELECT closed_at, retain_until, status FROM community_privacy_cases WHERE case_id = ?", C1).closed_at === T && one("SELECT retain_until FROM community_privacy_cases WHERE case_id = ?", C1).retain_until === T + 90 * DAY && one("SELECT status FROM community_privacy_cases WHERE case_id = ?", C1).status === "completed");
@@ -317,17 +303,17 @@ const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
   check("the per-IP limiter answers the 21st request in a minute with 429 rate_limited and Retry-After", last.status === 429 && last.body.error === "rate_limited" && last.headers.get("Retry-After") === "60");
   let made = 0;
   const T0 = T;
-  T = Math.floor(RealDate.now() / 1000); // .89: the rolling hour is cut by the DATABASE clock, so these twenty are created at the real clock (the earlier case is older than an hour by it)
+  T = T; // .89: the rolling hour is cut by the DATABASE clock, so these twenty are created at the real clock (the earlier case is older than an hour by it)
   for (let i = 0; i < 20; i++) { const x = await pub("/api/privacy/requests", { caseId: id22(String.fromCharCode(66 + i)), caseCode: K1, kind: "other", details: `case ${i}` }); if (x.status === 201) made++; }
   r = await pub("/api/privacy/requests", { caseId: id22("v"), caseCode: K1, kind: "other", details: "the 21st this hour" });
   check("twenty new cases an hour are admitted inside the INSERT, the hour cut by the database clock; the 21st is 429 intake_busy with Retry-After 3600", made === 20 && r.status === 429 && r.body.error === "intake_busy" && r.headers.get("Retry-After") === "3600" && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 21, made, JSON.stringify(r.body));
-  T = Math.floor(RealDate.now() / 1000) - 2 * DAY; // an actor clock two days behind the database's: a one-day retention is already past by the database clock, while the hour's cap is full too
+  nativeTimeOverride = T; T = T - 2 * DAY; // an actor clock two days behind the database's: a one-day retention is already past by the database clock, while the hour's cap is full too
   r = await pub("/api/privacy/requests", { caseId: id22("w"), caseCode: K1, kind: "other", details: "born expired" }, { over: { ...ON, PRIVACY_INTAKE_RETENTION_DAYS: "1" } });
   check("a case whose deadline has already passed by the database clock (the actor's clock behind, a one-day retention) is not born: 503 intake_unavailable, no row; the expiry is classified before the full hour (never 429)", r.status === 503 && r.body.error === "intake_unavailable" && !one("SELECT 1 FROM community_privacy_cases WHERE case_id = ?", id22("w")) && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 21, r.status, JSON.stringify(r.body));
-  T = T0;
+  T = T0; nativeTimeOverride = null;
 
   console.log("\n== the effective cutoff and the purge ==");
-  db.prepare("UPDATE community_privacy_cases SET retain_until = ? WHERE case_id = ?").run(EXPIRED, C1);
+  await fixtureRun("UPDATE community_privacy_cases SET retain_until = ? WHERE case_id = ?",EXPIRED,C1);
   r = await pub("/api/privacy/requests/read", { caseId: C1, caseCode: K1 });
   check("a case past its deadline by the database clock is gone for the requester: 404", r.status === 404);
   r = await pub("/api/privacy/requests/reply", { caseId: C1, caseCode: K1, messageId: M1, text: "I also used the name Mia Two." });
@@ -338,7 +324,7 @@ const EXPIRED = Math.floor(RealDate.now() / 1000) - 1;
   check("  and for staff: not listed, not readable, no operation", r.body.cases.every((c) => c.caseId !== C1) && (await call("GET", "/api/admin/community/privacy-requests/case?caseId=" + C1, STAFF)).status === 404 && (await call("POST", "/api/admin/community/privacy-requests/update", STAFF, { caseId: C1, messageId: id22("S"), status: "in_review" })).status === 404);
   r = await pub("/api/privacy/requests", { caseId: C1, caseCode: K1, kind: "deletion", details: "Please delete my data. I lost my Discord account.", subjectHint: "Mia", characterHint: "Mia One" });
   check("  its id is taken until the purge: the original submission retried is 429 intake_busy, never a replay of an expired case", r.status === 429 && r.body.error === "intake_busy");
-  const swept = await intake.sweepCommunityPrivacy(env({ ...ON, COMMUNITY_FEATURES: "" }), EXPIRED + 1); // the cron's own time: at the real clock, not this process's fixed one
+  const swept = await intake.sweepCommunityPrivacy(directEnv({ ...ON, COMMUNITY_FEATURES: "" }), EXPIRED + 1); // the cron's own time: at the real clock, not this process's fixed one
   check("the purge runs with the flag off: the expired case, its messages and operations are deleted, bounded", swept === 1 && !one("SELECT 1 FROM community_privacy_cases WHERE case_id = ?", C1) && !one("SELECT 1 FROM community_privacy_messages WHERE case_id = ?", C1) && !one("SELECT 1 FROM community_privacy_operations WHERE case_id = ?", C1) && one("SELECT COUNT(*) AS n FROM community_privacy_cases").n === 20, swept);
   check("(no hook left armed)", BEFORE === null && AFTER === null);
 

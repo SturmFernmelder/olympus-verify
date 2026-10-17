@@ -1,0 +1,108 @@
+{
+  "schema": "olympus-census-integration-contract-v1",
+  "status": "Local contract/test successor addressing Claude E notes; accepted extension and candidate Bridge bytes unchanged; no upstream implementation or install",
+  "baseCommit": "f60f18814f2426a5c21f97e207611871a06366b4",
+  "producer": "Optional OlympusBridge.GetCensusSnapshot extension built inside upstream Bridge.lua namespace",
+  "consumer": "Future optional Olympus Verify adapter; no generic SavedVariables parser",
+  "purpose": "Guild directory/community census observations",
+  "fields": [
+    "format",
+    "addonVersion",
+    "realmGroup",
+    "faction",
+    "observedAt",
+    "source",
+    "membershipProof:false",
+    "guilds[].name",
+    "guilds[].reportedCharacters",
+    "guilds[].receivedAt",
+    "guilds[].fresh",
+    "guilds[].counted",
+    "guilds[].online (fresh only)"
+  ],
+  "bounds": {
+    "guilds": 300,
+    "nameBytes": 128,
+    "realmGroupBytes": 128,
+    "charactersPerGuild": 1000,
+    "onlineFreshSeconds": 900,
+    "totalFreshSeconds": 86400,
+    "retainedSeconds": 604800,
+    "addonVersionBytes": 32
+  },
+  "excluded": [
+    "chat",
+    "character names",
+    "reporter names",
+    "officer names",
+    "council names",
+    "realm keys",
+    "signing keys",
+    "account identifiers",
+    "positions or zones"
+  ],
+  "authorization": "Explicit export action and preview before transport; no upstream communication/PR/install in this step",
+  "trust": "Unsigned client community observations; never establish membership, native rank, Council eligibility, account uniqueness, II-X affiliation, or grant Discord roles",
+  "consumerRequirements": [
+    "Validate all bounds and clocks server-side at receipt, rejecting future snapshots.",
+    "No role or affiliation writes from census imports.",
+    "Use locally verified host/session authority for any future upload.",
+    "Respect upstream opt-outs and stream masks through its Summary and Masked interfaces.",
+    "Timestamp/version visible; stale counts distinct from fresh counts.",
+    "Avoid naming guilds OlympusII-X from ordinal guesses.",
+    "Retain existing trusted roster verification independently.",
+    "Feature-detect the optional method; API_VERSION remains 1 and upstream 1.2.3 does not provide this method.",
+    "Label receivedAt as this local client's receipt time, not the reporter's clock, and observedAt as this client's export time.",
+    "Treat refusal as unavailable census evidence, never an empty or partially valid census; preserve the explicit freshness/counting distinction.",
+    "Implement and separately qualify bounded server-side schema, text/array/count/clock validation before any optional upload is enabled. This local export test does not qualify a consumer or server."
+  ],
+  "live": false,
+  "revision": 2,
+  "composition": {
+    "required": "Append bridge-extension.lua to the exact pinned Bridge.lua source and execute both as one Lua chunk. Do not load it as a separate addon file.",
+    "reason": "Masked and ns are file-local to Bridge.lua; same-chunk composition preserves its existing stream-mask behavior.",
+    "candidateSha256": "6956256a73a9670dd1545113cdd3f2ed72c264c86143b13c3c2d3b1db0753416",
+    "extensionSha256": "23d352a43def269be4d66a4d1e5932ff61e124a5930ab0dee00ece2e9f96dc32"
+  },
+  "compatibility": {
+    "bridgeApiVersion": 1,
+    "versionBump": false,
+    "featureDetection": "type(OlympusBridge) == \"table\" and type(OlympusBridge.GetCensusSnapshot) == \"function\"",
+    "missingMethod": "Treat the optional census capability as unavailable; do not infer it from API_VERSION 1 and do not parse SavedVariables as a fallback."
+  },
+  "malformedRowPolicy": "All-or-nothing over every row supplied by Summary: any malformed row, future receipt time, duplicate case-insensitive guild name, sparse/nonarray shape, or exceeded bound refuses the entire snapshot with nil plus a reason. No valid prefix or partial snapshot is exported. Well-formed rows older than seven days are omitted normally; malformed rows are not silently dropped. Upstream Summary can already filter rows before export.",
+  "clockSemantics": {
+    "observedAt": "Current local client ns.Now() when the export is requested.",
+    "receivedAt": "guilds[].receivedAt copies the local client receipt time g.t; Data.lua stamps r.t = ns.Now(). It is not the reporter clock or authenticated server evidence.",
+    "futureRefusal": "A local clock step backward can make an existing receipt future-dated. Refuse the entire snapshot until the local clock/evidence is reviewed; do not clamp, repair or adopt a reporter timestamp.",
+    "boundaries": "Inclusive: online fresh through 900 seconds, total counted through 86400 seconds, retained through 604800 seconds."
+  },
+  "constantPinning": {
+    "Data.FRESH": "equals bounds.onlineFreshSeconds = 900",
+    "Data.TOTAL_KEEP": "equals bounds.totalFreshSeconds = 86400",
+    "Data.KEEP": "equals bounds.retainedSeconds = 604800",
+    "Data.MAX_GUILDS": "equals bounds.guilds = 300",
+    "method": "V2 Lua assertions read exports from the actual pinned Data.lua and compare with the copied extension bounds and this contract. Any upstream pin change requires review and rerun before use."
+  },
+  "qualification": {
+    "luaRuntime": "Lupa Lua 5.1",
+    "testedSources": [
+      "Pinned Bridge.lua plus unchanged extension in one chunk",
+      "Pinned Data.lua exports and Summary with synthetic records"
+    ],
+    "codecDecodeQualified": false,
+    "codecReason": "Codec.lua is absent from the pinned subset. The test supplies only a synthetic Codec.GUILD_CAP; it neither decodes actual reports nor qualifies decode-side bounds. The >1000 export check is defensive.",
+    "serverValidatorQualified": false,
+    "upstreamIntegrationComplete": false,
+    "installed": false,
+    "providerCalls": false,
+    "claudeSignatureForV2": false
+  },
+  "reviewBasis": {
+    "sharedLog": "claude_code_x_chatgpt_codex.md",
+    "entryUTC": "2026-10-15 00:25:22 UTC",
+    "section": "E. Upstream census contract — ACCEPT_WITH_NOTES",
+    "lines": "723-732",
+    "scope": "Claude reviewed V1. This documentary/test-only successor is Codex work and is not a new Claude signature."
+  }
+}

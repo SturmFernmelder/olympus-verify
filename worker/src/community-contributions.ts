@@ -209,15 +209,17 @@ export async function ensurePolicy(env: Env, policy: ContributionPolicy = DEFAUL
   requireWritable(env);
   periodStart(at, policy); // validates every field
   const r = toRow(policy);
-  await env.DB.prepare(
+  const policyStatement = env.DB.prepare(
     `INSERT INTO ${T}policies (version, amount_copper, anchor_weekday, anchor_hour_utc, grace_hours, final_notice_days, review_days, new_member_exempt_days, created_at)
      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
      WHERE NOT EXISTS (SELECT 1 FROM ${T}policies WHERE anchor_weekday <> ?3 OR anchor_hour_utc <> ?4)
      ON CONFLICT(version) DO NOTHING`,
   )
     .bind(r.version, r.amount_copper, r.anchor_weekday, r.anchor_hour_utc, r.grace_hours, r.final_notice_days, r.review_days, r.new_member_exempt_days, at)
-    .run();
-  const stored = await env.DB.prepare(`SELECT * FROM ${T}policies WHERE version = ?1`).bind(policy.version).first<PolicyRow>();
+    ;
+  // Immutable policy insertion and its exact readback share the same native epoch proof.
+  const facts = await env.DB.batch([policyStatement, env.DB.prepare(`SELECT * FROM ${T}policies WHERE version = ?1`).bind(policy.version)]);
+  const stored = facts[1]!.results[0] as PolicyRow | undefined;
   if (!stored) throw new ContributionError("policy_anchor_change");
   if (!samePolicy(policyFromRow(stored), policy)) throw new ContributionError("policy_conflict");
 }
@@ -238,7 +240,7 @@ function parseRevision(token: LedgerRevision): { incarnation: string; revision: 
  * the server. The same fence for a member acknowledging and for a staff member recording.
  */
 export type SessionFence = CommunitySubject;
-const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos,fence.privacyGeneration??null)}` : "");
+const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos,fence.privacyGeneration,fence.accountIncarnation)}` : "");
 const fenceBinds = (fence: SessionFence | undefined) => (fence ? [fence.discordId, fence.sessionVersion, fence.expiresAt] : []);
 
 /** A new member row gets a fresh random incarnation; an existing one keeps its incarnation and bumps its revision; only when this request's obligation row was inserted. */
@@ -285,7 +287,14 @@ async function openObligation(env: Env, input: ObligationInput, at: number, ensu
     : "";
   const proofBinds = input.proof ? [input.proof.firstLogin, input.proof.sessionVersion, policy.newMemberExemptDays * DAY, input.proof.privacyGeneration] : [];
   // ?1 scope, ?2 member, ?3 period, ?4 due, ?5 version, ?6 amount, ?7 eligible, ?8 now, ?9 retain, ?10 opNonce, ?11.. the fence, then the proof (first login, session version, exemption seconds, original generation or absence)
-  const [inserted] = await env.DB.batch([
+  const readback = [
+    env.DB.prepare(`SELECT id FROM ${T}obligations o WHERE o.guild_scope = ? AND o.discord_id = ? AND o.period_start = ? AND ${LIVE_WEEK("o")}`).bind(input.guildScope, input.discordId, input.periodStart),
+    env.DB.prepare(`SELECT (?1 > ${DB_NOW}) AS live`).bind(retainUntil),
+  ];
+  // The source-only opener's original proof has no acting-session fence. Its readback
+  // shares the insert's atomic epoch proof; attended/session callers retain readAs.
+  const atomicReadback = !!input.proof && !input.fence;
+  const insertedResults = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO ${T}obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, retain_until, op_nonce, created_at, updated_at)
        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'open', ?9, ?10, ?8, ?8
@@ -293,12 +302,11 @@ async function openObligation(env: Env, input: ObligationInput, at: number, ensu
        ON CONFLICT(guild_scope, discord_id, period_start) DO NOTHING`,
     ).bind(input.guildScope, input.discordId, input.periodStart, input.periodStart + WEEK, policy.version, policy.amountCopper, input.eligible ? 1 : 0, at, retainUntil, opNonce, ...fenceBinds(input.fence), ...proofBinds),
     bumpMemberFor(env, input.guildScope, input.discordId, at, opNonce),
+    ...(atomicReadback ? readback : []),
   ]);
+  const inserted = insertedResults[0];
   // .80: the new row's id is a later standalone read: under the acting session's admission (a committed insert stays either way); .88: with the deadline judged by the database clock, for the explanation
-  const [found, deadline] = await readAs(env, input.fence, [
-    env.DB.prepare(`SELECT id FROM ${T}obligations o WHERE o.guild_scope = ? AND o.discord_id = ? AND o.period_start = ? AND ${LIVE_WEEK("o")}`).bind(input.guildScope, input.discordId, input.periodStart),
-    env.DB.prepare(`SELECT (?1 > ${DB_NOW}) AS live`).bind(retainUntil),
-  ]);
+  const [found, deadline] = atomicReadback ? insertedResults.slice(2) : await readAs(env, input.fence, readback);
   const row = found!.results[0] as { id: number } | undefined;
   if (!row) {
     // born at or past its deadline by the database clock (past_retention); the account, its roster proof or its eligibility changed since the scan (proof_changed); or at/before the horizon
@@ -749,7 +757,7 @@ export async function attestEvidence(env: Env, input: { guildScope: string; peri
 
 /** Why the fence refuses now, if it does, judged by the database clock and facts in SQL (.80): the session ended (session_expired), or the actor lost standing (denied, left the server: standing_lost). */
 export async function fenceRefusal(env: Env, fence: SessionFence): Promise<"session_expired" | "standing_lost" | null> {
-  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3,fence.privacyGeneration??null)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3,fence.privacyGeneration??null)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
+  const row = await env.DB.prepare(`SELECT (${fenceSql("authenticatedIdentity", 1, 2, 3,fence.privacyGeneration,fence.accountIncarnation)}) AS session_ok, (${fenceSql("applicantWrite", 1, 2, 3,fence.privacyGeneration,fence.accountIncarnation)}) AS standing_ok`).bind(fence.discordId, fence.sessionVersion, fence.expiresAt).first<{ session_ok: number; standing_ok: number }>();
   if (row?.session_ok !== 1) return "session_expired";
   if (row.standing_ok !== 1) return "standing_lost";
   return null;

@@ -11,8 +11,26 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [T * 1000])); }
+  static now() { return T * 1000; }
+};
+const nativePorts = new WeakMap(), admittedRealms = new WeakMap();
+function nativePort(database) {
+  if (!nativePorts.has(database)) nativePorts.set(database, entry.originalNativePort(database));
+  return nativePorts.get(database);
+}
+function d1(database, sourceLoad = load) {
+  if (!admittedRealms.has(sourceLoad)) admittedRealms.set(sourceLoad,new WeakMap());
+  const ports = admittedRealms.get(sourceLoad);
+  if (!ports.has(database)) ports.set(database,sourceLoad('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(nativePort(database),'writer','canonical',entry.ENTRY_EPOCH));
+  return ports.get(database);
+}
 
-function d1(db) {
+function legacyD1(db) {
   const exec = (sql, params) => {
     const st = db.prepare(sql);
     if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
@@ -44,13 +62,16 @@ function d1(db) {
     },
   };
 }
-function freshDb(schemaPath = path.join(root, "schema.sql")) {
+async function freshDb(schemaPath = path.join(root, "schema.sql"), sourceLoad = load) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(schemaPath, "utf8"));
+  if(schemaPath === path.join(root,'schema.sql')) {
+    db.function('strftime',(format,value)=>{if(format!=='%s'||value!=='now')throw Error('unexpected Native clock input');return String(T);});
+    entry.installCurrentEntryEpoch(db,{now:T});
+  } else db.exec(fs.readFileSync(schemaPath, "utf8"));
   // .116 fixture only: legacy enabled behavior uses the named synthetic policy profile below, these in-memory
   // settings and fake secrets. Real immutable OFF and owner-session/enable-intent guards remain separately tested.
-  db.exec("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('bnetLogin', '1', 0, NULL)");
+  await d1(db,sourceLoad).prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('bnetLogin', '1', 0, NULL)").run();
   return db;
 }
 
@@ -62,11 +83,13 @@ const realDiscord = (() => {
   return mod.exports;
 })();
 // Discord's role-connection push (oauth.ts) and nothing else may leave the process.
-globalThis.fetch = async (url, init = {}) => {
-  if (String(url).includes("/role-connection")) {
-    PUSHES.push({ method: init.method ?? "GET", body: String(init.body ?? "") });
-    if (init.method === "DELETE") return new Response(ROLE_CONN_DELETE === 204 ? null : "{}", { status: ROLE_CONN_DELETE });
-    if (init.method === "PUT") return new Response(ROLE_CONN_REPLY, { status: 200, headers: { "Content-Type": "application/json" } });
+globalThis.fetch = async (input, init = {}) => {
+  const request = input instanceof Request ? input : new Request(input,init);
+  const url = request.url;
+  if (url.includes("/role-connection")) {
+    PUSHES.push({ method: request.method, body: ['GET','HEAD'].includes(request.method) ? '' : await request.clone().text() });
+    if (request.method === "DELETE") return new Response(ROLE_CONN_DELETE === 204 ? null : "{}", { status: ROLE_CONN_DELETE });
+    if (request.method === "PUT") return new Response(ROLE_CONN_REPLY, { status: 200, headers: { "Content-Type": "application/json" } });
     // GET: what Discord now holds. By default the test echoes the last PUT body (a replace-semantics provider).
     const last = [...PUSHES].reverse().find((p) => p.method === "PUT");
     if (ROLE_CONN_GET instanceof Response) return ROLE_CONN_GET.clone();
@@ -93,6 +116,7 @@ const stubs = {
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
   "./review": { onVerified: async () => {} },
 };
+const discordOverrideNames = new Set(['json','reply','verifyInteraction','logLine','postMessage','staffNotice','addRole','removeRole','guildMember','setNickname','rest','explainDiscordError']);
 // .116 test fixture only: each loader has its own module realm/cache. The ordinary loader reads
 // immutable production OFF source; named synthetic profiles alter only constant initializers in
 // transpiler input, never files, bnetLoginOn, its setting reads, or bnetReleasedOn's predicate.
@@ -112,8 +136,8 @@ function createLoader(fixtureName = null) {
   const fixture = fixtureName === null ? null : POLICY_FIXTURES[fixtureName];
   if (fixtureName !== null && !Object.hasOwn(POLICY_FIXTURES, fixtureName)) throw new Error("unknown test policy fixture");
   const cache = {};
-  function load(name) {
-    if (stubs[name]) return stubs[name];
+  function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
+    if (stubs[name] && name !== './discord') return stubs[name];
     if (cache[name]) return cache[name].exports;
     let source = fs.readFileSync(path.join(root, "src", name.replace("./", "") + ".ts"), "utf8");
     if (fixture && name === "./policy-content") {
@@ -129,6 +153,7 @@ function createLoader(fixtureName = null) {
     const mod = { exports: {} };
     cache[name] = mod;
     new Function("module", "exports", "require", js)(mod, mod.exports, (p) => load(p));
+    if (name === './discord') Object.assign(mod.exports,Object.fromEntries(Object.entries(stubs[name]).filter(([key])=>discordOverrideNames.has(key))));
     return mod.exports;
   }
   return load;
@@ -136,35 +161,32 @@ function createLoader(fixtureName = null) {
 const load = createLoader("enabled"); // Clearly synthetic ON profile, not a production release approval.
 const retention = load("./bnet-retention"), oauth = load("./oauth"), lookup = load("./lookup"), interactions = load("./interactions"), indexMod = load("./index");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 const DAY = 86400;
 const OFFICER = "1549581672272625734", GUILD = "1549537348516188200";
-let db = freshDb();
-const env = () => ({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", ROLE_OFFICER: OFFICER, ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", BNET_CLIENT_ID: "bnet-client-for-tests", BNET_CLIENT_SECRET: "bnet-secret-for-tests" });
+let db;
+const env = () => entry.currentEntryEnvironment({ DB: d1(db), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: GUILD, DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", ROLE_OFFICER: OFFICER, ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", BNET_CLIENT_ID: "bnet-client-for-tests", BNET_CLIENT_SECRET: "bnet-secret-for-tests" });
+const rawEnv = () => ({...env(),DB:nativePort(db)});
+async function fixtureRun(sql,...params) { return env().DB.prepare(sql).bind(...params).run(); }
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const one = (sql, ...p) => db.prepare(sql).get(...p);
-const member = (id, fields) => {
+const member = async (id, fields) => {
   const cols = Object.keys(fields);
-  db.prepare(`INSERT INTO members (discord_id${cols.map((c) => ", " + c).join("")}) VALUES (?${cols.map((_, i) => ", ?").join("")})`).run(id, ...cols.map((c) => fields[c]));
+  await fixtureRun(`INSERT INTO members (discord_id${cols.map((c) => ", " + c).join("")}) VALUES (?${cols.map((_, i) => ", ?").join("")})`,id,...cols.map((c) => fields[c]));
 };
-const auditRow = (ts, actor, action, subject) => db.prepare("INSERT INTO audit (ts, actor, action, subject) VALUES (?, ?, ?, ?)").run(ts, actor, action, subject);
+const auditRow = async (ts, actor, action, subject) => await fixtureRun("INSERT INTO audit (ts, actor, action, subject) VALUES (?, ?, ?, ?)",ts,actor,action,subject);
 const admin = async (sub, opts, roles = [OFFICER]) => (await interactions.handleInteraction(env(), { type: 2, id: "1", token: "t", guild_id: GUILD, member: { user: { id: "999999999999999999", username: "officer" }, roles }, data: { name: "olympus-admin", options: [{ name: sub, type: 1, options: Object.entries(opts).map(([k, v]) => ({ name: k, type: 3, value: v })) }] } })).body?.data?.content ?? "";
 const status = async (id) => (await interactions.handleInteraction(env(), { type: 2, id: "2", token: "t", guild_id: GUILD, member: { user: { id, username: "u" }, roles: [] }, data: { name: "verify-status" } })).body?.data?.content ?? "";
 
 (async () => {
+  db = await freshDb();
   console.log("\n== real immutable OFF source and finite synthetic admission controls ==");
   const ordinaryLoad = createLoader();
   const ordinaryPolicy = ordinaryLoad("./policy-content"), ordinaryRelease = ordinaryLoad("./policy-release");
   const ordinarySwitch = ordinaryLoad("./bnet-switch"), ordinaryOauth = ordinaryLoad("./oauth");
-  const offDb = freshDb();
+  const offDb = await freshDb(undefined,ordinaryLoad);
   try {
-    const offEnv = { ...env(), DB: d1(offDb), SITE_ADMINS: "100000000000000090" };
+    const offEnv = { ...env(), DB: d1(offDb,ordinaryLoad), SITE_ADMINS: "100000000000000090" };
     const untouched = () => JSON.stringify({
       members: offDb.prepare("SELECT * FROM members").all(),
       audit: offDb.prepare("SELECT * FROM audit").all(),
@@ -196,21 +218,21 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   const syntheticState = await load("./bnet-switch").bnetLoginState(env());
   check("retention fixture explicitly admits synthetic same-version ON with real setting and secrets", syntheticState.configured === true && syntheticState.adminOn === true && syntheticState.policyReady === true && syntheticState.effective === true && syntheticState.releaseProfile === "ON" && syntheticState.releasePolicyVersion === load("./policy-content").POLICY_SOURCE_DIGEST && load("./policy-release").bnetReleasedOn() === true, syntheticState);
   for (const fixtureName of ["markerOff", "releaseOff", "versionMismatch", "ownershipUnreviewed", "recoveryUnreviewed"]) {
-    const negativeLoad = createLoader(fixtureName), negativeDb = freshDb();
+    const negativeLoad = createLoader(fixtureName), negativeDb = await freshDb(undefined,negativeLoad);
     try {
-      const negativeEnv = { ...env(), DB: d1(negativeDb) }, state = await negativeLoad("./bnet-switch").bnetLoginState(negativeEnv);
+      const negativeEnv = { ...env(), DB: d1(negativeDb,negativeLoad) }, state = await negativeLoad("./bnet-switch").bnetLoginState(negativeEnv);
       check("synthetic policy guard refuses " + fixtureName, state.configured === true && state.adminOn === true && state.policyReady === false && state.effective === false, state);
       const response = await negativeLoad("./oauth").bindBattletag(negativeEnv, { id: "100000000000000092", username: "fixture-negative" }, { Authorization: "Bearer fixture-only" }, "FixtureNegative#92", "fixture-negative", "test");
       check("refused " + fixtureName + " binds no row and makes no fake provider call", response.status === 200 && /switched off/.test(await response.text()) && negativeDb.prepare("SELECT COUNT(*) AS n FROM members").get().n === 0 && negativeDb.prepare("SELECT COUNT(*) AS n FROM audit").get().n === 0 && PUSHES.length === 0);
     } finally { negativeDb.close(); }
   }
   for (const fault of ["missingClient", "missingSecret", "adminOff", "settingReadFails"]) {
-    const guardedLoad = createLoader("enabled"), guardedDb = freshDb();
+    const guardedLoad = createLoader("enabled"), guardedDb = await freshDb(undefined,guardedLoad);
     try {
-      let guardedEnv = { ...env(), DB: d1(guardedDb) };
+      let guardedEnv = { ...env(), DB: d1(guardedDb,guardedLoad) };
       if (fault === "missingClient") guardedEnv = { ...guardedEnv, BNET_CLIENT_ID: "" };
       if (fault === "missingSecret") guardedEnv = { ...guardedEnv, BNET_CLIENT_SECRET: "" };
-      if (fault === "adminOff") guardedDb.prepare("UPDATE site_settings SET value='0' WHERE key='bnetLogin'").run();
+      if (fault === "adminOff") await guardedEnv.DB.prepare("UPDATE site_settings SET value='0' WHERE key='bnetLogin'").run();
       if (fault === "settingReadFails") guardedEnv = { ...guardedEnv, DB: { prepare: () => ({ bind: () => ({ all: async () => { throw new Error("fixture settings unavailable"); } }) }) } };
       const state = await guardedLoad("./bnet-switch").bnetLoginState(guardedEnv);
       check("synthetic ON still needs actual secrets and readable enabled setting: " + fault, state.policyReady === true && state.effective === false && state.configured === !fault.startsWith("missing") && state.adminOn === fault.startsWith("missing"), state);
@@ -229,20 +251,20 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("  a timestamp far in the future is not fresh either", !retention.bnetFresh(T + 3600));
 
   console.log("\n== the purge ==");
-  member("100000000000000001", { battletag: "Fresh#1", bnet_conn_id: "c1", linked_at: T - 1 * DAY });
-  member("100000000000000002", { battletag: "Stale#2", bnet_conn_id: "c2", linked_at: T - 30 * DAY });
-  member("100000000000000003", { battletag: "Edge#3", bnet_conn_id: "c3", linked_at: T - 29 * DAY });
-  member("100000000000000004", { battletag: "Inside#4", bnet_conn_id: "c4", linked_at: T - 29 * DAY + 1 });
-  member("100000000000000005", { battletag: "Legacy#5", bnet_conn_id: "c5", linked_at: null });
-  member("100000000000000006", { battletag: "Banned#6", bnet_conn_id: "c6", linked_at: T - 40 * DAY, banned: 1, ban_reason: "test" });
-  member("100000000000000007", { bnet_account_id: "acc7", bnet_linked_at: T - 31 * DAY });
-  member("100000000000000008", { bnet_account_id: "acc8", bnet_linked_at: T - 2 * DAY });
-  db.prepare("INSERT INTO bnet_characters (discord_id, character_id, name, fetched_at) VALUES ('100000000000000007', 'x1', 'Old Char', ?), ('100000000000000008', 'x2', 'New Char', ?)").run(T - 31 * DAY, T - 2 * DAY);
-  auditRow(T - 40 * DAY, "100000000000000002", "link.ok", "Stale#2");
-  auditRow(T - 40 * DAY, "100000000000000002", "link.battletag_taken", "Stale#2");
-  auditRow(T - 40 * DAY, "cron", "bnet.linked", "Stale#2");
-  auditRow(T - 1 * DAY, "100000000000000001", "link.ok", "Fresh#1");
-  auditRow(T - 40 * DAY, "999999999999999999", "admin.ban", "100000000000000006");
+  await member("100000000000000001", { battletag: "Fresh#1", bnet_conn_id: "c1", linked_at: T - 1 * DAY });
+  await member("100000000000000002", { battletag: "Stale#2", bnet_conn_id: "c2", linked_at: T - 30 * DAY });
+  await member("100000000000000003", { battletag: "Edge#3", bnet_conn_id: "c3", linked_at: T - 29 * DAY });
+  await member("100000000000000004", { battletag: "Inside#4", bnet_conn_id: "c4", linked_at: T - 29 * DAY + 1 });
+  await member("100000000000000005", { battletag: "Legacy#5", bnet_conn_id: "c5", linked_at: null });
+  await member("100000000000000006", { battletag: "Banned#6", bnet_conn_id: "c6", linked_at: T - 40 * DAY, banned: 1, ban_reason: "test" });
+  await member("100000000000000007", { bnet_account_id: "acc7", bnet_linked_at: T - 31 * DAY });
+  await member("100000000000000008", { bnet_account_id: "acc8", bnet_linked_at: T - 2 * DAY });
+  await fixtureRun("INSERT INTO bnet_characters (discord_id, character_id, name, fetched_at) VALUES ('100000000000000007', 'x1', 'Old Char', ?), ('100000000000000008', 'x2', 'New Char', ?)",T - 31 * DAY,T - 2 * DAY);
+  await auditRow(T - 40 * DAY, "100000000000000002", "link.ok", "Stale#2");
+  await auditRow(T - 40 * DAY, "100000000000000002", "link.battletag_taken", "Stale#2");
+  await auditRow(T - 40 * DAY, "cron", "bnet.linked", "Stale#2");
+  await auditRow(T - 1 * DAY, "100000000000000001", "link.ok", "Fresh#1");
+  await auditRow(T - 40 * DAY, "999999999999999999", "admin.ban", "100000000000000006");
   let r = await retention.purgeBattleNetData(env());
   check("the purge reports what it did", r.members === 4 && r.phase3 === 1 && r.characters === 1 && r.audit === 3, JSON.stringify(r));
   const m = (id) => one("SELECT battletag, bnet_conn_id, linked_at, bnet_account_id, bnet_linked_at, banned FROM members WHERE discord_id = ?", id);
@@ -264,7 +286,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("health: nothing overdue; the oldest record still stored is Inside#4, one second inside 29 days", h.overdue === 0 && h.oldestAgeDays === 28, JSON.stringify(h));
 
   console.log("\n== request-time filtering when the cron is late ==");
-  member("100000000000000009", { battletag: "Late#9", bnet_conn_id: "c9", linked_at: T - 35 * DAY });
+  await member("100000000000000009", { battletag: "Late#9", bnet_conn_id: "c9", linked_at: T - 35 * DAY });
   h = await retention.bnetRetentionStatus(env());
   check("health counts the overdue row", h.overdue === 1 && h.oldestAgeDays === 35, JSON.stringify(h));
   let text = await status("100000000000000009");
@@ -285,8 +307,8 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("a FRESH tag is not written into the staff log or the ban card either, only that a link exists and when it goes (Codex 00:05)", /Battle\.net: linked \(until <t:\d+:d>\)/.test(text) && !text.includes("Fresh#1") && LOGS.length === 1 && POSTS.length === 1 && persistent.includes("Battle.net: linked (until") && !persistent.includes("Fresh#1"), text.slice(0, 160), persistent.slice(0, 200));
   text = await admin("unban", { user: "100000000000000001" });
   check("the retired Phase 3 command is unknown", (await interactions.handleInteraction(env(), { type: 2, id: "5", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000009", username: "u" }, roles: [] }, data: { name: "verify-bnet", options: [{ name: "character", type: 3, value: "Any" }] } })).body?.data?.content === "Unknown command.");
-  const gone = await indexMod.default.fetch(new Request("https://verify.example/bnet/start?t=x"), env(), { waitUntil: () => {} });
-  check("  and its routes are 404", gone.status === 404 && (await indexMod.default.fetch(new Request("https://verify.example/bnet/callback?code=x&state=y"), env(), { waitUntil: () => {} })).status === 404);
+  const gone = await indexMod.default.fetch(new Request("https://verify.example/bnet/start?t=x"), rawEnv(), { waitUntil: () => {} });
+  check("  and its routes are 404", gone.status === 404 && (await indexMod.default.fetch(new Request("https://verify.example/bnet/callback?code=x&state=y"), rawEnv(), { waitUntil: () => {} })).status === 404);
   text = await status("100000000000000001");
   check("/verify-status tells someone who linked how Discord's own copy of the tag goes away", /Discord's own record of this connection/.test(text) && /removing the connection/.test(text), text.slice(-200));
   text = await status("100000000000000002");
@@ -305,7 +327,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("a fresh tag held by someone else is still refused", html.includes("already linked") && m("100000000000000011") === undefined, html.slice(0, 80));
 
   console.log("\n== a ban binds the Discord account, never the tag ==");
-  member("100000000000000013", { battletag: "Soon#13", bnet_conn_id: "c13", linked_at: T - 3 * DAY });
+  await member("100000000000000013", { battletag: "Soon#13", bnet_conn_id: "c13", linked_at: T - 3 * DAY });
   text = await admin("ban", { user: "100000000000000013", reason: "test" });
   check("banning says what it binds and never mentions a fingerprint", /this Discord account cannot verify or link again/.test(text) && !/fingerprint/i.test(text), text.slice(0, 160));
   res = await oauth.bindBattletag(env(), { id: "100000000000000013", username: "banned" }, { Authorization: "Bearer x" }, "Soon#13", "c13", "test");
@@ -353,39 +375,39 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   await retention.purgeBattleNetData(env());
   h = await retention.bnetRetentionStatus(env());
   check("clean to start", h.overdue === 0, JSON.stringify(h));
-  auditRow(T - 40 * DAY, "100000000000000077", "link.ok", "Ghost#77");
+  await auditRow(T - 40 * DAY, "100000000000000077", "link.ok", "Ghost#77");
   h = await retention.bnetRetentionStatus(env());
   check("an audit row still naming a tag past the cutoff counts as overdue, and sets the oldest age", h.overdue === 1 && h.oldestAgeDays === 40, JSON.stringify(h));
   r = await retention.purgeBattleNetData(env());
   check("  the purge scrubs it", r.audit === 1 && (await retention.bnetRetentionStatus(env())).overdue === 0);
-  member("100000000000000078", { bnet_conn_id: "c78", linked_at: null });
+  await member("100000000000000078", { bnet_conn_id: "c78", linked_at: null });
   h = await retention.bnetRetentionStatus(env());
   check("a connection id with no tag and no timestamp counts as overdue", h.overdue === 1, JSON.stringify(h));
   r = await retention.purgeBattleNetData(env());
   check("  the purge clears it", r.members === 1 && m("100000000000000078").bnet_conn_id === null);
-  member("100000000000000079", { bnet_account_id: "acc79", bnet_linked_at: null });
+  await member("100000000000000079", { bnet_account_id: "acc79", bnet_linked_at: null });
   h = await retention.bnetRetentionStatus(env());
   check("an account id with no timestamp counts as overdue", h.overdue === 1, JSON.stringify(h));
   r = await retention.purgeBattleNetData(env());
   check("  the purge clears it", r.phase3 === 1 && m("100000000000000079").bnet_account_id === null);
-  member("100000000000000080", { battletag: "Future#80", bnet_conn_id: "c80", linked_at: T + 365 * DAY });
+  await member("100000000000000080", { battletag: "Future#80", bnet_conn_id: "c80", linked_at: T + 365 * DAY });
   h = await retention.bnetRetentionStatus(env());
   check("a far-future timestamp counts as overdue and never as a negative age", h.overdue === 1 && (h.oldestAgeDays === null || h.oldestAgeDays >= 0), JSON.stringify(h));
   check("  readers do not show it", !/Battle\.net: linked/.test(await status("100000000000000080")));
   r = await retention.purgeBattleNetData(env());
   check("  the purge clears it instead of keeping it for a year", r.members === 1 && m("100000000000000080").battletag === null && m("100000000000000080").linked_at === null);
-  member("100000000000000081", { battletag: "Soon#81", bnet_conn_id: "c81", linked_at: T + 200 });
+  await member("100000000000000081", { battletag: "Soon#81", bnet_conn_id: "c81", linked_at: T + 200 });
   check("  while a timestamp a few minutes ahead (clock skew) is left alone", (await retention.purgeBattleNetData(env())).members === 0 && m("100000000000000081").battletag === "Soon#81");
-  const skewDb = freshDb();
-  skewDb.prepare("INSERT INTO members (discord_id, battletag, bnet_conn_id, linked_at) VALUES ('100000000000000082', 'Skew#82', 'c82', ?)").run(T + 200);
+  const skewDb = await freshDb();
+  await d1(skewDb).prepare("INSERT INTO members (discord_id, battletag, bnet_conn_id, linked_at) VALUES ('100000000000000082', 'Skew#82', 'c82', ?)").bind(T + 200).run();
   const skewStatus = await retention.bnetRetentionStatus({ ...env(), DB: d1(skewDb) });
   check("  and alone in a database it reports age 0, never -1 (Codex 00:38)", skewStatus.overdue === 0 && skewStatus.oldestAgeDays === 0, JSON.stringify(skewStatus));
 
   console.log("\n== a read-only command is answered afresh, never from the replay ledger (Codex 00:05) ==");
-  member("100000000000000016", { battletag: "Edge#16", bnet_conn_id: "c16", linked_at: T - 29 * DAY + 2 });
+  await member("100000000000000016", { battletag: "Edge#16", bnet_conn_id: "c16", linked_at: T - 29 * DAY + 2 });
   const waits2 = [];
   const ictx = { waitUntil: (p) => waits2.push(Promise.resolve(p).catch(() => {})) };
-  const statusPost = () => indexMod.default.fetch(new Request("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00", "X-Signature-Timestamp": String(T) }, body: JSON.stringify({ type: 2, id: "900000000000000031", application_id: "1550176895671341076", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000016", username: "edge" }, roles: [] }, data: { name: "verify-status" } }) }), env(), ictx);
+  const statusPost = () => indexMod.default.fetch(new Request("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00", "X-Signature-Timestamp": String(T) }, body: JSON.stringify({ type: 2, id: "900000000000000031", application_id: "1550176895671341076", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000016", username: "edge" }, roles: [] }, data: { name: "verify-status" } }) }), rawEnv(), ictx);
   let sres = await statusPost();
   while (waits2.length) await waits2.shift();
   let stext = JSON.stringify(sres.body ?? (await sres.json()));
@@ -402,56 +424,63 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   // the purge section inserted a bnet.linked audit row on purpose (still counted after its subject was scrubbed: the
   // action is the evidence); its Phase 3 account and character rows have since expired and been purged above
   check("the count is zero for every kind the retired path could write, except the audit row this fixture inserted on purpose", legacy.characters === 0 && legacy.pending === 0 && legacy.snapshots === 0 && legacy.audit === 1 && legacy.bnetCharacters === 0 && legacy.accountIds === 0, JSON.stringify(legacy));
-  member("100000000000000050", { discord_name: "apiuser" }); // characters.discord_id references members
-  db.prepare("INSERT INTO characters (name_key, name, discord_id, status, bound_at, verified_at, source) VALUES ('apichar', 'Apichar', '100000000000000050', 'verified', ?, ?, 'api')").run(T, T);
-  db.prepare("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, consumed_at, consumed_source) VALUES ('100000000000000050', 'apichar', 'Apichar', ?, ?, ?, 'api')").run(T, T, T);
-  db.prepare("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash) VALUES (?, ?, 'api', 1, 'h')").run(T, T);
-  auditRow(T, "100000000000000050", "verify.api_confirmed", "Apichar");
+  await member("100000000000000050", { discord_name: "apiuser" }); // characters.discord_id references members
+  await fixtureRun("INSERT INTO characters (name_key, name, discord_id, status, bound_at, verified_at, source) VALUES ('apichar', 'Apichar', '100000000000000050', 'verified', ?, ?, 'api')",T,T);
+  await fixtureRun("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, consumed_at, consumed_source) VALUES ('100000000000000050', 'apichar', 'Apichar', ?, ?, ?, 'api')",T,T,T);
+  await fixtureRun("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash) VALUES (?, ?, 'api', 1, 'h')",T,T);
+  await auditRow(T, "100000000000000050", "verify.api_confirmed", "Apichar");
   legacy = await retention.legacyApiCounts(env());
   check("one inherited row of each kind is counted", legacy.characters === 1 && legacy.pending === 1 && legacy.snapshots === 1 && legacy.audit === 2, JSON.stringify(legacy));
   check("  and the .48 fingerprint column is reported absent here", legacy.fingerprintColumn === 0);
-  const hashDb = freshDb();
+  const hashDb = await freshDb();
   hashDb.exec("ALTER TABLE members ADD COLUMN bnet_hash TEXT");
-  check("  but present on a database that .48 would have left behind", (await retention.legacyApiCounts({ ...env(), DB: d1(hashDb) })).fingerprintColumn === 1);
+  let legacyFingerprintHeld = null;
+  try { await retention.legacyApiCounts({ ...env(), DB: d1(hashDb) }); } catch(e) { legacyFingerprintHeld = e; }
+  const fingerprintTrace=nativePort(hashDb).nativeTrace, fingerprintLast=fingerprintTrace.at(-1).sql;
+  check("an unregistered legacy fingerprint column cannot pass the current Native profile guard", legacyFingerprintHeld?.message==='malformed JSON' && !fingerprintTrace.some(row=>row.sql==='SELECT bnet_hash FROM members LIMIT 0') && hashDb.prepare('PRAGMA table_info(members)').all().some(c=>c.name==='bnet_hash') && hashDb.prepare('SELECT COUNT(*) n FROM members').get().n===0 && hashDb.prepare('SELECT active FROM privacy_write_admission WHERE singleton=1').get().active===0, legacyFingerprintHeld?.message, fingerprintLast.slice(0,180));
   const realDb = d1(db);
   const flakyDb = { ...realDb, prepare: (sql) => (sql.includes("bnet_hash") ? { all: async () => { throw new Error("D1_ERROR: operational failure: SQLITE_BUSY"); } } : realDb.prepare(sql)) };
   let threw = null;
   try { await retention.legacyApiCounts({ ...env(), DB: flakyDb }); } catch (e) { threw = e; }
   check("a D1 failure on the column probe is an error, never read as 'column absent' (.54, Codex 01:04)", threw !== null && /SQLITE_BUSY/.test(String(threw)));
-  const flakyHealth = await (await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), { ...env(), DB: flakyDb }, { waitUntil: () => {} })).json();
-  check("  and the watcher's /health then shows an error for legacyApi, which no zero gate can pass", typeof flakyHealth.legacyApi === "string" && /^error: /.test(flakyHealth.legacyApi));
-  const hres = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), { waitUntil: () => {} });
+  const flakyHealthResponse = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), { ...env(), DB: flakyDb }, { waitUntil: () => {} });
+  const flakyHealth = await flakyHealthResponse.json();
+  check("  the unregistered failing Native handle holds health without returning a zero legacy count", flakyHealthResponse.status===503 && flakyHealth.error==='write_admission_held' && !Object.hasOwn(flakyHealth,'legacyApi'), flakyHealthResponse.status, flakyHealth);
+  const hres = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), { waitUntil: () => {} });
   const hj = await hres.json();
-  check("  and the watcher's /health carries the counts (the public answer does not)", hj.legacyApi && hj.legacyApi.characters === 1 && !Object.keys(await (await indexMod.default.fetch(new Request("https://verify.example/health"), env(), { waitUntil: () => {} })).json()).includes("legacyApi"), JSON.stringify(hj.legacyApi));
-  db.prepare("DELETE FROM characters WHERE name_key = 'apichar'").run();
-  db.prepare("DELETE FROM pending WHERE name_key = 'apichar'").run();
-  db.prepare("DELETE FROM roster_snapshots WHERE source = 'api'").run();
-  db.prepare("DELETE FROM audit WHERE action = 'verify.api_confirmed'").run();
-  db.prepare("DELETE FROM members WHERE discord_id = '100000000000000050'").run();
+  check("  and the watcher's /health carries the counts (the public answer does not)", hj.legacyApi && hj.legacyApi.characters === 1 && !Object.keys(await (await indexMod.default.fetch(new Request("https://verify.example/health"), rawEnv(), { waitUntil: () => {} })).json()).includes("legacyApi"), JSON.stringify(hj.legacyApi));
+  await fixtureRun("DELETE FROM characters WHERE name_key = 'apichar'");
+  await fixtureRun("DELETE FROM pending WHERE name_key = 'apichar'");
+  await fixtureRun("DELETE FROM roster_snapshots WHERE source = 'api'");
+  await fixtureRun("DELETE FROM audit WHERE action = 'verify.api_confirmed'");
+  await fixtureRun("DELETE FROM members WHERE discord_id = '100000000000000050'");
 
   console.log("\n== the cron and health lines ==");
-  member("100000000000000015", { battletag: "Cron#15", bnet_conn_id: "c15", linked_at: T - 60 * DAY });
+  await member("100000000000000015", { battletag: "Cron#15", bnet_conn_id: "c15", linked_at: T - 60 * DAY });
   const waits = [];
-  await indexMod.default.scheduled({ cron: "*/30 * * * *" }, env(), { waitUntil: (p) => waits.push(Promise.resolve(p).catch(() => {})) });
+  const beforeUnqualifiedCron=JSON.stringify(db.prepare('SELECT * FROM members ORDER BY discord_id').all());
+  await indexMod.default.scheduled({ cron: "*/30 * * * *" }, rawEnv(), { waitUntil: (p) => waits.push(Promise.resolve(p).catch(() => {})) });
   while (waits.length) await waits.shift();
-  check("the cron purges", m("100000000000000015").battletag === null);
-  const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), env(), { waitUntil: () => {} });
+  check("the historical plain cron object cannot bypass the original epoch-2 callback gate", JSON.stringify(db.prepare('SELECT * FROM members ORDER BY discord_id').all())===beforeUnqualifiedCron && m("100000000000000015").battletag==='Cron#15');
+  const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health carries the retention line: nothing overdue, exact build .145", health.build === "2026-10-14.156 Olympus crawler boundary" && health.bnetRetention && health.bnetRetention.overdue === 0, JSON.stringify(health.bnetRetention));
+  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-10-16.161 Ordinary schedule qualification" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");
   old.exec(fs.readFileSync(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"), "utf8"));
   const schema = load("./schema");
   schema.forgetSchemaCheck();
-  await schema.ensureSchema({ DB: d1(old) });
-  check("ensureSchema leaves members without any BattleTag-derived column", !old.prepare("PRAGMA table_info(members)").all().some((c) => c.name === "bnet_hash"));
+  const oldSchema = JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all());
+  let oldHeld = null;
+  try { await schema.ensureSchema({ DB: legacyD1(old) }); } catch(e) { oldHeld = e; }
+  check("ordinary serving holds the unregistered legacy schema without creating a BattleTag-derived column", oldHeld instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld && JSON.stringify(old.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all())===oldSchema && !old.prepare("PRAGMA table_info(members)").all().some((c) => c.name === "bnet_hash"));
 
   console.log("\n== .147 minimal external-copy custody survives local audit expiry ==");
-  db.close(); db=freshDb(); T=Number(one("SELECT CAST(strftime('%s','now') AS INTEGER)n").n);
+  db.close(); db=await freshDb(); T=Number(one("SELECT CAST(strftime('%s','now') AS INTEGER)n").n);
   const localRetention=load("./privacy-retention"), YEAR=365*DAY, ID="100000000000000080", OTHER="100000000000000081";
   const oldTime=T-YEAR-2010;
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(oldTime,ID,"link.ok","Legacy#80",JSON.stringify({private:"old payload"}));
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",oldTime,ID,"link.ok","Legacy#80",JSON.stringify({private:"old payload"}));
   await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("yearly retention before compaction holds the sole successful-link warning",await retention.everLinked(env(),ID)&&one("SELECT subject FROM audit WHERE actor=?",ID)?.subject==="Legacy#80");
   await retention.purgeBattleNetData(env(),T);
@@ -463,8 +492,8 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   const before=JSON.stringify(db.prepare("SELECT * FROM audit ORDER BY id").all());
   const again=await retention.purgeBattleNetData(env(),T);
   check("minimal custody is idempotent and never renews the original timestamp",again.audit===0&&JSON.stringify(db.prepare("SELECT * FROM audit ORDER BY id").all())===before);
-  for(let j=0;j<1002;j++)db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(oldTime+j+1,ID,j%2?"link.ok":"bnet.linked","Repeated#80","private duplicate");
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(oldTime,OTHER,"bnet.linked","Legacy#81","private other");
+  for(let j=0;j<1002;j++)await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",oldTime+j+1,ID,j%2?"link.ok":"bnet.linked","Repeated#80","private duplicate");
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",oldTime,OTHER,"bnet.linked","Legacy#81","private other");
   await retention.purgeBattleNetData(env(),T);
   check("both success forms collapse to one minimal fact per account",one("SELECT COUNT(*)n FROM audit WHERE actor=? AND action='bnet.external_custody'",ID).n===1&&one("SELECT COUNT(*)n FROM audit WHERE actor=? AND action='bnet.external_custody'",OTHER).n===1);
   check("all expired successful-link duplicate payloads are scrubbed",!db.prepare("SELECT * FROM audit WHERE actor IN(?,?) AND (subject IS NOT NULL AND subject<>'[expired]' OR details IS NOT NULL)").get(ID,OTHER));
@@ -474,40 +503,40 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("first bounded audit page removes exactly1000 expired duplicates",expiredBefore===1002&&tail===2);
   await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("second audit page drains the tail while preserving only original custody",one("SELECT COUNT(*)n FROM audit WHERE actor=?",ID).n===1&&one("SELECT ts FROM audit WHERE actor=?",ID).ts===oldTime);
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(oldTime,ID,"bnet.external_custody","Malformed#80","bad payload");
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",oldTime,ID,"bnet.external_custody","Malformed#80","bad payload");
   await retention.purgeBattleNetData(env(),T);await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("malformed duplicate marker is stripped and expires, never a permanent payload exception",one("SELECT COUNT(*)n FROM audit WHERE actor=?",ID).n===1&&!JSON.stringify(db.prepare("SELECT * FROM audit").all()).includes("Malformed#80"));
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(oldTime,"system","bnet.external_custody",null,null);
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",oldTime,"system","bnet.external_custody",null,null);
   await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("nonaccount marker and ordinary audit retain no indefinite exception",!one("SELECT 1 FROM audit WHERE actor='system'"));
   const shapeId="100000000000000083";
   for(const [actor,subject,details,ts]of[[shapeId,"Payload#83",null,oldTime],[shapeId,null,"payload",oldTime],["000000000000000084",null,null,oldTime],["system",null,null,oldTime],[shapeId,null,null,oldTime+0.5]]){
-    db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(ts,actor,"bnet.external_custody",subject,details);
+    await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",ts,actor,"bnet.external_custody",subject,details);
     check("malformed marker shape is never positive external custody "+JSON.stringify([actor,subject,details,ts]),!(await retention.everLinked(env(),actor)));
   }
   check("health sees retained malformed marker payload even with NULL subject",(await retention.bnetRetentionStatus(env(),T)).overdue===2);
   await retention.purgeBattleNetData(env(),T);await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("malformed marker collisions expire without creating account evidence",!(await retention.everLinked(env(),shapeId))&&!one("SELECT 1 FROM audit WHERE actor=?",shapeId));
   const compactId="100000000000000085",tieTime=oldTime-50;
-  for(const [ts,action,subject,details]of[[tieTime+1,"link.ok",null,null],[tieTime,"bnet.linked","[expired]",null],[tieTime,"link.ok",null,"old detail"]])db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(ts,compactId,action,subject,details);
+  for(const [ts,action,subject,details]of[[tieTime+1,"link.ok",null,null],[tieTime,"bnet.linked","[expired]",null],[tieTime,"link.ok",null,"old detail"]])await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",ts,compactId,action,subject,details);
   const oldestId=one("SELECT id FROM audit WHERE actor=? ORDER BY ts,id LIMIT 1",compactId).id;
   check("NULL/expired successful payloads and retained details are reported honestly",(await retention.bnetRetentionStatus(env(),T)).overdue===1);
   await retention.purgeBattleNetData(env(),T);
   const compact=one("SELECT * FROM audit WHERE actor=? AND action='bnet.external_custody'",compactId);
   check("stable original timestamp/id choose the oldest success independent of insertion order",compact?.id===oldestId&&compact.ts===tieTime&&compact.subject===null&&compact.details===null);
   check("already NULL/expired success inputs compact and all duplicate details disappear",await retention.everLinked(env(),compactId)&&!db.prepare("SELECT 1 FROM audit WHERE actor=? AND details IS NOT NULL").get(compactId));
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)").run(T,compactId,"link.ok","Fresh#85","fresh detail");
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)",T,compactId,"link.ok","Fresh#85","fresh detail");
   await retention.purgeBattleNetData(env(),T);
   check("later fresh success cannot replace the original marker or renew its clock",one("SELECT id,ts FROM audit WHERE actor=? AND action='bnet.external_custody'",compactId).id===oldestId&&one("SELECT ts FROM audit WHERE actor=? AND action='bnet.external_custody'",compactId).ts===tieTime);
-  member("100000000000000082",{battletag:"Rollback#82",bnet_conn_id:"rollback",linked_at:oldTime});auditRow(oldTime,"100000000000000082","link.ok","Rollback#82");
+  await member("100000000000000082",{battletag:"Rollback#82",bnet_conn_id:"rollback",linked_at:oldTime});await auditRow(oldTime,"100000000000000082","link.ok","Rollback#82");
   const rollback=JSON.stringify([db.prepare("SELECT * FROM audit ORDER BY id").all(),db.prepare("SELECT * FROM members ORDER BY discord_id").all()]);
   db.exec("CREATE TEMP TRIGGER custody_fault BEFORE UPDATE ON audit WHEN NEW.action='bnet.external_custody' AND NEW.actor='100000000000000082' BEGIN SELECT RAISE(ABORT,'synthetic custody failure');END");
   let failed=false;try{await retention.purgeBattleNetData(env(),T);}catch{failed=true;}
   check("native compaction fault rolls back the original four-statement purge",failed&&rollback===JSON.stringify([db.prepare("SELECT * FROM audit ORDER BY id").all(),db.prepare("SELECT * FROM members ORDER BY discord_id").all()]));db.exec("DROP TRIGGER custody_fault");
   await localRetention.sweepServingRetention({...env(),PRIVACY_RETENTION_ENABLED:"true"});
   check("yearly retention after failed compaction preserves original warning and reports overdue payload",await retention.everLinked(env(),"100000000000000082")&&one("SELECT subject FROM audit WHERE actor='100000000000000082' AND action='link.ok'").subject==="Rollback#82"&&(await retention.bnetRetentionStatus(env(),T)).overdue>=1);
-  check("retention source remains21 payload statements with no new store",localRetention.servingRetentionStatements(env()).length===21);
-  db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,NULL,NULL)").run(tieTime+5,compactId,"bnet.external_custody");
+  check("complete retention source is27 existing payload statements including six beta provenance statements",localRetention.servingRetentionStatements(env()).length===27 && localRetention.SERVING_RETENTION_STATEMENTS===27);
+  await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,NULL,NULL)",tieTime+5,compactId,"bnet.external_custody");
   await retention.purgeBattleNetData(env(),T);
   check("preexisting valid duplicate markers collapse to the oldest original fact",one("SELECT COUNT(*)n FROM audit WHERE actor=? AND action='bnet.external_custody'",compactId).n===1&&one("SELECT id,ts FROM audit WHERE actor=? AND action='bnet.external_custody'",compactId).id===oldestId);
   const served=await ordinaryLoad("./index").default.fetch(new Request("https://olympus.roachcouncil.com/privacy"),{...env(),SITE_HOST:"olympus.roachcouncil.com",PRIVACY_RETENTION_ENABLED:"true",PRIVACY_ERASURE_ENABLED:"false",DB:{prepare(){throw Error("public policy must not read database");}}},{waitUntil(){throw Error("public policy must not schedule work");}}),servedHtml=await served.text();

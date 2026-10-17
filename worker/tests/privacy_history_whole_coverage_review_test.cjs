@@ -38,14 +38,14 @@ async function review(){
  eq('independent37 exact history coverage',nativeCases.collections.length,37);
  eq('actual production registers thirteen export families',Array.from(registry.communityDataNames()).length,13);
  const census=fixture(),plan=registry.communityExportPlan(census.env,A);
- eq('actual production registers34 copy SQL statements',plan.statements.length,34);census.db.close();
+ eq('actual production registers36 copy SQL statements',plan.statements.length,36);census.db.close();
  async function prepared(f,id=A){const c=await connect(f,id),frm=await form(f,c);provider=null;return frm;}
  async function download(f,collection,cursor=null){
   const frm=await prepared(f),footprint=['site_users','members','privacy_subjects','role_settlements'].map(t=>count(f,t));
   const beforeCalls=calls.length;let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
   const response=await copy.exportPrivacyAccess(frm.request({collection,cursor:cursor??''}),f.env),body=await response.json();
   f.hooks.statement=null;f.hooks.beforeBatch=null;
-  eq(collection+' native page uses original read plus seven statements',attempts,8);eq(collection+' native page is one transaction',batches,[7]);
+  eq(collection+' eight logical statements plus five physical admission controls',attempts,13);eq(collection+' original read and seven-payload Native groups',batches,[2,11]);
   eq(collection+' genuine purpose authority',body.identity.authority,'fresh_identify_only');eq(collection+' own identity',body.identity.discordId,A);
   eq(collection+' no normal account/member/subject/role creation',['site_users','members','privacy_subjects','role_settlements'].map(t=>count(f,t)),footprint);
   eq(collection+' no provider effect after OAuth',calls.length,beforeCalls);
@@ -63,7 +63,7 @@ async function review(){
    eq('connection fixture created only genuine own grants',f.db.prepare('SELECT COUNT(*)AS n FROM privacy_access_grants WHERE subject_id=?').get(A).n,2);
   }else{
    const ownCount=schemaLarge?Math.min(1002,item.capacity):2;
-   nativeCases.seed(f,item.key,A,ownCount,ctx);nativeCases.seed(f,item.key,B,1,ctx,10000);
+   await nativeCases.seed(f,item.key,A,ownCount,ctx);await nativeCases.seed(f,item.key,B,1,ctx,10000);
    eq(item.key+' schema valid independently retained fixture rows',count(f,item.table),ownCount+1);
   }
   f.db.close();
@@ -73,9 +73,9 @@ async function review(){
  for(const c of nativeCases.FIRST){
   const f=fixture();f.db.exec('BEGIN');for(let i=0;i<1002;i++){
    const at=f.time()-10000+i;
-   if(c==='actions')f.db.prepare('INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)').run(at,A,'own.retained_action',B,JSON.stringify({counterpart:B}));
-   else if(c==='eventChanges')f.db.prepare('INSERT INTO community_event_changes(event_id,action,actor,at,fields)VALUES(?,?,?,?,?)').run('e'.repeat(22),'updated',A,at,'["title"]');
-   else f.db.prepare('INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until)VALUES(?,?,?,?,?,?,?,?,?)').run('olympus',B,1,'state_open',[A,'member:'+A,'staff:'+A,'user:'+A][i%4],1,'PRIVATE-own-decision-'+i,at,f.time()+10000);
+   if(c==='actions')await fixtureWrite(f,'INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,?,?,?,?)',at,A,'own.retained_action',B,JSON.stringify({counterpart:B}));
+   else if(c==='eventChanges')await fixtureWrite(f,'INSERT INTO community_event_changes(event_id,action,actor,at,fields)VALUES(?,?,?,?,?)','e'.repeat(22),'updated',A,at,'["title"]');
+   else await fixtureWrite(f,'INSERT INTO community_contribution_decisions(guild_scope,discord_id,obligation_id,action,actor,member_revision,nonce,at,retain_until)VALUES(?,?,?,?,?,?,?,?,?)','olympus',B,1,'state_open',[A,'member:'+A,'staff:'+A,'user:'+A][i%4],1,'PRIVATE-own-decision-'+i,at,f.time()+10000);
   }f.db.exec('COMMIT');
   const frm=await prepared(f),aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json(),h=aggregate.coverage.histories[c];
   eq(c+' original aggregate preview25',aggregate[c].rows.length,25);eq(c+' original aggregate total1002',h.capture.count,1002);eq(c+' original preview cursor position25',h.capture.delivered,25);
@@ -99,7 +99,7 @@ async function review(){
   if(item.key==='community.privacy_access.connections'){
    for(let i=0;i<500;i++)await connect(f,A);await connect(f,B);expected=1000;
   }else{
-   nativeCases.seed(f,item.key,A,expected,ctx);nativeCases.seed(f,item.key,B,2,ctx,10000);
+   await nativeCases.seed(f,item.key,A,expected,ctx);await nativeCases.seed(f,item.key,B,2,ctx,10000);
   }
   // One independent fresh aggregate grant captures the same original native range as its preview/continuation.
   const aggregateForm=await prepared(f),aggregateResponse=await copy.exportPrivacyAccess(aggregateForm.request({collection:'copy'}),f.env),aggregateData=await aggregateResponse.json();
@@ -134,8 +134,8 @@ async function review(){
   f.db.close();
  }
  // Nullable queue hold remains explicitly NULL, never an invented claim or invitation date.
- const nullQueue=fixture();nativeCases.seed(nullQueue,'verification.inviteQueue',A,1,ctx);nativeCases.seed(nullQueue,'verification.inviteQueue',B,1,ctx,10000);
- nullQueue.db.prepare('UPDATE invite_queue SET claimed_at=NULL WHERE discord_id=?').run(A);
+ const nullQueue=fixture();await nativeCases.seed(nullQueue,'verification.inviteQueue',A,1,ctx);await nativeCases.seed(nullQueue,'verification.inviteQueue',B,1,ctx,10000);
+ await fixtureWrite(nullQueue,'UPDATE invite_queue SET claimed_at=NULL WHERE discord_id=?',A);
  const nullHold=(await download(nullQueue,'verification.inviteQueue')).body.history.entries;
  eq('queue native NULL hold owns exactly one retained row',nullHold.length,1);
  eq('queue native NULL hold has exact closed keys',Object.keys(nullHold[0]).sort(),nativeCases.cases.find(c=>c.key==='verification.inviteQueue').fields.slice().sort());
@@ -145,8 +145,8 @@ async function review(){
  // Aggregate source graph and coverage include every history, independently of registration order.
  const f=fixture(),frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
  const aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json();f.hooks.statement=null;f.hooks.beforeBatch=null;
- eq('aggregate actual89-attempt finite envelope including own lifecycle metadata',attempts,89);eq('aggregate one native88-statement batch',batches,[88]);
- eq('aggregate exact37 closed capture descriptors',Object.keys(aggregate.coverage.histories).sort(),nativeCases.collections.slice().sort());
+ eq('aggregate actual97-physical-attempt finite envelope including current own metadata',attempts,97);eq('aggregate original read2 and payload95 groups',batches,[2,95]);
+ eq('aggregate exact38 descriptors retain all37 independent retained-row fixtures plus exact B1 participant history',Object.keys(aggregate.coverage.histories).sort(),[...nativeCases.collections,'community.councillor_verification.betaFernWindows'].sort());
  for(const c of nativeCases.collections){const h=aggregate.coverage.histories[c];eq(c+' aggregate metadata collection binding',h.collection,c);eq(c+' aggregate selected capture deadline86400',Date.parse(h.capture.expiresAt)-Date.parse(h.capture.at),86400*1000);}
  eq('aggregate actual thirteen community family projections',Object.keys(aggregate.community).sort(),Array.from(registry.communityDataNames()).sort());
  ok('aggregate retains scalar refs/profile/period projections',Object.hasOwn(aggregate.community.refs,'ref')&&Object.hasOwn(aggregate.community.directory,'main')&&Object.hasOwn(aggregate.community.restrictions,'watchListPeriod'));

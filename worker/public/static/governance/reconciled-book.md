@@ -415,6 +415,58 @@ The first service cycle reviews these arrangements after six to eight weeks. The
 
 Historical instruments, archived announcements and old software releases remain labelled by their own date and status. The current adopted text is the governing reference. Templates have empty fields because an actual appointment must be made by actual people. No preprinted seal, generated signature or polished chart substitutes for that act.
 
+## O15 Published Council responsibility portfolios
+
+The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.
+
+### Fernmelder — Treasury and guild operations
+
+Discord: `fernmelder`
+
+Fernmelder leads treasury and guild-bank administration: recording receipts, reconciling dues and fees against the adopted schedule, maintaining a clear ledger, and preparing understandable reports of balances, outstanding entries and discrepancies. Treasury records should distinguish money actually received in game from a promise, a proposed charge or an unconfirmed entry. Corrections must preserve an explanation of what changed and why. Fernmelder supplies records for independent audits and follows up their findings; independent review of funds in the Treasurer's custody belongs to a separate reviewer.
+
+Fernmelder coordinates collection of approved dues and fees through the existing attended process and checks and reconciles those records. This responsibility creates no new charge or automatic collection mechanism.
+
+Fernmelder coordinates with the AddOn and website developers on a reliable way to match in-game gold records to the website ledger. That work must make the origin and freshness of each record clear, allow an officer to resolve an unmatched receipt, and avoid representing a planned integration as an automatic transfer of gold.
+
+The portfolio also includes ordinary non-hardcore guild administration, practical logistics and operational oversight. Fernmelder keeps administrative work moving, records hand-offs, identifies unresolved dependencies and brings matters requiring a wider decision to the appropriate Council or Guild Master. Financial authority follows the adopted bank permissions and approval process.
+
+### freejam / Nikola — European coordination and guild administration
+
+Discord: `freejam`
+
+freejam / Nikola supports day-to-day administration and operational oversight for the non-hardcore guild community, with particular attention to European time zones. The work includes coordinating people, communicating practical arrangements and helping officers resolve routine organizational gaps.
+
+Using the main guild's roster and members' stated availability, freejam helps form groups across the Olympus guilds and connects members with suitable organizers. Group formation should account for time zone, level, class needs and the activity's stated requirements. A proposed group is kept distinct from a confirmed roster or an accepted leadership appointment.
+
+European scheduling needs and recurring coordination problems should be brought to the relevant officers or Council portfolio so that the wider organization can respond. Hand-offs should identify the next responsible person and any outstanding decision.
+
+### Nomad — Hunter guidance, European activities and open-world PvP
+
+Discord: `nomadraider`
+
+Nomad develops Hunter guidance and supports class optimization and mentorship. This includes maintaining useful guides, helping members understand builds and play, answering class questions, and feeding recurring concerns into the wider class-advice work.
+
+Nomad leads coordination of the main guild's European and early-time-zone activities and European-friendly event scheduling, under the designated guild and event authorities. This includes identifying practical play windows and connecting participants with the appropriate group leaders. The portfolio includes baseline guild organization where it helps those activities run reliably.
+
+Open-world PvP and zone-control activities are organized as opt-in events with a clear purpose, meeting point, time and leader. Participants should know what they are joining. Plans and results should be coordinated with the Department of War and the affected guild leadership.
+
+### Kryptiiq — Warlock guidance, raid support and community activities
+
+Discord: `kryptiiq`
+
+Kryptiiq supports Warlock guidance, class-roster coordination and strategy. The work includes helping players improve, identifying practical class needs for planned groups, and sharing relevant advice with raid organizers and the wider class-advice team.
+
+Kryptiiq assists European raid leadership with preparation, coordination and follow-up under the event's designated raid leader. Class recommendations and proposed roster changes should be communicated clearly; final operational decisions remain with the responsible raid and guild leadership.
+
+The portfolio also includes community PvP events and general operational logistics: helping arrange activities, communicating requirements, coordinating participants and handing off unresolved work to the appropriate organizer.
+
+### Shared working rules
+
+These portfolios divide work across Olympus; they do not replace each guild's Guild Master or officers. Class advice, a Council responsibility, a native guild rank and permission to operate a tool are separate matters.
+
+Each portfolio holder should keep practical notes, make hand-offs understandable and report material unresolved issues to the appropriate leadership body. Personal cases, appeals and sensitive records belong in the designated private staff process. Public updates should explain activities and decisions without exposing private member records.
+
 
 # The Guild Statute of Olympus
 

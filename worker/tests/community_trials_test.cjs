@@ -10,51 +10,32 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 
+const entry = require('./helpers/privacy129_fixture.cjs');
+let T = 1790500000;
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
+  static now() { return T * 1000; }
+};
+let nativeTimeOverride = null;
 function d1(db, hooks = {}) {
-  let batches = 0; // .72: numbered per request, for the beforeBatch/afterBatch hooks
-  const exec = (sql, params) => {
-    const st = db.prepare(sql);
-    if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { results: st.all(...params), meta: { changes: 0 } };
-    const r = st.run(...params);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-  };
-  const stmt = (sql) => {
-    let params = [];
-    const api = {
-      bind: (...p) => {
-        if (p.some((x) => x === undefined)) throw new Error("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'");
-        const named = Math.max(0, ...[...sql.matchAll(/\?(\d+)/g)].map((m) => Number(m[1])));
-        if (named && p.length !== named) throw new Error(`D1_ERROR: Wrong number of parameter bindings for SQL query (${p.length} for ${named}): ${sql.slice(0, 80)}`);
-        params = p;
-        return api;
-      },
-      first: async () => { hooks.count?.(); return db.prepare(sql).get(...params) ?? null; },
-      all: async () => { hooks.count?.(); return { results: db.prepare(sql).all(...params) }; },
-      run: async () => { hooks.count?.(); return exec(sql, params); },
-      _exec: () => exec(sql, params),
-      _sql: sql,
-    };
-    return api;
-  };
-  return {
-    prepare: stmt,
-    batch: async (stmts) => {
-      hooks.count?.();
-      // Native admission wraps individual reads too; numbered races still target the original multi-statement payload.
-      const logical = !(stmts.length === 2 && stmts[0]._sql.includes("privacy_site_request_refused"));
-      if (logical) hooks.beforeBatch?.(++batches);
-      db.exec("BEGIN");
-      let out;
-      try { out = stmts.map((s) => s._exec()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
-      if (logical) hooks.afterBatch?.(batches);
-      return out;
-    },
-  };
+  let batches = 0;
+  // Arm the existing races at the actual community payload boundary, after
+  // authentication. Every physical guard remains in nativeTrace/nativeGroups.
+  const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
+  return entry.originalNativePort(db, {...hooks,
+    beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
+    afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
+  });
 }
 function freshDb() {
-  const db = new DatabaseSync(":memory:");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(root, "schema.sql"), "utf8"));
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.function('strftime', (format,input) => {
+    if (format !== '%s' || input !== 'now') throw Error('unexpected Native clock input');
+    return String(nativeTimeOverride === null ? T : nativeTimeOverride);
+  });
+  entry.installCurrentEntryEpoch(db,{now:T});
   return db;
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -63,6 +44,7 @@ globalThis.fetch = async (url) => { throw new Error("no network in tests: " + ur
 const stubs = {};
 const cache = {};
 function load(name) {
+  if (name === "node:async_hooks") return require(name);
   const key = name.replace(/^\.\.\//, "./");
   if (stubs[key]) return stubs[key];
   const file = path.join(root, "src", name.replace(/^\.\//, "").replace(/^\.\.\//, "") + ".ts");
@@ -88,14 +70,7 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    // Time-travel cases revalidate with the modeled Discord member, rather than rewriting checked_at in call().
-    rest: async (env, method, p) => {
-      const prefix = `/guilds/${env.SITE_GUILD_ID}/members/`;
-      if (method !== "GET" || !p.startsWith(prefix) || !/^\d{17,20}$/.test(p.slice(prefix.length))) throw new Error("no REST in tests: " + method + " " + p);
-      const member = db.prepare("SELECT nick, in_server FROM site_users WHERE discord_id = ?").get(p.slice(prefix.length));
-      if (!member || member.in_server !== 1) throw new realDiscord.DiscordError(404, "fixture member absent");
-      return { nick: member.nick, pending: false, roles: [] };
-    },
+    rest: async () => { throw new Error("no REST in tests"); },
     explainDiscordError: (e) => String(e),
   },
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
@@ -104,37 +79,37 @@ Object.assign(stubs, {
 const context = load("./community-context"), refs = load("./community-refs"), time = load("./community-time"), names = load("./community-names");
 const siteCore = load("./site-core"), siteAdmin = load("./site-admin"), indexMod = load("./index");
 
-let T = 1790500000;
-const RealDate = Date;
-globalThis.Date = class extends RealDate {
-  constructor(...a) { if (a.length === 0) super(T * 1000); else super(...a); }
-  static now() { return T * 1000; }
-};
 let db = freshDb();
 let statements = 0;
 let BEFORE = null, AFTER = null; // .72: armed by the reader-admission section, each fires once
-const env = (over = {}) => ({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", DISCORD_BOT_TOKEN: "fixture-membership-only-no-network", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
+const env = (over = {}) => entry.currentEntryEnvironment({ DB: d1(db, { count: () => { statements++; }, beforeBatch: (i) => BEFORE?.(i), afterBatch: (i) => AFTER?.(i) }), COOKIE_SECRET: "cookie-secret-for-tests-only-0123456789", VERIFY_SECRET: "verify-secret-for-tests", WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789", GUILD_ID: "1549537348516188200", DISCORD_APP_ID: "1550176895671341076", PUBLIC_BASE_URL: "https://verify.example", SITE_HOST: "guild.example", SITE_GUILD_ID: "236932545793490944", SITE_ADMINS: "472099715253796864", ROLE_OFFICER: "1549581672272625734", ROLE_GUILD_MEMBER: "1549581282227265566", ADMISSION_MODE: "auto", OFFICER_CHARACTERS: "Fern Melder", ROSTER_MIN_MEMBERS: "0", ROSTER_MAX_SHRINK_PCT: "10", CHANNEL_SERVER_LOG: "", CHANNEL_NOTICES: "", CHANNEL_MOD_ALERTS: "", CHANNEL_RECRUITMENT_REVIEW: "", ROLE_MODERATOR: "", ROLE_GUILD_LEADER: "", ROLE_GUILD_MASTER: "", ROLE_RAID_LEADER: "", COMMUNITY_FEATURES: "", ...over });
 const ctx = { waitUntil: () => {} };
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
 const APPLICANT = "300000000000000001", MEMBER = "300000000000000003", SPONSOR = "300000000000000004", STAFF = "472099715253796864", STAFF2 = "472099715253796865", NEVER = "300000000000000099";
-const siteUser = (id, over = {}) => {
-  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, checked_at: T, ...over };
-  db.prepare("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, checked_at, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, row.username, row.global_name, row.nick, T, T, row.checked_at, row.in_server, row.denied, row.session_version);
+const siteUser = async (id, over = {}) => {
+  const row = { username: "u" + id.slice(-2), global_name: null, nick: null, in_server: 1, denied: 0, session_version: 1, ...over };
+  await fixtureRun("INSERT INTO site_users (discord_id, username, global_name, nick, first_login, last_login, in_server, denied, session_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",id,row.username,row.global_name,row.nick,T,T,row.in_server,row.denied,row.session_version);
 };
 const ON = { COMMUNITY_FEATURES: "trials", SITE_ADMINS: `${STAFF},${STAFF2}` };
 // Normal feature requests need a session current to both the actor and the real SQL clock.
-// sessionCookie captures expiry before its first await; restore the business clock before signing settles.
-const cookieFor = async (id, version = 1) => {
-  const actorTime = T;
-  let issued;
-  try {
-    T = Math.max(actorTime, Math.floor(RealDate.now() / 1000));
-    issued = siteCore.sessionCookie(env(), id, version);
-  } finally {
-    T = actorTime;
-  }
-  return (await issued).split(";")[0];
+function directEnv(over = ON) {
+  const e=env(over);
+  return {...e,DB:load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(e.DB,'writer','canonical',entry.ENTRY_EPOCH)};
+}
+async function fixtureRun(sql,...params) {
+ const raw=entry.originalNativePort(db);
+ const admitted=load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(raw,'writer','canonical',entry.ENTRY_EPOCH);
+ return admitted.prepare(sql).bind(...params).run();
+}
+const originalCookies = new Map();
+const cookieFor = async (id) => {
+  const row = db.prepare('SELECT session_version,account_incarnation FROM site_users WHERE discord_id=?').get(id);
+  const old = originalCookies.get(id);
+  if (old && (!row || old.session.v === row.session_version && old.session.n === row.account_incarnation) && old.session.e > T) return old.cookie;
+  const issued = await entry.issueOriginalEntryCookie(name => load('./'+name),db,env(),id);
+  originalCookies.set(id,issued);
+  return issued.cookie;
 };
 const call = async (method, path, id, body, over = ON, extraHeaders = {}) => {
   const headers = { Cookie: await cookieFor(id), Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", ...extraHeaders };
@@ -145,21 +120,16 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
 const iso = (s) => new Date(s * 1000).toISOString();
 const OP1 = "A".repeat(22), OP2 = "B".repeat(22), OP3 = "C".repeat(22);
 
-// .133: construct an original signed staff Request before the real site-only eraser consumes it.
-// Both clocks make this explicit test session valid when the suite freezes or advances its business clock.
-async function erasureRequest(target, actor) {
-  const site = load("./site-core");
-  const version = db.prepare("SELECT session_version FROM site_users WHERE discord_id = ?").get(actor)?.session_version ?? 1;
-  const expiry = Math.max(Math.floor(Date.now() / 1000), db.prepare("SELECT CAST(strftime('%s', 'now') AS INTEGER) AS clock").get().clock) + 3600;
-  const body = site.b64u(new TextEncoder().encode(JSON.stringify({ u: actor, v: version, e: expiry })));
-  const mac = await site.sign(env().COOKIE_SECRET, "session", body);
-  return new Request("https://guild.example/api/admin/users/" + target + "/delete", {
-    method: "POST", headers: { Cookie: "__Host-olg=" + body + "." + mac, Origin: "https://guild.example", "X-Olympus": "2" },
-  });
+// Exercise the actual staff preparation and delete route; no manufactured session/origin.
+async function deleteThroughOriginalRoute(target, actor) {
+  const prepared=await call('GET','/api/admin/users/'+target+'/decision-target?route=delete&decisionAction=partial_delete',actor);
+  if(prepared.status!==200 || typeof prepared.body.targetToken!=='string')throw Error('original delete target preparation held '+prepared.status);
+  const result=await call('POST','/api/admin/users/'+target+'/delete',actor,{mentions:false},ON,{'X-Olympus-Decision-Target':prepared.body.targetToken,'X-Olympus-Decision-Action':'partial_delete'});
+  if(result.status!==200)throw Error('original delete route held '+result.status+' '+JSON.stringify(result.body));
+  return result.body.ok === true;
 }
-
 (async () => {
-  siteUser(APPLICANT); siteUser(MEMBER, { global_name: "Mia" }); siteUser(SPONSOR, { global_name: "Sam" }); siteUser(STAFF, { global_name: "Vik" }); siteUser(STAFF2, { global_name: "Ann" });
+  await siteUser(APPLICANT); await siteUser(MEMBER, { global_name: "Mia" }); await siteUser(SPONSOR, { global_name: "Sam" }); await siteUser(STAFF, { global_name: "Vik" }); await siteUser(STAFF2, { global_name: "Ann" });
   const due = T + 30 * 86400;
 
   console.log("\n== flag and gates ==");
@@ -244,23 +214,23 @@ async function erasureRequest(target, actor) {
   check("the status filter lists only concluded ones of that kind", r.body.trials.length === 1 && r.body.trials[0].id === OP1);
 
   console.log("\n== the fence on staff writes ==");
-  db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",STAFF);
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "F".repeat(22), discordId: SPONSOR, reviewDueAt: iso(due) });
   check("an admin who left the server is still SITE_ADMINS, but the fence inside the insert refuses: 403 not_member, nothing written", r.status === 403 && r.body.error === "not_member" && !one("SELECT 1 FROM community_trials WHERE id = ?", "F".repeat(22)));
   r = await call("POST", "/api/admin/community/trials/update", STAFF, { id: "D".repeat(22), revision: 1, action: "extend", reviewDueAt: iso(due + 86400) });
   check("  and the same fence inside the update: refused, the trial unchanged", r.status === 403 && r.body.error === "not_member" && one("SELECT status, revision FROM community_trials WHERE id = ?", "D".repeat(22)).revision === 1);
   r = await call("GET", "/api/admin/community/trials", STAFF);
   check("  the staff LIST is refused to an admin who left the server: communityStaff is required of every community staff route (.66, Codex's .61 review)", r.status === 403 && r.body.error === "not_member" && !("trials" in r.body));
-  db.prepare("UPDATE site_users SET in_server = 1, denied = 1 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 1, denied = 1 WHERE discord_id = ?",STAFF);
   r = await call("GET", "/api/admin/community/trials", STAFF);
   check("  and to a denied admin", r.status === 403 && !("trials" in r.body));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(STAFF);
-  db.prepare("UPDATE site_users SET in_server = 1 WHERE discord_id = ?").run(STAFF);
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
+  await fixtureRun("UPDATE site_users SET in_server = 1 WHERE discord_id = ?",STAFF);
 
   console.log("\n== retain_until is the effective cutoff, by database time (.66, Codex 02:50) ==");
   const trialsMod = load("./community-trials");
   const DTRIAL = "D".repeat(22);
-  db.prepare("UPDATE community_trials SET retain_until = ? WHERE id = ?").run(T - 1, DTRIAL);
+  await fixtureRun("UPDATE community_trials SET retain_until = ? WHERE id = ?",T - 1,DTRIAL);
   r = await call("GET", "/api/community/trial/me", MEMBER);
   check("an open trial past its deadline is gone from the member's own view (the concluded one, still within its lifetime, shows)", r.status === 200 && r.body.trial.status === "passed");
   r = await call("GET", "/api/admin/community/trials?status=active", STAFF);
@@ -270,74 +240,74 @@ async function erasureRequest(target, actor) {
   r = await call("POST", "/api/admin/community/trials/update", STAFF, { id: DTRIAL, revision: 1, action: "conclude", outcome: "passed", reason: "review_passed" });
   check("  so is a conclusion", r.status === 409 && r.body.error === "trial_expired");
   check("  the due count ignores it", (await trialsMod.trialsDueCount(env(), due + 20 * 86400)) === 2);
-  check("  the account copy omits it", (await context.communityExport(env(), MEMBER)).trials.trials.every((t) => t.status !== "active"));
+  check("  the account copy omits it", (await context.communityExport(directEnv(), MEMBER)).trials.trials.every((t) => t.status !== "active"));
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "G".repeat(22), discordId: MEMBER, reviewDueAt: iso(due) });
   check("an expired open trial does not block a new one: one-open-trial is judged inside the insert at database time", r.status === 200 && r.body.trial.status === "active", JSON.stringify(r.body).slice(0, 200));
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "H".repeat(22), discordId: MEMBER, reviewDueAt: iso(due) });
   check("  while a live open trial still does: trial_open_exists", r.status === 409 && r.body.error === "trial_open_exists");
-  const sw = await trialsMod.sweepCommunityTrials(env(), T);
+  const sw = await trialsMod.sweepCommunityTrials(directEnv(), T);
   check("the bounded purge removes the expired row and reports the remaining backlog", sw.deleted === 1 && sw.remaining === 0 && !one("SELECT 1 FROM community_trials WHERE id = ?", DTRIAL) && JSON.parse(one("SELECT details FROM audit WHERE action = 'community.trials_expired' ORDER BY id DESC LIMIT 1").details).remaining === 0);
 
   console.log("\n== erasure, export, retention ==");
-  const exported = await context.communityExport(env(), MEMBER);
+  const exported = await context.communityExport(directEnv(), MEMBER);
   check("the account copy lists the member's trials without sponsor or staff", exported.trials.trials.length === 2 && exported.trials.trials.every((t) => !("sponsorDiscordId" in t)) && exported.trials.trials[0].outcome === "passed");
-  await siteAdmin.deleteSiteData(env(), SPONSOR, STAFF, false, await erasureRequest(SPONSOR, STAFF));
+  await deleteThroughOriginalRoute(SPONSOR, STAFF);
   check("erasing the sponsor anonymizes them on the member's trial and removes their own", one("SELECT sponsor_discord_id FROM community_trials WHERE id = ?", OP1).sponsor_discord_id === null && !one("SELECT 1 FROM community_trials WHERE id = ?", OP2));
-  await siteAdmin.deleteSiteData(env(), STAFF2, STAFF, false, await erasureRequest(STAFF2, STAFF));
+  await deleteThroughOriginalRoute(STAFF2, STAFF);
   check("erasing a reviewer clears them as updated_by; the trial about them is gone with them", one("SELECT updated_by FROM community_trials WHERE id = ?", OP1).updated_by === null && !one("SELECT 1 FROM community_trials WHERE id = ?", OP3));
-  await siteAdmin.deleteSiteData(env(), MEMBER, STAFF, false, await erasureRequest(MEMBER, STAFF));
+  await deleteThroughOriginalRoute(MEMBER, STAFF);
   check("erasing the member removes their trials", !one("SELECT 1 FROM community_trials WHERE discord_id = ?", MEMBER));
-  siteUser(MEMBER, { global_name: "Mia" });
+  await siteUser(MEMBER, { global_name: "Mia" });
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "E".repeat(22), discordId: MEMBER, reviewDueAt: iso(due) });
   T = due + 31 * 86400;
-  const swept = await trialsMod.sweepCommunityTrials(env());
+  const swept = await trialsMod.sweepCommunityTrials(directEnv());
   check("an open trial 31 days past its due date is swept, audited as a count", swept.deleted === 1 && swept.remaining === 0 && !one("SELECT 1 FROM community_trials WHERE id = ?", "E".repeat(22)) && !!one("SELECT 1 FROM audit WHERE action = 'community.trials_expired'"));
   check("trialsDueCount counts open trials whose review is due", (await trialsMod.trialsDueCount(env())) === 0);
 
   console.log("\n== uniform reader admission on every payload (.72, Codex's final trial reader review, 03:55) ==");
   // BEFORE(i) changes the facts between the context read and payload batch i; AFTER(i) right after batch i committed
   const RAE = "300000000000000061";
-  siteUser(RAE, { global_name: "Rae" });
-  const denyStaff = () => db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(STAFF);
-  const restoreStaff = () => db.prepare("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?").run(STAFF);
+  await siteUser(RAE, { global_name: "Rae" });
+  const denyStaff = async () => await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF);
+  const restoreStaff = async () => await fixtureRun("UPDATE site_users SET denied = 0, in_server = 1, session_version = 1 WHERE discord_id = ?",STAFF);
   const RT = "R".repeat(22);
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: RT, discordId: MEMBER, reviewDueAt: iso(T + 20 * 86400) });
   check("(fixture) an open trial", r.status === 200 && r.body.trial.revision === 1, JSON.stringify(r.body).slice(0, 200));
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; denyStaff(); } };
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/trials/update", STAFF, { id: RT, revision: 1, action: "extend", reviewDueAt: iso(T + 40 * 86400) });
   check("EARLY: an admin denied between the context read and the pre-write read is refused there: 403 denied, no trial in the answer, nothing written", r.status === 403 && r.body.error === "denied" && !("trial" in r.body) && one("SELECT revision FROM community_trials WHERE id = ?", RT).revision === 1, JSON.stringify(r.body).slice(0, 200));
-  restoreStaff();
-  AFTER = (i) => { if (i === 1) db.prepare("UPDATE community_trials SET revision = revision + 1 WHERE id = ?").run(RT); if (i === 2) { AFTER = null; db.prepare("UPDATE site_users SET in_server = 0 WHERE discord_id = ?").run(STAFF); } };
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 1) await fixtureRun("UPDATE community_trials SET revision = revision + 1 WHERE id = ?",RT); if (i === 2) { AFTER = null; await fixtureRun("UPDATE site_users SET in_server = 0 WHERE discord_id = ?",STAFF); } };
   r = await call("POST", "/api/admin/community/trials/update", STAFF, { id: RT, revision: 1, action: "extend", reviewDueAt: iso(T + 40 * 86400) });
   check("LOST CAS: another change lands after the pre-write read, the write is refused at its compare-and-set and the admin leaves the server before the fallback read: 403 not_member, no trial payload, nothing written", r.status === 403 && r.body.error === "not_member" && !("trial" in r.body) && one("SELECT status FROM community_trials WHERE id = ?", RT).status === "active", JSON.stringify(r.body).slice(0, 200));
-  db.prepare("UPDATE community_trials SET revision = 1 WHERE id = ?").run(RT);
-  restoreStaff();
-  AFTER = (i) => { if (i === 1) { AFTER = null; denyStaff(); } };
+  await fixtureRun("UPDATE community_trials SET revision = 1 WHERE id = ?",RT);
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 1) { AFTER = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: RT, discordId: MEMBER, reviewDueAt: iso(T + 20 * 86400) });
   check("REPLAY: a retried create whose admin is denied right after the no-op write batch: 403 denied, no replay payload", r.status === 403 && r.body.error === "denied" && !("trial" in r.body) && !("replay" in r.body), JSON.stringify(r.body).slice(0, 200));
-  restoreStaff();
-  AFTER = (i) => { if (i === 2) { AFTER = null; denyStaff(); } };
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 2) { AFTER = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/trials/update", STAFF, { id: RT, revision: 1, action: "extend", reviewDueAt: iso(T + 40 * 86400) });
   check("AFTER SUCCESS: an extension committed, then the admin denied: the answer is the row the write's own batch read (the accepted atomic snapshot) and the write stands", r.status === 200 && r.body.trial.status === "extended" && r.body.trial.revision === 2 && one("SELECT status FROM community_trials WHERE id = ?", RT).status === "extended", JSON.stringify(r.body).slice(0, 200));
   r = await call("GET", "/api/admin/community/trials", STAFF);
   check("  while the next read, newly unauthorized, is refused", r.status === 403 && !("trials" in r.body));
-  restoreStaff();
-  AFTER = (i) => { if (i === 1) { AFTER = null; denyStaff(); } };
+  await restoreStaff();
+  AFTER = async (i) => { if (i === 1) { AFTER = null; await denyStaff(); } };
   r = await call("POST", "/api/admin/community/trials", STAFF, { opId: "S".repeat(22), discordId: RAE, reviewDueAt: iso(T + 20 * 86400) });
   check("  a create committed, then the admin denied: acknowledged with the row its own batch wrote", r.status === 200 && r.body.trial.id === "S".repeat(22) && !!one("SELECT 1 FROM community_trials WHERE id = ?", "S".repeat(22)), JSON.stringify(r.body).slice(0, 200));
-  restoreStaff();
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET session_version = 2 WHERE discord_id = ?").run(STAFF); } };
+  await restoreStaff();
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?",STAFF); } };
   r = await call("GET", "/api/admin/community/trials", STAFF);
   check("the staff list: original session closed between the context read and the payload batch: 503 erasure_held, no payload", r.status === 503 && r.body.error === "erasure_held" && !("trials" in r.body));
-  restoreStaff();
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("UPDATE site_users SET denied = 1 WHERE discord_id = ?").run(MEMBER); } };
+  await restoreStaff();
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER); } };
   r = await call("GET", "/api/community/trial/me", MEMBER);
   check("the member's own view: denied between the context read and the payload batch: 403, no payload", r.status === 403 && !("trial" in r.body));
-  db.prepare("UPDATE site_users SET denied = 0 WHERE discord_id = ?").run(MEMBER);
-  BEFORE = (i) => { if (i === 1) { BEFORE = null; db.prepare("DELETE FROM site_users WHERE discord_id = ?").run(STAFF); } };
+  await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",MEMBER);
+  BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("DELETE FROM site_users WHERE discord_id = ?",STAFF); } };
   r = await call("GET", "/api/admin/community/trials", STAFF);
   check("  the reader's row removed before the payload batch: 503 erasure_held, no payload", r.status === 503 && r.body.error === "erasure_held" && !("trials" in r.body));
-  siteUser(STAFF, { global_name: "Vik" });
+  await siteUser(STAFF, { global_name: "Vik" });
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
 
   console.log(`\n${ok}/${n} passed`);

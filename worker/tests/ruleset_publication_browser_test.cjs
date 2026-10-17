@@ -5,16 +5,21 @@ const cutCR=s.indexOf('(async () => {\r\n');const at=cut<0?cutCR:cut;
 if(at<0)throw Error('frontend fixture seam');
 const scenario=String.raw`
 (async()=>{
- siteUser(STAFF);const guild='700000000000000001',bot='700000000000000002',channels={guide:'700000000000000010','olympus-info':'700000000000000011','guild-announcements':'700000000000000012'};
- const over={GUILD_ID:guild,SITE_GUILD_ID:guild,INTROS_GUILD_ID:guild,DISCORD_APP_ID:bot,INTROS_CHANNELS:'join-olympus='+channels.guide+',olympus-info='+channels['olympus-info']+',guild-announcements='+channels['guild-announcements']};
+ await siteUser(STAFF);const guild='700000000000000001',bot='700000000000000002',channels={guide:'700000000000000010','olympus-info':'700000000000000011','guild-announcements':'700000000000000012'};
+ const over={GUILD_ID:guild,SITE_GUILD_ID:guild,INTROS_GUILD_ID:guild,DISCORD_APP_ID:bot,DISCORD_BOT_TOKEN:'synthetic-publication-only',INTROS_CHANNELS:'join-olympus='+channels.guide+',olympus-info='+channels['olympus-info']+',guild-announcements='+channels['guild-announcements']};
  const messages=new Map(),effects=[];let number=900000000000000000n,lose=false;
- stubs['./discord'].rest=async(_env,method,url,body)=>{
-  if(url==='/users/@me')return{id:bot,bot:true};
-  let x;if(method==='GET'&&(x=url.match(/^\/channels\/(\d+)$/)))return{id:x[1],guild_id:guild,type:0};
-  if(method==='GET'&&(x=url.match(/^\/channels\/(\d+)\/messages\/pins$/)))return{items:[...messages.values()].filter(m=>m.channel_id===x[1]&&m.pinned).map(message=>({message}))};
-  if(method==='POST'&&(x=url.match(/^\/channels\/(\d+)\/messages$/))){effects.push([method,url]);const msg={...body,id:String(number++),channel_id:x[1],author:{id:bot},pinned:false};messages.set(msg.id,msg);if(lose){lose=false;throw Error('provider answer lost');}return msg;}
-  if((x=url.match(/^\/channels\/(\d+)\/messages\/(\d+)$/))){const m=messages.get(x[2]);if(!m)throw new realDiscord.DiscordError(404,'{"code":10008}');if(method==='PATCH'){effects.push([method,url]);Object.assign(m,body);}return m;}
-  if(method==='PUT'&&(x=url.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/))){effects.push([method,url]);messages.get(x[2]).pinned=true;return null;}
+ // Exercise the genuine REST adapter behind the same original fetch slot as the Worker.
+ stubs['./discord'].rest=realDiscord.rest;
+ originalTestFetch=async(input,init={})=>{
+  const request=input instanceof Request?input:null,u=new URL(request?request.url:input),method=request?request.method:init.method||'GET';
+  if(u.origin!=='https://discord.com'||!u.pathname.startsWith('/api/v10/'))throw Error('no external network in publication fixtures');
+  const url=u.pathname.slice('/api/v10'.length),text=request?await request.text():init.body,body=text?JSON.parse(text):undefined,reply=value=>Response.json(value);
+  if(url==='/users/@me')return reply({id:bot,bot:true});
+  let x;if(method==='GET'&&(x=url.match(/^\/channels\/(\d+)$/)))return reply({id:x[1],guild_id:guild,type:0});
+  if(method==='GET'&&(x=url.match(/^\/channels\/(\d+)\/messages\/pins$/)))return reply({items:[...messages.values()].filter(m=>m.channel_id===x[1]&&m.pinned).map(message=>({message}))});
+  if(method==='POST'&&(x=url.match(/^\/channels\/(\d+)\/messages$/))){effects.push([method,url]);const msg={...body,id:String(number++),channel_id:x[1],author:{id:bot},pinned:false};messages.set(msg.id,msg);if(lose){lose=false;throw Error('provider answer lost');}return reply(msg);}
+  if((x=url.match(/^\/channels\/(\d+)\/messages\/(\d+)$/))){const m=messages.get(x[2]);if(!m)return Response.json({code:10008},{status:404});if(method==='PATCH'){effects.push([method,url]);Object.assign(m,body);}return reply(m);}
+  if(method==='PUT'&&(x=url.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/))){effects.push([method,url]);messages.get(x[2]).pinned=true;return new Response(null,{status:204});}
   throw Error('unrecognized synthetic provider endpoint');
  };
  let page=await openPage(STAFF,over);await page.go('#/admin/ruleset-publication');await waitFor(()=>page.app.querySelectorAll('pre').length===3,'complete publication preview');

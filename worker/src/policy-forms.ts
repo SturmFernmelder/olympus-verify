@@ -1,7 +1,8 @@
 /** Short script-free contact/case interface over the existing case engine. Conversation access is not account authority. */
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type { Env } from "./env";
 import { accountDataCoverageHtml } from "./privacy-account-coverage";
-import { currentUser, PAGE_VERSION } from "./site-core";
+import {currentUser,originalUserSession,PAGE_VERSION,type SiteUser} from "./site-core";
 import { handlePrivacyIntakeForm, INTAKE_KINDS, intakeOpen, intakeRetentionDays } from "./community-privacy-intake";
 import { communityFeatures } from "./community-context";
 import { ACTION_CURSOR_LIMIT, actionCursorShape, EVENT_CHANGE_CURSOR_LIMIT, eventChangeCursorShape, exportMyData, exportMyHistory, exportMyEventChanges, type OwnActionHistoryView, type OwnEventChangeHistoryView, CONTRIBUTION_DECISION_CURSOR_LIMIT, contributionDecisionCursorShape, exportMyContributionDecisions, type OwnContributionDecisionHistoryView } from "./site-export";
@@ -13,7 +14,13 @@ import { beginPrivacyAccess, finishPrivacyAccess, privacyAccessPage, privacyAcce
 import { exportPrivacyAccess } from "./privacy-access-export";
 import { erasePrivacyAccess } from "./privacy-access-erasure";
 import { requestServingErasure, erasureRequestStatus, type ErasureRequestResult } from './privacy-serving-authority';
+import {checkOriginalNativeResponse,checkOriginalNativeHeaders,ORIGINAL_RESPONSE_DESCRIPTORS,ORIGINAL_HEADER_DESCRIPTORS,captureOriginalNativeResponseBody,readOriginalNativeBodyPacket,cancelOriginalNativeBodyReader,releaseOriginalNativeBodyReader} from './privacy-native-http-intrinsics';
+import {recoveryParseDataJSON} from './privacy-recovery-data-json';
 
+// Private MAC binding only; n is never added to a public account-copy DTO or identity-only grant.
+function accountBinding(user:SiteUser,collection=''):string{const s=originalUserSession(user);return JSON.stringify(['site-account-form-incarnation-v1',s.u,s.v,s.e,s.g,s.n,collection]);}
+async function accountToken(env:Env,nonce:string,purpose:FormPurpose,user:SiteUser,collection=''):Promise<string>{const s=originalUserSession(user);const token=await formToken(env,nonce,purpose,accountBinding(user,collection));assertOriginalSiteSessionRead(s);return token;}
+async function requireAccountToken(env:Env,request:Request,token:string,purpose:FormPurpose,user:SiteUser,collection=''):Promise<void>{const s=originalUserSession(user);await requireFormToken(env,request,token,purpose,accountBinding(user,collection));assertOriginalSiteSessionRead(s);}
 const ID = /^[A-Za-z0-9_-]{22}$/, CODE = /^[A-Za-z0-9_-]{43}$/;
 const CASE_FIELDS = ["csrf", "caseId", "caseCode", "before"] as const;
 const controls = `<section class="data-controls"><h2>Privacy and account data</h2><p><a href="/privacy/account">Account data controls</a> · <a href="/privacy/contact">Account help</a> · <a href="/privacy/case">Read an existing case</a></p></section>`;
@@ -22,11 +29,38 @@ function erasureRequest(request:Request):Request {
  const headers=new Headers(request.headers);headers.set('X-Olympus',PAGE_VERSION);
  return new Request(new URL('/api/me/erasure',request.url),{method:'POST',headers});
 }
+/** Read only the code already present in this fresh source response; this function cannot issue one. */
+async function freshErasureResponseCode(response:Response,operationId:string,original:OriginalSiteSession):Promise<string|null>{
+ let reader:ReturnType<typeof captureOriginalNativeResponseBody>=null,complete=false,code:string|null=null;
+ const check=()=>{assertOriginalSiteSessionRead(original);checkOriginalNativeResponse(response);};
+ try{
+  check();const status=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,response,[]) as number;
+  const headers=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,response,[]) as Headers;checkOriginalNativeHeaders(headers);
+  const contentType=Reflect.apply(ORIGINAL_HEADER_DESCRIPTORS.get!.value,headers,['Content-Type']);
+  if(status!==202||contentType!=='application/json; charset=utf-8')return null;
+  reader=captureOriginalNativeResponseBody(response);if(!reader)return null;
+  let raw='',size=0;
+  for(;;){const packet=await readOriginalNativeBodyPacket(reader);check();if(packet.done){complete=true;break;}const bytes=packet.value;if(!bytes)return null;size+=bytes.byteLength;if(size>4096)return null;
+   // This closed status DTO contains only authored ASCII labels, integers and the original base64url code.
+   for(let i=0;i<bytes.byteLength;i++){const byte=bytes[i]!;if(byte>127)return null;raw+=String.fromCharCode(byte);}}
+  const parsed=recoveryParseDataJSON(raw);check();
+  const record=(value:unknown,keys:readonly string[]):Record<string,unknown>|null=>{if(!value||typeof value!=='object'||Array.isArray(value))return null;const names=Reflect.ownKeys(value);if(names.length!==keys.length||!keys.every(k=>names.includes(k)))return null;const out:Record<string,unknown>={};for(const key of keys){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))return null;out[key]=d.value;}return out;};
+  const fields=['operationId','state','holdReason','servingAccountErased','servingLocalErased','statusRequirement','allCopiesErased','externalCleanup','recoveryCopies','staffAccess','staffAccessDetails','statusToken','statusExpires'] as const;
+  const body=record(parsed,fields);if(!body)return null;
+  const count=(v:unknown)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0;
+  const debt=record(body.externalCleanup,['known','unknown','expiredUnresolved']),staff=record(body.staffAccessDetails,['classification','accessObserved','historicalBotIssued','unresolvedBotCustody','manualAssignment','automaticStaffRemoval']);
+  if(body.operationId!==operationId||!['waiting_role','held','complete'].includes(body.state as string)||body.holdReason!==null&&(typeof body.holdReason!=='string'||body.holdReason.length>128)||typeof body.servingAccountErased!=='boolean'||typeof body.servingLocalErased!=='boolean'||body.statusRequirement!=='independent'||body.allCopiesErased!==false||body.recoveryCopies!=='operator-held'||!['human-managed','none','unknown'].includes(body.staffAccess as string)||typeof body.statusExpires!=='number'||!Number.isSafeInteger(body.statusExpires)||body.statusExpires<1)return null;
+  if(!debt||!['known','unknown','expiredUnresolved'].every(k=>count(debt[k]))||!staff||!['historical-bot-issued','unqualified','none','unknown'].includes(staff.classification as string)||!['present','none','unknown'].includes(staff.accessObserved as string)||staff.historicalBotIssued!==null&&!count(staff.historicalBotIssued)||staff.unresolvedBotCustody!==null&&!count(staff.unresolvedBotCustody)||staff.manualAssignment!=='unqualified'||staff.automaticStaffRemoval!==false)return null;
+  const token=body.statusToken;if(typeof token!=='string'||token.length>1024||!/^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/.test(token))return null;
+  check();code=token;
+ }catch{code=null;}finally{if(reader){if(!complete){try{await cancelOriginalNativeBodyReader(reader,'original_form_status_unavailable');}catch{code=null;}}try{releaseOriginalNativeBodyReader(reader);}catch{code=null;}}}
+ check();return code;
+}
 async function erasureStatusForm(env:Env,nonce:string,operationId='',statusToken=''):Promise<string>{
  return `<form method="post" action="/privacy/account/erasure-status">${hidden('csrf',await formToken(env,nonce,'erasure-status'))}<label>Erasure request ID<input name="operationId" value="${e(operationId)}" required pattern="[a-f0-9]{32}" maxlength="32" autocomplete="off"></label><label>Private status code (optional while the original session is current)<textarea name="statusToken" maxlength="1024" rows="3" autocomplete="off">${e(statusToken)}</textarea></label><button type="submit">Check my erasure request</button></form>`;
 }
 async function showErasureStatus(request:Request,env:Env,nonce:string,operationId:string,status:ErasureRequestResult|null):Promise<Response>{
- const body=status?`<p>Request <code>${e(operationId)}</code>: <strong>${e(status.state)}</strong>.</p><p>${status.state==='complete'?'Serving account records were erased after the bot-managed Guild Member role was confirmed absent.':'The request is queued or held; account erasure is not complete.'}</p><p>Staff access classification: ${e(status.staffAccessDetails.classification)}; historical bot-issued receipt(s): ${e(status.staffAccessDetails.historicalBotIssued??'unqualified')}; unresolved bot custody: ${e(status.staffAccessDetails.unresolvedBotCustody??'unqualified')}. Historical bot-issued records do not prove exclusive current ownership. Missing bot history does not prove manual assignment. Staff roles are not removed automatically; unresolved bot custody holds serving erasure and requires attended handling. Manually assigned staff roles remain human-managed. External Discord cleanup has ${e(status.externalCleanup.known)} known pointer(s), ${e(status.externalCleanup.unknown)} unknown outcome(s), and ${e(status.externalCleanup.expiredUnresolved)} unresolved record(s) past their original deadline. Unknown or expired unresolved custody can need attended resolution; it is not silently marked erased. Private recovery exports and Cloudflare recovery history have separate custody. This result does not mean every copy was erased.</p><p>Save this private status code; it can read only this request until its original deadline, without restoring account access. A held request that reaches that deadline needs attended resolution; its authority is not renewed.</p><pre>${e(status.statusToken)}</pre>`:`<p>The service could not confirm this request. Keep the same request ID and check again; do not submit a different erasure request to resolve a lost response.</p>`;
+ const body=status?`<p>Request <code>${e(operationId)}</code>: <strong>${e(status.state)}</strong>.</p><p>${status.servingAccountErased?'Serving account records were erased after the bot-managed Guild Member role was confirmed absent.':status.servingLocalErased?'Serving-local records were erased. Independent suppression and recovery-copy erasure are not confirmed.':'The request is queued or held; independent confirmation of account erasure is not available.'}</p><p>Staff access classification: ${e(status.staffAccessDetails.classification)}; historical bot-issued receipt(s): ${e(status.staffAccessDetails.historicalBotIssued??'unqualified')}; unresolved bot custody: ${e(status.staffAccessDetails.unresolvedBotCustody??'unqualified')}. Historical bot-issued records do not prove exclusive current ownership. Missing bot history does not prove manual assignment. Staff roles are not removed automatically; unresolved bot custody holds serving erasure and requires attended handling. Manually assigned staff roles remain human-managed. External Discord cleanup has ${e(status.externalCleanup.known)} known pointer(s), ${e(status.externalCleanup.unknown)} unknown outcome(s), and ${e(status.externalCleanup.expiredUnresolved)} unresolved record(s) past their original deadline. Unknown or expired unresolved custody can need attended resolution; it is not silently marked erased. Private recovery exports and Cloudflare recovery history have separate custody. This result does not mean every copy was erased.</p>${status.statusToken?`<p>Save this private status code; it can read only this request until its original deadline, without restoring account access. A held request that reaches that deadline needs attended resolution; its authority is not renewed.</p><pre>${e(status.statusToken)}</pre>`:'<p>The original private status code is unavailable. A later status read cannot issue or renew it. Keep the same request ID and ask an Olympus officer for attended help.</p>'}`:`<p>The service could not confirm this request. Keep the same request ID and check again; do not submit a different erasure request to resolve a lost response.</p>`;
  return htmlResponse(request,'Account erasure status',body+await erasureStatusForm(env,nonce,operationId,status?.statusToken??'')+controls,status?200:503,formCookie(nonce));
 }
 function credentials(f: Readonly<Record<string, string>>) {
@@ -55,11 +89,11 @@ async function showCase(request: Request, env: Env, nonce: string, c: Readonly<{
   body += await caseReadForm(env, nonce, c) + controls;
   return htmlResponse(request, "Your private case", body);
 }
-async function showHistory(request: Request, env: Env, nonce: string, result: Response, user: { discord_id: string; session_version: number }, resumeCursor?: string): Promise<Response> {
+async function showHistory(request: Request, env: Env, nonce: string, result: Response, user: SiteUser, resumeCursor?: string): Promise<Response> {
   const data = await result.json() as OwnActionHistoryView & { error?: string; message?: string };
-  const b = `${user.discord_id}:${user.session_version}`;
+  const b = accountBinding(user);
   const post = async (mode: "history" | "download", cursor: string, label: string) =>
-    `<form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}${hidden("mode", mode)}${hidden("actions", cursor)}<button type="submit">${e(label)}</button></form>`;
+    `<form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user))}${hidden("mode", mode)}${hidden("actions", cursor)}<button type="submit">${e(label)}</button></form>`;
   const saved = (cursor: string, label: string) =>
     `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label>`;
   const resumeHelp = `<p>Keep continuation values privately. To resume after the rate window or an expired form, reopen <a href="/privacy/account">Account data controls</a>, paste a saved value into Saved action continuation, and choose View my action history or Download my curated copy. Use the same original site session before it expires. Never put a continuation in an address or share it.</p>`;
@@ -82,11 +116,11 @@ async function showHistory(request: Request, env: Env, nonce: string, result: Re
   return htmlResponse(request, "Your action history", body + controls, 200, formCookie(nonce));
 }
 
-async function showEventChanges(request: Request, env: Env, nonce: string, result: Response, user: { discord_id: string; session_version: number }, resumeCursor?: string): Promise<Response> {
+async function showEventChanges(request: Request, env: Env, nonce: string, result: Response, user: SiteUser, resumeCursor?: string): Promise<Response> {
   const data = await result.json() as OwnEventChangeHistoryView & { error?: string; message?: string };
-  const b = `${user.discord_id}:${user.session_version}:event_changes`;
+  const b = accountBinding(user,"event_changes");
   const post = async (mode: "history" | "download", cursor: string, label: string) =>
-    `<form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}${hidden("collection", "event_changes")}${hidden("mode", mode)}${hidden("eventChanges", cursor)}<button type="submit">${e(label)}</button></form>`;
+    `<form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user,"event_changes"))}${hidden("collection", "event_changes")}${hidden("mode", mode)}${hidden("eventChanges", cursor)}<button type="submit">${e(label)}</button></form>`;
   const saved = (cursor: string, label: string) => `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label>`;
   const resumeHelp = `<p>Keep event-change continuations privately. Reopen <a href="/privacy/account">Account data controls</a>, paste into Saved event-change continuation, and use the event-change buttons with the same original site session before it expires. Never put a continuation in an address or share it.</p>`;
   if (!result.ok) {
@@ -102,11 +136,11 @@ async function showEventChanges(request: Request, env: Env, nonce: string, resul
   return htmlResponse(request, "Your event-change history", body + controls, 200, formCookie(nonce));
 }
 
-async function showContributionDecisions(request: Request, env: Env, nonce: string, result: Response, user: { discord_id: string; session_version: number }, resumeCursor?: string): Promise<Response> {
+async function showContributionDecisions(request: Request, env: Env, nonce: string, result: Response, user: SiteUser, resumeCursor?: string): Promise<Response> {
   const data = await result.json() as OwnContributionDecisionHistoryView & { error?: string; message?: string };
-  const b = `${user.discord_id}:${user.session_version}:contribution_decisions`;
+  const b = accountBinding(user,"contribution_decisions");
   const post = async (mode: "history" | "download", cursor: string, label: string) =>
-    `<form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}${hidden("collection", "contribution_decisions")}${hidden("mode", mode)}${hidden("contributionDecisions", cursor)}<button type="submit">${e(label)}</button></form>`;
+    `<form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user,"contribution_decisions"))}${hidden("collection", "contribution_decisions")}${hidden("mode", mode)}${hidden("contributionDecisions", cursor)}<button type="submit">${e(label)}</button></form>`;
   const saved = (cursor: string, label: string) => `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label>`;
   const resumeHelp = `<p>Keep contribution-decision continuations privately. Reopen <a href="/privacy/account">Account data controls</a>, paste into Saved contribution-decision continuation, and use the contribution-decision buttons with the same original site session before it expires. Never put a continuation in an address or share it.</p>`;
   if (!result.ok) {
@@ -128,16 +162,16 @@ async function accountPage(request: Request, env: Env, nonce: string): Promise<R
   body+=accountDataCoverageHtml(env.PRIVACY_ERASURE_ENABLED==='true'||env.PRIVACY_RETENTION_ENABLED==='true');
   if(env.PRIVACY_ERASURE_ENABLED!=='true')body+=erasurePaused;
   if (user) {
-    const b = `${user.discord_id}:${user.session_version}`;
-    body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", b))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
-    body += `<h2>My event-change history</h2><p>Only retained changes recorded with your account as actor are included. These controls share the same five-read hourly budget with the action form above.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:event_changes`))}${hidden("collection", "event_changes")}<label>Saved event-change continuation (optional)<input name="eventChanges" maxlength="${EVENT_CHANGE_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my event-change page in curated copy</button><button name="mode" value="history" type="submit">View my event-change history</button></form>`;
-    body += `<h2>My contribution-decision history</h2><p>Retained decisions name your account as subject or explicitly record it as a member/staff actor. Only action, time and your relation are included. These controls share the same five-read hourly budget with the other account forms.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await formToken(env, nonce, "copy-export", `${b}:contribution_decisions`))}${hidden("collection", "contribution_decisions")}<label>Saved contribution-decision continuation (optional)<input name="contributionDecisions" maxlength="${CONTRIBUTION_DECISION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my contribution-decision page in curated copy</button><button name="mode" value="history" type="submit">View my contribution-decision history</button></form>`;
+    const b = accountBinding(user);
+    body += `<p>Your existing site session can read its curated partial copy, including when the account is denied, banned or has left the server. Each history view or JSON download uses one of five copy reads per hour. History completion covers only the retained captured action range and grants no guild access.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user))}<label>Saved action continuation (optional)<input name="actions" maxlength="${ACTION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my curated copy</button><button name="mode" value="history" type="submit">View my action history</button></form>`;
+    body += `<h2>My event-change history</h2><p>Only retained changes recorded with your account as actor are included. These controls share the same five-read hourly budget with the action form above.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user,"event_changes"))}${hidden("collection", "event_changes")}<label>Saved event-change continuation (optional)<input name="eventChanges" maxlength="${EVENT_CHANGE_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my event-change page in curated copy</button><button name="mode" value="history" type="submit">View my event-change history</button></form>`;
+    body += `<h2>My contribution-decision history</h2><p>Retained decisions name your account as subject or explicitly record it as a member/staff actor. Only action, time and your relation are included. These controls share the same five-read hourly budget with the other account forms.</p><form method="post" action="/privacy/account/export">${hidden("csrf", await accountToken(env,nonce,"copy-export",user,"contribution_decisions"))}${hidden("collection", "contribution_decisions")}<label>Saved contribution-decision continuation (optional)<input name="contributionDecisions" maxlength="${CONTRIBUTION_DECISION_CURSOR_LIMIT}" autocomplete="off"></label><button name="mode" value="download" type="submit">Download my contribution-decision page in curated copy</button><button name="mode" value="history" type="submit">View my contribution-decision history</button></form>`;
   } else body += env.PRIVACY_ACCESS_ENABLED === 'true'
     ? '<p>You have no current site session. <a href="/privacy/access">Connect your Discord account for privacy actions</a>; this also works without a website account or current server membership.</p>'
     : '<p>You have no current site session. <a href="/privacy/signin">Check identify-only sign-in availability</a>. You may contact the inbox without signing in.</p>';
   if(user&&env.PRIVACY_ERASURE_ENABLED==='true'){
    const operationId=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
-   body+=`<h2>Erase my serving account</h2><p>This closes ordinary account access immediately, then removes the bot-managed Guild Member role before erasing serving account records. Staff roles need a human administrator. Active safety cases, unresolved external-message cleanup, and private recovery copies have separate retention. A minimized rejected-application/membership marker may last 12 months from the original rejection; a separate account ID and retired-generation replay record lasts 366 days for restore suppression.</p><p>Save this request ID before submitting: <code>${e(operationId)}</code>.</p><form method="post" action="/privacy/account/full-erase">${hidden('csrf',await formToken(env,nonce,'full-erase',`${user.discord_id}:${user.session_version}`))}${hidden('operationId',operationId)}<label><input type="checkbox" name="confirm" value="erase" required> I request erasure and understand that Guild Member access ends.</label><button type="submit">Request serving account erasure</button></form>`;
+   body+=`<h2>Erase my serving account</h2><p>This closes ordinary account access immediately, then removes the bot-managed Guild Member role before erasing serving account records. Staff roles need a human administrator. Active safety cases, unresolved external-message cleanup, and private recovery copies have separate retention. A minimized rejected-application/membership marker may last 12 months from the original rejection; a separate account ID and retired-generation replay record lasts 366 days for restore suppression. Configured independent recovery custody separately retains purpose-bound account-birth and rejection-key digests with the original rejection date and expiry. It stores no raw Discord ID, birth nonce, credentials or staff text in that companion. An original storage alarm removes the rejection facts at the original 365-day deadline; the separate keyed erasure replay guard expires 366 days after erasure. Unknown or mismatched recovery sources stay held.</p><p>Save this request ID before submitting: <code>${e(operationId)}</code>.</p><form method="post" action="/privacy/account/full-erase">${hidden('csrf',await accountToken(env,nonce,'full-erase',user))}${hidden('operationId',operationId)}<label><input type="checkbox" name="confirm" value="erase" required> I request erasure and understand that Guild Member access ends.</label><button type="submit">Request serving account erasure</button></form>`;
   }
   body+=`<h2>Check an erasure request</h2>${await erasureStatusForm(env,nonce)}`;
   body += `<h2>Other deletion and unlink controls</h2><p>${env.PRIVACY_ERASURE_ENABLED==='true'?'Serving-account erasure covers the attributable bot and website records. Separate site-only erasure and local Battle.net unlink are not offered here.':'Automatic site-only erasure, full-tool erasure and local Battle.net unlink are not available yet.'} Ask an Olympus officer for attended help. This page does not change a Discord server ban or remove a connection stored by Discord.</p>`;
@@ -217,7 +251,7 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       const user = await currentUser(env, request);
       if (!user) return htmlResponse(request, "Session unavailable", "<p>Your current site session is no longer valid. No copy was made.</p>" + controls, 401);
       const id = String(user.discord_id), version = Number(user.session_version);
-      await requireFormToken(env, request, field(f, "csrf", 160), "copy-export", `${id}:${version}${decisionCollection ? ":contribution_decisions" : eventCollection ? ":event_changes" : ""}`);
+      const original=originalUserSession(user);await requireAccountToken(env,request,field(f,"csrf",160),"copy-export",user,decisionCollection?"contribution_decisions":eventCollection?"event_changes":"");
       const cursor = field(f, key, decisionCollection ? CONTRIBUTION_DECISION_CURSOR_LIMIT : eventCollection ? EVENT_CHANGE_CURSOR_LIMIT : ACTION_CURSOR_LIMIT, false, true);
       if (cursor && !(decisionCollection ? contributionDecisionCursorShape(cursor) : eventCollection ? eventChangeCursorShape(cursor) : actionCursorShape(cursor))) throw new FormError("invalid_form");
       const result = decisionCollection
@@ -225,11 +259,11 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
         : eventCollection
           ? mode === "history" ? await exportMyEventChanges(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, cursor || undefined)
           : mode === "history" ? await exportMyHistory(request, env, user, cursor || undefined) : await exportMyData(request, env, user, cursor || undefined);
-      if (mode === "history") return decisionCollection
-        ? showContributionDecisions(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined)
+      assertOriginalSiteSessionRead(original);if (mode === "history") return decisionCollection
+        ? showContributionDecisions(request, env, nonce, result, user, cursor || undefined)
         : eventCollection
-          ? showEventChanges(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined)
-          : showHistory(request, env, nonce, result, { discord_id: id, session_version: version }, cursor || undefined);
+          ? showEventChanges(request, env, nonce, result, user, cursor || undefined)
+          : showHistory(request, env, nonce, result, user, cursor || undefined);
       result.headers.set("Referrer-Policy", "no-referrer");
       return result;
     }
@@ -243,10 +277,9 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
     if(m==='POST'&&path==='/privacy/account/full-erase'&&env.PRIVACY_ERASURE_ENABLED==='true'){
       const f=await readForm(request,['csrf','operationId','confirm']),user=await currentUser(env,request);
       if(!user)throw new FormError('session_unavailable',401);
-      await requireFormToken(env,request,field(f,'csrf',160),'full-erase',`${user.discord_id}:${user.session_version}`);
+      const original=originalUserSession(user);await requireAccountToken(env,request,field(f,'csrf',160),'full-erase',user);
       const operationId=field(f,'operationId',32,true,true);if(!/^[a-f0-9]{32}$/.test(operationId)||field(f,'confirm',5,true,true)!=='erase')throw new FormError('invalid_form');
-      const bridge=erasureRequest(request);await requestServingErasure(env,bridge,operationId);
-      return showErasureStatus(request,env,nonce,operationId,await erasureRequestStatus(env,bridge,operationId).catch(()=>null));
+      const bridge=erasureRequest(request);assertOriginalSiteSessionRead(original);const response=await requestServingErasure(env,bridge,operationId);assertOriginalSiteSessionRead(original);const originalCode=await freshErasureResponseCode(response,operationId,original);assertOriginalSiteSessionRead(original);const status=await erasureRequestStatus(env,bridge,operationId,originalCode??undefined).catch(()=>null);assertOriginalSiteSessionRead(original);return showErasureStatus(request,env,nonce,operationId,status);
     }
     if (m === "POST" && path.startsWith("/privacy/account/")) {
       const action = path.slice("/privacy/account/".length) as FormPurpose;

@@ -10,7 +10,7 @@
  * profile cleanup 604, so a large backlog could exhaust the limit and fail whatever ran last.
  *
  * Each workload that grows with the data is capped per run here, and every capped job continues deterministically on the
- * next run (the cron runs every 30 minutes):
+ * next run (the proposed cron runs every 15 minutes):
  * - the role sweep's accounts (restore.ts): its promotion watermark and rotation cursor, as before;
  * - the Discord-name refresh (names.ts): the stalest names first, a refreshed row moves to the back;
  * - the expired directory profiles (community-directory.ts): oldest departure first, an erased profile is gone;
@@ -40,6 +40,23 @@
  * Not the entry module, so its scalar exports are fine (index.ts exports functions only: .51).
  */
 
+import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
+declare const originalRosterScheduleBrand:unique symbol;
+export type OriginalRosterSchedule=Readonly<{[originalRosterScheduleBrand]:true}>;
+type RosterSchedule={createdAt:number;last:number;phase:'news'|'roster';rosterEffectsStatements:56|87;newsEnabled:boolean};
+const rosterSchedules=new WeakMap<OriginalRosterSchedule,RosterSchedule>();
+const rosterScheduleHeld=():never=>{throw Error('original_roster_schedule_held');};
+/** Scheduling custody only; no account, generation, role, deletion, epoch or provider authority. */
+export function captureOriginalRosterSchedule():OriginalRosterSchedule{
+ const ms=originalRecoveryClockMilliseconds(),createdAt=Math.floor(ms/1000);if(!Number.isSafeInteger(createdAt)||createdAt<1)return rosterScheduleHeld();
+ const newsEnabled=Math.floor(createdAt/900)%2===0,cap=Object.freeze({}) as OriginalRosterSchedule;
+ rosterSchedules.set(cap,{createdAt,last:ms,phase:newsEnabled?'news':'roster',rosterEffectsStatements:newsEnabled?56:87,newsEnabled});return cap;
+}
+export function originalRosterScheduleFacts(cap:OriginalRosterSchedule):Readonly<{createdAt:number;phase:'news'|'roster';rosterEffectsStatements:56|87;newsEnabled:boolean}>{
+ const s=rosterSchedules.get(cap),ms=originalRecoveryClockMilliseconds();if(!s||ms<s.last||ms<s.createdAt*1000||ms>=(s.createdAt+300)*1000)return rosterScheduleHeld();s.last=ms;
+ return Object.freeze({createdAt:s.createdAt,phase:s.phase,rosterEffectsStatements:s.rosterEffectsStatements,newsEnabled:s.newsEnabled});
+}
+
 /** Documented Paid query allowance; our admission model conservatively charges each attempted batch statement. */
 export const D1_STATEMENTS_PER_INVOCATION = 1000;
 /** The whole scheduled run's worst case stays at or below this (the .115 acceptance target, task log 3 Oct 2026 13:36 UTC). */
@@ -55,8 +72,8 @@ export const SCHEDULED_CAPS = {
   namesPerRun: 1,
   /** community-directory.ts: profiles thirty days departed that one run erases (was 100); the rest go in the next runs. */
   profilesPerRun: 1,
-  /** community-contributions.ts: weekly obligations one run opens (was 200); the rest open in the next runs. */
-  obligationsPerRun: 4,
+  /** Two openings per 15-minute tick retain the prior four-per-30-minute weekly throughput (1,344 slots/week). */
+  obligationsPerRun: 2,
   /** 250 reserved names per cron tick; attended queueReserved retains four rounds. */
   autoQueueRounds: 1,
   /**
@@ -120,8 +137,9 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "sweepCommunityPrivacy", worst: 3, rule: "one 3-statement batch" },
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
-  {job:'runServingErasureJob',worst:151,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
-  {job:'sweepServingRetention',worst:21,rule:'fixed21-statement native batch including shared-publication actor minimization; two privacy-credential selections capped100, other deterministic selections capped1000; terminal provider receipts expire, unresolved external/recovery custody remains explicit'},
+  {job:'runServingErasureJob',worst:155,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
+  {job:'sweepServingRetention',worst:21,rule:'scheduled original entry-tick alternates21 general payloads and at most12 beta payloads (6 B1 + 2 short credentials + 3 reset lifecycle + 1 activation attribution); both phases every30min, credentials every15min; beta lifecycle4 always runs in its original phase even with feature flags OFF;4 installed controls keep max25; full manual legacy batch27 outside cron'},
+  {job:'sweepRejectionExpiry',worst:7,rule:'one original fixed-clock Native marker expiry group; includes proof read, payload and four admission controls in the installed branch'},
 ];
 
 /** The sum of the table: the whole scheduled invocation's worst case. */
@@ -129,21 +147,41 @@ export const SCHEDULED_WORST_CASE = SCHEDULED_BUDGET.reduce((n, j) => n + j.wors
 
 /** Explicit installed-admission branch, selected only by the exact true flag (current production profile ON).
  * Every native writer group includes four control statements. Current schema is one proven read;
- * missing schema/markers hold and attended installation is charged separately (202 native statements).
+ * missing schema/markers hold; the legacy 402-statement installation cannot construct this next profile and is held.
  * The roster retains its whole 56 envelope; central roles reserve120 despite measured117/118 paths.
- * These are local native test envelopes, not a provider-meter or old-writer/provider-transition approval.
+ * Epoch reads carry one additional original-epoch/native-schema proof per read group. Independent facts share
+ * that proof without refreshing authority. Membership/rank phases retain durable unfinished work; roster effects
+ * defer to a later fresh role sweep. Departures scan two persisted pages; expired role debt rotates one original
+ * tuple by a consumed visit audit, without rewriting its state or clocks. Proposed installed erasure196
+ * includes the early custody read/recheck and a four-statement reserve above the previously attempted190+2;
+ * ordinary erasure155 and original-clock expiry7 require fresh measurement. Weekly openings are two per15-minute
+ * tick: two reads + six policy/admission statements + eight per opening =24, retaining1,344 openings/week.
+ * These are proposed source-only envelopes requiring a new exact-source native measurement, not a deploy/reopen, provider-meter or transition approval.
  */
 export const ADMISSION_SCHEDULED_BUDGET:ReadonlyArray<{job:string;worst:number}>=Object.freeze([
  {job:'ensureSchema',worst:1},{job:'sweepInviteQueue',worst:20},{job:'sweepMemberRoles',worst:120},
- {job:'continueRosterEffects',worst:C.rosterEffectsStatements},{job:'refreshNames',worst:6},
- {job:'autoQueueReserved',worst:17},{job:'purgeSeenInteractions',worst:5},{job:'purgeBattleNetData',worst:13},
- {job:'sweepRenameHolds',worst:5},{job:'sweepCommunityProfiles',worst:22},{job:'sweepCommunityEvents',worst:17},
- {job:'runEventReminders',worst:19},{job:'sweepCommunityTrials',worst:11},{job:'sweepCommunityRestrictions',worst:13},
- {job:'departureIntake',worst:26},{job:'sweepCommunityDepartures',worst:11},{job:'openWeeklyObligations',worst:39},
- {job:'sweepCommunityContributions',worst:15},{job:'sweepCommunityPrivacy',worst:7},{job:'newsCron',worst:28},
- {job:'runOfficerDigest',worst:30},{job:'runServingErasureJob',worst:194},{job:'sweepServingRetention',worst:25},
+ {job:'continueRosterEffects',worst:C.rosterEffectsStatements},{job:'refreshNames',worst:7},
+ {job:'autoQueueReserved',worst:19},{job:'purgeSeenInteractions',worst:5},{job:'purgeBattleNetData',worst:13},
+ {job:'sweepRenameHolds',worst:5},{job:'sweepCommunityProfiles',worst:23},{job:'sweepCommunityEvents',worst:17},
+ {job:'runEventReminders',worst:21},{job:'sweepCommunityTrials',worst:11},{job:'sweepCommunityRestrictions',worst:13},
+ {job:'departureIntake',worst:21},{job:'sweepCommunityDepartures',worst:11},{job:'openWeeklyObligations',worst:24},
+ {job:'sweepCommunityContributions',worst:15},{job:'sweepCommunityPrivacy',worst:7},{job:'newsCron',worst:31},
+ {job:'runOfficerDigest',worst:32},{job:'runServingErasureJob',worst:196},{job:'sweepServingRetention',worst:25},{job:'sweepRejectionExpiry',worst:7},
 ]);
 export const ADMISSION_SCHEDULED_WORST_CASE=ADMISSION_SCHEDULED_BUDGET.reduce((n,j)=>n+j.worst,0);
+/** Alternate quarter-hour phase transfers exactly the unchanged News31 envelope to roster56+31; both sum700.
+ * News retains its original3h Native CAS; cleanup runs every30min. Roles/weekly slots/erasure196 keep every15min.
+ * One promote/note or one original notice phase can run each tick; a departure requires the extended phase.
+ * Pending work keeps its original row/G; no removal300 intent is created while a news-phase departure is held. */
+export const ROSTER_EXTENDED_ADMISSION_SCHEDULED_BUDGET:ReadonlyArray<{job:string;worst:number}>=Object.freeze(ADMISSION_SCHEDULED_BUDGET.map(row=>Object.freeze({...row,worst:row.job==='continueRosterEffects'?87:row.job==='newsCron'?0:row.worst})));
+export const ROSTER_EXTENDED_ADMISSION_SCHEDULED_WORST_CASE=ROSTER_EXTENDED_ADMISSION_SCHEDULED_BUDGET.reduce((n,j)=>n+j.worst,0);
+export function admissionScheduledBudget(cap:OriginalRosterSchedule):ReadonlyArray<{job:string;worst:number}>{return originalRosterScheduleFacts(cap).newsEnabled?ADMISSION_SCHEDULED_BUDGET:ROSTER_EXTENDED_ADMISSION_SCHEDULED_BUDGET;}
+
+/** Private epoch2 adds a native proof to every read group. The unchanged700 envelope is not transferred.
+ * .161: qualified for the ordinary 15-minute schedule only after the exact-tree whole-Native measurement of this source at the same
+ * 700 bound (both layouts and roster/news phases). Production CPU, memory and cadence still need the post-deploy tick readback.
+ * The reset minute keeps its own false qualifier (beta-reset.ts). */
+export const EPOCH2_SCHEDULE_QUALIFIED=true as const;
 
 /**
  * .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): the other invocations that apply roster effects hold

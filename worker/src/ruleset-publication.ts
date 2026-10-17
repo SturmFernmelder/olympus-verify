@@ -1,27 +1,34 @@
-/** Owner task7: explicit current-public-beta publication, never a future profile selector or automatic cron. */
+/** Owner task7: explicit publication of the RESOLVED game identity (beta, or the activated private future profile), never an automatic cron.
+ * 14 Oct 2026: switchRulesetMode is the owner-only activation: one admitted batch pins the identity and selects its publication.
+ * 15 Oct 2026 (v2, Codex review v1): one database time for pins, audit and decision date; the proof confirms all five pins; the
+ * admission compares the observed raw mode value, so a corrupt value can be returned from. */
+import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import './ruleset-publication-data';
 import type { Env } from './env';
 import { apiJson,isSiteAdmin,readSession,sameOrigin,PAGE_VERSION,sign,verify } from './site-core';
 import { DB_NOW,randomToken,fenceSql } from './community-context';
-import { privacyProviderCustodyDatabase,PRIVACY_YEAR } from './privacy-serving-authority';
-import { currentRulesetProfile } from './ruleset-profile';
+import { privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyProviderCustodyDatabase,PRIVACY_YEAR } from './privacy-serving-authority';
+import { activeRulesetSnapshot,betaRulesetSnapshot,parseFutureProfileSecret,rulesetDigest,RULESET_SETTINGS_KEYS,type RulesetSnapshot } from './ruleset-profile';
 import { guideMessage } from './guide';
 import { INTROS,parseChannels,renderEmbeds,resolveText,introHash,validateEmbeds } from './intros';
 import { qualifyPublicationDestination,publicationMessage,discoverGuide,messageOwned,messageMatches,writePublication,definitePublicationRefusal,type PublicPayload } from './ruleset-pin-publication';
 
 const TARGETS=['guide','olympus-info','guild-announcements'] as const;
 const TOKEN=/^[A-Za-z0-9_-]{22}$/;
-type Session={u:string;v:number;e:number;g:string|null};
+type Session=OriginalSiteSession;
 type Row={guild_id:string;publication_id:string;target_key:string;selection_revision:number;profile_revision:string;plan_hash:string;
- actor:string|null;actor_generation:string|null;session_version:number|null;session_expires:number|null;parent_id:string|null;channel_id:string|null;
+ actor:string|null;actor_generation:string|null;actor_account_incarnation:string|null;session_version:number|null;session_expires:number|null;parent_id:string|null;channel_id:string|null;
  message_id:string|null;frozen_payload:string|null;payload_hash:string|null;record_hash:string|null;claim_nonce:string|null;stage:string;state:string;result_code:string|null;created_at:number;updated_at:number;actor_retain_until:number};
 type Form={operationId:string;expectedRevision:number;expiresAt:number;token:string};
 class Refused extends Error {constructor(readonly code:string,readonly status=409){super(code);}}
 const hash=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,'0')).join('');
-const sourceRevision=()=>currentRulesetProfile().revision;
-const claims=(s:Session,f:Omit<Form,'token'>)=>JSON.stringify({purpose:'ruleset_publication',u:s.u,v:s.v,e:s.e,g:s.g,...f});
+const sourceRevision=(snap:RulesetSnapshot)=>snap.revision;
+/** Item 7: who may switch the public game identity (owner answer 10 of 3 Oct 2026: the owner's account). Must also be a site admin. */
+const approvers=(env:Env)=>(env.RULESET_SWITCH_APPROVERS??'').split(',').map(s=>s.trim()).filter(s=>/^\d{17,20}$/.test(s));
+const TARGET_KEYS="'guide','olympus-info','guild-announcements'";
+const claims=(s:Session,f:Omit<Form,'token'>)=>JSON.stringify({purpose:'ruleset_publication_incarnation_v1',u:s.u,v:s.v,e:s.e,g:s.g,n:s.n,...f});
 const latest=`COALESCE((SELECT MAX(selection_revision) FROM ruleset_publications WHERE guild_id=?1 AND target_key='$selection'),0)`;
-const originalFence=(r:Row)=>fenceSql('applicantWrite',1,2,3,r.actor_generation);
+const originalFence=(r:Row)=>r.actor_account_incarnation===null?'0':fenceSql('applicantWrite',1,2,3,r.actor_generation,r.actor_account_incarnation);
 const actorArgs=(r:Row)=>[r.actor,r.session_version,r.session_expires];
 const current=`EXISTS(SELECT 1 FROM ruleset_publications s WHERE s.guild_id=r.guild_id AND s.target_key='$selection'
  AND s.publication_id=r.publication_id AND s.selection_revision=r.selection_revision
@@ -31,38 +38,44 @@ function channels(env:Env):Record<string,string>{
  if(pairs.some(p=>p.length!==2||!p[0]||!/^\d{17,20}$/.test(p[1]!))||new Set(pairs.map(p=>p[0])).size!==pairs.length||new Set(pairs.map(p=>p[1])).size!==pairs.length)throw new Refused('publication_channels_unqualified');
  const c=parseChannels(raw);if(!c['join-olympus']||!c['olympus-info']||!c['guild-announcements'])throw new Refused('publication_channels_unqualified');return c;
 }
-async function plan(env:Env){
+async function plan(env:Env,snap:RulesetSnapshot){
+ if(!snap.profile)throw new Refused('publication_profile_held');
  const c=channels(env),guild=env.INTROS_GUILD_ID;
  if(!guild||guild!==env.GUILD_ID)throw new Refused('publication_guild_unqualified');
  const rows=await env.DB.prepare('SELECT * FROM intro_posts WHERE guild_id=?1').bind(guild).all<{intro_key:string;parent_id:string;channel_id:string;message_id:string}>();
  const targets=await Promise.all(TARGETS.map(async key=>{
   const intro=INTROS.find(i=>i.key===key),parent=key==='guide'?c['join-olympus']!:c[intro!.channel]!;
-  const p:PublicPayload=key==='guide'?{content:'',...guideMessage(env)} as PublicPayload:{content:resolveText(intro!.content??'',c),embeds:renderEmbeds(intro!,c),allowed_mentions:{parse:[]}};
+  const p:PublicPayload=key==='guide'?{content:'',...guideMessage(env,snap.profile!)} as PublicPayload:{content:resolveText(intro!.content??'',c),embeds:renderEmbeds(intro!,c,snap),allowed_mentions:{parse:[]}};
   if(validateEmbeds(p.embeds as Parameters<typeof validateEmbeds>[0]).length||JSON.stringify(p).length>16000)throw new Refused('publication_payload_unqualified');
   const old=rows.results.find(r=>r.intro_key===key);
   if(old&&(old.parent_id!==parent||old.channel_id!==parent))throw new Refused('publication_destination_changed');
   return {target_key:key,parent_id:parent,channel_id:parent,message_id:old?.message_id??null,frozen_payload:JSON.stringify(p),payload_hash:await hash(JSON.stringify(p)),record_hash:intro?await introHash(intro,p.embeds as Parameters<typeof introHash>[1]):null};
  }));
- return {guild,targets,planHash:await hash(JSON.stringify({profile:currentRulesetProfile(),targets:targets.map(({message_id,...t})=>t)}))};
+ return {guild,targets,planHash:await hash(JSON.stringify({profile:snap.profile,targets:targets.map(({message_id,...t})=>t)}))};
 }
 async function session(request:Request,env:Env):Promise<Session>{
  const s=await readSession(env,request);if(!s||!isSiteAdmin(env,s.u))throw new Refused('publication_staff_required',403);
  return s;
 }
 async function staffProof(env:Env,s:Session):Promise<void>{
- const proof=await env.DB.prepare(`SELECT 1 AS ok WHERE ${fenceSql('applicantWrite',1,2,3,s.g)}`).bind(s.u,s.v,s.e).first<{ok:number}>();
- if(proof?.ok!==1||!isSiteAdmin(env,s.u))throw new Refused('publication_authority_closed');
+ assertOriginalSiteSessionRead(s);const proof=await env.DB.prepare(`SELECT 1 AS ok WHERE ${fenceSql('applicantWrite',1,2,3,s.g,s.n)}`).bind(s.u,s.v,s.e).first<{ok:number}>();
+ assertOriginalSiteSessionRead(s);if(proof?.ok!==1||!isSiteAdmin(env,s.u))throw new Refused('publication_authority_closed');
 }
 async function checkForm(env:Env,s:Session,input:unknown):Promise<Form>{
  const f=input as Form;if(!f||typeof f!=='object'||Object.keys(f).sort().join(',')!=='expectedRevision,expiresAt,operationId,token'||!TOKEN.test(f.operationId)||!Number.isSafeInteger(f.expectedRevision)||f.expectedRevision<0||!Number.isSafeInteger(f.expiresAt)||f.expiresAt>s.e||typeof f.token!=='string')throw new Refused('publication_form_refused',400);
- if(!await verify(env.COOKIE_SECRET,'ruleset_publication',claims(s,{operationId:f.operationId,expectedRevision:f.expectedRevision,expiresAt:f.expiresAt}),f.token))throw new Refused('publication_form_refused',403);
- const live=await env.DB.prepare(`SELECT 1 AS ok WHERE ?1>${DB_NOW}`).bind(f.expiresAt).first<{ok:number}>();if(live?.ok!==1)throw new Refused('publication_form_expired');return f;
+ assertOriginalSiteSessionRead(s);if(!await verify(env.COOKIE_SECRET,'ruleset_publication_incarnation_v1',claims(s,{operationId:f.operationId,expectedRevision:f.expectedRevision,expiresAt:f.expiresAt}),f.token))throw new Refused('publication_form_refused',403);assertOriginalSiteSessionRead(s);
+ const live=await env.DB.prepare(`SELECT 1 AS ok WHERE ?1>${DB_NOW}`).bind(f.expiresAt).first<{ok:number}>();assertOriginalSiteSessionRead(s);if(live?.ok!==1)throw new Refused('publication_form_expired');return f;
+}
+function switchReadiness(env:Env,s:Session,snap:RulesetSnapshot,blockers:number){
+ const configured=parseFutureProfileSecret(env.RULESET_FUTURE_PROFILE)!==null,owner=approvers(env).includes(s.u)&&isSiteAdmin(env,s.u),sync=blockers===0;
+ return {mode:snap.mode,held:snap.held,revision:snap.revision,activatedAt:snap.activatedAt,activatedBy:snap.activatedBy,futureProfileConfigured:configured,ownerEligibilityQualified:owner,projectionSyncQualified:sync,
+  activateAvailable:snap.mode==='beta'&&!snap.held&&configured&&owner&&sync,returnAvailable:snap.mode==='full_release'&&owner&&sync};
 }
 export async function rulesetPublicationStatus(env:Env,s:Session){
- await staffProof(env,s);const guild=env.INTROS_GUILD_ID??'';
+ await staffProof(env,s);const guild=env.INTROS_GUILD_ID??'',snap=await activeRulesetSnapshot(env);
  const selected=await env.DB.prepare(`SELECT * FROM ruleset_publications WHERE guild_id=?1 AND target_key='$selection' ORDER BY selection_revision DESC LIMIT 1`).bind(guild).first<Row>();
  const rows=selected?(await env.DB.prepare('SELECT target_key,state,stage,result_code,message_id FROM ruleset_publications WHERE guild_id=?1 AND publication_id=?2 AND target_key<>?3 ORDER BY target_key').bind(guild,selected.publication_id,'$selection').all<Row>()).results:[];
- const source=await plan(env);
+ const source=snap.profile?await plan(env,snap):{guild,targets:[],planHash:''};
  const blockers=(await env.DB.prepare(`SELECT publication_id,target_key,selection_revision,state,stage,channel_id,message_id
  FROM ruleset_publications WHERE guild_id=?1 AND target_key IN('guide','olympus-info','guild-announcements')
  AND state IN('claimed','unknown') ORDER BY selection_revision,target_key LIMIT 4`).bind(guild).all<Row>()).results;
@@ -72,44 +85,88 @@ export async function rulesetPublicationStatus(env:Env,s:Session){
   messageId:r?.message_id&&/^\d{17,20}$/.test(r.message_id)?r.message_id:null,payload:JSON.parse(t.frozen_payload) as PublicPayload};});
  await staffProof(env,s);
  const f={operationId:randomToken(),expectedRevision:selected?.selection_revision??0,expiresAt:Math.min(s.e,Math.floor(Date.now()/1000)+600)};
- return {currentProfile:currentRulesetProfile(),futureSwitchAvailable:false,automaticPublication:false,selected:selected?{publicationId:selected.publication_id,revision:selected.selection_revision,profileRevision:selected.profile_revision}:null,targets,
+ assertOriginalSiteSessionRead(s);const token=await sign(env.COOKIE_SECRET,'ruleset_publication_incarnation_v1',claims(s,f));assertOriginalSiteSessionRead(s);
+  return {currentProfile:snap.profile,futureSwitchAvailable:false,automaticPublication:false,rulesetSwitch:switchReadiness(env,s,snap,blockers.length),selected:selected?{publicationId:selected.publication_id,revision:selected.selection_revision,profileRevision:selected.profile_revision}:null,targets,
  blockingOperations:blockers.map(r=>({publicationId:r.publication_id,target:r.target_key,revision:r.selection_revision,state:r.state,stage:r.stage,channelId:r.channel_id,messageId:r.message_id})),
- form:{...f,token:await sign(env.COOKIE_SECRET,'ruleset_publication',claims(s,f))}};
+ form:{...f,token}};
 }
 export async function selectRulesetPublication(env:Env,s:Session,body:Record<string,unknown>){
- if(body.profileRevision!==sourceRevision())throw new Refused('publication_profile_unavailable');
- const f=await checkForm(env,s,body.form),p=await plan(env);
+ const snap=await activeRulesetSnapshot(env);
+ if(!snap.profile)throw new Refused('publication_profile_held');
+ if(body.profileRevision!==sourceRevision(snap))throw new Refused('publication_profile_unavailable');
+ const f=await checkForm(env,s,body.form),p=await plan(env,snap);
  const old=await env.DB.prepare("SELECT * FROM ruleset_publications WHERE guild_id=?1 AND publication_id=?2 AND target_key='$selection'").bind(p.guild,f.operationId).first<Row>();
- if(old){if(old.actor!==s.u||old.actor_generation!==s.g||old.session_version!==s.v||old.session_expires!==s.e||old.plan_hash!==p.planHash)throw new Refused('publication_operation_conflict');await staffProof(env,s);return {publicationId:old.publication_id,revision:old.selection_revision,replayed:true};}
- const predicate=`${fenceSql('applicantWrite',3,4,5,s.g)} AND ?6>${DB_NOW} AND ${latest}=?7`;
+ if(old){if(old.actor!==s.u||old.actor_account_incarnation!==s.n||old.actor_generation!==s.g||old.session_version!==s.v||old.session_expires!==s.e||old.plan_hash!==p.planHash)throw new Refused('publication_operation_conflict');await staffProof(env,s);return {publicationId:old.publication_id,revision:old.selection_revision,replayed:true};}
+ assertOriginalSiteSessionRead(s);privacyAccountIncarnation(s.n);
+  const predicate=`${fenceSql('applicantWrite',3,4,5,s.g,s.n)} AND ?6>${DB_NOW} AND ${latest}=?7`;
  try{await env.DB.batch([
  env.DB.prepare(`SELECT CASE WHEN ${predicate} THEN 1 ELSE json_extract('publication_selection_refused','$') END AS admitted`).bind(p.guild,f.operationId,s.u,s.v,s.e,f.expiresAt,f.expectedRevision),
- env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,session_version,session_expires,stage,state,created_at,updated_at,actor_retain_until)
- VALUES(?1,?2,'$selection',?3,?4,?5,?6,?7,?8,?9,'selection','selected',${DB_NOW},${DB_NOW},${DB_NOW}+${PRIVACY_YEAR})`).bind(p.guild,f.operationId,f.expectedRevision+1,sourceRevision(),p.planHash,s.u,s.g,s.v,s.e),
- env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,record_hash,stage,state,created_at,updated_at,actor_retain_until)
- SELECT ?1,?2,json_extract(value,'$.target_key'),?3,?4,?5,?6,?7,?8,?9,json_extract(value,'$.parent_id'),json_extract(value,'$.channel_id'),json_extract(value,'$.message_id'),json_extract(value,'$.frozen_payload'),json_extract(value,'$.payload_hash'),json_extract(value,'$.record_hash'),'pending','pending',${DB_NOW},${DB_NOW},${DB_NOW}+${PRIVACY_YEAR} FROM json_each(?10)`).bind(p.guild,f.operationId,f.expectedRevision+1,sourceRevision(),p.planHash,s.u,s.g,s.v,s.e,JSON.stringify(p.targets)),
+ env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_account_incarnation,actor_generation,session_version,session_expires,stage,state,created_at,updated_at,actor_retain_until)
+ VALUES(?1,?2,'$selection',?3,?4,?5,?6,'${s.n}',?7,?8,?9,'selection','selected',${DB_NOW},${DB_NOW},${DB_NOW}+${PRIVACY_YEAR})`).bind(p.guild,f.operationId,f.expectedRevision+1,sourceRevision(snap),p.planHash,s.u,s.g,s.v,s.e),
+ env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_account_incarnation,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,record_hash,stage,state,created_at,updated_at,actor_retain_until)
+ SELECT ?1,?2,json_extract(value,'$.target_key'),?3,?4,?5,?6,'${s.n}',?7,?8,?9,json_extract(value,'$.parent_id'),json_extract(value,'$.channel_id'),json_extract(value,'$.message_id'),json_extract(value,'$.frozen_payload'),json_extract(value,'$.payload_hash'),json_extract(value,'$.record_hash'),'pending','pending',${DB_NOW},${DB_NOW},${DB_NOW}+${PRIVACY_YEAR} FROM json_each(?10)`).bind(p.guild,f.operationId,f.expectedRevision+1,sourceRevision(snap),p.planHash,s.u,s.g,s.v,s.e,JSON.stringify(p.targets)),
  env.DB.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM ruleset_publications WHERE guild_id=?1 AND publication_id=?2 AND actor=?3
- AND selection_revision=?7+1 AND profile_revision=?8 AND plan_hash=?9)=4 AND ${fenceSql('applicantWrite',3,4,5,s.g)} AND ?6>${DB_NOW}
- THEN 1 ELSE json_extract('publication_selection_unconfirmed','$') END AS admitted`).bind(p.guild,f.operationId,s.u,s.v,s.e,f.expiresAt,f.expectedRevision,sourceRevision(),p.planHash),
- ]);}catch{throw new Refused('publication_selection_unconfirmed',503);}
+ AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.n)} AND selection_revision=?7+1 AND profile_revision=?8 AND plan_hash=?9)=4 AND ${fenceSql('applicantWrite',3,4,5,s.g,s.n)} AND ?6>${DB_NOW}
+ THEN 1 ELSE json_extract('publication_selection_unconfirmed','$') END AS admitted`).bind(p.guild,f.operationId,s.u,s.v,s.e,f.expiresAt,f.expectedRevision,sourceRevision(snap),p.planHash),
+ ]);assertOriginalSiteSessionRead(s);}catch{throw new Refused('publication_selection_unconfirmed',503);}
  return {publicationId:f.operationId,revision:f.expectedRevision+1,replayed:false};
+}
+/** Item 7 (14 Oct 2026): the owner-only switch. ONE admitted batch: fence, expected mode, no claimed/unknown target, the five
+ * identity pins, the new selection and its three targets rendered from the NEW snapshot, the audit row, and a closing proof.
+ * Partial success is impossible; a second switch under the same expected mode or revision is refused by the proof. */
+export async function switchRulesetMode(env:Env,s:Session,body:Record<string,unknown>,target:'full_release'|'beta'){
+ if(!approvers(env).includes(s.u)||!isSiteAdmin(env,s.u))throw new Refused('ruleset_switch_authority',403);
+ if(body.confirm!==true)throw new Refused('ruleset_switch_confirmation_required',400);
+ const f=await checkForm(env,s,body.form),cur=await activeRulesetSnapshot(env);
+ // One authoritative database time (v2, finding 2): read once, bound into the five pins, the audit row and the rendered decision date; the admission requires it to be current.
+ const clock=await env.DB.prepare(`SELECT ${DB_NOW} AS at`).first<{at:number}>();if(!clock||!Number.isSafeInteger(clock.at)||clock.at<=0)throw new Refused('ruleset_switch_clock_unavailable',503);const at=clock.at;
+ let next:RulesetSnapshot;
+ if(target==='full_release'){
+  if(cur.mode==='full_release'&&!cur.held)throw new Refused('ruleset_already_active');
+  const profile=parseFutureProfileSecret(env.RULESET_FUTURE_PROFILE);if(!profile)throw new Refused('future_profile_unconfigured');
+  next=Object.freeze({mode:'full_release',modeRaw:'full_release',profile,held:null,revision:profile.revision,digest:await rulesetDigest(profile),activatedAt:at,activatedBy:s.u});
+ }else{if(cur.mode==='beta')throw new Refused('ruleset_already_beta');next=betaRulesetSnapshot();}
+ const p=await plan(env,next),pins:Record<string,string>=target==='full_release'?{rulesetMode:'full_release',rulesetActiveRevision:next.revision,rulesetActiveDigest:next.digest!,rulesetActivatedAt:String(at),rulesetActivatedBy:s.u}:{rulesetMode:'beta',rulesetActiveRevision:'',rulesetActiveDigest:'',rulesetActivatedAt:'',rulesetActivatedBy:''};
+ assertOriginalSiteSessionRead(s);privacyAccountIncarnation(s.n);
+ const admission=`${fenceSql('applicantWrite',3,4,5,s.g,s.n)} AND ?6>${DB_NOW} AND ${latest}=?7 AND COALESCE((SELECT value FROM site_settings WHERE key='rulesetMode'),'')=?10 AND ?11<=${DB_NOW} AND ?11>=${DB_NOW}-60
+ AND NOT EXISTS(SELECT 1 FROM ruleset_publications WHERE guild_id=?1 AND target_key IN(${TARGET_KEYS}) AND state IN('claimed','unknown'))`;
+ const statements=[
+ env.DB.prepare(`SELECT CASE WHEN ${admission} THEN 1 ELSE json_extract('ruleset_switch_refused','$') END AS admitted`).bind(p.guild,f.operationId,s.u,s.v,s.e,f.expiresAt,f.expectedRevision,null,null,cur.modeRaw??'',at), // the OBSERVED raw mode (v2, finding 6): '' when absent
+ ...RULESET_SETTINGS_KEYS.map(key=>env.DB.prepare('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?1,?2,?3,?4) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by').bind(key,pins[key]!,at,s.u)),
+ env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_account_incarnation,actor_generation,session_version,session_expires,stage,state,created_at,updated_at,actor_retain_until)
+ VALUES(?1,?2,'$selection',?3,?4,?5,?6,'${s.n}',?7,?8,?9,'selection','selected',?10,?10,?10+${PRIVACY_YEAR})`).bind(p.guild,f.operationId,f.expectedRevision+1,next.revision,p.planHash,s.u,s.g,s.v,s.e,at), // v3: the captured time
+ env.DB.prepare(`INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_account_incarnation,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,record_hash,stage,state,created_at,updated_at,actor_retain_until)
+ SELECT ?1,?2,json_extract(value,'$.target_key'),?3,?4,?5,?6,'${s.n}',?7,?8,?9,json_extract(value,'$.parent_id'),json_extract(value,'$.channel_id'),json_extract(value,'$.message_id'),json_extract(value,'$.frozen_payload'),json_extract(value,'$.payload_hash'),json_extract(value,'$.record_hash'),'pending','pending',?11,?11,?11+${PRIVACY_YEAR} FROM json_each(?10)`).bind(p.guild,f.operationId,f.expectedRevision+1,next.revision,p.planHash,s.u,s.g,s.v,s.e,JSON.stringify(p.targets),at), // v3: the captured time
+ env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details) VALUES(?1,?2,'site.ruleset_switch',NULL,?3)").bind(at,s.u,JSON.stringify({mode:target,targets:3,approver:true})),
+ env.DB.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM ruleset_publications WHERE guild_id=?1 AND publication_id=?2 AND actor=?3 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.n)} AND selection_revision=?7+1 AND profile_revision=?8 AND plan_hash=?9)=4
+ AND (SELECT value FROM site_settings WHERE key='rulesetMode')=?10 AND (SELECT value FROM site_settings WHERE key='rulesetActiveRevision')=?11 AND (SELECT value FROM site_settings WHERE key='rulesetActiveDigest')=?12
+ AND (SELECT value FROM site_settings WHERE key='rulesetActivatedAt')=?13 AND (SELECT value FROM site_settings WHERE key='rulesetActivatedBy')=?14
+ AND ${fenceSql('applicantWrite',3,4,5,s.g,s.n)} AND ?6>${DB_NOW} THEN 1 ELSE json_extract('ruleset_switch_unconfirmed','$') END AS admitted`).bind(p.guild,f.operationId,s.u,s.v,s.e,f.expiresAt,f.expectedRevision,next.revision,p.planHash,pins.rulesetMode!,pins.rulesetActiveRevision!,pins.rulesetActiveDigest!,pins.rulesetActivatedAt!,pins.rulesetActivatedBy!), // all five pins proven (v2, finding 3)
+ ];
+ try{await env.DB.batch(statements);assertOriginalSiteSessionRead(s);}catch{throw new Refused('ruleset_switch_refused',409);}
+ return {mode:target,revision:next.revision,profile:next.profile,activatedAt:target==='full_release'?at:null,publicationId:f.operationId,selectionRevision:f.expectedRevision+1};
+}
+function originalPublicationRow(row:Row):Readonly<Row>{
+ const keys=['guild_id','publication_id','target_key','selection_revision','profile_revision','plan_hash','actor','actor_generation','actor_account_incarnation','session_version','session_expires','parent_id','channel_id','message_id','frozen_payload','payload_hash','record_hash','claim_nonce','stage','state','result_code','created_at','updated_at','actor_retain_until'] as const;
+ const copy:Record<string,unknown>={};for(const k of keys){const d=Object.getOwnPropertyDescriptor(row,k);if(!d||!Object.hasOwn(d,'value')||d.get||d.set)throw new Refused('publication_original_row_held');copy[k]=d.value;}
+ if(copy.actor_account_incarnation!==null)privacyAccountIncarnation(copy.actor_account_incarnation);return Object.freeze(copy) as unknown as Readonly<Row>;
 }
 async function getRow(env:Env,publication:string,key:string):Promise<Row>{
  if(!TOKEN.test(publication)||!TARGETS.includes(key as typeof TARGETS[number]))throw new Refused('publication_target_invalid',400);
  const row=await env.DB.prepare('SELECT * FROM ruleset_publications WHERE guild_id=?1 AND publication_id=?2 AND target_key=?3').bind(env.INTROS_GUILD_ID,publication,key).first<Row>();
- if(!row)throw new Refused('publication_not_found',404);return row;
+ if(!row)throw new Refused('publication_not_found',404);return originalPublicationRow(row);
 }
-async function originalProof(env:Env,r:Row):Promise<boolean>{
- if(!r.actor||!isSiteAdmin(env,r.actor)||r.profile_revision!==sourceRevision())return false;
+async function originalProof(env:Env,r:Row,snap:RulesetSnapshot):Promise<boolean>{
+ if(!r.actor||!isSiteAdmin(env,r.actor)||r.profile_revision!==sourceRevision(snap))return false;
  const found=await env.DB.prepare(`SELECT 1 AS ok FROM ruleset_publications r WHERE r.guild_id=?4 AND r.publication_id=?5 AND r.target_key=?6
  AND ${current} AND ${originalFence(r)} AND r.actor=?1 AND r.actor_generation IS ?7 AND r.session_version=?2 AND r.session_expires=?3
  AND r.payload_hash=?8 AND r.frozen_payload=?9 AND r.parent_id=?10 AND r.channel_id=?11 AND r.claim_nonce IS ?12
  AND r.stage=?13 AND r.state=?14 AND r.message_id IS ?15 AND r.profile_revision=?16 AND r.selection_revision=?17
- AND r.plan_hash=?18`).bind(...actorArgs(r),r.guild_id,r.publication_id,r.target_key,r.actor_generation,r.payload_hash,r.frozen_payload,r.parent_id,r.channel_id,r.claim_nonce,r.stage,r.state,r.message_id,r.profile_revision,r.selection_revision,r.plan_hash).first<{ok:number}>();return found?.ok===1;
+ AND r.actor_account_incarnation IS ${r.actor_account_incarnation===null?'NULL':`'${privacyAccountIncarnation(r.actor_account_incarnation)}'`} AND r.plan_hash=?18`).bind(...actorArgs(r),r.guild_id,r.publication_id,r.target_key,r.actor_generation,r.payload_hash,r.frozen_payload,r.parent_id,r.channel_id,r.claim_nonce,r.stage,r.state,r.message_id,r.profile_revision,r.selection_revision,r.plan_hash).first<{ok:number}>();return found?.ok===1;
 }
 /** Custody only. This cannot create rows, restore actor fields or authorize a provider effect. */
-async function settle(env:Env,r:Row,messageId:string|null,pinned:boolean,state?:'unknown'|'refused'){
- const db=privacyProviderCustodyDatabase(env),active=r.actor&&isSiteAdmin(env,r.actor)&&r.profile_revision===sourceRevision();
+async function settle(env:Env,r:Row,snap:RulesetSnapshot,messageId:string|null,pinned:boolean,state?:'unknown'|'refused'){
+ const db=privacyProviderCustodyDatabase(env),active=r.actor&&isSiteAdmin(env,r.actor)&&r.profile_revision===sourceRevision(snap);
  const valid=active?`${current} AND ${originalFence(r)} AND r.actor=?1 AND r.actor_generation IS ?7 AND r.session_version=?2 AND r.session_expires=?3`:'0';
  const args=[...actorArgs(r),r.guild_id,r.publication_id,r.target_key,r.actor_generation,r.claim_nonce,r.channel_id,r.parent_id,r.payload_hash,r.profile_revision,r.selection_revision,r.stage,messageId,pinned?1:0,state??null,r.frozen_payload,r.plan_hash,r.record_hash,r.created_at,r.actor_retain_until];
  const out=await db.prepare(`UPDATE ruleset_publications AS r SET message_id=COALESCE(?15,message_id),
@@ -117,18 +174,18 @@ async function settle(env:Env,r:Row,messageId:string|null,pinned:boolean,state?:
  result_code=CASE WHEN ?17 IS NOT NULL THEN ?17 WHEN (${valid}) THEN 'confirmed' ELSE 'authority_closed' END,updated_at=${DB_NOW}
  WHERE r.guild_id=?4 AND r.publication_id=?5 AND r.target_key=?6 AND r.claim_nonce=?8 AND r.channel_id=?9 AND r.parent_id=?10
  AND r.payload_hash=?11 AND r.profile_revision=?12 AND r.selection_revision=?13 AND r.stage=?14 AND r.state IN('claimed','unknown','held')
- AND r.frozen_payload=?18 AND r.plan_hash=?19 AND r.record_hash IS ?20 AND r.created_at=?21 AND r.actor_retain_until=?22
+ AND (r.actor_account_incarnation IS ${r.actor_account_incarnation===null?'NULL':`'${privacyAccountIncarnation(r.actor_account_incarnation)}'`} OR r.actor_account_incarnation IS NULL) AND r.frozen_payload=?18 AND r.plan_hash=?19 AND r.record_hash IS ?20 AND r.created_at=?21 AND r.actor_retain_until=?22
  AND (?15 IS NULL OR r.message_id IS NULL OR r.message_id=?15) RETURNING state,message_id`).bind(...args).all<{state:string;message_id:string|null}>();
  if(out.results.length!==1)throw new Refused('publication_custody_unconfirmed',503);
  return {state:out.results[0]!.state,messageId:out.results[0]!.message_id};
 }
 export async function publishRulesetTarget(env:Env,s:Session,publication:string,key:string){
- await staffProof(env,s);let r=await getRow(env,publication,key);
- if(r.actor!==s.u||r.actor_generation!==s.g||r.session_version!==s.v||r.session_expires!==s.e||!await originalProof(env,r))throw new Refused('publication_authority_closed');
+ await staffProof(env,s);const snap=await activeRulesetSnapshot(env);if(!snap.profile)throw new Refused('publication_profile_held');let r=await getRow(env,publication,key);
+ if(r.actor!==s.u||r.actor_account_incarnation!==s.n||r.actor_generation!==s.g||r.session_version!==s.v||r.session_expires!==s.e||!await originalProof(env,r,snap))throw new Refused('publication_authority_closed');
  if(r.state==='applied')return {state:'applied',messageId:r.message_id};
  if(!['pending','known','refused'].includes(r.state))throw new Refused('publication_reconciliation_required');
  const payload=JSON.parse(r.frozen_payload!) as PublicPayload;if(await hash(r.frozen_payload!)!==r.payload_hash)throw new Refused('publication_payload_unqualified');
- const source=await plan(env);if(source.planHash!==r.plan_hash)throw new Refused('publication_source_changed');
+ const source=await plan(env,snap);if(source.planHash!==r.plan_hash)throw new Refused('publication_source_changed');
  const bot=await qualifyPublicationDestination(env,r.guild_id,r.channel_id!);
  // A fresh selection's legacy seed is only a fallback. Consumed publication custody records
  // the replacement pointer, including after a deleted legacy message was replaced and pinned.
@@ -143,33 +200,33 @@ export async function publishRulesetTarget(env:Env,s:Session,publication:string,
  const pointer=msg?.id??null,nonce=randomToken();
  const predicate=`${current} AND ${originalFence(r)} AND r.actor=?1 AND r.actor_generation IS ?7 AND r.session_version=?2 AND r.session_expires=?3
  AND r.payload_hash=?8 AND r.frozen_payload=?9 AND r.channel_id=?10 AND r.parent_id=?11 AND r.state=?12 AND r.claim_nonce IS ?13
- AND r.profile_revision=?17 AND r.selection_revision=?18 AND r.plan_hash=?19 AND r.record_hash IS ?20 AND r.message_id IS ?21
+ AND r.actor_account_incarnation IS ${r.actor_account_incarnation===null?'NULL':`'${privacyAccountIncarnation(r.actor_account_incarnation)}'`} AND r.profile_revision=?17 AND r.selection_revision=?18 AND r.plan_hash=?19 AND r.record_hash IS ?20 AND r.message_id IS ?21
  AND NOT EXISTS(SELECT 1 FROM ruleset_publications other WHERE other.guild_id=r.guild_id AND other.target_key=r.target_key
  AND other.publication_id<>r.publication_id AND other.state IN('claimed','unknown'))`;
  const args=[...actorArgs(r),r.guild_id,r.publication_id,r.target_key,r.actor_generation,r.payload_hash,r.frozen_payload,r.channel_id,r.parent_id,r.state,r.claim_nonce,nonce,pointer,stage??'pending',r.profile_revision,r.selection_revision,r.plan_hash,r.record_hash,r.message_id];
  const claimed=await env.DB.prepare(`UPDATE ruleset_publications AS r SET claim_nonce=?14,message_id=?15,stage=?16,state='claimed',updated_at=${DB_NOW}
  WHERE r.guild_id=?4 AND r.publication_id=?5 AND r.target_key=?6 AND ${predicate} RETURNING *`).bind(...args).all<Row>();
- if(claimed.results.length!==1)throw new Refused('publication_claim_refused');r=claimed.results[0]!;
- if(!stage)return settle(env,r,pointer,true);
+ if(claimed.results.length!==1)throw new Refused('publication_claim_refused');r=originalPublicationRow(claimed.results[0]!);
+ if(!stage)return settle(env,r,snap,pointer,true);
  // The consuming last proof keeps the ORIGINAL selected row, nonce, destination and privacy generation after every GET.
- if(!await originalProof(env,r))return settle(env,r,pointer,false,'refused');
+ if(!await originalProof(env,r,snap))return settle(env,r,snap,pointer,false,'refused');
  try{
   const result=await writePublication(env,stage,r.channel_id!,pointer,payload,nonce);
   const id=stage==='pin'?pointer:result?.id??null;
-  if(stage!=='pin'&&(!result||!messageOwned(result,r.channel_id!,bot)||!messageMatches(result,payload)))return settle(env,r,null,false,'unknown');
-  try{return await settle(env,r,id,stage==='pin'||result?.pinned===true);}
+  if(stage!=='pin'&&(!result||!messageOwned(result,r.channel_id!,bot)||!messageMatches(result,payload)))return settle(env,r,snap,null,false,'unknown');
+  try{return await settle(env,r,snap,id,stage==='pin'||result?.pinned===true);}
   catch{return {state:'known_response_unrecorded',messageId:id,publicationId:publication,target:key};}
- }catch(e){return settle(env,r,null,false,definitePublicationRefusal(e)?'refused':'unknown');}
+ }catch(e){return settle(env,r,snap,null,false,definitePublicationRefusal(e)?'refused':'unknown');}
 }
 export async function reconcileRulesetTarget(env:Env,s:Session,publication:string,key:string,messageId:unknown){
- await staffProof(env,s);const r=await getRow(env,publication,key);
+ await staffProof(env,s);const snap=await activeRulesetSnapshot(env),r=await getRow(env,publication,key);
  if(!['claimed','unknown','held'].includes(r.state)||!r.claim_nonce)throw new Refused('publication_reconciliation_unavailable');
  const id=typeof messageId==='string'?messageId:r.message_id;if(!id||!/^\d{17,20}$/.test(id)||r.message_id&&r.message_id!==id)throw new Refused('publication_pointer_required');
  const bot=await qualifyPublicationDestination(env,r.guild_id,r.channel_id!),msg=await publicationMessage(env,r.channel_id!,id);
  if(!r.frozen_payload||await hash(r.frozen_payload)!==r.payload_hash)throw new Refused('publication_payload_unqualified');
  const payload=JSON.parse(r.frozen_payload!) as PublicPayload;
  if(!msg||!messageOwned(msg,r.channel_id!,bot)||!messageMatches(msg,payload)||(r.stage==='create'&&String(msg.nonce)!==r.claim_nonce)||(r.stage==='pin'&&msg.pinned!==true))throw new Refused('publication_reconciliation_unqualified');
- return settle(env,r,id,msg.pinned===true);
+ return settle(env,r,snap,id,msg.pinned===true);
 }
 export async function handleRulesetPublication(request:Request,env:Env,parts:string[],body:Record<string,unknown>):Promise<Response>{
  try{
@@ -177,6 +234,7 @@ export async function handleRulesetPublication(request:Request,env:Env,parts:str
   if(request.method==='GET'&&!parts.length)return apiJson(await rulesetPublicationStatus(env,s));
   if(request.method!=='POST'||!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'publication_request_refused'},403);
   if(parts[0]==='select'&&parts.length===1)return apiJson(await selectRulesetPublication(env,s,body));
+  if(parts.length===1&&(parts[0]==='activate'||parts[0]==='deactivate'))return apiJson(await switchRulesetMode(env,s,body,parts[0]==='activate'?'full_release':'beta'));
   if(parts.length===1&&['publish','reconcile'].includes(parts[0]!))return apiJson(parts[0]==='publish'?await publishRulesetTarget(env,s,String(body.publicationId??''),String(body.target??'')):await reconcileRulesetTarget(env,s,String(body.publicationId??''),String(body.target??''),body.messageId));
   return apiJson({error:'not_found'},404);
  }catch(e){return apiJson({error:e instanceof Refused?e.code:'publication_outcome_unconfirmed'},e instanceof Refused?e.status:503);}

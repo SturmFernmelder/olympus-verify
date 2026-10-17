@@ -17,7 +17,7 @@ const SPECS=[
  ['community.directory.professions','community_professions','name,skill,updatedAt',12],
  ['community.directory.alts','community_alt_claims','name,status,proof,updatedAt,claimedAt,reviewedAt'],
  ['community.directory.crafts','community_craft_offers','profession,recipe,source,updatedAt'],
- ['community.events.signups','community_event_signups','eventId,title,startsAt,status,character,raidRole,updatedAt,rsvpStartsAt'],
+ ['community.events.signups','community_event_signups','eventId,title,startsAt,status,character,raidRole,updatedAt,rsvpStartsAt,remindMention,decision,decidedAt'],
  ['community.events.created','community_events','id,title,startsAt,status,createdAt,updatedAt,endsAt,durationMin,capacity,roleTargets,retainUntil'],
  ['community.events.attendance','community_event_attendance','eventId,title,startsAt,state,reasonCode,recordedAt,source'],
  ['community.trials.trials','community_trials','status,startedAt,reviewDueAt,outcome,reason,concludedAt,updatedAt,retainUntil,createdAt'],
