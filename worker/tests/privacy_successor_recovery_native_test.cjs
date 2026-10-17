@@ -133,6 +133,21 @@ async function lostReplies(layout){
   J.fixtureAdvance(cmd.expiresAt+60);const c2=await census(call);c2.layoutName=layout;const cmd2=recover(c2,{sourceWriteEpoch:cmd.targetWriteEpoch,sourceMode:'closed',burnedEpochs:[['credential',NEXT_CE]]}),r2=await call('reopen',cmd2);
   eq(layout+' S2 lost: next attempt fences E2 closed -> E3 and opens',[r2.status,mode(x.f.db).epoch,mode(x.f.db).mode,doState(x).floor[7]],[200,cmd2.targetWriteEpoch,'serving',cmd2.targetWriteEpoch]);
   x.f.close();x.d.doDb.close();}
+ // S3 reply lost after COMMIT: DO fenced, Native E2 closed, no S4; a fresh attempt after expiry re-fences from observed E2 closed.
+ {const x=await incident(layout,'b'),call=successor(x),c=await census(call);c.layoutName=layout;
+  x.d.hook(async(request,next)=>{if(new URL(request.url).pathname==='/v2/successor/fenced'){await next();throw Error('S3 reply lost after COMMIT');}return next();});
+  const mark=x.transport.groups.length,beforeP=preserved(x),cmd=recover(c),r=await call('reopen',cmd);x.d.hook(null);
+  eq(layout+' S3 lost: 503 unknown at S3, Native stays target E2 CLOSED, DO fenced and closing_held, no S4 dispatched',[r.status,r.body.step,r.body.scope,mode(x.f.db).epoch,mode(x.f.db).mode,doState(x).attempts.map(a=>a[1]),doState(x).gate,doState(x).floor[5],x.transport.groups.slice(mark).filter(g=>g.some(s=>s.includes("SET mode='serving'"))).length],[503,'S3-fenced','private_successor_unknown_or_held',cmd.targetWriteEpoch,'closed',['fenced'],'closing_held',1,0]);
+  const fenced=x.d.doDb.prepare('SELECT fence_ack,fenced_at,open_digest FROM recovery_successor_attempt WHERE attempt_id=?').get(cmd.attemptId);
+  eq(layout+' S3 lost: the same attempt cannot run again and issues no Native batch',[(await call('reopen',cmd)).status===200,doState(x).attempts.map(a=>a[1]),x.transport.groups.slice(mark).length],[false,['fenced'],2]);
+  eq(layout+' S3 lost: OFF main at E1 is held (the fence committed); configured main at C2/E2 is held (no DO open)',[await offMain(x,NEXT),await configuredMain(x,cmd.targetCredentialEpoch,cmd.targetWriteEpoch)],['held','held']);
+  J.fixtureAdvance(cmd.expiresAt+60);const c2=await census(call);c2.layoutName=layout;
+  eq(layout+' S3 lost: a later census observes E2 closed and the fenced attempt but mints nothing',[JSON.parse(c2.native.controlTuple)[2],JSON.parse(c2.native.controlTuple)[3],doState(x).attempts.map(a=>a[1])],[cmd.targetWriteEpoch,'closed',['fenced']]);
+  const cmd2=recover(c2,{sourceWriteEpoch:cmd.targetWriteEpoch,sourceMode:'closed',burnedEpochs:[['credential',NEXT_CE]]}),r2=await call('reopen',cmd2),afterP=preserved(x);
+  eq(layout+' S3 lost: a separately authenticated fresh attempt re-fences from observed E2 closed and opens',[r2.status,mode(x.f.db).epoch,mode(x.f.db).mode,doState(x).floor[7],doState(x).attempts.map(a=>a[1]),await configuredMain(x,cmd2.targetCredentialEpoch,cmd2.targetWriteEpoch)],[200,cmd2.targetWriteEpoch,'serving',cmd2.targetWriteEpoch,['fenced','opened'],'written']);
+  eq(layout+' S3 lost: the earlier fenced attempt row is unchanged',x.d.doDb.prepare('SELECT fence_ack,fenced_at,open_digest FROM recovery_successor_attempt WHERE attempt_id=?').get(cmd.attemptId),fenced);
+  eq(layout+' S3 lost: prior opaque predecessor rows and their unknowns are byte-identical; only the base advance row is added',[afterP[1],beforeP[0].every(t=>afterP[0].includes(t)),afterP[0].length-beforeP[0].length,afterP[1].filter(t=>JSON.parse(t)[5]==='reserved').length],[beforeP[1],true,1,1]);
+  x.f.close();x.d.doDb.close();}
  // S4 lost after COMMIT: Native E2 SERVING, DO fenced; configured main stays held until a DO open.
  {const x=await incident(layout,'c'),call=successor(x),c=await census(call);c.layoutName=layout;
   x.transport.hook((statements,next)=>{const out=next();if(statements.some(s=>s.statement.includes("SET mode='serving'")))throw Error('S4 reply lost after COMMIT');return out;});
