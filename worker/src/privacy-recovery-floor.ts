@@ -4,6 +4,7 @@ import {PrivacyRecoverySuppression} from './privacy-recovery-suppression';
 import {runOriginalSuppressionCompanionAlarm} from './privacy-recovery-erasure-companion';
 import {ORIGINAL_REQUEST_DESCRIPTORS,ORIGINAL_HEADER_DESCRIPTORS,checkOriginalNativeRequest,checkOriginalNativeHeaders} from './privacy-native-http-intrinsics';
 import {RecoveryFloorHeld} from './privacy-recovery-held';
+import {PrivacySuccessorRecovery} from './privacy-successor-floor';
 export const RECOVERY_FLOOR_TARGET=Object.freeze({account:'e3c65eaa984aeb7a2df849e5a066cb54',database:'7e2cf8fd-a9e3-48f6-975a-890f1360e5d0',worker:'olympus-verify'});
 export const RECOVERY_FLOOR_NAME='olympus-verify/7e2cf8fd-a9e3-48f6-975a-890f1360e5d0/recovery-floor-v1';
 export const RECOVERY_FLOOR_PROTOCOL='olympus-private-recovery-floor-v1';
@@ -12,7 +13,7 @@ const HEX32=/^[0-9a-f]{32}$/,HEX40=/^[0-9a-f]{40}$/,HEX64=/^[0-9a-f]{64}$/,UUID=
 export {RecoveryFloorHeld} from './privacy-recovery-held';
 const held=():never=>{throw new RecoveryFloorHeld();};
 export type FloorStorage={setAlarm?(time:number):Promise<void>;sql:{exec(sql:string,...bindings:(string|number|null)[]):{toArray():Record<string,unknown>[]}};transactionSync<T>(callback:()=>T):T};
-type FloorEnvironment={PRIVACY_RECOVERY_OPERATOR_SECRET?:string;PRIVACY_RECOVERY_INITIALIZER_SECRET?:string;PRIVACY_SERVING_GATE_SECRET?:string};
+type FloorEnvironment={PRIVACY_RECOVERY_OPERATOR_SECRET?:string;PRIVACY_RECOVERY_INITIALIZER_SECRET?:string;PRIVACY_SERVING_GATE_SECRET?:string;PRIVACY_RECOVERY_SUCCESSOR_SECRET?:string;PRIVACY_SUCCESSOR_CONTROL_AUTH_SECRET?:string};
 export const FLOOR_DDL=`CREATE TABLE IF NOT EXISTS recovery_floor(
  singleton INTEGER PRIMARY KEY CHECK(singleton=1),protocol TEXT NOT NULL CHECK(protocol='${RECOVERY_FLOOR_PROTOCOL}'),
  account TEXT NOT NULL CHECK(account='${RECOVERY_FLOOR_TARGET.account}'),database_id TEXT NOT NULL CHECK(database_id='${RECOVERY_FLOOR_TARGET.database}'),worker TEXT NOT NULL CHECK(worker='${RECOVERY_FLOOR_TARGET.worker}'),
@@ -142,6 +143,7 @@ export class PrivacyRecoveryFloor{
    const originalRequest=servingOriginalRequestTuple(request),u=new URL(originalRequest.url);if(u.origin!=='https://privacy-recovery-floor.invalid')return response({error:'recovery_floor_held'},404);
    if(u.pathname.startsWith('/v1/suppression/')||u.pathname==='/v2/suppression/reserve'||u.pathname==='/v2/suppression/status-observe'||u.pathname==='/v3/suppression/associate-original'||u.pathname==='/v3/suppression/resolve-original')return await new PrivacyRecoverySuppression(this.storage,this.env,{floor:()=>this.floor(),claims:native=>this.currentClaims(native),validateFloor:validateFloorTuple}).fetch(request);
    if(u.pathname.startsWith('/v1/serving/'))return new ServingRecoveryGate(this.storage,this.env,{floor:()=>this.floor(),claims:native=>this.currentClaims(native),validateFloor:validateFloorTuple,reopenFloor:(original,value)=>this.reopenServingFloor(original,value)}).fetch(request);
+   if(u.pathname.startsWith('/v2/successor/'))return await new PrivacySuccessorRecovery(this.storage,this.env,{floor:()=>this.floor(),claims:native=>this.currentClaims(native),validateFloor:validateFloorTuple,advanceFloor:(original,value)=>this.reopenServingFloor(original,value),floorTupleSQL:FLOOR_TUPLE_SQL,journalTupleSQL:JOURNAL_TUPLE_SQL,completionTupleSQL:COMPLETION_TUPLE_SQL}).fetch(request);
     if(originalRequest.method==='GET'&&u.pathname==='/v1/floor'&&!u.search)return response({floor:this.floor(),readyToReopen:false});
    if(originalRequest.method==='GET'&&u.pathname==='/v1/status'&&[...u.searchParams.keys()].join('|')==='operation'&&HEX32.test(u.searchParams.get('operation')??''))return response({journal:this.journal(u.searchParams.get('operation')!),attempt:this.completion(u.searchParams.get('operation')!),readyToReopen:false});
    if(originalRequest.method!=='POST'||u.search||!['/v1/initialize','/v1/reserve','/v1/advance','/v1/completion-reserve','/v1/complete'].includes(u.pathname))return response({error:'recovery_floor_held'},404);

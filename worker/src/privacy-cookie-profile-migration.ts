@@ -560,3 +560,20 @@ export async function executeOriginalNativeServingOpen(cap:OriginalNativeServing
 export function originalNativeServingOpenAcknowledgementFacts(ack:OriginalNativeServingOpenAck,c:WholeMigrationCapability,installation:OriginalPrivateInstallation,cut:OriginalPrivateControlCut,source:OriginalAcceptedRecoverySource,replay:OriginalPrivateRecoveryReplayResult,fence:OriginalNativeWriterFence):Readonly<{openedAt:number;originalCreatedAt:number;originalExpiresAt:number;writeEpoch:string;profileDigest64:string;nativeResultDigest64:string;nativeOpened:true;providerDrainQualified:false;readyToReopen:false;check:()=>void}>{
  const s=originalNativeServingOpenAcks.get(ack);if(!s||s.phase!=='complete'||s.migration!==c||s.installation!==installation||s.cut!==cut||s.source!==source||s.replay!==replay||s.fence!==fence||s.openedAt===null||s.nativeDigest===null)throw new PrivacyWriteAdmissionHeld('original_native_open_ack_foreign');servingOpenCurrent(s);return Object.freeze({openedAt:s.openedAt,originalCreatedAt:s.created,originalExpiresAt:s.expires,writeEpoch:c.nextEpoch,profileDigest64:s.profileDigest,nativeResultDigest64:s.nativeDigest,nativeOpened:true as const,providerDrainQualified:false as const,readyToReopen:false as const,check:()=>{servingOpenCurrent(s);}});
 }
+/** .162 guarded recovery successor (additive only). Exposes the EXISTING source-owned Native statement, row,
+ * packet-graph and digest seams and the exact current-cookie whole-profile proof used by the writer fence.
+ * No existing function, capability, custody check or caller changes; nothing here issues authority by itself. */
+export type SuccessorNativeWitness=Witness;
+export const SUCCESSOR_NATIVE_SEAMS=Object.freeze({methods,prepared,statementMethod,rowSnapshot,resultRow,own,graph:migrationGraph,digest:originalMigrationDigest,bounded,TUPLE,SLOT,VERSION,NOW});
+/** Current-cookie whole-profile proof (writerFenceProof plus the exact optional original _cf_KV row, as
+ * captured at mig:469-477) at one exact epoch and mode. Binds: ?1 objects, ?2 tuple ('' when unbound),
+ * ?3 epoch, ?4 window end, ?5 window start, and ?6 optional objects only when the layout records them. */
+export function successorCurrentProfileProof(layout:AdmissionLayout,mode:'serving'|'closed',bound:boolean):Readonly<{sql:string;objects:string;optional:string|null}>{
+ if(layout!=='canonical'&&layout!=='recorded-live-20261010'||mode!=='serving'&&mode!=='closed'||typeof bound!=='boolean')throw new PrivacyWriteAdmissionHeld('successor_profile_proof_input');
+ const key=layout==='canonical'?'canonical':'recordedLive',optional=key==='recordedLive'?sources['public-predecessor'].recordedLive.objects.filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'):[];
+ let sql=writerFenceProof(bound,false,'closed');if(mode==='serving')sql=sql.replace("mode='closed'","mode='serving'");
+ if(optional.length)sql=sql.replace("expected AS MATERIALIZED(SELECT json_extract(value,'$[0]') type,json_extract(value,'$[1]') name,json_extract(value,'$[2]') tbl_name,json_extract(value,'$[3]') sql FROM json_each(?1))","expected AS MATERIALIZED(SELECT json_extract(value,'$[0]') type,json_extract(value,'$[1]') name,json_extract(value,'$[2]') tbl_name,json_extract(value,'$[3]') sql FROM json_each(?1) UNION ALL SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]'),json_extract(value,'$[2]'),json_extract(value,'$[3]') FROM json_each(?6) WHERE EXISTS(SELECT 1 FROM actual WHERE name='_cf_KV'))").replace('(SELECT COUNT(*) FROM actual)=json_array_length(?1)','(SELECT COUNT(*) FROM actual)=(SELECT COUNT(*) FROM expected)');
+ sql=sql.replace(' AS observed_at'," AS observed_at,EXISTS(SELECT 1 FROM actual WHERE name='_cf_KV') AS cfkv_present");
+ if(sql.split(' AS cfkv_present').length!==2||optional.length&&!sql.includes('json_each(?6)'))throw new PrivacyWriteAdmissionHeld('successor_profile_proof_shape');
+ return Object.freeze({sql,objects:JSON.stringify(objects[key]),optional:optional.length?JSON.stringify(optional):null});
+}
