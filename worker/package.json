@@ -23,9 +23,9 @@
     "test:beta-reset": "node tests/beta_reset_policy_test.cjs && node tests/beta_reset_grants_test.cjs && node tests/beta_reset_guard_regressions_test.cjs && node tests/beta_reset_slice_test.cjs && node tests/beta_reset_schedule_test.cjs && node tests/beta_reset_route_test.cjs && node tests/beta_reset_ordinary_budget_test.cjs && node tests/beta_reset_discovery_pressure_test.cjs && node tests/beta_reset_uncertain_custody_test.cjs && node tests/beta_reset_lease_custody_test.cjs && node tests/beta_reset_removal_custody_test.cjs && node tests/beta_retention_anchor_test.cjs && node tests/beta_retention_frontend_test.cjs && node tests/beta_reset_lifecycle_test.cjs && node tests/beta_reset_own_data_test.cjs && node tests/beta_reset_erasure_lifecycle_test.cjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260916.1",
+    "@cloudflare/workers-types": "^5.20261010.1",
     "typescript": "^5.6.0",
-    "wrangler": "^4.135.0"
+    "wrangler": "^4.149.0"
   },
   "overrides": {
     "miniflare@5.20260918.0-alpha": {
