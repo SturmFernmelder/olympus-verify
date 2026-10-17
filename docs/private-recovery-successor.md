@@ -117,11 +117,30 @@ only when every earlier attempt has expired un-opened.
 5. **After a 200.**
    - Read back the census: Floor sequence 2 at C2/E2/tree/V_main2, gate `managed_open`, attempt `opened`.
    - Read back Native: E2 serving.
-   - Read back public: the site returns 200 and `/health` returns `d1:"ok"`.
+   - Read back public: the site returns 200 and `GET /health` returns HTTP 200 with `d1:"not_checked"` in
+     configured full privacy mode (`worker/src/index.ts:177`). That health response is deliberately returned
+     before Floor/D1 admission and also exists while the gate is HELD; it is not serving proof on its own.
+     Check the admitted site and API behavior as well: a signed-out `/api/me` returns 401 `signed_out`, not
+     `original_serving_held`.
    - Check the next two `*/15` ticks.
    - Then turn both successor flags off.
+   - Keep main pinned to the exact accepted `V_main2`. The opened Floor tuple includes main's deployment
+     version; a new main version from a deployment, binding change or secret change will hold serving.
 6. **After anything else.** Do not retry. Wait past `expiresAt + 60 s`, run census and observe, and follow the
    lost-reply table.
+
+### Pinned main after recovery
+
+The 17 October 2026 recovery accepted main version `9dbdfc1a-330b-4c65-9681-7d3f5316c7a6`, serving the existing
+`.161` application through the open Epoch 2 privacy gate. Leave that live main version, its bindings and secrets
+untouched. A source merge or documentation update does not require a Worker deployment.
+
+Do not redeploy main directly from the repository's `worker/wrangler.toml`: it is not a snapshot of the accepted
+live configuration, and its `PRIVACY_PRODUCTION_CONTROL` still names the old operator rather than the live
+successor. Plan and authorize an OFF-mode transition before a future direct main deployment. Any subsequent
+return to configured serving needs its reviewed lifecycle procedure; editing repository configuration alone
+does not update the Floor's accepted version. This documentation correction authorizes no deployment or live
+configuration change.
 
 ### Rollback matrix
 
