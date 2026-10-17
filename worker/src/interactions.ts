@@ -1,6 +1,7 @@
 /** Slash commands and message components. Discord calls POST /interactions (HTTP interactions, no gateway). */
 import { membershipSettlementEnabled } from './membership-role-transition';
-import { revokeForBan } from './roles';
+import { callBudget, revokeForBan } from './roles';
+import {captureBetaRoleDispatch,betaRoleDispatchHeld,betaSourceEpochState,type BetaRoleDispatch} from './beta-reset-policy';
 import type { Env } from "./env";
 import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound } from './privacy-serving-authority';
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
@@ -20,11 +21,19 @@ import { accountInfo, accountText, ownerOfCharacter } from "./lookup";
 import { BNET_TTL_S, bnetFresh, everLinked } from "./bnet-retention";
 import { bnetLoginOn } from "./bnet-switch";
 import { openRenameHold, reapplyText } from "./rename-review";
+import { captureLaneConfig, FRESH_AUDIT, laneClock, LEGACY_BAN_ALLOWANCE, type LaneCapture } from "./full-release-roles";
+
+/** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
+type Defer = (label: string, work: () => Promise<unknown>) => void;
+/** Revision 4 (A6): the fresh-role wording, only with a configured capture whose lane is open now (from epochStart); before
+ * that, and in every unconfigured call, the .160 text. Grants for the verify and guide texts, removals for unbind. */
+const freshGrantText = (lane?: LaneCapture) => !!lane && laneClock(lane, now()).grants;
+const freshRemovalText = (lane?: LaneCapture) => !!lane && laneClock(lane, now()).fresh;
 
 /** The pinned guide is one of the bot's own messages, so no human account can edit it from the Discord UI — only
  *  the author can, and the author is the bot. Reposting leaves the stale pinned copy behind, so this finds the
  *  pinned guide and PATCHes it in place: same message, same pin, same position, new text. */
-async function refreshPinnedGuide(env: Env, channel: string): Promise<{ edited: string } | { error: string }> {
+async function refreshPinnedGuide(env: Env, channel: string, lane?: LaneCapture): Promise<{ edited: string } | { error: string }> {
   const me = await rest<{ id: string }>(env, "GET", "/users/@me");
   // Discord deprecated GET /channels/{id}/pins in favour of the paginated /messages/pins, which returns
   // {items:[{message}]} rather than a bare array. Try the current shape, fall back to the old one.
@@ -41,7 +50,7 @@ async function refreshPinnedGuide(env: Env, channel: string): Promise<{ edited: 
   if (mine.length > 1) return { error: `${mine.length} pinned bot messages in that channel — unpin the old ones so there is only one guide to edit` };
   const snapshot = await activeRulesetSnapshot(env); // item 7: a held identity edits nothing
   if (!snapshot.profile) return { error: `the game identity is held (${snapshot.held}); no guide was edited` };
-  await editMessage(env, channel, mine[0].id, guideMessage(env, snapshot.profile));
+  await editMessage(env, channel, mine[0].id, guideMessage(env, snapshot.profile, freshGrantText(lane)));
   return { edited: mine[0].id };
 }
 
@@ -52,7 +61,9 @@ const NONCE_REUSE_AFTER = 48 * 3600;
 const NAME_RE = /^\p{L}[\p{L}' ]{1,30}$/u;
 export const USER_MENU_LOOKUP = "Olympus linked characters"; // user context-menu command (right-click a member → Apps)
 
-export async function handleInteraction(env: Env, i: Interaction): Promise<Response> {
+export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
+  const lane = captureLaneConfig(env); // Revision 4 (A1): before any await; passed on, never re-read
   if (i.type === 1) return json({ type: 1 }); // PING
   // .58: every admitted interaction names the configured guild; one without a guild_id (a DM, a user-installed context)
   // used to pass this guard and could open a code request (Codex's probe, 1 Oct 01:35 UTC).
@@ -67,27 +78,27 @@ export async function handleInteraction(env: Env, i: Interaction): Promise<Respo
         // With a character: a code bound to that name (the original path). Without one: a request code, and the
         // character is whichever one whispers it (27 Sep). The option is optional once scripts/register.mjs has run.
         const character = (option<string>(i, "character") ?? "").trim();
-        return character ? issueCode(env, i, character) : issueTicket(env, i);
+        return character ? issueCode(env, i, character, lane,roleDispatch) : issueTicket(env, i, lane);
       }
       case "verify-status":
-        return cmdStatus(env, i);
+        return cmdStatus(env, i,roleDispatch);
       case "olympus-admin":
-        return cmdAdmin(env, i);
+        return cmdAdmin(env, i, lane, defer,roleDispatch);
     }
     return reply("Unknown command.");
   }
   if (i.type === 4) return handleAutocomplete(env, i);
-  if (i.type === 3) return handleComponent(env, i);
+  if (i.type === 3) return handleComponent(env, i, lane,roleDispatch);
   if (i.type === 5) {
     // modal submit — the "Verify a character" button in the pinned guide
-    if (i.data?.custom_id === GUIDE_MODAL) return issueCode(env, i, modalField(i, GUIDE_FIELD) ?? "");
+    if (i.data?.custom_id === GUIDE_MODAL) return issueCode(env, i, modalField(i, GUIDE_FIELD) ?? "", lane,roleDispatch);
     return reply("Unknown form.");
   }
   return reply("Unsupported interaction.");
 }
 
 // ---------- /verify <character>: a code bound to that character (the guide's button issues request codes below) ----------
-async function issueCode(env: Env, i: Interaction, input: string): Promise<Response> {
+async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCapture,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   const user = userOf(i);
   const raw = input.trim();
   if (!NAME_RE.test(raw)) return reply("Give the character name exactly as it appears in game (letters only; two-part names with one space).");
@@ -108,7 +119,9 @@ async function issueCode(env: Env, i: Interaction, input: string): Promise<Respo
   }
   if (existing && existing.discord_id === user.id && existing.status === "member") {
     // This is the answer someone gets after MEE6 has taken their role away (see restore.ts), so it comes back here.
-    const note = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "verify"));
+    const note = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "verify",roleDispatch));
+    // Revision 4 (A6): a same-name beta member creates no pending row here, so the fresh roles need the guide's button.
+    if (freshGrantText(lane)) return reply(`**${existing.name}** is already linked to your account. For the guild roles, press **Verify** in the guide and whisper the code from your highest-ranked character in the guild.${note ? `\n${note}` : ""}`);
     return reply(`**${existing.name}** is already verified and in the guild.${note ? `\n${note}` : ""}`);
   }
 
@@ -132,7 +145,9 @@ async function issueCode(env: Env, i: Interaction, input: string): Promise<Respo
       ``,
       ...whisperInstructions(env, code, expiresAt!, await relayStatus(env), raw),
       env.ROLE_GUILD_MEMBER
-        ? `Your Guild Member role follows automatically once you are on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
+        ? freshGrantText(lane)
+          ? `Your guild roles follow automatically once that character is on a current guild roster export.`
+          : `Your Guild Member role follows automatically once you are on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
         : `Your guild invite is queued as soon as the code is confirmed${env.ADMISSION_MODE === "review" ? " and an officer approves" : ""} \u2014 already in the guild? Then your Discord account is linked to the character on the spot.`,
       `This is for the **main Olympus guild** only \u2014 Olympus 2 and the later Olympus guilds are not verified here (their members use ${visitorChat(env)}).`,
     ].join("\n"),
@@ -149,7 +164,7 @@ async function issueCode(env: Env, i: Interaction, input: string): Promise<Respo
  * that a leaked code could be whispered from the wrong character; the link then shows that character to its owner
  * in /verify-status, and an officer unbinds it.
  */
-async function issueTicket(env: Env, i: Interaction): Promise<Response> {
+async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture): Promise<Response> {
   const user = userOf(i);
   const member = await getMember(env, user.id);
   if (member?.banned) return reply("This account cannot verify. Contact an officer if you think that is a mistake.");
@@ -187,7 +202,9 @@ async function issueTicket(env: Env, i: Interaction): Promise<Response> {
       ...whisperInstructions(env, code, row.expires_at, await relayStatus(env, { tickets: true })),
       `The character that sends it is the one linked to your Discord account. Another character later? Press the button again once this one is confirmed.`,
       env.ROLE_GUILD_MEMBER
-        ? `Your Guild Member role follows automatically once that character is on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
+        ? freshGrantText(lane)
+          ? `Your guild roles follow automatically once that character is on a current guild roster export.`
+          : `Your Guild Member role follows automatically once that character is on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
         : `Your guild invite is queued as soon as the code is confirmed${env.ADMISSION_MODE === "review" ? " and an officer approves" : ""}.`,
       `This is for the **main Olympus guild** only \u2014 Olympus 2 and the later Olympus guilds are not verified here (their members use ${visitorChat(env)}).`,
     ].join("\n"),
@@ -195,7 +212,7 @@ async function issueTicket(env: Env, i: Interaction): Promise<Response> {
 }
 
 // ---------- /verify-status ----------
-async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
+async function cmdStatus(env: Env, i: Interaction,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   const user = userOf(i);
   const member = await getMember(env, user.id);
   const chars = await env.DB.prepare("SELECT name, status, verified_at, member_since FROM characters WHERE discord_id = ?1 ORDER BY bound_at")
@@ -211,7 +228,7 @@ async function cmdStatus(env: Env, i: Interaction): Promise<Response> {
   // links meaningful for anyone who already did it.
   const lines: string[] = [];
   // /verify-status and the guide's "My status" button are where people look when their access has gone missing.
-  const restored = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "status"));
+  const restored = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "status",roleDispatch));
   if (restored) lines.push(restored);
   // .114: a rename Blizzard required (rename-review.ts): the account applies again, and this is where the member reads why
   const hold = await openRenameHold(env, user.id);
@@ -369,7 +386,7 @@ async function cmdUserMenu(env: Env, i: Interaction): Promise<Response> {
 }
 
 // ---------- /olympus-admin ... (Officer / Moderator / Guild Leader) ----------
-async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
+async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: Defer,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   if (!hasAnyRole(i, officerRoles(env))) return reply("Officers only.");
   const actor = userOf(i).id;
   switch (subcommand(i)) {
@@ -384,9 +401,14 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
         env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(key),
       ]);
       await audit(env, actor, "admin.unbind", row.name, { was: row.discord_id });
+      // Revision 4 (A6): with the fresh lane open, the departure pass removes the fresh roles once no live character is left.
+      if (freshRemovalText(lane)) return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again. The guild roles are removed automatically if no other character of this account is still in the guild.`);
       return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again. The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.`); // .114: roster exports manage bound characters only, so nothing takes the role away later
     }
     case "ban": {
+      // Item 15: the beta dispatch mode is captured here, before this case's first await, and decides the role removal
+      // below on the fixed beta guild and its twelve fixed roles. Absent and unchanged keeps the original path exactly.
+      const removalDispatch=roleDispatch.capture;
       const target = option<string>(i, "user") ?? "";
       const reason = option<string>(i, "reason") ?? "";
       const targetCapture=membershipSettlementEnabled(env)?await readPrivacySubject(env,target):undefined;
@@ -408,13 +430,33 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       let roleNote = "";
       if (env.ROLE_GUILD_MEMBER) {
         try {
-          if(membershipSettlementEnabled(env)){
-            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,"interaction:ban",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null});
+          if(betaRoleDispatchHeld(env,roleDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)
+            &&(betaSourceEpochState(roleDispatch.env,removalDispatch).mode!=='active'||!membershipSettlementEnabled(env))){
+            // v1 or any other present/changed mode: no DELETE is sent; the hold is recorded and told to staff as a hold.
+            roleNote="\nGuild Member removal is held by the beta dispatch mode; nothing was sent to Discord.";
+            await audit(env, "system", "role.remove_held", target, { reason: "beta_dispatch_mode_held", source: "interaction:ban" });
+          }else if(membershipSettlementEnabled(env)){
+            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,"interaction:ban",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null},removalDispatch,roleDispatch);
             roleNote=removed?"\nGuild Member absence confirmed.":"\nGuild Member removal is held or unconfirmed; no blind retry.";
           }else{await removeRole(env, target, env.ROLE_GUILD_MEMBER, `olympus-verify: banned by ${actor}`);roleNote = "\nGuild Member removed.";}
         } catch (e) {
           roleNote = `\n\u26a0\ufe0f Could not remove Guild Member: ${explainDiscordError(e)}`;
           await audit(env, "system", "role.remove_failed", target, { error: String(e) });
+        }
+      }
+      // Revision 4 (A3): configured mode with the fresh or staff lane open. The fresh roles and the staff roles in the bot's ban
+      // custody are removed by one deferral after this reply, on what the legacy removal above leaves of ROLE_CALL_BUDGET; a
+      // refused registration is audited and the cause rotation covers the account at the next pass. The note is the same.
+      if (lane?.configured && defer) {
+        const clock = laneClock(lane, now());
+        if (clock.fresh || clock.staff) {
+          const parent = { ...callBudget(env), limit: Math.max(0, lane.callLimit - LEGACY_BAN_ALLOWANCE) };
+          try {
+            defer("fresh_roles_ban", () => import("./full-release-pass").then((m) => m.settleLaneBan(env, target, lane, parent)));
+          } catch {
+            await audit(env, "system", FRESH_AUDIT.failed, "ban", { error: "registration_refused" }).catch(() => {});
+          }
+          roleNote += "\nNew guild roles: removal runs right after this reply (or at the next role pass).";
         }
       }
 
@@ -576,7 +618,7 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       return reply(text.length > 1990 ? text.slice(0, 1985) + "\u2026" : text);
     }
     case "sync": {
-      const out = await syncFromLatest(env);
+      const out = await syncFromLatest(env,roleDispatch);
       if (!out) return reply("No roster export has been received yet, so there is nothing to sync from.");
       if ("refused" in out) {
         // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 1): refused before any link, character or role
@@ -631,7 +673,7 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       const publicationChannels=(await import('./intros')).parseChannels(env.INTROS_CHANNELS);
       if(channel===publicationChannels['join-olympus'])return reply('This guide is managed by the staff ruleset publication operation. Inspect or reconcile it there; no legacy edit was sent.');
       try {
-        const out = await refreshPinnedGuide(env, channel);
+        const out = await refreshPinnedGuide(env, channel, lane);
         if ("error" in out) return reply(`Nothing edited in <#${channel}> \u2014 ${out.error}. Use \`post-guide\` to place a fresh one, then pin it.`);
         await audit(env, actor, "admin.refresh_guide", channel, { message: out.edited });
         return reply(`Pinned guide in <#${channel}> updated in place \u2014 same message, still pinned.`);
@@ -648,7 +690,7 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
       try {
         const snapshot = await activeRulesetSnapshot(env); // item 7: a held identity posts nothing
         if (!snapshot.profile) return reply(`The game identity is held (${snapshot.held}); no guide was posted.`);
-        const msg = await postMessage(env, channel, guideMessage(env, snapshot.profile));
+        const msg = await postMessage(env, channel, guideMessage(env, snapshot.profile, freshGrantText(lane)));
         await audit(env, actor, "admin.post_guide", channel, { message: msg.id });
         return reply(`Guide posted in <#${channel}>. Pin it from the message menu; after a later redeploy use \`refresh-guide\` to update it in place rather than posting a second copy.`);
       } catch (e) {
@@ -664,12 +706,12 @@ async function cmdAdmin(env: Env, i: Interaction): Promise<Response> {
 }
 
 // ---------- buttons: the pinned guide (anyone) and the review card (officers) ----------
-async function handleComponent(env: Env, i: Interaction): Promise<Response> {
+async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   const id = i.data?.custom_id ?? "";
   // One click, no typing: a request code whose character is decided by who whispers it (27 Sep). The modal that asked
   // for the name is still answered below, for anyone who had it open across the deploy.
-  if (id === GUIDE_VERIFY) return issueTicket(env, i);
-  if (id === GUIDE_STATUS) return cmdStatus(env, i);
+  if (id === GUIDE_VERIFY) return issueTicket(env, i, lane);
+  if (id === GUIDE_STATUS) return cmdStatus(env, i,roleDispatch);
   const [ns, action, arg] = id.split(":");
 
   if (ns === "raid") { // owner item 3, stage 1 (14 Oct 2026): the sign-up buttons under a raid announcement

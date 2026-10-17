@@ -56,6 +56,8 @@ function proof(m:Manifest,legacy:boolean,mode:'closed'|'serving'|null,original:b
 }
 async function capture(native:D1Database,x:Original,kind:'install'|'close',originalEpoch:string|null):Promise<NativeEpochCapability>{
  x=originalInput(x);
+ // The serving-only predecessor layout has no restore/install manifest or authority.
+ if(x.layout!=='canonical'&&x.layout!=='recorded-live-20261010')throw new PrivacyWriteAdmissionHeld('epoch_original_input');
  if(isPrivacyWriteAdmissionDatabase(native)||kind==='close'&&(!hex(originalEpoch)||x.nextEpoch===originalEpoch))throw new PrivacyWriteAdmissionHeld('epoch_native_original_required');
  const old=kind==='install'?predecessor[x.layout]:nextManifest(x.layout),next=nextManifest(x.layout),legacy=kind==='install';
  // Current next-profile closure is distinct from the historical402 installation contract.

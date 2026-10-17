@@ -2,6 +2,10 @@
 import type { Env } from './env';
 
 export const BETA_RESET_POLICY_KEY = 'betaResetPolicyV1';
+export const BETA_RESET_DISPATCH_SEAL_KEY = 'betaResetDispatchSealV1';
+const DISPATCH_MODE_KEY = 'BETA_RESET_DISPATCH_SEAL_MODE';
+export const BETA_RESET_SOURCE_EPOCH_KEY = 'BETA_RESET_SOURCE_EPOCH';
+const SOURCE_EPOCH = /^olympus-full-release-[a-z0-9-]{1,32}$/;
 export const BETA_RESET_EPOCH = 'olympus-beta-2026-10-22';
 export const BETA_RESET_CUTOFF = 1792688400;
 export const BETA_RESET_GUILD_ID = '236932545793490944';
@@ -110,7 +114,69 @@ function prepareMethod(db: object): Method {
   }
   throw Error('beta_database_held');
 }
-type Original = { env: GuardEnv; scoped: boolean; keys: readonly string[]; slots: Slot[]; db?: D1Database; prepare?: Method; armedAt?: number };
+type DispatchMode = Readonly<{ mode: 'legacy' | 'v1' | 'held'; slot: Slot; source: Slot;sourceValid:boolean }>;
+function dispatchMode(env:GuardEnv):DispatchMode {
+ let source:Slot;try{source=slot(env,BETA_RESET_SOURCE_EPOCH_KEY);}catch{return Object.freeze({mode:'held',slot:undefined,source:undefined,sourceValid:false});}
+ let captured:Slot;try{captured=slot(env,DISPATCH_MODE_KEY);}catch{return Object.freeze({mode:'held',slot:undefined,source,sourceValid:true});}
+ return Object.freeze({mode:captured===undefined?'legacy':captured.value==='v1'?'v1':'held',slot:captured,source,sourceValid:true});
+}
+/** Restriction-only witness for old role removers which have no beta-policy read. It is
+ * captured at the public entry, not reconstructed after a provider/database await. */
+export type BetaRemovalDispatchCapture = Readonly<{ kind: 'beta-removal-dispatch' }>;
+const removalDispatches = new WeakMap<BetaRemovalDispatchCapture, { env: GuardEnv; dispatch: DispatchMode }>();
+export function captureBetaRemovalDispatch(env: GuardEnv): BetaRemovalDispatchCapture {
+  let dispatch: DispatchMode;
+  try {
+    dispatch = dispatchMode(env);
+  } catch { dispatch = Object.freeze({ mode: 'held', slot: undefined,source:undefined,sourceValid:false }); }
+  const out = Object.freeze({ kind: 'beta-removal-dispatch' as const });
+  removalDispatches.set(out, { env, dispatch });
+  return out;
+}
+/** Until the central removal consumers carry their own durable seal fence, these old
+ * entry points may dispatch fixed beta targets only in unchanged absent mode. No SQL,
+ * seal observation, receipt, provider-drain proof or new removal authority is produced. */
+export function betaRemovalDispatchLegacy(env: GuardEnv, captured: BetaRemovalDispatchCapture, guildId: string, roleId: string): boolean {
+  const original = removalDispatches.get(captured);
+  if (!original || original.env !== env) return false;
+  if (guildId !== BETA_RESET_GUILD_ID || !BETA_RESET_ROLE_IDS.includes(roleId)) return true;
+  try { return original.dispatch.mode === 'legacy' && original.dispatch.source===undefined
+    && same(slot(env, DISPATCH_MODE_KEY), original.dispatch.slot)&&same(slot(env,BETA_RESET_SOURCE_EPOCH_KEY),original.dispatch.source); }
+  catch { return false; }
+}
+/** Opaque originating capture, threaded across facade environments and awaits. It restricts old physical targets only. */
+export type BetaRoleDispatch=Readonly<{env:Env;capture:BetaRemovalDispatchCapture}>;
+export const captureBetaRoleDispatch=(env:Env):BetaRoleDispatch=>Object.freeze({env,capture:captureBetaRemovalDispatch(env)});
+export function betaSourceEpochState(env:Env,captured:BetaRemovalDispatchCapture):Readonly<{mode:'absent'|'active'|'held';epoch:string|null}>{
+ const original=removalDispatches.get(captured);if(!original||original.env!==env)return {mode:'held',epoch:null};
+ try{const s=original.dispatch.source;if(!original.dispatch.sourceValid||!same(slot(env,BETA_RESET_SOURCE_EPOCH_KEY),s))return {mode:'held',epoch:null};
+  return s===undefined?{mode:'absent',epoch:null}:typeof s.value==='string'&&SOURCE_EPOCH.test(s.value)?{mode:'active',epoch:s.value}:{mode:'held',epoch:null};
+ }catch{return {mode:'held',epoch:null};}
+}
+function dispatchPair(pair:BetaRoleDispatch):BetaRoleDispatch|null{
+ if(!pair||typeof pair!=='object')return null;const env=Object.getOwnPropertyDescriptor(pair,'env'),capture=Object.getOwnPropertyDescriptor(pair,'capture');
+ return env&&capture&&Object.hasOwn(env,'value')&&Object.hasOwn(capture,'value')?{env:env.value,capture:capture.value}:null;
+}
+export function betaRoleDispatchHeld(effect:Env,pair:BetaRoleDispatch,guild:string,role:string):boolean{
+ if(guild!==BETA_RESET_GUILD_ID||!BETA_RESET_ROLE_IDS.includes(role))return false;
+ try{const d=dispatchPair(pair);return !d||!betaRemovalDispatchLegacy(d.env,d.capture,guild,role)
+   ||DISPATCH_MODE_KEY in effect||BETA_RESET_SOURCE_EPOCH_KEY in effect;}catch{return true;}
+}
+/** Correlated restriction over source-owned target expressions. No statements/binds or changed absent SQL. */
+export function betaRoleDispatchSql(effect:Env,pair:BetaRoleDispatch,guild:string,role:string,originalSql:string):string{
+ if(!betaRoleDispatchHeld(effect,pair,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS[0]!))return originalSql;
+ return `(${originalSql}) AND NOT ((${guild})='${BETA_RESET_GUILD_ID}' AND (${role}) IN(${BETA_RESET_ROLE_IDS.map(id=>`'${id}'`).join(',')}))`;
+}
+/** Additive grant restriction. Without the new closure profile, historical v1 grant semantics stay unchanged. */
+export function betaGrantDispatchHeld(effect:Env,pair:BetaRoleDispatch,guild:string,role:string):boolean{
+ if(guild!==BETA_RESET_GUILD_ID||!BETA_RESET_ROLE_IDS.includes(role))return false;
+ try{const d=dispatchPair(pair);return !d||betaSourceEpochState(d.env,d.capture).mode!=='absent'||BETA_RESET_SOURCE_EPOCH_KEY in effect;}catch{return true;}
+}
+export function betaGrantDispatchSql(effect:Env,pair:BetaRoleDispatch,guild:string,role:string,originalSql:string):string{
+ if(!betaGrantDispatchHeld(effect,pair,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS[0]!))return originalSql;
+ return `(${originalSql}) AND NOT ((${guild})='${BETA_RESET_GUILD_ID}' AND (${role}) IN(${BETA_RESET_ROLE_IDS.map(id=>`'${id}'`).join(',')}))`;
+}
+type Original = { env: GuardEnv; scoped: boolean; keys: readonly string[]; slots: Slot[]; db?: D1Database; prepare?: Method; armedAt?: number; dispatch?: DispatchMode; dispatchOrigin?:{env:GuardEnv;dispatch:DispatchMode} };
 const originals = new WeakMap<BetaGrantCapture, Original>();
 function unchanged(original: Original): boolean {
   try {
@@ -133,10 +199,22 @@ async function read(original: Original): Promise<{ raw: unknown; matches: number
   const row = await statement.bind(BETA_RESET_POLICY_KEY).first<{ raw: unknown; matches: number; at: number }>();
   return unchanged(original) ? row : null;
 }
-export async function captureBetaGrant(env: GuardEnv, guildId: string, roleId: string): Promise<BetaGrantCapture> {
+export async function captureBetaGrant(env: GuardEnv, guildId: string, roleId: string,originalDispatch?:BetaRoleDispatch): Promise<BetaGrantCapture> {
   const scoped = guildId === BETA_RESET_GUILD_ID && BETA_RESET_ROLE_IDS.includes(roleId);
   const original: Original = { env, scoped, keys: ['BETA_RESET_REMOVALS_ENABLED'], slots: [] };
   if (!scoped) return capture(original, guildId, roleId, 'off', null, 'outside_beta_scope');
+  try {
+    // Capture the optional dispatch mode before the first await. It is deliberately separate
+    // from CONFIG/unchanged: an already admitted operation must still record its ACK or unknown.
+    original.dispatch = dispatchMode(env);
+    if(originalDispatch){
+      const pair=dispatchPair(originalDispatch),origin=pair&&removalDispatches.get(pair.capture);
+      if(!origin||origin.env!==pair!.env)throw Error('original_beta_dispatch_required');
+      original.dispatchOrigin=origin;original.dispatch=origin.dispatch;
+    }
+  } catch { original.dispatch = Object.freeze({ mode: 'held', slot: undefined,source:undefined,sourceValid:false }); }
+  // A malformed dispatch mode must not hide the original policy from retirement/status or
+  // invalidate its response predicates. Only the separate dispatch restriction consumes it.
   try {
     original.slots = [slot(env, 'BETA_RESET_REMOVALS_ENABLED')];
     const flag = original.slots[0]?.value;
@@ -165,6 +243,30 @@ export async function captureBetaGrant(env: GuardEnv, guildId: string, roleId: s
     return capture(original, guildId, roleId, row.at < BETA_RESET_CUTOFF ? 'open' : 'held', raw,
       row.at < BETA_RESET_CUTOFF ? 'beta_epoch_open' : 'beta_cutoff_reached');
   } catch { return capture(original, guildId, roleId, 'held', null, 'beta_policy_read_held'); }
+}
+/** Dispatch restriction only, not a seal issuer, policy replacement or proof of provider drain.
+ * An absent setting mode preserves the original SQL. Any present mode except own-data 'v1'
+ * holds scoped new work, as does changing the original mode during an await. */
+export function betaResetDispatchMode(env: GuardEnv, captured: BetaGrantCapture): 'legacy' | 'v1' | 'held' {
+  const original = originals.get(captured);
+  if (!original || original.env !== env) return 'held';
+  if (!original.scoped) return 'legacy';
+  try {
+    const d = original.dispatch;
+    const origin=original.dispatchOrigin;
+    if(origin&&(!same(slot(origin.env,DISPATCH_MODE_KEY),origin.dispatch.slot)
+      ||!same(slot(origin.env,BETA_RESET_SOURCE_EPOCH_KEY),origin.dispatch.source)))return 'held';
+    return d && d.source===undefined && same(slot(env,BETA_RESET_SOURCE_EPOCH_KEY),d.source)
+      && d.mode !== 'held' && same(slot(env, DISPATCH_MODE_KEY), d.slot) ? d.mode : 'held';
+  } catch { return 'held'; }
+}
+/** Restrict an existing source-owned creation/claim/pre-effect predicate, preserving all binds.
+ * Never use this in shared receipt/unknown predicates. Seal presence, including malformed data,
+ * is a fence; parsing its value is neither necessary nor sufficient to authorize an effect. */
+export function betaResetDispatchSql(env: GuardEnv, captured: BetaGrantCapture, originalSql: string): string {
+  const mode = betaResetDispatchMode(env, captured);
+  return mode === 'legacy' ? originalSql : `(${originalSql}) AND ${mode === 'v1'
+    ? `NOT EXISTS(SELECT 1 FROM site_settings WHERE key='${BETA_RESET_DISPATCH_SEAL_KEY}')` : '0=1'}`;
 }
 export async function betaGrantCurrent(env: GuardEnv, captured: BetaGrantCapture): Promise<boolean> {
   const original = originals.get(captured);
@@ -278,5 +380,18 @@ export async function betaResetScanCurrent(env: GuardEnv, captured: BetaGrantCap
     const statement = Reflect.apply(original.prepare.descriptor.value, original.db, [`SELECT 1 WHERE ${g.sql}`]) as D1PreparedStatement;
     const row = await statement.bind(...g.values).first();
     return !!row && resetOriginal(captured) === original && original.env === env && scans.get(scan) === s;
+  } catch { return false; }
+}
+/** Same original scan read, with the dispatch-only restriction in that statement. The receipt
+ * variant above and betaResetScanSql remain unchanged for release and original custody. */
+export async function betaResetDispatchScanCurrent(env: GuardEnv, captured: BetaGrantCapture, scan: BetaResetScanCapture): Promise<boolean> {
+  const original = resetOriginal(captured), s = scans.get(scan);
+  if (!original || original.env !== env || !s || s.original !== original || s.captured !== captured || !original.db || !original.prepare) return false;
+  try {
+    const g = betaResetScanSql(captured, scan, 1), sql = betaResetDispatchSql(env, captured, g.sql);
+    const statement = Reflect.apply(original.prepare.descriptor.value, original.db, [`SELECT 1 WHERE ${sql}`]) as D1PreparedStatement;
+    const row = await statement.bind(...g.values).first();
+    return !!row && resetOriginal(captured) === original && original.env === env && scans.get(scan) === s
+      && betaResetDispatchMode(env, captured) !== 'held';
   } catch { return false; }
 }

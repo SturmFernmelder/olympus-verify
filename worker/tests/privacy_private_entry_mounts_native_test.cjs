@@ -114,10 +114,10 @@ async function mountedInstallationCases(){
    const o=await original(f),initialized=await initializerEntry.default.fetch(o.request(),f.initEnv);eq(layout+'/'+sourceKind+' mounted pipeline genuine CLOSED initializer',initialized.status,200);
    const response=await operatorEntry.default.fetch(await controlRequest(f,o,'/v1/control/prepare-install'),f.env,f.ctx),body=await response.json();
    eq(layout+'/'+sourceKind+' mounted source install confirmed',response.status,200);
-   eq(layout+'/'+sourceKind+' mounted source fence then complete migration',business.groups,sourceKind==='public-predecessor'?[5,462]:[3,457]);
+   eq(layout+'/'+sourceKind+' mounted source fence then complete migration',business.groups,sourceKind==='public-predecessor'?[5,465]:[3,460]);
    const migrationBatch=business.batchRecords[1],raid=migrationBatch.filter(r=>RAID_ALTERS.includes(r.sql));
    eq(layout+'/'+sourceKind+' mounted exact six A4 ALTERs with empty binds',raid.map(r=>[r.sql,r.values]),RAID_ALTERS.map(sql=>[sql,[]]));
-   eq(layout+'/'+sourceKind+' mounted original batch cardinality after six fixed additions',migrationBatch.filter(r=>!RAID_ALTERS.includes(r.sql)).length,sourceKind==='public-predecessor'?456:451);
+   eq(layout+'/'+sourceKind+' mounted original batch cardinality after six fixed additions',migrationBatch.filter(r=>!RAID_ALTERS.includes(r.sql)).length,sourceKind==='public-predecessor'?459:454);
    const targets=epochInstaller.manifest[layout==='canonical'?'canonicalObjects':'recordedLiveObjects'],cf=business.oldObjects.filter(r=>r[1]==='_cf_KV'||r[2]==='_cf_KV'),target=[...targets,...cf].sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0),terminal=migrationBatch.at(-1);
    eq(layout+'/'+sourceKind+' mounted terminal proof exact source profile and original epoch/deadline binds',terminal.values,[JSON.stringify(target),'',NEXT,String(T+300),String(T)]);
 

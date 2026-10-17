@@ -30,8 +30,9 @@ export const visitorLine = (env: Env) => `Olympus 2 and the later Olympus guilds
  * SET_NICKNAME is on, officer review only under ADMISSION_MODE=review, and no channel named that may not exist (the
  * footer no longer says #help-desk). Nothing is promised that the bot's permissions do not deliver.
  */
-/** 14 Oct 2026 (item 7): the caller resolves the active identity; a held identity means no guide. */
-export function guideMessage(env: Env, profile: RulesetProfile) {
+/** 14 Oct 2026 (item 7): the caller resolves the active identity; a held identity means no guide. `freshRoles` (Revision 4,
+ * A6): the caller's captured lane grants fresh roles now (configured and past epochStart); otherwise the .160 wording. */
+export function guideMessage(env: Env, profile: RulesetProfile, freshRoles = false) {
   const officers = env.OFFICER_CHARACTERS || "an officer";
   const review = env.ADMISSION_MODE === "review";
   const role = !!env.ROLE_GUILD_MEMBER;
@@ -39,7 +40,9 @@ export function guideMessage(env: Env, profile: RulesetProfile) {
   const invite = review
     ? "If you are applying, an officer reviews the confirmed request before your invite enters the queue; an officer sends the invite from the game client when the guild has room."
     : "If you are applying, your invite enters the queue; an officer sends it from the game client when the guild has room.";
-  const access = role
+  const access = freshRoles
+    ? " Your guild roles open the member channels once your verified character appears on a current guild roster export and the access checks pass."
+    : role
     ? " Your **Olympus Guild Member** role opens the member channels once your verified character appears on the officer-exported guild roster and the access checks pass."
     : "";
   const nick = nickname ? " When enabled by guild staff, your Discord nickname updates to your verified character name." : "";

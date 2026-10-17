@@ -22,7 +22,7 @@ import { unverifiedReport } from "./unverified";
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
 import { errorRef, idNamespace, logPath } from "./log";
-import { now } from "./db";
+import { audit, now } from "./db";
 import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
 import { PrivacySiteRequestHeld, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
 import { guildMap } from "./guildmap";
@@ -50,7 +50,7 @@ import {captureSiteOAuthOrigin,type SiteOAuthOrigin} from './privacy-serving-sit
 import {captureServingSiteMeOrigin,dispatchServingSiteMe,siteMeServingMode,type SiteMeOrigin} from './privacy-serving-site-me';
 import { autoQueueReserved } from "./site-queue";
 import { bnetRetentionStatus, legacyApiCounts, purgeBattleNetData } from "./bnet-retention";
-import { rolesStatus } from "./roles";
+import { callBudget, rolesStatus, type CallBudget } from "./roles";
 import { sweepCommunityProfiles } from "./community-directory";
 import { sweepCommunityEvents } from "./community-events";
 import { runEventReminders } from "./community-event-reminders";
@@ -64,7 +64,7 @@ import { communityFeatures } from "./community-context";
 import { guildSeats } from "./guild-seats";
 import { newsCron } from "./site-news";
 import {BETA_RESET_CRON,BETA_RESET_SCHEDULE_QUALIFIED,runBetaResetSlice} from './beta-reset';
-import {resetGuardEnabled} from './beta-reset-policy';
+import {resetGuardEnabled,captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,PrivacyWriteAdmissionHeld} from './privacy-write-admission';
 import {captureHandlerServingOrigin,registerHandlerInteractionNames,type HandlerServingOrigin} from './privacy-serving-production-origin';
 import {EPOCH2_SCHEDULE_QUALIFIED,captureOriginalRosterSchedule,originalRosterScheduleFacts,type OriginalRosterSchedule} from './scheduled-budget';
@@ -72,9 +72,12 @@ import {RecoveryFloorHeld} from './privacy-recovery-floor';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
 import {recoveryScalarArrayJSON} from './privacy-recovery-data-json';
 import {captureGlobalServingEntry,dispatchGlobalServingEntry,deferOriginalServing,assertGlobalServingDispatch,globalServingMode,preflightOriginalServingRequest,originalGlobalScheduledPhysicalCostObservation} from './privacy-global-serving-origin';
+import { captureLaneConfig, FRESH_AUDIT, type LaneCapture } from './full-release-roles';
+import { countStatements, type Admission } from './roster-effects';
 
 /** No installer runs here. An enabled but absent/unknown current-source installation refuses at ensureSchema. */
 function writeAdmissionEnv(env:Env):Env{
+  if(env.PRIVACY_WRITE_ADMISSION_LAYOUT==='recorded-live-pre-seal-20261017'&&globalServingMode(env)!=='off')throw new PrivacyWriteAdmissionHeld('pre_seal_compatibility_requires_off');
   return env.PRIVACY_WRITE_ADMISSION_ENABLED==='true'&&!isPrivacyWriteAdmissionDatabase(env.DB)
     ?{...env,DB:createPrivacyWriteAdmissionDatabase(env.DB,'writer',env.PRIVACY_WRITE_ADMISSION_LAYOUT??'canonical',env.PRIVACY_WRITE_ADMISSION_EPOCH??'')}:env;
 }
@@ -120,6 +123,7 @@ export function originalScheduledCallbackPhysicalCostObservation(controller:obje
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const roleDispatch=captureBetaRoleDispatch(env);
     let originalRequest:ReturnType<typeof preflightOriginalServingRequest>|undefined;
     try{if(globalServingMode(env)==='configured')originalRequest=preflightOriginalServingRequest(request);}catch{return json({error:'original_serving_held'},503); }
     const url = new URL(originalRequest?.url??request.url);
@@ -213,14 +217,21 @@ export default {
       // The guild site has its own host. Anything it does not answer there is a 404, unless that host is also the bot's
       // public one (a site run on the workers.dev address), in which case the bot's routes below still apply.
       if (host === "site") {
-        const r = await handleSite(request, env, path, schemaReady, BUILD, (work) => deferOriginalServing(ctx,'site_callback',work),siteOAuthOrigin);
+        const r = await handleSite(request, env, path, schemaReady, BUILD, (work) => deferOriginalServing(ctx,'site_callback',work),siteOAuthOrigin,roleDispatch);
         if (r) return r;
         if (siteHost(env) !== hostOf(env.PUBLIC_BASE_URL)) return new Response("not found", { status: 404 });
       }
-      const res = await route(request, env, path, schemaReady, ctx, namesOrigin);
+      const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
       // The watcher polls /queue every 30 seconds while an officer is online, which is exactly when promotions happen.
       // The Guild Member sweep rides on those polls (throttled to one per five minutes inside), after the response.
-      if (request.method === "GET" && path === "/queue" && res.ok) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher"));
+      if (request.method === "GET" && path === "/queue" && res.ok) {
+        // Revision 4 (A1, A4 entry 1): the lane configuration is captured here, synchronously. Unconfigured keeps the
+        // original statement exactly; configured shares one Discord-call allowance between the sweep and the fresh pass.
+        const lane = captureLaneConfig(env);
+        if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch));
+        // A refused registration is audited, then propagates exactly as .160's did: the legacy sweep rides on this deferral.
+        else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
+      }
       return res;
     } catch (e) {
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
@@ -235,6 +246,7 @@ export default {
   },
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const roleDispatch=captureBetaRoleDispatch(env);
     try {
       scheduledIntrinsics();const admission=scheduledDescriptor(env,'PRIVACY_WRITE_ADMISSION_ENABLED');
       if(!admission&&'PRIVACY_WRITE_ADMISSION_ENABLED'in env||admission&&!scheduledHasOwn(admission,'value'))return scheduledHeld();
@@ -248,7 +260,7 @@ export default {
       const constraint=resetMinute?scheduledFreeze({binding:scheduled.binding,check,costMode:'beta_reset' as const}):scheduledFreeze({binding:scheduled.binding,check});
       originalScheduledCallback(original,event,ctx);
       const globalEntry=captureGlobalServingEntry(env,ctx,'scheduled',undefined,constraint);scheduledCostConstraints.set(original,constraint);
-      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx):runSourceEpoch2ScheduledBody(globalEntry.env,ctx);});
+      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch);});
     } catch(e) {
       console.error("schema check failed; skipping this run",errorRef(e));
     }
@@ -257,17 +269,19 @@ export default {
 
 /** Original minute body only; the exported callback retains both false qualification guards.
  * No extra scheduler or trigger is installed. Global dispatch and the same Native admission remain mandatory. */
-async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext):Promise<void>{
+async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,originalDispatch?:BetaRoleDispatch):Promise<void>{
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   assertGlobalServingDispatch(env);
   if(!resetGuardEnabled(env))return;
   try{env=writeAdmissionEnv(env);await ensureSchema(env);}
   catch(e){console.error('beta reset schema check held',errorRef(e));return;}
-  deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env).catch(e=>console.error('beta reset continuation held',errorRef(e))));
+  deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));
 }
 
 /** Unpublished source-owned whole-schedule measurement seam. The real scheduled handler keeps its false qualifier guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
-export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule): Promise<void> {
+export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch): Promise<void> {
+    const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
     const rosterCadence=originalRosterScheduleFacts(rosterSchedule);
     assertGlobalServingDispatch(env);
@@ -279,10 +293,10 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
       return;
     }
     deferOriginalServing(ctx,'sweepInviteQueue',()=>sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones
-    deferOriginalServing(ctx,'sweepMemberRoles',()=>sweepMemberRoles(env, "cron")); // gives Guild Member back to members who lost it (restore.ts)
+    deferOriginalServing(ctx,'sweepMemberRoles',()=>sweepMemberRoles(env, "cron",undefined,roleDispatch)); // gives Guild Member back to members who lost it (restore.ts)
     // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): a slice of the roster's pending member effects, so a
     // backlog an export could not finish in its own invocation is worked off between exports too (roster.ts, roster-effects.ts)
-    deferOriginalServing(ctx,'continueRosterEffects',()=>continueRosterEffects(env,rosterSchedule));
+    deferOriginalServing(ctx,'continueRosterEffects',()=>continueRosterEffects(env,rosterSchedule,roleDispatch));
     deferOriginalServing(ctx,'refreshNames',()=>refreshNames(env)); // a few linked members' Discord names for the officers' roster window (names.ts)
     deferOriginalServing(ctx,'autoQueueReserved',()=>autoQueueReserved(env)); // from launch: approved reserved names to the top of the invite queue
     deferOriginalServing(ctx,'purgeSeenInteractions',()=>purgeSeenInteractions(env)); // .47: the replay ledger keeps an hour
@@ -403,7 +417,8 @@ export function classifyHost(env: Env, hostname: string): HostClass {
 }
 
 /** Every handler is awaited here so a rejected promise lands in the catch above instead of surfacing as a 1101. */
-async function route(request: Request, env: Env, path: string, schemaReady = true, ctx?: ExecutionContext,namesOrigin?:HandlerServingOrigin): Promise<Response> {
+async function route(request: Request, env: Env, path: string, schemaReady = true, ctx?: ExecutionContext,namesOrigin?:HandlerServingOrigin,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const query = new URL(request.url).searchParams;
   if (request.method === "POST" && path === "/interactions") {
     // Build .47: the body is capped before anything decodes it, the signature's timestamp must be recent, the payload
@@ -438,7 +453,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         try{const r=await createInteractionRequest(env,request,body);return reply(`Whisper !olympus ${r.code} to an online qualified High Councillor. This code expires in ten minutes. You need no AddOn or website account.`);}
         catch(e){return reply(e instanceof QrHeld?`Councillor verification is held: ${e.code}.`:'Councillor verification is currently held.');}
       }
-      return await handleInteraction(env, i);
+      return await handleInteraction(env, i, ctx ? (label, work) => deferOriginalServing(ctx, label, work) : undefined,roleDispatch);
     };
     // .50 (Codex's second review, 1 Oct 00:05 UTC): a command that only reads is answered afresh every time instead of
     // from the ledger. It has no effect for the ledger to protect, and a stored answer could hand a Battle.net line
@@ -486,9 +501,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     if (query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       return json({ error: "unsupported_protocol", message: "This Worker serves the unversioned protocol only; a keyVersion is not supported." }, 400);
     }
-    if (request.method === "POST" && path === "/ingest/verify") return await postVerify(env, body);
-    if (request.method === "POST" && path === "/ingest/roster") return await postRoster(env, body);
-    if (request.method === "POST" && path === "/ingest/events") return await postEvents(env, body);
+    if (request.method === "POST" && path === "/ingest/verify") return await postVerify(env, body,roleDispatch);
+    if (request.method === "POST" && path === "/ingest/roster") return await postRoster(env, body, ctx ? (label, work) => deferOriginalServing(ctx, label, work) : undefined,roleDispatch);
+    if (request.method === "POST" && path === "/ingest/events") return await postEvents(env, body,roleDispatch);
     if (request.method === "GET" && path === "/queue") {
       // Presence rides on the poll the watcher makes anyway: whether its game client is in the world. Never allowed
       // to cost the queue itself.
@@ -520,14 +535,36 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     // a map pulled seconds after `npm run deploy` can be generated by the PREVIOUS version and look like a bug in
     // the current one. An artifact used to rebuild a server elsewhere must say which code produced it.
     if (request.method === "GET" && path === "/admin/guild-map") return json({ build: BUILD, ...(await guildMap(env, query.get("guild") ?? "")) });
-    if (request.method === "GET" && path === "/admin/backfill-roles") return json(await backfillRoles(env, backfillOptions(query)));
+    if (request.method === "GET" && path === "/admin/backfill-roles") return json(await backfillRoles(env, backfillOptions(query),roleDispatch));
   }
 
   return new Response("not found", { status: 404 });
 }
 
+/** Revision 4 (fresh roles): the /queue route's own statement attempts before its deferral, in the counted units of the pass's
+ * Admission (write admission included: 5 per write, 2 per read): getQueue's three claim updates and two reads (19),
+ * recordRelay's read and upsert (7). A cold schema check and the legacy sweep's 120 are already outside FRESH_SWEEP_STATEMENTS. */
+const QUEUE_ROUTE_STATEMENTS = 26;
+/** Configured mode only, inside the /queue deferral: the legacy sweep (it never throws, and the pass runs whether it was
+ * throttled, had no ROLE_GUILD_MEMBER or failed), then one fresh-role pass on the same Discord-call allowance. Its statements
+ * are admitted against what this invocation counts when the env can count them; otherwise the pass reserves its own bounds,
+ * less this route's QUEUE_ROUTE_STATEMENTS. */
+async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,roleDispatch:BetaRoleDispatch): Promise<void> {
+  try { await sweepMemberRoles(env, "watcher", parent,roleDispatch); } catch { /* never thrown; the pass still runs */ }
+  const pass = await import('./full-release-pass');
+  let counted = env, adm: Admission | undefined;
+  try { const count = { used: 0 }; counted = countStatements(env, count); adm = pass.freshAdmission(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS); }
+  catch { counted = env; adm = undefined; }
+  await pass.runFreshPass(counted, { calls: parent, adm, reserve: QUEUE_ROUTE_STATEMENTS }, 'watcher', lane);
+}
+/** A refused fresh-role registration is audited when D1 still answers. Only the /queue caller rethrows (.160's response);
+ * the new ingest and ban deferrals never change a response. */
+async function freshRegistrationRefused(env: Env, trigger: string): Promise<void> {
+  try { await audit(env, 'system', FRESH_AUDIT.failed, trigger, { error: 'registration_refused' }); } catch { /* nothing left to tell */ }
+}
+
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-16.161 Ordinary schedule qualification";
+const BUILD = "2026-10-17.163 Guild source closure and fresh roles";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

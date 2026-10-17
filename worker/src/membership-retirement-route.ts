@@ -6,6 +6,7 @@ import {fenceSql} from './community-context';
 import {membershipTargets,membershipTargetsCurrent,membershipTransitionEnabled} from './membership-role-transition';
 import {DB_NOW,randomGeneration} from './account-generation-contracts';
 import {admitAttendedMembershipRetirement,retireOwnedMembershipRole,RETIREMENT_PARENT_FIELDS,type RetirementParent} from './role-settlements';
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 
 const ROOT='/api/admin/membership-retirement',HEX=/^[0-9a-f]{32}$/,MAC=/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
 type Session=OriginalSiteSession;
@@ -45,7 +46,9 @@ async function child(env:Env,parent:RetirementParent):Promise<RetirementParent|n
  return r?Object.freeze(canonical(r)) as RetirementParent:null;
 }
 const childDto=(r:RetirementParent|null)=>r?{operationId:r.id,state:r.state,attempted:r.attempts===1}:null;
-export async function handleMembershipRetirement(request:Request,env:Env,path:string,admin:SiteUser):Promise<Response>{
+export async function handleMembershipRetirement(request:Request,env:Env,path:string,admin:SiteUser,originalDispatch?:BetaRoleDispatch):Promise<Response>{
+ // Item 15: the beta dispatch mode is captured before this handler's first await and threaded to the attended removal.
+ const removalDispatch=originalDispatch??captureBetaRoleDispatch(env);
  try{
   if(path!==ROOT&&path!==ROOT+'/retire'&&path!==ROOT+'/reconcile')throw new Refused('not_found',404);
   if(!membershipTransitionEnabled(env))throw new Refused('retirement_disabled',503);
@@ -77,7 +80,7 @@ export async function handleMembershipRetirement(request:Request,env:Env,path:st
   if(!await verify(env.COOKIE_SECRET,purpose(reconcile),claims(purpose(reconcile),original,binding,c,{expiresAt:f.expiresAt,formNonce:f.formNonce},reconcile?r:null),f.token))throw new Refused('retirement_form_refused',403);
   const admission=admitAttendedMembershipRetirement(env,{staff:original,binding,parent:c.parent,subjectGeneration:c.generation,expiresAt:f.expiresAt,formNonce:f.formNonce,child:reconcile?r:null});
   const budget={limit:8,attempts:0,retries:0};
-  const settled=await retireOwnedMembershipRole(env,c.parent.id,{subjectGeneration:c.generation},budget,admission);
+  const settled=await retireOwnedMembershipRole(env,c.parent.id,{subjectGeneration:c.generation},budget,admission,removalDispatch);
   return apiJson({...settled,providerAttempts:budget.attempts},settled.state==='held'?409:200);
  }catch(e){return e instanceof Refused?apiJson({error:e.code},e.status):apiJson({error:'retirement_outcome_unconfirmed'},503);}
 }

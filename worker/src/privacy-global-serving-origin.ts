@@ -8,6 +8,7 @@ import {originalErasureStatusCodeFacts,type OriginalVerifiedErasureStatusCode} f
 import {privacyProviderCustodyDatabase} from './privacy-serving-authority';
 import {recoveryScalarArraySha256,recoveryScalarArrayJSON,recoveryParseDataJSON,recoveryIsDataArray,recoveryDataUtf8Length,recoveryDataStringSha256} from './privacy-recovery-data-json';
 import {assertOriginalErasureJobRead,type OriginalErasureJobRead} from './privacy-erasure-terminal-job-read';
+import {erasureAttemptFenceMode} from './privacy-erasure-attempt-identity';
 import {captureOriginalAccountErasureTerminalIntent,assertOriginalErasureTerminalIntent,originalErasureTerminalIntentFacts,type OriginalErasureTerminalIntent} from './privacy-erasure-terminal-intent';
 import {assertAccountErasureTerminalGroup,assertAccountErasurePhysicalTerminalBatch,captureAccountErasureTerminalAcknowledgement,originalAccountErasureTerminalAcknowledgementFacts,type OriginalAccountErasureTerminalGroup} from './privacy-account-erasure-terminal-group';
 import {captureOriginalServingSuppressionSender,reserveOriginalAccountErasureSuppression,observeOriginalAccountErasureSuppression,assertOriginalSuppressionReserved,commitOriginalAccountErasureSuppression,assertOriginalSuppressionCommitted,assertOriginalSuppressionOriginalChild,type OriginalServingSuppressionSender,observeOriginalErasureStatusJournal,assertOriginalErasureStatusJournalAcknowledgement,originalErasureStatusJournalAcknowledgementDigest,type OriginalErasureStatusJournalAcknowledgement,type OriginalErasureSuppressionReservation} from './privacy-suppression-serving-sender';
@@ -121,6 +122,14 @@ export function originalErasureStatusAdmissionContext(env:Env):Readonly<{require
   for(const slot of s.slots){if(slot.key==='DB')continue;const d=Object.getOwnPropertyDescriptor(env,slot.key),original=slot.descriptor;if(!d||Object.hasOwn(d,'value')!==Object.hasOwn(original,'value')||d.value!==original.value||d.get!==original.get||d.set!==original.set)return held();}
  };check();return Object.freeze({required:'independent' as const,check});
 }
+/** Read-only claim provenance across valid descendants of this original entry. No context or dispatch authority escapes. */
+export function captureOriginalErasureAttemptOrigin(env:Env):Readonly<{check:()=>void}>{
+ const a=scope(),s=bindings(a.origin),custody=privacyProviderCustodyDatabase(env),prototype=Object.getPrototypeOf(env),keys=Reflect.ownKeys(env),slots=keys.map(key=>Object.freeze({key,descriptor:Object.freeze({...Object.getOwnPropertyDescriptor(env,key)!})}));
+ const check=()=>{scope(a.origin);if(bindings(a.origin)!==s||Object.getPrototypeOf(env)!==prototype||Reflect.ownKeys(env).length!==keys.length||slots.some(slot=>!sameDescriptor(Object.getOwnPropertyDescriptor(env,slot.key),slot.descriptor)))return held();
+  if(!s.tracked||privacyProviderCustodyDatabase(env)!==custody||!privacyAdmissionMatchesOriginalNative(custody,s.tracked)||keys.length!==s.slots.length)return held();
+  for(const slot of s.slots){if(slot.key==='DB')continue;const d=Object.getOwnPropertyDescriptor(env,slot.key),original=slot.descriptor;if(!d||!Object.hasOwn(d,'value')||!Object.hasOwn(original,'value')||d.value!==original.value)return held();}
+ };check();return Object.freeze({check});
+}
 /** An extra source-private check only restricts existing entry authority; it cannot mint a normal callback cap. */
 function retainEntryConstraint(ctx:ExecutionContext,purpose:'fetch'|'scheduled',input?:EntryConstraint):EntryConstraint|null{
  const retained=entryConstraints.get(ctx);if(purpose!=='scheduled'&&(retained||input))return held();if(retained){if(input&&input!==entryConstraintInputs.get(ctx))return held();retained.check();return retained;}if(!input)return null;
@@ -228,10 +237,28 @@ export function dispatchOriginalProviderFetch(input:string,init:RequestInit):Pro
 /** This fragment is inserted inside privacy-global-serving-origin.ts; frame issuers/maps stay module-private. */
 declare const originalAccountErasureNativeFrameBrand:unique symbol;
 export type OriginalAccountErasureNativeFrame=Readonly<{[originalAccountErasureNativeFrameBrand]:true}>;
-type TerminalChild={origin:GlobalServingOrigin;context:ServingContext;job:OriginalErasureJobRead;group:OriginalAccountErasureTerminalGroup;intent:OriginalErasureTerminalIntent;reservation:OriginalErasureSuppressionReservation;frame:OriginalAccountErasureNativeFrame|null;spent:boolean};
+type TerminalRejectionSource=Readonly<{env:Env;request:Request;requestTuple:string;workRequest:Request;workRequestTuple:string;check:()=>void}>;
+type TerminalChild={origin:GlobalServingOrigin;context:ServingContext;job:OriginalErasureJobRead;group:OriginalAccountErasureTerminalGroup;intent:OriginalErasureTerminalIntent;reservation:OriginalErasureSuppressionReservation;frame:OriginalAccountErasureNativeFrame|null;spent:boolean;rejectionSource:TerminalRejectionSource|null};
 type NativeFrame={owner:TerminalChild;inputStatements:D1PreparedStatement[];ownedPlans:readonly Plan[];packet:unknown;originalTicket:readonly unknown[];nativeTerminalIndex:number;phase:'dispatching'|'landed'|'unknown';check:()=>void};
 const terminalChildren=new WeakMap<ServingContext,TerminalChild>(),nativeFrames=new WeakMap<OriginalAccountErasureNativeFrame,NativeFrame>();
+declare const originalTerminalRejectionBrand:unique symbol;
+type OriginalTerminalRejection=Readonly<{[originalTerminalRejectionBrand]:true}>;
+type NativeRejection=Readonly<{evidence:OriginalTerminalRejection;child:TerminalChild;job:OriginalErasureJobRead;intent:OriginalErasureTerminalIntent;reservation:OriginalErasureSuppressionReservation;frame:OriginalAccountErasureNativeFrame;source:TerminalRejectionSource;error:unknown}>;
+// Retained provenance only. No exported registrar/lookup, fence, retry or frame revival exists.
+const nativeRejections=new WeakMap<OriginalErasureJobRead,NativeRejection>(),terminalNativeApply=Reflect.apply;
 const originalEntryEnvironments=new WeakMap<Env,{origin:GlobalServingOrigin;prototype:object|null;slots:readonly Slot[]}>();
+
+/** A known first reserve/associate ACK plus the real fence-mode job under the captured site POST.
+ * A later valid POST after a known preterminal hold is eligible; initial admission is not required. */
+function terminalRejectionSource(env:Env,owned:TerminalChild):TerminalRejectionSource|null{
+ if(erasureAttemptFenceMode(env)!==true)return null;
+ const s=bindings(owned.origin),request=s.request,workRequest=s.workRequest,originalTuple=s.requestTuple,workTuple=s.workRequestTuple;
+ if(s.purpose!=='fetch'||!request||!workRequest||!originalTuple||!workTuple)return null;
+ const captured=preflightOriginalServingRequest(request),working=preflightOriginalServingRequest(workRequest);
+ if(captured.method!=='POST'||working.method!=='POST'||new URL(captured.url).pathname!=='/api/me/erasure'||working.url!==captured.url)return null;
+ const check=()=>{assertOriginalGlobalServingChild(owned.origin,owned.context);if(bindings(owned.origin)!==s||s.request!==request||s.workRequest!==workRequest||s.requestTuple!==originalTuple||s.workRequestTuple!==workTuple||erasureAttemptFenceMode(env)!==true)return held();assertOriginalErasureJobRead(owned.job,env);assertOriginalSuppressionReserved(owned.reservation,owned.intent);};
+ check();return Object.freeze({env,request,requestTuple:originalTuple,workRequest,workRequestTuple:workTuple,check});
+}
 
 /** Only the actual source-created entry Env is accepted. This check grants no child or Native dispatch authority. */
 export function assertOriginalGlobalServingOriginEnv(origin:GlobalServingOrigin,env:Env):void{
@@ -259,7 +286,26 @@ async function dispatchOriginalTerminalNative(input:D1PreparedStatement[],list:r
  const materialized=list.map(p=>materialize(owned.origin,p));let packetCheck:()=>void=()=>held();const frame=Object.freeze({}) as OriginalAccountErasureNativeFrame;
  const state:NativeFrame={owner:owned,inputStatements:input,ownedPlans:Object.freeze([...list]),packet:null,originalTicket,nativeTerminalIndex:physical.nativeTerminalIndex,phase:'dispatching',check:()=>{assertOriginalSuppressionOriginalChild(owned.reservation,owned.intent);assertOriginalGlobalServingChild(owned.origin,owned.context);if(servingContextCustody(owned.context).nativeTuple!==recoveryScalarArrayJSON(state.originalTicket))return held();bindings(owned.origin);assertOriginalErasureTerminalIntent(owned.intent);assertAccountErasureTerminalGroup(owned.group,owned.job);inputCheck();physical.check();checkMethod(s.batch);for(const m of materialized)m.check();if(state.phase==='landed')packetCheck();else if(state.phase==='unknown')held();}};
  nativeFrames.set(frame,state);owned.frame=frame;
- try{state.check();scope(owned.origin);const packet=await call(s.batch,[Object.freeze(materialized.map(m=>m.raw))]);packetCheck=originalNativeGraph(packet);state.packet=packet;state.check();scope(owned.origin);if(!recoveryIsDataArray(packet)||data(packet,'length')!==list.length)return held();for(let i=0;i<list.length;i++){const r=data(packet,String(i));if(!r||typeof r!=='object'||data(r,'success')!==true)return held();}state.phase='landed';state.check();return packet;}
+ try{state.check();scope(owned.origin);let packet:unknown;
+  if(owned.rejectionSource){
+   const source=owned.rejectionSource;source.check();checkMethod(s.batch);
+   const fn=s.batch.descriptor.value,receiver=s.batch.receiver,args=[Object.freeze(materialized.map(m=>m.raw))];
+   // Only the two actual Native throw/reject boundaries call this local retention closure.
+   // Preserve call()'s immediate method postcheck outside both catches, as well as await postchecks.
+   const rejected=(error:unknown):never=>{
+    try{state.check();scope(owned.origin);source.check();state.phase='unknown';
+     if(!nativeRejections.has(owned.job)){const evidence=Object.freeze({}) as OriginalTerminalRejection;nativeRejections.set(owned.job,Object.freeze({evidence,child:owned,job:owned.job,intent:owned.intent,reservation:owned.reservation,frame,source,error}));}
+    }catch{/* Preserve the original rejection even when a current-context check refuses retention. */}
+    finally{state.phase='unknown';}
+    throw error;
+   };
+   let dispatched:unknown;
+   try{dispatched=terminalNativeApply(fn,receiver,args);}catch(error){return rejected(error);}
+   checkMethod(s.batch);
+   try{packet=await dispatched;}catch(error){return rejected(error);}
+   checkMethod(s.batch);
+  }else packet=await call(s.batch,[Object.freeze(materialized.map(m=>m.raw))]);
+  packetCheck=originalNativeGraph(packet);state.packet=packet;state.check();scope(owned.origin);if(!recoveryIsDataArray(packet)||data(packet,'length')!==list.length)return held();for(let i=0;i<list.length;i++){const r=data(packet,String(i));if(!r||typeof r!=='object'||data(r,'success')!==true)return held();}state.phase='landed';state.check();return packet;}
  catch(e){state.phase='unknown';throw e;}
 }
 /** Only a landed source-issued frame and its exact original intent may be consumed. No raw packet issuer exists. */
@@ -274,8 +320,9 @@ export async function dispatchOriginalAccountErasureTerminalBatch(env:Env,job:Or
  const parentTuple=recoveryParseDataJSON(parent.nativeTuple) as unknown[];if(parentTuple.length!==12||typeof parentTuple[2]!=='string')return held();
  const requestDigest=await recoveryScalarArraySha256(['source-erasure-terminal-intent-v2',parentTuple[2],p.operationId,p.subject,p.subjectGeneration,facts.jobFacts.jobReadDigest,facts.terminalIntentDigest,facts.statusBindingDigest]);scope(a.origin);assertOriginalErasureTerminalIntent(intent);
  const id=random(),nonce=random(),result=await runServingChild(a.context,{ticketId:id,purpose:'d1',nonce,requestDigest},context=>active.run(Object.freeze({origin:a.origin,context}),async()=>{
-  scope(a.origin);const reservation=await reserveOriginalAccountErasureSuppression(s.suppressionSender!,context,intent);scope(a.origin);try{assertOriginalSuppressionReserved(reservation,intent);}catch{await observeOriginalAccountErasureSuppression(reservation);scope(a.origin);assertOriginalSuppressionReserved(reservation,intent);}
-  const owned:TerminalChild={origin:a.origin,context,job,group,intent,reservation,frame:null,spent:false};if(terminalChildren.has(context))return held();terminalChildren.set(context,owned);
+  scope(a.origin);const reservation=await reserveOriginalAccountErasureSuppression(s.suppressionSender!,context,intent);scope(a.origin);let firstReserveAcknowledged=false;try{assertOriginalSuppressionReserved(reservation,intent);firstReserveAcknowledged=true;}catch{await observeOriginalAccountErasureSuppression(reservation);scope(a.origin);assertOriginalSuppressionReserved(reservation,intent);}
+  const owned:TerminalChild={origin:a.origin,context,job,group,intent,reservation,frame:null,spent:false,rejectionSource:null};if(terminalChildren.has(context))return held();terminalChildren.set(context,owned);
+  if(firstReserveAcknowledged)owned.rejectionSource=terminalRejectionSource(env,owned);
   const packet=await env.DB.batch(statements);scope(a.origin);if(!owned.frame)return held();assertOriginalAccountErasureNativeFrame(owned.frame,intent);
   const acknowledgement=await captureAccountErasureTerminalAcknowledgement(group,job,owned.frame,intent);scope(a.origin);await commitOriginalAccountErasureSuppression(reservation,acknowledgement);scope(a.origin);try{assertOriginalSuppressionCommitted(reservation);}catch{await observeOriginalAccountErasureSuppression(reservation);scope(a.origin);assertOriginalSuppressionCommitted(reservation);}
   const native=originalAccountErasureTerminalAcknowledgementFacts(acknowledgement,group);return {kind:'known_local' as const,value:packet,resultDigest:native.nativeResultDigest};

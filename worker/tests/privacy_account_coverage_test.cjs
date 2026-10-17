@@ -82,7 +82,7 @@ async function coverageReview(){
  {
   const statements=[],f=fixture({statement:(s,v)=>statements.push({s,v})});await subject(f);f.env.PRIVACY_ERASURE_ENABLED='false';f.env.PRIVACY_RETENTION_ENABLED='true';
   eq('setup retains original installed audit-control value',f.db.prepare("SELECT value FROM site_settings WHERE key='auditTypedNames'").get().value,'115');
-  const admission=load('privacy-write-admission'),native=f.native,installation=f.ready();eq('native installed exact current221 guards',installation.triggerCount,221);
+  const admission=load('privacy-write-admission'),native=f.native,installation=f.ready();eq('native installed exact current224 guards',installation.triggerCount,224);
   f.env.DB=admission.createPrivacyWriteAdmissionDatabase(native,'writer','canonical',entry.ENTRY_EPOCH);
   const connection=await connect(f),frm=await form(f,connection);statements.length=0;const r=await copy.exportPrivacyAccess(frm.request(),f.env),body=await r.json();
   eq('installed original identify download succeeds',r.status,200);eq('installed own summary fenced active',body.privacyLifecycle.subjectRecord.state,'active');
@@ -107,7 +107,7 @@ async function coverageReview(){
   const statements=[],batches=[],pending=[],f=fixture({statement:s=>statements.push(s),beforeBatch:ss=>batches.push(ss.map(s=>s.sql))});
   await subject(f);Object.assign(f.env,{PUBLIC_BASE_URL:'https://olympus-worker.example.test',PRIVACY_ACCESS_ENABLED:'true',PRIVACY_ERASURE_ENABLED:'false',PRIVACY_RETENTION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical'});
   eq('setup retains original installed audit-control value',f.db.prepare("SELECT value FROM site_settings WHERE key='auditTypedNames'").get().value,'115');
-  const native=f.native,installation=f.ready();eq('full-index identify setup installs current221 guards',installation.triggerCount,221);
+  const native=f.native,installation=f.ready();eq('full-index identify setup installs current224 guards',installation.triggerCount,224);
   f.env.DB=admission.createPrivacyWriteAdmissionDatabase(native,'writer','canonical',entry.ENTRY_EPOCH);
   // Genuine OAuth/CSRF/grant setup uses its registered writer under installed guards. Measured index.fetch receives original native DB and creates its normal wrapper.
   const connection=await connect(f),frm=await form(f,connection),beforeCalls=calls.length;
@@ -131,7 +131,7 @@ async function coverageReview(){
   await subject(f);Object.assign(f.env,{PUBLIC_BASE_URL:'https://olympus-worker.example.test',PRIVACY_ACCESS_ENABLED:'true',PRIVACY_ERASURE_ENABLED:'false',PRIVACY_RETENTION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical'});
   await fixtureWrite(f,'INSERT INTO site_users(discord_id,first_login,last_login,in_server,session_version,denied) VALUES(?,?,?,?,?,?)',A,f.time(),f.time(),1,7,0);
   eq('setup retains original installed audit-control value',f.db.prepare("SELECT value FROM site_settings WHERE key='auditTypedNames'").get().value,'115');
-  const installation=f.ready();eq('full-index ordinary setup installs current221 guards',installation.triggerCount,221);
+  const installation=f.ready();eq('full-index ordinary setup installs current224 guards',installation.triggerCount,224);
   const ordinary=await issueFixtureCookie(f);await fixtureWrite(f,'UPDATE site_users SET in_server=0,denied=1 WHERE discord_id=?',A);const nonce='n'.repeat(43),cookies=ordinary+'; '+fcore.FORM_COOKIE+'='+nonce;
   const originalSubjectBirth=f.db.prepare('SELECT generation,revision FROM privacy_subjects WHERE subject_id=?').get(A);
   provider=null;calls=[];

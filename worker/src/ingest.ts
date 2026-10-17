@@ -8,8 +8,11 @@ import { onVerified } from "./review";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
 import { demote, guidOf, ingestRoster, isCurrentRoster, latestRosterEntry, onLatestRoster, promote, ROSTER_PIN_WITHIN, type RosterMemberIn } from "./roster";
 import { callBudget } from "./roles"; // .90 (P-20): the join events' promotions share one Discord-call budget per batch
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
+import type { RemovalDispatch } from './role-settlements';
 import { guildSeats, seatsStaffLine } from "./guild-seats";
 import { messageOperationId,postPrivacyMessage } from './privacy-provider-messages';
+import { captureLaneConfig } from './full-release-roles';
 
 type WatcherCapture = { references: PrivacyReference[] };
 type CapturedQueue = {id:number;discord_id:string;name_key:string;name:string;created_at:number;status:string;attempts:number|null;retry_after:number|null;last_reason:string|null;claimed_by:string|null;claimed_at:number|null;last_reason_at:number|null;note:string|null;written_at:number|null;invited_at:number|null;joined_at:number|null;approved_by:string|null;priority:number;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null};
@@ -112,17 +115,18 @@ export function playerGuid(v: unknown): string | null {
   return g && /^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(g) ? g : null;
 }
 
-export async function postVerify(env: Env, body: VerifyIn): Promise<Response> {
+export async function postVerify(env: Env, body: VerifyIn,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const context:WatcherCapture={references:[]};
   try {
-    const result=await postVerifyInner(env,body,context);
+    const result=await postVerifyInner(env,body,context,roleDispatch);
     if(result.status<400)await assertWatcherCurrent(env,context);
     return result;
   }
   catch(error) { if(error instanceof PrivacySiteRequestHeld)return watcherHeldResult(env,context);throw error; }
 }
 
-async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture): Promise<Response> {
+async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,roleDispatch:BetaRoleDispatch): Promise<Response> {
   const originalEnv=env;
   const name = (body.character ?? "").trim();
   const nameKey = normalizeCharacter(name);
@@ -298,7 +302,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture):
     // last export, read on launch day, would grant the role to whoever took the name on live and pin the wrong
     // character to them. The GUID is taken only from a very fresh export; otherwise the next export pins it.
     await audit(env, "watcher", "verify.already_member", name, { discordId: pending.discord_id, source: body.source },reference);
-    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null),undefined,privacyCapture);
+    await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null),undefined,privacyCapture,roleDispatch);
     return json({ result: "member", discordId: pending.discord_id, name });
   }
   if (onRoster) await audit(env, "watcher", "verify.roster_not_current", name, { exportedAt: onRoster.exportedAt },reference);
@@ -434,12 +438,14 @@ export function explainRefusal(code: string | null | undefined): string {
 }
 
 /** A batch of game events can decline, refuse, admit and remove several people; their notices go out as one post. */
-export async function postEvents(env: Env, body: { events: EventIn[] }): Promise<Response> {
+export async function postEvents(env: Env, body: { events: EventIn[] },originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  // Item 15: the beta dispatch mode for every departure in this batch, captured before this entry's first await.
+  const removal: RemovalDispatch = originalDispatch??captureBetaRoleDispatch(env);
   const notices = noticeBatch();
   const context:WatcherCapture={references:[]};
   let result:Response;
   try {
-    result=await postEventsInner(env, body, notices,context);
+    result=await postEventsInner(env, body, notices,context,removal);
   } catch(error) {
     if(error instanceof PrivacySiteRequestHeld)result=await watcherHeldResult(env,context);
     else throw error;
@@ -451,7 +457,7 @@ export async function postEvents(env: Env, body: { events: EventIn[] }): Promise
   return result;
 }
 
-async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch,context:WatcherCapture): Promise<Response> {
+async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: NoticeBatch,context:WatcherCapture,removal:RemovalDispatch): Promise<Response> {
   const calls = callBudget(env); // .90 (P-20)
   const originalEnv=env;
   let applied = 0;
@@ -592,7 +598,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       }
       if (c && ["verified", "queued", "left_pending"].includes(c.status)) {
         if (trusted) {
-          await promote(env, c.discord_id, key, c.name, notices, undefined, calls,privacyCaptureFromColumns(c.discord_id,c));
+          await promote(env, c.discord_id, key, c.name, notices, undefined, calls,privacyCaptureFromColumns(c.discord_id,c),removal);
           applied++;
           await audit(env, "watcher", "invite.joined", e.name, { detail: e.detail, origin: e.origin, promoted: true },reference);
           continue;
@@ -622,7 +628,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
       if(reference)env=bindWatcher(env,reference.subject,reference.capture,context);
       if (c && (c.status === "member" || c.status === "left_pending")) {
         if (isAuthoritative(e)) {
-          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices,capture:reference!.capture });
+          await demote(env, c.discord_id, key, c.name, e.detail || "in game", { batch: notices,capture:reference!.capture,removal });
           applied++;
         } else if (c.status === "member") {
           // Forgeable text: arm the removal instead of performing it. The next roster export either confirms the
@@ -650,7 +656,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
         await audit(env, "watcher", "roster.remove_failed", e.name, { detail: e.detail },reference);
         applied++;
       } else if (c && (c.status === "member" || c.status === "left_pending")) {
-        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c) });
+        await demote(env, c.discord_id, key, c.name, e.detail || "removed to free a seat", { space: e.reason === "space", batch: notices,capture:privacyCaptureFromColumns(c.discord_id,c),removal });
         applied++;
       } else {
         await audit(env, "watcher", "roster.removed_unlinked", e.name, { detail: e.detail, reason: e.reason },reference);
@@ -697,9 +703,13 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
   return json({ applied });
 }
 
-export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[] }): Promise<Response> {
+export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[] }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
+  // Revision 4 (A1): the lane configuration is captured here, before any await of this export, and handed to ingestRoster
+  // (roster.ts cannot import the lane module: full-release-roles reaches roster.ts, so that would be a module-load cycle).
+  const lane = captureLaneConfig(env);
   if (!Array.isArray(body.members) || !body.exportedAt) return json({ error: "exportedAt and members[] required" }, 400);
-  const summary = await ingestRoster(env, body.exportedAt, body.members, "addon");
+  const summary = await ingestRoster(env, body.exportedAt, body.members, "addon", lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export refused for duplicate names is a 422, which
   // the watcher takes as final (watcher.py Worker.call: a 4xx is not retried, since sending it again changes nothing).
   // The review of 3 Oct 2026 added "unusable" (every batch committed, and the stored rows still fell short of the count):

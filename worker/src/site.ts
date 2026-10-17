@@ -28,6 +28,7 @@ import {RecoveryFloorHeld} from './privacy-recovery-floor';
  *   - Tallies never leave site-admin.ts, which answers SITE_ADMINS only (checked on every call).
  */
 import type { Env } from "./env";
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import { audit, now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { recordNames } from "./names";
@@ -58,7 +59,9 @@ export async function handleSite(
   build: string,
   waitUntil: (work: () => Promise<unknown>) => void,
   siteOAuthOrigin?:SiteOAuthOrigin,
+  originalDispatch?:BetaRoleDispatch,
 ): Promise<Response | null> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   if(path==="/auth/callback"){
     if(!siteOAuthOrigin)return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});
     try{const original=siteOAuthCallbackInput(siteOAuthOrigin,request,env);request=original.request;env=original.env;}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}
@@ -101,7 +104,7 @@ export async function handleSite(
   }
   if (path.startsWith("/api/")) {
     if (!schemaReady) return apiJson({ error: "updating", message: "The site is updating its database. Try again in a minute." }, 503);
-    return handleApi(request, env, path, waitUntil);
+    return handleApi(request, env, path, waitUntil,roleDispatch);
   }
   return null;
 }

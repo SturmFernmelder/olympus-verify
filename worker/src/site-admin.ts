@@ -1,3 +1,4 @@
+import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 /**
  * The guild site's admin API (build .41, .43, .45): SITE_ADMINS only, checked by site-api.ts on every call before it
  * gets here. This is the only code that ever counts votes.
@@ -54,8 +55,9 @@ const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "wit
  */
 const PROFESSIONS_OF_A = "json_each(CASE WHEN json_valid(a.answers) THEN a.answers ELSE '{}' END, '$.professions')";
 
-export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (work: () => Promise<unknown>) => void,decisionOrigin?:MembershipDecisionOrigin): Promise<Response> {
-  if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin);
+export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (work: () => Promise<unknown>) => void,decisionOrigin?:MembershipDecisionOrigin,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+  const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
+  if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin,roleDispatch);
   if(path.startsWith('/api/admin/beta-role-reset'))return handleBetaRoleReset(request,env,path,admin);
   if(path==='/api/admin/beta-reset'||path.startsWith('/api/admin/beta-reset/'))return apiJson({error:'beta_reset_scope_replaced',message:'The beta reset preserves website appointments and leadership. Use the member and rank role reset preview.'},410);
   const m = request.method;
@@ -100,7 +102,7 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
       if (body.confirm !== "REAPPLY") return apiJson({ error: "confirm", message: "Type REAPPLY to confirm." }, 400);
       const auditId = typeof body.auditId === "number" && Number.isInteger(body.auditId) && body.auditId > 0 ? body.auditId : 0;
       if (!auditId) return apiJson({ error: "bad_request" }, 400);
-      const r = await markForcedRename(env, actor, auditId);
+      const r = await markForcedRename(env, actor, auditId,roleDispatch);
       return r.ok ? apiJson(r) : apiJson({ error: r.error, message: r.message }, r.status);
     }
     if (m === "POST" && /^\d{1,12}$/.test(parts[1] ?? "") && (parts[2] === "approve" || parts[2] === "cancel")) {

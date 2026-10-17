@@ -21,7 +21,7 @@ export type PrivateProductionControlEnv=ServingGateEnvironment&{
  PRIVACY_CONTROL_SOURCE_TREE?:string;PRIVACY_SERVING_SOURCE_TREE?:string;PRIVACY_SERVING_DEPLOYMENT_VERSION?:string;
  PRIVACY_SERVING_DATABASE_ID?:string;
  PRIVACY_WRITE_ADMISSION_LAYOUT?:'canonical'|'recorded-live-20261010';
- PRIVACY_INSTALL_SOURCE_KIND?:'pre-marker'|'marker'|'public-predecessor'|'current-cookie';
+ PRIVACY_INSTALL_SOURCE_KIND?:'pre-marker'|'marker'|'public-predecessor'|'current-cookie'|'current-cookie-pre-seal';
 };
 type Descriptor=Readonly<{ref:object;proto:object|null;key:PropertyKey;value:PropertyDescriptor|undefined}>;
 type Method=Readonly<{receiver:object;fn:Function;slots:readonly Descriptor[]}>;
@@ -186,7 +186,7 @@ export function originalPrivateRestoredArtifactOrigin(cut:OriginalPrivateControl
 declare const privateInstallPlanBrand:unique symbol;
 export type OriginalPrivateInstallPlan=Readonly<{[privateInstallPlanBrand]:true}>;
 type InstallPlanState={cut:OriginalPrivateControlCut;writerFence?:OriginalNativeWriterFence;handle:object;slots:readonly Descriptor[];migration:WholeMigrationCapability;
- layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie';
+ layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie'|'current-cookie-pre-seal';
  operationId:string;originalEpoch:string|null;nextEpoch:string;originalCreatedAt:number;originalExpiresAt:number;sourceTree:string};
 const installPlans=new WeakMap<OriginalPrivateInstallPlan,InstallPlanState>(),installCaptureSpent=new WeakSet<OriginalPrivateControlCut>();
 function installPlanCurrent(saved:InstallPlanState):void{
@@ -209,7 +209,7 @@ export async function captureOriginalPrivateInstallPlan(cut:OriginalPrivateContr
  const slots=Object.freeze(['PRIVACY_WRITE_ADMISSION_LAYOUT','PRIVACY_INSTALL_SOURCE_KIND'].map(key=>descriptor(o.env,key)));
  for(const slot of slots)if(!slot.value||!Object.hasOwn(slot.value,'value'))return held('original_install_config_required');
  const layout=data(o.env,'PRIVACY_WRITE_ADMISSION_LAYOUT'),sourceKind=data(o.env,'PRIVACY_INSTALL_SOURCE_KIND');
- if(layout!=='canonical'&&layout!=='recorded-live-20261010'||sourceKind!=='pre-marker'&&sourceKind!=='marker'&&sourceKind!=='public-predecessor'&&sourceKind!=='current-cookie'
+ if(layout!=='canonical'&&layout!=='recorded-live-20261010'||sourceKind!=='pre-marker'&&sourceKind!=='marker'&&sourceKind!=='public-predecessor'&&sourceKind!=='current-cookie'&&sourceKind!=='current-cookie-pre-seal'
  ||sourceKind==='public-predecessor'&&layout!=='recorded-live-20261010')return held('original_install_config_required');
  const originalEpoch=writerFence?originalNativeWriterFenceFacts(writerFence,cut).originalEpoch:sourceKind==='public-predecessor'?null:o.config.writeEpoch;
  const check=()=>{originalRecoveryClockMilliseconds();current(savedCut.handle,true);originalPrivateControlCutCustody(cut);for(const slot of slots)sameDescriptor(slot);};
@@ -231,7 +231,7 @@ export function assertOriginalPrivateInstallPlan(plan:OriginalPrivateInstallPlan
 }
 /** Safe metadata only. It does not expose the retained capability or qualify a production installation. */
 export function originalPrivateInstallPlanFacts(plan:OriginalPrivateInstallPlan):Readonly<{
- operationId:string;layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie';originalEpoch:string|null;nextEpoch:string;
+ operationId:string;layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie'|'current-cookie-pre-seal';originalEpoch:string|null;nextEpoch:string;
  originalCreatedAt:number;originalExpiresAt:number;sourceTree:string;capturedProfileMode:'closed'|'legacy_control_without_mode';
  nativeProfileReadOnly:true;externalDrainQualified:false;productionExecutionAvailable:false;readyToReopen:false}>{
  assertOriginalPrivateInstallPlan(plan);const s=installPlans.get(plan)!;
@@ -556,10 +556,10 @@ export function originalPrivateRecoveryReplayFacts(result:OriginalPrivateRecover
 }
 
 /** Data-only bridge for the fixed Native fence. It never returns Native or accepts a profile/clock/tuple. */
-export function originalPrivateNativeWriterFenceCustody(cut:OriginalPrivateControlCut,native:D1Database):Readonly<{layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie';operationId:string;fenceEpoch:string;nextEpoch:string;createdAt:number;expiresAt:number;closedAt:number;restoredNative:boolean;check:()=>void}>{
+export function originalPrivateNativeWriterFenceCustody(cut:OriginalPrivateControlCut,native:D1Database):Readonly<{layout:'canonical'|'recorded-live-20261010';sourceKind:'pre-marker'|'marker'|'public-predecessor'|'current-cookie'|'current-cookie-pre-seal';operationId:string;fenceEpoch:string;nextEpoch:string;createdAt:number;expiresAt:number;closedAt:number;restoredNative:boolean;check:()=>void}>{
  const saved=controlCuts.get(cut);if(!saved)return held('foreign_native_fence_cut');const o=current(saved.handle,true),facts=originalPrivateControlCutCustody(cut),g=tuple(facts.gate,11),f=tuple(facts.floor,12);
  const slots=Object.freeze(['PRIVACY_WRITE_ADMISSION_LAYOUT','PRIVACY_INSTALL_SOURCE_KIND'].map(key=>descriptor(o.env,key))),layout=data(o.env,'PRIVACY_WRITE_ADMISSION_LAYOUT'),kind=data(o.env,'PRIVACY_INSTALL_SOURCE_KIND');
- if(native!==o.native||isPrivacyWriteAdmissionDatabase(native)||layout!=='canonical'&&layout!=='recorded-live-20261010'||kind!=='pre-marker'&&kind!=='marker'&&kind!=='public-predecessor'&&kind!=='current-cookie'||kind==='public-predecessor'&&layout!=='recorded-live-20261010'||!hex(f[7],32)||!hex(g[9],32)||typeof g[7]!=='number'||typeof g[8]!=='number'||typeof g[10]!=='number')return held('original_native_fence_identity');
+ if(native!==o.native||isPrivacyWriteAdmissionDatabase(native)||layout!=='canonical'&&layout!=='recorded-live-20261010'||kind!=='pre-marker'&&kind!=='marker'&&kind!=='public-predecessor'&&kind!=='current-cookie'&&kind!=='current-cookie-pre-seal'||kind==='public-predecessor'&&layout!=='recorded-live-20261010'||!hex(f[7],32)||!hex(g[9],32)||typeof g[7]!=='number'||typeof g[8]!=='number'||typeof g[10]!=='number')return held('original_native_fence_identity');
  const restored=restoredWriterAttempts.get(cut),artifact=restored?originalRestoredArtifactAttemptFacts(restored,cut,o.env):null;
  const check=()=>{originalRecoveryClockMilliseconds();artifact?.check();const now=current(saved.handle,true);originalPrivateControlCutCustody(cut);for(const s of slots)sameDescriptor(s);if(now.native!==native||!now.original||now.original.operationId!==g[4]||now.original.createdAt!==g[7]||now.original.expiresAt!==g[8]||now.original.nextWriteEpoch!==g[9])return held('original_native_fence_drift');};check();
  return Object.freeze({layout,sourceKind:kind,operationId:g[4] as string,fenceEpoch:f[7] as string,nextEpoch:g[9] as string,createdAt:g[7],expiresAt:g[8],closedAt:Math.max(g[10],artifact?.providerObservedAt??g[10]),restoredNative:artifact!==null,check});
@@ -639,7 +639,7 @@ const privateControlPipelines=new WeakMap<D1Database,Map<string,PrivateControlPi
 function pipelineConfiguration(o:Origin):boolean{
  const layout=Object.getOwnPropertyDescriptor(o.env,'PRIVACY_WRITE_ADMISSION_LAYOUT'),kind=Object.getOwnPropertyDescriptor(o.env,'PRIVACY_INSTALL_SOURCE_KIND');
  return !!layout&&Object.hasOwn(layout,'value')&&['canonical','recorded-live-20261010'].includes(layout.value)
-  &&!!kind&&Object.hasOwn(kind,'value')&&['pre-marker','marker','public-predecessor','current-cookie'].includes(kind.value)
+  &&!!kind&&Object.hasOwn(kind,'value')&&['pre-marker','marker','public-predecessor','current-cookie','current-cookie-pre-seal'].includes(kind.value)
   &&(kind.value!=='public-predecessor'||layout.value==='recorded-live-20261010');
 }
 function pipelineCurrent(p:PrivateControlPipeline,handle:object,raw:string):Origin{

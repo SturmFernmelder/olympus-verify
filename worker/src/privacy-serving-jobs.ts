@@ -6,6 +6,7 @@ import {captureAccountErasureProof,originalErasureJobBirthSql,CURRENT_ERASURE_SQ
 import {continueServingErasure,erasureAttemptDiscipline,ERASURE_ATTEMPT_UNRESOLVED} from './privacy-serving-erase';
 import {cleanupPrivacyMessages} from './privacy-provider-messages';
 import {admitInactiveBotAccount} from './privacy-inactive-bot';
+import {erasureAttemptFenceMode,claimOriginalErasureAttempt,originalErasureAttemptFacts,type OriginalErasureAttempt} from './privacy-erasure-attempt-identity';
 export const SERVING_ERASURE_JOB_WORST=151;
 
 type OriginalQueuedErasure=Readonly<Omit<AccountErasureProof,'purpose'>&{last_attempt_at:number|null}>;
@@ -22,7 +23,7 @@ const DISCIPLINE_EXCLUSION=` AND COALESCE(hold_reason,'') NOT IN('${ERASURE_ATTE
 export async function runServingErasureJob(env:Env):Promise<{attempted:number;completed:number;held:number}>{
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return{attempted:0,completed:0,held:0};
  // An invalid discipline value holds new attempts and inactive admission; the independent provider-message debt lane continues.
- const discipline=erasureAttemptDiscipline(env);
+ const discipline=erasureAttemptFenceMode(env)===null?null:erasureAttemptDiscipline(env);
  let row=discipline===null?null:await env.DB.prepare(`SELECT operation_id AS operationId,subject_id AS subject,subject_generation AS subjectGeneration,request_digest AS requestDigest,original_account_incarnation AS accountIncarnation,last_attempt_at
  FROM privacy_serving_jobs WHERE state IN('waiting_role','held') AND retain_until>${PRIVACY_DB_NOW} AND (last_attempt_at IS NULL OR last_attempt_at<=${PRIVACY_DB_NOW}-120)${discipline?DISCIPLINE_EXCLUSION:''}
  ORDER BY COALESCE(last_attempt_at,0),created_at,operation_id LIMIT 1`).first<OriginalQueuedErasure>();
@@ -56,13 +57,20 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
  * an older writer, restores legacy retry behaviour; that is not a drain. */
 async function continueDisciplinedQueuedErasure(env:Env,row:OriginalQueuedErasure):Promise<{attempted:number;completed:number;held:number}>{
  const proof=captureAccountErasureProof({purpose:'account_erasure',subject:row.subject,subjectGeneration:row.subjectGeneration,operationId:row.operationId,requestDigest:row.requestDigest,accountIncarnation:row.accountIncarnation}).proof;
+ const fence=erasureAttemptFenceMode(env);if(fence===null)return{attempted:0,completed:0,held:0};
+ let attempt:OriginalErasureAttempt|undefined,claimed:number;
+ if(fence){
+  const issued=await claimOriginalErasureAttempt(env,proof,row.last_attempt_at);if(!issued)return{attempted:0,completed:0,held:0};
+  attempt=issued;claimed=originalErasureAttemptFacts(issued,env,proof).claimed;
+ }else{
  const claim=await env.DB.prepare(`UPDATE privacy_serving_jobs SET last_attempt_at=${PRIVACY_DB_NOW},hold_reason='${ERASURE_ATTEMPT_UNRESOLVED}' WHERE operation_id=?1 AND last_attempt_at IS ?5${DISCIPLINE_EXCLUSION} AND ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)}) RETURNING last_attempt_at AS claimed`)
  .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,row.last_attempt_at).first<{claimed:number}>();
  const claimedDescriptor=claim!==null&&typeof claim==='object'?Object.getOwnPropertyDescriptor(claim,'claimed'):undefined;
  if(!claimedDescriptor||!Object.hasOwn(claimedDescriptor,'value')||!Number.isSafeInteger(claimedDescriptor.value)||claimedDescriptor.value<1)return{attempted:0,completed:0,held:0};
- const claimed=claimedDescriptor.value as number;
+ claimed=claimedDescriptor.value as number;
+ }
  let completed=0,known:string|null=null,staffAccess:'human-managed'|'none'|'unknown'='unknown';
- try{const out=await continueServingErasure(env,proof);staffAccess=out.staffAccess;if(out.state==='complete')completed=1;else if(out.state==='held'&&typeof out.reason==='string')known=out.reason;}
+ try{const out=await continueServingErasure(env,proof,attempt);staffAccess=out.staffAccess;if(out.state==='complete')completed=1;else if(out.state==='held'&&typeof out.reason==='string')known=out.reason;}
  finally{if(!completed)await env.DB.prepare(`UPDATE privacy_serving_jobs SET state='held',hold_reason=COALESCE(?5,hold_reason),staff_access=?6 WHERE operation_id=?1 AND hold_reason='${ERASURE_ATTEMPT_UNRESOLVED}' AND last_attempt_at IS ?7 AND ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)})`)
  .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest,known,staffAccess,claimed).run();}
  return{attempted:1,completed,held:completed?0:1};
@@ -70,7 +78,7 @@ async function continueDisciplinedQueuedErasure(env:Env,row:OriginalQueuedErasur
 /** Attempt discipline only: the site continuation selects its own queue row with the cron predicate and claims it
  * through the same compare-and-set. Without the flag the legacy site path is unchanged. */
 export async function continueSiteServingErasure(env:Env,operationId:string):Promise<void>{
- if(env.PRIVACY_ERASURE_ENABLED!=='true'||erasureAttemptDiscipline(env)!==true||!/^[0-9a-f]{32}$/.test(operationId))return;
+ if(env.PRIVACY_ERASURE_ENABLED!=='true'||erasureAttemptDiscipline(env)!==true||erasureAttemptFenceMode(env)===null||!/^[0-9a-f]{32}$/.test(operationId))return;
  let row=await env.DB.prepare(`SELECT operation_id AS operationId,subject_id AS subject,subject_generation AS subjectGeneration,request_digest AS requestDigest,original_account_incarnation AS accountIncarnation,last_attempt_at
  FROM privacy_serving_jobs WHERE operation_id=?1 AND state IN('waiting_role','held') AND retain_until>${PRIVACY_DB_NOW} AND (last_attempt_at IS NULL OR last_attempt_at<=${PRIVACY_DB_NOW}-120)${DISCIPLINE_EXCLUSION}`).bind(operationId).first<OriginalQueuedErasure>();
  if(!row)return;

@@ -3,6 +3,7 @@
  * before its source terminal batch and committed in the SAME independent suppression transaction. */
 import type {FloorStorage} from './privacy-recovery-floor';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
+import {redactRecoveryAttemptPage,recoveryAttemptNextAlarm,recoveryAttemptLayout} from './privacy-recovery-attempt-schema';
 const NOW="CAST(strftime('%s','now') AS INTEGER)",REPLAY=31622400;
 /** Separate private DO inventory; it is not a serving account-copy store or a new denial event. */
 export const ORIGINAL_RECOVERY_COMPANION_INVENTORY=Object.freeze({
@@ -43,6 +44,7 @@ function schema(storage:FloorStorage):void{const r=rows(storage,"SELECT type,nam
  * invalidating any earlier captured recovery page; it never changes either rejection or replay deadline. */
 export function redactOriginalSuppressionCompanionFacts(storage:FloorStorage):number{
  schema(storage);
+ const installedPage=redactRecoveryAttemptPage(storage);if(installedPage!==null)return installedPage;
  const due=`(state IN('reserved','committed') AND marker_state='active' AND marker_retain_until<=${NOW}) OR(state IN('reserved','committed') AND replay_retain_until<=${NOW})`;
  const selected=rows(storage,`SELECT operation_id FROM recovery_suppression_companion WHERE ${due} ORDER BY replay_retain_until,operation_id LIMIT 100`);
  if(!selected.length)return 0;
@@ -61,10 +63,10 @@ type Alarm=Readonly<{receiver:object;fn:Function;check:()=>void}>;
 function originalAlarm(storage:FloorStorage):Alarm{let p:object|null=storage;const chain:{ref:object;prototype:object|null;descriptor:PropertyDescriptor|undefined}[]=[];for(let depth=0;p&&depth<32;depth++){const d=Object.getOwnPropertyDescriptor(p,'setAlarm'),next=Object.getPrototypeOf(p);chain.push({ref:p,prototype:next,descriptor:d?Object.freeze({...d}):undefined});if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')return refuse();const check=()=>{let at:object|null=storage;for(const s of chain){const now=Object.getOwnPropertyDescriptor(s.ref,'setAlarm');if(at!==s.ref||Object.getPrototypeOf(s.ref)!==s.prototype||(s.descriptor?(!now||!['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(now[k as keyof PropertyDescriptor],s.descriptor![k as keyof PropertyDescriptor]))):now!==undefined))return refuse();at=s.prototype;}};check();return Object.freeze({receiver:storage,fn:d.value,check});}p=next;}return refuse();}
 /** An actual original DO storage alarm is required for NEW companion custody. No caller boolean fallback. */
 export async function armOriginalSuppressionCompanionAlarm(storage:FloorStorage):Promise<void>{
- schema(storage);const r=rows(storage,`SELECT MIN(at) AS next_at FROM(SELECT marker_retain_until AS at FROM recovery_suppression_companion WHERE state IN('reserved','committed') AND marker_state='active' UNION ALL SELECT replay_retain_until AS at FROM recovery_suppression_companion WHERE state IN('reserved','committed'))`);
+ schema(storage);const next=recoveryAttemptNextAlarm(storage),r=next===undefined?rows(storage,`SELECT MIN(at) AS next_at FROM(SELECT marker_retain_until AS at FROM recovery_suppression_companion WHERE state IN('reserved','committed') AND marker_state='active' UNION ALL SELECT replay_retain_until AS at FROM recovery_suppression_companion WHERE state IN('reserved','committed'))`):[{next_at:next}];
  if(r.length!==1)return refuse();const at=scalar(r[0],'next_at');if(at===null)return;
  if(typeof at!=='number'||!Number.isSafeInteger(at)||at<1||at>253402300799)return refuse();const alarm=originalAlarm(storage),before=originalRecoveryClockMilliseconds(),when=Math.max(before+1,at*1000);if(!Number.isSafeInteger(when))return refuse();
- alarm.check();await Reflect.apply(alarm.fn,alarm.receiver,[when]);alarm.check();if(originalRecoveryClockMilliseconds()<before)return refuse();schema(storage);
+ alarm.check();await Reflect.apply(alarm.fn,alarm.receiver,[when]);alarm.check();if(originalRecoveryClockMilliseconds()<before)return refuse();schema(storage);if(recoveryAttemptLayout(storage)!==(next===undefined?'absent':'installed'))return refuse();
 }
 /** Actual Durable Object alarm entry; no authenticated request, arbitrary row or caller deadline. */
 export async function runOriginalSuppressionCompanionAlarm(storage:FloorStorage):Promise<void>{storage.transactionSync(()=>redactOriginalSuppressionCompanionFacts(storage));await armOriginalSuppressionCompanionAlarm(storage);}
