@@ -1,0 +1,36 @@
+# .162 guarded recovery successor. Private, default OFF, no routes or preview; reached only through main's unchanged
+# private-control adapter once main's PRIVACY_PRODUCTION_CONTROL binding is pointed here by an owner-approved PATCH.
+# Provision only PRIVACY_SUCCESSOR_CONTROL_AUTH_SECRET (owner command root) and PRIVACY_RECOVERY_SUCCESSOR_SECRET
+# (worker-to-Floor root, also given to the Floor). No base operator, initializer, serving or original control root
+# belongs to this service, and the code refuses if one is bound. No secret value is stored here.
+name = "olympus-privacy-successor"
+account_id = "e3c65eaa984aeb7a2df849e5a066cb54"
+main = "src/privacy-private-successor-entry.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+routes = []
+
+[observability]
+enabled = false
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[[durable_objects.bindings]]
+name = "PRIVACY_RECOVERY_FLOOR"
+class_name = "PrivacyRecoveryFloor"
+script_name = "olympus-privacy-recovery-floor"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "olympus-verify"
+database_id = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
+remote = false
+
+[vars]
+PRIVACY_SUCCESSOR_CONTROL_ENABLED = "false"
+PRIVACY_SUCCESSOR_RECOVER_ENABLED = "false"
+PRIVACY_SERVING_DATABASE_ID = "7e2cf8fd-a9e3-48f6-975a-890f1360e5d0"
+PRIVACY_WRITE_ADMISSION_LAYOUT = "recorded-live-20261010"

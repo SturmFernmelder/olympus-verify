@@ -58,6 +58,7 @@ case "$target" in
   privacy-evidence) config="wrangler.privacy-release-evidence.private.toml"; source_binding="" ;;
   privacy-initializer) config="wrangler.privacy-initializer.private.toml"; source_binding="PRIVACY_CONTROL_SOURCE_TREE" ;;
   privacy-operator) config="wrangler.privacy-operator.private.toml"; source_binding="PRIVACY_CONTROL_SOURCE_TREE" ;;
+  privacy-successor) config="wrangler.privacy-successor.private.toml"; source_binding="PRIVACY_SUCCESSOR_CONTROL_SOURCE_TREE" ;;
   *) echo "refusing: unknown fixed deployment target" >&2; exit 1 ;;
 esac
 if [ -n "$tag" ] || [ -n "$message" ]; then

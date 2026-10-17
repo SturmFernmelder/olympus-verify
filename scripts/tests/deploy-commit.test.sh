@@ -68,7 +68,7 @@ check "CLOUDFLARE_ENV in the environment is refused" $([ "$rc" -ne 0 ] && [ "$(c
 : > "$FAKE_LOG"; WRANGLER_ENV=privatetest bash scripts/deploy-commit.sh HEAD --dry-run > "$fake/out" 2> "$fake/err"; rc=$?
 check "WRANGLER_ENV in the environment is refused" $([ "$rc" -ne 0 ] && [ "$(calls)" -eq 0 ] && grep -q WRANGLER_ENV "$fake/err" && echo 0 || echo 1)
 
-for spec in 'main:wrangler.toml' 'privacy-floor:wrangler.privacy-floor.private.toml' 'privacy-evidence:wrangler.privacy-release-evidence.private.toml' 'privacy-initializer:wrangler.privacy-initializer.private.toml' 'privacy-operator:wrangler.privacy-operator.private.toml'; do
+for spec in 'main:wrangler.toml' 'privacy-floor:wrangler.privacy-floor.private.toml' 'privacy-evidence:wrangler.privacy-release-evidence.private.toml' 'privacy-initializer:wrangler.privacy-initializer.private.toml' 'privacy-operator:wrangler.privacy-operator.private.toml' 'privacy-successor:wrangler.privacy-successor.private.toml'; do
   target="${spec%%:*}"; config="${spec#*:}"
   rc="$(run HEAD --dry-run --target "$target")"
   git show "HEAD:worker/$config" > "$fake/expected.toml"
@@ -83,6 +83,8 @@ for target in privacy-initializer privacy-operator; do
   rc="$(run HEAD --dry-run --target "$target" --bind-source-tree)"
   check "$target derives only its control source tree" $([ "$rc" -eq 0 ] && grep -Fxq "PRIVACY_CONTROL_SOURCE_TREE:$tree" "$FAKE_ARGV" && [ "$(grep -c '^--var$' "$FAKE_ARGV")" -eq 1 ] && echo 0 || echo 1)
 done
+rc="$(run HEAD --dry-run --target privacy-successor --bind-source-tree)"
+check "privacy-successor derives only its successor control source tree" $([ "$rc" -eq 0 ] && grep -Fxq "PRIVACY_SUCCESSOR_CONTROL_SOURCE_TREE:$tree" "$FAKE_ARGV" && [ "$(grep -c '^--var$' "$FAKE_ARGV")" -eq 1 ] && echo 0 || echo 1)
 
 for bad in '--target' '--target unknown' '--target ../wrangler.toml' '--target main --target main' '--tag' '--tag abc' '--message' '--message abc' "--tag $tree" "--message $bundle" "--tag $(printf '0%.0s' {1..40}) --message $bundle" "--tag $tree --tag $tree --message $bundle" "--tag $tree --message $bundle --message $bundle" '--bind-source-tree' '--target privacy-floor --bind-source-tree' '--target privacy-evidence --bind-source-tree' '--target privacy-initializer --bind-source-tree --bind-source-tree' "--tag $tree --message $bundle --var DISCORD_BOT_TOKEN:other"; do
   # Each case is a deliberate token list, not shell code. No eval or provider invocation.
