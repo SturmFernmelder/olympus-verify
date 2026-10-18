@@ -4,6 +4,9 @@ import './ruleset-publication-data';
  * Dormant .129 completion and restore authority are not enabled by this module.
  */
 import type { Env } from './env';
+import {nativeErasureMode} from './privacy-native-mode';
+import {cleanupNativePersonalReferences} from './privacy-native-erasure-cleanup';
+import {cleanupNativeErasureRoles,nativeErasureRolesSettledSql} from './privacy-native-erasure-roles';
 import {originalClosedRecoveryCleanupAccount,type OriginalClosedRecoveryReplaySelection,type OriginalClosedCleanupStep} from './privacy-production-control-origin';
 import {globalServingMode,dispatchOriginalAccountErasureTerminalBatch} from './privacy-global-serving-origin';
 import {captureOriginalAccountErasureJobRead,originalAccountErasureCompanionGuardStatement,originalErasureJobReadFacts} from './privacy-erasure-terminal-job-read';
@@ -96,6 +99,24 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof,a
  // The original six-field job proof was captured before the feature check and first await.
  // Retain its original birth/absence purpose through the ED01 Native current/clear ACK.
  if(!await currentAccountErasureProof(env,proof))return held('request_not_current');
+ // .164: a self-authorized Native request has its own bounded role cleanup and fresh
+ // consuming absence receipt. Historical unknown effects are retained, not rewritten
+ // into successful original acknowledgements or used to stop unrelated public traffic.
+ if(nativeErasureMode(env)){
+  const references=await cleanupNativePersonalReferences(env,proof);
+  if(references.state!=='cleaned')return held('native_reference_cleanup_unconfirmed','unknown');
+  const cleanup=await cleanupNativeErasureRoles(env,proof);
+  // Provider dispatch and the complete terminal data batch use separate bounded slices.
+  // A later automatic continuation reconfirms absence before consuming its fresh receipt.
+  if(cleanup.removed>0)return held('native_role_cleanup_progress','held',cleanup.staffAccess);
+  if(cleanup.state!=='complete'||!cleanup.receipt||cleanup.checkedAt===null)return held(cleanup.reason,cleanup.state==='unknown'?'unknown':'held');
+  const receiptSql=nativeErasureRolesSettledSql(env,proof,cleanup.receipt);
+  const current=await env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)}) AND (${receiptSql}) AND NOT(${ambiguousAccountReferencesSql(discipline)}) THEN 1 ELSE 0 END AS current`)
+   .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest).first<{current:number}>();
+  if(current?.current!==1)return held('native_current_or_reference_unconfirmed');
+  await cleanupPrivacyMessages(env,proof.subject);
+  return completeServingAccount(env,proof,{state:'absent',checkedAt:cleanup.checkedAt,staffAccess:cleanup.staffAccess},receiptSql,discipline,undefined,true);
+ }
  const central=await import('./roles') as unknown as Partial<CentralRoleAdapter>;
  if(typeof central.settleAccountErasureMemberRole!=='function'||typeof central.accountErasureRoleSettledSql!=='string')return held('central_role_adapter_unavailable');
  const outcome=await central.settleAccountErasureMemberRole(env,proof);
@@ -132,20 +153,20 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof,a
 }
 
 /** Trusted central adapter only. No HTTP caller chooses role outcome or the consuming receipt SQL. */
-async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string,discipline=false,attempt?:OriginalErasureAttempt):Promise<ServingCompletion>{
+async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberRoleSettlement,roleSettledSql:string,discipline=false,attempt?:OriginalErasureAttempt,native=false):Promise<ServingCompletion>{
  p=captureAccountErasureProof(p).proof;
  const facts=await servingPrivacyCatalogAndStaffCustody(env,p.subject);
  if(!facts.catalogCurrent)return held('unclassified_storage', 'held',role.staffAccess);
  const staffCustody=facts.staffCustody;
- const details=staffAccessDetails(role.staffAccess,staffCustody);
+ const details={...staffAccessDetails(role.staffAccess,staffCustody),...(native?{automaticGuildRoleRemoval:true}:{})};
  if(!staffCustody)return held('staff_custody_unqualified','held',role.staffAccess,details);
- if(staffCustody.unresolvedBotCustody>0)return held('bot_staff_custody_unresolved','held',role.staffAccess,details);
+ if(staffCustody.unresolvedBotCustody>0&&!native)return held('bot_staff_custody_unresolved','held',role.staffAccess,details);
  const markerKey=await privacySubjectKey(env,p.subject);
  const v=[p.operationId,p.subject,p.subjectGeneration,p.requestDigest];
  const identity='?1';
  const unqualified=ambiguousAccountReferencesSql(discipline);
  const before=env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(p)}) AND (${roleSettledSql})
- AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=?1 AND r.guild_id=?6 AND r.role_id=?7 AND r.desired=0)
+ AND EXISTS(SELECT 1 FROM role_settlements r WHERE r.id=${native?"?1||':native_role_inventory'":"?1"} AND r.guild_id=?6 AND r.role_id=?7 AND r.desired=0)
  AND ?5 BETWEEN ${PRIVACY_DB_NOW}-60 AND ${PRIVACY_DB_NOW}+5 AND NOT(${unqualified})
  THEN 1 ELSE json_extract('privacy_completion_refused','$') END AS admitted`).bind(...v,role.checkedAt,env.GUILD_ID,env.ROLE_GUILD_MEMBER);
  const target='?1';

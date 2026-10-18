@@ -2,6 +2,7 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
 import type {Env} from './env';
+import {nativeErasureMode} from './privacy-native-mode';
 import {privacyAdmissionMatchesOriginalNative,originalPrivacyAdmissionOpaqueReference,originalPrivacyAdmissionBatchLineage,originalPrivacyAdmissionPhysicalCostObservation} from './privacy-write-admission';
 import {originalErasureStatusReadKind,originalErasureStatusTerminalData,type ErasureStatusNativeTuple} from './privacy-erasure-status-native-data';
 import {originalErasureStatusCodeFacts,type OriginalVerifiedErasureStatusCode} from './privacy-erasure-status-credential';
@@ -107,7 +108,7 @@ async function digest(value:unknown):Promise<string>{
 }
 function metadata(o:object):string{const id=data(o,'id'),tag=data(o,'tag'),timestamp=data(o,'timestamp');if(typeof id!=='string'||id.length!==36||!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)||typeof tag!=='string'||tag.length>1024||typeof timestamp!=='string'||timestamp.length>128)return held();return JSON.stringify([id,tag,timestamp]);}
 /** All five absent is OFF; a partial binding set is HELD, including a DO-only public fragment. */
-export function globalServingMode(env:Env):'off'|'configured'{const entries=PRIVATE.map(k=>{const d=Object.getOwnPropertyDescriptor(env,k);if(!d&&k in env||d&&!Object.hasOwn(d,'value'))return held();return d;});if(entries.every(d=>!d))return 'off';if(entries.some(d=>!d))return held();return 'configured';}
+export function globalServingMode(env:Env):'off'|'configured'{if(nativeErasureMode(env))return 'off';const entries=PRIVATE.map(k=>{const d=Object.getOwnPropertyDescriptor(env,k);if(!d&&k in env||d&&!Object.hasOwn(d,'value'))return held();return d;});if(entries.every(d=>!d))return 'off';if(entries.some(d=>!d))return held();return 'configured';}
 function requestTuple(request:Request):string{if(Request!==NativeRequest||Headers!==NativeHeaders)return held();checkOriginalNativeRequest(request);const headers=Reflect.apply(requestDescriptors.headers!.get!,request,[]) as Headers;checkOriginalNativeHeaders(headers);const all=Array.from(Reflect.apply(headersEntries.value,headers,[]) as Iterable<[string,string]>,row=>[row[0],row[1]]);return JSON.stringify([Reflect.apply(requestDescriptors.url!.get!,request,[]),Reflect.apply(requestDescriptors.method!.get!,request,[]),all]);}
 /** Entry uses these genuine Request primitives before even host/path classification can consume a shadow. */
 export function preflightOriginalServingRequest(request:Request):Readonly<{url:string;method:string}>{const tuple=JSON.parse(requestTuple(request)) as [string,string,readonly [string,string][]];return Object.freeze({url:tuple[0],method:tuple[1]});}
@@ -145,7 +146,7 @@ function envCopy(env:Env,db:D1Database):Env{const descriptors=Object.getOwnPrope
 export function captureGlobalServingEntry(env:Env,ctx:ExecutionContext,purpose:'fetch'|'scheduled',request?:Request,constraint?:EntryConstraint):GlobalServingEntry{
  const entryConstraint=retainEntryConstraint(ctx,purpose,constraint),cost=entryConstraint?captureOriginalCostRoot(ctx,entryConstraint):null;
  const erasure=Object.getOwnPropertyDescriptor(env,'PRIVACY_ERASURE_ENABLED');if(!erasure&&'PRIVACY_ERASURE_ENABLED'in env||erasure&&(!Object.hasOwn(erasure,'value')||erasure.value!=='true'&&erasure.value!=='false'))return held();
- if(globalServingMode(env)==='off'){if(erasure?.value==='true')return held();const entry=Object.freeze({origin:null,env,request});entries.set(entry,{origin:null,spent:false,constraint:entryConstraint,cost});return entry;}
+ if(globalServingMode(env)==='off'){if(erasure?.value==='true'&&!nativeErasureMode(env))return held();const entry=Object.freeze({origin:null,env,request});entries.set(entry,{origin:null,spent:false,constraint:entryConstraint,cost});return entry;}
  if('PRIVACY_RECOVERY_OPERATOR_SECRET'in env||'PRIVACY_RECOVERY_INITIALIZER_SECRET'in env)return held();
  const native=data(env,'DB') as D1Database,meta=data(env,'CF_VERSION_METADATA'),ce=data(env,'PRIVACY_CREDENTIAL_EPOCH'),we=data(env,'PRIVACY_WRITE_ADMISSION_EPOCH'),tree=data(env,'PRIVACY_SERVING_SOURCE_TREE'),secret=data(env,'PRIVACY_SERVING_GATE_SECRET'),namespace=data(env,'PRIVACY_RECOVERY_FLOOR');
  if(!native||typeof native!=='object'||!meta||typeof meta!=='object'||!namespace||typeof namespace!=='object'||!hex(ce,32)||!hex(we,32)||ce===we||!hex(tree,40)||typeof secret!=='string'||secret.length<32||data(env,'PRIVACY_SERVING_DATABASE_ID')!==DB_ID||data(env,'PRIVACY_WRITE_ADMISSION_ENABLED')!=='true')return held();

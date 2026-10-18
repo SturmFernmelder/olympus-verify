@@ -1,27 +1,47 @@
 /** Five explicit source families. Export is an own-only bounded projection; erasure runs in its caller's ONE batch. */
 import {BETA_WINDOW_COLUMNS,betaWindowErasureStatement,betaWindowOwnSelect,projectOwnBetaWindowCopy} from './qr-beta-fern-data';
 import type { Env } from './env';
+import {nativeErasureMode} from './privacy-native-mode';
 import { ownCopyProofFacts,ownCopyRankFacts } from './privacy-account-coverage';
-import {relatedUnresolvedStaffSql} from './privacy-erasure-staff-custody';
+import {relatedUnresolvedStaffSql,unresolvedStaffGrantSql} from './privacy-erasure-staff-custody';
 import { registerCommunityData,type ExportPlan } from './community-context';
 import { registerServingPrivacyFamilies } from './privacy-business-catalog';
 const related=`subject=?1 OR proof_id IN(SELECT id FROM verification_proofs WHERE requester=?1 OR signer=?1)`;
 /** Fixed source-owned parameter positions only; no caller SQL or operational proof is issued. */
-export function qrErasureCustodyClearSql(identity:'?1'|'?2'):string{
+export function qrErasureCustodyClearSql(identity:'?1'|'?2',native=false):string{
  if(identity!=='?1'&&identity!=='?2')throw Error('qr_erasure_identity_parameter_held');
  const selected=identity==='?1'?related:related.replaceAll('?1','?2');
- return `NOT EXISTS(SELECT 1 FROM role_settlements WHERE (${selected}) AND attempts=1
+ const clear=`NOT EXISTS(SELECT 1 FROM role_settlements WHERE (${selected}) AND attempts=1
  AND state IN('dispatching','unknown')) AND NOT ${relatedUnresolvedStaffSql(identity)}`;
+ if(native)return `((${clear}) OR EXISTS(SELECT 1 FROM role_settlements nr JOIN privacy_serving_jobs j ON nr.id=j.operation_id||':native_role_inventory'
+ WHERE nr.subject=${identity} AND nr.subject=j.subject_id AND nr.subject_generation=j.subject_generation AND nr.request_digest=j.request_digest
+ AND nr.purpose='native_account_erasure_inventory' AND nr.desired=0 AND nr.attempts=0 AND nr.state='settled' AND nr.reason='observed_absent'
+ AND nr.checked_at BETWEEN CAST(strftime('%s','now') AS INTEGER)-60 AND CAST(strftime('%s','now') AS INTEGER)
+ AND j.state IN('waiting_role','held','erasing') AND j.retain_until>CAST(strftime('%s','now') AS INTEGER)))`;
+ // Ordinary partial admin deletion has no erasure job. Its original no-unknown-effect
+ // predicate remains sufficient; full account erasure separately consumes its native receipt.
+ return clear;
 }
 export function qrErasureStatements(env:Env,id:string):D1PreparedStatement[]{return [
  // Never discard the sole durable no-repeat receipt while a provider effect remains unknown.
- env.DB.prepare(`SELECT CASE WHEN ${qrErasureCustodyClearSql('?1')} THEN 1 ELSE json_extract('qr_provider_custody_held','$') END AS admitted`).bind(id),
- env.DB.prepare(`DELETE FROM role_settlements WHERE ${related}`).bind(id),
- env.DB.prepare('DELETE FROM verification_proofs WHERE requester=?1 OR signer=?1').bind(id),
- env.DB.prepare('DELETE FROM verification_requests WHERE requester=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1)').bind(id),
- env.DB.prepare('DELETE FROM councillor_challenges WHERE signer=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1)').bind(id),
- env.DB.prepare('DELETE FROM councillor_keys WHERE signer=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1)').bind(id),
- betaWindowErasureStatement(env,id),
+ env.DB.prepare(`SELECT CASE WHEN ${qrErasureCustodyClearSql('?1',nativeErasureMode(env))} THEN 1 ELSE json_extract('qr_provider_custody_held','$') END AS admitted`).bind(id),
+ env.DB.prepare(`DELETE FROM role_settlements WHERE (${related})${nativeErasureMode(env)?" AND NOT(attempts=1 AND state IN('dispatching','unknown')) AND rowid NOT IN(SELECT g.rowid FROM role_settlements g WHERE "+unresolvedStaffGrantSql('g')+")":''}`).bind(id),
+ // Native mode must retain the exact proof/FK ancestry of a preserved unknown effect.
+ // Revoke this account's signing/request authority without erasing its sole custody link.
+ ...(nativeErasureMode(env)?[
+  env.DB.prepare("UPDATE councillor_keys SET revoked_at=COALESCE(revoked_at,CAST(strftime('%s','now') AS INTEGER)) WHERE signer=?1").bind(id),
+  env.DB.prepare("UPDATE verification_requests SET state='expired',used_at=COALESCE(used_at,CAST(strftime('%s','now') AS INTEGER)) WHERE requester=?1").bind(id),
+  env.DB.prepare("UPDATE qr_beta_fern_windows SET revoked_at=COALESCE(revoked_at,CAST(strftime('%s','now') AS INTEGER)) WHERE actor=?1 OR requester_id=?1").bind(id),
+ ]:[]),
+ env.DB.prepare(`DELETE FROM verification_proofs WHERE (requester=?1 OR signer=?1)${nativeErasureMode(env)?' AND NOT EXISTS(SELECT 1 FROM role_settlements r WHERE r.proof_id=verification_proofs.id)':''}`).bind(id),
+ env.DB.prepare(`DELETE FROM verification_requests WHERE (requester=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1))${nativeErasureMode(env)?' AND NOT EXISTS(SELECT 1 FROM verification_proofs p WHERE p.code=verification_requests.code)':''}`).bind(id),
+ env.DB.prepare(`DELETE FROM councillor_challenges WHERE (signer=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1))${nativeErasureMode(env)?' AND NOT EXISTS(SELECT 1 FROM verification_proofs p WHERE p.challenge=councillor_challenges.nonce)':''}`).bind(id),
+ env.DB.prepare(`DELETE FROM councillor_keys WHERE (signer=?1 OR beta_window_id IN(SELECT id FROM qr_beta_fern_windows WHERE actor=?1 OR requester_id=?1))${nativeErasureMode(env)?' AND NOT EXISTS(SELECT 1 FROM verification_proofs p WHERE p.key_id=councillor_keys.id) AND NOT EXISTS(SELECT 1 FROM councillor_challenges c WHERE c.key_id=councillor_keys.id)':''}`).bind(id),
+ nativeErasureMode(env)?env.DB.prepare(`DELETE FROM qr_beta_fern_windows WHERE (actor=?1 OR requester_id=?1)
+ AND NOT EXISTS(SELECT 1 FROM councillor_keys k WHERE k.beta_window_id=qr_beta_fern_windows.id)
+ AND NOT EXISTS(SELECT 1 FROM councillor_challenges c WHERE c.beta_window_id=qr_beta_fern_windows.id)
+ AND NOT EXISTS(SELECT 1 FROM verification_requests r WHERE r.beta_window_id=qr_beta_fern_windows.id)
+ AND NOT EXISTS(SELECT 1 FROM verification_proofs p WHERE p.beta_window_id=qr_beta_fern_windows.id)`).bind(id):betaWindowErasureStatement(env,id),
  ];}
 export function qrExportPlan(env:Env,id:string):ExportPlan {
  const selects=[

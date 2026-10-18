@@ -2,7 +2,7 @@
  * No provider effect, operation renewal, role target change or staff removal authority is supplied here.
  */
 import type {Env} from './env';
-export type StaffAccessDetails={classification:'historical-bot-issued'|'unqualified'|'none'|'unknown';accessObserved:'present'|'none'|'unknown';historicalBotIssued:number|null;unresolvedBotCustody:number|null;manualAssignment:'unqualified';automaticStaffRemoval:false};
+export type StaffAccessDetails={classification:'historical-bot-issued'|'unqualified'|'none'|'unknown';accessObserved:'present'|'none'|'unknown';historicalBotIssued:number|null;unresolvedBotCustody:number|null;manualAssignment:'unqualified';automaticStaffRemoval:false;automaticGuildRoleRemoval?:boolean};
 export type StaffCustodyCounts={staffSubjectPresent:number;historicalBotIssued:number;unresolvedBotCustody:number};
 const NOW="CAST(strftime('%s','now') AS INTEGER)";
 const privileged=(g:string)=>`${g}.purpose IN('verified_privileged_rank','roster_privileged_rank') AND ${g}.desired=1 AND ${g}.attempts=1`;

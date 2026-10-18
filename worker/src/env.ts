@@ -80,6 +80,7 @@ export interface Env {
   PRIVACY_INTAKE_MONITORED?: string; // .82: "true" once someone actually reads the staff queue; without it no new case is accepted
   PRIVACY_INTAKE_RETENTION_DAYS?: string; // .82: 1..3650 days a case is kept from its last activity, fixed per case when it is created
   PRIVACY_ERASURE_ENABLED?: string; // serving request admission only; completion also needs current role/removal and all-store custody checks
+  PRIVACY_NATIVE_ERASURE_ENABLED?: string; // .164: Native Epoch 2 serving; obsolete private Floor bindings never gate ordinary service
   PRIVACY_ERASURE_ATTEMPT_DISCIPLINE?: string; // .160: absent or "false" keeps legacy erasure SQL; "true" adds the exact post-scrub pre-check and the durable no-retry claim; anything else holds
   PRIVACY_ERASURE_ATTEMPT_FENCE?: string; // default OFF preparation: acknowledged increasing claim + consuming guard only; requires discipline and configured admission; no fence/retry is implemented
   PRIVACY_ACCESS_ENABLED?: string; // identify-only privacy connection, separate from ordinary guild access

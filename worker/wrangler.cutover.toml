@@ -140,12 +140,14 @@ NAMES_PER_RUN = "5"                    # linked members whose Discord names the 
 # key=channel id for every channel an intro lives in or mentions; the keys are the {#key} placeholders in intros.ts
 INTROS_CHANNELS = "server-rules=1300107359242424350,olympus-info=1554264597912100914,join-olympus=1554264786055987200,olympus-notices=1554264944747216977,olympus-visitors=1554265065509756989,guild-announcements=1554265182379839669,guild-chat=1551253084536049714,looking-for-group=1554265340286861352,classes-and-builds=1554265517210996898,professions-and-trade=1554265690612039710,raid-announcements=1554265809952571422,raid-signups=1554266022444408872,raid-discussion=1554266160050995230,loot-and-raid-rules=1554266306952560762,the-tavern=1554267028074930256,dungeon-party-1=1554267180697264158,dungeon-party-2=1554267323546992650,council-info=1555636857621188669,council-chat=1555637091193458768,council-decisions=1555637366121570344,addon-development=1555946128481063013,officer-chat=1551253115615838258,guild-suggestions=1557472627830956103"
 
-# .135 first stage: account copies ON; erasure/retention activation awaits legacy-writer compatibility. Existing case credentials remain usable.
+# .164: account copies and bounded Native serving erasure ON. Existing case credentials remain usable.
 PRIVACY_ACCESS_ENABLED = "true"
 # .144 gated profile: deploy only after exact attended native installation/readback; no automatic installer.
 PRIVACY_WRITE_ADMISSION_ENABLED = "true"
 PRIVACY_WRITE_ADMISSION_LAYOUT = "recorded-live-pre-seal-20261017"
-PRIVACY_ERASURE_ENABLED = "false"
+PRIVACY_ERASURE_ENABLED = "true"
+PRIVACY_NATIVE_ERASURE_ENABLED = "true"
+PRIVACY_ERASURE_ATTEMPT_DISCIPLINE = "true"
 PRIVACY_RETENTION_ENABLED = "true"
 # The native beta profile is exact; a changed in-game ladder holds mapping until attended reconfiguration.
 # No native High Council exists in the observed beta ladder; enable only after qualified attended acceptance prerequisites.
@@ -164,7 +166,8 @@ QR_NATIVE_ROLE_MAP = '{"profile":"beta-five","roles":["1557496182966587453","155
 
 # .163 planned OFF-mode deployment: every managed serving binding is absent.
 # Preserve the actual installed PRIVACY_WRITE_ADMISSION_EPOCH using the attended exact-commit deploy.
-# No physical migration or Floor operation; destructive erasure and beta removal stay OFF.
+# .164 retains this Native epoch without a physical migration or ordinary-traffic Floor dependency.
+# Native account erasure is enabled above; beta removal remains OFF.
 
 # The eleven permissionless fresh IDs are disjoint from the twelve beta-reset targets.
 FULL_RELEASE_ROLES = '{"version":1,"epoch":"olympus-full-release-20261104-v1","epochStart":1793833200,"grants":true,"membership":"1561095379909353472","native":["1561095726115725373","1561095748039221339","1561095893007073371","1561096070040125460","1561096328409251880","1561096452057596005","1561096598296076460","1561096679778947113","1561096900378103808","1561097105974628372"]}'

@@ -98,10 +98,19 @@ function sourceInventory(){
  const sf=parseSource('index.ts'),exports=sf.statements.filter(node=>ts.isExportAssignment(node)&&!node.isExportEquals);
  const defaultObject=sole(exports,'one default export').expression;assert.ok(ts.isObjectLiteralExpression(defaultObject));
  const method=sole(defaultObject.properties.filter(node=>ts.isMethodDeclaration(node)&&node.name.getText()==='scheduled'),'one scheduled method');
- const guarded=sole(method.body.statements.filter(ts.isTryStatement),'scheduled try');assert.equal(method.body.statements.length,2);
- exactSyntax(method.body.statements[0],'const roleDispatch=captureBetaRoleDispatch(env);','synchronous original beta dispatch capture before the first await');
- assert.equal(method.body.statements[1],guarded,'the original guarded body follows the one entry capture');
+ const guarded=sole(method.body.statements.filter(ts.isTryStatement),'scheduled try');assert.equal(method.body.statements.length,3);
+ exactSyntax(method.body.statements[0],'env=nativeServingEnvironment(env);','synchronous Native environment normalization before the original dispatch capture');
+ exactSyntax(method.body.statements[1],'const roleDispatch=captureBetaRoleDispatch(env);','synchronous original beta dispatch capture uses the normalized environment before the first await');
+ assert.equal(method.body.statements[2],guarded,'the original guarded body follows Native normalization and the one entry capture');
+ sole(allNodes(method,node=>namedCall(node,'nativeServingEnvironment')),'one originating Native environment normalization');
+ assert.equal(method.body.statements.slice(0,2).flatMap(node=>allNodes(node,ts.isAwaitExpression)).length,0,'normalization and original capture are synchronous');
  sole(allNodes(method,node=>namedCall(node,'captureBetaRoleDispatch')),'one originating beta dispatch capture; never recaptured after an await');
+ const fetch=sole(defaultObject.properties.filter(node=>ts.isMethodDeclaration(node)&&node.name.getText()==='fetch'),'one fetch method');
+ exactSyntax(fetch.body.statements[0],'env=nativeServingEnvironment(env);','fetch normalizes the Native environment at its true entry');
+ exactSyntax(fetch.body.statements[1],'const roleDispatch=captureBetaRoleDispatch(env);','fetch captures the original dispatch restriction from that same normalized environment');
+ sole(allNodes(fetch,node=>namedCall(node,'nativeServingEnvironment')),'fetch normalizes once before an await');
+ assert.equal(fetch.body.statements.slice(0,2).flatMap(node=>allNodes(node,ts.isAwaitExpression)).length,0,'fetch normalization and capture are synchronous');
+ check('Native normalization precedes the original same-environment dispatch capture in both public entry points',true);
  const expected=[
   "scheduledIntrinsics();",
   "const admission=scheduledDescriptor(env,'PRIVACY_WRITE_ADMISSION_ENABLED');",
