@@ -15,7 +15,7 @@
 // Both phases (before the beta reset cutoff, with legacy twelve grants open and the lanes clock-gated, and a day after
 // epochStart) and both legacy role writers (plain, and the membership settlement writer whose rows on the twelve are checked).
 // Also: a refused deferral registration writes role.fresh_failed and answers as .160 does (an error at /queue, whose deferral
-// carries the legacy sweep; unchanged for the new deferrals); the protected sources are .160's bytes; full-release-roles is in
+// carries the legacy sweep; unchanged for the new deferrals); the protected sources are the reviewed .164 integration; full-release-roles is in
 // no static import cycle and full-release-pass is never imported statically.
 //   node tests/full_release_roles_identity_test.cjs              (IDENTITY_DUMP=<phase>:<profile>:<variant>:<scenario> prints one trace)
 // Re-recording (only when this fixture changes): export 5bea76e7's worker/src (git show) to a directory, then
@@ -276,7 +276,7 @@ const PINS = {
    },
   },
  },
- // Exact whole reviewed .163 integrated sources. Historical .160 pins remain below as provenance; trace pins above unchanged.
+ // Exact whole reviewed .164 integrated sources. Historical .160/.163 pins remain below as provenance; trace pins above unchanged.
  files: {
   "role-settlements": "04bf328c854d60033a604e1f8b0e8d26712d3ec40b521985732a723a6d1c5672",
   "roles": "0fb851d804ddb97594a8b4109db3fad46a3f88df8c65475b63f2c79dbf89f6f8",
@@ -284,15 +284,19 @@ const PINS = {
   "beta-reset-policy": "8a3e3c7d66683b4720d8869155bc8b27c814d188f0063d79f2270e67bf30022f",
   "beta-reset": "cfc04b75d0e2f1d655db8732d11a4200232b742cb9cbf51653516afa7b781dc3",
   "beta-reset-grants": "07326a14ce06fb2edfe3c137668394ac7854ff856698c328ed22f55d0cf4e78b",
-  "privacy-serving-jobs": "8bc4173310a19a642769b4448e9194573080b8868ea2fd95e85fc61e8f3e879a",
-  "privacy-serving-erase": "eba67b0a43e39563d544351fe77a102eb0143e1fc142fb28e83a62d7945734aa",
+  "privacy-serving-jobs": "52ef6052f0864339b5232b971334ea58bdfa5f3b8f81daa4dc0f7f99e7b2bacc",
+  "privacy-serving-erase": "e43e5ebc44e349b7e190d5f97f9ff7be993fa25d2904e2560b3b855f2b1b3950",
   "privacy-erasure-terminal-job-read": "d94cb80468303988518b70b3a17197fb86c485b3d7cd1277e66c6875d84c33b4",
-  "privacy-global-serving-origin": "295a2e4d976cd757d460837ae29750e9b92632214486094c49fc85343789def6",
+  "privacy-global-serving-origin": "89053632c43fec4e5fd05cc82749ea3362f2907b1a58adee8d1f27e9fd2397ca",
   "roster-effects": "bceddd86f1eb5211e1834b7d6d4231ac51defe04f83decb37917fa68919ece9c",
   "rename-review": "812ec9118cdca40dfabff0282ba43d5c66bdc36644400ee9680e42222e7f4f50",
   "review": "e340b2f9a3536dd3a75427dc722687d931659b2208720b6317032ee1086e324d",
  },
 };
+// Historical .163 pins replaced only by the owner-reviewed .164 Native erasure integration:
+// privacy-serving-jobs 8bc4173310a19a642769b4448e9194573080b8868ea2fd95e85fc61e8f3e879a
+// privacy-serving-erase eba67b0a43e39563d544351fe77a102eb0143e1fc142fb28e83a62d7945734aa
+// privacy-global-serving-origin 295a2e4d976cd757d460837ae29750e9b92632214486094c49fc85343789def6
 // Historical .160 protected-source provenance (trace pins above are still exactly those of .160):
 // role-settlements bad16c4d3c773be54b76e85b8f3f8f871269e5cd9f3f1a0be6242be5e9caa37c
 // roles bae0474c4c2ab9f3d8441b23cd6b89b3c4d41355d9850b860f1a7c745ff4fb15
@@ -362,8 +366,8 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
   }
   if (!PINS) throw Error('PINS not recorded');
 
-  // --- static: the protected sources are .160's; the lane modules are never part of a module-load cycle
-  for (const name of PROTECTED) check(`${name}.ts is byte-identical to the reviewed .163 integrated source`, sourceDigest(name) === PINS.files[name]);
+  // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
+  for (const name of PROTECTED) check(`${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
   modules=new Map();const exactManifest=load('privacy-write-admission-catalogue').ADMISSION_EXPECTED_JSON;
   check('the unprojected Native manifest is the exact reviewed224-trigger profile, including all three immutable-seal guards',sha(exactManifest)===COMPOSED_MANIFEST_SHA&&JSON.parse(exactManifest).triggers.length===224);
   const graph = staticGraph(), lanes = closure(graph, 'full-release-roles');
@@ -371,9 +375,9 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
     !lanes.has('full-release-roles') && [...lanes].every((m) => !(graph[m] || []).includes('full-release-roles')));
   check('full-release-pass is loaded only by dynamic import (no static value import anywhere in src)', Object.values(graph).every((deps) => !deps.includes('full-release-pass')));
   const indexText = fs.readFileSync(path.join(SRC, 'index.ts'), 'utf8');
-  check('index.ts keeps the original unconfigured queue/cron sweep with the same synchronous entry dispatch capture threaded to both',
-    indexText.includes(`async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {\n    const roleDispatch=captureBetaRoleDispatch(env);`)
-    &&indexText.includes(`async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {\n    const roleDispatch=captureBetaRoleDispatch(env);`)
+  check('index.ts keeps the original unconfigured queue/cron sweep with synchronous Native normalization before the same entry dispatch capture threaded to both',
+    indexText.includes(`async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {\n    env=nativeServingEnvironment(env);\n    const roleDispatch=captureBetaRoleDispatch(env);`)
+    &&indexText.includes(`async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {\n    env=nativeServingEnvironment(env);\n    const roleDispatch=captureBetaRoleDispatch(env);`)
     &&indexText.includes(`if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch));`)
     &&indexText.includes(`deferOriginalServing(ctx,'sweepMemberRoles',()=>sweepMemberRoles(env, "cron",undefined,roleDispatch));`));
 
