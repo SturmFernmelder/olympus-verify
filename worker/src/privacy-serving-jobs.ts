@@ -26,6 +26,15 @@ const DISCIPLINE_EXCLUSION=` AND COALESCE(hold_reason,'') NOT IN('${ERASURE_ATTE
 const NATIVE_PENDING='native_attempt_pending';
 export async function runServingErasureJob(env:Env):Promise<{attempted:number;completed:number;held:number}>{
  if(env.PRIVACY_ERASURE_ENABLED!=='true')return{attempted:0,completed:0,held:0};
+ // Native .164: alternate database-clock quarter-hours reserve a bounded global
+ // message-debt turn, so a held account cannot starve known/cleaning pointers.
+ // The existing cleanup page owns rotation and exact bot/author/no-repeat checks;
+ // minimized subjects need no account association to continue that custody.
+ if(nativeErasureMode(env)){
+  const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages
+  WHERE cleanup_requested=1 AND state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();
+  if(debt){await cleanupPrivacyMessages(env);return{attempted:0,completed:0,held:0};}
+ }
  // An invalid discipline value holds new attempts and inactive admission; the independent provider-message debt lane continues.
  const discipline=erasureAttemptFenceMode(env)===null?null:erasureAttemptDiscipline(env);
  let row=discipline===null?null:await env.DB.prepare(`SELECT operation_id AS operationId,subject_id AS subject,subject_generation AS subjectGeneration,request_digest AS requestDigest,original_account_incarnation AS accountIncarnation,last_attempt_at
