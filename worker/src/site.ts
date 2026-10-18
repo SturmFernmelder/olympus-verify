@@ -36,7 +36,7 @@ import { policyResponse } from "./policies";
 import { handlePolicyForms } from "./policy-forms";
 import { policyHeaders } from "./policy-render";
 import { loadSiteState, meta, snowflakeTime } from "./site-data";
-import { handleApi, meData } from "./site-api";
+import { generalSettingsDto, handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
 import { rankPlannerPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
@@ -123,7 +123,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
       return siteSignIn(request, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
     }
     const state = await loadSiteState(env), settings = state.settings;
-    boot = user ? await meData(env, user, settings, state.ruleset) : { signedIn: false, settings, meta: meta(state.ruleset), now: now() };
+    boot = user ? await meData(env, user, settings, state.ruleset) : { signedIn: false, settings: generalSettingsDto(settings), meta: meta(state.ruleset), now: now() };
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
     return siteSignIn(request, 503, 'updating', cookies);

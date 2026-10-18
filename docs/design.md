@@ -1644,6 +1644,8 @@ The corrective HTTP 200 fallback is published as its own deployable build with a
 
 ## 18 October 2026 — Guild hall interaction and explicit officeholder identities (.167)
 
+The unshipped .167 review found two additional projection boundaries. General settings payloads must preserve an office's closed state without exposing its canonical account pointer; named account and character details belong only to the fresh confirmed-member reader, while administrators retain the explicit editing view. Publication proof metadata is not an appointment and must not contribute to the legacy reset preview or its resulting count. Neither correction changes reset admission, SQL writes, clocks or activation controls. The earlier exact-head CI pass remains evidence for its own bytes; these corrections require a new qualified head and full hosted CI.
+
 The owner's eleven-point review identified avoidable navigation movement, sequential Vote reads, an incorrect welcome icon, selection during chart panning and long private status tokens. Keep the loaded header/footer mounted, fix active-tab padding and scrollbar geometry, reuse only the already bounded summary counts and validate the selected role afresh. The existing roster receipt tests also exposed an older context refresh racing a newer pending roster read; the read's sequence now owns that arbitration immediately, without changing command receipts, assertions or deadlines.
 
 The current charter already identifies five core Council portfolios and treats accepted appointment, eligible vote, game rank and actual permissions separately. Showing that definition is explanation only. Full-window chart interaction uses the native modal/focus model and limits selection suppression to the diagram.

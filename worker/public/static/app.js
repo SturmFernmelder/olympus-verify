@@ -2110,13 +2110,13 @@
       h("div", { class: "roles-grid" }, members.map(card)),
     ]);
     // Fresh, explicitly associated identities only; never a cached character/name snapshot.
-    if (["co_gm", "treasurer"].some(key => appointmentPointer(s.appointed && s.appointed[key]))) {
+    if (["co_gm", "treasurer"].some(key => Object.prototype.hasOwnProperty.call(s.appointed || {}, key))) {
       const live = () => main.parentNode === app;
       api("GET", "/api/appointed-identities", undefined, { live }).then(data => {
         if (!live() || data?.scope !== "confirmed_guild_members" || !Array.isArray(data.identities) || data.identities.length > 2) return;
         const seen = new Set();
         for (const person of data.identities) {
-          if (!person || !["co_gm", "treasurer"].includes(person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || person.appointment !== s.appointed[person.role] || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
+          if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(s.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
           seen.add(person.role);
           const slot = main.querySelector(`[data-appointed-person="${person.role}"]`);
           if (!slot) continue;

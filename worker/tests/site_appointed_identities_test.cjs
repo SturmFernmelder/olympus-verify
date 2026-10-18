@@ -16,7 +16,7 @@ function load(name) {
   const code = ts.transpileModule(bytes.toString('utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('module', 'exports', 'require', code)(mod, mod.exports, p => load(p)); return mod.exports;
 }
-const identities = load('./site-appointed-identities'), api = load('./site-api'), core = load('./site-core');
+const identities = load('./site-appointed-identities'), api = load('./site-api'), core = load('./site-core'), site = load('./site');
 const cleanup = load('./privacy-native-erasure-cleanup'), admission = load('./privacy-write-admission');
 const ADMIN = '300000000000000071', HOLDER = '300000000000000072', SECOND = '300000000000000073', VIEWER = '300000000000000074', STRANGER = '300000000000000075';
 let passed = 0, total = 0;
@@ -44,17 +44,60 @@ async function fixture() {
     const r = await api.handleApi(new Request('https://guild.example' + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env, url, () => {});
     return { status: r.status, body: await r.json() };
   };
+  const page = async id => {
+    const r = await site.handleSite(new Request('https://guild.example/', { headers: id ? { Cookie: cookies.get(id) } : {} }), env, '/', true, 'test .167', () => {});
+    const html = await r.text(), boot = /<script type="application\/json" id="boot">([^]*?)<\/script>/.exec(html);
+    return { status: r.status, html, boot: boot ? JSON.parse(boot[1]) : null };
+  };
   const publish = async map => {
     const r = await call('PUT', '/api/admin/settings', ADMIN, { appointed: map, namesConfirmed: true, appointedCharactersConfirmed: true });
     if (r.status !== 200) throw Error('explicit publication setup refused: ' + JSON.stringify(r));
     return JSON.parse(db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value);
   };
-  return { db, env, raw, DB, write, setting, call, publish, cookies, before(fn) { before = fn; }, beforeSave(fn) { beforeSave = fn; }, close() { db.close(); } };
+  return { db, env, raw, DB, write, setting, call, page, publish, cookies, before(fn) { before = fn; }, beforeSave(fn) { beforeSave = fn; }, close() { db.close(); } };
 }
 (async () => {
   check('only exact canonical Discord pointers opt in', identities.appointmentAccountId('<@' + HOLDER + '>') === HOLDER && [HOLDER, '<@!' + HOLDER + '>', '@holder-one', 'holder-one', '<@' + HOLDER + '> extra', 'Name withheld', '<@1>'].every(v => identities.appointmentAccountId(v) === null));
   check('publication confirmation is required for either supported pointer', !identities.appointmentPublicationConfirmation({ co_gm: '<@' + HOLDER + '>' }, {}) && !identities.appointmentPublicationConfirmation({ treasurer: '<@' + HOLDER + '>' }, { appointedCharactersConfirmed: 'true' }) && identities.appointmentPublicationConfirmation({ treasurer: '<@' + HOLDER + '>' }, { appointedCharactersConfirmed: true }));
   check('typed labels and other roles retain existing semantics', identities.appointmentPublicationConfirmation({ co_gm: 'Typed person', officer: '<@' + HOLDER + '>' }, {}));
+  {
+    const f = await fixture(), appointed = { co_gm: '<@' + HOLDER + '>', treasurer: '<@' + SECOND + '>', officer: '<@' + VIEWER + '>', 'class_lead:priest': '<@' + VIEWER + '>', leveling: 'Typed public holder', liaison: 'Name withheld' };
+    const stored = await f.publish(appointed), rawBefore = f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value;
+    const state = await load('./site-data').loadSiteState(f.env);
+    const expected = { ...state.settings, appointed: { co_gm: 'Appointed member', treasurer: 'Appointed member', officer: 'Appointed member', 'class_lead:priest': 'Appointed member', leveling: 'Typed public holder', liaison: 'Name withheld' } };
+    const safe = settings => JSON.stringify(settings) === JSON.stringify(expected) && ![HOLDER, SECOND, VIEWER, ':publication:'].some(v => JSON.stringify(settings).includes(v));
+    for (const [label, id] of [['anonymous', null], ['unconfirmed', STRANGER], ['confirmed member', VIEWER], ['admin', ADMIN]]) {
+      const r = await f.call('GET', '/api/public', id);
+      check(label + ' public HTTP settings retain closed offices and all ordinary values without account pointers or proofs', r.status === 200 && safe(r.body.settings) && !('identities' in r.body) && JSON.stringify(r.body.meta) === JSON.stringify(load('./site-data').meta(state.ruleset)) && r.body.now === T);
+    }
+    for (const [label, id] of [['unconfirmed', STRANGER], ['confirmed member', VIEWER], ['admin', ADMIN]]) {
+      const r = await f.call('GET', '/api/me', id), p = await f.page(id);
+      check(label + ' own HTTP data masks only settings associations', r.status === 200 && r.body.user.id === id && safe(r.body.settings));
+      check(label + ' real member boot contains the same masked settings without proof keys', p.status === 200 && p.boot?.user.id === id && safe(p.boot.settings) && !p.html.includes(':publication:'));
+    }
+    const publicPage = await f.page();
+    check('the real anonymous sign-in page carries no appointment account or proof boot', publicPage.status === 200 && publicPage.boot === null && ![HOLDER, SECOND, ':publication:'].some(v => publicPage.html.includes(v)));
+    const overview = await f.call('GET', '/api/admin/overview', ADMIN);
+    check('the exact admin editing read retains all canonical pointers and typed labels without internal proofs', overview.status === 200 && JSON.stringify(overview.body.settings.appointed) === JSON.stringify(appointed) && !JSON.stringify(overview.body.settings).includes(':publication:'));
+    const memberRead = await f.call('GET', '/api/appointed-identities', VIEWER);
+    check('masking general settings preserves fresh confirmed-member identity publication', memberRead.status === 200 && memberRead.body.scope === 'confirmed_guild_members' && memberRead.body.identities.length === 2 && memberRead.body.identities.find(p => p.role === 'co_gm').appointment === appointed.co_gm);
+    const board = await f.call('GET', '/api/board/treasurer', STRANGER);
+    check('an unconfirmed board read keeps the closed-role conflict without its account association', board.status === 409 && board.body.error === 'appointed' && board.body.appointed === 'Appointed member' && board.body.message.includes('Appointed member') && !JSON.stringify(board.body).includes(SECOND));
+    const first = await f.call('PUT', '/api/application', STRANGER, { position: 'treasurer' });
+    check('an unconfirmed first-choice application remains refused without echoing the private pointer', first.status === 400 && first.body.field === 'position' && first.body.message.includes('Appointed member') && !JSON.stringify(first.body).includes(SECOND));
+    const classLead = await f.call('PUT', '/api/application', STRANGER, { position: 'class_lead', classLead: 'priest' });
+    check('an unconfirmed class-lead choice retains its specific refusal without echoing the private pointer', classLead.status === 400 && classLead.body.field === 'classLead' && classLead.body.message.includes('Appointed member') && !JSON.stringify(classLead.body).includes(VIEWER));
+    const backup = await f.call('PUT', '/api/application', STRANGER, { position: 'member', backups: ['treasurer'] });
+    check('an unconfirmed backup application remains refused without echoing the private pointer', backup.status === 400 && backup.body.field === 'backups' && backup.body.message.includes('Appointed member') && !JSON.stringify(backup.body).includes(SECOND));
+    const vote = await f.call('PUT', '/api/board/vote', STRANGER, { role: 'treasurer', candidate: HOLDER, vote: 1 });
+    check('an unconfirmed board vote keeps its original appointment conflict without disclosing the holder', vote.status === 409 && vote.body.error === 'appointed' && vote.body.appointed === 'Appointed member' && !JSON.stringify(vote.body).includes(SECOND) && !f.db.prepare('SELECT 1 FROM site_board_votes WHERE voter_id=?').get(STRANGER) && !f.db.prepare('SELECT 1 FROM site_applications WHERE discord_id=?').get(STRANGER));
+    await f.write('UPDATE site_users SET denied=1 WHERE discord_id=?', VIEWER);
+    const denied = await f.call('GET', '/api/me', VIEWER), deniedPage = await f.page(VIEWER), deniedRead = await f.call('GET', '/api/appointed-identities', VIEWER);
+    check('denied own data carries only masked settings while the actual identity read stays refused', denied.status === 200 && denied.body.denied === true && safe(denied.body.settings) && deniedRead.status === 403 && !('identities' in deniedRead.body));
+    check('the real denied sign-in page contains no association or internal proof boot', deniedPage.status === 200 && deniedPage.boot === null && ![HOLDER, SECOND, ':publication:'].some(v => deniedPage.html.includes(v)));
+    check('every public/general read leaves the private stored map and HMAC proofs byte-identical', f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawBefore && Object.keys(stored).filter(k => k.includes(':publication:')).length === 2);
+    f.close();
+  }
   {
     const f = await fixture(); await f.setting({ co_gm: 'Typed one', treasurer: 'Typed two' });
     let r = await f.call('GET', '/api/appointed-identities', VIEWER);

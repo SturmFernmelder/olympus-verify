@@ -22,7 +22,7 @@
  */
 import type { Env } from "./env";
 import { audit, now } from "./db";
-import { cleanText } from "./site-data";
+import { cleanAppointed, cleanText } from "./site-data";
 import { b64u } from "./site-core";
 
 export const LEADERSHIP_KEY = "leadership";
@@ -159,7 +159,7 @@ export async function betaResetState(env: Env): Promise<BetaResetState> {
   else {
     try {
       const v = JSON.parse(appointed.value) as unknown;
-      appointedCount = v && typeof v === "object" && !Array.isArray(v) ? Object.keys(v).length : 0;
+      appointedCount = Object.keys(cleanAppointed(v) ?? {}).length; // only real ballot roles, never private publication proof slots
     } catch {
       appointedCount = 0;
     }

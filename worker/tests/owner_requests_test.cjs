@@ -236,6 +236,44 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   res=await http("GET","/api/admin/beta-role-reset",{who:PLAIN});check("member cannot obtain the owner reset preview",res.status===403);
   check("retired wipe requests never record a successful website reset",audits("site.beta_reset").length===0);
 
+  // Read-only legacy projection must count actual offices, not the private publication proof slots stored beside them.
+  const priorAppointedProjection = one("SELECT value, updated_at, updated_by FROM site_settings WHERE key='appointed'");
+  const projectionOtherSettings = JSON.stringify(db.prepare("SELECT key,value,updated_at,updated_by FROM site_settings WHERE key<>'appointed' ORDER BY key").all());
+  const projectionResetAudits = audits("site.beta_reset").length;
+  const proofAppointments = {
+    co_gm: "<@" + MEMBER + ">", treasurer: "<@" + PLAIN + ">",
+    ["co_gm:publication:" + "a".repeat(64)]: "<@" + MEMBER + ">",
+    ["treasurer:publication:" + "b".repeat(64)]: "<@" + PLAIN + ">",
+    no_such_office: "Not an office", officer: "",
+  };
+  try {
+    for (const [label, value, expected] of [
+      ["two associated offices plus private proofs", JSON.stringify(proofAppointments), 2],
+      ["proof-only map", JSON.stringify({ ["co_gm:publication:" + "a".repeat(64)]: "<@" + MEMBER + ">" }), 0],
+      ["blank and unknown office labels", JSON.stringify({ officer: "", no_such_office: "Unknown" }), 0],
+      ["withheld genuine office remains appointed", JSON.stringify({ co_gm: "Name withheld" }), 1],
+      ["missing list retains default Treasurer", null, 1],
+      ["array is not an appointment map", "[]", 0],
+      ["malformed JSON is not an appointment map", "{", 0],
+    ]) {
+      if (value === null) await fixtureRun("DELETE FROM site_settings WHERE key='appointed'");
+      else await fixtureRun("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES('appointed',?,?,?) ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by", value, T, ADMIN);
+      const beforeProjection = JSON.stringify(one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='appointed'") ?? null);
+      const projected = await leadership.betaResetState(env());
+      check("reset count projection: " + label, projected.preview.appointed === expected, projected.preview);
+      check("reset projection stays read-only and metadata-free: " + label,
+        JSON.stringify(one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='appointed'") ?? null) === beforeProjection &&
+        Object.keys(projected.preview).join() === "appointed,directoryNames" &&
+        !JSON.stringify(projected).includes(":publication:") && !JSON.stringify(projected).includes(MEMBER) && !JSON.stringify(projected).includes(PLAIN));
+    }
+    check("count projection never arms, resets, changes another setting or records a reset",
+      JSON.stringify(db.prepare("SELECT key,value,updated_at,updated_by FROM site_settings WHERE key<>'appointed' ORDER BY key").all()) === projectionOtherSettings &&
+      audits("site.beta_reset").length === projectionResetAudits);
+  } finally {
+    if (priorAppointedProjection) await fixtureRun("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES('appointed',?,?,?) ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by", priorAppointedProjection.value, priorAppointedProjection.updated_at, priorAppointedProjection.updated_by);
+    else await fixtureRun("DELETE FROM site_settings WHERE key='appointed'");
+  }
+
   console.log("\n== renames Blizzard required (.114, item 9) ==");
   // the roster followed Mia One to a new name (roster.ts moveBinding) and recorded it
   await fixtureRun("UPDATE characters SET name_key = 'mia two', name = 'Mia Two' WHERE name_key = 'mia one'");

@@ -376,16 +376,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   }
   {
     const pointer = `<@${OTHER}>`;
-    const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: pointer }; } });
+    const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
     associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
     await associated.go("#/roles");
     await waitFor(() => associated.app.textContent.includes("Private Verified Fixture"), ".167 explicit appointment UI projection");
-    check(".167 only a matching explicit appointment displays its Discord identity and fresh verified character names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [{ ...identity, appointment: `<@${STAFF}>`, characters: [{ ...identity.characters[0], name: "WRONG_ACCOUNT_CHARACTER" }] }] } : null);
+    check(".167 masked general settings still display the fresh admitted appointment identity and verified characters", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
-    check(".167 an identity response for another account cannot decorate the appointment", !associated.app.textContent.includes("WRONG_ACCOUNT_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member"));
+    check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member"));
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [] } : null);
+    await associated.go("#/"); await associated.go("#/roles");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
     associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
     associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
     await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");

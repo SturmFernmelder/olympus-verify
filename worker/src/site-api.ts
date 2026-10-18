@@ -64,18 +64,29 @@ import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./commun
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
 import { newsPage } from "./site-news";
-import { appointedIdentitiesPage } from './site-appointed-identities';
+import { appointedIdentitiesPage, appointmentAccountId } from './site-appointed-identities';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
 const MEMBER_RECHECK = 3600;
+const generalAppointmentLabel = (value: string) => appointmentAccountId(value) ? 'Appointed member' : value;
+
+/** General settings disclose closed offices, not member-only account associations.
+ * Admin settings retain their exact editing values; the fresh admitted identity
+ * reader is the only general member surface that publishes an association.
+ */
+export function generalSettingsDto(settings: SiteSettings): SiteSettings {
+  return { ...settings, appointed: Object.fromEntries(Object.entries(settings.appointed)
+    .filter(([key]) => !key.includes(':publication:'))
+    .map(([key, value]) => [key, generalAppointmentLabel(value)])) };
+}
 
 export async function handleApi(request: Request, env: Env, path: string, waitUntil: (work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const m = request.method;
   if (path === '/api/admin/qr/beta-window') return handleAttendedBetaWindow(request, env);
   if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env,roleDispatch);
-  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: state.settings, meta: meta(state.ruleset), now: now() }); }
+  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: generalSettingsDto(state.settings), meta: meta(state.ruleset), now: now() }); }
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);
   if(m==='POST' && path==='/api/me/erasure'){
@@ -228,7 +239,7 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
     user: publicUser(env, user, admin),
     denied: !!user.denied,
     deniedText: user.denied ? DENIED_TEXT : undefined,
-    settings: s,
+    settings: generalSettingsDto(s),
     meta: meta(state.ruleset),
     application: app ? appOut(app) : null,
     votes: votes.results,
@@ -297,8 +308,8 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   const first = roleKeyOf(position, classLead);
   if (taken(first)) {
     return position === "class_lead"
-      ? fail("classLead", `${roleLabel(first)} has been appointed (${appointed[first]}): choose another class.`)
-      : fail("position", `${roleLabel(first)} has been appointed (${appointed[first]}): choose another first choice.`);
+      ? fail("classLead", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another class.`)
+      : fail("position", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another first choice.`);
   }
 
   // Up to two backups, in order: roles they would also take if the first choice goes to someone else.
@@ -310,7 +321,7 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
     if (!c) return fail("backups", "One of the backup choices does not exist.");
     if (key === first) return fail("backups", "A backup choice is the same as your first choice.");
     if (backups.includes(key)) return fail("backups", "The two backup choices are the same.");
-    if (taken(key)) return fail("backups", `${c.label} has been appointed (${appointed[key]}): choose another backup, or none.`);
+    if (taken(key)) return fail("backups", `${c.label} has been appointed (${generalAppointmentLabel(appointed[key])}): choose another backup, or none.`);
     backups.push(key);
   }
   // Any leadership choice brings the leadership questions; only one that is voted on brings the board (.45: a role
@@ -643,9 +654,11 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
   });
 }
 
-/** The answer for a role that has been appointed: nothing to vote on, and who holds it. */
-const appointedRole = (key: string, s: SiteSettings) =>
-  apiJson({ error: "appointed", appointed: s.appointed[key], message: `${roleLabel(key)} has been appointed (${s.appointed[key]}): there is no vote for it.` }, 409);
+/** Keep the conflict and closed role public without disclosing a private account association. */
+const appointedRole = (key: string, s: SiteSettings) => {
+  const appointed = generalAppointmentLabel(s.appointed[key]);
+  return apiJson({ error: "appointed", appointed, message: `${roleLabel(key)} has been appointed (${appointed}): there is no vote for it.` }, 409);
+};
 /** The answer for a role chosen without a public vote: it takes applications, but there is no board to show or vote on. */
 const noVoteRole = (key: string) =>
   apiJson({ error: "no_vote", message: `${roleLabel(key)} is chosen by the guild's leadership without a public vote: there is no voting board for it.` }, 409);
