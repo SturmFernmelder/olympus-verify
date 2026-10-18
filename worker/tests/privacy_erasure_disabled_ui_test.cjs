@@ -22,6 +22,7 @@ async function review(){
  }
  const oldAccess=baseline('privacy-access'),oldForms=baseline('policy-forms');
  const coverageHtml=load('privacy-account-coverage').accountDataCoverageHtml();
+ const ordinaryCoverageHtml=load('privacy-account-coverage').accountDataCoverageHtml(true,'ordinary');
  const create=()=>{const f=fixture({statement:s=>sql.push(s)});f.env.PRIVACY_ACCESS_ENABLED='true';f.env.PRIVACY_INTAKE_ENABLED='false';f.env.PRIVACY_RETENTION_ENABLED='false';return f;};
  const request=(route,cookie='',method='GET',fields={},more={})=>new Request(BASE+route,{method,headers:{...(cookie?{Cookie:cookie}:{}),...(method==='POST'?{Origin:BASE,'Content-Type':'application/x-www-form-urlencoded'}:{}),...more},...(method==='POST'?{body:new URLSearchParams(fields)}:{})});
  const call=(f,route,cookie='',method='GET',fields={},more={})=>forms.handlePolicyForms(request(route,cookie,method,fields,more),f.env,route,true);
@@ -63,7 +64,7 @@ async function review(){
  const staleOrdinary=fields(section(accountOnHtml,'/privacy/account/full-erase'));
  ok('enabled ordinary erasure retains original confirmation and operation ID',section(accountOnHtml,'/privacy/account/full-erase').includes('name="confirm" value="erase" required')&&/^[a-f0-9]{32}$/.test(staleOrdinary.operationId));
  ok('enabled pages do not advertise a disabled pause',!onHtml.includes(paused)&&!accountOnHtml.includes(paused));
- if(oldForms){sql.length=0;const originalHtml=await (await oldForms.handlePolicyForms(request('/privacy/account',cookies),f.env,'/privacy/account',true)).text();eq('enabled ordinary contains exact reviewed coverage section once',accountOnHtml.split(coverageHtml).length,2);eq('immutable ordinary contains no new coverage section',originalHtml.includes(coverageHtml),false);eq('enabled ordinary HTML equals immutable a947 apart from exact69-store coverage section and original random form values',normalize(accountOnHtml.replace(coverageHtml,'')),normalize(originalHtml));eq('enabled ordinary renderer adds zero native SQL',onAccountSql,sql.length);}
+ if(oldForms){sql.length=0;const originalHtml=await (await oldForms.handlePolicyForms(request('/privacy/account',cookies),f.env,'/privacy/account',true)).text();eq('enabled ordinary contains exact reviewed coverage section once',accountOnHtml.split(ordinaryCoverageHtml).length,2);eq('immutable ordinary contains no new coverage section',originalHtml.includes(ordinaryCoverageHtml),false);eq('enabled ordinary HTML equals immutable a947 apart from exact69-store coverage section and original random form values',normalize(accountOnHtml.replace(ordinaryCoverageHtml,'')),normalize(originalHtml));eq('enabled ordinary renderer adds zero native SQL',onAccountSql,sql.length);}
  const contactOn=await call(f,'/privacy/contact'),contactOnHtml=await contactOn.text();
  ok('enabled contact keeps original erasure invitation',contactOnHtml.includes('download retained records or request serving-account erasure'));
  if(oldForms)eq('enabled replacement contact HTML exactly equals immutable a947',contactOnHtml,await (await oldForms.handlePolicyForms(request('/privacy/contact'),f.env,'/privacy/contact',true)).text());
@@ -84,7 +85,7 @@ async function review(){
   eq('disabled '+String(flag)+' copy retains exact original grant/CSRF',exportFields,fields(section(onHtml,'/privacy/access/export')));
   sql.length=0;const r=await call(f,'/privacy/account',cookies),h=await r.text();
   eq('disabled '+String(flag)+' ordinary page uses original current-user reads',sql.length,onAccountSql);safeHtml('disabled '+String(flag)+' ordinary page',r,h);
-  eq('disabled '+String(flag)+' ordinary coverage uses exact unavailable-lifecycle scope once',h.split(load('privacy-account-coverage').accountDataCoverageHtml(false)).length,2);
+  eq('disabled '+String(flag)+' ordinary coverage uses exact unavailable-lifecycle scope once',h.split(load('privacy-account-coverage').accountDataCoverageHtml(false,'ordinary')).length,2);
   eq('disabled '+String(flag)+' ordinary copy forms retained',(h.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
   eq('disabled '+String(flag)+' ordinary status form retained',(h.match(/action="\/privacy\/account\/erasure-status"/g)||[]).length,1);
   ok('disabled '+String(flag)+' ordinary page has no erase/unlink POST forms',!/<form[^>]+action="\/privacy\/account\/(?:full-erase|site-erase|bnet-unlink)"/.test(h));
