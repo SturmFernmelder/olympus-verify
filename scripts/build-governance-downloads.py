@@ -42,7 +42,7 @@ def footer(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 8)
     canvas.setFillColor(HexColor('#555555'))
-    canvas.drawString(48, 30, 'OLYMPUS | Preparation copy | 10 October 2026')
+    canvas.drawString(48, 30, 'OLYMPUS | Preparation copy | ' + ('18 October 2026' if release_only else '10 October 2026'))
     canvas.drawRightString(size[0] - 48, 30, str(doc.page))
     canvas.restoreState()
 
@@ -103,7 +103,7 @@ for title, filename, pages, description in extracts:
 
 title = 'Olympus Release Preparation Checklist'
 story = [p('OLYMPUS', 'OlympusSmall'), p(title, 'OlympusTitle'),
-         p('Operator worksheet - 10 October 2026. Complete each check against the actual release. This worksheet grants no access and executes no action.'),
+         p('Operator worksheet - 18 October 2026. Complete each check against the actual release. This worksheet grants no access and executes no action.'),
          p('Release identity', 'OlympusHeading'),
          p('Source commit: ____________________  Worker version: ____________________'),
          p('Deployed AddOn version: __________  Reviewer/date: ____________________'),
@@ -114,12 +114,12 @@ story = [p('OLYMPUS', 'OlympusSmall'), p(title, 'OlympusTitle'),
          p('3. Rehearse an event without accidental announcements', 'OlympusHeading'),
          p('Use the intended organizer and raid destination. Check time zone, start, duration, capacity, sign-up roles and cancellation. Review the Discord preview before publishing. Opt in explicitly to the event reminder. Confirm one delivery and the durable result; reconcile an uncertain result rather than publishing again.'),
          p('4. Check account controls and their real limits', 'OlympusHeading'),
-         p('Use approved disposable identities in an isolated test environment for export, withdrawal and erasure. Confirm stale-session refusal, role-removal settlement, ordinary-store projections and the fixed rejection marker. Distinguish serving-account completion from retained active safety cases, independent receipt conversations, Discord message cleanup and private recovery custody. Never erase a real member as a test.'),
+         p('Use approved disposable identities in an isolated test environment. Check authenticated automatic Native erasure, revoked sessions, bounded attributable guild-role removal, fresh absence before atomic cleanup, fixed private request status and unchanged original safety-marker expiry. Unknown effects remain unknown; a lost reply proves neither rollback nor completion. Serving-account completion is not all-copy erasure and does not rewrite provider recovery history or private exports. Never erase a real member as a test.'),
          p('5. Attend the real councillor game/browser test', 'OlympusHeading'),
          p('A qualified councillor must use the installed AddOn and browser scanner, and an AddOn-free member must use their own website session and normal in-game whisper. Confirm the exact live realm/build, each actor, character GUID and current native rank, key enrollment, full proof, one-time ingestion and the actual Discord role result. Do not assign High Council or promote an Officer simply to make the test pass. The current five-rank beta roster is distinct from the proposed ten-rank ladder.'),
          p('The councillor game and browser must be online to supply evidence. A continuously available Worker cannot observe the game by itself. An empty eligible councillor pool, unknown provider result or untested client keeps that acceptance check open.'),
          p('6. Keep the beta transition attended', 'OlympusHeading'),
-         p('Record the actual beta cutoff and review the exact Olympus guild-rank and leadership assignments before any once-only reset. Leave the reset disabled until that review is complete. Do not invent a shutdown hour or automatically change unrelated server roles. Reconsider full-release appointments separately and preserve the agreed residual-date clock.'),
+         p('The selected cutoff is 22 October 2026 at 17:00 UTC / noon CDT. Review only the fixed beta membership and native-rank Discord targets. Preserve manual leadership and Council, developer, bot and server-moderator roles, all website appointments and the directory. Leave removal OFF until separately authorized and qualified; the cutoff alone activates nothing. Do not blindly clear links or the invite queue. Fresh-source transition and any old-role reuse need their own source/custody authority; preserve original residual dates.'),
          p('Final acceptance record', 'OlympusHeading'),
          p('Website checks: __________  Discord checks: __________  Real game/browser check: __________'),
          p('Recovery receipt: ____________________  Remaining holds: ____________________'),

@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-17.164 Native serving erasure");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-18.165 Adopted governance reconciliation");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -199,9 +199,9 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('deleted account cannot reuse its signed cookie', res.status === 401 && assetCalls === 1);
   res = await get('https://guild.example/robots.txt');
-  check('origin robots denies all paths with an anchored wildcard stronger than managed Allow:/', (await res.text()) === 'User-agent: *\nDisallow: /\nDisallow: /*$\n' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  check('origin robots is a successful 203 advisory with complete deny rules and noindex', res.status === 203 && (await res.text()) === 'User-agent: *\nDisallow: /\nDisallow: /*$\n' && /noindex/.test(res.headers.get('X-Robots-Tag')));
   res = await index.fetch(new Request('https://guild.example/robots.txt', { method: 'HEAD' }), env(), ctx);
-  check('robots HEAD retains noindex and emits no body', res.status === 200 && (await res.text()) === '' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  check('robots HEAD retains the same successful advisory status and noindex with no body', res.status === 203 && (await res.text()) === '' && /noindex/.test(res.headers.get('X-Robots-Tag')));
   check('robots HEAD remains uncached plain text', /no-store/.test(res.headers.get('Cache-Control')) && /text\/plain/.test(res.headers.get('Content-Type')));
   for (const p of ['/', '/static/app.js']) {
     res = await get('http://guild.example' + p, assetEnv);
