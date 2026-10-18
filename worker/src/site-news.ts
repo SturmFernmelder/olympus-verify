@@ -71,6 +71,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".167", date: "2026-10-18", lines: [
+      "Smoother page and voting-board navigation, your Discord picture on Home, and a simpler entry page.",
+      "A full-window organization chart with drag-to-pan, a clearer Council overview, wrapping private status codes and optional original game cursors.",
+      "Explicit officeholder account links can show current Discord names and verified characters to confirmed members after agreement. Role, launch and activation settings stay unchanged.",
+    ],
+  },
+  {
     build: ".157", date: "2026-10-15", lines: [
       "Raid events support organizer roster decisions, capacity limits and optional reminder mentions.",
       "Guild guidance clarifies native ranks and appointed offices.",

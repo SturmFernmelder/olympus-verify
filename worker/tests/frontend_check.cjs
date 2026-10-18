@@ -24,6 +24,7 @@ class Node {
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   contains(n) { for (let x = n; x; x = x.parentNode) if (x === this) return true; return false; }
   get firstChild() { return this.childNodes[0] || null; }
+  get isConnected() { let n = this; while (n.parentNode) n = n.parentNode; return n.tagName === "#DOCUMENT"; }
   get lastChild() { return this.childNodes[this.childNodes.length - 1] || null; }
   get children() { return this.childNodes.filter((n) => n instanceof Element); }
   get parentElement() { return this.parentNode instanceof Element ? this.parentNode : null; }
@@ -50,7 +51,7 @@ function parseCompound(s) {
   const re = /^([a-zA-Z][\w-]*)|#([\w-]+)|\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g;
   let m, i = 0;
   while (i < s.length && (m = re.exec(s.slice(i)))) {
-    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined ? null : m[5]]);
+    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined ? null : m[5].replace(/\\(.)/g, "$1")]);
     i += m[0].length; re.lastIndex = 0;
   }
   return out;
@@ -66,6 +67,7 @@ class Element extends Node {
   set id(v) { this.attributes.id = String(v); }
   get className() { return this.attributes.class || ""; }
   set className(v) { this.attributes.class = String(v); }
+  get options() { return this.tagName === "SELECT" ? this.querySelectorAll("option") : undefined; }
   get value() { if (this.tagName === "SELECT") { const opts = this.querySelectorAll("option"); const sel = opts.find((o) => o.selected) || opts.find((o) => o._value === this._value); return sel ? sel._value : (opts[0] ? opts[0]._value : ""); } return this._value; }
   set value(v) { this._value = String(v); if (this.tagName === "SELECT") for (const o of this.querySelectorAll("option")) o.selected = o._value === String(v); }
   get classList() {
@@ -249,7 +251,7 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   const w = makeWindow(JSON.stringify(boot));
   const sandbox = {
     document: w.document, window: w.window, location: w.location, history: w.history, sessionStorage: w.sessionStorage, navigator: { clipboard: { writeText: async () => {} } },
-    Node, Element, Text, Event, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, Uint8Array, TextDecoder, TextEncoder, AbortController, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
+    Node, Element, Text, Event, CSS: { escape: (value) => { if (!/^[a-zA-Z0-9_:-]+$/.test(String(value))) throw Error("unsupported CSS identifier in fixture"); return String(value).replace(/:/g, "\\:"); } }, Intl, Date: PageDate, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Map, Set, Promise, Error, TypeError, Uint8Array, TextDecoder, TextEncoder, AbortController, URL, URLSearchParams, Blob, crypto: globalThis.crypto, btoa, atob, encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, console, parseInt, parseFloat, isNaN, isFinite, Symbol,
     __drop: null, // .100: when set, the real answer to a matching request is thrown away after the Worker handled it (a lost answer)
     __delay: null, // .102: when set, a matching request waits this many milliseconds before the Worker sees it (a slow reply)
     __garble: null, // .104: when set, the Worker's answer to a matching request is replaced by an unreadable 200 page
@@ -343,8 +345,57 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   console.log("\n== the shell: signed out ==");
   const anonymous = await openPage(null);
   check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
-  check(".154 anonymous gate exposes policy links, without guild navigation or payload", anonymous.html.includes('href="/privacy"') && anonymous.html.includes('href="/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
+  check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
+  const publicPrivacy = await policyHTML("/privacy"), publicTerms = await policyHTML("/terms");
+  check(".167 public policy endpoints remain directly available with their policy navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/terms"') && publicTerms.text.includes('href="/privacy"'));
   let page = await openPage(MEMBER);
+  {
+    const fast = await openPage(MEMBER);
+    const header = fast.app.querySelector("header"), footer = fast.app.querySelector("footer");
+    await fast.go("#/vote/officer");
+    await waitFor(() => fast.app.textContent.includes("Nobody has applied for this role yet"), ".167 first board read");
+    let summaryReads = 0, roleReads = 0;
+    fast.before((pathname) => { if (pathname === "/api/board") summaryReads++; if (pathname.startsWith("/api/board/")) roleReads++; return false; });
+    fast.hold((pathname) => pathname.startsWith("/api/board/") ? 140 : 0);
+    await fast.go("#/vote/raid_leader_na");
+    check(".167 role navigation renders controls immediately while its fresh role read is pending", !!fast.app.querySelector('.role-item[aria-current="page"]') && fast.app.textContent.includes("Checking applications…") && !fast.app.textContent.includes("Nobody has applied for this role yet"));
+    await waitFor(() => fast.app.textContent.includes("Nobody has applied for this role yet"), ".167 selected role fresh answer");
+    check(".167 role switching reuses only summary counts and still reads the selected role afresh", summaryReads === 0 && roleReads === 1);
+    check(".167 header/avatar/footer nodes stay mounted across routes", fast.app.querySelector("header") === header && fast.app.querySelector("footer") === footer && fast.app.querySelector('nav.nav a[aria-current="page"]').textContent === "Vote");
+    await fast.go("#/vote/raid_leader_eu");
+    await fast.go("#/roles");
+    await new Promise(resolve => setTimeout(resolve, 180));
+    check(".167 a late board read cannot replace another page or its navigation", fast.app.querySelector("header") === header && fast.app.querySelector('nav.nav a[aria-current="page"]').textContent === "Roles" && !fast.app.textContent.includes("Nobody has applied for this role yet") && !fast.app.textContent.includes("Something went wrong"));
+    const cursor = byText(fast.app, "button", "Game cursor");
+    cursor.click();
+    check(".167 cursor preference is keyboard-operable, tab-local and has a native opt-out", cursor.getAttribute("aria-pressed") === "false" && fast.document.documentElement.getAttribute("data-game-cursor") === "off" && fast.sessionStorage.getItem("olympus.gameCursor") === "off");
+    await fast.go("#/");
+    check(".167 cursor opt-out survives navigation without an account or settings write", byText(fast.app, "button", "Game cursor").getAttribute("aria-pressed") === "false");
+    const named = await openPage(MEMBER, {}, { bootTransform: b => { b.user.nick = "Guild nickname"; b.user.displayName = "Discord display"; b.user.username = "discord.username"; } });
+    check(".167 current Discord nickname and username are formatted without an inferred identity", named.app.querySelector(".who .name").textContent === "Guild nickname (discord.username)" && named.app.querySelector(".welcome").textContent.includes("Welcome, Guild nickname (discord.username)"));
+  }
+  {
+    const pointer = `<@${OTHER}>`;
+    const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
+    const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
+    await associated.go("#/roles");
+    await waitFor(() => associated.app.textContent.includes("Private Verified Fixture"), ".167 explicit appointment UI projection");
+    check(".167 masked general settings still display the fresh admitted appointment identity and verified characters", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
+    await associated.go("#/"); await associated.go("#/roles");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member"));
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [] } : null);
+    await associated.go("#/"); await associated.go("#/roles");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
+    associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
+    await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");
+    await new Promise(resolve => setTimeout(resolve, 160));
+    check(".167 departed appointment reads expose no character names on another page", !associated.app.textContent.includes("Private Verified Fixture"));
+  }
   {
     const profile = load("./ruleset-profile"), expected = profile.rulesetLabel();
     check("public-beta identity in actual member Worker boot and home agrees with shared module", JSON.stringify(page.boot.meta.ruleset) === JSON.stringify(profile.currentRulesetProfile()) && page.app.querySelector('[data-ruleset-identity="current"]').textContent === expected);
@@ -1449,7 +1500,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await typedPage.go("#/");
     await waitFor(() => !!typedPage.app.querySelector("h2"), "the member's home");
     const own = typedPage.app.querySelector(".who img");
-    const imgs = typedPage.document.body.querySelectorAll("img").filter((im) => im !== own); // .114: the top bar's own Discord picture is the one exception, checked below
+    const welcomeAvatar = typedPage.app.querySelector(".welcome img");
+    const imgs = typedPage.document.body.querySelectorAll("img").filter((im) => im !== own && im !== welcomeAvatar); // Own picture only; other members keep game icons.
     check("  every image the member's home draws comes from this site: the official wow/ set or the crest (the top bar's own picture aside)", imgs.length > 0 && imgs.every((im) => /^\/static\/(wow\/[a-z0-9_-]+\.(png|jpg)|olympus-icon\.png)$/.test(im.getAttribute("src") || "")), JSON.stringify(imgs.map((im) => im.getAttribute("src")).filter((x) => !/^\/static\//.test(x || ""))));
     check("  the image helper refuses another host for an img (the typed-name icon is the official scroll)", APP_JS.includes('k === "src" ? /^\\/(?!\\/)/.test(s)') && APP_JS.includes('src: art("icon-names"), alt: "", width: "32"') && !APP_JS.includes('text: "✎"'));
   }
@@ -1464,12 +1516,16 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("(.114) the top bar shows the member's own Discord picture: the address the Worker gave, on Discord's picture host", /^https:\/\/cdn\.discordapp\.com\//.test(avatar || "") && own.getAttribute("src") === avatar, avatar, own && own.getAttribute("src"));
     own.dispatchEvent(new Event("error"));
     check("  a picture that fails to load falls back to the official Member icon", own.getAttribute("src") === "/static/wow/pos-member.png");
-    check("(.117) the signed-in footer keeps the own-avatar notice without policy, account or contact navigation", p114.app.querySelector("footer").textContent.includes("your own Discord picture") && !p114.app.querySelector(".footer-links"));
+    const welcome = p114.app.querySelector(".welcome img");
+    check("(.167) the welcome panel uses the same restricted own Discord avatar as the header", welcome.getAttribute("src") === avatar && welcome.getAttribute("referrerpolicy") === "no-referrer");
+    welcome.dispatchEvent(new Event("error"));
+    check("(.167) a failed welcome avatar falls back to the game icon too", welcome.getAttribute("src") === "/static/wow/pos-member.png");
+    check("(.167) the signed-in footer omits the redundant avatar explanation", !p114.app.querySelector("footer").textContent.includes("your own Discord picture") && !p114.app.querySelector(".footer-links"));
     const AV = new Function("return " + APP_JS.match(/const DISCORD_AVATAR = (\/.*\/);/)[1])();
     const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
     const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];
     check("  the picture rule admits only Discord's avatar addresses (profile, server, default) and nothing else", good.every((u) => AV.test(u)) && bad.every((u) => !AV.test(u)));
-    check("  the other eight account pictures stay game icons (accountArt), the top bar alone uses ownAvatar", (APP_JS.match(/ownAvatar\(/g) || []).length === 2 && (APP_JS.match(/accountArt\(/g) || []).length >= 9);
+    check("  other members keep game icons; only the own header and welcome use Discord avatars", (APP_JS.match(/ownAvatar\(/g) || []).length === 3 && (APP_JS.match(/accountArt\(/g) || []).length >= 8);
 
     // the I-X leadership directory
     await p114.go("#/community/leadership");

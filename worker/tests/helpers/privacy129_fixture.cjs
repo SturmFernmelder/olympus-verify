@@ -131,11 +131,12 @@ async function issueOriginalEntryCookie(loadSource, db, env, subject) {
   const account=db.prepare('SELECT * FROM site_users WHERE discord_id=?').get(subject);
   if (!account) throw Error('original entry cookie requires a real setup account');
   const oauth=loadSource('privacy-serving-site-oauth'), data=loadSource('site-data'), core=loadSource('site-core');
-  const at=loadSource('db').now(), user={id:subject,username:account.username || 'entry-user',global_name:account.global_name ?? null};
+  const user={id:subject,username:account.username || 'entry-user',global_name:account.global_name ?? null};
   const capture=db.prepare('SELECT subject_id AS subject,generation AS subjectGeneration,state,revision FROM privacy_subjects WHERE subject_id=?').get(subject) ?? null;
   const matches=[...fs.readFileSync(path.join(root,'src/site.ts'),'utf8').matchAll(/const privacyWrite = Object\.freeze\(\{sql:\s*`([^`]+)`/g)];
   if(matches.length!==1)throw Error('sole source PROFILE changed');
   const origin=oauth.captureSiteOAuthOrigin(new Request('https://'+env.SITE_HOST+'/auth/callback?code=original_entry_fixture'),env);
+  const at=loadSource('db').now();
   oauth.captureSiteOAuthAccount(origin,user,capture,at);
   const reply=await oauth.dispatchSiteOAuthProfile(origin,Object.freeze({sql:matches[0][1],binds:Object.freeze([
     subject,user.username,user.global_name,account.nick ?? null,account.avatar ?? null,

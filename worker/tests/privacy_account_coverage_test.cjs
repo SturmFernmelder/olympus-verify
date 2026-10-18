@@ -27,6 +27,15 @@ async function coverageReview(){
   eq(store+' available identify projection still selected',on.selectedInThisFile,true);
  }
  const disabledHtml=coverage.accountDataCoverageHtml(false);
+ const settingsRow=text=>new RegExp('<tr data-account-store="site_settings">([\\s\\S]*?)</tr>').exec(text)?.[1]||'';
+ const identifySettings=manifest.stores.find(r=>r.store==='site_settings'),ordinarySettings=coverage.accountDataCoverage('ordinary').stores.find(r=>r.store==='site_settings');
+ eq('identify settings retain original separate-only metadata coverage',[identifySettings.coverage,identifySettings.selectedInThisFile,Array.from(identifySettings.collections)],['collection',false,['site.settingUpdates']]);
+ eq('ordinary settings select the narrow own association plus separate metadata history',[ordinarySettings.coverage,ordinarySettings.selectedInThisFile,Array.from(ordinarySettings.collections)],['selected',true,['aggregate singleton','site.settingUpdates']]);
+ ok('ordinary settings description limits selection to exact own offices and excludes counterparts',ordinarySettings.description.includes('only your exact Co-Guild Master or Treasurer account-publication association')&&ordinarySettings.description.includes('Other values, appointments and counterparts stay withheld'));
+ ok('default identify HTML does not advertise ordinary association fields',settingsRow(html).includes('Separate identity-only download')&&!settingsRow(html).includes('Selected own fields')&&!settingsRow(html).includes('account-publication association'));
+ const ordinaryHtml=coverage.accountDataCoverageHtml(true,'ordinary');
+ ok('explicit ordinary HTML advertises only its selected own association',settingsRow(ordinaryHtml).includes('Selected own fields')&&settingsRow(ordinaryHtml).includes('exact Co-Guild Master or Treasurer')&&settingsRow(ordinaryHtml).includes('Other values, appointments and counterparts stay withheld'));
+ eq('mode-specific HTML retains the same complete store inventory',(ordinaryHtml.match(/data-account-store=/g)||[]).length,69);
  for(const store of lifecycleStores){
   const row=new RegExp('<tr data-account-store="'+store+'">([\\s\\S]*?)</tr>').exec(disabledHtml);
   ok(store+' disabled rendered row explains unavailable scope',row&&row[1].includes('Attended review')&&row[1].includes('not included through this connection')&&!row[1].includes('Selected own fields'));
@@ -41,6 +50,7 @@ async function coverageReview(){
   const r=await copy.exportPrivacyAccess(frm.request(),f.env),b=await r.json();eq(state+' own copy succeeds',r.status,200);eq(state+' copied inventory69',b.coverage.storeInventory.stores.length,69);eq(state+' own subject presence',b.privacyLifecycle.subjectRecord.recordPresent,state!=='absent');
   if(state!=='absent'){eq(state+' original state is factual',b.privacyLifecycle.subjectRecord.state,state);eq(state+' dates are original native dates',b.privacyLifecycle.subjectRecord.createdAt,new Date(f.time()*1000).toISOString());eq(state+' safe metadata exact field whitelist',Object.keys(b.privacyLifecycle.subjectRecord),['recordPresent','state','createdAt','updatedAt','erasedAt','retainUntil']);}
   const json=JSON.stringify(b);ok(state+' no counterpart or authority values copied',!json.includes(B)&&!json.includes('b'.repeat(32))&&!json.includes(G));eq(state+' provider endpoints only original two',calls.length,beforeCalls);eq(state+' exact counterpart unchanged',JSON.stringify(f.db.prepare('SELECT * FROM privacy_subjects WHERE subject_id=?').get(B)),beforeB);
+  ok(state+' actual identify page keeps collection-only settings scope',settingsRow(pageHtml).includes('Separate identity-only download')&&!settingsRow(pageHtml).includes('Selected own fields'));
   const reads=statements.filter(x=>x.sql.includes(coverage.PRIVACY_SUBJECT_COPY_SQL));eq(state+' summary read occurs once',reads.length,1);eq(state+' own native parameter exact',Array.from(reads[0].values),[A]);
   ok(state+' attachment and no-store preserved',r.headers.get('Content-Disposition').includes('attachment')&&r.headers.get('Cache-Control').includes('no-store'));
   await refused(state+' spent export does not gain new metadata authority',()=>copy.exportPrivacyAccess(frm.request(),f.env));eq(state+' replay no new provider calls',calls.length,beforeCalls);f.db.close();
@@ -115,6 +125,9 @@ async function coverageReview(){
   statements.length=0;batches.length=0;
   const r=await index.fetch(frm.request({collection:'copy',cursor:''}),{...f.env,DB:native},{waitUntil:p=>pending.push(p)});
   const body=await fullRequestResult('identify /privacy/access/export installed full-index',r,statements,batches,pending);
+  const settings=body.coverage.storeInventory.stores.find(r=>r.store==='site_settings');
+  eq('actual identify export has collection-only setting metadata',[settings.coverage,settings.selectedInThisFile,settings.collections],['collection',false,['site.settingUpdates']]);
+  ok('actual identify copy has no ordinary appointment publication section',!Object.hasOwn(body.site||{},'appointmentPublications'));
   eq('full-index identify original download succeeds',r.status,200);eq('full-index identify own original identity',body.identity.discordId,A);
   eq('full-index identify actual curated copy remains partial',body.coverage.kind,'curated_partial');eq('full-index identify erasure never claimed',body.coverage.completeErasure,false);
   eq('full-index identify exact98 physical SQL includes schema1 grant read2 and native writer95',statements.length,98);
@@ -143,6 +156,10 @@ async function coverageReview(){
   statements.length=0;batches.length=0;pending.length=0;
   const r=await index.fetch(request('/privacy/account/export',cookies,'POST',fields),{...f.env,DB:f.native},{waitUntil:p=>pending.push(p)});
   const body=await fullRequestResult('ordinary /privacy/account/export installed full-index',r,statements,batches,pending);
+  const settings=body.coverage.storeInventory.stores.find(r=>r.store==='site_settings');
+  eq('actual ordinary export advertises its selected own association',[settings.coverage,settings.selectedInThisFile,settings.collections],['selected',true,['aggregate singleton','site.settingUpdates']]);
+  eq('actual ordinary export with no approved association returns only an empty own publication list',body.site.appointmentPublications,[]);
+  ok('actual ordinary policy page uses the ordinary selected-field inventory',settingsRow(html).includes('Selected own fields')&&settingsRow(html).includes('exact Co-Guild Master or Treasurer'));
   eq('full-index ordinary original signed session and CSRF copy succeeds',r.status,200);eq('full-index ordinary own identity',body.account.discordId,A);
   eq('full-index ordinary denied/departed session keeps own data scope',[body.account.inServer,body.account.denied],[false,true]);eq('full-index ordinary erasure never claimed',body.coverage.completeErasure,false);
   ok('full-index ordinary actual HTTP D1 attempts stay below100',statements.length<100);

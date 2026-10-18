@@ -46,6 +46,7 @@ import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
 import {prepareMembershipDecision,membershipDecisionTargetToken,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
 import { handleBetaRoleReset } from './beta-reset-route';
+import { appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql } from './site-appointed-identities';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -246,6 +247,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   if (body.notice !== undefined) next.notice = cleanText(body.notice, 300);
   let appointedObj: Record<string, string> | null = null; // .115: the cleaned map itself, for the consent check and the audit's role keys
   if (body.appointed !== undefined) {
+    if (containsInternalAppointmentProof(body.appointed)) return apiJson({ error: 'internal_appointed_fields', field: 'appointed', message: 'Publication proofs are private server-authored metadata. Select the account and confirm publication instead.' }, 400);
     appointedObj = cleanAppointed(body.appointed);
     if (!appointedObj) return apiJson({ error: "invalid", field: "appointed", message: "The appointed roles could not be read." }, 400);
     next.appointed = JSON.stringify(appointedObj);
@@ -266,7 +268,13 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (changed.length > 0 && body.namesConfirmed !== true) {
       return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
+    if (!appointmentPublicationConfirmation(appointedObj, body)) {
+      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile and its current verified characters to confirmed guild members. This applies only to the Co-Guild Master and Treasurer account associations; it grants no role or permission.' }, 400);
+    }
   }
+  const publication = appointedObj ? await prepareAppointmentPublication(env, appointedObj) : null;
+  if (appointedObj && !publication) return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', message: 'A selected appointment account has no current eligible site identity. Do not guess an identity; remove its association or wait until its identity can be confirmed.' }, 409);
+  if (publication) next.appointed = JSON.stringify(publication.stored);
   const entries = Object.entries(next) as Array<[string, string]>;
   if (!entries.length) return apiJson({ ok: true, settings: cur });
   const t = now();
@@ -280,15 +288,17 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
        SELECT 1 WHERE NOT EXISTS (
          SELECT 1 FROM json_each(?2) expected LEFT JOIN site_settings current ON current.key = expected.key
           WHERE current.value IS NOT expected.value
-       )
+       )${publication?.targets.length ? ' AND ' + appointmentPublicationTargetsCurrentSql(5) : ''}
      )
      SELECT next.key, next.value, ?3, ?4 FROM json_each(?1) next, admission WHERE 1
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-  ).bind(JSON.stringify(next), JSON.stringify(expected), t, actor).run();
+  ).bind(JSON.stringify(next), JSON.stringify(expected), t, actor, ...(publication?.targets.length ? [JSON.stringify(publication.targets)] : [])).run();
   if ((saved.meta?.changes ?? 0) === 0) {
     return apiJson({ error: "stale_settings", message: "Settings changed while this save was pending. Nothing was saved. Reload the page before editing again." }, 409);
   }
-  await audit(env, actor, "site.settings", undefined, settingsAuditDetails(next, appointedObj, body.namesConfirmed === true));
+  const details = settingsAuditDetails(next, appointedObj, body.namesConfirmed === true);
+  if (appointedObj && body.appointedCharactersConfirmed === true) details.appointedCharactersConfirmed = true;
+  await audit(env, actor, "site.settings", undefined, details);
   return apiJson({ ok: true, settings: await loadSettings(env) });
 }
 

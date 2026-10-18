@@ -22,6 +22,7 @@ async function review(){
  }
  const oldAccess=baseline('privacy-access'),oldForms=baseline('policy-forms');
  const coverageHtml=load('privacy-account-coverage').accountDataCoverageHtml();
+ const ordinaryCoverageHtml=load('privacy-account-coverage').accountDataCoverageHtml(true,'ordinary');
  const create=()=>{const f=fixture({statement:s=>sql.push(s)});f.env.PRIVACY_ACCESS_ENABLED='true';f.env.PRIVACY_INTAKE_ENABLED='false';f.env.PRIVACY_RETENTION_ENABLED='false';return f;};
  const request=(route,cookie='',method='GET',fields={},more={})=>new Request(BASE+route,{method,headers:{...(cookie?{Cookie:cookie}:{}),...(method==='POST'?{Origin:BASE,'Content-Type':'application/x-www-form-urlencoded'}:{}),...more},...(method==='POST'?{body:new URLSearchParams(fields)}:{})});
  const call=(f,route,cookie='',method='GET',fields={},more={})=>forms.handlePolicyForms(request(route,cookie,method,fields,more),f.env,route,true);
@@ -63,7 +64,7 @@ async function review(){
  const staleOrdinary=fields(section(accountOnHtml,'/privacy/account/full-erase'));
  ok('enabled ordinary erasure retains original confirmation and operation ID',section(accountOnHtml,'/privacy/account/full-erase').includes('name="confirm" value="erase" required')&&/^[a-f0-9]{32}$/.test(staleOrdinary.operationId));
  ok('enabled pages do not advertise a disabled pause',!onHtml.includes(paused)&&!accountOnHtml.includes(paused));
- if(oldForms){sql.length=0;const originalHtml=await (await oldForms.handlePolicyForms(request('/privacy/account',cookies),f.env,'/privacy/account',true)).text();eq('enabled ordinary contains exact reviewed coverage section once',accountOnHtml.split(coverageHtml).length,2);eq('immutable ordinary contains no new coverage section',originalHtml.includes(coverageHtml),false);eq('enabled ordinary HTML equals immutable a947 apart from exact69-store coverage section and original random form values',normalize(accountOnHtml.replace(coverageHtml,'')),normalize(originalHtml));eq('enabled ordinary renderer adds zero native SQL',onAccountSql,sql.length);}
+ if(oldForms){sql.length=0;const originalHtml=await (await oldForms.handlePolicyForms(request('/privacy/account',cookies),f.env,'/privacy/account',true)).text();eq('enabled ordinary contains exact reviewed coverage section once',accountOnHtml.split(ordinaryCoverageHtml).length,2);eq('immutable ordinary contains no new coverage section',originalHtml.includes(ordinaryCoverageHtml),false);eq('enabled ordinary HTML equals immutable a947 apart from exact69-store coverage section and original random form values',normalize(accountOnHtml.replace(ordinaryCoverageHtml,'')),normalize(originalHtml));eq('enabled ordinary renderer adds zero native SQL',onAccountSql,sql.length);}
  const contactOn=await call(f,'/privacy/contact'),contactOnHtml=await contactOn.text();
  ok('enabled contact keeps original erasure invitation',contactOnHtml.includes('download retained records or request serving-account erasure'));
  if(oldForms)eq('enabled replacement contact HTML exactly equals immutable a947',contactOnHtml,await (await oldForms.handlePolicyForms(request('/privacy/contact'),f.env,'/privacy/contact',true)).text());
@@ -84,7 +85,7 @@ async function review(){
   eq('disabled '+String(flag)+' copy retains exact original grant/CSRF',exportFields,fields(section(onHtml,'/privacy/access/export')));
   sql.length=0;const r=await call(f,'/privacy/account',cookies),h=await r.text();
   eq('disabled '+String(flag)+' ordinary page uses original current-user reads',sql.length,onAccountSql);safeHtml('disabled '+String(flag)+' ordinary page',r,h);
-  eq('disabled '+String(flag)+' ordinary coverage uses exact unavailable-lifecycle scope once',h.split(load('privacy-account-coverage').accountDataCoverageHtml(false)).length,2);
+  eq('disabled '+String(flag)+' ordinary coverage uses exact unavailable-lifecycle scope once',h.split(load('privacy-account-coverage').accountDataCoverageHtml(false,'ordinary')).length,2);
   eq('disabled '+String(flag)+' ordinary copy forms retained',(h.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
   eq('disabled '+String(flag)+' ordinary status form retained',(h.match(/action="\/privacy\/account\/erasure-status"/g)||[]).length,1);
   ok('disabled '+String(flag)+' ordinary page has no erase/unlink POST forms',!/<form[^>]+action="\/privacy\/account\/(?:full-erase|site-erase|bnet-unlink)"/.test(h));
@@ -141,12 +142,12 @@ async function review(){
   const statusPage=await actualCall('/privacy/access',statusConnectionCookie),statusForm=fields(section(await statusPage.text(),'/privacy/access/erasure'));providerAttempts=0;
   r=await actualCall('/privacy/access/erasure',statusConnectionCookie,'POST',{...statusForm,confirm:'yes'});h=await r.text();
   eq('enabled native admission creates a genuine retained status receipt',r.status,202);eq('enabled native admission creates exactly one original erasure job',count(account,'privacy_serving_jobs'),1);
-  const job=managed.d.db.prepare('SELECT * FROM privacy_serving_jobs').get(),tokenMatch=/<pre>([^<]+)<\/pre>/.exec(h);ok('actual original managed admission issues a body-only private code',!!tokenMatch);const token=tokenMatch[1],statusBefore=state(account);
+  const job=managed.d.db.prepare('SELECT * FROM privacy_serving_jobs').get(),tokenMatch=/<pre class="privacy-status-code">([^<]+)<\/pre>/.exec(h);ok('actual original managed admission issues a body-only private code',!!tokenMatch);const token=tokenMatch[1],statusBefore=state(account);
   managed.env.PRIVACY_ERASURE_ENABLED='false';const statusGet=await actualCall('/privacy/account'),statusHtml=await statusGet.text(),statusCookie=statusGet.headers.get('Set-Cookie').split(';')[0],statusFields=fields(section(statusHtml,'/privacy/account/erasure-status'));
   ok('disabled signed-out ordinary page exposes retained private-code status form',statusHtml.includes(paused)&&statusHtml.includes('action="/privacy/account/erasure-status"')&&!statusHtml.includes('action="/privacy/account/full-erase"'));
   const beforeStatus=managed.d.trace.length;r=await actualCall('/privacy/account/erasure-status',statusCookie,'POST',{...statusFields,operationId:job.operation_id,statusToken:token});h=await r.text();
   eq('disabled status reads genuine original body-only proof without session',r.status,200);ok('disabled status truthfully reports queued or held rather than completion',h.includes('The request is queued or held; independent confirmation of account erasure is not available.')&&!h.includes('Serving account records were erased'));
-  ok('disabled status retains original request and body-only private token',h.includes(job.operation_id)&&h.includes('<pre>'+token+'</pre>')&&!r.url.includes(token));
+  ok('disabled status retains original request and body-only private token',h.includes(job.operation_id)&&h.includes('<pre class="privacy-status-code">'+token+'</pre>')&&!r.url.includes(token));
   eq('disabled status leaves original request and provider/role state unchanged',state(account),statusBefore);eq('disabled status leaves original fixed retention deadline unchanged',managed.d.db.prepare('SELECT retain_until FROM privacy_serving_jobs').get().retain_until,job.retain_until);
   const statusSQL=managed.d.trace.slice(beforeStatus).map(row=>row.sql);eq('disabled status retains two original payload reads besides Native profile proofs',statusSQL.filter(sql=>sql.startsWith('SELECT state,hold_reason,staff_access,request_digest')||sql.startsWith('SELECT COALESCE(SUM(m.state')).length,2);ok('disabled status performs no D1 mutation',statusSQL.every(sql=>/^\s*(SELECT|WITH)\b/i.test(sql)));eq('enabled queued admission and disabled status make no provider calls',providerAttempts,0);
   console.log('MEASURED_DISABLED_STATUS_NATIVE '+JSON.stringify({physicalStatements:statusSQL.length,originalPayloadReads:2,syntheticManagedOpen:true,currentCompletionClaim:false,providerCalls:providerAttempts}));

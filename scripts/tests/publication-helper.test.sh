@@ -29,21 +29,32 @@ done
 "$PY" - <<'PY' || fail "the asset gate does not load its pinned reference"
 import sys
 import hashlib
+import json
 from pathlib import Path
 sys.path.insert(0, "scripts")
 import official_assets
 ref = official_assets.reference()
-assert len(ref["official_paths"]) == 94, len(ref["official_paths"])
+assert len(ref["official_paths"]) == 96, len(ref["official_paths"])
 assert ref["approved_extractor"]["path"] == "tools/build-site-assets.py"
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
 assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
-# The .135 composition changes native code, not artwork. Catch stale reference rows before publication.
+# Keep the exact source/asset gate, including the .167 cursor additions, before publication.
 for row in ref["assets"] + ref["fixed_art_source_pins"]:
     path = Path(row["path"])
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 104 and len(ref["fixed_art_source_pins"]) == 5
+assert len(ref["assets"]) == 107 and len(ref["fixed_art_source_pins"]) == 5
+cursor = json.loads(Path(ref["provenance_path"]).read_bytes())["additional_extractions"][-1]
+record = cursor["source_record"]
+assert record["path"] == "tools/wow-cursor-provenance.json"
+path = Path(record["path"])
+assert not path.is_symlink() and not path.is_junction()
+raw = path.read_bytes()
+assert len(raw) == record["bytes"] and hashlib.sha256(raw).hexdigest() == record["sha256"]
+assert json.loads(raw) == cursor["source_record_data"]
+assert {"worker/public/static/wow/cursor-point.png", "worker/public/static/wow/cursor-interact.png"}.issubset(ref["official_paths"])
+assert "worker/public/static/wow-cursor.css" in ref["native_paths"]
 PY
 "$PY" -B scripts/tests/publication-resource.test.py || fail "the actual publication resource/result-tree gate"
 for d in LICENSE README.md CLAUDE.md THIRD_PARTY_NOTICES.md docs/source-provenance.md docs/design.md docs/deploy-checklist.md; do

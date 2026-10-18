@@ -10,9 +10,14 @@ client's own paths under it, e.g.  Claude outputs/wow-assets-2026-09-30/Interfac
 
     python tools/build-site-assets.py "<that folder>" worker/public/static/wow
 
+The finite cursor mode reads original Interface/Cursor/Point.blp and optional Interact.blp directly:
+    python tools/build-site-assets.py "<cursor source folder>" worker/public/static/wow --cursors-only
+It preserves the original palette and separate alpha plane; only Pillow is required for that mode.
+
 Needs Pillow, fontTools and brotli (pip install pillow fonttools brotli).
 """
 import io
+import struct
 import sys
 from pathlib import Path
 
@@ -63,6 +68,45 @@ def additive_to_alpha(img):
     out = rgb.copy()
     out.putalpha(a)
     return out
+
+
+def cursor_image(path):
+    """Decode the client's 32px BLP2 palette and separate alpha plane without redrawing pixels.
+
+    Pillow's palette BLP reader uses palette alpha, which is zero in these two cursor assets.
+    Point has a packed 1-bit alpha plane; Interact has an 8-bit plane after the pixel indices.
+    """
+    data = path.read_bytes()
+    if len(data) < 1172 or len(data) > 1024 * 1024 or data[:4] != b"BLP2":
+        raise ValueError("cursor BLP2 header unavailable")
+    kind = struct.unpack_from("<I", data, 4)[0]
+    width, height = struct.unpack_from("<II", data, 12)
+    depth = data[9]
+    if kind != 1 or data[8] != 1 or depth not in (1, 8) or (width, height) != (32, 32):
+        raise ValueError("unsupported cursor palette or dimensions")
+    offset = struct.unpack_from("<I", data, 20)[0]
+    length = struct.unpack_from("<I", data, 84)[0]
+    count = width * height
+    if offset < 1172 or length != count + (count * depth + 7) // 8 or offset + length > len(data):
+        raise ValueError("cursor mip or alpha plane unavailable")
+    indices = data[offset:offset + count]
+    alpha = data[offset + count:offset + length]
+    rgba = bytearray()
+    for i, index in enumerate(indices):
+        blue, green, red, _ = data[148 + index * 4:152 + index * 4]
+        opacity = alpha[i] if depth == 8 else ((alpha[i // 8] >> (i % 8)) & 1) * 255
+        rgba.extend((red, green, blue, opacity))
+    return Image.frombytes("RGBA", (width, height), bytes(rgba))
+
+
+def cursor_assets():
+    made = []
+    for name in ("Point", "Interact"):
+        source = I / "Cursor" / (name + ".blp")
+        if name == "Interact" and not source.is_file():
+            continue
+        made.append(save(cursor_image(source), "cursor-" + name.lower() + ".png"))
+    return made
 
 
 def main():
@@ -153,9 +197,15 @@ def main():
         OUT.mkdir(parents=True, exist_ok=True)
         t.save(OUT / name)
         made.append(OUT / name)
+    if (I / "Cursor" / "Point.blp").is_file():
+        made.extend(cursor_assets())
     total = sum(p.stat().st_size for p in made)
     print(f"{len(made)} files, {total / 1024:.0f} KB, in {OUT}")
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 4 and sys.argv[3] == "--cursors-only":
+        made = cursor_assets()
+        print(f"{len(made)} client cursors, {sum(p.stat().st_size for p in made)} bytes, in {OUT}")
+    else:
+        main()

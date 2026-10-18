@@ -30,7 +30,8 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; }
+@supports not (scrollbar-gutter: stable) { html { overflow-y: scroll; } }
 body {
   margin: 0;
   min-height: 100vh;
@@ -60,7 +61,7 @@ b, strong { color: var(--white); font-weight: 400; }
 .boot-fallback { max-width: 40rem; margin: 20vh auto; text-align: center; padding: 0 16px; }
 
 /* ---------- layout ---------- */
-.shell { max-width: 1120px; margin: 0 auto; padding: 0 16px 40px; }
+.shell { max-width: 1120px; min-height: calc(100vh - 84px); margin: 0 auto; padding: 0 16px 40px; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
   background: linear-gradient(#35382e, #191e18 60%, #10160f);
@@ -176,8 +177,8 @@ a.card:hover { filter: brightness(1.2); }
 .hero .lead { font-size: 1.05rem; margin-bottom: 18px; }
 .hero .small { margin-top: 12px; }
 .welcome { display: flex; align-items: center; gap: 14px; }
-.welcome img { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--brass); }
-.welcome h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); }
+.welcome img { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 2px solid var(--brass); }
+.welcome h1 { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: clamp(1.6rem, 4vw, 2.2rem); }
 
 /* ---------- countdown ---------- */
 .count { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 6px; }
@@ -204,6 +205,8 @@ a.card:hover { filter: brightness(1.2); }
 .btn:active:not(:disabled) { border-image-source: url("/static/wow/button-down.png"); padding-top: 5px; padding-bottom: 1px; }
 .btn:disabled, .btn[aria-disabled="true"] { border-image-source: url("/static/wow/button-disabled.png"); color: #7c7c7c; cursor: not-allowed; }
 .btn.small { min-height: 30px; padding: 1px 11px; font-size: 13px; }
+/* Navigation stays in place while pressed; only its texture changes. */
+.nav .btn:active { padding: 1px 11px; }
 .btn.big { min-height: 48px; padding: 5px 24px; font-size: 17px; }
 .btn.danger { color: #ff8a66; }
 .btn.danger:hover { color: #ffd2c4; }

@@ -674,12 +674,13 @@ const rows:StoreCoverage[]=[
  {
   "store": "site_settings",
   "label": "Website settings",
-  "coverage": "collection",
+  "coverage": "selected",
   "collections": [
+   "aggregate singleton",
    "site.settingUpdates"
   ],
-  "description": "Separate identity-only download of a closed known setting key and original timestamp only when you remain its current last updater. Values/appointments/counterparts are withheld; this is not edit history or consent evidence.",
-  "handling": "Not in the aggregate or ordinary copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
+  "description": "The ordinary copy includes only your exact Co-Guild Master or Treasurer account-publication association, role, audience and current setting time. Separate identity-only history includes a closed known setting key and original timestamp only when you remain its current last updater. Other values, appointments and counterparts stay withheld; this is not edit history or proof of consent.",
+  "handling": "Own exact account-publication associations are selected in the ordinary copy. Reconnect Discord at /privacy/access for separate setting-update metadata. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
  },
  {
   "store": "site_users",
@@ -726,8 +727,13 @@ rows.push({store:'qr_beta_fern_windows',label:'Named beta verification windows',
 export const ACCOUNT_DATA_STORES=Object.freeze(rows.map(r=>Object.freeze({...r,collections:Object.freeze(r.collections)})));
 const labels:Record<CoverageKind,string>={selected:'Selected own fields',collection:'Separate identity-only download',derived:'Own derived summary',gap:'Attended review',shared:'Shared service state',case:'Saved case credentials',anonymous:'Anonymous browser flow',unattributable:'Attribution unavailable'};
 const LIFECYCLE_COPY_STORES=new Set(['privacy_subjects','privacy_serving_jobs','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers']);
-function accountCopyStores(lifecycleRead:boolean):Array<StoreCoverage&{selectedInThisFile:boolean}>{
- return ACCOUNT_DATA_STORES.map(r=>{
+function accountCopyStores(mode:AccountCoverageMode,lifecycleRead:boolean):Array<StoreCoverage&{selectedInThisFile:boolean}>{
+ return ACCOUNT_DATA_STORES.map(original=>{
+  // Identify-only export has no ordinary site.appointmentPublications projection.
+  // Its separate metadata history stays available without claiming values in this file.
+  const r:StoreCoverage=original.store==='site_settings'&&mode==='identify'?{...original,coverage:'collection',collections:['site.settingUpdates'],
+   description:'Separate identity-only download of a closed known setting key and original timestamp only when you remain its current last updater. Values/appointments/counterparts are withheld; this is not edit history or consent evidence.',
+   handling:'Not included in this identify-only copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available.'}:original;
   const unavailable=LIFECYCLE_COPY_STORES.has(r.store)&&!lifecycleRead;
   return {...r,coverage:unavailable?'gap':r.coverage,
    description:unavailable?'Lifecycle records are not included through this connection.':r.description,
@@ -739,14 +745,14 @@ export function accountDataCoverage(mode:AccountCoverageMode,lifecycleRead=true)
  return {schema:'olympus-account-coverage-v1',kind:'curated_partial',mode,totalBusinessStores:ACCOUNT_DATA_STORES.length,allStoresInventoried:true,
   allStoredFieldsDelivered:false,allCopiesIncluded:false,completeErasure:false,
   note:`This inventory accounts for the ${ACCOUNT_DATA_STORES.length} business stores. It describes the selected projections and handling paths, not the existence or count of your records. selectedInThisFile describes a reviewed projection, not returned record presence; feature and retention filters still apply. Complete history flags cover only the selected retained range. Unavailable, filtered and expired records are not reported as zero retained data.`,
-  stores:accountCopyStores(lifecycleRead),
+  stores:accountCopyStores(mode,lifecycleRead),
   separateSharedControl:{store:'privacy_write_admission',included:false,note:'Shared admission machinery is separate from the inventoried business stores; no control private write credential or account authority is downloaded.'},
   browserCustody:{store:'IndexedDB olympus-attended-beta-v1 / spent',includedInServerCopy:false,serverErasureCanReach:false,localControls:'/static/qr-beta-window-data.html',purpose:'Original one-use named beta attempt; lost replies remain spent',personalFields:['actor account ID','opaque window ID','request code','review digest','generation','session version and expiry','original reservation and cleanup times'],personalRetention:'Fixed 365 days from original local reservation; redacted when local browser controls next run, or earlier by local control; unavailable scripts or offline devices cannot run cleanup',redactedFields:['opaque window ID','spent discriminator'],redactedExpiry:'No automatic expiry grants reuse; the window remains held. This record contains no actor, request, generation or session fields after redaction.'},
   otherCopies:['Discord posts, connections and role assignments','private recovery exports and Cloudflare recovery history','configured independent keyed account-birth/rejection companion; no raw account ID or birth nonce; original rejection facts expire at365 days and separate erasure guard at366 days','operator watcher and game files','previous browser downloads','local councillor signing-key custody','local named beta-attempt custody'],
   help:{attended:'Ask an Olympus officer for account-data review. Staff notes, safety exceptions and other people\'s data require separate review.',case:'/privacy/case',account:'/privacy/account'}};
 }
-export function accountDataCoverageHtml(lifecycleRead=true):string{
- return '<section data-account-coverage-schema="olympus-account-coverage-v1"><h2>What this copy covers</h2><p>Your download remains a curated partial copy. The inventory below accounts for all ' + ACCOUNT_DATA_STORES.length + ' business stores; it does not claim that every stored field or every external, recovery or local copy is included. It lists selected own fields and the handling path for records outside the download. Missing, filtered or expired records are not proof that nothing is retained.</p><p>Ask an Olympus officer for attended account-data review. Existing inbox conversations require their saved case ID and private code at <a href="/privacy/case">Read an existing case</a>. No credential, staff role or guild access is granted by this inventory.</p><details><summary>Review all ' + ACCOUNT_DATA_STORES.length + ' data stores</summary><table><caption>Selected records and remaining handling paths</caption><thead><tr><th scope="col">Data store</th><th scope="col">Download coverage</th><th scope="col">Limits and handling</th></tr></thead><tbody>'+accountCopyStores(lifecycleRead).map(r=>'<tr data-account-store="'+e(r.store)+'"><th scope="row">'+e(r.label)+' <code>'+e(r.store)+'</code></th><td>'+e(labels[r.coverage])+'<p>'+e(r.description)+'</p></td><td>'+e(r.handling)+'</td></tr>').join('')+'</tbody></table></details><p>Browser-only named-test records are separate from this server copy. <a href="/static/qr-beta-window-data.html">Download or remove local attempt details</a> on the device holding them. Personal details use a fixed 365-day local deadline and are redacted when local browser controls next run; only an opaque spent guard remains. Server erasure cannot reach IndexedDB or a downloaded file, and local cleanup grants no retry authority.</p></section>';
+export function accountDataCoverageHtml(lifecycleRead=true,mode:AccountCoverageMode='identify'):string{
+ return '<section data-account-coverage-schema="olympus-account-coverage-v1"><h2>What this copy covers</h2><p>Your download remains a curated partial copy. The inventory below accounts for all ' + ACCOUNT_DATA_STORES.length + ' business stores; it does not claim that every stored field or every external, recovery or local copy is included. It lists selected own fields and the handling path for records outside the download. Missing, filtered or expired records are not proof that nothing is retained.</p><p>Ask an Olympus officer for attended account-data review. Existing inbox conversations require their saved case ID and private code at <a href="/privacy/case">Read an existing case</a>. No credential, staff role or guild access is granted by this inventory.</p><details><summary>Review all ' + ACCOUNT_DATA_STORES.length + ' data stores</summary><table><caption>Selected records and remaining handling paths</caption><thead><tr><th scope="col">Data store</th><th scope="col">Download coverage</th><th scope="col">Limits and handling</th></tr></thead><tbody>'+accountCopyStores(mode,lifecycleRead).map(r=>'<tr data-account-store="'+e(r.store)+'"><th scope="row">'+e(r.label)+' <code>'+e(r.store)+'</code></th><td>'+e(labels[r.coverage])+'<p>'+e(r.description)+'</p></td><td>'+e(r.handling)+'</td></tr>').join('')+'</tbody></table></details><p>Browser-only named-test records are separate from this server copy. <a href="/static/qr-beta-window-data.html">Download or remove local attempt details</a> on the device holding them. Personal details use a fixed 365-day local deadline and are redacted when local browser controls next run; only an opaque spent guard remains. Server erasure cannot reach IndexedDB or a downloaded file, and local cleanup grants no retry authority.</p></section>';
 }
 export const PRIVACY_SUBJECT_COPY_SQL=`SELECT state,created_at,updated_at,erased_at,retain_until FROM privacy_subjects WHERE subject_id=?1 AND CASE WHEN
  state IN('active','retiring','retired') AND typeof(created_at)='integer' AND created_at BETWEEN 0 AND 999999999999

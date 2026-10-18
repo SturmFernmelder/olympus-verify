@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='4b2f70dfd979fd2331c76fdd507ce36c02d7dd5e0a0242c724c4d703db583bff'
+REFERENCE_SHA256='21ecc90c25474fafd2ff414c01319e8513ff7b92ec75a9f1886312fed4997509'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -107,7 +107,7 @@ def reference() -> dict:
     if {p.casefold() for p in resources}&{p.casefold() for p in assets} \
       or not {p for p in resources if runtime_path(p)}.issubset(ref['runtime_paths']):
         raise ValueError('official_public_resource_reference_shape_invalid')
-    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=94 \
+    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=96 \
       or any(not p.startswith('worker/public/static/wow/') for p in ref['official_paths']) \
       or any(not p.endswith(('.css','.js')) for p in ref['native_paths']) \
       or any(not runtime_path(p) for p in ref['runtime_paths']) \

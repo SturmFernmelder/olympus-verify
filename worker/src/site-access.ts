@@ -27,7 +27,8 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
   const body = `<section class="sign-in-gate"><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a><p class="meta">Only the sign-in and privacy pages are available before entry.</p></section>`;
   const headers = policyHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
-  return new Response(request.method === 'HEAD' ? null : policyShell('Enter Olympus', body), { status, headers });
+  // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.
+  return new Response(request.method === 'HEAD' ? null : policyShell('Enter Olympus', body, { policyNavigation: false }), { status, headers });
 }
 
 /** Called only after the canonical host check. Public policies/assets are handled before this boundary. */

@@ -15,6 +15,9 @@
   let timers = [];
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
+  let gameCursor = true;
+  try { gameCursor = sessionStorage.getItem("olympus.gameCursor") !== "off"; } catch { /* A blocked preference store keeps native CSS fallbacks. */ }
+  document.documentElement.setAttribute("data-game-cursor", gameCursor ? "on" : "off");
 
   // ---------------------------------------------------------------- DOM
   function h(tag, props, ...kids) {
@@ -60,11 +63,15 @@
     const key = person.class || person.classKey || person.mainClass;
     return art(M().classes.some((c) => c.key === key) ? "class-" + key : "pos-member");
   };
+  const discordIdentity = (person = {}) => {
+    const display = person.nick || person.displayName || person.username || "";
+    return person.username && person.username !== display ? `${display} (${person.username})` : display;
+  };
   // .114 (Viktor, 2 Oct 2026): the one exception to "images from this site only": the signed-in member's own Discord picture
-  // in the top bar. Only an avatar address on Discord's picture host passes (the Worker's avatarUrl: a profile picture, a
+  // in their own header and welcome panel. Only an avatar address on Discord's picture host passes (the Worker's avatarUrl: a profile picture, a
   // server picture or Discord's default one; the page's CSP allows that host and no other). Anything else, or a picture that
   // fails to load, shows the official Member icon. Set with setAttribute here on purpose: h() keeps its root-relative rule for
-  // every other image on the site, and the other eight account pictures stay game icons.
+  // every other image on the site; other members' pictures stay game icons.
   const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d{17,20}\/(?:a_)?[0-9a-f]{32}\.png\?size=64|guilds\/\d{17,20}\/users\/\d{17,20}\/avatars\/(?:a_)?[0-9a-f]{32}\.png\?size=64|embed\/avatars\/[0-5]\.png)$/;
   function ownAvatar(user) {
     const fallback = accountArt(user || {});
@@ -138,7 +145,8 @@
   /** Leadership roles (Class Lead included): the ones with a voting board, unless appointed or chosen without a public vote. */
   const isLeadershipKey = (k) => k.startsWith("class_lead:") || (byKey(M().positions, k) || {}).group === "leadership";
   /** Who holds a role filled by appointment (Admin → Settings), or "": such a role takes no applications, votes or write-ins. */
-  const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; return Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; };
+  const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
+  const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; const value = Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; return appointmentPointer(value) ? "Appointed member" : value; };
   /** "Fernmelder has been appointed Treasurer / Guild Bank, so the role is no longer open to applications or votes." */
   const appointedText = (keys) => (keys.length === 1
     ? `${appointedTo(keys[0])} has been appointed ${roleName(keys[0])}, so the role is no longer open to applications or votes.`
@@ -222,9 +230,11 @@
   // This page's version, sent with every call. The Worker refuses saves from a page older than itself (a page opened
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
+  let boardSummaryRead = null; // Session-memory counts only, never candidate records or write authority.
   // `options.live`: the view-liveness of the operation (F4b.1, 15 Oct 2026). When it is given and false at reply time, the shell is
   // left alone (no sign-out, toast, render or reload notice from an operation whose view is gone); the error is still thrown.
   async function api(method, path, body, options = {}) {
+    if (method !== "GET") boardSummaryRead = null; // A lost write answer must invalidate the read cache too.
     const init = { method, headers: { "X-Olympus": PAGE_VERSION }, credentials: "same-origin" };
     if (body !== undefined) {
       init.headers["Content-Type"] = "application/json";
@@ -244,6 +254,7 @@
     if (res.ok && raw && data === null) throw new ApiError(res.status, { error: "unreadable_answer" });
     const current = typeof options.live !== "function" || options.live();
     if (res.status === 401) {
+      boardSummaryRead = null;
       if (current) {
         S.signedIn = false;
         toast("You were signed out. Sign in with Discord again.", "bad");
@@ -594,7 +605,7 @@
   }
 
   /** A search box over Asmongold's Discord (via the Worker) with a "type the name instead" fallback. */
-  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, exclude = () => false, label = "Find someone" }) {
+  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, exclude = () => false, label = "Find someone" }) {
     const id = "pk" + Math.random().toString(36).slice(2, 8);
     const input = h("input", { type: "search", id, placeholder, autocomplete: "off", spellcheck: "false", role: "combobox", "aria-expanded": "false", "aria-controls": id + "-list", "aria-autocomplete": "list" });
     const onlySite = h("input", { type: "checkbox", tabindex: "-1" });
@@ -620,7 +631,7 @@
       clear(rowsBox);
       tools.hidden = !(last && (last.res.results || []).length);
       items.forEach((it, i) => {
-        const disabled = it.self || exclude(it);
+        const disabled = (it.self && !allowSelf) || exclude(it);
         const row = h("div", { class: "row", role: "option", "aria-selected": i === active ? "true" : "false", "aria-disabled": disabled ? "true" : "false", id: `${id}-o${i}` },
           it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : h("img", { src: accountArt(it), alt: "", loading: "lazy", referrerpolicy: "no-referrer" }), // .112: the official scroll icon, not a pencil glyph
           h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.shown || it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : null),
@@ -641,7 +652,7 @@
         .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked })); // .114: shown = every differing name; label = what a pick stores
       const problem = typedProblem(q);
       if (allowTyped && !problem) items.push({ kind: "name", key: q.toLowerCase().replace(/\s+/g, " "), label: q.replace(/\s+/g, " "), typed: true });
-      active = items.findIndex((it) => !it.self && !exclude(it));
+      active = items.findIndex((it) => (allowSelf || !it.self) && !exclude(it));
       const notes = [];
       if (res.limited) notes.push("Discord is limiting searches right now; results may be missing. Try again in a few seconds.");
       if (res.unavailable) notes.push("Discord search is unavailable right now. You can still add the name by hand.");
@@ -661,7 +672,7 @@
     }
     function choose(i) {
       const it = items[i];
-      if (!it || it.self || exclude(it)) return;
+      if (!it || (it.self && !allowSelf) || exclude(it)) return;
       onPick({ kind: it.kind, key: it.key, label: it.label, avatarUrl: it.avatarUrl || null });
       input.value = "";
       items = [];
@@ -679,7 +690,7 @@
         let i = active;
         for (let n = 0; n < items.length; n++) {
           i = (i + step + items.length) % items.length;
-          if (!items[i].self && !exclude(items[i])) break;
+          if ((allowSelf || !items[i].self) && !exclude(items[i])) break;
         }
         active = i;
         draw();
@@ -711,19 +722,25 @@
     const who = S.signedIn && S.user
       ? h("div", { class: "who" },
           ownAvatar(S.user), // .114: the member's own Discord picture (header only)
-          h("span", { class: "name", text: S.user.displayName || S.user.username || "" }),
+          h("span", { class: "name", text: discordIdentity(S.user), title: discordIdentity(S.user) }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
     return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, who));
   }
   function footer() {
+    const cursor = h("button", { class: "btn small", type: "button", text: "Game cursor", "aria-pressed": String(gameCursor), title: "Use the World of Warcraft cursor with a mouse" });
+    cursor.addEventListener("click", () => {
+      gameCursor = !gameCursor;
+      document.documentElement.setAttribute("data-game-cursor", gameCursor ? "on" : "off");
+      cursor.setAttribute("aria-pressed", String(gameCursor));
+      try { sessionStorage.setItem("olympus.gameCursor", gameCursor ? "on" : "off"); } catch { /* The preference still works for this page. */ }
+    });
     return h("footer", { class: "footer" },
       h("div", { class: "footer-in" },
-        brand(),
+        h("div", null, brand(), cursor),
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
-          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. All other interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."),
-          S.signedIn ? h("p", null, "The picture next to your name is your own Discord picture, loaded from Discord; nobody else sees it here.") : null))); // .114
+          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. All other interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
   }
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
@@ -796,6 +813,7 @@
   }
   const setDirty = (key, on, el) => { if (on) dirtyKeys.add(key); else dirtyKeys.delete(key); if (el) el.hidden = !on; };
 
+  let chromeKey = "";
   function render() {
     if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
@@ -811,11 +829,25 @@
       lastHash = location.hash;
     }
     const [head] = route.split("/");
-    clear(app);
-    app.appendChild(topbar(route));
-    if (S.settings && S.settings.notice) app.appendChild(h("div", { class: "notice" }, noticeBox("info", "icon-apply", h("p", { text: S.settings.notice }))));
+    // Keep the loaded avatar and navigation mounted between routes. Rebuild when identity or admission changes.
+    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), S.qrVerification, S.settings && S.settings.notice]);
+    const previousMain = app.querySelector("main.shell");
+    const reuseChrome = chromeKey === nextChromeKey && previousMain;
+    if (!reuseChrome) {
+      clear(app);
+      app.appendChild(topbar(route));
+      if (S.settings && S.settings.notice) app.appendChild(h("div", { class: "notice" }, noticeBox("info", "icon-apply", h("p", { text: S.settings.notice }))));
+      chromeKey = nextChromeKey;
+    } else {
+      for (const link of app.querySelectorAll("nav.nav a")) {
+        const target = link.getAttribute("href");
+        if (target === "#/" ? head === "" : target.startsWith("#/") && head === target.slice(2)) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      }
+    }
     const main = h("main", { class: "shell", id: "main" });
-    app.appendChild(main);
+    if (reuseChrome) previousMain.replaceWith(main);
+    else app.appendChild(main);
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
     if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // client fallback only; the server requires current membership for this shell and Roles data
     else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView;
@@ -826,13 +858,13 @@
     } catch (e) {
       showError(main)(e);
     }
-    app.appendChild(footer());
+    if (!reuseChrome) app.appendChild(footer());
     const target = scrollTo && document.getElementById(scrollTo);
     if (target) scrollToSection(target);
     else window.scrollTo(0, 0);
   }
   const showError = (main) => (e) => {
-    if (e && e.status === 401) return;
+    if (e && e.status === 401 || main.parentNode !== app) return;
     main.appendChild(frame("Something went wrong", null, h("p", { text: (e && e.message) || String(e) })));
   };
 
@@ -1127,7 +1159,7 @@
         : null;
     const seats = seatsNotice();
     add(main, [
-      h("section", { class: "welcome mt" }, h("img", { src: accountArt(S.user), alt: "", referrerpolicy: "no-referrer" }), h("h1", { text: `Welcome, ${S.user.displayName || S.user.username}` })),
+      h("section", { class: "welcome mt" }, ownAvatar(S.user), h("h1", { text: `Welcome, ${discordIdentity(S.user)}` })),
       flash,
       S.reapply ? h("div", { class: "mt" }, noticeBox("warn", "icon-warning", // .114: a rename Blizzard required (the Worker's rename_holds)
         h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
@@ -1735,7 +1767,12 @@
     const meta = M();
     const s = S.settings || {};
     const closed = !s.votingOpen;
-    const summary = await api("GET", "/api/board");
+    // The Worker already caches these counts for 30 seconds. Reuse them while moving between roles, but always
+    // read the selected role afresh: a changed appointment, membership or voting switch still refuses at the server.
+    const cached = boardSummaryRead && nowMs() >= boardSummaryRead.at && nowMs() - boardSummaryRead.at < 30000;
+    const summary = cached ? boardSummaryRead.data : await api("GET", "/api/board", undefined, { live: () => main.parentNode === app });
+    if (main.parentNode !== app) return;
+    if (!cached) boardSummaryRead = { data: summary, at: nowMs() };
     V.summary = summary;
     const counts = Object.fromEntries(summary.roles.map((r) => [r.key, r]));
     const wanted = dec(parts[0] || "");
@@ -1776,7 +1813,7 @@
       h("optgroup", { label: "Leadership" }, lead.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))),
       h("optgroup", { label: "Class leads" }, classes.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))));
     rolePick.addEventListener("change", () => { const key = rolePick.value; rolePick.value = role; go(key); });
-    const boardBox = h("div");
+    const boardBox = h("div", null, h("p", { class: "muted", role: "status", text: "Checking applications…" }));
     const holder = appointedTo(role);
     const quiet = !holder && noVoteFor(role);
     const content = h("div", null,
@@ -1836,10 +1873,14 @@
   }
   async function drawBoard(box, closed, role) {
     const meta = M();
+    const request = String(Number(box.dataset.boardRequest || 0) + 1);
+    box.dataset.boardRequest = request;
+    const live = () => box.isConnected && box.dataset.boardRequest === request;
     let data;
     try {
-      data = await api("GET", `/api/board/${encodeURIComponent(role)}?` + qs({ offset: V.offset, class: V.cls, fit: V.fit, todo: V.todo }));
+      data = await api("GET", `/api/board/${encodeURIComponent(role)}?` + qs({ offset: V.offset, class: V.cls, fit: V.fit, todo: V.todo }), undefined, { live });
     } catch (err) {
+      if (!live()) return;
       const why = err.data && err.data.error;
       if ((why !== "no_vote" && why !== "appointed") || !S.settings) throw err;
       // Appointed, or taken off the public vote, since this page was opened: the whole page is drawn again, without the
@@ -1850,6 +1891,7 @@
       if (box.isConnected) render();
       return;
     }
+    if (!live()) return;
     // The Worker keeps the all-roles summary for half a minute; this role's own numbers are fresh, so they win.
     const sum = V.summary && V.summary.roles.find((x) => x.key === role);
     if (sum) { Object.assign(sum, { applicants: data.total, votable: data.votable, voted: data.voted }); showRoleProgress(sum); }
@@ -2047,7 +2089,7 @@
               h("span", { class: "badge" + (p.group === "leadership" ? "" : " blue"), text: p.group === "leadership" ? (holder ? "Leadership: appointed" : quiet ? "Leadership: no public vote" : "Leadership: voted on") : "Membership" }),
               first ? h("span", { class: "badge green", text: "Your first choice" }) : null,
               backup ? h("span", { class: "badge green", text: "Your backup" }) : null))),
-        holder ? h("p", { class: "appointed-line" }, tick(), `Appointed: ${holder}. This role takes no applications or votes.`) : null,
+        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), `Appointed: ${holder}. This role takes no applications or votes.`)) : null,
         quiet ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
         p.key === "class_lead" ? classRow() : null,
         roleInfo(p),
@@ -2067,6 +2109,23 @@
       h("div", { class: "group-label", text: "Membership" }),
       h("div", { class: "roles-grid" }, members.map(card)),
     ]);
+    // Fresh, explicitly associated identities only; never a cached character/name snapshot.
+    if (["co_gm", "treasurer"].some(key => Object.prototype.hasOwnProperty.call(s.appointed || {}, key))) {
+      const live = () => main.parentNode === app;
+      api("GET", "/api/appointed-identities", undefined, { live }).then(data => {
+        if (!live() || data?.scope !== "confirmed_guild_members" || !Array.isArray(data.identities) || data.identities.length > 2) return;
+        const seen = new Set();
+        for (const person of data.identities) {
+          if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(s.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
+          seen.add(person.role);
+          const slot = main.querySelector(`[data-appointed-person="${person.role}"]`);
+          if (!slot) continue;
+          clear(slot);
+          add(slot, [h("p", { class: "appointed-line" }, tick(), `Appointed: ${discordIdentity(person)}. This role takes no applications or votes.`),
+            h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." })]);
+        }
+      }).catch(() => { /* Refused or unavailable identity details stay hidden; the appointment stays closed. */ });
+    }
     // "#/roles/liaison" (a chip here, or a link shared in Discord) lands on that role, below the sticky top bar; once more
     // when the game fonts have arrived (they change the page's height), unless the reader has scrolled since.
     if (target) {
@@ -2332,11 +2391,15 @@
     const was = s.appointed || {};
     const appointed = M().ballots.map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
-      h("label", { class: "field appointed-row" }, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input)));
+      h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input),
+        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, allowTyped: false, allowSelf: true,
+          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; } }) : null)));
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
     const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");
     namesOk.id = "appointed-names-ok";
+    const [characterPublication, characterPublicationRow] = box(false, "The associated Co-Guild Master and Treasurer agreed to show their Discord name, username and current verified characters to confirmed guild members", "This includes verified characters not listed in the directory. Selecting an account publishes information only; it grants no role or permission.");
+    characterPublication.id = "appointed-characters-ok";
     const quietWas = new Set(s.noVote || []);
     const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
     const quietGrid = (group) => h("div", { class: "appointed-grid" }, quiet.filter(([b]) => b.group === group).map(([b, input]) =>
@@ -2349,9 +2412,10 @@
       try {
         const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, notice: notice.value,
           appointed: Object.fromEntries(appointed.map(([bb, input]) => [bb.key, input.value.trim()]).filter(([, who]) => who)),
-          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked });
+          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked });
         S.settings = out.settings;
         namesOk.checked = false;
+        characterPublication.checked = false;
         toast("Settings saved.", "good");
       } catch (err) { toast(err.message, "bad"); } finally { save.disabled = false; }
     });
@@ -2369,6 +2433,7 @@
       h("div", { class: "group-label", text: "Leadership" }), appointedGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), appointedGrid("class"),
       namesOkRow,
+      characterPublicationRow,
       h("p", { class: "muted small", text: "To remove a name on request, type Name withheld (the role stays appointed) or clear it (the role reopens)." }),
       h("div", { class: "rule" }),
       h("h3", { text: "Roles without a public vote" }),
@@ -4318,6 +4383,7 @@
       const saveBtn = h("button", { class: "btn small", type: "button", text: "Save" });
       const born = generation, owned = () => alive() && born === generation; // this row's controls: the view alive and the rows not replaced since they were drawn
       saveBtn.addEventListener("click", async () => {
+        const contextRead = readSeq; // A newer authoritative roster read supersedes this command's context refresh immediately.
         const sent = { ref: s.ref, decision: pick.value || null, revision: s.decisionRevision || 0 }, prior = typeof s.decision === "string" ? s.decision : null; // the row as this command sees it
         saveBtn.disabled = true; pick.disabled = true;
         const settle = () => { if (owned()) { pick.disabled = false; saveBtn.disabled = false; } };
@@ -4342,7 +4408,7 @@
           if (!owned()) return; // a failure reported after the page moved on, or after the rows were replaced, changes nothing here
           if (uncertain(ex)) { await reread("Roster answer lost. ", "The decision may have been stored. Check the row before deciding again."); return; }
           toast(explain(ex, "Nothing was decided."), "bad"); settle();
-          if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity({ live: owned }); // the follow-up carries this row's ownership: a late context reply adopts nothing after the view departed or the rows were replaced
+          if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity({ live: () => owned() && contextRead === readSeq }); // A pending newer reread owns the table before its response replaces the rows.
         }
       });
       return h("td", null, pick, " ", saveBtn);
