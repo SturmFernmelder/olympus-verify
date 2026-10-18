@@ -47,3 +47,6 @@ activated_at = "2026-10-17T19:24:27Z"
 # .163 pre-publication safety correction: opt-in launch clock preserves beta link handling before November 4.
 activation_profile_sha256 = "4a32e32729451f6e8cc5a8fc98d8811e0b5b3f65ced8007f2989ebb5d26bd0b5"
 activated_at = "2026-10-17T19:46:17Z"
+# Owner-authorized .164 source profile: bounded Native erasure and attempt discipline; no provider operation asserted.
+activation_profile_sha256 = "6e4f3de1a497e4475fdb671a684a01adc14fdbb887d770cd01aa7ba313e45506"
+activated_at = "2026-10-18T02:49:11Z"

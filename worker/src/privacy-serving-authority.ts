@@ -3,9 +3,10 @@
  * A database restored from an old export is NEVER its own evidence of current replay authority.
  */
 import type { Env } from './env';
+import {nativeErasureMode} from './privacy-native-mode';
 import {snapshotErasureStatusData,snapshotErasureStatusAdmissionData,erasureStatusBody,verifyOriginalErasureStatusCode,originalErasureStatusCodeFacts,type OriginalVerifiedErasureStatusCode} from './privacy-erasure-status-credential';
 import {originalErasureStatusAdmissionContext,originalErasureStatusAdmissionReceipt,observeOriginalErasureStatusCompletion} from './privacy-global-serving-origin';
-import {ERASURE_STATUS_CODE_READ_SQL,erasureStatusProofReadSql,erasureStatusSessionReadSql} from './privacy-erasure-status-native-data';
+import {ERASURE_STATUS_CODE_READ_SQL,erasureStatusProofReadSql,erasureStatusSessionReadSql,originalErasureStatusTerminalData} from './privacy-erasure-status-native-data';
 import {RecoveryFloorHeld} from './privacy-recovery-held';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
 import {assertOriginalRecoveryDataIntrinsics,recoveryScalarArrayJSON,recoveryDataUtf8Bytes} from './privacy-recovery-data-json';
@@ -232,9 +233,9 @@ async function statusOriginalMac(secret:string,purpose:'erasure-status-v1'|'eras
 function statusEnv(env:Env):Readonly<{secret:string;check:()=>void}>{const prototype=Object.getPrototypeOf(env),keys=Reflect.ownKeys(env),descriptors=keys.map(k=>Object.getOwnPropertyDescriptor(env,k));const d=Object.getOwnPropertyDescriptor(env,'COOKIE_SECRET');if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='string'||!d.value)return statusHeld();const check=()=>{assertOriginalRecoveryDataIntrinsics();const now=Reflect.ownKeys(env);if(Object.getPrototypeOf(env)!==prototype||now.length!==keys.length||keys.some(k=>!now.includes(k)))return statusHeld();for(let i=0;i<keys.length;i++)if(!statusSame(Object.getOwnPropertyDescriptor(env,keys[i]!),descriptors[i]))return statusHeld();};check();return Object.freeze({secret:d.value,check});}
 /** The code issuer is private to this original fresh admission producer; raw status rows cannot call it. */
 async function issueKnownOriginalStatusCode(env:Env,original:ReturnType<typeof snapshotErasureStatusAdmissionData>,current:()=>void):Promise<string|null>{
- const origin=originalErasureStatusAdmissionReceipt(env,original.terminalRow);if(!origin)return null;
- const config=statusEnv(env),started=originalRecoveryClockMilliseconds();const check=()=>{original.check();config.check();current();origin.check();const now=originalRecoveryClockMilliseconds();if(now<started||now>=started+5000||now<original.values.createdAt*1000||now>=(original.values.createdAt+300)*1000)return statusHeld();};check();
- const body=erasureStatusBody(original.values,'independent'),mac=await statusOriginalMac(config.secret,'erasure-status-v2',body,check);check();return body+'.'+mac;
+ const native=nativeErasureMode(env),origin=native?null:originalErasureStatusAdmissionReceipt(env,original.terminalRow);if(!native&&!origin)return null;
+ const config=statusEnv(env),started=originalRecoveryClockMilliseconds();const check=()=>{original.check();config.check();current();origin?.check();const now=originalRecoveryClockMilliseconds();if(now<started||now>=started+5000||now<original.values.createdAt*1000||now>=(original.values.createdAt+300)*1000)return statusHeld();};check();
+ const body=erasureStatusBody(original.values,native?'local_only':'independent'),mac=await statusOriginalMac(config.secret,'erasure-status-v2',body,check);check();return body+'.'+mac;
 }
 
 function originalStatusRequest(request:Request):Readonly<{method:string;version:string|null;check:()=>void}>{
@@ -251,10 +252,15 @@ async function statusResult(env:Env,operationId:string,input:StatusRow,credentia
  ${staffCustodyProjectionSql('(SELECT subject_id FROM privacy_serving_jobs WHERE operation_id=?1 AND request_digest=?2)')} FROM privacy_provider_messages m
  WHERE m.state NOT IN('removed','refused') AND EXISTS(SELECT 1 FROM privacy_serving_jobs j JOIN json_each(m.subjects)x WHERE j.operation_id=?1 AND j.request_digest=?2 AND json_extract(x.value,'$.id')=j.subject_id)`)
  .bind(operationId,row.request_digest).first<{known:number;unknown:number;expiredUnresolved:number}&StaffCustodyCounts>();check();const debtData=snapshotErasureStatusData(debt);debtData.check();
- const required=code?.claims.r??'unclassified',local=false;let independentlyConfirmed=false;
+ const required=code?.claims.r??'unclassified';let local=false,independentlyConfirmed=false;
+ // Native mode confirms only the real atomic terminal/replay read. The private code is
+ // scoped to this operation and original deadline, without any account access or Floor pin.
+ if(row.state==='complete'&&nativeErasureMode(env)&&credential&&code?.claims.v===2&&required==='local_only'){
+  try{const terminal=originalErasureStatusTerminalData(input);terminal.check();check();const f=terminal.facts;local=f.operationId===operationId&&f.requestDigest===code.claims.d&&f.generation===code.claims.g&&f.retainUntil===code.claims.e;terminal.check();}catch{local=false;}
+ }
  if(row.state==='complete'&&credential&&code?.claims.v===2&&required==='independent'){try{independentlyConfirmed=await observeOriginalErasureStatusCompletion(env,input,credential,check);check();debtData.check();}catch{independentlyConfirmed=false;}}
- check();debtData.check();const unconfirmed=row.state==='complete'&&!independentlyConfirmed;
- return {operationId,state:unconfirmed?'held':row.state,holdReason:unconfirmed?'independent_suppression_status_unconfirmed':row.hold_reason,servingAccountErased:independentlyConfirmed,servingLocalErased:local,statusRequirement:required,allCopiesErased:false,externalCleanup:debt?{known:debt.known,unknown:debt.unknown,expiredUnresolved:debt.expiredUnresolved}:{known:0,unknown:0,expiredUnresolved:0},recoveryCopies:'operator-held',staffAccess:row.staff_access,staffAccessDetails:staffAccessDetails(row.staff_access,debt),statusToken:code?.code??'',statusExpires:row.retain_until};
+ check();debtData.check();const unconfirmed=row.state==='complete'&&!independentlyConfirmed&&!local;
+ return {operationId,state:unconfirmed?'held':row.state,holdReason:unconfirmed?'independent_suppression_status_unconfirmed':row.hold_reason,servingAccountErased:independentlyConfirmed||local,servingLocalErased:local,statusRequirement:required,allCopiesErased:false,externalCleanup:debt?{known:debt.known,unknown:debt.unknown,expiredUnresolved:debt.expiredUnresolved}:{known:0,unknown:0,expiredUnresolved:0},recoveryCopies:'operator-held',staffAccess:row.staff_access,staffAccessDetails:{...staffAccessDetails(row.staff_access,debt),...(nativeErasureMode(env)?{automaticGuildRoleRemoval:true}:{})},statusToken:code?.code??'',statusExpires:row.retain_until};
 }
 /** Trusted original proof callers receive no credential from a retained or recovered row. */
 export async function statusByAccountErasureProof(env:Env,proof:AccountErasureProof,statusToken?:string):Promise<ErasureRequestResult|null>{
@@ -318,6 +324,7 @@ export async function requestServingErasure(env:Env,request:Request,operationId:
  const observed=await erasureRequestStatus(env,request,operationId).catch(()=>null);
  return observed?apiJson({...observed,responseRecovered:true},202):apiJson({error:'erasure_outcome_unknown',operationId},503);
  }
+ if(nativeErasureMode(env))await (await import('./privacy-serving-jobs')).continueSiteServingErasure(env,operationId).catch(()=>undefined);
  const status=originalStatusCode?await erasureRequestStatus(env,request,operationId,originalStatusCode).catch(()=>null):await statusByAccountErasureProof(env,Object.freeze({purpose:'account_erasure' as const,subject:session.u,subjectGeneration:generation,operationId,requestDigest,accountIncarnation:session.n})).catch(()=>null);
  return status?apiJson(status,202):apiJson({operationId,state:'held',holdReason:'independent_suppression_status_unconfirmed',servingAccountErased:false,servingLocalErased:false,statusRequirement:'unclassified',allCopiesErased:false,statusToken:'',privateStatusCodeAvailable:false},202);
 }

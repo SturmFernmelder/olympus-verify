@@ -84,7 +84,7 @@ export const LANE_OBSERVED_PRESENT_ENABLED=false;
 export const LANE_CONFIG_KEYS=Object.freeze(['FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','LINKS_NOT_BEFORE_CLOCK_GATED','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',
  'ROLE_CALL_BUDGET','GUILD_ID','DISCORD_APP_ID','DISCORD_BOT_TOKEN','ROLE_GUILD_MEMBER','ROLE_OFFICER','ROLE_MODERATOR','ROLE_GUILD_LEADER',
  'ROLE_GUILD_MASTER','ROLE_RAID_LEADER','MEMBERSHIP_RETIRED_ROLE_ID','BLOCKING_ROLE_IDS','INTROS_ROLES','QR_NATIVE_ROLE_MAP',
- 'QR_PRIVILEGED_RANK_MAPPING_ENABLED','QR_BETA_FERN_EXCEPTION_ENABLED','PRIVACY_ERASURE_ENABLED'] as const);
+ 'QR_PRIVILEGED_RANK_MAPPING_ENABLED','QR_BETA_FERN_EXCEPTION_ENABLED','PRIVACY_ERASURE_ENABLED','PRIVACY_NATIVE_ERASURE_ENABLED'] as const);
 type LaneKey=typeof LANE_CONFIG_KEYS[number];
 export type LaneFreshMode='absent'|'held'|'removals'|'grants';
 export type LaneStaffMode='absent'|'held'|'all'|'raid-leader';
@@ -166,9 +166,10 @@ export function captureLaneConfig(env:unknown):LaneCapture{
   else{const r=freshTierR(fullText,text);
    if(!r.cfg){fresh='held';freshReason=r.reason;}
    else{cfg=r.cfg;
-    // Tier G: grants also need exact LINKS_NOT_BEFORE digits (db.ts:123 and the Number(...) binds agree), no beta exception, erasure off.
+     // Tier G: legacy erasure still holds grants. Native .164 erasure coexists with the launch;
+     // the unchanged subject-generation SQL below holds retiring/erased subjects individually.
     const g=!cfg.grants?'grants_disabled':!linksNotBefore?'links_not_before_invalid':cfg.epochStart<linksNotBefore?'epoch_before_links_not_before'
-     :text('QR_BETA_FERN_EXCEPTION_ENABLED')==='true'?'beta_fern_exception_enabled':text('PRIVACY_ERASURE_ENABLED')==='true'?'erasure_enabled':'';
+      :text('QR_BETA_FERN_EXCEPTION_ENABLED')==='true'?'beta_fern_exception_enabled':text('PRIVACY_ERASURE_ENABLED')==='true'&&text('PRIVACY_NATIVE_ERASURE_ENABLED')!=='true'?'erasure_enabled':'';
     fresh=g?'removals':'grants';freshReason=g||'tier_g';}}
  }
  const staffIds=Object.freeze([text('ROLE_GUILD_LEADER')??'',text('ROLE_OFFICER')??'',text('ROLE_RAID_LEADER')??'']);

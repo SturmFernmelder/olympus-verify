@@ -18,6 +18,7 @@
  * This module's named exports are functions only: workerd refuses an entry that exports a scalar (.51).
  */
 import type { Env } from "./env";
+import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
 import { unverifiedReport } from "./unverified";
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
@@ -123,6 +124,7 @@ export function originalScheduledCallbackPhysicalCostObservation(controller:obje
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    env=nativeServingEnvironment(env);
     const roleDispatch=captureBetaRoleDispatch(env);
     let originalRequest:ReturnType<typeof preflightOriginalServingRequest>|undefined;
     try{if(globalServingMode(env)==='configured')originalRequest=preflightOriginalServingRequest(request);}catch{return json({error:'original_serving_held'},503); }
@@ -246,6 +248,7 @@ export default {
   },
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    env=nativeServingEnvironment(env);
     const roleDispatch=captureBetaRoleDispatch(env);
     try {
       scheduledIntrinsics();const admission=scheduledDescriptor(env,'PRIVACY_WRITE_ADMISSION_ENABLED');
@@ -320,7 +323,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     // most every 3 h, only while News is switched on, from the switch and cache the cleanup's batch read (site-news.ts newsCron)
     deferOriginalServing(ctx,'newsCron',()=>rosterCadence.newsEnabled?newsCron(env):Promise.resolve());
     deferOriginalServing(ctx,'runOfficerDigest',()=>runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
-    deferOriginalServing(ctx,'runServingErasureJob',()=>runServingErasureJob(env).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
+    deferOriginalServing(ctx,'runServingErasureJob',()=>runServingErasureJob(env).then(out=>{if(nativeErasureMode(env))console.log('native erasure tick',{attempted:out.attempted,completed:out.completed,held:out.held});}).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
     deferOriginalServing(ctx,'sweepServingRetention',()=>sweepServingRetention(env,originalRetentionSchedule).catch(e=>console.error('serving retention failed',errorRef(e))));
   const rejectionExpiry=captureRejectionExpiryInvocation(env);
   deferOriginalServing(ctx,'sweepRejectionExpiry',()=>sweepRejectionExpiry(env,rejectionExpiry).catch(e=>console.error('rejection expiry held',errorRef(e))));
@@ -564,7 +567,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-17.163 Guild source closure and fresh roles";
+const BUILD = "2026-10-17.164 Native serving erasure";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

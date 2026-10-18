@@ -55,6 +55,20 @@ const cap=e=>F.captureLaneConfig(e);
   const c=cap(env(extra));check('tier R only ('+label+'): removals run, grants held',c.configured&&c.fresh==='removals'&&c.freshReason===reason&&c.cfg!==null);
  }
  {const c=cap(env({FULL_RELEASE_ROLES:rawOf(),LINKS_NOT_BEFORE:String(EPOCH-86400)}));check('epochStart after LINKS_NOT_BEFORE is tier G',c.fresh==='grants');}
+ {const e=env({FULL_RELEASE_ROLES:rawOf(),STAFF_TEN_RANK_ROLES:'true',PRIVACY_ERASURE_ENABLED:'true',PRIVACY_NATIVE_ERASURE_ENABLED:'true'}),c=cap(e);
+  check('exact Native true permits fresh grant tier without holding other members for erasure',c.fresh==='grants'&&c.freshReason==='tier_g'&&c.staff==='all'&&c.current());
+  check('Native erasure exception retains the original November launch clock',!F.laneClock(c,EPOCH-1).grants&&F.laneClock(c,EPOCH).grants);
+  e.PRIVACY_NATIVE_ERASURE_ENABLED='false';check('changing the captured Native flag invalidates original grant capture',!c.current());
+  e.PRIVACY_NATIVE_ERASURE_ENABLED='true';check('restoring the exact Native descriptor restores the original witness',c.current());}
+ for(const value of [undefined,'false','TRUE',' true','true ','1','']){const c=cap(env({FULL_RELEASE_ROLES:rawOf(),PRIVACY_ERASURE_ENABLED:'true',PRIVACY_NATIVE_ERASURE_ENABLED:value}));
+  check('non-exact Native '+String(value)+' never exempts legacy erasure hold',c.fresh==='removals'&&c.freshReason==='erasure_enabled');}
+ for(const value of [true,1,null]){const c=cap(env({FULL_RELEASE_ROLES:rawOf(),PRIVACY_ERASURE_ENABLED:'true',PRIVACY_NATIVE_ERASURE_ENABLED:value}));
+  check('non-string Native '+String(value)+' is held by captured configuration grammar',c.fresh==='held'&&c.freshReason==='configuration_descriptor_held');}
+ {let reads=0;const e=env({FULL_RELEASE_ROLES:rawOf(),PRIVACY_ERASURE_ENABLED:'true'});Object.defineProperty(e,'PRIVACY_NATIVE_ERASURE_ENABLED',{get(){reads++;return 'true';},enumerable:true,configurable:true});
+  check('Native accessor cannot bypass erasure hold and is never invoked',cap(e).fresh==='held'&&reads===0);}
+ {const e=Object.assign(Object.create({PRIVACY_NATIVE_ERASURE_ENABLED:'true'}),env({FULL_RELEASE_ROLES:rawOf(),PRIVACY_ERASURE_ENABLED:'true'}));
+  check('inherited Native true cannot authorize grant exception',cap(e).fresh==='held');}
+ {const e=env({FULL_RELEASE_ROLES:rawOf()}),c=cap(e);e.PRIVACY_NATIVE_ERASURE_ENABLED='true';check('adding previously absent Native flag invalidates original entry capture',!c.current());}
  // every twelve ID and every reserved role in every slot fails tier R
  const reserved=[...policy.BETA_RESET_ROLE_IDS,GUILD,APP,MEMBER,OFFICER,MODERATOR,LEADER,RAID,RETIRED,...BLOCK,INTRO[0],...QR_ROLES];
  let matrix=0;
@@ -102,7 +116,7 @@ const cap=e=>F.captureLaneConfig(e);
   check('current() is true until a read key changes',c.current());
   e.SITE_ADMINS=id(98);e.CHANNEL_SERVER_LOG=id(97);check('unrelated keys do not flip current()',c.current());
   const mutations=[['FULL_RELEASE_ROLES',rawOf({grants:false})],['GUILD_ID',id(77)],['DISCORD_BOT_TOKEN','rotated'],['BLOCKING_ROLE_IDS',''],['LINKS_NOT_BEFORE','1793833201'],['LINKS_NOT_BEFORE_CLOCK_GATED','true'],
-   ['ROLE_CALL_BUDGET','30'],['QR_NATIVE_ROLE_MAP',''],['PRIVACY_ERASURE_ENABLED','true'],['ROLE_RAID_LEADER',id(78)],['STAFF_TEN_RANK_ROLES','raid-leader']];
+   ['ROLE_CALL_BUDGET','30'],['QR_NATIVE_ROLE_MAP',''],['PRIVACY_ERASURE_ENABLED','true'],['PRIVACY_NATIVE_ERASURE_ENABLED','true'],['ROLE_RAID_LEADER',id(78)],['STAFF_TEN_RANK_ROLES','raid-leader']];
   for(const [k,v] of mutations){const f=env({FULL_RELEASE_ROLES:rawOf(),STAFF_TEN_RANK_ROLES:'true'}),original=Object.getOwnPropertyDescriptor(f,k),w=cap(f);f[k]=v;assert.equal(w.current(),false,k);if(original)Object.defineProperty(f,k,original);else delete f[k];assert.equal(w.current(),true,k+' restored');}
   check(`current() flips on every read key (${mutations.length} keys) and recovers when restored`,true);
   {const f=env({FULL_RELEASE_ROLES:rawOf()}),w=cap(f);f.QR_BETA_FERN_EXCEPTION_ENABLED='false';check('adding a previously absent read key flips current()',!w.current());}
@@ -166,7 +180,7 @@ const cap=e=>F.captureLaneConfig(e);
   check('full-release-roles.ts imports only pure modules',imports.join()==='./account-generation-contracts,./beta-reset-policy,./env,./native-rank-adapter,./privacy-serving-authority,./qr-phase1');
   const code=ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,removeComments:true}}).outputText;
   check('full-release-roles.ts makes no D1, HTTP or async call',!/\.prepare\(|\.batch\(|fetch\(|\bawait\b|\basync\b|\.DB\b/.test(code));
-  check('the capture reads every key it documents',F.LANE_CONFIG_KEYS.length===23&&['FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','DISCORD_BOT_TOKEN','MEMBERSHIP_RETIRED_ROLE_ID','INTROS_ROLES','QR_BETA_FERN_EXCEPTION_ENABLED','PRIVACY_ERASURE_ENABLED','LINKS_NOT_BEFORE_CLOCK_GATED'].every(k=>F.LANE_CONFIG_KEYS.includes(k)));}
+  check('the capture reads every key it documents',F.LANE_CONFIG_KEYS.length===24&&['FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','DISCORD_BOT_TOKEN','MEMBERSHIP_RETIRED_ROLE_ID','INTROS_ROLES','QR_BETA_FERN_EXCEPTION_ENABLED','PRIVACY_ERASURE_ENABLED','PRIVACY_NATIVE_ERASURE_ENABLED','LINKS_NOT_BEFORE_CLOCK_GATED'].every(k=>F.LANE_CONFIG_KEYS.includes(k)));}
  {const e=src('env.ts');check('env.ts gains the two type-only optional fields',/^  FULL_RELEASE_ROLES\?: string;/m.test(e)&&/^  STAFF_TEN_RANK_ROLES\?: string;/m.test(e)&&!/FULL_RELEASE_ROLES[^?]*=/.test(e.split('\n').filter(l=>!l.includes('//')).join('\n')));}
  console.log(`\n${passed} checks passed`);
 })().catch(e=>{console.error('FAIL',e);process.exit(1);});

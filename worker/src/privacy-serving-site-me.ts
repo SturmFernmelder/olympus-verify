@@ -2,6 +2,7 @@
  * Local tickets do not fence same-ID account recreation, qualify platform origin or prove drain. */
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type {Env} from './env';
+import {nativeErasureMode} from './privacy-native-mode';
 import {currentUser,readSession,apiJson,SESSION_COOKIE,ON_BOARD,ROLE_OF_FIRST,type SiteUser} from './site-core';
 import {meData} from './site-api';
 import {ensureSchema} from './schema';
@@ -41,6 +42,7 @@ function boundedString(v:unknown,maximum=4096):v is string{return typeof v==='st
 function metadata(v:object):string{const id=data(v,'id'),tag=data(v,'tag'),timestamp=data(v,'timestamp');if(!uuid(id)||!boundedString(tag,1024)||!boundedString(timestamp,128))return held();return JSON.stringify([id,tag,timestamp]);}
 /** Absent is inspected without invoking accessors; existing metadata/admission alone do not enable this route. */
 export function siteMeServingMode(env:Env):'off'|'configured'|'held'{try{
+ if(nativeErasureMode(env))return 'off';
  const entries=PRIVATE.map(key=>slot(env,key)),erasure=slot(env,'PRIVACY_ERASURE_ENABLED');
  if(erasure.present&&typeof erasure.value!=='string')return 'held';
  if(entries.every(v=>!v.present))return erasure.value==='true'?'held':'off';
