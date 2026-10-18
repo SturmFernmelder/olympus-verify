@@ -32,11 +32,11 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
 
 /** Called only after the canonical host check. Public policies/assets are handled before this boundary. */
 export async function memberSiteGate(request: Request, env: Env, path: string): Promise<Response | null> {
-  // A deliberate successful advisory response: crawlers process 2xx robots bodies. Cloudflare documents
-  // managed merging for 200; whether 203 avoids that prefix still requires the live edge readback.
-  // Keep both deny rules and the noindex/no-store boundary even if the provider keeps injecting.
+  // The .165 HTTP 203 attempt lost this deny body at the Cloudflare edge to a managed HTTP 200 response.
+  // Restore the original HTTP 200 deny response; verify the merged body after deployment.
+  // The provider's injected Allow directive remains separate from this member access boundary.
   if (path === '/robots.txt' && (request.method === 'GET' || request.method === 'HEAD')) {
-    return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nDisallow: /\nDisallow: /*$\n', { status: 203, headers: securityHeaders(new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })) });
+    return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nDisallow: /\nDisallow: /*$\n', { status: 200, headers: securityHeaders(new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })) });
   }
   if (AUTH_PATHS.has(path) || PRIVACY_PATHS.has(path) || path === '/api/me/export' || path === '/api/me/erasure/status' || path === '/api/me/erasure') return null;
   if (path === '/auth/logout' && request.method === 'POST') return null; // the original same-origin handler must clear even a departed/denied session
