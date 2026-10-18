@@ -37,6 +37,7 @@
 .olympus-policy .receipt,.olympus-policy .data-controls{margin:1.5rem 0;padding:1rem;border:1px solid #6a5125;border-radius:.4rem}
 .olympus-policy .receipt h2,.olympus-policy .data-controls h2{margin-top:0}
 .olympus-policy .preserve-text{white-space:pre-wrap}
+.olympus-policy .privacy-status-code{min-width:0;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal}
 .olympus-policy .case-messages{padding-left:1.25rem}
 .olympus-policy .case-messages li{padding:.5rem 0;border-bottom:1px solid #433821}
 /* .154: the same official game texture/font vocabulary as the member guild hall. */

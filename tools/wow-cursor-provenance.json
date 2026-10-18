@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "product": "wow_classic_era",
+  "clientVersion": "1.15.9.70003",
+  "buildNumber": 70003,
+  "buildKey": "2417084b8b041ee120d02d4adf31b0bc",
+  "extraction": "Offline local CascLib; strict data checks; encrypted BLTE refused; only two named cursor files; no download or game-account data",
+  "conversion": "Original 32x32 BLP2 mip0 palette RGB and separate alpha plane to PNG; no redraw, scaling, recolouring or animation",
+  "formatReference": "https://github.com/corepunch/open-realm/blob/main/renderer/r_blp2.c",
+  "assets": [
+    {
+      "clientPath": "Interface/Cursor/Point.blp",
+      "fileDataId": 131028,
+      "sourceBytes": 2709,
+      "sourceSha256": "b844b9538685f949d7942525cf069ac8d79ecea8fcbd34be937e0ee12e1b0699",
+      "asset": "/static/wow/cursor-point.png",
+      "assetBytes": 1702,
+      "assetSha256": "e0c2e4058da870eba331be9c2aff62895b1afefc3b3ee3ed9ab24c63771fc42c",
+      "rgbaSha256": "94984e0072b589817db46be8e9ad7a5ef6222df0ea94988d47508fe39339be04",
+      "width": 32,
+      "height": 32,
+      "alphaDepth": 1,
+      "alphaExtrema": [
+        0,
+        255
+      ]
+    },
+    {
+      "clientPath": "Interface/Cursor/Interact.blp",
+      "fileDataId": 131021,
+      "sourceBytes": 3902,
+      "sourceSha256": "7b30c0bcc931c63fff4a5e3475d8176dccbfa557ea0697742b92be924aee89a1",
+      "asset": "/static/wow/cursor-interact.png",
+      "assetBytes": 1734,
+      "assetSha256": "e82d06135e75f3a8a6de36d7432a4ed2d1ded0fce38ed790f8c311ca736b6942",
+      "rgbaSha256": "40ae3d08b8ede3c15d7395f6554c8a24e9571f056fe052030965cf04c38c2e31",
+      "width": 32,
+      "height": 32,
+      "alphaDepth": 8,
+      "alphaExtrema": [
+        0,
+        255
+      ]
+    }
+  ]
+}

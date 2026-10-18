@@ -59,6 +59,7 @@ import { secondsToIso } from "./community-time";
 import { ownEventChangeStatements } from "./community-events";
 import { ownContributionDecisionStatements } from "./community-contributions";
 import { privacySubjectKey } from './privacy-serving-authority';
+import { ownAppointmentPublicationsStatement, projectOwnAppointmentPublications } from './site-appointed-identities';
 
 const ACTIONS_LIMIT = 1000;
 /** Integrity only: signed-session admission remains mandatory for every page. */
@@ -401,6 +402,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
     ...plan.statements,
     ...privacyStatements,
     rejectionSummaryStatement(env,id,markerKey),
+    ownAppointmentPublicationsStatement(env,id),
   ]);
   if (out === FENCE_REFUSED) return historyRefusal(env, request);
   const [clock, account, app, votes, board, friends, reserved, member, characters, requests, queue, historyMeta, historyRows, eventMeta, eventRows, decisionMeta, decisionRows, renames] = out;
@@ -425,6 +427,7 @@ export async function exportMyData(request: Request, env: Env, user: SiteUser, a
       ? { discordId: a.discord_id, username: a.username, displayName: a.global_name, nickname: a.nick, avatar: a.avatar, accountCreated: iso(a.account_created as number | null), joinedServer: iso(a.server_joined as number | null), firstSignIn: iso(a.first_login as number), lastSignIn: iso(a.last_login as number), lastMembershipCheck: iso(a.checked_at as number | null), inServer: a.in_server === 1, denied: a.denied === 1, deniedAt: iso(a.denied_at as number | null) }
       : null,
     site: {
+      appointmentPublications: await projectOwnAppointmentPublications(env,out.at(-1)!.results),
       application: app!.results[0] ? { ...ownApplication(appOut(app!.results[0] as AppRow)),reviewedAt:(ownCopyDate((app!.results[0] as AppRow).reviewed_at,true),(app!.results[0] as AppRow).reviewed_at) } : null,
       votes: (votes!.results as Rec[]).map((v) => ({ ballot: v.ballot, slot: v.slot, nominee: { label: v.nominee_label }, reason: v.reason, createdAt: iso(v.created_at as number), updatedAt: iso(v.updated_at as number) })), // .74: the label chosen, no structural account reference
       boardVotes: (board!.results as Rec[]).map((v) => ({ role: v.role_key, vote: v.vote, createdAt: iso(v.created_at as number), updatedAt: iso(v.updated_at as number) })),

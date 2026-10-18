@@ -25,6 +25,11 @@ images is claimed or granted by this repository.
 
 ## The Olympus crest
 
+Build .167 adds the original Point and Interact cursors from the owner's offline Classic Era 1.15.9.70003 client
+extraction. The two 32-pixel PNGs preserve the source palette and alpha without redrawing or scaling. Their separate
+source hashes, client paths and conversion record are in `tools/wow-cursor-provenance.json` and appended to the public
+asset provenance. The same Blizzard ownership and limited pixel-lineage claim above apply to these two additions.
+
 `worker/public/static/olympus-icon.png` is the Olympus crest, the guild's own logo (the one shown on
 guild.roachcouncil.com). Since build .111 it is the site's brand and tab icon, by the owner's decision of 1 October
 2026, and it is the website's one image that does not come from the game client. It is not a game texture, it is not

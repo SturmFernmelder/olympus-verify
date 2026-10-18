@@ -57,11 +57,11 @@ resources = ref['_resources']
 public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
-check(len(assets) == 104 and len(ref['official_paths']) == 94, '104 exact assets including organization CSS; 94 original official image/font paths')
-check(len(resources) == 19 and len(public) == 123, 'nineteen separate required non-art resources')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed 123-path union')
+check(len(assets) == 107 and len(ref['official_paths']) == 96, '107 exact assets including organization and cursor CSS; 94 original official image/font paths plus two exact client cursors')
+check(len(resources) == 19 and len(public) == 126, 'nineteen separate required non-art resources')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed 126-path union')
 check(len(ref['_fixed_art_sources']) == 5 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'five art-sensitive producer pins and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all 123 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all 126 current public byte pins match the reviewed reference')
 check(gate.runtime_path('worker/public/static/qr-phase1.mjs'), 'ES modules are runtime sources')
 check(not gate.runtime_path('worker/public/static/governance/olympus-governance-r6.pdf'), 'documents are not executable runtime sources')
 
@@ -125,7 +125,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 123 and proof['required_non_art_resource_pins_verified'] == 19, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 126 and proof['required_non_art_resource_pins_verified'] == 19, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['readyForPublication'] is False and proof['document_content_acceptance'] is False, 'synthetic byte checks confer no release or document-content approval')
     gate.validate_worktree_assets(ROOT, admitted)
     check(True, 'actual source public worktree passes exact closed-resource validation')
@@ -201,7 +201,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payloads[p])
     gate.validate_worktree_assets(snapshot, admitted)
-    check(True, 'independent temporary worktree copy validates all 123 required files')
+    check(True, 'independent temporary worktree copy validates all 126 required files')
     pdf = snapshot / 'worker/public/static/governance/olympus-governance-r6.pdf'
     pdf.write_bytes(b'changed')
     refused(lambda: gate.validate_worktree_assets(snapshot, admitted), 'public_asset_worktree_pin_mismatch', 'worktree resource substitution is refused')

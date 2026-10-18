@@ -64,6 +64,7 @@ import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./commun
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
 import { newsPage } from "./site-news";
+import { appointedIdentitiesPage } from './site-appointed-identities';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -105,6 +106,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/me/export") return exportMyData(request, env, user); // .71: the member's own copy
   if (m === "GET" && path === "/api/search") return search(env, user, new URL(request.url), admin);
   if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
+  if (m === 'GET' && path === '/api/appointed-identities') return appointedIdentitiesPage(request, env);
   if (m === "GET" && path === "/api/news") return newsPage(request, env); // .115: News (site-news.ts), confirmed members, behind settings.newsOn
   if (m === "GET" && (path === "/api/board" || path.startsWith("/api/board/"))) {
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in

@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 51651,
-      "sha256": "855766c567e5436ae258f63be69d196e0992f721f9112a40068eaca59c0da626"
+      "bytes": 51947,
+      "sha256": "1138f80b83964ef8561c6b2190691de90672bfe7b2e573a634c2e16efa6503dd"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 484888,
-      "sha256": "0a9ce0c73fbf217e4150e560d3989ff1d2951295298ab55d07456133828a3cb7"
+      "bytes": 490856,
+      "sha256": "b95db25c9cc4a6444a549ad4cac1426e3595430bbe18c57e531f8763aa1399d6"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 6071,
-      "sha256": "f07bdc85527580660df55c8e314557f66b030e547d91daad757ba0bdf419424b"
+      "bytes": 6198,
+      "sha256": "fce051dd2455d8a1b6c82b5ad0d9087ecb8d44bd9b00be1312680017ffb89860"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -56,8 +56,8 @@
     {
       "path": "worker/public/static/wow/asset-provenance.json",
       "mode": "100644",
-      "bytes": 62241,
-      "sha256": "5556bd92037a8ca7e8ef036dd5ba3417abc506913e5b15efe022606347eaff78"
+      "bytes": 66247,
+      "sha256": "845f3d10d5fc0951a9b9623c16968a75f96340f0289624b50e8b0dc8a526214b"
     },
     {
       "path": "worker/public/static/wow/assist.png",
@@ -626,8 +626,26 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 4183,
-      "sha256": "d78b078b28efb8f5ca56212ef6db472c207539ba6ad2e40e62c24095d14553a5"
+      "bytes": 6044,
+      "sha256": "2f52b640aaf72e00ede3148e7f03fa2bf0ffa3abb098aaaf2fc46a181217e256"
+    },
+    {
+      "path": "worker/public/static/wow/cursor-point.png",
+      "mode": "100644",
+      "bytes": 1702,
+      "sha256": "e0c2e4058da870eba331be9c2aff62895b1afefc3b3ee3ed9ab24c63771fc42c"
+    },
+    {
+      "path": "worker/public/static/wow/cursor-interact.png",
+      "mode": "100644",
+      "bytes": 1734,
+      "sha256": "e82d06135e75f3a8a6de36d7432a4ed2d1ded0fce38ed790f8c311ca736b6942"
+    },
+    {
+      "path": "worker/public/static/wow-cursor.css",
+      "mode": "100644",
+      "bytes": 718,
+      "sha256": "90146d7844b925b88187a11279798340e2afb63a3d82cb8b60aaaae77c2447d9"
     }
   ],
   "official_paths": [
@@ -724,7 +742,9 @@
     "worker/public/static/wow/search.png",
     "worker/public/static/wow/vote-against.png",
     "worker/public/static/wow/vote-for.png",
-    "worker/public/static/wow/waiting.png"
+    "worker/public/static/wow/waiting.png",
+    "worker/public/static/wow/cursor-point.png",
+    "worker/public/static/wow/cursor-interact.png"
   ],
   "native_paths": [
     "worker/public/static/app.css",
@@ -734,7 +754,8 @@
     "worker/public/static/rank-planner/catalogue.js",
     "worker/public/static/rank-planner/model.js",
     "worker/public/static/rank-planner/styles.css",
-    "worker/public/static/organization-view.css"
+    "worker/public/static/organization-view.css",
+    "worker/public/static/wow-cursor.css"
   ],
   "runtime_paths": [
     "worker/public/static/app.css",
@@ -818,7 +839,9 @@
     "worker/src/site.ts",
     "worker/src/unverified.ts",
     "worker/public/static/organization-view.css",
-    "worker/public/static/organization-view.js"
+    "worker/public/static/organization-view.js",
+    "worker/public/static/wow-cursor.css",
+    "worker/src/site-appointed-identities.ts"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -917,8 +940,8 @@
   "approved_extractor": {
     "path": "tools/build-site-assets.py",
     "mode": "100644",
-    "bytes": 10518,
-    "sha256": "a40de488a25523fbff76b21d4e960cd530de9eb6ada8f1003f5333ff67902ff9"
+    "bytes": 12907,
+    "sha256": "4cd5904ccb4938df689f88c8b80404abb7977fc7149c2cfe028bf81c325b0741"
   },
   "fixed_art_source_pins": [
     {
@@ -936,8 +959,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 484888,
-      "sha256": "0a9ce0c73fbf217e4150e560d3989ff1d2951295298ab55d07456133828a3cb7"
+      "bytes": 490856,
+      "sha256": "b95db25c9cc4a6444a549ad4cac1426e3595430bbe18c57e531f8763aa1399d6"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -964,7 +987,8 @@
     "The .135 source successor binds the current site shell, scanner UI and role text. All 94 official game assets, fonts, provenance and approved crest pixels are unchanged; public QR decoding supplies protocol behavior rather than decorative artwork. This reference is byte evidence, not publication or deletion approval.",
     "The .135 resource successor separately requires fifteen exact non-art public resources: nine governance document/data downloads and six QR runtime/license/source records. They are not official artwork, image/font exceptions, CSS image URLs, qualified QR activation or publication approval. The sole public ZIP archive exception requires its exact source-bound path, mode, length and digest; other archive/private-path refusals are unchanged.",
     "The .154 metadata successor binds the frozen member sign-in shell, privacy-page stylesheet, adopted R7 book/model and unchanged-length QR module update. The organization stylesheet is an exact native asset; the organization ES module and operational charter are exact non-art resources. All 94 official image/font rows, approved crest bytes and historical R6 PDF/ZIP rows remain unchanged. Closed coverage is 104 assets plus 17 required non-art resources; byte-gate success grants no provider, publication or appointment authority.",
-    "Current .155 resource pins include the previously integrated Council duty text, named beta scanner and original-session custody. This byte reference is not deployment or live-acceptance evidence."
+    "Current .155 resource pins include the previously integrated Council duty text, named beta scanner and original-session custody. This byte reference is not deployment or live-acceptance evidence.",
+    "The .167 successor adds only two original 32px Classic cursor textures and an exact native cursor stylesheet. Original 94 image/font rows and their historical provenance caveats remain unchanged. The appended cursor record names the actual local Era 1.15.9.70003 build, exact BLP identifiers and hashes, separate alpha conversion, output pixels and reviewed extractor; it does not attest older extraction inputs, grant redistribution rights or supply publication authority. Closed asset coverage is 96 official image/font paths, 9 native UI paths, the existing provenance and approved crest: 107 exact asset rows. Required non-art resources remain 19. Current native UI, resource, producer and extractor rows bind the final reviewed source bytes."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -1092,8 +1116,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 16229,
-      "sha256": "8fb03c020efd0ac8d982f54655792c1f44e3e4b98e0c25abce30e65a247b13e0"
+      "bytes": 20155,
+      "sha256": "e12e888ec9eff840820a0d37a773151ebaacc402bebe9a065ca1458e387a481d"
     }
   ]
 }

@@ -150,6 +150,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
 <link rel="preload" href="/static/wow/friz-quadrata.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/wow/morpheus.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v=${encodeURIComponent(build)}">
+<link rel="stylesheet" href="/static/wow-cursor.css?v=${encodeURIComponent(build)}">
 <script type="application/json" id="boot">${scriptJson(boot)}</script>
 <script src="/static/app.js?v=${encodeURIComponent(build)}" defer></script>
 </head>

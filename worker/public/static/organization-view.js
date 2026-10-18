@@ -48,7 +48,7 @@ export function renderOrganization(main, data, ui) {
   const detail = h("section", { class: "org-inspector", "aria-label": "Office mandate", "aria-live": "polite", tabindex: "-1" });
   const status = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
   const search = h("input", { type: "search", id: "organization-search", maxlength: "160", placeholder: "Find an office, rank or duty…", "aria-label": "Search all offices and 95 labels" });
-  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false;
+  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false;
   const zoomStatus = h("output", { class: "org-zoom", "aria-label": "Chart zoom" });
   function transform() { stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`; zoomStatus.textContent = Math.round(scale * 100) + "%"; }
   function zoom(next, cx = viewport.clientWidth / 2, cy = viewport.clientHeight / 2) {
@@ -81,17 +81,56 @@ export function renderOrganization(main, data, ui) {
   }
   const chartButton = h("button", { type: "button", class: "btn small", "aria-pressed": "true", text: "Chart", onclick: () => view(false) });
   const listButton = h("button", { type: "button", class: "btn small", "aria-pressed": "false", text: "List", onclick: () => view(true) });
-  const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), h("button", { type: "button", class: "btn small", text: "Fit chart", onclick: fit }), h("button", { type: "button", class: "btn small", text: "Center selected", onclick: () => focusNode(selected) }));
-  function view(asList) { isList = asList; list.hidden = !asList; viewport.hidden = asList; chartControls.hidden = asList; chartButton.setAttribute("aria-pressed", String(!asList)); listButton.setAttribute("aria-pressed", String(asList)); if (!asList) fit(); }
+  const chartLocation = h("div", { class: "org-chart-location" });
+  const chartDialog = h("dialog", { class: "org-fullscreen", "aria-label": "Organization chart in full screen" },
+    h("div", { class: "org-fullscreen-heading" }, h("h2", { text: "Organization of Olympus" }),
+      h("button", { type: "button", class: "btn small", text: "Close full screen", onclick: () => chartDialog.close() })));
+  const fullScreen = h("button", { type: "button", class: "btn small", text: "Full screen", "aria-expanded": "false", onclick: () => {
+    if (chartDialog.open) { chartDialog.close(); return; }
+    if (typeof chartDialog.showModal !== "function") { status.textContent = "Full screen is unavailable in this browser. The chart and List view remain available below."; return; }
+    stop(); chartDialog.append(chartShell);
+    try { chartDialog.showModal(); }
+    catch { chartLocation.append(chartShell); status.textContent = "Full screen could not be opened. The chart remains available below."; return; }
+    fullScreen.textContent = "Exit full screen"; fullScreen.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected) { focusNode(selected); viewport.focus(); } });
+  } });
+  const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), h("button", { type: "button", class: "btn small", text: "Fit chart", onclick: fit }), h("button", { type: "button", class: "btn small", text: "Center selected", onclick: () => focusNode(selected) }), fullScreen);
+  const chartShell = h("section", { class: "org-chart-shell", "aria-label": "Explore the organization" },
+    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), status,
+    h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detail));
+  chartLocation.append(chartShell);
+  chartDialog.addEventListener("close", () => {
+    stop(); chartLocation.append(chartShell); fullScreen.textContent = "Full screen"; fullScreen.setAttribute("aria-expanded", "false");
+    requestAnimationFrame(() => { if (main.isConnected) { if (!isList) focusNode(selected); (isList ? listButton : fullScreen).focus(); } });
+  });
+  function view(asList) { stop(); isList = asList; list.hidden = !asList; viewport.hidden = asList; chartControls.hidden = asList; chartButton.setAttribute("aria-pressed", String(!asList)); listButton.setAttribute("aria-pressed", String(asList)); if (!asList) fit(); }
   viewport.addEventListener("keydown", e => {
     if (e.target !== viewport) return;
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); const step = e.shiftKey ? 120 : 45; x += e.key === "ArrowLeft" ? step : e.key === "ArrowRight" ? -step : 0; y += e.key === "ArrowUp" ? step : e.key === "ArrowDown" ? -step : 0; transform(); }
     else if (["+", "=", "-", "Home", "0"].includes(e.key)) { e.preventDefault(); if (e.key === "Home" || e.key === "0") fit(); else zoom(scale * (e.key === "-" ? .8 : 1.25)); }
   });
-  viewport.addEventListener("pointerdown", e => { if (e.button !== 0 || e.target.closest("button")) return; dragging = { id: e.pointerId, px: e.clientX, py: e.clientY, x, y }; viewport.setPointerCapture(e.pointerId); viewport.classList.add("is-dragging"); });
-  viewport.addEventListener("pointermove", e => { if (dragging?.id === e.pointerId) { x = dragging.x + e.clientX - dragging.px; y = dragging.y + e.clientY - dragging.py; transform(); } });
-  const stop = () => { dragging = null; viewport.classList.remove("is-dragging"); };
+  // A card still clicks normally; movement beyond a small threshold becomes a pan instead.
+  viewport.addEventListener("pointerdown", e => {
+    if (e.button !== 0 || e.isPrimary === false || dragging) return;
+    suppressClick = false;
+    dragging = { id: e.pointerId, px: e.clientX, py: e.clientY, x, y, moved: false };
+    if (!e.target.closest("button")) { e.preventDefault(); viewport.focus({ preventScroll: true }); viewport.setPointerCapture(e.pointerId); }
+  });
+  viewport.addEventListener("pointermove", e => {
+    if (dragging?.id !== e.pointerId) return;
+    const dx = e.clientX - dragging.px, dy = e.clientY - dragging.py;
+    if (!dragging.moved && Math.hypot(dx, dy) < 6) return;
+    dragging.moved = true; suppressClick = true; e.preventDefault(); viewport.setPointerCapture(e.pointerId);
+    viewport.classList.add("is-dragging"); x = dragging.x + dx; y = dragging.y + dy; transform();
+  });
+  const stop = e => {
+    if (e?.pointerId !== undefined && dragging?.id !== e.pointerId) return;
+    const id = dragging?.id; dragging = null; viewport.classList.remove("is-dragging");
+    if (id !== undefined && viewport.hasPointerCapture(id)) viewport.releasePointerCapture(id);
+  };
   viewport.addEventListener("pointerup", stop); viewport.addEventListener("pointercancel", stop); viewport.addEventListener("lostpointercapture", stop);
+  viewport.addEventListener("click", e => { if (suppressClick && e.detail !== 0) { suppressClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  viewport.addEventListener("selectstart", e => e.preventDefault());
   viewport.addEventListener("wheel", e => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = viewport.getBoundingClientRect(); zoom(scale * (e.deltaY < 0 ? 1.12 : .89), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
   const termList = h("ul", { class: "organization-terms" });
   const termRows = data.terms.map(t => { const li = h("li", null, h("button", { type: "button", class: "organization-term", text: t.label, onclick: () => select(t.nodeId, true, true, t) }), h("small", { class: "muted", text: data.termGroups.find(g => g.id === t.classification).title })); termList.append(li); return { t, li }; });
@@ -104,10 +143,15 @@ export function renderOrganization(main, data, ui) {
   add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null, h("p", { class: "eyebrow", text: "The administration of Olympus" }), h("h1", { text: "Many guilds. One Olympus." }), h("p", { text: "Follow a line of responsibility, find the people a duty serves, and understand where an office’s authority ends." }))),
     h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }), h("p", { text: "Adopted by the authorized guild administration. An office shown here does not appoint a holder, grant a Council vote or alter game, Discord, website or bank permissions. Individual appointments and actual access remain separately recorded." })),
     h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" }, h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Read the operational charter" }), h("a", { class: "btn", href: data.directoryRoute, text: "Current appointed leadership" }), h("a", { class: "btn small", href: "#/governance", text: "Complete governance book" })),
+    h("section", { class: "org-council-overview frame", "aria-label": "High Council offices" }, h("h2", { text: "The High Council at a glance" }),
+      h("p", { text: "Five core portfolio offices coordinate the work of Olympus:" }),
+      h("ul", { class: "org-council-offices" }, ["War Head for PvP", "War Head for Raiding", "Federal Treasurer", "Minister of Artisanry", "Minister of Heraldry"].map(title => h("li", null, h("strong", { text: title })))),
+      h("p", { text: "Council seats require an accepted appointment; these five offices are not a five-seat limit. Accepted councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review." }),
+      h("p", { class: "small muted", text: "Systems and Addons is shared support. Specialist heads may advise, but are not automatically voting councillors. Neither this chart, a native rank nor a Co-Guild Master title issues a Council appointment or permission." }),
+      h("a", { href: "#/governance/operational-charter-the-work-of-olympus", text: "Read Operational Charter O3 — The High Council and its offices" })),
     h("div", { class: "org-guide" }, h("h2", { text: "How to read the chart" }), h("p", { text: "Solid gold arrows point from an office toward the authority it answers to. Dashed blue two-way lines connect partners who coordinate. Dotted violet lines show independent review, never command by the person under review. Select a card to read its mandate. The rank and status groupings below carry no command arrows." }),
-      h("p", { class: "small muted", text: "Drag empty space to pan. Use +/−, Ctrl + wheel or ⌘ + wheel to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, Home or 0 to fit. Every office is also available in List view." })),
-    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), status,
-    h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detail),
+      h("p", { class: "small muted", text: "Drag the chart or a card to pan; click a card to read its mandate. Use +/−, Ctrl + wheel or ⌘ + wheel to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, Home or 0 to fit. Full screen gives the chart more room; Escape returns to this page. Every office is also available in List view." })),
+    chartLocation, chartDialog,
     h("section", { class: "frame org-rank-guide" }, h("h2", { text: "An office, a native rank and a permission are three records" }), h("p", { text: "The High Council includes entrusted offices: the PvP and Raiding War Heads, Federal Treasurer, Ministers of Artisanry and Heraldry, and accepted members serving Justice or another recorded mandate. A Council seat is an appointment. High Council is also a slot in the adopted ten-rank ladder. One does not silently issue the other. The current five-rank beta client is a separate observed game configuration; this page does not claim the ten-rank ladder has already been installed." }),
       h("ol", { class: "organization-ranks" }, data.nativeRanks.map(r => h("li", { "data-native-rank": String(r.order) }, h("strong", { text: r.name }), h("p", { class: "small", text: r.meaning.replace("draft preset", "configuration preset") })))),
       h("p", { text: "Co-Guild Master, Vice Guild Master, Chief of Staff, Treasurer, ministers, deputies, emissaries, mentors and class heads are offices or duties; none creates an extra rank slot. Officer Alt and Alt identify verified characters, not extra people or votes. No title alone grants bank withdrawal, invitations, key signing or access to confidential records." })),

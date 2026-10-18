@@ -1,0 +1,7 @@
+/* Original 32px client cursors. Static, optional fine-pointer enhancement; native fallbacks remain usable. */
+@media (hover:hover) and (pointer:fine) and (forced-colors:none){
+  html:not([data-game-cursor="off"]) body{cursor:url('/static/wow/cursor-point.png') 0 0,auto}
+  html:not([data-game-cursor="off"]) :is(a[href]:not([aria-disabled="true"]),button:not(:disabled):not([aria-disabled="true"]),summary:not([aria-disabled="true"])){cursor:url('/static/wow/cursor-interact.png') 0 0,pointer}
+  html:not([data-game-cursor="off"]) :is(input,textarea,select,[contenteditable]:not([contenteditable="false"])){cursor:auto}
+  html:not([data-game-cursor="off"]) :is(:disabled,[aria-disabled="true"]){cursor:not-allowed}
+}
