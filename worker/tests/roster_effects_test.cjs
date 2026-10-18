@@ -7,6 +7,23 @@
 // Cost-fault custody is preserved before separate fault-free component measurements; no universal worst-case claim.
 // Logical payload and physical Native costs are recorded separately; provider metering/time/memory remain unqualified.
 // Run from worker: node tests/roster_effects_test.cjs
+const CI_ROSTER_GROUPS = Object.freeze([
+  { id: 'constants-full', expectedChecks: 13, entryClock: 1791001234, entryInteractionSequence: 0, entryFaultObservation: false },
+  { id: 'notice-debt', expectedChecks: 5, entryClock: 1791007414, entryInteractionSequence: 0, entryFaultObservation: false },
+  { id: 'faults-and-fences', expectedChecks: 51, entryClock: 1791015274, entryInteractionSequence: 0, entryFaultObservation: false },
+  { id: 'manual-sync', expectedChecks: 4, entryClock: 1791016476, entryInteractionSequence: 0, entryFaultObservation: true },
+  { id: 'manual-notice-debt', expectedChecks: 4, entryClock: 1791020796, entryInteractionSequence: 72, entryFaultObservation: true },
+  { id: 'identity', expectedChecks: 23, entryClock: 1791026256, entryInteractionSequence: 163, entryFaultObservation: true },
+].map(Object.freeze));
+const selectedRosterGroup = process.env.OLYMPUS_CI_ROSTER_GROUP;
+if (process.env.OLYMPUS_CI_CASE_POOL === '1' && selectedRosterGroup === undefined) {
+  require('../scripts/ci-case-pool.cjs').runCasePool({ file: __filename, groups: CI_ROSTER_GROUPS, childEnvKey: 'OLYMPUS_CI_ROSTER_GROUP' })
+    .catch(error => { console.error(error); process.exitCode = 1; });
+  return; // Parent never imports the fixture or patches its globals.
+}
+if (selectedRosterGroup !== undefined && (process.env.GITHUB_ACTIONS !== 'true' || process.env.OLYMPUS_CI_CASE_POOL !== '1' || !CI_ROSTER_GROUPS.some(group => group.id === selectedRosterGroup))) {
+  throw Error('invalid CI roster fixture group');
+}
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = process.env.OLYMPUS_ROSTER_SOURCE || path.join(__dirname, "..");
@@ -312,6 +329,13 @@ async function ingestDirect(members, exportedAt, over = {}) {
 }
 
 (async () => {
+  // Pure shared fixture inputs. Each selected group owns a fresh Native DB and its
+  // whole original multi-invocation chain; no continuation is divided between processes.
+  const N = 1000;
+  const lean = { ROLE_CALL_BUDGET: "4" };
+  const changed = rosterOf(0, N).map((m, j) => (j === 0 ? { ...m, rankIndex: 2 } : m)); // one harmless rank change
+  const debtEnv = { ...lean, SET_NICKNAME: "true", CHANNEL_NOTICES: "" };
+  async function constantsFull() {
   console.log("== the constants: the cron's line, the allowances, the worst cases ==");
   check(`the cron's line is ${budget.SCHEDULED_CAPS.rosterEffectsStatements} statements and the table's sum stays at or below the target (${budget.SCHEDULED_WORST_CASE} <= ${TARGET})`, budget.SCHEDULED_BUDGET.some((j) => j.job === "continueRosterEffects" && j.worst === budget.SCHEDULED_CAPS.rosterEffectsStatements) && budget.SCHEDULED_WORST_CASE <= TARGET);
   const schemaLine = budget.SCHEDULED_BUDGET.find((j) => j.job === "ensureSchema").worst;
@@ -321,14 +345,11 @@ async function ingestDirect(members, exportedAt, over = {}) {
 
   // ================= the counterexample: 1,000 links that all just verified, ROLE_CALL_BUDGET 4 =================
   console.log("\n== a full roster of 1,000 links that all just verified, ROLE_CALL_BUDGET 4, over successive invocations ==");
-  const N = 1000;
-  const lean = { ROLE_CALL_BUDGET: "4" };
   fresh(); resetDiscord();
   db.exec("BEGIN");
   for (let i = 0; i < N; i++) (await link(i));
   (await seedSnapshot(rosterOf(0, N), T - 2 * H));
   db.exec("COMMIT");
-  const changed = rosterOf(0, N).map((m, j) => (j === 0 ? { ...m, rankIndex: 2 } : m)); // one harmless rank change
   let exportedAt = T - 60;
   const log = [];
   let r = await ingestHttp(changed, exportedAt, lean);
@@ -362,7 +383,9 @@ async function ingestDirect(members, exportedAt, over = {}) {
   check(`  each grant deferred to the role sweep through the role writer (${auditCount("role.deferred")} role.deferred), no role PUT attempted with 4 requests a run`, auditCount("role.deferred") === N && puts().length === 0);
   const welcomed = [...NOTICE_USERS, ...all("SELECT subject FROM audit WHERE action = 'notice.suppressed'").map((x) => x.subject)];
   check(`  each welcome said once (posted or, over the cap, audited as suppressed): ${welcomed.length} for ${new Set(welcomed).size} accounts`, welcomed.length === N && new Set(welcomed).size === N);
+  }
 
+  async function noticeDebt() {
   // The former admission counted spent SQL only. Buffered notices still owed one audit each here, so 81 admitted
   // promotions produced 605 statements against the roster allowance of 536 (before any cold schema cost).
   console.log("\n== notice debt across long slices: 1,000 deferred grants, failed nicknames, no notice channel ==");
@@ -371,7 +394,6 @@ async function ingestDirect(members, exportedAt, over = {}) {
   for (let i = 0; i < N; i++) (await link(i));
   (await seedSnapshot(rosterOf(0, N), T - 2 * H));
   db.exec("COMMIT");
-  const debtEnv = { ...lean, SET_NICKNAME: "true", CHANNEL_NOTICES: "" };
   const debtAt = T - 60;
   const debtInvocations = [];
   let debt = await ingestDirect(changed, debtAt, debtEnv);
@@ -400,6 +422,9 @@ async function ingestDirect(members, exportedAt, over = {}) {
   FAIL_NICK = false;
 
   // ================= a fault mid-slice, then the resume =================
+  }
+  async function faultsAndFences() {
+  let r;
   console.log("\n== a fault mid-slice: before an item's commit it stays pending, after it the item is never repeated ==");
   observeOriginalFaultHTTP=true;
   fresh(); resetDiscord();
@@ -703,6 +728,8 @@ async function ingestDirect(members, exportedAt, over = {}) {
   check("both capped-welcome samples stop at exactly 18 applied, 185 logical and 507 physical; the 21st item and its post are not claimed tested",a.statements===185&&b.statements===185&&a.physicalStatements===507&&b.physicalStatements===507&&a.out.effects.applied===18&&b.out.effects.applied===18&&a.out.effects.pending===true&&b.out.effects.pending===true&&auditCount('notice.suppressed')===18&&auditCount('notice.capped')===1&&exactOriginalPending(all('SELECT * FROM roster_effects ORDER BY seq'),1,18,21)&&b.statements<=budget.ROSTER_INGEST_STATEMENTS&&b.physicalStatements<=TARGET,a,b);
 
   // ================= /olympus-admin sync =================
+  }
+  async function manualSync() {
   console.log("\n== /olympus-admin sync: a 1,000-member backlog over repeated syncs, each within its allowance ==");
   fresh(); resetDiscord();
   db.exec("BEGIN");
@@ -733,6 +760,8 @@ async function ingestDirect(members, exportedAt, over = {}) {
   check(`the first sync says how many are not applied yet, and every sync stays within its allowance`, /Not applied yet \(\d+\)/.test(syncs[0].content) && syncs.every((s) => s.statements <= budget.ROSTER_SYNC_STATEMENTS + 2), syncs[0].content.slice(0, 300), syncs.map((s) => s.statements));
   check(`  repeated syncs finish: all ${N} members, each promoted once, the last sync with nothing left (${deferredLines} syncs said "not applied yet")`, one("SELECT COUNT(*) AS c FROM characters WHERE status = 'member'").c === N && all("SELECT subject, COUNT(*) AS c FROM audit WHERE action = 'roster.member' GROUP BY subject").every((x) => x.c === 1) && auditCount("roster.member") === N && !/Not applied yet/.test(syncs.at(-1).content) && JSON.parse(one("SELECT details FROM audit WHERE action = 'admin.sync' ORDER BY id LIMIT 1").details).deferred > 0, syncs.at(-1).content.slice(0, 200));
 
+  }
+  async function manualNoticeDebt() {
   console.log("\n== manual sync reserves its long buffered notice debt too ==");
   fresh(); resetDiscord(); FAIL_NICK = true;
   db.exec("BEGIN"); for (let i = 0; i < N; i++) (await link(i)); (await seedSnapshot(rosterOf(0, N), T - H)); db.exec("COMMIT");
@@ -759,6 +788,9 @@ async function ingestDirect(members, exportedAt, over = {}) {
   check("repeated manual syncs finish without duplicated welcomes or promotions", one("SELECT COUNT(*) AS c FROM characters WHERE status = 'member'").c === N && auditCount("roster.member") === N && auditCount("notice.no_channel") === N && all("SELECT subject, COUNT(*) AS c FROM audit WHERE action = 'notice.no_channel' GROUP BY subject").every((x) => x.c === 1));
   FAIL_NICK = false;
 
+  }
+  async function identity() {
+  let r;
   // ================= the identity rules admitted =================
   console.log("\n== the identity rules: a realm move of 300 pinned members, sighted in bulk and released over repeated syncs ==");
   fresh(); resetDiscord();
@@ -885,9 +917,38 @@ async function ingestDirect(members, exportedAt, over = {}) {
     check(`${operation}: refused final SQL restores the source, queue and any archived target`, stopped && statusOf(0) === "member" && statusOf(99) === "unbound" && one("SELECT name_key, status FROM invite_queue").name_key === key(0) && one("SELECT status FROM invite_queue").status === "queued" && !one("SELECT 1 FROM characters WHERE name_key LIKE ?", key(99) + "~%") && HAS_ROLE.has(did(0)) && !FETCHES.some((f) => f.startsWith("DELETE ")));
   }
 
+  }
+  const cases = [
+    ['constants-full', constantsFull], ['notice-debt', noticeDebt],
+    ['faults-and-fences', faultsAndFences], ['manual-sync', manualSync],
+    ['manual-notice-debt', manualNoticeDebt], ['identity', identity],
+  ];
+  // Actual group-entry clocks from successful original hosted job117792354021.
+  // Only an isolated child restores its recorded entry; the ordinary full entry
+  // still accumulates every original T update, and refuses an unexpected phase drift.
+  let selectedEntryState = null;
+  for (const [group, work] of cases) if (selectedRosterGroup === undefined || selectedRosterGroup === group) {
+    const recorded = CI_ROSTER_GROUPS.find(item => item.id === group);
+    if (selectedRosterGroup !== undefined) {
+      if (db !== undefined || doDb !== undefined || installed || readyPromise !== null) throw Error('CI roster child fixture was already initialized');
+      T = recorded.entryClock;
+      // The original manual groups issue72 then91 synthetic interactions. The
+      // fault observer is enabled by the original fault group and stays enabled.
+      iid = recorded.entryInteractionSequence;
+      observeOriginalFaultHTTP = recorded.entryFaultObservation;
+      selectedEntryState = { clock: T, interactionSequence: iid, faultObservation: observeOriginalFaultHTTP };
+    }
+    if (T !== recorded.entryClock) throw Error(`roster fixture entry clock drift: ${group} ${T}/${recorded.entryClock}`);
+    if (iid !== recorded.entryInteractionSequence || observeOriginalFaultHTTP !== recorded.entryFaultObservation) throw Error(`roster fixture entry state drift: ${group}`);
+    console.log('ROSTER_GROUP_ENTRY ' + JSON.stringify({ group, clock: T, interactionSequence: iid, faultObservation: observeOriginalFaultHTTP, isolated: selectedRosterGroup !== undefined }));
+    await work();
+  }
+  const expectedChecks = selectedRosterGroup === undefined ? 100 : CI_ROSTER_GROUPS.find(group => group.id === selectedRosterGroup).expectedChecks;
+  if (n !== expectedChecks) throw Error(`roster fixture coverage differs: ${n}/${expectedChecks}`);
   db?.close();doDb?.close();
   globalThis.Date = RealDate;
   globalThis.setTimeout = realSetTimeout;
+  if (selectedRosterGroup !== undefined) require('../scripts/ci-case-pool.cjs').writeCaseResult({ group: selectedRosterGroup, ok, n, payload: { entryState: selectedEntryState, exitClock: T, exitInteractionSequence: iid } });
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

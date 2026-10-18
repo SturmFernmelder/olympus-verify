@@ -62,12 +62,17 @@ bash scripts/tests/publication-helper.test.sh # the publication helpers compile,
 "C:/path/to/Olympus Forever/.local-tools/lua-attestation/Scripts/python.exe" addon/tests/run_lua_suites.py
 ```
 
-CI (`.github/workflows/ci.yml`) runs three jobs (worker: Gitleaks history scan, `npm ci` in `worker/`, `test:all`,
-the SQL suites, a syntax check of `public/static/app.js`, the deploy-script contract test, a dry-run bundle; watcher:
-the watcher and tools tests; addon: the Lua suites through Lupa 2.8) and one aggregate `check` job that always runs
-and fails unless all three report exactly `success` (`scripts/ci-gate.sh`; GitHub alone would count a skipped
-required job as passed, so the gate fails on a skipped, cancelled, failed or missing result), which is the status
-the ruleset on `main` requires. There is no ESLint or Prettier;
+CI (`.github/workflows/ci.yml`) runs eight `worker_shard` matrix jobs with `fail-fast: false`, preserving the complete
+original `test:all` expansion and its repeated invocations. Independent leaves run in separate processes within the
+runner's CPU capacity. The two longest suites opt into isolated whole-fixture groups; continuation chains and all
+original assertions/deadlines remain intact. SQL, census, history scan, script contracts and dry-run packaging
+still run once at their assigned shard. The exact required `worker` name is an always-run collector requiring
+the whole matrix result to be exactly `success`; `watcher` and `addon` retain their original commands. Final `check`
+always requires exact success from `addon`, `watcher` and `worker` (`scripts/ci-gate.sh`). Failure, cancellation,
+skip or missing results cannot pass either collector. No ruleset change accompanies this scheduling change.
+`node scripts/check-projections.cjs --index` from the repository root checks staged projection pins; the optional
+tracked pre-push hook checks actual outgoing commits, as described in `.githooks/README.md`.
+There is no ESLint or Prettier;
 `.editorconfig` sets the style (2 spaces, LF, final newline; Python 4 spaces).
 
 **Never run:** `npm run deploy` or `wrangler deploy` (the owner deploys, from an exact commit with
