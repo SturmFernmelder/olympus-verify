@@ -15,7 +15,7 @@
       "path": "worker/public/static/app.js",
       "mode": "100644",
       "bytes": 484888,
-      "sha256": "650ff71ecc517124b091287f7048520ab2a419bbc6682d6b65bea9c5f47b1b00"
+      "sha256": "0a9ce0c73fbf217e4150e560d3989ff1d2951295298ab55d07456133828a3cb7"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -937,7 +937,7 @@
       "path": "worker/public/static/app.js",
       "mode": "100644",
       "bytes": 484888,
-      "sha256": "650ff71ecc517124b091287f7048520ab2a419bbc6682d6b65bea9c5f47b1b00"
+      "sha256": "0a9ce0c73fbf217e4150e560d3989ff1d2951295298ab55d07456133828a3cb7"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -985,7 +985,7 @@
       "path": "worker/public/static/governance/downloads-manifest.json",
       "mode": "100644",
       "bytes": 1361,
-      "sha256": "73147564ea1226c722300a3de4c9bdea7b915bb85d1e3061caada43ceeb17c1f"
+      "sha256": "7384b3632e1c23f8f4c305b46a4afec7d823d6661b862c3f61b20549e1881c67"
     },
     {
       "path": "worker/public/static/governance/olympus-adoption-checklist-r6.pdf",
@@ -1014,8 +1014,8 @@
     {
       "path": "worker/public/static/governance/olympus-release-preparation.pdf",
       "mode": "100644",
-      "bytes": 4448,
-      "sha256": "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"
+      "bytes": 4661,
+      "sha256": "ac7ec608e6b4386b01962595f5ca6ed8da9f5246c5c9d9e7f09523c51a7e71c2"
     },
     {
       "path": "worker/public/static/governance/olympus-templates-r6.pdf",
@@ -1027,13 +1027,13 @@
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
       "bytes": 57403,
-      "sha256": "f82ec496664a806b8ed3d1885e460545b344282faf1668ac61d3ae31a21b6786"
+      "sha256": "4c7e0e76108363c117d93faac9126ad5487ff5cfbf09c0986383d0c46b54cb71"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 142032,
-      "sha256": "892ce2c4e30b1fd6de70aad06dcf50c080831a27b4cf99ff351dff11d13bb677"
+      "bytes": 157508,
+      "sha256": "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -1086,8 +1086,8 @@
     {
       "path": "worker/public/static/governance/operational-charter.md",
       "mode": "100644",
-      "bytes": 26504,
-      "sha256": "37f6aed30f4fb415a8bfd0bca3b8f6f548bbf3ef24b9f2aba6f5712598507eb1"
+      "bytes": 27166,
+      "sha256": "a2beea4b43c2d5dfc23ebd49224bf7eb7955ee350af80da0790c136eaad326fe"
     },
     {
       "path": "worker/public/static/organization-view.js",

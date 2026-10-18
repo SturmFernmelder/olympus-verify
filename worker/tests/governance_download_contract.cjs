@@ -34,7 +34,7 @@ const EXTRA_DOWNLOADS = [
   ["Historical R6 guide", "olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf", 135664, "af79188f5b04adbccd0a2c1d9662728be5165cee1b7d3715400465bca4097013"],
   ["Historical R6 checklist", "olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf", 79878, "fb36006cb9c9c3e11b41ede67c8b6da682dd81254ff1c9d0df708d9bc9d4430c"],
   ["Historical R6 templates", "olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf", 81476, "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"],
-  ["Release preparation PDF", "olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf", 4448, "b13cc9ed87c58e92ecf9281b92b8df556104bf5af3acae2d67674843293077be"]
+  ["Release preparation PDF", "olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf", 4661, "ac7ec608e6b4386b01962595f5ca6ed8da9f5246c5c9d9e7f09523c51a7e71c2"]
 ];
 const sha = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
 function crc32(bytes) {
@@ -117,7 +117,7 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "downloads-manifest.json"), "utf8"));
   check("historical PDF manifest retains its original R6 source and unratified/unissued status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
   const currentBook = fs.readFileSync(path.join(dir, "reconciled-book.md"));
-  check("current R7 source is exact and distinct from the preserved R6 archive source", currentBook.length === 142032 && sha(currentBook) === "892ce2c4e30b1fd6de70aad06dcf50c080831a27b4cf99ff351dff11d13bb677" && !currentBook.equals(book));
+  check("current R7 source is exact and distinct from the preserved R6 archive source", currentBook.length === 157508 && sha(currentBook) === "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf" && !currentBook.equals(book));
   check("current R7 adoption notice separates appointments, signatures, permissions and historical status", app.includes("R7 • Guild rules adopted 13 October 2026") && app.includes("Adoption issues no individual appointment or named signature") && app.includes("changes no native rank, bank limit or platform permission") && app.includes("Dated archives retain their historical status"));
   check("current governance loader sends same-origin credentials for private book/model delivery", app.includes('fetch(path, { credentials: "same-origin", redirect: "error" })'));
   const bad = Buffer.from(zip); bad.writeUInt32LE((bad.readUInt32LE(entries[0].centralOffset + 16) ^ 1) >>> 0, entries[0].centralOffset + 16);
