@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-19.176 Community access and navigation");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-19.177 Website polish and resilient reads");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -213,6 +213,50 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const validCookie=(await entryFixture.issueOriginalEntryCookie(load,db,assetEnv,viewer)).cookie, originalVersion=db.prepare('SELECT session_version FROM site_users WHERE discord_id=?').get(viewer).session_version;
   res = await get('https://guild.example/static/app.js', assetEnv, { headers: { Cookie: validCookie } });
   check('current Discord session receives private assets with cookie-varying no-store delivery', res.status === 200 && await res.text() === 'protected-source' && assetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')));
+  // .177: reproduce a provider read failure through the real gate, without replacing
+  // session/admission functions. A later request must re-read admission, never reuse a pass.
+  const faultViewer = '300000000000000093', faultAt = Math.floor(Date.now()/1000);
+  await admittedSetup.prepare('INSERT INTO site_users(discord_id,username,in_server,first_login,last_login,checked_at,session_version) VALUES(?1,?2,1,?3,?3,?3,1)').bind(faultViewer,'fault-member',faultAt).run();
+  let faultMode = '', faultAttempts = 0, faultAssetCalls = 0;
+  const faultEnv = env({ SITE_ADMINS: faultViewer, DB: d1(db, { trap: sql => {
+    if (faultMode === 'current_user' && sql.includes('SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation')) {
+      faultAttempts++; throw Error('D1_ERROR: private table token=abc.def.ghi Tag#1234');
+    }
+    if (faultMode === 'membership' && sql.includes('UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1')) {
+      faultAttempts++; throw Error('D1_ERROR: private table token=abc.def.ghi Tag#1234');
+    }
+  } }), ASSETS: { fetch: async () => { faultAssetCalls++; return new Response('protected-fault-source'); } } });
+  const faultEntry = await entryFixture.issueOriginalEntryCookie(load,db,faultEnv,faultViewer), faultCookie = faultEntry.cookie;
+  const gateLogs = [], beforeGateConsole = console.error;
+  const refusalHeaders = [...core.securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' }))];
+  const faultAccount = () => JSON.stringify(db.prepare('SELECT * FROM site_users WHERE discord_id=?1').get(faultViewer));
+  let beforeFaultAccount = faultAccount();
+  console.error = (...args) => { gateLogs.push(args); };
+  try {
+    faultMode = 'current_user';
+    for (const privatePath of ['/static/wow/talents/bg-302.jpg', '/api/admin/availability']) {
+      const beforeAttempts = faultAttempts, beforeLogs = gateLogs.length;
+      res = await get('https://guild.example' + privatePath + '?code=private-query', faultEnv, { headers: { Cookie: faultCookie } });
+      check('failed original account read refuses ' + privatePath + ' before delivery without retry or account change', res.status === 503 && await res.text() === '{"error":"site_access_unavailable"}' && faultAttempts === beforeAttempts + 1 && faultAssetCalls === 0 && faultAccount() === beforeFaultAccount);
+      check('account-read refusal retains exact security headers and logs only fixed stage/category: ' + privatePath, JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === beforeLogs + 1 && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','current_user','d1']));
+    }
+    faultMode = '';
+    res = await get('https://guild.example/static/wow/talents/bg-302.jpg', faultEnv, { headers: { Cookie: faultCookie } });
+    check('a fresh request after an account-read failure succeeds through unchanged private-asset safeguards', res.status === 200 && await res.text() === 'protected-fault-source' && faultAssetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && gateLogs.length === 2);
+    // An authoritative Discord404 whose original bound write fails is still held;
+    // the original bound layer deliberately discards provider text, yielding category error.
+    await admittedSetup.prepare('UPDATE site_users SET checked_at=?2 WHERE discord_id=?1').bind(faultViewer,faultAt-7200).run();
+    beforeFaultAccount = faultAccount(); faultMode = 'membership';
+    let faultMemberCalls = 0;
+    fetchResponder = async url => { if (!url.endsWith('/members/' + faultViewer)) throw Error('unexpected fault-fixture provider route'); faultMemberCalls++; return new Response('{"code":10007}', { status: 404 }); };
+    res = await get('https://guild.example/static/wow/talents/bg-302.jpg?code=private-query', faultEnv, { headers: { Cookie: faultCookie } });
+    check('failed original membership write refuses assets without retry or a partial account change', res.status === 503 && await res.text() === '{"error":"site_access_unavailable"}' && faultAttempts === 3 && faultMemberCalls === 1 && faultAssetCalls === 1 && faultAccount() === beforeFaultAccount);
+    check('membership refusal retains the same security contract and sanitizes its distinct stage', JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === 3 && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','membership','error']));
+    faultMode = '';
+    fetchResponder = async url => { if (!url.endsWith('/members/' + faultViewer)) throw Error('unexpected recovery-fixture provider route'); faultMemberCalls++; return new Response('{"pending":false}', { headers: { 'Content-Type': 'application/json' } }); };
+    res = await get('https://guild.example/static/wow/talents/bg-302.jpg', faultEnv, { headers: { Cookie: faultCookie } });
+    check('a fresh request after a membership failure rechecks current Discord membership before private delivery', res.status === 200 && await res.text() === 'protected-fault-source' && faultMemberCalls === 2 && faultAssetCalls === 2 && gateLogs.length === 3 && db.prepare('SELECT checked_at FROM site_users WHERE discord_id=?1').get(faultViewer).checked_at > faultAt-7200);
+  } finally { console.error = beforeGateConsole; fetchResponder = null; }
   // The councillor page is the one response that may use the device camera (owner item 32 fallback); its own counter keeps the deliveries above intact.
   let cameraAssetCalls = 0;
   const cameraEnv = env({ ASSETS: { fetch: async () => { cameraAssetCalls++; return new Response('protected-source'); } } });
@@ -365,7 +409,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  a thrown string, object or null is 'thrown', never printed", logMod.errorRef("Bearer abc.def.ghi") === "thrown" && logMod.errorRef({ message: "Tag#1234", name: "K7Q2M9", toString: () => "cookie=abc.def.ghi" }) === "thrown" && logMod.errorRef(null) === "thrown" && logMod.errorRef(undefined) === "thrown");
   check("  every answer above is one of the allowed forms", [poisoned, new discord.DiscordError(500, "/", ""), new Error("D1_EXEC_ERROR"), "s", 42n, Symbol("x")].map((v) => logMod.errorRef(v)).every(isRef));
   check("  a custom_id is logged by its namespace only", logMod.idNamespace("ban:discord:123456789012345678") === "ban" && logMod.idNamespace(undefined) === "");
-  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts", "guild-seats.ts", "site-news.ts", "schema.ts"]; // .115: the seat state and News; schema.ts since its first console call (redactSettingsAudit; review of 3 Oct 2026)
+  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-access.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts", "guild-seats.ts", "site-news.ts", "schema.ts"]; // .177: the member gate now reports only fixed stage and errorRef; previous logging modules remain covered.
   const bareConsole = srcs.flatMap((f) => (fs.readFileSync(path.join(root, "src", f), "utf8").match(/console\.(error|warn|log)\([^\n]*/g) || []).filter((l) => !/errorRef\(/.test(l)).map((l) => `${f}: ${l.slice(0, 80)}`));
   check("no console call in src/ prints an error object or message (every one goes through errorRef)", bareConsole.length === 0, bareConsole.join("\n    "));
 

@@ -4,6 +4,7 @@ import { currentUser, originalUserSession, securityHeaders } from './site-core';
 import { stillMember } from './site-api';
 import { privacyBoundSiteEnv } from './privacy-serving-authority';
 import { loginHeaders, policyShell } from './policy-render';
+import { errorRef } from './log';
 
 const AUTH_PATHS = new Set(['/auth/login', '/auth/callback']);
 // These existing privacy flows have their own Discord identity / one-use case credentials.
@@ -44,7 +45,9 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   if (path === '/auth/logout' && request.method === 'POST') return null; // the original same-origin handler must clear even a departed/denied session
   let user;
   try { user = await currentUser(env, request); }
-  catch {
+  catch (e) {
+    // .177: identify the failed boundary without retaining request, account or error text.
+    console.error('site access unavailable', 'current_user', errorRef(e));
     return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
   }
   // Preserve the existing signed-in own-record reads, including a departed or denied identity.
@@ -54,7 +57,8 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
       const held = await stillMember(privacyBoundSiteEnv(env, originalUserSession(user)), user);
       if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
       return null;
-    } catch {
+    } catch (e) {
+      console.error('site access unavailable', 'membership', errorRef(e));
       return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
     }
   }

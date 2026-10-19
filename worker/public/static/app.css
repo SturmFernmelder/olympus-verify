@@ -85,8 +85,8 @@ b, strong { color: var(--white); font-weight: 400; }
 .nav-menu > a { width: 100%; text-align: left; white-space: normal; }
 .nav-group:not([open]) > .nav-menu { display: none; }
 @media (min-width: 721px) { .nav-group:last-child .nav-menu { left: auto; right: 0; } }
-.board-results { min-height: 5.5rem; }
-.board-summary-status { min-height: 1.2em; margin-bottom: 0; }
+.board-results { min-height: 8rem; }
+.board-summary-status { min-height: 1.5em; margin-bottom: 0; }
 .guide-steps { display: grid; gap: 14px; }
 .guide-steps h2 { font-size: 1.3rem; }
 .source-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0; padding: 9px 12px; border-left: 2px solid var(--brass); background: #10140fcc; font-size: .8rem; color: var(--muted); }

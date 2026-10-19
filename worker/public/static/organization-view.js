@@ -60,7 +60,13 @@ export function renderOrganization(main, data, ui) {
     for (const peer of node.coordinates) if (peer !== node.parent) edge(node.id, peer, "coordination", "liaison; no command authority");
   }
   const detail = h("section", { class: "org-inspector", "aria-label": "Office mandate", "aria-live": "polite", tabindex: "-1" });
+  const detailSummary = h("summary", { text: "Office details" });
+  const detailDrawer = h("details", { class: "org-detail-drawer" }, detailSummary, detail);
+  detailDrawer.open = true;
   const status = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+  const chartHelp = h("details", { class: "org-chart-help" }, h("summary", { text: "Chart guide and status" }), status,
+    h("p", { class: "small muted", text: "Drag to pan. Use +/− or Ctrl/⌘ + wheel to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, and Home or 0 to fit the selected branch. Escape closes full screen. List includes every office and group." }));
+  chartHelp.open = true;
   const search = h("input", { type: "search", id: "organization-search", maxlength: "160", placeholder: "Find an office, rank or duty…", "aria-label": "Search all offices and 95 labels" });
   let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = true;
   const zoomStatus = h("output", { class: "org-zoom", "aria-label": "Chart zoom" });
@@ -122,7 +128,7 @@ export function renderOrganization(main, data, ui) {
   }
   function focusNode(id) { if (branchMode) branchLayout(); const p = position.get(id); if (!p) return; scale = Math.max(.85, scale); x = viewport.clientWidth / 2 - p.x * scale; y = Math.max(50, viewport.clientHeight / 3) - p.y * scale; transform(); }
   function select(id, move = false, focus = false, term = null) {
-    const n = byId.get(id); if (!n) return; selected = id;
+    const n = byId.get(id); if (!n) return; selected = id; detailSummary.textContent = "Office details · " + n.title;
     for (const [key, button] of buttons) button.setAttribute("aria-pressed", String(key === id));
     for (const e of edges) e.path.classList.toggle("org-edge-active", e.fromId === id || e.toId === id);
     const offices = (data.officeMandates || []).filter(o => o.nodeId === id);
@@ -134,7 +140,7 @@ export function renderOrganization(main, data, ui) {
       h("h3", { text: "Related titles and vocabulary" }), h("ul", null, data.terms.filter(t => t.nodeId === id).map(t => h("li", { text: t.label + " — " + t.note }))),
       h("a", { class: "btn small", href: "#/governance/" + n.chapter, text: "Read the complete charter" }), h("a", { class: "btn small", href: "#/organization/" + id, text: "Link to this office" })]);
     if (branchMode && fullPosition.has(id)) fit();
-    if (move) focusNode(id); if (focus) detail.focus();
+    if (move) focusNode(id); if (focus) { detailDrawer.open = true; detail.focus(); }
   }
   for (const node of visible) {
     const p = position.get(node.id), button = h("button", { type: "button", class: "org-node org-node-" + node.relation, "data-organization-node": node.id, "aria-pressed": "false", onclick: () => select(node.id, false, true) }, posIcon(node.icon), h("span", null, h("strong", { text: node.title }), h("small", { text: node.kind })));
@@ -157,18 +163,25 @@ export function renderOrganization(main, data, ui) {
     stop(); chartDialog.append(chartShell);
     try { chartDialog.showModal(); }
     catch { chartLocation.append(chartShell); status.textContent = "Full screen could not be opened. The chart remains available below."; return; }
+    // On a small phone the diagram gets the space first; both disclosures retain their complete text.
+    const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
+    detailDrawer.open = !narrow; chartHelp.open = !narrow;
     fullScreen.textContent = "Exit full screen"; fullScreen.setAttribute("aria-expanded", "true");
     requestAnimationFrame(() => { if (chartDialog.open && main.isConnected) { focusNode(selected); viewport.focus(); } });
   } });
   const branchButton = h("button", { type: "button", class: "btn small", text: "Fit branch", "aria-pressed": "true", onclick: fit });
   const overviewButton = h("button", { type: "button", class: "btn small", text: "Full map", "aria-pressed": "false", onclick: overview });
-  const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), branchButton, overviewButton, h("button", { type: "button", class: "btn small", text: "Center selected", onclick: () => focusNode(selected) }), fullScreen);
+  const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), branchButton, overviewButton, h("button", { type: "button", class: "btn small org-center-selected", text: "Center selected", onclick: () => focusNode(selected) }), fullScreen);
   const chartShell = h("section", { class: "org-chart-shell", "aria-label": "Explore the organization" },
-    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), status,
-    h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detail));
+    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), chartHelp,
+    h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detailDrawer));
   chartLocation.append(chartShell);
+  for (const disclosure of [detailDrawer, chartHelp]) disclosure.addEventListener("toggle", () => {
+    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !isList) focusNode(selected); });
+  });
   chartDialog.addEventListener("close", () => {
-    stop(); chartLocation.append(chartShell); fullScreen.textContent = "Full screen"; fullScreen.setAttribute("aria-expanded", "false");
+    stop(); chartLocation.append(chartShell); detailDrawer.open = true; chartHelp.open = true;
+    fullScreen.textContent = "Full screen"; fullScreen.setAttribute("aria-expanded", "false");
     requestAnimationFrame(() => { if (main.isConnected) { if (!isList) focusNode(selected); (isList ? listButton : fullScreen).focus(); } });
   });
   function view(asList) { stop(); isList = asList; list.hidden = !asList; viewport.hidden = asList; chartControls.hidden = asList; chartButton.setAttribute("aria-pressed", String(!asList)); listButton.setAttribute("aria-pressed", String(asList)); if (!asList) fit(); }
@@ -204,6 +217,7 @@ export function renderOrganization(main, data, ui) {
   const termRows = data.terms.map(t => { const li = h("li", null, h("button", { type: "button", class: "organization-term", text: t.label, onclick: () => select(t.nodeId, true, true, t) }), h("small", { class: "muted", text: data.termGroups.find(g => g.id === t.classification).title })); termList.append(li); return { t, li }; });
   search.addEventListener("input", () => {
     const q = search.value.trim().toLowerCase(); let count = 0;
+    if (q) chartHelp.open = true;
     for (const n of data.nodes) { const matches = !q || [n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(t => t.label)].join(" ").toLowerCase().includes(q); rows.get(n.id).hidden = !matches; buttons.get(n.id)?.classList.toggle("org-node-match", !!q && matches); if (matches) count++; }
     for (const { t, li } of termRows) li.hidden = !!q && !(t.label + " " + t.note).toLowerCase().includes(q);
     status.textContent = q ? `${count} offices or groups match. Use Full map for all chart matches, or List for a filtered reading view.` : chartSummary();
@@ -212,11 +226,11 @@ export function renderOrganization(main, data, ui) {
     h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }), h("p", { text: "Adopted by the authorized guild administration. An office shown here does not appoint a holder, grant a Council vote or alter game, Discord, website or bank permissions. Individual appointments and actual access remain separately recorded." })),
     h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" }, h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Read the operational charter" }), h("a", { class: "btn", href: data.directoryRoute, text: "Current appointed leadership" }), h("a", { class: "btn small", href: "#/governance", text: "Complete governance book" })),
     h("section", { class: "org-council-overview frame", "aria-label": "High Council offices" }, h("h2", { text: "The High Council at a glance" }),
-      h("p", { text: data.councilComposition?.summary || "Five core portfolio offices coordinate the work of Olympus:" }),
+      h("p", { text: data.councilComposition?.summary?.replace("The owner directed inclusion of", "The dated composition direction includes") || "Five core portfolio offices coordinate the work of Olympus:" }),
       h("ul", { class: "org-council-offices" }, (data.councilComposition?.offices || ["War Head for PvP", "War Head for Raiding", "Federal Treasurer", "Minister of Artisanry", "Minister of Heraldry"]).map(title => h("li", null, h("strong", { text: title })))),
       data.councilComposition ? h("p", { class: "org-composition-status", role: "note", text: data.councilComposition.formalStatus }) : null,
       h("p", { text: "Council seats require an accepted appointment; the five portfolio offices are not a five-seat limit. Accepted councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review." }),
-      h("p", { class: "small muted", text: "Systems and Addons is shared support. Specialist heads may advise, but are not automatically voting councillors. The owner-directed Co-Guild Master addition does not itself issue an eligible vote, individual warrant, native rank or permission. One person still has one vote, subject to recusal." }),
+      h("p", { class: "small muted", text: "Systems and Addons is shared support. Specialist heads may advise, but are not automatically voting councillors. The proposed Co-Guild Master inclusion does not itself issue an eligible vote, individual warrant, native rank or permission. One person still has one vote, subject to recusal." }),
       h("div", { class: "org-composition-links" }, data.councilComposition ? h("a", { href: data.councilComposition.sourcePath, text: "Read the dated Co-Guild Master composition direction" }) : null,
       h("a", { href: "#/governance/operational-charter-the-work-of-olympus", text: "Read Operational Charter O3 — The High Council and its offices" }))),
     h("div", { class: "org-guide" }, h("h2", { text: "How to read the chart" }), h("p", { text: "Solid gold arrows point from an office toward the authority it answers to. Dashed blue two-way lines connect partners who coordinate. Dotted violet lines show independent review, never command by the person under review. Select a card to read its mandate. The rank and status groupings below carry no command arrows." }),

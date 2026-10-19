@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 60984,
-      "sha256": "fefd42b8acc0b01d506a7a554143b9ef476d06b92e18b3ce2821645465224acb"
+      "bytes": 60982,
+      "sha256": "dba5fd7c7ca4433b51ee8103d28713dfad75be4e5c650a3b7119692ac8b7f8d2"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 520774,
-      "sha256": "3db0c0a8b5bfe50316be48d27a9a3916e8aa05867d966e922f80da2001a1e27e"
+      "bytes": 526901,
+      "sha256": "3c0ccc8c4c9d0df86b8f19f60a1f142a262befd9b7192923045141f915f2decd"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 6910,
-      "sha256": "bbe01db0216814a39d84dcf6c97a95a36c4990616442a4cc31e6987dc51bb013"
+      "bytes": 8902,
+      "sha256": "53be30c2cd9af3f88c110d642b61e45330a2f69fba5d553d5eda617146e70b3a"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -650,14 +650,14 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 27391,
-      "sha256": "e965054428353d1fbd69b3ac2e70681b4b96ed9d46805a9d7496a03c8bfc3fc2"
+      "bytes": 29635,
+      "sha256": "14ff6fa8345656991e65414bdafd3c716775a639cbbd3bf1c7451f731f4dafba"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 14685,
-      "sha256": "8077df9d6708bf27f55a94cb76d0a4b63e7df45bdd8ed24db26aaa4ae114c081"
+      "bytes": 15032,
+      "sha256": "2dad0d02348f0a309a510c3ce67c1187b13c477429407b8ef40d6afe991134f1"
     },
     {
       "path": "worker/public/static/resources169.js",
@@ -3797,8 +3797,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 520774,
-      "sha256": "3db0c0a8b5bfe50316be48d27a9a3916e8aa05867d966e922f80da2001a1e27e"
+      "bytes": 526901,
+      "sha256": "3c0ccc8c4c9d0df86b8f19f60a1f142a262befd9b7192923045141f915f2decd"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3971,8 +3971,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 26201,
-      "sha256": "4c487f3db8db4510cf9b187af9aa693fc290117b0aff6bcc4b0ac57c521bdea9"
+      "bytes": 27572,
+      "sha256": "f7ce8def6e11840a0b6df2298e1ef29316ea73e1d2f2738390d654a7a3daf97f"
     },
     {
       "path": "worker/public/static/talents/data.json",
