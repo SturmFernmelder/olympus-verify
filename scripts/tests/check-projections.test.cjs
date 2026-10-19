@@ -36,7 +36,14 @@ rejects('both governance size guards remain required', () => verify(fixture(chan
 rejects('policy mirror drift is refused', () => verify(fixture(changed('privacy.html', s => s + '\n'))), /policy root mirror drift/);
 rejects('generated policy body drift is refused', () => verify(fixture(changed('worker/src/policy-content.ts', s => s.replace('<h1>Olympus Verify</h1>', '<h1>Changed</h1>')))), /generated policy body drift/);
 rejects('generated policy source digest drift is refused', () => verify(fixture(changed('worker/src/policy-content.ts', s => s.replace(/POLICY_SOURCE_DIGEST = "[a-f0-9]{64}"/, 'POLICY_SOURCE_DIGEST = "' + '0'.repeat(64) + '"')))), /policy source digest drift/);
-rejects('health BUILD pins bind actual runtime BUILD', () => verify(fixture(changed('worker/tests/hosts_test.cjs', s => s.replace(/2026-10-18\.167 Guild hall interface refinement/g, 'stale-build')))), /runtime health BUILD pin/);
+const runtimeBuild = base.get('worker/src/index.ts').toString('utf8').match(/^const BUILD = "([^"]+)";/m);
+if (!runtimeBuild) throw new Error('runtime BUILD declaration required for health pin fixture');
+const hostPinFile = 'worker/tests/hosts_test.cjs', hostSource = base.get(hostPinFile).toString('utf8');
+const hostPin = JSON.stringify(runtimeBuild[1]), stalePin = '"stale-build"';
+if (hostSource.split(hostPin).length !== 2) throw new Error('exactly one current runtime BUILD host literal required');
+const staleHost = changed(hostPinFile, s => s.replace(hostPin, stalePin)), staleHostSource = staleHost.get(hostPinFile).toString('utf8');
+check('health BUILD negative fixture changes exactly one current host literal', staleHostSource !== hostSource && !staleHostSource.includes(hostPin) && staleHostSource.split(stalePin).length === 2 && staleHostSource.replace(stalePin, hostPin) === hostSource);
+rejects('health BUILD pins bind actual runtime BUILD', () => verify(fixture(staleHost)), /runtime health BUILD pin/);
 check('newer CI-only docs do not require a runtime bump', verify(fixture(changed('docs/deploy-checklist.md', s => s + '\n## Worker .999 — CI-only history\n'))).result === 'PASS');
 const one = '1'.repeat(40), two = '2'.repeat(40), zero = '0'.repeat(40);
 check('pre-push uses actual local SHA and deduplicates', JSON.stringify(pushCandidates('refs/heads/a ' + one + ' refs/heads/a ' + two + '\nrefs/heads/b ' + one + ' refs/heads/b ' + zero + '\n')) === JSON.stringify([one]));
