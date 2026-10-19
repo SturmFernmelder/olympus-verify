@@ -67,6 +67,24 @@ function verify(snapshot) {
   check(ref.assets.length <= 512 && loginRows.length === 1
     && ['path', 'mode', 'bytes', 'sha256'].every(key => loginRows[0][key] === loginPin[key]), 'closed owner login art asset binding');
   pin(loginPin);
+  const variants = ref.login_art_variants, variantPins = variants?.assets;
+  const expectedVariants = [
+    { path: 'worker/public/static/wow/login/olympus-dark-portal-wide.png', mode: '100644', bytes: 2972596, sha256: '17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6' },
+    { path: 'worker/public/static/wow/login/olympus-dark-portal-portrait.png', mode: '100644', bytes: 2803728, sha256: '218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659' }
+  ];
+  check(variants && JSON.stringify(Object.keys(variants).sort()) === JSON.stringify(['assets', 'classification', 'instruction_date', 'owner_instruction', 'usage'])
+    && variants.usage === 'login_background_only' && variants.instruction_date === '2026-10-19'
+    && variants.classification === 'imagegen_derived_custom_art_not_official_blizzard'
+    && variants.owner_instruction === 'Build .173 owner-approved fullscreen wide and portrait login backgrounds'
+    && Array.isArray(variantPins) && variantPins.length === 2 && variantPins.every((row, i) =>
+      JSON.stringify(Object.keys(row).sort()) === JSON.stringify(['bytes', 'mode', 'path', 'sha256'])
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
+      && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
+  check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
+    && ref.required_public_resources.length === 27 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset539-public-path binding');
+  for (const row of variantPins) pin(row);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');

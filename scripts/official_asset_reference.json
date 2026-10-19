@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 9054,
-      "sha256": "bf52fe2d1df68ed0db9656cda635ddcb73dc9e0eea1dc3989cd85228cf6d4f4d"
+      "bytes": 9656,
+      "sha256": "053188f80ade7e637fadd28b40f9ce5ab65651b17e32991ec5e6e6ab60677934"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3064,6 +3064,18 @@
       "mode": "100644",
       "bytes": 2761774,
       "sha256": "7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342"
+    },
+    {
+      "path": "worker/public/static/wow/login/olympus-dark-portal-wide.png",
+      "mode": "100644",
+      "bytes": 2972596,
+      "sha256": "17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6"
+    },
+    {
+      "path": "worker/public/static/wow/login/olympus-dark-portal-portrait.png",
+      "mode": "100644",
+      "bytes": 2803728,
+      "sha256": "218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659"
     }
   ],
   "official_paths": [
@@ -3830,7 +3842,8 @@
     "The .169 owner-directed source successor adds four original native tool styles/scripts and five attributed data/document resources. Existing official artwork/fonts, adopted R7 book/charter/downloads and five art-sensitive producer identities remain fixed. This is source-byte projection evidence, not constitutional adoption, complete addon coverage, production deployment or live acceptance.",
     "The .170 owner-directed source successor adds396 exact fan-distributed Blizzard talent-art JPEGs (369icons and27backgrounds), a complete local9/27/466 art map and separately attributed provenance. All original96official image/font rows and crest are preserved. The new finite producer is a sixth full pinned source; existing five identities remain. Exact public coverage is507assets plus26non-art resources (533paths). This records byte lineage and source limitations, not a publisher license/attestation, production authority or complete Dark Portal animation. Original normalized talent data and all1313rank texts remain unchanged.",
     "The .171 successor separately records a locally rendered derivative of the installed Classic Era1.15.9.70003 ui_mainmenu model131970, its2skins and25textures, using original camera0/model lighting/sequence0/UV/particles. This is not a publisher-released movie, original-client pixel identity, a proved complete particle loop, a rights grant or deployment approval. The seventh fixed source is an offline exact-output/container verifier, not a renderer or asset extractor. Raw client inputs, SDKs, renderer executables and build archives stay outside the product. Existing492official rows, historical source/provenance fields,512-row/5MiB caps and activation controls remain unchanged. Exact public coverage is509assets plus27non-art resources (536paths), with493image/font rows and1video reported separately. Root actual-source Edge preview qualified the finite120second presentation and fallbacks; exact source/CI/production qualification remain separate.",
-    "The .172 owner instruction of 2026-10-19 approves exactly one AI-created custom login background,1672x941PNG,2761774bytes,SHA2567c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342. This is not official Blizzard artwork and is excluded from all494official_paths/counts. Its exact tuple is a separate login_art_exception like the existing crest, never a directory, arbitrary generated-art or rights exception. All historical official WebM/poster/provenance/verifier bytes remain selected and unchanged, but historical media are no longer the anonymous login presentation. Closed public coverage is510assets plus27non-art resources (537paths);512asset/5MiB caps and all other private/unlisted/banned-art checks remain."
+    "The .172 owner instruction of 2026-10-19 approves exactly one AI-created custom login background,1672x941PNG,2761774bytes,SHA2567c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342. This is not official Blizzard artwork and is excluded from all494official_paths/counts. Its exact tuple is a separate login_art_exception like the existing crest, never a directory, arbitrary generated-art or rights exception. All historical official WebM/poster/provenance/verifier bytes remain selected and unchanged, but historical media are no longer the anonymous login presentation. Closed public coverage is510assets plus27non-art resources (537paths);512asset/5MiB caps and all other private/unlisted/banned-art checks remain.",
+    "The .173 owner instruction of2026-10-19 adds exactly two imagegen-derived custom PNG expansions for full-screen wide and portrait login presentation, at1916x821 and852x1847 native pixels, not4K or official Blizzard artwork. The historical .172 singleton exception and all510prior asset rows remain preserved except the separately reviewed final native policies.css tuple. login_art_variants binds each exact path/size/SHA independently and permits no aliases, additional image, relabeling or directory exception. The unchanged512asset/5MiB caps are fully occupied:512assets plus27required non-art resources,539paths; all494official paths and seven fixed source pins remain unchanged."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -4021,5 +4034,25 @@
     "owner_instruction": "Build .172 owner-approved custom login background",
     "instruction_date": "2026-10-19",
     "classification": "ai_custom_art_not_official_blizzard"
+  },
+  "login_art_variants": {
+    "assets": [
+      {
+        "path": "worker/public/static/wow/login/olympus-dark-portal-wide.png",
+        "mode": "100644",
+        "bytes": 2972596,
+        "sha256": "17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6"
+      },
+      {
+        "path": "worker/public/static/wow/login/olympus-dark-portal-portrait.png",
+        "mode": "100644",
+        "bytes": 2803728,
+        "sha256": "218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659"
+      }
+    ],
+    "usage": "login_background_only",
+    "owner_instruction": "Build .173 owner-approved fullscreen wide and portrait login backgrounds",
+    "instruction_date": "2026-10-19",
+    "classification": "imagegen_derived_custom_art_not_official_blizzard"
   }
 }

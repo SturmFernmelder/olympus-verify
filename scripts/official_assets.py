@@ -1,4 +1,4 @@
-"""Exact website byte gate: official assets and two closed owner exceptions, not a release signature."""
+"""Exact website byte gate: official assets and closed owner exceptions, not a release signature."""
 from pathlib import Path
 import hashlib
 import json
@@ -6,11 +6,12 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='97a6c77cac6e66a7124a0eec16f496b543efa57ac74b7f1727e5869afd261698'
+REFERENCE_SHA256='bc045720f881441780df0e58cd24e1c5d0c0f8994611e886b9ce2e30f507d6df'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
 LOGIN_ART_EXCEPTION={'path': 'worker/public/static/wow/login/olympus-dark-portal.png', 'mode': '100644', 'bytes': 2761774, 'sha256': '7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342'}
+LOGIN_ART_VARIANTS=[{'path': 'worker/public/static/wow/login/olympus-dark-portal-wide.png', 'mode': '100644', 'bytes': 2972596, 'sha256': '17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6'}, {'path': 'worker/public/static/wow/login/olympus-dark-portal-portrait.png', 'mode': '100644', 'bytes': 2803728, 'sha256': '218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659'}]
 sha=lambda b:hashlib.sha256(b).hexdigest()
 
 def pinned_json(path: Path, expected: str, failure: str) -> tuple[dict,bytes]:
@@ -80,13 +81,24 @@ def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[s
                 raise ValueError('unmanifested_css_asset_reference')
     return sorted(urls)
 
+def login_art_variant_rows(value, restricted: set[str]) -> list[dict]:
+    # The owner's .173 expansion is exactly two images, independently pinned, never a directory allowance.
+    if not isinstance(value,dict) or set(value)!={'assets','usage','owner_instruction','instruction_date','classification'} \
+      or value.get('assets')!=LOGIN_ART_VARIANTS or value.get('usage')!='login_background_only' \
+      or value.get('owner_instruction')!='Build .173 owner-approved fullscreen wide and portrait login backgrounds' \
+      or value.get('instruction_date')!='2026-10-19' \
+      or value.get('classification')!='imagegen_derived_custom_art_not_official_blizzard' \
+      or any(row['path'] in restricted for row in LOGIN_ART_VARIANTS):
+        raise ValueError('owner_login_art_variants_shape_invalid')
+    return value['assets']
+
 def reference() -> dict:
     ref,_=pinned_json(Path(__file__).with_name('official_asset_reference.json'),REFERENCE_SHA256,
                       'official_asset_reference_pin_mismatch')
     keys={'schema','official_candidate_manifest_sha256','official_map_sha256','coverage_evidence_sha256',
           'reference_source_head','assets','required_public_resources','official_paths','native_paths','runtime_paths','runtime_prefixes',
           'required_documents','required_profile_paths','optional_profile_paths','provenance_path','banned_website_art_sha256',
-          'approved_extractor','fixed_art_source_pins','limitations','brand_exception','login_art_exception'}
+          'approved_extractor','fixed_art_source_pins','limitations','brand_exception','login_art_exception','login_art_variants'}
     if set(ref)!=keys or ref.get('schema')!='olympus-official-website-reference-v2' \
       or not isinstance(ref['reference_source_head'],str) or not COMMIT.fullmatch(ref['reference_source_head']):
         raise ValueError('official_asset_reference_shape_invalid')
@@ -110,7 +122,8 @@ def reference() -> dict:
       or login.get('classification')!='ai_custom_art_not_official_blizzard' \
       or LOGIN_ART_EXCEPTION['path'] in set(ref['official_paths'])|set(ref['native_paths']):
         raise ValueError('owner_login_art_exception_shape_invalid')
-    assets=pin_rows(ref['assets'],set(ref['official_paths'])|set(ref['native_paths'])|{ref['provenance_path'],BRAND_EXCEPTION['path'],LOGIN_ART_EXCEPTION['path']},
+    variants=login_art_variant_rows(ref['login_art_variants'],set(ref['official_paths'])|set(ref['native_paths']))
+    assets=pin_rows(ref['assets'],set(ref['official_paths'])|set(ref['native_paths'])|{ref['provenance_path'],BRAND_EXCEPTION['path'],LOGIN_ART_EXCEPTION['path']}|{row['path'] for row in variants},
                     'official_asset_reference_shape_invalid')
     resources=resource_rows(ref['required_public_resources'],'official_public_resource_reference_shape_invalid')
     if {p.casefold() for p in resources}&{p.casefold() for p in assets} \
@@ -228,8 +241,10 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
             raise ValueError('brand_exception_payload_at_unlisted_path')
         if sha(data)==LOGIN_ART_EXCEPTION['sha256'] and path!=LOGIN_ART_EXCEPTION['path']:
             raise ValueError('login_art_exception_payload_at_unlisted_path')
+        if any(sha(data)==pin['sha256'] and path!=pin['path'] for pin in LOGIN_ART_VARIANTS):
+            raise ValueError('login_art_variant_payload_at_unlisted_path')
         if path.startswith('worker/public/'):
-            exact_exception=any(path==pin['path'] and sha(data)==pin['sha256'] for pin in (BRAND_EXCEPTION,LOGIN_ART_EXCEPTION))
+            exact_exception=any(path==pin['path'] and sha(data)==pin['sha256'] for pin in (BRAND_EXCEPTION,LOGIN_ART_EXCEPTION,*LOGIN_ART_VARIANTS))
             if sha(data) in ref['banned_website_art_sha256'] and not exact_exception:raise ValueError('nonofficial_website_art_payload_in_result')
             if path not in expected:raise ValueError('unlisted_public_asset_in_result')
             pin=expected[path]
@@ -278,7 +293,8 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
       'fixed_art_source_pins_verified':len(ref['_fixed_art_sources']),
       'brand_exception_byte_pin_verified':True,'brand_exception':ref['brand_exception'],
       'login_art_exception_byte_pin_verified':True,'login_art_exception':ref['login_art_exception'],
-      'nonofficial_owner_approved_login_art_count':1,
+      'login_art_variants_byte_pins_verified':True,'login_art_variants':ref['login_art_variants'],
+      'nonofficial_owner_approved_login_art_count':3,
       'owner_authorization_not_verified_by_helper':True,
       'runtime_reference_coverage_verified':True,'complete_result_tree_checked':True,
       'publisher_archive_build_attestation':False,'redistribution_license_acceptance':False,

@@ -169,7 +169,7 @@ export default {
       if (request.method === "GET" || request.method === "HEAD") return privateSiteAsset(await env.ASSETS.fetch(request));
       const headers = policyHeaders(); headers.set("Allow", "GET, HEAD"); return new Response("method not allowed", { status: 405, headers });
     }
-    // .172: only the exact owner-approved login still is public on SITE_HOST; no directory exception.
+    // .173: only the two exact owner-approved fullscreen login variants are public on SITE_HOST.
     if (host === 'site' && (LOGIN_ASSETS as readonly string[]).includes(path)) {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         const headers = policyHeaders(); headers.set('Allow', 'GET, HEAD');
@@ -576,7 +576,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-19.172 Olympus shield portal still";
+const BUILD = "2026-10-19.173 Fullscreen Olympus portal";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

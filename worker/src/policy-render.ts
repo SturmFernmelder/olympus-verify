@@ -2,8 +2,8 @@
 import { securityHeaders } from "./site-core";
 
 export const POLICY_ASSETS = ['/static/policies.css', '/static/wow-cursor.css', '/static/wow/cursor-point.png', '/static/wow/cursor-interact.png', '/static/wow/icon-shield.png', '/static/wow/friz-quadrata.woff2', '/static/wow/morpheus.woff2', '/static/wow/rock.jpg', '/static/wow/parchment.jpg', '/static/wow/frame-gold.png', '/static/wow/button-up.png', '/static/wow/button-hover.png'] as const;
-// .172: only this owner-approved custom still is public on SITE_HOST; historical media remain private.
-export const LOGIN_ASSETS = ['/static/wow/login/olympus-dark-portal.png'] as const;
+// .173: only these two approved art directions are public on SITE_HOST; historical still/media remain private.
+export const LOGIN_ASSETS = ['/static/wow/login/olympus-dark-portal-wide.png', '/static/wow/login/olympus-dark-portal-portrait.png'] as const;
 export const STATIC_POLICY_CSP = "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 export const FORM_POLICY_CSP = STATIC_POLICY_CSP.replace("form-action 'none'", "form-action 'self'");
 export const LOGIN_POLICY_CSP = STATIC_POLICY_CSP;
