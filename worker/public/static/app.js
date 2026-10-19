@@ -1157,7 +1157,8 @@
     }
     const chapterNodes = chapters.map((chapter, i) => {
       const summary = h("summary", { onclick: () => selection(i, false, false), "data-chapter-summary": chapter.id }, h("h2", { text: chapter.title }));
-      const executionFields = ["2-royal-charter-of-olympus", "3-letters-patent-and-warrants", "adoption-and-office-registers", "daily-news-template"].includes(chapter.id)
+      // The hash-verified book fixes these instrument chapters at these ordinals.
+      const executionFields = (i === 2 || i === 3 || ["adoption-and-office-registers","daily-news-template"].includes(chapter.id))
         ? h("p", { class: "governance-instrument-note", role: "note", text: "About the blank fields: ceremonial and reusable instruments retain their unexecuted signature, witness and register fields. The adopted book does not supply an individual's signature or issue an appointment. A blank field is not a completed record." }) : null;
       const content = h("div", { class: "governance-prose" }, executionFields, governanceBlocks(chapter.lines));
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
