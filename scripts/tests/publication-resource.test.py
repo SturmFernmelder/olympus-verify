@@ -57,11 +57,11 @@ resources = ref['_resources']
 public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
-check(len(assets) == 111 and len(ref['official_paths']) == 96, '111 exact assets including four native member-tool files; 94 original official image/font paths plus two exact client cursors')
-check(len(resources) == 24 and len(public) == 135, '24 separate required non-art resources including attributed talents, catalog and composition note')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed 135-path union')
-check(len(ref['_fixed_art_sources']) == 5 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'five art-sensitive producer pins and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all 135 current public byte pins match the reviewed reference')
+check(len(assets) == 507 and len(ref['official_paths']) == 492, '507 exact assets: original111 plus396 finite talent JPEGs;492 official image/font paths')
+check(len(resources) == 26 and len(public) == 533, '26 separate required non-art resources including the talent art map and provenance')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed533-path union')
+check(len(ref['_fixed_art_sources']) == 6 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six art-sensitive producer pins and original crest contract')
+check(all(pin(p) == row for p, row in public.items()), 'all533 current public byte pins match the reviewed reference')
 check(gate.runtime_path('worker/public/static/qr-phase1.mjs'), 'ES modules are runtime sources')
 check(not gate.runtime_path('worker/public/static/governance/olympus-governance-r6.pdf'), 'documents are not executable runtime sources')
 
@@ -93,6 +93,28 @@ notice = json.loads(payloads['worker/public/static/qr-vendor/jsqr-1.4.0.source.j
 for row in notice['files']:
     path = 'worker/public/static/qr-vendor/' + row['path']
     check(resources[path]['bytes'] == row['bytes'] and resources[path]['sha256'] == row['sha256'], 'actual QR source notice agrees with required vendor bytes: ' + row['path'])
+
+art_map_path = 'worker/public/static/talents/art.json'
+art_provenance_path = 'worker/public/static/talents/art-provenance.json'
+art_map = json.loads(payloads[art_map_path])
+art_provenance = json.loads(payloads[art_provenance_path])
+talent_data = json.loads(payloads['worker/public/static/talents/data.json'])
+class_ids = {row['id'] for row in talent_data['classes']}
+tree_ids = {row['id'] + '-' + tree['id'] for row in talent_data['classes'] for tree in row['trees']}
+talent_ids = {talent['id'] for row in talent_data['classes'] for tree in row['trees'] for talent in tree['talents']}
+art_rows = art_provenance['assets']
+art_paths = {row['path'] for row in art_rows}
+icon_paths = {p for p in art_paths if '/icon-' in p}
+background_paths = {p for p in art_paths if '/bg-' in p}
+check(art_map_path in resources and art_provenance_path in resources and art_map['schema'] == 'olympus-talents-art-v1' and art_provenance['schema'] == 'olympus-talents-art-provenance-v1', 'art map and source provenance are required byte-bound non-executable resources')
+check(art_map['revision'] == talent_data['revision'] == art_provenance['mappingRevision'] == '260cf99b52db' and art_provenance['sourceDataSHA256'] == '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588', 'art mapping remains bound to the exact9-class talent snapshot revision')
+check(len(class_ids) == 9 and len(tree_ids) == 27 and len(talent_ids) == 466 and set(art_map['classIcons']) == class_ids and set(art_map['treeIcons']) == set(art_map['treeBackgrounds']) == tree_ids and set(art_map['talentIcons']) == talent_ids, 'art map covers every exact class, tree and talent without omitted or distant IDs')
+check(art_map['classIcons'] == {key: '/static/wow/class-' + key + '.png' for key in class_ids}, 'class icons remain the existing local official client files')
+check(len(art_rows) == len(art_paths) == 396 and len(icon_paths) == 369 and len(background_paths) == 27 and all(p.startswith('worker/public/static/wow/talents/') and p.endswith('.jpg') for p in art_paths), 'finite art provenance contains exactly369 icons and27 backgrounds at the reviewed local paths')
+check({'worker/public' + url for url in set(art_map['talentIcons'].values()) | set(art_map['treeIcons'].values())} == icon_paths and {'worker/public' + url for url in art_map['treeBackgrounds'].values()} == background_paths, 'talent and tree maps reference exactly the396 local JPEG inventory and no remote image')
+check(all(row['path'] in assets and assets[row['path']]['bytes'] == row['bytes'] and assets[row['path']]['sha256'] == row['sha256'] for row in art_rows), 'every art provenance byte/hash agrees with its official publication pin')
+check(any(row['path'] == 'tools/build-talent-art.py' and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'finite no-network-default talent art producer is separately source-pinned')
+check('/static/talents/art.json' in covered['worker/public/static/talents/calculator.js'], 'actual calculator art-map dependency has finite required-resource coverage')
 
 manifest = {
     'schema': 'olympus-selected-official-public-assets-v2', 'keeper_head': head,
@@ -126,7 +148,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 135 and proof['required_non_art_resource_pins_verified'] == 24, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 533 and proof['required_non_art_resource_pins_verified'] == 26, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['readyForPublication'] is False and proof['document_content_acceptance'] is False, 'synthetic byte checks confer no release or document-content approval')
     gate.validate_worktree_assets(ROOT, admitted)
     check(True, 'actual source public worktree passes exact closed-resource validation')
@@ -202,7 +224,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payloads[p])
     gate.validate_worktree_assets(snapshot, admitted)
-    check(True, 'independent temporary worktree copy validates all 135 required files')
+    check(True, 'independent temporary worktree copy validates all533 required files')
     pdf = snapshot / 'worker/public/static/governance/olympus-governance-r6.pdf'
     pdf.write_bytes(b'changed')
     refused(lambda: gate.validate_worktree_assets(snapshot, admitted), 'public_asset_worktree_pin_mismatch', 'worktree resource substitution is refused')

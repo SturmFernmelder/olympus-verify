@@ -249,3 +249,9 @@ The Task7 browser join changes only the native app bytes in the website referenc
 re-pinned with no helper logic or schema change. All 94 official assets, the approved crest, the fifteen required
 non-art resources and the other fixed art producers retain their bytes and refusal rules. The reference's source-head
 field remains historical provenance; final candidate source and release qualification use their own exact commit.
+
+### .170 talent-art reference successor
+
+The original normalized Talents Forever data snapshot and all talent/rank descriptions remain byte-identical. A separate finite art map and art-provenance.json now identify 369 icon JPEGs and 27 painted tree backgrounds fetched from the same site's public asset paths. The source author identifies these as Blizzard artwork; the files are exact redistributed JPEG bytes, not a new official publisher download, locally extracted client-build attestation or art license. The six 56-pixel icon variants and other 64-pixel icons are retained without redrawing or format conversion. The original native calculator code was independently written to follow the observed layout; no calculator-site scripts/styles/logo were copied.
+
+tools/build-talent-art.py validates the closed inventory offline and can explicitly restore only missing exact pinned public files. The reference successor binds that full producer, art maps and every image hash while preserving the existing official assets, crest exception, private-path refusals, runtime scanner and other five art-sensitive producers. The Dark Portal scene is not part of this image inventory, and no animation asset is claimed.

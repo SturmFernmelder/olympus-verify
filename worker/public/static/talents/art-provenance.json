@@ -1,0 +1,3585 @@
+{
+  "schema": "olympus-talents-art-provenance-v1",
+  "retrievedAt": "2026-10-19T02:47:31.348296+00:00",
+  "sourceSite": "https://talentsforever.com/",
+  "attribution": "World of Warcraft artwork copyright Blizzard Entertainment. Reference files distributed by Talents Forever.",
+  "limits": [
+    "These are Blizzard game-art derivatives distributed by a fan site, not a Blizzard-hosted download or publisher-signed byte attestation.",
+    "The Talents Forever CC-BY data license does not grant rights to Blizzard artwork. No site JavaScript, CSS, logos or ads were copied."
+  ],
+  "sourceDataSHA256": "260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588",
+  "mappingRevision": "260cf99b52db",
+  "counts": {
+    "classes": 9,
+    "trees": 27,
+    "talents": 466,
+    "uniqueIcons": 369,
+    "backgrounds": 27
+  },
+  "assets": [
+    {
+      "path": "worker/public/static/wow/talents/bg-161.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/161.jpg",
+      "bytes": 23353,
+      "sha256": "805e59242819ec11fb01d19d2ce42a1919ef9d1309ccb2231c71c44c39021478",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-163.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/163.jpg",
+      "bytes": 23788,
+      "sha256": "7e1b6daf77ec37f33dd02bd490f234ccc7c26f26bf617c5cf4c47eefa98488cc",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-164.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/164.jpg",
+      "bytes": 27345,
+      "sha256": "b88e946119cb68fbfe828828e0d88d6cf5b7093cc119d15ff3ef2e41739e6c3f",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-181.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/181.jpg",
+      "bytes": 24281,
+      "sha256": "2ff008c99f3f78807a0cce662aef468029ef5166454c5c064797b2b70dc5bc8d",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-182.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/182.jpg",
+      "bytes": 24341,
+      "sha256": "0ba80b71cd5b351143afb419534bcfcf5078891c31b74c8fa379842f05071eaf",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-183.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/183.jpg",
+      "bytes": 22410,
+      "sha256": "90c3102312b9fc71308503325e0b49722421611ccbf8a364ca240135cf7af27d",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-201.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/201.jpg",
+      "bytes": 33627,
+      "sha256": "ab518508e10901d1b7c06eb67b5e076a7e04f01907bdd96d18181aa93360e3a7",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-202.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/202.jpg",
+      "bytes": 28400,
+      "sha256": "fa749f2fb89977a8324feaf9496f74268f6920511aae66ceb527ab048ea9b49b",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-203.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/203.jpg",
+      "bytes": 24486,
+      "sha256": "26556871c193b7592ca0bfb4881accc33457b55f784a3897b4c8e8079920e523",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-261.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/261.jpg",
+      "bytes": 27866,
+      "sha256": "61cb0461a0ec5917fddff41b57f3cbd5d33df29116982f2e9c05f9e16b23364a",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-262.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/262.jpg",
+      "bytes": 44726,
+      "sha256": "a2e75091ed9b464c096d69a3d759c80b7cd67e51eb7e27012830a77391b8b483",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-263.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/263.jpg",
+      "bytes": 23941,
+      "sha256": "09adf3df6ac86302d1a327f60a5469b499e8540f79a3d143649de3d7ae3e8d40",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-281.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/281.jpg",
+      "bytes": 23658,
+      "sha256": "53d0bc5e36e841e33e13100d265ca224fa04f164aea204f7f3ebcd5875086f2e",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-282.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/282.jpg",
+      "bytes": 29224,
+      "sha256": "bbec47097cc224dd4347f9bed0b8e087ad94bca0e28b0c9807e0f393413ae63f",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-283.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/283.jpg",
+      "bytes": 34946,
+      "sha256": "a714f862c67b12ae0526e2c7c66c9b8a9d17dcbe05f4648d3abaf8cb21872e02",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-301.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/301.jpg",
+      "bytes": 29155,
+      "sha256": "54fb43659e1ab27d1fc44b79fa29cb890b4122fc3e6303788021ff3a05dced41",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-302.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/302.jpg",
+      "bytes": 27578,
+      "sha256": "0637f19248dd561319559231d3cf66970fd729b01624631a8a00fda4352b3a65",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-303.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/303.jpg",
+      "bytes": 32320,
+      "sha256": "43ca81c190df591ddf17941e9e47fcb7054a7729ed96ce2a2292609cd159c4bc",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-361.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/361.jpg",
+      "bytes": 32027,
+      "sha256": "4bb25b4774243f2147f3a840d2a6e83ea014b526bd5f2ee4dd4de58787ff1772",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-362.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/362.jpg",
+      "bytes": 36189,
+      "sha256": "a7f4734a925fe48bdeacbc77b8970ec6b8e9bfb1a5a81ac8fe5a757ed883ae46",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-363.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/363.jpg",
+      "bytes": 31051,
+      "sha256": "b0a5ad5cceda3af089ab4b07e6e4bc14664b2627e14778fe4c4d0a051d1d0a8c",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-381.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/381.jpg",
+      "bytes": 41754,
+      "sha256": "c423930806438b296db47501b60354109448a1466ab1e0190774f75f58268928",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-382.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/382.jpg",
+      "bytes": 44694,
+      "sha256": "a7d32f46518b311ae18cd7f464c28e7ec472891f7d621635d58150adc3af8b8b",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-383.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/383.jpg",
+      "bytes": 37001,
+      "sha256": "92a48f8a8f8652170d5187135ddd0b016e8048cc30f291c11a363eed16c5faa2",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-41.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/41.jpg",
+      "bytes": 27525,
+      "sha256": "da88abb19be7671a34daf79eb1518222a713e50869a2e8dae7d14a89faa6f366",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-61.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/61.jpg",
+      "bytes": 21485,
+      "sha256": "ca8ed3d84ac7f07dd8a7c15fba8553abe692c1841351dc1ee3733a3d1e71eeba",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/bg-81.jpg",
+      "sourceURL": "https://talentsforever.com/assets/bg/81.jpg",
+      "bytes": 36615,
+      "sha256": "381441b67b34f64b0f414ba832c2082dbb9b30ee7fc634d23b26b19d8ce2583b",
+      "width": 300,
+      "height": 331,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_ambush.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_ambush.jpg?i=4",
+      "bytes": 4007,
+      "sha256": "96de1b5f83ff283f47eb8a13ebd992ead401515866d000d9b92d054fbcec9af3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_backstab.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_backstab.jpg?i=4",
+      "bytes": 4297,
+      "sha256": "8567a74e730a639a5f9a6fa995d49cebba0389cff5cd18a8e09af6f1d514dc6c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_bullrush.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_bullrush.jpg?i=4",
+      "bytes": 3699,
+      "sha256": "752691c0a6c7e1d426a390fdbdf9ebd88bf5a7251e91a63671751e8a0237fd89",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_criticalstrike.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_criticalstrike.jpg?i=4",
+      "bytes": 4699,
+      "sha256": "1edc64789ba8bc7c6146c683f5b092f3b2bfb72742b0a89231211d6021d2aea6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_deathknight_hemorrhagicfever.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_deathknight_hemorrhagicfever.jpg?i=4",
+      "bytes": 4921,
+      "sha256": "d8e44d98f5af2b7be5a18c67dcc2e2bb771b2d9db5c1b3923fb8c67a1335bcb9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_defend.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_defend.jpg?i=4",
+      "bytes": 3911,
+      "sha256": "ce13bfbcc2c80c4a40e3a9adcc21aec2b0501c175b2730250c15502ac56703c1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_demonhunter_chaoticimprint_fire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_demonhunter_chaoticimprint_fire.jpg?i=4",
+      "bytes": 5174,
+      "sha256": "cf40c8c31f313760d20ceaf7588a28505060c7e0e70943b5a2b1781acb39da43",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_devour.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_devour.jpg?i=4",
+      "bytes": 3459,
+      "sha256": "f29a3b44d544e47fdcad78620dec8daffbc5de174799fae69a4b6af8c904156c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_bash.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_bash.jpg?i=4",
+      "bytes": 4939,
+      "sha256": "9f2d1c312f23719db3ebd420fa8a212430ee790dc33bfc0cc92fdf346dd1c430",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_berserk.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_berserk.jpg?i=4",
+      "bytes": 4048,
+      "sha256": "f53788e09dd2fb701f43122a64df808b86e4e62ea25c381505ca4aa5bb7092bb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_dash.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_dash.jpg?i=4",
+      "bytes": 5122,
+      "sha256": "413690101090ea25a437adc8e4adc71c2663b4c3d2d7407eb2a2267ee6d7073e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_demoralizingroar.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_demoralizingroar.jpg?i=4",
+      "bytes": 4325,
+      "sha256": "a9f3be0a33788e81c4cbbc020c367eeb14209d334f314f5e57dabd07bbb66480",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_disembowel.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_disembowel.jpg?i=4",
+      "bytes": 3042,
+      "sha256": "be196528f1e2a39dd22345aa1dd4b24d103a0ddc4c624f8054eb51e19a1aa463",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_eclipse.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_eclipse.jpg?i=4",
+      "bytes": 2471,
+      "sha256": "31f4eb45c213bda2de7413d0f3ccf9a0e00b50bb2d65364ef9fde2b0b945fd53",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_ferociousbite.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_ferociousbite.jpg?i=4",
+      "bytes": 4049,
+      "sha256": "b219ddd52f448867227bc89fce66584f5258f309846939c2149cab2469e4b0d7",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_flourish.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_flourish.jpg?i=4",
+      "bytes": 4982,
+      "sha256": "673278c4f9d40f26aba9fd5edcf0f13836b0d2198a524e910366cb3181c60831",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_predatoryinstincts.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_predatoryinstincts.jpg?i=4",
+      "bytes": 3413,
+      "sha256": "e01693248cad5a96cce25a694062882f053db6f82e1d413134723a0eb46cffc4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_primalagression.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_primalagression.jpg?i=4",
+      "bytes": 5096,
+      "sha256": "504063b710bd3d9d400a436007915ef563bfa414ea29217d3bda3ffecf0b96f1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_druid_ravage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_druid_ravage.jpg?i=4",
+      "bytes": 3799,
+      "sha256": "0cd6b756928e99acacce0f391ab885e05bec434161e9d8e0ebc97cb4d1bf4936",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_dualwield.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_dualwield.jpg?i=4",
+      "bytes": 3373,
+      "sha256": "10288372b441b220415aa3fc76183125dee3db01025026edaac810ff52e78341",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_ensnare.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_ensnare.jpg?i=4",
+      "bytes": 5071,
+      "sha256": "6d1f051bfcddbeb934fe598dde77a87bd658c3eff5421587dcd3c05a66a946f0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_eyeoftheowl.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_eyeoftheowl.jpg?i=4",
+      "bytes": 3820,
+      "sha256": "fa2869b360689380205b0fa9196498917bdfc538872bede5894f19df66d441b1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_fiegndead.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_fiegndead.jpg?i=4",
+      "bytes": 3638,
+      "sha256": "05bb50e907a562e889abcd59bf7c2402bb651ea74fbd9d875adf95cfdef7b676",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_ghoulfrenzy.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_ghoulfrenzy.jpg?i=4",
+      "bytes": 4031,
+      "sha256": "95ea6588804f5abd4d162bb14bc9f00e65c9479b95ae37b314a42b559b00f907",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_golemstormbolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_golemstormbolt.jpg?i=4",
+      "bytes": 3678,
+      "sha256": "76e6a58db308ec39e54a0f2da9f61c5505f2ca97824333bcad9be6d006205e61",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_golemthunderclap.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_golemthunderclap.jpg?i=4",
+      "bytes": 4146,
+      "sha256": "c6f4945b3bb6e36c99fdcf9b612534e0b4d00e5bfa1d6b60b54b0b7e68574b96",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_gouge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_gouge.jpg?i=4",
+      "bytes": 4427,
+      "sha256": "3cd20c9341eb746e1288cd855124ad126cad3444d61d7214556ba00c7048872a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hibernation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hibernation.jpg?i=4",
+      "bytes": 2979,
+      "sha256": "8c72e022e51936565bb2925b652c8fedc47169f64c822eb3d7ccabb7df782b5e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_animalhandler.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_animalhandler.jpg?i=4",
+      "bytes": 4266,
+      "sha256": "3aedaa0fd167a0f0e8abad483c0b5204e55c9f16938c59b7be778754d8c0f8ec",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_aspectmastery.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_aspectmastery.jpg?i=4",
+      "bytes": 2103,
+      "sha256": "ded7d45ce9299860c258f429e7d999e4139df86d7331eb1ec34e4ff08887127e",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_aspectofthemonkey.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_aspectofthemonkey.jpg?i=4",
+      "bytes": 3634,
+      "sha256": "faf58373fb56db474a17d539e0f3705be8e3ed0f1550199e1765608affcc841b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_beastsoothe.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_beastsoothe.jpg?i=4",
+      "bytes": 3702,
+      "sha256": "c9f8d0854dbb5235a2cc7c6548de14bbc02daec2a35dd68fb329801869caeee9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_beasttaming.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_beasttaming.jpg?i=4",
+      "bytes": 3568,
+      "sha256": "4f30e4b6a4265e56b2a7676202b6448ea619f5510c4f95054e15970c5b75e5df",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_mastertactitian.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_mastertactitian.jpg?i=4",
+      "bytes": 4058,
+      "sha256": "79e6880c8c18b5f39559f9d2108e4176a8ea7f3e0e52b3480d43a6820b033195",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_mendpet.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_mendpet.jpg?i=4",
+      "bytes": 4109,
+      "sha256": "61646a3b47a88674d49fe48563bcc24e2c6e288109abc4c9b2bbc37daf9c2d87",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_pet_bear.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_pet_bear.jpg?i=4",
+      "bytes": 3991,
+      "sha256": "882d86a7ae5c9a98ba0b93ffa5b2a55cc4786b85ad9dbef3ae563fa5a75260b8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_pet_cat.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_pet_cat.jpg?i=4",
+      "bytes": 3955,
+      "sha256": "a84d298174d75f1ae7ba1371bcdada1133a8c8507d2632fb9065ca04e9bec0cd",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_pet_hyena.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_pet_hyena.jpg?i=4",
+      "bytes": 4268,
+      "sha256": "7a5ca781648be8ebe7da052a2af2c9165d1fe265c8de6332f736936746437244",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_pet_tallstrider.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_pet_tallstrider.jpg?i=4",
+      "bytes": 3893,
+      "sha256": "185152457cfcafa0206d590db86f3b54327a4814109563574d85010168f58dae",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_quickshot.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_quickshot.jpg?i=4",
+      "bytes": 3241,
+      "sha256": "a2dc1cb80b1bcb3293a50d6ed92366a6b9be3bfc6dfc2e83e116564cf59371be",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_rapidkilling.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_rapidkilling.jpg?i=4",
+      "bytes": 4138,
+      "sha256": "485c7918ac9e825ff4354b530dc417be020aa31f1eda8162c89d50cfd9ca3c54",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_rapidregeneration.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_rapidregeneration.jpg?i=4",
+      "bytes": 5046,
+      "sha256": "1867a35e8a9ae6aa7280475eb2ebe426ac6bcdbbc78d90f6cdbefd759296227c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_resourcefulness.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_resourcefulness.jpg?i=4",
+      "bytes": 3850,
+      "sha256": "f78717363aadfe8fd287cb50e497778433d94f1b83d06986d24d37cd9c656964",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_swiftstrike.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_swiftstrike.jpg?i=4",
+      "bytes": 4161,
+      "sha256": "2b61364d7ca949a2df4f083a279983b769ae5aa346650c4ded72c56b7118f2d0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_hunter_zenarchery.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_hunter_zenarchery.jpg?i=4",
+      "bytes": 4320,
+      "sha256": "d78a7139c99cbcd51bf7187fdfa5c7d31c6fe2466dae8d1909ba7c264e560d74",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_impalingbolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_impalingbolt.jpg?i=4",
+      "bytes": 4583,
+      "sha256": "8899423081aa11a1b296ea557ea3ccd43c4202fc6b963e90547286adce2f8ebf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_kick.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_kick.jpg?i=4",
+      "bytes": 3020,
+      "sha256": "f9cfb729a1b862be167e7f2b20db59226e5113f4a8fb886964389cc80b6cd26a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mage_missilebarrage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mage_missilebarrage.jpg?i=4",
+      "bytes": 5224,
+      "sha256": "ec36281f41d7b1aa2d4bcd223344964694f822ee5e76f8209303c64264e85e2c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mage_moltenarmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mage_moltenarmor.jpg?i=4",
+      "bytes": 5641,
+      "sha256": "72fddc47521ed1989b0b3d10630d8512174eb96bc81e9190264e7526128e0bee",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mage_netherwindpresence.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mage_netherwindpresence.jpg?i=4",
+      "bytes": 1707,
+      "sha256": "5d2fc7315ab57e00ed695f80a6e143eb66bcf227f217f8b48c8fd5aee1e489a8",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mage_wintersgrasp.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mage_wintersgrasp.jpg?i=4",
+      "bytes": 4421,
+      "sha256": "6c6307c4ff782e8ba68ef8778a2a6e9e1ace7f854f1ff27f1924388cd735c2c1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_marksmanship.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_marksmanship.jpg?i=4",
+      "bytes": 4537,
+      "sha256": "b7d9dff4d7c3ff4ad8ba21be4d3f2700e9d5966dda422f2bb6f3ca200d642275",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mount_jungletiger.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mount_jungletiger.jpg?i=4",
+      "bytes": 4554,
+      "sha256": "e8af4fa82cff1edb469a76e79ad3c0f569094b74b23332c4a2cde652db0f40da",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_mount_whitedirewolf.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_mount_whitedirewolf.jpg?i=4",
+      "bytes": 3615,
+      "sha256": "3cf5c681e3e561d5d52c67cbe74fbc8bd6e122e3816dd1d57e351bfa9d69b81e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_enlightenedjudgements.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_enlightenedjudgements.jpg?i=4",
+      "bytes": 4178,
+      "sha256": "a0e58fb0ef228bdd2c3dc7cdf08d690f520c960d5c05fd5d744e93200dd1c308",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_infusionoflight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_infusionoflight.jpg?i=4",
+      "bytes": 4316,
+      "sha256": "188ad981ec8487143bc9ab23011a381556b64c477e618768e4104809d2010953",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_judgementblue.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_judgementblue.jpg?i=4",
+      "bytes": 4411,
+      "sha256": "a0aa8447343fb511b5926095e21e0dbb81d3f32a30a027771e3f25d2ba1027d0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_judgementofthepure.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_judgementofthepure.jpg?i=4",
+      "bytes": 4573,
+      "sha256": "27ef9a5ef840cc03d2199ead2e46f22e4b6d69bf305f767d458a2420260f15df",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_judgementred.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_judgementred.jpg?i=4",
+      "bytes": 4147,
+      "sha256": "ebe32e159b5d42d76212aa0088e44cfa494eeb94ffa084443fdc58b060f12e66",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_paladin_shieldofthetemplar.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_paladin_shieldofthetemplar.jpg?i=4",
+      "bytes": 4779,
+      "sha256": "5dd04ce8fe92385283fb3013009ea399f30a84c0502f3a699ed8e14c0030132a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_parry.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_parry.jpg?i=4",
+      "bytes": 3906,
+      "sha256": "1be031514a3bf989427ee692adebcc0ad5764be094c906a757e0d0f2b95a1846",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_piercedamage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_piercedamage.jpg?i=4",
+      "bytes": 3809,
+      "sha256": "3c034445fb72904bf2b568886e1227862139133a68959e045691acd165657e41",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_poisons.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_poisons.jpg?i=4",
+      "bytes": 3384,
+      "sha256": "b52d48f5a14b8a11ac3cebb436d0a7dae1e346a0a33f04a5530bc92ef965949c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_racial_avatar.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_racial_avatar.jpg?i=4",
+      "bytes": 4398,
+      "sha256": "1cd65e7b995ce7e51615ae8ebc5a4b093a972b4da1ddd35bd4a248ef7f67f86c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_racial_bearform.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_racial_bearform.jpg?i=4",
+      "bytes": 3984,
+      "sha256": "755deeeee1d7f8c1677f84aecc9c8ada0647ee1f35bf3d2bebdecf485bf1a77d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_racial_bloodrage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_racial_bloodrage.jpg?i=4",
+      "bytes": 4448,
+      "sha256": "28b0d584c26b2d5c4e69bcfa294d11786912b7295f6560b61ee54f1a56658d97",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_racial_cannibalize.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_racial_cannibalize.jpg?i=4",
+      "bytes": 5143,
+      "sha256": "3c2c097aeb1af22fa51da1a479245129d67ca90d310b73fa012f7c08ffb1b678",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_ambush.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_ambush.jpg?i=4",
+      "bytes": 4925,
+      "sha256": "37df7a1698071823b154d93f6d20beb8115028c9b755f555d29fe80d19023db1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_deadlybrew.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_deadlybrew.jpg?i=4",
+      "bytes": 4863,
+      "sha256": "edf089029cc52202d1940cc195d0a5f7d269aef026e2f0a53e39c55473de294d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_distract.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_distract.jpg?i=4",
+      "bytes": 3430,
+      "sha256": "1e9285cb07a1dc5533100966ac3fe9a9bfa8686a6a2cb308f0dc3e604b4a6ea1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_eviscerate.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_eviscerate.jpg?i=4",
+      "bytes": 4516,
+      "sha256": "7b29de3507fa8804b453996cc387591581d577a34234a47ac67c5d1094f8f442",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_feigndeath.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_feigndeath.jpg?i=4",
+      "bytes": 4333,
+      "sha256": "70b1efdb296c411e9e9a6c6671082af49f28ffecb79d084b56d15f2dfd5a45f1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_garrote.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_garrote.jpg?i=4",
+      "bytes": 3005,
+      "sha256": "de408c536502c97f45ee390d111be59f918f4de942250ba86bcab0cf3e2789e7",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_kidneyshot.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_kidneyshot.jpg?i=4",
+      "bytes": 4839,
+      "sha256": "a4c99f68bc0d0742f426a68ca2a4c8d10987e2421e0c464a44c04fb68d5d42ff",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_rupture.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_rupture.jpg?i=4",
+      "bytes": 4531,
+      "sha256": "54beda9e8a39c12ff97e2b2ecdc4a24cead6ee753a5a267dd5c0cc20b61ecd25",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_slicedice.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_slicedice.jpg?i=4",
+      "bytes": 4077,
+      "sha256": "fd08c46f3506826a735b5271406eea6945cf0b403f54166b9826827fc920fbd2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_sprint.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_sprint.jpg?i=4",
+      "bytes": 4728,
+      "sha256": "4b601ca0b578d57fbcd4d65d864af3557595c6c787582de79d48a50dca97ca23",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_rogue_trip.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_rogue_trip.jpg?i=4",
+      "bytes": 4754,
+      "sha256": "a4a3e0bc040454471b0b7fb2297e1ceb488c9306a14495db8916349e7c9b7508",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_sap.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_sap.jpg?i=4",
+      "bytes": 3506,
+      "sha256": "2d71dddbe383c8a65096d1465a884d8f77db9ddcc446f7873716b382253ce5c2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_searingarrow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_searingarrow.jpg?i=4",
+      "bytes": 4503,
+      "sha256": "34d03684069e14c3b94720998ae7e2d49257897bd3f9ccbfc8eb442dac294677",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_shaman_stormstrike.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_shaman_stormstrike.jpg?i=4",
+      "bytes": 4693,
+      "sha256": "08fe1601689e629eb47a69eca43ef17aa26190711e7168bff421e3cb8b860d56",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_shaman_watershield.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_shaman_watershield.jpg?i=4",
+      "bytes": 4581,
+      "sha256": "714492edaa7445b679d47d6c09331d12bb437653860749f13bd66e57acbfd769",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_shockwave.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_shockwave.jpg?i=4",
+      "bytes": 4031,
+      "sha256": "416e25e66c1b71d3f15587df2bbd607d16830322eb5578afc556630d5665900b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_stealth.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_stealth.jpg?i=4",
+      "bytes": 3955,
+      "sha256": "118b1fd904bd1a32dbbd673697f3fcb86496a6c1ff32e651acc30e2ac296a003",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_thunderbolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_thunderbolt.jpg?i=4",
+      "bytes": 3631,
+      "sha256": "675a98e2789f66936556380ac9ad46ad62ffacad7678c4792c73d3515d350f8a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_thunderclap.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_thunderclap.jpg?i=4",
+      "bytes": 3606,
+      "sha256": "7d7f1c697a06e8b1b0da271cec5b6641fc99c8171d840ed089854eda8b8126a6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_townwatch.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_townwatch.jpg?i=4",
+      "bytes": 3783,
+      "sha256": "5415368c18e90c7f8429e40bc6a4305913e454c79d7b779c5e52a438ec880952",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_trueshot.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_trueshot.jpg?i=4",
+      "bytes": 4356,
+      "sha256": "b1b4d8f277f50dcf601abe130b19ad62f20495a331e593e4de08c57c2ac65a10",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_upgrademoonglaive.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_upgrademoonglaive.jpg?i=4",
+      "bytes": 4470,
+      "sha256": "890d43930076ce493d1ce66bebb0c941ef512b28b0dca90bdfc0222542ed47e4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warlock_baneofhavoc.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warlock_baneofhavoc.jpg?i=4",
+      "bytes": 4909,
+      "sha256": "247a8d38a55b0efaa4abb3aadcf544e5a23682c2448901fd46f8613153aae00f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warlock_randomizesuccubusincubus.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warlock_randomizesuccubusincubus.jpg?i=4",
+      "bytes": 4740,
+      "sha256": "886fca82db31b518b8c40d0e773eee59b378e9b0c0fbe679803aa64f2f3a3af0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_challange.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_challange.jpg?i=4",
+      "bytes": 4574,
+      "sha256": "865282cce2d4759f54bcea2afbaa24b7a2b58904a2e8a74237800102493e9a3e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_charge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_charge.jpg?i=4",
+      "bytes": 4076,
+      "sha256": "25c84f005b85d235db228e5666716d534d3e80a4aba6ce92a952302c48816b68",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_decisivestrike.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_decisivestrike.jpg?i=4",
+      "bytes": 3953,
+      "sha256": "2cf4bc62ff08937018896968b2f880d3089c84d7774be129ebb280fcc4a0fb64",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_disarm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_disarm.jpg?i=4",
+      "bytes": 3481,
+      "sha256": "4b7dd459fe94dbb440739a9713ccbdfeb1913a1fd854d81f85b750b572f3c8b1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_focusedrage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_focusedrage.jpg?i=4",
+      "bytes": 4611,
+      "sha256": "a47289542010f1c7297f5b7e58b0e09185047fc813e37fcaa4c97ad0afce04f5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_incite.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_incite.jpg?i=4",
+      "bytes": 1915,
+      "sha256": "6388cdf2b591ca888d44a019cefb830153db46f8b93816f1d54bc2caba4bba55",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_innerrage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_innerrage.jpg?i=4",
+      "bytes": 5222,
+      "sha256": "17dae52cbb4e197ee438c1ab922f0478238e63325ed329921c8c29be54372093",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_punishingblow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_punishingblow.jpg?i=4",
+      "bytes": 4223,
+      "sha256": "f0205519e36737657f91f7ab17c3ef83dfa0e20ca93d2003943846757834d40e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_revenge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_revenge.jpg?i=4",
+      "bytes": 3291,
+      "sha256": "c4471700218ff62d92b7275f15b5183956e9c6600fe656362a5941e6bdb172f1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_riposte.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_riposte.jpg?i=4",
+      "bytes": 3331,
+      "sha256": "7b004094134c5cd87f2a28064d1c2f7e022c3c87ab4ab164e288d9cfb9bb40de",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_savageblow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_savageblow.jpg?i=4",
+      "bytes": 3835,
+      "sha256": "782ec4b93fa7b85ff08f86875cb4be2b4c7b0a20415228d550a4292d41c8e287",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_secondwind.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_secondwind.jpg?i=4",
+      "bytes": 1672,
+      "sha256": "732697c6ea0a725ba832e2d5d3e0ceb281db75a5802d8a88779a4a9fa4d5504b",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_shieldbash.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_shieldbash.jpg?i=4",
+      "bytes": 4527,
+      "sha256": "a78a66e733f21a3c9f1de69cf8f2c0865f048321de4577849aede4f31c1c65b8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_shieldcharge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_shieldcharge.jpg?i=4",
+      "bytes": 3784,
+      "sha256": "ff598739a418693627f039c3dab76dc5ba71894e14fa413fd4a40f96257470bf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_shieldguard.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_shieldguard.jpg?i=4",
+      "bytes": 4121,
+      "sha256": "d867249f96f7ed84a7fa54a0d798af8cc25f9cf5d5bbc8901882895bb0f64e27",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_shieldwall.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_shieldwall.jpg?i=4",
+      "bytes": 3749,
+      "sha256": "580f3e415748fbaed42e125896b961ebb5460b31ccb374a3f46da39cf8bafaea",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_sunder.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_sunder.jpg?i=4",
+      "bytes": 3683,
+      "sha256": "6f3175a5ada123814e3608acb8d159ccc1d8dd3f13eeacfe1d4c7721e7068c70",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_warrior_warcry.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_warrior_warcry.jpg?i=4",
+      "bytes": 4764,
+      "sha256": "cd6464410e5bc8f9103f586a068bc212f18556e055473700055c05d17728d0de",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-ability_whirlwind.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/ability_whirlwind.jpg?i=4",
+      "bytes": 4907,
+      "sha256": "10485ac0c113fed81eeefb429f67c19ad463c215622fa3ab7db2a2d3d81dbee1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-classicon_rogue.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/classicon_rogue.jpg?i=4",
+      "bytes": 4022,
+      "sha256": "421a16d3a3e76259cdc62bde26bc5ebd7f61752b309de4f3203e8500decf3088",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-garrison_weaponupgrade.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/garrison_weaponupgrade.jpg?i=4",
+      "bytes": 3716,
+      "sha256": "531796350ecc46b3239a268509ad3bc9be73b16846179125a590378b070daddc",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-hunter_pvp_snipershot.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/hunter_pvp_snipershot.jpg?i=4",
+      "bytes": 4775,
+      "sha256": "a472b0f01a7166d929d739729a667a42ecb32728d2198c30bc17200753bde7a3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_ability_mage_radiantspark.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_ability_mage_radiantspark.jpg?i=4",
+      "bytes": 4513,
+      "sha256": "f8beb9c124220c10e23f0a98941009a91dcb2c981479c07a9cef3229c7345108",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_ability_soulharvesterwarlock_demonicsoul.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_ability_soulharvesterwarlock_demonicsoul.jpg?i=4",
+      "bytes": 4880,
+      "sha256": "79e6a784db876b40cc5b56ccdbc16a31538945b5736811234b75678f142028cf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_axe_09.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_axe_09.jpg?i=4",
+      "bytes": 3668,
+      "sha256": "ac3ade977b060ea6f219b3b61eff16e1ff1dab95d31d171807230b0377db51b0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_elemental_primal_shadow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_elemental_primal_shadow.jpg?i=4",
+      "bytes": 3965,
+      "sha256": "d04777cf170809b0584ac1701d57f72d422f658084bffa747981d6ad86f91236",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_enchant_essenceeternallarge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_enchant_essenceeternallarge.jpg?i=4",
+      "bytes": 3059,
+      "sha256": "9b74f973318d0da299f65cf84bd648f1be1dc0313609a188d10c1440bb812028",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_hammer_04.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_hammer_04.jpg?i=4",
+      "bytes": 3650,
+      "sha256": "bbf10feef36a18d598c373c40028c84fbceed003e0495071ae429a2d83ff9082",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_head_dragon_black.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_head_dragon_black.jpg?i=4",
+      "bytes": 3747,
+      "sha256": "4c0b57869e88ad8ae18b47890ca374e5834ef8640c5aa6fa949662427dc35f46",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_herb_15.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_herb_15.jpg?i=4",
+      "bytes": 4326,
+      "sha256": "406c8f2e7b765c42d7978ada9beb5b1bbd3a1d1edcb37f930d685701368307c4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_horn_03.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_horn_03.jpg?i=4",
+      "bytes": 3329,
+      "sha256": "2cd8b1b00eb6ea85871ef600e37346bd38c65103e54f33e6aef177ec32a85f9b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_monsterclaw_03.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_monsterclaw_03.jpg?i=4",
+      "bytes": 5015,
+      "sha256": "306ca357f7831c5e8ba7df2b37b74a0c0f4f8d14604b487a671eda16c793a392",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_monsterclaw_04.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_monsterclaw_04.jpg?i=4",
+      "bytes": 3660,
+      "sha256": "6a0168f829e933e52288b834d1977a9b3617d265278098583a30059914b612e6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_misc_pelt_bear_03.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_misc_pelt_bear_03.jpg?i=4",
+      "bytes": 3655,
+      "sha256": "40e988d9380cd13e240a938938c8089ffb82ecbd0243bc115cdaec253c6626be",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_relics_idolofrejuvenation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_relics_idolofrejuvenation.jpg?i=4",
+      "bytes": 4032,
+      "sha256": "ade57217657cd0d7528581c53d85428ec5c6ac083c6b6de7d7e7f91e900aef3a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_scroll_07.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_scroll_07.jpg?i=4",
+      "bytes": 4019,
+      "sha256": "c98d080754d699893a5cb33fdd1fb75c688f50dc825060ff33c83d11dce2f846",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_shield_04.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_shield_04.jpg?i=4",
+      "bytes": 2706,
+      "sha256": "d0630171d530c7e437d9f666e5f9421c2844a23fb7ee4becfc9548e1f5aa2370",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_shield_05.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_shield_05.jpg?i=4",
+      "bytes": 4207,
+      "sha256": "1f99e46866b0c3a554671630892b4d6d458568c83431142c83268401e25ba0fc",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_shield_06.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_shield_06.jpg?i=4",
+      "bytes": 4007,
+      "sha256": "b6d7c602112d5cca1efff8e0b601a5fba3a3a682f0fab87438da67eb05e66fd8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_spear_01.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_spear_01.jpg?i=4",
+      "bytes": 3984,
+      "sha256": "6fcfa87af8ff14cdb7a0fbcec3b7d9a42f86705701b5ad44125edd2f8863067f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_staff_01.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_staff_01.jpg?i=4",
+      "bytes": 3573,
+      "sha256": "238b5eeb05522b339f0a3d02489435187e2f0fb4f04b11421fa0344908cc8e95",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_01.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_01.jpg?i=4",
+      "bytes": 3933,
+      "sha256": "5a50700ce8b61ae0eca05a301e871c1553ddf9dfcdf71542e1bee922c716568e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_05.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_05.jpg?i=4",
+      "bytes": 3324,
+      "sha256": "799942e0061663a7a86ca9f2035933f7d9f46e71887e8a54e61069e982d57156",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_08.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_08.jpg?i=4",
+      "bytes": 4793,
+      "sha256": "b147daa4ac6c83cc5a21dab39694d5009c1d614333a960199597f07ab5e2076d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_17.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_17.jpg?i=4",
+      "bytes": 3565,
+      "sha256": "36c0f353c9463cedb3f3ae06982a076bec47521755133a43468d921d220760bd",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_20.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_20.jpg?i=4",
+      "bytes": 2968,
+      "sha256": "b521543cad01c454ce9edeaf8f4c59c096cb352519d3829b409846799b9dbc01",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_27.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_27.jpg?i=4",
+      "bytes": 3565,
+      "sha256": "5cf3b1520870bd7962335fedb2b02c89128b644dceafd2027abdcd8f2a0fd246",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_31.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_31.jpg?i=4",
+      "bytes": 3566,
+      "sha256": "0f302119a573831cccf77d804f9c9fdec07165dc96e92edc6ed87de2dfbbee25",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_35.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_35.jpg?i=4",
+      "bytes": 4543,
+      "sha256": "6d7f858f992420a8ab580110fcb13401b9dd5abcf317fcc0274e1bc3e481a808",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_sword_48.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_sword_48.jpg?i=4",
+      "bytes": 5407,
+      "sha256": "a0c4dc51e29e61a2890796f6c018de7724a2eb8cd700f3afec6f731fb3d330cc",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_wand_01.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_wand_01.jpg?i=4",
+      "bytes": 4325,
+      "sha256": "8e7aef03f1d0e4957c6ef2566387bfc05380e99c946790d25a9421b3970eb75d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_weapon_crossbow_10.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_weapon_crossbow_10.jpg?i=4",
+      "bytes": 4817,
+      "sha256": "3112a56b28a5836fa48b548968d5183b001642a56e1df398542f870334be1122",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-inv_weapon_rifle_06.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/inv_weapon_rifle_06.jpg?i=4",
+      "bytes": 3694,
+      "sha256": "c957fc330743a4ff3776b13a0f011c459b075ae9ea410fabd789646be3b20870",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-racial_troll_berserk.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/racial_troll_berserk.jpg?i=4",
+      "bytes": 5074,
+      "sha256": "677f7b61462583b6d48a08a4d1478f2fcb61c8df3379f73178f5abface3d3931",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_arcane_arcane03.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_arcane_arcane03.jpg?i=4",
+      "bytes": 3772,
+      "sha256": "30c346c40b90367642da28d7c298af262ec0fc4bc1aa27fe0496e0f0cf67cd04",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_arcane_arcaneresilience.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_arcane_arcaneresilience.jpg?i=4",
+      "bytes": 4413,
+      "sha256": "1225fc90f7fd74a90a2d96ac533f4f91ac6419968abebf3c5c78d57f75c9c373",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_arcane_blast.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_arcane_blast.jpg?i=4",
+      "bytes": 5064,
+      "sha256": "4b22231269ae42914e1e51690dd0538625dd55dfc8084f9564b8ed7b774728a3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_arcane_blink.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_arcane_blink.jpg?i=4",
+      "bytes": 3594,
+      "sha256": "09543d77b8ce7fe978e45c60fb27cc4f2e52b49c043b107f00bb9f4cad503b99",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_arcane_starfire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_arcane_starfire.jpg?i=4",
+      "bytes": 4774,
+      "sha256": "a71451c96a609f2417f0fab74fc221a5abb39c5cf226752188c39e4f6e01e2cf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_druid_displacement.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_druid_displacement.jpg?i=4",
+      "bytes": 1843,
+      "sha256": "b9daf65b4461d07de9afc1390a9f601458b010ff98807b249b15413e96b3c0e5",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_burnout.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_burnout.jpg?i=4",
+      "bytes": 4100,
+      "sha256": "e405a9da8ba6332553b6159cd6864457c153f151181f52ec73d82d00193c2330",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_elementaldevastation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_elementaldevastation.jpg?i=4",
+      "bytes": 3605,
+      "sha256": "c9db1f6aa48a8d1f8566cbda1a3f7bcc39e106d661ef6876f7aa665cdbe7ea95",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_fire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_fire.jpg?i=4",
+      "bytes": 3401,
+      "sha256": "38c4b6aaf5f949b90b825a439a3658c67f3028ea4c9d95a4cb90c0cd5cf9fd4d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_firearmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_firearmor.jpg?i=4",
+      "bytes": 4429,
+      "sha256": "66ebf3318b6fba5cd76f41d2485994cb0a0eb4b569d1ca5e1b282881a068ed58",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_fireball.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_fireball.jpg?i=4",
+      "bytes": 4117,
+      "sha256": "3e2172f820f12485011e916df773d46853035115784f11441bfc9f7d11853416",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_fireball02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_fireball02.jpg?i=4",
+      "bytes": 4778,
+      "sha256": "3c7e175f14d035821ced570a2de66b89734b83f25a5e344e24e7c5eb0be95b7a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_firebolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_firebolt.jpg?i=4",
+      "bytes": 4895,
+      "sha256": "b36b30c3585fd6bf133920729faaae543233adf98ef6dd0a8aa0170b05216050",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_firebolt02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_firebolt02.jpg?i=4",
+      "bytes": 3869,
+      "sha256": "0f8f143c039218b9a2bfe46b04b53c8d79e8743333ae5f7671ca61ee1113b68d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_flamebolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_flamebolt.jpg?i=4",
+      "bytes": 4584,
+      "sha256": "1d29a1b42ee0d88e40861f21197b7e15f95f0dbc12f065abc5764287d16ea427",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_flameshock.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_flameshock.jpg?i=4",
+      "bytes": 4691,
+      "sha256": "7d86e7fa9bac6a9758f8756bd6078129722f854d77361701bf63400db65fb4d5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_flametounge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_flametounge.jpg?i=4",
+      "bytes": 4812,
+      "sha256": "3e81e0f532e1895207127c7d69955b68602d0b0f4eff2d32b5cf089aeb17c27d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_flare.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_flare.jpg?i=4",
+      "bytes": 3705,
+      "sha256": "8fe4309ac976a8d107d127ec1a5f38956f8c282b59a1629f1473a6f57ab505b1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_immolation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_immolation.jpg?i=4",
+      "bytes": 5161,
+      "sha256": "37463b2002eed1aaac97ded0c1ee18c4dfea93d5570411ca86d561708630ca52",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_incinerate.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_incinerate.jpg?i=4",
+      "bytes": 5481,
+      "sha256": "82b1e27cd6eaf95abe82a933e61d359b35f13937151aee9aa8f77b4766081d43",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_lavaspawn.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_lavaspawn.jpg?i=4",
+      "bytes": 4323,
+      "sha256": "cb1e7c2c78a1f89d48c4bde4697bb5efbc182f63673aba804b3136c7fa05a88f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_masterofelements.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_masterofelements.jpg?i=4",
+      "bytes": 4628,
+      "sha256": "fe0bc268a5679eb28148142c1463476b8c9749d6b85109db6a735d6d3e03dbc8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_meteorstorm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_meteorstorm.jpg?i=4",
+      "bytes": 3767,
+      "sha256": "29253bd74c8673bfc7b75a886050e0c297ae6ce71d38b1299a58cb150ee42818",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_playingwithfire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_playingwithfire.jpg?i=4",
+      "bytes": 4364,
+      "sha256": "cfed7aa62953667f25c5fbea1701b6df70454fbc83edc82fa36eb11d24b35e9d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_sealoffire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_sealoffire.jpg?i=4",
+      "bytes": 4710,
+      "sha256": "2bfb0e1c00eca14e9ca66635e7e18925be4e0d63527da23b4f69b1809fe6d372",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_selfdestruct.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_selfdestruct.jpg?i=4",
+      "bytes": 5109,
+      "sha256": "995138009771c92d980e47092b55672449ff559397e16278b79c8a5e039d8408",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_soulburn.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_soulburn.jpg?i=4",
+      "bytes": 4748,
+      "sha256": "66ef149a5fa9286cd7174e8be7f9a774de6405caaf5cd325ea52d6e5298f8ce8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_volcano.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_volcano.jpg?i=4",
+      "bytes": 4917,
+      "sha256": "84cccbdb9040196009a2664c30032fda55e0ef9a6c833f00fa1d6604df443a78",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_fire_windsofwoe.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_fire_windsofwoe.jpg?i=4",
+      "bytes": 3576,
+      "sha256": "6967d1f44a02248ae0b93635ce0e9453ec569078b05ee452747fb575201d7432",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_chillingblast.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_chillingblast.jpg?i=4",
+      "bytes": 4419,
+      "sha256": "ea8d57936d01dce2c75c393df03a5704c813f76ba7502716d29eedbc70f5c06b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_freezingbreath.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_freezingbreath.jpg?i=4",
+      "bytes": 5334,
+      "sha256": "19832b24ba770a6e7502557ac89eb3085d72869a69d7e798bb99a98317ed6a66",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frost.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frost.jpg?i=4",
+      "bytes": 3674,
+      "sha256": "1d1a64f6fb8d0a5383563ee24e3c32f0ee0ab0cc595ff353513197519e4a2472",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostarmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostarmor.jpg?i=4",
+      "bytes": 4684,
+      "sha256": "18d4e16879ed7dd616e17f0fbee5d33b26e098a080653f354a4fceaa974dcbcc",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostblast.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostblast.jpg?i=4",
+      "bytes": 3520,
+      "sha256": "28ea516b2486e6bebb0b7f74dfc74f2dd358e4b5592d26c1560bfa9fff8bfb82",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostbolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostbolt.jpg?i=4",
+      "bytes": 3612,
+      "sha256": "51aa1391d94cb52bec2930af16e9c24436d55152e6431ffa14912f0e2f46f922",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostbolt02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostbolt02.jpg?i=4",
+      "bytes": 3178,
+      "sha256": "7ddcb57f116a5c443c2c28e2e0348f23df1b4e5ec246ff284314753607cc8b27",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostshock.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostshock.jpg?i=4",
+      "bytes": 5322,
+      "sha256": "2adae4243d2135b54774ae3929f3a9beb573cda31bedb50b9a2e4f9425660266",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_frostward.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_frostward.jpg?i=4",
+      "bytes": 4313,
+      "sha256": "4ec06fc20456c361b944ad314de69e606238de64fc294292044d927b78faec52",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_glacier.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_glacier.jpg?i=4",
+      "bytes": 4247,
+      "sha256": "67b037dc3b19e8495c0b812344cd56875d95689b170f2cf67556225957ef98dd",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_iceshard.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_iceshard.jpg?i=4",
+      "bytes": 4098,
+      "sha256": "e4d6dbc7052d1d3471d0941263bb3b812aa36635e9ae3ebd0786be3c58e2ef37",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_iceshock.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_iceshock.jpg?i=4",
+      "bytes": 2874,
+      "sha256": "0431221287349dc5577a927d8b48cf8705d0cc1b1a3571cdd5b5707093ee8619",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_icestorm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_icestorm.jpg?i=4",
+      "bytes": 4243,
+      "sha256": "733a3a1144b3f3a91dfc23a62b59c1c8ac864bb088c0d7453763fdcde07bf30b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_manarecharge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_manarecharge.jpg?i=4",
+      "bytes": 4068,
+      "sha256": "bfd5a042807c18c77e6331c56a2931619330db4ae477a0d05b546b3e56a0a292",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_stun.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_stun.jpg?i=4",
+      "bytes": 3772,
+      "sha256": "920aa3f3693fb0c7813b2e5be6e7bb8192248e5a2a9b6b970e38fb2bcfe8ca41",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_summonwaterelemental.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_summonwaterelemental.jpg?i=4",
+      "bytes": 4174,
+      "sha256": "43de028ca73936aea1783fd3b60b692b7e484a680dad89d0a82c8430b19c6c25",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_windwalkon.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_windwalkon.jpg?i=4",
+      "bytes": 4890,
+      "sha256": "44d4fa5cee92ab806116ba75f14d903d2731202169029adfd7be018f8b33802e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_wisp.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_wisp.jpg?i=4",
+      "bytes": 3211,
+      "sha256": "b0a90c4965ab5c6ce628a2eb36b7aab9bc50c9f1cd70bc348b624ea4b7ea1aeb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_frost_wizardmark.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_frost_wizardmark.jpg?i=4",
+      "bytes": 4256,
+      "sha256": "670088a65582744112ba5e85f8821c4317d5147bb398e76faeee3258d1c2ec01",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_ashestoashes.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_ashestoashes.jpg?i=4",
+      "bytes": 4270,
+      "sha256": "6189051be457ea1d2a93a97ca32058d20c85161e05c909c81d75279324a44fc1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_auraoflight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_auraoflight.jpg?i=4",
+      "bytes": 4841,
+      "sha256": "cc4412b9f9bf86058a4f7b2a2b1b2f4181c3b4aafef3e7d210da7792e30d8e6b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessedrecovery.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessedrecovery.jpg?i=4",
+      "bytes": 4131,
+      "sha256": "9b7d5fb15a743114e662683ec8957939a66cf04bb63f3eea2a0af05046a95a61",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessedresillience.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessedresillience.jpg?i=4",
+      "bytes": 5357,
+      "sha256": "29fe2dec1dbd2ff47b061779ccac3d1273050e046dac961ed01d75580169b87f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessingofagility.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessingofagility.jpg?i=4",
+      "bytes": 4696,
+      "sha256": "9d4c90e263fead49362be39fbe0ede7e406e3be3ec914604f32d149d644166b6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessingofprotection.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessingofprotection.jpg?i=4",
+      "bytes": 5083,
+      "sha256": "9bb4da687e12e840833fe6dd941961937b376b4325b9fece7d31ab63d74fa221",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessingofstamina.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessingofstamina.jpg?i=4",
+      "bytes": 5455,
+      "sha256": "ca54ea832f377b63171e842fa4bf5bacdd1d403f6e45e03f6401792cc82569af",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blessingofstrength.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blessingofstrength.jpg?i=4",
+      "bytes": 4760,
+      "sha256": "1dbb15531a3e50655ae542c4fe2978b649615b34d6bf11d75969a46555196ba9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_blindingheal.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_blindingheal.jpg?i=4",
+      "bytes": 4223,
+      "sha256": "6bad2686625417b03774ae94c5ad2c410d17fb1643ad7f3daefff27027f63e79",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_devineaegis.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_devineaegis.jpg?i=4",
+      "bytes": 4868,
+      "sha256": "4c52014b8b886edea35ee34800ea5efa5dbfb71b8f854be9d32c842fcc83eaa0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_devotion.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_devotion.jpg?i=4",
+      "bytes": 5018,
+      "sha256": "9d451647bdfe74d5950f419fd8866d92994128f65dd39392af21c7f50a746e3c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_devotionaura.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_devotionaura.jpg?i=4",
+      "bytes": 4966,
+      "sha256": "0d509034461c1864b42673e4272e93bb0c428ff6d3ff373d4b70a7c7efe6034b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_dispelmagic.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_dispelmagic.jpg?i=4",
+      "bytes": 3222,
+      "sha256": "184b98f5f8ab2a6a8712834b6a2c0caa27ba136ed6ba1f9ed5ba3bcd074a2b09",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_divineillumination.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_divineillumination.jpg?i=4",
+      "bytes": 3633,
+      "sha256": "385dc5f94fb7b1d8c4c1d20c4cacd2f8c51565963f71f52aafb4abf4f5895b01",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_divineintervention.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_divineintervention.jpg?i=4",
+      "bytes": 3814,
+      "sha256": "1bcbe9bbf59fce79bbf2426aa0d4432bb5ceea4d90124885174ac0fa42ae9c35",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_divinepurpose.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_divinepurpose.jpg?i=4",
+      "bytes": 4228,
+      "sha256": "bad08b9132f81e32aef9a385066ccca98bb7f36e470c44d9ae51301184fbbd5d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_elunesgrace.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_elunesgrace.jpg?i=4",
+      "bytes": 3182,
+      "sha256": "99d3ad54a74ae43e2da097e0b09b128d945f2c0aff3a5aac21261e2af56fdd44",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_excorcism_02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_excorcism_02.jpg?i=4",
+      "bytes": 4639,
+      "sha256": "cfcfccc849070690aa176dde102771de37da3f53c1a772742dc5cccd6a1d4d36",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_eyeforaneye.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_eyeforaneye.jpg?i=4",
+      "bytes": 3692,
+      "sha256": "caeb6df01d69635a308d67f602d7507258bd45984c2e6ec1a6628fd6f611329b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_greaterheal.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_greaterheal.jpg?i=4",
+      "bytes": 3681,
+      "sha256": "6606832fab386963f0ba5b8b5b1a06da0f902f57ffb3dce0419c0b0b436d3d46",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_guardianspirit.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_guardianspirit.jpg?i=4",
+      "bytes": 4684,
+      "sha256": "d48d90a89fd7b40a3620e040f3eedafd97bdbd7fec8e6c19d98024ee75cc6f08",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_heal.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_heal.jpg?i=4",
+      "bytes": 4140,
+      "sha256": "5da90d80665dab66d828e1a528e22d0def90cfb00ae585e4edb4a32cf7356f17",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_heal02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_heal02.jpg?i=4",
+      "bytes": 4136,
+      "sha256": "282a69178a565056c7eeccb44b541652af93953b958448affad385dc474edd29",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_healingfocus.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_healingfocus.jpg?i=4",
+      "bytes": 5190,
+      "sha256": "d5397ce154887aaceb47b769e48aaf2e4816ebf87f58a0bc3242ac4a9a0b5162",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_holybolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_holybolt.jpg?i=4",
+      "bytes": 4263,
+      "sha256": "c535bac1e0be315766e8dbe25247dd1b932eac6189453b3683ce2a7c1fca48d5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_holynova.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_holynova.jpg?i=4",
+      "bytes": 4841,
+      "sha256": "1ccebc6081214d2c5ead37af329340d4f2c269eb9f9a5e84051ebca3021504f6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_holyprotection.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_holyprotection.jpg?i=4",
+      "bytes": 6782,
+      "sha256": "2f41bf321dbdb0512c9f7394b868995b4e7b172c6d80546eb538fcf0d35f25f4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_improvedresistanceauras.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_improvedresistanceauras.jpg?i=4",
+      "bytes": 4127,
+      "sha256": "219f1a30f459bfba5ed64bae8e26fb9f8ee6257cfff36cb2ce117da2c71b417a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_innerfire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_innerfire.jpg?i=4",
+      "bytes": 3890,
+      "sha256": "3a0922696ee8246f7d4b4337ed26acd0b6255c0bd3e975faee46a709ad057d7d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_layonhands.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_layonhands.jpg?i=4",
+      "bytes": 3093,
+      "sha256": "fdd9fb32473643faafe059f2ce2c9a6b471c13b735f0bb9852138fa9fe98c232",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_magicalsentry.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_magicalsentry.jpg?i=4",
+      "bytes": 5360,
+      "sha256": "71b4c48d6e8fd7df9d6d6578330903743e9a2afbdbc1377b0b224b17574d1cf9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_penance.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_penance.jpg?i=4",
+      "bytes": 3346,
+      "sha256": "c693941782d6675f965324d858a50dd438f79057b5489e38030dc4a919d83e66",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_persuitofjustice.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_persuitofjustice.jpg?i=4",
+      "bytes": 3557,
+      "sha256": "2d0cb4db6ead89211595a46726de2280029edeea57818ecfb0cacb831208ad45",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_power.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_power.jpg?i=4",
+      "bytes": 3560,
+      "sha256": "77e2f780c6a67cac979e2cda8d3b491f534f2c081e4639523078daf7e770fba6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_powerinfusion.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_powerinfusion.jpg?i=4",
+      "bytes": 4548,
+      "sha256": "ed968f077da161b18b933694995aa08ad2b253def1af1a5a0afb0912affb0086",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_powerwordshield.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_powerwordshield.jpg?i=4",
+      "bytes": 4794,
+      "sha256": "31b8a92cd252b057b5ad425f6b930e9e075d66a975ca3d1fab75e4b0343e4c9e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_prayerofhealing.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_prayerofhealing.jpg?i=4",
+      "bytes": 4511,
+      "sha256": "154b3a54c14c1d96599456b4f713c0b53db5a1857d9453c4d2edb68f0f33e57d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_prayerofmendingtga.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_prayerofmendingtga.jpg?i=4",
+      "bytes": 4705,
+      "sha256": "656b002907d04433daa31aec3d46b096a279746e3b5b190c85e6ee2cc5ccab69",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_pureofheart.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_pureofheart.jpg?i=4",
+      "bytes": 4465,
+      "sha256": "eba5f3bdf6ff0622e3a7bfa4c2e011aeac3843478ee2d4e8d91041e8dde7be71",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_purify.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_purify.jpg?i=4",
+      "bytes": 3712,
+      "sha256": "5d319b4c565c1cce0c9180fa95377bd769e034096aab7b3c807de44db98d43c1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_purifyingpower.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_purifyingpower.jpg?i=4",
+      "bytes": 3736,
+      "sha256": "29ab1139b70bd9b8c42af8c81fc61632af9e77f180ff3c18e12d00ce371def36",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_renew.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_renew.jpg?i=4",
+      "bytes": 4560,
+      "sha256": "4a5da419c55df096c167253b1526c2396a49fc055046af856f52b314cc1c0459",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_retributionaura.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_retributionaura.jpg?i=4",
+      "bytes": 5097,
+      "sha256": "76095fb626fe580cc91461ac00a23d8faa26a9212a7c29699cf1c28e0110fd0d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_righteousfury.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_righteousfury.jpg?i=4",
+      "bytes": 4881,
+      "sha256": "56c27f0da6bcd7e2d85380f7549ba6b4516575bcee53f89dc5bddc9404e6ab28",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_righteousnessaura.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_righteousnessaura.jpg?i=4",
+      "bytes": 5182,
+      "sha256": "445191bd2b669b9956a3129f09b267214ca4d3a00019640300fa64d077cce8d2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealoffury.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealoffury.jpg?i=4",
+      "bytes": 5427,
+      "sha256": "1560d960c771441cf2daede6e4ce79026fd2986a766e402ae5f7036a9224096f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealofmight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealofmight.jpg?i=4",
+      "bytes": 5120,
+      "sha256": "aa9231bdeec2118786357ce0d20deafbab0e2254bfd6195065b8aaa58db53cbc",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealofprotection.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealofprotection.jpg?i=4",
+      "bytes": 4328,
+      "sha256": "798de72ac184e3bdea013ae74c9c315a3d95b3e032edaeb9945ff2da458df127",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealofsalvation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealofsalvation.jpg?i=4",
+      "bytes": 5211,
+      "sha256": "7dbe325638375c686685cc8bdd4dc58fcc906236e8f95d844986f98fe539aae6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealofvengeance.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealofvengeance.jpg?i=4",
+      "bytes": 4791,
+      "sha256": "84361f4675161c4c2477d915fe11b46bf393ab8eb09761c398dac1b764c803a3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_sealofwrath.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_sealofwrath.jpg?i=4",
+      "bytes": 4993,
+      "sha256": "7a4ac6342b1df8e39a63bf2180f546b6739175e56fa23674b93b1f379935bbfe",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_searinglight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_searinglight.jpg?i=4",
+      "bytes": 4007,
+      "sha256": "604702c63db45cb9e1d0179f09855f5e7846040430b80af22edad1d078a1ca86",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_searinglightpriest.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_searinglightpriest.jpg?i=4",
+      "bytes": 5378,
+      "sha256": "f5317426adf7708b1332495158cfdf688e60e83dd8c151b8838824434afd65f0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_spellwarding.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_spellwarding.jpg?i=4",
+      "bytes": 4054,
+      "sha256": "5d4c3a3c040892c8758fb68222c0ab8ecb178b5eca3519482b4c1d399cf516a0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_spiritualguidence.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_spiritualguidence.jpg?i=4",
+      "bytes": 3313,
+      "sha256": "f6af944ff4a84d985ee9dc2e966d20f7df10246a193d7f78e716c353c75b882e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_unyieldingfaith.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_unyieldingfaith.jpg?i=4",
+      "bytes": 3818,
+      "sha256": "838cf7b699ae4819aaffc76c590406d2ad6ac93c6c22095b8fc311c1c0507979",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_vindication.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_vindication.jpg?i=4",
+      "bytes": 4235,
+      "sha256": "845e838bc0ded07f79951c9536cced5d750b063689e50c3fd78360b44f566f64",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_holy_wordfortitude.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_holy_wordfortitude.jpg?i=4",
+      "bytes": 3917,
+      "sha256": "e3f96969ee6780fcb2e2199a18cb57838792c47cc6e1a90b3fa06c2692174fcb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_ice_lament.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_ice_lament.jpg?i=4",
+      "bytes": 4601,
+      "sha256": "9c90178b0f66fde62e508e7eeaa3577ca758bf0cb32c462d274a5fea75379401",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_ice_magicdamage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_ice_magicdamage.jpg?i=4",
+      "bytes": 3107,
+      "sha256": "422ab99d6d261af1fd0eb779b14d263268f932083eb2d6711002f5cc2b48b0b0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_lightning_lightningbolt01.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_lightning_lightningbolt01.jpg?i=4",
+      "bytes": 4091,
+      "sha256": "fbdb1385504178b854f907d8b181d9fd2819dc8bc50e81e5f99792a0c886fba3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_magic_lesserinvisibilty.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_magic_lesserinvisibilty.jpg?i=4",
+      "bytes": 3982,
+      "sha256": "5f765e81dcd93f37d97a90df2ee9eab1692adfb1ab440108e8ee438793a8c9e7",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_magic_magearmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_magic_magearmor.jpg?i=4",
+      "bytes": 4394,
+      "sha256": "8875d7f7320fb55016ba1182b93a6ebc31e786152695177f7a4f97b196d62cfd",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_abolishmagic.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_abolishmagic.jpg?i=4",
+      "bytes": 3877,
+      "sha256": "cae3890ac87b9c9635bc2a4cf36753310dee157acb0eb7f3d5086fc6f6b9e261",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_ancestralguardian.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_ancestralguardian.jpg?i=4",
+      "bytes": 5070,
+      "sha256": "706bb042065bc77c545025566cf32935e70d9a846335d87dfccca2722d334a4d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_astralrecalgroup.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_astralrecalgroup.jpg?i=4",
+      "bytes": 5298,
+      "sha256": "bec6b6c80d72b63363fca90439826aec79db7700552163ba4b8373fc1b30f52d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_bloodlust.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_bloodlust.jpg?i=4",
+      "bytes": 4922,
+      "sha256": "af1f34b6267dc95d8b2437ee774694a2b3d8e07b54b770bcb9d65ee8d5b6465a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_earthbindtotem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_earthbindtotem.jpg?i=4",
+      "bytes": 4823,
+      "sha256": "f6001552a72bed2fbda1ca82212c3c6a218531f070082a0463cba3cacfe2bbe2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_earthshock.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_earthshock.jpg?i=4",
+      "bytes": 4573,
+      "sha256": "e5d57e26e212c560321f686ac86ac59445b1b5427519962c68bdf7162cd6fe47",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_elementalabsorption.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_elementalabsorption.jpg?i=4",
+      "bytes": 5025,
+      "sha256": "dc276d1c607c1e3a8ba909a4eb8c9ba42aa264a631490d4ff1e388a93e8831f5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_enchantarmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_enchantarmor.jpg?i=4",
+      "bytes": 3994,
+      "sha256": "3d9ddccc1beb7dea74604bc0dd88154e0559d9b46081ecd42390c6189c913afb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_eyeofthestorm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_eyeofthestorm.jpg?i=4",
+      "bytes": 2679,
+      "sha256": "bf8052c238b14b371f8d3e5416b5ce5822566d513b26cf943937972dc1415cb9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_forceofnature.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_forceofnature.jpg?i=4",
+      "bytes": 4228,
+      "sha256": "922c2872414f3a6b521fd47382d563c61fa45a5c9f2b543484b22d846ec370ae",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_giftofthewaterspirit.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_giftofthewaterspirit.jpg?i=4",
+      "bytes": 5583,
+      "sha256": "82fecfe50a4af920dd5459a406a73cfd9cf8c79a70951ff04f1489d78e0b7d72",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_healingtouch.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_healingtouch.jpg?i=4",
+      "bytes": 3825,
+      "sha256": "7d534a7d3c9bf6253043c35f4793db9f57f3f1369cc57b0dd0511f95891caa0f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_healingwavegreater.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_healingwavegreater.jpg?i=4",
+      "bytes": 5227,
+      "sha256": "0dd01648eb0b85683b57012c350dea6f9f793586b3eaf64f38945a6477efef84",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_healingwavelesser.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_healingwavelesser.jpg?i=4",
+      "bytes": 5123,
+      "sha256": "a14666625a4ae958fa274b2cae79e0e368ccf9dc47037f123b3db0714287a0cb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_healingway.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_healingway.jpg?i=4",
+      "bytes": 3921,
+      "sha256": "44356c724674a4efb226f4f9679512c5e428aaae6916d89be16318788e090994",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_insectswarm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_insectswarm.jpg?i=4",
+      "bytes": 4607,
+      "sha256": "fee03ae4d89fac89a7841ab2085ea98b9ed377855cfa0b68206228be5fcdf51f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_invisibilty.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_invisibilty.jpg?i=4",
+      "bytes": 3576,
+      "sha256": "a125bcf1c8699c819b0c583efa04c1665014c40449451a28c4ea92cd51464fad",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_lightning.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_lightning.jpg?i=4",
+      "bytes": 3800,
+      "sha256": "2e136369cccf343ddcbeb2297e9bcd3141b0d87798f198a47a04e880a933885f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_lightningoverload.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_lightningoverload.jpg?i=4",
+      "bytes": 4579,
+      "sha256": "7627861128ee10c5b9dc004bc7f13cdc82b803daf891fb8841e1f958454b2070",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_lightningshield.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_lightningshield.jpg?i=4",
+      "bytes": 4625,
+      "sha256": "08c26523cb5431a7c3840488a0e5484c4fc90b6dcabf4f30b20910c2f8040504",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_magicimmunity.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_magicimmunity.jpg?i=4",
+      "bytes": 4878,
+      "sha256": "917f857b8b9a92b6e592272be39f17f30d6f4f4492fb791c8c92e273ee7ee1c1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_manaregentotem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_manaregentotem.jpg?i=4",
+      "bytes": 4713,
+      "sha256": "fa5990b15b0d76b00015a556178c6b9da8bcdbf44fbb17106053985bf70d9cc0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_mentalquickness.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_mentalquickness.jpg?i=4",
+      "bytes": 4676,
+      "sha256": "52fe682a9aada2f8f3ee2f1dfcfc2c5168de62de9bc141b20432794c97b5d23c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_mirrorimage.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_mirrorimage.jpg?i=4",
+      "bytes": 4159,
+      "sha256": "5b7ab1199fa965755fa051f6729f8318db6362d08e36ef67b977fb87abd33f89",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_moonglow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_moonglow.jpg?i=4",
+      "bytes": 2893,
+      "sha256": "f3543a0d881a5559ec9af6d24445042e441ba224241abfd0853c484c4eec5144",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_natureresistancetotem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_natureresistancetotem.jpg?i=4",
+      "bytes": 4927,
+      "sha256": "5d8ed58425fc770096c08a62a73e7c1ca0644bbb6e5b5e1583be900271d00833",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_naturesblessing.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_naturesblessing.jpg?i=4",
+      "bytes": 4380,
+      "sha256": "3bb4e942144f06d698efd3bbfa4290f1797ee42864e4d2bf7df00d8485ac8de3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_naturetouchgrow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_naturetouchgrow.jpg?i=4",
+      "bytes": 3920,
+      "sha256": "01a4ea57594eb9aabd4ccc13ef96ecbad621142445472bbf0deeb0a6c6ec227b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_protectionformnature.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_protectionformnature.jpg?i=4",
+      "bytes": 5896,
+      "sha256": "6eaf332f0192f4a91a09c378a67109c88b9249974847e19a0a785872d4a6333e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_purge.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_purge.jpg?i=4",
+      "bytes": 3649,
+      "sha256": "91f5ba89bceadcab51a0255ec4a19e03d9531aa302531d689266bd10600f5f82",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_ravenform.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_ravenform.jpg?i=4",
+      "bytes": 3952,
+      "sha256": "b455d48ea493aa52eea2f91bf2cf829ab8dee94d6a368400eafdd2688482dcf7",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_reincarnation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_reincarnation.jpg?i=4",
+      "bytes": 4175,
+      "sha256": "67234d65cd11ca807ff7f27cbf5e89f00425a30f264435786a5d2f898933bd81",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_rejuvenation.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_rejuvenation.jpg?i=4",
+      "bytes": 5484,
+      "sha256": "9f89bac44f2a85ca14132fa0abcb5fa36f8dea223d444fd5999aafb05dfbac42",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_removecurse.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_removecurse.jpg?i=4",
+      "bytes": 5423,
+      "sha256": "6c9e3a0ab39dffde8aacb8a18601f34753f8c6acd0c9be1cada2d3be0c16834c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_resistnature.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_resistnature.jpg?i=4",
+      "bytes": 4665,
+      "sha256": "6294f6f30bcb964d183f708ef92e702c4ad27aa2acc80232868866df12450a85",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_riptide.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_riptide.jpg?i=4",
+      "bytes": 4513,
+      "sha256": "4a53a90bd46998b1795ec91a557ed4423aeb0aa8913d748817b64b66fda195b9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_sentinal.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_sentinal.jpg?i=4",
+      "bytes": 3491,
+      "sha256": "b129487ff03152e95bca590a9bb9d7ca5fe060da88eef8c714ec9264988b081f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_sleep.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_sleep.jpg?i=4",
+      "bytes": 3481,
+      "sha256": "b3ad4944838dba0cf7dd239f5ef8779f02d9187635bff0a8a77ee5d3ed23a0df",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_spiritarmor.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_spiritarmor.jpg?i=4",
+      "bytes": 5183,
+      "sha256": "8fb61bf259f26fa42bd620b6176460ecbbec72d85146db53f9bb314d7dfea093",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_spiritwolf.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_spiritwolf.jpg?i=4",
+      "bytes": 4931,
+      "sha256": "9337488ac5e18bc5ef95dfb0b52b7599306ef0097141c6fb218b4df92a8e6647",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_starfall.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_starfall.jpg?i=4",
+      "bytes": 3901,
+      "sha256": "171511f437981babe140ee05a2b2e4595b90a88f85e9c0fa7855b0db61257573",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_stoneclawtotem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_stoneclawtotem.jpg?i=4",
+      "bytes": 5795,
+      "sha256": "97889c27b82b4848c4a6b1f54a3a823d6254aa99aaf523b8ffd71bcac5ead936",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_stoneskintotem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_stoneskintotem.jpg?i=4",
+      "bytes": 5064,
+      "sha256": "234fecf58abfdfd9ee529ce18a0f64ca359bd4c27d2945ee91d51ee94d459c2b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_stormreach.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_stormreach.jpg?i=4",
+      "bytes": 3653,
+      "sha256": "5c98c9f7b9880f958631924e7603b32466c2b996e3d19c406a33d385b3268685",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_stranglevines.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_stranglevines.jpg?i=4",
+      "bytes": 4125,
+      "sha256": "57cb69fef922c3bdfca5fb21f2db37ab3a29c1bfa9477686a9e1b588a8a52d48",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_timestop.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_timestop.jpg?i=4",
+      "bytes": 4587,
+      "sha256": "020e76d250f1e024a5956e78850b8d739db017537043fe319590256f720ddeda",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_tranquility.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_tranquility.jpg?i=4",
+      "bytes": 2816,
+      "sha256": "0638cf6cac43fe049c4bb2ae369c585dd5ee329ddba00456f5f3db46997263bb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_undyingstrength.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_undyingstrength.jpg?i=4",
+      "bytes": 4867,
+      "sha256": "9c144f989e51ff2da80e4e758455c8cb19f145bbe391b894117bac7cb65c65ac",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_unyeildingstamina.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_unyeildingstamina.jpg?i=4",
+      "bytes": 4999,
+      "sha256": "2d39bafd57015667c0a2b339e2b8d3c480c011ee29808c70616f32caf6d64e02",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_wispheal.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_wispheal.jpg?i=4",
+      "bytes": 3642,
+      "sha256": "1514dbf96f592c8dcd689c1f0e1dab5d7b6a039428b569c9c747c5ecde3a50e8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_nature_wispsplode.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_nature_wispsplode.jpg?i=4",
+      "bytes": 3461,
+      "sha256": "139a402d2259419a0f20ee291a21703dd8fda664eda6590f85bd0b82ca663669",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_abominationexplosion.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_abominationexplosion.jpg?i=4",
+      "bytes": 4034,
+      "sha256": "c7e5683329ba30097142c58a30c64f16d8128d24feaae101c1f080c637c02f22",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_antishadow.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_antishadow.jpg?i=4",
+      "bytes": 6178,
+      "sha256": "38fd98f62b5707300aec70fd1f35ccd4d3be03b6eb43272c70784232807bc2b9",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_blackplague.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_blackplague.jpg?i=4",
+      "bytes": 4206,
+      "sha256": "298bff39c4e4c4e2cf0e95955955a700e24459b8d08392cb15745afca0aa2be4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_burningspirit.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_burningspirit.jpg?i=4",
+      "bytes": 4363,
+      "sha256": "f73d8619204699c674c1028dbbcde966825bbc4120e38d9fc253b4d47aa48162",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_callofbone.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_callofbone.jpg?i=4",
+      "bytes": 4413,
+      "sha256": "83ce04633dabe1414f10b1adf8512b8606bb9be626e954226ded38c4a9d798e8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_charm.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_charm.jpg?i=4",
+      "bytes": 3279,
+      "sha256": "d16516c522a93abf2e08949ab6196399ee431661c9416926d5f00e8c177c2879",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_chilltouch.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_chilltouch.jpg?i=4",
+      "bytes": 3520,
+      "sha256": "1fbfcd50801e214f715ed6b5f738202d43d80e7a9b48b7cb553d4173d8bbfe19",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_contagion.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_contagion.jpg?i=4",
+      "bytes": 4171,
+      "sha256": "14fd3c63b69d22b934dad234b2666e3df5325030b6153eb80df0b2d3ee8c4ad6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_corpseexplode.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_corpseexplode.jpg?i=4",
+      "bytes": 4040,
+      "sha256": "7c3f56c7d097ad684e4e86b5fc997bba26f9738db45b9fd11072b42eed06f6a6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_curse.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_curse.jpg?i=4",
+      "bytes": 4273,
+      "sha256": "eddccb4c5717aeb14c7e19076f640ea01f38368bf4683445ef12ebf9a1b4ea91",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_curseofsargeras.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_curseofsargeras.jpg?i=4",
+      "bytes": 4944,
+      "sha256": "9de212eacbc4e89b017808b68f51449c7a5963d7f5dff553aec496cd710b4254",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_darkritual.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_darkritual.jpg?i=4",
+      "bytes": 5383,
+      "sha256": "4d7a4f74fae93f0452d9f0d555d647c8c25995ae0c43151e06ab44a3a14796c8",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_deathcoil.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_deathcoil.jpg?i=4",
+      "bytes": 4757,
+      "sha256": "073ed999b7f1aa1a385ba32ace58917eab31be79509807f05947a7d8d188a461",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_deathpact.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_deathpact.jpg?i=4",
+      "bytes": 5632,
+      "sha256": "ccfec025e32709d9a553a328a0139397fd5f6effb12523994f7230cb4e655968",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_deathscream.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_deathscream.jpg?i=4",
+      "bytes": 3962,
+      "sha256": "953ea5734e8965e87d5575ced5be0912c17abb599df729cb6f2733f2e12cfcf6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_demonicfortitude.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_demonicfortitude.jpg?i=4",
+      "bytes": 5411,
+      "sha256": "e93a359ca830acac183a8c52e11438cffdd8a713893bc049aef2ff91e0a398e5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_demonictactics.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_demonictactics.jpg?i=4",
+      "bytes": 5248,
+      "sha256": "b889e7e80a17246506cea0cf449011828e1dbde6861c89874584b791241bfc03",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_detectlesserinvisibility.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_detectlesserinvisibility.jpg?i=4",
+      "bytes": 5644,
+      "sha256": "b0025f5809187b831522b80e706a27a6ba6bdd0348b68f4f17ddd89fc01ae7de",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_devouringplague.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_devouringplague.jpg?i=4",
+      "bytes": 4018,
+      "sha256": "100d643d70950859d3dd22b62ee4d3d5f9ac338e6aa3a3747987243de81ad0c3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_felmending.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_felmending.jpg?i=4",
+      "bytes": 3937,
+      "sha256": "38b45ded9a26d6adcc346424c3e76c2df0b58f23adef7534f7bcb7ac133a799c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_fingerofdeath.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_fingerofdeath.jpg?i=4",
+      "bytes": 4641,
+      "sha256": "1df61b8994b61999bb41ca6b9f91fdcde01f60386cf1703607692619ad5f357e",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_focusedpower.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_focusedpower.jpg?i=4",
+      "bytes": 3571,
+      "sha256": "30498fe0b198e256f70f2c3100d79e2f0794047079e97a1d1d414118346ccacf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_fumble.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_fumble.jpg?i=4",
+      "bytes": 4577,
+      "sha256": "895f218f416518c59ef4a542efbe906c5de28dba5a62e6a432e00b946e2a2cbb",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_gathershadows.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_gathershadows.jpg?i=4",
+      "bytes": 3707,
+      "sha256": "4894cced9a424428f4cc0cbbc3c00ccb6e3aaa09fca8c08fc88e2485d51de214",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_grimward.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_grimward.jpg?i=4",
+      "bytes": 3721,
+      "sha256": "0c43eaecff796ec711134717f097bbdf08facff5beadc429abebbe8bbe5d38a2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_haunting.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_haunting.jpg?i=4",
+      "bytes": 3681,
+      "sha256": "c825d4afba7378ea6db0f0f50ce14fcbcbb5fd4602d13d45355dea383f6cfda4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_impphaseshift.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_impphaseshift.jpg?i=4",
+      "bytes": 5236,
+      "sha256": "5a5e945506200927ef5345354c3b3d82d92033b4433797d139c0cd818f3db9a1",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_improvedvampiricembrace.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_improvedvampiricembrace.jpg?i=4",
+      "bytes": 4733,
+      "sha256": "6cf11c143b3d535f4f72e5cc40b8896e29665e39e95ea2090559a2918999a6ee",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_lifedrain.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_lifedrain.jpg?i=4",
+      "bytes": 3250,
+      "sha256": "6a114f97616726e81c3ea7a6fc5f99a85593a134573e45d4c75a46087fdecf9a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_lifedrain02.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_lifedrain02.jpg?i=4",
+      "bytes": 4852,
+      "sha256": "5b515ac534d87f27eb391c183be4193441546fb0365c3950deeef18516a4da0d",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_manaburn.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_manaburn.jpg?i=4",
+      "bytes": 4061,
+      "sha256": "4c177d646f3c31baf4ca4e89fbab3a91e2b763fedda98b9c858d2a04f0205bf0",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_metamorphosis.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_metamorphosis.jpg?i=4",
+      "bytes": 4426,
+      "sha256": "d97265bf6057f64f5f1878aabb2725703333ef224e7e952db790cb8974803a6f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_possession.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_possession.jpg?i=4",
+      "bytes": 3322,
+      "sha256": "1bb5075feceeca99c194e31e7464387dded9e192c85d852bffabe6ba3b65580a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_psychicscream.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_psychicscream.jpg?i=4",
+      "bytes": 3964,
+      "sha256": "83150eb896a128d18208772f0aa5314a626b0dc245465026a56fd460a21816c6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_ragingscream.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_ragingscream.jpg?i=4",
+      "bytes": 3897,
+      "sha256": "549e24044a6667d464e485238c1611d027ab9a0c0ccb9a549c479c78e335efbf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_rainoffire.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_rainoffire.jpg?i=4",
+      "bytes": 4478,
+      "sha256": "54eae36014418bbdcecf4355a534cb029241d3e033cc4087c2d22c690ccac0cd",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_requiem.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_requiem.jpg?i=4",
+      "bytes": 4385,
+      "sha256": "844a31a50f340d45f93c72a7860509ff51ae27739f4036b4018d3601f159fcd2",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_ritualofsacrifice.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_ritualofsacrifice.jpg?i=4",
+      "bytes": 4390,
+      "sha256": "b549e905be414dc0cc6d391ff3c16e9dc45f0aaefc8ea9bfab432fec8fd57e46",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_scourgebuild.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_scourgebuild.jpg?i=4",
+      "bytes": 4208,
+      "sha256": "ab7bea88bd341af897992f410ac47e58aa232a3c62b16fab95acfa501b10e0e4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadetruesight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadetruesight.jpg?i=4",
+      "bytes": 4579,
+      "sha256": "68efc035c41b14c013fd5551f1b876ba4567391531b3fe01bd481105f41cc117",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowbolt.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowbolt.jpg?i=4",
+      "bytes": 3903,
+      "sha256": "ffba96d16d9a00a81e61915fb25608cb12466560ac18946e6d8562d86d3d309f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowform.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowform.jpg?i=4",
+      "bytes": 3853,
+      "sha256": "7612758d6faf32ab3b4f0e22c9e58a6e9f585f156d5201d23aaa765f267c4dc4",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowpact.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowpact.jpg?i=4",
+      "bytes": 3735,
+      "sha256": "3c483a397a36c598da29bdb8731ae797c5150f050641f4729c36bbd8d2ae4abf",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowward.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowward.jpg?i=4",
+      "bytes": 5312,
+      "sha256": "3a15cb5a707e20d12d86893837ec3e1643b2a5385e0c74924edb9dd8b9b26c53",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowworddominate.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowworddominate.jpg?i=4",
+      "bytes": 4221,
+      "sha256": "90fe119b2101687e4364782d77801281cf52a28b9570dd6d0f7211da35d19102",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_shadowwordpain.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_shadowwordpain.jpg?i=4",
+      "bytes": 5813,
+      "sha256": "c528ad3d66fe1b1f9e2fee4ec5069fed691e2cf815b93e2b56b6e6281751c0c6",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_siphonmana.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_siphonmana.jpg?i=4",
+      "bytes": 4805,
+      "sha256": "a8f087193d3e32ca925d66b37d0eaed814fc823327d668a6663af66f4e84af03",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_soulleech_2.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_soulleech_2.jpg?i=4",
+      "bytes": 4420,
+      "sha256": "eaec001aa40d8fa16771bdf42e52ab824e37fa44bfe46cda65aed3c87a24ca6c",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_summonfelhunter.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_summonfelhunter.jpg?i=4",
+      "bytes": 4017,
+      "sha256": "8c9ec04db7b7c0b35c7d03bc512fc62d5ab43fc240596bdfa1840201d214e1d5",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_summonimp.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_summonimp.jpg?i=4",
+      "bytes": 4711,
+      "sha256": "a162c107f7ff7985a1e08a2da279c2dea633dc7665fccb4cc2a9bd6462f17973",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_summonsuccubus.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_summonsuccubus.jpg?i=4",
+      "bytes": 3808,
+      "sha256": "4be89c7bde61771620404ada3ce2aecea98bdafab566276e45022f9d25597042",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_summonvoidwalker.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_summonvoidwalker.jpg?i=4",
+      "bytes": 3763,
+      "sha256": "c0656b8ea88a30124386a6708156bfb3c2cf83fe1f928270d9e8e0031a738c18",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_teleport.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_teleport.jpg?i=4",
+      "bytes": 3162,
+      "sha256": "2f920154a26a727ad9710bdcb3f9f4d12c3ed36d1d2366a415612f0ced326be3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_twilight.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_twilight.jpg?i=4",
+      "bytes": 3058,
+      "sha256": "a823e777ca5f8a6a03517402430c29cbecb6db48ef98503f6036eea9e064bb94",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_unholyfrenzy.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_unholyfrenzy.jpg?i=4",
+      "bytes": 4459,
+      "sha256": "856c3fd9297de7612e6a37c66d8259e1e8d96da46ca5727f66692dd9765f4cee",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_unstableaffliction_2.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_unstableaffliction_2.jpg?i=4",
+      "bytes": 6017,
+      "sha256": "99d779a29263fa6008ca8f8897a619a9810d986608a22208b868b6d32197290f",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_unsummonbuilding.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_unsummonbuilding.jpg?i=4",
+      "bytes": 4732,
+      "sha256": "9e3d046350dabef39da2821641eaac4e305077b12fb6117af368874cb416eaa3",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shadow_vampiricaura.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shadow_vampiricaura.jpg?i=4",
+      "bytes": 4548,
+      "sha256": "cfe4da1451d183b9747f93ede34030214d4b988b3961b8628b48c7db53babe32",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shaman_improvedstormstrike.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shaman_improvedstormstrike.jpg?i=4",
+      "bytes": 5148,
+      "sha256": "c9d931475d8875b3cbe304c625b8bd85ab70bb49b5381ccec56b30bf6712684a",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shaman_lavaburst.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shaman_lavaburst.jpg?i=4",
+      "bytes": 4519,
+      "sha256": "aa21a6b06befe7b175e25e3c51b105581f797af25afe39b8b0a1f39f75f5719b",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_shaman_maelstromweapon.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_shaman_maelstromweapon.jpg?i=4",
+      "bytes": 3896,
+      "sha256": "cba87aebb2daa802c96c3aff57aa9a1a91e72712ae9106630c85afe555886147",
+      "width": 64,
+      "height": 64,
+      "conversion": "none; exact downloaded JPEG bytes"
+    },
+    {
+      "path": "worker/public/static/wow/talents/icon-spell_warlock_demonsoul.jpg",
+      "sourceURL": "https://talentsforever.com/assets/icons/spell_warlock_demonsoul.jpg?i=4",
+      "bytes": 2012,
+      "sha256": "3be6ffd79335123cf7a1a275daa527eff9b6457c125e8fbde9f1dca292582eba",
+      "width": 56,
+      "height": 56,
+      "conversion": "none; exact downloaded JPEG bytes"
+    }
+  ]
+}

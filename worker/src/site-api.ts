@@ -60,10 +60,10 @@ import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembership
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
-import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./community-context";
+import { admittedRead, admittedReadAs, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
-import { newsPage, NEWS_ON_SQL } from "./site-news";
+import { newsPage } from "./site-news";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId } from './site-appointed-identities';
 
@@ -82,17 +82,29 @@ export function generalSettingsDto(settings: SiteSettings): SiteSettings {
     .map(([key, value]) => [key, generalAppointmentLabel(value)])) };
 }
 
-/** Public publisher data, read only after the same fresh consumer fence and News
- * switch as guild News. Re-admit after external I/O so a revoked session/switch
- * cannot receive a successful view from an earlier authority observation. */
+/** Public publisher data for the existing signed-in site audience. Guild News's
+ * switch and roster proof do not authorize these public headlines. Both reads
+ * retain the original session, account birth/generation and site standing fence;
+ * no character, guild notice, leadership or member payload is read here. */
 export async function resourceUpdatesPage(request: Request, env: Env): Promise<Response> {
-  const first = await communityContext(env, request);
-  if (first.subject && rateLimited(`resources:${first.subject.discordId}`, 20, 60)) return apiJson({ error: "slow_down" }, 429);
+  const first = await readSession(env, request);
+  if (first && rateLimited(`resources:${first.u}`, 20, 60)) return apiJson({ error: "slow_down" }, 429);
   const admit = async (): Promise<Response | null> => {
-    const context = await communityContext(env, request);
-    const out = await admittedRead(env, context, "confirmedGuildData", [env.DB.prepare(`SELECT (${NEWS_ON_SQL}) AS news_on`)]);
-    if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
-    if ((out[0].results?.[0] as { news_on?: number } | undefined)?.news_on !== 1) return apiJson({ error: "news_off", message: "Game updates are currently unavailable." }, 404);
+    const session = await readSession(env, request);
+    if (!session) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
+    assertOriginalSiteSessionRead(session);
+    const subject = Object.freeze({ discordId: session.u, sessionVersion: session.v,
+      expiresAt: session.e, privacyGeneration: session.g, accountIncarnation: session.n, originalSession: session });
+    const out = await admittedReadAs(env, subject, "applicantWrite", [env.DB.prepare("SELECT 1 AS public_updates")]);
+    if (out === FENCE_REFUSED) {
+      // Only this account's original session/standing is needed to explain a
+      // refusal. The generic community refusal also reads private guild facts.
+      const user = await currentUser(env, request);
+      if (!user) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
+      if (user.denied) return apiJson({ error: "denied", message: "Your registration with Olympus has been permanently denied." }, 403);
+      if (!user.in_server) return apiJson({ error: "not_member", message: "You are no longer in Asmongold's Discord server. Rejoin it, then sign in again." }, 403);
+      return apiJson({ error: "conflict", message: "Your account state changed. Reload and try again." }, 409);
+    }
     return null;
   };
   const before = await admit();

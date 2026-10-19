@@ -31,7 +31,9 @@
   "normalizedBytes": 494373,
   "normalizedSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
   "upstreamSnapshotRetainedOutsidePublication": true,
-  "artCopied": false,
+  "artCopied": true,
   "siteCodeCopied": false,
-  "upstreamSnapshotFilename": "talentsforever-source-260cf99b52db.json"
+  "upstreamSnapshotFilename": "talentsforever-source-260cf99b52db.json",
+  "artProvenance": "/static/talents/art-provenance.json",
+  "artImportNote": "Build .170 separately imports redistributed Blizzard artwork. Original normalized dataset and its data-only import transformation remain unchanged."
 }

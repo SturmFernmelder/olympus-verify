@@ -81,8 +81,10 @@ b, strong { color: var(--white); font-weight: 400; }
 .nav-group > summary::after { content: " ▾"; color: var(--muted); font-size: .7em; }
 .nav-group:has([aria-current="page"]) > summary { box-shadow: inset 0 -2px var(--gold); }
 .nav-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; min-width: 230px; max-width: calc(100vw - 32px); padding: 8px; display: grid; gap: 5px; border: 1px solid var(--brass); background: #11140f; box-shadow: 0 12px 30px #000b; }
+.nav-menu::before { content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 9px; } /* Pointer bridge; the popup never enters header flow. */
 .nav-menu > a { width: 100%; text-align: left; white-space: normal; }
 .nav-group:not([open]) > .nav-menu { display: none; }
+@media (min-width: 721px) { .nav-group:last-child .nav-menu { left: auto; right: 0; } }
 .board-results { min-height: 5.5rem; }
 .board-summary-status { min-height: 1.2em; margin-bottom: 0; }
 .guide-steps { display: grid; gap: 14px; }
