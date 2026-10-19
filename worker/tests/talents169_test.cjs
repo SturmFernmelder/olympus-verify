@@ -105,9 +105,13 @@ class TalentElement {
 async function detailRenderRegression() {
   const document = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
   const container = document.createElement('main'), browserModule = { exports: {} }, changes = [], copiedLinks = [];
-  let reads = 0, ownDataRequest = true;
+  const timers = new Map();
+  let reads = 0, ownDataRequest = true, timerId = 0, time = 0;
+  const advance = milliseconds => { time += milliseconds; for (const [id, timer] of timers) if (timer.at <= time) { timers.delete(id); timer.callback(); } };
   vm.runInNewContext(source, {
     module: browserModule,
+    setTimeout(callback, delay) { const id = ++timerId; timers.set(id, { callback, at: time + delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
     location: { origin: 'https://guild.example', pathname: '/' },
     navigator: { clipboard: { async writeText(value) { copiedLinks.push(value); } } },
     fetch: async (url, options) => { reads++; ownDataRequest = ownDataRequest && ['/static/talents/data.json', '/static/talents/art.json'].includes(url) && options.credentials === 'same-origin'; return { ok: true, json: async () => clone(url.endsWith('/art.json') ? art : data) }; },
@@ -117,10 +121,14 @@ async function detailRenderRegression() {
   const detail = () => byClass(container, 'talents-detail')[0];
   const titles = () => detail().all(node => node.tagName === 'H4').map(node => node.textContent);
   const pick = name => byClass(container, 'talents-pick').find(node => (node.getAttribute('aria-label') || '').startsWith(name + ', rank '));
+  const detailOwners = () => byClass(container, 'talents-node').filter(node => node.getAttribute('data-detail-open') === 'true');
+  const pointLabels = () => byClass(container, 'talents-tree-header').map(node => node.all(child => child.tagName === 'STRONG')[0].textContent);
   const heroic = find('Improved Heroic Strike');
   check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 2 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
+  check('the initial hidden detail has no elevated owner and empty trees use plural point labels', detail().hidden && detailOwners().length === 0 && pointLabels().join() === '0 points,0 points,0 points');
   pick(heroic.name).click();
   check('the real point control renders current and next rank text without converting absent fields to null', changes.at(-1).points === 1 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3') && detail().textContent.includes(heroic.descriptions[0]) && detail().textContent.includes(heroic.descriptions[1]) && titles().includes('Next rank') && !detail().textContent.includes('null'));
+  check('the real branch counter uses singular point only for one allocated point', pointLabels().join() === '1 point,0 points,0 points');
   const copyLink = () => byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Copy link');
   copyLink().click(); await Promise.resolve();
   const beforeReselect = { callbacks: changes.length, code: byClass(container, 'talents-share-code')[0].getAttribute('value'), link: copiedLinks.at(-1), selected: pick(heroic.name) };
@@ -129,6 +137,7 @@ async function detailRenderRegression() {
   check('re-selecting the active class preserves the allocated point, exact share URL, selection and change-callback count', changes.length === beforeReselect.callbacks && changes.at(-1).points === 1 && byClass(container, 'talents-share-code')[0].getAttribute('value') === beforeReselect.code && copiedLinks.at(-1) === beforeReselect.link && beforeReselect.link === 'https://guild.example/#/talents/warrior/' + beforeReselect.code && pick(heroic.name) === beforeReselect.selected && pick(heroic.name).getAttribute('aria-pressed') === 'true' && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3'));
   pick(heroic.name).click(); pick(heroic.name).click();
   check('the real maximum-rank render removes only the absent next rank and retains current/all-rank descriptions', changes.at(-1).points === 3 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 3 / 3') && detail().textContent.includes(heroic.descriptions[2]) && !titles().includes('Next rank') && byClass(detail(), 'talents-all-ranks')[0].all(node => node.tagName === 'LI').length === heroic.maxRank && !detail().textContent.includes('null'));
+  check('multiple allocated points retain the plural branch counter and exact total', pointLabels().join() === '3 points,0 points,0 points' && changes.at(-1).points === 3);
   const mortal = find('Mortal Strike'), parent = all(data.classes[0]).find(talent => talent.id === mortal.requires);
   pick(mortal.name).focus();
   check('real present cost and prerequisite fields remain readable without allocating a locked talent or mutating the snapshot', byClass(detail(), 'talents-cost')[0].textContent === mortal.cost && byClass(detail(), 'talents-requires')[0].textContent === 'Requires ' + parent.name + ' at maximum rank.' && detail().textContent.includes(mortal.descriptions[0]) && !detail().textContent.includes('null') && changes.at(-1).points === 3 && initialJSON === JSON.stringify(data));
@@ -141,8 +150,41 @@ async function detailRenderRegression() {
   const inspected = !detail().hidden && detail().textContent.includes(heroic.name) && pick(heroic.name).getAttribute('aria-describedby') === detail().getAttribute('id');
   const escaped = pick(heroic.name).dispatch('keydown', { key: 'Escape' });
   check('pointer inspection opens full details and Escape closes them without spending a point', inspected && escaped.defaultPrevented && detail().hidden && changes.at(-1).points === 3);
+  pick(deflection.name).focus();
+  const focusedNode = pick(deflection.name).parentNode;
+  pick(heroic.name).dispatch('pointerenter');
+  const layer = selector => Number(css.match(new RegExp(selector + '\\{z-index:(\\d+)\\}'))?.[1]);
+  check('hovering Improved Heroic Strike transfers the sole overlay above a still-focused Deflection sibling', document.activeElement === pick(deflection.name) && detailOwners().length === 1 && detailOwners()[0] === pick(heroic.name).parentNode && focusedNode.getAttribute('data-detail-open') === null && pick(deflection.name).getAttribute('aria-describedby') === null && pick(heroic.name).getAttribute('aria-describedby') === detail().getAttribute('id') && layer('\\.talents-node\\[data-detail-open="true"\\]') > layer('\\.talents-node:hover,\\.talents-node:focus-within'));
+  const cruelty = find('Cruelty');
+  pick(cruelty.name).dispatch('pointerenter');
+  const crueltyNode = pick(cruelty.name).parentNode;
+  crueltyNode.dispatch('pointerleave', { relatedTarget: null }); advance(249);
+  const duringGap = !detail().hidden && timers.size === 1 && detail().textContent.includes(cruelty.name);
+  // Entering an absolutely positioned descendant fires pointerenter on its owner too.
+  crueltyNode.dispatch('pointerenter'); advance(1);
+  const learn = byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').find(node => node.textContent === '+ Learn');
+  crueltyNode.dispatch('pointerleave', { relatedTarget: learn }); advance(500);
+  check('a hover-only Cruelty detail survives the gap and entry into its enabled controls cancels dismissal', duringGap && !detail().hidden && !learn.disabled && timers.size === 0 && detailOwners()[0] === crueltyNode && document.activeElement === pick(deflection.name) && changes.at(-1).points === 3);
+  byClass(detail(), 'talents-detail-close')[0].click();
+  check('Close returns focus to the inspected talent while removing its overlay priority', detail().hidden && detailOwners().length === 0 && document.activeElement === pick(cruelty.name) && timers.size === 0);
+  pick(deflection.name).focus(); pick(cruelty.name).dispatch('pointerenter');
+  crueltyNode.dispatch('pointerleave', { relatedTarget: null }); advance(250);
+  check('leaving a hover-only detail outside its owner closes it after the bounded grace period', detail().hidden && detailOwners().length === 0 && timers.size === 0 && document.activeElement === pick(deflection.name));
+  pick(heroic.name).dispatch('pointerenter'); pick(heroic.name).parentNode.dispatch('pointerleave', { relatedTarget: null });
+  pick(mortal.name).dispatch('pointerenter'); advance(250);
+  check('moving inspection to another talent cancels the prior leave timer without closing the new details', !detail().hidden && detail().textContent.includes(mortal.name) && detailOwners().length === 1 && detailOwners()[0] === pick(mortal.name).parentNode && timers.size === 0);
+  pick(mortal.name).parentNode.dispatch('pointerleave', { relatedTarget: null }); detail().focus(); advance(250);
+  check('keyboard focus inside the detail keeps it open when a pending pointer dismissal expires', !detail().hidden && document.activeElement === detail() && detailOwners().length === 1 && timers.size === 0);
+  pick(cruelty.name).focus();
+  const entered = pick(cruelty.name).dispatch('keydown', { key: 'I' }), detailFocused = document.activeElement === detail();
+  const detailEscaped = detail().dispatch('keydown', { key: 'Escape' });
+  check('I enters the detail and Escape restores its talent focus and clears overlay priority', entered.defaultPrevented && detailFocused && detailEscaped.defaultPrevented && document.activeElement === pick(cruelty.name) && detail().hidden && detailOwners().length === 0 && changes.at(-1).points === 3);
+  pick(heroic.name).dispatch('pointerenter'); pick(heroic.name).parentNode.dispatch('pointerleave', { relatedTarget: null });
+  const pendingBeforeRender = timers.size === 1;
   const comparison = byClass(container, 'talents-compare-switch')[0].all(node => node.tagName === 'INPUT')[0];
   comparison.dispatch('change', { target: { checked: true } }); pick(mortal.name).focus();
+  advance(250);
+  check('a rebuild cancels the detached tooltip timer and preserves the newly focused detail', pendingBeforeRender && timers.size === 0 && !detail().hidden && detail().textContent.includes(mortal.name) && detailOwners().length === 1);
   check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 52 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
   pick(heroic.name).dispatch('keydown', { key: '-' }); pick(heroic.name).dispatch('keydown', { key: '+' });
   check('keyboard refund and allocation preserve the exact versioned share code and original point rules', changes.at(-2).points === 2 && changes.at(-1).points === 3 && api.validateBuild(data, api.parseBuild(data, byClass(container, 'talents-share-code')[0].getAttribute('value')).build).points === 3);
@@ -155,7 +197,10 @@ async function detailRenderRegression() {
   const imported = await browserModule.exports.mount(importedContainer, { className: 'warrior', build: code });
   check('the real image renderer imports the unchanged exact build without re-reading or mutating its data', byClass(importedContainer, 'talents-share-code')[0].getAttribute('value') === code && api.validateBuild(data, api.parseBuild(data, code).build).points === 16 && reads === 2 && initialJSON === JSON.stringify(data));
   imported.destroy();
+  pick(paladinFirst.name).dispatch('pointerenter'); pick(paladinFirst.name).parentNode.dispatch('pointerleave', { relatedTarget: null });
+  const pendingBeforeDestroy = timers.size === 1;
   controller.destroy();
+  check('destroying the calculator clears its outstanding pointer dismissal timer', pendingBeforeDestroy && timers.size === 0);
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

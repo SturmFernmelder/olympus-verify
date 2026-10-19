@@ -11,6 +11,7 @@ import { FormError } from './policy-form-core';
 
 export const APPOINTMENT_IDENTITY_ROLES = ['co_gm', 'treasurer'] as const;
 type IdentityRole = typeof APPOINTMENT_IDENTITY_ROLES[number];
+export type AppointmentAccountStatus = 'eligible' | 'no_current_profile' | 'unavailable';
 const MAX_CHARACTERS = 50;
 const PROOF_PURPOSE = 'appointed-character-publication-v1';
 const PROOF_MARKER = ':publication:';
@@ -58,13 +59,40 @@ const proofEntries = `(SELECT json_group_array(p.key) FROM (
  AND length(p.key)=length(a.key)+${PROOF_MARKER.length + 64}
  AND substr(p.key,length(a.key)+${PROOF_MARKER.length + 1}) NOT GLOB '*[^0-9a-f]*' ORDER BY p.key LIMIT 2) p)`;
 
-type PublicationTarget = { id: string; birth: string };
+type PublicationTarget = { role: IdentityRole; id: string; birth: string };
+type AppointmentAccount = { id: string; birth: string | null; status: AppointmentAccountStatus };
+export type AppointmentPublicationFailure = { ok: false; role: IdentityRole; status: Exclude<AppointmentAccountStatus, 'eligible'> | 'account_changed' };
+async function readAppointmentAccounts(env: Env, ids: readonly string[]): Promise<AppointmentAccount[]> {
+  if (!ids.length) return [];
+  const rows = await env.DB.prepare(`SELECT wanted.value AS id,u.account_incarnation AS birth,
+   CASE WHEN u.discord_id IS NULL THEN 'no_current_profile' WHEN ${activeAccount} THEN 'eligible' ELSE 'unavailable' END AS status
+   FROM json_each(?1) wanted LEFT JOIN site_users u ON u.discord_id=wanted.value
+   LEFT JOIN members m ON m.discord_id=u.discord_id`).bind(JSON.stringify(ids)).all<AppointmentAccount>();
+  return rows.results;
+}
+
+/** Admin search hint only; the save still captures the current birth and fences it atomically.
+ * A refusal discloses no privacy case, erasure state or account incarnation to the picker.
+ */
+export async function appointmentAccountStatuses(env: Env, ids: readonly string[]): Promise<Map<string, AppointmentAccountStatus>> {
+  return new Map((await readAppointmentAccounts(env, ids)).map(r => [r.id, r.status]));
+}
+
+export async function appointmentPublicationTargetFailure(env: Env, targets: readonly PublicationTarget[]): Promise<AppointmentPublicationFailure | null> {
+  const accounts = new Map((await readAppointmentAccounts(env, targets.map(t => t.id))).map(r => [r.id, r]));
+  for (const target of targets) {
+    const current = accounts.get(target.id);
+    if (!current || current.status !== 'eligible') return { ok: false, role: target.role, status: current?.status === 'no_current_profile' ? 'no_current_profile' : 'unavailable' };
+    if (current.birth !== target.birth) return { ok: false, role: target.role, status: 'account_changed' };
+  }
+  return null;
+}
 /** The private internal key is not a ballot, appointment, permission or client field.
  * Its value repeats the exact pointer so the UNCHANGED Native eraser withholds both.
  * Lowercase hex obeys that eraser's existing flat-key grammar. An invalidated opaque
  * key can remain until a later authorized settings save; no physical purge is claimed.
  */
-export async function prepareAppointmentPublication(env: Env, appointed: Record<string, string>): Promise<{ stored: Record<string, string>; targets: PublicationTarget[] } | null> {
+export async function prepareAppointmentPublication(env: Env, appointed: Record<string, string>): Promise<{ ok: true; stored: Record<string, string>; targets: PublicationTarget[] } | AppointmentPublicationFailure> {
   const associations = APPOINTMENT_IDENTITY_ROLES.flatMap(role => {
     const pointer = own(appointed, role), id = appointmentAccountId(pointer);
     return id ? [{ role, pointer: pointer as string, id }] : [];
@@ -72,14 +100,13 @@ export async function prepareAppointmentPublication(env: Env, appointed: Record<
   const stored = { ...appointed }, targets: PublicationTarget[] = [];
   const secret = env.COOKIE_SECRET;
   for (const a of associations) {
-    const target = await env.DB.prepare(`SELECT u.account_incarnation AS birth FROM site_users u
-     LEFT JOIN members m ON m.discord_id=u.discord_id WHERE u.discord_id=?1 AND ${activeAccount}`).bind(a.id).first<{ birth: string }>();
-    if (!target) return null;
+    const target = (await readAppointmentAccounts(env, [a.id]))[0];
+    if (!target || target.status !== 'eligible' || !target.birth) return { ok: false, role: a.role, status: target?.status === 'no_current_profile' ? 'no_current_profile' : 'unavailable' };
     const mac = await sign(secret, PROOF_PURPOSE, proofPayload(a.role, a.pointer, target.birth));
     stored[a.role + PROOF_MARKER + hexMac(mac)] = a.pointer;
-    targets.push({ id: a.id, birth: target.birth });
+    targets.push({ role: a.role, id: a.id, birth: target.birth });
   }
-  return { stored, targets };
+  return { ok: true, stored, targets };
 }
 
 /** Repeats each captured target birth and standing in the EXISTING atomic map CAS. */

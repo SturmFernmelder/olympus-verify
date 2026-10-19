@@ -185,7 +185,7 @@ export function accountText(a: AccountInfo): string {
     // The reason stays on the site's admin page: the deny dialog tells the admin only site admins read it.
     if (s.denied) lines.push("⛔ **Permanently denied on the guild site**");
   } else {
-    lines.push("Guild site: never signed in.");
+    lines.push("Guild site: no current site profile.");
   }
   const text = lines.join("\n");
   return text.length > 1900 ? text.slice(0, 1890) + "…" : text;

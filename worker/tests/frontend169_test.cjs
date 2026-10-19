@@ -89,6 +89,49 @@ const recordTool169 = (page, namespace, calls) => {
   check(".169 picking a Discord recommendation returns to a local member portrait instead of publishing its CDN picture", !!picked && picked.textContent.includes("Avatar fixture 1") && picked.querySelector("img").getAttribute("src") === "/static/wow/pos-member.png");
   check(".169 own portraits retain their separately bounded CDN treatment", avatarPage.app.querySelector(".who img").getAttribute("src") === avatarPage.boot.user.avatarUrl && avatarPage.app.querySelector(".welcome img").getAttribute("src") === avatarPage.boot.user.avatarUrl);
 
+  console.log("\n== .175: appointment association eligibility and current-profile lookup ==");
+  const appointmentPage = await openPage(STAFF);
+  await appointmentPage.go("#/admin/settings");
+  await waitFor(() => !!appointmentPage.app.querySelector('[data-appointment-status="co_gm"]'), "appointment settings");
+  const coInput175 = appointmentPage.app.querySelector('input[aria-label="Co-Guild Master: appointed to"]');
+  const coRow175 = coInput175.closest(".appointed-row"), coPicker175 = coRow175.querySelector(".picker"), coSearch175 = coPicker175.querySelector('[role="combobox"]');
+  const publication175 = appointmentPage.app.querySelector("#appointed-characters-ok"), names175 = appointmentPage.app.querySelector("#appointed-names-ok");
+  const absent175 = "300000000000000175";
+  const eligible175 = { id: OTHER, label: "Eligible officeholder", shown: "Eligible officeholder", onSite: true, appointmentStatus: "eligible", linked: false };
+  let searches175 = 0;
+  appointmentPage.before(pathname => { if (pathname.startsWith("/api/search?purpose=appointment")) searches175++; return false; });
+  appointmentPage.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { results: [
+    { id: absent175, label: "No current profile", onSite: false, appointmentStatus: "no_current_profile" },
+    { id: DENIED, label: "Unavailable officeholder", onSite: true, appointmentStatus: "unavailable" }, eligible175,
+  ] } : null);
+  coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
+  await waitFor(() => coPicker175.querySelectorAll('[role="option"]').length === 3, "appointment eligibility search");
+  let options175 = coPicker175.querySelectorAll('[role="option"]');
+  check(".175 appointment rows explain missing profiles and unavailable standing before Save without requiring game proof", options175[0].getAttribute("aria-disabled") === "true" && options175[0].textContent.includes("Use normal Sign in with Discord with this account") && options175[1].getAttribute("aria-disabled") === "true" && options175[2].getAttribute("aria-disabled") === "false" && !coPicker175.textContent.includes("verified in game") && appointmentPage.app.textContent.includes("A character link or roster confirmation is not required"));
+  options175[0].dispatchEvent(new Event("mousedown", { bubbles: true }));
+  check(".175 clicking an account without a current eligible profile cannot associate it", coInput175.value === "");
+  coPicker175.querySelector(".list-tools").dispatchEvent(new Event("mousedown", { bubbles: true }));
+  options175 = coPicker175.querySelectorAll('[role="option"]');
+  check(".175 current-profile filter does not mistake profile existence for publication eligibility", options175.length === 2 && options175[0].getAttribute("aria-disabled") === "true" && options175[1].getAttribute("aria-disabled") === "false");
+  names175.checked = true; publication175.checked = true; keyboard169(coSearch175, "Enter");
+  check(".175 keyboard selection skips unavailable rows and resets both independent consent checks", coInput175.value === "<@" + OTHER + ">" && !names175.checked && !publication175.checked && coRow175.textContent.includes("Eligible officeholder: eligible for association at the last check"));
+  keyboard169(coSearch175, "ArrowDown"); // The same query is entered again explicitly below.
+  coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
+  await waitFor(() => searches175 === 2, "repeat appointment search bypasses name cache");
+  check(".175 appointment searches bypass the browser name cache for the same query", searches175 === 2);
+  keyboard169(coSearch175, "Escape");
+  const appointedBefore175 = one("SELECT value FROM site_settings WHERE key='appointed'")?.value;
+  await fixtureRun("UPDATE site_users SET denied=1 WHERE discord_id=?", OTHER);
+  names175.checked = true; publication175.checked = true;
+  byText(appointmentPage.app, "button", "Save settings").click();
+  await waitFor(() => coRow175.querySelector('[data-appointment-status="co_gm"]').textContent.includes("Co-Guild Master: The selected account is not currently eligible"), "role-specific real save refusal");
+  check(".175 a changed selected account is named by office at its field and the real Worker refuses the whole save", one("SELECT value FROM site_settings WHERE key='appointed'")?.value === appointedBefore175 && !publication175.checked && coInput175.focusCalls === 1 && !coRow175.querySelector('[data-appointment-status="co_gm"]').textContent.includes(OTHER));
+  await fixtureRun("UPDATE site_users SET denied=0 WHERE discord_id=?", OTHER);
+  const lookup175 = await openPage(STAFF);
+  await lookup175.go("#/admin/lookup/" + absent175);
+  await waitFor(() => lookup175.app.textContent.includes("no current site profile"), "current-profile lookup wording");
+  check(".175 ordinary lookup describes missing current data without asserting historical sign-ins", !lookup175.app.textContent.includes("never signed in") && lookup175.app.textContent.includes("Historical sign-ins are not established by this lookup"));
+
   console.log("\n== .169: grouped navigation and explanatory guides ==");
   const member = await openPage(MEMBER);
   check(".169 native Guild and Resources menus contain the actual routes", !!group169(member, "Guild") && !!group169(member, "Resources") && ["#/roles", "#/governance", "#/organization", "#/talents", "#/addons", "#/guides", "#/guide/member", "#/guide/officer"].every(href => !!link169(member, href)));

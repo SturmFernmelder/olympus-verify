@@ -65,7 +65,7 @@ import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leader
 import { openRenameHold } from "./rename-review";
 import { newsPage } from "./site-news";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
-import { appointedIdentitiesPage, appointmentAccountId } from './site-appointed-identities';
+import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses } from './site-appointed-identities';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -874,6 +874,8 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
     return apiJson({ results: [], unavailable: true });
   }
   const ids = out.found.map((f) => f.id);
+  const appointment = admin && url.searchParams.get('purpose') === 'appointment';
+  const appointmentStatuses = appointment ? await appointmentAccountStatuses(env, ids) : null;
   const onSite = new Set<string>();
   const linked = new Set<string>();
   if (ids.length) {
@@ -900,6 +902,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
       onSite: onSite.has(f.id),
       self: f.id === user.discord_id,
       ...(admin ? { linked: linked.has(f.id) } : {}),
+      ...(appointmentStatuses ? { appointmentStatus: appointmentStatuses.get(f.id) ?? 'unavailable' } : {}),
     })),
   });
 }
