@@ -61,6 +61,8 @@ async function review(){
  sql.length=0;const accountOn=await call(f,'/privacy/account',cookies),accountOnHtml=await accountOn.text(),onAccountSql=sql.length;
  eq('enabled ordinary page status',accountOn.status,200);safeHtml('enabled ordinary page',accountOn,accountOnHtml);
  eq('enabled ordinary page retains three copy forms',(accountOnHtml.match(/action="\/privacy\/account\/export"/g)||[]).length,3);
+ ok('ordinary page offers direct task anchors without a submission or query credential',accountOnHtml.includes('aria-label="Account data tasks"')&&accountOnHtml.includes('href="#account-downloads"')&&accountOnHtml.includes('id="account-downloads"')&&accountOnHtml.includes('href="#erasure-status"')&&accountOnHtml.includes('id="erasure-status"')&&accountOnHtml.includes('href="#account-erasure"')&&accountOnHtml.includes('id="account-erasure"'));
+ ok('connection capabilities remain present in a closed script-free disclosure',onHtml.includes('<details class="privacy-connection-scope"><summary>About this Discord connection</summary>'+scopeDisclosure+'</details>'));
  const staleOrdinary=fields(section(accountOnHtml,'/privacy/account/full-erase'));
  ok('enabled ordinary erasure retains original confirmation and operation ID',section(accountOnHtml,'/privacy/account/full-erase').includes('name="confirm" value="erase" required')&&/^[a-f0-9]{32}$/.test(staleOrdinary.operationId));
  ok('enabled pages do not advertise a disabled pause',!onHtml.includes(paused)&&!accountOnHtml.includes(paused));

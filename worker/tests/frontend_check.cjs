@@ -385,11 +385,11 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
-    check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member"));
+    check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment"));
     associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
-    check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Appointed member") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
+    check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
     associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
     associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
     await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");
@@ -2020,7 +2020,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  a row: exact time, actor name and ID, action and subject name; private historical detail withheld",
       c.length === 5 && c[0].getAttribute("title") === "just now" && c[0].textContent.length > 10 && c[1].textContent === "Vik (@u64)" + STAFF && c[2].textContent === "role.restored" &&
       c[3].textContent === "Mia (@u03)" && c[3].getAttribute("title") === MEMBER && c[4].textContent.includes("details withheld") &&
-      !aud.app.textContent.includes("AUDIT-PRIVATE") && !c[4].querySelector("details"),
+      !aud.app.textContent.includes("AUDIT-PRIVATE") && !!c[4].querySelector("details.audit-detail") && !c[4].querySelector("details.audit-detail").open,
       [...c].map((x) => x.textContent.slice(0, 80)));
     check("  a system actor stays as written", cells(rowsA[58])[1] && cells(rowsA[58])[1].textContent === "system");
     check("  the page lists fifty, Newest is off on the newest page, Older is on", aud.app.querySelectorAll("tr[data-audit-id]").length === 50 && byText(aud.app, "button", "Newest").disabled === true && byText(aud.app, "button", "Older").disabled === false);

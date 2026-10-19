@@ -16,6 +16,7 @@ async function coverageReview(){
  for(const r of ['community_privacy_cases','community_privacy_messages','community_privacy_operations']){const item=manifest.stores.find(x=>x.store===r);eq(r+' requires existing case credentials',item.coverage,'case');ok(r+' hints never act as account proof',item.handling.includes('does not grant access'));}
  eq('interactions do not gain guessed ownership',manifest.stores.find(r=>r.store==='seen_interactions').coverage,'unattributable');
  const html=coverage.accountDataCoverageHtml();eq('static readable UI has exactly69 store rows',(html.match(/data-account-store=/g)||[]).length,69);ok('UI is script-free and explicit partial help',!/<script|<form|<input/.test(html)&&html.includes('curated partial copy')&&html.includes('Ask an Olympus officer')&&html.includes('/privacy/case'));
+ ok('record inventory is an optional closed disclosure with its full original scope',html.startsWith('<details class="privacy-scope"><summary>Copy scope and data inventory</summary>')&&!html.startsWith('<details open')&&html.includes('every stored field or every external, recovery or local copy')&&html.endsWith('</section></details>'));
  eq('metadata omitted if ordinary lifecycle copy is disabled',coverage.accountDataCoverage('ordinary',false).stores.find(r=>r.store==='privacy_subjects').selectedInThisFile,false);
  const lifecycleStores=['privacy_serving_jobs','privacy_subjects','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers'];
  for(const store of lifecycleStores){

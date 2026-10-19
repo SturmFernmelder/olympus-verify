@@ -38,6 +38,19 @@
 .olympus-policy .receipt h2,.olympus-policy .data-controls h2{margin-top:0}
 .olympus-policy .preserve-text{white-space:pre-wrap}
 .olympus-policy .privacy-status-code{min-width:0;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal}
+/* .174: short task navigation and optional technical scope keep the script-free controls usable on phones. */
+.olympus-policy .privacy-actions,.olympus-policy .policy-contents{display:block;margin:1.25rem 0;padding:1rem;border:1px solid #8f703d;border-radius:.35rem;background:#eddcaf88}
+.olympus-policy .privacy-actions{display:flex;flex-wrap:wrap;gap:.65rem 1.25rem}
+.olympus-policy .privacy-actions a{padding:.35rem 0}
+.olympus-policy .privacy-scope,.olympus-policy .privacy-connection-scope{margin:1.25rem 0;padding:.85rem 1rem;border:1px solid #8f703d;border-radius:.35rem}
+.olympus-policy .privacy-scope>summary,.olympus-policy .privacy-connection-scope>summary{cursor:pointer;font-weight:bold;min-height:1.75rem}
+.olympus-policy .privacy-scope h2{margin-top:1rem}
+.olympus-policy .policy-contents ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem 1.5rem;margin:.65rem 0 0;padding-left:1.25rem}
+.olympus-policy .policy-contents li{margin:0;min-width:0}
+.olympus-policy .policy-contents a{display:inline-block;padding:.2rem 0}
+.olympus-policy .policy-anchor{display:block;scroll-margin-top:1.25rem}
+.olympus-policy #account-downloads,.olympus-policy #account-erasure,.olympus-policy #erasure-status{scroll-margin-top:1.25rem}
+@media(max-width:40rem){.olympus-policy .policy-contents ol{grid-template-columns:1fr}.olympus-policy .privacy-actions{gap:.35rem}.olympus-policy .privacy-actions a{display:block;flex:1 1 100%;min-height:2.75rem}.olympus-policy .privacy-scope,.olympus-policy .privacy-connection-scope{padding:.75rem}}
 .olympus-policy .case-messages{padding-left:1.25rem}
 .olympus-policy .case-messages li{padding:.5rem 0;border-bottom:1px solid #433821}
 /* .154: the same official game texture/font vocabulary as the member guild hall. */

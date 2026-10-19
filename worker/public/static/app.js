@@ -14,6 +14,7 @@
   const app = document.getElementById("app");
   let timers = [];
   let disposeTool = null;
+  let disposeGovernancePrint = null;
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
   let gameCursor = true;
@@ -152,6 +153,8 @@
   /** Who holds a role filled by appointment (Admin → Settings), or "": such a role takes no applications, votes or write-ins. */
   const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
   const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; const value = Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; return appointmentPointer(value) ? "Appointed member" : value; };
+  const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
+  const sentenceEnd = (text) => /[.!?]$/.test(text) ? text : text + ".";
   /** "Fernmelder has been appointed Treasurer / Guild Bank, so the role is no longer open to applications or votes." */
   const appointedText = (keys) => (keys.length === 1
     ? `${appointedTo(keys[0])} has been appointed ${roleName(keys[0])}, so the role is no longer open to applications or votes.`
@@ -204,7 +207,7 @@
     const choose = onChoose && !holder && !current ? h("button", { class: "btn", type: "button", text: "Choose as my first choice" }) : null;
     const d = dialog(h("div", { class: "role-dialog" },
       h("h2", { id }, posIcon(p.key, "s"), " ", p.label),
-      holder ? h("p", { class: "appointed-line" }, tick(), `Appointed: ${holder}. This role takes no applications.`) : null,
+      holder ? h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(holder))} This role takes no applications.`) : null,
       !holder && noVoteOf(p) ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
       current ? h("p", { class: "appointed-line" }, tick(), "Your first choice.") : null,
       roleInfo(p),
@@ -798,6 +801,7 @@
       ? h("div", { class: "who" },
           ownAvatar(S.user), // .114: the member's own Discord picture (header only)
           h("span", { class: "name", text: discordIdentity(S.user), title: discordIdentity(S.user) }),
+          h("a", { class: "btn small", href: "/privacy/account", text: "Account data" }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
     return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, who));
@@ -892,6 +896,7 @@
   function render() {
     closeNavMenus();
     if (disposeTool) disposeTool();
+    if (disposeGovernancePrint) disposeGovernancePrint();
     if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
     timers = [];
@@ -997,7 +1002,7 @@
       ["Choose how to help", "Read a role's responsibilities, apply with accurate answers and keep your availability current. Applying and voting do not bypass an appointment, eligibility rule or launch gate.", "#/roles", "Explore roles"],
       ["Verify your character", "Follow the guild's in-game verification instructions. A character label you type is different from a roster-confirmed character. Directory listing is optional.", "#/community", "Open community hub"],
       ["Prepare for Forever", "Use the talent calculator, source-labelled class guides and addon directory. Check the client build and whether advice is tested beta material, Classic-derived or provisional.", "#/guides", "Browse guides"],
-      ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "#/", "Open my account"],
+      ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "/privacy/account", "Open my account"],
     ];
     add(main, frame(officer ? "Officer guide" : "Member guide", h("a", { class: "btn small", href: officer ? "#/guide/member" : "#/guide/officer", text: officer ? "Member guide" : "Officer guide" }),
       h("p", { class: "muted small", text: "Source: Olympus's current charter and site workflows. This guide explains the process; permissions and current server decisions remain authoritative." }),
@@ -1107,7 +1112,7 @@
     return out;
   }
   function governanceDraftNotice() {
-    return h("div", { class: "governance-draft", role: "note" }, h("strong", { text: "R7 • Guild rules adopted 13 October 2026" }),
+    return h("details", { class: "governance-draft" }, h("summary", null, h("strong", { text: "R7 • Guild rules adopted 13 October 2026" }), " — scope of adoption"),
       h("p", { text: "Adopted by the authorized guild administration. Adoption issues no individual appointment or named signature and changes no native rank, bank limit or platform permission. Dated archives retain their historical status; actual appointments and implementation are separately recorded." }));
   }
   ROUTES.governance = async (main, parts) => {
@@ -1122,6 +1127,14 @@
     const result = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
     const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
     const current = h("span", { class: "small" });
+    // Browser-menu/Ctrl+P printing must carry the same full current text and
+    // adoption qualifications as the page's Print button, only for this live view.
+    function preparePrint() {
+      if (main.parentNode !== app || currentRoute().split("/")[0] !== "governance") return;
+      for (const section of details.values()) { section.hidden = false; section.open = true; }
+      const scope = main.querySelector("details.governance-draft");
+      if (scope) scope.open = true;
+    }
     function selection(i, focus = false, open = true) {
       index = i; const chapter = chapters[index];
       if (open) details.get(chapter.id).open = true;
@@ -1134,7 +1147,9 @@
     }
     const chapterNodes = chapters.map((chapter, i) => {
       const summary = h("summary", { onclick: () => selection(i, false, false), "data-chapter-summary": chapter.id }, h("h2", { text: chapter.title }));
-      const content = h("div", { class: "governance-prose" }, governanceBlocks(chapter.lines));
+      const executionFields = ["2-royal-charter-of-olympus", "3-letters-patent-and-warrants", "adoption-and-office-registers", "daily-news-template"].includes(chapter.id)
+        ? h("p", { class: "governance-instrument-note", role: "note", text: "About the blank fields: ceremonial and reusable instruments retain their unexecuted signature, witness and register fields. The adopted book does not supply an individual's signature or issue an appointment. A blank field is not a completed record." }) : null;
+      const content = h("div", { class: "governance-prose" }, executionFields, governanceBlocks(chapter.lines));
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
       details.set(chapter.id, section); contents.set(chapter.id, (chapter.title + " " + chapter.lines.join(" ")).toLowerCase());
       return section;
@@ -1159,14 +1174,17 @@
         h("a", { class: "btn", href: "#/governance/3-letters-patent-and-warrants", text: "Appointment templates" }),
         h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
         h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Operational charter" }),
-        h("button", { class: "btn small", type: "button", text: "Print current R7 book", onclick: () => { for (const section of details.values()) { section.hidden = false; section.open = true; } window.print(); } }),
+        h("button", { class: "btn small", type: "button", text: "Print current R7 book", onclick: () => { preparePrint(); window.print(); } }),
+        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R7.md", text: "Download current R7 source" })),
+      h("details", { class: "governance-archive" }, h("summary", { text: "Archive and release records" }),
+        h("p", { class: "small muted", text: "Historical R6 drafts and preparation documents retain their dated status. For current guild rules, use the R7 reader above." }),
+        h("div", { class: "btn-row" },
         h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.pdf", download: "Olympus Guild Governance - Successor Draft.pdf", text: "Historical R6 PDF" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-governance-r6.zip", download: "Olympus Governance - Successor Draft.zip", text: "Historical R6 package" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-guide-r6.pdf", download: "Olympus Guild Guide - Draft R6.pdf", text: "Historical R6 guide" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-adoption-checklist-r6.pdf", download: "Olympus Adoption Checklist - Draft R6.pdf", text: "Historical R6 checklist" }),
         h("a", { class: "btn small", href: "/static/governance/olympus-templates-r6.pdf", download: "Olympus Appointment and News Templates - Draft R6.pdf", text: "Historical R6 templates" }),
-        h("a", { class: "btn small", href: "/static/governance/olympus-release-preparation.pdf", download: "Olympus Release Preparation Checklist.pdf", text: "Release preparation PDF" }),
-        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R7.md", text: "Download current R7 source" })),
+        h("a", { class: "btn small", href: "/static/governance/olympus-release-preparation.pdf", download: "Olympus Release Preparation Checklist.pdf", text: "Release preparation PDF" }))),
       h("div", { class: "governance-controls" }, h("label", { for: "governance-search", text: "Find a rule or office" }), search,
         h("button", { class: "btn small", type: "button", text: "Clear search", onclick: () => { search.value = ""; filter(); } }),
         h("button", { class: "btn small", type: "button", text: "Expand all chapters", onclick: () => { for (const section of details.values()) if (!section.hidden) section.open = true; } }),
@@ -1175,6 +1193,8 @@
         h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes))]);
     selection(index); filter();
     if (selected >= 0) selection(index, true);
+    window.addEventListener("beforeprint", preparePrint);
+    disposeGovernancePrint = () => { window.removeEventListener("beforeprint", preparePrint); disposeGovernancePrint = null; };
   };
   ROUTES.organization = async (main, parts) => {
     add(main, h("p", { role: "status", text: "Opening the organization…" }));
@@ -1554,7 +1574,7 @@
       const quietLine = holder ? null : h("span", { class: "novote-by", id: `nv-${p.key}` }, crown(), "Chosen by the leadership: no public vote");
       if (quietLine) quietMarks.push([p, quietLine, radio]);
       const card = h("label", { class: "option" + (p.key === position ? " on" : "") + (holder ? " appointed" : "") }, posIcon(p.key), radio, h("b", { text: p.label }), h("span", { text: p.blurb }),
-        holder ? h("span", { class: "appointed-by" }, tick(), `Appointed: ${holder}`) : null,
+        holder ? h("span", { class: "appointed-by" }, tick(), appointmentLabel(holder)) : null,
         quietLine);
       radio.addEventListener("change", () => { position = p.key; sync(); });
       positionBoxes.push(card);
@@ -1755,7 +1775,9 @@
       textFor("scenario"),
     ]);
     add(form, [
-      h("div", { class: "section-title" }, icon("icon-apply"), h("h3", { text: "Your first choice" })),
+      h("nav", { class: "btn-row application-sections", "aria-label": "Application sections" }, [["application-choices", "Role choices"], ["application-about", "About you"], ["application-availability", "When you play"], ["application-submit", "Review and submit"]].map(([id, text]) =>
+        h("button", { class: "btn small", type: "button", text, onclick: () => { const target = document.getElementById(id); if (target) scrollToSection(target); } }))),
+      h("div", { class: "section-title", id: "application-choices" }, icon("icon-apply"), h("h3", { text: "Your first choice" })),
       posField,
       classLeadBox,
       h("div", { class: "section-title" }, icon("icon-shield"), h("h3", { text: "Backup choices (optional)" })),
@@ -1769,7 +1791,7 @@
       boardNote,
       privateNote,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title" }, icon("icon-heal"), h("h3", { text: "About you" })),
+      h("div", { class: "section-title", id: "application-about" }, icon("icon-heal"), h("h3", { text: "About you" })),
       h("div", { class: "grid two" },
         fieldBox("character", "Main character", character, { hint: "Optional for now. First and last name, like Fern Melder.", hintBelow: true }),
         fieldBox("class", "Class", cls, { required: true }),
@@ -1777,7 +1799,7 @@
         fieldBox("region", "Where you play from", region, { required: true })),
       profField,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title" }, icon("icon-clock"), h("h3", { text: "When you play" })),
+      h("div", { class: "section-title", id: "application-availability" }, icon("icon-clock"), h("h3", { text: "When you play" })),
       availField,
       h("div", { class: "rule" }),
       h("div", { class: "section-title" }, icon("icon-names"), h("h3", { text: "In your own words" })),
@@ -1798,7 +1820,7 @@
           h("p", null, h("strong", { text: "Read this before you submit. " }), "Joke, troll or abusive applications are permanently denied, and the denial covers everything this account does here: its votes, nominations and reserved names. It is not reconsidered. So is registering several accounts to vote more than once."),
           h("label", { class: "check" }, ack, h("span", { text: "I understand, and everything above is true." }))),
         h("span", { class: "err", hidden: true })),
-      h("div", { class: "savebar" }, h("div", { class: "btn-row" }, submit), unsaved),
+      h("div", { class: "savebar apply-savebar", id: "application-submit" }, h("div", { class: "btn-row" }, submit, h("button", { class: "btn small", type: "button", text: "Back to role choices", onclick: () => scrollToSection(document.getElementById("application-choices")) })), unsaved),
       a && (a.status === "submitted" || a.status === "reviewing")
         ? h("div", { class: "btn-row mt" }, h("button", { class: "btn small", type: "button", text: "Withdraw my application", onclick: withdraw }), h("span", { class: "muted small", text: a.boardAt ? "It comes off the voting board; you can apply again while applications are open." : "You can apply again while applications are open." }))
         : null,
@@ -1945,6 +1967,7 @@
     const lead = meta.ballots.filter((b) => b.group === "leadership");
     const classes = meta.ballots.filter((b) => b.group === "class");
     const roleList = h("nav", { class: "role-list", "aria-label": "Roles" },
+      h("p", { class: "role-list-hint small muted", text: "Scroll this list for every role." }),
       h("div", { class: "group-label", text: "Leadership" }), lead.map(item),
       h("div", { class: "group-label", text: "Class leads" }), classes.map(item));
     const pickText = (b) => (appointedTo(b.key) ? `${b.label} (appointed)` : noVoteFor(b.key) ? `${b.label} (no public vote)` : `${b.label} (${(counts[b.key] || {}).applicants || 0})`);
@@ -1976,8 +1999,10 @@
     add(main, [
       h("section", { class: "frame" },
         h("div", { class: "plaque" }, h("h2", { text: "Vote on who leads Olympus" })),
-        h("p", null, "Leadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote ", h("b", { text: "for" }), " the people you want in a role and ", h("b", { text: "against" }), " the ones you do not; click again to take a vote back. You can change your mind until voting closes."),
-        anyQuiet ? h("p", { class: "muted small" }, "Roles marked with the crown ", crown(), " are chosen by the guild's leadership without a public vote: they have no board and no write-ins.") : null,
+        h("p", { text: "Choose a role, read its applications and vote for or against a candidate." }),
+        h("details", { class: "voting-help" }, h("summary", { text: "How the board works" }),
+          h("p", null, "Leadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote ", h("b", { text: "for" }), " the people you want in a role and ", h("b", { text: "against" }), " the ones you do not; click again to take a vote back. You can change your mind until voting closes."),
+          anyQuiet ? h("p", { class: "muted small" }, "Roles marked with the crown ", crown(), " are chosen by the guild's leadership without a public vote: they have no board and no write-ins.") : null),
         summaryStatus,
         noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: "Your votes are private. " }), "Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone."))),
       h("div", { class: "board-layout" }, roleList, content),
@@ -2026,7 +2051,7 @@
       h("details", null, h("summary", { text: "Time, responsibilities and expectations" }), roleInfo(p, { about: false })));
   }
   const appointedNote = (ballot, holder) => noticeBox("ok", "icon-shield",
-    h("p", null, h("strong", { text: `Appointed: ${holder}. ` }), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
+    h("p", null, h("strong", { text: sentenceEnd(appointmentLabel(holder)) + " " }), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
   /** A role chosen without a public vote (.45): it takes applications, but there is no board and no write-ins. */
   function noVoteNote(ballot) {
     const a = S.application;
@@ -2270,10 +2295,11 @@
               h("span", { class: "badge" + (p.group === "leadership" ? "" : " blue"), text: p.group === "leadership" ? (holder ? "Leadership: appointed" : quiet ? "Leadership: no public vote" : "Leadership: voted on") : "Membership" }),
               first ? h("span", { class: "badge green", text: "Your first choice" }) : null,
               backup ? h("span", { class: "badge green", text: "Your backup" }) : null))),
-        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), `Appointed: ${holder}. This role takes no applications or votes.`)) : null,
+        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(holder))} This role takes no applications or votes.`)) : null,
         quiet ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
         p.key === "class_lead" ? classRow() : null,
-        roleInfo(p),
+        h("p", { class: "muted", text: p.blurb }),
+        h("details", { class: "role-details", open: p.key === target }, h("summary", { text: "Responsibilities and expectations" }), roleInfo(p)),
         holder ? null : h("div", { class: "btn-row" }, action(p)));
     };
     const lead = meta.positions.filter((p) => p.group === "leadership");
@@ -2302,7 +2328,7 @@
           const slot = main.querySelector(`[data-appointed-person="${person.role}"]`);
           if (!slot) continue;
           clear(slot);
-          add(slot, [h("p", { class: "appointed-line" }, tick(), `Appointed: ${discordIdentity(person)}. This role takes no applications or votes.`),
+          add(slot, [h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(discordIdentity(person)))} This role takes no applications or votes.`),
             h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." })]);
         }
       }).catch(() => { /* Refused or unavailable identity details stay hidden; the appointment stays closed. */ });
@@ -2345,9 +2371,13 @@
   function adminTabs(sub) {
     const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]; // .114: Renames; .115: News; .125: Audit log
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
-    return h("nav", { class: "btn-row", "aria-label": "Admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })),
-      h("a", { class: "btn small", href: "/admin/ranks", text: "Rank planner", title: "A staff planning page (.86): the draft stays in this browser; nothing is changed in the guild" }),
-      S.user?.id === "472099715253796864" ? h("a", { class: "btn small", href: "/admin/qr/beta-window", text: "Named beta verification", title: "Review the attended Fern Melder and Stavros Heuto membership test" }) : null);
+    const choices = tabs.map(([k, t]) => ["#/admin" + (k ? "/" + k : ""), t, sub === k]);
+    choices.push(["/admin/ranks", "Rank planner", false]);
+    if (S.user?.id === "472099715253796864") choices.push(["/admin/qr/beta-window", "Named beta verification", false]);
+    const select = h("select", { id: "admin-section-select", "aria-label": "Admin section" }, choices.map(([href, text, selected]) => h("option", { value: href, text, selected })));
+    select.addEventListener("change", () => { location.href = select.value; });
+    return h("div", { class: "admin-section-nav" }, h("label", { class: "admin-section-picker", for: "admin-section-select" }, "Admin section", select),
+      h("nav", { class: "btn-row admin-section-links", "aria-label": "Admin sections" }, choices.map(([href, text, selected]) => h("a", { class: "btn small", href, text, "aria-current": selected ? "page" : false }))));
   }
   ROUTES.admin = async function admin(main, parts) {
     const sub = parts[0] || "";
@@ -2852,13 +2882,13 @@
     const page = (before) => { f.before = before; adminAudit(body); };
     show.addEventListener("click", showNew);
     for (const box of [actor, subject]) box.addEventListener("keydown", (e) => { if (e.key === "Enter") showNew(); });
-    const filters = h("div", { class: "filters" },
+    const filters = h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter the audit log" }), h("div", { class: "filters" },
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Family" }), family),
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Actor" }), actor),
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Subject" }), subject),
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Window" }), win),
-      show);
-    const intro = h("p", { class: "muted small", text: "What the bot, the officers' roster, the role writer and this site recorded in the dated log, newest first: who acted, what they did and to whom. The entries carry Discord IDs, so this page is for site admins only; reading it is not recorded. Only approved summaries are shown; private details and unrecognized records are withheld. Each request searches up to 2,000 record IDs back, so a rare filter can take Older more than once." });
+      show));
+    const intro = h("details", { class: "audit-help" }, h("summary", { text: "About the log and its read limits" }), h("p", { class: "muted small", text: "What the bot, the officers' roster, the role writer and this site recorded in the dated log, newest first: who acted, what they did and to whom. The entries carry Discord IDs, so this page is for site admins only; reading it is not recorded. Only approved summaries are shown; private details and unrecognized records are withheld. Each request searches up to 2,000 record IDs back, so a rare filter can take Older more than once." }));
     let d;
     try {
       d = await api("GET", "/api/admin/audit-log?" + qs(sent));
@@ -2874,17 +2904,18 @@
     const detail = (r) => {
       const summary = r.details && typeof r.details === "object" && !Array.isArray(r.details)
         ? Object.entries(r.details).map(([key, value]) => key + ": " + String(value)).join("; ") : "";
-      return [summary ? h("span", { text: summary }) : null,
-        r.detailsWithheld ? h("span", { class: "faint small", text: (summary ? " · " : "") + "Private or unrecognized details withheld" }) : null];
+      return summary || r.detailsWithheld ? h("details", { class: "audit-detail" }, h("summary", { text: "View details" }), h("div", null,
+        summary ? h("span", { text: summary }) : null,
+        r.detailsWithheld ? h("span", { class: "faint small", text: (summary ? " · " : "") + "Private or unrecognized details withheld" }) : null)) : h("span", { text: "—" });
     };
-    const table = h("div", { class: "table-wrap" }, h("table", { class: "data" },
+    const table = h("div", null, h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every column." }), h("div", { class: "table-wrap" }, h("table", { class: "data admin-audit" },
       h("thead", null, h("tr", null, ["When", "Who", "What", "Subject", "Detail"].map((t) => h("th", { text: t })))),
       h("tbody", null, entries.map((r) => h("tr", { "data-audit-id": String(r.id) },
-        h("td", { class: "nowrap", title: ago(r.ts), text: fmtDateTime(r.ts) }),
+        h("td", { class: "audit-time", title: ago(r.ts) }, (() => { const stamp = new Date(r.ts * 1000).toISOString(); return h("time", { datetime: stamp, title: fmtDateTime(r.ts) + " · " + ago(r.ts) }, stamp.slice(0, 10), h("br"), stamp.slice(11, 19) + " UTC"); })()),
         h("td", null, who(r.actor, r.actorName)),
         h("td", { text: r.action }),
         h("td", r.subjectName ? { title: r.subject } : null, r.subjectName ? h("span", { text: r.subjectName }) : h("span", { text: r.subject || (r.subjectWithheld ? "Withheld" : "—") })),
-        (() => { const td = h("td", { class: "small wrap" }, detail(r)); td.style.overflowWrap = "anywhere"; return td; })())))));
+        (() => { const td = h("td", { class: "small wrap" }, detail(r)); td.style.overflowWrap = "anywhere"; return td; })()))))));
     const span = d.scanned ? `#${d.scanned.lo} and #${d.scanned.hi}` : "";
     const status = entries.length
       ? `${plural(entries.length, "entry", "entries")}, newest first${d.exhausted ? ", to the start of this window." : "."}`
@@ -3224,21 +3255,34 @@
         h("button", { class: "btn small", type: "button", text: "Next", disabled: data.offset + data.items.length >= data.total, onclick: () => { f.offset += data.pageSize; adminApplications(body); } })));
     clear(body);
     add(body, frame("Applications", null,
-      h("div", { class: "filters" },
+      h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter and sort applications" }), h("div", { class: "filters" },
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Position" }), position),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Profession" }), profession),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Status" }), status),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Search (Enter)" }), search),
         h("label", { class: "field narrow" }, h("span", { class: "lab small", text: "Order" }), sort),
-        h("label", { class: "check", hidden: !f.position }, withBackups, h("span", { class: "small", text: "Backup choices count too" }))),
-      h("div", { class: "table-wrap" }, h("table", { class: "data" },
+        h("label", { class: "check", hidden: !f.position }, withBackups, h("span", { class: "small", text: "Backup choices count too" })))),
+      h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every column." }),
+      h("div", { class: "table-wrap" }, h("table", { class: "data admin-applications" },
         h("thead", null, h("tr", null, ["Applicant", "Applied for", "Class · role", "Raid evenings", "Status", "Account age", "In the server", "Updated"].map((t) => h("th", { text: t })))),
         h("tbody", null, rows))),
       pager));
   }
 
   async function adminApplication(body, id) {
-    const d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`);
+    let d;
+    try { d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`); }
+    catch (err) {
+      if (!app.contains(body) || err && err.status === 401) return;
+      const held = err && err.status === 409 && codeOf(err) === "original_membership_decision_held";
+      clear(body);
+      add(body, frame(held ? "Application temporarily held" : "Application could not be opened", h("a", { class: "btn small", href: "#/admin/applications", text: "Back to all applications" }),
+        noticeBox("warn", "icon-warning", h("p", { text: held
+          ? "The original membership decision for this account could not be safely confirmed. Its application details remain withheld. Return to the list and ask the site administrator to review the existing decision; no access or decision has been changed."
+          : "This application could not be read. Return to the list and try again. No changes were made." }))));
+      return;
+    }
+    if (!app.contains(body)) return;
     const u = d.user;
     const a = d.application;
     const acct = d.account;
@@ -3296,17 +3340,17 @@
         h("div", { class: "btn-row" }, denyBtn, deleteBtn)),
       frame("On the voting board", h("span", { class: "aside", text: `They voted on ${plural(d.boardVotesCast || 0, "applicant")}` }),
         boardRows.length
-          ? h("div", { class: "table-wrap" }, h("table", { class: "data" },
+          ? h("div", null, h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every voting column." }), h("div", { class: "table-wrap" }, h("table", { class: "data admin-application-board" },
               h("thead", null, h("tr", null, h("th", { text: "Role" }), h("th", { text: "Their choice" }), h("th", { class: "num", text: "For" }), h("th", { class: "num", text: "Against" }), h("th", { text: "" }))),
               h("tbody", null, boardRows.map((b) => {
                 const tr = h("tr", { class: "clickable" },
-                  h("td", null, posIcon(b.role, "s"), " ", b.label, noVoteFor(b.role) ? h("span", { class: "badge muted", text: " no public vote" }) : null),
+                  h("td", null, h("span", { class: "admin-board-role" }, posIcon(b.role, "s"), h("span", { class: "admin-board-role-label", text: b.label }), noVoteFor(b.role) ? h("span", { class: "badge muted", text: "no public vote" }) : null)),
                   h("td", { text: b.choice === 1 ? "First" : b.choice === 2 ? "Second" : b.choice === 3 ? "Third" : "no longer chosen" }),
                   h("td", { class: "num yes", text: String(b.yes) }), h("td", { class: "num no", text: String(b.no) }),
                   h("td", null, splitBar(b.yes, b.no)));
                 tr.addEventListener("click", () => { location.hash = `#/admin/votes/${encodeURIComponent(b.role)}`; });
                 return tr;
-              }))))
+              })))))
           : h("p", { class: "muted small", text: a && choicesOf(a).some(noVoteFor) ? "Not on the board: the leadership roles chosen have no public vote." : "Not on the board: no leadership role chosen." }),
         a && !a.boardAt && (a.status === "submitted" || a.status === "reviewing") && choicesOf(a).some(votedKey)
           ? h("p", { class: "muted small", text: "Their application is not on the board: they have not agreed to it (it was saved before the board covered one of its roles)." }) : null,
@@ -3348,7 +3392,7 @@
         h("div", { class: "card-head" }, posIcon(b.key), h("h3", { text: b.label })),
         // A role without a public vote has no board: how many are "on" it would only count those who agreed for other roles.
         quiet ? null : h("p", { class: "muted small", text: `${plural(b.applicants, "applicant")} on the board · ${plural(b.voters, "voter")}` }),
-        appointedTo(b.key) ? h("p", { class: "small appointed-line" }, tick(), `Appointed: ${appointedTo(b.key)}`) : null,
+        appointedTo(b.key) ? h("p", { class: "small appointed-line" }, tick(), appointmentLabel(appointedTo(b.key))) : null,
         quiet ? h("p", { class: "small novote-line" }, crown(), "No public vote: its applicants are on the Applications tab") : null,
         b.top.length ? h("div", { class: "tally-top" }, b.top.map((t) => h("div", null, h("span", { text: t.label }), h("span", { class: "nowrap" }, h("span", { class: "yes", text: `+${t.yes}` }), " ", h("span", { class: "no", text: `−${t.no}` }))))) : h("p", { class: "faint small", text: "No board votes yet." }),
         w.top.length ? h("p", { class: "faint small mt-s", text: `Written in most: ${w.top.map((t) => `${t.label} (${t.votes})`).join(", ")}` }) : null);
@@ -3404,7 +3448,7 @@
     add(body, [
       h("p", null, h("a", { href: "#/admin/votes", text: "Back to all roles" })),
       frame(h("h2", null, posIcon(role, "s"), " ", data.role.label), h("span", { class: "aside", text: `${plural(data.voters, "voter")} on the board` }),
-        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: `Appointed: ${appointedTo(role)}. ` }), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
+        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: sentenceEnd(appointmentLabel(appointedTo(role))) + " " }), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
         noVoteFor(role) ? noticeBox("info", "icon-shield", h("p", null, h("strong", { text: "No public vote. " }), "Members can apply for this role but cannot vote on it or write anyone in. Its applicants are on the ",
           h("a", { href: "#/admin/applications", text: "Applications tab", onclick: () => { Object.assign(A.apps, { position: role.startsWith("class_lead:") ? "class_lead" : role, backups: true, profession: "", status: "open", q: "", offset: 0 }); } }),
           ". Any counts below are from before; they count again if you untick the role in Settings.")) : null,
@@ -3722,7 +3766,15 @@
   function standingNotice() {
     const c = COM().capabilities;
     if (!c.applicantWrite) return noticeBox("warn", "icon-warning", h("p", { text: `You no longer have access to the community pages: ${c.authenticatedIdentity ? "your account is not a member in good standing here (departed from the server, denied, or signed in elsewhere since this page loaded)" : "you are signed out"}. Reload the page to see your current state.` })); // .100 (F5)
-    return noticeBox("info", "icon-shield", h("p", { text: COMMUNITY_ERRORS.guild_unconfirmed }), h("p", { class: "muted small", text: "Until then the community pages show nothing of other members, and nothing you enter here is listed." }));
+    return noticeBox("info", "icon-shield", h("p", { text: COMMUNITY_ERRORS.guild_unconfirmed }),
+      S.user && S.user.isAdmin ? h("p", { text: "Your site-admin access is active. Private Community pages separately require a verified character on the officers' current roster; admin status does not replace that membership check." }) : null,
+      h("details", { class: "membership-help" }, h("summary", { text: "How to confirm your character" }),
+        h("ol", null,
+          h("li", { text: "In Discord, open #join-olympus and choose Get my code, or use /verify. Follow the bot's current instructions." }),
+          h("li", { text: "Send the displayed verification line from the character you want linked. The officer's checked addon verifies that character; the current roster export must then confirm its guild membership." }),
+          h("li", { text: "Use My status or /verify-status in the bot to check progress. If the character is already verified but these pages remain locked, ask an Olympus officer to check the current roster record. Keep the code private." })),
+        h("a", { href: "#/guide/member", text: "Read the member guide" })),
+      h("p", { class: "muted small", text: "Until then the community pages show nothing of other members, and nothing you enter here is listed." }));
   }
   ROUTES.community = async function community(main, parts) {
     const sub = parts[0] || "";
@@ -5151,7 +5203,7 @@
     too_many_characters: "This case's watch-list is full.",
     no_period: "Nothing to renew yet: the first watched character opens the watch period.",
     character_not_found: "That character is no longer on this case's watch-list; the case was re-read.",
-    binding_changed: "The keeper's record of that character changed meanwhile (owner, name or GUID); the case was re-read. Check it and try again.",
+    binding_changed: "The verified record of that character changed meanwhile (owner, name or character identifier); the case was re-read. Check it and try again.",
     claim_not_found: "That claim is gone (the member changed or removed it); the list was re-read.",
     profile_not_found: "That member's profile is gone; the list was re-read.",
     operation_conflict: "A different staff operation already used this id. Reload and try again.",
@@ -5462,7 +5514,7 @@
           actions.appendChild(h("button", { class: "btn small", type: "button", text: "Appeal upheld", onclick: () => act({ action: "appeal", ...base, appealStatus: "upheld" }, "Appeal upheld.") }));
           actions.appendChild(h("button", { class: "btn small", type: "button", text: "Appeal overturned", onclick: async () => { if (await confirmBox("Overturn on appeal?", "The case is resolved as overturned and kept thirty days.", "Overturn")) act({ action: "appeal", ...base, appealStatus: "overturned" }, "Overturned."); } }));
         }
-        actions.appendChild(h("button", { class: "btn small", type: "button", text: "Watch the member's characters", title: "Adds the member's roster-bound characters, as the keeper holds them, to this case's watch-list", onclick: () => act({ action: "add_characters", ...base }, "Characters added to the watch-list.") }));
+        actions.appendChild(h("button", { class: "btn small", type: "button", text: "Watch the member's characters", title: "Adds the member's roster-bound characters from their verified record to this case's watch-list", onclick: () => act({ action: "add_characters", ...base }, "Characters added to the watch-list.") }));
         if (c.characters.length) {
           const reason = named(selectOf(Object.keys(RENEWAL_WORDS).map((k) => ({ key: k, label: RENEWAL_WORDS[k] })), "", { placeholder: "Renewal reason…" }), "Renewal reason");
           actions.appendChild(reason);
@@ -5755,7 +5807,7 @@
       finally { if (gen === generation) more.disabled = false; }
     };
     more.addEventListener("click", () => load(false));
-    add(holder, frame("Character claims", null, h("p", { class: "muted small", text: "Alts members claimed in their profiles, waiting for an officer, and names claimed by more than one account. Confirming marks the label officer-confirmed in the directory; it binds nothing in the keeper and changes no role." }), status, h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Member" }), h("th", { text: "Character" }), h("th", { text: "Claim" }), h("th", { text: "Conflict" }), h("th", { text: "Since" }), h("th", { text: "" }))), tbody)), h("div", { class: "btn-row" }, more)));
+    add(holder, frame("Character claims", null, h("p", { class: "muted small", text: "Alts members claimed in their profiles, waiting for an officer, and names claimed by more than one account. Confirming only marks the label officer-confirmed in the directory. It does not establish verified character ownership or change any role." }), status, h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Member" }), h("th", { text: "Character" }), h("th", { text: "Claim" }), h("th", { text: "Conflict" }), h("th", { text: "Since" }), h("th", { text: "" }))), tbody)), h("div", { class: "btn-row" }, more)));
     load(true);
   }
 

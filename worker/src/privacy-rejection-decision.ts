@@ -6,6 +6,7 @@ import type {Env} from './env';
 import {readSession,currentUser,sign,verify,b64u,sameOrigin,PAGE_VERSION,SESSION_COOKIE,isSiteAdmin,type SiteUser} from './site-core';
 import {privacyGenerationFenceSql,privacySubjectKey,privacyProviderCustodyDatabase,privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,type AccountErasureProof} from './privacy-serving-authority';
 import {privacyAdmissionMatchesOriginalNative,assertPrivacyAdmissionWitness} from './privacy-write-admission';
+import {ORIGINAL_REQUEST_DESCRIPTORS,checkOriginalNativeRequest} from './privacy-native-http-intrinsics';
 
 export class MembershipDecisionHeld extends Error{constructor(){super('original_membership_decision_held');}}
 const held=():never=>{throw new MembershipDecisionHeld();};
@@ -24,15 +25,17 @@ function field(receiver:object,name:string):Field{let owner:object|null=receiver
 function sameField(f:Field):void{const n=field(f.receiver,f.name),a=f.descriptor,b=n.descriptor;if(n.owner!==f.owner||a.value!==b.value||a.get!==b.get||a.set!==b.set||a.writable!==b.writable||a.configurable!==b.configurable)return held();}
 function method(receiver:object,name:string):Method{const f=field(receiver,name);if(!Object.hasOwn(f.descriptor,'value')||typeof f.descriptor.value!=='function')return held();return Object.freeze({receiver,owner:f.owner,fn:f.descriptor.value});}
 function sameMethod(m:Method,name:string):void{const n=method(m.receiver,name);if(n.owner!==m.owner||n.fn!==m.fn)return held();}
-const requestURL=Object.getOwnPropertyDescriptor(Request.prototype,'url')!.get!,requestMethod=Object.getOwnPropertyDescriptor(Request.prototype,'method')!.get!,requestHeaders=Object.getOwnPropertyDescriptor(Request.prototype,'headers')!.get!;
+// .174 (2026-10-19): Workerd inherits json/text from Body. Reuse the closed original
+// native chain rather than assuming ownership on Request.prototype; shadows still hold.
+const requestURL=ORIGINAL_REQUEST_DESCRIPTORS.url!.get!,requestMethod=ORIGINAL_REQUEST_DESCRIPTORS.method!.get!,requestHeaders=ORIGINAL_REQUEST_DESCRIPTORS.headers!.get!;
 const headerGet=Headers.prototype.get;
-function nativeGet(request:Request,name:'url'|'method'|'headers'):unknown{if(Object.getOwnPropertyDescriptor(request,name))return held();return Reflect.apply(name==='url'?requestURL:name==='method'?requestMethod:requestHeaders,request,[]);}
+function nativeGet(request:Request,name:'url'|'method'|'headers'):unknown{try{checkOriginalNativeRequest(request);}catch{return held();}if(Object.getOwnPropertyDescriptor(request,name))return held();return Reflect.apply(name==='url'?requestURL:name==='method'?requestMethod:requestHeaders,request,[]);}
 export function captureMembershipDecisionOrigin(request:Request,env:Env):MembershipDecisionOrigin|null{
  const url=new URL(nativeGet(request,'url') as string),m=nativeGet(request,'method') as string;
  const match=/^\/api\/admin\/(?:applications\/(\d{17,20})(?:\/status)?|users\/(\d{17,20})\/(deny|undeny|delete|decision-target))$/.exec(url.pathname);
  if(!match||!['GET','POST'].includes(m))return null;
  const id=match[1]??match[2]!;
- const bodyMethods=['clone','json','text'].map(name=>method(request,name));for(let i=0;i<bodyMethods.length;i++){const name=['clone','json','text'][i]!;if(bodyMethods[i]!.fn!==Object.getOwnPropertyDescriptor(Request.prototype,name)?.value)return held();}
+ const bodyMethods=['clone','json','text'].map(name=>method(request,name));for(let i=0;i<bodyMethods.length;i++){const name=['clone','json','text'][i]!;if(bodyMethods[i]!.fn!==ORIGINAL_REQUEST_DESCRIPTORS[name]?.value)return held();}
  const bodyRequest=Reflect.apply(bodyMethods[0]!.fn,request,[]) as Request;
  const headers=nativeGet(request,'headers') as Headers;if(Object.getOwnPropertyDescriptor(headers,'get'))return held();
  const getter=method(headers,'get');if(getter.fn!==headerGet)return held();const requestFields=['url','method','headers'].map(k=>field(request,k));if(requestFields[0]!.descriptor.get!==requestURL||requestFields[1]!.descriptor.get!==requestMethod||requestFields[2]!.descriptor.get!==requestHeaders)return held();

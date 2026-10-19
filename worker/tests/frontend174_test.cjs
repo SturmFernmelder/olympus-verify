@@ -1,0 +1,106 @@
+// .174 audit repairs: real app.js, Worker and SQLite from the existing fixture.
+// Deliberate readable error responses qualify safe display only, not a production
+// membership repair. Browser layout remains a separate desktop/mobile check.
+const fs174 = require("node:fs"), path174 = require("node:path"), { Module } = require("node:module");
+const fixture174 = fs174.readFileSync(path174.join(__dirname, "frontend_check.cjs"), "utf8");
+const starts174 = [...fixture174.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
+if (starts174.length !== 1) throw new Error("one existing frontend fixture boundary required");
+const body174 = String.raw`
+(async () => {
+  await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", "Player-1-0001");
+  await siteUser(OTHER, { global_name: "Oz" }); await character(OTHER, "Oz Two", "Player-1-0002");
+  await siteUser(STAFF, { global_name: "Vik" });
+  await fixtureRun("INSERT INTO site_applications (discord_id,position,board_at,answers,status,created_at,updated_at) VALUES (?,'officer',?,'{}','submitted',?,?)", OTHER, now, now, now);
+
+  const member = await openPage(MEMBER);
+  check(".174 signed-in shell offers the canonical account controls separately from guild actions", byText(member.app, "a", "Account data")?.getAttribute("href") === "/privacy/account" && !!byText(member.app, "button", "Sign out") && !byText(member.app.querySelector("footer"), "a", "Private request"));
+  await member.go("#/guide/member");
+  check("member guide account action opens the actual account surface instead of Home", byText(member.app, "a", "Open my account")?.getAttribute("href") === "/privacy/account" && member.app.querySelectorAll(".guide-steps section").length === 5);
+
+  const staff = await openPage(STAFF), requests = [];
+  staff.before((pathname, init) => { requests.push({ pathname, method: init.method || "GET" }); return false; });
+  await staff.go("#/community/directory");
+  check("admin access is explained separately from confirmed-character membership without querying the private directory", staff.boot.user.isAdmin === true && staff.boot.community.capabilities.confirmedGuildData === false && staff.app.textContent.includes("Your site-admin access is active") && staff.app.textContent.includes("admin status does not replace that membership check") && !requests.some(r => r.pathname.startsWith("/api/community/directory")));
+  check("normal character verification and officer roster steps remain available beside the unchanged refusal", staff.app.textContent.includes("Get my code") && staff.app.textContent.includes("/verify") && staff.app.textContent.includes("/verify-status") && staff.app.textContent.includes("current roster export") && staff.app.textContent.includes("Keep the code private") && !!byText(staff.app, "a", "Read the member guide") && !staff.app.querySelector("table.data"));
+
+  await staff.go("#/admin/applications");
+  await waitFor(() => !!staff.app.querySelector("table.admin-applications"), ".174 application list");
+  check("admin section picker retains all permitted section destinations and correct current section", staff.app.querySelector(".admin-section-picker select")?.querySelectorAll("option").length === staff.app.querySelectorAll('nav[aria-label="Admin sections"] a').length && staff.app.querySelector('nav[aria-label="Admin sections"] a[aria-current="page"]')?.getAttribute("href") === "#/admin/applications" && staff.app.querySelectorAll("#admin-section-select option").some(o => o.getAttribute("value") === "/admin/ranks" || o.value === "/admin/ranks"));
+  check("application filters and every table column remain reachable behind compact controls", !!staff.app.querySelector("details.admin-filter-panel .filters") && staff.app.querySelector("table.admin-applications").querySelectorAll("th").length === 8 && staff.app.textContent.includes("Scroll sideways to see every column"));
+
+  staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response(JSON.stringify({ error: "original_membership_decision_held", message: "PRIVATE_GUARD_DETAIL_MUST_NOT_RENDER" }), { status: 409, headers: { "Content-Type": "application/json" } }) : null);
+  await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "h2", "Application temporarily held"), ".174 held application explanation");
+  check("held application read clears Loading and provides a safe back action without raw guard/private detail", !!byText(staff.app, "h2", "Application temporarily held") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("Something went wrong") && !staff.app.textContent.includes("PRIVATE_GUARD_DETAIL") && !staff.app.textContent.includes("original_membership_decision_held") && byText(staff.app, "a", "Back to all applications")?.getAttribute("href") === "#/admin/applications");
+  check("held read exposes no status, denial or deletion mutation controls", !byText(staff.app, "button", "Deny permanently") && !byText(staff.app, "button", "Delete their site data") && staff.app.textContent.includes("application details remain withheld"));
+  staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response('{"error":"unavailable","message":"PRIVATE_OTHER_ERROR"}', { status: 503, headers: { "Content-Type": "application/json" } }) : null);
+  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened"), ".174 unavailable application");
+  check("other read failures also replace the loading state without leaking server detail", !!byText(staff.app, "h2", "Application could not be opened") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("PRIVATE_OTHER_ERROR") && !!byText(staff.app, "a", "Back to all applications"));
+  staff.answer(null); await staff.go("#/admin/applications");
+  await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "button", "Deny permanently"), ".174 genuine readable application");
+  check("a genuine admitted application still opens its existing staff controls", !!byText(staff.app, "button", "Deny permanently") && !!byText(staff.app, "button", "Delete their site data") && !staff.app.textContent.includes("Application temporarily held"));
+  const applicationBoard = staff.app.querySelector("table.admin-application-board");
+  check("application detail keeps every voting field in a scrollable table with a separate wrapping role label", !!applicationBoard && applicationBoard.querySelectorAll("th").length === 5 && !!applicationBoard.querySelector(".admin-board-role-label") && staff.app.textContent.includes("Scroll sideways to see every voting column"));
+  staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response('{"error":"original_membership_decision_held"}', { status: 409, headers: { "Content-Type": "application/json" } }) : null);
+  staff.hold(pathname => pathname === "/api/admin/applications/" + OTHER ? 80 : 0);
+  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER); await staff.go("#/");
+  await new Promise(resolve => setTimeout(resolve, 120));
+  check("a late held read cannot add its error panel to the newly selected Home", !!staff.app.querySelector(".welcome") && !staff.app.textContent.includes("Application temporarily held") && !staff.app.textContent.includes("Application could not be opened"));
+  staff.answer(null); staff.hold(null);
+
+  await fixtureRun("INSERT INTO audit (ts,actor,action,subject,details) VALUES (?,?,'role.sweep',?,?)", now, STAFF, MEMBER, JSON.stringify({ checked: 1, privateNote: "PRIVATE_AUDIT_SENTINEL" }));
+  await staff.go("#/admin/audit");
+  await waitFor(() => !!staff.app.querySelector("table.admin-audit"), ".174 audit log");
+  const auditTime = staff.app.querySelector("table.admin-audit time"), auditDetail = staff.app.querySelector("table.admin-audit details.audit-detail");
+  check("audit rows use compact exact UTC timestamps and retain a complete machine-readable instant", auditTime?.getAttribute("datetime") === new Date(now * 1000).toISOString() && auditTime.textContent.includes("UTC") && auditTime.textContent.includes(new Date(now * 1000).toISOString().slice(11, 19)));
+  check("approved audit detail stays available in a closed disclosure with original filters and read-limit explanation", !!auditDetail && !auditDetail.open && auditDetail.textContent.includes("checked: 1") && !staff.app.textContent.includes("PRIVATE_AUDIT_SENTINEL") && !!staff.app.querySelector("#audit-actor") && staff.app.textContent.includes("2,000 record IDs"));
+  check("all exercised admin and membership navigation issued only GETs", requests.length > 4 && requests.every(r => r.method === "GET"));
+  await staff.go("#/admin/community/claims");
+  await waitFor(() => !!byText(staff.app, "h2", "Character claims"), ".174 staff character claims guidance");
+  check("directory-claim guidance uses plain language while preserving the distinction from ownership verification and roles", staff.app.textContent.includes("only marks the label officer-confirmed in the directory") && staff.app.textContent.includes("does not establish verified character ownership or change any role") && !staff.app.textContent.includes("binds nothing in the keeper"));
+
+  const appointments = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { officer: "richwcampbell.", treasurer: "Appointed member" }; } });
+  await appointments.go("#/roles");
+  check("role descriptions preserve all responsibilities while defaulting to collapsed reading", appointments.app.querySelectorAll("details.role-details").length === appointments.boot.meta.positions.length && appointments.app.querySelectorAll("details.role-details").every(d => !d.open && d.textContent.includes("Responsibilities") && d.textContent.includes("Expectations")));
+  check("appointment labels retain a trailing-period username once and use an identity-free fallback", appointments.app.textContent.includes("Appointed: richwcampbell. This role") && !appointments.app.textContent.includes("richwcampbell..") && appointments.app.textContent.includes("Filled by appointment") && !appointments.app.textContent.includes("Appointed: Appointed member"));
+  await appointments.go("#/roles/officer");
+  check("deep role links open that role's full responsibilities without losing other roles", appointments.app.querySelector("#role-officer details.role-details")?.hasAttribute("open") === true && appointments.app.querySelectorAll(".role-card").length === appointments.boot.meta.positions.length);
+  await appointments.go("#/vote/officer");
+  check("appointed role board preserves appointment closure without doubled punctuation", !appointments.app.textContent.includes("richwcampbell..") && appointments.app.textContent.includes("filled by appointment rather than by the board") && !appointments.app.querySelector("button.vote"));
+  await appointments.go("#/apply");
+  check("application's appointed role stays disabled with its concise private fallback", appointments.app.querySelectorAll('input[name="position"]').find(r => r.value === "treasurer")?.disabled === true && appointments.app.textContent.includes("Filled by appointment") && !appointments.app.textContent.includes("Appointed: Appointed member"));
+  check("in-flow submit action keeps all application questions and consent with safe section shortcuts", !!appointments.app.querySelector("#application-submit.apply-savebar") && appointments.app.querySelectorAll(".application-sections button").length === 4 && !!byText(appointments.app, "button", "Back to role choices") && appointments.app.textContent.includes("I understand, and everything above is true") && !!appointments.app.querySelector('[data-field="ack"]'));
+
+  await member.go("#/governance");
+  await waitFor(() => member.app.querySelectorAll("details.governance-chapter").length === 14, ".174 complete current governance reader");
+  const archive = member.app.querySelector("details.governance-archive"), adoption = member.app.querySelector("details.governance-draft");
+  check("current book actions remain primary while all six historical/preparation downloads stay in Archive", !!archive && !archive.open && archive.querySelectorAll("a[download]").length === 6 && byText(member.app, "a", "Download current R7 source")?.getAttribute("href") === "/static/governance/reconciled-book.md" && !archive.contains(byText(member.app, "a", "Download current R7 source")));
+  check("adoption qualifications remain intact and blank instrument fields are explicitly unexecuted", !!adoption && adoption.textContent.includes("Adoption issues no individual appointment or named signature") && adoption.textContent.includes("changes no native rank, bank limit or platform permission") && member.app.querySelector('[data-chapter="2-royal-charter-of-olympus"] .governance-instrument-note')?.textContent.includes("A blank field is not a completed record") && member.app.textContent.includes("Article S12a") && member.app.textContent.includes("Independent auditor warrant"));
+  const bookSearch = member.app.querySelector("#governance-search"), printStates = [], originalPrint = member.window.print;
+  bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
+  const filteredBeforePrint = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden).length === 1 && !adoption.open;
+  member.window.print = () => printStates.push({ scopeOpen: adoption.open, scopeText: adoption.textContent, chapters: member.app.querySelectorAll("details.governance-chapter").map(chapter => ({ open: chapter.open, hidden: chapter.hidden })), archiveOpen: archive.open });
+  byText(member.app, "button", "Print current R7 book").click();
+  member.window.print = originalPrint;
+  check("printing a filtered book opens all current chapters and the full adoption scope before the print dialog", filteredBeforePrint && printStates.length === 1 && printStates[0].scopeOpen === true && printStates[0].scopeText.includes("Adoption issues no individual appointment or named signature") && printStates[0].scopeText.includes("changes no native rank, bank limit or platform permission") && printStates[0].chapters.length === 14 && printStates[0].chapters.every(chapter => chapter.open && !chapter.hidden) && printStates[0].archiveOpen === false);
+  adoption.open = false; bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
+  const nativeChapters = member.app.querySelectorAll("details.governance-chapter");
+  member.window.dispatchEvent(new Event("beforeprint"));
+  check("native browser printing expands the live book and adoption scope without the page Print button", adoption.open === true && nativeChapters.every(chapter => chapter.open && !chapter.hidden) && archive.open === false && member.window.listeners.beforeprint.length === 1);
+  await member.go("#/vote/raid_leader_na");
+  adoption.open = false; nativeChapters.forEach(chapter => { chapter.open = false; chapter.hidden = true; });
+  member.window.dispatchEvent(new Event("beforeprint"));
+  check("leaving governance removes its native-print listener and cannot mutate the detached reader", member.window.listeners.beforeprint.length === 0 && adoption.open === false && nativeChapters.every(chapter => !chapter.open && chapter.hidden) && !!member.app.querySelector(".board-layout"));
+  check("voting task comes first while reversible vote mechanics and essential privacy statement remain", !!member.app.querySelector("details.voting-help") && member.app.textContent.includes("click again to take a vote back") && member.app.textContent.includes("until voting closes") && member.app.textContent.includes("Your votes are private") && member.app.textContent.includes("except the guild's leadership"));
+  check("role rail exposes a continuation cue while retaining every ballot destination", member.app.querySelector(".role-list-hint")?.textContent === "Scroll this list for every role." && member.app.querySelectorAll(".role-list a").length === member.boot.meta.ballots.length);
+
+  console.log("\n" + ok + "/" + n + " passed");
+  process.exit(ok === n ? 0 : 1);
+})().catch(error => { console.error(error); process.exit(1); });
+`;
+const execution174 = new Module(__filename, module);
+execution174.filename = __filename;
+execution174.paths = Module._nodeModulePaths(__dirname);
+execution174._compile(fixture174.slice(0, starts174[0].index) + "\n" + body174, __filename);

@@ -40,15 +40,16 @@ class Element {
   setPointerCapture(id) { this.captures.add(id); }
   hasPointerCapture(id) { return this.captures.has(id); }
   releasePointerCapture(id) { this.captures.delete(id); this.dispatch("lostpointercapture", { pointerId: id }); }
-  get clientWidth() { return this.inDialog() ? 1100 : 800; }
+  get clientWidth() { return this.inDialog() ? this.doc.dialogWidth : this.doc.viewportWidth; }
   get clientHeight() { return this.inDialog() ? 780 : 600; }
   inDialog() { for (let n = this; n; n = n.parentNode) if (n.tagName === "DIALOG" && n.open) return true; return false; }
   getBoundingClientRect() { return { left: 0, top: 0 }; }
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false } = {}) {
+function open({ mobile = false, width = 800 } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
+  doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
   doc.getElementById = id => doc.all(n => n.id === id)[0] || null;
   const h = (tag, attrs, ...nodes) => { const el = doc.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (k === "text") el.textContent = v; else if (k.startsWith("on")) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v); } el.append(...nodes); return el; };
@@ -75,6 +76,22 @@ check("the displayed owner direction honestly keeps constitutional ratification 
 check("the separate dated direction is reachable without relabelling R7 as adopted R8", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === data.councilComposition.sourcePath && n.textContent.includes("dated Co-Guild Master composition direction")) && data.revision === "R7" && data.councilComposition.founderRatificationRecorded === false);
 check("the clarification links the existing operational charter", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === "#/governance/operational-charter-the-work-of-olympus" && n.textContent.includes("O3")));
 check("the static model still issues no appointments", data.appointmentsIssued === false);
+const chartNodes = data.nodes.filter(n => n.relation !== "classification"), visibleIds = page => page.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.getAttribute("data-organization-node"));
+const scaleOf = page => Number(/scale\(([^)]+)\)/.exec(page.stage.style.transform)?.[1]);
+check("initial branch keeps the selected office, parent and its direct connections", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(chartNodes.filter(n => n.id === "council" || n.id === "founder" || n.parent === "council").map(n => n.id).sort()));
+check("branch fit keeps labels at a readable scale rather than shrinking the full map", scaleOf(p) >= .85 && p.button("Fit branch").getAttribute("aria-pressed") === "true" && p.one("org-chart-shell").textContent.includes("drag to see the rest"));
+check("the complete reading view retains every group and label", p.one("org-list").children.length === data.nodes.length && p.main.all(n => n.classList.contains("organization-term")).length === data.terms.length);
+check("the two composition sources have a separate wrapping link group", p.one("org-composition-links").children.length === 2 && css.includes(".org-composition-links{display:flex;flex-wrap:wrap;gap:"));
+const expectedEdges = chartNodes.flatMap(n => [n.parent ? `${n.title} → ${data.nodes.find(p => p.id === n.parent).title}: ${data.legend[n.relation]}` : null, ...n.coordinates.filter(peer => peer !== n.parent).map(peer => `${n.title} → ${data.nodes.find(p => p.id === peer).title}: liaison; no command authority`)]).filter(Boolean).sort();
+const renderedEdges = p.main.all(n => n.tagName === "PATH" && n.classList.contains("org-edge"));
+check("branch presentation preserves every original directed relationship and explanation", JSON.stringify(renderedEdges.map(n => n.textContent).sort()) === JSON.stringify(expectedEdges));
+check("branch connectors never include hidden endpoints or missing geometry", renderedEdges.filter(n => n.style.display !== "none").every(n => n.getAttribute("d")?.startsWith("M ")));
+p.button("Full map").click();
+check("Full map restores every chart office and relationship without changing the reader model", visibleIds(p).length === chartNodes.length && renderedEdges.every(n => n.style.display !== "none" && n.getAttribute("d")) && p.button("Full map").getAttribute("aria-pressed") === "true");
+check("the small full-map overview is explicitly distinguished from readable branch fit", p.one("org-chart-shell").textContent.includes("Full map overview") && p.one("org-chart-shell").textContent.includes("choose Fit branch to read it"));
+p.node("treasury").click(0); p.button("Fit branch").click();
+check("a selected branch includes incoming working partners without inventing reporting authority", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(["treasury", "council", "emissary-finance"].sort()) && p.node("treasury").getAttribute("aria-pressed") === "true" && scaleOf(p) >= .85);
+p.node("council").click(0);
 
 let before = p.stage.style.transform;
 const down = p.pointer(p.viewport, "pointerdown", 100, 100);
@@ -109,7 +126,7 @@ check("cancelled pointers release pan state", !p.viewport.hasPointerCapture(1) &
 const expand = p.button("Full screen"), shell = p.one("org-chart-shell"), location = p.one("org-chart-location");
 expand.click(); p.flush();
 check("full screen uses a labelled modal with the same live chart", p.dialog.open && p.dialog.getAttribute("aria-label") === "Organization chart in full screen" && p.dialog.contains(shell) && p.dialog.contains(p.viewport));
-check("all controls and the office inspector remain inside full screen", p.dialog.contains(p.button("Fit chart")) && p.dialog.contains(p.detail) && p.dialog.contains(p.one("org-toolbar")));
+check("all controls and the office inspector remain inside full screen", p.dialog.contains(p.button("Fit branch")) && p.dialog.contains(p.button("Full map")) && p.dialog.contains(p.detail) && p.dialog.contains(p.one("org-toolbar")));
 check("expanded state and chart focus are accessible", expand.getAttribute("aria-expanded") === "true" && expand.textContent === "Exit full screen" && p.doc.activeElement === p.viewport);
 p.button("List").click();
 check("reading view works in full screen and retains a visible close control", p.viewport.hidden && !p.one("org-list").hidden && p.button("Close full screen") && !p.button("Close full screen").hidden);
@@ -132,8 +149,14 @@ check("keyboard zoom and fit remain available", k.stage.style.transform !== home
 before = k.stage.style.transform;
 check("ordinary wheel scrolling is left to the page", !k.viewport.dispatch("wheel", { deltaY: -1 }).defaultPrevented && k.stage.style.transform === before);
 check("Ctrl-wheel still zooms within the chart", k.viewport.dispatch("wheel", { ctrlKey: true, deltaY: -1, clientX: 100, clientY: 100 }).defaultPrevented && k.stage.style.transform !== before);
-const mobile = open({ mobile: true });
+const mobile = open({ mobile: true, width: 315 });
 check("small screens retain the initial reading view", mobile.viewport.hidden && !mobile.one("org-list").hidden);
+mobile.button("Chart").click();
+check("a narrow chart stacks connected offices inside its canvas at readable scale", parseFloat(mobile.stage.style.width) <= 315 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
+mobile.button("List").click();
+mobile.one("org-list").children.find(row => row.children[0].textContent.includes("Membership, tags and review states")).children[0].click(0);
+mobile.button("Chart").click();
+check("classification groups never acquire command arrows when returning to Chart", visibleIds(mobile).length === chartNodes.length && !mobile.node("membership") && mobile.one("org-chart-shell").textContent.includes("Rank and membership groupings have no command arrows"));
 check("text-selection prevention is scoped to the diagram, not the mandate reader", css.includes(".org-viewport,.org-viewport *{-webkit-user-select:none;user-select:none}") && !/\.org-inspector[^}]*user-select/.test(css));
 check("expanded layout fills the viewport and accommodates the inspector on narrow screens", css.includes("height:calc(100dvh - 2rem)") && css.includes(".org-fullscreen .org-inspector{position:static") && css.includes("grid-template-rows:minmax(180px,1fr) minmax(0,.7fr)"));
 check("the organization renderer remains text-only", !/innerHTML|outerHTML|insertAdjacentHTML/.test(source));
