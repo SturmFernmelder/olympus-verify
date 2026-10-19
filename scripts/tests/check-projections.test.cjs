@@ -32,6 +32,11 @@ rejects('finite login media verifier drift is refused', () => verify(fixture(cha
 rejects('login render provenance drift is refused', () => verify(fixture(changed('worker/public/static/wow/login/dark-portal-provenance.json', s => s + '\n'))), /byte pin drift/);
 const loginVideo = 'worker/public/static/wow/login/dark-portal.webm';
 rejects('login video bytes are not silently refreshed', () => verify(fixture(new Map([[loginVideo, Buffer.concat([base.get(loginVideo), Buffer.from([0])])]]))), /byte pin drift/);
+const loginStill = 'worker/public/static/wow/login/olympus-dark-portal.png';
+rejects('custom login still bytes are not silently refreshed', () => verify(fixture(new Map([[loginStill, Buffer.concat([base.get(loginStill), Buffer.from([0])])]]))), /byte pin drift/);
+rejects('custom login still is never relabeled official', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_exception.classification = 'official_blizzard'; return JSON.stringify(r); }), true)), /nonofficial owner login art exception/);
+rejects('custom login still tuple cannot move to another path', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_exception.asset.path = 'worker/public/static/wow/login/another.png'; return JSON.stringify(r); }), true)), /nonofficial owner login art exception/);
+rejects('custom login still requires its one asset row', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginStill); return JSON.stringify(r); }), true)), /closed owner login art asset binding/);
 rejects('talent art map byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art.json', s => s + '\n'))), /byte pin drift/);
 rejects('talent art provenance byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art-provenance.json', s => s + '\n'))), /byte pin drift/);
 rejects('reference hash drift is refused', () => verify(fixture(changed('scripts/official_asset_reference.json', s => s + '\n'))), /reference digest drift/);

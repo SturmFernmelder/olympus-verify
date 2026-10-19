@@ -56,6 +56,17 @@ function verify(snapshot) {
   const referencePin = match('scripts/official_assets.py', /^REFERENCE_SHA256=['"]([a-f0-9]{64})['"]/m, 'reference hash declaration');
   check(sha(get(refPath)) === referencePin, 'official asset reference digest drift');
   check(Array.isArray(ref.assets) && ref.assets.length > 0 && Array.isArray(ref.fixed_art_source_pins), 'asset reference rows');
+  const loginArt = ref.login_art_exception, loginPin = loginArt?.asset;
+  check(loginArt && loginArt.usage === 'login_background_only' && loginArt.instruction_date === '2026-10-19'
+    && loginArt.classification === 'ai_custom_art_not_official_blizzard'
+    && loginArt.owner_instruction === 'Build .172 owner-approved custom login background'
+    && loginPin?.path === 'worker/public/static/wow/login/olympus-dark-portal.png' && loginPin.mode === '100644'
+    && loginPin.bytes === 2761774 && loginPin.sha256 === '7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342'
+    && !ref.official_paths.includes(loginPin.path) && !ref.native_paths.includes(loginPin.path), 'exact nonofficial owner login art exception');
+  const loginRows = ref.assets.filter(row => row.path === loginPin.path);
+  check(ref.assets.length <= 512 && loginRows.length === 1
+    && ['path', 'mode', 'bytes', 'sha256'].every(key => loginRows[0][key] === loginPin[key]), 'closed owner login art asset binding');
+  pin(loginPin);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');

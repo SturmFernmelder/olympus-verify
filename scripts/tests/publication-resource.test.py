@@ -57,11 +57,11 @@ resources = ref['_resources']
 public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
-check(len(assets) == 509 and len(ref['official_paths']) == 494, '509 exact assets: all507 prior assets plus the exact login WebM/poster;493 official image/font paths and1 video')
-check(len(resources) == 27 and len(public) == 536, '27 separate required non-art resources including distinct login-render provenance')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed536-path union')
+check(len(assets) == 510 and len(ref['official_paths']) == 494, '510 exact assets: all509 prior assets plus one separate approved custom PNG;493 official image/font paths and1 historical video unchanged')
+check(len(resources) == 27 and len(public) == 537, '27 separate required non-art resources including distinct historical login-render provenance')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed537-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all536 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all537 current public byte pins match the reviewed reference')
 check(gate.runtime_path('worker/public/static/qr-phase1.mjs'), 'ES modules are runtime sources')
 check(not gate.runtime_path('worker/public/static/governance/olympus-governance-r6.pdf'), 'documents are not executable runtime sources')
 
@@ -120,13 +120,16 @@ login_video = 'worker/public/static/wow/login/dark-portal.webm'
 login_poster = 'worker/public/static/wow/login/dark-portal-poster.jpg'
 login_provenance = 'worker/public/static/wow/login/dark-portal-provenance.json'
 login_verifier = 'tools/check-login-portal.py'
+login_still = 'worker/public/static/wow/login/olympus-dark-portal.png'
 login_record = json.loads(payloads[login_provenance])
-check({p for p in assets if '/static/wow/login/' in p} == {login_video, login_poster} and {p for p in resources if '/static/wow/login/' in p} == {login_provenance}, 'login closure is exactly two media assets and one non-art provenance record, never a directory exception')
+check({p for p in assets if '/static/wow/login/' in p} == {login_video, login_poster, login_still} and {p for p in resources if '/static/wow/login/' in p} == {login_provenance}, 'login closure is exactly two historical media assets, one exact approved custom still and one historical provenance record, never a directory exception')
+check(ref['login_art_exception']['asset'] == gate.LOGIN_ART_EXCEPTION == assets[login_still] and ref['login_art_exception']['usage'] == 'login_background_only' and ref['login_art_exception']['classification'] == 'ai_custom_art_not_official_blizzard' and ref['login_art_exception']['instruction_date'] == '2026-10-19' and login_still not in ref['official_paths'] and login_still not in ref['native_paths'], 'exact owner custom-art exception is identified separately and never counted as official Blizzard art')
+check(payloads[login_still][:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(payloads[login_still][16:20], 'big') == 1672 and int.from_bytes(payloads[login_still][20:24], 'big') == 941, 'the exact approved custom PNG retains its1672x941 dimensions')
 check(login_record['schema'] == 'olympus-login-dark-portal-render-v1' and login_record['kind'] == 'local-render-from-blizzard-client-assets' and login_record['publisherOriginalMovie'] is False and login_record['sourceBuild'] == '1.15.9.70003' and 'verifierSHA256' not in login_record, 'login provenance distinguishes the local render and original source build without a cyclic verifier pin')
 inputs = login_record['sourceInputs']
 check(len(inputs) == 28 and len({row['path'] for row in inputs}) == 28 and sum(row['path'].endswith('.m2') for row in inputs) == 1 and sum(row['path'].endswith('.skin') for row in inputs) == 2 and sum(row['path'].endswith('.blp') for row in inputs) == 25, 'separate source provenance records the exact1 model,2 skins and25 texture closure without publishing raw inputs')
 check(any(row['path'] == login_verifier and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'the finite offline login verifier is a seventh separate source pin, not a renderer or extractor execution')
-check('worker/src/site-access.ts' in ref['runtime_paths'] and {'/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'}.issubset(covered['worker/src/site-access.ts']), 'the actual login URL producer has full runtime/source and literal reference coverage')
+check('worker/src/site-access.ts' in ref['runtime_paths'] and '/static/wow/login/olympus-dark-portal.png' in covered['worker/src/site-access.ts'] and not {'/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'} & set(covered['worker/src/site-access.ts']), 'the actual login URL producer covers only the new approved still; historical media remain closed byte-pinned assets')
 check(not any(p.endswith(('.m2', '.skin', '.blp', '.wasm', '.data')) for p in public), 'no original client model, texture, renderer wasm or SDK data payload enters the public closure')
 
 manifest = {
@@ -161,8 +164,9 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 536 and proof['required_non_art_resource_pins_verified'] == 27, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 537 and proof['required_non_art_resource_pins_verified'] == 27, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
+    check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 1 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['readyForPublication'] is False and proof['document_content_acceptance'] is False, 'synthetic byte checks confer no release or document-content approval')
     gate.validate_worktree_assets(ROOT, admitted)
     check(True, 'actual source public worktree passes exact closed-resource validation')
@@ -196,6 +200,11 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
     art_path = ref['official_paths'][0]
     refused(lambda: extra('docs/renamed-official.png', payloads[art_path]), 'official_asset_payload_at_unlisted_path', 'official artwork remains restricted to its reviewed paths')
     refused(lambda: extra('docs/renamed-crest.png', payloads[gate.BRAND_EXCEPTION['path']]), 'brand_exception_payload_at_unlisted_path', 'crest exception remains restricted to its sole reviewed path')
+    refused(lambda: extra('docs/renamed-login.png', payloads[login_still]), 'login_art_exception_payload_at_unlisted_path', 'custom login art cannot be redistributed at an unapproved path')
+    refused(lambda: extra('worker/public/static/wow/login/extra-custom.png', b'additional unapproved custom artwork'), 'unlisted_public_asset_in_result', 'the single approved custom PNG does not allow another image or directory exception')
+    altered = dict(payloads)
+    altered[login_still] += b'changed'
+    refused(lambda: gate.validate_result_tree(rows, altered, admitted), 'public_asset_byte_or_mode_pin_mismatch', 'approved custom login artwork cannot be replaced at its approved path')
     refused(lambda: extra('private/export.zip', b'archive'), 'private_runtime_path_in_result', 'ordinary private/archive paths remain refused')
 
     for label, change, reason in [
@@ -224,6 +233,9 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
     m = copy.deepcopy(manifest)
     next(r for r in m['files'] if r['path'] == gate.BRAND_EXCEPTION['path'])['sha256'] = '0'*64
     refused(lambda: load(m), 'fixed_official_asset_bytes_changed_requires_new_reference', 'unchanged crest bytes cannot be repinned through a final manifest')
+    m = copy.deepcopy(manifest)
+    next(r for r in m['files'] if r['path'] == login_still)['sha256'] = '0'*64
+    refused(lambda: load(m), 'fixed_official_asset_bytes_changed_requires_new_reference', 'approved custom login bytes cannot be repinned through a final manifest')
 
     # A required document may be a link/fetch target, never decorative CSS artwork.
     for url in ('/static/governance/olympus-governance-r6.pdf', '/static/qr-phase1.mjs', '/static/wow/login/dark-portal.webm'):
@@ -238,7 +250,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payloads[p])
     gate.validate_worktree_assets(snapshot, admitted)
-    check(True, 'independent temporary worktree copy validates all536 required files')
+    check(True, 'independent temporary worktree copy validates all537 required files')
     # Execute only the exact trusted finite checker copied into this temporary source-shaped fixture.
     # Its ROOT remains fixed relative to itself; no override, renderer, network or game input is used.
     checker = snapshot / login_verifier
