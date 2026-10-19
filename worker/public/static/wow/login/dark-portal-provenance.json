@@ -1,0 +1,262 @@
+{
+  "schema": "olympus-login-dark-portal-render-v1",
+  "kind": "local-render-from-blizzard-client-assets",
+  "publisherOriginalMovie": false,
+  "sourceBuild": "1.15.9.70003",
+  "sourceModelFileDataId": 131970,
+  "sourceModelSHA256": "c29a0225bdc64db8c90192ce586e6ffc89b6a4b75c3e9555fd6995467bb6238f",
+  "sourceInputs": [
+    {
+      "path": "wow_classic_era-1.15.9.70003/interface/glues/models/ui_mainmenu/ui_mainmenu.m2",
+      "bytes": 435248,
+      "sha256": "c29a0225bdc64db8c90192ce586e6ffc89b6a4b75c3e9555fd6995467bb6238f"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/interface/glues/models/ui_mainmenu/ui_mainmenu00.skin",
+      "bytes": 110464,
+      "sha256": "15c5173c81fc1dae449f8b90cb3a8a3f2561a6ae62f33b515621db4bad44d0b9"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/interface/glues/models/ui_mainmenu/ui_mainmenu01.skin",
+      "bytes": 110464,
+      "sha256": "eb2ee1862e16247ad302ad3e2f3c423af8e1b9e86538dd8f720873309fdbff77"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-123938.blp",
+      "bytes": 1540,
+      "sha256": "c98765a9ea6de7f764b4aed4628be86c783f2060ded91829318d580fa0425304"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131949.blp",
+      "bytes": 44876,
+      "sha256": "32d52149f96fd89fa363fea9cf99cfaa6c474c77699a6e9e0e66d3ef0bcf2791"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131950.blp",
+      "bytes": 3916,
+      "sha256": "2dcbde269d3df7a907f284a359759d644b5b69daba339c8a3c36c95a3be60552"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131951.blp",
+      "bytes": 44876,
+      "sha256": "2f05b827675ed9ef66b1165028a191e092f4206aed978bd100f384b7a8d7e107"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131952.blp",
+      "bytes": 44876,
+      "sha256": "a57a1225f120dcb65f3f278bd60b22bf01e56b99f0e74933c492c18b028832f6"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131953.blp",
+      "bytes": 44876,
+      "sha256": "038430d55c170a0a3dda4867fecd76298fd9deef00200e1b88cf36acf01428a8"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131954.blp",
+      "bytes": 44876,
+      "sha256": "cf46a33267224d33adff73bee79c36f934e02882a97a40406d637486eb4cfeb5"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131955.blp",
+      "bytes": 44876,
+      "sha256": "f53e88ac3393fa6dad4b0447c5026f63f20c79f083d2be7e2951e4e50db91d0a"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131956.blp",
+      "bytes": 44876,
+      "sha256": "534ec92df06d1bc49149b5e8eb533ed55479189813323cdb1848458ab44267f1"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131957.blp",
+      "bytes": 44876,
+      "sha256": "7c108b03292497fdf4897d6ba953d7f406776fcd025116fbd6f61345766d2307"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131958.blp",
+      "bytes": 44876,
+      "sha256": "4b61c011ce4a5e189c3ee1651b3a1b6bbab990b55a440c5e9384e496dce01ac0"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131959.blp",
+      "bytes": 23044,
+      "sha256": "da58458cf7cd749f9606a4e7409cfba1a4eba95de0cdf80d707850a013572ffa"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131960.blp",
+      "bytes": 3916,
+      "sha256": "f7c1d1c82260a91e496402d1c724da23f86359fdcf4d273aaf6c88d23cd7424f"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131961.blp",
+      "bytes": 2556,
+      "sha256": "a8e43991ff7d76e66a6426a4e23512a32cbcbe004ed86aac81cff3b59dc23a98"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131962.blp",
+      "bytes": 88580,
+      "sha256": "979721b5c2852c3a5688fe13f6ecdf2f43707bdec99053a23ac1ed7230eb4892"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131963.blp",
+      "bytes": 23044,
+      "sha256": "e87e2b19dbb11069989362447a49a98b1f975714753c4beb2468c7f5b5f47b75"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131964.blp",
+      "bytes": 88580,
+      "sha256": "2e8ce1d2826f6b1277778a5f4000b77290037eb65f41354708941635bbb04568"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131965.blp",
+      "bytes": 44876,
+      "sha256": "0e6b9eb46d37ead21c88d435f907518573390f0846d5539ed5ec7d3693887f94"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131966.blp",
+      "bytes": 12108,
+      "sha256": "b82b2250667dd9b05badc4a672e96ac6906204b23bad29916b81bf00501556c8"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131967.blp",
+      "bytes": 2564,
+      "sha256": "122c4c2e33941fdb8871beb8ebe8f6fe8dd812d1dbdeb56d07bfbcfd400bed1a"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131968.blp",
+      "bytes": 12108,
+      "sha256": "00ed7da1451c9c152936bc3b69145124a9de329e476c4ad8256f9e1908d8dd23"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-131969.blp",
+      "bytes": 12108,
+      "sha256": "af7244e7fddcabd7b95862b20ff3b4f37cd126e63cb6cc455aec828fd6d618f4"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-132028.blp",
+      "bytes": 88580,
+      "sha256": "2655032dced74f7cd373d8130466fe0b0d436c116339cba710d464ec76dee331"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-165414.blp",
+      "bytes": 6660,
+      "sha256": "050193f2df7a2f06566b2aa6b538c657317f3fa424b8a03d29ccd009c9e8c4f6"
+    },
+    {
+      "path": "wow_classic_era-1.15.9.70003/textures/fdid-197765.blp",
+      "bytes": 88580,
+      "sha256": "b3fdb39ab65a42e9d0906ffa36c3a6dbcb16ca6ef1cf9520077f6e771a96a366"
+    }
+  ],
+  "rendererSourceSHA256": "715170ea535ded090c1e544189ac6df62fcda9afe779ec1b84fb3de7e762622f",
+  "rendererSourceHashKind": "Retained source-build and camera/lighting patch proof record, not the verifier source",
+  "captureRecipeSHA256": "482cfd1e565e4d88a89d6542e40d969ecdeb25152dd3ff1bd841633e9087da3f",
+  "renderer": {
+    "repository": "https://github.com/Deamon87/WebWoWViewerCpp",
+    "baseCommit": "60682576555223fffa7e9687f8b04f286dd43c45",
+    "compiledOutputs": [
+      {
+        "path": "project.js",
+        "bytes": 207779,
+        "sha256": "78d31c7b1c6e1686918df4a8c8a49add5b65b885b8c85f64aeffa6fc0fd7629b"
+      },
+      {
+        "path": "project.wasm",
+        "bytes": 1495229,
+        "sha256": "d50178f1a28f26aea384572e5e6de27e7a054317683272444162a0c5636c6dac"
+      },
+      {
+        "path": "project.data",
+        "bytes": 221169,
+        "sha256": "f63c1a2959ca44e734339728fa87920ebb32eeb663f8065ef362388b78530a4c"
+      }
+    ],
+    "rendererBundledInGuildSite": false
+  },
+  "scene": {
+    "originalCameraId": 0,
+    "originalSequenceId": 0,
+    "closureFiles": 28,
+    "usedClosureFilesObserved": 27,
+    "unusedOtherSkinLOD": 481179,
+    "captureResolution": [
+      960,
+      540
+    ],
+    "originalModelAnimationDurationMs": 40000,
+    "UVPeriodMs": [
+      20000,
+      30000,
+      40000
+    ]
+  },
+  "capture": {
+    "method": "HTMLCanvasElement.captureStream and native MediaRecorder",
+    "requestedDurationMs": 120000,
+    "observedCaptureWallMs": 120023,
+    "requestedFramesPerSecond": 30,
+    "requestedVideoBitsPerSecond": 300000,
+    "audioSource": false,
+    "actualContainerFrames": 2867,
+    "rawVideoBytes": 3405592,
+    "rawVideoSHA256": "df159b7560135ea37ee703db5c476024c17b754a1e149b3ac3bbf5fe81eb670d",
+    "noProductionAccountOrGameStateInCapture": true
+  },
+  "poster": {
+    "method": "Copy current original rendered frame immediately after gameloop into empty2Dcanvas; native JPEG toBlob",
+    "requestedQuality": 0.95,
+    "reencodedAfterCapture": false
+  },
+  "containerAdjustment": {
+    "onlyChange": "Added Info.Duration double120000ticks at timestampScale1ms and enlarged its Info size field by11bytes",
+    "presentationDurationMs": 120000,
+    "durationBasis": "Render recipe presentation length chosen by Codex from the actual120second capture; not a proved last encoded-frame end",
+    "rawCapturePreservedSeparately": true,
+    "tracksAndAll29ClustersByteIdentical": true,
+    "all2867CompressedFramePayloadsByteIdentical": true,
+    "encodedFramePayloadSHA256": "f9b45a54491c79dca8e2e1575b09a1924d3722b6c897489444a5670b9a03a07e",
+    "sourceHadSeekHeadOrCues": false,
+    "containerProofSHA256": "8be3feba1616ea612518ea0837de3138cd483643495f8e39a33d6e54f52ade0b",
+    "decodedOrReencoded": false
+  },
+  "outputs": [
+    {
+      "path": "worker/public/static/wow/login/dark-portal.webm",
+      "bytes": 3405603,
+      "sha256": "930ca8937c601245c7893cdc46750de3eca729c5fa9b91ef11dc08d87687521c",
+      "metadata": {
+        "docType": "webm",
+        "codec": "V_VP9",
+        "width": 960,
+        "height": 540,
+        "audioTracks": 0,
+        "timestampScaleNs": 1000000,
+        "durationNs": 120000000000,
+        "clusterCount": 29,
+        "containerFrameCount": 2867,
+        "firstFrameTimestampNs": 0,
+        "lastFrameTimestampNs": 119966000000,
+        "lastExplicitFrameEndNs": null
+      }
+    },
+    {
+      "path": "worker/public/static/wow/login/dark-portal-poster.jpg",
+      "bytes": 132023,
+      "sha256": "c2c0820f50c6cf1944e88e5fd54f2b421df1955ebe7842cb976ac5599f191050",
+      "metadata": {
+        "format": "JPEG",
+        "width": 960,
+        "height": 540,
+        "components": 3,
+        "sofMarker": 192
+      }
+    }
+  ],
+  "limitations": [
+    "Rendered derivative of Blizzard client model, skins and textures; not an official published Blizzard movie or a Blizzard endorsement.",
+    "Native browser video and JPEG encoding are lossy; no pixel-identical original client postprocessing or decoded-frame identity claim.",
+    "The120second presentation spans the20/30/40second UV periods but does not prove full particle/global-phase periodicity or a pixel-perfect seamless loop.",
+    "2867is the measured unlaced container-frame count; requested30fps is not claimed as the achieved constant frame rate.",
+    "Last encoded frame timestamp is119966ms; an explicit encoded last-frame end is unknown. The120000ms duration is chosen presentation metadata.",
+    "Hashes bind exact reviewed files/source records; they do not grant or attest redistribution rights."
+  ]
+}

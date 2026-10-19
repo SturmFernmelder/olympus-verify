@@ -179,7 +179,7 @@ def main() -> None:
                 'literal_classification_manifest_sha256': sha(args.literal_classifications.read_bytes()) if args.literal_classifications else None,
                 'candidate_only_literal_classifications': len(reviewed),
                 'remaining_gates': ['Final accepted keeper head must be resnapshotted and jointly reviewed.',
-                                    'Exact official image/font/native UI/reference/document byte pins are enforced; final source, UI and content review remain required.',
+                                    'Exact official image/font/video/native UI/reference/document byte pins are enforced; final source, UI and content review remain required.',
                                     'Publisher archive/build attestation and applicable redistribution rights are not established by this byte gate.',
                                     'Website imagery must remain official WoW; generated artwork is reserved for Discord.',
                                     'Proprietary application/license wording and explicit third-party notices require owner review.',

@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='b0bede6d973ef4790ebfa7931b3e1139ce7bb8d14c377874f6e4216c56ceb80d'
+REFERENCE_SHA256='63d46d316ef56d6cd4f7e1e6d8178fc96298da745642ef09fa2546666689a1ae'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -75,7 +75,7 @@ def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[s
         for match in re.finditer(r'(?i)url\(\s*([\s\S]*?)\s*\)',text):
             value=match.group(1).strip().strip('"\'')
             if not value.startswith('/static/') or '\\' in value or '%' in value or '?' in value or '#' in value \
-              or 'worker/public'+value not in expected:
+              or 'worker/public'+value not in expected or value=='/static/wow/login/dark-portal.webm':
                 raise ValueError('unmanifested_css_asset_reference')
     return sorted(urls)
 
@@ -107,12 +107,17 @@ def reference() -> dict:
     if {p.casefold() for p in resources}&{p.casefold() for p in assets} \
       or not {p for p in resources if runtime_path(p)}.issubset(ref['runtime_paths']):
         raise ValueError('official_public_resource_reference_shape_invalid')
-    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=492 \
+    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=494 \
       or any(not p.startswith('worker/public/static/wow/') for p in ref['official_paths']) \
       or any(not p.endswith(('.css','.js')) for p in ref['native_paths']) \
       or any(not runtime_path(p) for p in ref['runtime_paths']) \
       or set(ref['required_documents'])!={'LICENSE','README.md','CLAUDE.md','THIRD_PARTY_NOTICES.md',
             'docs/source-provenance.md','docs/design.md','docs/deploy-checklist.md'}:
+        raise ValueError('official_asset_reference_shape_invalid')
+    if {p for p in ref['official_paths'] if p.endswith('.webm')}!={'worker/public/static/wow/login/dark-portal.webm'} \
+      or 'worker/public/static/wow/login/dark-portal-poster.jpg' not in ref['official_paths'] \
+      or 'worker/public/static/wow/login/dark-portal-provenance.json' not in resources \
+      or 'worker/src/site-access.ts' not in ref['runtime_paths']:
         raise ValueError('official_asset_reference_shape_invalid')
     if not isinstance(ref['runtime_prefixes'],list) or any(not isinstance(p,str)
         or not re.fullmatch(r'/static/(?:wow|rank-planner)?/?',p) for p in ref['runtime_prefixes']) \
@@ -123,8 +128,8 @@ def reference() -> dict:
     extractor=pin_rows([ref['approved_extractor']],{'tools/build-site-assets.py'},'official_asset_reference_shape_invalid')
     fixed=pin_rows(ref['fixed_art_source_pins'],None,'official_asset_reference_shape_invalid')
     if set(fixed)!={'worker/src/site-data.ts','worker/src/site-ranks.ts','worker/public/static/app.js',
-                    'worker/public/static/rank-planner/app.js','worker/src/site-core.ts','tools/build-talent-art.py'} \
-      or not (set(fixed)-{'tools/build-talent-art.py'}).issubset(ref['runtime_paths']):
+                    'worker/public/static/rank-planner/app.js','worker/src/site-core.ts','tools/build-talent-art.py','tools/check-login-portal.py'} \
+      or not (set(fixed)-{'tools/build-talent-art.py','tools/check-login-portal.py'}).issubset(ref['runtime_paths']):
         raise ValueError('official_asset_reference_shape_invalid')
     if set(ref['required_profile_paths'])!={'worker/wrangler.toml','worker/wrangler.cutover.toml',
           'scripts/cutover-config.sh','scripts/tests/cutover-config.test.sh',
@@ -252,7 +257,9 @@ def validate_result_tree(rows: list[dict], payloads: dict[str,bytes], contract: 
       'official_map_sha256':ref['official_map_sha256'],'coverage_evidence_sha256':ref['coverage_evidence_sha256'],
       'keeper_head':contract['contract']['keeper_head'],'public_asset_count':len(expected),
       'required_non_art_resource_pins_verified':len(contract['required_public_resources']),
-      'official_image_font_count':len(ref['official_paths']),'native_public_file_count':len(ref['native_paths']),
+      'official_image_font_count':sum(not p.endswith('.webm') for p in ref['official_paths']),
+      'official_video_count':sum(p.endswith('.webm') for p in ref['official_paths']),
+      'official_art_file_count':len(ref['official_paths']),'native_public_file_count':len(ref['native_paths']),
       'required_document_pins_verified':len(contract['documents']),'runtime_source_pins_verified':len(contract['runtime_files']),
       'profile_source_pins_verified':len(contract['profile_files']),
       'exact_reviewed_extractor_verified':True,'extractor_automatically_executed':False,
