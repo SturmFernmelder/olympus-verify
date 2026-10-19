@@ -24,8 +24,8 @@ const FLASH: Record<string, string> = {
 
 export function siteSignIn(request: Request, status = 200, flash?: string, cookies: string[] = []): Response {
   const note = flash && FLASH[flash] ? `<p role="status">${FLASH[flash]}</p>` : '';
-  // Owner's .172 choice: one approved still at every viewport, without video or a crop that loses either shield.
-  const body = `<section class="sign-in-gate portal-login"><div class="login-portal"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal.png" alt="" aria-hidden="true" width="1672" height="941"></div><div class="login-card"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
+  // Owner's .173 choice: approved wide/portrait art fills the viewport, with sign-in below the shields.
+  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true"><picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture></div><div class="login-card"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
   const headers = loginHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
   // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.

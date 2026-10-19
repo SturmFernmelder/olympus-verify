@@ -51,7 +51,13 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 510 and len(ref["fixed_art_source_pins"]) == 7
+assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
+assert len(ref["required_public_resources"]) == 27
+assert ref["login_art_variants"]["assets"] == official_assets.LOGIN_ART_VARIANTS
+assert len(ref["login_art_variants"]["assets"]) == 2
+assert ref["login_art_variants"]["classification"] == "imagegen_derived_custom_art_not_official_blizzard"
+assert ref["login_art_variants"]["usage"] == "login_background_only"
+assert all(row["path"] not in ref["official_paths"] and row["path"] not in ref["native_paths"] for row in official_assets.LOGIN_ART_VARIANTS)
 cursor = json.loads(Path(ref["provenance_path"]).read_bytes())["additional_extractions"][-1]
 record = cursor["source_record"]
 assert record["path"] == "tools/wow-cursor-provenance.json"

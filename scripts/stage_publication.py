@@ -181,7 +181,7 @@ def main() -> None:
                 'remaining_gates': ['Final accepted keeper head must be resnapshotted and jointly reviewed.',
                                     'Exact official image/font/video and separately identified owner-exception/native UI/reference/document byte pins are enforced; final source, UI and content review remain required.',
                                     'Publisher archive/build attestation and applicable redistribution rights are not established by this byte gate.',
-                                    'Website imagery remains official WoW except the exact approved crest and .172 custom login PNG; no other generated-art exception is granted.',
+                                    'Website imagery remains official WoW except the exact approved crest, historical .172 custom login PNG and two .173 imagegen-derived wide/portrait login variants; no other generated-art exception is granted.',
                                     'Proprietary application/license wording and explicit third-party notices require owner review.',
                                     'Excluded personal-example documents need reviewed synthetic replacements and their linked documentation restored.',
                                     'Root public privacy/terms are preserved but disagree with current behavior; reviewed policy update required.',

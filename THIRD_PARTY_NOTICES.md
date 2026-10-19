@@ -119,3 +119,8 @@ The product includes only the reviewed derivative media, its bounded provenance 
 ### Owner-approved Olympus Dark Portal illustration (.172)
 
 The login still worker/public/static/wow/login/olympus-dark-portal.png is a custom imagegen illustration approved by the owner on 19 October 2026. It uses the .171 original-scene poster as a composition reference and the owner-supplied Olympus crest as the shield reference. The output is 1672x941, 2761774 bytes, SHA256 7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342. It is not an official Blizzard-published image, an untouched client asset or a claim of pixel-identical logo reproduction. Blizzard retains its World of Warcraft artwork and trademarks; no affiliation or endorsement is implied. The exact approval is a narrow login-art exception and does not license or authorize other custom/generated artwork. The .171 rendered media and notices remain historical records.
+
+
+### Fullscreen Olympus portal variants (.173,19 October 2026)
+
+The owner-approved expanded wide and portrait login PNGs are custom AI-generated outpainted variants produced with the built-in image_gen tool from the prior custom Olympus portal scene. They are not untouched game extractions or official Blizzard-published images. Their exact file identities and classification are recorded in scripts/official_asset_reference.json; prior game artwork/font attribution and retained .171/.172 provenance remain unchanged. The custom shield crests are illustrated interpretations of the supplied Olympus emblem; pixel-identical reproduction and native4K are not claimed.
