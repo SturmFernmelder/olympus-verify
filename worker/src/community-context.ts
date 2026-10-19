@@ -144,7 +144,7 @@ async function currentGuildRoleRead(env: Env, discordId: string, check: () => vo
     check();
     // Provider refusal/unavailability withholds this additional reader path;
     // original privacy/custody failures still propagate to their original guard.
-    if (error instanceof DiscordError || error instanceof TypeError || (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name))) return false;
+    if (error instanceof DiscordError || error instanceof TypeError || (typeof DOMException !== "undefined" && error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name))) return false;
     throw error;
   }
 }
@@ -168,7 +168,7 @@ export async function communityFacts(env: Env, user: SiteUser): Promise<Communit
 }
 
 /** The context for a request: the keeper session, the live row, the facts and what they allow. Never throws for a stranger. */
-export async function communityContext(env: Env, request: Request): Promise<CommunityContext> {
+export async function communityContext(env: Env, request: Request, options: { guildRoleRead?: boolean } = {}): Promise<CommunityContext> {
   const features = communityFeatures(env);
   const s = await readSession(env, request);
   if (!s) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
@@ -178,7 +178,9 @@ export async function communityContext(env: Env, request: Request): Promise<Comm
   if (!user || user.session_version !== s.v || user.account_incarnation !== s.n) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
   user.privacyGeneration=s.g;user.privacyOriginalSession=s;
   assertOriginalSiteSessionRead(s);const facts = await communityFacts(env, user);assertOriginalSiteSessionRead(s);
-  if (!facts.denied && facts.inServer && !facts.banned && !facts.confirmedGuild && !facts.staff) {
+  // Only Community viewer/boot callers request the extra provider fact. Own-copy,
+  // Census and every existing write keep their original zero-provider context.
+  if (options.guildRoleRead === true && !facts.denied && facts.inServer && !facts.banned && !facts.confirmedGuild && !facts.staff) {
     facts.guildRoleRead = await currentGuildRoleRead(env, s.u, () => assertOriginalSiteSessionRead(s));
   }
   return { subject: Object.freeze({ discordId:s.u,sessionVersion:s.v,expiresAt:s.e,privacyGeneration:s.g,accountIncarnation:s.n,originalSession:s }), user, facts, capabilities: capabilitiesOf(facts), features };
@@ -301,7 +303,7 @@ export async function admittedCommunityRead(env: Env, ctx: CommunityContext, sta
 /** Explain this additional reader boundary without calling the account roster
  * confirmed. Original write refusals and their requirements remain unchanged. */
 export async function communityReadRefusal(env: Env, request: Request): Promise<Response> {
-  const ctx = await communityContext(env, request);
+  const ctx = await communityContext(env, request, { guildRoleRead: true });
   if (!ctx.subject || ctx.facts.denied || !ctx.facts.inServer) return refusal(env, request, "applicantWrite");
   if (!ctx.capabilities.communityRead) return apiJson({ error: "community_unconfirmed", message: "Community is available to site administrators, roster-confirmed guild members, or linked Discord accounts with the Olympus Guild Member role. Current access could not be confirmed; check your account and role, then try again." }, 403);
   return apiJson({ error: "conflict", message: "Your account access changed while this page was loading. Reload and try again." }, 409);

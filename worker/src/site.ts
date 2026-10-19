@@ -131,7 +131,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
   // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker admits
   let community: ReturnType<typeof contextDto> | null = null;
   try {
-    community = contextDto(await communityContext(env, request));
+    community = contextDto(await communityContext(env, request, { guildRoleRead: true }));
   } catch {
     community = null; // no database: the page hides the community pages and says so
   }

@@ -295,7 +295,7 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
 async function leadershipPage(request: Request, env: Env): Promise<Response> {
   // read behind the community reader boundary (Codex, log 19:17 UTC): the standing is judged in the same batch as the row,
   // so a session, membership or roster proof lost before the read returns nothing
-  const out = await admittedCommunityRead(env, await communityContext(env, request), [
+  const out = await admittedCommunityRead(env, await communityContext(env, request, { guildRoleRead: true }), [
     env.DB.prepare("SELECT value, updated_at FROM site_settings WHERE key = ?1").bind(LEADERSHIP_KEY),
   ]);
   if (out === FENCE_REFUSED) return communityReadRefusal(env, request);

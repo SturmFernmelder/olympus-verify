@@ -294,7 +294,7 @@ function figuresDto(f: StoredFigures | null) {
  * events. Seconds throughout.
  */
 export async function newsPage(request: Request, env: Env): Promise<Response> {
-  const ctx = await communityContext(env, request);
+  const ctx = await communityContext(env, request, { guildRoleRead: true });
   if (ctx.subject && rateLimited(`nr:${ctx.subject.discordId}`, NEWS_LIMITS.readsPerMin, 60)) {
     return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
   }

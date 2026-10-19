@@ -233,7 +233,7 @@ export async function projectAppointedIdentities(env: Env, rows: unknown[], disc
 }
 
 export async function appointedIdentitiesPage(request: Request, env: Env): Promise<Response> {
-  const ctx = await communityContext(env, request);
+  const ctx = await communityContext(env, request, { guildRoleRead: true });
   let out = await admittedCommunityRead(env, ctx, [appointedIdentitiesStatement(env)]);
   if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
   const profiles = new Map<string, Found>();
