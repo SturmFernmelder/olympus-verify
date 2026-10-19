@@ -39,7 +39,7 @@ import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
 import { CAMERA_PAGE_PATH, memberSiteGate, privateCameraPageAsset, privateSiteAsset } from './site-access';
 import { forwardPrivateProductionControl } from './privacy-private-control-adapter';
-import { POLICY_ASSETS, policyHeaders } from "./policy-render";
+import { LOGIN_ASSETS, POLICY_ASSETS, policyHeaders } from "./policy-render";
 import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
@@ -168,6 +168,15 @@ export default {
     if ((POLICY_ASSETS as readonly string[]).includes(path)) {
       if (request.method === "GET" || request.method === "HEAD") return privateSiteAsset(await env.ASSETS.fetch(request));
       const headers = policyHeaders(); headers.set("Allow", "GET, HEAD"); return new Response("method not allowed", { status: 405, headers });
+    }
+    // .171: a finite SITE_HOST-only login decoration, never a public /static/ directory exception.
+    if (host === 'site' && (LOGIN_ASSETS as readonly string[]).includes(path)) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        const headers = policyHeaders(); headers.set('Allow', 'GET, HEAD');
+        return new Response('method not allowed', { status: 405, headers });
+      }
+      const asset = privateSiteAsset(await env.ASSETS.fetch(request));
+      return new Response(request.method === 'HEAD' ? null : asset.body, { status: asset.status, statusText: asset.statusText, headers: asset.headers });
     }
     // Existing browser-only privacy controls remain available after the site account is gone.
     // This exact page/module pair has no server-data fetch, form submission or serving authority.
@@ -567,7 +576,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-18.170 Public game updates and talent art";
+const BUILD = "2026-10-18.171 Original Dark Portal login";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

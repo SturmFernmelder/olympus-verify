@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 10145,
-      "sha256": "b19a8197b93f3b28ff501adf1ad72550a4ca548efd340685920dbe18059ee18e"
+      "bytes": 9406,
+      "sha256": "2b3f13e19264242b4b4ac13b8025115f361fef4f985cdf1c81999eb50b80044e"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3046,6 +3046,18 @@
       "mode": "100644",
       "bytes": 2012,
       "sha256": "3be6ffd79335123cf7a1a275daa527eff9b6457c125e8fbde9f1dca292582eba"
+    },
+    {
+      "path": "worker/public/static/wow/login/dark-portal-poster.jpg",
+      "mode": "100644",
+      "bytes": 132023,
+      "sha256": "c2c0820f50c6cf1944e88e5fd54f2b421df1955ebe7842cb976ac5599f191050"
+    },
+    {
+      "path": "worker/public/static/wow/login/dark-portal.webm",
+      "mode": "100644",
+      "bytes": 3405603,
+      "sha256": "930ca8937c601245c7893cdc46750de3eca729c5fa9b91ef11dc08d87687521c"
     }
   ],
   "official_paths": [
@@ -3540,7 +3552,9 @@
     "worker/public/static/wow/talents/icon-spell_shaman_improvedstormstrike.jpg",
     "worker/public/static/wow/talents/icon-spell_shaman_lavaburst.jpg",
     "worker/public/static/wow/talents/icon-spell_shaman_maelstromweapon.jpg",
-    "worker/public/static/wow/talents/icon-spell_warlock_demonsoul.jpg"
+    "worker/public/static/wow/talents/icon-spell_warlock_demonsoul.jpg",
+    "worker/public/static/wow/login/dark-portal-poster.jpg",
+    "worker/public/static/wow/login/dark-portal.webm"
   ],
   "native_paths": [
     "worker/public/static/app.css",
@@ -3646,7 +3660,8 @@
     "worker/public/static/talents/calculator.css",
     "worker/public/static/resources169.js",
     "worker/public/static/resources169.css",
-    "worker/src/site-resources.ts"
+    "worker/src/site-resources.ts",
+    "worker/src/site-access.ts"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -3784,6 +3799,12 @@
       "mode": "100644",
       "bytes": 11582,
       "sha256": "a361871d0b3e7e426e41bc2d3448de22b34314b85f7d7161f039a4b13ffac64d"
+    },
+    {
+      "path": "tools/check-login-portal.py",
+      "mode": "100644",
+      "bytes": 20247,
+      "sha256": "050b9675198b65612c82929296571c64e9ba85ed0f3061156c1d9ab9dd6721c0"
     }
   ],
   "limitations": [
@@ -3801,7 +3822,8 @@
     "Current .155 resource pins include the previously integrated Council duty text, named beta scanner and original-session custody. This byte reference is not deployment or live-acceptance evidence.",
     "The .167 successor adds only two original 32px Classic cursor textures and an exact native cursor stylesheet. Original 94 image/font rows and their historical provenance caveats remain unchanged. The appended cursor record names the actual local Era 1.15.9.70003 build, exact BLP identifiers and hashes, separate alpha conversion, output pixels and reviewed extractor; it does not attest older extraction inputs, grant redistribution rights or supply publication authority. Closed asset coverage is 96 official image/font paths, 9 native UI paths, the existing provenance and approved crest: 107 exact asset rows. Required non-art resources remain 19. Current native UI, resource, producer and extractor rows bind the final reviewed source bytes.",
     "The .169 owner-directed source successor adds four original native tool styles/scripts and five attributed data/document resources. Existing official artwork/fonts, adopted R7 book/charter/downloads and five art-sensitive producer identities remain fixed. This is source-byte projection evidence, not constitutional adoption, complete addon coverage, production deployment or live acceptance.",
-    "The .170 owner-directed source successor adds396 exact fan-distributed Blizzard talent-art JPEGs (369icons and27backgrounds), a complete local9/27/466 art map and separately attributed provenance. All original96official image/font rows and crest are preserved. The new finite producer is a sixth full pinned source; existing five identities remain. Exact public coverage is507assets plus26non-art resources (533paths). This records byte lineage and source limitations, not a publisher license/attestation, production authority or complete Dark Portal animation. Original normalized talent data and all1313rank texts remain unchanged."
+    "The .170 owner-directed source successor adds396 exact fan-distributed Blizzard talent-art JPEGs (369icons and27backgrounds), a complete local9/27/466 art map and separately attributed provenance. All original96official image/font rows and crest are preserved. The new finite producer is a sixth full pinned source; existing five identities remain. Exact public coverage is507assets plus26non-art resources (533paths). This records byte lineage and source limitations, not a publisher license/attestation, production authority or complete Dark Portal animation. Original normalized talent data and all1313rank texts remain unchanged.",
+    "The .171 successor separately records a locally rendered derivative of the installed Classic Era1.15.9.70003 ui_mainmenu model131970, its2skins and25textures, using original camera0/model lighting/sequence0/UV/particles. This is not a publisher-released movie, original-client pixel identity, a proved complete particle loop, a rights grant or deployment approval. The seventh fixed source is an offline exact-output/container verifier, not a renderer or asset extractor. Raw client inputs, SDKs, renderer executables and build archives stay outside the product. Existing492official rows, historical source/provenance fields,512-row/5MiB caps and activation controls remain unchanged. Exact public coverage is509assets plus27non-art resources (536paths), with493image/font rows and1video reported separately. Root actual-source Edge preview qualified the finite120second presentation and fallbacks; exact source/CI/production qualification remain separate."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -3973,6 +3995,12 @@
       "mode": "100644",
       "bytes": 154232,
       "sha256": "777232d6c462961f902b6ead528d971451ca0a5c0ebcbf07a3083faa4df33745"
+    },
+    {
+      "path": "worker/public/static/wow/login/dark-portal-provenance.json",
+      "mode": "100644",
+      "bytes": 10267,
+      "sha256": "ec87cd525ae9419d18d0caae6885919de4c8899ed751b0fa74ede3ca0f88edc3"
     }
   ]
 }

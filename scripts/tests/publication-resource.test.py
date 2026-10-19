@@ -57,11 +57,11 @@ resources = ref['_resources']
 public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
-check(len(assets) == 507 and len(ref['official_paths']) == 492, '507 exact assets: original111 plus396 finite talent JPEGs;492 official image/font paths')
-check(len(resources) == 26 and len(public) == 533, '26 separate required non-art resources including the talent art map and provenance')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed533-path union')
-check(len(ref['_fixed_art_sources']) == 6 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six art-sensitive producer pins and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all533 current public byte pins match the reviewed reference')
+check(len(assets) == 509 and len(ref['official_paths']) == 494, '509 exact assets: all507 prior assets plus the exact login WebM/poster;493 official image/font paths and1 video')
+check(len(resources) == 27 and len(public) == 536, '27 separate required non-art resources including distinct login-render provenance')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed536-path union')
+check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
+check(all(pin(p) == row for p, row in public.items()), 'all536 current public byte pins match the reviewed reference')
 check(gate.runtime_path('worker/public/static/qr-phase1.mjs'), 'ES modules are runtime sources')
 check(not gate.runtime_path('worker/public/static/governance/olympus-governance-r6.pdf'), 'documents are not executable runtime sources')
 
@@ -116,6 +116,19 @@ check(all(row['path'] in assets and assets[row['path']]['bytes'] == row['bytes']
 check(any(row['path'] == 'tools/build-talent-art.py' and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'finite no-network-default talent art producer is separately source-pinned')
 check('/static/talents/art.json' in covered['worker/public/static/talents/calculator.js'], 'actual calculator art-map dependency has finite required-resource coverage')
 
+login_video = 'worker/public/static/wow/login/dark-portal.webm'
+login_poster = 'worker/public/static/wow/login/dark-portal-poster.jpg'
+login_provenance = 'worker/public/static/wow/login/dark-portal-provenance.json'
+login_verifier = 'tools/check-login-portal.py'
+login_record = json.loads(payloads[login_provenance])
+check({p for p in assets if '/static/wow/login/' in p} == {login_video, login_poster} and {p for p in resources if '/static/wow/login/' in p} == {login_provenance}, 'login closure is exactly two media assets and one non-art provenance record, never a directory exception')
+check(login_record['schema'] == 'olympus-login-dark-portal-render-v1' and login_record['kind'] == 'local-render-from-blizzard-client-assets' and login_record['publisherOriginalMovie'] is False and login_record['sourceBuild'] == '1.15.9.70003' and 'verifierSHA256' not in login_record, 'login provenance distinguishes the local render and original source build without a cyclic verifier pin')
+inputs = login_record['sourceInputs']
+check(len(inputs) == 28 and len({row['path'] for row in inputs}) == 28 and sum(row['path'].endswith('.m2') for row in inputs) == 1 and sum(row['path'].endswith('.skin') for row in inputs) == 2 and sum(row['path'].endswith('.blp') for row in inputs) == 25, 'separate source provenance records the exact1 model,2 skins and25 texture closure without publishing raw inputs')
+check(any(row['path'] == login_verifier and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'the finite offline login verifier is a seventh separate source pin, not a renderer or extractor execution')
+check('worker/src/site-access.ts' in ref['runtime_paths'] and {'/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'}.issubset(covered['worker/src/site-access.ts']), 'the actual login URL producer has full runtime/source and literal reference coverage')
+check(not any(p.endswith(('.m2', '.skin', '.blp', '.wasm', '.data')) for p in public), 'no original client model, texture, renderer wasm or SDK data payload enters the public closure')
+
 manifest = {
     'schema': 'olympus-selected-official-public-assets-v2', 'keeper_head': head,
     'official_candidate_manifest_sha256': ref['official_candidate_manifest_sha256'],
@@ -148,7 +161,8 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 533 and proof['required_non_art_resource_pins_verified'] == 26, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 536 and proof['required_non_art_resource_pins_verified'] == 27, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['readyForPublication'] is False and proof['document_content_acceptance'] is False, 'synthetic byte checks confer no release or document-content approval')
     gate.validate_worktree_assets(ROOT, admitted)
     check(True, 'actual source public worktree passes exact closed-resource validation')
@@ -212,8 +226,8 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
     refused(lambda: load(m), 'fixed_official_asset_bytes_changed_requires_new_reference', 'unchanged crest bytes cannot be repinned through a final manifest')
 
     # A required document may be a link/fetch target, never decorative CSS artwork.
-    for url in ('/static/governance/olympus-governance-r6.pdf', '/static/qr-phase1.mjs'):
-        refused(lambda url=url: gate.references(('a{background:url(' + url + ')}').encode(), 'worker/public/static/app.css', assets, prefixes, resources), 'unmanifested_css_asset_reference', 'non-art resource is not a CSS image/font allowance: ' + url)
+    for url in ('/static/governance/olympus-governance-r6.pdf', '/static/qr-phase1.mjs', '/static/wow/login/dark-portal.webm'):
+        refused(lambda url=url: gate.references(('a{background:url(' + url + ')}').encode(), 'worker/public/static/app.css', assets, prefixes, resources), 'unmanifested_css_asset_reference', 'non-image resource/video is not a CSS image/font allowance: ' + url)
     for raw in (b'<svg viewBox="0 0 1 1"></svg>', b'const image="data:image/png;base64,AA"', b'const font="data:font/woff;base64,AA"'):
         refused(lambda raw=raw: gate.references(raw, 'worker/public/static/qr-phase1.mjs', assets, prefixes, resources), 'embedded_or_custom_website_art_reference', 'module classification retains embedded artwork refusal')
     refused(lambda: gate.references(b'fetch("/static/governance/extra.pdf")', app, assets, prefixes, resources), 'unlisted_website_runtime_reference', 'resource directory does not grant a prefix exception')
@@ -224,7 +238,33 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payloads[p])
     gate.validate_worktree_assets(snapshot, admitted)
-    check(True, 'independent temporary worktree copy validates all533 required files')
+    check(True, 'independent temporary worktree copy validates all536 required files')
+    # Execute only the exact trusted finite checker copied into this temporary source-shaped fixture.
+    # Its ROOT remains fixed relative to itself; no override, renderer, network or game input is used.
+    checker = snapshot / login_verifier
+    checker.parent.mkdir(parents=True, exist_ok=True)
+    checker.write_bytes(payloads[login_verifier])
+
+    def login_check():
+        return subprocess.run([sys.executable, '-B', str(checker), '--check'], capture_output=True, text=True)
+
+    measured = login_check()
+    measured_report = json.loads(measured.stdout) if measured.returncode == 0 else {}
+    check(measured.returncode == 0 and measured_report.get('status') == 'EXACT_REVIEWED_DERIVATIVE_BYTES_MATCH' and measured_report.get('sourceInputCount') == 28 and all(measured_report.get(key) == 0 for key in ('writes', 'network', 'gameFileReads')) and {row['path'] for row in measured_report.get('files', [])} == {login_video, login_poster}, 'the actual hash-pinned finite verifier accepts only this copied exact derivative closure without source-game reads or writes')
+    for target_path in (login_video, login_poster, login_provenance):
+        target = snapshot / target_path
+        original = target.read_bytes()
+        target.write_bytes(original + b'changed')
+        rejected = login_check()
+        target.write_bytes(original)
+        report = json.loads(rejected.stderr) if rejected.stderr.strip() else {}
+        check(rejected.returncode != 0 and report.get('status') == 'REFUSED' and report.get('qualified') is False, 'the actual finite verifier refuses changed bytes/provenance: ' + target_path)
+    target = snapshot / login_video
+    target.unlink()
+    rejected = login_check()
+    target.write_bytes(payloads[login_video])
+    report = json.loads(rejected.stderr) if rejected.stderr.strip() else {}
+    check(rejected.returncode != 0 and report.get('status') == 'REFUSED' and report.get('qualified') is False, 'the actual finite verifier refuses missing video instead of treating poster or metadata as completion')
     pdf = snapshot / 'worker/public/static/governance/olympus-governance-r6.pdf'
     pdf.write_bytes(b'changed')
     refused(lambda: gate.validate_worktree_assets(snapshot, admitted), 'public_asset_worktree_pin_mismatch', 'worktree resource substitution is refused')

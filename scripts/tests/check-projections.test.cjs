@@ -28,6 +28,10 @@ rejects('asset bytes are not silently refreshed', () => verify(fixture(changed('
 rejects('fixed source byte drift is refused', () => verify(fixture(changed('worker/src/site-data.ts', s => s + '\n'))), /byte pin drift/);
 rejects('extractor byte drift is refused', () => verify(fixture(changed('tools/build-site-assets.py', s => s + '\n'))), /byte pin drift/);
 rejects('finite talent art producer drift is refused', () => verify(fixture(changed('tools/build-talent-art.py', s => s + '\n'))), /byte pin drift/);
+rejects('finite login media verifier drift is refused', () => verify(fixture(changed('tools/check-login-portal.py', s => s + '\n'))), /byte pin drift/);
+rejects('login render provenance drift is refused', () => verify(fixture(changed('worker/public/static/wow/login/dark-portal-provenance.json', s => s + '\n'))), /byte pin drift/);
+const loginVideo = 'worker/public/static/wow/login/dark-portal.webm';
+rejects('login video bytes are not silently refreshed', () => verify(fixture(new Map([[loginVideo, Buffer.concat([base.get(loginVideo), Buffer.from([0])])]]))), /byte pin drift/);
 rejects('talent art map byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art.json', s => s + '\n'))), /byte pin drift/);
 rejects('talent art provenance byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art-provenance.json', s => s + '\n'))), /byte pin drift/);
 rejects('reference hash drift is refused', () => verify(fixture(changed('scripts/official_asset_reference.json', s => s + '\n'))), /reference digest drift/);

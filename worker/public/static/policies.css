@@ -57,10 +57,10 @@
 .olympus-policy .sign-in-gate{max-width:38rem;padding:1rem 0}.olympus-policy .sign-in-gate .eyebrow{text-transform:uppercase;letter-spacing:.18em;color:#78501e}
 .olympus-policy .sign-in-gate .meta{margin-top:1.5rem}.olympus-policy main :focus-visible{outline:3px solid #745014;outline-offset:3px}
 @media(max-width:40rem){.olympus-policy main{margin:1rem .5rem 2rem;border-width:12px}.olympus-policy .policy-header{padding:1rem}.olympus-policy .policy-button{width:100%}}
-/* Owner's 19 October 2026 entry: an original CSS portal, with no script, copied artwork or member boot. */
-.olympus-policy:has(.portal-login){box-sizing:border-box;display:grid;align-content:center;min-height:100svh;padding:clamp(1rem,4vw,3rem);overflow-x:clip;background:radial-gradient(ellipse at 50% 42%,#14391c 0,#102017 33%,#070b0a 68%,#030504 100%)}
+/* Owner's .171 entry: self-hosted original media with native pause controls; no script or CSS imitation. */
+.olympus-policy:has(.portal-login){box-sizing:border-box;display:grid;align-content:center;min-height:100svh;padding:clamp(1rem,4vw,3rem);padding-bottom:max(5.5rem,env(safe-area-inset-bottom));overflow-x:clip;background:#030504}
 .olympus-policy:has(.portal-login)>.policy-header{display:none}
-.olympus-policy main:has(.portal-login){position:relative;isolation:isolate;width:min(100%,36rem);max-width:36rem;margin:2rem auto;padding:clamp(1.4rem,5vw,3rem);border:1px solid #9b8754;border-image:none;border-radius:.35rem;background:linear-gradient(135deg,#121712f5,#0a100aef);box-shadow:0 1.25rem 5rem #000d,0 0 2rem #8ee65a17;color:#f5eccd;text-align:center}
+.olympus-policy main:has(.portal-login){position:relative;isolation:isolate;width:min(100%,36rem);max-width:36rem;margin:2rem auto;padding:clamp(1.4rem,5vw,3rem);border:1px solid #9b8754;border-image:none;border-radius:.35rem;background:linear-gradient(135deg,#121712f5,#0a100aef);box-shadow:0 1.25rem 5rem #000d;color:#f5eccd;text-align:center}
 .olympus-policy main:has(.portal-login)::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:linear-gradient(135deg,#121712f5,#0a100aef);pointer-events:none}
 .olympus-policy main:has(.portal-login) h1{position:relative;margin:0 0 .9rem;padding:0;border:0;color:#ffe4a0;font-size:clamp(2.25rem,7vw,3.5rem);line-height:1.15;text-shadow:0 2px 3px #000}
 .olympus-policy .portal-login{max-width:none;padding:0}
@@ -69,12 +69,11 @@
 .olympus-policy .portal-login .policy-button{position:relative;width:min(100%,22rem);margin-top:1rem;color:#ffe8ac;box-shadow:0 .35rem 1rem #0008}
 .olympus-policy main:has(.portal-login) :focus-visible{outline:3px solid #e1ffbd;outline-offset:5px}
 .olympus-policy:has(.portal-login) .skip-link{z-index:5;color:#fff1c4;background:#121a12}
-.olympus-policy .portal-login .login-portal{position:fixed;z-index:-2;pointer-events:none;left:50%;top:50%;width:min(88vw,40rem);height:min(88svh,54rem);transform:translate(-50%,-50%);border:clamp(1.4rem,4vw,3rem) ridge #4d5140;border-bottom-width:clamp(1rem,3vw,2rem);border-radius:48% 48% 9% 9%/38% 38% 5% 5%;background:radial-gradient(ellipse at 50% 44%,#719d4d80 0,#4e922f75 23%,#1f5127a6 49%,#091d14 73%);box-shadow:inset 0 0 2rem #b5f77e99,0 0 4rem #75c44455,0 2rem 4rem #000c;overflow:hidden}
-.olympus-policy .portal-login .login-portal::before,.olympus-policy .portal-login .login-portal::after{content:"";position:absolute;inset:-35%;border-radius:50%;background:repeating-conic-gradient(from 10deg,#94d25800 0deg 22deg,#a4ef6750 33deg,#72b83b00 64deg);filter:blur(14px);animation:olympus-portal-turn 28s linear infinite;opacity:.7}
-.olympus-policy .portal-login .login-portal::after{inset:-20%;background:conic-gradient(#c8e99a00,#7bba4c75,#183f2500,#b6e98955,#c8e99a00);animation-direction:reverse;animation-duration:37s;opacity:.65}
-.olympus-policy .portal-login .login-portal-stone{position:absolute;z-index:1;inset:0;border:1px solid #b6b88e66;border-radius:inherit;box-shadow:inset 0 0 2rem #031108aa}
+.olympus-policy .portal-login .login-portal{position:fixed;inset:0;z-index:-2;background:#030504}
+.olympus-policy .portal-login .login-portal-poster{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.olympus-policy .portal-login .login-portal-video{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:auto}
+.olympus-policy .portal-login .login-portal-video:focus-visible{outline:3px solid #e1ffbd;outline-offset:-5px}
 .olympus-policy main:has(.portal-login):hover{border-color:#c2b179}
-@keyframes olympus-portal-turn{to{transform:rotate(360deg)}}
-@media(max-width:35rem){.olympus-policy:has(.portal-login){padding:1rem}.olympus-policy main:has(.portal-login){margin:1rem auto;padding:1.5rem 1rem}.olympus-policy .portal-login .login-portal{width:94vw;height:90svh}.olympus-policy .portal-login .eyebrow{letter-spacing:.12em}}
-@media(prefers-reduced-motion:reduce){.olympus-policy .portal-login .login-portal::before,.olympus-policy .portal-login .login-portal::after{animation:none;transform:none}}
-@media(forced-colors:active){.olympus-policy .portal-login .login-portal{display:none}.olympus-policy main:has(.portal-login){border:2px solid CanvasText;background:Canvas;box-shadow:none}.olympus-policy main:has(.portal-login)::before{background:Canvas}.olympus-policy main:has(.portal-login) h1,.olympus-policy .portal-login p,.olympus-policy .portal-login .eyebrow{color:CanvasText;text-shadow:none}}
+@media(max-width:35rem){.olympus-policy:has(.portal-login){padding:1rem;padding-bottom:max(5.5rem,env(safe-area-inset-bottom))}.olympus-policy main:has(.portal-login){margin:1rem auto;padding:1.5rem 1rem}.olympus-policy .portal-login .eyebrow{letter-spacing:.12em}}
+@media(prefers-reduced-motion:reduce){.olympus-policy .portal-login .login-portal-video{display:none}.olympus-policy .portal-login .login-portal-poster{display:block}}
+@media(forced-colors:active){.olympus-policy .portal-login .login-portal-video{display:none}.olympus-policy .portal-login .login-portal-poster{display:block;opacity:.16}.olympus-policy main:has(.portal-login){border:2px solid CanvasText;background:Canvas;box-shadow:none}.olympus-policy main:has(.portal-login)::before{background:Canvas}.olympus-policy main:has(.portal-login) h1,.olympus-policy .portal-login p,.olympus-policy .portal-login .eyebrow{color:CanvasText;text-shadow:none}}

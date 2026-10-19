@@ -3,7 +3,7 @@ import type { Env } from './env';
 import { currentUser, originalUserSession, securityHeaders } from './site-core';
 import { stillMember } from './site-api';
 import { privacyBoundSiteEnv } from './privacy-serving-authority';
-import { policyHeaders, policyShell } from './policy-render';
+import { loginHeaders, policyShell } from './policy-render';
 
 const AUTH_PATHS = new Set(['/auth/login', '/auth/callback']);
 // These existing privacy flows have their own Discord identity / one-use case credentials.
@@ -24,8 +24,11 @@ const FLASH: Record<string, string> = {
 
 export function siteSignIn(request: Request, status = 200, flash?: string, cookies: string[] = []): Response {
   const note = flash && FLASH[flash] ? `<p role="status">${FLASH[flash]}</p>` : '';
-  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true"><span class="login-portal-stone"></span></div><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></section>`;
-  const headers = policyHeaders();
+  // Owner's .171 entry: original media, no script. Save-Data suppresses the video element entirely.
+  // The media query selects no video source for reduced motion; the independent poster remains available.
+  const video = request.headers.get('Save-Data')?.trim().toLowerCase() === 'on' ? '' : '<video class="login-portal-video" muted autoplay loop playsinline controls preload="none" poster="/static/wow/login/dark-portal-poster.jpg" aria-label="Original Dark Portal animation; use the video controls to pause"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video>';
+  const body = `<section class="sign-in-gate portal-login"><div class="login-portal"><img class="login-portal-poster" src="/static/wow/login/dark-portal-poster.jpg" alt="" aria-hidden="true">${video}</div><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></section>`;
+  const headers = loginHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
   // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.
   return new Response(request.method === 'HEAD' ? null : policyShell('Enter Olympus', body, { policyNavigation: false }), { status, headers });

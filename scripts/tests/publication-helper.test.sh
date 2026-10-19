@@ -34,8 +34,11 @@ from pathlib import Path
 sys.path.insert(0, "scripts")
 import official_assets
 ref = official_assets.reference()
-assert len(ref["official_paths"]) == 492, len(ref["official_paths"])
+assert len(ref["official_paths"]) == 494, len(ref["official_paths"])
 assert ref["approved_extractor"]["path"] == "tools/build-site-assets.py"
+assert "worker/src/site-access.ts" in ref["runtime_paths"]
+assert {p for p in ref["official_paths"] if p.endswith(".webm")} == {"worker/public/static/wow/login/dark-portal.webm"}
+assert any(row["path"] == "tools/check-login-portal.py" for row in ref["fixed_art_source_pins"])
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
 assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
 # Keep the exact source/asset gate, including the .167 cursor additions, before publication.
@@ -44,7 +47,7 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 507 and len(ref["fixed_art_source_pins"]) == 6
+assert len(ref["assets"]) == 509 and len(ref["fixed_art_source_pins"]) == 7
 cursor = json.loads(Path(ref["provenance_path"]).read_bytes())["additional_extractions"][-1]
 record = cursor["source_record"]
 assert record["path"] == "tools/wow-cursor-provenance.json"

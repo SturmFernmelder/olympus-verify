@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-18.170 Public game updates and talent art");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-18.171 Original Dark Portal login");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -152,6 +152,45 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  the tracked privacy text appears verbatim inside the served page", (await (await get("https://guild.example/privacy")).text()).includes(fs.readFileSync(path.join(root, "..", "policies", "privacy.html"), "utf8").match(/<h2>What it stores<\/h2>\n<p>[^<]{40}/)[0]));
   const picturePolicy = (await (await get("https://guild.example/privacy")).text()).replace(/\s+/g, " ");
   check("  .169 privacy discloses own chrome and authenticated recommendation pictures, the single Discord CDN and local board portraits without a new picture archive", picturePolicy.includes("The site's top bar and welcome panel show your own Discord picture.") && picturePolicy.includes("Authenticated recommendation searches also show people's public Discord profile pictures when available.") && picturePolicy.includes("Your browser loads these pictures from Discord's picture server (cdn.discordapp.com), so Discord sees that request.") && picturePolicy.includes("Voting-board cards and other member portraits continue to use the game's icons.") && picturePolicy.includes("These lookups do not create a separate archive of pictures.") && !picturePolicy.includes("the site shows that picture to no one else"));
+
+  console.log("\n== .171 exact public login media, site host only ==");
+  let loginCalls = [], loginTouches = 0;
+  const loginEnv = env({ DB: d1(db, { trap: () => { loginTouches++; throw Error('public login media must not touch D1'); } }), ASSETS: { fetch: async request => {
+    const path = new URL(request.url).pathname;
+    loginCalls.push({ path, method: request.method, range: request.headers.get('Range') });
+    return new Response('exact-login-media', { status: 200, headers: { 'Content-Type': path.endsWith('.webm') ? 'video/webm' : 'image/jpeg', ETag: '"login-media-test"' } });
+  } } });
+  for (const path of ['/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg']) {
+    let before = loginCalls.length;
+    res = await get('https://guild.example' + path, loginEnv);
+    check('signed-out GET serves only this exact login asset without session/D1: ' + path, res.status === 200 && await res.text() === 'exact-login-media' && loginCalls.length === before + 1 && loginTouches === 0 && res.headers.get('Content-Type') === (path.endsWith('.webm') ? 'video/webm' : 'image/jpeg'));
+    check('public login asset retains no-store, noindex, no-sniff, frame/camera denial and no cookie: ' + path, res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && /noindex/.test(res.headers.get('X-Robots-Tag')) && res.headers.get('X-Content-Type-Options') === 'nosniff' && res.headers.get('X-Frame-Options') === 'DENY' && res.headers.get('Permissions-Policy') === 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' && !res.headers.has('Set-Cookie'));
+    before = loginCalls.length;
+    res = await get('https://guild.example' + path, loginEnv, { method: 'HEAD' });
+    check('public login HEAD is explicitly bodyless while retaining media/ETag/security: ' + path, res.status === 200 && await res.text() === '' && res.headers.get('ETag') === '"login-media-test"' && loginCalls.length === before + 1 && loginCalls.at(-1).method === 'HEAD' && loginTouches === 0 && /no-store/.test(res.headers.get('Cache-Control')));
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']) {
+      before = loginCalls.length;
+      res = await get('https://guild.example' + path, loginEnv, { method });
+      check(method + ' cannot reach login assets or D1: ' + path, res.status === 405 && res.headers.get('Allow') === 'GET, HEAD' && loginCalls.length === before && loginTouches === 0 && !res.headers.has('Set-Cookie') && /script-src 'none'/.test(res.headers.get('Content-Security-Policy')));
+    }
+  }
+  const loginBefore = loginCalls.length;
+  for (const path of ['/static/wow/login/', '/static/wow/login/other.webm', '/static/wow/login/dark-portal.webm.js', '/static/wow/login/dark-portal-poster.jpg/extra', '/static/wow/login/Dark-Portal.webm', '/static/wow/login/%64ark-portal.webm']) {
+    res = await get('https://guild.example' + path, env({ ASSETS: loginEnv.ASSETS }));
+    check('no public login-directory/prefix/encoded neighbor exception: ' + path, res.status === 401 && loginCalls.length === loginBefore);
+  }
+  res = await get('https://verify.example/static/wow/login/dark-portal.webm', env({ ASSETS: loginEnv.ASSETS }));
+  check('the bot host does not acquire public login media', res.status === 404 && loginCalls.length === loginBefore);
+  res = await get('https://nobody.example/static/wow/login/dark-portal.webm', loginEnv);
+  check('unknown-host login media stays 404 without assets or D1', res.status === 404 && loginCalls.length === loginBefore && loginTouches === 0);
+  res = await get('https://old.example/static/wow/login/dark-portal.webm', loginEnv);
+  check('legacy login media retains its canonical redirect before assets/D1', res.status === 301 && res.headers.get('Location') === 'https://guild.example/static/wow/login/dark-portal.webm' && loginCalls.length === loginBefore && loginTouches === 0);
+  res = await get('http://guild.example/static/wow/login/dark-portal.webm', loginEnv);
+  check('HTTP login media upgrades before assets/D1', res.status === 301 && res.headers.get('Location') === 'https://guild.example/static/wow/login/dark-portal.webm' && loginCalls.length === loginBefore && loginTouches === 0);
+  res = await get('https://guild.example/static/wow/login/dark-portal.webm', env({ ASSETS: { fetch: async request => new Response('medi', { status: 206, headers: { 'Content-Type': 'video/webm', 'Content-Range': 'bytes 0-3/17', 'X-Test-Range': request.headers.get('Range') } }) } }), { headers: { Range: 'bytes=0-3' } });
+  check('a browser media range retains the original asset status, body and bounded range headers', res.status === 206 && await res.text() === 'medi' && res.headers.get('Content-Range') === 'bytes 0-3/17' && res.headers.get('X-Test-Range') === 'bytes=0-3' && res.headers.get('X-Content-Type-Options') === 'nosniff');
+  res = await get('https://guild.example/static/wow/login/dark-portal.webm', env({ ASSETS: { fetch: async () => new Response('missing media', { status: 404 }) } }));
+  check('a missing login asset stays an actual asset 404, never a fabricated200', res.status === 404 && await res.text() === 'missing media');
 
   console.log("\n== the site's static files go through the host check (.51) ==");
   res = await get("https://guild.example/static/app.css?v=x");

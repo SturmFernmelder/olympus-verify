@@ -2,8 +2,11 @@
 import { securityHeaders } from "./site-core";
 
 export const POLICY_ASSETS = ['/static/policies.css', '/static/wow-cursor.css', '/static/wow/cursor-point.png', '/static/wow/cursor-interact.png', '/static/wow/icon-shield.png', '/static/wow/friz-quadrata.woff2', '/static/wow/morpheus.woff2', '/static/wow/rock.jpg', '/static/wow/parchment.jpg', '/static/wow/frame-gold.png', '/static/wow/button-up.png', '/static/wow/button-hover.png'] as const;
+// .171: only these two login decorations are public on SITE_HOST; private game assets stay behind entry.
+export const LOGIN_ASSETS = ['/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'] as const;
 export const STATIC_POLICY_CSP = "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 export const FORM_POLICY_CSP = STATIC_POLICY_CSP.replace("form-action 'none'", "form-action 'self'");
+export const LOGIN_POLICY_CSP = STATIC_POLICY_CSP + "; media-src 'self'";
 export const escapeText = (s: unknown): string => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 /** body is composed by finite server templates, never arbitrary caller HTML. */
 export function policyShell(title: string, body: string, { policyNavigation = true } = {}): string {
@@ -14,6 +17,12 @@ export function policyHeaders(forms = false): Headers {
   const h = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }));
   h.set("Content-Security-Policy", forms ? FORM_POLICY_CSP : STATIC_POLICY_CSP);
   h.set("Referrer-Policy", forms ? "same-origin" : "no-referrer");
+  return h;
+}
+/** Login alone may play its exact self-hosted decoration; policies/forms retain their original CSP. */
+export function loginHeaders(): Headers {
+  const h = policyHeaders();
+  h.set("Content-Security-Policy", LOGIN_POLICY_CSP);
   return h;
 }
 export function htmlResponse(request: Request, title: string, body: string, status = 200, cookie?: string): Response {

@@ -24,7 +24,7 @@ function loadSnapshot(cwd, revision = null) {
     entries.set(file, { mode: header[0], oid: header[revision ? 2 : 1] });
   }
   const wanted = [...entries.keys()].filter(p => BOOT.includes(p) || /^(scripts\/|policies\/|worker\/scripts\/|worker\/public\/static\/)/.test(p)
-    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py'].includes(p));
+    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py', 'tools/check-login-portal.py'].includes(p));
   const ids = [...new Set(wanted.map(p => entries.get(p).oid))], blobs = new Map();
   const batch = git(cwd, ['cat-file', '--batch'], ids.join('\n') + '\n');
   let offset = 0;
