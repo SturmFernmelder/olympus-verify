@@ -713,21 +713,83 @@
   // .111: the Olympus crest (the guild's own logo, as on guild.roachcouncil.com) is the website's one exception to the official game art (Viktor, 1 Oct 2026)
   const brand = () => h("a", { class: "brand", href: "#/" }, h("img", { src: "/static/wow/icon-shield.png", alt: "", width: "44", height: "44" }), h("span", null, h("b", { text: "Olympus" }), h("small", { text: "FOREVER" })));
 
+  // .170: ordinary navigation disclosures, not ARIA application menus. Only one
+  // is open; fine-mouse hover has a small bridge, while tap and keyboard stay explicit.
+  let navCloseTimer = 0;
+  const cancelNavClose = () => { clearTimeout(navCloseTimer); navCloseTimer = 0; };
+  function closeNavMenus(except = null) {
+    cancelNavClose();
+    for (const menu of app.querySelectorAll("nav.nav details.nav-group")) {
+      if (menu === except) continue;
+      menu.removeAttribute("open");
+      menu.querySelector("summary").setAttribute("aria-expanded", "false");
+    }
+  }
+  function openNavMenu(menu, open) {
+    if (open) closeNavMenus(menu);
+    if (open) menu.setAttribute("open", "");
+    else menu.removeAttribute("open");
+    menu.querySelector("summary").setAttribute("aria-expanded", String(open));
+  }
+  const fineNavMouse = event => event.pointerType === "mouse" && typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  document.addEventListener("click", event => {
+    if (!(event.target instanceof Element) || !event.target.closest("nav.nav details.nav-group")) closeNavMenus();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    const open = app.querySelector("nav.nav details.nav-group[open]");
+    if (!open) return;
+    event.preventDefault();
+    closeNavMenus();
+    open.querySelector("summary").focus();
+  });
   function topbar(route) {
     const head = route.split("/")[0];
     const nav = h("nav", { class: "nav", "aria-label": "Sections" });
     const link = ([href, text]) => h("a", { class: "btn small", href, text, "aria-current": (href === "#/" ? head === "" : route === href.slice(2) || route.startsWith(href.slice(2) + "/")) ? "page" : false });
     const group = (label, links) => {
-      const menu = h("details", { class: "nav-group" }, h("summary", { class: "btn small", text: label }),
-        h("div", { class: "nav-menu" }, links.map(link)));
-      menu.addEventListener("click", (event) => { if (event.target.closest && event.target.closest("a")) menu.removeAttribute("open"); });
+      const id = "nav-menu-" + label.toLowerCase();
+      const summary = h("summary", { class: "btn small", text: label, "aria-expanded": "false", "aria-controls": id });
+      const menu = h("details", { class: "nav-group", name: "olympus-sections" }, summary,
+        h("div", { class: "nav-menu", id }, links.map(link)));
+      let pointerInside = false;
+      summary.addEventListener("click", event => { event.preventDefault(); openNavMenu(menu, !menu.hasAttribute("open")); });
+      summary.addEventListener("keydown", event => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault(); openNavMenu(menu, true);
+        const targets = menu.querySelectorAll(".nav-menu a");
+        const target = event.key === "ArrowUp" ? targets[targets.length - 1] : targets[0];
+        if (target) target.focus();
+      });
+      menu.addEventListener("toggle", () => {
+        if (menu.hasAttribute("open")) openNavMenu(menu, true);
+        else summary.setAttribute("aria-expanded", "false");
+      });
+      menu.addEventListener("pointerenter", event => {
+        if (!fineNavMouse(event)) return;
+        pointerInside = true; openNavMenu(menu, true);
+      });
+      menu.addEventListener("pointerleave", event => {
+        if (!fineNavMouse(event)) return;
+        pointerInside = false;
+        if (!menu.hasAttribute("open")) return;
+        cancelNavClose();
+        navCloseTimer = setTimeout(() => {
+          navCloseTimer = 0;
+          const focused = document.activeElement;
+          if (!pointerInside && !(focused && focused !== summary && menu.contains(focused))) openNavMenu(menu, false);
+        }, 180);
+      });
+      menu.addEventListener("focusin", event => { cancelNavClose(); if (event.target !== summary) openNavMenu(menu, true); });
+      menu.addEventListener("focusout", event => { if (!pointerInside && !menu.contains(event.relatedTarget)) openNavMenu(menu, false); });
+      menu.addEventListener("click", event => { if (event.target.closest && event.target.closest("a")) closeNavMenus(); });
       return menu;
     };
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
-      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"], ["#/updates", "Game updates"]] : [])]));
-      const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"]];
+      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
+      const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
@@ -828,6 +890,7 @@
 
   let chromeKey = "";
   function render() {
+    closeNavMenus();
     if (disposeTool) disposeTool();
     if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
@@ -914,10 +977,6 @@
     },
   });
   const resourcesView = view => main => {
-    if (view === "updates" && (!newsOn() || !can("confirmedGuildData"))) {
-      add(main, frame("Game updates", null, standingNotice(), h("p", { text: "Game updates use the guild News access setting. This view is not available to this session." })));
-      return;
-    }
     return memberTool(main, "OlympusResources", "/static/resources169.js", "/static/resources169.css", { view,
       onRefused: status => { if (main.parentNode !== app) return; if (status === 401) { S.signedIn = false; render(); } else if (status === 403 || status === 503) refreshCommunity(); },
     });

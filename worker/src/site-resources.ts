@@ -1,5 +1,5 @@
 /** Public publisher headlines for the owner's items3/4/11 (18 Oct2026).
- * The route owns News/confirmedGuildData admission before AND after this work.
+ * The route owns original signed-in site-standing admission before AND after this work.
  * This module has no account, settings, D1, cron or permission writes. Cache only
  * public source data: never a member request, response or authorization result.
  */

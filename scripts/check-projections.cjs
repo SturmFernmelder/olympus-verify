@@ -24,7 +24,7 @@ function loadSnapshot(cwd, revision = null) {
     entries.set(file, { mode: header[0], oid: header[revision ? 2 : 1] });
   }
   const wanted = [...entries.keys()].filter(p => BOOT.includes(p) || /^(scripts\/|policies\/|worker\/scripts\/|worker\/public\/static\/)/.test(p)
-    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json'].includes(p));
+    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py'].includes(p));
   const ids = [...new Set(wanted.map(p => entries.get(p).oid))], blobs = new Map();
   const batch = git(cwd, ['cat-file', '--batch'], ids.join('\n') + '\n');
   let offset = 0;
@@ -56,7 +56,7 @@ function verify(snapshot) {
   const referencePin = match('scripts/official_assets.py', /^REFERENCE_SHA256=['"]([a-f0-9]{64})['"]/m, 'reference hash declaration');
   check(sha(get(refPath)) === referencePin, 'official asset reference digest drift');
   check(Array.isArray(ref.assets) && ref.assets.length > 0 && Array.isArray(ref.fixed_art_source_pins), 'asset reference rows');
-  for (const row of [...ref.assets, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
+  for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');
   const v4 = [...v4Text.matchAll(/'([^']+)':'([a-f0-9]{64})'/g)];

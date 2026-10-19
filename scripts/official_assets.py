@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='81b1041b21dbd841022077c34f0664bfaf2048cef06c3d4e996d5cf6a4bd89db'
+REFERENCE_SHA256='434e1409d26a884916a8863e7141266cb52ca5eb5bc10fc70fdade0e206ae835'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -107,7 +107,7 @@ def reference() -> dict:
     if {p.casefold() for p in resources}&{p.casefold() for p in assets} \
       or not {p for p in resources if runtime_path(p)}.issubset(ref['runtime_paths']):
         raise ValueError('official_public_resource_reference_shape_invalid')
-    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=96 \
+    if set(ref['official_paths']) & set(ref['native_paths']) or len(ref['official_paths'])!=492 \
       or any(not p.startswith('worker/public/static/wow/') for p in ref['official_paths']) \
       or any(not p.endswith(('.css','.js')) for p in ref['native_paths']) \
       or any(not runtime_path(p) for p in ref['runtime_paths']) \
@@ -122,7 +122,10 @@ def reference() -> dict:
       for h in ref['banned_website_art_sha256']):raise ValueError('official_asset_reference_shape_invalid')
     extractor=pin_rows([ref['approved_extractor']],{'tools/build-site-assets.py'},'official_asset_reference_shape_invalid')
     fixed=pin_rows(ref['fixed_art_source_pins'],None,'official_asset_reference_shape_invalid')
-    if not fixed or not set(fixed).issubset(ref['runtime_paths']):raise ValueError('official_asset_reference_shape_invalid')
+    if set(fixed)!={'worker/src/site-data.ts','worker/src/site-ranks.ts','worker/public/static/app.js',
+                    'worker/public/static/rank-planner/app.js','worker/src/site-core.ts','tools/build-talent-art.py'} \
+      or not (set(fixed)-{'tools/build-talent-art.py'}).issubset(ref['runtime_paths']):
+        raise ValueError('official_asset_reference_shape_invalid')
     if set(ref['required_profile_paths'])!={'worker/wrangler.toml','worker/wrangler.cutover.toml',
           'scripts/cutover-config.sh','scripts/tests/cutover-config.test.sh',
           'worker/tests/account_copy_test.cjs','.github/workflows/ci.yml'}:

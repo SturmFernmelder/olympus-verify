@@ -70,26 +70,36 @@ check('the actual browser entry parses without eval or third-party resources', (
 check('the renderer retains text nodes, accessible controls and keyboard navigation', source.includes('document.createTextNode') && source.includes('node.textContent = value') && source.includes('"aria-live": "polite"') && source.includes('ArrowLeft') && source.includes('"aria-label": "Character class"') && source.includes('"aria-pressed"'));
 check('all grid placement is scoped CSS, not inline styles that would weaken CSP', !/\.style\b|setAttribute\(["']style/.test(source) && fs.readFileSync(path.join(folder, 'calculator.css'), 'utf8').includes('.talents-node[data-row="7"]'));
 const css = fs.readFileSync(path.join(folder, 'calculator.css'), 'utf8');
-const desktopStack = [...css.matchAll(/@media\(max-width:(\d+)px\)\{([^\r\n]*)/g)].filter(row => Number(row[1]) >= 1280);
-check('desktop widths through 1350 keep details above three full-width trees while the narrow-screen layout remains intact', desktopStack.length === 2 && desktopStack.every(row => Number(row[1]) === 1350) && desktopStack.some(row => row[2].includes('.talents-workspace{grid-template-columns:minmax(0,1fr)}')) && desktopStack.some(row => row[2].includes('.talents-detail{grid-row:1;grid-column:1;position:sticky;') && row[2].includes('.talents-trees{grid-row:2;grid-column:1}')) && css.includes('@media(max-width:700px){') && css.includes('.talents-trees{grid-template-columns:minmax(0,1fr)}'));
+check('the compact desktop core retains three trees, 48px icon targets and 66px rows; small screens retain a readable single tree and bounded details', css.includes('.talents-trees{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}') && css.includes('--talent-row:66px') && css.includes('width:48px;height:48px') && !css.includes('285px') && css.includes('@media(max-width:760px){') && css.includes('.talents-trees{grid-template-columns:minmax(0,1fr)}') && css.includes('max-height:40svh') && css.includes('scroll-margin-bottom:45svh'));
+const art = JSON.parse(fs.readFileSync(path.join(folder, 'art.json'), 'utf8'));
+const artProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'art-provenance.json'), 'utf8'));
+const dataProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'provenance.json'), 'utf8'));
+check('the actual artwork map is closed over all 9 classes, 27 trees and 466 unchanged talent identities', api.validateArt(data, art).ok && api.validateArt(data, art).classes === 9 && api.validateArt(data, art).trees === 27 && api.validateArt(data, art).talents === 466);
+check('all 396 recorded game-art distributions retain exact downloaded bytes and honest fan-source limits', artProvenance.assets.length === 396 && artProvenance.sourceDataSHA256 === data.source.rawSHA256 && artProvenance.mappingRevision === data.revision && artProvenance.assets.every(row => { const bytes = fs.readFileSync(path.join(__dirname, '../..', row.path)); return row.path.startsWith('worker/public/static/wow/talents/') && /^https:\/\/talentsforever\.com\/assets\//.test(row.sourceURL) && row.conversion === 'none; exact downloaded JPEG bytes' && bytes.length === row.bytes && crypto.createHash('sha256').update(bytes).digest('hex') === row.sha256; }) && artProvenance.limits.some(text => text.includes('not a Blizzard-hosted download or publisher-signed byte attestation')) && artProvenance.limits.some(text => text.includes('does not grant rights to Blizzard artwork')));
+check('the new art import is declared separately without changing data bytes or copying the source website code', dataProvenance.artCopied === true && dataProvenance.siteCodeCopied === false && dataProvenance.artProvenance === '/static/talents/art-provenance.json' && dataProvenance.normalizedSHA256 === crypto.createHash('sha256').update(raw).digest('hex') && source.includes('World of Warcraft artwork © Blizzard Entertainment.') && source.includes('Unofficial guild tool; not affiliated with Blizzard.'));
+check('a different snapshot revision cannot supply artwork for this calculator', !api.validateArt(data, { ...art, revision: '0'.repeat(12) }).ok);
+check('missing or extra talent-image identities cannot silently substitute another map', (() => { const missing = clone(art), extra = clone(art); delete missing.talentIcons[Object.keys(missing.talentIcons)[0]]; extra.talentIcons['not-a-talent'] = art.classIcons.warrior; return !api.validateArt(data, missing).ok && !api.validateArt(data, extra).ok; })());
+check('remote, embedded, query-bearing and traversal artwork addresses refuse before any image is rendered', ['https://evil.example/icon.jpg', 'data:image/png;base64,aA==', '/static/wow/talents/icon.jpg?token=x', '/static/wow/../icon.jpg'].every(url => { const broken = clone(art); broken.talentIcons[Object.keys(broken.talentIcons)[0]] = url; return !api.validateArt(data, broken).ok; }));
 
 // A small DOM with native append/replaceChildren coercion: null becomes text,
 // so this real mount regression cannot accidentally hide the observed browser bug.
 class TalentText {
-  constructor(value) { this.nodeType = 3; this.textContent = String(value); }
+  constructor(value) { this.nodeType = 3; this.textContent = String(value); this.parentNode = null; }
 }
 class TalentElement {
-  constructor(tag, document) { this.tagName = tag.toUpperCase(); this.ownerDocument = document; this.nodeType = 1; this.childNodes = []; this.attributes = {}; this.listeners = {}; this.className = ''; this.value = ''; }
-  append(...nodes) { for (const node of nodes) this.childNodes.push(node instanceof TalentElement || node instanceof TalentText ? node : this.ownerDocument.createTextNode(String(node))); }
-  replaceChildren(...nodes) { this.childNodes = []; this.append(...nodes); }
+  constructor(tag, document) { this.tagName = tag.toUpperCase(); this.ownerDocument = document; this.nodeType = 1; this.childNodes = []; this.attributes = {}; this.listeners = {}; this.className = ''; this.value = ''; this.parentNode = null; this.hidden = false; }
+  append(...nodes) { for (const value of nodes) { const node = value instanceof TalentElement || value instanceof TalentText ? value : this.ownerDocument.createTextNode(String(value)); if (node.parentNode) node.parentNode.childNodes.splice(node.parentNode.childNodes.indexOf(node), 1); node.parentNode = this; this.childNodes.push(node); } }
+  replaceChildren(...nodes) { for (const node of this.childNodes) node.parentNode = null; this.childNodes = []; this.append(...nodes); }
   set textContent(value) { this.replaceChildren(this.ownerDocument.createTextNode(value)); }
   get textContent() { return this.childNodes.map(node => node.textContent).join(''); }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key] ?? null; }
+  removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(type, handler) { (this.listeners[type] ||= []).push(handler); }
-  dispatch(type, extra = {}) { const event = { target: this, shiftKey: false, preventDefault() {}, ...extra }; for (const handler of this.listeners[type] || []) handler(event); }
-  focus() { this.ownerDocument.activeElement = this; this.dispatch('focus'); }
+  dispatch(type, extra = {}) { const event = { target: this, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra }; for (const handler of this.listeners[type] || []) handler(event); return event; }
+  focus() { if (this.ownerDocument.activeElement !== this) { this.ownerDocument.activeElement = this; this.dispatch('focus'); } }
   click() { if (!this.disabled) this.dispatch('click'); }
+  contains(node) { for (let current = node; current; current = current.parentNode) if (current === this) return true; return false; }
   all(predicate) { return this.childNodes.filter(node => node.nodeType === 1).flatMap(node => [...(predicate(node) ? [node] : []), ...node.all(predicate)]); }
 }
 async function detailRenderRegression() {
@@ -99,7 +109,7 @@ async function detailRenderRegression() {
   vm.runInNewContext(source, {
     module: browserModule,
     location: { origin: 'https://guild.example', pathname: '/' },
-    fetch: async (url, options) => { reads++; ownDataRequest = ownDataRequest && url === '/static/talents/data.json' && options.credentials === 'same-origin'; return { ok: true, json: async () => clone(data) }; },
+    fetch: async (url, options) => { reads++; ownDataRequest = ownDataRequest && ['/static/talents/data.json', '/static/talents/art.json'].includes(url) && options.credentials === 'same-origin'; return { ok: true, json: async () => clone(url.endsWith('/art.json') ? art : data) }; },
   }, { filename: path.join(folder, 'calculator.js'), timeout: 1000 });
   const controller = await browserModule.exports.mount(container, { onBuildChange: value => changes.push(value) });
   const byClass = (node, name) => node.all(child => child.className.split(/\s+/).includes(name));
@@ -107,7 +117,7 @@ async function detailRenderRegression() {
   const titles = () => detail().all(node => node.tagName === 'H4').map(node => node.textContent);
   const pick = name => byClass(container, 'talents-pick').find(node => (node.getAttribute('aria-label') || '').startsWith(name + ', rank '));
   const heroic = find('Improved Heroic Strike');
-  check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 1 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
+  check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 2 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
   pick(heroic.name).click();
   check('the real point control renders current and next rank text without converting absent fields to null', changes.at(-1).points === 1 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3') && detail().textContent.includes(heroic.descriptions[0]) && detail().textContent.includes(heroic.descriptions[1]) && titles().includes('Next rank') && !detail().textContent.includes('null'));
   pick(heroic.name).click(); pick(heroic.name).click();
@@ -115,6 +125,29 @@ async function detailRenderRegression() {
   const mortal = find('Mortal Strike'), parent = all(data.classes[0]).find(talent => talent.id === mortal.requires);
   pick(mortal.name).focus();
   check('real present cost and prerequisite fields remain readable without allocating a locked talent or mutating the snapshot', byClass(detail(), 'talents-cost')[0].textContent === mortal.cost && byClass(detail(), 'talents-requires')[0].textContent === 'Requires ' + parent.name + ' at maximum rank.' && detail().textContent.includes(mortal.descriptions[0]) && !detail().textContent.includes('null') && changes.at(-1).points === 3 && initialJSON === JSON.stringify(data));
+  const classButtons = () => byClass(container, 'talents-class-button');
+  check('the real class strip exposes all 9 labelled icon controls and three current spec-point bars', classButtons().length === 9 && classButtons().every((button, index) => button.textContent === data.classes[index].name && button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.classIcons[data.classes[index].id]) && byClass(container, 'talents-class-banner')[0].textContent.includes('Warrior') && byClass(container, 'talents-spec-bars')[0].all(node => node.tagName === 'METER').length === 3);
+  check('the compact tree uses all 52 real talent icons, three header images and three painted backdrops without fake sigils or extra point rows', byClass(container, 'talents-pick').length === 52 && byClass(container, 'talents-pick').every((button, index) => button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.talentIcons[all(data.classes[0])[index].id]) && byClass(container, 'talents-tree-header').every((header, index) => header.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.treeIcons['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-backdrop').every((image, index) => image.getAttribute('src') === art.treeBackgrounds['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-point-controls').length === 0 && !source.includes('talents-sigil'));
+  const requirements = all(data.classes[0]).filter(talent => talent.requires), edges = byClass(container, 'talents-link');
+  check('every real prerequisite has a behind-grid connection bound to its actual parent row and child position', edges.length === requirements.length && edges.every((edge, index) => { const child = requirements[index], prior = all(data.classes[0]).find(talent => talent.id === child.requires); return edge.className.includes('from-r' + prior.row) && edge.className.includes('to-r' + child.row) && edge.className.includes('to-c' + child.column) && edge.className.includes('span-r' + (child.row - prior.row)); }) && css.includes('.talents-links{position:absolute;z-index:1;') && css.includes('.talents-node{position:relative;z-index:2;'));
+  pick(heroic.name).dispatch('pointerenter');
+  const inspected = !detail().hidden && detail().textContent.includes(heroic.name) && pick(heroic.name).getAttribute('aria-describedby') === detail().getAttribute('id');
+  const escaped = pick(heroic.name).dispatch('keydown', { key: 'Escape' });
+  check('pointer inspection opens full details and Escape closes them without spending a point', inspected && escaped.defaultPrevented && detail().hidden && changes.at(-1).points === 3);
+  const comparison = byClass(container, 'talents-compare-switch')[0].all(node => node.tagName === 'INPUT')[0];
+  comparison.dispatch('change', { target: { checked: true } }); pick(mortal.name).focus();
+  check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 52 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
+  pick(heroic.name).dispatch('keydown', { key: '-' }); pick(heroic.name).dispatch('keydown', { key: '+' });
+  check('keyboard refund and allocation preserve the exact versioned share code and original point rules', changes.at(-2).points === 2 && changes.at(-1).points === 3 && api.validateBuild(data, api.parseBuild(data, byClass(container, 'talents-share-code')[0].getAttribute('value')).build).points === 3);
+  classButtons().find(button => button.textContent === 'Paladin').click();
+  check('an actual class-icon action changes class and restores its three real trees with an empty valid build', changes.at(-1).className === 'paladin' && changes.at(-1).points === 0 && byClass(container, 'talents-tree')[0].getAttribute('aria-label') === 'Holy' && byClass(container, 'talents-backdrop')[0].getAttribute('src') === art.treeBackgrounds['paladin-holy']);
+  const paladinFirst = all(data.classes[1])[0]; pick(paladinFirst.name).click();
+  byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Reset').click();
+  check('the actual Reset control clears an invested build while retaining class and snapshot data', changes.at(-2).points === 1 && changes.at(-1).points === 0 && changes.at(-1).className === 'paladin' && initialJSON === JSON.stringify(data));
+  const importedContainer = document.createElement('main');
+  const imported = await browserModule.exports.mount(importedContainer, { className: 'warrior', build: code });
+  check('the real image renderer imports the unchanged exact build without re-reading or mutating its data', byClass(importedContainer, 'talents-share-code')[0].getAttribute('value') === code && api.validateBuild(data, api.parseBuild(data, code).build).points === 16 && reads === 2 && initialJSON === JSON.stringify(data));
+  imported.destroy();
   controller.destroy();
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
