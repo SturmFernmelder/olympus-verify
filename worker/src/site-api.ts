@@ -63,7 +63,8 @@ import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
-import { newsPage } from "./site-news";
+import { newsPage, NEWS_ON_SQL } from "./site-news";
+import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId } from './site-appointed-identities';
 
 export const DENIED_TEXT =
@@ -79,6 +80,26 @@ export function generalSettingsDto(settings: SiteSettings): SiteSettings {
   return { ...settings, appointed: Object.fromEntries(Object.entries(settings.appointed)
     .filter(([key]) => !key.includes(':publication:'))
     .map(([key, value]) => [key, generalAppointmentLabel(value)])) };
+}
+
+/** Public publisher data, read only after the same fresh consumer fence and News
+ * switch as guild News. Re-admit after external I/O so a revoked session/switch
+ * cannot receive a successful view from an earlier authority observation. */
+export async function resourceUpdatesPage(request: Request, env: Env): Promise<Response> {
+  const first = await communityContext(env, request);
+  if (first.subject && rateLimited(`resources:${first.subject.discordId}`, 20, 60)) return apiJson({ error: "slow_down" }, 429);
+  const admit = async (): Promise<Response | null> => {
+    const context = await communityContext(env, request);
+    const out = await admittedRead(env, context, "confirmedGuildData", [env.DB.prepare(`SELECT (${NEWS_ON_SQL}) AS news_on`)]);
+    if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if ((out[0].results?.[0] as { news_on?: number } | undefined)?.news_on !== 1) return apiJson({ error: "news_off", message: "Game updates are currently unavailable." }, 404);
+    return null;
+  };
+  const before = await admit();
+  if (before) return before;
+  const updates = await loadResourceUpdates({ enabled: true, cache: resourcePublicCache() });
+  const after = await admit();
+  return after ?? apiJson(updates);
 }
 
 export async function handleApi(request: Request, env: Env, path: string, waitUntil: (work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
@@ -119,6 +140,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
   if (m === 'GET' && path === '/api/appointed-identities') return appointedIdentitiesPage(request, env);
   if (m === "GET" && path === "/api/news") return newsPage(request, env); // .115: News (site-news.ts), confirmed members, behind settings.newsOn
+  if (m === "GET" && path === "/api/resource-updates") return resourceUpdatesPage(request, env);
   if (m === "GET" && (path === "/api/board" || path.startsWith("/api/board/"))) {
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
     // Asmongold's server (checked with Discord at most hourly, as for a save), and not read by a script at speed.

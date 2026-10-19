@@ -1,0 +1,37 @@
+{
+  "schema": "olympus-talents-provenance-v1",
+  "source": {
+    "name": "Talents Forever",
+    "url": "https://talentsforever.com/data.json",
+    "attribution": "Data from talentsforever.com (https://talentsforever.com)",
+    "license": "CC-BY-4.0",
+    "licenseURL": "https://creativecommons.org/licenses/by/4.0/",
+    "upstreamGenerated": "2026-10-16",
+    "fetchedAt": "2026-10-18T19:24:58.682401-05:00",
+    "clientBuilds": [
+      "1.60.1.70425"
+    ],
+    "rawBytes": 1734440,
+    "rawSHA256": "260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588",
+    "changes": "Normalized class/tree/talent identifiers and field names; no talent text or rank values changed. Icons and artwork omitted.",
+    "limits": [
+      "Fan-maintained beta-client snapshot; not live server tuning or independent in-game verification.",
+      "Classic fields are the source comparison reference, normally rank-one text; the source gives no exact Classic client build.",
+      "This is a Forever calculator with Classic comparison, not a complete separately allocatable Classic all-rank calculator.",
+      "Standard level-10-to-60 point budget only; Legacy Talented extra points are not modeled.",
+      "The data license covers the author’s reading, checking and arrangement. Blizzard game names, tooltip text and artwork remain Blizzard’s and are not licensed by the source."
+    ]
+  },
+  "counts": {
+    "classes": 9,
+    "trees": 27,
+    "talents": 466,
+    "ranks": 1313
+  },
+  "normalizedBytes": 494373,
+  "normalizedSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+  "upstreamSnapshotRetainedOutsidePublication": true,
+  "artCopied": false,
+  "siteCodeCopied": false,
+  "upstreamSnapshotFilename": "talentsforever-source-260cf99b52db.json"
+}

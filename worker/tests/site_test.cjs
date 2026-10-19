@@ -321,8 +321,24 @@ async function legacySchemaHeld(old) {
     const imagesOutsideWow = (function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? (d.name === "wow" ? [] : walk(path.join(dir, d.name))) : (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i.test(d.name) ? [path.relative(path.join(root, "public"), path.join(dir, d.name)).replace(/\\/g, "/")] : [])); })(path.join(root, "public"));
     check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !page.html.includes('/static/olympus-icon.png') && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
-    check("  .167: only the member's own top bar and welcome picture use admitted Discord avatars; other members retain game icons",
-      !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 3 && (appJs.match(/accountArt\(/g) || []).length === 8 && appJs.includes(String.raw`const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/`) && !appJs.includes("DISCORD_SVG"));
+    const avatarSource = ts.createSourceFile("app.js", appJs, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS), avatarParts = {};
+    (function readAvatarDefinitions(node) {
+      if (ts.isVariableDeclaration(node) && node.name.getText(avatarSource) === "DISCORD_AVATAR") avatarParts.rule = node;
+      if (ts.isFunctionDeclaration(node) && ["discordAvatar", "ownAvatar"].includes(node.name && node.name.text)) avatarParts[node.name.text] = node;
+      ts.forEachChild(node, readAvatarDefinitions);
+    })(avatarSource);
+    let guardedPictures = false;
+    if (avatarParts.rule && avatarParts.discordAvatar && avatarParts.ownAvatar) {
+      const picture = (_tag, attributes) => ({ attributes: { ...attributes }, events: {}, setAttribute(key, value) { this.attributes[key] = value; }, getAttribute(key) { return this.attributes[key] ?? null; }, addEventListener(key, listener) { this.events[key] = listener; } });
+      const helpers = new Function("h", "accountArt", "const " + avatarParts.rule.getText(avatarSource) + ";\n" + avatarParts.discordAvatar.getText(avatarSource) + "\n" + avatarParts.ownAvatar.getText(avatarSource) + "\nreturn { discordAvatar, ownAvatar };")(picture, () => "/static/wow/pos-member.png");
+      const allowed = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
+      const refused = ["https://evil.example/embed/avatars/3.png", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", allowed[0] + "&x=1", "data:image/png;base64,aA==", "javascript:alert(1)", ""];
+      const failed = helpers.discordAvatar({ avatarUrl: allowed[0] }), ownPicture = helpers.ownAvatar({ avatarUrl: allowed[0] });
+      failed.events.error();
+      guardedPictures = allowed.every(avatarUrl => { const image = helpers.discordAvatar({ avatarUrl }); return image.attributes.src === avatarUrl && image.attributes.referrerpolicy === "no-referrer" && image.attributes.alt === "" && typeof image.events.error === "function"; }) && refused.every(avatarUrl => { const image = helpers.discordAvatar({ avatarUrl }); return image.attributes.src === "/static/wow/pos-member.png" && image.attributes.referrerpolicy === "no-referrer"; }) && failed.attributes.src === "/static/wow/pos-member.png" && ownPicture.attributes.src === allowed[0] && ownPicture.attributes.referrerpolicy === "no-referrer";
+    }
+    check("  .169: own chrome and authenticated recommendation pictures share the strict Discord CDN guard; board and other portraits stay local",
+      guardedPictures && !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 3 && /it\.typed \? h\("img",[^\n]+: discordAvatar\(it\)/.test(appJs) && appJs.includes('src: accountArt(c), alt: "", width: "44"') && appJs.includes('src: accountArt(p), alt: "", width: "32"') && !appJs.includes("DISCORD_SVG"));
   }
   res = await call("POST", "/interactions", { body: {} });
   check("bot routes disclose nothing on the signed-out site host", res.status === 401);
@@ -1355,7 +1371,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-18.167 Guild hall interface refinement" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-18.169 Member resources and guild hall" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

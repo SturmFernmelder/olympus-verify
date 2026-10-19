@@ -448,7 +448,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== the shell: a confirmed member, the directory and the profile editor ==");
   page = await openPage(MEMBER);
-  check("a confirmed member sees Community in the top bar, and the boot says confirmedGuildData", texts(page.app, "nav.nav a").includes("Community") && page.boot.community.capabilities.confirmedGuildData === true);
+  check("a confirmed member sees the Community menu and its admitted hub link, and the boot says confirmedGuildData", page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community" && !!group.querySelector('a[href="#/community"]')) && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
   await waitFor(() => !!byText(page.app, "h3", "Member directory"), "the overview");
   check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
@@ -1525,7 +1525,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
     const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];
     check("  the picture rule admits only Discord's avatar addresses (profile, server, default) and nothing else", good.every((u) => AV.test(u)) && bad.every((u) => !AV.test(u)));
-    check("  other members keep game icons; only the own header and welcome use Discord avatars", (APP_JS.match(/ownAvatar\(/g) || []).length === 3 && (APP_JS.match(/accountArt\(/g) || []).length >= 8);
+    check("  member portraits keep game icons; only own chrome and authenticated recommendation results use the strict Discord avatar helper", (APP_JS.match(/ownAvatar\(/g) || []).length === 3 && (APP_JS.match(/accountArt\(/g) || []).length >= 7 && (APP_JS.match(/discordAvatar\(/g) || []).length === 3 && APP_JS.includes('it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : discordAvatar(it)') && APP_JS.includes('if (DISCORD_AVATAR.test(url))') && APP_JS.includes('function ownAvatar(user) { return discordAvatar(user); }'));
 
     // the I-X leadership directory
     await p114.go("#/community/leadership");
@@ -2480,7 +2480,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       check(".130 preview renders safe title text without script markup or private event details", p.app.querySelector("pre").textContent.includes("script") && !p.app.querySelector("script") && !p.app.querySelector("pre").textContent.includes("PRIVATE_SIGNUP_DETAILS") && !byText(p.app, "button", "Publish announcement").disabled);
       const readable = p.app.querySelector("[data-announcement-preview]");
       check(".130 primary preview shows readable local time and title without Discord markup", readable.textContent.includes("Raid <script>alert(1)</script>") && readable.textContent.includes("Duration: 120 minutes") && !readable.textContent.includes("<t:") && !readable.textContent.includes("**") && readable.querySelector("a").getAttribute("href").endsWith("/" + id));
-      check(".130 collapsed exact-message detail preserves the complete frozen payload", p.app.querySelector("details").querySelector("pre").textContent === (await apiAs(ORG, "GET", `/api/community/events/discord?eventId=${id}`, undefined, over)).body.payload.content && !p.app.querySelector("details").hasAttribute("open"));
+      const exactMessageDetail = p.app.querySelector("main.shell pre.details").closest("details");
+      check(".130 collapsed exact-message detail preserves the complete frozen payload", exactMessageDetail.querySelector("pre").textContent === (await apiAs(ORG, "GET", `/api/community/events/discord?eventId=${id}`, undefined, over)).body.payload.content && !exactMessageDetail.hasAttribute("open"));
       p.drop((pathname, init) => pathname.endsWith("/discord/publish") && init.method === "POST");
       byText(p.app, "button", "Publish announcement").click();
       await waitFor(() => p.app.textContent.includes("published and matches"), "lost browser answer reconciles durable publication");

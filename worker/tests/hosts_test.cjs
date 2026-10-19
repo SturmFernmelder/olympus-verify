@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-18.167 Guild hall interface refinement");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-18.169 Member resources and guild hall");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -150,6 +150,8 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  and only to GET/HEAD", res.status === 405);
   check("the generated document is the tracked text: `npm run check:policies` agrees (run here)", require("child_process").spawnSync(process.execPath, [path.join(root, "scripts", "build-policy-content.mjs"), "--check"], { encoding: "utf8" }).status === 0);
   check("  the tracked privacy text appears verbatim inside the served page", (await (await get("https://guild.example/privacy")).text()).includes(fs.readFileSync(path.join(root, "..", "policies", "privacy.html"), "utf8").match(/<h2>What it stores<\/h2>\n<p>[^<]{40}/)[0]));
+  const picturePolicy = (await (await get("https://guild.example/privacy")).text()).replace(/\s+/g, " ");
+  check("  .169 privacy discloses own chrome and authenticated recommendation pictures, the single Discord CDN and local board portraits without a new picture archive", picturePolicy.includes("The site's top bar and welcome panel show your own Discord picture.") && picturePolicy.includes("Authenticated recommendation searches also show people's public Discord profile pictures when available.") && picturePolicy.includes("Your browser loads these pictures from Discord's picture server (cdn.discordapp.com), so Discord sees that request.") && picturePolicy.includes("Voting-board cards and other member portraits continue to use the game's icons.") && picturePolicy.includes("These lookups do not create a separate archive of pictures.") && !picturePolicy.includes("the site shows that picture to no one else"));
 
   console.log("\n== the site's static files go through the host check (.51) ==");
   res = await get("https://guild.example/static/app.css?v=x");

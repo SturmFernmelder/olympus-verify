@@ -71,6 +71,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".169", date: "2026-10-18", lines: [
+      "A centered portal entry, grouped navigation, faster voting sections and clearer source dates.",
+      "A native nine-class Forever talent planner with Classic comparison, curated addons and guides, and sourced game updates while News is enabled.",
+      "Recommendation searches can show public Discord pictures. Co-GM is included in the owner-directed Council proposal; formal charter approval remains pending.",
+    ],
+  },
+  {
     build: ".167", date: "2026-10-18", lines: [
       "Smoother page and voting-board navigation, your Discord picture on Home, and a simpler entry page.",
       "A full-window organization chart with drag-to-pan, a clearer Council overview, wrapping private status codes and optional original game cursors.",
@@ -186,7 +193,7 @@ const ID = /^[A-Za-z0-9_-]{22}$/;
 const DAY_S = 86400;
 const LIVE = `retain_until > ${DB_NOW}`;
 // The same reading of the stored switch as site-data.ts settingsFrom (bool): '1' or 'true' is on, anything else or no row is off.
-const NEWS_ON_SQL = "(SELECT value FROM site_settings WHERE key = 'newsOn') IN ('1', 'true')";
+export const NEWS_ON_SQL = "(SELECT value FROM site_settings WHERE key = 'newsOn') IN ('1', 'true')";
 const ADMIN_COLUMNS = "SELECT id, title, body, revision, created_by, updated_by, created_at, updated_at, retain_until FROM site_news_notices";
 
 type NoticeRow = { id: string; title: string; body: string; revision: number; created_at: number; updated_at: number; retain_until: number };

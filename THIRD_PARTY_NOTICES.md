@@ -97,3 +97,9 @@ World of Warcraft, Battle.net and Blizzard Entertainment are trademarks or regis
 Entertainment, Inc. Discord is a trademark of Discord Inc. Cloudflare is a trademark of Cloudflare, Inc. GitHub is a
 trademark of GitHub, Inc. Their use here names the services the project runs on or talks to; it implies no affiliation
 or endorsement.
+
+### talentsforever.com data snapshot (.169)
+
+The normalized Forever talent dataset is derived from [talentsforever.com/data.json](https://talentsforever.com/data.json), generated 16 October 2026 for client build 1.60.1.70425. Its source arrangement/data is credited to Talents Forever under the publisher's CC BY 4.0 terms; see [the local provenance and license notice](worker/public/static/talents/LICENSE-DATA.txt) and [the import notes](docs/talents-data169.md). The normalized schema, original native renderer, validation and share encoding are adaptations. Blizzard retains its game names and talent text; the data license does not grant rights to Blizzard artwork or trademarks. No calculator-site code, icons, images, scripts or styles are included.
+
+Addon and guide catalogs link to named publishers and authors. Public feed titles and dates link back to their original articles; remote article bodies, scripts and images are not mirrored. Catalog checking is not publisher endorsement, an exhaustive addon list, compatibility certification or a guarantee of future beta behavior.

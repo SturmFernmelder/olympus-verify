@@ -3,19 +3,19 @@
   "official_candidate_manifest_sha256": "36384be71403beff05f8b276e8c89f60269843d19d4a18d001daea4da1c3bc49",
   "official_map_sha256": "71698fb005efb7e2bc37bf563a26b9e84c2b78b42184860f4962414262d5213a",
   "coverage_evidence_sha256": "792a23f2be1e6b407d51d3d0d4826698ac5ddbe4ae7ecf993b28eba79958d6a1",
-  "reference_source_head": "ca0178495c259a42cdfd56c2ff2b5a81f77f955a",
+  "reference_source_head": "6404c9ce46d49ae904a035fbcc2579411c408d37",
   "assets": [
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 51947,
-      "sha256": "1138f80b83964ef8561c6b2190691de90672bfe7b2e573a634c2e16efa6503dd"
+      "bytes": 53252,
+      "sha256": "b961ad9c1c0f064eba581d80da6d8b399557ba49db5b9037ef4aae6f60b5ba17"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 490887,
-      "sha256": "e5f37fd4100c202a8e38d1aa53e6c6d53cd929a5cfa1635fb1c610e17fa3669e"
+      "bytes": 502150,
+      "sha256": "f3d5ff70d57fa627d8aa3273d11244cf3b94f80cab318e4bd47501df4ee1de79"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 6198,
-      "sha256": "fce051dd2455d8a1b6c82b5ad0d9087ecb8d44bd9b00be1312680017ffb89860"
+      "bytes": 10145,
+      "sha256": "b19a8197b93f3b28ff501adf1ad72550a4ca548efd340685920dbe18059ee18e"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -646,6 +646,30 @@
       "mode": "100644",
       "bytes": 718,
       "sha256": "90146d7844b925b88187a11279798340e2afb63a3d82cb8b60aaaae77c2447d9"
+    },
+    {
+      "path": "worker/public/static/talents/calculator.js",
+      "mode": "100644",
+      "bytes": 21276,
+      "sha256": "de4514ad9eeb9470ea3aa678a6dd8307ac71682a2772f8d2550b44299a9fd817"
+    },
+    {
+      "path": "worker/public/static/talents/calculator.css",
+      "mode": "100644",
+      "bytes": 8817,
+      "sha256": "c2a15774d9497f4263b0eaa9675afe53054c3a0b65d398fc79775cad2c29e5b9"
+    },
+    {
+      "path": "worker/public/static/resources169.js",
+      "mode": "100644",
+      "bytes": 11883,
+      "sha256": "d004d63bca7973f7623209291008ebc26577c36e090f24a156e0f28a8a2b8142"
+    },
+    {
+      "path": "worker/public/static/resources169.css",
+      "mode": "100644",
+      "bytes": 2399,
+      "sha256": "7b4d5b77dc51daec06c15314c3c3c16afb4219ff4b7c6f42e5c9657cba5ed76c"
     }
   ],
   "official_paths": [
@@ -755,7 +779,11 @@
     "worker/public/static/rank-planner/model.js",
     "worker/public/static/rank-planner/styles.css",
     "worker/public/static/organization-view.css",
-    "worker/public/static/wow-cursor.css"
+    "worker/public/static/wow-cursor.css",
+    "worker/public/static/talents/calculator.js",
+    "worker/public/static/talents/calculator.css",
+    "worker/public/static/resources169.js",
+    "worker/public/static/resources169.css"
   ],
   "runtime_paths": [
     "worker/public/static/app.css",
@@ -841,7 +869,12 @@
     "worker/public/static/organization-view.css",
     "worker/public/static/organization-view.js",
     "worker/public/static/wow-cursor.css",
-    "worker/src/site-appointed-identities.ts"
+    "worker/src/site-appointed-identities.ts",
+    "worker/public/static/talents/calculator.js",
+    "worker/public/static/talents/calculator.css",
+    "worker/public/static/resources169.js",
+    "worker/public/static/resources169.css",
+    "worker/src/site-resources.ts"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -959,8 +992,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 490887,
-      "sha256": "e5f37fd4100c202a8e38d1aa53e6c6d53cd929a5cfa1635fb1c610e17fa3669e"
+      "bytes": 502150,
+      "sha256": "f3d5ff70d57fa627d8aa3273d11244cf3b94f80cab318e4bd47501df4ee1de79"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -988,7 +1021,8 @@
     "The .135 resource successor separately requires fifteen exact non-art public resources: nine governance document/data downloads and six QR runtime/license/source records. They are not official artwork, image/font exceptions, CSS image URLs, qualified QR activation or publication approval. The sole public ZIP archive exception requires its exact source-bound path, mode, length and digest; other archive/private-path refusals are unchanged.",
     "The .154 metadata successor binds the frozen member sign-in shell, privacy-page stylesheet, adopted R7 book/model and unchanged-length QR module update. The organization stylesheet is an exact native asset; the organization ES module and operational charter are exact non-art resources. All 94 official image/font rows, approved crest bytes and historical R6 PDF/ZIP rows remain unchanged. Closed coverage is 104 assets plus 17 required non-art resources; byte-gate success grants no provider, publication or appointment authority.",
     "Current .155 resource pins include the previously integrated Council duty text, named beta scanner and original-session custody. This byte reference is not deployment or live-acceptance evidence.",
-    "The .167 successor adds only two original 32px Classic cursor textures and an exact native cursor stylesheet. Original 94 image/font rows and their historical provenance caveats remain unchanged. The appended cursor record names the actual local Era 1.15.9.70003 build, exact BLP identifiers and hashes, separate alpha conversion, output pixels and reviewed extractor; it does not attest older extraction inputs, grant redistribution rights or supply publication authority. Closed asset coverage is 96 official image/font paths, 9 native UI paths, the existing provenance and approved crest: 107 exact asset rows. Required non-art resources remain 19. Current native UI, resource, producer and extractor rows bind the final reviewed source bytes."
+    "The .167 successor adds only two original 32px Classic cursor textures and an exact native cursor stylesheet. Original 94 image/font rows and their historical provenance caveats remain unchanged. The appended cursor record names the actual local Era 1.15.9.70003 build, exact BLP identifiers and hashes, separate alpha conversion, output pixels and reviewed extractor; it does not attest older extraction inputs, grant redistribution rights or supply publication authority. Closed asset coverage is 96 official image/font paths, 9 native UI paths, the existing provenance and approved crest: 107 exact asset rows. Required non-art resources remain 19. Current native UI, resource, producer and extractor rows bind the final reviewed source bytes.",
+    "The .169 owner-directed source successor adds four original native tool styles/scripts and five attributed data/document resources. Existing official artwork/fonts, adopted R7 book/charter/downloads and five art-sensitive producer identities remain fixed. This is source-byte projection evidence, not constitutional adoption, complete addon coverage, production deployment or live acceptance."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -1050,8 +1084,8 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 57403,
-      "sha256": "4c7e0e76108363c117d93faac9126ad5487ff5cfbf09c0986383d0c46b54cb71"
+      "bytes": 58283,
+      "sha256": "8cde520ffee5b1fa6a15c735b5b818fd79ceaf8460827996c234ab2a83c6c8c3"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
@@ -1116,8 +1150,38 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 20155,
-      "sha256": "e12e888ec9eff840820a0d37a773151ebaacc402bebe9a065ca1458e387a481d"
+      "bytes": 20610,
+      "sha256": "eb8c65c074715f8d27a5617b65b48444ee5e6876dbea64bd6ad1c2e88aedc9af"
+    },
+    {
+      "path": "worker/public/static/talents/data.json",
+      "mode": "100644",
+      "bytes": 494373,
+      "sha256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c"
+    },
+    {
+      "path": "worker/public/static/talents/provenance.json",
+      "mode": "100644",
+      "bytes": 1777,
+      "sha256": "48d5df7e2123d9dc456d2b546672c99c6811bfc996d8fb9ee9ee4c692cd3e855"
+    },
+    {
+      "path": "worker/public/static/talents/LICENSE-DATA.txt",
+      "mode": "100644",
+      "bytes": 750,
+      "sha256": "103dd54ada50422fd04d2276c2e6579e1dac5dac6de343b45acc3bfdcf42f6f9"
+    },
+    {
+      "path": "worker/public/static/resources169.json",
+      "mode": "100644",
+      "bytes": 18448,
+      "sha256": "d7a29e01e8abc5127cad5de2b07900a68a85557de795f673e8affe8690810cd6"
+    },
+    {
+      "path": "worker/public/static/governance/council-composition-2026-10-19.md",
+      "mode": "100644",
+      "bytes": 2297,
+      "sha256": "032daeb5be1a594210d19cad1a1587acbc8f5de134ff63ef12e0a2879a2f0e96"
     }
   ]
 }

@@ -13,6 +13,7 @@
   const nowSec = () => Math.floor(nowMs() / 1000);
   const app = document.getElementById("app");
   let timers = [];
+  let disposeTool = null;
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
   let gameCursor = true;
@@ -65,15 +66,18 @@
   };
   const discordIdentity = (person = {}) => {
     const display = person.nick || person.displayName || person.username || "";
-    return person.username && person.username !== display ? `${display} (${person.username})` : display;
+    return person.username && person.username.trim().toLowerCase() !== display.trim().toLowerCase() ? `${display} (${person.username})` : display;
   };
-  // .114 (Viktor, 2 Oct 2026): the one exception to "images from this site only": the signed-in member's own Discord picture
+  // .169: Discord pictures are limited to one's own chrome and authenticated recommendation search results.
+  // Board cards, typed names and other portraits still use local game icons. These are public Discord CDN URLs,
+  // with no referrer; a missing/failed/unrecognised address keeps the local fallback. No arbitrary image host is allowed.
+  // .114 (Viktor, 2 Oct 2026): the original exception to "images from this site only": the signed-in member's own Discord picture
   // in their own header and welcome panel. Only an avatar address on Discord's picture host passes (the Worker's avatarUrl: a profile picture, a
   // server picture or Discord's default one; the page's CSP allows that host and no other). Anything else, or a picture that
   // fails to load, shows the official Member icon. Set with setAttribute here on purpose: h() keeps its root-relative rule for
-  // every other image on the site; other members' pictures stay game icons.
+  // other image attributes on the site; recommendation results now use the same closed CDN guard.
   const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d{17,20}\/(?:a_)?[0-9a-f]{32}\.png\?size=64|guilds\/\d{17,20}\/users\/\d{17,20}\/avatars\/(?:a_)?[0-9a-f]{32}\.png\?size=64|embed\/avatars\/[0-5]\.png)$/;
-  function ownAvatar(user) {
+  function discordAvatar(user) {
     const fallback = accountArt(user || {});
     const img = h("img", { src: fallback, alt: "", referrerpolicy: "no-referrer" });
     const url = user && typeof user.avatarUrl === "string" ? user.avatarUrl : "";
@@ -83,6 +87,7 @@
     }
     return img;
   }
+  function ownAvatar(user) { return discordAvatar(user); }
   /** The icon for a position or role key: Class Lead shows its class, NA and EU raid roles share one. */
   function posIcon(key, cls = "") {
     if (key.startsWith("class_lead:")) return M().classes.some((c) => c.key === key.slice(11)) ? icon("class-" + key.slice(11), cls) : icon("pos-unknown", cls);
@@ -633,7 +638,7 @@
       items.forEach((it, i) => {
         const disabled = (it.self && !allowSelf) || exclude(it);
         const row = h("div", { class: "row", role: "option", "aria-selected": i === active ? "true" : "false", "aria-disabled": disabled ? "true" : "false", id: `${id}-o${i}` },
-          it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : h("img", { src: accountArt(it), alt: "", loading: "lazy", referrerpolicy: "no-referrer" }), // .112: the official scroll icon, not a pencil glyph
+          it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : discordAvatar(it), // Only authenticated Discord lookup results may use this bounded avatar.
           h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.shown || it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : null),
           it.self ? h("span", { class: "badge muted", text: "you" }) : null,
           !it.typed && it.onSite ? h("span", { class: "badge", text: "signed up" }) : null,
@@ -709,16 +714,24 @@
   const brand = () => h("a", { class: "brand", href: "#/" }, h("img", { src: "/static/wow/icon-shield.png", alt: "", width: "44", height: "44" }), h("span", null, h("b", { text: "Olympus" }), h("small", { text: "FOREVER" })));
 
   function topbar(route) {
-    const links = [];
-    if (S.signedIn && !S.denied) links.push(["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"], ["#/roles", "Roles"]);
-    // Guild navigation is delivered only to a current Discord session.
-    if (S.signedIn && !S.denied) links.push(["#/governance", "Governance"], ["#/organization", "Organization"]);
-    if (S.signedIn && !S.denied && anyCommunity() && can("applicantWrite")) links.push(["#/community", "Community"]); // .93: only while a community page is switched on; .100 (F5): and while the fresh context admits the account
-    if (S.signedIn && !S.denied && S.qrVerification && S.qrVerification.enabled === true) links.push(["/static/qr-phase1.html", "Verify in game"]);
-    if (S.user && S.user.isAdmin) links.push(["#/admin", "Admin"]);
     const head = route.split("/")[0];
-    const nav = h("nav", { class: "nav", "aria-label": "Sections" },
-      links.map(([href, text]) => h("a", { class: "btn small", href, text, "aria-current": (href === "#/" ? head === "" : head === href.slice(2)) ? "page" : false })));
+    const nav = h("nav", { class: "nav", "aria-label": "Sections" });
+    const link = ([href, text]) => h("a", { class: "btn small", href, text, "aria-current": (href === "#/" ? head === "" : route === href.slice(2) || route.startsWith(href.slice(2) + "/")) ? "page" : false });
+    const group = (label, links) => {
+      const menu = h("details", { class: "nav-group" }, h("summary", { class: "btn small", text: label }),
+        h("div", { class: "nav-menu" }, links.map(link)));
+      menu.addEventListener("click", (event) => { if (event.target.closest && event.target.closest("a")) menu.removeAttribute("open"); });
+      return menu;
+    };
+    if (S.signedIn && !S.denied) {
+      add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
+      add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
+      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"], ["#/updates", "Game updates"]] : [])]));
+      const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"]];
+      if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
+      add(nav, group("Resources", resources));
+    }
+    if (S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
     const who = S.signedIn && S.user
       ? h("div", { class: "who" },
           ownAvatar(S.user), // .114: the member's own Discord picture (header only)
@@ -815,6 +828,7 @@
 
   let chromeKey = "";
   function render() {
+    if (disposeTool) disposeTool();
     if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
     timers = [];
@@ -830,7 +844,7 @@
     }
     const [head] = route.split("/");
     // Keep the loaded avatar and navigation mounted between routes. Rebuild when identity or admission changes.
-    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), S.qrVerification, S.settings && S.settings.notice]);
+    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), can("confirmedGuildData"), S.qrVerification, S.settings && S.settings.newsOn, S.settings && S.settings.notice]);
     const previousMain = app.querySelector("main.shell");
     const reuseChrome = chromeKey === nextChromeKey && previousMain;
     if (!reuseChrome) {
@@ -841,7 +855,7 @@
     } else {
       for (const link of app.querySelectorAll("nav.nav a")) {
         const target = link.getAttribute("href");
-        if (target === "#/" ? head === "" : target.startsWith("#/") && head === target.slice(2)) link.setAttribute("aria-current", "page");
+        if (target === "#/" ? head === "" : target.startsWith("#/") && (route === target.slice(2) || route.startsWith(target.slice(2) + "/"))) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
       }
     }
@@ -866,6 +880,70 @@
   const showError = (main) => (e) => {
     if (e && e.status === 401 || main.parentNode !== app) return;
     main.appendChild(frame("Something went wrong", null, h("p", { text: (e && e.message) || String(e) })));
+  };
+
+  // Tools are original, same-origin renderers. Script promises hold no account data;
+  // route disposal ends their observers/requests before another view can use the shell.
+  const toolScripts = new Map();
+  async function memberTool(main, namespace, file, stylesheet, options) {
+    const live = () => main.parentNode === app;
+    const box = h("div", { class: "member-tool" }, h("p", { role: "status", class: "muted", text: "Opening tool…" }));
+    add(main, box);
+    if (!document.querySelector(`link[data-olympus-tool="${namespace}"]`)) document.head.appendChild(h("link", { rel: "stylesheet", href: stylesheet, "data-olympus-tool": namespace }));
+    if (!window[namespace]) {
+      if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
+        const script = h("script", { src: file });
+        script.addEventListener("load", resolve);
+        script.addEventListener("error", () => { toolScripts.delete(namespace); reject(new Error("The tool could not be loaded. Try opening it again.")); });
+        document.head.appendChild(script);
+      }));
+      await toolScripts.get(namespace);
+    }
+    if (!live()) return;
+    clear(box);
+    const instance = await window[namespace].mount(box, options);
+    if (!live()) { if (instance && instance.destroy) instance.destroy(); return; }
+    disposeTool = () => { if (instance && instance.destroy) instance.destroy(); disposeTool = null; };
+  }
+  ROUTES.talents = (main, parts) => memberTool(main, "OlympusTalents", "/static/talents/calculator.js", "/static/talents/calculator.css", {
+    className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
+    onBuildChange: value => {
+      if (main.parentNode !== app) return;
+      history.replaceState(null, "", "#/talents/" + encodeURIComponent(value.className) + "/" + encodeURIComponent(value.build));
+      lastHash = location.hash;
+    },
+  });
+  const resourcesView = view => main => {
+    if (view === "updates" && (!newsOn() || !can("confirmedGuildData"))) {
+      add(main, frame("Game updates", null, standingNotice(), h("p", { text: "Game updates use the guild News access setting. This view is not available to this session." })));
+      return;
+    }
+    return memberTool(main, "OlympusResources", "/static/resources169.js", "/static/resources169.css", { view,
+      onRefused: status => { if (main.parentNode !== app) return; if (status === 401) { S.signedIn = false; render(); } else if (status === 403 || status === 503) refreshCommunity(); },
+    });
+  };
+  ROUTES.addons = resourcesView("addons");
+  ROUTES.guides = resourcesView("guides");
+  ROUTES.updates = resourcesView("updates");
+  ROUTES.guide = (main, parts) => {
+    const officer = parts[0] === "officer";
+    const steps = officer ? [
+      ["Review the current charter", "Use Governance and Organization to distinguish appointments, Council eligibility, native game ranks and actual site permissions. The Co-GM composition direction does not itself issue a warrant or grant a new vote.", "#/governance", "Open governance"],
+      ["Review an application fairly", "Read the applicant's answers and current role choices. Follow the recorded decision and reasons; a recommendation or board vote is not an invitation or permission grant.", "#/vote", "Open voting board"],
+      ["Verify in game", "Use the guild's verification workflow and the current officer-exported roster. A Discord nickname, third-party census or talent plan does not establish character ownership or membership.", "#/roles", "Review role responsibilities"],
+      ["Keep information current", "Use source dates on guild figures and roster records. Correct a reported error through the normal officer process. Do not turn a stale export or an unsigned Census preview into a membership decision.", "#/community", "Open community hub"],
+      ["Respect access and privacy", "Only controls your account is actually allowed to use can perform an action. Use normal consent checks for named officeholders; do not publish someone else's private information or assume an appointment changes site access.", "#/guide/member", "Read member guidance"],
+    ] : [
+      ["Enter the guild hall", "Sign in with Discord and complete membership screening in Asmongold's server. If the site cannot confirm membership, follow its explanation and try again after the Discord state is corrected.", "#/", "Go home"],
+      ["Choose how to help", "Read a role's responsibilities, apply with accurate answers and keep your availability current. Applying and voting do not bypass an appointment, eligibility rule or launch gate.", "#/roles", "Explore roles"],
+      ["Verify your character", "Follow the guild's in-game verification instructions. A character label you type is different from a roster-confirmed character. Directory listing is optional.", "#/community", "Open community hub"],
+      ["Prepare for Forever", "Use the talent calculator, source-labelled class guides and addon directory. Check the client build and whether advice is tested beta material, Classic-derived or provisional.", "#/guides", "Browse guides"],
+      ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "#/", "Open my account"],
+    ];
+    add(main, frame(officer ? "Officer guide" : "Member guide", h("a", { class: "btn small", href: officer ? "#/guide/member" : "#/guide/officer", text: officer ? "Member guide" : "Officer guide" }),
+      h("p", { class: "muted small", text: "Source: Olympus's current charter and site workflows. This guide explains the process; permissions and current server decisions remain authoritative." }),
+      h("div", { class: "guide-steps" }, steps.map(([title, text, href, label], index) => h("section", { class: "card" }, h("h2", { text: `${index + 1}. ${title}` }), h("p", { text }), h("a", { href, text: label })))),
+      officer && S.user && S.user.isAdmin ? h("p", null, h("a", { class: "btn", href: "#/admin", text: "Open Admin" })) : null));
   };
 
   // ---------------------------------------------------------------- current R7 governance and organization (.154)
@@ -1763,6 +1841,7 @@
 
   // ---------------------------------------------------------------- vote: the board, and write-ins
   const V = { role: "", offset: 0, cls: "", fit: "", todo: false, summary: null };
+  const boardRoleCounts = new WeakMap(); // Counts only, scoped to the displayed role; never candidate data.
   ROUTES.vote = async function vote(main, parts) {
     const meta = M();
     const s = S.settings || {};
@@ -1770,11 +1849,11 @@
     // The Worker already caches these counts for 30 seconds. Reuse them while moving between roles, but always
     // read the selected role afresh: a changed appointment, membership or voting switch still refuses at the server.
     const cached = boardSummaryRead && nowMs() >= boardSummaryRead.at && nowMs() - boardSummaryRead.at < 30000;
-    const summary = cached ? boardSummaryRead.data : await api("GET", "/api/board", undefined, { live: () => main.parentNode === app });
-    if (main.parentNode !== app) return;
-    if (!cached) boardSummaryRead = { data: summary, at: nowMs() };
+    const summary = cached ? boardSummaryRead.data : V.summary || { roles: [] };
+    const summaryRequest = cached ? null : api("GET", "/api/board", undefined, { live: () => main.parentNode === app });
     V.summary = summary;
     const counts = Object.fromEntries(summary.roles.map((r) => [r.key, r]));
+    const progressRows = new Map();
     const wanted = dec(parts[0] || "");
     if (wanted && meta.ballots.some((b) => b.key === wanted)) { if (wanted !== V.role) { V.offset = 0; } V.role = wanted; }
     if (!V.role || !meta.ballots.some((b) => b.key === V.role)) {
@@ -1801,6 +1880,7 @@
           : quiet
             ? h("span", { class: "n", title: "No public vote: the leadership chooses" }, crown("no public vote"))
             : h("span", { class: "n" + (c.votable && c.voted >= c.votable ? " done" : ""), text: c.votable ? `${c.voted}/${c.votable}` : "—", title: progressTitle(c) }));
+      progressRows.set(b.key, a);
       return a;
     };
     const lead = meta.ballots.filter((b) => b.group === "leadership");
@@ -1813,7 +1893,10 @@
       h("optgroup", { label: "Leadership" }, lead.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))),
       h("optgroup", { label: "Class leads" }, classes.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))));
     rolePick.addEventListener("change", () => { const key = rolePick.value; rolePick.value = role; go(key); });
-    const boardBox = h("div", null, h("p", { class: "muted", role: "status", text: "Checking applications…" }));
+    const boardBox = h("div", { class: "board-results" },
+      counts[role] && counts[role].applicants === 0 ? h("p", { class: "muted", "data-board-last-empty": true, text: "No applications at the last check." }) : null,
+      h("p", { class: "muted small", role: "status", text: "Checking applications…" }));
+    const summaryStatus = h("p", { class: "muted tiny board-summary-status", role: "status", text: cached ? "" : "Refreshing role counts…" });
     const holder = appointedTo(role);
     const quiet = !holder && noVoteFor(role);
     const content = h("div", null,
@@ -1836,10 +1919,44 @@
         h("div", { class: "plaque" }, h("h2", { text: "Vote on who leads Olympus" })),
         h("p", null, "Leadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote ", h("b", { text: "for" }), " the people you want in a role and ", h("b", { text: "against" }), " the ones you do not; click again to take a vote back. You can change your mind until voting closes."),
         anyQuiet ? h("p", { class: "muted small" }, "Roles marked with the crown ", crown(), " are chosen by the guild's leadership without a public vote: they have no board and no write-ins.") : null,
+        summaryStatus,
         noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: "Your votes are private. " }), "Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone."))),
       h("div", { class: "board-layout" }, roleList, content),
     ]);
-    if (!holder && !quiet) await drawBoard(boardBox, closed, role);
+    const countRead = summaryRequest && summaryRequest.then(next => {
+      if (main.parentNode !== app) return;
+      // A selected-role response is authoritative for that role; a cached summary
+      // arriving later must never overwrite its fresh totals.
+      const freshRole = boardBox.dataset.boardFresh === role && boardRoleCounts.get(boardBox);
+      if (freshRole) {
+        const row = next.roles.find(value => value.key === role);
+        if (row) Object.assign(row, { applicants: freshRole.applicants, votable: freshRole.votable, voted: freshRole.voted });
+      }
+      V.summary = next;
+      boardSummaryRead = { data: next, at: nowMs() };
+      for (const row of next.roles) counts[row.key] = row;
+      for (const b of meta.ballots) {
+        const n = progressRows.get(b.key).querySelector(".n"), c = counts[b.key] || { applicants: 0, votable: 0, voted: 0 };
+        if (n && !appointedTo(b.key) && !noVoteFor(b.key)) { n.textContent = c.votable ? `${c.voted}/${c.votable}` : "—"; n.title = progressTitle(c); n.classList.toggle("done", !!c.votable && c.voted >= c.votable); }
+      }
+      for (const option of rolePick.querySelectorAll("option")) {
+        const b = meta.ballots.find(value => value.key === option.getAttribute("value"));
+        if (b) option.textContent = pickText(b);
+      }
+      if (counts[role]) showRoleProgress(counts[role]);
+      summaryStatus.textContent = "";
+    }).catch(error => {
+      if (main.parentNode !== app) return;
+      summaryStatus.textContent = "Role counts could not be refreshed. " + error.message;
+      if (error.status === 401 || error.status === 403) {
+        boardBox.dataset.boardRequest = "refused";
+        clear(boardBox);
+        // Keep a person's unsaved text while refusing further actions after a
+        // current admission failure. The dirty-navigation guard remains active.
+        for (const control of content.querySelectorAll("button,input,select,textarea")) control.disabled = true;
+      }
+    });
+    await Promise.all([countRead, !holder && !quiet ? drawBoard(boardBox, closed, role) : null]);
   };
   /** Above a role's board: what the role is, with its time, responsibilities and expectations one click away. */
   function roleAbout(key) {
@@ -1892,9 +2009,12 @@
       return;
     }
     if (!live()) return;
+    box.dataset.boardFresh = role;
+    boardRoleCounts.set(box, { applicants: data.total, votable: data.votable, voted: data.voted });
     // The Worker keeps the all-roles summary for half a minute; this role's own numbers are fresh, so they win.
     const sum = V.summary && V.summary.roles.find((x) => x.key === role);
-    if (sum) { Object.assign(sum, { applicants: data.total, votable: data.votable, voted: data.voted }); showRoleProgress(sum); }
+    if (sum) Object.assign(sum, boardRoleCounts.get(box));
+    showRoleProgress({ key: role, ...boardRoleCounts.get(box) });
     const clsSel = h("select", null, h("option", { value: "", text: "Any class" }), meta.classes.map((c) => h("option", { value: c.key, text: c.label, selected: V.cls === c.key })));
     const fitSel = h("select", null, [["", "Any raid evenings"], ["na", "NA raid evenings (3+ a week)"], ["eu", "EU raid evenings (3+ a week)"]].map(([k, t]) => h("option", { value: k, text: t, selected: V.fit === k })));
     const todo = h("input", { type: "checkbox", checked: V.todo });
@@ -1906,7 +2026,7 @@
       h("label", { class: "field" }, h("span", { class: "sr", text: "Class" }), clsSel),
       h("label", { class: "field" }, h("span", { class: "sr", text: "Raid evenings" }), fitSel),
       h("label", { class: "check" }, todo, h("span", { text: "Only ones I have not voted on" })));
-    const cards = data.candidates.map((c) => candidateCard(c, data.role, closed || !data.votingOpen));
+    const cards = data.candidates.map((c) => candidateCard(c, data.role, closed || !data.votingOpen, box));
     const empty = !data.total
       ? h("p", { class: "muted", text: "Nobody has applied for this role yet. Know someone who should? Write them in below: they are told the next time they sign in, and can apply." })
       : !data.matching ? h("p", { class: "muted", text: V.todo ? "You have voted on everyone here who matches. Nice." : "Nobody matches these filters." }) : null;
@@ -1931,7 +2051,7 @@
       pager,
     ]);
   }
-  function candidateCard(c, role, closed) {
+  function candidateCard(c, role, closed, box) {
     const meta = M();
     let mine = c.myVote || 0;
     const forBtn = h("button", { class: "vote for", type: "button", "aria-pressed": mine === 1 ? "true" : "false", disabled: c.self || closed, title: c.self ? "This is you" : "Vote for" }, h("img", { src: art("vote-for"), alt: "" }), h("span", { text: "For" }));
@@ -1948,10 +2068,12 @@
         againstBtn.setAttribute("aria-pressed", mine === -1 ? "true" : "false");
         if (!before && next) S.boardVotes = (S.boardVotes || 0) + 1;
         if (before && !next) S.boardVotes = Math.max(0, (S.boardVotes || 0) - 1);
-        const r = V.summary && V.summary.roles.find((x) => x.key === role.key);
-        if (r) {
-          r.voted += (!before && next ? 1 : 0) - (before && !next ? 1 : 0);
-          showRoleProgress(r);
+        const counts = boardRoleCounts.get(box);
+        if (counts && box.isConnected) {
+          counts.voted += (!before && next ? 1 : 0) - (before && !next ? 1 : 0);
+          const summary = V.summary && V.summary.roles.find((x) => x.key === role.key);
+          if (summary) Object.assign(summary, counts);
+          showRoleProgress({ key: role.key, ...counts });
         }
       } catch (err) {
         toast(err.message, "bad");
@@ -3536,6 +3658,8 @@
     tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
     return h("nav", { class: "btn-row", "aria-label": "Community sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
   }
+  const sourceStrip = (source, freshness) => h("div", { class: "source-strip", "data-source-strip": true },
+    h("span", { class: "badge", text: source }), h("span", { class: "small muted", text: freshness }));
   function standingNotice() {
     const c = COM().capabilities;
     if (!c.applicantWrite) return noticeBox("warn", "icon-warning", h("p", { text: `You no longer have access to the community pages: ${c.authenticatedIdentity ? "your account is not a member in good standing here (departed from the server, denied, or signed in elsewhere since this page loaded)" : "you are signed out"}. Reload the page to see your current state.` })); // .100 (F5)
@@ -3632,6 +3756,7 @@
     const draw = data => {
       const s = data.snapshot;
       add(output, frame("Private census preview", null,
+        sourceStrip("Unsigned addon export", `Observed ${utc(s.observedAt)} · received ${utc(data.receiptNow)} · ${data.atReceipt.snapshotAgeSeconds} seconds old at receipt`),
         h("p", { text: `${s.guilds.length} guild observations. Counts describe reported characters; they are not a unique-player population.` }),
         kv([["Claimed addon version", s.addonVersion], ["Claimed realm group", s.realmGroup], ["Claimed faction", s.faction], ["Export observed at", utc(s.observedAt)], ["Authenticated server receipt", utc(data.receiptNow)], ["Export age at receipt", `${data.atReceipt.snapshotAgeSeconds} seconds`]]),
         h("p", { class: "small muted", text: "Guild receipt times come from the upstream client. Online at export is historical, never an online-now count. Rows older than seven days at receipt remain visible here as history; no server retention is implied." }),
@@ -3677,6 +3802,7 @@
       }
     });
     add(body, frame("Census preview", null,
+      sourceStrip("Community observation", "Freshness unknown until an export is validated; no live population or membership proof"),
       h("p", { class: "notice", text: "Unsigned community observations — private preview, not saved" }),
       h("p", { text: "The export and its labels are submitted claims. Signing in and validation do not verify them. Clear the preview when finished; hiding or leaving this page clears it too." }), form, status, output));
   }
@@ -3768,12 +3894,13 @@
     const launchAt = d.beta && d.beta.launchAt;
     add(body, [
       frame("Notices", null,
+        sourceStrip("Olympus administrators", "Dates below belong to each notice; a page refresh does not renew them"),
         h("p", { class: "muted small", text: "From the site's administrators, for the whole guild. Each notice is shown for a set time and then deleted." }),
         h("div", { class: "filters" }, fieldBox("news-search", "Search notices", query), fieldBox("news-window", "Posted", windowSel), reset),
         h("p", { class: "muted small", text: "Search title and text in current notices. Time filters use the original posting time; older notices may already have expired." }),
         resultCount, results),
-      frame("Olympus I", null, h("p", { text: memberSeatsText(d.seats) })),
-      frame("The guild in figures", null, figures),
+      frame("Olympus I", null, sourceStrip("Officer roster / invite evidence", d.seats && d.seats.asOf ? `Evidence time: about ${fmtDateTime(d.seats.asOf)}` : "No current checked evidence"), h("p", { text: memberSeatsText(d.seats) })),
+      frame("The guild in figures", null, sourceStrip("Checked roster exports and site records", f ? `Counted ${fmtDateTime(f.asOf)}; refreshed every few hours while News is on` : "No figures snapshot available"), figures),
       frame("The Herald's desk", null,
         h("p", { text: "Guild dispatches, game news and practical references, with sources kept visible." }),
         h("ul", null,
@@ -3838,6 +3965,7 @@
     more.addEventListener("click", () => load(false));
     add(body, [
       frame("Member directory", h("a", { class: "btn small", href: "#/community/profile", text: "My profile" }),
+        sourceStrip("Member opt-in profiles", "Profile and roster verification times are not supplied here; this is not a live roster"),
         h("p", { class: "muted small", text: "Members who chose to be listed, shown to confirmed guild members by display name. A name marked confirmed is one the officers' roster export has confirmed on that account; the rest are labels members gave themselves." }),
         status, list, h("div", { class: "btn-row" }, more)),
       feat("crafting") ? craftingPanel() : null,

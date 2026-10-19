@@ -9,6 +9,26 @@
     "bytes": 157508,
     "sha256": "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf"
   },
+  "councilComposition": {
+    "status": "owner_directed_pending_constitutional_process",
+    "recordedAt": "2026-10-19",
+    "authority": "project owner direction",
+    "offices": [
+      "Co-Guild Master",
+      "War Head for PvP",
+      "War Head for Raiding",
+      "Federal Treasurer",
+      "Minister of Artisanry",
+      "Minister of Heraldry"
+    ],
+    "summary": "The owner directed inclusion of the Co-Guild Master in the High Council alongside its five core portfolio offices.",
+    "formalStatus": "Constitutional recommendation and Founder ratification are not recorded; eligible seats and individual appointment instruments remain separate.",
+    "recommendationRecorded": false,
+    "founderRatificationRecorded": false,
+    "eligibleSeatIssued": false,
+    "permissionsApplied": false,
+    "sourcePath": "/static/governance/council-composition-2026-10-19.md"
+  },
   "legend": {
     "accountability": "Accountability within an accepted remit; no automatic platform permission.",
     "coordination": "Cooperation and liaison, not command.",
