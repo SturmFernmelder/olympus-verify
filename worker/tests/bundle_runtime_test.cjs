@@ -339,7 +339,7 @@ function splitFixtureSchema(source) {
     check("the native status writer still holds a missing original target token", missingTarget.status === 409 && (await missingTarget.json()).error === "original_membership_decision_held", missingTarget.status);
     const wrongOrigin = await get(applicationPath + "/status", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://elsewhere.example", "X-Olympus": "2", "Content-Type": "application/json", "X-Olympus-Decision-Target": targetBody.targetToken || "", "X-Olympus-Decision-Action": "membership_rejection_v1" }, body: JSON.stringify({ status: "declined" }) });
     check("the native status writer still holds a wrong origin with an otherwise prepared target", wrongOrigin.status === 409 && (await wrongOrigin.json()).error === "original_membership_decision_held", wrongOrigin.status);
-    const signedOut = await get("https://guild.example/auth/logout", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example" } }), stale = await get(applicationPath, { headers: { Cookie: adminCookie } });
+    const signedOut = await get("https://guild.example/auth/logout", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), stale = await get(applicationPath, { headers: { Cookie: adminCookie } });
     check("a normally retired original administrator session cannot read detail", signedOut.status === 200 && stale.status === 401, signedOut.status, stale.status);
     check("native reads and refused writes preserve the actual target, rejection provenance and markers", JSON.stringify(await readTarget()) === JSON.stringify(originalTarget));
   } finally {
