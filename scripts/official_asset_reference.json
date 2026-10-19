@@ -650,8 +650,8 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 26182,
-      "sha256": "fdac030cbbdf26fea13677d87b7a60a34cbe760bfb2bc313f7ff9ed0b990b93d"
+      "bytes": 26288,
+      "sha256": "86f2c1a6af6cb410c6d7b2c78b3365887944c13e28fbafe2cccc3c9bc1ca0572"
     },
     {
       "path": "worker/public/static/talents/calculator.css",

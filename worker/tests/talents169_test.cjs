@@ -104,11 +104,12 @@ class TalentElement {
 }
 async function detailRenderRegression() {
   const document = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
-  const container = document.createElement('main'), browserModule = { exports: {} }, changes = [];
+  const container = document.createElement('main'), browserModule = { exports: {} }, changes = [], copiedLinks = [];
   let reads = 0, ownDataRequest = true;
   vm.runInNewContext(source, {
     module: browserModule,
     location: { origin: 'https://guild.example', pathname: '/' },
+    navigator: { clipboard: { async writeText(value) { copiedLinks.push(value); } } },
     fetch: async (url, options) => { reads++; ownDataRequest = ownDataRequest && ['/static/talents/data.json', '/static/talents/art.json'].includes(url) && options.credentials === 'same-origin'; return { ok: true, json: async () => clone(url.endsWith('/art.json') ? art : data) }; },
   }, { filename: path.join(folder, 'calculator.js'), timeout: 1000 });
   const controller = await browserModule.exports.mount(container, { onBuildChange: value => changes.push(value) });
@@ -120,6 +121,12 @@ async function detailRenderRegression() {
   check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 2 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
   pick(heroic.name).click();
   check('the real point control renders current and next rank text without converting absent fields to null', changes.at(-1).points === 1 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3') && detail().textContent.includes(heroic.descriptions[0]) && detail().textContent.includes(heroic.descriptions[1]) && titles().includes('Next rank') && !detail().textContent.includes('null'));
+  const copyLink = () => byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Copy link');
+  copyLink().click(); await Promise.resolve();
+  const beforeReselect = { callbacks: changes.length, code: byClass(container, 'talents-share-code')[0].getAttribute('value'), link: copiedLinks.at(-1), selected: pick(heroic.name) };
+  byClass(container, 'talents-class-button').find(button => button.textContent === 'Warrior').click();
+  copyLink().click(); await Promise.resolve();
+  check('re-selecting the active class preserves the allocated point, exact share URL, selection and change-callback count', changes.length === beforeReselect.callbacks && changes.at(-1).points === 1 && byClass(container, 'talents-share-code')[0].getAttribute('value') === beforeReselect.code && copiedLinks.at(-1) === beforeReselect.link && beforeReselect.link === 'https://guild.example/#/talents/warrior/' + beforeReselect.code && pick(heroic.name) === beforeReselect.selected && pick(heroic.name).getAttribute('aria-pressed') === 'true' && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3'));
   pick(heroic.name).click(); pick(heroic.name).click();
   check('the real maximum-rank render removes only the absent next rank and retains current/all-rank descriptions', changes.at(-1).points === 3 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 3 / 3') && detail().textContent.includes(heroic.descriptions[2]) && !titles().includes('Next rank') && byClass(detail(), 'talents-all-ranks')[0].all(node => node.tagName === 'LI').length === heroic.maxRank && !detail().textContent.includes('null'));
   const mortal = find('Mortal Strike'), parent = all(data.classes[0]).find(talent => talent.id === mortal.requires);

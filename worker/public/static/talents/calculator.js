@@ -174,6 +174,7 @@
       render(talentId);
     }
     function chooseClass(className) {
+      if (className === build.className) return; // Re-selecting the active tab is not an explicit reset.
       build = emptyBuild(data, className, build.level); selected = talentsOf(classOf(data, className))[0].id; message = ""; changed(); render("class:" + className);
     }
     function render(focus) {
