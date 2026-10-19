@@ -10,7 +10,7 @@ const body174 = String.raw`
 // document.activeElement or text-input selection. Model those browser facts for
 // this leaf's filter-refresh lifecycle checks.
 const focus174 = Element.prototype.focus;
-Element.prototype.focus = function(...args) { focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
+Element.prototype.focus = function(...args) { this.lastFocusOptions174 = args[0]; focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
 Element.prototype.setSelectionRange = function(start, end, direction = "none") { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; };
 const enter174 = field => { const event = new Event("keydown", { bubbles: true }); event.key = "Enter"; field.dispatchEvent(event); };
 (async () => {
@@ -171,6 +171,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   let newest175 = followup175.app.querySelector("#audit-page-newest"); newest175.focus(); newest175.click();
   await waitFor(() => followup175.app.querySelector("#audit-page-newest") !== newest175, ".175 audit newest replacement");
   check(".175 reaching newest restores focus to Older instead of a disabled Newest button", followup175.document.activeElement === followup175.app.querySelector("#audit-page-older") && followup175.app.querySelector("#audit-page-newest").disabled);
+  check(".175 pager focus permits native scrolling when a longer replacement page moves it below the viewport", followup175.document.activeElement.lastFocusOptions174?.preventScroll !== true);
   followup175.hold(pathname => pathname.startsWith("/api/admin/audit-log?") ? 60 : 0);
   older175 = followup175.app.querySelector("#audit-page-older"); older175.focus(); older175.click();
   const outside175 = byText(followup175.app, "a", "Account data"); outside175.focus();

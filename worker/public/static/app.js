@@ -2997,7 +2997,8 @@
       const preferred = body.querySelector("#" + pagerFocus);
       const alternate = body.querySelector(pagerFocus === "audit-page-older" ? "#audit-page-newest" : "#audit-page-older");
       const target = preferred && !preferred.disabled ? preferred : alternate && !alternate.disabled ? alternate : null;
-      if (target) target.focus({ preventScroll: true });
+      // The replacement page may be much taller; normal focus scrolls its pager into view when needed.
+      if (target) target.focus();
     }
   }
 
