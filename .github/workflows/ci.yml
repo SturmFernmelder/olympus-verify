@@ -13,11 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The Worker: typecheck, the shared code vectors, every node suite (real src/*.ts over SQLite), the two SQL suites
-  # in Python, the site script's syntax, the deploy script's argument contract, and a dry-run bundle.
-  worker:
+  # .168 conserves the original test:all occurrences, including repeated invocations.
+  # Leaf processes share no globals; the runner bounds concurrency to the available CPUs.
+  worker_shard:
+    name: worker_shard (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       WRANGLER_SEND_METRICS: 'false'
     steps:
@@ -26,45 +31,81 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Scan repository history for secrets
+        if: matrix.shard == 8
         run: bash scripts/scan-secrets.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: worker/package-lock.json
+      - name: Verify projection pins
+        run: node scripts/check-projections.cjs --index
+      # Full raw fixture evidence stays in the log; matching its multi-megabyte
+      # JSON lines as compiler diagnostics costs minutes and changes no test result.
+      - name: Stop compiler annotation matchers before raw fixture logs
+        run: |
+          echo '::remove-matcher owner=tsc::'
+          echo '::remove-matcher owner=eslint-compact::'
       - run: npm ci
         working-directory: worker
-      - name: Typecheck, code vectors and every Worker suite
-        run: npm run test:all
+      - name: Run every assigned original Worker command
+        run: node scripts/ci-shards.cjs --shard ${{ matrix.shard }}
         working-directory: worker
       - name: Reuse Lupa 2.8 for the optional census consumer chain
+        if: matrix.shard == 8
         run: python3 -m pip install --user 'lupa==2.8'
       - name: Actual pinned census Bridge to Lua JSON to strict server
+        if: matrix.shard == 8
         timeout-minutes: 3
         run: |
           CENSUS_RUN_DIR="$(mktemp -d "$RUNNER_TEMP/olympus-census.XXXXXX")"
           python3 -E -P addon/tests/run_census_consumer.py --fetch-upstream --run-dir "$CENSUS_RUN_DIR/lua"
           python3 -E -P addon/tests/run_census_server_chain.py --lua-receipt "$CENSUS_RUN_DIR/lua/run-receipt.json" --evidence-root "$CENSUS_RUN_DIR" --run-dir "$CENSUS_RUN_DIR/server"
       - name: SQL suites (real extracted SQL against SQLite)
+        if: matrix.shard == 7
         run: |
           python3 tests/unverified_sql_test.py
           python3 tests/backfill_sql_test.py
         working-directory: worker
-      - run: node --check public/static/app.js
+      - name: Site script syntax
+        if: matrix.shard == 7
+        run: node --check public/static/app.js
         working-directory: worker
-      - name: Deploy script argument contract (fake wrangler on PATH), the CI gate's own contract, the cutover configuration pair (.77), the publication helpers' smoke test
+      - name: Deploy and publication contracts and CI scheduling regressions
+        if: matrix.shard == 7
         run: |
           bash scripts/tests/deploy-commit.test.sh
           bash scripts/tests/ci-gate.test.sh
           bash scripts/tests/cutover-config.test.sh
           bash scripts/tests/publication-helper.test.sh
+          node scripts/tests/ci-workflow.test.cjs
+          node scripts/tests/check-projections.test.cjs
       - name: Package the Worker without deploying
+        if: matrix.shard == 8
         run: npx wrangler deploy --dry-run --outdir ../.check-worker
         working-directory: worker
+
+  # Keep the exact required status name; a failed, cancelled, skipped or missing
+  # matrix result must fail this always-run collector, never skip it into a pass.
+  worker:
+    name: worker
+    if: always()
+    needs: [worker_shard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require all eight Worker shards to have succeeded
+        env:
+          WORKER_SHARDS: ${{ needs.worker_shard.result }}
+        run: node -e "require('./worker/scripts/ci-shards.cjs').requireShardResult(process.env.WORKER_SHARDS)"
 
   # The officer-PC side: the watcher's unit tests and the relay script, plus the operator tools' tests. Standard library
   # only, on the runner's Python 3.
   watcher:
+    name: watcher
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -84,6 +125,7 @@ jobs:
   # The addon's ten offline Lua suites, through Lupa's bundled LuaJIT 2.1: the same Lupa version as the local venv
   # that runs them on this PC (2.8, observed 30 Sep 2026), so results are comparable.
   addon:
+    name: addon
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -101,10 +143,11 @@ jobs:
   # c93fc0e: a required check covering the Worker job alone, or one that could be skipped, would let a watcher or
   # addon regression merge.
   check:
+    name: check
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [worker, watcher, addon]
+    needs: [addon, watcher, worker]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

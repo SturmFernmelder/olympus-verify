@@ -1,0 +1,596 @@
+{
+  "sourceCommit": "0fb104108097a91523547d87645fa2889efd3aa5",
+  "sourceJob": 117792354021,
+  "logSHA256": "9237ed182275086d81b4ca5f66ce955a5667f681557fc1d79fab20e635a8e30c",
+  "measurement": "Original sequential summary-to-summary log boundaries including startup/flush are planning weights, not parallel measurements. Original assertions and deadlines are retained. Two complete fixture-world fanouts require separate source review and actual hosted runtime qualification.",
+  "commands": {
+    "tsc --noEmit": {
+      "seconds": 6.66,
+      "occurrence": 1
+    },
+    "node --experimental-strip-types scripts/check-vectors.mjs": {
+      "seconds": 0.211,
+      "occurrence": 2
+    },
+    "node scripts/build-policy-content.mjs --check": {
+      "seconds": 0.153,
+      "occurrence": 3
+    },
+    "node scripts/build-privacy-admission-catalogue.cjs --check": {
+      "seconds": 0.171,
+      "occurrence": 4
+    },
+    "node tests/roster_effects_test.cjs": {
+      "seconds": 494.196,
+      "occurrence": 35
+    },
+    "node tests/community_event_buttons_test.cjs": {
+      "seconds": 12.048,
+      "occurrence": 23
+    },
+    "node tests/wow_cursor_test.cjs": {
+      "seconds": 0.074,
+      "occurrence": 43
+    },
+    "node tests/site_appointed_identities_test.cjs": {
+      "seconds": 9.244,
+      "occurrence": 44
+    },
+    "node tests/bundle_runtime_test.cjs": {
+      "seconds": 4.403,
+      "occurrence": 46
+    },
+    "node tests/privacy_foundation129_contract_test.cjs": {
+      "seconds": 2.829,
+      "occurrence": 48
+    },
+    "node tests/privacy_business_catalog_literal_prefix_test.cjs": {
+      "seconds": 6.058,
+      "occurrence": 80
+    },
+    "node tests/ruleset_publication_browser_test.cjs": {
+      "seconds": 4.899,
+      "occurrence": 83
+    },
+    "node tests/privacy_write_admission_experiment_test.cjs": {
+      "seconds": 4.158,
+      "occurrence": 85
+    },
+    "node tests/privacy_admission_job_census_experiment_test.cjs": {
+      "seconds": 366.421,
+      "occurrence": 87
+    },
+    "node tests/privacy_role_original_facts_native_test.cjs": {
+      "seconds": 10.798,
+      "occurrence": 99
+    },
+    "node tests/beta_reset_guard_regressions_test.cjs": {
+      "seconds": 5.262,
+      "occurrence": 106
+    },
+    "node tests/beta_reset_discovery_pressure_test.cjs": {
+      "seconds": 7.989,
+      "occurrence": 111
+    },
+    "node tests/beta_reset_lifecycle_test.cjs": {
+      "seconds": 7.283,
+      "occurrence": 117
+    },
+    "node tests/privacy_successor_entry_mounts_native_test.cjs": {
+      "seconds": 3.166,
+      "occurrence": 125
+    },
+    "node tests/lane_budget_test.cjs": {
+      "seconds": 0.585,
+      "occurrence": 133
+    },
+    "node tests/role_budget_test.cjs": {
+      "seconds": 6.229,
+      "occurrence": 8
+    },
+    "node tests/tickets_guid_relays_test.cjs": {
+      "seconds": 4.797,
+      "occurrence": 11
+    },
+    "node tests/site_test.cjs": {
+      "seconds": 19.142,
+      "occurrence": 15
+    },
+    "node tests/community_trials_test.cjs": {
+      "seconds": 6.31,
+      "occurrence": 25
+    },
+    "node tests/privacy_status_layout_test.cjs": {
+      "seconds": 2.805,
+      "occurrence": 42
+    },
+    "node tests/privacy_erasure_staff_custody_test.cjs": {
+      "seconds": 30.689,
+      "occurrence": 51
+    },
+    "node tests/privacy_watcher_event_capture_review_test.cjs": {
+      "seconds": 54.214,
+      "occurrence": 62
+    },
+    "node tests/privacy_reminder_original_capture_review_test.cjs": {
+      "seconds": 10.777,
+      "occurrence": 64
+    },
+    "node tests/privacy_legacy_grouped_audit_review_test.cjs": {
+      "seconds": 20.843,
+      "occurrence": 65
+    },
+    "node tests/privacy_history_size_guard_review_test.cjs": {
+      "seconds": 4.718,
+      "occurrence": 75
+    },
+    "node tests/privacy_weekly_original_capture_test.cjs": {
+      "seconds": 5.204,
+      "occurrence": 79
+    },
+    "node tests/ruleset_publication_privacy_test.cjs": {
+      "seconds": 3.779,
+      "occurrence": 82
+    },
+    "node tests/beta_reset_policy_test.cjs": {
+      "seconds": 1.103,
+      "occurrence": 104
+    },
+    "node tests/beta_reset_slice_test.cjs": {
+      "seconds": 37.624,
+      "occurrence": 107
+    },
+    "node tests/beta_retention_anchor_test.cjs": {
+      "seconds": 12.387,
+      "occurrence": 115
+    },
+    "node tests/beta_reset_erasure_lifecycle_test.cjs": {
+      "seconds": 11.814,
+      "occurrence": 119
+    },
+    "node tests/privacy_successor_recovery_native_test.cjs": {
+      "seconds": 193.159,
+      "occurrence": 124
+    },
+    "node tests/beta_reset_dispatch_fence_test.cjs": {
+      "seconds": 7.77,
+      "occurrence": 129
+    },
+    "node tests/full_release_roles_sql_test.cjs": {
+      "seconds": 3.298,
+      "occurrence": 135
+    },
+    "node tests/privacy_native_erasure_mode_test.cjs": {
+      "seconds": 8.983,
+      "occurrence": 145
+    },
+    "node tests/restore_role_test.cjs": {
+      "seconds": 0.572,
+      "occurrence": 6
+    },
+    "node tests/community_directory_test.cjs": {
+      "seconds": 7.894,
+      "occurrence": 20
+    },
+    "node tests/community_event_reminders_test.cjs": {
+      "seconds": 23.472,
+      "occurrence": 24
+    },
+    "node tests/community_contributions_test.cjs": {
+      "seconds": 9.777,
+      "occurrence": 28
+    },
+    "node tests/site_news_test.cjs": {
+      "seconds": 16.366,
+      "occurrence": 33
+    },
+    "node tests/scheduled_budget_test.cjs": {
+      "seconds": 183.406,
+      "occurrence": 34
+    },
+    "node tests/privacy_identify_event_projection_review_test.cjs": {
+      "seconds": 4.751,
+      "occurrence": 53
+    },
+    "node tests/privacy_serving_legacy_reference_review_test.cjs": {
+      "seconds": 26.81,
+      "occurrence": 55
+    },
+    "node tests/privacy_watcher_replay_reference_review_test.cjs": {
+      "seconds": 8.29,
+      "occurrence": 61
+    },
+    "node tests/privacy_character_audit_erasure_review_test.cjs": {
+      "seconds": 16.072,
+      "occurrence": 63
+    },
+    "node tests/privacy_access_family_history_test.cjs": {
+      "seconds": 41.951,
+      "occurrence": 70
+    },
+    "node tests/privacy_history_production_ownership_review_test.cjs": {
+      "seconds": 3.508,
+      "occurrence": 72
+    },
+    "node tests/privacy_erasure_disabled_ui_test.cjs": {
+      "seconds": 6.872,
+      "occurrence": 78
+    },
+    "node tests/ruleset_publication_test.cjs": {
+      "seconds": 11.443,
+      "occurrence": 81
+    },
+    "node tests/privacy_admission_entry_installation_test.cjs": {
+      "seconds": 61.812,
+      "occurrence": 93
+    },
+    "node tests/privacy_attended_beta_browser_model_test.cjs": {
+      "seconds": 0.096,
+      "occurrence": 102
+    },
+    "node tests/beta_reset_removal_custody_test.cjs": {
+      "seconds": 5.302,
+      "occurrence": 114
+    },
+    "node tests/privacy_successor_floor_test.cjs": {
+      "seconds": 3.644,
+      "occurrence": 123
+    },
+    "node tests/full_release_roles_config_test.cjs": {
+      "seconds": 2.741,
+      "occurrence": 134
+    },
+    "node tests/full_release_lane_consumer_test.cjs": {
+      "seconds": 5.65,
+      "occurrence": 136
+    },
+    "node tests/links_not_before_clock_gate_test.cjs": {
+      "seconds": 4.809,
+      "occurrence": 140
+    },
+    "node tests/membership_role_transition_test.cjs": {
+      "seconds": 5.091,
+      "occurrence": 9
+    },
+    "node tests/verify_button_test.cjs": {
+      "seconds": 3.875,
+      "occurrence": 12
+    },
+    "node tests/bnet_retention_test.cjs": {
+      "seconds": 32.809,
+      "occurrence": 17
+    },
+    "node tests/hosts_test.cjs": {
+      "seconds": 4.475,
+      "occurrence": 18
+    },
+    "node tests/community_test.cjs": {
+      "seconds": 4.793,
+      "occurrence": 19
+    },
+    "node tests/guild_seats_test.cjs": {
+      "seconds": 19.812,
+      "occurrence": 32
+    },
+    "node tests/owner_requests_test.cjs": {
+      "seconds": 8.564,
+      "occurrence": 37
+    },
+    "node tests/site_audit_test.cjs": {
+      "seconds": 15.228,
+      "occurrence": 38
+    },
+    "node tests/frontend_check.cjs": {
+      "seconds": 101.077,
+      "occurrence": 45
+    },
+    "node tests/privacy_contribution_known_result_review_test.cjs": {
+      "seconds": 6.884,
+      "occurrence": 57
+    },
+    "node tests/privacy_event_known_result_review_test.cjs": {
+      "seconds": 10.981,
+      "occurrence": 58
+    },
+    "node tests/scheduled_whole_composition_test.cjs": {
+      "seconds": 73.958,
+      "occurrence": 68
+    },
+    "node tests/privacy_roster_rank_delay_experiment_test.cjs": {
+      "seconds": 33.088,
+      "occurrence": 92
+    },
+    "node tests/role_rank_continuation_test.cjs": {
+      "seconds": 9.323,
+      "occurrence": 96
+    },
+    "node tests/beta_reset_grants_test.cjs": {
+      "seconds": 7.851,
+      "occurrence": 105
+    },
+    "node tests/beta_reset_route_test.cjs": {
+      "seconds": 21.186,
+      "occurrence": 109
+    },
+    "node tests/beta_reset_uncertain_custody_test.cjs": {
+      "seconds": 5.944,
+      "occurrence": 112
+    },
+    "node tests/privacy_recovery_attempt_storage_test.cjs": {
+      "seconds": 1.62,
+      "occurrence": 128
+    },
+    "node tests/full_release_roles_identity_test.cjs": {
+      "seconds": 73.398,
+      "occurrence": 139
+    },
+    "node tests/beta_source_epoch_entry_test.cjs": {
+      "seconds": 3.412,
+      "occurrence": 144
+    },
+    "node tests/privacy_native_erasure_custody_test.cjs": {
+      "seconds": 2.743,
+      "occurrence": 148
+    },
+    "node tests/notices_test.cjs": {
+      "seconds": 0.325,
+      "occurrence": 5
+    },
+    "node tests/intros_test.cjs": {
+      "seconds": 4.793,
+      "occurrence": 14
+    },
+    "node tests/community_restrictions_test.cjs": {
+      "seconds": 7.18,
+      "occurrence": 26
+    },
+    "node tests/community_departures_test.cjs": {
+      "seconds": 5.506,
+      "occurrence": 27
+    },
+    "node tests/ruleset_profile_test.cjs": {
+      "seconds": 3.302,
+      "occurrence": 40
+    },
+    "node tests/organization_view_test.cjs": {
+      "seconds": 0.106,
+      "occurrence": 41
+    },
+    "node tests/privacy_serving_family_reference_review_test.cjs": {
+      "seconds": 11.79,
+      "occurrence": 56
+    },
+    "node tests/privacy_watcher_original_authority_review_test.cjs": {
+      "seconds": 33.249,
+      "occurrence": 60
+    },
+    "node tests/privacy_event_late_custody_review_test.cjs": {
+      "seconds": 32.96,
+      "occurrence": 66
+    },
+    "node tests/ruleset_switch_test.cjs": {
+      "seconds": 5.363,
+      "occurrence": 84
+    },
+    "node tests/privacy_admission_scheduled_experiment_test.cjs": {
+      "seconds": 83.321,
+      "occurrence": 86
+    },
+    "node tests/privacy_roster_notice_phase_experiment_test.cjs": {
+      "seconds": 99.607,
+      "occurrence": 88
+    },
+    "node tests/privacy_provider_cleanup_rotation_experiment_test.cjs": {
+      "seconds": 12.495,
+      "occurrence": 90
+    },
+    "node tests/qr_browser_test.cjs": {
+      "seconds": 9.076,
+      "occurrence": 100
+    },
+    "node tests/privacy_beta_fern_native_test.cjs": {
+      "seconds": 9.105,
+      "occurrence": 98
+    },
+    "node tests/privacy_attended_beta_route_native_test.cjs": {
+      "seconds": 7.434,
+      "occurrence": 101
+    },
+    "node tests/beta_reset_ordinary_budget_test.cjs": {
+      "seconds": 64.767,
+      "occurrence": 110
+    },
+    "node tests/beta_retention_frontend_test.cjs": {
+      "seconds": 23.503,
+      "occurrence": 116
+    },
+    "node tests/beta_reset_own_data_test.cjs": {
+      "seconds": 3.805,
+      "occurrence": 118
+    },
+    "node tests/beta_item15_central_fence_test.cjs": {
+      "seconds": 10.694,
+      "occurrence": 132
+    },
+    "node tests/beta_source_closure_test.cjs": {
+      "seconds": 4.629,
+      "occurrence": 142
+    },
+    "node tests/beta_source_grant_fence_test.cjs": {
+      "seconds": 3.051,
+      "occurrence": 143
+    },
+    "node tests/role_sweep_test.cjs": {
+      "seconds": 10.99,
+      "occurrence": 7
+    },
+    "node tests/hardening_test.cjs": {
+      "seconds": 6.481,
+      "occurrence": 13
+    },
+    "node tests/interactions_hardening_test.cjs": {
+      "seconds": 4.277,
+      "occurrence": 16
+    },
+    "node tests/community_event_delivery_test.cjs": {
+      "seconds": 19.873,
+      "occurrence": 22
+    },
+    "node tests/account_copy_test.cjs": {
+      "seconds": 99.29,
+      "occurrence": 31
+    },
+    "node tests/privacy_foundation129_lifecycle_test.cjs": {
+      "seconds": 5.111,
+      "occurrence": 47
+    },
+    "node tests/privacy_serving_lifecycle_test.cjs": {
+      "seconds": 7.886,
+      "occurrence": 49
+    },
+    "node tests/privacy_root_access_integration_review_test.cjs": {
+      "seconds": 3.181,
+      "occurrence": 59
+    },
+    "node tests/privacy_reminder_selected_row_review_test.cjs": {
+      "seconds": 14.899,
+      "occurrence": 67
+    },
+    "node tests/privacy_access_history_test.cjs": {
+      "seconds": 84.824,
+      "occurrence": 69
+    },
+    "node tests/privacy_account_coverage_test.cjs": {
+      "seconds": 6.192,
+      "occurrence": 71
+    },
+    "node tests/privacy_history_whole_coverage_review_test.cjs": {
+      "seconds": 45.428,
+      "occurrence": 73
+    },
+    "node tests/privacy_history_legitimate_size_review_test.cjs": {
+      "seconds": 4.985,
+      "occurrence": 76
+    },
+    "node tests/privacy_credential_expiry_stage_review_test.cjs": {
+      "seconds": 4.189,
+      "occurrence": 77
+    },
+    "node tests/privacy_roster_notice_actual_erasure_experiment_test.cjs": {
+      "seconds": 10.138,
+      "occurrence": 89
+    },
+    "node tests/qr_phase1_test.cjs": {
+      "seconds": 21.439,
+      "occurrence": 94
+    },
+    "node tests/community_census_validator_test.cjs": {
+      "seconds": 0.688,
+      "occurrence": 121
+    },
+    "node tests/community_census_route_test.cjs": {
+      "seconds": 56.031,
+      "occurrence": 122
+    },
+    "node tests/privacy_erasure_original_rejection_test.cjs": {
+      "seconds": 28.466,
+      "occurrence": 130
+    },
+    "node tests/full_release_pass_test.cjs": {
+      "seconds": 8.029,
+      "occurrence": 137
+    },
+    "node tests/privacy_preseal_serving_test.cjs": {
+      "seconds": 2.835,
+      "occurrence": 141
+    },
+    "node tests/membership_retirement_route_test.cjs": {
+      "seconds": 27.482,
+      "occurrence": 10
+    },
+    "node tests/community_events_test.cjs": {
+      "seconds": 7.292,
+      "occurrence": 21
+    },
+    "node tests/community_privacy_test.cjs": {
+      "seconds": 5.493,
+      "occurrence": 29
+    },
+    "node tests/community_digest_test.cjs": {
+      "seconds": 18.258,
+      "occurrence": 30
+    },
+    "node tests/rank_planner_test.cjs": {
+      "seconds": 0.242,
+      "occurrence": 36
+    },
+    "node tests/governance_test.cjs": {
+      "seconds": 0.24,
+      "occurrence": 39
+    },
+    "node tests/privacy_serving_integration_test.cjs": {
+      "seconds": 39.827,
+      "occurrence": 50
+    },
+    "node tests/privacy_access_test.cjs": {
+      "seconds": 65.037,
+      "occurrence": 52
+    },
+    "node tests/role_sweep_rank_integration_test.cjs": {
+      "seconds": 13.506,
+      "occurrence": 54
+    },
+    "node tests/privacy_history_family_authority_review_test.cjs": {
+      "seconds": 94.369,
+      "occurrence": 74
+    },
+    "node tests/privacy_admission_cleanup_status_experiment_test.cjs": {
+      "seconds": 8.968,
+      "occurrence": 91
+    },
+    "node tests/privacy_cookie_qr_native_test.cjs": {
+      "seconds": 4.398,
+      "occurrence": 97
+    },
+    "node tests/privacy_beta_fern_own_copy_native_test.cjs": {
+      "seconds": 4.771,
+      "occurrence": 103
+    },
+    "node tests/beta_reset_schedule_test.cjs": {
+      "seconds": 4.024,
+      "occurrence": 108
+    },
+    "node tests/beta_reset_lease_custody_test.cjs": {
+      "seconds": 5.542,
+      "occurrence": 113
+    },
+    "node tests/privacy_erasure_attempt_discipline_test.cjs": {
+      "seconds": 86.654,
+      "occurrence": 120
+    },
+    "node tests/privacy_erasure_attempt_identity_test.cjs": {
+      "seconds": 23.927,
+      "occurrence": 126
+    },
+    "node tests/privacy_dispatch_seal_profile_native_test.cjs": {
+      "seconds": 10.22,
+      "occurrence": 127
+    },
+    "node tests/beta_old_removal_fence_test.cjs": {
+      "seconds": 7.197,
+      "occurrence": 131
+    },
+    "node tests/full_release_review_test.cjs": {
+      "seconds": 11.504,
+      "occurrence": 138
+    },
+    "node tests/privacy_native_erasure_roles_test.cjs": {
+      "seconds": 3.201,
+      "occurrence": 146
+    },
+    "node tests/privacy_native_erasure_cleanup_test.cjs": {
+      "seconds": 3.134,
+      "occurrence": 147
+    }
+  }
+}

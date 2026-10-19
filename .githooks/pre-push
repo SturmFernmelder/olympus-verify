@@ -1,0 +1,4 @@
+#!/bin/sh
+# Git supplies the actual outgoing local SHA(s) on stdin; never substitute HEAD or the worktree.
+set -eu
+exec node scripts/check-projections.cjs --pre-push
