@@ -80,6 +80,7 @@ async function main() {
   check('the workflow schedules every required matrix value 1 through 8', !!matrix && JSON.stringify(JSON.parse(matrix[1])) === '[1,2,3,4,5,6,7,8]');
   check('matrix fail-fast remains false without continue-on-error', /\n      fail-fast: false\n/.test(shardJob) && !/continue-on-error:\s*true/.test(workflow));
   check('the matrix invokes the real shard runner with its own matrix value', shardJob.includes('run: node scripts/ci-shards.cjs --shard ${{ matrix.shard }}') && shardJob.includes('working-directory: worker'));
+  check('compiler annotation matchers stop before original raw suite output begins', shardJob.includes("::remove-matcher owner=tsc::") && shardJob.includes("::remove-matcher owner=eslint-compact::") && shardJob.indexOf('::remove-matcher owner=tsc::') < shardJob.indexOf('run: node scripts/ci-shards.cjs --shard'));
   check('the worker status is an always-run collector depending on the whole matrix', /\n    name: worker\n/.test(collector) && /\n    if: always\(\)\n/.test(collector) && /\n    needs: \[worker_shard\]\n/.test(collector));
   check('the collector consumes the actual matrix result through the exact-success gate', collector.includes('WORKER_SHARDS: ${{ needs.worker_shard.result }}') && collector.includes("requireShardResult(process.env.WORKER_SHARDS)"));
   check('the final check always requires addon, watcher and worker', /\n    if: always\(\)\n/.test(final) && /\n    needs: \[addon, watcher, worker\]\n/.test(final) && final.includes('run: bash scripts/ci-gate.sh') && ['WORKER', 'WATCHER', 'ADDON'].every(name => final.includes(name + ': ${{ needs.' + name.toLowerCase() + '.result }}')));
@@ -90,6 +91,25 @@ async function main() {
   const rosterGroups = /const CI_ROSTER_GROUPS = Object\.freeze\(\[([^]*?)\]\.map\(Object\.freeze\)\)/.exec(roster)?.[1] || '';
   const counts = [...rosterGroups.matchAll(/expectedChecks:\s*(\d+)/g)].map(m => Number(m[1]));
   check('the six independent roster worlds retain their original 100-check partition', JSON.stringify(counts) === '[13,5,51,4,4,23]' && counts.reduce((n, x) => n + x, 0) === 100 && roster.includes('selectedRosterGroup === undefined ? 100 : CI_ROSTER_GROUPS'));
+  // Resolve real JS bindings rather than accepting a matching spelling in another function's local scope.
+  const ts = require(path.join(root, 'worker/node_modules/typescript'));
+  const rosterFile = path.join(root, 'worker/tests/roster_effects_test.cjs');
+  const program = ts.createProgram([rosterFile], { allowJs: true, noResolve: true, noLib: true, noEmit: true, module: ts.ModuleKind.CommonJS });
+  const rosterAst = program.getSourceFile(rosterFile), checker = program.getTypeChecker();
+  const debtIdentifiers = [], debtDeclarations = [], wholeWorlds = [];
+  const wholeWorldNames = ['constantsFull', 'noticeDebt', 'faultsAndFences', 'manualSync', 'manualNoticeDebt', 'identity'];
+  function inspectBinding(node) {
+    if (ts.isIdentifier(node) && node.text === 'debtIterations') {
+      debtIdentifiers.push(node);
+      if (ts.isVariableDeclaration(node.parent) && node.parent.name === node) debtDeclarations.push(node.parent);
+    }
+    if (ts.isFunctionDeclaration(node) && wholeWorldNames.includes(node.name?.text)) wholeWorlds.push(node);
+    ts.forEachChild(node, inspectBinding);
+  }
+  inspectBinding(rosterAst);
+  function containingFunction(node) { for (let p = node.parent; p; p = p.parent) if (ts.isFunctionDeclaration(p)) return p.name?.text; return null; }
+  const sharedDebt = debtDeclarations[0], sharedSymbol = sharedDebt && checker.getSymbolAtLocation(sharedDebt.name);
+  check('the original notice loop and later diagnostic resolve every debtIterations reference to one shared outer binding', debtDeclarations.length === 1 && !!sharedSymbol && wholeWorlds.length === 6 && wholeWorlds.every(fn => fn.parent === sharedDebt.parent.parent.parent && sharedDebt.getStart(rosterAst) < fn.getStart(rosterAst)) && debtIdentifiers.every(id => checker.getSymbolAtLocation(id) === sharedSymbol) && debtIdentifiers.some(id => containingFunction(id) === 'noticeDebt' && ts.isPostfixUnaryExpression(id.parent)) && debtIdentifiers.filter(id => containingFunction(id) === 'faultsAndFences').length >= 2);
   const entryStates = [...rosterGroups.matchAll(/\{ id: '([^']+)', expectedChecks: (\d+), entryClock: (\d+), entryInteractionSequence: (\d+), entryFaultObservation: (true|false) \}/g)]
     .map(([, id, , clock, interaction, observer]) => [id, Number(clock), Number(interaction), observer === 'true']);
   check('isolated roster entry metadata preserves the original clock, interaction sequence and fault observer', JSON.stringify(entryStates) === JSON.stringify([

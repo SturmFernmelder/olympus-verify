@@ -17,7 +17,9 @@ const CI_ROSTER_GROUPS = Object.freeze([
 ].map(Object.freeze));
 const selectedRosterGroup = process.env.OLYMPUS_CI_ROSTER_GROUP;
 if (process.env.OLYMPUS_CI_CASE_POOL === '1' && selectedRosterGroup === undefined) {
-  require('../scripts/ci-case-pool.cjs').runCasePool({ file: __filename, groups: CI_ROSTER_GROUPS, childEnvKey: 'OLYMPUS_CI_ROSTER_GROUP' })
+  // Start the two measured longest complete worlds first; ordinary cases below keep their original order.
+  const order = ['notice-debt', 'manual-notice-debt', 'faults-and-fences', 'manual-sync', 'constants-full', 'identity'];
+  require('../scripts/ci-case-pool.cjs').runCasePool({ file: __filename, groups: order.map(id => CI_ROSTER_GROUPS.find(group => group.id === id)), childEnvKey: 'OLYMPUS_CI_ROSTER_GROUP' })
     .catch(error => { console.error(error); process.exitCode = 1; });
   return; // Parent never imports the fixture or patches its globals.
 }
@@ -335,6 +337,8 @@ async function ingestDirect(members, exportedAt, over = {}) {
   const lean = { ROLE_CALL_BUDGET: "4" };
   const changed = rosterOf(0, N).map((m, j) => (j === 0 ? { ...m, rankIndex: 2 } : m)); // one harmless rank change
   const debtEnv = { ...lean, SET_NICKNAME: "true", CHANNEL_NOTICES: "" };
+  // The later original scope diagnostic reads the completed notice world's counter.
+  let debtIterations = 0;
   async function constantsFull() {
   console.log("== the constants: the cron's line, the allowances, the worst cases ==");
   check(`the cron's line is ${budget.SCHEDULED_CAPS.rosterEffectsStatements} statements and the table's sum stays at or below the target (${budget.SCHEDULED_WORST_CASE} <= ${TARGET})`, budget.SCHEDULED_BUDGET.some((j) => j.job === "continueRosterEffects" && j.worst === budget.SCHEDULED_CAPS.rosterEffectsStatements) && budget.SCHEDULED_WORST_CASE <= TARGET);
@@ -401,7 +405,7 @@ async function ingestDirect(members, exportedAt, over = {}) {
   observeOriginalDebt("export",debt,debtAt);
   const debtRun = latestRun().id;
   check("the first long slice includes its finally flush within the roster allowance and leaves durable work", debt.body.effects.applied > 0 && debt.body.effects.pending && debt.statements <= budget.ROSTER_INGEST_STATEMENTS, debt.statements, debt.body.effects);
-  let debtIterations=0;
+  debtIterations=0;
   for (let k = 0; k < 132 && latestRun().done_at === null; k++) {
     debtIterations++;
     T += 60;
@@ -936,6 +940,7 @@ async function ingestDirect(members, exportedAt, over = {}) {
       // fault observer is enabled by the original fault group and stays enabled.
       iid = recorded.entryInteractionSequence;
       observeOriginalFaultHTTP = recorded.entryFaultObservation;
+      debtIterations = ['constants-full', 'notice-debt'].includes(group) ? 0 : 131;
       selectedEntryState = { clock: T, interactionSequence: iid, faultObservation: observeOriginalFaultHTTP };
     }
     if (T !== recorded.entryClock) throw Error(`roster fixture entry clock drift: ${group} ${T}/${recorded.entryClock}`);

@@ -40,6 +40,12 @@ jobs:
           cache-dependency-path: worker/package-lock.json
       - name: Verify projection pins
         run: node scripts/check-projections.cjs --index
+      # Full raw fixture evidence stays in the log; matching its multi-megabyte
+      # JSON lines as compiler diagnostics costs minutes and changes no test result.
+      - name: Stop compiler annotation matchers before raw fixture logs
+        run: |
+          echo '::remove-matcher owner=tsc::'
+          echo '::remove-matcher owner=eslint-compact::'
       - run: npm ci
         working-directory: worker
       - name: Run every assigned original Worker command
