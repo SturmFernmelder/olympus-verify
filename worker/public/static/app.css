@@ -484,6 +484,7 @@ table.data td.num, table.data th.num { text-align: right; font-variant-numeric: 
 .admin-section-picker { display: none; }
 .admin-section-nav { margin-bottom: 14px; }
 .admin-section-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.community-admin-scroll-hint { display: none; }
 .admin-filter-panel { margin: 12px 0 16px; border: 1px solid var(--line); background: rgba(0,0,0,.25); padding: 10px 12px; }
 .admin-filter-panel > summary { cursor: pointer; color: var(--gold-soft); }
 .admin-filter-panel[open] > summary { margin-bottom: 12px; }
@@ -530,10 +531,17 @@ main:has(.admin-section-links a[href="#/admin/applications"][aria-current="page"
 .role-details > summary { cursor: pointer; color: var(--gold-soft); }
 .role-details[open] > summary { margin-bottom: 12px; }
 @media (max-width: 720px) {
-  .admin-section-picker { display: grid; gap: 5px; margin: 10px 0; }
-  .admin-section-picker select { width: 100%; }
+  /* .175 (19 Oct 2026 audit): flatten staff navigation's nested decorative frames so the task stays within reach. */
+  .admin-section-picker { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; font-size: .86rem; }
+  .admin-section-picker select { width: 100%; min-width: 0; min-height: 44px; }
   .admin-section-links { display: none; }
-  .admin-section-nav { margin-bottom: 8px; }
+  .admin-section-nav { margin-bottom: 0; }
+  .frame:has(> .admin-section-nav), .frame:has(> .community-admin-nav) { border: 0; border-image: none; border-bottom: 1px solid var(--brass); padding: 8px; margin: 12px 0; box-shadow: none; }
+  .frame:has(> .admin-section-nav) > .plaque, .frame:has(> .community-admin-nav) > .plaque { border: 0; border-image: none; flex-direction: row; align-items: center; gap: 4px 10px; min-height: 0; padding: 0; margin: 0 0 8px; }
+  .frame:has(> .admin-section-nav) > .plaque h2, .frame:has(> .community-admin-nav) > .plaque h2 { font-size: 1.3rem; }
+  nav[aria-label="Community admin sections"] { flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding: 4px 4px 10px; scroll-padding-inline: 4px; overscroll-behavior-x: contain; scrollbar-color: var(--brass) #11140f; }
+  nav[aria-label="Community admin sections"] > .btn { flex: 0 0 auto; min-height: 44px; }
+  .community-admin-scroll-hint { display: block; color: var(--muted); font-size: .76rem; margin: 2px 0 0; }
   .admin-filter-panel { padding: 9px 10px; }
   .admin-filter-panel .filters { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
   .admin-filter-panel .filters .field { min-width: 0; }

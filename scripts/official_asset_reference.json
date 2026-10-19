@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 59397,
-      "sha256": "a52770bc203a3920c6ac79cc4821f75ac5f504e3bc5ab3866e4c27f55ddf833b"
+      "bytes": 60635,
+      "sha256": "9fe9a75520354f8fbc0cc86d04f8063363ce1ffc2d3aeeb8c7e8569da42a5f71"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 515707,
-      "sha256": "cb876e6fe81654af852f868ca138c202f3fc4894755eab19ee13d16f87027e1b"
+      "bytes": 519531,
+      "sha256": "7297f0e322b32718bfa25769bd1f12a2033e8257ffc2b43b23046823c304c29a"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -650,14 +650,14 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 26288,
-      "sha256": "86f2c1a6af6cb410c6d7b2c78b3365887944c13e28fbafe2cccc3c9bc1ca0572"
+      "bytes": 27391,
+      "sha256": "e965054428353d1fbd69b3ac2e70681b4b96ed9d46805a9d7496a03c8bfc3fc2"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 14635,
-      "sha256": "ac9676e2d15b4cc61cc36b1cf4eb0bb21742d76338c52058345b1ebfadf370ac"
+      "bytes": 14685,
+      "sha256": "8077df9d6708bf27f55a94cb76d0a4b63e7df45bdd8ed24db26aaa4ae114c081"
     },
     {
       "path": "worker/public/static/resources169.js",
@@ -3797,8 +3797,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 515707,
-      "sha256": "cb876e6fe81654af852f868ca138c202f3fc4894755eab19ee13d16f87027e1b"
+      "bytes": 519531,
+      "sha256": "7297f0e322b32718bfa25769bd1f12a2033e8257ffc2b43b23046823c304c29a"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",

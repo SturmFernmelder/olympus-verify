@@ -121,8 +121,9 @@
     if (!container || !container.ownerDocument || typeof container.replaceChildren !== "function") throw Error("A DOM container is required.");
     mounted.get(container)?.destroy();
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
-    let active = true, compare = false, selected = null, message = "", build, data, art;
-    const controller = { destroy() { active = false; if (mounted.get(container) === controller) mounted.delete(container); } };
+    let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
+    function cancelDetailLeave() { if (detailLeaveTimer !== null) clearTimeout(detailLeaveTimer); detailLeaveTimer = null; }
+    const controller = { destroy() { active = false; cancelDetailLeave(); if (mounted.get(container) === controller) mounted.delete(container); } };
     mounted.set(container, controller);
     const h = (tag, attrs, ...children) => {
       const node = document.createElement(tag);
@@ -178,6 +179,7 @@
       build = emptyBuild(data, className, build.level); selected = talentsOf(classOf(data, className))[0].id; message = ""; changed(); render("class:" + className);
     }
     function render(focus) {
+      cancelDetailLeave();
       if (!active) return;
       const cls = classOf(data, build.className), talents = talentsOf(cls), state = validateBuild(data, build), byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
       const buttons = new Map(), classButtons = new Map();
@@ -195,11 +197,16 @@
       } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
       level.value = String(build.level);
       const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { compare = event.target.checked; render("compare"); } });
-      const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); detail.hidden = true; } } });
+      const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); hideDetail(); } } });
       const status = h("p", { class: "talents-feedback", role: "status", "aria-live": "polite", text: message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank." });
+      function hideDetail() {
+        cancelDetailLeave(); detail.hidden = true;
+        if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
+      }
       function showDetail(t, button, open = true) {
+        cancelDetailLeave();
         const rank = byId.get(t.id), c = t.classic;
-        detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, image(art.talentIcons[t.id]), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { detail.hidden = true; if (button) button.focus(); detail.hidden = true; } })),
+        detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, image(art.talentIcons[t.id]), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { hideDetail(); if (button) button.focus(); hideDetail(); } })),
           h("p", { class: "talents-rank", text: "Rank " + rank + " / " + t.maxRank + (t.passive ? " · Passive" : " · Active ability") }),
           t.cost ? h("p", { class: "talents-cost", text: t.cost }) : null,
           h("h4", { text: rank ? "Current rank" : "First rank" }), h("p", { class: "talents-description", text: t.descriptions[Math.max(0, rank - 1)] }),
@@ -212,7 +219,11 @@
           c.renamed ? h("p", { text: "Classic name: " + c.renamed }) : null,
           c.note ? h("p", { text: c.note }) : null,
           c.replaces?.length ? h("p", { text: "Replaces: " + c.replaces.join(", ") }) : null));
-        if (button && button.parentNode) button.parentNode.append(detail);
+        if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
+        if (button && button.parentNode) {
+          button.parentNode.append(detail);
+          if (open) button.parentNode.setAttribute("data-detail-open", "true");
+        }
         for (const pick of buttons.values()) pick.removeAttribute("aria-describedby");
         if (button) button.setAttribute("aria-describedby", detailId);
         detail.hidden = !open;
@@ -224,7 +235,7 @@
           return h("span", { class: "talents-link from-r" + parent.row + " to-r" + t.row + " to-c" + t.column + " start-c" + Math.min(parent.column, t.column) + " span-r" + (t.row - parent.row) + " span-c" + Math.abs(t.column - parent.column) + (t.column < parent.column ? " leftward" : " rightward") + (t.row === parent.row ? " same-row" : "") + (ready ? " ready" : ""), "aria-hidden": "true" }, h("span", { class: "talents-link-h" }), h("span", { class: "talents-link-v" }), h("span", { class: "talents-link-arrow" }));
         });
         return h("section", { class: "talents-tree", "data-tree-index": treeIndex, "aria-label": tree.name },
-          h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h3", { text: tree.name }), h("strong", { text: String(state.treePoints[treeIndex]) + " points" })),
+          h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h3", { text: tree.name }), h("strong", { text: String(state.treePoints[treeIndex]) + (state.treePoints[treeIndex] === 1 ? " point" : " points") })),
           h("div", { class: "talents-tree-body" }, image(art.treeBackgrounds[treeKey], { class: "talents-backdrop", "aria-hidden": "true" }), h("div", { class: "talents-links", "aria-hidden": "true" }, links),
             h("div", { class: "talents-grid" }, tree.talents.map(t => {
               const rank = byId.get(t.id), canAdd = allocate(data, build, t.id, 1).ok, canRemove = allocate(data, build, t.id, -1).ok;
@@ -234,7 +245,7 @@
                 onpointerenter() { showDetail(t, pick); },
                 onfocus() { selected = t.id; for (const [id, button] of buttons) { button.setAttribute("aria-pressed", String(id === t.id)); if (tree.talents.some(p => p.id === id)) button.tabIndex = id === t.id ? 0 : -1; } showDetail(t, pick); },
                 onkeydown(event) {
-                  if (event.key === "Escape") { event.preventDefault(); detail.hidden = true; return; }
+                  if (event.key === "Escape") { event.preventDefault(); hideDetail(); return; }
                   if (event.key === "i" || event.key === "I") { event.preventDefault(); showDetail(t, pick); detail.focus(); return; }
                   if (["+", "="].includes(event.key)) { event.preventDefault(); edit(t.id, 1); return; }
                   if (["-", "_"].includes(event.key)) { event.preventDefault(); edit(t.id, -1); return; }
@@ -247,7 +258,16 @@
               }, image(art.talentIcons[t.id]), h("span", { class: "talents-name", text: t.name }), h("span", { class: "talents-rank-pill", "aria-hidden": "true", text: rank + "/" + t.maxRank }));
               buttons.set(t.id, pick);
               const node = h("div", { class: "talents-node" + (rank ? " invested" : "") + (rank === t.maxRank ? " complete" : "") + (canAdd ? " available" : "") + (!canAdd && !rank ? " locked" : "") + (compare ? " compare-" + t.classic.status : ""), "data-row": t.row, "data-column": t.column,
-                onpointerleave(event) { if (detail.parentNode === node && !node.contains(event.relatedTarget) && !node.contains(document.activeElement)) detail.hidden = true; } }, pick,
+                onpointerenter() { cancelDetailLeave(); },
+                onpointerleave(event) {
+                  if (detail.hidden || detail.parentNode !== node || node.contains(event.relatedTarget) || node.contains(document.activeElement)) return;
+                  // Audit follow-up (2026-10-19): allow the pointer to cross the 9px gap into the reparented detail controls.
+                  cancelDetailLeave();
+                  detailLeaveTimer = setTimeout(() => {
+                    detailLeaveTimer = null;
+                    if (detail.parentNode === node && !node.contains(document.activeElement)) hideDetail();
+                  }, 250);
+                } }, pick,
                 compare ? h("span", { class: "talents-node-badges", "aria-hidden": "true", text: comparisonBadges(t).map(label => label[0]).join("") }) : null);
               return node;
             }))),

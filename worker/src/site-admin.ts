@@ -10,7 +10,7 @@ import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy
  *   GET  applications?position&backups&profession&status&q&offset, GET applications/{id}
  *   POST applications/{id}/status          {status, note}
  *   POST users/{id}/deny {reason}, POST users/{id}/undeny, POST users/{id}/delete {mentions} (legacy site-only deletion)
- *   POST users/{id}/mentions               only what others entered about an account that never signed in here
+ *   POST users/{id}/mentions               only what others entered about an account with no current site profile
  *   GET  availability?role                 the weekly grid of every open application, summed per UTC hour
  *   GET  board?role&minAccountDays&minServerDays&includeDenied&includeLeft&onlyApplicants, GET board/voters?role&candidate
  *   GET  votes?ballot&(the same filters), GET votes/voters?ballot&kind&key          (write-in nominations)
@@ -46,7 +46,7 @@ import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
 import {prepareMembershipDecision,membershipDecisionTargetToken,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
 import { handleBetaRoleReset } from './beta-reset-route';
-import { appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql } from './site-appointed-identities';
+import { appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql, appointmentPublicationTargetFailure, type AppointmentPublicationFailure } from './site-appointed-identities';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -272,8 +272,9 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
       return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile and its current verified characters to confirmed guild members. This applies only to the Co-Guild Master and Treasurer account associations; it grants no role or permission.' }, 400);
     }
   }
-  const publication = appointedObj ? await prepareAppointmentPublication(env, appointedObj) : null;
-  if (appointedObj && !publication) return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', message: 'A selected appointment account has no current eligible site identity. Do not guess an identity; remove its association or wait until its identity can be confirmed.' }, 409);
+  const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj) : null;
+  if (prepared && !prepared.ok) return appointmentAccountRefusal(prepared);
+  const publication = prepared?.ok ? prepared : null;
   if (publication) next.appointed = JSON.stringify(publication.stored);
   const entries = Object.entries(next) as Array<[string, string]>;
   if (!entries.length) return apiJson({ ok: true, settings: cur });
@@ -294,12 +295,23 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
   ).bind(JSON.stringify(next), JSON.stringify(expected), t, actor, ...(publication?.targets.length ? [JSON.stringify(publication.targets)] : [])).run();
   if ((saved.meta?.changes ?? 0) === 0) {
+    const targetFailure = publication ? await appointmentPublicationTargetFailure(env, publication.targets) : null;
+    if (targetFailure) return appointmentAccountRefusal(targetFailure);
     return apiJson({ error: "stale_settings", message: "Settings changed while this save was pending. Nothing was saved. Reload the page before editing again." }, 409);
   }
   const details = settingsAuditDetails(next, appointedObj, body.namesConfirmed === true);
   if (appointedObj && body.appointedCharactersConfirmed === true) details.appointedCharactersConfirmed = true;
   await audit(env, actor, "site.settings", undefined, details);
   return apiJson({ ok: true, settings: await loadSettings(env) });
+}
+
+function appointmentAccountRefusal(failure: AppointmentPublicationFailure): Response {
+  const action = failure.status === 'no_current_profile'
+    ? 'This Discord account has no current site profile. Ask the person to use the normal Sign in with Discord flow with this account, then search again.'
+    : failure.status === 'account_changed'
+      ? 'The selected site identity changed. Reload Settings and search for the account again before reviewing publication.'
+      : 'The selected account is not currently eligible for publication. Review its current site standing and search again; a normal sign-in with the correct Discord account may be needed.';
+  return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', role: failure.role, accountStatus: failure.status, message: `${roleLabel(failure.role)}: ${action} No settings were saved.` }, 409);
 }
 
 /**
@@ -454,7 +466,7 @@ async function deny(env: Env, actor: string, id: string, body: Record<string, un
   const reason = cleanText(body.reason, 300) || null;
   if(!origin)return apiJson({error:'original_membership_decision_held'},409);
   const r=await applyMembershipDecision(origin,env,'deny',{reason,at:now()});
-  if (!r.meta.changes) return apiJson({ error: "not_found", message: "That account never signed in here." }, 404);
+  if (!r.meta.changes) return apiJson({ error: "not_found", message: "That account has no current site profile." }, 404);
   const released = await releaseReserved(env, { ownerId: id }, actor);
   forgetBoardCounts();
   await audit(env, actor, "site.denied", id, { reason, released });
@@ -593,13 +605,13 @@ export async function deleteSiteData(env: Env, id: string, actor: string, mentio
 }
 
 /**
- * For someone who never signed in here but asks to be forgotten: only what others entered about them. Refused (409)
- * once the account has signed in, so this can never remove an account's own data: that is deleteSiteData, from the
+ * For someone with no current profile who asks to be forgotten: only what others entered about them. Refused (409)
+ * when the account has a current profile, so this can never remove an account's own data: that is deleteSiteData, from the
  * account's own admin page, with its own confirmation.
  */
 async function deleteMentions(env: Env, id: string, actor: string): Promise<Response> {
   if (await env.DB.prepare("SELECT 1 FROM site_users WHERE discord_id = ?1").bind(id).first()) {
-    return apiJson({ error: "signed_up", message: "This account has signed in here since. Open its page and use “Delete their site data” there." }, 409);
+    return apiJson({ error: "signed_up", message: "This account has a current site profile. Open its page and use “Delete their site data” there." }, 409);
   }
   const done = await env.DB.batch(await mentionDeletes(env, id));
   const removed = done.reduce((n, r) => n + (r.meta?.changes ?? 0), 0);

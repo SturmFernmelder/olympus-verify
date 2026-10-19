@@ -603,7 +603,9 @@
   }
   // Answers already fetched on this page, by query, for five minutes: the same letters are never asked for twice.
   const searchCache = new Map();
-  async function searchPeople(q) {
+  async function searchPeople(q, appointmentOnly = false) {
+    // Appointment standing is a current admin hint. Do not reuse the ordinary five-minute name cache.
+    if (appointmentOnly) return api("GET", "/api/search?purpose=appointment&q=" + encodeURIComponent(q));
     const key = q.toLowerCase();
     const hit = searchCache.get(key);
     if (hit && Date.now() - hit.at < 300000) return hit.res;
@@ -613,13 +615,13 @@
   }
 
   /** A search box over Asmongold's Discord (via the Worker) with a "type the name instead" fallback. */
-  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, exclude = () => false, label = "Find someone" }) {
+  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, appointmentOnly = false, exclude = () => false, label = "Find someone" }) {
     const id = "pk" + Math.random().toString(36).slice(2, 8);
     const input = h("input", { type: "search", id, placeholder, autocomplete: "off", spellcheck: "false", role: "combobox", "aria-expanded": "false", "aria-controls": id + "-list", "aria-autocomplete": "list" });
     const onlySite = h("input", { type: "checkbox", tabindex: "-1" });
     // Inside the dropdown, so the many ballots do not each carry a row of controls. mousedown keeps the focus in the
     // search box (a blur would close the list before the click lands).
-    const tools = h("label", { class: "list-tools" }, onlySite, h("span", { text: "Only people who have signed up here" }));
+    const tools = h("label", { class: "list-tools" }, onlySite, h("span", { text: "Only people with a current site profile" }));
     tools.addEventListener("mousedown", (e) => {
       e.preventDefault();
       onlySite.checked = !onlySite.checked;
@@ -632,6 +634,10 @@
     let timer = 0;
     let seq = 0;
     let last = null;
+    const selectable = it => (allowSelf || !it.self) && !exclude(it) && (!appointmentOnly || it.appointmentStatus === "eligible");
+    const appointmentHint = it => it.appointmentStatus === "eligible" ? "Eligible for association at this check; Save checks again."
+      : it.appointmentStatus === "no_current_profile" ? "No current site profile. Use normal Sign in with Discord with this account, then search again."
+      : "Currently unavailable for publication. Review current site standing and search again.";
     const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
     const open = () => { list.hidden = false; input.setAttribute("aria-expanded", "true"); };
     const state = (msg, withTools = false) => { tools.hidden = !withTools; clear(rowsBox).appendChild(h("div", { class: "state", text: msg })); open(); };
@@ -639,14 +645,14 @@
       clear(rowsBox);
       tools.hidden = !(last && (last.res.results || []).length);
       items.forEach((it, i) => {
-        const disabled = (it.self && !allowSelf) || exclude(it);
+        const disabled = !selectable(it);
         const row = h("div", { class: "row", role: "option", "aria-selected": i === active ? "true" : "false", "aria-disabled": disabled ? "true" : "false", id: `${id}-o${i}` },
           it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : discordAvatar(it), // Only authenticated Discord lookup results may use this bounded avatar.
-          h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.shown || it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : null),
+          h("div", { class: "nm" }, h("div", { text: it.typed ? `Add “${it.label}” by name` : it.shown || it.label }), it.typed ? h("div", { class: "sub", text: "For someone who is not on Discord, or could not be found" }) : appointmentOnly ? h("div", { class: "sub", text: appointmentHint(it) }) : null),
           it.self ? h("span", { class: "badge muted", text: "you" }) : null,
-          !it.typed && it.onSite ? h("span", { class: "badge", text: "signed up" }) : null,
+          !it.typed && it.onSite ? h("span", { class: "badge", text: "site profile" }) : null,
           !it.typed && it.linked ? h("span", { class: "badge green", text: "verified in game" }) : null,
-          disabled && !it.self ? h("span", { class: "badge muted", text: "added" }) : null);
+          disabled && !it.self ? h("span", { class: "badge muted", text: appointmentOnly && it.appointmentStatus !== "eligible" ? "unavailable" : "added" }) : null);
         row.addEventListener("mousedown", (e) => { e.preventDefault(); choose(i); });
         rowsBox.appendChild(row);
       });
@@ -657,14 +663,14 @@
     function build(res, q) {
       items = (res.results || [])
         .filter((r) => !onlySite.checked || r.onSite)
-        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked })); // .114: shown = every differing name; label = what a pick stores
+        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked, appointmentStatus: r.appointmentStatus })); // .114: shown = every differing name; label = what a pick stores
       const problem = typedProblem(q);
       if (allowTyped && !problem) items.push({ kind: "name", key: q.toLowerCase().replace(/\s+/g, " "), label: q.replace(/\s+/g, " "), typed: true });
-      active = items.findIndex((it) => (allowSelf || !it.self) && !exclude(it));
+      active = items.findIndex(selectable);
       const notes = [];
       if (res.limited) notes.push("Discord is limiting searches right now; results may be missing. Try again in a few seconds.");
-      if (res.unavailable) notes.push("Discord search is unavailable right now. You can still add the name by hand.");
-      if (!items.length) return state(notes[0] || (onlySite.checked && (res.results || []).length ? "Nobody here has signed up yet." : allowTyped ? problem || "Nobody found." : "Nobody found."), (res.results || []).length > 0);
+      if (res.unavailable) notes.push(allowTyped ? "Discord search is unavailable right now. You can still add the name by hand." : "Discord search is unavailable right now. Try again shortly.");
+      if (!items.length) return state(notes[0] || (onlySite.checked && (res.results || []).length ? "None of these accounts has a current site profile." : allowTyped ? problem || "Nobody found." : "Nobody found."), (res.results || []).length > 0);
       draw(notes);
     }
     async function run() {
@@ -673,14 +679,14 @@
       const my = ++seq;
       state("Searching…");
       let res;
-      try { res = await searchPeople(q); } catch (e) { res = { results: [], unavailable: e.status !== 429, limited: e.status === 429 }; }
+      try { res = await searchPeople(q, appointmentOnly); } catch (e) { res = { results: [], unavailable: e.status !== 429, limited: e.status === 429 }; }
       if (my !== seq) return;
       last = { res, q };
       build(res, q);
     }
     function choose(i) {
       const it = items[i];
-      if (!it || (it.self && !allowSelf) || exclude(it)) return;
+      if (!it || !selectable(it)) return;
       onPick({ kind: it.kind, key: it.key, label: it.label, avatarUrl: it.avatarUrl || null });
       input.value = "";
       items = [];
@@ -698,9 +704,9 @@
         let i = active;
         for (let n = 0; n < items.length; n++) {
           i = (i + step + items.length) % items.length;
-          if ((allowSelf || !items[i].self) && !exclude(items[i])) break;
+          if (selectable(items[i])) break;
         }
-        active = i;
+        active = selectable(items[i]) ? i : -1;
         draw();
       } else if (e.key === "Enter") {
         if (!list.hidden && active >= 0) { e.preventDefault(); choose(active); }
@@ -2632,10 +2638,18 @@
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
     const was = s.appointed || {};
     const appointed = M().ballots.map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
+    const associationStatus = new Map(["co_gm", "treasurer"].map(key => [key, h("span", { class: "hint", role: "status", "data-appointment-status": key })]));
+    for (const [b, input] of appointed) {
+      const status = associationStatus.get(b.key);
+      if (!status) continue;
+      const edit = () => { status.textContent = appointmentPointer(input.value.trim()) ? "Use account search to check current association eligibility. Save checks the selected account again." : ""; };
+      input.addEventListener("input", edit); edit();
+    }
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
       h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input),
-        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, allowTyped: false, allowSelf: true,
-          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; } }) : null)));
+        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, allowTyped: false, allowSelf: true, appointmentOnly: true,
+          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }) : null,
+        associationStatus.get(b.key))));
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
     const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");
@@ -2659,7 +2673,15 @@
         namesOk.checked = false;
         characterPublication.checked = false;
         toast("Settings saved.", "good");
-      } catch (err) { toast(err.message, "bad"); } finally { save.disabled = false; }
+      } catch (err) {
+        const role = err.data && err.data.error === "appointed_account_unavailable" && err.data.role;
+        if (associationStatus.has(role)) {
+          associationStatus.get(role).textContent = err.message;
+          characterPublication.checked = false;
+          appointed.find(([bb]) => bb.key === role)[1].focus();
+        }
+        toast(err.message, "bad");
+      } finally { save.disabled = false; }
     });
     clear(body);
     add(body, frame("Settings", null,
@@ -2672,6 +2694,7 @@
       h("div", { class: "rule" }),
       h("h3", { text: "Appointed roles" }),
       h("p", { class: "muted small", text: "A role with a name here is filled by appointment: it cannot be chosen on the Apply page, its voting board and write-ins close, and members see who holds it. Votes and write-ins it already had are kept, and count again if you open it. Leave a box empty to open the role." }),
+      h("p", { class: "muted small", text: "For a Co-Guild Master or Treasurer account association, search checks for a current eligible site profile. A character link or roster confirmation is not required. If no current profile exists, the person must use normal Sign in with Discord with the correct account, then you can search again. This does not establish whether they signed in historically." }),
       h("div", { class: "group-label", text: "Leadership" }), appointedGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), appointedGrid("class"),
       namesOkRow,
@@ -2959,15 +2982,24 @@
           ? `No matching entries between ${span}. The rest of the log was stamped before this window, so more are unlikely; Older still checks it, for any entry stamped out of order.`
           : `No matching entries between ${span}; Older keeps looking further back.`;
     const filterState = adminFilterState(body, !!(sent.family || sent.actor || sent.subject || sent.window !== "7d")); filters.open = filterState.open;
+    // .175: remember the still-focused pager only after the read; a reader who moved away keeps their focus.
+    const pagerFocus = body.contains(document.activeElement) && ["audit-page-newest", "audit-page-older"].includes(document.activeElement.id) ? document.activeElement.id : "";
     clear(body);
     add(body, frame("Audit log", null, intro, filters,
       entries.length ? table : null,
       h("div", { class: "pager" },
-        h("span", { class: "muted small", id: "audit-status", text: status }),
+        h("span", { class: "muted small", id: "audit-status", role: "status", "aria-live": "polite", text: status }),
         h("div", { class: "btn-row" },
-          h("button", { class: "btn small", type: "button", text: "Newest", disabled: !sent.before, onclick: () => page(0) }),
-          h("button", { class: "btn small", type: "button", text: "Older", disabled: !Number.isInteger(d.next), onclick: () => page(d.next) })))));
+          h("button", { class: "btn small", id: "audit-page-newest", type: "button", text: "Newest", disabled: !sent.before, onclick: () => page(0) }),
+          h("button", { class: "btn small", id: "audit-page-older", type: "button", text: "Older", disabled: !Number.isInteger(d.next), onclick: () => page(d.next) })))));
     restoreAdminFilterFocus(body, filterState);
+    if (pagerFocus) {
+      const preferred = body.querySelector("#" + pagerFocus);
+      const alternate = body.querySelector(pagerFocus === "audit-page-older" ? "#audit-page-newest" : "#audit-page-older");
+      const target = preferred && !preferred.disabled ? preferred : alternate && !alternate.disabled ? alternate : null;
+      // The replacement page may be much taller; normal focus scrolls its pager into view when needed.
+      if (target) target.focus();
+    }
   }
 
   // Explicit approved-beta publication: request-driven steps, durable original operations, no future selector or automatic sends.
@@ -3277,7 +3309,7 @@
     search.addEventListener("keydown", (e) => { if (e.key === "Enter") apply(); });
     const rows = data.items.map((it) => {
       const tr = h("tr", { class: "clickable" },
-        h("td", { class: "wrap" }, userCell(it.user)),
+        h("td", { class: "wrap" }, h("a", { class: "application-open", href: `#/admin/applications/${it.user.id}`, title: "Open application" }, userCell(it.user))),
         h("td", { class: "wrap" }, h("span", { class: "nowrap" }, posIcon(firstChoiceKey(it), "s"), " ", roleName(firstChoiceKey(it))), (it.backups || []).length ? h("div", { class: "faint small", text: "then " + it.backups.map(roleName).join(", ") }) : null),
         h("td", null, it.class ? clsLabel(it.class) : null, h("div", { class: "small muted" }, roleIcon(it.role), " ", labelOf(M().roles, it.role))),
         h("td", null, fitView(it.fit, { compact: true })),
@@ -3285,7 +3317,7 @@
         h("td", { class: "nowrap", text: it.user.accountCreated ? plural(days(it.user.accountCreated), "day") : "?" }),
         h("td", { class: "nowrap", text: it.user.serverJoined ? plural(days(it.user.serverJoined), "day") : "?" }),
         h("td", { class: "nowrap", text: ago(it.updatedAt) }));
-      tr.addEventListener("click", () => { location.hash = `#/admin/applications/${it.user.id}`; });
+      tr.addEventListener("click", (event) => { if (event.target instanceof Element && event.target.closest("a")) return; location.hash = `#/admin/applications/${it.user.id}`; });
       return tr;
     });
     const pager = h("div", { class: "pager" },
@@ -3668,21 +3700,20 @@
     const label = n.username ? `@${n.username}${n.displayName && n.displayName !== n.username ? ` (${n.displayName})` : ""}` : a.id;
     const appText = s.application ? `applied for ${roleName(s.application.position === "class_lead" && s.application.classLead ? `class_lead:${s.application.classLead}` : s.application.position)}${(s.application.backups || []).length ? `, then ${s.application.backups.map(roleName).join(", ")}` : ""} (${statusText(s.application.status)})` : "no application";
     const named = [s.writtenIn ? `written in ${plural(s.writtenIn, "time")}` : "", s.listedBy ? `on ${plural(s.listedBy, "friends list")}` : "", s.referencedBy ? `a reference in ${plural(s.referencedBy, "application")}` : ""].filter(Boolean);
-    // Someone who never signed in can still be named by others; a request to be forgotten covers that too. (For an
-    // account that signed in, "Delete their site data" on its page does the same, with everything else.)
+    // A missing current profile does not prove historical sign-ins; other members may still name the account.
     const forget = !s.signedUp && named.length
       ? h("div", { class: "btn-row mt" }, h("button", { class: "btn small danger", type: "button", text: "Remove these mentions", onclick: async (e) => {
           const panel = e.currentTarget.closest(".frame");
-          if (!(await confirmBox("Remove every mention of this account?", "For a request to be forgotten from someone who never signed in here: other members' write-ins, friends-list entries and references that name this account are deleted, with any reason or note written about them. This cannot be undone.", "Remove them", { danger: true }))) return;
+          if (!(await confirmBox("Remove every mention of this account?", "For a request to be forgotten from someone with no current site profile: other members' write-ins, friends-list entries and references that name this account are deleted, with any reason or note written about them. This cannot be undone.", "Remove them", { danger: true }))) return;
           try {
             await api("POST", `/api/admin/users/${a.id}/mentions`);
             toast("Mentions removed.", "good");
           } catch (err) { toast(err.message, "bad"); }
-          // Drawn again either way: after a 409 the account has signed in since, and the panel says so.
+          // Drawn again either way: a 409 may mean a current profile appeared while the action was pending.
           try { panel.replaceWith(accountPanel(await api("GET", `/api/admin/account/${a.id}`))); } catch { /* the toast said enough */ }
         } }))
       : null;
-    return frame(label, s.signedUp ? h("a", { class: "btn small", href: `#/admin/applications/${a.id}`, text: "Open on this site" }) : h("span", { class: "badge muted", text: "never signed in here" }),
+    return frame(label, s.signedUp ? h("a", { class: "btn small", href: `#/admin/applications/${a.id}`, text: "Open on this site" }) : h("span", { class: "badge muted", text: "no current site profile" }),
       h("dl", { class: "kv" },
         h("dt", { text: "Discord id" }), h("dd", { text: a.id }),
         h("dt", { text: "Account created" }), h("dd", { text: fmtDay(a.accountCreated) }),
@@ -3692,7 +3723,7 @@
         a.openCodes.length ? h("dt", { text: "Open codes" }) : null, a.openCodes.length ? h("dd", { text: a.openCodes.map((p) => p.name || "(any character)").join(", ") }) : null,
         a.member && a.member.battletag ? h("dt", { text: "Battle.net" }) : null, a.member && a.member.battletag ? h("dd", { text: a.member.battletag }) : null,
         a.member && a.member.banned ? h("dt", { text: "Bot" }) : null, a.member && a.member.banned ? h("dd", { text: "banned from verifying" + (a.member.banReason ? `: ${a.member.banReason}` : "") }) : null,
-        h("dt", { text: "On this site" }), h("dd", { text: s.signedUp ? [appText, s.reserved.length ? `reserved: ${s.reserved.map((r) => r.name).join(", ")}` : "", `${plural(s.friends, "friend")} listed`, s.listedBy ? `listed by ${s.listedBy}` : "", s.writtenIn ? `written in ${plural(s.writtenIn, "time")}` : "", `${plural(s.votesCast, "write-in")} made`, s.denied ? "DENIED" : "", s.inServer ? "" : "left the server"].filter(Boolean).join(" · ") : ["never signed in", named.length ? `named by others: ${named.join(", ")}` : ""].filter(Boolean).join(" · ") })),
+        h("dt", { text: "On this site" }), h("dd", { text: s.signedUp ? [appText, s.reserved.length ? `reserved: ${s.reserved.map((r) => r.name).join(", ")}` : "", `${plural(s.friends, "friend")} listed`, s.listedBy ? `listed by ${s.listedBy}` : "", s.writtenIn ? `written in ${plural(s.writtenIn, "time")}` : "", `${plural(s.votesCast, "write-in")} made`, s.denied ? "DENIED" : "", s.inServer ? "" : "left the server"].filter(Boolean).join(" · ") : ["no current site profile", named.length ? `named by others: ${named.join(", ")}` : "", "Historical sign-ins are not established by this lookup."].filter(Boolean).join(" · ") })),
       forget);
   }
 
@@ -5283,7 +5314,9 @@
     if (feat("contributions")) tabs.push(["ledger", "Ledger"]);
     if (feat("privacy_intake")) tabs.push(["inbox", "Private inbox"]);
     if (feat("directory")) tabs.push(["claims", "Character claims"]);
-    return h("nav", { class: "btn-row", "aria-label": "Community admin sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
+    return h("div", { class: "community-admin-nav" },
+      h("nav", { class: "btn-row", "aria-label": "Community admin sections", "aria-describedby": "community-admin-scroll-hint" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false }))),
+      h("p", { class: "community-admin-scroll-hint", id: "community-admin-scroll-hint", text: "Scroll for more Community sections." }));
   }
   async function adminCommunity(body, parts) {
     const sub = parts[0] || "";
@@ -5319,7 +5352,7 @@
         h("dl", { class: "kv" },
           h("dt", { text: "Today" }), h("dd", { text: st.day ? `${st.day}: ${st.outcome || "—"} after ${plural(st.attempts || 0, "attempt")}${st.postedDay ? `; a post of ${st.postedDay} is tracked` : ""}${st.waitingUntil ? `; retrying at ${fmtDateTime(sec(st.waitingUntil))}` : ""}` : "nothing recorded yet" }),
           h("dt", { text: "Halted" }), h("dd", null, st.halted ? h("span", { class: "badge red", text: "halted" }) : h("span", { class: "badge green", text: "no" }), " ", resume),
-          h("dt", { text: "Preview" }), h("dd", { class: "small", text: d.preview || "" })),
+          h("dt", { text: "Discord message preview" }), h("dd", { class: "small digest-preview", text: String(d.preview || "").replace(/^\*\*(Officer digest:)\*\*/, "$1") })),
         h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Waiting for an officer" }), h("th", { class: "num", text: "Count" }))),
           h("tbody", null, Object.keys(DIGEST_COUNT_WORDS).map((k) => h("tr", null, h("td", { text: DIGEST_COUNT_WORDS[k] }), h("td", { class: "num", text: d.counts && d.counts[k] !== null && d.counts[k] !== undefined ? String(d.counts[k]) : "off" }))))))));
       const covBox = h("div", { class: "stack" });

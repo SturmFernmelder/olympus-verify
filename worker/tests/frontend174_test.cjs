@@ -10,7 +10,7 @@ const body174 = String.raw`
 // document.activeElement or text-input selection. Model those browser facts for
 // this leaf's filter-refresh lifecycle checks.
 const focus174 = Element.prototype.focus;
-Element.prototype.focus = function(...args) { focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
+Element.prototype.focus = function(...args) { this.lastFocusOptions174 = args[0]; focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
 Element.prototype.setSelectionRange = function(start, end, direction = "none") { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; };
 const enter174 = field => { const event = new Event("keydown", { bubbles: true }); event.key = "Enter"; field.dispatchEvent(event); };
 (async () => {
@@ -151,6 +151,37 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("leaving governance restores a pending print snapshot, removes both listeners and cannot mutate the detached reader", cleanupRestoredReader && member.window.listeners.beforeprint.length === 0 && member.window.listeners.afterprint.length === 0 && adoption.open === false && nativeChapters.every(chapter => !chapter.open && chapter.hidden) && !!member.app.querySelector(".board-layout"));
   check("voting task comes first while reversible vote mechanics and essential privacy statement remain", !!member.app.querySelector("details.voting-help") && member.app.textContent.includes("click again to take a vote back") && member.app.textContent.includes("until voting closes") && member.app.textContent.includes("Your votes are private") && member.app.textContent.includes("except the guild's leadership"));
   check("role rail exposes a continuation cue while retaining every ballot destination", member.app.querySelector(".role-list-hint")?.textContent === "Scroll this list for every role." && member.app.querySelectorAll(".role-list a").length === member.boot.meta.ballots.length);
+
+  // .175: follow-up audit regressions use the original admitted local fixture.
+  // They do not change a real appointment, membership, digest or production flag.
+  const followup175 = await openPage(STAFF);
+  await followup175.go("#/admin/applications");
+  await waitFor(() => !!followup175.app.querySelector("table.admin-applications"), ".175 accessible applications");
+  const applicationLinks175 = followup175.app.querySelectorAll("table.admin-applications a.application-open");
+  check(".175 every application row has an ordinary keyboard-accessible detail link", applicationLinks175.length === followup175.app.querySelectorAll("table.admin-applications tbody tr").length && applicationLinks175.length > 0 && applicationLinks175.every(link => /^#\/admin\/applications\/\d+$/.test(link.getAttribute("href")) && !link.getAttribute("tabindex")));
+
+  for (let i = 0; i < 61; i++) await fixtureRun("INSERT INTO audit(ts,actor,action,subject,details) VALUES (?,?,'role.sweep',?,?)", now - i, "cron", OTHER, JSON.stringify({ checked: i + 1 }));
+  await followup175.go("#/admin/audit");
+  await waitFor(() => !!followup175.app.querySelector("#audit-page-older") && !followup175.app.querySelector("#audit-page-older").disabled, ".175 audit first page");
+  let older175 = followup175.app.querySelector("#audit-page-older");
+  older175.focus(); older175.click();
+  await waitFor(() => followup175.app.querySelector("#audit-page-older") !== older175, ".175 audit older replacement");
+  let auditFocused175 = followup175.document.activeElement;
+  check(".175 paging restores focus to the same available pager or an enabled alternative", ["audit-page-older", "audit-page-newest"].includes(auditFocused175?.id) && !auditFocused175.disabled && !!followup175.app.querySelector('#audit-status[role="status"]'));
+  let newest175 = followup175.app.querySelector("#audit-page-newest"); newest175.focus(); newest175.click();
+  await waitFor(() => followup175.app.querySelector("#audit-page-newest") !== newest175, ".175 audit newest replacement");
+  check(".175 reaching newest restores focus to Older instead of a disabled Newest button", followup175.document.activeElement === followup175.app.querySelector("#audit-page-older") && followup175.app.querySelector("#audit-page-newest").disabled);
+  check(".175 pager focus permits native scrolling when a longer replacement page moves it below the viewport", followup175.document.activeElement.lastFocusOptions174?.preventScroll !== true);
+  followup175.hold(pathname => pathname.startsWith("/api/admin/audit-log?") ? 60 : 0);
+  older175 = followup175.app.querySelector("#audit-page-older"); older175.focus(); older175.click();
+  const outside175 = byText(followup175.app, "a", "Account data"); outside175.focus();
+  await waitFor(() => followup175.app.querySelector("#audit-page-older") !== older175, ".175 audit deferred refresh");
+  check(".175 a delayed audit page does not steal focus after the reader leaves the pager", followup175.document.activeElement === outside175);
+  followup175.hold(null);
+  await followup175.go("#/admin/community");
+  await waitFor(() => !!followup175.app.querySelector(".digest-preview"), ".175 digest preview");
+  check(".175 digest preview displays its fixed heading without raw Discord bold delimiters", followup175.app.querySelector(".digest-preview").textContent.startsWith("Officer digest:") && !followup175.app.querySelector(".digest-preview").textContent.includes("**Officer digest:**") && followup175.app.textContent.includes("Discord message preview"));
+  check(".175 community rail explains horizontal continuation in accessible text", followup175.app.querySelector('nav[aria-label="Community admin sections"]')?.getAttribute("aria-describedby") === "community-admin-scroll-hint" && followup175.app.querySelector("#community-admin-scroll-hint")?.textContent.includes("Scroll") && !!followup175.app.querySelector('nav[aria-label="Community admin sections"] a[href="#/admin/community/claims"]'));
 
   console.log("\n" + ok + "/" + n + " passed");
   process.exit(ok === n ? 0 : 1);
