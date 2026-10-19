@@ -1,0 +1,12 @@
+Talent data: Talents Forever (https://talentsforever.com), CC BY 4.0.
+License: https://creativecommons.org/licenses/by/4.0/
+
+The author permits copying, adaptation and redistribution with linked attribution.
+Olympus normalized identifiers and field names and omitted site artwork and icons.
+Source terms: https://talentsforever.com/terms
+
+The license covers the source author’s reading, checking and arrangement. World of
+Warcraft names, tooltip text, icons and art belong to Blizzard Entertainment and
+are not covered by that grant. This is an unofficial fan reference, not endorsed
+by Blizzard or by Talents Forever. No Talents Forever website code or artwork is
+included. Original Olympus calculator code retains the repository’s own license.

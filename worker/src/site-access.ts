@@ -24,7 +24,7 @@ const FLASH: Record<string, string> = {
 
 export function siteSignIn(request: Request, status = 200, flash?: string, cookies: string[] = []): Response {
   const note = flash && FLASH[flash] ? `<p role="status">${FLASH[flash]}</p>` : '';
-  const body = `<section class="sign-in-gate"><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a><p class="meta">Only the sign-in and privacy pages are available before entry.</p></section>`;
+  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true"><span class="login-portal-stone"></span></div><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></section>`;
   const headers = policyHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
   // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.

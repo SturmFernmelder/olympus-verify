@@ -44,7 +44,7 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 107 and len(ref["fixed_art_source_pins"]) == 5
+assert len(ref["assets"]) == 111 and len(ref["fixed_art_source_pins"]) == 5
 cursor = json.loads(Path(ref["provenance_path"]).read_bytes())["additional_extractions"][-1]
 record = cursor["source_record"]
 assert record["path"] == "tools/wow-cursor-provenance.json"

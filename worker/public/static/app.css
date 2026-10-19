@@ -75,6 +75,19 @@ b, strong { color: var(--white); font-weight: 400; }
 .brand b { font-family: var(--title); font-size: 1.35rem; letter-spacing: 0.06em; color: var(--gold); text-shadow: 1px 1px 0 #000; }
 .brand small { font-size: 0.62rem; letter-spacing: 0.32em; color: var(--brass); margin-top: 3px; padding-left: 2px; }
 .nav { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
+.nav-group { position: relative; margin: 0; padding: 0; }
+.nav-group > summary { list-style: none; white-space: nowrap; cursor: pointer; }
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::after { content: " ▾"; color: var(--muted); font-size: .7em; }
+.nav-group:has([aria-current="page"]) > summary { box-shadow: inset 0 -2px var(--gold); }
+.nav-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; min-width: 230px; max-width: calc(100vw - 32px); padding: 8px; display: grid; gap: 5px; border: 1px solid var(--brass); background: #11140f; box-shadow: 0 12px 30px #000b; }
+.nav-menu > a { width: 100%; text-align: left; white-space: normal; }
+.nav-group:not([open]) > .nav-menu { display: none; }
+.board-results { min-height: 5.5rem; }
+.board-summary-status { min-height: 1.2em; margin-bottom: 0; }
+.guide-steps { display: grid; gap: 14px; }
+.guide-steps h2 { font-size: 1.3rem; }
+.source-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0; padding: 9px 12px; border-left: 2px solid var(--brass); background: #10140fcc; font-size: .8rem; color: var(--muted); }
 .who { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 .who img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--brass); }
 .who .name { font-size: 0.9rem; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--white); }
@@ -590,7 +603,9 @@ dialog h2 { padding-right: 30px; }
   .appointed-grid { grid-template-columns: minmax(0, 1fr); }
   .grid.two, .grid.three, .grid.four, .backups, .hero { grid-template-columns: minmax(0, 1fr); }
   .topbar-in { flex-wrap: wrap; gap: 8px 12px; }
-  .nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: wrap; overflow: visible; padding-bottom: 4px; position: relative; }
+  .nav-group { position: static; }
+  .nav-group .nav-menu { left: 0; right: 0; top: calc(100% + 8px); width: auto; min-width: 0; max-width: none; }
   .nav .btn { flex: none; }
   .who .name { display: none; }
   .who a.btn { display: none; } /* signed out on a phone: the big button in the page is the one to press */
