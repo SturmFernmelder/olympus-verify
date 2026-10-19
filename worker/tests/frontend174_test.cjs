@@ -58,8 +58,9 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("a late refresh respects a newly closed panel and does not steal focus from elsewhere", !staff.app.querySelector("details.admin-filter-panel").open && staff.document.activeElement === outsideFocus && staff.app.querySelector("details.admin-filter-panel summary").textContent.includes("Oldest first"));
   staff.hold(null);
   const preconfigured = await openPage(STAFF);
-  await preconfigured.go("#/admin"); await waitFor(() => preconfigured.app.querySelectorAll("tr.clickable").some(row => row.querySelector("td")?.textContent.trim() === "Officer"), ".174 overview role filter shortcut");
-  preconfigured.app.querySelectorAll("tr.clickable").find(row => row.querySelector("td")?.textContent.trim() === "Officer").click();
+  await preconfigured.go("#/admin"); await waitFor(() => preconfigured.app.querySelectorAll("a.summary-role-open").some(link => link.textContent.trim() === "Officer"), ".174 overview role filter shortcut");
+  const roleShortcut174 = preconfigured.app.querySelectorAll("a.summary-role-open").find(link => link.textContent.trim() === "Officer");
+  roleShortcut174.click(); await preconfigured.go(roleShortcut174.getAttribute("href")); // The minimal DOM does not follow native anchors itself.
   await waitFor(() => !!preconfigured.app.querySelector("table.admin-applications"), ".174 preconfigured application criteria");
   check("normal overview shortcut exposes its preconfigured role/status criteria on entry", preconfigured.app.querySelector("details.admin-filter-panel")?.open === true && preconfigured.app.querySelector("#application-filter-position")?.value === "officer" && preconfigured.app.querySelector("#application-filter-status")?.value === "" && preconfigured.app.querySelector("details.admin-filter-panel summary").textContent.includes("Officer") && preconfigured.app.querySelector("details.admin-filter-panel summary").textContent.includes("All statuses"));
 

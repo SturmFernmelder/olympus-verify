@@ -112,7 +112,8 @@ const recordTool169 = (page, namespace, calls) => {
   check(".176 a confirmed Discord-only result selects the exact account pointer without creating a site profile", coInput175.value === "<@" + absent175 + ">" && !one("SELECT discord_id FROM site_users WHERE discord_id=?", absent175) && !names175.checked && !publication175.checked);
   coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
   await waitFor(() => coPicker175.querySelectorAll('[role="option"]').length === 3, "reopen after Discord-only selection");
-  coPicker175.querySelector(".list-tools").dispatchEvent(new Event("mousedown", { bubbles: true }));
+  const profileFilter175 = coPicker175.querySelector('.list-tools input[type="checkbox"]');
+  profileFilter175.checked = true; profileFilter175.dispatchEvent(new Event("change", { bubbles: true })); // Native checkbox activation, including Space, emits change.
   options175 = coPicker175.querySelectorAll('[role="option"]');
   check(".175 current-profile filter does not mistake profile existence for publication eligibility", options175.length === 2 && options175[0].getAttribute("aria-disabled") === "true" && options175[1].getAttribute("aria-disabled") === "false");
   names175.checked = true; publication175.checked = true; keyboard169(coSearch175, "Enter");

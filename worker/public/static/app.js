@@ -109,7 +109,7 @@
     if (d < 60) return "just now";
     if (d < 3600) return Math.floor(d / 60) + " min ago";
     if (d < 86400) return Math.floor(d / 3600) + " h ago";
-    if (d < 86400 * 60) return Math.floor(d / 86400) + " days ago";
+    if (d < 86400 * 60) return plural(Math.floor(d / 86400), "day") + " ago";
     return fmtShort(t);
   }
   const days = (t) => (t ? Math.floor((nowSec() - t) / 86400) : null);
@@ -232,7 +232,7 @@
   // ---------------------------------------------------------------- API
   class ApiError extends Error {
     constructor(status, data) {
-      super((data && data.message) || `Request failed (${status}).`);
+      super((data && data.message) || (data && data.error === "site_access_unavailable" ? "Your current access could not be checked. Please wait a moment and try again." : `Request failed (${status}).`));
       this.status = status;
       this.data = data || {};
     }
@@ -620,17 +620,14 @@
   function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, appointmentOnly = false, exclude = () => false, label = "Find someone" }) {
     const id = "pk" + Math.random().toString(36).slice(2, 8);
     const input = h("input", { type: "search", id, placeholder, autocomplete: "off", spellcheck: "false", role: "combobox", "aria-expanded": "false", "aria-controls": id + "-list", "aria-autocomplete": "list" });
-    const onlySite = h("input", { type: "checkbox", tabindex: "-1" });
-    // Inside the dropdown, so the many ballots do not each carry a row of controls. mousedown keeps the focus in the
-    // search box (a blur would close the list before the click lands).
+    const onlySite = h("input", { type: "checkbox" });
+    // Keep the native checkbox in the tab order. The popup stays open while focus
+    // moves inside this picker, rather than hiding its filter when the input blurs.
     const tools = h("label", { class: "list-tools" }, onlySite, h("span", { text: "Only people with a current site profile" }));
-    tools.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      onlySite.checked = !onlySite.checked;
-      if (last) build(last.res, last.q);
-    });
+    onlySite.addEventListener("change", () => { if (last) build(last.res, last.q); });
     const rowsBox = h("div", { role: "listbox", id: id + "-list" });
     const list = h("div", { class: "list", hidden: true }, tools, rowsBox);
+    const root = h("div", { class: "picker" }, h("label", { class: "sr", for: id, text: label }), input, list);
     let items = [];
     let active = -1;
     let timer = 0;
@@ -639,7 +636,7 @@
     const selectable = it => (allowSelf || !it.self) && !exclude(it) && (!appointmentOnly || it.appointmentStatus === "eligible");
     const appointmentHint = it => it.appointmentStatus === "eligible" ? "Discord membership confirmed. No website sign-in is required; Save checks again."
       : "Currently unavailable for publication. Check current Discord membership and account standing, then search again.";
-    const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
+    const close = () => { clearTimeout(timer); timer = 0; seq++; list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
     const open = () => { list.hidden = false; input.setAttribute("aria-expanded", "true"); };
     const state = (msg, withTools = false) => { tools.hidden = !withTools; clear(rowsBox).appendChild(h("div", { class: "state", text: msg })); open(); };
     function draw(notes = []) {
@@ -713,8 +710,9 @@
         if (!list.hidden && active >= 0) { e.preventDefault(); choose(active); }
       } else if (e.key === "Escape") close();
     });
-    input.addEventListener("blur", () => setTimeout(close, 120));
-    return h("div", { class: "picker" }, h("label", { class: "sr", for: id, text: label }), input, list);
+    root.addEventListener("focusout", () => setTimeout(() => { if (!root.contains(document.activeElement)) close(); }, 120));
+    root.addEventListener("keydown", e => { if (e.key === "Escape" && e.target === onlySite) { close(); input.focus(); } });
+    return root;
   }
 
   // ---------------------------------------------------------------- page chrome
@@ -862,6 +860,25 @@
   /** An address part, decoded; a malformed one (say "%E0") is simply no match. */
   const dec = (x) => { try { return decodeURIComponent(x); } catch { return ""; } };
   function currentRoute() { return (location.hash || "#/").replace(/^#\/?/, ""); }
+  const pageTitle = label => { document.title = `${label} — Olympus`; };
+  // Titles identify the section, never a private account, event or case from an address.
+  function routeTitle(route) {
+    const [head, sub, detail, action] = route.split("/");
+    const community = { "": "Overview", directory: "Member directory", profile: "My profile", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", leadership: "Leadership" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
+    const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
+    if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
+    if (head === "community") {
+      const eventActions = { edit: "Edit event", attendance: "Attendance", discord: "Discord announcement" };
+      const event = sub === "calendar" && detail ? (detail === "new" ? "New event" : own(eventActions, action) ? eventActions[action] : "Event details") : "";
+      return `Community · ${event || (own(community, sub || "") ? community[sub || ""] : "Not here")}`;
+    }
+    if (head === "talents") { const cls = M().classes.find(c => c.key === dec(sub || "warrior")); return cls ? `${cls.label} talents` : "Talents"; }
+    if (head === "vote") { const ballot = M().ballots.find(b => b.key === dec(sub || "")); return ballot ? `${ballot.label} · Vote` : "Vote"; }
+    if (head === "roles" && sub) { const role = M().positions.find(p => p.key === dec(sub)); if (role) return `${role.label} · Roles`; }
+    if (head === "guide") return sub === "officer" ? "Officer guide" : "Member guide";
+    return ({ "": "Home", apply: "Apply", vote: "Vote", roles: "Roles", governance: "Governance", organization: "Organization", addons: "Addons", guides: "Guides", updates: "Game updates", data: "Account data", request: "Private request" })[head] || "Home";
+  }
   let lastHash = location.hash;
   let ignoreHash = false;
   window.addEventListener("hashchange", async () => {
@@ -933,23 +950,28 @@
         else link.removeAttribute("aria-current");
       }
     }
-    const main = h("main", { class: "shell", id: "main" });
-    if (reuseChrome) previousMain.replaceWith(main);
-    else app.appendChild(main);
+    const keepBoard = reuseChrome && head === "vote" && previousMain.dataset.routeHead === "vote" && S.signedIn && !S.denied;
+    const main = keepBoard ? previousMain : h("main", { class: "shell", id: "main" });
+    main.dataset.routeHead = head;
+    if (reuseChrome && !keepBoard) previousMain.replaceWith(main);
+    else if (!reuseChrome) app.appendChild(main);
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
     if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // client fallback only; the server requires current membership for this shell and Roles data
     else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView;
     if (head === "admin" && !(S.user && S.user.isAdmin)) view = ROUTES[""];
+    pageTitle(view === deniedView ? "Access restricted" : view === ROUTES[""] ? "Home" : routeTitle(route));
+    const viewRequest = String(Number(main.dataset.viewRequest || 0) + 1);
+    main.dataset.viewRequest = viewRequest;
     try {
       const out = view(main, route.split("/").slice(1));
-      if (out && typeof out.catch === "function") out.catch(showError(main));
+      if (out && typeof out.catch === "function") out.catch(error => { if (main.dataset.viewRequest === viewRequest) showError(main)(error); });
     } catch (e) {
       showError(main)(e);
     }
     if (!reuseChrome) app.appendChild(footer());
     const target = scrollTo && document.getElementById(scrollTo);
     if (target) scrollToSection(target);
-    else window.scrollTo(0, 0);
+    else if (!keepBoard) window.scrollTo(0, 0);
   }
   const showError = (main) => (e) => {
     if (e && e.status === 401 || main.parentNode !== app) return;
@@ -985,6 +1007,7 @@
       if (main.parentNode !== app) return;
       history.replaceState(null, "", "#/talents/" + encodeURIComponent(value.className) + "/" + encodeURIComponent(value.build));
       lastHash = location.hash;
+      pageTitle(routeTitle(currentRoute()));
     },
   });
   const resourcesView = view => main => {
@@ -1089,7 +1112,7 @@
       if (!line.trim()) { i++; continue; }
       if (line.trim() === "[[OVERVIEW]]") {
         out.push(h("div", { class: "governance-overview" }, posIcon("guild_master"), h("div", null,
-          h("h3", { text: "Explore the organization" }), h("p", { text: "Open reporting lines, inspect an office’s remit and find every requested label in the interactive chart." }),
+          h("h3", { text: "Explore the organization" }), h("p", { text: "Open reporting lines, inspect an office’s remit and explore the offices and groups in the interactive chart." }),
           h("a", { class: "btn", href: "#/organization", text: "Open the interactive organization chart" })))); i++; continue;
       }
       const heading = /^(#{2,6}) (.+)$/.exec(line);
@@ -1153,6 +1176,7 @@
     }
     function selection(i, focus = false, open = true) {
       index = i; const chapter = chapters[index];
+      if (main.parentNode === app) pageTitle(`${chapter.title} · Governance`);
       if (open) details.get(chapter.id).open = true;
       current.textContent = `${index + 1} / ${chapters.length} • ${chapter.title}`;
       prev.hidden = index === 0; next.hidden = index === chapters.length - 1;
@@ -1941,15 +1965,18 @@
   // ---------------------------------------------------------------- vote: the board, and write-ins
   const V = { role: "", offset: 0, cls: "", fit: "", todo: false, summary: null };
   const boardRoleCounts = new WeakMap(); // Counts only, scoped to the displayed role; never candidate data.
+  const boardShells = new WeakMap(); // Mounted navigation only; each selected role still gets a fresh admitted read.
   ROUTES.vote = async function vote(main, parts) {
     const meta = M();
     const s = S.settings || {};
     const closed = !s.votingOpen;
+    const settingsKey = JSON.stringify([s.votingOpen, s.noVote, s.appointed]);
+    let shell = boardShells.get(main);
+    if (shell && shell.settingsKey !== settingsKey) { clear(main); shell = null; boardShells.delete(main); }
     // The Worker already caches these counts for 30 seconds. Reuse them while moving between roles, but always
     // read the selected role afresh: a changed appointment, membership or voting switch still refuses at the server.
     const cached = boardSummaryRead && nowMs() >= boardSummaryRead.at && nowMs() - boardSummaryRead.at < 30000;
     const summary = cached ? boardSummaryRead.data : V.summary || { roles: [] };
-    const summaryRequest = cached ? null : api("GET", "/api/board", undefined, { live: () => main.parentNode === app });
     V.summary = summary;
     const counts = Object.fromEntries(summary.roles.map((r) => [r.key, r]));
     const progressRows = new Map();
@@ -1984,22 +2011,29 @@
     };
     const lead = meta.ballots.filter((b) => b.group === "leadership");
     const classes = meta.ballots.filter((b) => b.group === "class");
-    const roleList = h("nav", { class: "role-list", "aria-label": "Roles" },
+    const roleList = shell ? shell.roleList : h("nav", { class: "role-list", "aria-label": "Roles" },
       h("p", { class: "role-list-hint small muted", text: "Scroll this list for every role." }),
       h("div", { class: "group-label", text: "Leadership" }), lead.map(item),
       h("div", { class: "group-label", text: "Class leads" }), classes.map(item));
+    if (shell) for (const b of meta.ballots) {
+      const link = roleList.querySelector(`a[href="#/vote/${encodeURIComponent(b.key)}"]`);
+      if (b.key === role) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
+      progressRows.set(b.key, link);
+    }
     const pickText = (b) => (appointedTo(b.key) ? `${b.label} (appointed)` : noVoteFor(b.key) ? `${b.label} (no public vote)` : `${b.label} (${(counts[b.key] || {}).applicants || 0})`);
-    const rolePick = h("select", { class: "role-pick", "aria-label": "Role" },
+    const rolePick = shell ? shell.rolePick : h("select", { class: "role-pick", "aria-label": "Role" },
       h("optgroup", { label: "Leadership" }, lead.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))),
       h("optgroup", { label: "Class leads" }, classes.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))));
-    rolePick.addEventListener("change", () => { const key = rolePick.value; rolePick.value = role; go(key); });
-    const boardBox = h("div", { class: "board-results" },
+    if (!shell) rolePick.addEventListener("change", () => { const key = rolePick.value; rolePick.value = V.role; go(key); });
+    rolePick.value = role;
+    const boardBox = h("div", { class: "board-results", "aria-busy": "true" },
       counts[role] && counts[role].applicants === 0 ? h("p", { class: "muted", "data-board-last-empty": true, text: "No applications at the last check." }) : null,
       h("p", { class: "muted small", role: "status", text: "Checking applications…" }));
-    const summaryStatus = h("p", { class: "muted tiny board-summary-status", role: "status", text: cached ? "" : "Refreshing role counts…" });
+    const summaryStatus = shell ? shell.summaryStatus : h("p", { class: "muted tiny board-summary-status", role: "status" });
+    summaryStatus.textContent = cached ? "" : "Refreshing role counts…";
     const holder = appointedTo(role);
     const quiet = !holder && noVoteFor(role);
-    const content = h("div", null,
+    const content = h("div", { class: "board-role-content" },
       rolePick,
       h("section", { class: "frame" },
         h("div", { class: "plaque" }, h("h2", null, posIcon(role, "s"), " ", ballot.label),
@@ -2014,7 +2048,8 @@
             : [closed ? noticeBox("warn", "icon-warning", h("p", { text: "Voting is closed right now. Your votes are kept as they are." })) : null, boardBox]),
       holder || quiet ? null : writeIns(ballot, closed));
     const anyQuiet = meta.ballots.some((b) => noVoteFor(b.key));
-    add(main, [
+    if (shell) shell.content.replaceWith(content);
+    else add(main, [
       h("section", { class: "frame" },
         h("div", { class: "plaque" }, h("h2", { text: "Vote on who leads Olympus" })),
         h("p", { text: "Choose a role, read its applications and vote for or against a candidate." }),
@@ -2025,8 +2060,12 @@
         noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: "Your votes are private. " }), "Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone."))),
       h("div", { class: "board-layout" }, roleList, content),
     ]);
+    boardShells.set(main, { settingsKey, roleList, rolePick, summaryStatus, content });
+    // A prior role's response must be inert even though its surrounding page remains mounted.
+    const live = () => main.parentNode === app && boardShells.get(main)?.content === content;
+    const summaryRequest = cached ? null : api("GET", "/api/board", undefined, { live });
     const countRead = summaryRequest && summaryRequest.then(next => {
-      if (main.parentNode !== app) return;
+      if (!live()) return;
       // A selected-role response is authoritative for that role; a cached summary
       // arriving later must never overwrite its fresh totals.
       const freshRole = boardBox.dataset.boardFresh === role && boardRoleCounts.get(boardBox);
@@ -2048,11 +2087,13 @@
       if (counts[role]) showRoleProgress(counts[role]);
       summaryStatus.textContent = "";
     }).catch(error => {
-      if (main.parentNode !== app) return;
+      if (!live()) return;
       summaryStatus.textContent = "Role counts could not be refreshed. " + error.message;
       if (error.status === 401 || error.status === 403) {
         boardBox.dataset.boardRequest = "refused";
+        boardBox.setAttribute("aria-busy", "false");
         clear(boardBox);
+        boardBox.appendChild(errorLine(explain(error)));
         // Keep a person's unsaved text while refusing further actions after a
         // current admission failure. The dirty-navigation guard remains active.
         for (const control of content.querySelectorAll("button,input,select,textarea")) control.disabled = true;
@@ -2111,6 +2152,12 @@
       return;
     }
     if (!live()) return;
+    box.setAttribute("aria-busy", "false");
+    // A prior counts refusal can disable the persistent mobile chooser. Only a
+    // fresh admitted role response restores that navigation control; it grants
+    // no authority to a previously refused write form.
+    const rolePick = box.closest(".board-role-content")?.querySelector(".role-pick");
+    if (rolePick) rolePick.disabled = false;
     box.dataset.boardFresh = role;
     boardRoleCounts.set(box, { applicants: data.total, votable: data.votable, voted: data.voted });
     // The Worker keeps the all-roles summary for half a minute; this role's own numbers are fresh, so they win.
@@ -2479,8 +2526,9 @@
       h("tbody", null, M().positions.map((p) => {
         const row = byPos[p.key] || {};
         const all = statuses.reduce((n, s) => n + (row[s] || 0), 0);
-        const tr = h("tr", { class: "clickable" }, h("td", null, posIcon(p.key, "s"), " ", p.label), statuses.map((s) => h("td", { class: "num", text: String(row[s] || 0) })), h("td", { class: "num", text: String(all) }));
-        tr.addEventListener("click", () => { Object.assign(A.apps, { position: p.key, profession: "", q: "", status: "", offset: 0 }); location.hash = "#/admin/applications"; });
+        const pick = () => { Object.assign(A.apps, { position: p.key, profession: "", q: "", status: "", offset: 0 }); };
+        const tr = h("tr", { class: "clickable" }, h("td", null, h("a", { class: "summary-role-open", href: "#/admin/applications", onclick: pick, "aria-label": `Open ${p.label} applications` }, posIcon(p.key, "s"), " ", p.label)), statuses.map((s) => h("td", { class: "num", text: String(row[s] || 0) })), h("td", { class: "num", text: String(all) }));
+        tr.addEventListener("click", e => { if (e.target instanceof Element && e.target.closest("a")) return; pick(); location.hash = "#/admin/applications"; });
         return tr;
       })));
     const exportLink = (kind, text) => {
@@ -2531,7 +2579,7 @@
         tile("icon-apply", "Applications", totalApps, `${(byStatus.submitted || 0) + (byStatus.reviewing || 0)} open · ${byStatus.accepted || 0} accepted`),
         tile("icon-vote", "Voters", c.boardVoters || 0, `${c.boardVotes || 0} board votes · ${c.votes || 0} write-ins from ${plural(c.voters || 0, "person", "people")}`),
         tile("icon-names", "Reserved names", (res.claimed || 0) + (res.approved || 0) + (res.queued || 0) + (res.in_guild || 0), `${res.approved || 0} approved · ${res.queued || 0} queued · ${o.queue.reserved || 0} of ${o.queue.waiting || 0} waiting invites`)),
-      frame("Applications by first choice", null, h("p", { class: "muted small", text: "Click a row to open that list. Denied accounts are counted here under their application status." }), h("div", { class: "table-wrap" }, posTable)),
+      frame("Applications by first choice", null, h("p", { class: "muted small", text: "Open a role to see that list. Denied accounts are counted here under their application status." }), h("div", { class: "table-wrap" }, posTable)),
       frame("Professions", null, h("p", { class: "muted small", text: "What the open applications plan to take on their main (optional on the form, so not everyone answered). Denied accounts are left out. Click a row to list those applications." }), h("div", { class: "table-wrap" }, profTable)),
       frame("When the applicants play", null,
         h("p", { class: "muted small", text: `Open applications, hour by hour, in your time zone (${zoneName(myZone)}). Brighter = more people online.` }),
@@ -2545,7 +2593,21 @@
     await drawHeat(heatBox);
   }
   async function drawHeat(box) {
-    const d = await api("GET", "/api/admin/availability?" + qs({ role: A.heat }));
+    const role = A.heat, user = S.user, request = String(Number(box.dataset.heatRequest || 0) + 1);
+    box.dataset.heatRequest = request;
+    const live = () => box.isConnected && box.dataset.heatRequest === request && A.heat === role && S.user === user && S.signedIn && !S.denied;
+    clear(box).appendChild(h("p", { class: "muted small", role: "status", text: "Reading availability…" }));
+    let d;
+    try { d = await api("GET", "/api/admin/availability?" + qs({ role }), undefined, { live }); }
+    catch (error) {
+      if (!live()) return;
+      clear(box).appendChild(errorLine(explain(error, "Availability could not be read.")));
+      // This is a user-invoked read only. It asks the server to admit the account
+      // again; it never retries a save, reuses a private answer or loops on failure.
+      if (error.status !== 401 && error.status !== 403) box.appendChild(h("button", { class: "btn small", type: "button", text: "Try reading availability again", onclick: () => { if (live()) drawHeat(box); } }));
+      return;
+    }
+    if (!live()) return;
     const off = zoneOffset(myZone);
     const local = (dd, hh) => d.hours[utcHour(dd * 24 + hh, off)];
     const max = Math.max(1, ...d.hours);

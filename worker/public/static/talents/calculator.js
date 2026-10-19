@@ -122,8 +122,10 @@
     mounted.get(container)?.destroy();
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
     let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
+    let reusableArtwork = null, artworkNotice = null;
+    const failedArtwork = new Set();
     function cancelDetailLeave() { if (detailLeaveTimer !== null) clearTimeout(detailLeaveTimer); detailLeaveTimer = null; }
-    const controller = { destroy() { active = false; cancelDetailLeave(); if (mounted.get(container) === controller) mounted.delete(container); } };
+    const controller = { destroy() { active = false; cancelDetailLeave(); failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
     mounted.set(container, controller);
     const h = (tag, attrs, ...children) => {
       const node = document.createElement(tag);
@@ -137,7 +139,21 @@
       for (const child of children.flat()) if (child !== null && child !== undefined) node.append(typeof child === "string" ? document.createTextNode(child) : child);
       return node;
     };
-    const image = (url, attrs = {}) => h("img", { ...attrs, src: url, alt: "", draggable: "false", onerror(event) { event.target.hidden = true; } });
+    const artworkKey = (url, attrs) => [url, attrs.class || "", attrs["aria-hidden"] || ""].join("\n");
+    function updateArtworkNotice() {
+      for (const node of failedArtwork) if (!container.contains(node)) failedArtwork.delete(node);
+      if (active && artworkNotice) artworkNotice.hidden = failedArtwork.size === 0;
+    }
+    function image(url, attrs = {}) {
+      // .177: reuse only images already mounted in this active calculator. Point edits
+      // must not re-request every private icon. No cross-mount cache or admission bypass.
+      const prior = reusableArtwork?.get(artworkKey(url, attrs))?.shift();
+      if (prior) return prior;
+      return h("img", { ...attrs, src: url, alt: "", draggable: "false", decoding: "async",
+        onerror(event) { event.target.hidden = true; if (active) { failedArtwork.add(event.target); updateArtworkNotice(); } },
+        onload(event) { if (active) { event.target.hidden = false; failedArtwork.delete(event.target); updateArtworkNotice(); } }
+      });
+    }
     container.replaceChildren(h("p", { role: "status", text: "Opening the talent library…" }));
     try {
       if (!dataPromise) dataPromise = fetch(DATA_URL, { credentials: "same-origin" }).then(async response => {
@@ -181,6 +197,12 @@
     function render(focus) {
       cancelDetailLeave();
       if (!active) return;
+      reusableArtwork = new Map();
+      for (const node of container.querySelectorAll("img")) {
+        const key = artworkKey(node.getAttribute("src"), { class: node.className, "aria-hidden": node.getAttribute("aria-hidden") });
+        if (!reusableArtwork.has(key)) reusableArtwork.set(key, []);
+        reusableArtwork.get(key).push(node);
+      }
       const cls = classOf(data, build.className), talents = talentsOf(cls), state = validateBuild(data, build), byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
       const buttons = new Map(), classButtons = new Map();
       if (!talents.some(t => t.id === selected)) selected = talents[0].id;
@@ -199,6 +221,16 @@
       const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { compare = event.target.checked; render("compare"); } });
       const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); hideDetail(); } } });
       const status = h("p", { class: "talents-feedback", role: "status", "aria-live": "polite", text: message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank." });
+      artworkNotice = h("div", { class: "talents-artwork-notice", hidden: true, role: "status", "aria-live": "polite" },
+        h("p", { text: "Some artwork could not be loaded. Talent names, details and point rules are still available." }),
+        h("button", { type: "button", text: "Retry artwork", onclick(event) {
+          if (!active || !container.contains(event.currentTarget)) return;
+          // One explicit retry of failed, currently mounted images at their original URLs.
+          // The Worker checks the current session and Native boundary again on every fetch.
+          for (const node of failedArtwork) if (container.contains(node)) {
+            const url = node.getAttribute("src"); node.removeAttribute("src"); node.setAttribute("src", url);
+          }
+        } }));
       function hideDetail() {
         cancelDetailLeave(); detail.hidden = true;
         if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
@@ -286,7 +318,7 @@
           h("div", { class: "talents-spec-bars" }, cls.trees.map((tree, index) => h("div", null, h("span", { text: tree.name }), h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), h("b", { text: String(state.treePoints[index]) }))))),
         h("div", { class: "talents-summary" }, h("strong", { text: state.treePoints.join(" / ") }), h("span", { text: "Points left: " + (state.budget - state.points) }), h("span", { text: "Level needed: " + state.levelNeeded })),
         compare ? h("p", { class: "talents-comparison-legend", text: "N New · C Changed · M Moved · dimmed: same as Classic. Hover or focus a talent for its Classic reference." }) : null,
-        h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
+        artworkNotice, h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
         h("section", { class: "talents-sharing", "aria-label": "Share this build" }, h("label", null, "Share", share)),
         h("footer", { class: "talents-source" }, h("p", null, "Talent data: ", h("a", { href: "https://talentsforever.com/", rel: "noopener noreferrer", text: "Talents Forever" }), " · ", h("a", { href: data.source.licenseURL, rel: "noopener noreferrer", text: "CC BY 4.0" }), ". World of Warcraft artwork © Blizzard Entertainment. Unofficial guild tool; not affiliated with Blizzard."),
           h("p", { text: "Beta client " + data.source.clientBuilds.join(", ") + " · Source generated " + data.source.upstreamGenerated + " · Snapshot fetched " + data.source.fetchedAt.slice(0, 10) + ". Not live tuning or a guide recommendation." }),
@@ -296,6 +328,7 @@
       if (buttons.has(focus)) buttons.get(focus).focus();
       else if (focus && focus.startsWith("class:")) classButtons.get(cls.id).focus();
       else if (focus === "level") level.focus(); else if (focus === "compare") compareInput.focus(); else if (focus === "reset") reset.focus();
+      reusableArtwork = null; updateArtworkNotice();
     }
   }
   return { validateData, validateArt, pointsAtLevel, emptyBuild, validateBuild, allocate, serializeBuild, parseBuild, comparisonBadges, mount };

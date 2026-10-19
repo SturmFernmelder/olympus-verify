@@ -11,7 +11,7 @@ const entry = require('./helpers/privacy129_fixture.cjs');
 
 // ---------- a minimal DOM: what app.js uses, nothing more ----------
 class Event {
-  constructor(type, init = {}) { this.type = type; this.bubbles = !!init.bubbles; this.defaultPrevented = false; this.target = null; this.currentTarget = null; this._stop = false; this.returnValue = true; }
+  constructor(type, init = {}) { this.type = type; this.bubbles = !!init.bubbles; this.key = init.key; this.defaultPrevented = false; this.target = null; this.currentTarget = null; this._stop = false; this.returnValue = true; }
   preventDefault() { this.defaultPrevented = true; }
   stopPropagation() { this._stop = true; }
 }
@@ -107,7 +107,7 @@ class Element extends Node {
       if (form) form.dispatchEvent(new Event("submit", { bubbles: true }));
     }
   }
-  focus() { this.focusCalls = (this.focusCalls || 0) + 1; } blur() {} select() {} scrollIntoView() {}
+  focus() { this.focusCalls = (this.focusCalls || 0) + 1; let doc = this; while (doc.parentNode) doc = doc.parentNode; doc.activeElement = this; } blur() {} select() {} scrollIntoView() {}
   getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 }; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatchEvent(new Event("close")); }
@@ -115,10 +115,12 @@ class Element extends Node {
 function makeWindow(bootJson) {
   const document = new Element("#document");
   const html = document.appendChild(new Element("html"));
+  const head = html.appendChild(new Element("head"));
   const body = html.appendChild(new Element("body"));
   const bootEl = body.appendChild(new Element("script")); bootEl.setAttribute("id", "boot"); bootEl.textContent = bootJson;
   const app = body.appendChild(new Element("div")); app.setAttribute("id", "app");
   document.body = body;
+  document.head = head;
   document.documentElement = html;
   document.createElement = (t) => new Element(t);
   document.createTextNode = (t) => new Text(t);
@@ -354,13 +356,17 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const header = fast.app.querySelector("header"), footer = fast.app.querySelector("footer");
     await fast.go("#/vote/officer");
     await waitFor(() => fast.app.textContent.includes("Nobody has applied for this role yet"), ".167 first board read");
+    const boardMain = fast.app.querySelector("main"), roleNav = fast.app.querySelector("nav.role-list"), roleChooser = fast.app.querySelector("select.role-pick"), boardHelp = fast.app.querySelector("details.voting-help");
+    boardHelp.open = true;
     let summaryReads = 0, roleReads = 0;
     fast.before((pathname) => { if (pathname === "/api/board") summaryReads++; if (pathname.startsWith("/api/board/")) roleReads++; return false; });
     fast.hold((pathname) => pathname.startsWith("/api/board/") ? 140 : 0);
     await fast.go("#/vote/raid_leader_na");
     check(".167 role navigation renders controls immediately while its fresh role read is pending", !!fast.app.querySelector('.role-item[aria-current="page"]') && fast.app.textContent.includes("Checking applications…") && !fast.app.textContent.includes("Nobody has applied for this role yet"));
+    check(".177 role changes retain the mounted help/sidebar/chooser and replace private role content while waiting", fast.app.querySelector("main") === boardMain && fast.app.querySelector("nav.role-list") === roleNav && fast.app.querySelector("select.role-pick") === roleChooser && fast.app.querySelector("details.voting-help") === boardHelp && boardHelp.open && fast.app.querySelector(".board-results").getAttribute("aria-busy") === "true" && roleChooser.value === "raid_leader_na");
     await waitFor(() => fast.app.textContent.includes("Nobody has applied for this role yet"), ".167 selected role fresh answer");
     check(".167 role switching reuses only summary counts and still reads the selected role afresh", summaryReads === 0 && roleReads === 1);
+    check(".177 selected role's settled answer ends its accessible pending state", fast.app.querySelector(".board-results").getAttribute("aria-busy") === "false");
     check(".167 header/avatar/footer nodes stay mounted across routes", fast.app.querySelector("header") === header && fast.app.querySelector("footer") === footer && fast.app.querySelector('nav.nav a[aria-current="page"]').textContent === "Vote");
     await fast.go("#/vote/raid_leader_eu");
     await fast.go("#/roles");
@@ -373,6 +379,84 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".167 cursor opt-out survives navigation without an account or settings write", byText(fast.app, "button", "Game cursor").getAttribute("aria-pressed") === "false");
     const named = await openPage(MEMBER, {}, { bootTransform: b => { b.user.nick = "Guild nickname"; b.user.displayName = "Discord display"; b.user.username = "discord.username"; } });
     check(".167 current Discord nickname and username are formatted without an inferred identity", named.app.querySelector(".who .name").textContent === "Guild nickname (discord.username)" && named.app.querySelector(".welcome").textContent.includes("Welcome, Guild nickname (discord.username)"));
+  }
+  {
+    console.log("\n== .177: section titles, keyboard picker and bounded partial-read recovery ==");
+    const recoveredBoard = await openPage(MEMBER);
+    recoveredBoard.answer(pathname => pathname === "/api/board" ? new Response('{"error":"site_forbidden"}', { status: 403, headers: { "Content-Type": "application/json" } }) : null);
+    recoveredBoard.hold(pathname => pathname.startsWith("/api/board/") ? 100 : 0);
+    await recoveredBoard.go("#/vote/officer");
+    await waitFor(() => recoveredBoard.app.querySelector(".role-pick")?.disabled, ".177 actual summary refusal");
+    const refusedPicker = recoveredBoard.app.querySelector(".role-pick");
+    check(".177 a current summary403 keeps original form and navigation refusal controls disabled", refusedPicker.disabled && recoveredBoard.app.querySelector(".board-results").getAttribute("aria-busy") === "false");
+    recoveredBoard.answer(null); recoveredBoard.hold(null);
+    await recoveredBoard.go(recoveredBoard.app.querySelector('a[href="#/vote/raid_leader_na"]').getAttribute("href"));
+    await waitFor(() => recoveredBoard.app.textContent.includes("Nobody has applied for this role yet"), ".177 admitted replacement role");
+    check(".177 sidebar navigation plus a fresh admitted role200 restores only the persistent mobile navigation chooser", recoveredBoard.app.querySelector(".role-pick") === refusedPicker && !refusedPicker.disabled && refusedPicker.value === "raid_leader_na" && recoveredBoard.app.querySelector(".board-results").getAttribute("aria-busy") === "false");
+    const titled = await openPage(STAFF);
+    const titleCases = [["#/", "Home — Olympus"], ["#/roles", "Roles — Olympus"], ["#/vote/officer", "Officer · Vote — Olympus"], ["#/community/directory", "Community · Member directory — Olympus"], ["#/admin/settings", "Admin · Settings — Olympus"], ["#/admin/community/claims", "Admin · Character claims — Olympus"], ["#/guide/officer", "Officer guide — Olympus"], ["#/talents/mage", "Mage talents — Olympus"], ["#/updates", "Game updates — Olympus"]];
+    for (const [hash, title] of titleCases) { await titled.go(hash); check(".177 section title: " + hash, titled.document.title === title, titled.document.title); }
+    let titleBuild;
+    titled.window.OlympusTalents = { mount: (_box, options) => { titleBuild = options.onBuildChange; return { destroy() {} }; } };
+    await titled.go("#/talents/warrior");
+    await waitFor(() => typeof titleBuild === "function", ".177 actual talent title callback");
+    titleBuild({ className: "druid", build: "" });
+    check(".177 talent class changes update title through the real tool callback without a reload", titled.document.title === "Druid talents — Olympus" && titled.location.hash === "#/talents/druid/");
+    await titled.go("#/roles"); titleBuild({ className: "mage", build: "" });
+    check(".177 a disposed talent tool cannot rename a later page", titled.document.title === "Roles — Olympus");
+
+    const staff = await openPage(STAFF), requests = [];
+    staff.before((pathname, init) => { requests.push([pathname, init.method]); return false; });
+    let unavailable = true;
+    staff.answer(pathname => pathname.startsWith("/api/admin/availability?") && unavailable ? new Response(JSON.stringify({ error: "site_access_unavailable" }), { status: 503, headers: { "Content-Type": "application/json" } }) : null);
+    await staff.go("#/admin");
+    await waitFor(() => !!byText(staff.app, "button", "Try reading availability again"), ".177 availability refusal");
+    const retry = byText(staff.app, "button", "Try reading availability again"), reads = () => requests.filter(([p]) => p.startsWith("/api/admin/availability?"));
+    check(".177 a partial availability503 keeps overview and explains the access check without an automatic retry", !!byText(staff.app, "h2", "Applications by first choice") && staff.app.textContent.includes("Your current access could not be checked") && !staff.app.textContent.includes("Request failed (503)") && reads().length === 1);
+    unavailable = false; retry.click(); retry.click();
+    await waitFor(() => !!staff.app.querySelector("table.heat"), ".177 deliberate fresh availability read");
+    check(".177 the retry issues one current GET, recovers in place and never writes", reads().length === 2 && reads().every(([, method]) => method === "GET") && requests.every(([, method]) => method === "GET"));
+    const firstChoice = staff.app.querySelector('a[aria-label="Open Officer applications"]');
+    check(".177 first-choice summaries expose native named links within the original headed table", !!firstChoice && firstChoice.getAttribute("href") === "#/admin/applications" && !!firstChoice.closest("td") && !!byText(firstChoice.closest("table"), "th", "First choice"));
+    firstChoice.click(); await staff.go(firstChoice.getAttribute("href"));
+    await waitFor(() => requests.some(([p]) => p.startsWith("/api/admin/applications?")), ".177 first-choice filter");
+    const query = requests.filter(([p]) => p.startsWith("/api/admin/applications?")).at(-1)[0];
+    check(".177 native first-choice activation retains exact position and clears unrelated filters", query.includes("position=officer") && !/[?&](?:profession|q|status|offset)=/.test(query), query);
+    await staff.go("#/admin");
+    await waitFor(() => !!staff.app.querySelector("table.heat"), ".177 overview revisit");
+    unavailable = true;
+    fire(staff.app.querySelector('select[aria-label="Which applications"]'), "change");
+    await waitFor(() => !!byText(staff.app, "button", "Try reading availability again"), ".177 another explicit refusal");
+    const detachedRetry = byText(staff.app, "button", "Try reading availability again");
+    await staff.go("#/roles"); const beforeDetached = reads().length; detachedRetry.click(); await settle();
+    check(".177 detached availability recovery cannot read or replace another route", reads().length === beforeDetached && staff.document.title === "Roles — Olympus" && !staff.app.querySelector("table.heat"));
+
+    await staff.go("#/admin/settings");
+    await waitFor(() => !!staff.app.querySelector(".picker") && !!staff.app.querySelector("#lead-gm-0"), ".177 appointment search");
+    staff.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { results: [{ id: OTHER, label: "On site", shown: "On site", onSite: true, appointmentStatus: "eligible" }, { id: "123456789012345678", label: "Discord only", shown: "Discord only", onSite: false, appointmentStatus: "eligible" }] } : null);
+    const input = staff.app.querySelector('.picker input[role="combobox"]'), picker = input.closest(".picker"), checkbox = picker.querySelector('.list-tools input[type="checkbox"]');
+    input.value = "fixture"; input.focus(); fire(input, "input");
+    await waitFor(() => picker.querySelectorAll('[role="option"]').length === 2, ".177 picker results");
+    checkbox.focus(); input.dispatchEvent(new Event("focusout", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    check(".177 profile filter is a native tabbable checkbox and moving focus into it retains the popup", checkbox.getAttribute("tabindex") === null && !picker.querySelector(".list").hidden && input.getAttribute("aria-expanded") === "true");
+    checkbox.checked = true; fire(checkbox, "change");
+    check(".177 native checkbox change filters existing results without replacing focus or issuing a save", picker.querySelectorAll('[role="option"]').length === 1 && picker.textContent.includes("On site") && !picker.textContent.includes("Discord only") && staff.document.activeElement === checkbox && !staff.app.querySelector("#appointed-names-ok").checked);
+    checkbox.dispatchEvent(new Event("keydown", { key: "Escape", bubbles: true }));
+    check(".177 Escape closes the keyboard filter popup and returns to its search", picker.querySelector(".list").hidden && staff.document.activeElement === input && input.getAttribute("aria-expanded") === "false");
+    input.dispatchEvent(new Event("keydown", { key: "ArrowDown", bubbles: true }));
+    await waitFor(() => !picker.querySelector(".list").hidden && picker.querySelectorAll('[role="option"]').length === 1, ".177 explicit picker reopen");
+    const next = staff.app.querySelector("#lead-gm-0"); next.focus(); input.dispatchEvent(new Event("focusout", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    check(".177 leaving the picker closes it without trapping focus or confirming publication", picker.querySelector(".list").hidden && staff.document.activeElement === next && requests.every(([, method]) => method === "GET"));
+    const searchesBeforeLeaving = requests.filter(([path]) => path.startsWith("/api/search?")).length;
+    input.focus(); input.value = "Leaving before debounce"; fire(input, "input");
+    next.focus(); input.dispatchEvent(new Event("focusout", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 500));
+    check(".177 leaving before the queued lookup cancels its debounce without a late request or popup reopen", requests.filter(([path]) => path.startsWith("/api/search?")).length === searchesBeforeLeaving && picker.querySelector(".list").hidden && staff.document.activeElement === next);
+    const formatting = APP_JS.slice(APP_JS.indexOf("  const DT ="), APP_JS.indexOf("  const M ="));
+    const relative = new Function("nowSec", formatting + "\nreturn ago;")(() => 2000000000);
+    check(".177 real relative-date formatter uses singular day and preserves adjacent time bands", relative(2000000000 - 86400) === "1 day ago" && relative(2000000000 - 2 * 86400) === "2 days ago" && relative(2000000000 - 60) === "1 min ago" && relative(2000000000 - 3600) === "1 h ago");
   }
   {
     const pointer = `<@${OTHER}>`;

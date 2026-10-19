@@ -92,15 +92,16 @@ class TalentElement {
   replaceChildren(...nodes) { for (const node of this.childNodes) node.parentNode = null; this.childNodes = []; this.append(...nodes); }
   set textContent(value) { this.replaceChildren(this.ownerDocument.createTextNode(value)); }
   get textContent() { return this.childNodes.map(node => node.textContent).join(''); }
-  setAttribute(key, value) { this.attributes[key] = String(value); }
+  setAttribute(key, value) { this.attributes[key] = String(value); if (key === 'src') this.srcAssignments = (this.srcAssignments || 0) + 1; }
   getAttribute(key) { return this.attributes[key] ?? null; }
   removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(type, handler) { (this.listeners[type] ||= []).push(handler); }
-  dispatch(type, extra = {}) { const event = { target: this, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra }; for (const handler of this.listeners[type] || []) handler(event); return event; }
+  dispatch(type, extra = {}) { const event = { target: this, currentTarget: this, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra }; for (const handler of this.listeners[type] || []) handler(event); return event; }
   focus() { if (this.ownerDocument.activeElement !== this) { this.ownerDocument.activeElement = this; this.dispatch('focus'); } }
   click() { if (!this.disabled) this.dispatch('click'); }
   contains(node) { for (let current = node; current; current = current.parentNode) if (current === this) return true; return false; }
   all(predicate) { return this.childNodes.filter(node => node.nodeType === 1).flatMap(node => [...(predicate(node) ? [node] : []), ...node.all(predicate)]); }
+  querySelectorAll(selector) { if (selector !== 'img') throw Error('Only the native image query is used by this fixture.'); return this.all(node => node.tagName === 'IMG'); }
 }
 async function detailRenderRegression() {
   const document = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
@@ -126,9 +127,11 @@ async function detailRenderRegression() {
   const heroic = find('Improved Heroic Strike');
   check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 2 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
   check('the initial hidden detail has no elevated owner and empty trees use plural point labels', detail().hidden && detailOwners().length === 0 && pointLabels().join() === '0 points,0 points,0 points');
+  const initialArtwork = container.querySelectorAll('img').filter(node => !detail().contains(node));
   pick(heroic.name).click();
   check('the real point control renders current and next rank text without converting absent fields to null', changes.at(-1).points === 1 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3') && detail().textContent.includes(heroic.descriptions[0]) && detail().textContent.includes(heroic.descriptions[1]) && titles().includes('Next rank') && !detail().textContent.includes('null'));
   check('the real branch counter uses singular point only for one allocated point', pointLabels().join() === '1 point,0 points,0 points');
+  check('a real point edit reuses every mounted class, portrait, tree and talent image without assigning their protected URLs again', initialArtwork.length > 60 && initialArtwork.every(node => container.contains(node) && node.srcAssignments === 1));
   const copyLink = () => byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Copy link');
   copyLink().click(); await Promise.resolve();
   const beforeReselect = { callbacks: changes.length, code: byClass(container, 'talents-share-code')[0].getAttribute('value'), link: copiedLinks.at(-1), selected: pick(heroic.name) };
@@ -188,9 +191,22 @@ async function detailRenderRegression() {
   check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 52 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
   pick(heroic.name).dispatch('keydown', { key: '-' }); pick(heroic.name).dispatch('keydown', { key: '+' });
   check('keyboard refund and allocation preserve the exact versioned share code and original point rules', changes.at(-2).points === 2 && changes.at(-1).points === 3 && api.validateBuild(data, api.parseBuild(data, byClass(container, 'talents-share-code')[0].getAttribute('value')).build).points === 3);
+  const failedIcon = pick(deflection.name).all(node => node.tagName === 'IMG')[0], exactArtworkURL = failedIcon.getAttribute('src'), assignmentsBeforeFailure = failedIcon.srcAssignments;
+  failedIcon.dispatch('error');
+  const artworkNotice = byClass(container, 'talents-artwork-notice')[0];
+  check('failed artwork gets a truthful notice without an automatic retry or any talent-point mutation', failedIcon.hidden && !artworkNotice.hidden && artworkNotice.textContent.includes('Talent names, details and point rules are still available.') && failedIcon.srcAssignments === assignmentsBeforeFailure && changes.at(-1).points === 3);
+  const oldArtworkRetry = artworkNotice.all(node => node.tagName === 'BUTTON').find(node => node.textContent === 'Retry artwork');
+  oldArtworkRetry.click();
+  check('one explicit artwork retry reuses only the exact failed mounted private URL without a query, data URL or point change', failedIcon.srcAssignments === assignmentsBeforeFailure + 1 && failedIcon.getAttribute('src') === exactArtworkURL && !exactArtworkURL.includes('?') && failedIcon.hidden && changes.at(-1).points === 3);
+  failedIcon.dispatch('load');
+  check('successful retried artwork becomes visible and clears the partial-failure notice', !failedIcon.hidden && artworkNotice.hidden);
   classButtons().find(button => button.textContent === 'Paladin').click();
   check('an actual class-icon action changes class and restores its three real trees with an empty valid build', changes.at(-1).className === 'paladin' && changes.at(-1).points === 0 && byClass(container, 'talents-tree')[0].getAttribute('aria-label') === 'Holy' && byClass(container, 'talents-backdrop')[0].getAttribute('src') === art.treeBackgrounds['paladin-holy']);
   const paladinFirst = all(data.classes[1])[0]; pick(paladinFirst.name).click();
+  const paladinIcon = pick(paladinFirst.name).all(node => node.tagName === 'IMG')[0]; paladinIcon.dispatch('error');
+  const paladinAssignments = paladinIcon.srcAssignments;
+  oldArtworkRetry.click();
+  check('a detached previous-render artwork retry cannot retry a later current class', paladinIcon.srcAssignments === paladinAssignments && paladinIcon.hidden);
   byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Reset').click();
   check('the actual Reset control clears an invested build while retaining class and snapshot data', changes.at(-2).points === 1 && changes.at(-1).points === 0 && changes.at(-1).className === 'paladin' && initialJSON === JSON.stringify(data));
   const importedContainer = document.createElement('main');
@@ -199,8 +215,12 @@ async function detailRenderRegression() {
   imported.destroy();
   pick(paladinFirst.name).dispatch('pointerenter'); pick(paladinFirst.name).parentNode.dispatch('pointerleave', { relatedTarget: null });
   const pendingBeforeDestroy = timers.size === 1;
+  const currentFailedIcon = pick(paladinFirst.name).all(node => node.tagName === 'IMG')[0]; currentFailedIcon.dispatch('error');
+  const currentRetry = byClass(container, 'talents-artwork-notice')[0].all(node => node.tagName === 'BUTTON')[0], beforeDestroyedRetry = currentFailedIcon.srcAssignments;
   controller.destroy();
   check('destroying the calculator clears its outstanding pointer dismissal timer', pendingBeforeDestroy && timers.size === 0);
+  currentRetry.click();
+  check('a destroyed calculator cannot issue an artwork retry', currentFailedIcon.srcAssignments === beforeDestroyedRetry);
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }
