@@ -150,6 +150,10 @@ function splitFixtureSchema(source) {
   let outboundAttempts = 0;
   const viewer = "300000000000000091", oauthCode = "bundle_original_oauth_code", oauthToken = "bundle-original-oauth-token";
   const controlledOAuthCalls = [];
+  // .174 adds the existing configured administrator as a second explicit synthetic OAuth actor.
+  // The original ordinary viewer, its authority and its three-call assertion stay unchanged.
+  const adminViewer = "472099715253796864", adminOAuthCode = "bundle_admin_oauth_code", adminOAuthToken = "bundle-admin-oauth-token", controlledAdminOAuthCalls = [];
+  const oauthActors = [{ id: viewer, code: oauthCode, token: oauthToken, calls: controlledOAuthCalls }, { id: adminViewer, code: adminOAuthCode, token: adminOAuthToken, calls: controlledAdminOAuthCalls }];
   const controlledOAuth = async (request) => {
     const url = new URL(request.url);
     const refuse = () => { outboundAttempts++; throw Error("BUNDLE_UNSELECTED_PROVIDER_REQUEST"); };
@@ -157,19 +161,22 @@ function splitFixtureSchema(source) {
     if (url.pathname === "/api/v10/oauth2/token") {
       if (request.method !== "POST" || !/^application\/x-www-form-urlencoded(?:;|$)/i.test(request.headers.get("Content-Type") || "")) return refuse();
       const form = new URLSearchParams(await request.clone().text());
-      const expected = { client_id: "1550176895671341076", client_secret: "client-secret-for-tests", grant_type: "authorization_code", code: oauthCode, redirect_uri: "https://guild.example/auth/callback" };
-      if ([...form.keys()].sort().join(",") !== Object.keys(expected).sort().join(",") || Object.entries(expected).some(([key,value]) => form.getAll(key).length !== 1 || form.get(key) !== value) || controlledOAuthCalls.length !== 0) return refuse();
-      controlledOAuthCalls.push("token");
-      return Response.json({ access_token: oauthToken, token_type: "Bearer" });
+      const actor = oauthActors.find(row => row.code === form.get("code"));
+      if (!actor) return refuse();
+      const expected = { client_id: "1550176895671341076", client_secret: "client-secret-for-tests", grant_type: "authorization_code", code: actor.code, redirect_uri: "https://guild.example/auth/callback" };
+      if ([...form.keys()].sort().join(",") !== Object.keys(expected).sort().join(",") || Object.entries(expected).some(([key,value]) => form.getAll(key).length !== 1 || form.get(key) !== value) || actor.calls.length !== 0) return refuse();
+      actor.calls.push("token");
+      return Response.json({ access_token: actor.token, token_type: "Bearer" });
     }
-    if (request.method !== "GET" || request.headers.get("Authorization") !== "Bearer " + oauthToken) return refuse();
-    if (url.pathname === "/api/v10/users/@me" && controlledOAuthCalls.join(",") === "token") {
-      controlledOAuthCalls.push("me");
-      return Response.json({ id: viewer, username: "Runtime member", global_name: null, avatar: null, bot: false });
+    const actor = oauthActors.find(row => request.headers.get("Authorization") === "Bearer " + row.token);
+    if (request.method !== "GET" || !actor) return refuse();
+    if (url.pathname === "/api/v10/users/@me" && actor.calls.join(",") === "token") {
+      actor.calls.push("me");
+      return Response.json({ id: actor.id, username: "Runtime member", global_name: null, avatar: null, bot: false });
     }
-    if (url.pathname === "/api/v10/users/@me/guilds/236932545793490944/member" && controlledOAuthCalls.join(",") === "token,me") {
-      controlledOAuthCalls.push("member");
-      return Response.json({ user: { id: viewer, username: "Runtime member" }, nick: null, avatar: null, roles: [], joined_at: "2026-09-01T00:00:00Z", pending: false });
+    if (url.pathname === "/api/v10/users/@me/guilds/236932545793490944/member" && actor.calls.join(",") === "token,me") {
+      actor.calls.push("member");
+      return Response.json({ user: { id: actor.id, username: "Runtime member" }, nick: null, avatar: null, roles: [], joined_at: "2026-09-01T00:00:00Z", pending: false });
     }
     return refuse();
   };
@@ -309,12 +316,38 @@ function splitFixtureSchema(source) {
     check("the watcher's endpoints need the bearer", res.status === 401, res.status);
     res = await get("https://verify.example/queue", { headers: { Authorization: `Bearer ${TOKEN}` } });
     check("  and answer with it", res.status === 200, res.status, (await res.text()).slice(0, 100));
+
+    console.log("\n== native administrator application reads (.174) ==");
+    const submitted = await get("https://guild.example/api/application", { method: "PUT", headers: { Cookie: cookie, Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json" }, body: JSON.stringify({ position: "member", backups: [], class: "warrior", role: "tank", region: "na_east", character: "", fallback: true, ack: true, board: false, avail: "f".repeat(42), availTz: "America/New_York", answers: { experience: "Synthetic runtime application.", why: "Check the original administrator read.", voice: "listen" } }) });
+    check("original member route creates the synthetic application without fixture SQL writes", submitted.status === 200, submitted.status, await submitted.text());
+    const adminLogin = await get("https://guild.example/auth/login", { redirect: "manual" }), adminAuthorize = new URL(adminLogin.headers.get("Location")), adminState = adminAuthorize.searchParams.get("state"), adminStateCookie = (adminLogin.headers.get("Set-Cookie") || "").split(";")[0];
+    const adminCallback = await get("https://guild.example/auth/callback?code=" + encodeURIComponent(adminOAuthCode) + "&state=" + encodeURIComponent(adminState), { headers: { Cookie: adminStateCookie }, redirect: "manual" });
+    const adminIssued = adminCallback.headers.get("Set-Cookie") || "", adminMatched = adminIssued.match(/(?:^|,\s*)(__Host-olg=[A-Za-z0-9_.-]+)(?:;|$)/), adminCookie = adminMatched ? adminMatched[1] : "";
+    check("existing administrator uses the same original mounted OAuth cookie producer", adminCallback.status === 303 && !!adminCookie && controlledAdminOAuthCalls.join(",") === "token,me,member" && controlledOAuthCalls.join(",") === "token,me,member", adminCallback.status);
+    const readTarget = async () => ({ user: await d1.prepare("SELECT account_incarnation,session_version,denied,denied_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired FROM site_users WHERE discord_id=?1").bind(viewer).first(), application: await d1.prepare("SELECT status,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired FROM site_applications WHERE discord_id=?1").bind(viewer).first(), decisions: (await d1.prepare("SELECT COUNT(*) AS n FROM privacy_rejection_decisions").first()).n, markers: (await d1.prepare("SELECT COUNT(*) AS n FROM privacy_denial_markers").first()).n });
+    const originalTarget = await readTarget(), applicationPath = "https://guild.example/api/admin/applications/" + viewer;
+    const listed = await get("https://guild.example/api/admin/applications", { headers: { Cookie: adminCookie } });
+    const listedBody = await listed.json();
+    check("original administrator lists the synthetic application", listed.status === 200 && listedBody.items.some(item => item.user.id === viewer), listed.status);
+    const detail = await get(applicationPath, { headers: { Cookie: adminCookie } }), detailBody = await detail.json();
+    check("real Workerd native Body methods admit the original authenticated detail GET", detail.status === 200 && detailBody.user.id === viewer && detailBody.application.status === "submitted", detail.status, detailBody.error);
+    const target = await get("https://guild.example/api/admin/users/" + viewer + "/decision-target?route=status&decisionAction=membership_rejection_v1", { headers: { Cookie: adminCookie } }), targetBody = await target.json();
+    check("real Workerd preserves original target preparation instead of bypassing custody", target.status === 200 && typeof targetBody.targetToken === "string" && targetBody.targetToken.length > 100, target.status, targetBody.error);
+    const nonAdmin = await get(applicationPath, { headers: { Cookie: cookie } });
+    check("the original non-admin viewer cannot read the administrator detail", nonAdmin.status === 401, nonAdmin.status);
+    const missingTarget = await get(applicationPath + "/status", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", "X-Olympus-Decision-Action": "membership_rejection_v1" }, body: JSON.stringify({ status: "declined" }) });
+    check("the native status writer still holds a missing original target token", missingTarget.status === 409 && (await missingTarget.json()).error === "original_membership_decision_held", missingTarget.status);
+    const wrongOrigin = await get(applicationPath + "/status", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://elsewhere.example", "X-Olympus": "2", "Content-Type": "application/json", "X-Olympus-Decision-Target": targetBody.targetToken || "", "X-Olympus-Decision-Action": "membership_rejection_v1" }, body: JSON.stringify({ status: "declined" }) });
+    check("the native status writer still holds a wrong origin with an otherwise prepared target", wrongOrigin.status === 409 && (await wrongOrigin.json()).error === "original_membership_decision_held", wrongOrigin.status);
+    const signedOut = await get("https://guild.example/auth/logout", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), stale = await get(applicationPath, { headers: { Cookie: adminCookie } });
+    check("a normally retired original administrator session cannot read detail", signedOut.status === 200 && stale.status === 401, signedOut.status, stale.status);
+    check("native reads and refused writes preserve the actual target, rejection provenance and markers", JSON.stringify(await readTarget()) === JSON.stringify(originalTarget));
   } finally {
     await mf.dispose();
   }
   check("standard bundle has no real external provider calls", outboundAttempts === 0, outboundAttempts);
   check("original production bundle inputs remain byte exact", inputsUnchanged());
-  console.log("MEASURED_BUNDLE_RUNTIME " + JSON.stringify({ schema: "production-bundle-local-runtime-v1", compatibilityDate: "2026-09-01", compatibilityFlags: ["nodejs_compat"], bundleSHA256: digest(Buffer.from(bundle)), sourceInputs: inputs, sourceInputsPreserved: inputsUnchanged(), originalDryRunExitCode: dry.status, actualBundleStarted: started, outboundAttempts, controlledOAuthCalls, originalMountedOAuthCookie: true, providerOriginQualified: false, providerDrainQualified: false, actualSourceOpenerQualified: false, productionCapacityQualified: false, deploymentOrActivation: false, originalPhaseHandoff, artifactRoot: scratch, passedAssertions: ok, attemptedAssertions: n }));
+  console.log("MEASURED_BUNDLE_RUNTIME " + JSON.stringify({ schema: "production-bundle-local-runtime-v1", compatibilityDate: "2026-09-01", compatibilityFlags: ["nodejs_compat"], bundleSHA256: digest(Buffer.from(bundle)), sourceInputs: inputs, sourceInputsPreserved: inputsUnchanged(), originalDryRunExitCode: dry.status, actualBundleStarted: started, outboundAttempts, controlledOAuthCalls, controlledAdminOAuthCalls, originalMountedOAuthCookie: true, providerOriginQualified: false, providerDrainQualified: false, actualSourceOpenerQualified: false, productionCapacityQualified: false, deploymentOrActivation: false, originalPhaseHandoff, artifactRoot: scratch, passedAssertions: ok, attemptedAssertions: n }));
   recordArtifacts(ok === n ? "passed" : "failed_checks");
   console.log(`\nbundle runtime: ${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

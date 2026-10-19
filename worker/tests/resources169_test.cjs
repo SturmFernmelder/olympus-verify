@@ -96,7 +96,7 @@ function renderer(fetcher) {
 
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'public/static/resources169.json'), 'utf8'));
   check('catalog covers21 curated addons,12 guide sources and6 news/discovery sources', catalog.version === 1 && catalog.addons.length === 21 && catalog.guides.length === 12 && catalog.newsSources.length === 6);
-  check('catalog explicitly disclaims exhaustive inventory and independent compatibility qualification', /not every addon/.test(catalog.disclaimer) && /not.*guarantee of in-game compatibility/.test(catalog.disclaimer));
+  check('catalog explicitly disclaims exhaustive inventory and independent compatibility qualification', /not every addon/.test(catalog.viewNotes.addons) && /not.*guarantee of in-game compatibility/.test(catalog.disclaimer));
   check('every addon carries publisher identity, rationale, advertised client/release and limits', catalog.addons.every(a => a.id && a.name && a.category && a.rationale && a.status && a.version && /^2026-10-\d{2}$/.test(a.releasedAt) && a.gameBuild.includes('Forever') && a.sourceKind && a.limitations.length && new URL(a.url).protocol === 'https:'));
   check('all catalog IDs are unique and guide provisional boundaries remain explicit', new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources].map(x => x.id)).size === 39 && catalog.guides.every(g => g.scope && g.status && g.sourceKind && g.limitations.length) && catalog.guides.find(g => g.id === 'wow-professions').limitations.some(x => /untested/.test(x)));
   check('Blizzard News is direct-link only and forums are not mislabelled all-official', catalog.newsSources.find(s => s.id === 'blizzard-news').status === 'Direct link only' && /not every topic/.test(catalog.newsSources.find(s => s.id === 'blizzard-forum').scope));
@@ -110,6 +110,11 @@ function renderer(fetcher) {
   const select = walk(holder).find(x => x.tagName === 'SELECT'); search.value = ''; select.value = 'Forever discoveries'; select.fire('change');
   check('category filter exposes8 reviewed Forever-focused discoveries', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 8);
   mounted.destroy(); check('unmount removes the view and leaves no polling timer', holder.children.length === 0 && r.intervals.size === 0);
+  const guideRenderer = renderer(async () => Response.json(catalog)), guideHolder = new Element('div');
+  const guides = guideRenderer.api.mount(guideHolder, { view: 'guides' }); await settle();
+  check('.174 guides preserve dated scope without addon-install instructions or internal extraction/audit copy', walk(guideHolder).filter(x => x.tagName === 'ARTICLE').length === 12 && textOf(guideHolder).includes(catalog.checkedAt) && textOf(guideHolder).includes('Alchemy 225–300') && !/Choose the author.s Forever file|not every addon|direct extraction|full-body audit|blanket peer-review/.test(textOf(guideHolder)) && textOf(guideHolder).includes('current articles could not be read'));
+  check('.174 source metadata remains accessible in native disclosures beside visible compatibility cautions', walk(guideHolder).filter(x => x.tagName === 'DETAILS').length === 13 && textOf(guideHolder).includes('Source and compatibility details') && textOf(guideHolder).includes('Guide scope:') && textOf(guideHolder).includes('responsible editor'));
+  guides.destroy();
   const u = renderer(async url => { assert.equal(url, '/api/resource-updates'); return Response.json(good); }), updateHolder = new Element('div');
   const updates = u.api.mount(updateHolder, { view: 'updates' }); await settle();
   check('updates render separate actual retrieval/attempt/publisher dates and3 source filters', textOf(updateHolder).includes('Last successful retrieval:') && textOf(updateHolder).includes('Last retrieval attempt:') && textOf(updateHolder).includes('Published:') && walk(updateHolder).filter(x => x.type === 'checkbox').length === 3);
@@ -119,6 +124,24 @@ function renderer(fetcher) {
   u.hide(); check('hidden view stops polling immediately', u.intervals.size === 0);
   u.show(); await settle(); check('visible view resumes one bounded same-origin source read', u.calls.length === 2 && u.intervals.size === 1 && u.calls.every(([url, init]) => url === '/api/resource-updates' && init.cache === 'no-store' && init.credentials === 'same-origin'));
   updates.destroy(); check('updates destroy stops polling and aborts its controller', u.intervals.size === 0 && updateHolder.children.length === 0);
+  const groupedData = structuredClone(good);
+  groupedData.sources[0].items = [6, 7].map((post, i) => ({ title: 'Development notes updated October 15', url: `https://us.forums.blizzard.com/en/wow/t/notes/2360696/${post}`, publishedAt: AT - (i + 1) * DAY }));
+  groupedData.sources[1] = { ...groupedData.sources[1], items: [], status: 'unavailable', failure: 'upstream' };
+  groupedData.sources[2] = { ...groupedData.sources[2], items: [] };
+  const groupedUi = renderer(async () => Response.json(groupedData)), groupedHolder = new Element('div');
+  const groupedMount = groupedUi.api.mount(groupedHolder, { view: 'updates' }); await settle();
+  const groupedCards = walk(groupedHolder).filter(x => x.tagName === 'ARTICLE'), groupedLinks = walk(groupedCards[0]).filter(x => x.tagName === 'A');
+  check('.174 repeated Blizzard thread title is grouped without losing either original post link or publisher date', textOf(groupedCards[0]).split('Development notes updated October 15').length === 2 && textOf(groupedCards[0]).includes('2 posts from this development-notes thread') && [6, 7].every(post => groupedLinks.some(x => x.textContent === 'Thread post ' + post && x.href.endsWith('/' + post))) && groupedData.sources[0].items.every(item => textOf(groupedCards[0]).includes(new Date(item.publishedAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC'))));
+  check('.174 source failure is distinct from a successfully read empty feed window', textOf(groupedCards[1]).includes('This source could not be refreshed') && !textOf(groupedCards[1]).includes('No matching headlines') && textOf(groupedCards[2]).includes('No matching headlines') && !textOf(groupedCards[2]).includes('could not be refreshed'));
+  check('.174 refresh cadence/cache limits remain readable without internal admission wording', textOf(groupedHolder).includes('every 60 seconds') && textOf(groupedHolder).includes('ten minutes') && !textOf(groupedHolder).includes('admitted view'));
+  groupedMount.destroy();
+  for (const malformedUrl of ['not an absolute URL', '/en/wow/t/notes/2360696/6', 'https://evil.invalid/en/wow/t/notes/2360696/6']) {
+    const malformedData = structuredClone(groupedData); malformedData.sources[0].items[0].url = malformedUrl;
+    const malformedUi = renderer(async () => Response.json(malformedData)), malformedHolder = new Element('div');
+    const malformedMount = malformedUi.api.mount(malformedHolder, { view: 'updates' }); await settle();
+    check('.174 malformed or non-publisher thread URL is refused without partial headlines: ' + malformedUrl, walk(malformedHolder).filter(x => x.tagName === 'ARTICLE').length === 0 && textOf(malformedHolder).includes('Updates could not be read') && !walk(malformedHolder).some(x => x.tagName === 'A' && x.href === malformedUrl));
+    malformedMount.destroy();
+  }
   let refusedStatus = 0;
   const denied = renderer(async () => new Response(null, { status: 403 })), deniedHolder = new Element('div');
   denied.api.mount(deniedHolder, { view: 'updates', onRefused(status) { refusedStatus = status; } }); await settle();

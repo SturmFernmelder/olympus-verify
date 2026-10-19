@@ -106,7 +106,24 @@ function preservedWebsite(name){check(name+' keeps appointments and directory',d
   r=await preview();check(label+' retired preview is closed but independent cutoff confirmation remains available',r.data.phase==='retired_awaiting_drain'&&r.data.policyRetired&&!r.data.canArm&&!r.data.canRetire&&r.data.retireForm===null&&r.data.retentionForm&&!r.data.discovery.continuous);privateStatus(label+' retired',r);
   r=await request('POST','/confirm-cutoff',{form:r.data.retentionForm});check(label+' owner can confirm independent retention cutoff after retirement',r.status===200&&r.data.removalCompletion===false&&policyRow()===tombstone);
   r=await armRequest(p.data.retireForm);check(label+' retired policy cannot rearm',r.status===409&&policyRow()===tombstone);
-  await routeReset(installed,true,policy.BETA_RESET_CUTOFF);p=await preview();const concurrent=await Promise.all([retireRequest(p.data.retireForm),retireRequest(p.data.retireForm)]);check(label+' concurrent retirement uses one original-raw CAS',concurrent.filter(x=>x.status===200).length===1&&concurrent.filter(x=>x.status===409).length===1&&!!policy.parseBetaResetRetirement(policyRow(),env));
+  await routeReset(installed,true,policy.BETA_RESET_CUTOFF);p=await preview();
+  const concurrentOriginalRaw=policyRow(),originalVerify=crypto.subtle.verify,authenticVerify=originalVerify.bind(crypto.subtle),retirementWrites=[];
+  let verifiedRetirements=0,releaseRetirements;const bothRetirementsVerified=new Promise(resolve=>{releaseRetirements=resolve;});
+  // Promise.all alone can let the second request capture the completed tombstone,
+  // which correctly uses the explicit retry readback above. Hold both genuine
+  // authenticated original-policy contenders before either consuming UPDATE.
+  crypto.subtle.verify=async(...args)=>{
+   const ok=await authenticVerify(...args),signed=new TextDecoder().decode(args[3]);
+   if(signed.startsWith('{"purpose":"beta-role-reset-retire-v1"')){
+    const claims=JSON.parse(signed);assert.ok(ok,'concurrent retirement uses authentic HMAC verification');assert.equal(claims.retention,concurrentOriginalRaw,'both retirement captures bind the exact original policy');
+    if(++verifiedRetirements===2)releaseRetirements();await bothRetirementsVerified;
+   }return ok;
+  };
+  sqlAfter=(sql,values,out)=>{if(sql.startsWith('UPDATE site_settings SET value=?9'))retirementWrites.push({originalRaw:values[5],returned:out});};
+  let concurrent;try{concurrent=await Promise.all([retireRequest(p.data.retireForm).finally(()=>releaseRetirements()),retireRequest(p.data.retireForm).finally(()=>releaseRetirements())]);}
+  finally{releaseRetirements();crypto.subtle.verify=originalVerify;sqlAfter=null;}
+  check(label+' concurrent retirement uses one original-raw CAS',concurrent.filter(x=>x.status===200).length===1&&concurrent.filter(x=>x.status===409).length===1&&!!policy.parseBetaResetRetirement(policyRow(),env));
+  check(label+' concurrent retirement authenticates two original captures and consumes one UPDATE',verifiedRetirements===2&&retirementWrites.length===2&&retirementWrites.every(x=>x.originalRaw===concurrentOriginalRaw)&&retirementWrites.filter(x=>x.returned!==null).length===1&&retirementWrites.find(x=>x.returned!==null).returned.value===policyRow());
   await routeReset(installed,true,policy.BETA_RESET_CUTOFF);p=await preview();let lost=false;batchAfter=sqls=>{if(!lost&&sqls.some(sql=>sql.startsWith('UPDATE site_settings SET value=?9'))){lost=true;batchAfter=null;assert.ok(policy.parseBetaResetRetirement(policyRow(),env));throw Error('synthetic retirement committed reply lost');}};
   r=await retireRequest(p.data.retireForm);const durable=policyRow();check(label+' lost retirement commit remains uncertain with durable tombstone',lost&&r.status===503&&!!policy.parseBetaResetRetirement(durable,env));r=await retireRequest(p.data.retireForm);check(label+' explicit retry reads durable retirement without replacing it',r.status===200&&policyRow()===durable);
   for(const mutation of ['policy','version','generation','expiry']){

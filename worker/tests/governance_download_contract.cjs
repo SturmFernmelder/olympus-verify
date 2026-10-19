@@ -1,4 +1,4 @@
-// .154: exact historical R6 downloads, bounded archive CRC/payloads and current R7 h()/add() quicklink attributes.
+// .154/.174: exact historical R6 downloads, bounded archive CRC/payloads and current R7/closed Archive h()/add() attributes.
 // Stdlib only. The isolated CLI uses candidate files; governance_test.cjs calls the same checks after integration.
 const fs = require("fs"), path = require("path"), crypto = require("crypto"), zlib = require("zlib"), vm = require("vm");
 const PAYLOADS = [
@@ -79,17 +79,21 @@ function inspectZip(bytes) {
 function renderedQuicklinks(app) {
   const hs = app.indexOf("  function h(tag, props, ...kids) {"), he = app.indexOf("  const clear = ", hs);
   const start = app.indexOf('      h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },');
-  const endLine = '        h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R7.md", text: "Download current R7 source" })),';
+  const endLine = '      h("div", { class: "governance-controls" },';
   const end = app.indexOf(endLine, start);
   if (hs < 0 || he < 0 || start < 0 || end < 0 || app.indexOf(endLine, end + 1) >= 0) throw Error("Unique actual h/quicklinks context");
   class Node { constructor() { this.childNodes = []; } appendChild(child) { this.childNodes.push(child); return child; } }
   class Element extends Node { constructor(tag) { super(); this.tagName = tag.toUpperCase(); this.attributes = {}; this.listeners = {}; } setAttribute(k, v) { this.attributes[k] = String(v); } getAttribute(k) { return this.attributes[k] ?? null; } addEventListener(name, handler) { this.listeners[name] = handler; } }
   const document = { createElement: (tag) => new Element(tag), createTextNode: (text) => Object.assign(new Node(), { textContent: String(text) }) };
-  // Execute only current h/add and this navigation expression. Event handlers are retained but never invoked.
-  const code = app.slice(hs, he) + '\nconst GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";\n(' + app.slice(start, end + endLine.length).trim().replace(/,$/, "") + ')';
-  const nav = vm.runInNewContext(code, { document, Node }, { timeout: 1000 });
-  if (!(nav instanceof Element) || nav.tagName !== "NAV") throw Error("Navigation element");
-  return { links: nav.childNodes.filter((node) => node.tagName === "A"), buttons: nav.childNodes.filter((node) => node.tagName === "BUTTON") };
+  // Execute only current h/add and the real navigation plus sibling Archive expressions.
+  // Event handlers are retained but never invoked; no application requests or permissions are involved.
+  const code = app.slice(hs, he) + '\nconst GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";\n[' + app.slice(start, end).trim().replace(/,$/, "") + ']';
+  const nodes = vm.runInNewContext(code, { document, Node }, { timeout: 1000 });
+  const [nav, archive] = nodes;
+  if (nodes.length !== 2 || !(nav instanceof Element) || nav.tagName !== "NAV" || !(archive instanceof Element) || archive.tagName !== "DETAILS") throw Error("Navigation and Archive elements");
+  const descendants = (node, tag) => node.childNodes.flatMap(child => [...(child.tagName === tag ? [child] : []), ...descendants(child, tag)]);
+  const currentLinks = descendants(nav, "A"), archiveLinks = descendants(archive, "A");
+  return { links: [...currentLinks, ...archiveLinks], currentLinks, archiveLinks, archive, buttons: descendants(nav, "BUTTON") };
 }
 function runChecks(workerRoot = path.join(__dirname, "..")) {
   const dir = path.join(workerRoot, "public/static/governance"), app = fs.readFileSync(path.join(workerRoot, "public/static/app.js"), "utf8");
@@ -103,12 +107,13 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   check("ZIP PDF payload is byte-identical to standalone public PDF", entries.find((entry) => entry.name.endsWith(".pdf")).data.equals(pdf));
   const book = entries.find((entry) => entry.name.endsWith("Source.txt")).data;
   check("ZIP source remains exact 116006-byte reviewed R6, not a rewritten book", book.length === 116006 && sha(book) === "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca");
-  const { links, buttons } = renderedQuicklinks(app);
+  const { links, buttons, currentLinks, archiveLinks, archive } = renderedQuicklinks(app);
   const download = (label, href, filename) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === filename).length === 1;
   check("actual h/add labels the unchanged R6 PDF as historical with its exact download filename", download("Historical R6 PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"));
   check("actual h/add labels the unchanged R6 package as historical with its exact filename", download("Historical R6 package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"));
   const readingLinks = [["Start here", "#/governance/reading-and-adopting-this-book"], ["Adoption checklist", "#/governance/adoption-and-office-registers"], ["Appointment templates", "#/governance/3-letters-patent-and-warrants"], ["Interactive organization", "#/organization"], ["Operational charter", "#/governance/operational-charter-the-work-of-olympus"]];
   check("closed twelve-link census retains five exact reading/chart links and the distinct current R7 source download", links.length === 12 && readingLinks.every(([label, href]) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === null).length === 1) && download("Download current R7 source", "/static/governance/reconciled-book.md", "Olympus Governance R7.md"));
+  check("current six reading/source links stay outside the closed six-download historical Archive", currentLinks.length === 6 && archiveLinks.length === 6 && archive.className === "governance-archive" && archive.getAttribute("open") === null && archive.childNodes.filter(node => node.tagName === "SUMMARY" && node.textContent === "Archive and release records").length === 1 && currentLinks.every(link => !archiveLinks.includes(link)) && archiveLinks.every(link => link.getAttribute("download") !== null && link.getAttribute("href") !== "/static/governance/reconciled-book.md") && readingLinks.every(([label, href]) => currentLinks.some(link => link.textContent === label && link.getAttribute("href") === href)));
   check("current R7 print control is a button with the actual retained click handler", buttons.length === 1 && buttons[0].textContent === "Print current R7 book" && buttons[0].getAttribute("type") === "button" && typeof buttons[0].listeners.click === "function");
   for (const [label, file, filename, bytes, hash] of EXTRA_DOWNLOADS) {
     const data = fs.readFileSync(path.join(dir, file));

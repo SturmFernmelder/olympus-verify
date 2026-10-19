@@ -401,6 +401,8 @@ select.narrow-select { max-width: 380px; }
 }
 .role-list .group-label { margin: 10px 0 4px 4px; font-size: 0.95rem; }
 .role-list .group-label:first-child { margin-top: 0; }
+.role-list { scrollbar-width: thin; scrollbar-color: var(--brass) #13120e; }
+.role-list-hint { padding: 4px 6px 8px; margin: 0; color: var(--muted); font-size: .74rem; border-bottom: 1px solid var(--line); }
 .role-item {
   display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 7px; text-decoration: none; color: var(--text);
   border: 1px solid transparent; border-radius: 3px; font-size: 0.84rem; line-height: 1.2;
@@ -453,6 +455,9 @@ select.narrow-select { max-width: 380px; }
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
 }
 .savebar.static { position: static; box-shadow: none; }
+/* The full application action stays in document flow: no role card, consent or schedule cell sits behind it. */
+.savebar.apply-savebar { position: static; bottom: auto; box-shadow: none; scroll-margin-top: 110px; }
+.application-sections { padding: 10px 12px; margin: 0 0 18px; border: 1px solid var(--line); background: rgba(0,0,0,.25); }
 .dirty { color: #ffb347; }
 
 /* ---------- status colours: the game's text colours ---------- */
@@ -476,6 +481,67 @@ table.data td.num, table.data th.num { text-align: right; font-variant-numeric: 
 .filters .field { margin: 0; min-width: 150px; flex: 1; }
 .filters .field.narrow { flex: 0 0 210px; }
 .filters .check { padding-bottom: 8px; }
+.admin-section-picker { display: none; }
+.admin-section-nav { margin-bottom: 14px; }
+.admin-section-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-filter-panel { margin: 12px 0 16px; border: 1px solid var(--line); background: rgba(0,0,0,.25); padding: 10px 12px; }
+.admin-filter-panel > summary { cursor: pointer; color: var(--gold-soft); }
+.admin-filter-panel[open] > summary { margin-bottom: 12px; }
+.admin-filter-panel .filters { margin-bottom: 0; }
+.table-scroll-hint { color: var(--muted); font-size: .8rem; margin: 0 0 6px; }
+.table-wrap > .table-scroll-hint { position: sticky; left: 0; width: 100%; padding: 6px 10px; margin: 0; background: #15140f; border-bottom: 1px solid var(--line); }
+table.data.admin-applications { table-layout: fixed; min-width: 1050px; }
+table.data.admin-applications th:nth-child(1) { width: 190px; }
+table.data.admin-applications th:nth-child(2) { width: 190px; }
+table.data.admin-applications th:nth-child(3) { width: 125px; }
+table.data.admin-applications th:nth-child(4) { width: 115px; }
+table.data.admin-applications th:nth-child(5) { width: 100px; }
+table.data.admin-applications th:nth-child(n+6) { width: 110px; }
+table.data.admin-applications td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+table.data.admin-applications td.wrap { min-width: 0; }
+table.data.admin-applications .nowrap { white-space: normal; }
+table.data.admin-applications .person { max-width: 100%; padding: 5px; gap: 7px; }
+table.data.admin-applications .person .nm b { white-space: normal; overflow-wrap: anywhere; }
+table.data.admin-audit { table-layout: fixed; min-width: 880px; }
+table.data.admin-audit th:nth-child(1) { width: 135px; }
+table.data.admin-audit th:nth-child(2), table.data.admin-audit th:nth-child(4) { width: 165px; }
+table.data.admin-audit th:nth-child(3) { width: 150px; }
+table.data.admin-audit td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+table.data.admin-audit td.wrap { min-width: 0; }
+table.data.admin-audit time { display: block; font-variant-numeric: tabular-nums; }
+table.data.admin-audit details > summary { color: var(--gold-soft); cursor: pointer; }
+table.data.admin-audit details[open] > summary { margin-bottom: 6px; }
+table.data.admin-application-board { table-layout: fixed; min-width: 650px; }
+table.data.admin-application-board th:first-child { width: 42%; }
+table.data.admin-application-board th:nth-child(2) { width: 19%; }
+table.data.admin-application-board th:nth-child(3), table.data.admin-application-board th:nth-child(4) { width: 11%; }
+table.data.admin-application-board td { white-space: normal; overflow-wrap: anywhere; }
+.admin-board-role { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-board-role > .ico { flex: 0 0 24px; }
+.admin-board-role-label { flex: 1 1 140px; min-width: 0; }
+.admin-board-role > .badge { white-space: normal; }
+/* Staff application answers need a steady reading surface rather than dark lettering over mottled gold. */
+main:has(.admin-section-links a[href="#/admin/applications"][aria-current="page"]) .parchment.answers { background: #efdfb8; color: #21160c; box-shadow: inset 0 0 12px rgba(90,58,16,.12), 0 4px 16px rgba(0,0,0,.4); }
+main:has(.admin-section-links a[href="#/admin/applications"][aria-current="page"]) .parchment.answers h4 { color: #3a2213; font-size: .85rem; font-weight: 700; letter-spacing: .02em; }
+.audit-help { margin-bottom: 14px; }
+.audit-help > summary { cursor: pointer; color: var(--gold-soft); }
+.audit-help[open] > summary { margin-bottom: 10px; }
+.role-details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.role-details > summary { cursor: pointer; color: var(--gold-soft); }
+.role-details[open] > summary { margin-bottom: 12px; }
+@media (max-width: 720px) {
+  .admin-section-picker { display: grid; gap: 5px; margin: 10px 0; }
+  .admin-section-picker select { width: 100%; }
+  .admin-section-links { display: none; }
+  .admin-section-nav { margin-bottom: 8px; }
+  .admin-filter-panel { padding: 9px 10px; }
+  .admin-filter-panel .filters { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .admin-filter-panel .filters .field { min-width: 0; }
+  .savebar.apply-savebar { align-items: stretch; }
+  .savebar.apply-savebar .btn-row, .savebar.apply-savebar .btn { width: 100%; }
+  .application-sections { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; padding: 8px; }
+  .application-sections .btn { min-width: 0; white-space: normal; }
+}
 .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
 .kv dt { color: var(--gold); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
@@ -611,6 +677,9 @@ dialog h2 { padding-right: 30px; }
   .nav .btn { flex: none; }
   .who .name { display: none; }
   .who a.btn { display: none; } /* signed out on a phone: the big button in the page is the one to press */
+  .who a.btn[href="/privacy/account"] { display: inline-flex; }
+  .who { gap: 6px; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  .who .btn.small { padding-left: 6px; padding-right: 6px; }
   .frame { padding: 14px 10px; margin: 16px 0; }
   .hero .tag { letter-spacing: 0.03em; font-size: 0.74rem; }
   .shell > .grid { margin: 16px 0; }
@@ -711,6 +780,11 @@ table.data select, table.data input { max-width: 180px; }
 .governance-hero p { color: var(--muted); max-width: 52rem; }
 .governance-draft { border: 1px solid var(--brass); border-left: 4px solid var(--gold-soft); background: var(--dialog); padding: 16px 20px; margin: 16px 0; }
 .governance-draft p { margin: 6px 0 0; font-size: 0.92rem; }
+.governance-draft > summary, .governance-archive > summary, .membership-help > summary, .voting-help > summary { cursor: pointer; color: var(--gold-soft); }
+.governance-archive { padding: 12px 16px; margin: 16px 0; border: 1px solid var(--line); background: rgba(0,0,0,.2); }
+.governance-archive[open] > summary, .membership-help[open] > summary, .voting-help[open] > summary { margin-bottom: 12px; }
+.governance-instrument-note { padding: 12px 14px; border-left: 3px solid var(--brass); background: rgba(0,0,0,.28); color: var(--muted); font: .9rem/1.55 var(--font); }
+.membership-help, .voting-help { margin: 12px 0; }
 .governance-quicklinks, .governance-page-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0; }
 .governance-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px; background: var(--tooltip); border: 1px solid var(--line); margin: 20px 0; }
 .governance-controls label { width: 100%; color: var(--gold-soft); }

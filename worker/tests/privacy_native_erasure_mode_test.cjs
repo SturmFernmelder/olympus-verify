@@ -61,6 +61,20 @@ async function seedPersonal(f,{banned=false,roles=3}={}){
 async function request(f,cookie,operation=OP){const response=await f.call('POST','/api/me/erasure',{cookie,body:{operationId:operation}}),body=await json(response);return{response,body};}
 async function finish(f,operation=OP){for(let i=0;i<4&&f.raw('SELECT state FROM privacy_serving_jobs WHERE operation_id=?',operation)?.state!=='complete';i++){clock+=121;await f.job();}return f.raw('SELECT * FROM privacy_serving_jobs WHERE operation_id=?',operation);}
 (async()=>{
+ // .174: this registered Native-ON fixture keeps the decision read in its original custody boundary.
+ {const f=fixture(),cookie=await f.signIn(ID),adminCookie=await f.signIn(OTHER),decision=load('privacy-rejection-decision');
+  try{await f.write("INSERT INTO site_applications(discord_id,position,answers,status,created_at,updated_at)VALUES(?,'member','{}','submitted',?,?)",ID,clock,clock);
+   const target=()=>JSON.stringify({user:f.raw('SELECT * FROM site_users WHERE discord_id=?',ID),application:f.raw('SELECT * FROM site_applications WHERE discord_id=?',ID),events:f.rows('SELECT * FROM privacy_rejection_decisions'),markers:f.rows('SELECT * FROM privacy_denial_markers')}),before=target();
+   const detail=await f.call('GET','/api/admin/applications/'+ID,{cookie:adminCookie}),body=await json(detail);
+   check('original administrator can read the actual Native-ON application detail',detail.status===200&&body?.user.id===ID&&body?.application.status==='submitted');
+   check('the application detail still refuses an ordinary non-admin cookie',(await f.call('GET','/api/admin/applications/'+ID,{cookie})).status===401);
+   check('the original detail read leaves account, application and rejection provenance unchanged',target()===before);
+   for(const name of['clone','json','text','url','headers']){const request=new Request(BASE+'/api/admin/applications/'+ID,{headers:{Cookie:adminCookie}});let calls=0,held=false;const start=f.physicalStatements;Object.defineProperty(request,name,{configurable:true,get(){calls++;throw Error('shadow must not execute');}});try{decision.captureMembershipDecisionOrigin(request,f.env);}catch(e){held=e instanceof decision.MembershipDecisionHeld;}check('original decision '+name+' shadow holds without invoking its getter or Native D1',held&&calls===0&&f.physicalStatements===start);}
+   const request=new Request(BASE+'/api/admin/applications/'+ID,{headers:{Cookie:adminCookie}}),origin=decision.captureMembershipDecisionOrigin(request,f.env),descriptor=Object.getOwnPropertyDescriptor(Request.prototype,'text'),start=f.physicalStatements;let calls=0,held=false;
+   try{Object.defineProperty(Request.prototype,'text',{...descriptor,value(){calls++;throw Error('replacement must not execute');}});try{decision.assertMembershipDecisionOrigin(origin,{...f.env,DB:f.writer});}catch(e){held=e instanceof decision.MembershipDecisionHeld;}check('captured decision rejects a changed original native body method before invocation or D1',held&&calls===0&&f.physicalStatements===start);}finally{Object.defineProperty(Request.prototype,'text',descriptor);}
+   check('native request custody regressions leave the target and all Native E2 switches unchanged',target()===before&&f.env.PRIVACY_NATIVE_ERASURE_ENABLED==='true'&&f.env.PRIVACY_ERASURE_ENABLED==='true'&&f.env.BETA_RESET_REMOVALS_ENABLED==='false'&&f.floorCalls===0);
+  }finally{f.close();}
+ }
  // Privacy-binding transitions never choose a Floor fallback. The real Native epoch remains mandatory for writes.
  for(const variation of ['absent','partial','all-stale']){
   const f=fixture();if(variation!=='absent'){const trap={idFromName(){f.floorCalls++;throw Error('Floor must not be called');},get(){f.floorCalls++;throw Error('Floor must not be called');}};f.env.PRIVACY_RECOVERY_FLOOR=trap;if(variation==='all-stale')Object.assign(f.env,{PRIVACY_SERVING_GATE_SECRET:'stale-private-gate',PRIVACY_CREDENTIAL_EPOCH:'e'.repeat(32),PRIVACY_SERVING_SOURCE_TREE:'f'.repeat(40),PRIVACY_SERVING_DATABASE_ID:'stale-database'});}

@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 53496,
-      "sha256": "fc0fa83aa9b0ff10877f1e1fd634cdbbce17346da6070942df6358a61a6dacf6"
+      "bytes": 59397,
+      "sha256": "a52770bc203a3920c6ac79cc4821f75ac5f504e3bc5ab3866e4c27f55ddf833b"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 505107,
-      "sha256": "805af7d51e4f1e7b2e2719eec5e3992a77768e364c3fc04b76a9f077353d3731"
+      "bytes": 515707,
+      "sha256": "cb876e6fe81654af852f868ca138c202f3fc4894755eab19ee13d16f87027e1b"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 9656,
-      "sha256": "053188f80ade7e637fadd28b40f9ce5ab65651b17e32991ec5e6e6ab60677934"
+      "bytes": 11213,
+      "sha256": "805b1ae154df71cb5c980432bf0ace242531e258cfea66227a19070ee7a9537e"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 6044,
-      "sha256": "2f52b640aaf72e00ede3148e7f03fa2bf0ffa3abb098aaaf2fc46a181217e256"
+      "bytes": 6910,
+      "sha256": "a1771f4b672e6ba148381fbf4b15dfe9dab7b5445963a3eada60b76ea1d43715"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -656,20 +656,20 @@
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 14624,
-      "sha256": "3762f63900cfe4f383c2b2bc463a5240e7bf39a58d8c75545607c9bdd77f6403"
+      "bytes": 14635,
+      "sha256": "ac9676e2d15b4cc61cc36b1cf4eb0bb21742d76338c52058345b1ebfadf370ac"
     },
     {
       "path": "worker/public/static/resources169.js",
       "mode": "100644",
-      "bytes": 11883,
-      "sha256": "d004d63bca7973f7623209291008ebc26577c36e090f24a156e0f28a8a2b8142"
+      "bytes": 14452,
+      "sha256": "ce0d1a68bc2a9a9c0f90ffd50c8aa3c3608a79ef7278713cade9e02890b5551d"
     },
     {
       "path": "worker/public/static/resources169.css",
       "mode": "100644",
-      "bytes": 2399,
-      "sha256": "7b4d5b77dc51daec06c15314c3c3c16afb4219ff4b7c6f42e5c9657cba5ed76c"
+      "bytes": 2737,
+      "sha256": "4fb0ea069a48e839646ba5f262b5422ed01a1c25ed7deff07b84b5c9b5647ee4"
     },
     {
       "path": "worker/public/static/wow/talents/bg-161.jpg",
@@ -3797,8 +3797,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 505107,
-      "sha256": "805af7d51e4f1e7b2e2719eec5e3992a77768e364c3fc04b76a9f077353d3731"
+      "bytes": 515707,
+      "sha256": "cb876e6fe81654af852f868ca138c202f3fc4894755eab19ee13d16f87027e1b"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3971,8 +3971,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 20610,
-      "sha256": "eb8c65c074715f8d27a5617b65b48444ee5e6876dbea64bd6ad1c2e88aedc9af"
+      "bytes": 24987,
+      "sha256": "455a7085911b132adf641576ef7bcdb9529f6d51ef3253a6b6680f7939fc78ca"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -3995,8 +3995,8 @@
     {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
-      "bytes": 18448,
-      "sha256": "d7a29e01e8abc5127cad5de2b07900a68a85557de795f673e8affe8690810cd6"
+      "bytes": 18875,
+      "sha256": "ac3892b647d4004b39db9d11bd996d18609f2cbc4394643ee79b77fcd20f8198"
     },
     {
       "path": "worker/public/static/governance/council-composition-2026-10-19.md",

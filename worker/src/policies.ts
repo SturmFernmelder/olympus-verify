@@ -15,9 +15,21 @@
  */
 import { securityHeaders } from "./site-core";
 import { policyDocument } from "./policy-content";
-import { STATIC_POLICY_CSP } from "./policy-render";
+import { STATIC_POLICY_CSP, escapeText } from "./policy-render";
 
 export const POLICY_CSP = STATIC_POLICY_CSP;
+
+/** .174: navigation around the canonical text, never a rewritten policy or a script-dependent reader. */
+function withPolicyContents(document: string): string {
+  const headings = [...document.matchAll(/<h2>([^<]+)<\/h2>/g)];
+  if (headings.length < 2) return document;
+  let index = 0;
+  const body = document.replace(/<h2>([^<]+)<\/h2>/g, heading =>
+    `<span class="policy-anchor" id="policy-section-${++index}"></span>${heading}`);
+  const contents = `<nav class="policy-contents" aria-label="On this page"><strong>On this page</strong><ol>${headings.map((heading, i) =>
+    `<li><a href="#policy-section-${i + 1}">${escapeText(heading[1])}</a></li>`).join('')}</ol></nav>`;
+  return body.replace('<span class="policy-anchor" id="policy-section-1"></span>', contents + '<span class="policy-anchor" id="policy-section-1"></span>');
+}
 
 /** The policy a path names as a complete response, or null when the path is not a policy address. */
 export function policyResponse(request: Request, path: string): Response | null {
@@ -31,5 +43,5 @@ export function policyResponse(request: Request, path: string): Response | null 
     headers.set("Content-Type", "text/plain; charset=utf-8");
     return new Response("method not allowed", { status: 405, headers });
   }
-  return new Response(request.method === "HEAD" ? null : document, { status: 200, headers });
+  return new Response(request.method === "HEAD" ? null : withPolicyContents(document), { status: 200, headers });
 }

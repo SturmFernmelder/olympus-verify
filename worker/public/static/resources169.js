@@ -61,16 +61,20 @@
       const card = el("article", undefined, "resources169-card");
       card.append(el("h3")); card.children[0].append(link(item.name, item.url));
       const labels = el("div", undefined, "resources169-labels");
-      for (const text of [item.category, item.status, item.sourceKind]) if (typeof text === "string") labels.append(badge(text));
+      for (const text of [item.category, item.status]) if (typeof text === "string") labels.append(badge(text));
       card.append(labels, el("p", item.rationale));
+      const provenance = el("details", undefined, "resources169-provenance");
+      provenance.append(el("summary", "Source and compatibility details"));
+      if (typeof item.sourceKind === "string") provenance.append(el("p", `Source: ${item.sourceKind}`, "resources169-meta"));
       for (const [label, value] of [["Published file", item.version], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
-        if (typeof value === "string") card.append(el("p", `${label}: ${value}`, "resources169-meta"));
+        if (typeof value === "string") provenance.append(el("p", `${label}: ${value}`, "resources169-meta"));
       }
       if (Array.isArray(item.limitations)) {
         const ul = el("ul", undefined, "resources169-limits");
         for (const text of item.limitations) if (typeof text === "string") ul.append(el("li", text));
         card.append(ul);
       }
+      card.append(provenance);
       return card;
     }
     function renderCatalog(query, category) {
@@ -78,13 +82,17 @@
       const items = catalog[view].filter(item => (category === "all" || item.category === category) && `${item.name} ${item.category} ${item.rationale} ${(item.limitations || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()));
       for (const item of items) results.append(listCard(item));
       if (!items.length) results.append(el("p", "No sources match these filters."));
-      message.textContent = `${items.length} of ${catalog[view].length} curated entries. Source check: ${catalog.checkedAt}. ${catalog.disclaimer}`;
+      message.textContent = `${items.length} of ${catalog[view].length} curated entries.`;
     }
     async function loadCatalog() {
       try {
         const data = await read(CATALOG); if (!data) return;
         if (data.version !== 1 || !Array.isArray(data[view]) || data[view].length > 100 || !data[view].every(x => x && typeof x.name === "string" && typeof x.rationale === "string" && typeof x.category === "string" && safeUrl(x.url))) throw new Error("catalog");
         catalog = data;
+        const provenance = el("details", undefined, "resources169-provenance");
+        provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${catalog.checkedAt}. ${catalog.disclaimer}`, "resources169-note"));
+        if (catalog.viewNotes && typeof catalog.viewNotes[view] === "string") provenance.append(el("p", catalog.viewNotes[view], "resources169-note"));
+        heading.append(provenance);
         const searchLabel = el("label", "Search sources "), search = el("input"); search.type = "search"; search.placeholder = "Name, purpose or limitation"; searchLabel.append(search);
         const categoryLabel = el("label", "Category "), select = el("select"); categoryLabel.append(select);
         for (const value of ["all", ...new Set(data[view].map(x => x.category))]) { const option = el("option", value === "all" ? "All categories" : value); option.value = value; select.append(option); }
@@ -100,14 +108,34 @@
       for (const source of updateData.sources) {
         if (!visibleSources.has(source.sourceId)) continue;
         const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(link(source.publisher, source.sourceUrl));
-        card.append(heading, badge(source.status), el("p", source.scope, "resources169-note"),
-          el("p", `Last successful retrieval: ${time(source.fetchedAt)}. Last retrieval attempt: ${time(source.checkedAt)}.`, "resources169-meta"));
-        if (source.failure) card.append(el("p", `Source check failed (${source.failure}). ${source.status === "stale" ? "The older headlines below are marked stale." : "No current headlines are available; open the original source."}`, "resources169-warning"));
+        card.append(heading, badge(source.status), el("p", source.scope, "resources169-note"));
+        const retrieval = el("details", undefined, "resources169-provenance");
+        retrieval.append(el("summary", "Retrieval details"), el("p", `Last successful retrieval: ${time(source.fetchedAt)}. Last retrieval attempt: ${time(source.checkedAt)}.`, "resources169-meta"));
+        if (source.failure) card.append(el("p", `This source could not be refreshed. ${source.status === "stale" ? "The older headlines below are marked stale." : "No current headlines are available; open the original source."}`, "resources169-warning"));
+        else if (source.status === "unavailable") card.append(el("p", "This source is unavailable. No current headlines are available; open the original source.", "resources169-warning"));
+        if (source.failure) retrieval.append(el("p", `Reported failure: ${source.failure}`, "resources169-meta"));
         if (source.omittedItems) card.append(el("p", `${source.omittedItems} source entries were omitted because required fields or dates were invalid.`, "resources169-note"));
         const ul = el("ul", undefined, "resources169-headlines");
-        for (const item of source.items) { const li = el("li"); li.append(link(item.title, item.url), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); ul.append(li); }
-        card.append(ul);
-        if (!source.items.length) card.append(el("p", "No matching headlines in this source's current feed window. This is not a complete archive.", "resources169-note"));
+        const groups = new Map();
+        source.items.forEach((item, index) => {
+          const url = safeUrl(item.url);
+          const thread = source.sourceId === "blizzard-notes" && url && new URL(url).pathname.match(/^(.*\/t\/[^/]+\/\d+)\/(\d+)\/?$/);
+          const key = thread ? thread[1] + "|" + item.title : String(index);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push({ item, post: thread ? thread[2] : null });
+        });
+        for (const entries of groups.values()) {
+          const li = el("li"), first = entries[0].item;
+          if (entries.length > 1) {
+            li.append(link(first.title, first.url), el("span", `${entries.length} posts from this development-notes thread`, "resources169-meta"));
+            const posts = el("ul", undefined, "resources169-thread-posts");
+            for (const { item, post } of entries) { const row = el("li"); row.append(link(`Thread post ${post}`, item.url), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); posts.append(row); }
+            li.append(posts);
+          } else li.append(link(first.title, first.url), el("span", `${entries[0].post ? "Thread post " + entries[0].post + " · " : ""}Published: ${time(first.publishedAt)}`, "resources169-meta"));
+          ul.append(li);
+        }
+        card.append(ul, retrieval);
+        if (!source.items.length && !source.failure && source.status !== "unavailable") card.append(el("p", "No matching headlines in this source's current feed window. This is not a complete archive.", "resources169-note"));
         results.append(card);
       }
       if (!results.children.length) results.append(el("p", "Choose a source above to show its headlines."));
@@ -131,7 +159,7 @@
             label.append(input, el("span", source.publisher)); controls.append(label);
           }
         }
-        message.textContent = "Public publisher headlines, separate from guild decisions. Source dates and retrieval times are shown separately. Checks run on demand and every 60 seconds while this admitted view is visible; cached source data may be reused for ten minutes.";
+        message.textContent = "Original publisher headlines. Publication dates belong to each post; retrieval details show when Olympus last read the source.";
         renderUpdates();
       } catch (error) {
         if (alive() && error.name !== "AbortError") {
@@ -146,6 +174,9 @@
       if (view === "updates" && admitted && alive()) { void loadUpdates(); poll = setInterval(() => { void loadUpdates(); }, 60000); }
     }
     if (view === "updates") {
+      const timing = el("details", undefined, "resources169-provenance");
+      timing.append(el("summary", "How updates refresh"), el("p", "Sources refresh when this page opens, on request and every 60 seconds while it is visible. Cached source data may be reused for ten minutes. Publisher headlines are separate from guild decisions.", "resources169-note"));
+      heading.append(timing);
       controls.append(refresh); refresh.addEventListener("click", () => { void loadUpdates(); });
       document.addEventListener("visibilitychange", visibility); visibility();
     } else void loadCatalog();

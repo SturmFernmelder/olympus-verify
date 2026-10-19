@@ -59,6 +59,18 @@ async function main() {
   const escapeHtml = await escapeResponse.text();
   const escapedPre = /<pre class="privacy-status-code">([^<]*)<\/pre>/.exec(escapeHtml)?.[1];
   check('status rendering escapes markup without inserting code-breaking characters', escapedPre && decode(escapedPre) === escaped && !escapeHtml.includes('<pre class="privacy-status-code"><'));
+  const policies = load('policies'), canonical = load('policy-content');
+  for (const route of ['/privacy', '/terms']) {
+    const policy = policies.policyResponse(new Request('https://guild.example' + route), route);
+    const document = await policy.text(), links = [...document.matchAll(/href="#policy-section-(\d+)"/g)];
+    check(route + ' offers a script-free contents list for every canonical section', links.length === [...canonical.policyDocument(route).matchAll(/<h2>/g)].length && links.length > 1);
+    check(route + ' contents links have exactly one matching anchor each', links.every(link => document.split('id="policy-section-' + link[1] + '"').length === 2));
+    const undecorated = document.replace(/<nav class="policy-contents"[\s\S]*?<\/nav>/, '').replace(/<span class="policy-anchor" id="policy-section-\d+"><\/span>/g, '');
+    check(route + ' retains the complete canonical policy bytes around navigation', undecorated === canonical.policyDocument(route));
+    check(route + ' contents requires neither scripts nor a wider CSP', !/<script\b/i.test(document) && policy.headers.get('Content-Security-Policy') === policies.POLICY_CSP);
+    const head = policies.policyResponse(new Request('https://guild.example' + route, { method: 'HEAD' }), route);
+    check(route + ' presentation keeps HEAD empty and public response uncached', (await head.text()) === '' && /no-store/.test(head.headers.get('Cache-Control')) && !head.headers.has('Set-Cookie'));
+  }
   check('presentation runs read no database and call no provider', databaseReads === 0 && providerCalls === 0);
   console.log(`\n${checks}/${checks} passed`);
 }

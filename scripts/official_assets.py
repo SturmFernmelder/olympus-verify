@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='bc045720f881441780df0e58cd24e1c5d0c0f8994611e886b9ce2e30f507d6df'
+REFERENCE_SHA256='60684ca46777bc9f09994be6f38bf2f772c95e65a4b4cb13b5cf1a82f3a7f210'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
