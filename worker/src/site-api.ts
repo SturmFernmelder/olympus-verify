@@ -60,12 +60,12 @@ import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembership
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
-import { admittedRead, admittedReadAs, communityContext, FENCE_REFUSED, refusal } from "./community-context";
+import { admittedRead, admittedReadAs, admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
 import { newsPage } from "./site-news";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
-import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses } from './site-appointed-identities';
+import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers } from './site-appointed-identities';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -295,10 +295,10 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
 async function leadershipPage(request: Request, env: Env): Promise<Response> {
   // read behind the community reader boundary (Codex, log 19:17 UTC): the standing is judged in the same batch as the row,
   // so a session, membership or roster proof lost before the read returns nothing
-  const out = await admittedRead(env, await communityContext(env, request), "confirmedGuildData", [
+  const out = await admittedCommunityRead(env, await communityContext(env, request), [
     env.DB.prepare("SELECT value, updated_at FROM site_settings WHERE key = ?1").bind(LEADERSHIP_KEY),
   ]);
-  if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
   const row = (out[0]?.results[0] ?? null) as { value: string; updated_at: number } | null;
   return apiJson({ guilds: parseLeadership(row?.value), updatedAt: row?.updated_at ?? null, councilUrl: COUNCIL_INFO_URL });
 }
@@ -866,15 +866,15 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
   if (Array.from(q).length < 2) return apiJson({ results: [] });
   if (rateLimited(`s:${user.discord_id}`, 40, 60)) return apiJson({ error: "slow_down", message: "Searching too fast. Wait a few seconds.", results: [] }, 429);
   if (!/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "") || !env.DISCORD_BOT_TOKEN) return apiJson({ results: [], unavailable: true });
+  const appointment = admin && url.searchParams.get('purpose') === 'appointment';
   let out: { found: Found[]; limited?: boolean };
   try {
-    out = await searchMembers(env, q);
+    out = appointment ? await searchAppointmentMembers(env, q) : await searchMembers(env, q);
   } catch (e) {
     console.error("site search", errorRef(e));
     return apiJson({ results: [], unavailable: true });
   }
   const ids = out.found.map((f) => f.id);
-  const appointment = admin && url.searchParams.get('purpose') === 'appointment';
   const appointmentStatuses = appointment ? await appointmentAccountStatuses(env, ids) : null;
   const onSite = new Set<string>();
   const linked = new Set<string>();

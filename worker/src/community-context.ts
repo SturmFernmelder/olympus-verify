@@ -37,6 +37,7 @@ import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-
 import type { Env } from "./env";
 import { now } from "./db";
 import { apiJson, isSiteAdmin, readSession, type SiteUser } from "./site-core";
+import { DiscordError, rest } from "./discord";
 
 export const COMMUNITY_FEATURES = ["directory", "crafting", "events", "attendance", "trials", "restrictions", "departures", "contributions", "privacy_intake", "rights", "census"] as const;
 export type CommunityFeature = (typeof COMMUNITY_FEATURES)[number];
@@ -74,12 +75,16 @@ export interface CommunityFacts {
   staff: boolean;
   /** listed in COMMUNITY_ORGANIZERS (SITE_ADMINS organize anyway) */
   organizerListed: boolean;
+  /** .176: fresh Discord Guild Member role, a read-only alternative to roster proof. */
+  guildRoleRead?: boolean;
 }
 
 export interface CommunityCapabilities {
   authenticatedIdentity: boolean;
   applicantWrite: boolean;
   confirmedGuildData: boolean;
+  /** .176: guild viewing only; never a roster confirmation, editor or organizer grant. */
+  communityRead: boolean;
   communityStaff: boolean;
   /** .59: may create, edit and cancel events and record attendance: confirmedGuildData and (SITE_ADMINS or COMMUNITY_ORGANIZERS) */
   organizer: boolean;
@@ -115,9 +120,33 @@ export function capabilitiesOf(f: CommunityFacts): CommunityCapabilities {
     authenticatedIdentity: f.signedIn,
     applicantWrite,
     confirmedGuildData,
+    communityRead: applicantWrite && !f.banned && (f.confirmedGuild || f.staff || f.guildRoleRead === true),
     communityStaff: applicantWrite && f.staff,
     organizer: confirmedGuildData && (f.staff || f.organizerListed),
   };
+}
+
+/** .176 (owner, 19 Oct 2026): the already configured Guild Member role admits
+ * linked Discord accounts to Community reads. Never cache a role or write a
+ * keeper proof. A role from another server, an incomplete member or a malformed
+ * provider answer cannot stand in for current membership. */
+async function currentGuildRoleRead(env: Env, discordId: string, check: () => void): Promise<boolean> {
+  const guild = env.SITE_GUILD_ID, role = env.ROLE_GUILD_MEMBER;
+  if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(guild ?? "") || env.GUILD_ID !== guild || !/^\d{17,20}$/.test(role ?? "")) return false;
+  check();
+  try {
+    const member = await rest<{ user?: { id?: string; bot?: boolean }; roles?: unknown; pending?: boolean }>(env, "GET", `/guilds/${guild}/members/${discordId}`, undefined, 1);
+    check();
+    return member?.user?.id === discordId && (member.pending === undefined || member.pending === false)
+      && (member.user.bot === undefined || member.user.bot === false) && Array.isArray(member.roles)
+      && member.roles.every(value => typeof value === "string" && /^\d{17,20}$/.test(value)) && member.roles.includes(role);
+  } catch (error) {
+    check();
+    // Provider refusal/unavailability withholds this additional reader path;
+    // original privacy/custody failures still propagate to their original guard.
+    if (error instanceof DiscordError || error instanceof TypeError || (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name))) return false;
+    throw error;
+  }
 }
 
 /** The facts for one account, from keeper tables only. */
@@ -149,6 +178,9 @@ export async function communityContext(env: Env, request: Request): Promise<Comm
   if (!user || user.session_version !== s.v || user.account_incarnation !== s.n) return { subject: null, user: null, facts: NOBODY, capabilities: capabilitiesOf(NOBODY), features };
   user.privacyGeneration=s.g;user.privacyOriginalSession=s;
   assertOriginalSiteSessionRead(s);const facts = await communityFacts(env, user);assertOriginalSiteSessionRead(s);
+  if (!facts.denied && facts.inServer && !facts.banned && !facts.confirmedGuild && !facts.staff) {
+    facts.guildRoleRead = await currentGuildRoleRead(env, s.u, () => assertOriginalSiteSessionRead(s));
+  }
   return { subject: Object.freeze({ discordId:s.u,sessionVersion:s.v,expiresAt:s.e,privacyGeneration:s.g,accountIncarnation:s.n,originalSession:s }), user, facts, capabilities: capabilitiesOf(facts), features };
 }
 
@@ -234,6 +266,45 @@ export async function admittedReadAs(env: Env, subject: CommunitySubject, cap: F
   capture.check();const results = await env.DB.batch([probe, ...statements]);capture.check();
   if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
   return results.slice(1);
+}
+
+/** Read-only admission is deliberately outside FenceCapability: it cannot be
+ * selected for a community write. The Native payload batch rechecks the original
+ * session, account birth/generation, standing, ban and current roster proof. A
+ * role-based reader also needs fresh Discord proof before AND after that batch;
+ * loss/unavailability returns no payload. Staff is the current SITE_ADMINS list,
+ * not a client capability or a fabricated roster row. */
+export async function admittedCommunityRead(env: Env, ctx: CommunityContext, statements: D1PreparedStatement[]): Promise<D1Result[] | typeof FENCE_REFUSED> {
+  if (!ctx.subject || ctx.subject.expiresAt <= now() || ctx.facts.denied || !ctx.facts.inServer || ctx.facts.banned) return FENCE_REFUSED;
+  const originalSubject = ctx.subject, capture = captureCommunitySubject(originalSubject), subject = capture.subject;
+  const check = () => { capture.check(); if (ctx.subject !== originalSubject) throw Error("privacy_community_original_held"); };
+  check();
+  const staff = isSiteAdmin(env, subject.discordId);
+  const roleRead = !staff && !ctx.facts.confirmedGuild && await currentGuildRoleRead(env, subject.discordId, check);
+  check();
+  const probe = env.DB.prepare(`SELECT (${fenceSql("applicantWrite", 1, 2, 3, subject.privacyGeneration, subject.accountIncarnation)}
+    AND NOT EXISTS(SELECT 1 FROM members fm WHERE fm.discord_id=?1 AND fm.banned=1)
+    AND (?4=1 OR ?5=1 OR EXISTS(SELECT 1 FROM characters fc WHERE fc.discord_id=?1 AND fc.status='member'))) AS ok`)
+    .bind(subject.discordId, subject.sessionVersion, subject.expiresAt, staff ? 1 : 0, roleRead ? 1 : 0);
+  check(); const results = await env.DB.batch([probe, ...statements]); check();
+  if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
+  if (roleRead) {
+    if (!await currentGuildRoleRead(env, subject.discordId, check)) return FENCE_REFUSED;
+    // The role GET is asynchronous. Recheck the original Native session/ban
+    // after it too, so a concurrent sign-out or denial returns no earlier rows.
+    check(); const final = await env.DB.batch([probe]); check();
+    if (((final[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
+  }
+  check(); return results.slice(1);
+}
+
+/** Explain this additional reader boundary without calling the account roster
+ * confirmed. Original write refusals and their requirements remain unchanged. */
+export async function communityReadRefusal(env: Env, request: Request): Promise<Response> {
+  const ctx = await communityContext(env, request);
+  if (!ctx.subject || ctx.facts.denied || !ctx.facts.inServer) return refusal(env, request, "applicantWrite");
+  if (!ctx.capabilities.communityRead) return apiJson({ error: "community_unconfirmed", message: "Community is available to site administrators, roster-confirmed guild members, or linked Discord accounts with the Olympus Guild Member role. Current access could not be confirmed; check your account and role, then try again." }, 403);
+  return apiJson({ error: "conflict", message: "Your account access changed while this page was loading. Reload and try again." }, 409);
 }
 
 /** Why a write was refused, decided from fresh facts: the session, the standing, the guild proof, or just a lost race. */

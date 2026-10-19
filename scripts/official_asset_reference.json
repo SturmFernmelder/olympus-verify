@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 60635,
-      "sha256": "9fe9a75520354f8fbc0cc86d04f8063363ce1ffc2d3aeeb8c7e8569da42a5f71"
+      "bytes": 60984,
+      "sha256": "fefd42b8acc0b01d506a7a554143b9ef476d06b92e18b3ce2821645465224acb"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 519531,
-      "sha256": "7297f0e322b32718bfa25769bd1f12a2033e8257ffc2b43b23046823c304c29a"
+      "bytes": 520774,
+      "sha256": "3db0c0a8b5bfe50316be48d27a9a3916e8aa05867d966e922f80da2001a1e27e"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -627,7 +627,7 @@
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
       "bytes": 6910,
-      "sha256": "a1771f4b672e6ba148381fbf4b15dfe9dab7b5445963a3eada60b76ea1d43715"
+      "sha256": "bbe01db0216814a39d84dcf6c97a95a36c4990616442a4cc31e6987dc51bb013"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -3797,8 +3797,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 519531,
-      "sha256": "7297f0e322b32718bfa25769bd1f12a2033e8257ffc2b43b23046823c304c29a"
+      "bytes": 520774,
+      "sha256": "3db0c0a8b5bfe50316be48d27a9a3916e8aa05867d966e922f80da2001a1e27e"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3971,8 +3971,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 24987,
-      "sha256": "455a7085911b132adf641576ef7bcdb9529f6d51ef3253a6b6680f7939fc78ca"
+      "bytes": 26201,
+      "sha256": "4c487f3db8db4510cf9b187af9aa693fc290117b0aff6bcc4b0ac57c521bdea9"
     },
     {
       "path": "worker/public/static/talents/data.json",

@@ -31,7 +31,7 @@ import type { Env } from "./env";
 import { audit, linksNotBefore, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, type SiteUser } from "./site-core";
 import { cleanText, loadSettings, settingsFrom } from "./site-data";
-import { admitted, admittedRead, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
+import { admitted, admittedRead, admittedCommunityRead, communityReadRefusal, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { secondsToIso } from "./community-time";
 import { hourOf, memberSeats, seatsFrom, seatsPlan } from "./guild-seats";
 import { leadershipStampStatement } from "./site-leadership";
@@ -70,6 +70,13 @@ export interface ReleaseNote {
  * added in the commit that moves BUILD to it.
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    build: ".176", date: "2026-10-19", lines: [
+      "Community viewing recognizes site administrators and current Guild Member Discord roles; member actions retain their existing verification checks.",
+      "Appointment searches accept current Discord members by name or user ID without a website sign-in, with separate consent for published names and characters.",
+      "A more compact organization chart, steady section buttons and a simpler signed-in header.",
+    ],
+  },
   {
     build: ".169", date: "2026-10-18", lines: [
       "A centered portal entry, grouped navigation, faster voting sections and clearer source dates.",
@@ -299,7 +306,7 @@ export async function newsPage(request: Request, env: Env): Promise<Response> {
   // The switch is judged again inside the admitted batch (review of 3 Oct 2026), as every write judges it inside its
   // statement: a page read racing an administrator switching News off gets news_off, never the payload. The read above
   // stays for launchAt and to spare the batch while News is off.
-  const out = await admittedRead(env, ctx, "confirmedGuildData", [
+  const out = await admittedCommunityRead(env, ctx, [
     env.DB.prepare(`SELECT (${NEWS_ON_SQL}) AS news_on`),
     env.DB.prepare(`SELECT id, title, body, revision, created_at, updated_at, retain_until FROM site_news_notices WHERE ${LIVE} ORDER BY created_at DESC, id LIMIT ${NEWS_LIMITS.liveMax}`),
     ...seats.statements,
@@ -310,7 +317,7 @@ export async function newsPage(request: Request, env: Env): Promise<Response> {
       ? [env.DB.prepare(`SELECT id, title, starts_at, duration_min FROM community_events WHERE status = 'scheduled' AND starts_at > ?1 AND starts_at < ?2 ORDER BY starts_at, id LIMIT ${NEWS_LIMITS.eventsMax}`).bind(at, at + NEWS_LIMITS.eventsDays * DAY_S)]
       : []),
   ]);
-  if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
   if (rowsOf<{ news_on: number }>(out[0])[0]?.news_on !== 1) return apiJson({ error: "news_off", message: "The News page is switched off." }, 404);
   const k = seats.statements.length;
   const shaped = seats.shape(out.slice(2, 2 + k));

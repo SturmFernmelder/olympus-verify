@@ -143,7 +143,7 @@ async function deleteThroughOriginalRoute(target, actor) {
   let r = await call("GET", "/api/community/events", M1, undefined, { COMMUNITY_FEATURES: "directory" });
   check("with events off the calendar is 503 feature_disabled", r.status === 503 && r.body.error === "feature_disabled");
   r = await call("GET", "/api/community/events", APPLICANT);
-  check("an applicant is refused: guild_unconfirmed", r.status === 403 && r.body.error === "guild_unconfirmed");
+  check("an applicant is refused: community_unconfirmed", r.status === 403 && r.body.error === "community_unconfirmed");
   r = await call("POST", "/api/community/events", M1, { opId: OP1, title: "Raid night", startsAt: iso(start), durationMin: 120 });
   check("a confirmed member who is not an organizer cannot create: 403 not_organizer", r.status === 403 && r.body.error === "not_organizer");
   r = await call("GET", "/api/community/event/attendance?id=" + OP1, M1);

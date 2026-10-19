@@ -4,7 +4,7 @@
 // suite's clock runs two hours behind the database's (SQLite's own strftime('%s','now')), so a lifetime computed from the
 // actor's clock instead of the database's would show. Covers:
 //   - the switch: off by default (404 news_off, a create 409 news_off), switched on in Admin -> Settings and audited;
-//   - access: 401 signed out, 403 guild_unconfirmed, the exact DTO for a confirmed member, standing lost between the
+//   - access: 401 signed out, 403 community_unconfirmed, the exact DTO for a confirmed member, standing lost between the
 //     context read and the admitted batch (no payload), News switched off in that same seam (news_off, no payload),
 //     signed-out requests receive a sign-in boundary with no application bootstrap or notice payload;
 //   - notices: SITE_ADMINS only, the page check, exact field rules (nothing cut, control characters out, newlines kept,
@@ -234,7 +234,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   r = await newsGet(null);
   check("signed out: 401", r.status === 401);
   r = await newsGet(PLAIN);
-  check("in the server without a roster-confirmed character: 403 guild_unconfirmed", r.status === 403 && r.body.error === "guild_unconfirmed", r.body);
+  check("in the server without a roster-confirmed character: 403 community_unconfirmed", r.status === 403 && r.body.error === "community_unconfirmed", r.body);
   const DENIED = "300000000000000006";
   await siteUser(DENIED); await confirm(DENIED, "Den Ied"); await run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", DENIED);
   r = await newsGet(DENIED);
@@ -247,14 +247,14 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // standing lost between the context read and the admitted batch: the probe is prepared last, just before the batch runs
   HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER); HOOK = null; } };
   r = await newsGet(MEMBER);
-  check("a member whose roster proof goes between the context read and the batch: 403 guild_unconfirmed, no payload", r.status === 403 && r.body.error === "guild_unconfirmed" && !("notices" in r.body), r.body);
+  check("a member whose roster proof goes between the context read and the batch: 403 community_unconfirmed, no payload", r.status === 403 && r.body.error === "community_unconfirmed" && !("notices" in r.body), r.body);
   await run("UPDATE characters SET status = 'member' WHERE discord_id = ?", MEMBER);
   // review of 3 Oct 2026: the switch is judged inside the admitted batch, so a read racing "switch off" gets no payload
   HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); HOOK = null; } };
   r = await newsGet(MEMBER);
   check("News switched off between the switch read and the admitted batch: 404 news_off, no payload", r.status === 404 && r.body.error === "news_off" && !("notices" in r.body) && !("seats" in r.body), r.body);
   await run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
-  check("  the admitted batch's first payload statement reads the switch (NEWS_ON_SQL)", /admittedRead\(env, ctx, "confirmedGuildData", \[\s*env\.DB\.prepare\(`SELECT \(\$\{NEWS_ON_SQL\}\) AS news_on`\)/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")));
+  check("  the admitted batch's first payload statement reads the switch (NEWS_ON_SQL)", /admittedCommunityRead\(env, ctx, \[\s*env\.DB\.prepare\(`SELECT \(\$\{NEWS_ON_SQL\}\) AS news_on`\)/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")));
   let reads = [];
   for (let k = 0; k < 31; k++) reads.push((await newsGet(MEMBER2)).status);
   check("thirty reads a minute: the 31st is 429 slow_down", reads.slice(0, 30).every((x) => x === 200) && reads[30] === 429, reads.slice(28));

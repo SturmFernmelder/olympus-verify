@@ -160,9 +160,9 @@ async function deleteThroughOriginalRoute(target, actor) {
   let r = await call("GET", "/api/community/profile", MEMBER, undefined, { COMMUNITY_FEATURES: "" });
   check("with the directory off the routes answer 503 feature_disabled", r.status === 503 && r.body.error === "feature_disabled");
   r = await call("GET", "/api/community/directory", APPLICANT);
-  check("an applicant (no roster-confirmed character) is refused the directory: guild_unconfirmed", r.status === 403 && r.body.error === "guild_unconfirmed");
+  check("an applicant (no roster-confirmed character) is refused the directory: community_unconfirmed", r.status === 403 && r.body.error === "community_unconfirmed");
   r = await call("GET", "/api/community/profile", BANNED);
-  check("  a banned account too", r.status === 403 && r.body.error === "guild_unconfirmed");
+  check("  a banned account too", r.status === 403 && r.body.error === "community_unconfirmed");
   r = await call("GET", "/api/community/profile", MEMBER);
   check("a confirmed member reads an empty own profile with the limits", r.status === 200 && r.body.profile.revision === 0 && r.body.profile.ref === null && r.body.limits.maxAlts === 10 && r.body.limits.professions.length === 12, JSON.stringify(r.body).slice(0, 200));
 
@@ -406,7 +406,7 @@ async function deleteThroughOriginalRoute(target, actor) {
   await restoreRM();
   BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE characters SET status = 'left' WHERE discord_id = ?",RM); } };
   r = await call("GET", "/api/community/directory", RM);
-  check("GET directory: the roster proof lost before the payload batch: 403 guild_unconfirmed, no members", r.status === 403 && r.body.error === "guild_unconfirmed" && !("members" in r.body));
+  check("GET directory: the roster proof lost before the payload batch: 403 community_unconfirmed, no members", r.status === 403 && r.body.error === "community_unconfirmed" && !("members" in r.body));
   await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",RM);
   BEFORE = async (i) => { if (i === 1) { BEFORE = null; await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",STAFF); } };
   r = await call("GET", "/api/admin/community/directory", STAFF);

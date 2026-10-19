@@ -15,16 +15,29 @@ export function renderOrganization(main, data, ui) {
   const byId = new Map(data.nodes.map(n => [n.id, n])), buttons = new Map(), rows = new Map();
   const position = new Map(), visible = data.nodes.filter(n => n.relation !== "classification");
   const children = id => visible.filter(n => n.parent === id);
-  let leaf = 0, maxDepth = 0;
-  function place(node, depth) {
-    maxDepth = Math.max(depth, maxDepth);
-    const kids = children(node.id); let x;
-    if (kids.length) { const xs = kids.map(n => place(n, depth + 1)); x = (xs[0] + xs[xs.length - 1]) / 2; }
-    else x = 150 + leaf++ * 270;
-    position.set(node.id, { x, y: 60 + depth * 190 }); return x;
+  const levels = [];
+  function collect(node, depth) {
+    (levels[depth] ||= []).push(node);
+    children(node.id).forEach(n => collect(n, depth + 1));
   }
-  visible.filter(n => n.parent === null).forEach(n => place(n, 0));
-  const width = Math.max(1100, leaf * 270 + 40), height = (maxDepth + 1) * 190 + 60;
+  visible.filter(n => n.parent === null).forEach(n => collect(n, 0));
+  // .176: wrap each level in family order instead of reserving a horizontal column for every leaf.
+  // Parentage, directed links and the complete reading order remain the unchanged charter model.
+  function cardHeight() { return Math.max(124, ...[...buttons.values()].map(button => button.offsetHeight || 124)); }
+  function compactLayout(availableWidth) {
+    const columns = Math.max(1, Math.min(4, Math.floor((availableWidth - 32) / (250 * .85))));
+    const width = columns * 250, pitch = cardHeight() + 30; let y = 30;
+    position.clear();
+    for (const level of levels) {
+      level.forEach((node, i) => {
+        const row = Math.floor(i / columns), rowCount = Math.min(columns, level.length - row * columns);
+        position.set(node.id, { x: (Math.floor((columns - rowCount) / 2) + i % columns) * 250 + 125, y: y + row * pitch });
+      });
+      y += Math.ceil(level.length / columns) * pitch + 30;
+    }
+    return { width, height: y };
+  }
+  const { width, height } = compactLayout(850);
   const fullPosition = new Map(position);
   const stage = h("div", { class: "org-stage" }), viewport = h("div", { class: "org-viewport", tabindex: "0", role: "region", "aria-label": "Directed organization chart. Arrow keys pan; plus and minus zoom; Home fits the selected branch. Full map shows every chart office." }, stage);
   stage.style.width = width + "px"; stage.style.height = height + "px";
@@ -63,12 +76,14 @@ export function renderOrganization(main, data, ui) {
       const show = shown.has(e.fromId) && shown.has(e.toId); e.path.style.display = show ? "" : "none";
       if (!show) continue;
       const a = position.get(e.fromId), b = position.get(e.toId);
-      if (a.y === b.y) {
-        const direction = Math.sign(b.x - a.x), start = a.x + direction * 115, end = b.x - direction * 115;
-        e.path.setAttribute("d", `M ${start} ${a.y + 55} C ${(start + end) / 2} ${a.y + 55}, ${(start + end) / 2} ${b.y + 55}, ${end} ${b.y + 55}`);
-      } else {
-        const start = a.y + (a.y < b.y ? 110 : 0), end = b.y + (a.y < b.y ? 0 : 110), mid = (start + end) / 2;
-        e.path.setAttribute("d", `M ${a.x} ${start} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${end}`);
+      // Wrapped rows use the empty gutters, so a distant relationship never cuts through another office's label.
+      if (a.y === b.y) e.path.setAttribute("d", `M ${a.x} ${a.y} L ${a.x} ${a.y - 15} L ${b.x} ${b.y - 15} L ${b.x} ${b.y}`);
+      else {
+        const downward = a.y < b.y, low = downward ? b : a, high = downward ? a : b;
+        const gutter = low.x + (low.x <= high.x ? 125 : -125), height = cardHeight();
+        const start = a.y + (downward ? buttons.get(e.fromId).offsetHeight || 124 : 0), end = b.y + (downward ? 0 : buttons.get(e.toId).offsetHeight || 124);
+        const startLane = a.y + (downward ? height + 15 : -15), endLane = b.y + (downward ? -15 : height + 15);
+        e.path.setAttribute("d", `M ${a.x} ${start} L ${a.x} ${startLane} L ${gutter} ${startLane} L ${gutter} ${endLane} L ${b.x} ${endLane} L ${b.x} ${end}`);
       }
     }
   }
@@ -77,12 +92,15 @@ export function renderOrganization(main, data, ui) {
     const parent = n.parent && fullPosition.has(n.parent) ? byId.get(n.parent) : null;
     const related = visible.filter(o => o.id !== selected && o.id !== parent?.id && (o.parent === selected || n.coordinates.includes(o.id) || o.coordinates.includes(selected)));
     // Only presentation changes: relationship direction, kind and mandate text still come from the unchanged model.
-    const columns = Math.max(1, Math.min(3, Math.floor(((viewport.clientWidth || 850) - 32) / (270 * .85))));
-    const chartWidth = Math.max(270, Math.min(columns, Math.max(1, related.length)) * 270);
+    const columns = Math.max(1, Math.min(3, Math.max(1, related.length), Math.floor(((viewport.clientWidth || 850) - 32) / (250 * .85))));
+    const chartWidth = columns * 250, pitch = cardHeight() + 30;
     position.clear(); if (parent) position.set(parent.id, { x: chartWidth / 2, y: 30 });
-    const selectedY = parent ? 200 : 30; position.set(selected, { x: chartWidth / 2, y: selectedY });
-    related.forEach((o, i) => position.set(o.id, { x: 135 + (i % columns) * 270, y: selectedY + 180 + Math.floor(i / columns) * 160 }));
-    const chartHeight = selectedY + (related.length ? 180 + (Math.ceil(related.length / columns) - 1) * 160 : 0) + 140;
+    const selectedY = parent ? 30 + pitch : 30; position.set(selected, { x: chartWidth / 2, y: selectedY });
+    related.forEach((o, i) => {
+      const row = Math.floor(i / columns), rowCount = Math.min(columns, related.length - row * columns);
+      position.set(o.id, { x: (Math.floor((columns - rowCount) / 2) + i % columns) * 250 + 125, y: selectedY + pitch + row * pitch });
+    });
+    const chartHeight = selectedY + (related.length ? Math.ceil(related.length / columns) * pitch : 0) + cardHeight() + 16;
     drawLayout(new Set(position.keys()), chartWidth, chartHeight); return { width: chartWidth, height: chartHeight };
   }
   function transform() { stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`; zoomStatus.textContent = Math.round(scale * 100) + "%"; }
@@ -97,8 +115,9 @@ export function renderOrganization(main, data, ui) {
     overviewButton.setAttribute("aria-pressed", "false"); branchButton.setAttribute("aria-pressed", "true"); status.textContent = chartSummary(); transform();
   }
   function overview() {
-    branchMode = false; position.clear(); for (const [id, p] of fullPosition) position.set(id, p); drawLayout(new Set(position.keys()), width, height);
-    const w = viewport.clientWidth || 850, ht = viewport.clientHeight || 620; scale = Math.max(.05, Math.min(1, (w - 32) / width, (ht - 32) / height)); x = (w - width * scale) / 2; y = (ht - height * scale) / 2;
+    branchMode = false; const w = viewport.clientWidth || 850, ht = viewport.clientHeight || 620;
+    const size = compactLayout(w); drawLayout(new Set(position.keys()), size.width, size.height);
+    scale = Math.max(.05, Math.min(1, (w - 32) / size.width, (ht - 32) / size.height)); x = (w - size.width * scale) / 2; y = (ht - size.height * scale) / 2;
     overviewButton.setAttribute("aria-pressed", "true"); branchButton.setAttribute("aria-pressed", "false"); status.textContent = chartSummary(); transform();
   }
   function focusNode(id) { if (branchMode) branchLayout(); const p = position.get(id); if (!p) return; scale = Math.max(.85, scale); x = viewport.clientWidth / 2 - p.x * scale; y = Math.max(50, viewport.clientHeight / 3) - p.y * scale; transform(); }

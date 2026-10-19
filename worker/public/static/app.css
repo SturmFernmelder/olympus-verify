@@ -484,6 +484,11 @@ table.data td.num, table.data th.num { text-align: right; font-variant-numeric: 
 .admin-section-picker { display: none; }
 .admin-section-nav { margin-bottom: 14px; }
 .admin-section-links { display: flex; flex-wrap: wrap; gap: 6px; }
+/* .176: section links use the same stationary pressed texture as the top navigation.
+   The general button press adds four pixels to a small button and moves the rail below it. */
+.admin-section-links > .btn:active,
+nav[aria-label="Community sections"] > .btn:active,
+nav[aria-label="Community admin sections"] > .btn:active { padding: 1px 11px; }
 .community-admin-scroll-hint { display: none; }
 .admin-filter-panel { margin: 12px 0 16px; border: 1px solid var(--line); background: rgba(0,0,0,.25); padding: 10px 12px; }
 .admin-filter-panel > summary { cursor: pointer; color: var(--gold-soft); }

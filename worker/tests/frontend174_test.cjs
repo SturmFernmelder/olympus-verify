@@ -20,15 +20,16 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   await fixtureRun("INSERT INTO site_applications (discord_id,position,board_at,answers,status,created_at,updated_at) VALUES (?,'officer',?,'{}','submitted',?,?)", OTHER, now, now, now);
 
   const member = await openPage(MEMBER);
-  check(".174 signed-in shell offers the canonical account controls separately from guild actions", byText(member.app, "a", "Account data")?.getAttribute("href") === "/privacy/account" && !!byText(member.app, "button", "Sign out") && !byText(member.app.querySelector("footer"), "a", "Private request"));
+  check(".176 signed-in header keeps Sign out and removes the redundant Account data shortcut", !byText(member.app.querySelector("header"), "a", "Account data") && !!byText(member.app, "button", "Sign out") && !byText(member.app.querySelector("footer"), "a", "Private request"));
   await member.go("#/guide/member");
   check("member guide account action opens the actual account surface instead of Home", byText(member.app, "a", "Open my account")?.getAttribute("href") === "/privacy/account" && member.app.querySelectorAll(".guide-steps section").length === 5);
 
   const staff = await openPage(STAFF), requests = [];
   staff.before((pathname, init) => { requests.push({ pathname, method: init.method || "GET" }); return false; });
   await staff.go("#/community/directory");
-  check("admin access is explained separately from confirmed-character membership without querying the private directory", staff.boot.user.isAdmin === true && staff.boot.community.capabilities.confirmedGuildData === false && staff.app.textContent.includes("Your site-admin access is active") && staff.app.textContent.includes("admin status does not replace that membership check") && !requests.some(r => r.pathname.startsWith("/api/community/directory")));
-  check("normal character verification and officer roster steps remain available beside the unchanged refusal", staff.app.textContent.includes("Get my code") && staff.app.textContent.includes("/verify") && staff.app.textContent.includes("/verify-status") && staff.app.textContent.includes("current roster export") && staff.app.textContent.includes("Keep the code private") && !!byText(staff.app, "a", "Read the member guide") && !staff.app.querySelector("table.data"));
+  check(".176 actual site admin reads the directory without being marked roster-confirmed", staff.boot.user.isAdmin === true && staff.boot.community.capabilities.confirmedGuildData === false && staff.boot.community.capabilities.communityRead === true && staff.app.textContent.includes("Site administrator") && !staff.app.textContent.includes("not yet confirmed") && requests.some(r => r.pathname.startsWith("/api/community/directory")));
+  await staff.go("#/community/profile");
+  check(".176 read-only admin access retains verified-character requirements for member profile edits", staff.app.textContent.includes("Updating a member profile") && staff.app.textContent.includes("current guild roster") && !!byText(staff.app, "a", "Read the member guide") && !byText(staff.app, "button", "Save profile"));
 
   await staff.go("#/admin/applications");
   await waitFor(() => !!staff.app.querySelector("table.admin-applications"), ".174 application list");
@@ -52,7 +53,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("application search refresh preserves the exact text selection and active input", applicationFilters.open && staff.document.activeElement === refreshedSearch && refreshedSearch.value === "Oz" && refreshedSearch.selectionStart === 1 && refreshedSearch.selectionEnd === 2 && refreshedSearch.selectionDirection === "backward");
   staff.hold(pathname => pathname.startsWith("/api/admin/applications?") ? 60 : 0);
   const sortPending = staff.app.querySelector("#application-filter-sort"); sortPending.value = "old"; sortPending.focus(); fire(sortPending, "change");
-  applicationFilters.open = false; const outsideFocus = byText(staff.app, "a", "Account data"); outsideFocus.focus();
+  applicationFilters.open = false; const outsideFocus = byText(staff.app, "button", "Sign out"); outsideFocus.focus();
   await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== applicationFilters, ".174 application refresh after user leaves filters");
   check("a late refresh respects a newly closed panel and does not steal focus from elsewhere", !staff.app.querySelector("details.admin-filter-panel").open && staff.document.activeElement === outsideFocus && staff.app.querySelector("details.admin-filter-panel summary").textContent.includes("Oldest first"));
   staff.hold(null);
@@ -174,7 +175,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check(".175 pager focus permits native scrolling when a longer replacement page moves it below the viewport", followup175.document.activeElement.lastFocusOptions174?.preventScroll !== true);
   followup175.hold(pathname => pathname.startsWith("/api/admin/audit-log?") ? 60 : 0);
   older175 = followup175.app.querySelector("#audit-page-older"); older175.focus(); older175.click();
-  const outside175 = byText(followup175.app, "a", "Account data"); outside175.focus();
+  const outside175 = byText(followup175.app, "button", "Sign out"); outside175.focus();
   await waitFor(() => followup175.app.querySelector("#audit-page-older") !== older175, ".175 audit deferred refresh");
   check(".175 a delayed audit page does not steal focus after the reader leaves the pager", followup175.document.activeElement === outside175);
   followup175.hold(null);

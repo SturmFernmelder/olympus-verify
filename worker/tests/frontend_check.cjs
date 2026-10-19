@@ -378,19 +378,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const pointer = `<@${OTHER}>`;
     const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [identity] } : null);
     await associated.go("#/roles");
     await waitFor(() => associated.app.textContent.includes("Private Verified Fixture"), ".167 explicit appointment UI projection");
     check(".167 masked general settings still display the fresh admitted appointment identity and verified characters", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "confirmed_guild_members", identities: [identity] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [identity] } : null);
     associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
     await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");
     await new Promise(resolve => setTimeout(resolve, 160));
@@ -1532,10 +1532,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!byText(p114.app, "h2", "Leadership of the Olympus guilds"), "the leadership page");
     check("(.114) Community → Leadership for a confirmed member: ten guilds, none listed yet, and the Council's link", texts(p114.app, ".leadership-card h3").length === 10 && texts(p114.app, ".leadership-card h3")[0] === "Olympus I" && texts(p114.app, ".leadership-card h3")[9] === "Olympus X" && p114.app.textContent.includes("No guild leadership is listed yet") && !!p114.app.querySelector('a[href="https://discord.com/channels/236932545793490944/1555636857621188669"]'));
     check("  the Community tabs offer it, and the page says a listing grants nothing", texts(p114.app, 'nav[aria-label="Community sections"] a').includes("Leadership") && p114.app.textContent.includes("A listing is a record only"));
-    const unconf114 = await openPage(STAFF);
+    const unconf114 = await openPage(STAFF, { SITE_ADMINS: "" });
     await unconf114.go("#/community/leadership");
     await settle();
-    check("  a member without a roster-confirmed character gets the standing notice, not the directory", unconf114.app.textContent.includes("roster export has confirmed") && !byText(unconf114.app, "h2", "Leadership of the Olympus guilds"));
+    check(".176 an ordinary account without roster or configured role proof gets the standing notice, not leadership", !unconf114.boot.user.isAdmin && !unconf114.boot.community.capabilities.communityRead && unconf114.app.textContent.includes("Guild Member role") && !byText(unconf114.app, "h2", "Leadership of the Olympus guilds"));
 
     // Admin → Settings: the Battle.net switch, the directory editor, the end of the beta
     const adm = await openPage(STAFF);
@@ -1545,7 +1545,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("Admin settings expose future enable intent while collection remains immutable OFF", bx.checked === false && bx.disabled === false && adm.app.textContent.includes("Enable records a request only. Collection stays OFF") && adm.app.textContent.includes("Request future enablement") && !!byText(adm.app, "h2", "Battle.net sign-in"));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
     check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
-      adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Confirmed members can read the directory.") &&
+      adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Guild members and site administrators can read the directory.") &&
       adm.app.textContent.includes("type Name withheld (the role stays appointed) or clear it (the role reopens)"));
     adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
     adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
@@ -1676,7 +1676,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  Admin → News while off: the tab, the switch's state, that nothing can be posted, the form locked", texts(adm6.app, 'nav[aria-label="Admin sections"] a').includes("News") && adm6.app.textContent.includes("News is switched off (Admin → Settings); notices cannot be posted while it is off.") && byText(adm6.app, "button", "Post notice").disabled === true && adm6.app.querySelector("#f-news-title").disabled === true);
     await adm6.go("#/admin/settings");
     await waitFor(() => !!adm6.app.querySelector("#news-on"), "the News switch");
-    check("  Admin → Settings has the News switch beside the others, unticked", adm6.app.querySelector("#news-on").checked === false && adm6.app.textContent.includes("News page: confirmed members can read Community → News"));
+    check("  Admin → Settings has the News switch beside the others, unticked", adm6.app.querySelector("#news-on").checked === false && adm6.app.textContent.includes("News page: guild members and site administrators can read Community → News"));
     adm6.app.querySelector("#news-on").checked = true;
     byText(adm6.app, "button", "Save settings").click();
     await waitFor(() => (one("SELECT value FROM site_settings WHERE key = 'newsOn'") || {}).value === "1", "the switch saved");
@@ -1703,7 +1703,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     unc.delay((p) => { ucalls.push(p); return 0; });
     await unc.go("#/community/news");
     await settle();
-    check("  a member without a confirmed character gets the standing notice and no News request", unc.app.textContent.includes("roster export has confirmed") && !ucalls.some((p) => p.startsWith("/api/news")));
+    check(".176 an account without roster or role read authority gets the standing notice and no News request", !unc.boot.community.capabilities.communityRead && unc.app.textContent.includes("Guild Member role") && !ucalls.some((p) => p.startsWith("/api/news")));
     const EV = "news115upcomingEventAA";
     (await fixtureRun("INSERT INTO community_events (id, op_id, title, starts_at, duration_min, ends_at, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, ?, 120, ?, ?, ?, ?, ?)",EV, EV, "Zul'Gurub", now + 900, now + 900 + 7200, OTHER, now, now, now + 900 + 7200 + 30 * 86400));
     const news = await openPage(MEMBER);
@@ -1975,8 +1975,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const lapse = await openPage(READER);
     (await fixtureRun("UPDATE characters SET status = 'unbound' WHERE discord_id = ?",READER)); // the roster no longer confirms the character after the page loaded
     await lapse.go("#/community/news");
-    await waitFor(() => lapse.app.textContent.includes("roster export has confirmed"), "the standing notice after the refusal");
-    check("  a confirmation lost after the page loaded: the 403 re-reads the community context and the page shows the standing notice, no News", lapse.app.textContent.includes("roster export has confirmed") && !byText(lapse.app, "h2", "Notices"));
+    await waitFor(() => lapse.app.textContent.includes("Guild Member role"), "the standing notice after the refusal");
+    check("  a confirmation lost after the page loaded: the 403 re-reads the community context and the page shows the standing notice, no News", lapse.app.textContent.includes("Guild Member role") && !byText(lapse.app, "h2", "Notices"));
     (await fixtureRun("UPDATE characters SET status = 'member' WHERE discord_id = ?",READER));
     const readerCookie = await cookieFor(READER);
     for (let i = 0; i < 30; i++) await indexMod.default.fetch(new Request("https://guild.example/api/news", { headers: { Cookie: readerCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), env(), ctx);
@@ -2104,10 +2104,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   }
 
   console.log("\n== standing and identity ==");
-  const unconfirmed = await openPage(STAFF);
+  const unconfirmed = await openPage(STAFF, { SITE_ADMINS: "" });
   await unconfirmed.go("#/community/directory");
   await settle();
-  check("a signed-in member without a roster-confirmed character gets the standing notice instead of the directory", unconfirmed.app.textContent.includes("roster export has confirmed") && !byText(unconfirmed.app, "h2", "Member directory"));
+  check(".176 a signed-in ordinary account without roster or role proof gets the standing notice instead of the directory", !unconfirmed.boot.user.isAdmin && !unconfirmed.boot.community.capabilities.communityRead && unconfirmed.app.textContent.includes("Guild Member role") && !byText(unconfirmed.app, "h2", "Member directory"));
   const denied = await openPage(DENIED);
   check(".154 denied identity receives no app boot while account controls remain separately reachable", denied.boot === null && denied.app === null && denied.html.includes('href="/auth/login"') && !denied.html.includes("/static/app.js"));
   const deniedControls = await policyHTML("/privacy/account", { who: DENIED, client: "account" });
