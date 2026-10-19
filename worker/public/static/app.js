@@ -135,6 +135,8 @@
   const COM = () => S.community || { subject: null, capabilities: {}, features: {} };
   const feat = (f) => !!COM().features[f];
   const can = (c) => !!COM().capabilities[c];
+  // .176: viewing Community does not confer roster confirmation or any write capability.
+  const communityReader = () => can("communityRead") || can("confirmedGuildData");
   const anyCommunity = () => Object.values(COM().features).some(Boolean);
   const byKey = (list, key) => list.find((x) => x.key === key);
   const labelOf = (list, key, fallback) => (byKey(list, key) || {}).label || fallback || key || "—";
@@ -635,9 +637,8 @@
     let seq = 0;
     let last = null;
     const selectable = it => (allowSelf || !it.self) && !exclude(it) && (!appointmentOnly || it.appointmentStatus === "eligible");
-    const appointmentHint = it => it.appointmentStatus === "eligible" ? "Eligible for association at this check; Save checks again."
-      : it.appointmentStatus === "no_current_profile" ? "No current site profile. Use normal Sign in with Discord with this account, then search again."
-      : "Currently unavailable for publication. Review current site standing and search again.";
+    const appointmentHint = it => it.appointmentStatus === "eligible" ? "Discord membership confirmed. No website sign-in is required; Save checks again."
+      : "Currently unavailable for publication. Check current Discord membership and account standing, then search again.";
     const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
     const open = () => { list.hidden = false; input.setAttribute("aria-expanded", "true"); };
     const state = (msg, withTools = false) => { tools.hidden = !withTools; clear(rowsBox).appendChild(h("div", { class: "state", text: msg })); open(); };
@@ -807,7 +808,6 @@
       ? h("div", { class: "who" },
           ownAvatar(S.user), // .114: the member's own Discord picture (header only)
           h("span", { class: "name", text: discordIdentity(S.user), title: discordIdentity(S.user) }),
-          h("a", { class: "btn small", href: "/privacy/account", text: "Account data" }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
     return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, who));
@@ -918,7 +918,7 @@
     }
     const [head] = route.split("/");
     // Keep the loaded avatar and navigation mounted between routes. Rebuild when identity or admission changes.
-    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), can("confirmedGuildData"), S.qrVerification, S.settings && S.settings.newsOn, S.settings && S.settings.notice]);
+    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), can("confirmedGuildData"), communityReader(), S.qrVerification, S.settings && S.settings.newsOn, S.settings && S.settings.notice]);
     const previousMain = app.querySelector("main.shell");
     const reuseChrome = chromeKey === nextChromeKey && previousMain;
     if (!reuseChrome) {
@@ -2338,7 +2338,7 @@
     if (["co_gm", "treasurer"].some(key => Object.prototype.hasOwnProperty.call(s.appointed || {}, key))) {
       const live = () => main.parentNode === app;
       api("GET", "/api/appointed-identities", undefined, { live }).then(data => {
-        if (!live() || data?.scope !== "confirmed_guild_members" || !Array.isArray(data.identities) || data.identities.length > 2) return;
+        if (!live() || data?.scope !== "qualified_community_readers" || !Array.isArray(data.identities) || data.identities.length > 2) return;
         const seen = new Set();
         for (const person of data.identities) {
           if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(s.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
@@ -2633,7 +2633,7 @@
     const [appsOpen, appsOpenRow] = box(s.applicationsOpen, "Applications are open");
     const [votingOpen, votingOpenRow] = box(s.votingOpen, "Voting is open (the board and write-in nominations)");
     // .115 (Viktor's item A, 2 Oct 2026): the members' News page is off until an administrator switches it on here (site-news.ts)
-    const [newsBox, newsRow] = box(!!s.newsOn, "News page: confirmed members can read Community → News", "Off: the page is hidden, no notice can be posted or changed and the figures stop; notices already posted keep their time and can still be deleted under Admin → News.");
+    const [newsBox, newsRow] = box(!!s.newsOn, "News page: guild members and site administrators can read Community → News", "Off: the page is hidden, no notice can be posted or changed and the figures stop; notices already posted keep their time and can still be deleted under Admin → News.");
     newsBox.id = "news-on";
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
     const was = s.appointed || {};
@@ -2647,14 +2647,14 @@
     }
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
       h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input),
-        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, allowTyped: false, allowSelf: true, appointmentOnly: true,
+        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true,
           onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }) : null,
         associationStatus.get(b.key))));
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
     const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");
     namesOk.id = "appointed-names-ok";
-    const [characterPublication, characterPublicationRow] = box(false, "The associated Co-Guild Master and Treasurer agreed to show their Discord name, username and current verified characters to confirmed guild members", "This includes verified characters not listed in the directory. Selecting an account publishes information only; it grants no role or permission.");
+    const [characterPublication, characterPublicationRow] = box(false, "The associated Co-Guild Master and Treasurer agreed to show their Discord name, username and current verified characters to guild members and site administrators", "This includes verified characters not listed in the directory. An account without a current website profile publishes its Discord name only. Selecting an account grants no role or permission.");
     characterPublication.id = "appointed-characters-ok";
     const quietWas = new Set(s.noVote || []);
     const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
@@ -2694,7 +2694,7 @@
       h("div", { class: "rule" }),
       h("h3", { text: "Appointed roles" }),
       h("p", { class: "muted small", text: "A role with a name here is filled by appointment: it cannot be chosen on the Apply page, its voting board and write-ins close, and members see who holds it. Votes and write-ins it already had are kept, and count again if you open it. Leave a box empty to open the role." }),
-      h("p", { class: "muted small", text: "For a Co-Guild Master or Treasurer account association, search checks for a current eligible site profile. A character link or roster confirmation is not required. If no current profile exists, the person must use normal Sign in with Discord with the correct account, then you can search again. This does not establish whether they signed in historically." }),
+      h("p", { class: "muted small", text: "For a Co-Guild Master or Treasurer account association, search by Discord name or exact user ID. A website sign-in, character link or roster confirmation is not required. Search and Save check current Discord server membership and account standing. Discord-only associations show the Discord name; they do not authorize private character publication after a later website sign-in." }),
       h("div", { class: "group-label", text: "Leadership" }), appointedGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), appointedGrid("class"),
       namesOkRow,
@@ -2754,12 +2754,12 @@
       } catch (err) { toast(explain(err), "bad"); } finally { save.disabled = false; }
     });
     return frame("Olympus I–X leadership", null,
-      h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as confirmed members see them under Community → Leadership. Separate from the Olympus I staff channels and from the appointed roles above. A listing is a record only: it gives no powers in the bot, on this site or in Discord (the Council roles in Discord are given by hand). Up to twelve officers per guild, one per line." }),
+      h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as guild members and site administrators see them under Community → Leadership. Separate from the Olympus I staff channels and from the appointed roles above. A listing is a record only: it gives no powers in the bot, on this site or in Discord (the Council roles in Discord are given by hand). Up to twelve officers per guild, one per line." }),
       h("div", { class: "grid two" }, rows.map((r) => h("div", { class: "card" },
         h("h3", { text: r.g.name }),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers)))),
-      h("label", { class: "check field", for: "lead-names-ok" }, namesOk, h("span", { text: "Each person listed here agreed to be listed. Confirmed members can read the directory." })),
+      h("label", { class: "check field", for: "lead-names-ok" }, namesOk, h("span", { text: "Each person listed here agreed to be listed. Guild members and site administrators can read the directory." })),
       h("p", { class: "muted small", text: "To remove a name on request, clear it or type Name withheld in its place." }),
       h("div", { class: "btn-row mt" }, save));
   }
@@ -3271,7 +3271,7 @@
     add(body, [
       message ? noticeBox("warn", "icon-warning", h("p", { text: message })) : null,
       frame("News", h("span", { class: "badge " + (d.newsOn ? "green" : "muted"), text: d.newsOn ? "on" : "off" }),
-        h("p", { class: "muted small", text: "Community → News for confirmed members: your notices, whether Olympus I has room, the guild in figures (counts only), the next events, when the leadership directory changed, the road to launch and the site's updates. Switch it in Admin → Settings." }),
+        h("p", { class: "muted small", text: "Community → News for guild members and site administrators: your notices, whether Olympus I has room, the guild in figures (counts only), the next events, when the leadership directory changed, the road to launch and the site's updates. Switch it in Admin → Settings." }),
         d.newsOn ? null : noticeBox("info", "icon-clock", h("p", { text: "News is switched off (Admin → Settings); notices cannot be posted while it is off." })),
         kv([["Shown now", `${notices.length} of ${limits.liveMax || 20}`], ["Past their time, awaiting the cleanup", String(d.awaitingCleanup || 0)], ["Operation records kept (120 days each)", String(d.operationRecords || 0)]])),
       frame("Notices shown now", null, list.length ? list : h("p", { class: "muted small", text: "No notice is shown right now." })),
@@ -3740,6 +3740,7 @@
   const COMMUNITY_ERRORS = {
     feature_disabled: "This part of the site is not switched on.",
     guild_unconfirmed: "This is for members whose character the officers' roster export has confirmed. Verify a character first; the roster then confirms it.",
+    community_unconfirmed: "Sign in with the linked Discord account that has the Guild Member role, or confirm a character through the current roster. Site administrators can also view the Community.",
     denied: "Your registration with Olympus has been permanently denied.",
     not_member: "You are no longer in Asmongold's Discord server. Rejoin it, then sign in again.",
     signed_out: "You are signed out. Sign in with Discord again.",
@@ -3807,7 +3808,7 @@
       // retaining the old boot here would leave member navigation and forms visible until a full reload.
       if (ex && ex.status === 403 && ["denied", "not_member"].includes(codeOf(ex))) {
         const previous = COM();
-        const capabilities = { ...previous.capabilities, applicantWrite: false, confirmedGuildData: false, communityStaff: false, organizer: false };
+        const capabilities = { ...previous.capabilities, applicantWrite: false, confirmedGuildData: false, communityRead: false, communityStaff: false, organizer: false };
         const changed = JSON.stringify(previous.capabilities) !== JSON.stringify(capabilities);
         S.community = { ...previous, capabilities };
         if (changed) render();
@@ -3841,23 +3842,25 @@
   function standingNotice() {
     const c = COM().capabilities;
     if (!c.applicantWrite) return noticeBox("warn", "icon-warning", h("p", { text: `You no longer have access to the community pages: ${c.authenticatedIdentity ? "your account is not a member in good standing here (departed from the server, denied, or signed in elsewhere since this page loaded)" : "you are signed out"}. Reload the page to see your current state.` })); // .100 (F5)
-    return noticeBox("info", "icon-shield", h("p", { text: COMMUNITY_ERRORS.guild_unconfirmed }),
-      S.user && S.user.isAdmin ? h("p", { text: "Your site-admin access is active. Private Community pages separately require a verified character on the officers' current roster; admin status does not replace that membership check." }) : null,
+    return noticeBox("info", "icon-shield", h("p", { text: COMMUNITY_ERRORS.community_unconfirmed }),
+      h("p", { text: "Community viewing is available to site administrators and current guild members. Sign in with the linked Discord account that has the Guild Member role, or confirm a character through the current roster." }),
       h("details", { class: "membership-help" }, h("summary", { text: "How to confirm your character" }),
         h("ol", null,
           h("li", { text: "In Discord, open #join-olympus and choose Get my code, or use /verify. Follow the bot's current instructions." }),
           h("li", { text: "Send the displayed verification line from the character you want linked. The officer's checked addon verifies that character; the current roster export must then confirm its guild membership." }),
           h("li", { text: "Use My status or /verify-status in the bot to check progress. If the character is already verified but these pages remain locked, ask an Olympus officer to check the current roster record. Keep the code private." })),
         h("a", { href: "#/guide/member", text: "Read the member guide" })),
-      h("p", { class: "muted small", text: "Until then the community pages show nothing of other members, and nothing you enter here is listed." }));
+      h("p", { class: "muted small", text: "Until access is confirmed the community pages show nothing of other members, and nothing you enter here is listed." }));
   }
+  const memberActionNotice = () => noticeBox("info", "icon-shield", h("p", { text: "You can view the Community. Updating a member profile, responding to an event or using the Census preview still requires a verified character on the current guild roster." }), h("a", { href: "#/guide/member", text: "Read the member guide" }));
   ROUTES.community = async function community(main, parts) {
     const sub = parts[0] || "";
     if (!anyCommunity()) {
       add(main, frame("Community", null, noticeBox("info", "icon-clock", h("p", { text: "The community pages are not switched on yet." }))));
       return;
     }
-    add(main, frame("Community", h("span", { class: "badge " + (can("confirmedGuildData") ? "green" : "muted"), text: can("confirmedGuildData") ? "confirmed guild member" : "not yet confirmed" }), communityTabs(sub)));
+    const accessLabel = !communityReader() ? "Membership check needed" : S.user && S.user.isAdmin ? "Site administrator" : can("confirmedGuildData") ? "confirmed guild member" : "Guild Member role";
+    add(main, frame("Community", h("span", { class: "badge " + (communityReader() ? "green" : "muted"), text: accessLabel }), communityTabs(sub)));
     const body = h("div", { class: "stack mt" });
     main.appendChild(body);
     if (sub === "") return communityOverview(body);
@@ -3865,12 +3868,12 @@
     // .96: the own trial and the own dues are the account's (applicantWrite), not a confirmed character's: the API's rule
     if (sub === "trial" && feat("trials")) return communityTrial(body);
     if (sub === "dues" && feat("contributions")) return communityDues(body);
-    if (!can("confirmedGuildData")) { add(body, standingNotice()); return; }
+    if (!communityReader()) { add(body, standingNotice()); return; }
     if (sub === "news" && newsOn()) return communityNews(body); // .115
     if (sub === "leadership") return communityLeadership(body); // .114
-    if (sub === "census" && feat("census")) return communityCensus(body);
+    if (sub === "census" && feat("census")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityCensus(body); }
     if (sub === "directory" && feat("directory")) return communityDirectory(body);
-    if (sub === "profile" && feat("directory")) return communityProfile(body);
+    if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
       // .98: the organizer's pages live beside the member's (the Worker decides who may write; the page shows the refusal)
       if (parts[1] === "new") return organizerNewEvent(body);
@@ -3885,15 +3888,15 @@
     const cards = [];
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
-      cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. Confirmed guild members only." })));
+      cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. For guild members and site administrators." })));
       cards.push(h("a", { class: "card", href: "#/community/profile" }, h("div", { class: "card-head" }, icon("pos-member"), h("h3", { text: "My profile" })), h("p", { class: "muted small", text: "Opt in to the directory, and say what you play and craft. Nothing is listed until you tick the box." })));
     }
-    if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. Confirmed guild members only.` })));
+    if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. For guild members and site administrators.` })));
     if (feat("trials")) cards.push(h("a", { class: "card", href: "#/community/trial" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "My trial" })), h("p", { class: "muted small", text: "Your trial period as the officers recorded it: the review date and the outcome." })));
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
-    if (newsOn()) cards.push(h("a", { class: "card", href: "#/community/news" }, h("div", { class: "card-head" }, icon("icon-launch"), h("h3", { text: "News" })), h("p", { class: "muted small", text: "Notices from the site's administrators, whether Olympus I has room, the guild in figures and what is coming up. Confirmed guild members only." }))); // .115
-    cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. Confirmed guild members only." }))); // .114
-    add(body, [can("confirmedGuildData") ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
+    if (newsOn()) cards.push(h("a", { class: "card", href: "#/community/news" }, h("div", { class: "card-head" }, icon("icon-launch"), h("h3", { text: "News" })), h("p", { class: "muted small", text: "Notices from the site's administrators, whether Olympus I has room, the guild in figures and what is coming up. For guild members and site administrators." }))); // .115
+    cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." }))); // .114
+    add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
   function communityCensus(body) {
     const subject = COM().subject, user = S.user, context = COM(), route = currentRoute();
@@ -4141,7 +4144,7 @@
         for (const m of data.members) list.appendChild(memberCard(m));
         cursor = data.nextCursor;
         more.hidden = !cursor;
-        status.textContent = data.counts.listed ? `${plural(data.counts.listed, "listed member")}${list.firstChild ? "" : "; none to show"}` : "Nobody is listed yet. Be the first: open My profile and tick the box.";
+        status.textContent = data.counts.listed ? `${plural(data.counts.listed, "listed member")}${list.firstChild ? "" : "; none to show"}` : can("confirmedGuildData") ? "Nobody is listed yet. Be the first: open My profile and tick the box." : "Nobody is listed yet.";
       } catch (e) {
         if (codeOf(e) === "cursor_stale") { toast(COMMUNITY_ERRORS.cursor_stale); return load(true); }
         status.textContent = explain(e, "The directory could not be read.");
@@ -4152,7 +4155,7 @@
     add(body, [
       frame("Member directory", h("a", { class: "btn small", href: "#/community/profile", text: "My profile" }),
         sourceStrip("Member opt-in profiles", "Profile and roster verification times are not supplied here; this is not a live roster"),
-        h("p", { class: "muted small", text: "Members who chose to be listed, shown to confirmed guild members by display name. A name marked confirmed is one the officers' roster export has confirmed on that account; the rest are labels members gave themselves." }),
+        h("p", { class: "muted small", text: "Members who chose to be listed, shown to guild members and site administrators by display name. A name marked confirmed is one the officers' roster export has confirmed on that account; the rest are labels members gave themselves." }),
         status, list, h("div", { class: "btn-row" }, more)),
       feat("crafting") ? craftingPanel() : null,
     ]);
@@ -4237,7 +4240,7 @@
     const dirtyMark = h("span", { class: "badge warn", text: "unsaved", hidden: true });
     function markDirty() { setDirty("community-profile", true, dirtyMark); }
     const form = h("form", { class: "stack", novalidate: true },
-      noticeBox("info", "icon-friends", h("p", null, h("strong", { text: "Who sees this: " }), "confirmed guild members signed in to the site, by your display name and a random reference, never your Discord ID; only while you keep the box ticked and stay a confirmed member. Officers may confirm or reject a claimed alt. Your recruitment application is separate and stays private.")),
+      noticeBox("info", "icon-friends", h("p", null, h("strong", { text: "Who sees this: " }), "signed-in guild members and site administrators, by your display name and a random reference, never your Discord ID; only while you keep the box ticked and stay roster-confirmed. Officers may confirm or reject a claimed alt. Your recruitment application is separate and stays private.")),
       h("label", { class: "check" }, listed, " List me in the member directory"),
       fieldBox("main", "Main character", main, { hint: `${limits.nameMin}–${limits.nameMax} letters, as "First Last". It is marked confirmed when it matches a character verified on your account; a name verified on another account is refused.` }),
       p.main ? h("p", { class: "small" }, "Saved main: ", h("b", { text: p.main.name }), " ", proofBadge(p.main.source)) : null,
@@ -4432,7 +4435,7 @@
       if (!e) { holder.appendChild(frame("Event", back(), noticeBox("warn", "icon-warning", h("p", { text: data.hydration === "too_large" ? COMMUNITY_ERRORS.events_too_large : "This event could not be read right now." })))); return; }
       if (message) holder.appendChild(noticeBox("warn", "icon-warning", h("p", { text: message })));
       holder.appendChild(frame(e.title, h("div", { class: "btn-row" }, back(), e.canManage ? [h("a", { class: "btn small", href: `${eventHref(e.id)}/edit`, text: "Edit" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null, h("a", { class: "btn small", href: `${eventHref(e.id)}/discord`, text: "Discord announcement" })] : null), eventCard(e, false)));
-      holder.appendChild(rsvpForm(e, reload));
+      holder.appendChild(can("confirmedGuildData") ? rsvpForm(e, reload) : memberActionNotice());
       holder.appendChild(signupsPanel(id, data.signups || [], data.nextCursor || null, e));
     };
     const reload = async (message) => {
@@ -4631,7 +4634,7 @@
       fieldBox("rsvp-character", "Character (optional)", character, { hint: "Which character you bring, as \"First Last\". Leave it empty to clear it." }),
       fieldBox("rsvp-role", "Raid role (optional)", raidRole),
       fieldBox("rsvp-remind", "Mention me in the Discord reminder", remind, { hint: "If the organizer sends the raid reminder to Discord an hour before the start, it mentions you while your answer is yes; your Discord account then appears in that message." }),
-      h("p", { class: "muted small", text: "Your answer is shown to confirmed members by your display name. A yes takes a place while places are limited; the organizers may record attendance afterwards." }),
+      h("p", { class: "muted small", text: "Your answer is shown to guild members and site administrators by your display name. A yes takes a place while places are limited; the organizers may record attendance afterwards." }),
       err, h("div", { class: "btn-row savebar" }, save));
     if (closed) { status.disabled = true; character.disabled = true; raidRole.disabled = true; remind.disabled = true; save.disabled = true; }
     form.addEventListener("submit", async (ev) => {

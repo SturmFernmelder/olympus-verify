@@ -20,8 +20,9 @@ import { coverageReport, digestStatus, resumeDigest } from "./community-digest";
 import { censusPreview } from "./community-census-route";
 
 export async function handleCommunity(request: Request, env: Env, path: string): Promise<Response> {
-  const ctx = await communityContext(env, request);
   const m = request.method;
+  const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
+  const ctx = await communityContext(env, request, { guildRoleRead: reader });
   if (m === "POST" && path === "/api/community/census/preview") return censusPreview(request, env, ctx);
   if (m === "GET" && path === "/api/community/context") return apiJson(contextDto(ctx));
   if (m === "GET" && path === "/api/community/profile") return profileGet(request, env, ctx);

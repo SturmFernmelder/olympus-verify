@@ -39,7 +39,9 @@ function freshDb() {
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 let LOGS = [];
-globalThis.fetch = async (url) => { throw new Error("no network in tests: " + url); };
+let REST = async () => { throw new Error("no REST in tests"); };
+let HTTP = async (url) => { throw new Error("no network in tests: " + url); };
+globalThis.fetch = (...args) => HTTP(...args);
 const stubs = {};
 const cache = {};
 function load(name) {
@@ -69,7 +71,7 @@ Object.assign(stubs, {
     removeRole: async () => {},
     guildMember: async () => ({ roles: [] }),
     setNickname: async () => {},
-    rest: async () => { throw new Error("no REST in tests"); },
+    rest: (...args) => REST(...args),
     explainDiscordError: (e) => String(e),
   },
   "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} },
@@ -152,6 +154,121 @@ async function deleteThroughOriginalRoute(target,actor){
   check("crafting needs directory; attendance needs events", feats("crafting") === "" && feats("attendance") === "" && feats("directory,crafting,events,attendance") === "attendance,crafting,directory,events");
   check("empty means none", feats("") === "" && feats(undefined) === "");
   check("the DTO shows them", (await dto(APPLICANT, { COMMUNITY_FEATURES: "directory" })).features.directory === true && (await dto(APPLICANT)).features.directory === false);
+
+
+  console.log("\n== .176 read-only community access: original proof, current staff or fresh Guild Member role ==");
+  const ROLE = "1549581282227265566", OTHER_ROLE = "1549581672272625734";
+  const roleVars = { GUILD_ID: "236932545793490944", DISCORD_BOT_TOKEN: "test-only-discord-token", COMMUNITY_FEATURES: "directory,crafting,events,attendance" };
+  let roleCalls = [], roleAnswer = id => ({ user: { id }, roles: [ROLE], pending: false });
+  REST = async (e, method, route) => { roleCalls.push({ method, route }); return roleAnswer(route.split("/").at(-1)); };
+  HTTP = async (url, init) => { const u = new URL(String(url)); if (u.origin !== "https://discord.com" || !u.pathname.startsWith("/api/v10/guilds/236932545793490944/members/")) throw Error("unexpected fixture URL"); const body = await REST(null, init.method, u.pathname.slice("/api/v10".length)); return new Response(JSON.stringify(body), { status: body?.fixtureHttpStatus ?? 200, headers: { "Content-Type": "application/json" } }); };
+  const roleContext = () => context.communityContext(env(roleVars), req("https://guild.example/x", cookieV1), { guildRoleRead: true });
+  const readSecret = cx => context.admittedCommunityRead(env(roleVars), cx, [env(roleVars).DB.prepare("SELECT discord_id FROM site_users WHERE discord_id=?1").bind(MEMBER)]);
+  const defaultReader = await context.communityContext(env(roleVars), req("https://guild.example/x", cookieV1));
+  check("default context preserves zero provider work for unrelated own-copy, Census and writes", roleCalls.length === 0 && !defaultReader.capabilities.communityRead && !defaultReader.capabilities.confirmedGuildData);
+  const preReadRows = JSON.stringify([one("SELECT COUNT(*) AS n FROM characters"), one("SELECT COUNT(*) AS n FROM members"), db.prepare("SELECT * FROM site_settings ORDER BY key").all()]);
+  let readCtx = await roleContext();
+  check("the configured Guild Member role allows only communityRead, not roster confirmation or organizer", readCtx.capabilities.communityRead && !readCtx.capabilities.confirmedGuildData && !readCtx.capabilities.organizer && readCtx.capabilities.applicantWrite && roleCalls.length === 1);
+  let readResult = await readSecret(readCtx);
+  check("the admitted reader fetches the exact current server/member twice around its Native payload", readResult !== context.FENCE_REFUSED && readResult[0].results[0].discord_id === MEMBER && roleCalls.length === 3 && roleCalls.every(x => x.method === "GET" && x.route === "/guilds/236932545793490944/members/" + APPLICANT));
+  const rowsBeforeRole = one("SELECT COUNT(*) AS n FROM characters WHERE discord_id=?", APPLICANT).n;
+  check("role-based viewing creates no character, roster proof, member role or settings row", rowsBeforeRole === 0 && preReadRows === JSON.stringify([one("SELECT COUNT(*) AS n FROM characters"), one("SELECT COUNT(*) AS n FROM members"), db.prepare("SELECT * FROM site_settings ORDER BY key").all()]));
+  const states = [
+    ["an officer role alone does not broaden member viewing", id => ({ user: { id }, roles: [OTHER_ROLE] })],
+    ["a missing Guild Member role is refused", id => ({ user: { id }, roles: [] })],
+    ["a pending Discord membership is refused", id => ({ user: { id }, roles: [ROLE], pending: true })],
+    ["a malformed string pending state is refused", id => ({ user: { id }, roles: [ROLE], pending: "true" })],
+    ["a malformed numeric pending state is refused", id => ({ user: { id }, roles: [ROLE], pending: 1 })],
+    ["a bot account cannot use linked-person Community access", id => ({ user: { id, bot: true }, roles: [ROLE] })],
+    ["a malformed bot flag is refused", id => ({ user: { id, bot: "false" }, roles: [ROLE] })],
+    ["a different Discord identity is refused", () => ({ user: { id: MEMBER }, roles: [ROLE] })],
+    ["a malformed role payload is refused", id => ({ user: { id }, roles: ROLE })],
+    ["a partially malformed roles list is refused", id => ({ user: { id }, roles: [ROLE, 123] })],
+    ["a missing provider profile is refused", () => null],
+  ];
+  for (const [name, answer] of states) { roleAnswer = answer; const cc = await roleContext(); check(name, !cc.capabilities.communityRead && !cc.capabilities.confirmedGuildData); }
+  roleAnswer = id => ({ user: { id }, roles: [ROLE] });
+  const missingConfig = await context.communityContext(env({ ...roleVars, ROLE_GUILD_MEMBER: "" }), req("https://guild.example/x", cookieV1), { guildRoleRead: true });
+  const wrongServer = await context.communityContext(env({ ...roleVars, GUILD_ID: "1549537348516188200" }), req("https://guild.example/x", cookieV1), { guildRoleRead: true });
+  check("absent role or mismatched bot/site server cannot provide role reader authority", !missingConfig.capabilities.communityRead && !wrongServer.capabilities.communityRead);
+  roleAnswer = () => ({ fixtureHttpStatus: 503 });
+  check("Discord unavailability withholds the new role path", !(await roleContext()).capabilities.communityRead);
+  const callsBeforeStaff = roleCalls.length;
+  const staffCtx = await context.communityContext(env(roleVars), req("https://guild.example/x", await cookieFor(STAFF)));
+  const staffRows = await context.admittedCommunityRead(env(roleVars), staffCtx, [env(roleVars).DB.prepare("SELECT 1 AS read_only")]);
+  const memberCtx = await context.communityContext(env(roleVars), req("https://guild.example/x", await cookieFor(MEMBER)));
+  const memberRows = await context.admittedCommunityRead(env(roleVars), memberCtx, [env(roleVars).DB.prepare("SELECT 1 AS read_only")]);
+  check("current SITE_ADMINS can read without a roster character or Discord dependency, but remain not confirmed/organizer", staffCtx.capabilities.communityRead && staffCtx.capabilities.communityStaff && !staffCtx.capabilities.confirmedGuildData && !staffCtx.capabilities.organizer && staffRows !== context.FENCE_REFUSED && roleCalls.length === callsBeforeStaff);
+  check("existing roster readers retain Native admission while Discord is unavailable", memberCtx.capabilities.communityRead && memberCtx.capabilities.confirmedGuildData && memberRows !== context.FENCE_REFUSED);
+  const staffRemoved = await context.admittedCommunityRead(env({ ...roleVars, SITE_ADMINS: "", DISCORD_BOT_TOKEN: "" }), staffCtx, [env().DB.prepare("SELECT 1 AS withheld")]);
+  check("a staff read cannot reuse a removed SITE_ADMINS listing", staffRemoved === context.FENCE_REFUSED);
+  roleAnswer = id => ({ user: { id }, roles: [ROLE] });
+  readCtx = await roleContext(); roleAnswer = id => ({ user: { id }, roles: [] });
+  readResult = await readSecret(readCtx);
+  check("Guild Member role lost after context but before payload: no private row returned", readResult === context.FENCE_REFUSED);
+  roleAnswer = id => ({ user: { id }, roles: [ROLE] }); roleCalls = []; readCtx = await roleContext();
+  roleAnswer = id => ({ user: { id }, roles: roleCalls.length >= 3 ? [] : [ROLE] });
+  readResult = await readSecret(readCtx);
+  check("Guild Member role lost during Native payload: post-read Discord check withholds earlier rows", readResult === context.FENCE_REFUSED && roleCalls.length === 3);
+  roleAnswer = id => ({ user: { id }, roles: [ROLE] }); roleCalls = []; readCtx = await roleContext();
+  roleAnswer = async id => { if (roleCalls.length === 3) await fixtureRun("UPDATE site_users SET session_version=2 WHERE discord_id=?", APPLICANT); return { user: { id }, roles: [ROLE] }; };
+  readResult = await readSecret(readCtx);
+  check("a sign-out during final Discord lookup is rechecked in Native SQL and withholds all rows", readResult === context.FENCE_REFUSED);
+  await fixtureRun("UPDATE site_users SET session_version=1 WHERE discord_id=?", APPLICANT);
+  roleAnswer = id => ({ user: { id }, roles: [ROLE] }); readCtx = await roleContext();
+  await fixtureRun("UPDATE site_users SET denied=1 WHERE discord_id=?", APPLICANT);
+  readResult = await readSecret(readCtx);
+  check("denial after role context is still refused by payload Native standing fence", readResult === context.FENCE_REFUSED);
+  await fixtureRun("UPDATE site_users SET denied=0 WHERE discord_id=?", APPLICANT);
+  readCtx = await roleContext();
+  await fixtureRun("INSERT INTO members(discord_id,banned) VALUES(?,1)", APPLICANT);
+  readResult = await readSecret(readCtx);
+  check("a ban after role context still withholds private data", readResult === context.FENCE_REFUSED);
+  await fixtureRun("DELETE FROM members WHERE discord_id=?", APPLICANT);
+  roleCalls = [];
+  for (const route of ["/api/community/directory", "/api/community/profile", "/api/community/crafting?profession=alchemy", "/api/community/events", "/api/community/attendance/me", "/api/leadership", "/api/appointed-identities"]) {
+    const got = await indexMod.default.fetch(req("https://guild.example" + route, cookieV1), rawEnv(roleVars), ctx), body = await got.json();
+    check("fresh role reader receives pure GET " + route, got.status === 200 && !body.error, got.status, body.error);
+  }
+
+
+  const contextHttp = await indexMod.default.fetch(req("https://guild.example/api/community/context", cookieV1), rawEnv(roleVars), ctx);
+  const contextBody = await contextHttp.json();
+  check("actual Community context GET explicitly requests fresh role read capability without confirmation", contextHttp.status === 200 && contextBody.capabilities.communityRead && !contextBody.capabilities.confirmedGuildData && !contextBody.capabilities.organizer);
+  const bootHttp = await indexMod.default.fetch(req("https://guild.example/", cookieV1), rawEnv(roleVars), ctx);
+  const bootText = await bootHttp.text(), bootMatch = /<script type="application\/json" id="boot">([\s\S]*?)<\/script>/.exec(bootText);
+  const bootCommunity = bootMatch ? JSON.parse(bootMatch[1]).community : null;
+  check("actual site boot explicitly includes fresh Community role viewing but no roster/organizer authority", bootHttp.status === 200 && bootCommunity?.capabilities.communityRead && !bootCommunity.capabilities.confirmedGuildData && !bootCommunity.capabilities.organizer, bootHttp.status, !!bootCommunity);
+  const eventHttp = await indexMod.default.fetch(req("https://guild.example/api/community/event?id=" + "E".repeat(22), cookieV1), rawEnv(roleVars), ctx);
+  check("pure event detail admits role reader then returns exact event_not_found for absent event", eventHttp.status === 404 && (await eventHttp.json()).error === "event_not_found");
+  const beforeUnknown = roleCalls.length;
+  const unknownHttp = await indexMod.default.fetch(req("https://guild.example/api/community/unknown", cookieV1), rawEnv(roleVars), ctx);
+  check("unknown Community route preserves zero extra provider work", unknownHttp.status === 404 && roleCalls.length === beforeUnknown);
+
+  const oldNewsSwitch = one("SELECT * FROM site_settings WHERE key='newsOn'");
+  await fixtureRun("INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES('newsOn','1',?,NULL) ON CONFLICT(key) DO UPDATE SET value='1'", T);
+  for (const id of [APPLICANT, STAFF]) {
+    const got = await indexMod.default.fetch(req("https://guild.example/api/news", await cookieFor(id)), rawEnv(roleVars), ctx), body = await got.json();
+    check("Community News admits current " + (id === STAFF ? "staff" : "Guild Member role") + " without a roster character", got.status === 200 && Array.isArray(body.notices), got.status, body.error);
+  }
+  await fixtureRun("UPDATE site_settings SET value='0' WHERE key='newsOn'");
+  const offNews = await indexMod.default.fetch(req("https://guild.example/api/news", cookieV1), rawEnv(roleVars), ctx);
+  check("new reader authority never switches on disabled Guild News", offNews.status === 404 && (await offNews.json()).error === "news_off");
+  if (oldNewsSwitch) await fixtureRun("UPDATE site_settings SET value=?,updated_at=?,updated_by=? WHERE key='newsOn'", oldNewsSwitch.value, oldNewsSwitch.updated_at, oldNewsSwitch.updated_by);
+  else await fixtureRun("DELETE FROM site_settings WHERE key='newsOn'");
+
+  const headers = { "X-Olympus": "2", Origin: "https://guild.example", "Content-Type": "application/json" };
+  for (const [method, route, body] of [["PUT", "/api/community/profile", { revision: 0 }], ["PUT", "/api/community/events/rsvp", {}], ["POST", "/api/community/events", {}], ["POST", "/api/community/census/preview", {}]]) {
+    const beforeProtectedWrite = roleCalls.length;
+    const got = await indexMod.default.fetch(req("https://guild.example" + route, cookieV1, { method, headers, body: JSON.stringify(body) }), rawEnv({ ...roleVars, COMMUNITY_FEATURES: roleVars.COMMUNITY_FEATURES + ",census" }), ctx), response = await got.json();
+    check("read-only role access never admits original write/preview " + route, got.status === 403 && response.error === "guild_unconfirmed", got.status, response.error);
+    check("protected write/preview keeps zero role-provider work " + route, roleCalls.length === beforeProtectedWrite);
+  }
+  roleAnswer = () => ({ fixtureHttpStatus: 404 });
+  const refusalRead = await context.communityReadRefusal(env(roleVars), req("https://guild.example/x", cookieV1));
+  check("read-only refusal uses distinct community_unconfirmed without changing roster write refusal", refusalRead.status === 403 && (await refusalRead.json()).error === "community_unconfirmed");
+  REST = async () => { throw new Error("no REST in tests"); };
+  HTTP = async (url) => { throw new Error("no network in tests: " + url); };
 
   console.log("\n== the write fence ==");
   const realNow = () => Math.floor(RealDate.now() / 1000);

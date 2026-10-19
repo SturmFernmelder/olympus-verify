@@ -55,7 +55,7 @@
 import type { Env } from "./env";
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
-import { admitted, admittedRead, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
+import { admitted, admittedRead, admittedCommunityRead, communityReadRefusal, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { refAfter } from "./community-refs";
 import { communityKey, resolveCharacter, validateName } from "./community-names";
 import { secondsToIso } from "./community-time";
@@ -233,15 +233,17 @@ export function parseProfileInput(body: Record<string, unknown>): Input {
 
 // ---------- routes: member ----------
 const featureOff = () => apiJson({ error: "feature_disabled", message: "This part of the site is not switched on." }, 503);
+const communityReader = (ctx: CommunityContext, request: Request, env: Env) => (ctx.capabilities.communityRead ? null : communityReadRefusal(env, request));
 const guildOnly = (ctx: CommunityContext, request: Request, env: Env) => (ctx.capabilities.confirmedGuildData ? null : refusal(env, request, "confirmedGuildData"));
 
 /** GET /api/community/profile → the member's own profile, listed or not, with the limits. */
 export async function profileGet(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   if (!ctx.features.has("directory")) return featureOff();
-  const no = await guildOnly(ctx, request, env);
+  const no = await communityReader(ctx, request, env);
   if (no) return no;
-  const own = await readOwnAdmitted(env, ctx, ctx.subject!.discordId); // .72
-  if (own === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  const rows = await admittedCommunityRead(env, ctx, ownStatements(env, ctx.subject!.discordId));
+  const own = rows === FENCE_REFUSED ? FENCE_REFUSED : ownFrom(rows);
+  if (own === FENCE_REFUSED) return communityReadRefusal(env, request);
   return apiJson({ profile: ownShape(own), limits: LIMITS });
 }
 
@@ -453,7 +455,7 @@ export async function profilePut(request: Request, env: Env, ctx: CommunityConte
 /** GET /api/community/directory[?cursor=] → {generatedAt, members, counts: {listed}, nextCursor} */
 export async function directoryList(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   if (!ctx.features.has("directory")) return featureOff();
-  const no = await guildOnly(ctx, request, env);
+  const no = await communityReader(ctx, request, env);
   if (no) return no;
   if (rateLimited(`cd:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
   const parts = cursorParts(new URL(request.url).searchParams.get("cursor"));
@@ -484,8 +486,8 @@ export async function directoryList(request: Request, env: Env, ctx: CommunityCo
     env.DB.prepare(`SELECT x.discord_id, x.name, x.name_key, x.status, x.proof, x.claimed_at, NULL AS reviewed_by, x.reviewed_at, x.updated_at FROM community_alt_claims x JOIN community_profiles p ON p.discord_id = x.discord_id ${owner} AND x.status <> 'rejected'`).bind(...pageParams),
   ];
   if (ctx.features.has("crafting")) statements.push(env.DB.prepare(`SELECT x.discord_id, x.profession, x.recipe_name, x.recipe_key, x.updated_at FROM community_craft_offers x JOIN community_profiles p ON p.discord_id = x.discord_id ${owner}`).bind(...pageParams));
-  const read = await admittedRead(env, ctx, "confirmedGuildData", statements); // .72: the reader's admission, in the payload's transaction
-  if (read === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  const read = await admittedCommunityRead(env, ctx, statements); // .72: the reader's admission, in the payload's transaction
+  if (read === FENCE_REFUSED) return communityReadRefusal(env, request);
   const [scan, profiles, professions, alts, crafts] = read;
   const visible = scan!.results as { discord_id: string; ref: string; display_name: string; after: number }[];
   if (visible.length > limit) return apiJson({ error: "directory_too_large" }, 503);
@@ -512,7 +514,7 @@ export async function directoryList(request: Request, env: Env, ctx: CommunityCo
 /** GET /api/community/crafting?q=&profession=&cursor= → {results, nextCursor}: offers on listed, qualifying profiles. */
 export async function craftingSearch(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   if (!ctx.features.has("crafting")) return featureOff();
-  const no = await guildOnly(ctx, request, env);
+  const no = await communityReader(ctx, request, env);
   if (no) return no;
   if (rateLimited(`cc:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many searches in one minute. Wait a moment, then carry on." }, 429);
   const url = new URL(request.url);
@@ -545,7 +547,7 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
   // by display name and ref, with the profile revision that every save of their offers bumps), so a rename, an edit, a
   // departure or an unlisting between pages is 409 cursor_stale and the page starts again (D20).
   const filter = (qp: string, pp: string) => `(${qp} IS NULL OR instr(o.recipe_key, ${qp}) > 0) AND (${pp} IS NULL OR o.profession = ${pp})`;
-  const read = await admittedRead(env, ctx, "confirmedGuildData", [ // .72: the reader's admission, in the payload's transaction
+  const read = await admittedCommunityRead(env, ctx, [ // .72: the reader's admission, in the payload's transaction
     env.DB.prepare(
       `SELECT p.ref, p.revision, ${DISPLAY} AS display_name FROM community_profiles p JOIN site_users u ON u.discord_id = p.discord_id
        WHERE p.listed = 1 AND ${VISIBLE_OWNER} AND EXISTS (SELECT 1 FROM community_craft_offers o WHERE o.discord_id = p.discord_id AND ${filter("?2", "?3")})
@@ -559,7 +561,7 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
        ORDER BY o.recipe_key, ${DISPLAY} COLLATE NOCASE, p.ref LIMIT ?7`,
     ).bind(q, profession, after ? 1 : 0, after?.key ?? "", after?.name ?? "", after?.ref ?? "", PAGE_SIZE + 1),
   ]);
-  if (read === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  if (read === FENCE_REFUSED) return communityReadRefusal(env, request);
   const [owners, rows] = read;
   const visibleOwners = owners!.results as { ref: string; revision: number; display_name: string }[];
   if (visibleOwners.length > limit) return apiJson({ error: "directory_too_large" }, 503);

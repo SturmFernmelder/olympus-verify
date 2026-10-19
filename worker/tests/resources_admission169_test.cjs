@@ -115,7 +115,33 @@ async function caseWith(name, work) { const f = await fresh(); try { await work(
 const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources') && !Object.prototype.hasOwnProperty.call(body, 'items');
 
 (async () => {
-  check('Guild News source and its verified-character consumer capability are unchanged', require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root, 'src/site-news.ts'))).digest('hex') === '6d9bd0840df3840675bac021a7835c5e7865fe4200c52986a46bbedc16a167a1');
+  // .176 deliberately adds a separate Community viewing boundary. Preserve the
+  // original whole-News invariant after reversing ONLY these exact authorized
+  // reader/annotation deltas; writes, lifetimes, private fields and clocks still
+  // have to match the original source bytes. This is not an arbitrary new pin.
+  let originalNews = fs.readFileSync(path.join(root, 'src/site-news.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const release176 = [
+    '  {',
+    '    build: ".176", date: "2026-10-19", lines: [',
+    '      "Community viewing recognizes site administrators and current Guild Member Discord roles; member actions retain their existing verification checks.",',
+    '      "Appointment searches accept current Discord members by name or user ID without a website sign-in, with separate consent for published names and characters.",',
+    '      "A more compact organization chart, steady section buttons and a simpler signed-in header.",',
+    '    ],',
+    '  },',
+    '',
+  ].join('\n');
+  const authorizedNewsDeltas = [
+    ['reader imports', 'import { admitted, admittedRead, admittedCommunityRead, communityReadRefusal, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";', 'import { admitted, admittedRead, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";'],
+    ['dated release note', release176, ''],
+    ['explicit role-read context', 'const ctx = await communityContext(env, request, { guildRoleRead: true });', 'const ctx = await communityContext(env, request);'],
+    ['read-only payload admission', 'const out = await admittedCommunityRead(env, ctx, [', 'const out = await admittedRead(env, ctx, "confirmedGuildData", ['],
+    ['separate reader refusal', 'if (out === FENCE_REFUSED) return communityReadRefusal(env, request);', 'if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");'],
+  ];
+  for (const [name, current, prior] of authorizedNewsDeltas) {
+    check('Guild News authorized .176 delta occurs exactly once: ' + name, originalNews.split(current).length === 2);
+    originalNews = originalNews.replace(current, prior);
+  }
+  check('outside exact authorized .176 reader changes, original whole Guild News safeguards remain unchanged', require('node:crypto').createHash('sha256').update(originalNews).digest('hex') === '6d9bd0840df3840675bac021a7835c5e7865fe4200c52986a46bbedc16a167a1');
   await caseWith('Guild News absent or OFF does not disable public Game updates', async f => {
     const absent = await f.invoke();
     check('absent Guild News switch still permits signed-in public publisher headlines', absent.response.status === 200 && absent.body.sources.length === 3 && f.state.fetches.length === 3);
@@ -131,12 +157,12 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
     await f.news(true); const out = await f.invoke({ signedOut: true });
     check('signed-out request receives the original401 refusal before cache/provider access', out.response.status === 401 && out.body.error === 'signed_out' && noPayload(out.body) && f.state.fetches.length === 0 && f.state.cacheAccess === 0);
   });
-  await caseWith('unconfirmed public reader and unchanged private Guild News refusal', async f => {
+  await caseWith('unqualified public reader and separate private Community News refusal', async f => {
     await f.news(true); await f.write("UPDATE characters SET status='verified' WHERE discord_id=?", SUBJECT);
     const unconfirmed = await f.invoke();
     check('unconfirmed signed-in subject receives200 public headlines without a guild character proof', unconfirmed.response.status === 200 && unconfirmed.body.sources.length === 3 && f.state.fetches.length === 3);
     const guild = await f.invoke({ dispatch: true, path: '/api/news' });
-    check('unconfirmed subject still receives original403 guild_unconfirmed for private Guild News', guild.response.status === 403 && guild.body.error === 'guild_unconfirmed' && noPayload(guild.body) && f.state.fetches.length === 0 && f.state.cacheAccess === 0);
+    check('a subject without roster, current staff or eligible role still receives403 community_unconfirmed for private Guild News', guild.response.status === 403 && guild.body.error === 'community_unconfirmed' && noPayload(guild.body) && f.state.fetches.length === 0 && f.state.cacheAccess === 0);
     await f.write("UPDATE characters SET status='member' WHERE discord_id=?", SUBJECT); await f.write('UPDATE site_users SET denied=1 WHERE discord_id=?', SUBJECT);
     const denied = await f.invoke();
     check('denied subject receives original403 denied with zero source access', denied.response.status === 403 && denied.body.error === 'denied' && noPayload(denied.body) && f.state.fetches.length === 0 && f.state.cacheAccess === 0);

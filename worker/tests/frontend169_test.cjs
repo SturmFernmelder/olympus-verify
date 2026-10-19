@@ -101,15 +101,17 @@ const recordTool169 = (page, namespace, calls) => {
   let searches175 = 0;
   appointmentPage.before(pathname => { if (pathname.startsWith("/api/search?purpose=appointment")) searches175++; return false; });
   appointmentPage.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { results: [
-    { id: absent175, label: "No current profile", onSite: false, appointmentStatus: "no_current_profile" },
+    { id: absent175, label: "Discord-only officeholder", onSite: false, appointmentStatus: "eligible" },
     { id: DENIED, label: "Unavailable officeholder", onSite: true, appointmentStatus: "unavailable" }, eligible175,
   ] } : null);
   coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
   await waitFor(() => coPicker175.querySelectorAll('[role="option"]').length === 3, "appointment eligibility search");
   let options175 = coPicker175.querySelectorAll('[role="option"]');
-  check(".175 appointment rows explain missing profiles and unavailable standing before Save without requiring game proof", options175[0].getAttribute("aria-disabled") === "true" && options175[0].textContent.includes("Use normal Sign in with Discord with this account") && options175[1].getAttribute("aria-disabled") === "true" && options175[2].getAttribute("aria-disabled") === "false" && !coPicker175.textContent.includes("verified in game") && appointmentPage.app.textContent.includes("A character link or roster confirmation is not required"));
+  check(".176 verified Discord members without site profiles are selectable while unavailable standing remains disabled", options175[0].getAttribute("aria-disabled") === "false" && options175[0].textContent.includes("No website sign-in is required") && options175[1].getAttribute("aria-disabled") === "true" && options175[2].getAttribute("aria-disabled") === "false" && !coPicker175.textContent.includes("verified in game") && appointmentPage.app.textContent.includes("A website sign-in, character link or roster confirmation is not required"));
   options175[0].dispatchEvent(new Event("mousedown", { bubbles: true }));
-  check(".175 clicking an account without a current eligible profile cannot associate it", coInput175.value === "");
+  check(".176 a confirmed Discord-only result selects the exact account pointer without creating a site profile", coInput175.value === "<@" + absent175 + ">" && !one("SELECT discord_id FROM site_users WHERE discord_id=?", absent175) && !names175.checked && !publication175.checked);
+  coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
+  await waitFor(() => coPicker175.querySelectorAll('[role="option"]').length === 3, "reopen after Discord-only selection");
   coPicker175.querySelector(".list-tools").dispatchEvent(new Event("mousedown", { bubbles: true }));
   options175 = coPicker175.querySelectorAll('[role="option"]');
   check(".175 current-profile filter does not mistake profile existence for publication eligibility", options175.length === 2 && options175[0].getAttribute("aria-disabled") === "true" && options175[1].getAttribute("aria-disabled") === "false");
@@ -117,8 +119,8 @@ const recordTool169 = (page, namespace, calls) => {
   check(".175 keyboard selection skips unavailable rows and resets both independent consent checks", coInput175.value === "<@" + OTHER + ">" && !names175.checked && !publication175.checked && coRow175.textContent.includes("Eligible officeholder: eligible for association at the last check"));
   keyboard169(coSearch175, "ArrowDown"); // The same query is entered again explicitly below.
   coSearch175.value = "Officeholder175"; keyboard169(coSearch175, "ArrowDown");
-  await waitFor(() => searches175 === 2, "repeat appointment search bypasses name cache");
-  check(".175 appointment searches bypass the browser name cache for the same query", searches175 === 2);
+  await waitFor(() => searches175 === 3, "repeat appointment search bypasses name cache");
+  check(".175 appointment searches bypass the browser name cache for the same query", searches175 === 3);
   keyboard169(coSearch175, "Escape");
   const appointedBefore175 = one("SELECT value FROM site_settings WHERE key='appointed'")?.value;
   await fixtureRun("UPDATE site_users SET denied=1 WHERE discord_id=?", OTHER);

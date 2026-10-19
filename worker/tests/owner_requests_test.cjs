@@ -206,7 +206,7 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   check("the admin saves it: names cleaned, blanks and repeats dropped", res.status === 200 && out.guilds[0].gm === "Fern Melder" && out.guilds[0].officers.join(",") === "Ana,Bo");
   check("  audited with a count, never the names (the dated log outlives an erasure)", JSON.parse(audits("site.leadership").at(-1).details).names === 3 && !audits("site.leadership").at(-1).details.includes("Fern"));
   res = await http("GET", "/api/leadership", { who: PLAIN });
-  check("a member without a roster-confirmed character cannot read it (403 guild_unconfirmed)", res.status === 403 && (await J(res)).error === "guild_unconfirmed");
+  check(".176 a non-admin without roster or configured Guild Member role proof cannot read leadership (403 community_unconfirmed)", res.status === 403 && (await J(res)).error === "community_unconfirmed");
   res = await http("GET", "/api/leadership");
   check("  nor can a stranger (401)", res.status === 401);
   res = await http("GET", "/api/leadership", { who: MEMBER });

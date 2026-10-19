@@ -269,7 +269,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
       return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
     if (!appointmentPublicationConfirmation(appointedObj, body)) {
-      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile and its current verified characters to confirmed guild members. This applies only to the Co-Guild Master and Treasurer account associations; it grants no role or permission.' }, 400);
+      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies only to the Co-Guild Master and Treasurer account associations; it grants no role or permission.' }, 400);
     }
   }
   const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj) : null;
@@ -306,11 +306,11 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
 }
 
 function appointmentAccountRefusal(failure: AppointmentPublicationFailure): Response {
-  const action = failure.status === 'no_current_profile'
-    ? 'This Discord account has no current site profile. Ask the person to use the normal Sign in with Discord flow with this account, then search again.'
+  const action = failure.status === 'discord_unavailable'
+    ? 'Current Discord server membership could not be confirmed. Try searching and saving again shortly; website sign-in is not required.'
     : failure.status === 'account_changed'
       ? 'The selected site identity changed. Reload Settings and search for the account again before reviewing publication.'
-      : 'The selected account is not currently eligible for publication. Review its current site standing and search again; a normal sign-in with the correct Discord account may be needed.';
+      : 'The selected account is not currently eligible for publication. Confirm its current Discord server membership and review its current standing, then search again. Website sign-in is not required.';
   return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', role: failure.role, accountStatus: failure.status, message: `${roleLabel(failure.role)}: ${action} No settings were saved.` }, 409);
 }
 

@@ -88,6 +88,21 @@ check("branch presentation preserves every original directed relationship and ex
 check("branch connectors never include hidden endpoints or missing geometry", renderedEdges.filter(n => n.style.display !== "none").every(n => n.getAttribute("d")?.startsWith("M ")));
 p.button("Full map").click();
 check("Full map restores every chart office and relationship without changing the reader model", visibleIds(p).length === chartNodes.length && renderedEdges.every(n => n.style.display !== "none" && n.getAttribute("d")) && p.button("Full map").getAttribute("aria-pressed") === "true");
+const boxes = page => chartNodes.map(n => ({ id: n.id, left: parseFloat(page.node(n.id).style.left), top: parseFloat(page.node(n.id).style.top) }));
+const mapBoxes = boxes(p), mapWidth = parseFloat(p.stage.style.width), mapHeight = parseFloat(p.stage.style.height);
+const oldLeafWidth = Math.max(1100, chartNodes.filter(n => !chartNodes.some(c => c.parent === n.id)).length * 270 + 40);
+check("the complete map wraps families into compact levels instead of an office-wide leaf strip", mapWidth <= 1000 && mapWidth < oldLeafWidth / 3 && mapHeight > mapWidth);
+check("every compact map card stays inside its canvas with separate readable card geometry", mapBoxes.every(b => b.left >= 0 && b.top >= 0 && b.left + 230 <= mapWidth && b.top + 124 <= mapHeight) && mapBoxes.every((a, i) => mapBoxes.slice(i + 1).every(b => Math.abs(a.left - b.left) >= 230 || Math.abs(a.top - b.top) >= 124)));
+check("wrapping never moves a child above its actual parent or invents a new reporting level", chartNodes.filter(n => n.parent).every(n => mapBoxes.find(b => b.id === n.id).top > mapBoxes.find(b => b.id === n.parent).top));
+function crossesCard(path, cards) {
+  const values = path.getAttribute("d").match(/-?\d+(?:\.\d+)?/g).map(Number), points = [];
+  for (let i = 0; i < values.length; i += 2) points.push({ x: values[i], y: values[i + 1] });
+  return points.slice(1).some((b, i) => {
+    const a = points[i];
+    return cards.some(c => a.x === b.x ? a.x > c.left && a.x < c.left + 230 && Math.max(a.y, b.y) > c.top && Math.min(a.y, b.y) < c.top + 124 : a.y === b.y ? a.y > c.top && a.y < c.top + 124 && Math.max(a.x, b.x) > c.left && Math.min(a.x, b.x) < c.left + 230 : true);
+  });
+}
+check("wrapped relationship connectors stay in the gutters and never cross an office label", renderedEdges.every(edge => !crossesCard(edge, mapBoxes)));
 check("the small full-map overview is explicitly distinguished from readable branch fit", p.one("org-chart-shell").textContent.includes("Full map overview") && p.one("org-chart-shell").textContent.includes("choose Fit branch to read it"));
 p.node("treasury").click(0); p.button("Fit branch").click();
 check("a selected branch includes incoming working partners without inventing reporting authority", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(["treasury", "council", "emissary-finance"].sort()) && p.node("treasury").getAttribute("aria-pressed") === "true" && scaleOf(p) >= .85);
@@ -153,6 +168,8 @@ const mobile = open({ mobile: true, width: 315 });
 check("small screens retain the initial reading view", mobile.viewport.hidden && !mobile.one("org-list").hidden);
 mobile.button("Chart").click();
 check("a narrow chart stacks connected offices inside its canvas at readable scale", parseFloat(mobile.stage.style.width) <= 315 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
+mobile.button("Full map").click();
+check("the narrow full map retains every office in a one-column canvas instead of widening the page", visibleIds(mobile).length === chartNodes.length && parseFloat(mobile.stage.style.width) <= 315 && boxes(mobile).every(b => b.left >= 0 && b.left + 230 <= parseFloat(mobile.stage.style.width)));
 mobile.button("List").click();
 mobile.one("org-list").children.find(row => row.children[0].textContent.includes("Membership, tags and review states")).children[0].click(0);
 mobile.button("Chart").click();

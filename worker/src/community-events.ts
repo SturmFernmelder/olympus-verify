@@ -37,7 +37,7 @@ import { projectOwnEventCopy } from "./privacy-account-coverage";
 import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
 import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
-import { admitted, admittedRead, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, qualifiesSql, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
+import { admitted, admittedRead, admittedCommunityRead, communityReadRefusal, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, qualifiesSql, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { refAfterSignup } from "./community-refs";
 import { validateName } from "./community-names";
 import { isoToSeconds, secondsToIso } from "./community-time";
@@ -270,7 +270,7 @@ const bad = (e: unknown): Response | null => (e instanceof Bad ? apiJson({ error
 // ---------- reads ----------
 /** GET /api/community/events[?from=&to=&cursor=] → {from, to, events, nextCursor} */
 export async function listEvents(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const no = await gate(request, env, ctx, "events");
+  const no = !ctx.features.has("events") ? featureOff() : ctx.capabilities.communityRead ? null : await communityReadRefusal(env, request);
   if (no) return no;
   try {
     const url = new URL(request.url);
@@ -302,7 +302,7 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
     // SQL from the same window; the answers behind the page's counts are counted up to the bound before they are tallied.
     const pageSql = `SELECT e.id FROM community_events e WHERE e.ends_at > ?1 AND e.starts_at < ?2 AND (?3 = 0 OR e.starts_at > ?4 OR (e.starts_at = ?4 AND e.id > ?5)) ORDER BY e.starts_at, e.id LIMIT ?6`;
     const pageParams = [from, to, after ? 1 : 0, after?.startsAt ?? 0, after?.id ?? "", EVENT_LIMITS.pageSize + 1];
-    const out = await admittedRead(env, ctx, "confirmedGuildData", [
+    const out = await admittedCommunityRead(env, ctx, [
       env.DB.prepare("SELECT e.starts_at, e.id FROM community_events e WHERE e.ends_at > ?1 AND e.starts_at < ?2 ORDER BY e.starts_at, e.id LIMIT ?3").bind(from, to, limit + 1),
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id IN (${pageSql}) ORDER BY e.starts_at, e.id`).bind(...pageParams),
       env.DB.prepare(`SELECT COUNT(*) AS n FROM (SELECT 1 FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND ${qualifiesSql("s.discord_id")} LIMIT ?7)`).bind(...pageParams, limit + 1),
@@ -311,7 +311,7 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
       env.DB.prepare(`SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE discord_id = ?7 AND event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
       env.DB.prepare(`SELECT s.event_id, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND s.decision = 'accepted' AND ${qualifiesSql("s.discord_id")} GROUP BY s.event_id`).bind(...pageParams),
     ]);
-    if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
     const [win, evs, pre, counts, mine, own, accepted] = out;
     const windowRows = win!.results as { starts_at: number; id: string }[];
     if (windowRows.length > limit || ((pre!.results[0] as { n: number } | undefined)?.n ?? 0) > limit) return apiJson({ error: "events_too_large" }, 503);
@@ -338,7 +338,7 @@ async function tie(eventId: string, discordId: string): Promise<string> {
 
 /** GET /api/community/event?id=[&cursor=] → {event, signups, nextCursor}: sign-ups of qualifying members, by status then name. */
 export async function getEvent(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const no = await gate(request, env, ctx, "events");
+  const no = !ctx.features.has("events") ? featureOff() : ctx.capabilities.communityRead ? null : await communityReadRefusal(env, request);
   if (no) return no;
   try {
     const url = new URL(request.url);
@@ -353,7 +353,7 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
     }
     const viewer = viewerOf(ctx);
     const limit = scanLimit(env);
-    const out = await admittedRead(env, ctx, "confirmedGuildData", [
+    const out = await admittedCommunityRead(env, ctx, [
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
       env.DB.prepare(
         `SELECT s.discord_id, s.status, s.character_name, s.raid_role, s.updated_at, s.rsvp_starts_at, ${DISPLAY} AS display_name, (SELECT r.ref FROM community_refs r WHERE r.discord_id = s.discord_id) AS ref, s.decision, s.decision_revision
@@ -363,7 +363,7 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
       env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
       env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
     ]);
-    if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData"); // .67: the reader's admission at the payload
+    if (out === FENCE_REFUSED) return communityReadRefusal(env, request); // .67: the reader's admission at the payload
     const [ev, signups, mine, own] = out;
     const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
     if (!e) return apiJson({ error: "event_not_found" }, 404);
@@ -824,7 +824,7 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
 
 /** GET /api/community/attendance/me[?cursor=] → {entries, nextCursor}: the member's own rows, newest event first. */
 export async function myAttendance(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const no = await gate(request, env, ctx, "attendance");
+  const no = !ctx.features.has("attendance") ? featureOff() : ctx.capabilities.communityRead ? null : await communityReadRefusal(env, request);
   if (no) return no;
   try {
     const parts = cursorParts(new URL(request.url).searchParams.get("cursor"));
@@ -835,13 +835,13 @@ export async function myAttendance(request: Request, env: Env, ctx: CommunityCon
       if (parts.length !== 4 || version !== 1 || kind !== "attendance-me" || !safeInt(startsAt) || !text(id) || !ID.test(id)) throw new Bad("invalid_cursor");
       after = { startsAt, id };
     }
-    const out = await admittedRead(env, ctx, "confirmedGuildData", [
+    const out = await admittedCommunityRead(env, ctx, [
       env.DB.prepare(
         `SELECT e.id, e.title, e.starts_at, a.state, a.source, a.reason_code, a.recorded_at FROM community_event_attendance a JOIN community_events e ON e.id = a.event_id
          WHERE a.discord_id = ?1 AND (?2 = 0 OR e.starts_at < ?3 OR (e.starts_at = ?3 AND e.id > ?4)) ORDER BY e.starts_at DESC, e.id LIMIT ?5`,
       ).bind(ctx.subject!.discordId, after ? 1 : 0, after?.startsAt ?? 0, after?.id ?? "", EVENT_LIMITS.pageSize + 1),
     ]);
-    if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData"); // .67
+    if (out === FENCE_REFUSED) return communityReadRefusal(env, request); // .67
     const rows = { results: out[0]!.results as { id: string; title: string; starts_at: number; state: string; source: string; reason_code: string | null; recorded_at: number }[] };
     const page = rows.results.slice(0, EVENT_LIMITS.pageSize);
     const last = page.at(-1);

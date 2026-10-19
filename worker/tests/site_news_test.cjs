@@ -4,7 +4,7 @@
 // suite's clock runs two hours behind the database's (SQLite's own strftime('%s','now')), so a lifetime computed from the
 // actor's clock instead of the database's would show. Covers:
 //   - the switch: off by default (404 news_off, a create 409 news_off), switched on in Admin -> Settings and audited;
-//   - access: 401 signed out, 403 guild_unconfirmed, the exact DTO for a confirmed member, standing lost between the
+//   - access: 401 signed out, 403 community_unconfirmed, the exact DTO for a confirmed member, standing lost between the
 //     context read and the admitted batch (no payload), News switched off in that same seam (news_off, no payload),
 //     signed-out requests receive a sign-in boundary with no application bootstrap or notice payload;
 //   - notices: SITE_ADMINS only, the page check, exact field rules (nothing cut, control characters out, newlines kept,
@@ -234,7 +234,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   r = await newsGet(null);
   check("signed out: 401", r.status === 401);
   r = await newsGet(PLAIN);
-  check("in the server without a roster-confirmed character: 403 guild_unconfirmed", r.status === 403 && r.body.error === "guild_unconfirmed", r.body);
+  check("in the server without a roster-confirmed character: 403 community_unconfirmed", r.status === 403 && r.body.error === "community_unconfirmed", r.body);
   const DENIED = "300000000000000006";
   await siteUser(DENIED); await confirm(DENIED, "Den Ied"); await run("UPDATE site_users SET denied = 1 WHERE discord_id = ?", DENIED);
   r = await newsGet(DENIED);
@@ -247,14 +247,14 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // standing lost between the context read and the admitted batch: the probe is prepared last, just before the batch runs
   HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER); HOOK = null; } };
   r = await newsGet(MEMBER);
-  check("a member whose roster proof goes between the context read and the batch: 403 guild_unconfirmed, no payload", r.status === 403 && r.body.error === "guild_unconfirmed" && !("notices" in r.body), r.body);
+  check("a member whose roster proof goes between the context read and the batch: 403 community_unconfirmed, no payload", r.status === 403 && r.body.error === "community_unconfirmed" && !("notices" in r.body), r.body);
   await run("UPDATE characters SET status = 'member' WHERE discord_id = ?", MEMBER);
   // review of 3 Oct 2026: the switch is judged inside the admitted batch, so a read racing "switch off" gets no payload
   HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'"); HOOK = null; } };
   r = await newsGet(MEMBER);
   check("News switched off between the switch read and the admitted batch: 404 news_off, no payload", r.status === 404 && r.body.error === "news_off" && !("notices" in r.body) && !("seats" in r.body), r.body);
   await run("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
-  check("  the admitted batch's first payload statement reads the switch (NEWS_ON_SQL)", /admittedRead\(env, ctx, "confirmedGuildData", \[\s*env\.DB\.prepare\(`SELECT \(\$\{NEWS_ON_SQL\}\) AS news_on`\)/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")));
+  check("  the admitted batch's first payload statement reads the switch (NEWS_ON_SQL)", /admittedCommunityRead\(env, ctx, \[\s*env\.DB\.prepare\(`SELECT \(\$\{NEWS_ON_SQL\}\) AS news_on`\)/.test(fs.readFileSync(path.join(root, "src", "site-news.ts"), "utf8")));
   let reads = [];
   for (let k = 0; k < 31; k++) reads.push((await newsGet(MEMBER2)).status);
   check("thirty reads a minute: the 31st is 429 slow_down", reads.slice(0, 30).every((x) => x === 200) && reads[30] === 429, reads.slice(28));
@@ -942,7 +942,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const folded = async (p) => { const r = await http("GET", p); return { status: r.status, text: String(r.text || "").replace(/\s+/g, " ") }; };
   const priv = await folded("/privacy"), terms = await folded("/terms");
   const L = news.NEWS_LIMITS;
-  check("the privacy policy has a News paragraph: switched on by the administrators, confirmed members only, counts and times never a name", priv.status === 200 && priv.text.includes("<strong>News.</strong> When the site's administrators switch it on (it is off until they do), confirmed members can read a News page.") && priv.text.includes("The figures are counts and times, never a name or anyone's place in line"));
+  check("the privacy policy has a News paragraph: switched on by the administrators, qualified Community readers, counts and times never a name", priv.status === 200 && priv.text.includes("<strong>News.</strong> When the site's administrators switch it on (it is off until they do), qualified Community readers can read a News page.") && priv.text.includes("The figures are counts and times, never a name or anyone's place in line"));
   check("  its numbers are the code's: 1 to 90 days, the tombstone's 120 days, a count below five masked, figures at most every three hours", L.days[0] === 1 && L.days[L.days.length - 1] === 90 && priv.text.includes(`from ${L.days[0]} to ${L.days[L.days.length - 1]} days after it was first posted`) && L.opsKeepS === 120 * DAY && priv.text.includes(`until ${L.opsKeepS / DAY} days after it was posted`) && priv.text.includes("shown only as &ldquo;fewer than 5&rdquo;") && L.figuresEveryS === 3 * 3600 && priv.text.includes("at most every three hours"));
   check("  current policy keeps News authors staff-only, covers registered staff pointers/community records, identifies the curated registered copy and its limits",
     priv.text.includes("recorded for the staff only") && priv.text.includes("It scrubs covered staff-actor pointers and exact attributable structured references.") && priv.text.includes("registered community records") && priv.text.includes("and the registered community sections.") && priv.text.includes("This is not a complete export of every bot, operational, backup, Discord, game-client or officer-computer record.") && priv.text.includes("never a title or a text") && priv.text.includes("Confirmed members can also read the News page while it is on"));
@@ -954,7 +954,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // they are instead. Tied to the source: while the events statement selects the title, the free-text sentence must stand.
   const sendsTitles = /SELECT id, title, starts_at, duration_min FROM community_events/.test(src) && /title: e\.title/.test(src);
   const figuresList = (/It shows notices the administrators post for the whole guild, and figures the site works out by itself: (.*?) The figures are counts and times, never a name/.exec(priv.text) || [])[1] || "";
-  check("  the next events' titles are their organizers' free text, outside the figures that carry no name (the source sends them)", sendsTitles && figuresList.length > 100 && !/event|title/i.test(figuresList) && priv.text.includes("The page also lists the next events by their start times and the titles their organizers gave them; a title is free text, shown exactly as the calendar already shows it to confirmed members (see Calendar and attendance).") && !priv.text.includes("the title and time of the next events"), figuresList);
+  check("  the next events' titles are their organizers' free text, outside the figures that carry no name (the source sends them)", sendsTitles && figuresList.length > 100 && !/event|title/i.test(figuresList) && priv.text.includes("The page also lists the next events by their start times and the titles their organizers gave them; a title is free text, shown exactly as the calendar already shows it to qualified Community readers (see Calendar and attendance).") && !priv.text.includes("the title and time of the next events"), figuresList);
   // Codex's finding 5 (3 Oct 2026) and the second review round: the policy states the posting window that makes the
   // tombstone's promise hold, with the code's numbers (the Admin -> News Delete dialog already says it)
   check("  a page posts a new notice only within 30 days of being opened, inside the 120-day record: the policy's numbers are NEWS_LIMITS'", L.opIssueMaxAgeS === 30 * DAY && L.opIssueMaxAgeS < L.opsKeepS && priv.text.includes(`leaves behind only its id, who posted it and when, until ${L.opsKeepS / DAY} days after it was posted, and a page can post a new notice only within ${L.opIssueMaxAgeS / DAY} days of being opened, so a page opened earlier cannot post it again.`));
