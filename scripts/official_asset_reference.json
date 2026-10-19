@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 9406,
-      "sha256": "2b3f13e19264242b4b4ac13b8025115f361fef4f985cdf1c81999eb50b80044e"
+      "bytes": 9054,
+      "sha256": "bf52fe2d1df68ed0db9656cda635ddcb73dc9e0eea1dc3989cd85228cf6d4f4d"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3058,6 +3058,12 @@
       "mode": "100644",
       "bytes": 3405603,
       "sha256": "930ca8937c601245c7893cdc46750de3eca729c5fa9b91ef11dc08d87687521c"
+    },
+    {
+      "path": "worker/public/static/wow/login/olympus-dark-portal.png",
+      "mode": "100644",
+      "bytes": 2761774,
+      "sha256": "7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342"
     }
   ],
   "official_paths": [
@@ -3812,7 +3818,7 @@
     "Final runtime/native UI/profile/document hashes require externally reviewed source-bound pins, never scanner-generated approval.",
     "Finite image helpers, server vocabulary, rank HTML and the CSP/avatar producer are fixed as five full source files. Changes require a newly reviewed official-reference successor.",
     "The scanner checks literal static/CSS references; it is not a JavaScript parser or proof against arbitrary changed dynamic code.",
-    "Known custom/generated website art is rejected by hash except the exact owner-approved Olympus crest at its sole brand/tab-icon path; generated cover and custom SVG artwork remain excluded from the website.",
+    "Known custom/generated website art is rejected by hash except the exact approved crest and the separately classified .172 owner-approved custom login PNG at their sole pinned paths; all other generated cover and custom SVG artwork remain excluded.",
     "Extractor source is exact reviewed code, copied but never automatically executed; raw client extraction inputs are never published.",
     "The owner-approved signed-in own-header Discord identity picture is external identity data, not a bundled interface-art asset: exact producer/renderer/CSP source pins and the source-bound coverage receipt carry this narrow exception. Eight other account-image sites remain official game icons; the static scanner does not validate external image addresses or prove account ownership.",
     "The .123 corrected source head includes R123-1 rendered rank-planner guidance and its real page test. Fresh finite coverage checks103assets and five fixed-art producer rows. The model invitation flag, site-data comment and site-ranks reference note differ from .122; all official image/font pixels, icon references, profile paths and approved crest remain unchanged. Final exact-head external contract and review remain separate.",
@@ -3823,7 +3829,8 @@
     "The .167 successor adds only two original 32px Classic cursor textures and an exact native cursor stylesheet. Original 94 image/font rows and their historical provenance caveats remain unchanged. The appended cursor record names the actual local Era 1.15.9.70003 build, exact BLP identifiers and hashes, separate alpha conversion, output pixels and reviewed extractor; it does not attest older extraction inputs, grant redistribution rights or supply publication authority. Closed asset coverage is 96 official image/font paths, 9 native UI paths, the existing provenance and approved crest: 107 exact asset rows. Required non-art resources remain 19. Current native UI, resource, producer and extractor rows bind the final reviewed source bytes.",
     "The .169 owner-directed source successor adds four original native tool styles/scripts and five attributed data/document resources. Existing official artwork/fonts, adopted R7 book/charter/downloads and five art-sensitive producer identities remain fixed. This is source-byte projection evidence, not constitutional adoption, complete addon coverage, production deployment or live acceptance.",
     "The .170 owner-directed source successor adds396 exact fan-distributed Blizzard talent-art JPEGs (369icons and27backgrounds), a complete local9/27/466 art map and separately attributed provenance. All original96official image/font rows and crest are preserved. The new finite producer is a sixth full pinned source; existing five identities remain. Exact public coverage is507assets plus26non-art resources (533paths). This records byte lineage and source limitations, not a publisher license/attestation, production authority or complete Dark Portal animation. Original normalized talent data and all1313rank texts remain unchanged.",
-    "The .171 successor separately records a locally rendered derivative of the installed Classic Era1.15.9.70003 ui_mainmenu model131970, its2skins and25textures, using original camera0/model lighting/sequence0/UV/particles. This is not a publisher-released movie, original-client pixel identity, a proved complete particle loop, a rights grant or deployment approval. The seventh fixed source is an offline exact-output/container verifier, not a renderer or asset extractor. Raw client inputs, SDKs, renderer executables and build archives stay outside the product. Existing492official rows, historical source/provenance fields,512-row/5MiB caps and activation controls remain unchanged. Exact public coverage is509assets plus27non-art resources (536paths), with493image/font rows and1video reported separately. Root actual-source Edge preview qualified the finite120second presentation and fallbacks; exact source/CI/production qualification remain separate."
+    "The .171 successor separately records a locally rendered derivative of the installed Classic Era1.15.9.70003 ui_mainmenu model131970, its2skins and25textures, using original camera0/model lighting/sequence0/UV/particles. This is not a publisher-released movie, original-client pixel identity, a proved complete particle loop, a rights grant or deployment approval. The seventh fixed source is an offline exact-output/container verifier, not a renderer or asset extractor. Raw client inputs, SDKs, renderer executables and build archives stay outside the product. Existing492official rows, historical source/provenance fields,512-row/5MiB caps and activation controls remain unchanged. Exact public coverage is509assets plus27non-art resources (536paths), with493image/font rows and1video reported separately. Root actual-source Edge preview qualified the finite120second presentation and fallbacks; exact source/CI/production qualification remain separate.",
+    "The .172 owner instruction of 2026-10-19 approves exactly one AI-created custom login background,1672x941PNG,2761774bytes,SHA2567c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342. This is not official Blizzard artwork and is excluded from all494official_paths/counts. Its exact tuple is a separate login_art_exception like the existing crest, never a directory, arbitrary generated-art or rights exception. All historical official WebM/poster/provenance/verifier bytes remain selected and unchanged, but historical media are no longer the anonymous login presentation. Closed public coverage is510assets plus27non-art resources (537paths);512asset/5MiB caps and all other private/unlisted/banned-art checks remain."
   ],
   "optional_profile_paths": [
     "worker/wrangler.cutover.applied"
@@ -4002,5 +4009,17 @@
       "bytes": 10267,
       "sha256": "ec87cd525ae9419d18d0caae6885919de4c8899ed751b0fa74ede3ca0f88edc3"
     }
-  ]
+  ],
+  "login_art_exception": {
+    "asset": {
+      "path": "worker/public/static/wow/login/olympus-dark-portal.png",
+      "mode": "100644",
+      "bytes": 2761774,
+      "sha256": "7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342"
+    },
+    "usage": "login_background_only",
+    "owner_instruction": "Build .172 owner-approved custom login background",
+    "instruction_date": "2026-10-19",
+    "classification": "ai_custom_art_not_official_blizzard"
+  }
 }

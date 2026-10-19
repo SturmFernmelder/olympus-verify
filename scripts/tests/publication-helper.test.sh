@@ -38,6 +38,10 @@ assert len(ref["official_paths"]) == 494, len(ref["official_paths"])
 assert ref["approved_extractor"]["path"] == "tools/build-site-assets.py"
 assert "worker/src/site-access.ts" in ref["runtime_paths"]
 assert {p for p in ref["official_paths"] if p.endswith(".webm")} == {"worker/public/static/wow/login/dark-portal.webm"}
+assert ref["login_art_exception"]["asset"] == official_assets.LOGIN_ART_EXCEPTION
+assert ref["login_art_exception"]["classification"] == "ai_custom_art_not_official_blizzard"
+assert ref["login_art_exception"]["usage"] == "login_background_only"
+assert ref["login_art_exception"]["asset"]["path"] not in ref["official_paths"]
 assert any(row["path"] == "tools/check-login-portal.py" for row in ref["fixed_art_source_pins"])
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
 assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
@@ -47,7 +51,7 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
-assert len(ref["assets"]) == 509 and len(ref["fixed_art_source_pins"]) == 7
+assert len(ref["assets"]) == 510 and len(ref["fixed_art_source_pins"]) == 7
 cursor = json.loads(Path(ref["provenance_path"]).read_bytes())["additional_extractions"][-1]
 record = cursor["source_record"]
 assert record["path"] == "tools/wow-cursor-provenance.json"
