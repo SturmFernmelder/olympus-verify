@@ -1127,13 +1127,23 @@
     const result = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
     const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
     const current = h("span", { class: "small" });
+    let printState = null;
     // Browser-menu/Ctrl+P printing must carry the same full current text and
     // adoption qualifications as the page's Print button, only for this live view.
     function preparePrint() {
       if (main.parentNode !== app || currentRoute().split("/")[0] !== "governance") return;
-      for (const section of details.values()) { section.hidden = false; section.open = true; }
       const scope = main.querySelector("details.governance-draft");
+      // The page button prepares before the browser emits beforeprint. Keep the
+      // first snapshot, so that second preparation cannot overwrite the reader.
+      if (!printState) printState = { chapters: [...details.values()].map(section => ({ section, hidden: section.hidden, open: section.open })), scope, scopeOpen: scope && scope.open };
+      for (const section of details.values()) { section.hidden = false; section.open = true; }
       if (scope) scope.open = true;
+    }
+    function restorePrint() {
+      if (!printState) return;
+      const saved = printState; printState = null;
+      for (const { section, hidden, open } of saved.chapters) { section.hidden = hidden; section.open = open; }
+      if (saved.scope) saved.scope.open = saved.scopeOpen;
     }
     function selection(i, focus = false, open = true) {
       index = i; const chapter = chapters[index];
@@ -1194,7 +1204,8 @@
     selection(index); filter();
     if (selected >= 0) selection(index, true);
     window.addEventListener("beforeprint", preparePrint);
-    disposeGovernancePrint = () => { window.removeEventListener("beforeprint", preparePrint); disposeGovernancePrint = null; };
+    window.addEventListener("afterprint", restorePrint);
+    disposeGovernancePrint = () => { restorePrint(); window.removeEventListener("beforeprint", preparePrint); window.removeEventListener("afterprint", restorePrint); disposeGovernancePrint = null; };
   };
   ROUTES.organization = async (main, parts) => {
     add(main, h("p", { role: "status", text: "Opening the organization…" }));
@@ -2358,6 +2369,25 @@
     heat: "",
   };
   const qs = (o) => Object.entries(o).filter(([, v]) => v !== "" && v !== false && v !== 0 && v !== null && v !== undefined).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === true ? "1" : v)}`).join("&");
+  // Capture at replacement time, not before the GET: a user who closed the
+  // filters or moved focus while waiting must not have that choice reversed.
+  function adminFilterState(body, initialOpen) {
+    const panel = body.querySelector("details.admin-filter-panel"), active = document.activeElement;
+    const field = panel && panel.open && panel.contains(active) ? active : null;
+    return { open: panel ? panel.open : initialOpen, id: field && field.id,
+      value: field && field.tagName === "INPUT" && ["text", "search"].includes(field.getAttribute("type")) ? field.value : null,
+      start: field && Number.isInteger(field.selectionStart) ? field.selectionStart : null,
+      end: field && Number.isInteger(field.selectionEnd) ? field.selectionEnd : null,
+      direction: field && field.selectionDirection };
+  }
+  function restoreAdminFilterFocus(body, saved) {
+    if (!saved.open || !saved.id) return;
+    const field = body.querySelector("#" + saved.id);
+    if (!field) return;
+    if (saved.value !== null) field.value = saved.value;
+    field.focus({ preventScroll: true });
+    if (saved.start !== null && saved.end !== null && typeof field.setSelectionRange === "function") field.setSelectionRange(saved.start, saved.end, saved.direction || "none");
+  }
   const userCell = (u) => h("span", { class: "nowrap" }, h("img", { class: "av", src: accountArt(u), alt: "", referrerpolicy: "no-referrer" }), u.label || u.id, u.denied ? h("span", { class: "badge red", text: " denied" }) : null, u.inServer === false ? h("span", { class: "badge muted", text: " left" }) : null);
   const ageText = (t) => (t ? `${plural(days(t), "day")} (${fmtShort(t)})` : "unknown");
   const splitBar = (yes, no) => {
@@ -2876,13 +2906,14 @@
     const actor = h("input", { type: "text", id: "audit-actor", value: f.actor, placeholder: "Discord ID, or watcher, system, cron, site, auto", autocomplete: "off", spellcheck: "false" });
     const subject = h("input", { type: "text", id: "audit-subject", value: f.subject, placeholder: "Exact subject", maxlength: "80", autocomplete: "off", spellcheck: "false" });
     const win = h("select", { id: "audit-window" }, AUDIT_WINDOWS.map(([k, t]) => h("option", { value: k, text: t, selected: f.window === k })));
-    const show = h("button", { class: "btn small", type: "button", text: "Show" });
+    const show = h("button", { class: "btn small", id: "audit-show", type: "button", text: "Show" });
     // Show reads the boxes and starts at the newest entry; Older and Newest keep the filters this page was read with
     const showNew = () => { Object.assign(f, { family: family.value, actor: actor.value.trim(), subject: subject.value.trim(), window: win.value, before: 0 }); adminAudit(body); };
     const page = (before) => { f.before = before; adminAudit(body); };
     show.addEventListener("click", showNew);
     for (const box of [actor, subject]) box.addEventListener("keydown", (e) => { if (e.key === "Enter") showNew(); });
-    const filters = h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter the audit log" }), h("div", { class: "filters" },
+    const filterSummary = [AUDIT_WINDOWS.find(([key]) => key === sent.window)?.[1], sent.family ? "Family: " + sent.family : "All families", sent.actor ? "Actor: " + sent.actor : "", sent.subject ? "Subject: " + sent.subject : ""].filter(Boolean).join(" · ");
+    const filters = h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter the audit log — " + filterSummary }), h("div", { class: "filters" },
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Family" }), family),
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Actor" }), actor),
       h("label", { class: "field" }, h("span", { class: "lab small", text: "Subject" }), subject),
@@ -2894,8 +2925,10 @@
       d = await api("GET", "/api/admin/audit-log?" + qs(sent));
     } catch (err) {
       if (read !== auditReads || currentRoute() !== "admin/audit" || !S.signedIn || S.denied || !(S.user && S.user.isAdmin)) return; // a newer read owns the page now
+      const filterState = adminFilterState(body, !!(sent.family || sent.actor || sent.subject || sent.window !== "7d")); filters.open = filterState.open;
       clear(body);
       add(body, frame("Audit log", null, intro, filters, errorLine(explain(err, "The audit log could not be read."))));
+      restoreAdminFilterFocus(body, filterState);
       return;
     }
     if (read !== auditReads || currentRoute() !== "admin/audit" || !S.signedIn || S.denied || !(S.user && S.user.isAdmin)) return; // a newer read owns the page now
@@ -2924,6 +2957,7 @@
         : d.likelyEnd
           ? `No matching entries between ${span}. The rest of the log was stamped before this window, so more are unlikely; Older still checks it, for any entry stamped out of order.`
           : `No matching entries between ${span}; Older keeps looking further back.`;
+    const filterState = adminFilterState(body, !!(sent.family || sent.actor || sent.subject || sent.window !== "7d")); filters.open = filterState.open;
     clear(body);
     add(body, frame("Audit log", null, intro, filters,
       entries.length ? table : null,
@@ -2932,6 +2966,7 @@
         h("div", { class: "btn-row" },
           h("button", { class: "btn small", type: "button", text: "Newest", disabled: !sent.before, onclick: () => page(0) }),
           h("button", { class: "btn small", type: "button", text: "Older", disabled: !Number.isInteger(d.next), onclick: () => page(d.next) })))));
+    restoreAdminFilterFocus(body, filterState);
   }
 
   // Explicit approved-beta publication: request-driven steps, durable original operations, no future selector or automatic sends.
@@ -3219,15 +3254,19 @@
   }
 
   // ---------- applications ----------
+  const applicationListReads = new WeakMap();
   async function adminApplications(body) {
     const f = A.apps;
-    const data = await api("GET", "/api/admin/applications?" + qs({ position: f.position, backups: f.position ? f.backups : false, profession: f.profession, status: f.status, q: f.q, offset: f.offset, sort: f.sort === "old" ? "old" : "" }));
-    const position = h("select", null, h("option", { value: "", text: "All positions" }), M().positions.map((p) => h("option", { value: p.key, text: p.label, selected: f.position === p.key })));
-    const profession = h("select", null, h("option", { value: "", text: "Any profession" }), (M().professions || []).map((p) => h("option", { value: p.key, text: p.label, selected: f.profession === p.key })));
-    const withBackups = h("input", { type: "checkbox", checked: f.backups });
-    const status = h("select", null, [["open", "Open (not decided yet)"], ["", "All"], ["submitted", "Submitted"], ["reviewing", "Under review"], ["accepted", "Accepted"], ["declined", "Not accepted"], ["withdrawn", "Withdrawn"], ["denied", "Denied accounts"]].map(([k, t]) => h("option", { value: k, text: t, selected: f.status === k })));
-    const search = h("input", { type: "search", value: f.q, placeholder: "Name or character" });
-    const sort = h("select", null, h("option", { value: "new", text: "Recently updated", selected: f.sort !== "old" }), h("option", { value: "old", text: "Oldest first", selected: f.sort === "old" }));
+    const sent = { ...f }, read = {};
+    applicationListReads.set(body, read);
+    const data = await api("GET", "/api/admin/applications?" + qs({ position: sent.position, backups: sent.position ? sent.backups : false, profession: sent.profession, status: sent.status, q: sent.q, offset: sent.offset, sort: sent.sort === "old" ? "old" : "" }));
+    if (applicationListReads.get(body) !== read || !app.contains(body)) return;
+    const position = h("select", { id: "application-filter-position" }, h("option", { value: "", text: "All positions" }), M().positions.map((p) => h("option", { value: p.key, text: p.label, selected: sent.position === p.key })));
+    const profession = h("select", { id: "application-filter-profession" }, h("option", { value: "", text: "Any profession" }), (M().professions || []).map((p) => h("option", { value: p.key, text: p.label, selected: sent.profession === p.key })));
+    const withBackups = h("input", { id: "application-filter-backups", type: "checkbox", checked: sent.backups });
+    const status = h("select", { id: "application-filter-status" }, [["open", "Open (not decided yet)"], ["", "All"], ["submitted", "Submitted"], ["reviewing", "Under review"], ["accepted", "Accepted"], ["declined", "Not accepted"], ["withdrawn", "Withdrawn"], ["denied", "Denied accounts"]].map(([k, t]) => h("option", { value: k, text: t, selected: sent.status === k })));
+    const search = h("input", { id: "application-filter-search", type: "search", value: sent.q, placeholder: "Name or character" });
+    const sort = h("select", { id: "application-filter-sort" }, h("option", { value: "new", text: "Recently updated", selected: sent.sort !== "old" }), h("option", { value: "old", text: "Oldest first", selected: sent.sort === "old" }));
     const apply = () => { f.position = position.value; f.backups = withBackups.checked; f.profession = profession.value; f.status = status.value; f.q = search.value.trim(); f.sort = sort.value; f.offset = 0; adminApplications(body); };
     position.addEventListener("change", apply);
     profession.addEventListener("change", apply);
@@ -3253,20 +3292,24 @@
       h("div", { class: "btn-row" },
         h("button", { class: "btn small", type: "button", text: "Previous", disabled: data.offset === 0, onclick: () => { f.offset = Math.max(0, f.offset - data.pageSize); adminApplications(body); } }),
         h("button", { class: "btn small", type: "button", text: "Next", disabled: data.offset + data.items.length >= data.total, onclick: () => { f.offset += data.pageSize; adminApplications(body); } })));
-    clear(body);
-    add(body, frame("Applications", null,
-      h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter and sort applications" }), h("div", { class: "filters" },
+    const filterSummary = [sent.position ? roleName(sent.position) + (sent.backups ? " (including backups)" : " (first choice)") : "", sent.profession ? labelOf(M().professions || [], sent.profession) : "", sent.status === "open" ? "Open applications" : sent.status ? statusText(sent.status) : "All statuses", sent.q ? "Search: “" + sent.q + "”" : "", sent.sort === "old" ? "Oldest first" : "Recently updated"].filter(Boolean).join(" · ");
+    const filterState = adminFilterState(body, !!(sent.position || sent.profession || sent.q || sent.status !== "open" || sent.sort === "old"));
+    const filters = h("details", { class: "admin-filter-panel" }, h("summary", { text: "Filter and sort applications — " + filterSummary }), h("div", { class: "filters" },
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Position" }), position),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Profession" }), profession),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Status" }), status),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Search (Enter)" }), search),
         h("label", { class: "field narrow" }, h("span", { class: "lab small", text: "Order" }), sort),
-        h("label", { class: "check", hidden: !f.position }, withBackups, h("span", { class: "small", text: "Backup choices count too" })))),
+        h("label", { class: "check", hidden: !sent.position }, withBackups, h("span", { class: "small", text: "Backup choices count too" }))));
+    filters.open = filterState.open;
+    clear(body);
+    add(body, frame("Applications", null, filters,
       h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every column." }),
       h("div", { class: "table-wrap" }, h("table", { class: "data admin-applications" },
         h("thead", null, h("tr", null, ["Applicant", "Applied for", "Class · role", "Raid evenings", "Status", "Account age", "In the server", "Updated"].map((t) => h("th", { text: t })))),
         h("tbody", null, rows))),
       pager));
+    restoreAdminFilterFocus(body, filterState);
   }
 
   async function adminApplication(body, id) {

@@ -6,6 +6,13 @@ const fixture174 = fs174.readFileSync(path174.join(__dirname, "frontend_check.cj
 const starts174 = [...fixture174.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if (starts174.length !== 1) throw new Error("one existing frontend fixture boundary required");
 const body174 = String.raw`
+// The shared minimal DOM records focus calls but does not otherwise model
+// document.activeElement or text-input selection. Model those browser facts for
+// this leaf's filter-refresh lifecycle checks.
+const focus174 = Element.prototype.focus;
+Element.prototype.focus = function(...args) { focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
+Element.prototype.setSelectionRange = function(start, end, direction = "none") { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; };
+const enter174 = field => { const event = new Event("keydown", { bubbles: true }); event.key = "Enter"; field.dispatchEvent(event); };
 (async () => {
   await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", "Player-1-0001");
   await siteUser(OTHER, { global_name: "Oz" }); await character(OTHER, "Oz Two", "Player-1-0002");
@@ -27,6 +34,33 @@ const body174 = String.raw`
   await waitFor(() => !!staff.app.querySelector("table.admin-applications"), ".174 application list");
   check("admin section picker retains all permitted section destinations and correct current section", staff.app.querySelector(".admin-section-picker select")?.querySelectorAll("option").length === staff.app.querySelectorAll('nav[aria-label="Admin sections"] a').length && staff.app.querySelector('nav[aria-label="Admin sections"] a[aria-current="page"]')?.getAttribute("href") === "#/admin/applications" && staff.app.querySelectorAll("#admin-section-select option").some(o => o.getAttribute("value") === "/admin/ranks" || o.value === "/admin/ranks"));
   check("application filters and every table column remain reachable behind compact controls", !!staff.app.querySelector("details.admin-filter-panel .filters") && staff.app.querySelector("table.admin-applications").querySelectorAll("th").length === 8 && staff.app.textContent.includes("Scroll sideways to see every column"));
+  let applicationFilters = staff.app.querySelector("details.admin-filter-panel");
+  check("default application list stays compact with its default criteria visible in the closed summary", !applicationFilters.open && applicationFilters.querySelector("summary").textContent.includes("Open applications") && applicationFilters.querySelector("summary").textContent.includes("Recently updated"));
+  applicationFilters.open = true;
+  const firstPosition = staff.app.querySelector("#application-filter-position"); firstPosition.value = "officer"; firstPosition.focus(); fire(firstPosition, "change");
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== applicationFilters, ".174 first application filter refresh");
+  applicationFilters = staff.app.querySelector("details.admin-filter-panel");
+  check("changing a position keeps the application filters open and restores the selected control's focus", applicationFilters.open && staff.app.querySelector("#application-filter-position").value === "officer" && staff.document.activeElement === staff.app.querySelector("#application-filter-position") && applicationFilters.querySelector("summary").textContent.includes("Officer"));
+  const nextStatus = staff.app.querySelector("#application-filter-status"); nextStatus.value = "submitted"; nextStatus.focus(); fire(nextStatus, "change");
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== applicationFilters, ".174 second application filter refresh");
+  applicationFilters = staff.app.querySelector("details.admin-filter-panel");
+  check("a second successive criterion remains open/focused and preserves the first criterion", applicationFilters.open && staff.app.querySelector("#application-filter-position").value === "officer" && staff.app.querySelector("#application-filter-status").value === "submitted" && staff.document.activeElement === staff.app.querySelector("#application-filter-status") && applicationFilters.querySelector("summary").textContent.includes("Submitted"));
+  const applicationSearch = staff.app.querySelector("#application-filter-search"); applicationSearch.value = "Oz"; applicationSearch.focus(); applicationSearch.setSelectionRange(1, 2, "backward"); enter174(applicationSearch);
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== applicationFilters, ".174 application search refresh");
+  applicationFilters = staff.app.querySelector("details.admin-filter-panel");
+  const refreshedSearch = staff.app.querySelector("#application-filter-search");
+  check("application search refresh preserves the exact text selection and active input", applicationFilters.open && staff.document.activeElement === refreshedSearch && refreshedSearch.value === "Oz" && refreshedSearch.selectionStart === 1 && refreshedSearch.selectionEnd === 2 && refreshedSearch.selectionDirection === "backward");
+  staff.hold(pathname => pathname.startsWith("/api/admin/applications?") ? 60 : 0);
+  const sortPending = staff.app.querySelector("#application-filter-sort"); sortPending.value = "old"; sortPending.focus(); fire(sortPending, "change");
+  applicationFilters.open = false; const outsideFocus = byText(staff.app, "a", "Account data"); outsideFocus.focus();
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== applicationFilters, ".174 application refresh after user leaves filters");
+  check("a late refresh respects a newly closed panel and does not steal focus from elsewhere", !staff.app.querySelector("details.admin-filter-panel").open && staff.document.activeElement === outsideFocus && staff.app.querySelector("details.admin-filter-panel summary").textContent.includes("Oldest first"));
+  staff.hold(null);
+  const preconfigured = await openPage(STAFF);
+  await preconfigured.go("#/admin"); await waitFor(() => preconfigured.app.querySelectorAll("tr.clickable").some(row => row.querySelector("td")?.textContent.trim() === "Officer"), ".174 overview role filter shortcut");
+  preconfigured.app.querySelectorAll("tr.clickable").find(row => row.querySelector("td")?.textContent.trim() === "Officer").click();
+  await waitFor(() => !!preconfigured.app.querySelector("table.admin-applications"), ".174 preconfigured application criteria");
+  check("normal overview shortcut exposes its preconfigured role/status criteria on entry", preconfigured.app.querySelector("details.admin-filter-panel")?.open === true && preconfigured.app.querySelector("#application-filter-position")?.value === "officer" && preconfigured.app.querySelector("#application-filter-status")?.value === "" && preconfigured.app.querySelector("details.admin-filter-panel summary").textContent.includes("Officer") && preconfigured.app.querySelector("details.admin-filter-panel summary").textContent.includes("All statuses"));
 
   staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response(JSON.stringify({ error: "original_membership_decision_held", message: "PRIVATE_GUARD_DETAIL_MUST_NOT_RENDER" }), { status: 409, headers: { "Content-Type": "application/json" } }) : null);
   await staff.go("#/admin/applications/" + OTHER);
@@ -56,6 +90,14 @@ const body174 = String.raw`
   const auditTime = staff.app.querySelector("table.admin-audit time"), auditDetail = staff.app.querySelector("table.admin-audit details.audit-detail");
   check("audit rows use compact exact UTC timestamps and retain a complete machine-readable instant", auditTime?.getAttribute("datetime") === new Date(now * 1000).toISOString() && auditTime.textContent.includes("UTC") && auditTime.textContent.includes(new Date(now * 1000).toISOString().slice(11, 19)));
   check("approved audit detail stays available in a closed disclosure with original filters and read-limit explanation", !!auditDetail && !auditDetail.open && auditDetail.textContent.includes("checked: 1") && !staff.app.textContent.includes("PRIVATE_AUDIT_SENTINEL") && !!staff.app.querySelector("#audit-actor") && staff.app.textContent.includes("2,000 record IDs"));
+  let auditFilters = staff.app.querySelector("details.admin-filter-panel"); auditFilters.open = true;
+  staff.app.querySelector("#audit-family").value = "role"; staff.app.querySelector("#audit-show").focus(); staff.app.querySelector("#audit-show").click();
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== auditFilters, ".174 audit filter refresh");
+  auditFilters = staff.app.querySelector("details.admin-filter-panel");
+  check("audit Show preserves the open filter panel and its active control while summarizing actual criteria", auditFilters.open && staff.app.querySelector("#audit-family").value === "role" && staff.document.activeElement === staff.app.querySelector("#audit-show") && auditFilters.querySelector("summary").textContent.includes("Family: role"));
+  const auditActor = staff.app.querySelector("#audit-actor"); auditActor.value = STAFF; auditActor.focus(); auditActor.setSelectionRange(2, 5, "forward"); enter174(auditActor);
+  await waitFor(() => staff.app.querySelector("details.admin-filter-panel") !== auditFilters, ".174 audit second filter refresh");
+  check("a second audit filter retains its earlier criterion and exact text selection", staff.app.querySelector("details.admin-filter-panel").open && staff.app.querySelector("#audit-family").value === "role" && staff.document.activeElement === staff.app.querySelector("#audit-actor") && staff.app.querySelector("#audit-actor").selectionStart === 2 && staff.app.querySelector("#audit-actor").selectionEnd === 5 && staff.app.querySelector("#audit-actor").selectionDirection === "forward" && staff.app.querySelector("details.admin-filter-panel summary").textContent.includes("Actor: " + STAFF));
   check("all exercised admin and membership navigation issued only GETs", requests.length > 4 && requests.every(r => r.method === "GET"));
   await staff.go("#/admin/community/claims");
   await waitFor(() => !!byText(staff.app, "h2", "Character claims"), ".174 staff character claims guidance");
@@ -80,19 +122,29 @@ const body174 = String.raw`
   check("adoption qualifications remain intact and blank instrument fields are explicitly unexecuted", !!adoption && adoption.textContent.includes("Adoption issues no individual appointment or named signature") && adoption.textContent.includes("changes no native rank, bank limit or platform permission") && member.app.querySelector('[data-chapter="2-royal-charter-of-olympus"] .governance-instrument-note')?.textContent.includes("A blank field is not a completed record") && member.app.textContent.includes("Article S12a") && member.app.textContent.includes("Independent auditor warrant"));
   const bookSearch = member.app.querySelector("#governance-search"), printStates = [], originalPrint = member.window.print;
   bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
+  const nativeChapters = member.app.querySelectorAll("details.governance-chapter"), searchStatus = member.app.querySelector('.governance-controls p[role="status"]');
+  nativeChapters[0].open = true; // retain an independently expanded, currently hidden chapter too
+  const readerState = () => JSON.stringify({ scopeOpen: adoption.open, search: bookSearch.value, count: searchStatus.textContent, chapters: nativeChapters.map(chapter => ({ open: chapter.open, hidden: chapter.hidden })) });
+  const beforeButtonPrint = readerState();
   const filteredBeforePrint = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden).length === 1 && !adoption.open;
-  member.window.print = () => printStates.push({ scopeOpen: adoption.open, scopeText: adoption.textContent, chapters: member.app.querySelectorAll("details.governance-chapter").map(chapter => ({ open: chapter.open, hidden: chapter.hidden })), archiveOpen: archive.open });
+  member.window.print = () => { member.window.dispatchEvent(new Event("beforeprint")); printStates.push({ scopeOpen: adoption.open, scopeText: adoption.textContent, chapters: member.app.querySelectorAll("details.governance-chapter").map(chapter => ({ open: chapter.open, hidden: chapter.hidden })), archiveOpen: archive.open }); };
   byText(member.app, "button", "Print current R7 book").click();
   member.window.print = originalPrint;
   check("printing a filtered book opens all current chapters and the full adoption scope before the print dialog", filteredBeforePrint && printStates.length === 1 && printStates[0].scopeOpen === true && printStates[0].scopeText.includes("Adoption issues no individual appointment or named signature") && printStates[0].scopeText.includes("changes no native rank, bank limit or platform permission") && printStates[0].chapters.length === 14 && printStates[0].chapters.every(chapter => chapter.open && !chapter.hidden) && printStates[0].archiveOpen === false);
-  adoption.open = false; bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
-  const nativeChapters = member.app.querySelectorAll("details.governance-chapter");
+  member.window.dispatchEvent(new Event("afterprint"));
+  check("button preparation followed by native beforeprint snapshots once and restores the exact filtered reader afterward", readerState() === beforeButtonPrint);
+  adoption.open = true; bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
+  const beforeNativePrint = readerState();
   member.window.dispatchEvent(new Event("beforeprint"));
   check("native browser printing expands the live book and adoption scope without the page Print button", adoption.open === true && nativeChapters.every(chapter => chapter.open && !chapter.hidden) && archive.open === false && member.window.listeners.beforeprint.length === 1);
-  await member.go("#/vote/raid_leader_na");
-  adoption.open = false; nativeChapters.forEach(chapter => { chapter.open = false; chapter.hidden = true; });
+  member.window.dispatchEvent(new Event("afterprint"));
+  check("native print close or cancel restores current search/count and every previous open/hidden state", readerState() === beforeNativePrint && adoption.open === true);
   member.window.dispatchEvent(new Event("beforeprint"));
-  check("leaving governance removes its native-print listener and cannot mutate the detached reader", member.window.listeners.beforeprint.length === 0 && adoption.open === false && nativeChapters.every(chapter => !chapter.open && chapter.hidden) && !!member.app.querySelector(".board-layout"));
+  await member.go("#/vote/raid_leader_na");
+  const cleanupRestoredReader = readerState() === beforeNativePrint;
+  adoption.open = false; nativeChapters.forEach(chapter => { chapter.open = false; chapter.hidden = true; });
+  member.window.dispatchEvent(new Event("beforeprint")); member.window.dispatchEvent(new Event("afterprint"));
+  check("leaving governance restores a pending print snapshot, removes both listeners and cannot mutate the detached reader", cleanupRestoredReader && member.window.listeners.beforeprint.length === 0 && member.window.listeners.afterprint.length === 0 && adoption.open === false && nativeChapters.every(chapter => !chapter.open && chapter.hidden) && !!member.app.querySelector(".board-layout"));
   check("voting task comes first while reversible vote mechanics and essential privacy statement remain", !!member.app.querySelector("details.voting-help") && member.app.textContent.includes("click again to take a vote back") && member.app.textContent.includes("until voting closes") && member.app.textContent.includes("Your votes are private") && member.app.textContent.includes("except the guild's leadership"));
   check("role rail exposes a continuation cue while retaining every ballot destination", member.app.querySelector(".role-list-hint")?.textContent === "Scroll this list for every role." && member.app.querySelectorAll(".role-list a").length === member.boot.meta.ballots.length);
 
