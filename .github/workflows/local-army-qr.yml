@@ -1,0 +1,72 @@
+name: Local Army QR preview
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/local-army-qr.yml'
+      - 'tools/army-qr-local/**'
+      - 'tools/attended-census-local/**'
+      - 'tools/guild-qr-pilot/**'
+      - 'tools/shared-census-lab/**'
+      - 'tools/shared-census-website/**'
+      - 'addon/OlympusStatsPilot/**'
+      - 'addon/tests/test_stats_pilot.lua'
+      - 'worker/src/**'
+      - 'worker/tests/**'
+      - 'worker/schema/**'
+      - 'worker/scripts/**'
+      - 'worker/package*.json'
+      - '.nvmrc'
+      - 'worker/public/static/app.js'
+      - 'worker/public/static/app.css'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-army-qr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local_army_qr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+        working-directory: worker
+      - name: Reuse the existing CI Lua runtime version
+        run: python3 -m pip install --user 'lupa==2.8'
+      - name: Offline addon guards
+        run: |
+          python3 -E -P -B -c "from pathlib import Path; import os; from lupa.luajit21 import LuaRuntime; os.chdir('addon/tests'); LuaRuntime(unpack_returned_tuples=True).execute(Path('test_stats_pilot.lua').read_text(encoding='utf-8'))"
+      - name: Focused local-only transport and website checks
+        run: |
+          export NODE_PATH="$GITHUB_WORKSPACE/worker/node_modules"
+          node tools/guild-qr-pilot/tests/protocol.test.cjs
+          node tools/guild-qr-pilot/tests/server.test.cjs
+          node tools/shared-census-lab/tests/core.test.cjs
+          node tools/shared-census-lab/tests/independent.test.cjs
+          node tools/shared-census-lab/tests/real-local.test.cjs
+          node tools/shared-census-lab/tests/ui.test.cjs
+          node tools/attended-census-local/tests/overlay.test.cjs
+          node tools/attended-census-local/tests/bridge.test.cjs
+          node tools/attended-census-local/tests/http.test.cjs
+          node tools/attended-census-local/tests/embedded.test.cjs
+          node tools/shared-census-website/tests/view.test.cjs
+          node tools/shared-census-website/tests/overlay.test.cjs
+          node tools/shared-census-website/tests/integration.test.cjs
+          node tools/shared-census-website/tests/qr-transport.test.cjs
+          node tools/shared-census-website/tests/qr-integration.test.cjs
+          node tools/army-qr-local/tests/view.test.cjs
+          node tools/army-qr-local/tests/overlay.test.cjs
+          node tools/army-qr-local/tests/integration.test.cjs

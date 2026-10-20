@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Olympus · Synthetic census lab</title>
+  <link rel="stylesheet" href="./lab.css">
+  <script src="./lab.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="lab-banner"><strong>Synthetic data</strong><span aria-hidden="true">·</span><strong>Local only</strong><span>No real guild or account data</span></div>
+  <header class="masthead">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">O</span><span>Olympus <small>Development lab</small></span></div>
+    <span class="private-tag">Private preview</span>
+  </header>
+  <main id="main" tabindex="-1">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">Community census · synthetic workflow</p>
+      <h1 id="page-title">Reported snapshots,<br><span>with their limits in view.</span></h1>
+      <p>Try the proposed reporting and withdrawal flow using preset fixtures. These are unverified volunteer claims, never checked guild membership, unique people or live population figures.</p>
+      <div class="scope-notes"><span>No uploads of real data</span><span>Memory only</span><span>Production unchanged</span></div>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite">Connecting to the local synthetic lab…</div>
+    <noscript><p class="status error">JavaScript is required for this local demonstration.</p></noscript>
+
+    <section class="session-strip" aria-label="Synthetic session">
+      <div><label for="account">Synthetic account</label><select id="account" data-testid="account" disabled><option value="reporter-a">Reporter A</option><option value="reporter-b">Reporter B</option><option value="reader">Reader only</option></select></div>
+      <p id="identity-note">No production login is used.</p>
+      <button id="refresh-button" type="button" class="secondary" disabled>Refresh view</button>
+    </section>
+
+    <div class="workspace">
+      <section class="panel overview" aria-labelledby="summary-title">
+        <div class="section-heading"><div><p class="eyebrow">Private reader projection</p><h2 id="summary-title">Guild snapshots</h2></div><span class="badge">Unverified</span></div>
+        <p class="section-copy">Each registered guild stands alone. Missing reports are unknown; conflicting reports hide counts. There is no all-Olympus total.</p>
+        <div id="summary-rows" data-testid="summary-rows" class="guild-list"><p class="empty">Waiting for the local state.</p></div>
+        <p id="summary-time" class="fine-print"></p>
+        <div class="coverage-note"><span class="note-mark" aria-hidden="true">i</span><p><strong>Coverage is incomplete.</strong> A registered guild list describes this demonstration's scope. It does not prove every guild is represented. Characters are not unique people.</p></div>
+      </section>
+
+      <section class="panel report-panel" aria-labelledby="report-title">
+        <div class="section-heading"><div><p class="eyebrow">Synthetic reporter workflow</p><h2 id="report-title">Review a fixture</h2></div><span class="step-marker" aria-hidden="true">01—03</span></div>
+        <p id="reporter-note" class="section-copy">Choose a preset observation. Nothing is captured from a game, camera or file.</p>
+        <div class="field"><label for="guild">Registered synthetic guild</label><select id="guild" data-testid="guild" disabled><option value="">Waiting for registry</option></select></div>
+        <div class="field"><label for="scenario">Fixture scenario</label><select id="scenario" data-testid="scenario" disabled><option value="fresh">Fresh report</option><option value="masked">Small counts masked</option><option value="older">Older source</option><option value="conflict">Conflicting observation</option><option value="invalid-future">Invalid future timestamp</option></select><p id="scenario-note" class="field-note">A fresh synthetic observation with its original source time.</p></div>
+        <button id="preview-button" data-testid="preview-button" type="button" disabled>1. Preview fixture</button>
+
+        <section id="preview-panel" data-testid="preview-panel" class="preview-panel" aria-labelledby="preview-title" hidden>
+          <div class="preview-heading"><h3 id="preview-title">Local review</h3><span class="badge subtle">Synthetic</span></div>
+          <dl id="preview-facts" class="facts"></dl>
+          <p id="preview-deadline" class="fine-print"></p>
+          <p class="trust-note">Game origin and membership are not proved. The source time is a claim; receiving it does not make it current.</p>
+        </section>
+
+        <label class="check-row consent-row" for="consent"><input id="consent" data-testid="consent" type="checkbox" disabled><span>I agree to associate this <strong>synthetic report</strong> privately with the selected synthetic account for ownership and withdrawal. This is not anonymous, and it proves no game identity.</span></label>
+        <button id="intent-button" data-testid="intent-button" type="button" class="secondary" disabled>2. Prepare original intent</button>
+        <p id="intent-note" class="field-note">Review and consent are required before preparing an intent.</p>
+        <div class="submit-area">
+          <label class="check-row" for="simulate-loss"><input id="simulate-loss" type="checkbox" disabled><span>Simulate a lost submission response</span></label>
+          <button id="submit-button" data-testid="submit-button" type="button" disabled>3. Submit synthetic fixture</button>
+        </div>
+
+        <section id="outcome-panel" class="outcome-panel" aria-labelledby="outcome-title" hidden>
+          <h3 id="outcome-title">Outcome unknown</h3>
+          <p>The response did not confirm the result. Check only this original intent; the lab will not retry, adopt or create a replacement report.</p>
+          <button id="check-outcome" data-testid="check-outcome" type="button" class="secondary" disabled>Check original outcome</button>
+        </section>
+      </section>
+    </div>
+
+    <section class="panel receipt-panel" aria-labelledby="receipts-title">
+      <div class="section-heading"><div><p class="eyebrow">Selected synthetic account only</p><h2 id="receipts-title">Your receipts</h2></div><span class="badge subtle">Private ownership</span></div>
+      <p class="section-copy">A receipt confirms that this local service received a claim. It never certifies the claim. Withdrawing your receipt does not withdraw another account's independently owned contribution.</p>
+      <div id="receipts-list" data-testid="receipts-list" class="receipt-list"><p class="empty">No receipts loaded.</p></div>
+    </section>
+
+    <section class="lab-controls" aria-labelledby="controls-title">
+      <div><h2 id="controls-title">Time and reset controls</h2><p>Advance only the lab's synthetic clock to inspect expiry. Your system clock and production are unchanged.</p></div>
+      <div class="control-buttons"><button id="advance-301" type="button" class="secondary" disabled>+ 301 seconds</button><button id="advance-901" type="button" class="secondary" disabled>+ 901 seconds</button><button id="advance-86401" type="button" class="secondary" disabled>+ 24 hours, 1 second</button><button id="reset-button" type="button" class="quiet" disabled>Reset synthetic lab</button></div>
+    </section>
+  </main>
+  <footer>Original local prototype · no publisher feed, real-data submission or production activation</footer>
+</body>
+</html>

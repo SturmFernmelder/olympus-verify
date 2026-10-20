@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Olympus Stats Pilot (local preview)
+## Notes: Optional own-guild aggregate QR pilot. No uploads, SavedVariables or verification. /ogstats
+## Author: Olympus
+## Version: 0.1.0
+
+Libs\StatsPilotQr.lua
+Core.lua
+OlympusStatsPilot.lua
