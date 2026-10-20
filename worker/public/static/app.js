@@ -823,7 +823,7 @@
         h("div", null, brand(), cursor),
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
-          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. All other interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
+          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. The login portal illustration is custom artwork created for Olympus, not an image from the game client. The remaining game interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
   }
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
@@ -3482,11 +3482,11 @@
               h("thead", null, h("tr", null, h("th", { text: "Role" }), h("th", { text: "Their choice" }), h("th", { class: "num", text: "For" }), h("th", { class: "num", text: "Against" }), h("th", { text: "" }))),
               h("tbody", null, boardRows.map((b) => {
                 const tr = h("tr", { class: "clickable" },
-                  h("td", null, h("span", { class: "admin-board-role" }, posIcon(b.role, "s"), h("span", { class: "admin-board-role-label", text: b.label }), noVoteFor(b.role) ? h("span", { class: "badge muted", text: "no public vote" }) : null)),
+                  h("td", null, h("a", { class: "admin-board-role", href: `#/admin/votes/${encodeURIComponent(b.role)}`, "aria-label": `Open ${b.label} voting details` }, posIcon(b.role, "s"), h("span", { class: "admin-board-role-label", text: b.label }), noVoteFor(b.role) ? h("span", { class: "badge muted", text: "no public vote" }) : null)),
                   h("td", { text: b.choice === 1 ? "First" : b.choice === 2 ? "Second" : b.choice === 3 ? "Third" : "no longer chosen" }),
                   h("td", { class: "num yes", text: String(b.yes) }), h("td", { class: "num no", text: String(b.no) }),
                   h("td", null, splitBar(b.yes, b.no)));
-                tr.addEventListener("click", () => { location.hash = `#/admin/votes/${encodeURIComponent(b.role)}`; });
+                tr.addEventListener("click", (event) => { if (event.target instanceof Element && event.target.closest("a")) return; location.hash = `#/admin/votes/${encodeURIComponent(b.role)}`; });
                 return tr;
               })))))
           : h("p", { class: "muted small", text: a && choicesOf(a).some(noVoteFor) ? "Not on the board: the leadership roles chosen have no public vote." : "Not on the board: no leadership role chosen." }),
@@ -3552,7 +3552,7 @@
     const boardRows = shown.map((c, i) => {
       const tr = h("tr", { class: "clickable" },
         h("td", { class: "num", text: String(i + 1) }),
-        h("td", null, h("img", { class: "av", src: accountArt(c), alt: "", referrerpolicy: "no-referrer" }), c.label, " ",
+        h("td", null, h("button", { class: "row-detail-open", type: "button", "aria-label": `Show votes for ${c.label}: ${data.role.label}`, onclick: () => showBoardVoters(data.role, c) }, h("img", { class: "av", src: accountArt(c), alt: "", referrerpolicy: "no-referrer" }), c.label), " ",
           c.denied ? h("span", { class: "badge red", text: "denied" }) : !c.onBoard ? h("span", { class: "badge muted", text: c.status ? `off the board: ${statusText(c.status).toLowerCase()}` : "off the board" }) : null),
         h("td", { text: c.choice === 1 ? "First" : c.choice === 2 ? "Second" : c.choice === 3 ? "Third" : "—" }),
         h("td", null, c.class ? clsLabel(c.class) : null),
@@ -3561,7 +3561,7 @@
         h("td", { class: "num no", text: String(c.no) }),
         h("td", { class: "num", text: (c.yes - c.no > 0 ? "+" : "") + String(c.yes - c.no) }),
         h("td", null, splitBar(c.yes, c.no)));
-      tr.addEventListener("click", () => showBoardVoters(data.role, c));
+      tr.addEventListener("click", (event) => { if (event.target instanceof Element && event.target.closest("a, button")) return; showBoardVoters(data.role, c); });
       return tr;
     });
     const max = wi.nominees && wi.nominees.length ? wi.nominees[0].votes : 1;
@@ -3570,8 +3570,7 @@
       const tr = h("tr", { class: "clickable" },
         h("td", { class: "num", text: String(i + 1) }),
         h("td", null,
-          h("img", { class: "av", src: accountArt(n), alt: "", referrerpolicy: "no-referrer" }),
-          n.label, " ",
+          h("button", { class: "row-detail-open", type: "button", "aria-label": `Show write-ins for ${n.label}: ${wi.ballot.label}`, onclick: () => showVoters(wi.ballot, n) }, h("img", { class: "av", src: accountArt(n), alt: "", referrerpolicy: "no-referrer" }), n.label), " ",
           n.kind === "name" ? h("span", { class: "badge muted", text: "typed name" }) : n.signedUp ? h("span", { class: "badge", text: "signed up" }) : null, " ",
           // Not signed up here: the label is what voters' pages sent, so the id (and a lookup) is the check.
           n.kind === "discord" && !n.signedUp ? h("a", { class: "id", href: `#/admin/lookup/${n.key}`, title: "Look this account up", text: n.key, onclick: (e) => e.stopPropagation() }) : null, " ",
@@ -3579,7 +3578,7 @@
         h("td", { class: "num", text: String(n.votes) }),
         h("td", { class: "num", text: String(n.first) }),
         h("td", null, bar));
-      tr.addEventListener("click", () => showVoters(wi.ballot, n));
+      tr.addEventListener("click", (event) => { if (event.target instanceof Element && event.target.closest("a, button")) return; showVoters(wi.ballot, n); });
       return tr;
     });
     clear(body);
@@ -3598,7 +3597,7 @@
               h("thead", null, h("tr", null, h("th", { class: "num", text: "#" }), h("th", { text: "Applicant" }), h("th", { text: "Choice" }), h("th", { text: "Class" }), h("th", { text: "Raid evenings" }), h("th", { class: "num", text: "For" }), h("th", { class: "num", text: "Against" }), h("th", { class: "num", text: "Balance" }), h("th", { text: "" }))),
               h("tbody", null, boardRows)))
           : h("p", { class: "muted", text: quiet ? "No board votes from before it was taken off the vote." : "Nobody on the board for this role, and no votes with these filters." }),
-        h("p", { class: "muted small", text: "Click an applicant to see who voted how. Applicants who left the board (withdrawn, decided, denied) stay listed with the votes they had." }),
+        h("p", { class: "muted small", text: "Select an applicant to see who voted how. Applicants who left the board (withdrawn, decided, denied) stay listed with the votes they had." }),
         h("div", { class: "rule" }),
         h("h3", { text: "Write-in nominations" }),
         wiRows.length
@@ -3606,7 +3605,7 @@
               h("thead", null, h("tr", null, h("th", { class: "num", text: "#" }), h("th", { text: "Written in" }), h("th", { class: "num", text: "Write-ins" }), h("th", { class: "num", text: "First choice" }), h("th", { text: "" }))),
               h("tbody", null, wiRows)))
           : h("p", { class: "muted", text: "No write-ins with these filters." }),
-        h("p", { class: "muted small", text: "Click someone to see who wrote them in. A person typed by hand and the same person picked from Discord are counted separately." })),
+        h("p", { class: "muted small", text: "Select someone to see who wrote them in. A person typed by hand and the same person picked from Discord are counted separately." })),
     ]);
   }
   async function showBoardVoters(role, c) {
@@ -3736,14 +3735,14 @@
       try { data = await api("GET", "/api/admin/lookup?" + qs({ q: text })); } catch (err) { clear(out).appendChild(noticeBox("warn", null, h("p", { text: err.message }))); return; }
       clear(out);
       if (data.account) { out.appendChild(accountPanel(data.account)); return; }
-      const pick = (id) => async () => { const a = await api("GET", `/api/admin/account/${id}`); clear(out); out.appendChild(accountPanel(a)); };
+      const resultLink = (id, label, row) => h("a", { class: "lookup-result", href: `#/admin/lookup/${encodeURIComponent(id)}`, "aria-label": `Look up ${label}` }, row);
       const section = (title, items, fn) => frame(title, null, items.length ? h("div", { class: "stack" }, items.map(fn)) : h("p", { class: "muted small", text: "Nothing." }));
       add(out, [
         data.limited ? noticeBox("warn", null, h("p", { text: "Discord rate-limited the search; try again in a few seconds." })) : null,
         h("div", { class: "grid three" },
-          section("In Asmongold's Discord", data.discord, (m) => { const r = personRow({ kind: "discord", key: m.id, label: m.label, avatarUrl: m.avatarUrl }); r.style.cursor = "pointer"; r.addEventListener("click", pick(m.id)); return r; }),
-          section("Characters", data.characters, (c) => { const r = h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: c.name }), h("small", { text: c.status.startsWith("reserved:") ? `reserved name (${c.status.slice(9)})` : `linked (${c.status})` }))); r.style.cursor = "pointer"; r.addEventListener("click", pick(c.id)); return r; }),
-          section("Signed up here", data.site, (u) => { const r = personRow({ kind: "discord", key: u.id, label: u.shown || u.label /* .114: every differing name */, avatarUrl: u.avatarUrl }); r.style.cursor = "pointer"; r.addEventListener("click", pick(u.id)); return r; })),
+          section("In Asmongold's Discord", data.discord, (m) => resultLink(m.id, m.label, personRow({ kind: "discord", key: m.id, label: m.label, avatarUrl: m.avatarUrl }))),
+          section("Characters", data.characters, (c) => resultLink(c.id, c.name, h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: c.name }), h("small", { text: c.status.startsWith("reserved:") ? `reserved name (${c.status.slice(9)})` : `linked (${c.status})` }))))),
+          section("Signed up here", data.site, (u) => resultLink(u.id, u.shown || u.label, personRow({ kind: "discord", key: u.id, label: u.shown || u.label /* .114: every differing name */, avatarUrl: u.avatarUrl })))),
       ]);
     };
     go.addEventListener("click", run);

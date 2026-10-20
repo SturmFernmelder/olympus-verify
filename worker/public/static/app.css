@@ -369,7 +369,12 @@ select.narrow-select { max-width: 380px; }
 .picker .row img { width: 28px; height: 28px; border-radius: 50%; flex: none; }
 .picker .row .typed-icon { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #221e14; color: var(--gold); }
 .picker .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--white); }
-.picker .row .sub { color: var(--muted); font-size: 0.8rem; }
+/* .178: eligibility explains why a Discord-only account can be selected; keep it readable on phones. */
+.picker .row .sub { color: var(--muted); font-size: 0.8rem; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .picker .row { display: grid; grid-template-columns: 28px minmax(0, 1fr); }
+  .picker .row > .badge { grid-column: 2; justify-self: start; }
+}
 .picker .state { padding: 10px 12px; color: var(--muted); font-size: 0.88rem; }
 .picker .list-tools { display: flex; gap: 8px; align-items: center; padding: 6px 9px; font-size: 0.8rem; color: var(--muted); border-bottom: 1px solid rgba(255, 209, 0, 0.2); cursor: pointer; user-select: none; }
 .badge {
@@ -390,6 +395,8 @@ select.narrow-select { max-width: 380px; }
 .person .nm { flex: 1; min-width: 0; }
 .person .nm b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person .nm small { color: var(--muted); }
+a.lookup-result { display: block; min-width: 0; color: var(--text); text-decoration: none; }
+a.lookup-result:hover, a.lookup-result:focus-visible { border-image-source: url("/static/wow/frame-gold.png"); }
 .person input[type="text"] { margin-top: 6px; min-height: 34px; font-size: 0.9rem; }
 
 /* ---------- the voting board ---------- */
@@ -476,6 +483,9 @@ table.data td.wrap { white-space: normal; min-width: 160px; }
 table.data th { font-weight: 400; color: var(--gold); background: rgba(25, 22, 14, 0.95); position: sticky; top: 0; white-space: nowrap; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; }
 table.data tr:hover td { background: rgba(255, 209, 0, 0.06); }
 table.data tr.clickable { cursor: pointer; }
+/* Native dialog openers retain the table's typography and visible keyboard focus. */
+.row-detail-open { appearance: none; border: 0; background: none; padding: 2px 0; font: inherit; color: var(--gold-soft); text-align: left; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }
+.row-detail-open:hover { color: var(--white); }
 table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
 .filters .field { margin: 0; min-width: 150px; flex: 1; }
