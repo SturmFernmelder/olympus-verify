@@ -17,6 +17,8 @@ Open the printed loopback origin, select the fictional Member or Admin fixture a
 
 Close, route exit, hiding the page and sign-out stop and clear capture and unsubmitted review. The normal CSRF-protected cancellation is dispatched before iframe removal, and new panels wait for its acknowledgement. Reopening is manual. Missing acknowledgement keeps the page closed without retry. Finish or check an in-progress operation in its original view before closing; an unknown submission never permits a replacement intent. Existing submitted receipts are separate, subject to normal withdrawal and process lifetime. Stop the process to discard its memory.
 
+Keep the embedded Army page visible until its original operation is settled. Route exit, hiding and page exit remove that embedded recovery view. If its outcome or cancellation remains unresolved, another transfer stays blocked; returning does not recreate the original recovery UI. The paused page enables **Reopen** only after an exact successful cancellation acknowledgement. This boundary differs from the standalone attended pilot, whose original window may survive hiding.
+
 This is a local integration preview, not a production Army feed. An unsigned volunteer observation proves neither source authenticity, membership, unique humans, complete guild coverage nor background freshness. A phone cannot reach the PC's loopback address. Mobile viewport checks do not establish a physical phone-camera transfer.
 
 Focused checks are under `tests/`; the shared website and attended adapter retain their own regression checks. No package installation or full local test aggregate is required for this preview.

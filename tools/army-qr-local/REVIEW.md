@@ -26,6 +26,9 @@ ambiguous seam refuses startup. No production frontend file is patched.
 - Close, hidden-page and route-exit cleanup stop capture and retain the hidden
   iframe until normal CSRF-protected cancellation settles. Failed/unknown
   acknowledgements prevent replacement transfers; reopening is deliberate.
+  Route exit or hiding removes the embedded recovery UI. Settle its original
+  operation before leaving; returning cannot recreate that UI. The paused page
+  keeps Reopen disabled unless cleanup is acknowledged exactly as successful.
 - Website writes, real login and external provider transport are disconnected.
   SQLite and census receipts stay in process memory. The addon has no
   SavedVariables and excludes names, notes and GUIDs from the aggregate.
@@ -46,11 +49,21 @@ from the checkout or explicit environment variables, without workstation paths
 or an extra PNG package. Desktop/mobile checks use the local website fixture;
 they are not physical-device or phone-camera acceptance.
 
-The 18 focused Node leaves passed 607 checks; the offline Stats Pilot Lua leaf
-passed 188. The staged projection check passed 1,157 consistency checks. A fresh
+At the original main-retarget head `1816f21`, 18 focused Node leaves passed 607
+checks; the offline Stats Pilot Lua leaf passed 188. The staged projection check
+passed 1,157 consistency checks. A fresh
 1440×1000 member and 390×844 admin browser smoke confirmed panel loading,
 no outer/inner horizontal overflow, Close/route-exit cleanup and deliberate
 reopening. No scan or observation submission was performed in that smoke.
+
+The PR follow-up corrects the paused page's misleading Reopen state. A delayed
+acknowledgement keeps it disabled; only exact success enables deliberate
+reopening. Missing, false and rejected acknowledgements stay blocked, and stale
+results cannot enable another route or identity. Fresh focused checks passed
+54 overlay, 31 view/frame and 17 HTTP cases; the unchanged QR transport also
+passed its 15 synthetic cases. The nine new overlay cases retain all 45 original
+assertions. Desktop/mobile notice wrapping and ordinary cleanup were rechecked.
+No recovery-after-exit guarantee or changed cancellation rule is claimed.
 
 An earlier owner-operated real WoW-window transfer ran at
 `cbf934eb03e8eee178be6463957a625caef7cfd4`, before this main retarget. It produced

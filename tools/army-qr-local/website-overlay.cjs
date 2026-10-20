@@ -56,10 +56,19 @@ function transformApp(source){
       return cleanup;
     };
     const pause = () => {
-      const owned = attached(); dispose(); if (!owned || !attached()) return;
-      resumeAllowed = true;
-      paused = frame("Local Army QR preview paused", null, h("p", { text: "The local transfer was cleared. Reopen it deliberately to read again. Submitted local receipts remain separate in the local process." }), h("button", { type: "button", class: "btn", text: "Reopen local Army QR preview", onclick: () => { if (resumeAllowed && attached() && !document.hidden) render(); } }));
-      add(body, paused); disposeTool = dispose; disposeArmyQrLocal = dispose;
+      const owned = attached(), hadLocal = !!local, completion = dispose(); if (!owned || !attached()) return;
+      const note = h("p", { role: "status", text: "Capture and unsubmitted review were cleared. Waiting for the original cancellation acknowledgement before another transfer can be opened." });
+      const reopen = h("button", { type: "button", class: "btn", text: "Reopen local Army QR preview", disabled: true, onclick: () => { if (resumeAllowed && attached() && !document.hidden) render(); } });
+      const panel = frame("Local Army QR preview paused", null, note, reopen);
+      paused = panel; add(body, panel); disposeTool = dispose; disposeArmyQrLocal = dispose;
+      const settled = ack => {
+        if (paused !== panel || !attached()) return;
+        resumeAllowed = ack === true; reopen.disabled = !resumeAllowed;
+        note.textContent = resumeAllowed
+          ? "The original cancellation was acknowledged. Reopen deliberately to read again. Submitted local receipts remain separate in the local process."
+          : "The previous transfer could not confirm cancellation. Its original embedded recovery view was closed. Another transfer remains blocked; no retry was made. Finish or check an unresolved operation in its original view before leaving it.";
+      };
+      Promise.resolve(hadLocal ? completion : true).then(settled, () => settled(false));
     };
     const visibility = () => { if (document.hidden) pause(); };
     const onRefused = status => {
