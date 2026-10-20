@@ -796,7 +796,7 @@
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
-      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
+      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(can("applicantWrite") && communityReader() ? [["#/community/army", "Army"]] : []), ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
       const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
@@ -864,7 +864,7 @@
   // Titles identify the section, never a private account, event or case from an address.
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
-    const community = { "": "Overview", directory: "Member directory", profile: "My profile", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", leadership: "Leadership" };
+    const community = { "": "Overview", directory: "Member directory", profile: "My profile", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", army: "Army", leadership: "Leadership" };
     const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
@@ -3895,6 +3895,7 @@
     if (feat("trials")) tabs.push(["trial", "My trial"]);
     if (feat("contributions")) tabs.push(["dues", "My dues"]);
     if (newsOn()) tabs.push(["news", "News"]); // .115: only while an administrator has News switched on
+    if (can("applicantWrite") && communityReader()) tabs.push(["army", "Army"]);
     tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
     return h("nav", { class: "btn-row", "aria-label": "Community sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
   }
@@ -3930,6 +3931,7 @@
     if (sub === "trial" && feat("trials")) return communityTrial(body);
     if (sub === "dues" && feat("contributions")) return communityDues(body);
     if (!communityReader()) { add(body, standingNotice()); return; }
+    if (sub === "army") return communityArmyReview(body);
     if (sub === "news" && newsOn()) return communityNews(body); // .115
     if (sub === "leadership") return communityLeadership(body); // .114
     if (sub === "census" && feat("census")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityCensus(body); }
@@ -3947,6 +3949,7 @@
   };
   async function communityOverview(body) {
     const cards = [];
+    if (can("applicantWrite") && communityReader()) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Guild census collection is not enabled. No shared figures are available yet." })));
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
       cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. For guild members and site administrators." })));
@@ -3959,6 +3962,17 @@
     cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." }))); // .114
     add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
+  // .179: review-stage only. Source-fixed gates have no settings or browser override.
+  const ARMY_QR_REVIEW = Object.freeze({ activationEnabled: false, uploadsEnabled: false, storageEnabled: false });
+  function communityArmyReview(body) {
+    add(body, h("section", { class: "stack", "data-army-qr-review": "disabled" },
+      frame("Army", sourceStrip("Collection not enabled", "No shared figures available"),
+        h("p", { text: "The guild census is being prepared. QR collection and uploads are not enabled." }),
+        h("p", { class: "muted small", text: "This page does not capture, upload or save guild observations. There are no live Army totals to display." }),
+        h("button", { type: "button", class: "btn", disabled: !ARMY_QR_REVIEW.activationEnabled || !ARMY_QR_REVIEW.uploadsEnabled || !ARMY_QR_REVIEW.storageEnabled, text: "QR collection not enabled" }),
+        h("p", { class: "muted small", text: "Volunteer observations count characters rather than unique people. They do not establish game origin, guild membership or complete coverage." }))));
+  }
+
   function communityCensus(body) {
     const subject = COM().subject, user = S.user, context = COM(), route = currentRoute();
     let sequence = 0, disposed = false, controller = null, attemptTimer = null, lifetimeTimer = null, expires = 0, lastClock = Date.now(), receipt = null;

@@ -81,11 +81,20 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 27 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && ref.required_public_resources.length === 31 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset539-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset543-public-path binding');
   for (const row of variantPins) pin(row);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
+  // .179: only four exact dormant resources; no new artwork exception or runtime switch.
+  const armyRoot = 'worker/public/static/army-qr-review/', armyNames = ['protocol.js', 'decoder.js', 'pilot.js', 'manifest.json'];
+  check(ref.required_public_resources.filter(row => row.path.startsWith(armyRoot)).length === 4
+    && armyNames.every(name => ref.required_public_resources.some(row => row.path === armyRoot + name)), 'four closed dormant Army resources');
+  const armyManifest = json(get(armyRoot + 'manifest.json'));
+  check(armyManifest.format === 'olympus-army-qr-dormant-review-v1' && armyManifest.activation === false && armyManifest.uploads === false
+    && armyManifest.runtimeOverride === false && armyManifest.shippingHtml === false, 'dormant Army manifest gates');
+  for (const name of armyNames.slice(0, 3)) check(text(armyRoot + name).startsWith("/* Dormant Army QR review bytes. No runtime activation or upload switch. */\n(function () {\n  'use strict';\n  const activation = false, uploads = false;\n  return; // Unconditional source-fixed stop; retained source below is never executed.\n"), 'dormant Army unconditional gate: ' + name);
+
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');
   const v4 = [...v4Text.matchAll(/'([^']+)':'([a-f0-9]{64})'/g)];

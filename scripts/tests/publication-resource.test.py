@@ -58,10 +58,14 @@ public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
 check(len(assets) == 512 and len(ref['official_paths']) == 494, '512 exact assets: all510 prior assets plus two independently approved custom variants;493 official image/font paths and1 historical video unchanged')
-check(len(resources) == 27 and len(public) == 539, '27 separate required non-art resources including distinct historical login-render provenance')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed539-path union')
+check(len(resources) == 31 and len(public) == 543, '31 separate required non-art resources including four dormant Army resources')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed543-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all539 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all543 current public byte pins match the reviewed reference')
+army_root = 'worker/public/static/army-qr-review/'
+check({p for p in resources if p.startswith(army_root)} == {army_root + name for name in ('protocol.js', 'decoder.js', 'pilot.js', 'manifest.json')}, 'Army adds exactly four closed resources without an artwork exception')
+army_manifest = json.loads(payloads[army_root + 'manifest.json'])
+check(army_manifest['activation'] is False and army_manifest['uploads'] is False and army_manifest['runtimeOverride'] is False and army_manifest['shippingHtml'] is False, 'published Army package retains fixed disabled gates and no HTML entry')
 check(gate.runtime_path('worker/public/static/qr-phase1.mjs'), 'ES modules are runtime sources')
 check(not gate.runtime_path('worker/public/static/governance/olympus-governance-r6.pdf'), 'documents are not executable runtime sources')
 
@@ -181,7 +185,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 539 and proof['required_non_art_resource_pins_verified'] == 27, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 543 and proof['required_non_art_resource_pins_verified'] == 31, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')
