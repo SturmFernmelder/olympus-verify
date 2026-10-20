@@ -2,7 +2,7 @@
 
 // Served only by the separate synthetic local server. Production app.js stays byte-identical.
 const { createHash } = require('node:crypto');
-const EXPECTED_SOURCE_SHA256 = '95bc0924fd11952536c8034790219cd5e8a63c2c8d20dbb86975e026450cb7cf';
+const EXPECTED_SOURCE_SHA256 = '2e1e5f6a39367175f7e30eb8635263c0f85063d4f946ff49a766095c210bd6fa';
 const LOCAL_LABEL = 'Shared census · local preview';
 
 function transformApp(source) {
@@ -27,8 +27,8 @@ function transformApp(source) {
   }
 `);
   once('  async function signOut() {\n', '  async function signOut() {\n    if (disposeSharedCensusLocal) disposeSharedCensusLocal();\n');
-  once('["#/community", "Community hub"], ...(S.settings && S.settings.newsOn', '["#/community", "Community hub"], ...(communityReader() ? [["#/community/shared-census", "Shared census · local preview"]] : []), ...(S.settings && S.settings.newsOn');
-  once('news: "Guild news", leadership: "Leadership"', 'news: "Guild news", "shared-census": "Shared census · local preview", leadership: "Leadership"');
+  once('["#/community", "Community hub"], ...(can("applicantWrite") && communityReader() ? [["#/community/army", "Army"]] : []), ...(S.settings && S.settings.newsOn', '["#/community", "Community hub"], ...(can("applicantWrite") && communityReader() ? [["#/community/army", "Army"]] : []), ...(communityReader() ? [["#/community/shared-census", "Shared census · local preview"]] : []), ...(S.settings && S.settings.newsOn');
+  once('news: "Guild news", army: "Army", leadership: "Leadership"', 'news: "Guild news", army: "Army", "shared-census": "Shared census · local preview", leadership: "Leadership"');
   once('    tabs.push(["leadership", "Leadership"]); // .114:', '    if (can("applicantWrite") && communityReader()) tabs.push(["shared-census", "Shared census · local preview"]);\n    tabs.push(["leadership", "Leadership"]); // .114:');
   once('    if (sub === "news" && newsOn()) return communityNews(body);', '    if (sub === "shared-census") return communitySharedCensusLocal(body);\n    if (sub === "news" && newsOn()) return communityNews(body);');
   once('  async function communityOverview(body) {\n    const cards = [];', '  async function communityOverview(body) {\n    const cards = [];\n    if (can("applicantWrite") && communityReader()) cards.push(h("a", { class: "card", href: "#/community/shared-census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Shared census · local preview" })), h("p", { class: "muted small", text: "Synthetic reports in this local process only. No production connection or real guild data." })));');

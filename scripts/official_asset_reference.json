@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 527535,
-      "sha256": "95bc0924fd11952536c8034790219cd5e8a63c2c8d20dbb86975e026450cb7cf"
+      "bytes": 529176,
+      "sha256": "2e1e5f6a39367175f7e30eb8635263c0f85063d4f946ff49a766095c210bd6fa"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3679,7 +3679,11 @@
     "worker/public/static/resources169.js",
     "worker/public/static/resources169.css",
     "worker/src/site-resources.ts",
-    "worker/src/site-access.ts"
+    "worker/src/site-access.ts",
+    "worker/public/static/army-qr-review/protocol.js",
+    "worker/public/static/army-qr-review/decoder.js",
+    "worker/public/static/army-qr-review/pilot.js",
+    "worker/src/army-qr-review.ts"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -3797,8 +3801,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 527535,
-      "sha256": "95bc0924fd11952536c8034790219cd5e8a63c2c8d20dbb86975e026450cb7cf"
+      "bytes": 529176,
+      "sha256": "2e1e5f6a39367175f7e30eb8635263c0f85063d4f946ff49a766095c210bd6fa"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4021,6 +4025,30 @@
       "mode": "100644",
       "bytes": 10267,
       "sha256": "ec87cd525ae9419d18d0caae6885919de4c8899ed751b0fa74ede3ca0f88edc3"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/protocol.js",
+      "mode": "100644",
+      "bytes": 17191,
+      "sha256": "d459c5f4693bf73c70e3bd0538f11d6e35a4e17ef0f0f096dc4cb50bea42e4bb"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/decoder.js",
+      "mode": "100644",
+      "bytes": 1760,
+      "sha256": "d4807e5eaf233e2b15f6daeeeb38b4ec4a6e62c0556ba2e220184d1c66b97d2c"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/pilot.js",
+      "mode": "100644",
+      "bytes": 20202,
+      "sha256": "736000718ab10718cf99e4e5039ae5e3552a439f459790c7437a70c46dfe6a98"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/manifest.json",
+      "mode": "100644",
+      "bytes": 2852,
+      "sha256": "5b7550b9683fe0fec202334db053a3a4b3127710098588a1bf0a2e414ee18347"
     }
   ],
   "login_art_exception": {

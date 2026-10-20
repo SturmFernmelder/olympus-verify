@@ -18,8 +18,11 @@ import { adminContributionAction, adminContributions, contributionsAcknowledge, 
 import { adminListCases, adminReadCase, adminUpdateCase } from "./community-privacy-intake";
 import { coverageReport, digestStatus, resumeDigest } from "./community-digest";
 import { censusPreview } from "./community-census-route";
+import { armyQrReviewRefusal } from "./army-qr-review";
 
 export async function handleCommunity(request: Request, env: Env, path: string): Promise<Response> {
+  const armyQrDisabled = armyQrReviewRefusal(path);
+  if (armyQrDisabled) return armyQrDisabled;
   const m = request.method;
   const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
   const ctx = await communityContext(env, request, { guildRoleRead: reader });

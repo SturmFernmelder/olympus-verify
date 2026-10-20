@@ -1,0 +1,86 @@
+{
+  "format": "olympus-army-qr-dormant-review-v1",
+  "activation": false,
+  "uploads": false,
+  "runtimeOverride": false,
+  "shippingHtml": false,
+  "sourceVerified": false,
+  "membershipProof": false,
+  "sources": [
+    {
+      "path": "tools/guild-qr-pilot/protocol.js",
+      "bytes": 16945,
+      "sha256": "7bec896812384fb53a0fa2c7754cd2abbb0393e285a857538c3ecdcca3d6be02"
+    },
+    {
+      "path": "tools/guild-qr-pilot/decoder.js",
+      "bytes": 1510,
+      "sha256": "d700694ed1f78fc9bb359d1a36e3b2395952d73539ba4aad72c2a1ed14b771d3"
+    },
+    {
+      "path": "tools/guild-qr-pilot/pilot.js",
+      "bytes": 19956,
+      "sha256": "096065bd3e7bf5745adbe83a542250d6caea2692b0034926505787fb31293f24"
+    },
+    {
+      "path": "tools/guild-qr-pilot/pilot.css",
+      "bytes": 8544,
+      "sha256": "1f8f4f6e58ef66060eb58934e9955a8b00d36630bea77d4306e25581a7b741d0"
+    },
+    {
+      "path": "tools/guild-qr-pilot/vendor/jsqr-1.4.0.js",
+      "bytes": 256885,
+      "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859"
+    },
+    {
+      "path": "tools/guild-qr-pilot/vendor/jsqr-1.4.0.LICENSE.txt",
+      "bytes": 11358,
+      "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+    }
+  ],
+  "reviewOnlySources": [
+    "tools/guild-qr-pilot/pilot.css"
+  ],
+  "reused": [
+    {
+      "path": "worker/public/static/qr-vendor/jsqr-1.4.0.js",
+      "sourcePath": "tools/guild-qr-pilot/vendor/jsqr-1.4.0.js",
+      "bytes": 256885,
+      "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859"
+    },
+    {
+      "path": "worker/public/static/qr-vendor/jsqr-1.4.0.LICENSE.txt",
+      "sourcePath": "tools/guild-qr-pilot/vendor/jsqr-1.4.0.LICENSE.txt",
+      "bytes": 11358,
+      "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+    }
+  ],
+  "projections": [
+    {
+      "path": "tools/guild-qr-pilot/decoder.js",
+      "originalSha256": "d700694ed1f78fc9bb359d1a36e3b2395952d73539ba4aad72c2a1ed14b771d3",
+      "projectedSha256": "7d7e4bf34d11cea12720c09ad955d8ee43f707b3f50f2df25bba6a656db15d3e",
+      "projectedBytes": 1514,
+      "from": "importScripts('./vendor/jsqr-1.4.0.js');",
+      "to": "importScripts('../qr-vendor/jsqr-1.4.0.js');",
+      "substitutions": 1
+    }
+  ],
+  "generated": [
+    {
+      "path": "worker/public/static/army-qr-review/protocol.js",
+      "bytes": 17191,
+      "sha256": "d459c5f4693bf73c70e3bd0538f11d6e35a4e17ef0f0f096dc4cb50bea42e4bb"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/decoder.js",
+      "bytes": 1760,
+      "sha256": "d4807e5eaf233e2b15f6daeeeb38b4ec4a6e62c0556ba2e220184d1c66b97d2c"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/pilot.js",
+      "bytes": 20202,
+      "sha256": "736000718ab10718cf99e4e5039ae5e3552a439f459790c7437a70c46dfe6a98"
+    }
+  ]
+}
