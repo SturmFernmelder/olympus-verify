@@ -1,0 +1,11 @@
+jsQR 1.4.0
+Upstream commit: 34d8eec1ec5d85496f3948ff02fcfe6406f89d81
+https://github.com/cozmo/jsQR/commit/34d8eec1ec5d85496f3948ff02fcfe6406f89d81
+
+The JavaScript is the unchanged, already-reviewed jsQR file from
+worker/public/static/qr-vendor/jsqr-1.4.0.js in this repository.
+SHA256: bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859
+
+Apache License 2.0: see jsqr-1.4.0.LICENSE.txt.
+No external download or runtime network request is required.
+The statistics decoder is a separate wrapper; identity verification is unchanged.

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Olympus · Local guild QR pilot</title>
+  <link rel="stylesheet" href="./pilot.css">
+  <script src="./protocol.js" defer></script>
+  <script src="./pilot.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead"><span class="wordmark">OLYMPUS</span><span class="badge">Local preview only</span></header>
+  <main id="main">
+    <section class="intro">
+      <p class="eyebrow">One guild. One deliberate observation.</p>
+      <h1>Review your guild snapshot.</h1>
+      <p class="lede">Read aggregate counts from the pilot addon. Everything stays in this browser’s memory: no uploads, saved reports or account linking.</p>
+      <p class="trust-note"><strong>A checksum checks the transfer, not the truth.</strong> This is an unverified volunteer observation. It proves neither game origin nor guild membership, and counts characters rather than people.</p>
+    </section>
+    <div class="workspace">
+      <section class="panel controls" aria-labelledby="scan-heading">
+        <div class="section-heading"><span class="step">1</span><h2 id="scan-heading">Choose an input</h2></div>
+        <div class="input-options" role="group" aria-label="Scan input">
+          <button type="button" class="source selected" data-source="paste" aria-pressed="true">Paste frames</button>
+          <button type="button" class="source" data-source="image" aria-pressed="false">QR images</button>
+          <button type="button" class="source" data-source="window" aria-pressed="false">WoW window</button>
+          <button type="button" class="source" data-source="camera" aria-pressed="false">Camera</button>
+        </div>
+        <p class="help">Changing input clears the current scan and preview. A new scan has a fixed 30-second limit.</p>
+        <div class="section-heading second"><span class="step">2</span><h2>Start a local scan</h2></div>
+        <div class="actions"><button type="button" id="start" class="primary">Start local scan</button><button type="button" id="stop" disabled>Stop &amp; clear</button></div>
+        <div class="command-block"><label for="addon-command">Then run this exact command in the pilot addon</label><div class="command-row"><input id="addon-command" readonly autocomplete="off" spellcheck="false" placeholder="Start a scan to create a command"><button type="button" id="copy" disabled>Copy</button></div><p class="help">The temporary code binds frames to this scan. It is not a password, account identity or membership proof.</p></div>
+        <div class="section-heading second"><span class="step">3</span><h2>Read the addon’s QR frames</h2></div>
+        <div id="input-paste" class="input-panel"><label for="frames">Complete frame text, one line per frame</label><textarea id="frames" rows="6" maxlength="2800" spellcheck="false" autocomplete="off" disabled placeholder="OLCS1|…"></textarea><button type="button" id="review-frames" disabled>Read pasted frames</button><p class="help">Paste only the pilot addon’s complete OLCS1 frame strings. Missing parts never produce a partial preview.</p></div>
+        <div id="input-image" class="input-panel" hidden><label for="images">Select up to 14 QR screenshots</label><input type="file" id="images" accept="image/png,image/jpeg,image/webp" multiple disabled><p class="help">PNG, JPEG or static WebP, at most 4 MiB and 4096 pixels per side. Headers are checked before bounded local decoding. Use a clear, tightly framed QR image; no image leaves this page.</p></div>
+        <div id="input-window" class="input-panel" hidden><p>Choose <strong>only the World of Warcraft window</strong> in the browser’s picker. Monitor and browser-tab sources are refused.</p><button type="button" id="share-window" disabled>Choose WoW window</button><p class="help">The browser can verify that a window was selected, but cannot prove that it is WoW. Visible chat or other private pixels are exposed to this local page while sharing.</p></div>
+        <div id="input-camera" class="input-panel" hidden><p>Use a camera connected to the device running this page. Point it at the addon’s QR frames and keep the entire white border in view.</p><button type="button" id="use-camera" disabled>Start camera</button><p class="help">Your browser asks for camera permission. Video only; the rear camera is preferred when available. Keep this page visible; leaving it stops and clears the scan.</p><p class="help">This preview runs at 127.0.0.1 on this device. A phone cannot open the PC’s local address. Phone-camera use needs a separate local secure context on that phone; this pilot does not enable LAN access or hosting.</p></div>
+        <div id="media-area" hidden><video id="video" muted playsinline aria-label="Local QR capture preview"></video><p class="help">Local capture · no recording or transfer</p></div>
+        <div class="scan-status" role="status" aria-live="polite"><span id="status-dot" class="status-dot"></span><div><strong id="status">Ready when you are</strong><p id="progress">Choose an input, then start a scan.</p></div><span id="countdown" aria-label="Time remaining"></span></div>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+      <section class="panel preview" aria-labelledby="preview-heading">
+        <div class="preview-header"><div><p class="eyebrow">In-memory review</p><h2 id="preview-heading">Your observation</h2></div><button type="button" id="clear-review" hidden>Clear</button></div>
+        <div id="empty-preview" class="empty"><span class="empty-symbol" aria-hidden="true">◇</span><h3>No snapshot yet</h3><p>A complete, matching set of frames will appear here after its checksum and privacy limits pass.</p><span class="quiet-label">Nothing is uploaded or saved.</span></div>
+        <div id="review" hidden>
+          <div class="review-label">Unverified volunteer report</div>
+          <h3 id="guild-name" class="guild-title"></h3><p id="guild-scope" class="muted"></p>
+          <dl class="figures"><div><dt>Reported characters</dt><dd id="member-count"></dd></div><div><dt>Reported online</dt><dd id="online-count"></dd></div></dl>
+          <dl class="metadata"><div><dt>Source observation</dt><dd id="source-time"></dd></div><div><dt>Guild data received</dt><dd id="received-time"></dd></div><div><dt>Freshness</dt><dd id="freshness"></dd></div><div><dt>Local preview clears</dt><dd id="review-expiry"></dd></div></dl>
+          <p class="help">Times are evaluated against this device’s untrusted clock. Re-reading a QR does not make its source data newer. Small counts and small remainders are withheld.</p>
+          <div class="privacy-grid"><span>Source verified <strong>No</strong></span><span>Membership proof <strong>No</strong></span><span>Account linked <strong>No</strong></span><span>Persisted <strong>No</strong></span></div>
+          <p class="review-footer">There is no upload or publish action in this pilot.</p>
+        </div>
+      </section>
+    </div>
+    <details class="boundaries"><summary>What this pilot can and cannot establish</summary><p>It accepts one own-guild aggregate observation from the separate pilot addon. Character names are checked transiently inside that addon for roster completeness, then discarded. No player names, ranks, notes, chat, SavedVariables or account details are exported. A volunteer can still fabricate the counts. It cannot grant a role, confirm a member, link an account or change an Olympus setting.</p><p>Capture ends on Stop, a hidden page, source interruption, decoding error or the fixed deadline. A complete preview expires after at most 15 minutes, with no refresh-on-read. No report is retained after clearing or reloading.</p><p>Desktop and mobile browser layouts are part of this pilot; successful real game, camera and client compatibility testing must be recorded separately.</p></details>
+  </main>
+  <footer>Olympus research pilot · Separate from production identity verification</footer>
+</body>
+</html>

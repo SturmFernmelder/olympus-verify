@@ -1,0 +1,6 @@
+.census-preview-shell{display:flex;flex-direction:column;gap:.5rem;padding:1rem max(1rem,calc((100vw - 1200px)/2));background:#172738;color:#e7edf5;border-bottom:2px solid #b99a59;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.census-preview-shell strong{color:#f7d996;letter-spacing:.05em}
+.census-preview-shell nav{display:flex;gap:.5rem;flex-wrap:wrap}
+.census-preview-shell a{color:#fff;background:#283b50;border:1px solid #52687f;border-radius:5px;padding:.45rem .65rem;text-decoration:none}
+.census-preview-shell a:hover,.census-preview-shell a:focus-visible{background:#3a536b;outline:2px solid #dec180;outline-offset:2px}
+.census-preview-shell small{max-width:90ch;color:#c9d4e0}
