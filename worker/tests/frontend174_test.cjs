@@ -185,6 +185,60 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check(".175 digest preview displays its fixed heading without raw Discord bold delimiters", followup175.app.querySelector(".digest-preview").textContent.startsWith("Officer digest:") && !followup175.app.querySelector(".digest-preview").textContent.includes("**Officer digest:**") && followup175.app.textContent.includes("Discord message preview"));
   check(".175 community rail explains horizontal continuation in accessible text", followup175.app.querySelector('nav[aria-label="Community admin sections"]')?.getAttribute("aria-describedby") === "community-admin-scroll-hint" && followup175.app.querySelector("#community-admin-scroll-hint")?.textContent.includes("Scroll") && !!followup175.app.querySelector('nav[aria-label="Community admin sections"] a[href="#/admin/community/claims"]'));
 
+  // .178: the .177 audit's native keyboard actions. The original minimal DOM
+  // does not synthesize Enter/Space activation; native semantics are checked
+  // here, with genuine read effects. Desktop/mobile keyboard use is separate.
+  const accessibility178 = await openPage(STAFF), reads178 = [];
+  accessibility178.before((pathname, init) => { reads178.push({ pathname, method: init.method || "GET" }); return false; });
+  await accessibility178.go("#/admin/lookup/Mi");
+  await waitFor(() => accessibility178.app.querySelectorAll("a.lookup-result").length >= 2, ".178 actual character and site search results");
+  const realResults178 = accessibility178.app.querySelectorAll("a.lookup-result");
+  check(".178 real character and site lookup results are named native links to their exact account", realResults178.length >= 2 && realResults178.every(link => link.getAttribute("href") === "#/admin/lookup/" + MEMBER && link.getAttribute("aria-label")?.startsWith("Look up ") && link.getAttribute("tabindex") === null));
+  const memberLink178 = realResults178[0]; memberLink178.focus();
+  await accessibility178.go(memberLink178.getAttribute("href")); // Native anchor following is performed by the browser, not this DOM fixture.
+  await waitFor(() => !!byText(accessibility178.app, "dt", "On this site"), ".178 actual account panel from native destination");
+  check(".178 following a lookup result re-reads the exact account without changing site state", !!byText(accessibility178.app, "dt", "On this site") && accessibility178.app.textContent.includes(MEMBER) && reads178.filter(r => r.pathname === "/api/admin/lookup?q=" + MEMBER).length === 1);
+  // Discord itself is the existing fake provider. This one display fixture
+  // adds a Discord search result for the already genuine account; its native
+  // destination still goes through the real Worker's fresh admin read.
+  accessibility178.answer(pathname => pathname === "/api/admin/lookup?q=Discord" ? { discord: [{ id: MEMBER, label: "Mia Discord" }], characters: [], site: [] } : null);
+  await accessibility178.go("#/admin/lookup/Discord");
+  await waitFor(() => !!accessibility178.app.querySelector("a.lookup-result"), ".178 Discord-result display fixture");
+  const discordLink178 = accessibility178.app.querySelector("a.lookup-result");
+  check(".178 Discord lookup result has the same named native account destination", discordLink178?.getAttribute("href") === "#/admin/lookup/" + MEMBER && discordLink178.getAttribute("aria-label") === "Look up Mia Discord" && discordLink178.getAttribute("tabindex") === null);
+  accessibility178.answer(null);
+  await accessibility178.go(discordLink178.getAttribute("href"));
+  await waitFor(() => !!byText(accessibility178.app, "dt", "On this site"), ".178 Discord-result genuine destination");
+  check(".178 provider-result destination is a genuine fresh admin account read", reads178.filter(r => r.pathname === "/api/admin/lookup?q=" + MEMBER).length === 2 && accessibility178.app.textContent.includes(MEMBER));
+
+  await fixtureRun("INSERT INTO site_board_votes (voter_id,candidate_id,role_key,vote,created_at,updated_at) VALUES (?,?,'officer',1,?,?)", MEMBER, OTHER, now, now);
+  await fixtureRun("INSERT INTO site_votes (voter_id,ballot,slot,nominee_kind,nominee_key,nominee_label,created_at,updated_at) VALUES (?,'officer',1,'discord',?,'Oz',?,?)", MEMBER, OTHER, now, now);
+  await accessibility178.go("#/admin/votes/officer");
+  await waitFor(() => accessibility178.app.querySelectorAll("button.row-detail-open").length === 2, ".178 board and write-in native detail actions");
+  const details178 = accessibility178.app.querySelectorAll("button.row-detail-open");
+  check(".178 each populated board and write-in row exposes one named native button", details178.length === 2 && details178.every(button => button.getAttribute("type") === "button" && button.getAttribute("tabindex") === null && /Show (votes|write-ins) for Oz \(@u04\): Officer/.test(button.getAttribute("aria-label"))));
+  details178[0].focus(); details178[0].click();
+  await waitFor(() => !!accessibility178.document.body.querySelector("dialog"), ".178 board votes dialog");
+  const boardDialog178 = accessibility178.document.body.querySelector("dialog");
+  check(".178 native board button opens one genuine voter dialog with exactly one fresh GET", !!boardDialog178 && boardDialog178.textContent.includes("Oz (@u04): Officer") && boardDialog178.textContent.includes("Mia") && reads178.filter(r => r.pathname.startsWith("/api/admin/board/voters?")).length === 1 && accessibility178.document.body.querySelectorAll("dialog").length === 1);
+  boardDialog178.close(); details178[1].focus(); details178[1].click();
+  await waitFor(() => !!accessibility178.document.body.querySelector("dialog"), ".178 write-in voters dialog");
+  const writeInDialog178 = accessibility178.document.body.querySelector("dialog");
+  check(".178 native write-in button opens one genuine voter dialog with exactly one fresh GET", !!writeInDialog178 && writeInDialog178.textContent.includes("Oz (@u04): Officer") && writeInDialog178.textContent.includes("Mia") && reads178.filter(r => r.pathname.startsWith("/api/admin/votes/voters?")).length === 1 && accessibility178.document.body.querySelectorAll("dialog").length === 1);
+  writeInDialog178.close(); details178[0].closest("tr").querySelector("td").click();
+  await waitFor(() => !!accessibility178.document.body.querySelector("dialog"), ".178 retained pointer row shortcut");
+  check(".178 pointer row shortcut retains one fresh dialog read", reads178.filter(r => r.pathname.startsWith("/api/admin/board/voters?")).length === 2 && accessibility178.document.body.querySelectorAll("dialog").length === 1);
+  accessibility178.document.body.querySelector("dialog").close();
+  await accessibility178.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!accessibility178.app.querySelector("table.admin-application-board a.admin-board-role"), ".178 application board native role link");
+  const boardRole178 = accessibility178.app.querySelector("table.admin-application-board a.admin-board-role");
+  check(".178 application board role is a native named link retaining all five table fields", boardRole178?.getAttribute("href") === "#/admin/votes/officer" && boardRole178.getAttribute("aria-label") === "Open Officer voting details" && boardRole178.querySelector(".admin-board-role-label")?.textContent === "Officer" && accessibility178.app.querySelector("table.admin-application-board").querySelectorAll("th").length === 5);
+  await accessibility178.go(boardRole178.getAttribute("href"));
+  await waitFor(() => accessibility178.app.querySelectorAll("button.row-detail-open").length === 2, ".178 application board destination");
+  check(".178 detail navigation retains the two admitted native voting actions and performs no writes", accessibility178.app.querySelectorAll("button.row-detail-open").length === 2 && reads178.length > 8 && reads178.every(r => r.method === "GET") && one("SELECT vote FROM site_board_votes WHERE voter_id=? AND candidate_id=? AND role_key='officer'", MEMBER, OTHER).vote === 1);
+  const attribution178 = accessibility178.app.querySelector("footer").textContent;
+  check(".178 footer distinguishes custom login illustration and guild crest from Blizzard game art while retaining font notices", attribution178.includes("login portal illustration is custom artwork created for Olympus, not an image from the game client") && attribution178.includes("Olympus crest is the guild's own logo") && attribution178.includes("remaining game interface artwork and icons") && attribution178.includes("International Typeface Corporation") && attribution178.includes("Kiwi Media/Design") && !attribution178.includes("All other interface artwork and icons"));
+
   console.log("\n" + ok + "/" + n + " passed");
   process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
