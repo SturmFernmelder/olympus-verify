@@ -290,8 +290,8 @@ Since .43 the site wears the game's own interface art and fonts, made from the l
 Blizzard and says the site is not affiliated with it); since .86 account pictures are class icons and every image and
 font is from the game client (the owner's instruction of 1 Oct 2026), with one exception since .111: the brand and tab icon
 are the Olympus crest `olympus-icon.png` again, the logo of guild.roachcouncil.com (the owner's decision of 1 Oct 2026). The privacy
-policy and terms are the tracked `policies/privacy.html` and `policies/terms.html`: since .65 the Worker serves them
-itself at `/privacy` and `/terms` (on the site host and the bot host, public, no sign-in; `worker/src/policy-content.ts`
+policy and terms are the tracked `policies/privacy.html` and `policies/terms.html`: the Worker now serves them
+itself at `/legal/privacy` and `/legal/terms` (on the site host and the bot host, public, no sign-in; `worker/src/policy-content.ts`
 is generated from them by `worker/scripts/build-policy-content.mjs`, and `npm run check:policies` fails when it is
 stale), and the GitHub Pages mirror (repo `SturmFernmelder/olympus-verify-policies`) publishes the same files. There is
 no member "Delete my data": staff delete on request from the admin page, and since .82 the private request form

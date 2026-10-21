@@ -1,5 +1,5 @@
 -- Privacy request: delete everything that links one Discord account to a character.
--- The Privacy Policy (policies/privacy.html and /privacy on the Worker) promises this on request since 25 Sep 2026.
+-- The Privacy Policy (policies/privacy.html and /legal/privacy on the Worker) promises this on request since 25 Sep 2026.
 --
 -- 1. Replace every 000000000000000000 below with the member's Discord ID
 --    (Discord: Settings > Advanced > Developer Mode on, then right-click the member > Copy User ID).

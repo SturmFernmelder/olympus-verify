@@ -12,7 +12,7 @@ import {RecoveryFloorHeld} from './privacy-recovery-floor';
  *   GET  /auth/callback     Discord sends people back here; only members of SITE_GUILD_ID get a session
  *   POST /auth/logout
  *   /api/*                  site-api.ts (members) and site-admin.ts (SITE_ADMINS only)
- *   /privacy, /terms        the public canonical policies, independent of sign-in (policies.ts; answered in index.ts before this)
+ *   /legal/privacy, /legal/terms  the public canonical policies, independent of sign-in (policies.ts; answered in index.ts before this)
  * The stylesheet, script, images and fonts are static assets (worker/public/static); since .51 index.ts hands them to
  * the assets binding on this host only (run_worker_first), so the host check covers them.
  *
