@@ -42,6 +42,7 @@ class Node {
 }
 class Text extends Node {
   constructor(t) { super(); this.data = String(t); }
+  get nodeType() { return 3; }
   get textContent() { return this.data; }
   set textContent(v) { this.data = String(v); }
 }
@@ -63,6 +64,7 @@ class Element extends Node {
     const el = this;
     this.dataset = new Proxy({}, { set(t, k, v) { t[k] = String(v); el.attributes["data-" + String(k).replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())] = String(v); return true; }, get(t, k) { if (k in t) return t[k]; const a = el.attributes["data-" + String(k).replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())]; return a === undefined ? undefined : String(a); } }); // data-* attributes, as a browser does (set through the proxy or as an attribute)
   }
+  get nodeType() { return this.tagName === "#DOCUMENT" ? 9 : 1; }
   get id() { return this.attributes.id || ""; }
   set id(v) { this.attributes.id = String(v); }
   get className() { return this.attributes.class || ""; }
