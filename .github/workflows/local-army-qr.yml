@@ -7,10 +7,15 @@ on:
       - 'tools/army-qr-local/**'
       - 'tools/attended-census-local/**'
       - 'tools/guild-qr-pilot/**'
+      - 'tools/army-qr-live/**'
+      - 'worker/public/static/army-live/**'
+      - 'scripts/build-army-live.cjs'
+      - 'scripts/tests/army-live.test.cjs'
       - 'tools/shared-census-lab/**'
       - 'tools/shared-census-website/**'
       - 'addon/OlympusStatsPilot/**'
       - 'addon/tests/test_stats_pilot.lua'
+      - 'addon/tests/test_army_stats.lua'
       - 'worker/src/**'
       - 'worker/tests/**'
       - 'worker/schema/**'
@@ -49,6 +54,13 @@ jobs:
       - name: Offline addon guards
         run: |
           python3 -E -P -B -c "from pathlib import Path; import os; from lupa.luajit21 import LuaRuntime; os.chdir('addon/tests'); LuaRuntime(unpack_returned_tuples=True).execute(Path('test_stats_pilot.lua').read_text(encoding='utf-8'))"
+      - name: Offline Army aggregate addon and pixel transport guards
+        run: |
+          python3 -E -P -B -c "from pathlib import Path; import os; from lupa.luajit21 import LuaRuntime; os.chdir('addon/tests'); LuaRuntime(unpack_returned_tuples=True).execute(Path('test_army_stats.lua').read_text(encoding='utf-8'))"
+          node tools/army-qr-live/tests/protocol.test.cjs
+          node tools/army-qr-live/tests/lua-roundtrip.test.cjs
+          node scripts/build-army-live.cjs --check
+          node scripts/build-army-addon.cjs --check
       - name: Focused local-only transport and website checks
         run: |
           export NODE_PATH="$GITHUB_WORKSPACE/worker/node_modules"

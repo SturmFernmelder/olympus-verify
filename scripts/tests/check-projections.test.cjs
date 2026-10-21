@@ -12,7 +12,7 @@ function fixture(changes = new Map(), repin = false) {
   if (repin) {
     // Keep upstream byte pins internally consistent to reach the independent downstream projection assertions.
     const refPath = 'scripts/official_asset_reference.json', ref = JSON.parse(get(refPath));
-    for (const row of [...ref.assets, ...ref.fixed_art_source_pins, ref.approved_extractor]) if (bytes.has(row.path)) {
+    for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) if (bytes.has(row.path)) {
       row.bytes = get(row.path).length; row.sha256 = hash(get(row.path));
     }
     bytes.set(refPath, Buffer.from(JSON.stringify(ref)));
@@ -43,10 +43,13 @@ rejects('current login variants cannot be relabeled official', () => verify(fixt
 rejects('current login variants require both exact paths', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[0].path = 'worker/public/static/wow/login/alias.png'; return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variant reference digest cannot be repinned', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[1].sha256 = '0'.repeat(64); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variants do not allow a third variant', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets.push({ ...r.login_art_variants.assets[0] }); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
-rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset543-public-path binding/);
+rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset550-public-path binding/);
 rejects('512 asset cap is not broadened for another custom image', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets.push({ ...r.login_art_variants.assets[0], path: 'worker/public/static/wow/login/extra.png' }); return JSON.stringify(r); }), true)), /closed owner login art asset binding/);
 rejects('talent art map byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art.json', s => s + '\n'))), /byte pin drift/);
 rejects('talent art provenance byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art-provenance.json', s => s + '\n'))), /byte pin drift/);
+rejects('v2 protocol source cannot drift independently from its shipping copy', () => verify(fixture(changed('tools/army-qr-live/protocol.js', s => s + '\n'))), /exact live Army protocol projection/);
+rejects('addon ZIP bytes cannot be repinned independently from reviewed Lua sources', () => verify(fixture(changed('worker/public/static/army-live/olympus-army-addon-0.2.0.zip', s => s + 'x'), true)), /exact seven-source Army addon ZIP projection/);
+rejects('addon source cannot drift independently from the deterministic source ZIP', () => verify(fixture(changed('addon/OlympusStatsPilot/Army.lua', s => s + '\n'))), /exact seven-source Army addon ZIP projection/);
 rejects('reference hash drift is refused', () => verify(fixture(changed('scripts/official_asset_reference.json', s => s + '\n'))), /reference digest drift/);
 rejects('V4 helper byte drift is refused', () => verify(fixture(changed('scripts/public_history.py', s => s + '\n'))), /V4 helper digest drift/);
 rejects('network guard byte drift is refused', () => verify(fixture(changed('scripts/pages_network_guard.cjs', s => s + '\n'))), /network guard digest drift/);

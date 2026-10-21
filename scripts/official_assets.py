@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='b0e4cd59f909a8af48741d6585411506d0477c7ff7f5bb10b1edcc8af886a14b'
+REFERENCE_SHA256='cc5df713ee7fa25c21577faec4cbdb4848593ca98f5d841b65002fa3e04bf585'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -53,9 +53,9 @@ def runtime_path(path: str) -> bool:
 
 def resource_rows(value, failure: str) -> dict[str,dict]:
     # Reviewed documents, data and protocol code are required bytes, never an image/font exception.
-    result=pin_rows(value,None,failure,maximum=32)
+    result=pin_rows(value,None,failure,maximum=38)
     if not result or any(not p.startswith('worker/public/static/') or (private_path(p) and not p.endswith('.zip'))
-        or not p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) for p in result):
+        or not (p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) or p=='worker/public/static/army-live/army.css') for p in result):
         raise ValueError(failure)
     return result
 
@@ -142,7 +142,7 @@ def reference() -> dict:
       or 'worker/src/site-access.ts' not in ref['runtime_paths']:
         raise ValueError('official_asset_reference_shape_invalid')
     if not isinstance(ref['runtime_prefixes'],list) or any(not isinstance(p,str)
-        or not re.fullmatch(r'/static/(?:wow|rank-planner)?/?',p) for p in ref['runtime_prefixes']) \
+        or not re.fullmatch(r'/static/(?:wow|rank-planner|army-live)?/?',p) for p in ref['runtime_prefixes']) \
         or len(set(ref['runtime_prefixes']))!=len(ref['runtime_prefixes']):
         raise ValueError('official_asset_reference_shape_invalid')
     if not isinstance(ref['banned_website_art_sha256'],list) or any(not isinstance(h,str) or not HASH.fullmatch(h)

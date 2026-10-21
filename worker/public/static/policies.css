@@ -83,6 +83,8 @@
 .olympus-policy .portal-login p{margin:.6rem 0;color:#e7e9d8}
 .olympus-policy .portal-login .eyebrow{margin:0 0 .6rem;color:#bcdc9f;font-size:.8rem;letter-spacing:.16em}
 .olympus-policy .portal-login .policy-button{width:min(100%,22rem);margin-top:.6rem;color:#ffe8ac;box-shadow:0 .35rem 1rem #0008}
+.olympus-policy .portal-login .login-card a[href="/army"]{color:#f4dd9c}
+.olympus-policy .portal-login .login-card a[href="/army"]:hover,.olympus-policy .portal-login .login-card a[href="/army"]:focus-visible{color:#fff1c4}
 .olympus-policy main:has(.portal-login) :focus-visible{outline:3px solid #e1ffbd;outline-offset:5px}
 .olympus-policy:has(.portal-login) .skip-link{z-index:5;color:#fff1c4;background:#121a12}
 /* Centered cover keeps the supplied shield bounds above 58% through 32:9; the wide card starts below 60%. */

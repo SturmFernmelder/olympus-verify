@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 529176,
-      "sha256": "2e1e5f6a39367175f7e30eb8635263c0f85063d4f946ff49a766095c210bd6fa"
+      "bytes": 529079,
+      "sha256": "72387075f430fa966d18c08df99a2b638d97fa8b7705495bfad04617654246c7"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,8 +26,8 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 11213,
-      "sha256": "805b1ae154df71cb5c980432bf0ace242531e258cfea66227a19070ee7a9537e"
+      "bytes": 11437,
+      "sha256": "cea59f157cebf9b031fe73b6766fb25ab5e954f15c610eef576d6b44ed59d930"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3592,6 +3592,17 @@
   "runtime_paths": [
     "worker/public/static/app.css",
     "worker/public/static/app.js",
+    "worker/public/static/army-live/army.css",
+    "worker/public/static/army-live/army.js",
+    "worker/public/static/army-live/decoder.js",
+    "worker/public/static/army-live/pilot.js",
+    "worker/public/static/army-live/protocol.js",
+    "worker/public/static/army-live/report.js",
+    "worker/public/static/army-qr-review/decoder.js",
+    "worker/public/static/army-qr-review/pilot.js",
+    "worker/public/static/army-qr-review/protocol.js",
+    "worker/public/static/organization-view.css",
+    "worker/public/static/organization-view.js",
     "worker/public/static/policies.css",
     "worker/public/static/qr-beta-window-data.html",
     "worker/public/static/qr-beta-window.mjs",
@@ -3603,8 +3614,17 @@
     "worker/public/static/rank-planner/catalogue.js",
     "worker/public/static/rank-planner/model.js",
     "worker/public/static/rank-planner/styles.css",
+    "worker/public/static/resources169.css",
+    "worker/public/static/resources169.js",
+    "worker/public/static/talents/calculator.css",
+    "worker/public/static/talents/calculator.js",
+    "worker/public/static/wow-cursor.css",
     "worker/src/account-generation-contracts.ts",
     "worker/src/account-privacy-generations.ts",
+    "worker/src/army-body.ts",
+    "worker/src/army-census.ts",
+    "worker/src/army-pages.ts",
+    "worker/src/army-qr-review.ts",
     "worker/src/backfill.ts",
     "worker/src/bnet-retention.ts",
     "worker/src/bnet-switch.ts",
@@ -3659,8 +3679,11 @@
     "worker/src/roster.ts",
     "worker/src/scheduled-budget.ts",
     "worker/src/schema.ts",
+    "worker/src/site-access.ts",
     "worker/src/site-admin.ts",
     "worker/src/site-api.ts",
+    "worker/src/site-appointed-identities.ts",
+    "worker/src/site-army.ts",
     "worker/src/site-core.ts",
     "worker/src/site-data.ts",
     "worker/src/site-export.ts",
@@ -3668,28 +3691,16 @@
     "worker/src/site-news.ts",
     "worker/src/site-queue.ts",
     "worker/src/site-ranks.ts",
-    "worker/src/site.ts",
-    "worker/src/unverified.ts",
-    "worker/public/static/organization-view.css",
-    "worker/public/static/organization-view.js",
-    "worker/public/static/wow-cursor.css",
-    "worker/src/site-appointed-identities.ts",
-    "worker/public/static/talents/calculator.js",
-    "worker/public/static/talents/calculator.css",
-    "worker/public/static/resources169.js",
-    "worker/public/static/resources169.css",
     "worker/src/site-resources.ts",
-    "worker/src/site-access.ts",
-    "worker/public/static/army-qr-review/protocol.js",
-    "worker/public/static/army-qr-review/decoder.js",
-    "worker/public/static/army-qr-review/pilot.js",
-    "worker/src/army-qr-review.ts"
+    "worker/src/site.ts",
+    "worker/src/unverified.ts"
   ],
   "runtime_prefixes": [
     "/static/",
     "/static/wow/",
     "/static/wow",
-    "/static/rank-planner/"
+    "/static/rank-planner/",
+    "/static/army-live/"
   ],
   "required_documents": [
     "LICENSE",
@@ -3801,8 +3812,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 529176,
-      "sha256": "2e1e5f6a39367175f7e30eb8635263c0f85063d4f946ff49a766095c210bd6fa"
+      "bytes": 529079,
+      "sha256": "72387075f430fa966d18c08df99a2b638d97fa8b7705495bfad04617654246c7"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4049,6 +4060,48 @@
       "mode": "100644",
       "bytes": 2852,
       "sha256": "5b7550b9683fe0fec202334db053a3a4b3127710098588a1bf0a2e414ee18347"
+    },
+    {
+      "path": "worker/public/static/army-live/army.css",
+      "mode": "100644",
+      "bytes": 8952,
+      "sha256": "9e509ba29d26a611473256ee12cc06b0f5bf445a2581f54e94c9639c66522e2b"
+    },
+    {
+      "path": "worker/public/static/army-live/army.js",
+      "mode": "100644",
+      "bytes": 8927,
+      "sha256": "5e12c2d5b3e00fed0d97fec5c3cb665a9db08a0dfcea37c62258615da6bec8a2"
+    },
+    {
+      "path": "worker/public/static/army-live/protocol.js",
+      "mode": "100644",
+      "bytes": 19221,
+      "sha256": "0c2b81961f0b92b1a88703320e4ab3a5dcb7da2c109d720a65d4a18c2139392f"
+    },
+    {
+      "path": "worker/public/static/army-live/report.js",
+      "mode": "100644",
+      "bytes": 13354,
+      "sha256": "0b4beede3c89d53fe325ccbc1a6da602141e4c8596ec9608d150f8f7a0b6164d"
+    },
+    {
+      "path": "worker/public/static/army-live/pilot.js",
+      "mode": "100644",
+      "bytes": 20517,
+      "sha256": "dc33ad6af179ee02718cb43a813c0845241d7adeed5ebabc51f2aa16817269fa"
+    },
+    {
+      "path": "worker/public/static/army-live/decoder.js",
+      "mode": "100644",
+      "bytes": 1514,
+      "sha256": "83e7a0ce725f43594b189d9ecd6309a199118d6c60d9563a263ff449b1520bdd"
+    },
+    {
+      "path": "worker/public/static/army-live/olympus-army-addon-0.2.0.zip",
+      "mode": "100644",
+      "bytes": 62615,
+      "sha256": "8aeb5d78b55457116c43961bc13e598f3dd66561303c909e2d9c96aacb36303c"
     }
   ],
   "login_art_exception": {

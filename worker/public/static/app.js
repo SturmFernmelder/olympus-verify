@@ -3949,7 +3949,7 @@
   };
   async function communityOverview(body) {
     const cards = [];
-    if (can("applicantWrite") && communityReader()) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Guild census collection is not enabled. No shared figures are available yet." })));
+    if (can("applicantWrite") && communityReader()) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Read public guild snapshots shared by authorized reporters. These unverified figures count characters, not people." })));
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
       cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. For guild members and site administrators." })));
@@ -3963,14 +3963,13 @@
     add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
   // .179: review-stage only. Source-fixed gates have no settings or browser override.
-  const ARMY_QR_REVIEW = Object.freeze({ activationEnabled: false, uploadsEnabled: false, storageEnabled: false });
   function communityArmyReview(body) {
-    add(body, h("section", { class: "stack", "data-army-qr-review": "disabled" },
-      frame("Army", sourceStrip("Collection not enabled", "No shared figures available"),
-        h("p", { text: "The guild census is being prepared. QR collection and uploads are not enabled." }),
-        h("p", { class: "muted small", text: "This page does not capture, upload or save guild observations. There are no live Army totals to display." }),
-        h("button", { type: "button", class: "btn", disabled: !ARMY_QR_REVIEW.activationEnabled || !ARMY_QR_REVIEW.uploadsEnabled || !ARMY_QR_REVIEW.storageEnabled, text: "QR collection not enabled" }),
-        h("p", { class: "muted small", text: "Volunteer observations count characters rather than unique people. They do not establish game origin, guild membership or complete coverage." }))));
+    add(body, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
+      frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
+        h("p", { text: "The public Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published." }),
+        h("a", { class: "btn", href: "/army", text: "Open the public Army page" }),
+        S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "/army/report", text: "Report a guild snapshot" }) : null,
+        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses a separate attended page and current server admission." }))));
   }
 
   function communityCensus(body) {
