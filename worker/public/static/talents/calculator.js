@@ -140,7 +140,7 @@
       for (const child of children.flat()) if (child !== null && child !== undefined) node.append(typeof child === "string" ? document.createTextNode(child) : child);
       return node;
     };
-    const artworkKey = (url, attrs) => [url, attrs.class || "", attrs["aria-hidden"] || ""].join("\n");
+    const artworkKey = (url, attrs) => [url, attrs.class || "", attrs["aria-hidden"] || ""].join("\n"), PENDING_ARTWORK = "talents-art-pending";
     function updateArtworkNotice() {
       for (const node of failedArtwork) if (!container.contains(node)) failedArtwork.delete(node);
       if (active && artworkNotice) artworkNotice.hidden = failedArtwork.size === 0;
@@ -166,20 +166,34 @@
       const released = loadingArtwork.delete(entry);
       entry.state = loaded ? "loaded" : "failed";
       if (container.contains(entry.node)) {
-        entry.node.hidden = !loaded;
+        // .188: a settled image leaves its reserved, invisible pending box; only a failure leaves the layout (as before .187).
+        entry.node.className = entry.className; entry.node.hidden = !loaded;
         if (loaded) failedArtwork.delete(entry.node); else failedArtwork.add(entry.node);
       }
       updateArtworkNotice();
       if (released) pumpArtwork();
     }
-    function image(url, attrs = {}) {
+    function queueArtwork(entry) {
+      // .188: layout artwork (class strip, tree header icons and backdrops, portrait, tooltip icon) waits only behind earlier
+      // layout artwork; deferred talent icons wait behind all of it. Each group keeps its own first-in, first-out order.
+      const ahead = entry.deferred ? -1 : artworkQueue.findIndex(item => item.deferred);
+      if (ahead < 0) artworkQueue.push(entry); else artworkQueue.splice(ahead, 0, entry);
+    }
+    function image(url, attrs = {}, deferred = false) {
       // .177: reuse only images already mounted in this active calculator. Point edits
       // must not re-request every private icon. No cross-mount cache or admission bypass.
       const prior = reusableArtwork?.get(artworkKey(url, attrs))?.shift();
-      if (prior) return prior;
-      const node = h("img", { ...attrs, alt: "", draggable: "false", decoding: "async", hidden: true });
-      const entry = { node, url, state: "queued" };
-      artworkRecords.set(node, entry); artworkQueue.push(entry);
+      if (prior) {
+        // .188: a still-queued node reused in another role (one class's tree icon is another class's talent icon) moves to that role's place.
+        const record = artworkRecords.get(prior), at = record ? artworkQueue.indexOf(record) : -1;
+        if (record && record.deferred !== deferred) { record.deferred = deferred; if (at >= 0 && record.state === "queued") { artworkQueue.splice(at, 1); queueArtwork(record); } }
+        return prior;
+      }
+      // .188: a queued image keeps its CSS-sized box and is only invisible (calculator.css), so late artwork never moves the
+      // layout. Deferred talent icons wait behind the class strip, tree headers and backdrops, the portrait and the tooltip icon.
+      const className = attrs.class || "", node = h("img", { ...attrs, class: (className ? className + " " : "") + PENDING_ARTWORK, alt: "", draggable: "false", decoding: "async" });
+      const entry = { node, url, className, deferred, state: "queued" };
+      artworkRecords.set(node, entry); queueArtwork(entry);
       node.addEventListener("error", () => settledArtwork(entry, false));
       node.addEventListener("load", () => settledArtwork(entry, true));
       return node;
@@ -235,7 +249,8 @@
       analysisView?.destroy(); analysisView = null;
       reusableArtwork = new Map();
       for (const node of container.querySelectorAll("img")) {
-        const key = artworkKey(artworkRecords.get(node)?.url || node.getAttribute("src"), { class: node.className, "aria-hidden": node.getAttribute("aria-hidden") });
+        const record = artworkRecords.get(node); // .188: keyed by the requested class, never the transient pending class.
+        const key = artworkKey(record?.url || node.getAttribute("src"), { class: record ? record.className : node.className, "aria-hidden": node.getAttribute("aria-hidden") });
         if (!reusableArtwork.has(key)) reusableArtwork.set(key, []);
         reusableArtwork.get(key).push(node);
       }
@@ -300,6 +315,7 @@
         detailRefs.currentText.textContent = t.descriptions[Math.max(0, rank - 1)];
         detailRefs.nextText.textContent = t.descriptions[rank] || "";
         detailRefs.ranks.replaceChildren(detailRefs.currentHeading, detailRefs.currentText, ...(rank > 0 && rank < t.maxRank ? [detailRefs.next] : []));
+        const focusedControl = [detailRefs.remove, detailRefs.learn].find(control => control === document.activeElement);
         detailRefs.remove.disabled = !allocate(data, build, t.id, -1).ok; detailRefs.learn.disabled = !allocate(data, build, t.id, 1).ok; detailRefs.classic.hidden = !compare;
         if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
         if (button && button.parentNode) {
@@ -310,6 +326,10 @@
         if (button) button.setAttribute("aria-describedby", detailId);
         detail.hidden = !open;
         pumpArtwork();
+        // .186: a focused Learn/Unlearn control that this update disabled must not strand keyboard focus. Focus moves to the open
+        // detail panel (tabindex -1), where Enter does nothing, so a held or repeated Enter cannot re-learn through the talent button;
+        // on a narrow screen that panel is the visible bottom sheet. A closed panel hands focus to the talent instead.
+        if (focusedControl && focusedControl.disabled) (open ? detail : button)?.focus({ preventScroll: true });
       }
       const treeCards = cls.trees.map((tree, treeIndex) => {
         const treeKey = cls.id + "-" + tree.id;
@@ -345,7 +365,7 @@
                     .sort((a, b) => Math.abs(a.row - t.row) + Math.abs(a.column - t.column) - Math.abs(b.row - t.row) - Math.abs(b.column - t.column))[0];
                   if (near) buttons.get(near.id).focus();
                 }
-              }, image(art.talentIcons[t.id]), h("span", { class: "talents-name", text: t.name }), pill);
+              }, image(art.talentIcons[t.id], {}, true), h("span", { class: "talents-name", text: t.name }), pill);
               buttons.set(t.id, pick);
               const badges = h("span", { class: "talents-node-badges", "aria-hidden": "true", hidden: !compare, text: comparisonBadges(t).map(label => label[0]).join("") });
               const node = h("div", { class: "talents-node" + (rank ? " invested" : "") + (rank === t.maxRank ? " complete" : "") + (canAdd ? " available" : "") + (!canAdd && !rank ? " locked" : "") + (compare ? " compare-" + t.classic.status : ""), "data-row": t.row, "data-column": t.column,
@@ -396,6 +416,9 @@
         build = candidate.build; selected = talents.find((talent, index) => build.ranks[index] > 0)?.id || talents[0].id;
         message = "Loaded " + record.label + ". This changes only the local calculator plan."; changed(); render("guide");
       } });
+      // .186: an optional module that failed to load is named instead of silently missing; the next visit to the calculator retries it.
+      const lost = Array.isArray(options.unavailable) ? options.unavailable : [], lostGuides = lost.includes("guideBuilds") && !guides, lostAnalysis = lost.includes("analysis") && !analysisHost;
+      const moduleNote = lostGuides || lostAnalysis ? h("p", { class: "talents-module-note muted", text: (lostGuides ? "Guide builds" + (lostAnalysis ? " and build comparison" : "") : "Build comparison") + " could not be loaded. Reopen the calculator to try again." }) : null;
       const guidePanel = guideSource ? h("section", { class: "talents-guides", "aria-label": "Guide-recommended builds" },
         h("div", { class: "talents-guide-heading" }, h("h3", { text: "Guide builds" }), h("a", { href: guideSource.url, rel: "noopener noreferrer", text: "Read Method's " + cls.name + " guide" })),
         guideRecords.length ? h("div", { class: "talents-guide-controls" }, h("label", null, "Checked allocation", guideSelect), guideLoad) : null,
@@ -409,7 +432,7 @@
             const meter = h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), label = h("b", { text: String(state.treePoints[index]) });
             specPointRefs.push({ meter, label }); return h("div", null, h("span", { text: tree.name }), meter, label);
           }))),
-        guidePanel, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), legend,
+        guidePanel, moduleNote, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), legend,
         artworkNotice, h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
         analysisHost,
         h("section", { class: "talents-sharing", "aria-label": "Share this build" }, h("label", null, "Share", share)),

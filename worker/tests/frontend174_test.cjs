@@ -173,7 +173,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   searchGovernance("Treasurer"); searchGovernance("Federal Treasurer. Coordinates"); searchGovernance("TREASURER");
   check("editing and repeating search rebuilds exact matches without nested marks or altered source", governanceGroups().length === treasurerGroups.length && !member.app.querySelector("mark mark") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   byText(member.app, "button", "Clear search").click();
-  check("Clear search removes all marks and current-hit state while restoring all14 chapters exactly", governanceSearch.value === "" && governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && matchNavigation.hidden && member.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  check("Clear search removes all marks and current-hit state while restoring all 14 chapters exactly", governanceSearch.value === "" && governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && matchNavigation.hidden && member.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
 
   // P2: a common one-character query must not turn the whole book into tens of
   // thousands of DOM marks. Count independently from unmarked rendered source;
@@ -195,6 +195,162 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("editing a short query preserves its complete case-insensitive count and does not nest highlights", matchStatus().includes("Match 1 of " + expectedSingleLetterHits) && currentGovernanceGroup().join(",") === "0" && singleLetterBudget() && !member.app.querySelector("mark mark") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   byText(member.app, "button", "Clear search").click();
   check("clearing a windowed search restores exact source text and emphasis with no leftover highlight nodes", governanceMarks().length === 0 && currentGovernanceGroup().length === 0 && matchNavigation.hidden && previousMatch.disabled && nextMatch.disabled && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText && JSON.stringify(member.app.querySelectorAll(".governance-prose strong, .governance-prose code").map(node => ({ tag: node.tagName, text: node.textContent }))) === originalEmphasis);
+
+  // .192: the .191 review follow-ups (N1 first Next, F2 Enter/Shift+Enter, F5
+  // restore, F3 whitespace, N2 footer) and the test gaps that review found:
+  // escaping a regular expression would not survive, exact counts including
+  // list items and table cells, and a restore after another script rewrote an
+  // inserted node. Counts are pinned to the reviewed book digest checked above.
+  const scrolled192 = [], scrollIntoView192 = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function(options) { scrolled192.push({ node: this, options }); };
+  const groupOf192 = mark => mark ? mark.getAttribute("data-governance-match") : null;
+  const blockTag192 = mark => mark.closest("p, h2, h3, h4, li, th, td").tagName;
+  const independentCount192 = (source, flags) => sourceBlocks.reduce((total, block) => total + [...block.textContent.matchAll(new RegExp(source, flags))].length, 0);
+  const sortedCounts192 = counts => JSON.stringify(Object.keys(counts).sort().map(tag => [tag, counts[tag]]));
+  const markedTagCounts192 = () => { const counts = {}; for (const group of governanceGroups()) { const tag = blockTag192(governanceMarks().find(mark => groupOf192(mark) === group)); counts[tag] = (counts[tag] || 0) + 1; } return sortedCounts192(counts); };
+  const sourceTagCounts192 = word => { const counts = {}; for (const block of sourceBlocks) { const hits = [...block.textContent.matchAll(new RegExp(word, "giu"))].length; if (hits) counts[block.tagName] = (counts[block.tagName] || 0) + hits; } return sortedCounts192(counts); };
+  searchGovernance("Treasurer");
+  check(".192 a known office has its exact occurrence count, equal to an independent count of the unmarked source", governanceGroups().length === 28 && independentCount192("Treasurer", "giu") === 28 && matchStatus().includes("Match 1 of 28") && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer"));
+  searchGovernance("access");
+  check(".192 the exact count includes list items, table cells, headings and several hits in one block", governanceGroups().length === 72 && independentCount192("access", "giu") === 72 && markedTagCounts192() === sourceTagCounts192("access") && markedTagCounts192() === JSON.stringify([["H3", 2], ["LI", 2], ["P", 67], ["TD", 1]]) && member.app.querySelectorAll(".governance-prose p, .governance-prose li, .governance-prose td, .governance-prose h3").some(block => new Set(block.querySelectorAll("mark.governance-search-match").map(groupOf192)).size > 1) && matchStatus().includes("Match 1 of 72"));
+  searchGovernance("No.");
+  const literalHit192 = governanceMarks();
+  check(".192 a query that a regular expression would read differently is matched literally", independentCount192("No.", "giu") > 100 && governanceGroups().length === 1 && literalHit192.length === 1 && literalHit192[0].textContent === "No." && blockTag192(literalHit192[0]) === "TH" && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  for (const spacedQuery of ["Article S10 Treasury", "  article\tS10   TREASURY "]) {
+    searchGovernance(spacedQuery);
+    const spaced192 = governanceMarks();
+    check(".192 whitespace in the query matches the book's collapsed spacing: " + JSON.stringify(spacedQuery), governanceGroups().length === 1 && spaced192.map(mark => mark.textContent).join("") === "Article S10   Treasury" && blockTag192(spaced192[0]) === "H3" && spaced192[0].closest("h3").textContent.startsWith("Article S10   Treasury") && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  }
+
+  const scrollsBeforeTyping192 = scrolled192.length;
+  searchGovernance("Treasurer");
+  const scrollsAfterTyping192 = scrolled192.length, typedStatus192 = matchStatus();
+  nextMatch.click();
+  check(".192 typing selects match 1 without scrolling, and the first Next reveals match 1 instead of skipping to match 2", scrollsAfterTyping192 === scrollsBeforeTyping192 && scrolled192.length === scrollsAfterTyping192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().includes("match 1 of 28") && scrolled192.at(-1).node.closest("details.governance-chapter").open && member.location.hash === "#/governance");
+  check(".192 the reveal announces itself with wording distinct from the typing announcement, for the same match and chapter", typedStatus192.startsWith("Match 1 of 28 · ") && matchStatus() === "Showing match" + typedStatus192.slice("Match".length));
+  nextMatch.click();
+  check(".192 the next Next advances to match 2", currentGovernanceGroup().join(",") === "1" && groupOf192(scrolled192.at(-1).node) === "1" && matchStatus().includes("Match 2 of 28"));
+  searchGovernance("Treasurer"); previousMatch.click();
+  check(".192 the first Previous after typing still goes to the last match", currentGovernanceGroup().join(",") === "27" && groupOf192(scrolled192.at(-1).node) === "27" && matchStatus().includes("Match 28 of 28"));
+  nextMatch.click();
+  check(".192 after Previous, Next wraps straight to match 1", currentGovernanceGroup().join(",") === "0" && groupOf192(scrolled192.at(-1).node) === "0" && matchStatus().includes("Match 1 of 28"));
+
+  const key192 = (key, shift, extra) => { const event = new Event("keydown", { bubbles: true }); event.key = key; event.shiftKey = !!shift; Object.assign(event, extra || {}); governanceSearch.dispatchEvent(event); return event; };
+  governanceSearch.focus(); searchGovernance("Treasurer");
+  const firstEnter192 = key192("Enter");
+  check(".192 Enter in the search field reveals match 1 first, prevents the default action and keeps focus and query", firstEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 28 · ") && groupOf192(scrolled192.at(-1).node) === "0" && member.document.activeElement === governanceSearch && governanceSearch.value === "Treasurer");
+  const secondEnter192 = key192("Enter");
+  check(".192 a second Enter moves to match 2 with focus kept", secondEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "1" && matchStatus().includes("Match 2 of 28") && member.document.activeElement === governanceSearch);
+  const shiftEnter192 = key192("Enter", true);
+  check(".192 Shift+Enter moves back to match 1 with focus kept", shiftEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "0" && member.document.activeElement === governanceSearch);
+  key192("Enter", true);
+  check(".192 Shift+Enter wraps from match 1 to the last match", currentGovernanceGroup().join(",") === "27" && matchStatus().includes("Match 28 of 28") && member.document.activeElement === governanceSearch);
+  searchGovernance("Treasurer");
+  const firstShiftEnter192 = key192("Enter", true);
+  check(".192 the first Shift+Enter after typing goes to the last match, as Previous does", firstShiftEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "27" && member.document.activeElement === governanceSearch);
+  const otherKey192 = key192("a");
+  check(".192 other keys in the search field are left alone", !otherKey192.defaultPrevented && currentGovernanceGroup().join(",") === "27");
+  searchGovernance("Treasurer");
+  const scrollsBeforeIme192 = scrolled192.length;
+  const composingEnter192 = key192("Enter", false, { isComposing: true });
+  check(".192 an IME composition Enter (isComposing) neither moves nor prevents the default action", !composingEnter192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 28 · ") && member.document.activeElement === governanceSearch);
+  const safariCommit192 = key192("Enter", false, { keyCode: 229, isComposing: false });
+  check(".192 Safari's composition-commit Enter (keyCode 229) neither moves nor prevents the default action", !safariCommit192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 28 · ") && member.document.activeElement === governanceSearch);
+  const afterIme192 = key192("Enter");
+  check(".192 after IME Enters the first real Enter still reveals match 1", afterIme192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 28 · "));
+  searchGovernance("zzqx no such governance text");
+  const emptyEnter192 = key192("Enter");
+  check(".192 Enter without matches moves nothing and keeps focus in the field", emptyEnter192.defaultPrevented && governanceMarks().length === 0 && nextMatch.disabled && /No matches/.test(matchStatus()) && member.document.activeElement === governanceSearch);
+
+  // F5: a translator-style script replaces one inserted text node with a <font>
+  // wrapper holding the same text. Browsers throw NotFoundError for a missing
+  // reference or child, which the minimal DOM does not; model that here only.
+  const insertBefore192 = Node.prototype.insertBefore, removeChild192 = Node.prototype.removeChild;
+  Node.prototype.insertBefore = function(child, ref) { if (ref && !this.childNodes.includes(ref)) throw new Error("NotFoundError: the reference node is not a child"); return insertBefore192.call(this, child, ref); };
+  Node.prototype.removeChild = function(child) { if (!this.childNodes.includes(child)) throw new Error("NotFoundError: the node is not a child"); return removeChild192.call(this, child); };
+  try {
+    const textNodes192 = node => node.nodeType === 3 ? [node] : node.childNodes.flatMap(textNodes192);
+    const originalTexts192 = new Set(sourceBlocks.flatMap(textNodes192));
+    const originalBlockTexts192 = new Map(sourceBlocks.map(block => [block, textNodes192(block)]));
+    searchGovernance("Treasurer");
+    const insertedNeighbour192 = mark => { const siblings = mark.parentNode.childNodes, at = siblings.indexOf(mark); return [siblings[at - 1], siblings[at + 1]].find(node => node && node.nodeType === 3 && !originalTexts192.has(node)) || null; };
+    const rewritten192 = insertedNeighbour192(governanceMarks().find(mark => insertedNeighbour192(mark) && !mark.closest("p, h2, h3, h4, li, th, td").textContent.includes("Federal Treasurer. Coordinates")));
+    const rewrittenBlock192 = sourceBlocks.find(block => block.contains(rewritten192)), rewrittenParent192 = rewritten192.parentNode;
+    const intactBlock192 = sourceBlocks.find(block => block !== rewrittenBlock192 && !block.textContent.includes("Federal Treasurer. Coordinates") && !!block.querySelector("mark.governance-search-match"));
+    const font192 = new Element("font"); font192.appendChild(new Text(rewritten192.textContent));
+    insertBefore192.call(rewrittenParent192, font192, rewritten192); removeChild192.call(rewrittenParent192, rewritten192);
+    let restoreError192 = null;
+    try { searchGovernance("Federal Treasurer. Coordinates"); } catch (error) { restoreError192 = error; }
+    check(".192 a search after another script replaced an inserted text node does not throw and leaves no stale highlight", restoreError192 === null && governanceGroups().join(",") === "0" && governanceMarks().map(mark => mark.textContent).join("") === "Federal Treasurer. Coordinates" && !font192.querySelector("mark") && rewrittenBlock192.textContent === [...originalBlockTexts192.get(rewrittenBlock192)].map(node => node.textContent).join("") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText, String(restoreError192));
+    let laterError192 = null;
+    try { searchGovernance("Treasurer"); byText(member.app, "button", "Clear search").click(); } catch (error) { laterError192 = error; }
+    const intactNodes192 = textNodes192(intactBlock192), originalIntact192 = originalBlockTexts192.get(intactBlock192);
+    check(".192 later searches keep working and intact highlights still restore the exact original text nodes", laterError192 === null && governanceMarks().length === 0 && matchNavigation.hidden && !!intactBlock192 && intactNodes192.length === originalIntact192.length && intactNodes192.every((node, i) => node === originalIntact192[i]) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText, String(laterError192));
+    // A translator that wraps every text node: in another block, the text it
+    // rewrites is a later inserted node (not the first) and the mark's own text.
+    // Putting the original node back there would duplicate text, so the entry is
+    // left as rewritten; the mark is unwrapped and the wrapper inside it stays.
+    let trailingError192 = null, trailingOk192 = false;
+    try {
+      searchGovernance("Treasurer");
+      const trailing192 = governanceMarks().find(mark => { const block = mark.closest("p, h2, h3, h4, li, th, td"), after = mark.parentNode.childNodes[mark.parentNode.childNodes.indexOf(mark) + 1]; return !!block && block !== intactBlock192 && block !== rewrittenBlock192 && !block.textContent.includes("Federal Treasurer. Coordinates") && !!after && after.nodeType === 3 && !originalTexts192.has(after) && mark.childNodes.length === 1 && mark.firstChild.nodeType === 3; });
+      const trailingBlock192 = trailing192.closest("p, h2, h3, h4, li, th, td"), trailingParent192 = trailing192.parentNode, trailingBlockText192 = trailingBlock192.textContent;
+      const afterText192 = trailingParent192.childNodes[trailingParent192.childNodes.indexOf(trailing192) + 1];
+      const afterFont192 = new Element("font"); afterFont192.appendChild(new Text(afterText192.textContent));
+      insertBefore192.call(trailingParent192, afterFont192, afterText192); removeChild192.call(trailingParent192, afterText192);
+      const markFont192 = new Element("font"), markText192 = trailing192.firstChild;
+      removeChild192.call(trailing192, markText192); markFont192.appendChild(markText192); trailing192.appendChild(markFont192);
+      searchGovernance("Federal Treasurer. Coordinates");
+      trailingOk192 = !trailingBlock192.querySelector("mark") && trailingBlock192.textContent === trailingBlockText192 && markFont192.parentNode === trailingParent192 && markFont192.textContent.toLowerCase() === "treasurer" && afterFont192.parentNode === trailingParent192 && governanceMarks().map(mark => mark.textContent).join("") === "Federal Treasurer. Coordinates" && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText;
+      byText(member.app, "button", "Clear search").click();
+    } catch (error) { trailingError192 = error; }
+    check(".192 a rewritten later node is not restored over (no duplicated text), and the mark is unwrapped keeping the wrapper inside it", trailingError192 === null && trailingOk192, String(trailingError192));
+  } finally {
+    Node.prototype.insertBefore = insertBefore192; Node.prototype.removeChild = removeChild192;
+  }
+
+  // Another script replaces a highlighted inline element with a deep copy (as
+  // cloneNode(true) would; the minimal DOM has none, so copy it here). The copied
+  // mark was never in the replacement list. Clearing must still leave no
+  // highlight, and the next search must not nest a mark inside a stale one.
+  const deepCopy192 = node => { if (node.nodeType === 3) return new Text(node.textContent); const copy = new Element(node.tagName.toLowerCase()); Object.assign(copy.attributes, node.attributes); for (const child of node.childNodes) copy.appendChild(deepCopy192(child)); return copy; };
+  searchGovernance("Federal Treasurer. Coordinates");
+  const strong192 = member.app.querySelectorAll(".governance-prose strong").find(node => node.textContent === "Federal Treasurer." && !!node.querySelector("mark.governance-search-match"));
+  const strongCopy192 = deepCopy192(strong192), strongHost192 = strong192.parentNode;
+  strongHost192.insertBefore(strongCopy192, strong192); strongHost192.removeChild(strong192);
+  const copiedMark192 = !!strongCopy192.querySelector("mark.governance-search-match");
+  let copyError192 = null;
+  try { byText(member.app, "button", "Clear search").click(); } catch (error) { copyError192 = error; }
+  check(".192 Clear search after another script deep-copied a highlighted element leaves no stale highlight and exact text", copiedMark192 && copyError192 === null && governanceMarks().length === 0 && !strongCopy192.querySelector("mark") && strongCopy192.textContent === "Federal Treasurer." && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText, String(copyError192));
+  searchGovernance("Treasurer");
+  check(".192 the next search after a deep copy keeps the exact count and nests no highlight", governanceGroups().length === 28 && !member.app.querySelector("mark mark") && !!strongCopy192.querySelector("mark.governance-search-match") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  byText(member.app, "button", "Clear search").click();
+
+  // A block another script shortened after indexing yields no mark for its match.
+  // Navigating there opens the chapter without scrolling and without a TypeError.
+  searchGovernance("e");
+  const shortenedBlock192 = [...sourceBlocks].reverse().find(block => /e/i.test(block.textContent)), shortenedChapter192 = shortenedBlock192.closest("details.governance-chapter");
+  const unpainted192 = !shortenedBlock192.querySelector("mark"), savedChildren192 = [...shortenedBlock192.childNodes];
+  for (const child of savedChildren192) shortenedBlock192.removeChild(child);
+  shortenedBlock192.appendChild(new Text("x")); shortenedChapter192.open = false;
+  const scrollsBeforeShortened192 = scrolled192.length; let shortenedError192 = null;
+  try { previousMatch.click(); } catch (error) { shortenedError192 = error; }
+  check(".192 moving to a match whose block another script shortened opens its chapter without scrolling or a missing-mark error", unpainted192 && shortenedError192 === null && matchStatus().startsWith("Match " + expectedSingleLetterHits + " of " + expectedSingleLetterHits + " · ") && shortenedChapter192.open && scrolled192.length === scrollsBeforeShortened192 && currentGovernanceGroup().length === 0 && singleLetterBudget() && !shortenedBlock192.querySelector("mark"), String(shortenedError192));
+  byText(member.app, "button", "Clear search").click();
+  shortenedBlock192.removeChild(shortenedBlock192.firstChild);
+  for (const child of savedChildren192) shortenedBlock192.appendChild(child);
+  check(".192 after that search is cleared the shortened block's original nodes return and the book text is exact", governanceMarks().length === 0 && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+
+  const css192 = fs.readFileSync(path.join(root, "public/static/app.css"), "utf8"), printAt192 = css192.indexOf("@media print");
+  const screenCss192 = css192.slice(0, printAt192), printCss192 = css192.slice(printAt192);
+  searchGovernance("Treasurer");
+  const shell192 = member.app.querySelector("main.shell"), footer192 = member.app.querySelector("footer.footer"), chrome192 = footer192 && footer192.parentNode;
+  check(".192 while searching, the fixed navigator's space is reserved below the footer, so the footer is not covered", shell192.classList.contains("governance-searching") && shell192.parentNode === chrome192 && chrome192.childNodes.indexOf(footer192) > chrome192.childNodes.indexOf(shell192) && /\n\.governance-searching ~ \.footer \{ padding-bottom: (1[5-9]\d|[2-9]\d\d)px; \}/.test(screenCss192) && screenCss192.includes("  .governance-searching ~ .footer { padding-bottom: 200px; }") && !/\.governance-searching \{/.test(css192) && /\.governance-match-nav \{ position: fixed; bottom: 12px;/.test(screenCss192) && printCss192.includes(".governance-match-nav { display: none !important; }") && printCss192.includes(".governance-searching ~ .footer { padding-bottom: 0; }"));
+  const liveStatus192 = matchNavigation.querySelector('[role="status"]');
+  check(".192 the match status stays a polite atomic live region", liveStatus192.getAttribute("aria-live") === "polite" && liveStatus192.getAttribute("aria-atomic") === "true");
+  byText(member.app, "button", "Clear search").click();
+  check(".192 clearing the search removes the footer reservation and every highlight", !shell192.classList.contains("governance-searching") && governanceMarks().length === 0 && matchNavigation.hidden && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  Element.prototype.scrollIntoView = scrollIntoView192;
 
   const bookSearch = member.app.querySelector("#governance-search"), printStates = [], originalPrint = member.window.print;
   bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");

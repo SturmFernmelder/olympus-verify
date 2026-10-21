@@ -258,6 +258,48 @@ const recordTool169 = (page, namespace, calls) => {
   await pendingMount.go("#/talents"); await waitFor(() => !!releaseMount, "pending asynchronous tool mount");
   await pendingMount.go("#/guide/member"); releaseMount(); await settle();
   check(".169 a mount completing after route disposal is itself destroyed instead of becoming current", lateDisposals === 1 && !!byText(pendingMount.app, "h2", "Member guide"));
+  // .186: the optional analysis and guide modules settle independently; either failing leaves the calculator mounted without that feature.
+  for (const [failed186, kept186] of [["analysis", "guides"], ["guides", "analysis"]]) {
+    const partial186 = await openPage(MEMBER), partialHead186 = head169(partial186), partialCalls186 = [];
+    const files186 = { analysis: "/static/talents/analysis.js", guides: "/static/talents/guide-builds179.js" }, globals186 = { analysis: "OlympusTalentAnalysis", guides: "OlympusTalentGuides" };
+    recordTool169(partial186, "OlympusTalents", partialCalls186);
+    await partial186.go("#/talents/druid");
+    await waitFor(() => partialHead186.querySelectorAll("script").length === 2, "independent talent dependency pair (" + failed186 + " fails)");
+    partialHead186.querySelector('script[src="' + files186[failed186] + '"]').dispatchEvent(new Event("error")); await settle();
+    check(".186 a failed optional " + failed186 + " module waits for the other optional module instead of failing the calculator", partialCalls186.length === 0 && !partial186.app.textContent.includes("could not be loaded"));
+    partial186.window[globals186[kept186]] = { synthetic: kept186 };
+    partialHead186.querySelector('script[src="' + files186[kept186] + '"]').dispatchEvent(new Event("load"));
+    await waitFor(() => partialCalls186.length === 1, "calculator mount without the failed " + failed186 + " module");
+    const options186 = partialCalls186[0] && partialCalls186[0].options;
+    check(".186 the calculator is told which optional module failed, so it can name the missing feature", JSON.stringify(options186.unavailable) === JSON.stringify([failed186 === "analysis" ? "analysis" : "guideBuilds"]));
+    check(".186 the calculator still mounts when the optional " + failed186 + " module fails, with only the loaded " + kept186 + " module", partialCalls186.length === 1 && options186.className === "druid" && options186[failed186 === "analysis" ? "analysis" : "guideBuilds"] === undefined && options186[kept186 === "analysis" ? "analysis" : "guideBuilds"] === partial186.window[globals186[kept186]] && !partial186.app.textContent.includes("could not be loaded") && !partial186.app.textContent.includes("Opening tool…") && partial186.app.textContent.includes("OlympusTalents:druid"));
+    await partial186.go("#/guide/member"); await partial186.go("#/talents/druid");
+    await waitFor(() => partialHead186.querySelectorAll("script").length === 3, "retry of the failed optional " + failed186 + " module");
+    check(".186 a later talent visit retries only the failed optional " + failed186 + " module", partialCalls186.length === 1 && partialCalls186[0].destroyed === 1 && partialHead186.querySelectorAll('script[src="' + files186[failed186] + '"]').length === 2 && partialHead186.querySelectorAll('script[src="' + files186[kept186] + '"]').length === 1);
+    partial186.window[globals186[failed186]] = { synthetic: failed186 };
+    partialHead186.querySelectorAll('script[src="' + files186[failed186] + '"]')[1].dispatchEvent(new Event("load"));
+    await waitFor(() => partialCalls186.length === 2, "calculator mount after the retried module loads");
+    check(".186 after a successful retry the calculator receives both optional modules", partialCalls186.length === 2 && partialCalls186[1].options.analysis === partial186.window.OlympusTalentAnalysis && partialCalls186[1].options.guideBuilds === partial186.window.OlympusTalentGuides && JSON.stringify(partialCalls186[1].options.unavailable) === "[]");
+  }
+  // .186: a script that loads but never defines its global (it threw, or is the wrong file) is not cached as a success either.
+  {
+    const silent186 = await openPage(MEMBER), silentHead186 = head169(silent186), silentCalls186 = [];
+    recordTool169(silent186, "OlympusTalents", silentCalls186);
+    await silent186.go("#/talents/mage");
+    await waitFor(() => silentHead186.querySelectorAll("script").length === 2, "talent dependency pair for a silent analysis script");
+    silent186.window.OlympusTalentGuides = { synthetic: "guides" };
+    silentHead186.querySelector('script[src="/static/talents/guide-builds179.js"]').dispatchEvent(new Event("load"));
+    silentHead186.querySelector('script[src="/static/talents/analysis.js"]').dispatchEvent(new Event("load"));
+    await waitFor(() => silentCalls186.length === 1, "calculator mount after an analysis script that defined nothing");
+    check(".186 an optional script that loads without defining its global mounts the calculator without it and names it unavailable", silentCalls186.length === 1 && silentCalls186[0].options.analysis === undefined && silentCalls186[0].options.guideBuilds === silent186.window.OlympusTalentGuides && JSON.stringify(silentCalls186[0].options.unavailable) === '["analysis"]');
+    await silent186.go("#/guide/member"); await silent186.go("#/talents/mage");
+    await waitFor(() => silentHead186.querySelectorAll("script").length === 3, "retry of the analysis script that defined nothing");
+    check(".186 the next talent visit requests that script again instead of reusing its settled cache entry", silentCalls186[0].destroyed === 1 && silentHead186.querySelectorAll('script[src="/static/talents/analysis.js"]').length === 2 && silentHead186.querySelectorAll('script[src="/static/talents/guide-builds179.js"]').length === 1);
+    silent186.window.OlympusTalentAnalysis = { synthetic: "analysis" };
+    silentHead186.querySelectorAll('script[src="/static/talents/analysis.js"]')[1]?.dispatchEvent(new Event("load")); // absent only if the retry never happened, which the previous check reports
+    await waitFor(() => silentCalls186.length === 2, "calculator mount after the analysis script loads properly");
+    check(".186 once the retried script defines its global the calculator receives it and nothing is named unavailable", silentCalls186.length === 2 && silentCalls186[1].options.analysis === silent186.window.OlympusTalentAnalysis && JSON.stringify(silentCalls186[1].options.unavailable) === "[]");
+  }
   const resourceCalls = []; recordTool169(tools, "OlympusResources", resourceCalls);
   await tools.go("#/addons"); await waitFor(() => resourceCalls.length === 1, "addon renderer");
   await tools.go("#/guides"); await waitFor(() => resourceCalls.length === 2, "guide directory renderer");

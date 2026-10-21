@@ -1488,8 +1488,9 @@
     const doc=host.ownerDocument,data=options.data;let build=options.build,comparison=options.comparisonBuild||null,dead=false;
     const el=(tag,text,cls)=>{const n=doc.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n;};
     const add=(n,...children)=>{children.flat().forEach(c=>{if(c)n.appendChild(c);});return n;};
-    const section=el("section",undefined,"talent-analysis"),heading=el("h2","Build comparison"),intro=el("p","Compare talent choices and their stated effects. This is not a damage or healing simulator.","muted small"),controls=el("div",undefined,"btn-row"),capture=el("button","Use current as comparison","btn small"),reset=el("button","Compare with no talents","btn small"),body=el("div",undefined,"talent-analysis-body");
-    capture.type=reset.type="button";add(controls,capture,reset);add(section,heading,intro,controls,body);host.appendChild(section);
+    const section=el("section",undefined,"talent-analysis"),heading=el("h2","Build comparison"),intro=el("p","Compare talent choices and their stated effects. This is not a damage or healing simulator.","muted small"),controls=el("div",undefined,"btn-row"),capture=el("button","Use current as comparison","btn small"),reset=el("button","Compare with no talents","btn small"),outcome=el("p","","talent-analysis-outcome small muted"),body=el("div",undefined,"talent-analysis-body");
+    // .186: one persistent polite line states what a comparison button did; point updates never write to it.
+    capture.type=reset.type="button";heading.setAttribute("tabindex","-1");outcome.setAttribute("role","status");outcome.setAttribute("aria-live","polite");add(controls,capture,reset);add(section,heading,intro,controls,outcome,body);host.appendChild(section);
     function table(headers,rows,label){const wrap=el("div",undefined,"table-wrap"),t=el("table",undefined,"data talent-analysis-table");t.setAttribute("aria-label",label);const head=el("thead"),tr=el("tr");headers.forEach(s=>{const th=el("th",s);th.setAttribute("scope","col");tr.appendChild(th);});head.appendChild(tr);t.appendChild(head);const tb=el("tbody");rows.forEach(row=>{const tr=el("tr");row.forEach((value,i)=>{const td=el(i===0?"th":"td",value);if(i===0)td.setAttribute("scope","row");td.className="wrap";tr.appendChild(td);});tb.appendChild(tr);});t.appendChild(tb);wrap.appendChild(t);return wrap;}
     const value=(n,unit)=>String(n)+(unit==="percent"?"%":unit==="percentage_points"?" pp":unit==="Rage"?" Rage":" skill");
     function effectCharts(effects,opened){
@@ -1514,7 +1515,8 @@
       details.appendChild(grid);return details;
     }
     function render(){if(dead)return null;const opened=new Map(Array.from(body.children).filter(n=>n.tagName==="DETAILS").map(n=>[n.className,n.open===true]));body.replaceChildren();let result;try{result=analyze(data,build,comparison);}catch(error){add(body,el("p",error.message,"err"));return null;}
-      reset.disabled=!comparison;
+      // .186: "Compare with no talents" disables itself once used; focus moves to the panel heading (tabindex -1) instead of staying on a disabled control.
+      const resetFocused=doc.activeElement===reset;reset.disabled=!comparison;if(resetFocused&&reset.disabled)heading.focus({preventScroll:true});
       add(body,el("p",result.classLabel+" · Current level "+result.current.level+", "+result.current.total+" points · "+(comparison?"Comparison level "+result.before.level+", "+result.before.total+" points":"No-talents comparison at level 60"),"talent-analysis-summary"));
       add(body,el("p","Supported: exact talent-rank comparison. Conditional: the separately listed, source-described modifiers. Unavailable: naked level-60 character stats and final totals.","talent-analysis-status small"));
       const chart=el("div",undefined,"talent-analysis-chart");chart.setAttribute("aria-label","Talent points by tree");result.trees.forEach(tree=>{const row=el("div",undefined,"talent-analysis-tree");add(row,el("strong",tree.name));[["Current",tree.current],["Comparison",tree.before]].forEach(([label,n])=>{const meter=el("meter",n);meter.min=0;meter.max=51;meter.value=n;meter.setAttribute("aria-label",tree.name+" "+label.toLowerCase()+" points");add(row,add(el("label",label+" "+n+" / 51 "),meter));});chart.appendChild(row);});body.appendChild(chart);if(result.coverage.numericMappingsWithheld)add(body,el("p","Some numeric mappings were withheld because the source revision or exact rank text changed. Descriptions remain available.","err"));
@@ -1528,8 +1530,8 @@
       const credit=el("p",undefined,"small muted"),link=el("a","Talents Forever");link.href=SOURCE.url;add(credit,el("span","Data: "),link,el("span"," · CC BY 4.0. Blizzard retains its game text and artwork; no publisher endorsement is implied."));body.appendChild(credit);
       return result;
     }
-    capture.addEventListener("click",()=>{comparison={className:build.className,level:build.level,ranks:Array.from(build.ranks)};render();});reset.addEventListener("click",()=>{comparison=null;render();});
-    render();return {update(next,optionalComparison){if(dead)return null;build=next;if(arguments.length>1)comparison=optionalComparison||null;else if(comparison&&comparison.className!==build.className)comparison=null;return render();},destroy(){if(dead)return;dead=true;section.remove();}};
+    capture.addEventListener("click",()=>{comparison={className:build.className,level:build.level,ranks:Array.from(build.ranks)};outcome.textContent="Comparison set to the current build.";render();});reset.addEventListener("click",()=>{comparison=null;outcome.textContent="Comparing with no talents at level 60.";render();});
+    render();return {update(next,optionalComparison){if(dead)return null;build=next;const before=comparison;if(arguments.length>1)comparison=optionalComparison||null;else if(comparison&&comparison.className!==build.className)comparison=null;if(comparison!==before)outcome.textContent="";return render();},destroy(){if(dead)return;dead=true;section.remove();}};
   }
   return Object.freeze({source:SOURCE,mappings:MAPPINGS,missingMetrics:MISSING,sha256,analyze,mount});
 });

@@ -26,7 +26,8 @@ audit (below) refuses any of those names in a snapshot regardless of content.
   `worker/scripts/build-policy-content.mjs` (`npm run build:policies`); `npm run check:policies` fails when they differ.
   The Worker serves the policies from it at `/legal/privacy` and `/legal/terms`; the GitHub Pages mirror publishes the
   same HTML. Exactly `/privacy` and `/terms` are retired with empty HTTP 410 responses, without redirects; the separate
-  `/privacy/account`, `/privacy/access` and other existing privacy-action handlers remain unchanged.
+  `/privacy/account`, `/privacy/access` and other existing privacy-action handlers remain unchanged. On 21 October 2026
+  the owner answered "Only /privacy and /terms", so the five other reader aliases keep their 301 redirects.
 - `worker/public/static/wow/*` (92 images, two WOFF2 fonts) are DERIVED from the game client's textures by
   `tools/build-site-assets.py`: crops, rearrangements, format changes, alpha and tint transforms, nothing redrawn. The
   input was a named extraction of the client made on the officer's computer on 30 September 2026
@@ -266,3 +267,10 @@ Four additional public resources are the dormant Army QR protocol, decoder, pilo
 ### Army aggregate publishing assets — 20 October 2026 (.180)
 
 Seven finite non-art resources under static/army-live are source-pinned: separate reader/publisher scripts, one stylesheet, the OLCS2 protocol/decoder/pilot projections and the deterministic seven-file Lua addon ZIP. The original OLCS1 pilot, encoder and dormant review resources remain unchanged. Only counted documented projection substitutions connect the reviewed pilot guards to the live bridge; raw pixels/frames remain browser-local. The ZIP is a reproducible source-only package, with fixed metadata and no SavedVariables, configuration, observations, secrets or executable companion. Existing512 artwork assets,494 official paths and seven fixed art producer pins remain unchanged.
+
+
+### Method guide allocations and the .192 reference successor (21 October 2026)
+
+`worker/public/static/talents/guide-builds179.js` (a .185 required resource) embeds 14 talent-rank allocations, as rank vectors only, from Method's public WoW Forever leveling guides for Warrior, Paladin, Hunter, Rogue, Mage, Warlock and Druid. Each plan is shown with its class guide's author, update date and a link to that guide on method.gg. Priest and Shaman plans that do not pass the current snapshot's rules are omitted, never repaired, and only their guide link is offered. No guide prose, images, code or branding is copied. Method's site terms reserve its copyrighted material. The .185 review left the choice to the owner: keep with attribution, ask Method, or link only. On 21 October 2026 the owner decided "Keep with attribution", so the allocations stay with this per-plan attribution. THIRD_PARTY_NOTICES.md records the same notice.
+
+The .192 reference successor re-pins only bytes that changed after .191. These fixes were first prepared as .186 on the .185 main and then as .188 on the .187 main, and were never released under either number. The changed bytes are `app.js` (its asset row and its fixed art-source pin), `app.css`, `talents/calculator.js` and `talents/calculator.css` (asset rows), and `army-live/army.js` and `talents/analysis.js` (required non-art resources). `official_assets.py` pins the new reference, `reconcile_public_root.py` pins both changed inputs, and the two local website overlays pin the new `app.js`. All counts, official paths, the crest and login-art exceptions, the banned-art hashes and the other helper pins are unchanged.

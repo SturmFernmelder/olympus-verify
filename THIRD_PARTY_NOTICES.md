@@ -124,3 +124,8 @@ The login still worker/public/static/wow/login/olympus-dark-portal.png is a cust
 ### Fullscreen Olympus portal variants (.173,19 October 2026)
 
 The owner-approved expanded wide and portrait login PNGs are custom AI-generated outpainted variants produced with the built-in image_gen tool from the prior custom Olympus portal scene. They are not untouched game extractions or official Blizzard-published images. Their exact file identities and classification are recorded in scripts/official_asset_reference.json; prior game artwork/font attribution and retained .171/.172 provenance remain unchanged. The custom shield crests are illustrated interpretations of the supplied Olympus emblem; pixel-identical reproduction and native4K are not claimed.
+
+
+### Method leveling guide allocations (.185, kept by the owner's decision of 21 October 2026)
+
+worker/public/static/talents/guide-builds179.js embeds 14 talent-rank allocations, as rank vectors only, taken from Method's public WoW Forever leveling guides (method.gg) for seven classes. Each plan is shown with its class guide's author, update date and a link to the guide. Plans that do not fit the current talent snapshot (Priest and Shaman) are omitted, never altered. No guide text, images, code or branding is copied, and loading a plan only changes the local calculator. Method's terms reserve its copyrighted material. On 21 October 2026 the owner decided to keep these allocations with this per-plan attribution ("Keep with attribution") rather than ask Method or link only. Method and the named authors do not endorse Olympus, and a plan is not a claim of an optimal build or of current tuning.
