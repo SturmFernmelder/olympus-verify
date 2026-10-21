@@ -159,8 +159,9 @@
   const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
   const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; const value = Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; return appointmentPointer(value) ? "Appointed member" : value; };
   const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
-  const appointmentLabelNode = (key, holder = appointedTo(key), bare = false) => h("span", { "data-appointment-label": key, "data-appointment-bare": bare ? "true" : "false", text: bare ? holder : appointmentLabel(holder) });
   const sentenceEnd = (text) => /[.!?]$/.test(text) ? text : text + ".";
+  const appointmentLabelText = (holder, bare, sentence) => { const text = bare ? holder : appointmentLabel(holder); return sentence ? sentenceEnd(text) : text; };
+  const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": key, "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
   /** "Fernmelder has been appointed Treasurer / Guild Bank, so the role is no longer open to applications or votes." */
   const appointedText = (keys) => [...keys.flatMap((key, i) => [i ? i === keys.length - 1 ? " and " : ", " : "", appointmentLabelNode(key, appointedTo(key), true), i ? " " : " has been appointed ", roleName(key)]), `, so ${keys.length === 1 ? "the role is" : "those roles are"} no longer open to applications or votes.`];
   /** Fresh, qualified-reader projection for this mounted view only. The server's
@@ -199,7 +200,7 @@
         for (const person of data.identities) {
           if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
           seen.add(person.role); const name = discordIdentity(person);
-          for (const node of labels) if (node.getAttribute("data-appointment-label") === person.role) node.textContent = node.getAttribute("data-appointment-bare") === "true" ? name : appointmentLabel(name);
+          for (const node of labels) if (node.getAttribute("data-appointment-label") === person.role) node.textContent = appointmentLabelText(name, node.getAttribute("data-appointment-bare") === "true", node.getAttribute("data-appointment-sentence") === "true");
           for (const node of titles) if (node.getAttribute("data-appointment-title") === person.role) node.setAttribute("title", appointmentLabel(name));
           for (const node of characterSlots) if (node.getAttribute("data-appointment-characters") === person.role) {
             clear(node); add(node, h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." }));
@@ -263,7 +264,7 @@
     const choose = onChoose && !holder && !current ? h("button", { class: "btn", type: "button", text: "Choose as my first choice" }) : null;
     const d = dialog(h("div", { class: "role-dialog" },
       h("h2", { id }, posIcon(p.key, "s"), " ", p.label),
-      holder ? h("p", { class: "appointed-line" }, tick(), appointmentLabelNode(p.key, holder), ". This role takes no applications.") : null,
+      holder ? h("p", { class: "appointed-line" }, tick(), h("span", null, appointmentLabelNode(p.key, holder, false, true), " This role takes no applications.")) : null,
       !holder && noVoteOf(p) ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
       current ? h("p", { class: "appointed-line" }, tick(), "Your first choice.") : null,
       roleInfo(p),
@@ -2213,7 +2214,7 @@
       h("details", null, h("summary", { text: "Time, responsibilities and expectations" }), roleInfo(p, { about: false })));
   }
   const appointedNote = (ballot, holder) => noticeBox("ok", "icon-shield",
-    h("p", null, h("strong", null, appointmentLabelNode(ballot.key, holder), ". "), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
+    h("p", null, h("strong", null, appointmentLabelNode(ballot.key, holder, false, true), " "), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
   /** A role chosen without a public vote (.45): it takes applications, but there is no board and no write-ins. */
   function noVoteNote(ballot) {
     const a = S.application;
@@ -2463,7 +2464,7 @@
               h("span", { class: "badge" + (p.group === "leadership" ? "" : " blue"), text: p.group === "leadership" ? (holder ? "Leadership: appointed" : quiet ? "Leadership: no public vote" : "Leadership: voted on") : "Membership" }),
               first ? h("span", { class: "badge green", text: "Your first choice" }) : null,
               backup ? h("span", { class: "badge green", text: "Your backup" }) : null))),
-        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), appointmentLabelNode(p.key, holder), ". This role takes no applications or votes."), h("div", { "data-appointment-characters": p.key })) : null,
+        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), h("span", null, appointmentLabelNode(p.key, holder, false, true), " This role takes no applications or votes.")), h("div", { "data-appointment-characters": p.key })) : null,
         quiet ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
         p.key === "class_lead" ? classRow() : null,
         h("p", { class: "muted", text: p.blurb }),
@@ -3671,7 +3672,7 @@
     add(body, [
       h("p", null, h("a", { href: "#/admin/votes", text: "Back to all roles" })),
       frame(h("h2", null, posIcon(role, "s"), " ", data.role.label), h("span", { class: "aside", text: `${plural(data.voters, "voter")} on the board` }),
-        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", null, appointmentLabelNode(role), ". "), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
+        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", null, appointmentLabelNode(role, appointedTo(role), false, true), " "), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
         noVoteFor(role) ? noticeBox("info", "icon-shield", h("p", null, h("strong", { text: "No public vote. " }), "Members can apply for this role but cannot vote on it or write anyone in. Its applicants are on the ",
           h("a", { href: "#/admin/applications", text: "Applications tab", onclick: () => { Object.assign(A.apps, { position: role.startsWith("class_lead:") ? "class_lead" : role, backups: true, profession: "", status: "open", q: "", offset: 0 }); } }),
           ". Any counts below are from before; they count again if you untick the role in Settings.")) : null,

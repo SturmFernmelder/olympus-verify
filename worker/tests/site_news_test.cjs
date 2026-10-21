@@ -940,7 +940,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // The policy pages say what this module does; the numbers they state are read from NEWS_LIMITS, so neither can drift
   // alone. The served pages, whitespace folded (the tracked HTML wraps its lines).
   const folded = async (p) => { const r = await http("GET", p); return { status: r.status, text: String(r.text || "").replace(/\s+/g, " ") }; };
-  const priv = await folded("/privacy"), terms = await folded("/terms");
+  const priv = await folded("/legal/privacy"), terms = await folded("/legal/terms");
   const L = news.NEWS_LIMITS;
   check("the privacy policy has a News paragraph: switched on by the administrators, qualified Community readers, counts and times never a name", priv.status === 200 && priv.text.includes("<strong>News.</strong> When the site's administrators switch it on (it is off until they do), qualified Community readers can read a News page.") && priv.text.includes("The figures are counts and times, never a name or anyone's place in line"));
   check("  its numbers are the code's: 1 to 90 days, the tombstone's 120 days, a count below five masked, figures at most every three hours", L.days[0] === 1 && L.days[L.days.length - 1] === 90 && priv.text.includes(`from ${L.days[0]} to ${L.days[L.days.length - 1]} days after it was first posted`) && L.opsKeepS === 120 * DAY && priv.text.includes(`until ${L.opsKeepS / DAY} days after it was posted`) && priv.text.includes("shown only as &ldquo;fewer than 5&rdquo;") && L.figuresEveryS === 3 * 3600 && priv.text.includes("at most every three hours"));
