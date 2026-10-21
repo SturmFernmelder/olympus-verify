@@ -507,7 +507,7 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   check("interleaving audits remain counts only: no typed names or notice content", nobodyLogged(/Race Old|Race New|Race Officer|Stale notice/));
 
   // the policy says what the code does (the served page, whitespace folded: the tracked HTML wraps its lines)
-  res = await http("GET", "/privacy");
+  res = await http("GET", "/legal/privacy");
   const policyText = (await res.text()).replace(/\s+/g, " ");
   check("the privacy policy covers typed names: member-site visibility, existing-session settings exception, removal by Name withheld, not in your copy", res.status === 200 && ["<strong>Appointed roles.</strong>", "An appointed name is shown on the Roles page and wherever the signed-in guild site names that role.", "The Roles page requires Discord sign-in and current server membership.", "Appointed names also appear in signed-in account settings; an existing valid account session can still read those settings even when that account can no longer enter the guild pages (it left the server or was denied).", "The public sign-in and privacy pages do not list appointed names.", "&ldquo;Name withheld&rdquo;", "removed or corrected", "Typed appointment/directory names and privacy inbox conversations are not matched into this account copy"].every((s) => policyText.includes(s)) && !policyText.includes("open web") && policy.PRIVACY_DESCRIBES_BNET_LOGIN === false);
   check("  the length it states is the one the server keeps (site-data.ts cleanAppointed)", policyText.includes("(up to 40 characters, tied to no Discord account)") && Array.from(siteData.cleanAppointed({ treasurer: "é".repeat(45) }).treasurer).length === 40);
@@ -683,13 +683,13 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   check("  a name equal to the username (any case) is not repeated", siteCore.shownName({ username: "fernmelder", displayName: "Fernmelder", nick: "Fern" }) === "Fern (@fernmelder)" && siteCore.shownName({ username: "greta", displayName: null, nick: null }) === "@greta");
   check("  the stored label keeps its old format (votes and friends keep what they saved)", siteCore.labelOf({ username: "greta", displayName: "Greta Grey", nick: "Gee" }) === "Gee (@greta)");
   check("the site's CSP allows images from this site and Discord's picture host, nothing else", siteCore.CSP.includes("img-src 'self' https://cdn.discordapp.com;") && !/img-src[^;]*data:/.test(siteCore.CSP));
-  res = await http("GET", "/privacy");
+  res = await http("GET", "/legal/privacy");
   text = await res.text();
   check("the privacy policy: Battle.net sign-in switched off, no 'sign in with Battle.net again to keep them'", /Battle\.net sign-in is currently switched off/.test(text) && !/sign in with Battle\.net again to keep them/.test(text));
   check("  no stale server, address or channel wording", !/serves the Olympus Discord server/.test(text) && !/once it moves there/.test(text) && !/#bot-announcements/.test(text) && !/open a ticket/.test(text) && !/help channel/.test(text));
   check("  it names the top bar's picture, the leadership directory and the rename records", /cdn\.discordapp\.com/.test(text) && /The leadership directory/.test(text) && /Renames Blizzard required/.test(text));
   check("  unbinding and leaving Discord alone are not erasure; role changes still require the qualified bot writer", /Unbinding alone and leaving Discord are not erasure/.test(text) && /maps verified current native guild ranks/.test(text) && /where the configured rank profile permits/.test(text));
-  res = await http("GET", "/terms");
+  res = await http("GET", "/legal/terms");
   text = await res.text();
   check("the terms: notices in #olympus-notices only, and the leadership and rename sentences", /#olympus-notices\)/.test(text) && !/#bot-announcements/.test(text) && /Renamed characters/.test(text) && /leadership directory/.test(text));
   res = await http("GET", "/admin/ranks", { who: ADMIN });

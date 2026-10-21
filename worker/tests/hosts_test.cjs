@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.182 Army guild name case matching");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.183 Guild hall navigation and reporting polish");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -122,18 +122,30 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("http://localhost:8787/health");
   check("wrangler dev on localhost is served", res.status === 200);
 
-  console.log("\n== the policies: public, every admitted host, no database, no redirect (.65) ==");
+  console.log("\n== the policies: canonical legal readers and exact legacy redirects, no database (.183) ==");
   const trappedDb = () => env({ DB: d1(db, { trap: () => { touched++; } }) });
   touched = 0;
   for (const p of ["/privacy", "/privacy-policy", "/privacy.html"]) {
     res = await get(`https://verify.example${p}`, trappedDb());
-    check(`GET ${p} on the bot host is the privacy policy, 200 HTML, no Location, database untouched`, res.status === 200 && !res.headers.has("Location") && (await res.text()).includes("<h1>Privacy Policy</h1>") && touched === 0, res.status, touched);
+    check(`GET ${p} on the bot host redirects only to the canonical privacy reader, empty body and database untouched`, res.status === 301 && res.headers.get("Location") === "/legal/privacy" && (await res.text()) === "" && touched === 0, res.status, touched);
+    res = await get(`https://verify.example${p}?code=not-forwarded`, trappedDb(), { method: "HEAD" });
+    check(`HEAD ${p} redirects to the same fixed path without query, cookie, body or database`, res.status === 301 && res.headers.get("Location") === "/legal/privacy" && (await res.text()) === "" && !res.headers.has("Set-Cookie") && touched === 0);
   }
   for (const p of ["/terms", "/tos", "/terms-of-service", "/terms.html"]) {
     res = await get(`https://guild.example${p}`, trappedDb());
-    check(`GET ${p} on the site host is the terms, 200 HTML, database untouched`, res.status === 200 && (await res.text()).includes("<h1>Terms of Service</h1>") && touched === 0, res.status);
+    check(`GET ${p} on the site host redirects only to the canonical terms reader, empty body and database untouched`, res.status === 301 && res.headers.get("Location") === "/legal/terms" && (await res.text()) === "" && touched === 0, res.status);
+    res = await get(`https://guild.example${p}?state=not-forwarded`, trappedDb(), { method: "HEAD" });
+    check(`HEAD ${p} redirects to the same fixed path without query, cookie, body or database`, res.status === 301 && res.headers.get("Location") === "/legal/terms" && (await res.text()) === "" && !res.headers.has("Set-Cookie") && touched === 0);
   }
-  res = await get("https://verify.example/privacy", env(), { method: "HEAD" });
+  for (const [p, title] of [["/legal/privacy", "Privacy Policy"], ["/legal/terms", "Terms of Service"]]) {
+    for (const host of ["verify.example", "guild.example"]) {
+      res = await get(`https://${host}${p}`, trappedDb());
+      check(`GET ${p} on ${host} is public canonical 200 HTML without redirect or database`, res.status === 200 && !res.headers.has("Location") && (await res.text()).includes(`<h1>${title}</h1>`) && touched === 0);
+      res = await get(`https://${host}${p}`, trappedDb(), { method: "HEAD" });
+      check(`HEAD ${p} on ${host} retains headers with no body, cookie or database`, res.status === 200 && /text\/html/.test(res.headers.get("Content-Type")) && (await res.text()) === "" && !res.headers.has("Set-Cookie") && touched === 0);
+    }
+  }
+  res = await get("https://verify.example/legal/privacy", env(), { method: "HEAD" });
   check("HEAD answers 200 with the headers and no body", res.status === 200 && (await res.text()) === "" && /text\/html/.test(res.headers.get("Content-Type")));
   check("  a strict self-only CSP with scripts disabled, no-store, no cookie", /default-src 'none'/.test(res.headers.get("Content-Security-Policy")) && /script-src 'none'/.test(res.headers.get("Content-Security-Policy")) && /no-store/.test(res.headers.get("Cache-Control") || "") && !res.headers.has("Set-Cookie"), res.headers.get("Content-Security-Policy"), res.headers.get("Cache-Control"));
   res = await get("https://verify.example/privacy", env(), { method: "POST", body: "x" });
@@ -149,8 +161,8 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://verify.example/static/policies.css", env(), { method: "POST" });
   check("  and only to GET/HEAD", res.status === 405);
   check("the generated document is the tracked text: `npm run check:policies` agrees (run here)", require("child_process").spawnSync(process.execPath, [path.join(root, "scripts", "build-policy-content.mjs"), "--check"], { encoding: "utf8" }).status === 0);
-  check("  the tracked privacy text appears verbatim inside the served page", (await (await get("https://guild.example/privacy")).text()).includes(fs.readFileSync(path.join(root, "..", "policies", "privacy.html"), "utf8").match(/<h2>What it stores<\/h2>\n<p>[^<]{40}/)[0]));
-  const picturePolicy = (await (await get("https://guild.example/privacy")).text()).replace(/\s+/g, " ");
+  check("  the tracked privacy text appears verbatim inside the served page", (await (await get("https://guild.example/legal/privacy")).text()).includes(fs.readFileSync(path.join(root, "..", "policies", "privacy.html"), "utf8").match(/<h2>What it stores<\/h2>\n<p>[^<]{40}/)[0]));
+  const picturePolicy = (await (await get("https://guild.example/legal/privacy")).text()).replace(/\s+/g, " ");
   check("  .169 privacy discloses own chrome and authenticated recommendation pictures, the single Discord CDN and local board portraits without a new picture archive", picturePolicy.includes("The site's top bar and welcome panel show your own Discord picture.") && picturePolicy.includes("Authenticated recommendation searches also show people's public Discord profile pictures when available.") && picturePolicy.includes("Your browser loads these pictures from Discord's picture server (cdn.discordapp.com), so Discord sees that request.") && picturePolicy.includes("Voting-board cards and other member portraits continue to use the game's icons.") && picturePolicy.includes("These lookups do not create a separate archive of pictures.") && !picturePolicy.includes("the site shows that picture to no one else"));
 
   console.log("\n== .173 exact public login variants, site host only ==");

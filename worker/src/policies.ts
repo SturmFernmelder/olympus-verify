@@ -1,8 +1,8 @@
 /**
  * The Privacy Policy and Terms of Service, served by the Worker itself since .65 (1 Oct 2026; W03 of the consolidation,
- * Codex's countersigned delivery candidate, manifest 5519466c…, 02:31 UTC, integrated on .64): public GET/HEAD 200 HTML
- * at /privacy and /terms and every alias that ever served or redirected them, on the site host and the bot host, with
- * no Location, no cookie, no database and no session (index.ts calls this right after the host check, before the
+ * Codex's countersigned delivery candidate, manifest 5519466c…, 02:31 UTC, integrated on .64). Since .183 the public
+ * GET/HEAD 200 readers are /legal/privacy and /legal/terms; exact historical policy addresses redirect there at the
+ * owner's request. They retain no cookie, no database and no session (index.ts calls this after the host check, before the
  * schema check), a strict self-only CSP with scripts disabled, and the finite local stylesheet/crest/font closure
  * declared by policy-render.ts. Other methods are 405. The .116b3 shell/slots and authorised OFF retention omission
  * are a separately reviewed source successor; no session-dependent or ON fragment is generated here.
@@ -18,6 +18,10 @@ import { policyDocument } from "./policy-content";
 import { STATIC_POLICY_CSP, escapeText } from "./policy-render";
 
 export const POLICY_CSP = STATIC_POLICY_CSP;
+const POLICY_ALIASES: ReadonlyMap<string, string> = new Map([
+  ...["/privacy", "/privacy-policy", "/privacy.html"].map(path => [path, "/legal/privacy"] as const),
+  ...["/terms", "/tos", "/terms-of-service", "/terms.html"].map(path => [path, "/legal/terms"] as const),
+]);
 
 /** .174: navigation around the canonical text, never a rewritten policy or a script-dependent reader. */
 function withPolicyContents(document: string): string {
@@ -33,7 +37,8 @@ function withPolicyContents(document: string): string {
 
 /** The policy a path names as a complete response, or null when the path is not a policy address. */
 export function policyResponse(request: Request, path: string): Response | null {
-  const document = policyDocument(path);
+  const canonical = POLICY_ALIASES.get(path) ?? path;
+  const document = policyDocument(canonical);
   if (document === null) return null;
   const headers = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }));
   headers.set("Content-Security-Policy", POLICY_CSP);
@@ -42,6 +47,10 @@ export function policyResponse(request: Request, path: string): Response | null 
     headers.set("Allow", "GET, HEAD");
     headers.set("Content-Type", "text/plain; charset=utf-8");
     return new Response("method not allowed", { status: 405, headers });
+  }
+  if (canonical !== path) {
+    headers.set("Location", canonical); // Fixed local target; query strings and account-action suffixes are never forwarded.
+    return new Response(null, { status: 301, headers });
   }
   return new Response(request.method === "HEAD" ? null : withPolicyContents(document), { status: 200, headers });
 }

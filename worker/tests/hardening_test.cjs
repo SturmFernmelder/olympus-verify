@@ -236,7 +236,7 @@ const day = (t = T) => codes.dayBucket(new Date(t * 1000));
   console.error = () => {}; // the Worker logs the failed check; expected here
   let res = await index.fetch(req(), { ...env, DB: broken, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);
   check("GET /queue answers 503 while the schema cannot be checked", res.status === 503);
-  res = await index.fetch(new Request("https://verify.example/privacy"), { ...env, DB: broken, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);
+  res = await index.fetch(new Request("https://verify.example/legal/privacy"), { ...env, DB: broken, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);
   check("  the canonical policy still answers HTML without D1 or a redirect (.65)", res.status === 200 && !res.headers.has("Location") && /text\/html/.test(res.headers.get("Content-Type")) && (await res.text()).includes("<h1>Privacy Policy</h1>"));
   schema.forgetSchemaCheck();
   res = await index.fetch(req(), { ...env, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);

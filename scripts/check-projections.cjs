@@ -136,9 +136,9 @@ function verify(snapshot) {
     check(!!declaration, 'generated policy declaration: ' + key);
     const html = JSON.parse(declaration[1]), main = /<main>\n([\s\S]*?)\n<\/main>/.exec(source)?.[1];
     check(typeof main === 'string', 'canonical policy main: ' + file);
-    const body = main.replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./terms.html">', '<p class="meta related">See also the <a href="/terms">')
-      .replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./privacy.html">', '<p class="meta related">See also the <a href="/privacy">')
-      .replaceAll('href="./privacy.html"', 'href="/privacy"').replaceAll('href="./terms.html"', 'href="/terms"');
+    const body = main.replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./terms.html">', '<p class="meta related">See also the <a href="/legal/terms">')
+      .replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./privacy.html">', '<p class="meta related">See also the <a href="/legal/privacy">')
+      .replaceAll('href="./privacy.html"', 'href="/legal/privacy"').replaceAll('href="./terms.html"', 'href="/legal/terms"');
     check(html.includes('<main id="policy-content" tabindex="-1">\n' + body + '\n</main>'), 'generated policy body drift: ' + file);
   }
   check(generated.includes('export const POLICY_SOURCE_DIGEST = "' + sha(Buffer.from(sourceHashes.join('\n'))) + '";'), 'policy source digest drift');

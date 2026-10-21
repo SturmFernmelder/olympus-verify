@@ -301,8 +301,12 @@ function splitFixtureSchema(source) {
     }
     res = await get("https://nobody.example/static/app.css");
     check("  which an unknown host cannot fetch (run_worker_first)", res.status === 404, res.status);
-    res = await get("https://verify.example/privacy", { redirect: "manual" });
+    res = await get("https://verify.example/legal/privacy", { redirect: "manual" });
     check("the privacy policy is served on the bot host by the real bundle: 200 HTML, strict CSP, no Location (.65)", res.status === 200 && !res.headers.has("Location") && /script-src 'none'/.test(res.headers.get("Content-Security-Policy") || "") && (await res.text()).includes("<h1>Privacy Policy</h1>"), res.status);
+    for (const method of ["GET", "HEAD"]) {
+      res = await get("https://verify.example/privacy", { method, redirect: "manual" });
+      check(`the old policy URL preserves ${method} with an empty redirect to the legal reader`, res.status === 301 && res.headers.get("Location") === "/legal/privacy" && await res.text() === "", res.status);
+    }
     res = await get("https://verify.example/static/policies.css");
     check("  with its stylesheet from the assets binding on that host", res.status === 200 && /text\/css/.test(res.headers.get("Content-Type") || ""), res.status);
     res = await get("https://old.example/?tab=vote", { redirect: "manual" });

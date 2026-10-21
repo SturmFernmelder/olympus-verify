@@ -94,3 +94,12 @@ condition = "AND"
 paths = ['''^worker/tests/qr_phase1_test\.cjs$''']
 regexTarget = "secret"
 regexes = ['''^qr\-key\-enrollment\-incarnation\-v2$''']
+
+# .183: this fixed public source/cache identifier in a synthetic fixture is not a credential.
+[[allowlists]]
+description = "Exact public Forever blue-tracker cache identifier in the resource admission fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/resources_admission169_test\.cjs$''']
+regexTarget = "secret"
+regexes = ['''^wowhead-blues-forever183$''']

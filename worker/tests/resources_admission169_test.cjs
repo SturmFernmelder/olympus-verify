@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000169';
 const URL_BASE = 'https://guild.example/api/resource-updates';
 const FEEDS = new Set([
   'https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss',
-  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/blue-tracker?rss',
+  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss=',
 ]);
 const compiled = new Map();
 let n = 0;
@@ -258,10 +258,11 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
     });
   }
   await caseWith('fresh public cache still requires post-cache original session admission', async f => {
-    let changed = false; const matched = [], ids = ['blizzard-notes', 'wowhead-forever', 'wowhead-blues'];
+    let changed = false; const matched = [], ids = ['blizzard-notes', 'wowhead-forever', 'wowhead-blues-forever183'];
     f.state.cache = {
       async match(request) {
-        const id = request.url.split('/').pop(); assert.ok(ids.includes(id)); matched.push(request.url);
+        const cacheKey = request.url.split('/').pop(); assert.ok(ids.includes(cacheKey)); matched.push(request.url);
+        const id = cacheKey === 'wowhead-blues-forever183' ? 'wowhead-blues' : cacheKey;
         if (!changed) {
           changed = true; const first = f.state.native.nativeTrace.length;
           await f.write('UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?', SUBJECT);

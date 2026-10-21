@@ -60,7 +60,7 @@ async function main() {
   const escapedPre = /<pre class="privacy-status-code">([^<]*)<\/pre>/.exec(escapeHtml)?.[1];
   check('status rendering escapes markup without inserting code-breaking characters', escapedPre && decode(escapedPre) === escaped && !escapeHtml.includes('<pre class="privacy-status-code"><'));
   const policies = load('policies'), canonical = load('policy-content');
-  for (const route of ['/privacy', '/terms']) {
+  for (const route of ['/legal/privacy', '/legal/terms']) {
     const policy = policies.policyResponse(new Request('https://guild.example' + route), route);
     const document = await policy.text(), links = [...document.matchAll(/href="#policy-section-(\d+)"/g)];
     check(route + ' offers a script-free contents list for every canonical section', links.length === [...canonical.policyDocument(route).matchAll(/<h2>/g)].length && links.length > 1);
@@ -70,6 +70,11 @@ async function main() {
     check(route + ' contents requires neither scripts nor a wider CSP', !/<script\b/i.test(document) && policy.headers.get('Content-Security-Policy') === policies.POLICY_CSP);
     const head = policies.policyResponse(new Request('https://guild.example' + route, { method: 'HEAD' }), route);
     check(route + ' presentation keeps HEAD empty and public response uncached', (await head.text()) === '' && /no-store/.test(head.headers.get('Cache-Control')) && !head.headers.has('Set-Cookie'));
+    check(route + ' internal policy links use the canonical legal readers', document.includes('href="/legal/privacy"') && document.includes('href="/legal/terms"') && !/href="\/(?:privacy|terms)"/.test(document));
+    check(route + ' retains exact account, access and case action links', ['account', 'access', 'case'].every(action => document.includes('href="https://olympus.roachcouncil.com/privacy/' + action + '"')));
+  }
+  for (const route of ['/privacy/account', '/privacy/access', '/privacy/account/erasure-status', '/privacy/account/full-erase', '/privacy/account/site-erase', '/privacy/access/erasure', '/privacy/case', '/privacy/case/reply', '/api/privacy/requests', '/legal/privacy/anything', '/legal/terms/anything']) {
+    check(route + ' is never intercepted as a policy document or policy redirect', policies.policyResponse(new Request('https://guild.example' + route), route) === null);
   }
   check('presentation runs read no database and call no provider', databaseReads === 0 && providerCalls === 0);
   console.log(`\n${checks}/${checks} passed`);
