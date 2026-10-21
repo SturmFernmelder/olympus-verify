@@ -1225,11 +1225,19 @@
     const book = await governanceBook();
     if (!app.contains(main)) return;
     clear(main);
-    const chapters = book.chapters, details = new Map(), contents = new Map(), toc = new Map();
+    const chapters = book.chapters, details = new Map(), searchBlocks = new Map(), toc = new Map();
     const target = dec(parts[0] || ""), selected = chapters.findIndex((c) => c.id === target);
     let index = selected < 0 ? 0 : selected;
     const search = h("input", { type: "search", id: "governance-search", placeholder: "Search the whole book", "aria-label": "Search the whole governance book", maxlength: "160" });
     const result = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+    const matchStatus = h("p", { class: "small", role: "status", "aria-live": "polite", "aria-atomic": "true" });
+    const matchPrev = h("button", { class: "btn small", type: "button", text: "Previous match", disabled: true, onclick: () => moveMatch(-1) });
+    const matchNext = h("button", { class: "btn small", type: "button", text: "Next match", disabled: true, onclick: () => moveMatch(1) });
+    const matchNav = h("nav", { class: "governance-match-nav", "aria-label": "Search matches", hidden: true },
+      h("div", { class: "governance-match-heading" }, matchStatus,
+        h("button", { class: "btn small", type: "button", text: "Edit search", onclick: () => { search.focus({ preventScroll: true }); scrollToSection(search); } })),
+      h("div", { class: "governance-match-buttons" }, matchPrev, matchNext));
+    let matches = [], activeMatch = -1, replacements = [];
     const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
     const current = h("span", { class: "small" });
     let printState = null;
@@ -1266,21 +1274,95 @@
       // The hash-verified book fixes these instrument chapters at these ordinals.
       const executionFields = (i === 2 || i === 3 || ["adoption-and-office-registers","daily-news-template"].includes(chapter.id))
         ? h("p", { class: "governance-instrument-note", role: "note", text: "About the blank fields: ceremonial and reusable instruments retain their unexecuted signature, witness and register fields. The adopted book does not supply an individual's signature or issue an appointment. A blank field is not a completed record." }) : null;
-      const content = h("div", { class: "governance-prose" }, executionFields, governanceBlocks(chapter.lines));
+      const blocks = governanceBlocks(chapter.lines);
+      const content = h("div", { class: "governance-prose" }, executionFields, blocks);
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
-      details.set(chapter.id, section); contents.set(chapter.id, (chapter.title + " " + chapter.lines.join(" ")).toLowerCase());
+      // Search rendered book text, including phrases spanning strong/code, without
+      // counting generated notes, chart invitations or duplicate contents links.
+      const prose = [];
+      function collectBlocks(node) {
+        if (node.className === "governance-overview") return;
+        if (["P", "H3", "H4", "LI", "TH", "TD"].includes(node.tagName)) { prose.push(node); return; }
+        for (const child of node.children) collectBlocks(child);
+      }
+      blocks.forEach(collectBlocks);
+      details.set(chapter.id, section); searchBlocks.set(chapter.id, [summary.querySelector("h2"), ...prose]);
       return section;
     });
     const tocList = chapters.map((chapter) => { const link = h("a", { href: "#/governance/" + chapter.id, text: chapter.title }); const item = h("li", null, link); toc.set(chapter.id, link); return item; });
+    function selectMatch(i, scroll = false) {
+      if (activeMatch >= 0) for (const mark of matches[activeMatch].marks) mark.removeAttribute("aria-current");
+      activeMatch = i;
+      const match = matches[i];
+      matchPrev.disabled = matchNext.disabled = !match;
+      if (!match) { matchStatus.textContent = "No matches"; return; }
+      for (const mark of match.marks) mark.setAttribute("aria-current", "true");
+      matchStatus.textContent = `Match ${i + 1} of ${matches.length} · ${match.chapter.title}`;
+      if (scroll) {
+        selection(chapters.indexOf(match.chapter));
+        // Native overflow containers (notably tables) reveal their match too.
+        match.marks[0].scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+        const bar = document.querySelector(".topbar"), mark = match.marks[0];
+        const top = bar ? bar.getBoundingClientRect().bottom : 0;
+        if (mark.getBoundingClientRect().top < top + 16) window.scrollTo({ top: Math.max(0, window.scrollY + mark.getBoundingClientRect().top - top - 16), behavior: "auto" });
+      }
+    }
+    function moveMatch(delta) {
+      if (matches.length) selectMatch((activeMatch + delta + matches.length) % matches.length, true);
+    }
+    function highlightBlock(block, query, chapter) {
+      const nodes = [];
+      function textNodes(node) {
+        if (node.nodeType === 3) nodes.push(node);
+        else for (const child of node.childNodes) textNodes(child);
+      }
+      textNodes(block);
+      const text = nodes.map(node => node.textContent).join("");
+      // Case-insensitive literal matching preserves original UTF-16 offsets even
+      // when Unicode lowercasing would expand a character. Escape regex syntax.
+      const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+      const ranges = [];
+      for (const hit of text.matchAll(pattern)) {
+        const match = { chapter, marks: [], ordinal: matches.length };
+        matches.push(match); ranges.push({ start: hit.index, end: hit.index + hit[0].length, match });
+      }
+      let offset = 0;
+      for (const node of nodes) {
+        const original = node.textContent, end = offset + original.length;
+        const overlaps = ranges.filter(range => range.start < end && range.end > offset);
+        if (overlaps.length) {
+          const parent = node.parentNode, inserted = []; let cursor = 0;
+          const insert = item => { parent.insertBefore(item, node); inserted.push(item); };
+          for (const range of overlaps) {
+            const start = Math.max(0, range.start - offset), stop = Math.min(original.length, range.end - offset);
+            if (start > cursor) insert(document.createTextNode(original.slice(cursor, start)));
+            const mark = h("mark", { class: "governance-search-match", "data-governance-match": range.match.ordinal, text: original.slice(start, stop) });
+            insert(mark); range.match.marks.push(mark); cursor = stop;
+          }
+          if (cursor < original.length) insert(document.createTextNode(original.slice(cursor)));
+          parent.removeChild(node); replacements.push({ parent, node, inserted });
+        }
+        offset = end;
+      }
+    }
     function filter() {
+      // Restore the original nodes, not innerHTML: repeated searches cannot nest
+      // marks, lose inline formatting, or change the hash-verified book's text.
+      for (const { parent, node, inserted } of replacements) { parent.insertBefore(node, inserted[0]); for (const item of inserted) parent.removeChild(item); }
+      replacements = []; matches = []; activeMatch = -1;
       const query = search.value.trim().toLowerCase(); let count = 0;
       for (const chapter of chapters) {
-        const matches = !query || contents.get(chapter.id).includes(query);
-        const section = details.get(chapter.id); section.hidden = !matches; toc.get(chapter.id).parentNode.hidden = !matches;
-        if (query) section.open = matches;
-        if (matches) count++;
+        const before = matches.length;
+        if (query) for (const block of searchBlocks.get(chapter.id)) highlightBlock(block, search.value.trim(), chapter);
+        const found = !query || matches.length > before;
+        const section = details.get(chapter.id); section.hidden = !found; toc.get(chapter.id).parentNode.hidden = !found;
+        if (query) section.open = found;
+        if (found) count++;
       }
       result.textContent = query ? `${count} of ${chapters.length} chapters match “${search.value.trim()}”.` : `The complete book • ${chapters.length} chapters. Select a chapter or search its full text.`;
+      matchNav.hidden = !query;
+      main.classList.toggle("governance-searching", !!query);
+      selectMatch(matches.length ? 0 : -1);
     }
     search.addEventListener("input", filter);
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
@@ -1307,7 +1389,7 @@
         h("button", { class: "btn small", type: "button", text: "Expand all chapters", onclick: () => { for (const section of details.values()) if (!section.hidden) section.open = true; } }),
         h("button", { class: "btn small", type: "button", text: "Collapse all chapters", onclick: () => { for (const section of details.values()) section.open = false; } }), result),
       h("div", { class: "governance-layout" }, h("aside", { class: "governance-toc" }, h("nav", { "aria-label": "Book chapters" }, h("h2", { text: "Contents" }), h("ol", null, tocList))),
-        h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes))]);
+        h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes)), matchNav]);
     selection(index); filter();
     if (selected >= 0) selection(index, true);
     window.addEventListener("beforeprint", preparePrint);

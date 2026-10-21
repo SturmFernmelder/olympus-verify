@@ -126,9 +126,60 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   const instrumentNoteIds = member.app.querySelectorAll("details.governance-chapter").filter(chapter => chapter.querySelector(".governance-instrument-note")).map(chapter => chapter.getAttribute("data-chapter")).sort();
   const instrumentIdsDigest = require("node:crypto").createHash("sha256").update(JSON.stringify(instrumentNoteIds)).digest("hex"), reviewedBookDigest = require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"))).digest("hex");
   check("the reviewed book's four instrument-note placements and execution limits remain exact", reviewedBookDigest === "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf" && instrumentIdsDigest === "a5cf89f9778efa8f188b4af0db64ab6fb02ca02a177206f7d8247034f47636cf" && JSON.stringify(instrumentNoteIndices) === "[2,3,11,12]" && member.app.querySelectorAll(".governance-instrument-note").every(note => note.textContent.includes("A blank field is not a completed record")));
+  // Search through the real reviewed book, including its genuine strong/plain
+  // inline boundary. Mark fragments share one logical match index; neither
+  // generated reader controls nor adoption/instrument qualifications are hits.
+  const governanceSearch = member.app.querySelector("#governance-search");
+  const governanceSourceText = () => member.app.querySelectorAll("details.governance-chapter").map(chapter => ({ heading: chapter.querySelector("summary h2").textContent, prose: chapter.querySelector(".governance-prose").textContent }));
+  const unmarkedGovernanceText = JSON.stringify(governanceSourceText());
+  const governanceMarks = () => member.app.querySelectorAll("mark.governance-search-match");
+  const governanceGroups = () => [...new Set(governanceMarks().map(mark => mark.getAttribute("data-governance-match")))];
+  const currentGovernanceGroup = () => [...new Set(governanceMarks().filter(mark => mark.getAttribute("aria-current") === "true").map(mark => mark.getAttribute("data-governance-match")))];
+  const previousMatch = byText(member.app, "button", "Previous match"), nextMatch = byText(member.app, "button", "Next match");
+  const matchNavigation = member.app.querySelector(".governance-match-nav");
+  const matchStatus = () => matchNavigation.querySelector('[role="status"]').textContent;
+  const searchGovernance = query => { governanceSearch.value = query; fire(governanceSearch, "input"); };
+  check("governance match navigation starts hidden and disabled with no empty-query highlights", !!previousMatch && !!nextMatch && !!matchNavigation && matchNavigation.hidden && previousMatch.disabled && nextMatch.disabled && governanceMarks().length === 0);
+  governanceSearch.focus();
+  searchGovernance("tReAsUrEr");
+  const treasurerGroups = governanceGroups(), matchingChapters = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden);
+  check("literal case-insensitive governance search marks source text and announces occurrence and chapter counts without moving typing focus", treasurerGroups.length > 8 && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer" && !!mark.closest("details.governance-chapter")) && matchingChapters.length === 8 && member.app.querySelector('.governance-controls p[role="status"]').textContent.includes("8 of 14 chapters") && /Match 1 of /i.test(matchStatus()) && matchStatus().includes(String(treasurerGroups.length)) && !matchNavigation.hidden && !previousMatch.disabled && !nextMatch.disabled && currentGovernanceGroup().length === 1 && currentGovernanceGroup()[0] === treasurerGroups[0] && member.document.activeElement === governanceSearch);
+  check("governance highlights do not alter any rendered chapter text or inline emphasis", JSON.stringify(governanceSourceText()) === unmarkedGovernanceText && member.app.querySelectorAll(".governance-prose strong").length > 5 && !member.app.querySelector(".governance-toc mark") && !adoption.querySelector("mark") && !archive.querySelector("mark") && !member.app.querySelector(".governance-instrument-note mark"));
+  previousMatch.click();
+  check("Previous match wraps from the first occurrence to the last without leaving the chapter route", currentGovernanceGroup()[0] === treasurerGroups.at(-1) && member.location.hash === "#/governance");
+  nextMatch.click();
+  check("Next match wraps from the last occurrence to the first", currentGovernanceGroup()[0] === treasurerGroups[0] && /Match 1 of /i.test(matchStatus()));
+  member.app.querySelectorAll("details.governance-chapter").forEach(chapter => { chapter.open = false; });
+  nextMatch.click();
+  const secondHit = governanceMarks().find(mark => mark.getAttribute("aria-current") === "true");
+  check("moving to a match reopens its collapsed source chapter while keeping the search input and page", currentGovernanceGroup()[0] === treasurerGroups[1] && secondHit.closest("details.governance-chapter").open && governanceSearch.value === "tReAsUrEr" && member.location.hash === "#/governance");
+  nextMatch.focus(); byText(member.app, "button", "Edit search").click();
+  check("Edit search returns focus to the existing input without clearing its query or current match", member.document.activeElement === governanceSearch && governanceSearch.value === "tReAsUrEr" && currentGovernanceGroup()[0] === treasurerGroups[1]);
+  searchGovernance("Federal Treasurer. Coordinates");
+  const crossInlineMarks = governanceMarks();
+  check("one literal match may cross strong and plain source text without flattening either", governanceGroups().length === 1 && crossInlineMarks.length > 0 && crossInlineMarks.map(mark => mark.textContent).join("") === "Federal Treasurer. Coordinates" && member.app.querySelectorAll(".governance-prose strong").some(strong => strong.textContent === "Federal Treasurer.") && /Match 1 of 1/i.test(matchStatus()) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  previousMatch.click(); nextMatch.click();
+  check("a single split-inline match keeps both fragments selected through navigation", currentGovernanceGroup().length === 1 && governanceMarks().every(mark => mark.getAttribute("aria-current") === "true") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  searchGovernance("Reading and Adopting This Book");
+  check("chapter heading matches are highlighted without marking the duplicate contents link", governanceGroups().length === 1 && !!member.app.querySelector("details.governance-chapter summary h2 mark") && !member.app.querySelector(".governance-toc mark"));
+  for (const excluded of ["Archive and release records", "A blank field is not a completed record.", "Explore the organization"]) {
+    searchGovernance(excluded);
+    check("generated reader text is not a source-book match: " + excluded, governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && !matchNavigation.hidden && currentGovernanceGroup().length === 0);
+  }
+  searchGovernance("[.*](Treasurer)+?");
+  check("search punctuation is a literal string rather than an executable regular expression", governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  searchGovernance('<img src=x onerror="throw 1">');
+  check("query markup is displayed only as text and cannot create HTML or source matches", governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && !member.app.querySelector('img[src="x"]') && !member.app.querySelector(".governance-controls script") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  searchGovernance("Treasurer"); searchGovernance("Federal Treasurer. Coordinates"); searchGovernance("TREASURER");
+  check("editing and repeating search rebuilds exact matches without nested marks or altered source", governanceGroups().length === treasurerGroups.length && !member.app.querySelector("mark mark") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  byText(member.app, "button", "Clear search").click();
+  check("Clear search removes all marks and current-hit state while restoring all14 chapters exactly", governanceSearch.value === "" && governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && matchNavigation.hidden && member.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+
   const bookSearch = member.app.querySelector("#governance-search"), printStates = [], originalPrint = member.window.print;
   bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
   const nativeChapters = member.app.querySelectorAll("details.governance-chapter"), searchStatus = member.app.querySelector('.governance-controls p[role="status"]');
+  const markedReaderState = () => JSON.stringify(governanceMarks().map(mark => ({ text: mark.textContent, group: mark.getAttribute("data-governance-match"), current: mark.getAttribute("aria-current") })));
+  const beforePrintHighlights = markedReaderState();
   nativeChapters[0].open = true; // retain an independently expanded, currently hidden chapter too
   const readerState = () => JSON.stringify({ scopeOpen: adoption.open, search: bookSearch.value, count: searchStatus.textContent, chapters: nativeChapters.map(chapter => ({ open: chapter.open, hidden: chapter.hidden })) });
   const beforeButtonPrint = readerState();
@@ -139,6 +190,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("printing a filtered book opens all current chapters and the full adoption scope before the print dialog", filteredBeforePrint && printStates.length === 1 && printStates[0].scopeOpen === true && printStates[0].scopeText.includes("Adoption issues no individual appointment or named signature") && printStates[0].scopeText.includes("changes no native rank, bank limit or platform permission") && printStates[0].chapters.length === 14 && printStates[0].chapters.every(chapter => chapter.open && !chapter.hidden) && printStates[0].archiveOpen === false);
   member.window.dispatchEvent(new Event("afterprint"));
   check("button preparation followed by native beforeprint snapshots once and restores the exact filtered reader afterward", readerState() === beforeButtonPrint);
+  check("printing keeps the same literal highlights, logical match selection and complete source text", markedReaderState() === beforePrintHighlights && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   adoption.open = true; bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
   const beforeNativePrint = readerState();
   member.window.dispatchEvent(new Event("beforeprint"));
@@ -153,6 +205,12 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   check("leaving governance restores a pending print snapshot, removes both listeners and cannot mutate the detached reader", cleanupRestoredReader && member.window.listeners.beforeprint.length === 0 && member.window.listeners.afterprint.length === 0 && adoption.open === false && nativeChapters.every(chapter => !chapter.open && chapter.hidden) && !!member.app.querySelector(".board-layout"));
   check("voting task comes first while reversible vote mechanics and essential privacy statement remain", !!member.app.querySelector("details.voting-help") && member.app.textContent.includes("click again to take a vote back") && member.app.textContent.includes("until voting closes") && member.app.textContent.includes("Your votes are private") && member.app.textContent.includes("except the guild's leadership"));
   check("role rail exposes a continuation cue while retaining every ballot destination", member.app.querySelector(".role-list-hint")?.textContent === "Scroll this list for every role." && member.app.querySelectorAll(".role-list a").length === member.boot.meta.ballots.length);
+
+  const chapterReader = await openPage(MEMBER);
+  await chapterReader.go("#/governance/3-letters-patent-and-warrants");
+  await waitFor(() => chapterReader.app.querySelectorAll("details.governance-chapter").length === 14, "governance search existing deep chapter");
+  const linkedChapter = chapterReader.app.querySelector('[data-chapter="3-letters-patent-and-warrants"]');
+  check("existing deep chapter links still open the complete requested chapter with unfiltered navigation", linkedChapter.open && chapterReader.app.querySelector('a[aria-current="location"]').getAttribute("href") === "#/governance/3-letters-patent-and-warrants" && chapterReader.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && chapterReader.app.querySelector(".governance-match-nav").hidden && chapterReader.app.querySelectorAll("mark").length === 0 && !!byText(chapterReader.app, "a", "Previous chapter")?.getAttribute("href") && !!byText(chapterReader.app, "a", "Next chapter")?.getAttribute("href"));
 
   // .175: follow-up audit regressions use the original admitted local fixture.
   // They do not change a real appointment, membership, digest or production flag.
