@@ -92,9 +92,9 @@ class TalentElement {
   replaceChildren(...nodes) { for (const node of this.childNodes) node.parentNode = null; this.childNodes = []; this.append(...nodes); }
   set textContent(value) { this.replaceChildren(this.ownerDocument.createTextNode(value)); }
   get textContent() { return this.childNodes.map(node => node.textContent).join(''); }
-  setAttribute(key, value) { this.attributes[key] = String(value); if (key === 'src') this.srcAssignments = (this.srcAssignments || 0) + 1; }
+  setAttribute(key, value) { this.attributes[key] = String(value); if (key === 'src') { this.srcAssignments = (this.srcAssignments || 0) + 1; if (this.tagName === 'IMG') this.ownerDocument.imageLoaded?.(this); } }
   getAttribute(key) { return this.attributes[key] ?? null; }
-  removeAttribute(key) { delete this.attributes[key]; }
+  removeAttribute(key) { delete this.attributes[key]; if (key === 'src' && this.tagName === 'IMG') this.ownerDocument.imageRemoved?.(this); }
   addEventListener(type, handler) { (this.listeners[type] ||= []).push(handler); }
   dispatch(type, extra = {}) { const event = { target: this, currentTarget: this, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra }; for (const handler of this.listeners[type] || []) handler(event); return event; }
   focus() { if (this.ownerDocument.activeElement !== this) { this.ownerDocument.activeElement = this; this.dispatch('focus'); } }
@@ -104,7 +104,15 @@ class TalentElement {
   querySelectorAll(selector) { if (selector !== 'img') throw Error('Only the native image query is used by this fixture.'); return this.all(node => node.tagName === 'IMG'); }
 }
 async function detailRenderRegression() {
-  const document = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
+  // Normal image attempts emit load before the original exact-artwork assertions.
+  // Keep the two original failure targets genuinely in flight until their error
+  // assertions; tooltip copies of the same artwork still complete normally.
+  const heldArtwork187 = new Set([art.talentIcons[deflection.id], art.talentIcons[all(data.classes[1])[0].id]]);
+  const nativeImageLoaded187 = node => {
+    if (node.srcAssignments === 1 && heldArtwork187.has(node.getAttribute('src')) && node.parentNode?.className.split(/\s+/).includes('talents-pick')) return;
+    node.dispatch('load');
+  };
+  const document = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null, imageLoaded: nativeImageLoaded187 };
   const container = document.createElement('main'), browserModule = { exports: {} }, changes = [], copiedLinks = [];
   const timers = new Map();
   let reads = 0, ownDataRequest = true, timerId = 0, time = 0;
@@ -136,6 +144,8 @@ async function detailRenderRegression() {
   check('.179 a point paints the original shell, tree nodes, all buttons, toolbar and detail container in place', byClass(container, 'talents-tool')[0] === initialShell179 && initialTrees179.every((node, index) => byClass(container, 'talents-tree')[index] === node) && initialButtons179.every((node, index) => byClass(container, 'talents-pick')[index] === node) && detail() === initialDetail179 && byClass(container, 'talents-toolbar')[0] === initialToolbar179);
   const copyLink = () => byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Copy link');
   copyLink().click(); await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve)); // Complete the real VM async clipboard callback before reading its feedback.
+  check('.187 copied-build feedback retains the exact plan link while stating sign-in and normal access requirements', copiedLinks.at(-1).startsWith('https://guild.example/#/talents/warrior/') && byClass(container, 'talents-feedback')[0].textContent === "Build link copied. Recipients must sign in and meet the site's access requirements." && !container.textContent.includes('Anyone with the link can open it.'));
   const beforeReselect = { callbacks: changes.length, code: byClass(container, 'talents-share-code')[0].getAttribute('value'), link: copiedLinks.at(-1), selected: pick(heroic.name) };
   byClass(container, 'talents-class-button').find(button => button.textContent === 'Warrior').click();
   copyLink().click(); await Promise.resolve();
@@ -204,9 +214,11 @@ async function detailRenderRegression() {
   const artworkNotice = byClass(container, 'talents-artwork-notice')[0];
   check('failed artwork gets a truthful notice without an automatic retry or any talent-point mutation', failedIcon.hidden && !artworkNotice.hidden && artworkNotice.textContent.includes('Talent names, details and point rules are still available.') && failedIcon.srcAssignments === assignmentsBeforeFailure && changes.at(-1).points === 3);
   const oldArtworkRetry = artworkNotice.all(node => node.tagName === 'BUTTON').find(node => node.textContent === 'Retry artwork');
+  document.imageLoaded = null; // Keep this explicit retry pending for the original assertion.
   oldArtworkRetry.click();
   check('one explicit artwork retry reuses only the exact failed mounted private URL without a query, data URL or point change', failedIcon.srcAssignments === assignmentsBeforeFailure + 1 && failedIcon.getAttribute('src') === exactArtworkURL && !exactArtworkURL.includes('?') && failedIcon.hidden && changes.at(-1).points === 3);
   failedIcon.dispatch('load');
+  document.imageLoaded = nativeImageLoaded187;
   check('successful retried artwork becomes visible and clears the partial-failure notice', !failedIcon.hidden && artworkNotice.hidden);
   classButtons().find(button => button.textContent === 'Paladin').click();
   check('an actual class-icon action changes class and restores its three real trees with an empty valid build', changes.at(-1).className === 'paladin' && changes.at(-1).points === 0 && byClass(container, 'talents-tree')[0].getAttribute('aria-label') === 'Holy' && byClass(container, 'talents-backdrop')[0].getAttribute('src') === art.treeBackgrounds['paladin-holy']);
@@ -300,6 +312,65 @@ async function detailRenderRegression() {
   byClass(analysisContainer179, 'talents-class-button').find(button => button.textContent === 'Druid').click();
   analysisController179.destroy();
   check('.179 analysis lifecycle destroys the prior class module and final mount without a data fetch', analysisEvents179.filter(event => event.action === 'mount').length === 2 && analysisEvents179.filter(event => event.action === 'destroy').length === 2 && reads === 2);
+
+  // Delayed native terminal events exercise the actual queue using observable src
+  // assignments, DOM ownership and cancellation, without reading queue internals.
+  const attempts187 = [], pending187 = new Map(); let maximum187 = 0;
+  const delayedDocument187 = {
+    createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null,
+    imageLoaded(node) {
+      if (pending187.has(node)) throw Error('An active image attempt was assigned again');
+      const attempt = { node, url: node.getAttribute('src'), terminal: null };
+      attempts187.push(attempt); pending187.set(node, attempt); maximum187 = Math.max(maximum187, pending187.size);
+    },
+    imageRemoved(node) { const attempt = pending187.get(node); if (attempt) { attempt.terminal = 'cancelled'; pending187.delete(node); } },
+  };
+  const settleImage187 = (node, type = 'load') => {
+    const attempt = pending187.get(node); if (!attempt) throw Error('No pending image attempt to settle');
+    attempt.terminal = type; pending187.delete(node); node.dispatch(type);
+  };
+  const slowHost187 = delayedDocument187.createElement('main'), slowChanges187 = [];
+  const slow187 = await browserModule.exports.mount(slowHost187, { onBuildChange: value => slowChanges187.push(value) });
+  const coldImages187 = slowHost187.querySelectorAll('img'), navImages187 = byClass(slowHost187, 'talents-class-button').map(button => button.all(node => node.tagName === 'IMG')[0]);
+  check('.187 a cold real mount assigns only four protected image URLs while the remaining visible artwork is queued', pending187.size === 4 && attempts187.length === 4 && maximum187 === 4 && coldImages187.length > 60 && coldImages187.filter(node => node.srcAssignments === 1).length === 4 && coldImages187.filter(node => !node.srcAssignments).length > 50 && slowChanges187.length === 0);
+  let navSettlements187 = 0;
+  while ([...pending187.keys()].some(node => navImages187.includes(node))) { if (++navSettlements187 > 9) throw Error('Class strip requested more than its nine images'); settleImage187([...pending187.keys()].find(node => navImages187.includes(node))); }
+  const oldInFlight187 = [...pending187.keys()], oldQueued187 = coldImages187.filter(node => !node.srcAssignments), beforeClass187 = attempts187.length;
+  byClass(slowHost187, 'talents-class-button').find(button => button.textContent === 'Paladin').click();
+  const paladinQueued187 = slowHost187.querySelectorAll('img').filter(node => !node.srcAssignments);
+  check('.187 switching class retains all four older in-flight slots and reuses loaded navigation without starting a new burst', pending187.size === 4 && oldInFlight187.every(node => pending187.has(node)) && oldInFlight187.some(node => !slowHost187.contains(node)) && attempts187.length === beforeClass187 && byClass(slowHost187, 'talents-class-button').every((button, index) => button.all(node => node.tagName === 'IMG')[0] === navImages187[index] && navImages187[index].srcAssignments === 1));
+  byClass(slowHost187, 'talents-class-button').find(button => button.textContent === 'Druid').click();
+  const cancelledQueue187 = [...new Set([...oldQueued187, ...paladinQueued187])].filter(node => !slowHost187.contains(node));
+  check('.187 a second rapid class switch cancels stale queued nodes without dropping occupied old slots', pending187.size === 4 && attempts187.length === beforeClass187 && cancelledQueue187.length > 40 && cancelledQueue187.every(node => !node.srcAssignments) && slowChanges187.at(-1).className === 'druid');
+  const detached187 = oldInFlight187.find(node => !slowHost187.contains(node));
+  settleImage187(detached187, 'error');
+  check('.187 one detached old-class terminal event releases exactly one slot to current artwork without a new-class warning', pending187.size === 4 && attempts187.length === beforeClass187 + 1 && attempts187.at(-1).node !== detached187 && slowHost187.contains(attempts187.at(-1).node) && oldInFlight187.filter(node => pending187.has(node)).length === 3 && byClass(slowHost187, 'talents-artwork-notice')[0].hidden && maximum187 === 4);
+  for (const node of oldInFlight187) if (pending187.has(node)) settleImage187(node);
+  check('.187 all remaining old requests settle before their slots are reused and discarded class queues never start', pending187.size === 4 && [...pending187.keys()].every(node => slowHost187.contains(node)) && cancelledQueue187.every(node => !node.srcAssignments) && maximum187 === 4);
+  const currentFailure187 = [...pending187.keys()][0], failedUrl187 = currentFailure187.getAttribute('src'), failedAssignments187 = currentFailure187.srcAssignments;
+  settleImage187(currentFailure187, 'error');
+  let drained187 = 0;
+  while (pending187.size) { if (++drained187 > 200) throw Error('Image queue did not drain within the finite artwork inventory'); settleImage187([...pending187.keys()][0]); }
+  check('.187 a genuine current image failure is not automatically retried while the other queued artwork finishes', currentFailure187.hidden && currentFailure187.srcAssignments === failedAssignments187 && attempts187.filter(attempt => attempt.node === currentFailure187).length === 1 && byClass(slowHost187, 'talents-artwork-notice')[0].hidden === false && maximum187 === 4 && cancelledQueue187.every(node => !node.srcAssignments));
+  const retry187 = byClass(slowHost187, 'talents-artwork-notice')[0].all(node => node.tagName === 'BUTTON')[0], beforeRetry187 = attempts187.length;
+  retry187.click(); retry187.click();
+  check('.187 repeated explicit Retry clicks deduplicate an in-flight attempt and preserve its exact same-origin URL', pending187.size === 1 && pending187.has(currentFailure187) && attempts187.length === beforeRetry187 + 1 && currentFailure187.srcAssignments === failedAssignments187 + 1 && currentFailure187.getAttribute('src') === failedUrl187 && !failedUrl187.includes('?') && maximum187 === 4);
+  settleImage187(currentFailure187);
+  const afterRetry187 = attempts187.length; currentFailure187.dispatch('error');
+  check('.187 a late duplicate error after a successful terminal load cannot create a false warning or restart the queue', !currentFailure187.hidden && byClass(slowHost187, 'talents-artwork-notice')[0].hidden && pending187.size === 0 && attempts187.length === afterRetry187 && slowChanges187.at(-1).points === 0);
+  slow187.destroy();
+  const isolatedHostA187 = delayedDocument187.createElement('main'), isolatedHostB187 = delayedDocument187.createElement('main');
+  const isolatedA187 = await browserModule.exports.mount(isolatedHostA187), isolatedB187 = await browserModule.exports.mount(isolatedHostB187);
+  const belongsA187 = () => [...pending187.keys()].filter(node => isolatedHostA187.contains(node)), belongsB187 = () => [...pending187.keys()].filter(node => isolatedHostB187.contains(node));
+  const initialB187 = belongsB187();
+  check('.187 independent mounts each own four slots instead of borrowing or sharing mutable queue state', pending187.size === 8 && belongsA187().length === 4 && belongsB187().length === 4 && initialB187.every(node => node.srcAssignments === 1));
+  settleImage187(belongsA187()[0]);
+  check('.187 settling one mount advances only its own four-slot queue', belongsA187().length === 4 && belongsB187().length === 4 && initialB187.every(node => pending187.has(node) && node.srcAssignments === 1));
+  const activeA187 = belongsA187(), queuedA187 = isolatedHostA187.querySelectorAll('img').filter(node => !node.srcAssignments), beforeDestroy187 = attempts187.length;
+  isolatedA187.destroy(); for (const node of activeA187) { node.dispatch('load'); node.dispatch('error'); }
+  check('.187 destroy cancels owned in-flight URLs and stale completions cannot start queued images or touch another mount', activeA187.every(node => !pending187.has(node) && node.getAttribute('src') === null) && queuedA187.every(node => !node.srcAssignments) && attempts187.length === beforeDestroy187 && pending187.size === 4 && initialB187.every(node => pending187.has(node) && node.srcAssignments === 1));
+  isolatedB187.destroy(); for (const node of initialB187) node.dispatch('load');
+  check('.187 final mount destruction leaves no pending image attempts and no replacement URL assignments', pending187.size === 0 && attempts187.length === beforeDestroy187 && initialB187.every(node => node.getAttribute('src') === null) && initialJSON === JSON.stringify(data));
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

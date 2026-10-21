@@ -28,6 +28,12 @@
     if (!Number.isSafeInteger(seconds) || seconds < 1072915200) return "not supplied";
     return new Date(seconds * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC");
   }
+  function headlineRegion(source, item) {
+    if (source.sourceId !== "wowhead-blues") return null;
+    const safe = safeUrl(item.url); if (!safe) return null;
+    const url = new URL(safe), match = url.hostname === "www.wowhead.com" && url.pathname.match(/^\/forever\/blue-tracker\/(?:news|topic)\/(us|eu)\/\d+(?:\/|$)/);
+    return match ? match[1].toUpperCase() : null;
+  }
   function mount(container, options) {
     const view = options && options.view;
     if (!["addons", "guides", "updates"].includes(view)) throw new Error("Unsupported resource view");
@@ -151,7 +157,10 @@
             const posts = el("ul", undefined, "resources169-thread-posts");
             for (const { item, post } of entries) { const row = el("li"); row.append(link(`Thread post ${post}`, item.url), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); posts.append(row); }
             li.append(posts);
-          } else li.append(link(first.title, first.url), el("span", `${entries[0].post ? "Thread post " + entries[0].post + " · " : ""}Published: ${time(first.publishedAt)}`, "resources169-meta"));
+          } else {
+            const region = headlineRegion(source, first);
+            li.append(link(first.title, first.url), el("span", `${region ? "Region: " + region + " · " : ""}${entries[0].post ? "Thread post " + entries[0].post + " · " : ""}Published: ${time(first.publishedAt)}`, "resources169-meta"));
+          }
           ul.append(li);
         }
         card.append(ul, retrieval);
