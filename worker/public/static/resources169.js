@@ -125,6 +125,7 @@
         if (source.failure) card.append(el("p", `This source could not be refreshed automatically. ${source.status === "stale" ? "The older headlines below are marked stale." : "No automatically retrieved headlines are available."} The publisher's website may still be available; open the original source.`, "resources169-warning"));
         else if (source.status === "unavailable") card.append(el("p", "Automatic headlines are unavailable. The publisher's website may still be available; open the original source.", "resources169-warning"));
         if (source.failure) retrieval.append(el("p", `Reported failure: ${source.failure}`, "resources169-meta"));
+        if (source.failure === "upstream" && Number.isInteger(source.upstreamStatus) && source.upstreamStatus >= 100 && source.upstreamStatus <= 599) retrieval.append(el("p", `Publisher response: HTTP ${source.upstreamStatus}.`, "resources169-meta"));
         if (source.omittedItems) card.append(el("p", `${source.omittedItems} source entries were omitted because required fields or dates were invalid.`, "resources169-note"));
         const ul = el("ul", undefined, "resources169-headlines");
         const groups = new Map();
