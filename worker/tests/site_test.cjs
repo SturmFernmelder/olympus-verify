@@ -319,7 +319,7 @@ async function legacySchemaHeld(old) {
     const icon = path.join(root, "public", "static", "olympus-icon.png");
     const png = fs.existsSync(icon) ? fs.readFileSync(icon) : Buffer.alloc(0);
     const imagesOutsideWow = (function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? (d.name === "wow" ? [] : walk(path.join(dir, d.name))) : (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i.test(d.name) ? [path.relative(path.join(root, "public"), path.join(dir, d.name)).replace(/\\/g, "/")] : [])); })(path.join(root, "public"));
-    check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !page.html.includes('/static/olympus-icon.png') && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
+    check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !/<img\b[^>]*src=["']\/static\/olympus-icon\.png/.test(page.html) && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     const avatarSource = ts.createSourceFile("app.js", appJs, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS), avatarParts = {};
     (function readAvatarDefinitions(node) {
@@ -1371,7 +1371,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-20.180 Public Army census publishing" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-20.181 Gated Army and shared Olympus presentation" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

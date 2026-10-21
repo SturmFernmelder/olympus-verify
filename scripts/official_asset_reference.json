@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 529079,
-      "sha256": "72387075f430fa966d18c08df99a2b638d97fa8b7705495bfad04617654246c7"
+      "bytes": 529673,
+      "sha256": "161bffcdf2005d243a777f9200617e9a8077b41d6eb2a7cb1a01095edabeec1a"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3812,8 +3812,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 529079,
-      "sha256": "72387075f430fa966d18c08df99a2b638d97fa8b7705495bfad04617654246c7"
+      "bytes": 529673,
+      "sha256": "161bffcdf2005d243a777f9200617e9a8077b41d6eb2a7cb1a01095edabeec1a"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4064,14 +4064,14 @@
     {
       "path": "worker/public/static/army-live/army.css",
       "mode": "100644",
-      "bytes": 8952,
-      "sha256": "9e509ba29d26a611473256ee12cc06b0f5bf445a2581f54e94c9639c66522e2b"
+      "bytes": 11954,
+      "sha256": "fc74b1bee40c4accdcc4fd38e0b7fc92a4a27816d85b412b8424f0a3ce7b4a57"
     },
     {
       "path": "worker/public/static/army-live/army.js",
       "mode": "100644",
-      "bytes": 8927,
-      "sha256": "5e12c2d5b3e00fed0d97fec5c3cb665a9db08a0dfcea37c62258615da6bec8a2"
+      "bytes": 8930,
+      "sha256": "5f738da0998103d1fccdcfebae719f5a466906295899c80ed2f8a3abb701c6c6"
     },
     {
       "path": "worker/public/static/army-live/protocol.js",
@@ -4082,8 +4082,8 @@
     {
       "path": "worker/public/static/army-live/report.js",
       "mode": "100644",
-      "bytes": 13354,
-      "sha256": "0b4beede3c89d53fe325ccbc1a6da602141e4c8596ec9608d150f8f7a0b6164d"
+      "bytes": 13392,
+      "sha256": "7045622bed0f4a7d7c1f41989f9cffe268942ab80adc1cb25137dbcb21d94ff9"
     },
     {
       "path": "worker/public/static/army-live/pilot.js",

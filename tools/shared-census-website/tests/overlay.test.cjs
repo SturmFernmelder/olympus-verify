@@ -40,7 +40,7 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
 (async () => {
   const original = fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8');
   check('local transform refuses source drift and repeat transformation', (() => { try { overlayLocal.transformApp(original + '\n'); return false; } catch {} try { overlayLocal.transformApp(APP_JS); return false; } catch {} return true; })());
-  check('synthetic local overlay binds the reviewed main frontend and has its own local-only loader', overlayLocal.EXPECTED_SOURCE_SHA256 === '72387075f430fa966d18c08df99a2b638d97fa8b7705495bfad04617654246c7' && APP_JS.includes('async function loadSharedCensusLocalScript(namespace, file)') && !APP_JS.includes('async function loadMemberScript(') && !APP_JS.includes('OlympusArmy'));
+  check('synthetic local overlay binds the reviewed main frontend and has its own local-only loader', overlayLocal.EXPECTED_SOURCE_SHA256 === '161bffcdf2005d243a777f9200617e9a8077b41d6eb2a7cb1a01095edabeec1a' && APP_JS.includes('async function loadSharedCensusLocalScript(namespace, file)') && !APP_JS.includes('async function loadMemberScript(') && !APP_JS.includes('OlympusArmy'));
   const originalTools = original.slice(original.indexOf('  const toolScripts = new Map();'), original.indexOf('  const resourcesView = view => main => {'));
   check('original main tool loader and talent route remain exact without importing the later talent candidate', originalTools.includes('ROUTES.talents = (main, parts) => memberTool(') && APP_JS.includes(originalTools) && !APP_JS.includes('OlympusTalentAnalysis') && !APP_JS.includes('OlympusTalentGuides'));
   const originalNews = original.slice(original.indexOf('  async function communityNews(body) {'), original.indexOf('  async function communityDirectory(body) {'));
@@ -60,9 +60,13 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   check('unconfirmed ordinary reader sees standing refusal without local nav tab card module or census request', ordinary.boot.community.capabilities.communityRead === false && ordinary.boot.community.capabilities.confirmedGuildData === false && linksLocal(ordinary).length === 0 && !findScriptLocal(ordinary) && ordinaryMounts.length === 0 && ordinaryCalls.every(call => !/census/.test(call.pathname)) && ordinary.app.textContent.includes('Membership check needed'));
   await ordinary.go('#/community');
   check('unconfirmed overview does not advertise shared local census', linksLocal(ordinary).length === 0);
+  await ordinary.go('#/community/army');
+  check('ordinary Army admission does not grant local census access or load its module', ordinary.boot.community.capabilities.armyRead === true && !!ordinary.app.querySelector('a[href="/army"]') && linksLocal(ordinary).length === 0 && !findScriptLocal(ordinary) && ordinaryMounts.length === 0 && ordinaryCalls.every(call => !/census/.test(call.pathname)));
   const switchedOff = await openPage(MEMBER, { COMMUNITY_FEATURES: '' }), switchedCalls = requestsLocal(switchedOff);
   await switchedOff.go(localPath);
   check('original all-community-OFF gate remains closed before local module loading', !findScriptLocal(switchedOff) && switchedCalls.every(call => !/census/.test(call.pathname)) && switchedOff.app.textContent.includes('not switched on yet'));
+  await switchedOff.go('#/community/army');
+  check('Army-only navigation with legacy Community OFF advertises no local census tab', !!switchedOff.app.querySelector('a[href="/army"]') && linksLocal(switchedOff).length === 0 && !findScriptLocal(switchedOff) && switchedCalls.every(call => !/census/.test(call.pathname)));
 
   const member = await openPage(MEMBER, featuresLocal), memberCalls = requestsLocal(member);
   check('confirmed member top navigation exposes local entry independently of News and old Census flag', !!member.app.querySelector('nav.nav a[href="' + localPath + '"]') && member.boot.settings.newsOn === false && member.boot.community.features.census === false);

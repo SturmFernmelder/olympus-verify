@@ -50,6 +50,10 @@ rejects('talent art provenance byte drift is refused', () => verify(fixture(chan
 rejects('v2 protocol source cannot drift independently from its shipping copy', () => verify(fixture(changed('tools/army-qr-live/protocol.js', s => s + '\n'))), /exact live Army protocol projection/);
 rejects('addon ZIP bytes cannot be repinned independently from reviewed Lua sources', () => verify(fixture(changed('worker/public/static/army-live/olympus-army-addon-0.2.0.zip', s => s + 'x'), true)), /exact seven-source Army addon ZIP projection/);
 rejects('addon source cannot drift independently from the deterministic source ZIP', () => verify(fixture(changed('addon/OlympusStatsPilot/Army.lua', s => s + '\n'))), /exact seven-source Army addon ZIP projection/);
+for (const file of ['tools/shared-census-website/website-overlay.cjs', 'tools/army-qr-local/website-overlay.cjs']) {
+  rejects('each local overlay requires the exact app source: ' + file, () => verify(fixture(changed(file, s => s.replace(/EXPECTED_SOURCE_SHA256\s*=\s*['"][a-f0-9]{64}['"]/, "EXPECTED_SOURCE_SHA256='" + '0'.repeat(64) + "'")))), /local overlay app-source pin drift/);
+  rejects('each local overlay source declaration is mandatory: ' + file, () => verify(fixture(changed(file, s => s.replace('EXPECTED_SOURCE_SHA256', 'UNRECOGNIZED_SOURCE_SHA256')))), /local overlay source declaration/);
+}
 rejects('reference hash drift is refused', () => verify(fixture(changed('scripts/official_asset_reference.json', s => s + '\n'))), /reference digest drift/);
 rejects('V4 helper byte drift is refused', () => verify(fixture(changed('scripts/public_history.py', s => s + '\n'))), /V4 helper digest drift/);
 rejects('network guard byte drift is refused', () => verify(fixture(changed('scripts/pages_network_guard.cjs', s => s + '\n'))), /network guard digest drift/);

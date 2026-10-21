@@ -127,16 +127,24 @@ async function deleteThroughOriginalRoute(target,actor){
   const dto = async (id, over) => (await (await indexMod.default.fetch(req("https://guild.example/api/community/context", await cookieFor(id)), rawEnv(over), ctx)).json());
   let d = await dto(APPLICANT);
   check("an applicant: identity and applicantWrite, no guild data, not staff", d.capabilities.authenticatedIdentity && d.capabilities.applicantWrite && !d.capabilities.confirmedGuildData && !d.capabilities.communityStaff && d.subject.discordId === APPLICANT, JSON.stringify(d));
+  check("Army viewing admits ordinary standing with every Community feature OFF, without a character or private guild-data grant", d.capabilities.armyRead === true && !d.capabilities.communityRead && !d.capabilities.confirmedGuildData && !d.capabilities.communityStaff && Object.values(d.features).every(value => value === false));
   d = await dto(MEMBER);
   check("a roster-confirmed member: confirmedGuildData from characters.status = 'member'", d.capabilities.confirmedGuildData && !d.capabilities.communityStaff);
+  check("a roster-confirmed eligible member retains Army viewing", d.capabilities.armyRead === true);
   d = await dto(BANNED);
   check("a banned account with a confirmed character: no guild data", d.capabilities.applicantWrite && !d.capabilities.confirmedGuildData);
+  check("Army viewing excludes a banned in-server account without changing applicantWrite", d.capabilities.armyRead === false && d.capabilities.applicantWrite === true);
+  const bannedAdmin = await dto(BANNED, { SITE_ADMINS: BANNED, COMMUNITY_ORGANIZERS: BANNED });
+  check("administrator and organizer configuration cannot bypass a current Army ban", bannedAdmin.capabilities.armyRead === false && bannedAdmin.capabilities.communityStaff === true && bannedAdmin.capabilities.organizer === false);
   d = await dto(DENIED);
   check("a denied account: identity only", d.capabilities.authenticatedIdentity && !d.capabilities.applicantWrite && !d.capabilities.confirmedGuildData);
+  check("Army viewing excludes a denied account", d.capabilities.armyRead === false);
   d = await dto(LEFT);
   check("someone who left the server: identity only", d.capabilities.authenticatedIdentity && !d.capabilities.applicantWrite);
+  check("Army viewing excludes an account that left the server", d.capabilities.armyRead === false);
   d = await dto(STAFF);
   check("a SITE_ADMIN: communityStaff (distinct from the bot's officer roles), no guild data without a character", d.capabilities.communityStaff && !d.capabilities.confirmedGuildData);
+  check("Army viewing permits an eligible administrator without requiring roster confirmation", d.capabilities.armyRead === true && !d.capabilities.confirmedGuildData);
   d = await dto(STAFF, { SITE_ADMINS: "" });
   check("  and not staff when not listed", !d.capabilities.communityStaff);
   check("the DTO carries the member's own id, the capabilities, every feature flag and the clock, nothing else", Object.keys(d).sort().join(",") === "capabilities,features,now,subject" && Object.keys(d.features).length === context.COMMUNITY_FEATURES.length);
@@ -146,6 +154,8 @@ async function deleteThroughOriginalRoute(target,actor){
   await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?",APPLICANT);
   res = await indexMod.default.fetch(req("https://guild.example/api/community/context", cookieV1), rawEnv(), ctx);
   check("a cookie from before a sign-out is a stranger again (session_version)", res.status === 401 && cycled.subject.discordId === APPLICANT);
+  const signedOutArmy = await context.communityContext(env(), req("https://guild.example/x"));
+  check("Army viewing is absent without a current signed-in identity", signedOutArmy.capabilities.armyRead === false && signedOutArmy.subject === null);
   await fixtureRun("UPDATE site_users SET session_version = 1 WHERE discord_id = ?",APPLICANT);
 
   console.log("\n== the feature list ==");

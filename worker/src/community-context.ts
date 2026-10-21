@@ -11,6 +11,7 @@ import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-
  * SITE_ADMINS. Capabilities are derived from those facts and name requirements, not grants:
  *   authenticatedIdentity   a valid session
  *   applicantWrite          not denied and in the server (what site-api.ts requires of every save today)
+ *   armyRead                applicantWrite and not banned; no roster proof, guild role or feature switch
  *   confirmedGuildData      applicantWrite, a roster-confirmed character, not banned
  *   communityStaff          applicantWrite and SITE_ADMINS (distinct from the bot's officer roles, which a site session
  *                           cannot see; a staff capability for Discord roles would be a separate, reviewed design)
@@ -82,6 +83,8 @@ export interface CommunityFacts {
 export interface CommunityCapabilities {
   authenticatedIdentity: boolean;
   applicantWrite: boolean;
+  /** .181: ordinary eligible Army viewing only; never a private guild-data or publisher grant. */
+  armyRead: boolean;
   confirmedGuildData: boolean;
   /** .176: guild viewing only; never a roster confirmation, editor or organizer grant. */
   communityRead: boolean;
@@ -119,6 +122,7 @@ export function capabilitiesOf(f: CommunityFacts): CommunityCapabilities {
   return {
     authenticatedIdentity: f.signedIn,
     applicantWrite,
+    armyRead: applicantWrite && !f.banned,
     confirmedGuildData,
     communityRead: applicantWrite && !f.banned && (f.confirmedGuild || f.staff || f.guildRoleRead === true),
     communityStaff: applicantWrite && f.staff,

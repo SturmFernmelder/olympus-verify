@@ -17,7 +17,7 @@
  *
  * This module's named exports are functions only: workerd refuses an entry that exports a scalar (.51).
  */
-import { armyBeforeMemberGate, armyAfterMemberGate } from "./site-army";
+import { armyAfterMemberGate, armyGateReply } from "./site-army";
 import type { Env } from "./env";
 import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
 import { unverifiedReport } from "./unverified";
@@ -210,10 +210,8 @@ export default {
       // Private delivery consumes the same original serving root and admitted Native read as application work.
       // A CLOSED floor must not release guild source through an earlier raw-binding session lookup.
       if (host === 'site') {
-        const armyPublic = await armyBeforeMemberGate(request, env, path);
-        if (armyPublic) return armyPublic;
         const gate = await memberSiteGate(request, env, path);
-        if (gate) return gate;
+        if (gate) return armyGateReply(request, path, gate);
         const armyPrivate = await armyAfterMemberGate(request, env, path);
         if (armyPrivate) return armyPrivate;
         if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/static/')) return path === CAMERA_PAGE_PATH ? privateCameraPageAsset(await env.ASSETS.fetch(request)) : privateSiteAsset(await env.ASSETS.fetch(request));
@@ -581,7 +579,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-20.180 Public Army census publishing";
+const BUILD = "2026-10-20.181 Gated Army and shared Olympus presentation";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

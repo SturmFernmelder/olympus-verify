@@ -1,7 +1,7 @@
 /** Owner-authorized aggregate publishing, 20 October 2026. No character rows or reporter identity enter storage. */
 import type { Env } from "./env";
-import { apiJson, currentUser, originalUserSession, isSiteAdmin, PAGE_VERSION, sameOrigin, rateLimited, sign, verify, b64u } from "./site-core";
-import { privacyBoundSiteEnv } from "./privacy-serving-authority";
+import { apiJson, currentUser, originalUserSession, isSiteAdmin, PAGE_VERSION, sameOrigin, rateLimited, sign, verify, b64u, securityHeaders } from "./site-core";
+import { privacyBoundSiteEnv, PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { communityContext, captureCommunitySubject, admitted, admittedReadAs, DB_NOW, fenceSql, FENCE_REFUSED, type CommunityContext } from "./community-context";
 import { checkOriginalNativeRequest, checkOriginalNativeHeaders } from "./privacy-native-http-intrinsics";
 import { readRaw, PreviewRefusal } from "./army-body";
@@ -58,22 +58,78 @@ const digest = async (text: string) => b64u(new Uint8Array(await crypto.subtle.d
 function parsed(row: Row, now: number): ArmySnapshot | null {
   try { if (row.updated_by !== null || row.value.length > 1023) return null; const v = validateArmySnapshot(JSON.parse(row.value), now, false); if (v.observedAt !== row.updated_at || JSON.stringify(v) !== row.value) return null; return v; } catch { return null; }
 }
+/** All Army delivery is session-dependent, including errors and bodyless HEAD replies. */
+export function privateArmyResponse(request: Request, response: Response): Response {
+  const headers = securityHeaders(new Headers(response.headers));
+  // The admitted publisher's authored document policy alone permits attended capture.
+  // Cache isolation must not replace it with the ordinary API/asset camera denial.
+  if (/^text\/html\b/i.test(response.headers.get("Content-Type") ?? "")) {
+    for (const name of ["Permissions-Policy", "Referrer-Policy"]) {
+      const value = response.headers.get(name); if (value !== null) headers.set(name, value);
+    }
+  }
+  headers.set("Cache-Control", "private, no-store, no-transform"); headers.set("Vary", "Cookie");
+  return new Response(request.method === "HEAD" ? null : response.body, { status: response.status, statusText: response.statusText, headers });
+}
+type ArmyReader = { env: Env; check: () => void; read: (statements?: D1PreparedStatement[]) => Promise<D1Result[] | Response> };
+/** Ordinary site standing is sufficient; no roster, character or reporter capability is inferred. */
+export async function armyReader(request: Request, env: Env): Promise<ArmyReader | Response> {
+  checkOriginalNativeRequest(request); checkOriginalNativeHeaders(request.headers);
+  const originalEnv = env;
+  const user = await currentUser(env, request);
+  const refused = (error: string, status: number) => privateArmyResponse(request, apiJson({ error }, status));
+  if (!user) return refused("signed_out", 401);
+  if (user.denied || user.in_server !== 1) return refused(user.denied ? "denied" : "not_member", 403);
+  const session = originalUserSession(user);
+  env = privacyBoundSiteEnv(env, session);
+  const subject = Object.freeze({ discordId: session.u, sessionVersion: session.v, expiresAt: session.e,
+    privacyGeneration: session.g, accountIncarnation: session.n, originalSession: session });
+  const capture = captureCommunitySubject(subject), url = request.url, method = request.method, headers = request.headers, values = HEADER_NAMES.map(h => headers.get(h));
+  const check = () => {
+    capture.check(); checkOriginalNativeRequest(request); checkOriginalNativeHeaders(headers);
+    if (request.url !== url || request.method !== method || request.headers !== headers || HEADER_NAMES.some((h, i) => headers.get(h) !== values[i])) throw Error("army_original_request_held");
+  };
+  const read = async (statements: D1PreparedStatement[] = []): Promise<D1Result[] | Response> => {
+    check();
+    let out: D1Result[] | typeof FENCE_REFUSED;
+    try {
+      out = await admittedReadAs(env, subject, "applicantWrite", [env.DB.prepare("SELECT EXISTS(SELECT 1 FROM members WHERE discord_id=?1 AND banned=1) AS banned").bind(subject.discordId), ...statements]);
+    } catch (error) {
+      if (!(error instanceof PrivacySiteRequestHeld)) throw error;
+      // Keep the Native refusal; only explain the original caller's current state. Never retry the payload.
+      const current = await currentUser(originalEnv, request); check();
+      return refused(!current ? "signed_out" : current.denied ? "denied" : current.in_server !== 1 ? "not_member" : "privacy_held", !current ? 401 : current.denied || current.in_server !== 1 ? 403 : 409);
+    }
+    check();
+    if (out === FENCE_REFUSED) {
+      const current = await currentUser(originalEnv, request); check();
+      return refused(!current ? "signed_out" : current.denied ? "denied" : current.in_server !== 1 ? "not_member" : "account_changed", current ? 403 : 401);
+    }
+    if ((out[0]?.results?.[0] as { banned?: number } | undefined)?.banned !== 0) return refused("forbidden", 403);
+    return out.slice(1);
+  };
+  const admission = await read();
+  return admission instanceof Response ? admission : { env, check, read };
+}
 export async function armyPublic(request: Request, env: Env): Promise<Response> {
-  if (!["GET", "HEAD"].includes(request.method)) return apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
-  if (new URL(request.url).search) return apiJson({ error: "bad_request" }, 400);
-  const out = await env.DB.batch([env.DB.prepare(`SELECT ${DB_NOW} AS now`), env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY CAST(SUBSTR(key,16) AS INTEGER),key LIMIT 12")]);
+  const reply = (response: Response) => privateArmyResponse(request, response);
+  if (!["GET", "HEAD"].includes(request.method)) return reply(apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" }));
+  if (new URL(request.url).search) return reply(apiJson({ error: "bad_request" }, 400));
+  const reader = await armyReader(request, env); if (reader instanceof Response) return reader;
+  const out = await reader.read([reader.env.DB.prepare(`SELECT ${DB_NOW} AS now`), reader.env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY CAST(SUBSTR(key,16) AS INTEGER),key LIMIT 12")]);
+  if (out instanceof Response) return out;
   const now = (out[0]?.results?.[0] as { now: number } | undefined)?.now;
-  if (!integer(now, 0, 4102444800)) return apiJson({ error: "clock_held" }, 503);
+  if (!integer(now, 0, 4102444800)) return reply(apiJson({ error: "clock_held" }, 503));
   const snapshots: ArmySnapshot[] = [];
   for (const row of out[1]?.results ?? []) {
     const stored = row as Row & { key: string }, value = parsed(stored, now);
-    if (!value || stored.key !== armyKey(value)) return apiJson({ error: "aggregate_held" }, 503);
+    if (!value || stored.key !== armyKey(value)) return reply(apiJson({ error: "aggregate_held" }, 503));
     const copy = JSON.parse(JSON.stringify(value)) as ArmySnapshot;
     if (now - copy.guilds[0].receivedAt > 900) copy.guilds[0].online = null;
     snapshots.push(copy);
   }
-  const response = apiJson({ format: "olympus-army-public-v1", now, snapshots });
-  return request.method === "HEAD" ? new Response(null, { status: response.status, headers: response.headers }) : response;
+  reader.check();
+  return reply(apiJson({ format: "olympus-army-public-v1", now, snapshots }));
 }
 
 type Reporter = { env: Env; ctx: CommunityContext; check: () => void };
