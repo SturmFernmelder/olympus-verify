@@ -58,10 +58,12 @@ public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
 check(len(assets) == 512 and len(ref['official_paths']) == 494, '512 exact assets: all510 prior assets plus two independently approved custom variants;493 official image/font paths and1 historical video unchanged')
-check(len(resources) == 38 and len(public) == 550, '38 exact non-art resources including unchanged dormant Army and seven live Army resources')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed550-path union')
+check(len(resources) == 40 and len(public) == 552, '40 exact non-art resources: all38 prior resources plus the two finite talent analysis/guide scripts')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed552-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all550 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all552 current public byte pins match the reviewed reference')
+talent_resources = {'worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'}
+check(talent_resources.issubset(resources) and not talent_resources.intersection(assets) and all(gate.runtime_path(p) and resources[p]['mode'] == '100644' for p in talent_resources), 'both new talent scripts are exact ordinary non-art runtime resources without an official/native art exception')
 army_root = 'worker/public/static/army-qr-review/'
 check({p for p in resources if p.startswith(army_root)} == {army_root + name for name in ('protocol.js', 'decoder.js', 'pilot.js', 'manifest.json')}, 'Army adds exactly four closed resources without an artwork exception')
 army_manifest = json.loads(payloads[army_root + 'manifest.json'])
@@ -185,7 +187,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 550 and proof['required_non_art_resource_pins_verified'] == 38, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 552 and proof['required_non_art_resource_pins_verified'] == 40, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')

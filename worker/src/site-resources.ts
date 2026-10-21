@@ -172,7 +172,7 @@ async function retrieve(source: Source, fetcher: typeof fetch, at: number): Prom
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { controller.abort(); reject(new FeedError("timeout")); }, RESOURCE_FEED_LIMITS.timeoutMs); });
   const work = async () => {
-    const response = await fetcher(source.feed, { redirect: "manual", signal: controller.signal, headers: { Accept: "application/rss+xml, application/xml, text/xml" } });
+    const response = await fetcher(source.feed, { redirect: "manual", signal: controller.signal, headers: { Accept: "application/rss+xml, application/xml, text/xml", "User-Agent": "OlympusFeedReader/1.185 (+https://olympus.roachcouncil.com)" } });
     if (controller.signal.aborted) { cancel(response); throw new FeedError("timeout"); }
     if (response.redirected || response.status >= 300 && response.status < 400 || response.url && response.url !== source.feed) { cancel(response); throw new FeedError("redirect"); }
     if (response.status !== 200) { cancel(response); throw new FeedError("upstream", Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? response.status : null); }
