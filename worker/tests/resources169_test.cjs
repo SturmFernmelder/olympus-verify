@@ -157,6 +157,7 @@ function renderer(fetcher) {
   const began = performance.now(); let timeoutCancels = 0;
   const timed = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async () => response(new ReadableStream({ cancel() { timeoutCancels++; return new Promise(() => {}); } })) });
   const elapsed = performance.now() - began;
+  console.log('RESOURCE_DEADLINE_MEASUREMENT '+JSON.stringify({timeoutMs:limits.timeoutMs,elapsedMs:elapsed,timeoutCancels,sources:timed.sources.map(s=>({status:s.status,failure:s.failure}))}));
   check('fixed8second deadline includes a hung body and unacknowledged cancellation', limits.timeoutMs === 8000 && elapsed >= 8000 && elapsed < 11000 && timeoutCancels === 3 && every(timed, s => s.failure === 'timeout' && s.status === 'unavailable'));
   console.log(`\n${n}/${n} passed`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

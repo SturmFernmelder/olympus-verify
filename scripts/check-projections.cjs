@@ -24,6 +24,7 @@ function loadSnapshot(cwd, revision = null) {
     entries.set(file, { mode: header[0], oid: header[revision ? 2 : 1] });
   }
   const wanted = [...entries.keys()].filter(p => BOOT.includes(p) || /^(scripts\/|policies\/|worker\/scripts\/|worker\/public\/static\/)/.test(p)
+    || /^addon\/OlympusStatsPilot\/(?:OlympusStatsPilot\.toc|Core\.lua|OlympusStatsPilot\.lua|Army\.lua|Libs\/StatsPilotQr\.lua|README\.md|ARMY\.md)$/.test(p) || ['tools/army-qr-live/protocol.js','tools/guild-qr-pilot/pilot.js','tools/guild-qr-pilot/decoder.js'].includes(p)
     || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py', 'tools/check-login-portal.py'].includes(p));
   const ids = [...new Set(wanted.map(p => entries.get(p).oid))], blobs = new Map();
   const batch = git(cwd, ['cat-file', '--batch'], ids.join('\n') + '\n');
@@ -42,6 +43,9 @@ function loadSnapshot(cwd, revision = null) {
     return blobs.get(entry.oid);
   }, mode(file) { return entries.get(file)?.mode; } };
 }
+const FILES=Object.freeze(['OlympusStatsPilot.toc','Core.lua','OlympusStatsPilot.lua','Army.lua','Libs/StatsPilotQr.lua','README.md','ARMY.md']);
+function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+function armyAddonZip(get){const local=[],central=[];let offset=0;for(const file of FILES){const bytes=get('addon/OlympusStatsPilot/'+file),name=Buffer.from('OlympusStatsPilot/'+file),crc=crc32(bytes);if(!Buffer.isBuffer(bytes)||bytes.length>1000000)throw Error('Bounded addon source required');const h=Buffer.alloc(30);h.writeUInt32LE(0x04034b50,0);h.writeUInt16LE(20,4);h.writeUInt16LE(0x800,6);h.writeUInt16LE(33,12);h.writeUInt32LE(crc,14);h.writeUInt32LE(bytes.length,18);h.writeUInt32LE(bytes.length,22);h.writeUInt16LE(name.length,26);local.push(h,name,bytes);const c=Buffer.alloc(46);c.writeUInt32LE(0x02014b50,0);c.writeUInt16LE(0x0314,4);c.writeUInt16LE(20,6);c.writeUInt16LE(0x800,8);c.writeUInt16LE(33,14);c.writeUInt32LE(crc,16);c.writeUInt32LE(bytes.length,20);c.writeUInt32LE(bytes.length,24);c.writeUInt16LE(name.length,28);c.writeUInt32LE((0o100644<<16)>>>0,38);c.writeUInt32LE(offset,42);central.push(c,name);offset+=h.length+name.length+bytes.length;}const directory=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(FILES.length,8);end.writeUInt16LE(FILES.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);return Buffer.concat([...local,directory,end]);}
 function verify(snapshot) {
   let checks = 0;
   const check = (ok, label) => { checks++; need(ok, label); };
@@ -81,9 +85,9 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 31 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && ref.required_public_resources.length === 38 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset543-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset550-public-path binding');
   for (const row of variantPins) pin(row);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   // .179: only four exact dormant resources; no new artwork exception or runtime switch.
@@ -95,6 +99,11 @@ function verify(snapshot) {
     && armyManifest.runtimeOverride === false && armyManifest.shippingHtml === false, 'dormant Army manifest gates');
   for (const name of armyNames.slice(0, 3)) check(text(armyRoot + name).startsWith("/* Dormant Army QR review bytes. No runtime activation or upload switch. */\n(function () {\n  'use strict';\n  const activation = false, uploads = false;\n  return; // Unconditional source-fixed stop; retained source below is never executed.\n"), 'dormant Army unconditional gate: ' + name);
 
+  // .180: explicit owner authorization replaces the prior disabled-only restriction; old resources stay dormant.
+  const liveRoot = 'worker/public/static/army-live/', liveNames = ['army.css','army.js','protocol.js','report.js','pilot.js','decoder.js','olympus-army-addon-0.2.0.zip'];
+  check(ref.required_public_resources.filter(row => row.path.startsWith(liveRoot)).length === 7 && liveNames.every(name => ref.required_public_resources.some(row => row.path === liveRoot + name)), 'seven closed live Army resources');
+  check(get(liveRoot+'protocol.js').equals(get('tools/army-qr-live/protocol.js')), 'exact live Army protocol projection');
+  check(get(liveRoot+'olympus-army-addon-0.2.0.zip').equals(armyAddonZip(get)), 'exact seven-source Army addon ZIP projection');
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');
   const v4 = [...v4Text.matchAll(/'([^']+)':'([a-f0-9]{64})'/g)];

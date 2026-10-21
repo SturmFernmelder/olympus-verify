@@ -259,3 +259,8 @@ tools/build-talent-art.py validates the closed inventory offline and can explici
 ## Army QR review package (.179, 20 October 2026)
 
 Four additional public resources are the dormant Army QR protocol, decoder, pilot and manifest. They are required exact bytes, not artwork or a new image/font exception. The original 512 asset rows, 494 official paths, seven fixed-art producers and original 27 public resources remain intact; the total is now 31 required resources and 543 public paths. Source/generated pins and the sole decoder import-path projection are verified by scripts/build-army-qr-review.cjs and its focused tests. Existing jsQR and license are reused byte-for-byte. No CSS, pilot HTML, local bridge/server, real QR data or runtime activation authority is published by this package. The production app does not load it; all three scripts independently return before any retained source runs.
+
+
+### Army aggregate publishing assets — 20 October 2026 (.180)
+
+Seven finite non-art resources under static/army-live are source-pinned: separate reader/publisher scripts, one stylesheet, the OLCS2 protocol/decoder/pilot projections and the deterministic seven-file Lua addon ZIP. The original OLCS1 pilot, encoder and dormant review resources remain unchanged. Only counted documented projection substitutions connect the reviewed pilot guards to the live bridge; raw pixels/frames remain browser-local. The ZIP is a reproducible source-only package, with fixed metadata and no SavedVariables, configuration, observations, secrets or executable companion. Existing512 artwork assets,494 official paths and seven fixed art producer pins remain unchanged.
