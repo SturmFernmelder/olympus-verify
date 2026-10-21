@@ -52,7 +52,10 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 38
+assert len(ref["required_public_resources"]) == 40
+talent_resources = {"worker/public/static/talents/analysis.js", "worker/public/static/talents/guide-builds179.js"}
+assert talent_resources.issubset({row["path"] for row in ref["required_public_resources"]})
+assert not talent_resources.intersection(ref["official_paths"] + ref["native_paths"])
 assert ref["login_art_variants"]["assets"] == official_assets.LOGIN_ART_VARIANTS
 assert len(ref["login_art_variants"]["assets"]) == 2
 assert ref["login_art_variants"]["classification"] == "imagegen_derived_custom_art_not_official_blizzard"

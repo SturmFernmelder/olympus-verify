@@ -26,3 +26,7 @@
 .resources169-thread-posts { padding-left:1.1rem; }
 .resources169-thread-posts li { margin:.5rem 0; }
 .resources169 :is(a,button,input,select,summary):focus-visible { outline:2px solid var(--gold, #dfbd76); outline-offset:3px; }
+.resources169-featured { grid-column:1 / -1; border-color:var(--gold,#dfbd76); padding:clamp(1rem,3vw,1.5rem); }
+.resources169-featured h3 { font-family:Morpheus,Georgia,serif; font-size:clamp(1.6rem,4vw,2rem); }
+.resources169-featured-label { margin:0 0 .4rem; color:var(--gold,#dfbd76); font-size:.8rem; letter-spacing:.04em; }
+.resources169-primary { display:inline-flex; align-items:center; min-height:2.75rem; padding:.55rem .8rem; margin:.3rem 0 .6rem; border:1px solid var(--gold,#dfbd76); border-radius:.35rem; font-weight:600; }

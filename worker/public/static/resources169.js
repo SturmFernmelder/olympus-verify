@@ -69,14 +69,21 @@
     }
     function badge(text) { return el("span", text, "resources169-badge"); }
     function listCard(item) {
-      const card = el("article", undefined, "resources169-card");
-      card.append(el("h3")); card.children[0].append(link(item.name, item.url));
+      const featured = view === "addons" && item.id === "olympus-guild" && item.url === "https://www.curseforge.com/wow/addons/olympus-guild";
+      const card = el("article", undefined, "resources169-card" + (featured ? " resources169-featured" : ""));
+      if (featured) card.append(el("p", "For Olympus players", "resources169-featured-label"));
+      const title = el("h3"); title.append(link(item.name, item.url)); card.append(title);
       const labels = el("div", undefined, "resources169-labels");
       for (const text of [item.category, item.status]) if (typeof text === "string") labels.append(badge(text));
       card.append(labels, el("p", item.rationale));
+      if (featured) { const action = link("Get Olympus Guild on CurseForge", item.url); action.className = "resources169-primary"; card.append(action); }
       const provenance = el("details", undefined, "resources169-provenance");
       provenance.append(el("summary", "Source and compatibility details"));
       if (typeof item.sourceKind === "string") provenance.append(el("p", `Source: ${item.sourceKind}`, "resources169-meta"));
+      for (const [label, url] of [["Reviewed release", item.fileUrl], ["Addon API documentation", item.apiUrl]]) {
+        if (typeof url === "string") { const row = el("p"); row.append(link(label, url)); provenance.append(row); }
+      }
+      if (typeof item.integrationNote === "string") provenance.append(el("p", item.integrationNote, "resources169-meta"));
       for (const [label, value] of [["Published file", item.version], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
         if (typeof value === "string") provenance.append(el("p", `${label}: ${value}`, "resources169-meta"));
       }
@@ -91,6 +98,7 @@
     function renderCatalog(query, category) {
       results.replaceChildren();
       const items = catalog[view].filter(item => (category === "all" || item.category === category) && `${item.name} ${item.category} ${item.rationale} ${(item.limitations || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()));
+      if (view === "addons") items.sort((a, b) => Number(b.id === "olympus-guild") - Number(a.id === "olympus-guild"));
       for (const item of items) results.append(listCard(item));
       if (!items.length) results.append(el("p", "No sources match these filters."));
       message.textContent = `${items.length} of ${catalog[view].length} curated entries.`;
@@ -125,6 +133,7 @@
         if (source.failure) card.append(el("p", `This source could not be refreshed automatically. ${source.status === "stale" ? "The older headlines below are marked stale." : "No automatically retrieved headlines are available."} The publisher's website may still be available; open the original source.`, "resources169-warning"));
         else if (source.status === "unavailable") card.append(el("p", "Automatic headlines are unavailable. The publisher's website may still be available; open the original source.", "resources169-warning"));
         if (source.failure) retrieval.append(el("p", `Reported failure: ${source.failure}`, "resources169-meta"));
+        if (source.failure === "upstream" && Number.isInteger(source.upstreamStatus) && source.upstreamStatus >= 100 && source.upstreamStatus <= 599) retrieval.append(el("p", `Publisher response: HTTP ${source.upstreamStatus}.`, "resources169-meta"));
         if (source.omittedItems) card.append(el("p", `${source.omittedItems} source entries were omitted because required fields or dates were invalid.`, "resources169-note"));
         const ul = el("ul", undefined, "resources169-headlines");
         const groups = new Map();

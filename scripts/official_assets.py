@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='4507fd182ed4228360a86de4829502c2892f5deabef5e2c8478d23ecff91fdc5'
+REFERENCE_SHA256='bdfff8b099bfec1d961aea3c95661a25acf291e9b5f8762ce3ea931a9803b576'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -53,7 +53,7 @@ def runtime_path(path: str) -> bool:
 
 def resource_rows(value, failure: str) -> dict[str,dict]:
     # Reviewed documents, data and protocol code are required bytes, never an image/font exception.
-    result=pin_rows(value,None,failure,maximum=38)
+    result=pin_rows(value,None,failure,maximum=40)
     if not result or any(not p.startswith('worker/public/static/') or (private_path(p) and not p.endswith('.zip'))
         or not (p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) or p=='worker/public/static/army-live/army.css') for p in result):
         raise ValueError(failure)

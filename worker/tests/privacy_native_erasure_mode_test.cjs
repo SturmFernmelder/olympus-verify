@@ -134,7 +134,7 @@ async function finish(f,operation=OP){for(let i=0;i<4&&f.raw('SELECT state FROM 
  {const f=fixture(),cookie=await f.signIn(ID),before=f.raw('SELECT session_version FROM site_users WHERE discord_id=?',ID).session_version;f.env.PRIVACY_WRITE_ADMISSION_EPOCH='e'.repeat(32);const response=await request(f,cookie);
   check('wrong Native epoch refuses erasure writes and leaves account intact',response.response.status!==202&&!f.raw('SELECT 1 FROM privacy_serving_jobs')&&f.raw('SELECT session_version FROM site_users WHERE discord_id=?',ID).session_version===before);
   check('public policy remains available through a real Native database guard refusal',(await f.call('GET','/legal/privacy')).status===200&&f.floorCalls===0);
-  for(const method of ['GET','HEAD']){const old=await f.call(method,'/privacy');check('old policy '+method+' redirects only to the canonical legal reader through the unchanged Native refusal',old.status===301&&old.headers.get('Location')==='/legal/privacy'&&(await old.text())===''&&f.floorCalls===0);}f.close();}
+  for(const path of ['/privacy','/terms'])for(const method of ['GET','HEAD']){const old=await f.call(method,path);check('retired policy '+path+' '+method+' is empty 410 without redirect or cookie through the unchanged Native refusal',old.status===410&&!old.headers.has('Location')&&!old.headers.has('Set-Cookie')&&(await old.text())===''&&f.floorCalls===0);}f.close();}
  // Actual transport attempts of both bounded slices, not the site's separate OAuth/admission work.
  const measuredJobs=[];
  {const f=fixture(),cookie=await f.signIn(ID);await seedPersonal(f,{roles:2});f.inventoryUnavailable=true;const out=await request(f,cookie);assert.equal(out.response.status,202);f.inventoryUnavailable=false;clock+=121;

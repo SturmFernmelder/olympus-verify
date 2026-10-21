@@ -351,7 +351,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");
   check(".183 canonical public policy endpoints remain directly available with their legal navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/legal/terms"') && publicTerms.text.includes('href="/legal/privacy"'));
   const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
-  check(".183 original policy addresses redirect only to the exact canonical legal readers without private payload", oldPrivacy.response.status === 301 && oldPrivacy.response.headers.get("Location") === "/legal/privacy" && oldTerms.response.status === 301 && oldTerms.response.headers.get("Location") === "/legal/terms" && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
+  check("retired root policy addresses are empty 410 responses without redirects, sign-in fallback or private payload", oldPrivacy.response.status === 410 && !oldPrivacy.response.headers.has("Location") && oldTerms.response.status === 410 && !oldTerms.response.headers.has("Location") && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
   let page = await openPage(MEMBER);
   {
     const fast = await openPage(MEMBER);
@@ -398,10 +398,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const titled = await openPage(STAFF);
     const titleCases = [["#/", "Home — Olympus"], ["#/roles", "Roles — Olympus"], ["#/vote/officer", "Officer · Vote — Olympus"], ["#/community/directory", "Community · Member directory — Olympus"], ["#/admin/settings", "Admin · Settings — Olympus"], ["#/admin/community/claims", "Admin · Character claims — Olympus"], ["#/guide/officer", "Officer guide — Olympus"], ["#/talents/mage", "Mage talents — Olympus"], ["#/updates", "Game updates — Olympus"]];
     for (const [hash, title] of titleCases) { await titled.go(hash); check(".177 section title: " + hash, titled.document.title === title, titled.document.title); }
-    let titleBuild;
-    titled.window.OlympusTalents = { mount: (_box, options) => { titleBuild = options.onBuildChange; return { destroy() {} }; } };
+    let titleBuild, titleOptions;
+    // Title/lifecycle-only fixture: the real renderer's focused suites exercise these dependencies.
+    const titleAnalysis = { mount: () => ({ update() {}, destroy() {} }) }, titleGuides = { revision: "title-fixture", records: [], sources: [] };
+    titled.window.OlympusTalentAnalysis = titleAnalysis; titled.window.OlympusTalentGuides = titleGuides;
+    titled.window.OlympusTalents = { mount: (_box, options) => { titleOptions = options; titleBuild = options.onBuildChange; return { destroy() {} }; } };
     await titled.go("#/talents/warrior");
     await waitFor(() => typeof titleBuild === "function", ".177 actual talent title callback");
+    check(".185 talent title fixture receives both admitted tool dependencies before its real route callback", titleOptions?.analysis === titleAnalysis && titleOptions?.guideBuilds === titleGuides);
     titleBuild({ className: "druid", build: "" });
     check(".177 talent class changes update title through the real tool callback without a reload", titled.document.title === "Druid talents — Olympus" && titled.location.hash === "#/talents/druid/");
     await titled.go("#/roles"); titleBuild({ className: "mage", build: "" });

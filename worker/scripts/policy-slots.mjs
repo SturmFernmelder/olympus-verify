@@ -5,7 +5,7 @@ export const FALLBACK_CONTROLS = '<section class="data-controls"><h2>Privacy and
 const VOID = new Set(["meta", "link", "img", "br", "input"]);
 const TAGS = new Set(["html", "head", "body", "meta", "title", "style", "link", "main", "header", "nav", "section", "h1", "h2", "h3", "p", "a", "strong", "em", "b", "code", "ul", "ol", "li", "img", "br", "span"]);
 const ATTRS = new Set(["lang", "charset", "name", "content", "class", "id", "tabindex", "aria-label", "aria-current", "href", "src", "alt", "width", "height", "rel", "style"]);
-const LINKS = new Set(["./privacy.html", "./terms.html", "/", "/privacy", "/terms", "/legal/privacy", "/legal/terms", "#policy-content", "/static/qr-beta-window-data.html", ...["account", "signin", "contact", "access", "case"].map(x => `${CANONICAL}/privacy/${x}`)]);
+const LINKS = new Set(["./privacy.html", "./terms.html", "/", "/legal/privacy", "/legal/terms", "#policy-content", "/static/qr-beta-window-data.html", ...["account", "signin", "contact", "access", "case"].map(x => `${CANONICAL}/privacy/${x}`)]);
 const RESOURCES = new Set(["/static/policies.css", "/static/wow-cursor.css", "/static/olympus-icon.png"]);
 
 export function slots(source) {

@@ -153,6 +153,23 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
     check('signout/session rotation invalidates publication authority',(await f.call('publish',{...base,confirm:'PUBLISH'})).status===401);
     check('refusals leave no aggregate row',f.db.prepare("SELECT COUNT(*) n FROM site_settings WHERE key LIKE 'army:%'").get().n===0);
   });
+  await scenario('canonical MAC spelling is required for publication and outcome',async f=>{
+    const value=snapshot(f.now),preview=await f.call('preview',{snapshot:value}),[text,mac]=preview.body.previewToken.split('.');
+    const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',last=alphabet.indexOf(mac.at(-1)),signature=Buffer.from(mac,'base64url');
+    check('minted preview MAC is the canonical43-character encoding of32 signature bytes',mac.length===43&&signature.length===32&&(last&3)===0&&signature.toString('base64url')===mac);
+    for(const unusedBits of [1,2,3]){
+      const alias=mac.slice(0,-1)+alphabet[last|unusedBits],previewToken=text+'.'+alias;
+      check('unused-bit alias '+unusedBits+' changes spelling but not any signature byte',alias!==mac&&signature.equals(Buffer.from(alias,'base64url')));
+      for(const endpoint of ['publish','outcome']){
+        const out=await f.call(endpoint,{snapshot:value,previewToken,...(endpoint==='publish'?{confirm:'PUBLISH'}:{})});
+        check(endpoint+' rejects noncanonical unused-bit alias '+unusedBits+' before persistence',out.status===403&&out.body.error==='invalid_preview'&&f.db.prepare("SELECT COUNT(*) n FROM site_settings WHERE key LIKE 'army:%'").get().n===0);
+      }
+    }
+    const changed=(mac[0]==='A'?'B':'A')+mac.slice(1);
+    check('changed-signature-byte control really changes the decoded MAC',!signature.equals(Buffer.from(changed,'base64url')));
+    check('changed-signature-byte control refuses publication',(await f.call('publish',{snapshot:value,previewToken:text+'.'+changed,confirm:'PUBLISH'})).status===403);
+    check('unchanged canonical token remains usable after all serialization refusals',(await f.call('publish',{snapshot:value,previewToken:preview.body.previewToken,confirm:'PUBLISH'})).status===200);
+  });
   await scenario('concurrent preview cannot overwrite newer publication',async f=>{
     const old=snapshot(f.now),newer=snapshot(f.now,{observedAt:f.now-5});newer.guilds[0].receivedAt=f.now-5;
     const a=await f.call('preview',{snapshot:old}),b=await f.call('preview',{snapshot:newer});

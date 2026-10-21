@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000169';
 const URL_BASE = 'https://guild.example/api/resource-updates';
 const FEEDS = new Set([
   'https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss',
-  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss=',
+  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss',
 ]);
 const compiled = new Map();
 let n = 0;
@@ -31,7 +31,7 @@ function graph(state) {
     setTimeout, clearTimeout, caches: cacheStorage,
     console: { log(...args) { state.logs.push(args); }, warn(...args) { state.logs.push(args); }, error(...args) { state.logs.push(args); } },
     async fetch(url, init) {
-      if (typeof url !== 'string' || !FEEDS.has(url) || init?.redirect !== 'manual' || Object.keys(init.headers).join() !== 'Accept') throw Error('unexpected fixture network request');
+      if (typeof url !== 'string' || !FEEDS.has(url) || init?.redirect !== 'manual' || Object.keys(init.headers).join() !== 'Accept,User-Agent' || init.headers.Accept !== 'application/rss+xml, application/xml, text/xml' || init.headers['User-Agent'] !== 'OlympusFeedReader/1.185 (+https://olympus.roachcouncil.com)') throw Error('unexpected fixture network request');
       state.fetches.push(url);
       if (state.duringProvider && !state.mutated) {
         state.mutated = true;

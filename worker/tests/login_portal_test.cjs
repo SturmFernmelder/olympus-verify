@@ -38,6 +38,24 @@ function check(label, value) { total++; if (value) passed++; console.log((value 
   const privacy = policies.policyResponse(new Request('https://guild.example/legal/privacy'), '/legal/privacy');
   const terms = policies.policyResponse(new Request('https://guild.example/legal/terms'), '/legal/terms');
   check('direct privacy and terms remain public and do not acquire portal markup', privacy.status === 200 && terms.status === 200 && !(await privacy.text()).includes('portal-login') && !(await terms.text()).includes('portal-login'));
+  for (const retired of ['/privacy', '/terms']) {
+    for (const method of ['GET', 'HEAD']) {
+      const gone = policies.policyResponse(new Request('https://guild.example' + retired + '?state=do-not-echo', { method }), retired);
+      check(retired + ' ' + method + ' is explicitly retired without redirect, cookie, login or policy content', gone.status === 410 && !gone.headers.has('Location') && !gone.headers.has('Set-Cookie') && await gone.text() === '' && gone.headers.get('Cache-Control') === 'no-store, no-transform' && gone.headers.get('Content-Security-Policy') === privacy.headers.get('Content-Security-Policy'));
+    }
+    const wrongMethod = policies.policyResponse(new Request('https://guild.example' + retired, { method: 'POST', body: 'ignored' }), retired);
+    check(retired + ' retains the GET/HEAD-only method boundary', wrongMethod.status === 405 && wrongMethod.headers.get('Allow') === 'GET, HEAD' && !wrongMethod.headers.has('Location') && !wrongMethod.headers.has('Set-Cookie'));
+  }
+  const privacyActions = ['/privacy/access', '/privacy/signin', '/privacy/callback', '/privacy/access/export', '/privacy/access/erasure', '/privacy/contact', '/privacy/case', '/privacy/case/reply', '/privacy/account', '/privacy/account/export', '/privacy/account/site-erase', '/privacy/account/full-erase', '/privacy/account/erasure-status', '/privacy/account/bnet-unlink'];
+  check('finite retirement leaves every existing privacy account/access/erasure handler outside the policy router', privacyActions.every(route => policies.policyResponse(new Request('https://guild.example' + route), route) === null));
+  check('retirement does not introduce a prefix match over neighboring routes', ['/privacy/other', '/terms/other', '/legal/privacy/other'].every(route => policies.policyResponse(new Request('https://guild.example' + route), route) === null));
+  const { validateHtml } = await import(require('node:url').pathToFileURL(path.join(root, 'scripts/policy-slots.mjs')).href);
+  let retiredLinksRejected = true;
+  for (const retired of ['/privacy', '/terms']) {
+    try { validateHtml('<html><main><a href="' + retired + '">Old policy</a></main></html>', { mirror: true }); retiredLinksRejected = false; }
+    catch (error) { retiredLinksRejected &&= error.message === 'undeclared_url'; }
+  }
+  check('policy generation rejects newly authored links to the retired root addresses', retiredLinksRejected && validateHtml('<html><main><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a></main></html>', { mirror: true }));
   check('full-screen art and an independent foreground card preserve vertical scroll, safe areas and no scene width cap', cssStart >= 0 && portalCss.includes('min-height:100svh') && portalCss.includes('width:100%;max-width:none') && portalCss.includes('position:fixed;inset:0') && portalCss.includes('width:min(100%,36rem)') && portalCss.includes('object-fit:cover;object-position:center') && portalCss.includes('env(safe-area-inset-bottom)') && !/104\.5rem|overflow(?:-y)?:hidden|height:100vh/.test(portalCss));
   check('a readable lower-foreground card avoids both shield bands with scrolling and extreme-ratio flow fallback', portalCss.includes('background:linear-gradient(135deg,#121712f5,#0a100af5)') && portalCss.includes('padding:calc(55svh + max(1rem,env(safe-area-inset-top)))') && portalCss.includes('@media(min-aspect-ratio:1/1)') && portalCss.includes('padding-top:calc(60svh + max(1rem,env(safe-area-inset-top)))') && portalCss.includes('@media(min-aspect-ratio:4/1),(max-aspect-ratio:1/3)') && portalCss.includes('height:auto;object-fit:contain') && html.indexOf('class="login-portal"') < html.indexOf('class="login-card"'));
   check('the art direction has no motion or preference-dependent hidden replacement', !/<video\b|\sautoplay(?:\s|>)/i.test(html) && !/@keyframes|animation:|transition:|prefers-reduced-motion/.test(portalCss) && !/login-portal-poster\{[^}]*display:none/.test(portalCss));

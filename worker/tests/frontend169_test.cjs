@@ -59,6 +59,12 @@ const recordTool169 = (page, namespace, calls) => {
       page.app.querySelector(".who .name").textContent === expected && page.app.querySelector(".welcome").textContent.includes("Welcome, " + expected));
   }
   const avatarPage = await openPage(MEMBER);
+  const promotion185 = avatarPage.app.querySelector('[data-addon-promotion="olympus-guild"]');
+  check(".185 signed-in Home promotes the optional addon without conflating verification or Army QR", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("separate from verification and Army QR"));
+  const promotionLink185 = promotion185?.querySelector('a[href="https://www.curseforge.com/wow/addons/olympus-guild"]');
+  check(".185 the prominent publisher link opens safely and the catalog stays available", !!promotionLink185 && promotionLink185.getAttribute("target") === "_blank" && promotionLink185.getAttribute("rel") === "noopener noreferrer" && !!promotion185.querySelector('a[href="#/addons"]'));
+  const anonymousPromotion185 = await openPage(null);
+  check(".185 signed-out Home has no addon promotion", anonymousPromotion185.app === null && !anonymousPromotion185.html.includes('data-addon-promotion="olympus-guild"'));
   const good = [
     "https://cdn.discordapp.com/avatars/300000000000000004/0123456789abcdef0123456789abcdef.png?size=64",
     "https://cdn.discordapp.com/avatars/300000000000000004/a_0123456789abcdef0123456789abcdef.png?size=64",
@@ -204,6 +210,7 @@ const recordTool169 = (page, namespace, calls) => {
   await staff.go("#/guide/officer");
   check(".169 the officer guide links Admin only for the admitted staff fixture", !!byText(staff.app, "a", "Open Admin"));
   const denied = await openPage(DENIED);
+  check(".185 denied accounts have no addon promotion", denied.app === null && !denied.html.includes('data-addon-promotion="olympus-guild"'));
   check(".169 denied account keeps the script-free refusal surface without boot or guild/resource/staff navigation", denied.response.status === 200 && denied.boot === null && denied.app === null && denied.html.includes("This account cannot enter the guild site") && /script-src 'none'/.test(denied.response.headers.get("Content-Security-Policy") || "") && !/id="boot"|#\/(?:roles|talents|addons|guides|admin)/.test(denied.html));
 
   console.log("\n== .169: same-origin tool loading and route lifetime ==");
@@ -214,8 +221,13 @@ const recordTool169 = (page, namespace, calls) => {
   const script = head.querySelector('script[src="/static/talents/calculator.js"]');
   check(".169 talent script and stylesheet are exact same-origin resources, loaded once", !!script && head.querySelectorAll("script").length === 1 && head.querySelector('link[data-olympus-tool="OlympusTalents"]').getAttribute("href") === "/static/talents/calculator.css");
   recordTool169(tools, "OlympusTalents", talentCalls); script.dispatchEvent(new Event("load"));
+  await waitFor(() => !!head.querySelector('script[src="/static/talents/guide-builds179.js"]'), "talent dependencies after calculator load");
+  tools.window.OlympusTalentAnalysis = { synthetic: "analysis" }; tools.window.OlympusTalentGuides = { synthetic: "guides" };
+  head.querySelector('script[src="/static/talents/analysis.js"]').dispatchEvent(new Event("load"));
+  head.querySelector('script[src="/static/talents/guide-builds179.js"]').dispatchEvent(new Event("load"));
   await waitFor(() => talentCalls.length === 1, "talent mount after load");
   check(".169 talent route hands class and shared allocation to the renderer after load", talentCalls.length === 1 && talentCalls[0].options.className === "mage" && talentCalls[0].options.build === "shared-code" && !tools.app.textContent.includes("Opening tool…"));
+  check(".185 the admitted talent mount receives both exact same-origin analysis and guide modules", head.querySelectorAll("script").length === 3 && talentCalls[0].options.analysis === tools.window.OlympusTalentAnalysis && talentCalls[0].options.guideBuilds === tools.window.OlympusTalentGuides);
   talentCalls[0].options.onBuildChange({ className: "priest", build: "allocated/code" });
   check(".169 talent callback encodes the address without remounting or replacing persistent chrome", tools.location.hash === "#/talents/priest/allocated%2Fcode" && talentCalls.length === 1 && tools.app.querySelector("header") === header && tools.app.querySelector("footer") === footer);
   await tools.go("#/guide/member");
@@ -223,14 +235,25 @@ const recordTool169 = (page, namespace, calls) => {
   talentCalls[0].options.onBuildChange({ className: "warlock", build: "late" });
   check(".169 leaving an active tool disposes it once and ignores its late address callback", talentCalls[0].destroyed === 1 && tools.location.hash === departedHash && !!byText(tools.app, "h2", "Member guide"));
   await tools.go("#/talents/warrior"); await waitFor(() => talentCalls.length === 2, "warm talent mount");
-  check(".169 reopening talents reuses its loaded script and stylesheet but creates a fresh renderer", talentCalls.length === 2 && head.querySelectorAll("script").length === 1 && head.querySelectorAll('link[data-olympus-tool="OlympusTalents"]').length === 1);
+  check(".169 reopening talents reuses its loaded script and stylesheet but creates a fresh renderer", talentCalls.length === 2 && head.querySelectorAll("script").length === 3 && head.querySelectorAll('link[data-olympus-tool="OlympusTalents"]').length === 1);
   await tools.go("#/roles");
   check(".169 a second tool instance also disposes exactly once", talentCalls[1].destroyed === 1);
   const abandoned = await openPage(MEMBER), abandonedHead = head169(abandoned), abandonedCalls = [];
   await abandoned.go("#/talents/rogue"); await abandoned.go("#/guide/member");
   recordTool169(abandoned, "OlympusTalents", abandonedCalls); abandonedHead.querySelector("script").dispatchEvent(new Event("load")); await settle();
   check(".169 a script arriving after navigation never mounts into the replacement page", abandonedCalls.length === 0 && !!byText(abandoned.app, "h2", "Member guide") && !abandoned.app.textContent.includes("OlympusTalents:"));
+  check(".185 an abandoned calculator load never starts analysis or guide loading", abandonedHead.querySelectorAll("script").length === 1);
+  const lateDependencies = await openPage(MEMBER), lateHead = head169(lateDependencies), lateCalls = [];
+  recordTool169(lateDependencies, "OlympusTalents", lateCalls);
+  await lateDependencies.go("#/talents");
+  await waitFor(() => lateHead.querySelectorAll("script").length === 2, "pending talent dependency pair");
+  await lateDependencies.go("#/guide/member");
+  lateDependencies.window.OlympusTalentAnalysis = {}; lateDependencies.window.OlympusTalentGuides = {};
+  for (const dependency of lateHead.querySelectorAll("script")) dependency.dispatchEvent(new Event("load"));
+  await settle();
+  check(".185 dependency completion after route exit cannot mount or replace the current page", lateCalls.length === 0 && !!byText(lateDependencies.app, "h2", "Member guide"));
   const pendingMount = await openPage(MEMBER); head169(pendingMount); let releaseMount, lateDisposals = 0;
+  pendingMount.window.OlympusTalentAnalysis = {}; pendingMount.window.OlympusTalentGuides = {};
   pendingMount.window.OlympusTalents = { mount: () => new Promise(resolve => { releaseMount = () => resolve({ destroy: () => { lateDisposals++; } }); }) };
   await pendingMount.go("#/talents"); await waitFor(() => !!releaseMount, "pending asynchronous tool mount");
   await pendingMount.go("#/guide/member"); releaseMount(); await settle();

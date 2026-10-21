@@ -165,6 +165,8 @@ async function token(reporter: Reporter, claims: Claims): Promise<string> {
 async function claimsFor(reporter: Reporter, value: unknown, snapshot: ArmySnapshot, now: number, allowExpired = false): Promise<Claims> {
   if (typeof value !== "string" || value.length > 1024 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(value)) bad("invalid_preview");
   const [text, mac] = value.split(".") as [string, string];
+  // A 32-byte HMAC has two unused base64url padding bits. Reject alternate spellings of the same MAC bytes.
+  if (!/[AEIMQUYcgkosw048]$/.test(mac)) bad("invalid_preview", 403);
   reporter.check(); const ok = await verify(reporter.env.COOKIE_SECRET!, "army-publish-v1", text + "|" + JSON.stringify(reporter.ctx.subject!.originalSession), mac); reporter.check();
   if (!ok) bad("invalid_preview", 403);
   let c: unknown; try { c = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - text.length % 4) % 4)), ch => ch.charCodeAt(0)))); } catch { bad("invalid_preview"); }

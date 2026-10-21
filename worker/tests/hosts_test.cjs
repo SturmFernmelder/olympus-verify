@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.183 Guild hall navigation and reporting polish");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.185 Addon discovery and talent comparisons");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -122,16 +122,24 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("http://localhost:8787/health");
   check("wrangler dev on localhost is served", res.status === 200);
 
-  console.log("\n== the policies: canonical legal readers and exact legacy redirects, no database (.183) ==");
+  console.log("\n== the policies: canonical readers, exact retired roots and remaining aliases, no database ==");
   const trappedDb = () => env({ DB: d1(db, { trap: () => { touched++; } }) });
   touched = 0;
-  for (const p of ["/privacy", "/privacy-policy", "/privacy.html"]) {
+  for (const p of ["/privacy", "/terms"]) {
+    for (const host of ["verify.example", "guild.example"]) {
+      for (const method of ["GET", "HEAD"]) {
+        res = await get(`https://${host}${p}?code=not-forwarded&state=not-forwarded`, trappedDb(), { method, headers: { Cookie: "retired-link-does-not-read-a-session" } });
+        check(`${method} ${p} on ${host} is retired with 410, no redirect, body, cookie or database`, res.status === 410 && !res.headers.has("Location") && (await res.text()) === "" && !res.headers.has("Set-Cookie") && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("Referrer-Policy") === "no-referrer" && /script-src 'none'/.test(res.headers.get("Content-Security-Policy") || "") && touched === 0, res.status, touched);
+      }
+    }
+  }
+  for (const p of ["/privacy-policy", "/privacy.html"]) {
     res = await get(`https://verify.example${p}`, trappedDb());
     check(`GET ${p} on the bot host redirects only to the canonical privacy reader, empty body and database untouched`, res.status === 301 && res.headers.get("Location") === "/legal/privacy" && (await res.text()) === "" && touched === 0, res.status, touched);
     res = await get(`https://verify.example${p}?code=not-forwarded`, trappedDb(), { method: "HEAD" });
     check(`HEAD ${p} redirects to the same fixed path without query, cookie, body or database`, res.status === 301 && res.headers.get("Location") === "/legal/privacy" && (await res.text()) === "" && !res.headers.has("Set-Cookie") && touched === 0);
   }
-  for (const p of ["/terms", "/tos", "/terms-of-service", "/terms.html"]) {
+  for (const p of ["/tos", "/terms-of-service", "/terms.html"]) {
     res = await get(`https://guild.example${p}`, trappedDb());
     check(`GET ${p} on the site host redirects only to the canonical terms reader, empty body and database untouched`, res.status === 301 && res.headers.get("Location") === "/legal/terms" && (await res.text()) === "" && touched === 0, res.status);
     res = await get(`https://guild.example${p}?state=not-forwarded`, trappedDb(), { method: "HEAD" });

@@ -49,7 +49,8 @@ function renderer(fetcher) {
   const calls = [], goodCache = cacheOf({});
   const good = await loadResourceUpdates({ enabled: true, now: AT, cache: goodCache, fetcher: async (url, init) => { calls.push([url, init]); return fixtureFetch(url); } });
   check('actual three-source parser returns attributed plain-text items and separate source dates', every(good, s => s.status === 'fresh' && s.fetchedAt === AT && s.checkedAt === AT && s.items[0].title === 'Current & useful' && s.items[0].publishedAt < AT && s.failure === null));
-  check('only exact primary HTTPS feeds are fetched without credentials or redirects', calls.length === 3 && calls.every(([url, init]) => /^https:\/\//.test(url) && init.redirect === 'manual' && init.signal instanceof AbortSignal && Object.keys(init.headers).join() === 'Accept') && calls.some(([url]) => url === 'https://www.wowhead.com/forever/blue-tracker?rss=') && calls.some(([url]) => url.includes('/2360696.rss')));
+  check('only exact primary HTTPS feeds are fetched without credentials or redirects', calls.length === 3 && calls.every(([url, init]) => /^https:\/\//.test(url) && init.redirect === 'manual' && init.signal instanceof AbortSignal && Object.keys(init.headers).join() === 'Accept,User-Agent' && init.headers.Accept === 'application/rss+xml, application/xml, text/xml' && init.headers['User-Agent'] === 'OlympusFeedReader/1.185 (+https://olympus.roachcouncil.com)') && calls.some(([url]) => url === 'https://www.wowhead.com/forever/blue-tracker?rss') && calls.some(([url]) => url.includes('/2360696.rss')));
+  check('.184 successful retrievals do not fabricate an upstream failure status', every(good, s => s.upstreamStatus === null));
   check('cache receives only explicit public records, never request/auth fields', goodCache.calls.put.length === 3 && goodCache.calls.put.every(([id, value]) => ids.includes(id) && Object.keys(value).sort().join() === 'fetchedAt,items,omittedItems,sourceId,version' && Object.keys(value.items[0]).sort().join() === 'publishedAt,title,url'));
   const mixed = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => response(rss(item(idFor(url)) + item(idFor(url)).replace('<category>Forever</category>', '<category>Live</category>').replace('news=383436', 'news=1'))) });
   check('Forever filtering uses exact publisher category rather than /forever/ URL shape', mixed.sources[1].items.length === 1 && mixed.sources[1].items[0].url.includes('/news=383436/'));
@@ -87,8 +88,15 @@ function renderer(fetcher) {
   check('fresh public cache reuses actual prior retrieval time without faking a new check', cacheFetches === 0 && every(cached, s => s.status === 'fresh' && s.fetchedAt === AT - 10 && s.checkedAt === AT - 10));
   const stale = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf(Object.fromEntries(ids.map(id => [id, saved(id, 601)]))), fetcher: async () => new Response(null, { status: 503 }) });
   check('failed refresh labels retained headlines stale and preserves successful retrieval timestamp', every(stale, s => s.status === 'stale' && s.fetchedAt === AT - 601 && s.checkedAt === AT && s.failure === 'upstream' && s.items.length === 1));
+  check('.184 stale HTTP failure carries only its bounded response status', every(stale, s => s.upstreamStatus === 503));
+  for (const status of [201, 403, 429, 503]) {
+    let attempted = 0; const errorCache = cacheOf({});
+    const failed = await loadResourceUpdates({ enabled: true, now: AT, cache: errorCache, fetcher: async () => { attempted++; return new Response('PRIVATE_UPSTREAM_BODY_MUST_NOT_ESCAPE', { status, headers: { 'Set-Cookie': 'PRIVATE_UPSTREAM_COOKIE', 'X-Private-Diagnostic': 'PRIVATE_UPSTREAM_HEADER' } }); } });
+    check('.184 unexpected HTTP ' + status + ' retains only numeric status without retry or negative cache', attempted === 3 && errorCache.calls.put.length === 0 && every(failed, s => s.status === 'unavailable' && s.failure === 'upstream' && s.upstreamStatus === status && s.fetchedAt === null && s.items.length === 0) && !JSON.stringify(failed).includes('PRIVATE_UPSTREAM_'));
+  }
   const expired = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf(Object.fromEntries(ids.map(id => [id, saved(id, DAY + 1)]))), fetcher: async () => { throw Error('network unavailable'); } });
   check('public cache older than one day cannot appear as current or stale content', every(expired, s => s.status === 'unavailable' && s.fetchedAt === null && s.items.length === 0));
+  check('.184 a network exception cannot invent a publisher HTTP status', every(expired, s => s.failure === 'network' && s.upstreamStatus === null));
   const corrupt = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf(Object.fromEntries(ids.map(id => [id, saved(id, 1, { sourceId: 'other', cookie: 'never-project' })]))), fetcher: fixtureFetch });
   check('wrong-source cache records are discarded and re-fetched', every(corrupt, s => s.items[0].title === 'Current & useful' && !JSON.stringify(s).includes('never-project')));
   const cacheWrites = [], adapter = resourcePublicCache({ async match() { return null; }, async put(key, value) { cacheWrites.push({ key, value: await value.json(), headers: value.headers }); } });
@@ -110,10 +118,19 @@ function renderer(fetcher) {
   const r = renderer(async url => { assert.equal(url, '/static/resources169.json'); return Response.json(catalog); }), holder = new Element('div');
   const mounted = r.api.mount(holder, { view: 'addons' }); await settle();
   check('actual renderer mounts catalog cards through text nodes and original safe links', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 21 && textOf(holder).includes('Author lists Forever') && walk(holder).filter(x => x.tagName === 'A').every(x => x.href.startsWith('https://') && x.rel === 'noopener noreferrer'));
+  const featured185 = walk(holder).filter(x => x.tagName === 'ARTICLE' && x.className.includes('resources169-featured'));
+  const olympus185 = catalog.addons.find(x => x.id === 'olympus-guild');
+  check('.185 exactly one Olympus Guild card leads the complete filtered addon catalog', featured185.length === 1 && walk(holder).filter(x => x.tagName === 'ARTICLE')[0] === featured185[0] && textOf(featured185[0]).includes('For Olympus players'));
+  check('.185 the prominent install link stays on the official project with a safe external target', walk(featured185[0]).some(x => x.tagName === 'A' && x.textContent === 'Get Olympus Guild on CurseForge' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild' && x.target === '_blank' && x.rel === 'noopener noreferrer'));
+  check('.185 the refreshed release is dated and distinguished from a compatibility qualification', olympus185.version === '1.3.2' && olympus185.releasedAt === '2026-10-21' && olympus185.status === 'Author lists Forever file' && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild/files/9273643'));
+  check('.185 optional addon and separate verification/reporting boundaries are visible beside the promotion', textOf(featured185[0]).includes('Optional for website readers; no desktop companion is needed.') && textOf(featured185[0]).includes('Separate from Olympus Verify and the Army QR reporting addon.') && textOf(featured185[0]).includes('not proof that every guild has a current website report'));
+  check('.185 documented permission-based addon features do not imply an available website census API', textOf(featured185[0]).includes("player's permission") && textOf(featured185[0]).includes('no guild census feed for this website') && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md') && r.calls.length === 1);
   const search = walk(holder).find(x => x.tagName === 'INPUT' && x.type === 'search'); search.value = 'Syndicator'; search.fire('input');
   check('catalog search includes documented dependency/limitation text', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 1 && textOf(holder).includes('Baganator'));
+  check('.185 the feature obeys search filters instead of remaining as an unrelated pinned advertisement', !walk(holder).some(x => x.className && x.className.includes('resources169-featured')) && !textOf(holder).includes('Get Olympus Guild'));
   const select = walk(holder).find(x => x.tagName === 'SELECT'); search.value = ''; select.value = 'Forever discoveries'; select.fire('change');
   check('category filter exposes8 reviewed Forever-focused discoveries', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 8);
+  check('.185 category filtering still excludes the Guild tools promotion without an extra request', !textOf(holder).includes('Get Olympus Guild') && r.calls.length === 1);
   mounted.destroy(); check('unmount removes the view and leaves no polling timer', holder.children.length === 0 && r.intervals.size === 0);
   const guideRenderer = renderer(async () => Response.json(catalog)), guideHolder = new Element('div');
   const guides = guideRenderer.api.mount(guideHolder, { view: 'guides' }); await settle();
@@ -132,7 +149,7 @@ function renderer(fetcher) {
   updates.destroy(); check('updates destroy stops polling and aborts its controller', u.intervals.size === 0 && updateHolder.children.length === 0);
   const groupedData = structuredClone(good);
   groupedData.sources[0].items = [6, 7].map((post, i) => ({ title: 'Development notes updated October 15', url: `https://us.forums.blizzard.com/en/wow/t/notes/2360696/${post}`, publishedAt: AT - (i + 1) * DAY }));
-  groupedData.sources[1] = { ...groupedData.sources[1], items: [], status: 'unavailable', failure: 'upstream' };
+  groupedData.sources[1] = { ...groupedData.sources[1], items: [], status: 'unavailable', failure: 'upstream', upstreamStatus: 503 };
   groupedData.sources[2] = { ...groupedData.sources[2], items: [] };
   const groupedUi = renderer(async () => Response.json(groupedData)), groupedHolder = new Element('div');
   const groupedMount = groupedUi.api.mount(groupedHolder, { view: 'updates' }); await settle();
@@ -141,7 +158,15 @@ function renderer(fetcher) {
   check('.174 source failure is distinct from a successfully read empty feed window', textOf(groupedCards[1]).includes('This source could not be refreshed') && !textOf(groupedCards[1]).includes('No matching headlines') && textOf(groupedCards[2]).includes('No matching headlines') && !textOf(groupedCards[2]).includes('could not be refreshed'));
   check('.183 an unavailable automatic feed does not claim that the publisher website is unavailable', textOf(groupedCards[1]).includes('Automatic feed: unavailable') && textOf(groupedCards[1]).includes('could not be refreshed automatically') && textOf(groupedCards[1]).includes("publisher's website may still be available") && !textOf(groupedCards[1]).includes('This source is unavailable') && trackerLinks.every(url => walk(groupedHolder).some(x => x.tagName === 'A' && x.href === url)));
   check('.174 refresh cadence/cache limits remain readable without internal admission wording', textOf(groupedHolder).includes('every 60 seconds') && textOf(groupedHolder).includes('ten minutes') && !textOf(groupedHolder).includes('admitted view'));
+  check('.184 retrieval details distinguish the upstream HTTP status from the successful site API', textOf(groupedCards[1]).includes('Publisher response: HTTP 503.') && !textOf(groupedCards[0]).includes('Publisher response:'));
   groupedMount.destroy();
+  for (const unsafeStatus of ['PRIVATE_STATUS_TEXT', 99, 600, 503.5]) {
+    const malformedStatus = structuredClone(groupedData); malformedStatus.sources[1].upstreamStatus = unsafeStatus;
+    const statusUi = renderer(async () => Response.json(malformedStatus)), statusHolder = new Element('div');
+    const statusMount = statusUi.api.mount(statusHolder, { view: 'updates' }); await settle();
+    check('.184 non-HTTP diagnostic values never become a displayed status: ' + unsafeStatus, !textOf(statusHolder).includes('Publisher response:') && !textOf(statusHolder).includes('PRIVATE_STATUS_TEXT'));
+    statusMount.destroy();
+  }
   for (const malformedUrl of ['not an absolute URL', '/en/wow/t/notes/2360696/6', 'https://evil.invalid/en/wow/t/notes/2360696/6']) {
     const malformedData = structuredClone(groupedData); malformedData.sources[0].items[0].url = malformedUrl;
     const malformedUi = renderer(async () => Response.json(malformedData)), malformedHolder = new Element('div');
@@ -157,6 +182,11 @@ function renderer(fetcher) {
   const pending = renderer((_url, init) => { pendingSignal = init.signal; return new Promise(() => {}); }), pendingHolder = new Element('div');
   const pendingMount = pending.api.mount(pendingHolder, { view: 'updates' }); await settle(); pending.hide();
   check('visibility loss aborts an active update read without waiting for its reply', pendingSignal.aborted && pending.intervals.size === 0); pendingMount.destroy();
+  const unsafeApi185 = structuredClone(catalog); unsafeApi185.addons.find(x => x.id === 'olympus-guild').apiUrl = 'https://evil.invalid/private';
+  const unsafeApiUi185 = renderer(async () => Response.json(unsafeApi185)), unsafeApiHolder185 = new Element('div');
+  const unsafeApiMount185 = unsafeApiUi185.api.mount(unsafeApiHolder185, { view: 'addons' }); await settle();
+  check('.185 an unapproved optional documentation URL cannot create an active link', walk(unsafeApiHolder185).filter(x => x.tagName === 'ARTICLE').length === 21 && !walk(unsafeApiHolder185).some(x => x.tagName === 'A' && x.href === 'https://evil.invalid/private') && unsafeApiUi185.calls.length === 1);
+  unsafeApiMount185.destroy();
   const unsafeCatalog = structuredClone(catalog); unsafeCatalog.addons[0].url = 'javascript:alert(1)';
   const unsafeUi = renderer(async () => Response.json(unsafeCatalog)), unsafeHolder = new Element('div'); unsafeUi.api.mount(unsafeHolder, { view: 'addons' }); await settle();
   check('catalog renderer refuses unsafe source URLs instead of constructing an active link', walk(unsafeHolder).filter(x => x.tagName === 'A').length === 0 && textOf(unsafeHolder).includes('could not be loaded'));

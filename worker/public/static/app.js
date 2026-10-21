@@ -1046,34 +1046,45 @@
   // Tools are original, same-origin renderers. Script promises hold no account data;
   // route disposal ends their observers/requests before another view can use the shell.
   const toolScripts = new Map();
+  async function loadMemberScript(namespace, file) {
+    if (window[namespace]) return;
+    if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
+      const script = h("script", { src: file });
+      script.addEventListener("load", resolve);
+      script.addEventListener("error", () => { toolScripts.delete(namespace); reject(new Error("The tool could not be loaded. Try opening it again.")); });
+      document.head.appendChild(script);
+    }));
+    await toolScripts.get(namespace);
+  }
   async function memberTool(main, namespace, file, stylesheet, options) {
     const live = () => main.parentNode === app;
     const box = h("div", { class: "member-tool" }, h("p", { role: "status", class: "muted", text: "Opening tool…" }));
     add(main, box);
     if (!document.querySelector(`link[data-olympus-tool="${namespace}"]`)) document.head.appendChild(h("link", { rel: "stylesheet", href: stylesheet, "data-olympus-tool": namespace }));
-    if (!window[namespace]) {
-      if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
-        const script = h("script", { src: file });
-        script.addEventListener("load", resolve);
-        script.addEventListener("error", () => { toolScripts.delete(namespace); reject(new Error("The tool could not be loaded. Try opening it again.")); });
-        document.head.appendChild(script);
-      }));
-      await toolScripts.get(namespace);
-    }
+    await loadMemberScript(namespace, file);
+    if (!live()) return;
+    const settings = typeof options === "function" ? await options() : options;
     if (!live()) return;
     clear(box);
-    const instance = await window[namespace].mount(box, options);
+    const instance = await window[namespace].mount(box, settings);
     if (!live()) { if (instance && instance.destroy) instance.destroy(); return; }
     disposeTool = () => { if (instance && instance.destroy) instance.destroy(); disposeTool = null; };
   }
-  ROUTES.talents = (main, parts) => memberTool(main, "OlympusTalents", "/static/talents/calculator.js", "/static/talents/calculator.css", {
-    className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
-    onBuildChange: value => {
-      if (main.parentNode !== app) return;
-      history.replaceState(null, "", "#/talents/" + encodeURIComponent(value.className) + "/" + encodeURIComponent(value.build));
-      lastHash = location.hash;
-      pageTitle(routeTitle(currentRoute()));
-    },
+  ROUTES.talents = (main, parts) => memberTool(main, "OlympusTalents", "/static/talents/calculator.js", "/static/talents/calculator.css", async () => {
+    await Promise.all([
+      loadMemberScript("OlympusTalentAnalysis", "/static/talents/analysis.js"),
+      loadMemberScript("OlympusTalentGuides", "/static/talents/guide-builds179.js"),
+    ]);
+    return {
+      analysis: window.OlympusTalentAnalysis, guideBuilds: window.OlympusTalentGuides,
+      className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
+      onBuildChange: value => {
+        if (main.parentNode !== app) return;
+        history.replaceState(null, "", "#/talents/" + encodeURIComponent(value.className) + "/" + encodeURIComponent(value.build));
+        lastHash = location.hash;
+        pageTitle(routeTitle(currentRoute()));
+      },
+    };
   });
   const resourcesView = view => main => {
     return memberTool(main, "OlympusResources", "/static/resources169.js", "/static/resources169.css", { view,
@@ -1469,6 +1480,13 @@
         h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
         h("p", null, "Open ", h("a", { href: "#/apply", text: "Apply" }), ` and save your application once more, and verify ${S.reapply.to} again in Discord with Get my code in #join-olympus. Unless another of your characters is in the guild, your Guild Member role is on hold until the leadership approves the new application.`))) : null,
       seats,
+      h("section", { class: "frame mt", "data-addon-promotion": "olympus-guild" },
+        h("h2", { text: "Olympus in game" }),
+        h("p", { text: "See Olympus guilds, their leaders and the in-game army census with Olympus Guild." }),
+        h("div", { class: "btn-row" },
+          h("a", { class: "btn", href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Get Olympus Guild" }),
+          h("a", { class: "btn small", href: "#/addons", text: "Browse all addons" })),
+        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild is optional and separate from verification and Army QR reporting." })),
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -2226,6 +2244,8 @@
   const progressTitle = (c) => (c.votable ? `${plural(c.votable, "applicant")} to vote on, ${c.voted} done` : c.applicants ? "Only you so far" : "Nobody yet");
   /** The role's numbers wherever the page shows them: its row in the role list, the plaque, the picker, the line. */
   function showRoleProgress(r) {
+    // Closed roles keep their appointment tick or no-vote crown and dedicated picker label.
+    if (appointedTo(r.key) || noVoteFor(r.key)) return;
     const n = document.querySelector('.role-item[aria-current="page"] .n');
     if (n) { n.textContent = r.votable ? `${r.voted}/${r.votable}` : "—"; n.title = progressTitle(r); n.classList.toggle("done", !!r.votable && r.voted >= r.votable); }
     const line = document.getElementById("voted-count");

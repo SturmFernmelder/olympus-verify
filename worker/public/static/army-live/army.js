@@ -56,11 +56,19 @@
   }
   installNavigation();
   function createReader(root, status, refresh, options = {}) {
-    let generation = 0, request = null, displayed = null, displayTimer = null, destroyed = false;
+    let generation = 0, request = null, displayed = null, displayTimer = null, refreshTimer = null, accessStopped = false, suspended = false, destroyed = false;
     const live = () => !destroyed && (!options.isCurrent || options.isCurrent());
+    function stopRefresh() { if (refreshTimer !== null) clearTimeout(refreshTimer); refreshTimer = null; }
+    function scheduleRefresh() {
+      stopRefresh();
+      if (!live()) { destroy(); return; }
+      if (document.hidden || suspended || accessStopped || request) return;
+      refreshTimer = setTimeout(() => { refreshTimer = null; load(); }, 60000);
+    }
     function endDisplay() { displayed = null; if (displayTimer !== null) clearInterval(displayTimer); displayTimer = null; }
     function ageDisplay() {
-      if (!live() || !displayed || document.hidden) return;
+      if (!live()) { destroy(); return; }
+      if (!displayed || document.hidden) return;
       const elapsed = performance.now() - displayed.monotonic;
       if (!Number.isFinite(elapsed) || elapsed < 0) { clear(); return; }
       const now = displayed.now + Math.floor(elapsed / 1000), freshness = displayed.snapshots.map(snapshot => [now - snapshot.observedAt > 86400 || now - snapshot.guilds[0].receivedAt > 86400, now - snapshot.guilds[0].receivedAt > 900].join(':')).join('|');
@@ -69,12 +77,22 @@
       for (const snapshot of displayed.snapshots) root.append(card(snapshot, now));
     }
     async function load() {
-      if (!live() || document.hidden) return;
-      const token = ++generation; if (request) request.abort(); const owned = new AbortController(); request = owned; refresh.disabled = true;
+      if (!live()) { destroy(); return; }
+      if (document.hidden || suspended || accessStopped || request) return;
+      stopRefresh();
+      const token = ++generation, owned = new AbortController(); request = owned; refresh.disabled = true;
+      const expanded = new Map();
+      for (const article of root.children) {
+        const heading = Array.from(article.children).find(child => child.tagName === 'H2');
+        if (heading) expanded.set(heading.textContent, new Set(Array.from(article.children).filter(child => child.tagName === 'DETAILS' && child.open).map(child => child.children[0].textContent)));
+      }
       endDisplay(); status.textContent = 'Reading published snapshots…'; status.className = 'notice'; root.replaceChildren();
       const timer = setTimeout(() => owned.abort(), 15000);
       try {
         const response = await fetch('/api/army', {cache: 'no-store', credentials: 'same-origin', redirect: 'error', signal: owned.signal});
+        if (token !== generation || !live() || document.hidden) return;
+        if (owned.signal.aborted) throw Error('The snapshot read timed out.');
+        if (response.status === 401 || response.status === 403) accessStopped = true;
         if (!response.ok || !response.body) throw Error('Published snapshots are unavailable. No old figures are being shown.');
         const reader = response.body.getReader(), chunks = []; let bytes = 0;
         try { for (;;) { const value = await reader.read(); if (value.done) break; bytes += value.value.byteLength; if (bytes > 524288) throw Error('The snapshot response exceeded its bounds.'); chunks.push(value.value); } } catch (error) { await reader.cancel().catch(() => {}); throw error; } finally { reader.releaseLock(); }
@@ -90,22 +108,30 @@
         const keys = snapshots.map(snapshot => JSON.stringify([snapshot.realmGroup, snapshot.faction, snapshot.guilds[0].name]));
         if (new Set(keys).size !== keys.length) throw Error('The Army response contained conflicting guild entries.');
         if (token !== generation || !live() || document.hidden) return;
-        for (const snapshot of snapshots) root.append(card(snapshot, data.now));
+        if (owned.signal.aborted) throw Error('The snapshot read timed out.');
+        for (const snapshot of snapshots) {
+          const article = card(snapshot, data.now), opened = expanded.get(snapshot.guilds[0].name);
+          if (opened) for (const child of article.children) if (child.tagName === 'DETAILS' && opened.has(child.children[0].textContent)) child.open = true;
+          root.append(article);
+        }
         if (!snapshots.length) { const empty = node('article', undefined, 'army-card'); empty.append(node('h2', 'No published snapshots yet'), node('p', 'A qualified reporter must deliberately review and publish an aggregate before any figures appear. Missing data is not a zero.')); root.append(empty); }
-        status.textContent = snapshots.length ? 'Published observations · read at ' + time(data.now) + '. Refresh deliberately for newer reports.' : 'No shared figures are available yet.';
+        status.textContent = snapshots.length ? 'Published observations · read at ' + time(data.now) + '. Checks for newer reports every 60 seconds while visible.' : 'No shared figures are available yet. Checks every 60 seconds while visible.';
         displayed = {snapshots, now: data.now, monotonic: performance.now(), freshness: snapshots.map(snapshot => [data.now - snapshot.observedAt > 86400 || data.now - snapshot.guilds[0].receivedAt > 86400, data.now - snapshot.guilds[0].receivedAt > 900].join(':')).join('|')};
         displayTimer = setInterval(ageDisplay, 1000);
-      } catch (_) { if (token === generation && live() && !document.hidden) { root.replaceChildren(); status.textContent = 'Published snapshots could not be read. Refresh to try again; no stale or partial figures are shown.'; status.className = 'notice error'; } }
-      finally { clearTimeout(timer); if (request === owned) request = null; if (token === generation && live()) refresh.disabled = false; }
+      } catch (_) { if (token === generation && live() && !document.hidden) { root.replaceChildren(); status.textContent = accessStopped ? 'Published snapshots could not be read because your access is unavailable. Sign in or confirm access, then refresh to try again. Automatic refresh is stopped.' : 'Published snapshots could not be read. No stale or partial figures are shown. Checks again in 60 seconds while visible, or refresh to try now.'; status.className = 'notice error'; } }
+      finally { clearTimeout(timer); if (request === owned) request = null; if (token === generation && live()) { refresh.disabled = false; scheduleRefresh(); } else if (!live()) destroy(); }
     }
-    function clear() { generation++; if (request) request.abort(); request = null; endDisplay(); root.replaceChildren(); refresh.disabled = false; status.textContent = 'The view was cleared. Refresh deliberately when you return.'; }
-    const hidden = () => { if (document.hidden && !destroyed) clear(); };
+    function clear() { generation++; stopRefresh(); if (request) request.abort(); request = null; endDisplay(); root.replaceChildren(); refresh.disabled = false; if (!accessStopped) status.textContent = 'The view was cleared. A fresh read will run when you return.'; }
+    function deliberateRefresh() { if (!live()) { destroy(); return; } if (document.hidden || suspended || request) return; accessStopped = false; return load(); }
+    const hidden = () => { if (destroyed) return; if (!live()) { destroy(); return; } if (document.hidden) clear(); else load(); };
+    const pageHidden = () => { if (!destroyed) { suspended = true; clear(); } };
+    const pageShown = event => { if (!destroyed && event.persisted) { suspended = false; load(); } };
     function destroy() {
       if (destroyed) return;
       clear(); destroyed = true; refresh.disabled = true;
-      refresh.removeEventListener?.('click', load); document.removeEventListener?.('visibilitychange', hidden); window.removeEventListener?.('pagehide', clear);
+      refresh.removeEventListener?.('click', deliberateRefresh); document.removeEventListener?.('visibilitychange', hidden); window.removeEventListener?.('pagehide', pageHidden); window.removeEventListener?.('pageshow', pageShown);
     }
-    refresh.addEventListener('click', load); document.addEventListener('visibilitychange', hidden); window.addEventListener('pagehide', clear);
+    refresh.addEventListener('click', deliberateRefresh); document.addEventListener('visibilitychange', hidden); window.addEventListener('pagehide', pageHidden); window.addEventListener('pageshow', pageShown);
     load(); return Object.freeze({destroy});
   }
   window.OlympusArmyReader = Object.freeze({mount(container, options = {}) {
