@@ -16,14 +16,14 @@ export interface ArmySnapshot {
 const PREFIX = "army:census:v2:";
 const ROOT = ["format", "scope", "source", "sourceVerified", "membershipProof", "addonVersion", "realmGroup", "faction", "observedAt", "guilds"];
 const GUILD = ["name", "receivedAt", "reportedCharacters", "online", "classes", "levels", "ranks"];
-const NAMES = ["Olympus I", "Olympus II", "Olympus III", "Olympus IV", "Olympus V", "Olympus VI", "Olympus VII", "Olympus VIII", "Olympus IX", "Olympus X"];
+const NAMES = ["Olympus", "Olympus I", "Olympus II", "Olympus III", "Olympus IV", "Olympus V", "Olympus VI", "Olympus VII", "Olympus VIII", "Olympus IX", "Olympus X"];
 const HEADER_NAMES = ["Content-Type", "Content-Encoding", "Content-Length", "Origin", "Sec-Fetch-Site", "X-Olympus", "Cookie"];
 function bad(code = "invalid_aggregate", status = 400): never { throw new PreviewRefusal(code, status); }
 function keys(value: unknown, expected: readonly string[]): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).join("|") !== expected.join("|")) bad();
 }
 const integer = (v: unknown, min: number, max: number): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= min && v <= max;
-function slot(name: string): number { return name === "Olympus" ? 0 : NAMES.indexOf(name); }
+function slot(name: string): number { return NAMES.indexOf(name); }
 export function armyKey(snapshot: ArmySnapshot): string { return PREFIX + String(slot(snapshot.guilds[0].name) + 1); }
 
 /** Reject unknown fields rather than redact them after persistence. Bucket labels are fixed, never client-supplied names. */
@@ -61,7 +61,7 @@ function parsed(row: Row, now: number): ArmySnapshot | null {
 export async function armyPublic(request: Request, env: Env): Promise<Response> {
   if (!["GET", "HEAD"].includes(request.method)) return apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
   if (new URL(request.url).search) return apiJson({ error: "bad_request" }, 400);
-  const out = await env.DB.batch([env.DB.prepare(`SELECT ${DB_NOW} AS now`), env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY key LIMIT 11")]);
+  const out = await env.DB.batch([env.DB.prepare(`SELECT ${DB_NOW} AS now`), env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY key LIMIT 12")]);
   const now = (out[0]?.results?.[0] as { now: number } | undefined)?.now;
   if (!integer(now, 0, 4102444800)) return apiJson({ error: "clock_held" }, 503);
   const snapshots: ArmySnapshot[] = [];

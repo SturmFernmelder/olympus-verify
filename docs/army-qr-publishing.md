@@ -17,3 +17,5 @@ A publication whose answer is lost keeps only its original aggregate and preview
 The publisher page alone permits camera and window capture. Microphone, geolocation, payment, USB and framing remain unavailable. Global member-site headers, production configuration, settings, feature flags, schema, Native E2, member admission, identity verification and launch gates retain their existing rules. No companion, LAN listener, watcher, filesystem reader or background capture is introduced.
 
 Desktop and mobile viewport checks use synthetic aggregates, with empty, masked and populated states plus the ordinary preview/consent/publication flow and original-outcome recovery. They are distinct from an actual game capture or a physical phone-camera test. No live production observation is required for those checks.
+
+Each accepted exact guild name has its own storage slot: Olympus and Olympus I through Olympus X are eleven distinct identifiers. Neither label aliases another. A report for one guild cannot replace another guild's report.

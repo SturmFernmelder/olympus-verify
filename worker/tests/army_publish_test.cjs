@@ -65,6 +65,17 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
     check('schema DDL and Native E2 control bytes remain exact through publication',schema(f)===before&&epoch(f)===nativeBefore);
     check('no new audit actor or personal attribution was added',f.db.prepare("SELECT COUNT(*) n FROM audit WHERE action LIKE 'army%'").get().n===0);
   });
+  await scenario('accepted guild names own distinct fixed storage slots',async f=>{
+    const names=['Olympus','Olympus I','Olympus II','Olympus III','Olympus IV','Olympus V','Olympus VI','Olympus VII','Olympus VIII','Olympus IX','Olympus X'];
+    for(const [index,name]of names.entries()){
+      const value=snapshot(f.now);value.guilds[0].name=name;
+      assert.doesNotThrow(()=>f.route.validateArmySnapshot(value,f.now));
+      check(name+' owns its unique closed slot',f.route.armyKey(value)==='army:census:v2:'+(index+1));
+      if(index<2){const p=await f.call('preview',{snapshot:value}),out=await f.call('publish',{snapshot:value,previewToken:p.body.previewToken,confirm:'PUBLISH'});check(name+' publishes without replacing the other accepted guild',out.status===200);}
+      else await f.write('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,NULL)',f.route.armyKey(value),JSON.stringify(value),value.observedAt);
+    }
+    const out=await f.publicRead();check('all eleven guild reports coexist without aliasing or overwrite',out.status===200&&out.body.snapshots.length===11&&JSON.stringify(out.body.snapshots.map(v=>v.guilds[0].name).sort())===JSON.stringify(names.slice().sort())&&f.db.prepare("SELECT COUNT(*) n FROM site_settings WHERE key GLOB 'army:census:v2:*'").get().n===11);
+  });
   await scenario('nonadmin cohort is not silently promoted',async f=>{const out=await f.call('preview',{snapshot:snapshot(f.now)});check('ordinary signed-in user with guild facts is not a reporter',out.status===403);},{admin:false});
   await scenario('admission and request refusals before body use',async f=>{
     const input={snapshot:snapshot(f.now)};

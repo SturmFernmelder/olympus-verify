@@ -23,7 +23,7 @@ function check(label, value) { total++; if (value) passed++; console.log((value 
   const main = /<main\b[^>]*>([^]*?)<\/main>/.exec(html)?.[1] || '';
   const words = main.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   check('shared title retains the original Unicode separator', html.includes('<title>Olympus '+String.fromCharCode(0x2014)+' Enter Olympus</title>'));
-  check('default entry contains exactly the owner-requested main copy', words === 'Enter Olympus The gates of Olympus Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required. Sign in with Discord');
+  check('default entry contains exactly the owner-requested main copy and public Army link', words === 'Enter Olympus The gates of Olympus Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required. Sign in with Discord View public Army snapshots' && /<a href="\/army">View public Army snapshots<\/a>/.test(main));
   check('the removed entry-only sentence is absent', !html.includes('Only the sign-in and privacy pages are available before entry.'));
   check('the real sign-in remains a normal Discord-login link', response.status === 200 && /<a class="policy-button" href="\/auth\/login">Sign in with Discord<\/a>/.test(html));
   check('the approved decorative art directions are accessibility-hidden and cannot capture interaction', html.includes('class="login-portal" aria-hidden="true"') && html.includes('class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"') && !/<(?:button|input|canvas|video|iframe)\b/.test(main) && portalCss.includes('object-position:center;pointer-events:none'));
