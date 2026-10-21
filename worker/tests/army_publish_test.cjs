@@ -74,7 +74,7 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
       if(index<2){const p=await f.call('preview',{snapshot:value}),out=await f.call('publish',{snapshot:value,previewToken:p.body.previewToken,confirm:'PUBLISH'});check(name+' publishes without replacing the other accepted guild',out.status===200);}
       else await f.write('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,NULL)',f.route.armyKey(value),JSON.stringify(value),value.observedAt);
     }
-    const out=await f.publicRead();check('all eleven guild reports coexist without aliasing or overwrite',out.status===200&&out.body.snapshots.length===11&&JSON.stringify(out.body.snapshots.map(v=>v.guilds[0].name).sort())===JSON.stringify(names.slice().sort())&&f.db.prepare("SELECT COUNT(*) n FROM site_settings WHERE key GLOB 'army:census:v2:*'").get().n===11);
+    const out=await f.publicRead();check('all eleven guild reports coexist without aliasing or overwrite',out.status===200&&out.body.snapshots.length===11&&JSON.stringify(out.body.snapshots.map(v=>v.guilds[0].name))===JSON.stringify(names)&&f.db.prepare("SELECT COUNT(*) n FROM site_settings WHERE key GLOB 'army:census:v2:*'").get().n===11);
   });
   await scenario('nonadmin cohort is not silently promoted',async f=>{const out=await f.call('preview',{snapshot:snapshot(f.now)});check('ordinary signed-in user with guild facts is not a reporter',out.status===403);},{admin:false});
   await scenario('admission and request refusals before body use',async f=>{

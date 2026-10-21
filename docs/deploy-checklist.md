@@ -6242,3 +6242,5 @@ Qualification and rollout: focused original-Native SQLite tests, unchanged legac
 Rollback is a separately authorized exact-commit rollback under the same backup, settings, Native and launch safeguards. Do not replay a lost publication response or overwrite a newer observation. No real snapshot is seeded or automatically published by deployment.
 
 PR review correction, 21 October 2026: Olympus and Olympus I own distinct fixed slots, as do all remaining I–X names. A bounded twelve-row read detects any unexpected twelfth slot. Focused backend/frontend and original-entry Workerd regressions cover simultaneous reports without overwriting or relabeling. Earlier d304 validation remains historical; require the corrected exact head's complete CI and zero findings before merge.
+
+Second review correction, 21 October 2026: public snapshots sort by numeric closed slot, so IX and X follow VIII. The eleven-guild regression now requires the exact sequence instead of comparing an unordered name set. No storage fields, scope, clocks or admission change.

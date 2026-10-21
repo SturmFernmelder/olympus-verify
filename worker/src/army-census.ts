@@ -61,7 +61,7 @@ function parsed(row: Row, now: number): ArmySnapshot | null {
 export async function armyPublic(request: Request, env: Env): Promise<Response> {
   if (!["GET", "HEAD"].includes(request.method)) return apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
   if (new URL(request.url).search) return apiJson({ error: "bad_request" }, 400);
-  const out = await env.DB.batch([env.DB.prepare(`SELECT ${DB_NOW} AS now`), env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY key LIMIT 12")]);
+  const out = await env.DB.batch([env.DB.prepare(`SELECT ${DB_NOW} AS now`), env.DB.prepare("SELECT key, value, updated_at, updated_by FROM site_settings WHERE key GLOB 'army:census:v2:*' ORDER BY CAST(SUBSTR(key,16) AS INTEGER),key LIMIT 12")]);
   const now = (out[0]?.results?.[0] as { now: number } | undefined)?.now;
   if (!integer(now, 0, 4102444800)) return apiJson({ error: "clock_held" }, 503);
   const snapshots: ArmySnapshot[] = [];
