@@ -25,7 +25,8 @@ function loadSnapshot(cwd, revision = null) {
   }
   const wanted = [...entries.keys()].filter(p => BOOT.includes(p) || /^(scripts\/|policies\/|worker\/scripts\/|worker\/public\/static\/)/.test(p)
     || /^addon\/OlympusStatsPilot\/(?:OlympusStatsPilot\.toc|Core\.lua|OlympusStatsPilot\.lua|Army\.lua|Libs\/StatsPilotQr\.lua|README\.md|ARMY\.md)$/.test(p) || ['tools/army-qr-live/protocol.js','tools/guild-qr-pilot/pilot.js','tools/guild-qr-pilot/decoder.js'].includes(p)
-    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py', 'tools/check-login-portal.py'].includes(p));
+    || ['tools/build-site-assets.py', 'tools/wow-cursor-provenance.json', 'tools/build-talent-art.py', 'tools/check-login-portal.py',
+      'tools/shared-census-website/website-overlay.cjs', 'tools/army-qr-local/website-overlay.cjs'].includes(p));
   const ids = [...new Set(wanted.map(p => entries.get(p).oid))], blobs = new Map();
   const batch = git(cwd, ['cat-file', '--batch'], ids.join('\n') + '\n');
   let offset = 0;
@@ -146,6 +147,11 @@ function verify(snapshot) {
     check(text('worker/tests/' + file).includes('"' + build + '"'), 'runtime health BUILD pin: ' + file);
   const number = /^\d{4}-\d{2}-\d{2}\.(\d+) /.exec(build)?.[1];
   check(!!number && new RegExp('^## Worker \\.' + number + '(?: | —|$)', 'm').test(text('docs/deploy-checklist.md')), 'runtime BUILD deploy section');
+  // .181: inspect these declarations as inert bytes; never load or run a candidate overlay in the hook.
+  for (const file of ['tools/shared-census-website/website-overlay.cjs', 'tools/army-qr-local/website-overlay.cjs']) {
+    const digest = match(file, /^const EXPECTED_SOURCE_SHA256\s*=\s*['"]([a-f0-9]{64})['"]/m, 'local overlay source declaration: ' + file);
+    check(sha(get('worker/public/static/app.js')) === digest, 'local overlay app-source pin drift: ' + file);
+  }
   return { candidate: snapshot.identity, checks, build, result: 'PASS', readOnly: true,
     limits: 'Projection/pin consistency only: no unit/runtime/security/publication/license/live qualification; policy body/digest parity, not a replacement for the full generator or publication tests.' };
 }

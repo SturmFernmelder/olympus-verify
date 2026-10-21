@@ -146,6 +146,7 @@ const recordTool169 = (page, namespace, calls) => {
   check(".170 missing private Community capability removes its menu and Guild news link without removing public Game updates", !group169(heldCommunity, "Community") && !link169(heldCommunity, "#/community/news") && !!group169(heldCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const noCommunity = await openPage(MEMBER, { COMMUNITY_FEATURES: "" });
   check(".170 actual Community features OFF does not hide the signed-in Game updates link", !group169(noCommunity, "Community") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
+  check(".181 Army remains an independent eligible link with Community OFF without exposing private Community routes", noCommunity.boot.community.capabilities.armyRead === true && !!link169(noCommunity, "#/community/army") && !link169(noCommunity, "#/community") && !link169(noCommunity, "#/community/news") && !link169(noCommunity, "#/community/census") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const staff = await openPage(STAFF);
   check(".169 only the actual staff boot receives the Staff group and Admin link", !!group169(staff, "Staff") && !!link169(staff, "#/admin") && staff.boot.user.isAdmin === true);
   console.log("\n== .170: exclusive fine-pointer, tap and keyboard navigation ==");

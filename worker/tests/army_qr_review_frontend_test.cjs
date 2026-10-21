@@ -9,7 +9,8 @@ const body179 = String.raw`
   await siteUser(MEMBER, {global_name:'Synthetic member'}); await character(MEMBER,'Mia One','Player-1-0001');
   await siteUser(OTHER, {global_name:'Synthetic unconfirmed'}); await siteUser(STAFF, {global_name:'Synthetic administrator'});
   await siteUser(DENIED, {global_name:'Synthetic refused',denied:1});
-  for(const who of [MEMBER,OTHER,STAFF,DENIED]) await cookieFor(who);
+  const banned179='300000000000000181';await siteUser(banned179,{global_name:'Synthetic banned'});await character(banned179,'Banned Example','Player-1-0181');await fixtureRun('UPDATE members SET banned=1 WHERE discord_id=?',banned179);
+  for(const who of [MEMBER,OTHER,STAFF,DENIED,banned179]) await cookieFor(who);
   const settingsBefore179=JSON.stringify(db.prepare('SELECT key,value,updated_at FROM site_settings ORDER BY key').all());
   const nativeBefore179=JSON.stringify(db.prepare('SELECT * FROM privacy_write_admission').all());
   const features179={COMMUNITY_FEATURES:'directory'};
@@ -52,8 +53,15 @@ const body179 = String.raw`
   check('signed-out visitor receives only the original login surface without Army boot',guest179.boot===null&&guest179.app===null&&!guest179.html.includes('data-army-qr-review'));
   const off179=await openPage(MEMBER,{COMMUNITY_FEATURES:''}),offCalls179=observe179(off179);await off179.go('#/community/army');
   check('signed-in Army navigation stays discoverable while every legacy Community feature is OFF',!!off179.app.querySelector('[data-army-qr-review]')&&!!off179.app.querySelector('a[href="/army"]')&&offCalls179.every(c=>!isArmyRequest179(c))&&!off179.app.querySelector('a[href="#/community/census"]'));
+  check('Community OFF keeps the old dropdown absent while independent Army and Game updates links remain',off179.app.querySelectorAll('details.nav-group summary').every(el=>el.textContent!=='Community')&&!!off179.app.querySelector('nav.nav a[href="#/community/army"]')&&!!off179.app.querySelector('nav.nav a[href="#/updates"]'));
   await off179.go('#/community/directory');
   check('Army-only navigation never switches on the disabled legacy Community pages',off179.app.textContent.includes('not switched on yet')&&!off179.app.querySelector('[data-army-qr-review]')&&offCalls179.every(c=>!isArmyRequest179(c)));
+  for(const overrides179 of [features179,{COMMUNITY_FEATURES:''},{...features179,SITE_ADMINS:banned179}]){
+    const bannedPage179=await openPage(banned179,overrides179),bannedCalls179=observe179(bannedPage179);await bannedPage179.go('#/community/army');
+    check('current banned identity has no Army navigation, reader, publisher or capture even with Admin configuration and Community '+(overrides179.COMMUNITY_FEATURES?'ON':'OFF'),bannedPage179.boot.community.capabilities.applicantWrite===true&&bannedPage179.boot.community.capabilities.armyRead===false&&!bannedPage179.app.querySelector('a[href="#/community/army"]')&&!bannedPage179.app.querySelector('[data-army-qr-review]')&&!bannedPage179.app.querySelector('a[href="/army"]')&&!bannedPage179.app.querySelector('a[href="/army/report"]')&&bannedPage179.app.textContent.includes('Army access is not available')&&bannedCalls179.every(c=>!isArmyRequest179(c)));
+    await bannedPage179.go('#/community');
+    check('current banned identity has no Army overview card or private member request',!bannedPage179.app.querySelector('a.card[href="#/community/army"]')&&bannedCalls179.every(c=>!isArmyRequest179(c)));
+  }
   check('status honestly distinguishes unsigned observations from people or membership proof',member179.window.OlympusArmyQrRelease.activationEnabled===true&&APP_JS.includes('Volunteer observations do not establish game origin, membership or complete guild coverage')&&APP_JS.includes('Reported characters, not unique people'));
   check('focused Army navigation preserves fixture settings and Native E2 admission rows',settingsBefore179===JSON.stringify(db.prepare('SELECT key,value,updated_at FROM site_settings ORDER BY key').all())&&nativeBefore179===JSON.stringify(db.prepare('SELECT * FROM privacy_write_admission').all()));
   // Real signout last: the original fixture never adopts a revoked incarnation.

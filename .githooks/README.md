@@ -31,6 +31,8 @@ Coverage: official asset/source/extractor byte pins and file modes; the referenc
 guard pin; cursor source record and embedded metadata; governance book reader/model
 and download tuples; required documents; policy root mirrors, generated bodies and source digest; runtime BUILD's
 three health pins and its own deploy-checklist section. A newer CI-only release section does not change BUILD.
+The two local-only Army/census overlays also bind their exact app-source declarations; the checker inspects those
+declarations as inert bytes and never executes an overlay.
 The pin graph is acyclic: update a changed asset's reviewed row, then the reference digest in `official_assets.py`,
 then the affected V4 pins in `reconcile_public_root.py`. This tool only reports drift; it never updates those pins.
 
