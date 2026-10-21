@@ -4082,8 +4082,8 @@
     {
       "path": "worker/public/static/army-live/report.js",
       "mode": "100644",
-      "bytes": 13392,
-      "sha256": "7045622bed0f4a7d7c1f41989f9cffe268942ab80adc1cb25137dbcb21d94ff9"
+      "bytes": 13846,
+      "sha256": "1679aec5ca860827cbab748a13baf375707c2b411ec1516a42e4224c6a4db1fc"
     },
     {
       "path": "worker/public/static/army-live/pilot.js",

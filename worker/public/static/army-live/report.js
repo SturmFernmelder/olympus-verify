@@ -2,7 +2,12 @@
   'use strict';
   const protocol = window.OlympusGuildQRProtocol, cards = window.OlympusArmyCards;
   const PUBLISH_REALM = 'World of Warcraft: Forever PvE';
-  const allowedGuild = name => name === 'Olympus' || /^Olympus (?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/.test(name);
+  const GUILD_NAMES = Object.freeze(['Olympus', 'Olympus I', 'Olympus II', 'Olympus III', 'Olympus IV', 'Olympus V', 'Olympus VI', 'Olympus VII', 'Olympus VIII', 'Olympus IX', 'Olympus X']);
+  function canonicalGuild(name) {
+    // Fold ASCII letters only; whitespace, Unicode lookalikes and unknown guilds stay outside the fixed scope.
+    const asciiName = name.replace(/[a-z]/g, letter => letter.toUpperCase());
+    return GUILD_NAMES.find(guild => guild.toUpperCase() === asciiName);
+  }
   const ui = Object.fromEntries(['report-status', 'report-preview', 'report-clear', 'report-preview-results', 'report-consent-area', 'report-consent', 'report-publish', 'report-outcome'].map(id => [id, document.getElementById(id)]));
   let admitted = false, pending = 'access', unknown = false, generation = 0, snapshot = null, deadline = null, preview = null, original = null, request = null, lastWall = Date.now();
   const say = text => { ui['report-status'].textContent = text; };
@@ -60,8 +65,9 @@
       if (!admitted || pending || unknown || document.hidden) throw Error('Current reporter eligibility is required before a new observation.');
       if (!originalDeadline || !Number.isFinite(originalDeadline.wallDeadline) || !Number.isFinite(originalDeadline.monotonicDeadline) || originalDeadline.wallDeadline > Date.now() + 900000 || originalDeadline.monotonicDeadline > performance.now() + 900000) throw Error('The original local review deadline was refused.');
       const accepted = canonical(value, Math.floor(Date.now() / 1000));
-      if (accepted.faction !== 'Alliance' || !allowedGuild(accepted.guilds[0].name)) throw Error('Only an Olympus guild Alliance observation can be prepared for this Army page. Nothing was sent.');
-      snapshot = JSON.parse(JSON.stringify(accepted)); snapshot.realmGroup = PUBLISH_REALM;
+      const guildName = canonicalGuild(accepted.guilds[0].name);
+      if (accepted.faction !== 'Alliance' || !guildName) throw Error('Only an Olympus guild Alliance observation can be prepared for this Army page. Nothing was sent.');
+      snapshot = JSON.parse(JSON.stringify(accepted)); snapshot.realmGroup = PUBLISH_REALM; snapshot.guilds[0].name = guildName;
       canonical(snapshot, Math.floor(Date.now() / 1000));
       deadline = {...originalDeadline}; preview = null; original = null; ui['report-consent'].checked = false;
       say('Complete observation reviewed locally. Its raw game realm label stays on this device. The private preview uses the fixed World of Warcraft: Forever PvE · Alliance publication scope, which you must attest before publishing.'); controls();

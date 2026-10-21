@@ -131,6 +131,11 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
   await scenario('strict aggregate fields, privacy masking and clocks',async f=>{
     const good=snapshot(f.now),parse=f.route.validateArmySnapshot;
     const P=require('../../tools/army-qr-live/protocol.js');check('canonical synthetic transfer agrees with browser v2 validator',P.validatePayload(new TextEncoder().encode(JSON.stringify(good)),{nowSeconds:f.now}).format===good.format);
+    const uppercase=JSON.parse(JSON.stringify(good));uppercase.guilds[0].name='OLYMPUS';
+    check('native uppercase guild remains a valid transfer label',P.validatePayload(new TextEncoder().encode(JSON.stringify(uppercase)),{nowSeconds:f.now}).guilds[0].name==='OLYMPUS');
+    const rowsBefore=f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n;
+    check('direct server preview still requires canonical guild spelling',(await f.call('preview',{snapshot:uppercase})).status===400&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===rowsBefore);
+    check('the existing canonical guild remains previewable without persistence',(await f.call('preview',{snapshot:good})).status===200&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===rowsBefore);
     const mutations=[v=>v.characterNames=['Forbidden'],v=>v.guilds[0].notes='Forbidden',v=>v.guilds[0].reporterId=SUBJECT,v=>v.guilds[0].classes[0]=1,v=>v.guilds[0].levels.push(0),v=>v.guilds[0].ranks[0]=20,v=>v.guilds[0].name='Unlisted Guild',v=>v.observedAt=f.now+1,v=>v.observedAt=f.now-86401,v=>v.realmGroup=SUBJECT,v=>v.realmGroup='Arbitrary personal words',v=>v.faction='Horde',v=>v.membershipProof=true,v=>v.sourceVerified=true];
     for(let i=0;i<mutations.length;i++){const v=JSON.parse(JSON.stringify(good));mutations[i](v);assert.throws(()=>parse(v,f.now));check('aggregate mutation '+i+' refused before persistence',true);}
     const aged=JSON.parse(JSON.stringify(good));aged.observedAt=f.now-901;aged.guilds[0].receivedAt=aged.observedAt;check('direct server preview rejects already stale online even with matching source clocks',(await f.call('preview',{snapshot:aged})).status===400);aged.guilds[0].online=null;check('the same old source with online withheld remains eligible',(await f.call('preview',{snapshot:aged})).status===200);
