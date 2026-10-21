@@ -1801,3 +1801,11 @@ The ordinary Army reader belongs inside the existing member shell; an in-app rou
 Names of appointed holders are fresh authorized view data, never a boot-time account-pointer leak or a global identity cache. A Discord-only profile needs its existing explicit publication proof; a selected search result alone is not a saved appointment. The organization overview initially fits all offices while retaining deliberate drill-down and List. Officer seat data remains separate from unsigned Army observations: source dates, bounded expiry and a fresh read of the existing seat DTO avoid presenting an old full report as real-time capacity.
 
 The canonical public policy readers move under /legal/ with exact old-reader redirects. Privacy rights and erasure URLs, document contents, consent and access remain separate and unchanged. Third-party tracker website availability is distinct from automatic feed retrieval; exact Forever source links are useful even when no reusable machine feed has been verified. No new publisher fetch, storage field, production setting or activation follows from this presentation work.
+
+
+
+### 21 October 2026 — Exact publisher RSS target and closed-role presentation (.184)
+
+The live .183 audit reached the feed's unexpected-non200 branch, but discarded the responding HTTP status. The publisher's raw HTML advertises ?rss while URL tooling had normalized that link to ?rss=. Use the literal advertised target and retain only a bounded numeric upstream status for a failed response. Local200/XML/parser evidence establishes compatibility, not the cause of the original production refusal. Failed responses remain uncached and no body/header/request details are returned. Keep all original request/parser/cache limits and authenticated read admission; do not spoof clients, follow redirects, retry around a refusal or infer blocking/rate limiting.
+
+A fresh board summary formatted every role correctly, then the selected-role progress helper replaced the special appointed/no-vote marker and mobile option with an ordinary numeric count. Stop numeric-progress rendering for these closed roles. The existing label/marker renderer remains authoritative, while the server's closed-board/voting safeguards are untouched.

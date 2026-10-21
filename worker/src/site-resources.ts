@@ -17,6 +17,8 @@ export interface ResourceFeedResult {
   /** Actual last retrieval attempt; a failed attempt never replaces fetchedAt. */
   checkedAt: number | null;
   failure: ResourceFeedFailure | null;
+  /** Numeric response status only; never publisher headers, body or request metadata. */
+  upstreamStatus: number | null;
   omittedItems: number;
   items: ResourceHeadline[];
 }
@@ -44,10 +46,11 @@ interface Source {
 const SOURCES: readonly Source[] = Object.freeze(([
   { id: "blizzard-notes", publisher: "Blizzard", url: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1", feed: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss", itemHost: "us.forums.blizzard.com", scope: "Official Forever development-note thread; open the original post for context and corrections." },
   { id: "wowhead-forever", publisher: "Wowhead", url: "https://www.wowhead.com/forever/news", feed: "https://www.wowhead.com/news/rss/all", itemHost: "www.wowhead.com", scope: "Wowhead reporting explicitly categorized Forever in its latest all-WoW feed window.", foreverOnly: true as const },
-  { id: "wowhead-blues", publisher: "Wowhead Forever Blue Tracker", url: "https://www.wowhead.com/forever/blue-tracker", feed: "https://www.wowhead.com/forever/blue-tracker?rss=", itemHost: "www.wowhead.com", scope: "The publisher's Forever blue-tracker RSS. Follow the linked Blizzard original for authority; this tracker is not an independent Blizzard publication." },
+  // .184: preserve the publisher's raw RSS href; URL tooling had added an unadvertised '='.
+  { id: "wowhead-blues", publisher: "Wowhead Forever Blue Tracker", url: "https://www.wowhead.com/forever/blue-tracker", feed: "https://www.wowhead.com/forever/blue-tracker?rss", itemHost: "www.wowhead.com", scope: "The publisher's Forever blue-tracker RSS. Follow the linked Blizzard original for authority; this tracker is not an independent Blizzard publication." },
 ] satisfies Source[]).map(source => Object.freeze(source)));
 export const RESOURCE_FEED_LIMITS = Object.freeze({ timeoutMs: 8000, bytes: 1024 * 1024, items: 12, title: 240, freshS: 600, staleS: 86400 });
-class FeedError extends Error { constructor(readonly code: ResourceFeedFailure) { super(code); } }
+class FeedError extends Error { constructor(readonly code: ResourceFeedFailure, readonly upstreamStatus: number | null = null) { super(code); } }
 interface XmlNode { name: string; children: XmlNode[]; text: string[] }
 const localName = (name: string) => name.split(":").at(-1)!.toLowerCase();
 
@@ -172,7 +175,7 @@ async function retrieve(source: Source, fetcher: typeof fetch, at: number): Prom
     const response = await fetcher(source.feed, { redirect: "manual", signal: controller.signal, headers: { Accept: "application/rss+xml, application/xml, text/xml" } });
     if (controller.signal.aborted) { cancel(response); throw new FeedError("timeout"); }
     if (response.redirected || response.status >= 300 && response.status < 400 || response.url && response.url !== source.feed) { cancel(response); throw new FeedError("redirect"); }
-    if (response.status !== 200) { cancel(response); throw new FeedError("upstream"); }
+    if (response.status !== 200) { cancel(response); throw new FeedError("upstream", Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? response.status : null); }
     if (!/^(?:application\/(?:rss\+xml|xml)|text\/xml)(?:\s*;|$)/i.test(response.headers.get("Content-Type") ?? "")) { cancel(response); throw new FeedError("content_type"); }
     const length = response.headers.get("Content-Length");
     if (length && /^\d+$/.test(length) && Number(length) > RESOURCE_FEED_LIMITS.bytes) { cancel(response); throw new FeedError("too_large"); }
@@ -216,7 +219,7 @@ export function resourcePublicCache(cache: Cache | undefined = typeof caches ===
 export async function loadResourceUpdates(options: ResourceUpdateOptions): Promise<{ enabled: boolean; sources: ResourceFeedResult[] }> {
   const at = options.now ?? Math.floor(Date.now() / 1000);
   if (!Number.isSafeInteger(at) || at < 1072915200) throw new Error("invalid resource clock");
-  const shaped = (source: Source, status: ResourceFeedResult["status"], saved: ResourcePublicFeedRecord | null, checkedAt: number | null, failure: ResourceFeedFailure | null): ResourceFeedResult => ({ sourceId: source.id, publisher: source.publisher, sourceUrl: source.url, scope: source.scope, status, fetchedAt: saved?.fetchedAt ?? null, checkedAt, failure, omittedItems: saved?.omittedItems ?? 0, items: saved?.items ?? [] });
+  const shaped = (source: Source, status: ResourceFeedResult["status"], saved: ResourcePublicFeedRecord | null, checkedAt: number | null, failure: ResourceFeedFailure | null, upstreamStatus: number | null = null): ResourceFeedResult => ({ sourceId: source.id, publisher: source.publisher, sourceUrl: source.url, scope: source.scope, status, fetchedAt: saved?.fetchedAt ?? null, checkedAt, failure, upstreamStatus, omittedItems: saved?.omittedItems ?? 0, items: saved?.items ?? [] });
   if (options.enabled !== true) return { enabled: false, sources: SOURCES.map(source => shaped(source, "disabled", null, null, null)) };
   const cache = options.cache ?? resourcePublicCache();
   const sources = await Promise.all(SOURCES.map(async source => {
@@ -228,7 +231,7 @@ export async function loadResourceUpdates(options: ResourceUpdateOptions): Promi
       try { await cache?.put(source.id, next); } catch { /* A cache failure does not turn a genuine retrieval into a failure. */ }
       return shaped(source, "fresh", next, at, null);
     } catch (error) {
-      return shaped(source, saved ? "stale" : "unavailable", saved, at, error instanceof FeedError ? error.code : "network");
+      return shaped(source, saved ? "stale" : "unavailable", saved, at, error instanceof FeedError ? error.code : "network", error instanceof FeedError ? error.upstreamStatus : null);
     }
   }));
   return { enabled: true, sources };

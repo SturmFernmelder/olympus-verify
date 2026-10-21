@@ -2226,6 +2226,8 @@
   const progressTitle = (c) => (c.votable ? `${plural(c.votable, "applicant")} to vote on, ${c.voted} done` : c.applicants ? "Only you so far" : "Nobody yet");
   /** The role's numbers wherever the page shows them: its row in the role list, the plaque, the picker, the line. */
   function showRoleProgress(r) {
+    // Closed roles keep their appointment tick or no-vote crown and dedicated picker label.
+    if (appointedTo(r.key) || noVoteFor(r.key)) return;
     const n = document.querySelector('.role-item[aria-current="page"] .n');
     if (n) { n.textContent = r.votable ? `${r.voted}/${r.votable}` : "—"; n.title = progressTitle(r); n.classList.toggle("done", !!r.votable && r.voted >= r.votable); }
     const line = document.getElementById("voted-count");

@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000169';
 const URL_BASE = 'https://guild.example/api/resource-updates';
 const FEEDS = new Set([
   'https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss',
-  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss=',
+  'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss',
 ]);
 const compiled = new Map();
 let n = 0;
