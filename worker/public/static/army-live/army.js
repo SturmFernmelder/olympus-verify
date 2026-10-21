@@ -50,13 +50,13 @@
     endDisplay(); status.textContent = 'Reading published snapshots…'; status.className = 'notice'; root.replaceChildren();
     const timer = setTimeout(() => owned.abort(), 15000);
     try {
-      const response = await fetch('/api/army', {cache: 'no-store', credentials: 'omit', redirect: 'error', signal: owned.signal});
+      const response = await fetch('/api/army', {cache: 'no-store', credentials: 'same-origin', redirect: 'error', signal: owned.signal});
       if (!response.ok || !response.body) throw Error('Published snapshots are unavailable. No old figures are being shown.');
       const reader = response.body.getReader(), chunks = []; let bytes = 0;
       try { for (;;) { const value = await reader.read(); if (value.done) break; bytes += value.value.byteLength; if (bytes > 524288) throw Error('The snapshot response exceeded its bounds.'); chunks.push(value.value); } } catch (error) { await reader.cancel().catch(() => {}); throw error; } finally { reader.releaseLock(); }
       const joined = new Uint8Array(bytes); let offset = 0; for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
       const data = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(joined));
-      if (!data || Object.keys(data).sort().join('|') !== 'format|now|snapshots' || data.format !== 'olympus-army-public-v1' || !Number.isSafeInteger(data.now) || data.now < 0 || !Array.isArray(data.snapshots) || data.snapshots.length > 300 || !protocol) throw Error('The public snapshot response was not recognized.');
+      if (!data || Object.keys(data).sort().join('|') !== 'format|now|snapshots' || data.format !== 'olympus-army-public-v1' || !Number.isSafeInteger(data.now) || data.now < 0 || !Array.isArray(data.snapshots) || data.snapshots.length > 300 || !protocol) throw Error('The Army snapshot response was not recognized.');
       const snapshots = data.snapshots.map(snapshot => {
         if (!snapshot || !Number.isSafeInteger(snapshot.observedAt) || snapshot.observedAt > data.now) throw Error('The source time was not recognized.');
         const checked = protocol.validatePayload(new TextEncoder().encode(JSON.stringify(snapshot)), {nowSeconds: snapshot.observedAt});
@@ -64,7 +64,7 @@
         return checked;
       });
       const keys = snapshots.map(snapshot => JSON.stringify([snapshot.realmGroup, snapshot.faction, snapshot.guilds[0].name]));
-      if (new Set(keys).size !== keys.length) throw Error('The public response contained conflicting guild entries.');
+      if (new Set(keys).size !== keys.length) throw Error('The Army response contained conflicting guild entries.');
       if (token !== generation || document.hidden) return;
       for (const snapshot of snapshots) root.append(card(snapshot, data.now));
       if (!snapshots.length) { const empty = node('article', undefined, 'army-card'); empty.append(node('h2', 'No published snapshots yet'), node('p', 'A qualified reporter must deliberately review and publish an aggregate before any figures appear. Missing data is not a zero.')); root.append(empty); }

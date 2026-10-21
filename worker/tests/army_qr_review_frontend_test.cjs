@@ -21,7 +21,7 @@ const body179 = String.raw`
   await member179.go('#/community/army');
   check('Army has a distinct current title and selected tab',member179.document.title==='Community · Army — Olympus'&&!!member179.app.querySelector('nav[aria-label="Community sections"] a[href="#/community/army"][aria-current="page"]'));
   check('shipping Army hub links to the separate public reader without inventing figures',!!member179.app.querySelector('[data-army-qr-review="public-reader"]')&&!!member179.app.querySelector('a[href="/army"]')&&member179.app.textContent.includes('authorized reporters deliberately reviewed and published'));
-  const reader179=byText(member179.app,'a','Open the public Army page');
+  const reader179=byText(member179.app,'a','Open the Army page');
   check('member hub exposes only a reader link and no QR input, capture or iframe',!!reader179&&!member179.app.querySelector('a[href="/army/report"]')&&!member179.app.querySelector('iframe')&&!member179.app.querySelector('video')&&!member179.app.querySelector('canvas')&&!member179.app.querySelector('textarea')&&!member179.app.querySelector('input[type="file"]'));
   reader179.click(); await settle();
   check('clicking the link loads no dormant asset or inline collector and calls no upload or loopback transport',memberCalls179.every(c=>!isArmyRequest179(c))&&!member179.document.head.querySelector('script[src^="/static/army-qr-review/"]')&&!member179.document.head.querySelector('script[src^="/static/army-live/"]'));
@@ -39,13 +39,21 @@ const body179 = String.raw`
   await admin179.go('#/community/census');
   check('Army review does not broaden legacy Census verified-character admission',!admin179.app.querySelector('[data-census-form]')&&adminCalls179.every(c=>c.pathname!=='/api/community/census/preview'));
   const unconfirmed179=await openPage(OTHER,features179),unconfirmedCalls179=observe179(unconfirmed179);await unconfirmed179.go('#/community/army');
-  check('unconfirmed identity gets the original Community refusal and no Army collection UI',!unconfirmed179.app.querySelector('[data-army-qr-review]')&&!unconfirmed179.app.querySelector('a[href="#/community/army"]')&&unconfirmed179.app.textContent.includes('Membership check needed')&&unconfirmedCalls179.every(c=>!isArmyRequest179(c)));
+  check('ordinary eligible identity discovers the signed-in Army reader without character proof or capture',!!unconfirmed179.app.querySelector('[data-army-qr-review]')&&!!unconfirmed179.app.querySelector('a[href="#/community/army"]')&&!!unconfirmed179.app.querySelector('a[href="/army"]')&&!unconfirmed179.app.querySelector('a[href="/army/report"]')&&unconfirmed179.app.textContent.includes('Signed-in Olympus member')&&unconfirmedCalls179.every(c=>!isArmyRequest179(c)));
+  await unconfirmed179.go('#/community');
+  check('ordinary eligible account can discover only the Army card without granting member data',!!unconfirmed179.app.querySelector('a.card[href="#/community/army"]')&&unconfirmedCalls179.every(c=>!isArmyRequest179(c)));
+  await unconfirmed179.go('#/community/directory');
+  check('ordinary Army access does not bypass the existing directory membership check',!unconfirmed179.app.querySelector('[data-army-qr-review]')&&unconfirmed179.app.textContent.includes('Membership check needed')&&unconfirmedCalls179.every(c=>c.pathname!=='/api/community/directory'));
+  await unconfirmed179.go('#/community/census');
+  check('ordinary Army access does not grant legacy Census character admission',!unconfirmed179.app.querySelector('[data-census-form]')&&unconfirmedCalls179.every(c=>c.pathname!=='/api/community/census/preview'));
   const denied179=await openPage(DENIED,features179);
   check('denied identity gets its original public refusal before boot and cannot see Army collection controls',denied179.response.status===200&&denied179.boot===null&&denied179.app===null&&denied179.html.includes('This account cannot enter the guild site')&&!denied179.html.includes('data-army-qr-review'));
   const guest179=await openPage(null,features179);
   check('signed-out visitor receives only the original login surface without Army boot',guest179.boot===null&&guest179.app===null&&!guest179.html.includes('data-army-qr-review'));
   const off179=await openPage(MEMBER,{COMMUNITY_FEATURES:''}),offCalls179=observe179(off179);await off179.go('#/community/army');
-  check('Community OFF remains closed without starting any Army feature',!off179.app.querySelector('[data-army-qr-review]')&&off179.app.textContent.includes('not switched on yet')&&offCalls179.every(c=>!isArmyRequest179(c)));
+  check('signed-in Army navigation stays discoverable while every legacy Community feature is OFF',!!off179.app.querySelector('[data-army-qr-review]')&&!!off179.app.querySelector('a[href="/army"]')&&offCalls179.every(c=>!isArmyRequest179(c))&&!off179.app.querySelector('a[href="#/community/census"]'));
+  await off179.go('#/community/directory');
+  check('Army-only navigation never switches on the disabled legacy Community pages',off179.app.textContent.includes('not switched on yet')&&!off179.app.querySelector('[data-army-qr-review]')&&offCalls179.every(c=>!isArmyRequest179(c)));
   check('status honestly distinguishes unsigned observations from people or membership proof',member179.window.OlympusArmyQrRelease.activationEnabled===true&&APP_JS.includes('Volunteer observations do not establish game origin, membership or complete guild coverage')&&APP_JS.includes('Reported characters, not unique people'));
   check('focused Army navigation preserves fixture settings and Native E2 admission rows',settingsBefore179===JSON.stringify(db.prepare('SELECT key,value,updated_at FROM site_settings ORDER BY key').all())&&nativeBefore179===JSON.stringify(db.prepare('SELECT * FROM privacy_write_admission').all()));
   // Real signout last: the original fixture never adopts a revoked incarnation.

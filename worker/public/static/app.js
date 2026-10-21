@@ -796,7 +796,7 @@
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
-      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(can("applicantWrite") && communityReader() ? [["#/community/army", "Army"]] : []), ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
+      if (can("applicantWrite")) add(nav, group("Community", [...(anyCommunity() ? [["#/community", "Community hub"]] : []), ["#/community/army", "Army"], ...(anyCommunity() && S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
       const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
@@ -3888,15 +3888,15 @@
   // ---------- the community pages ----------
   const newsOn = () => !!(S.settings && S.settings.newsOn); // .115: SiteSettings.newsOn, off unless an administrator switched it on
   function communityTabs(sub) {
-    const tabs = [["", "Overview"]];
+    const tabs = anyCommunity() ? [["", "Overview"]] : [];
     if (feat("directory")) tabs.push(["directory", "Directory"], ["profile", "My profile"]);
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
     if (feat("census") && can("confirmedGuildData")) tabs.push(["census", "Census preview"]);
     if (feat("trials")) tabs.push(["trial", "My trial"]);
     if (feat("contributions")) tabs.push(["dues", "My dues"]);
     if (newsOn()) tabs.push(["news", "News"]); // .115: only while an administrator has News switched on
-    if (can("applicantWrite") && communityReader()) tabs.push(["army", "Army"]);
-    tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
+    if (can("applicantWrite")) tabs.push(["army", "Army"]);
+    if (anyCommunity()) tabs.push(["leadership", "Leadership"]); // .114: the Olympus I-X directory (confirmed members)
     return h("nav", { class: "btn-row", "aria-label": "Community sections" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
   }
   const sourceStrip = (source, freshness) => h("div", { class: "source-strip", "data-source-strip": true },
@@ -3917,12 +3917,13 @@
   const memberActionNotice = () => noticeBox("info", "icon-shield", h("p", { text: "You can view the Community. Updating a member profile, responding to an event or using the Census preview still requires a verified character on the current guild roster." }), h("a", { href: "#/guide/member", text: "Read the member guide" }));
   ROUTES.community = async function community(main, parts) {
     const sub = parts[0] || "";
-    if (!anyCommunity()) {
+    if (!anyCommunity() && sub !== "army") {
       add(main, frame("Community", null, noticeBox("info", "icon-clock", h("p", { text: "The community pages are not switched on yet." }))));
       return;
     }
-    const accessLabel = !communityReader() ? "Membership check needed" : S.user && S.user.isAdmin ? "Site administrator" : can("confirmedGuildData") ? "confirmed guild member" : "Guild Member role";
-    add(main, frame("Community", h("span", { class: "badge " + (communityReader() ? "green" : "muted"), text: accessLabel }), communityTabs(sub)));
+    const armyReaderOnly = sub === "army" && can("applicantWrite");
+    const accessLabel = !communityReader() ? armyReaderOnly ? "Signed-in Olympus member" : "Membership check needed" : S.user && S.user.isAdmin ? "Site administrator" : can("confirmedGuildData") ? "confirmed guild member" : "Guild Member role";
+    add(main, frame("Community", h("span", { class: "badge " + (communityReader() || armyReaderOnly ? "green" : "muted"), text: accessLabel }), communityTabs(sub)));
     const body = h("div", { class: "stack mt" });
     main.appendChild(body);
     if (sub === "") return communityOverview(body);
@@ -3930,8 +3931,9 @@
     // .96: the own trial and the own dues are the account's (applicantWrite), not a confirmed character's: the API's rule
     if (sub === "trial" && feat("trials")) return communityTrial(body);
     if (sub === "dues" && feat("contributions")) return communityDues(body);
-    if (!communityReader()) { add(body, standingNotice()); return; }
+    // .181: aggregate Army reads use ordinary account standing; all other Community gates remain below.
     if (sub === "army") return communityArmyReview(body);
+    if (!communityReader()) { add(body, standingNotice()); return; }
     if (sub === "news" && newsOn()) return communityNews(body); // .115
     if (sub === "leadership") return communityLeadership(body); // .114
     if (sub === "census" && feat("census")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityCensus(body); }
@@ -3949,7 +3951,7 @@
   };
   async function communityOverview(body) {
     const cards = [];
-    if (can("applicantWrite") && communityReader()) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Read public guild snapshots shared by authorized reporters. These unverified figures count characters, not people." })));
+    if (can("applicantWrite")) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Read guild snapshots shared for signed-in Olympus members by authorized reporters. These unverified figures count characters, not people." })));
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
       cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. For guild members and site administrators." })));
@@ -3966,8 +3968,8 @@
   function communityArmyReview(body) {
     add(body, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
-        h("p", { text: "The public Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published." }),
-        h("a", { class: "btn", href: "/army", text: "Open the public Army page" }),
+        h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
+        h("a", { class: "btn", href: "/army", text: "Open the Army page" }),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "/army/report", text: "Report a guild snapshot" }) : null,
         h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses a separate attended page and current server admission." }))));
   }

@@ -79,7 +79,7 @@
       if (JSON.stringify(checked) !== JSON.stringify(exact)) throw Error('The private preview did not match the original aggregate. Nothing was published.');
       preview = {snapshot: JSON.parse(JSON.stringify(checked)), previewToken: data.previewToken, expiresAt: data.expiresAt};
       renderPreview(preview.snapshot, data.now); ui['report-consent'].checked = false;
-      say('Private preview prepared. Review its exact figures below and explicitly consent before publishing them publicly. Nothing has been published.');
+      say('Private preview prepared. Review its exact figures below and explicitly consent before sharing them with signed-in Olympus readers. Nothing has been published.');
     } catch (error) { if (token === generation && !document.hidden) { preview = null; ui['report-preview-results'].replaceChildren(); say(error.message || 'The private preview could not be prepared.'); } }
     finally { if (request === owned) request = null; if (token === generation) { pending = ''; controls(); } }
   });
@@ -95,7 +95,7 @@
       const data = await json('/api/army/publish', {...exact, confirm: 'PUBLISH'}, owned);
       if (!data || data.state !== 'published' || JSON.stringify(data.snapshot) !== JSON.stringify(exact.snapshot)) throw Error('The original publication answer did not match the reviewed snapshot.');
       unknown = false; original = null; preview = null; snapshot = null; deadline = null; ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren(); window.OlympusArmyCapture?.clear();
-      say('Snapshot published publicly. Only the reviewed aggregate was sent. Clearing this browser does not remove that public report or earlier reader copies.');
+      say('Snapshot shared with signed-in Olympus readers. Only the reviewed aggregate was sent. Clearing this browser does not remove that shared report or earlier reader copies.');
     } catch (error) { say((error.message || 'The original publication answer was lost.') + ' The outcome is unresolved. Check the original outcome; no retry or replacement publication was made.'); }
     finally { if (request === owned) request = null; pending = ''; controls(); }
   });

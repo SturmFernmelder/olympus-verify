@@ -42,6 +42,7 @@ import { rankPlannerPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
 import { siteSignIn } from './site-access';
+import { olympusSocialMetadata } from './site-brand';
 
 export { siteHost } from "./site-core";
 
@@ -143,7 +144,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Olympus \u2014 Guild Registration</title>
-<meta name="description" content="Register for Olympus, Asmongold's guild in World of Warcraft: Forever: apply for a role, vote on who leads it, and enter your reserved names. A free fan site.">
+${olympusSocialMetadata()}
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0a08">
 <link rel="icon" href="/static/wow/icon-shield.png" type="image/png">

@@ -275,6 +275,9 @@ function splitFixtureSchema(source) {
     res = await get("https://guild.example/");
     const html = await res.text();
     check('the site host serves only the script-free Discord gate before login', res.status === 200 && /<!doctype html>/i.test(html) && html.includes('Sign in with Discord') && !html.includes('/static/app.js') && !html.includes('id="boot"'), res.status, html.slice(0, 80));
+    check('anonymous root carries only generic Olympus social branding and no Army link or private boot',res.status===200&&html.includes('<meta property="og:title" content="Olympus — World of Warcraft: Forever">')&&html.includes('<meta property="og:url" content="https://olympus.roachcouncil.com/">')&&html.includes('<meta property="og:image" content="https://olympus.roachcouncil.com/static/olympus-icon.png">')&&html.includes('<meta property="og:image:width" content="250">')&&html.includes('<meta property="og:image:height" content="250">')&&!/href=["']\/army(?:[\/"'#?])/.test(html)&&!html.includes('id="boot"'));
+    const crestSource=fs.readFileSync(path.join(root,'public/static/olympus-icon.png'));
+    for(const method of ['GET','HEAD']){const crest=await get('https://guild.example/static/olympus-icon.png',{method}),pixels=Buffer.from(await crest.arrayBuffer());check('exact finite public Olympus social crest '+method+' is PNG and HEAD-safe',crest.status===200&&/image\/png/.test(crest.headers.get('Content-Type')||'')&&crestSource.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))&&crestSource.readUInt32BE(16)===250&&crestSource.readUInt32BE(20)===250&&(method==='HEAD'?pixels.length===0:pixels.equals(crestSource)),crest.status);}
     res = await get("https://guild.example/static/app.css");
     check('anonymous application assets are blocked in real workerd', res.status === 401, res.status);
     const login = await get("https://guild.example/auth/login", { redirect: "manual" });
@@ -343,33 +346,47 @@ function splitFixtureSchema(source) {
     const armySchemaBefore=JSON.stringify((await d1.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY name").all()).results);
     const armySettingsBefore=JSON.stringify((await d1.prepare("SELECT key,value,updated_at,updated_by FROM site_settings ORDER BY key").all()).results);
     const armyPage=await get("https://guild.example/army"),armyHTML=await armyPage.text();
-    check("anonymous Army page is public without private SPA/boot",armyPage.status===200&&armyHTML.includes("Olympus Army")&&!armyHTML.includes('src="/static/app.js')&&!armyHTML.includes('id="boot"'),armyPage.status);
+    check("anonymous Army page receives only the original sign-in gate without Army data or boot",armyPage.status===401&&armyHTML.includes("Sign in with Discord")&&!armyHTML.includes('id="army-results"')&&!armyHTML.includes('src="/static/app.js')&&!armyHTML.includes('id="boot"'),armyPage.status);
     const armyEmpty=await get("https://guild.example/api/army"),armyEmptyBody=await armyEmpty.json();
-    check("anonymous Army API exposes only empty aggregate collection",armyEmpty.status===200&&armyEmptyBody.format==='olympus-army-public-v1'&&armyEmptyBody.snapshots.length===0,armyEmpty.status);
+    check("anonymous Army API refuses aggregate delivery",armyEmpty.status===401&&armyEmptyBody.error==='signed_out'&&!Object.hasOwn(armyEmptyBody,'snapshots'),armyEmpty.status);
     const armyCSS=await get("https://guild.example/static/army-live/army.css");
-    check("only the finite new Army reader assets are public",armyCSS.status===200&&/text\/css/.test(armyCSS.headers.get('Content-Type')||''),armyCSS.status);
+    check("anonymous Army reader assets are refused before storage delivery",armyCSS.status===401&&/application\/json/.test(armyCSS.headers.get('Content-Type')||''),armyCSS.status);
+    const armyAssetPaths=['/static/army-live/army.css','/static/army-live/army.js','/static/army-live/protocol.js','/static/army-live/olympus-army-addon-0.2.0.zip'];
+    for(const method of ['GET','HEAD'])for(const pathname of ['/army','/army/report','/api/army',...armyAssetPaths,'/static/army-live/report.js','/static/army-live/pilot.js','/static/army-live/decoder.js']){
+      const refused=await get('https://guild.example'+pathname,{method,headers:{'User-Agent':'Googlebot',Cookie:'__Host-olg=untrusted'}}),body=await refused.text();
+      check('real Workerd refuses unauthenticated '+method+' '+pathname+' with private cookie-dependent headers',refused.status===401&&refused.headers.get('Cache-Control')==='private, no-store, no-transform'&&refused.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||body==='')&&!body.includes('id="army-results"')&&!body.includes('OlympusArmyReport'),refused.status);
+    }
+    for(const method of ['GET','HEAD']){
+      const reader=await get('https://guild.example/army',{method,headers:{Cookie:cookie}}),body=await reader.text();
+      check('ordinary original-cookie '+method+' reader remains available without Admin promotion',reader.status===200&&reader.headers.get('Cache-Control')==='private, no-store, no-transform'&&reader.headers.get('Vary')==='Cookie'&&(method==='HEAD'?body==='':body.includes('id="army-results"')),reader.status);
+      const counts=await get('https://guild.example/api/army',{method,headers:{Cookie:cookie}}),text=await counts.text();
+      check('ordinary original-cookie '+method+' aggregate API remains available',counts.status===200&&counts.headers.get('Cache-Control')==='private, no-store, no-transform'&&counts.headers.get('Vary')==='Cookie'&&(method==='HEAD'?text==='':JSON.parse(text).snapshots.length===0),counts.status);
+      for(const pathname of armyAssetPaths){const asset=await get('https://guild.example'+pathname,{method,headers:{Cookie:cookie}});check('ordinary original-cookie '+method+' '+pathname+' is privately delivered',asset.status===200&&asset.headers.get('Cache-Control')==='private, no-store, no-transform'&&asset.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await asset.text()===''),asset.status);}
+    }
     const noArmy=await get("https://guild.example/api/army/reporter");
     check("anonymous reporter access remains refused",noArmy.status===401,noArmy.status);
     const armyReporter=await get("https://guild.example/army/report",{headers:{Cookie:adminCookie}}),armyReporterHTML=await armyReporter.text();
-    check("actual Admin reporter page alone admits attended capture policy",armyReporter.status===200&&armyReporterHTML.includes('Publish snapshot publicly')&&armyReporter.headers.get('Permissions-Policy').includes('camera=(self)')&&armyReporter.headers.get('Content-Security-Policy').includes("worker-src 'self'"),armyReporter.status);
+    check("actual Admin reporter page alone admits attended capture policy",armyReporter.status===200&&armyReporterHTML.includes('id="report-publish"')&&armyReporter.headers.get('Permissions-Policy').includes('camera=(self)')&&armyReporter.headers.get('Permissions-Policy').includes('display-capture=(self)')&&armyReporter.headers.get('Content-Security-Policy').includes("worker-src 'self'"),armyReporter.status);
+    const ordinaryPublisher=await get('https://guild.example/army/report',{headers:{Cookie:cookie}});check('ordinary reader does not become an Army publisher',ordinaryPublisher.status===403,ordinaryPublisher.status);
     const armyNow=Math.floor(Date.now()/1000),armySnapshot={format:'olympus-stat-observation-v2',scope:'own-guild',source:'volunteer-client',sourceVerified:false,membershipProof:false,addonVersion:'0.2.0',realmGroup:'World of Warcraft: Forever PvE',faction:'Alliance',observedAt:armyNow-10,guilds:[{name:'Olympus',receivedAt:armyNow-10,reportedCharacters:100,online:25,classes:[20,10,10,10,10,10,10,10,10],levels:[0,0,10,10,10,20,50],ranks:[10,10,10,10,10,10,10,10,10,10]}]};
     const armyHeaders={Cookie:adminCookie,Origin:'https://guild.example','X-Olympus':'2','Content-Type':'application/json'};
     const armyPreview=await get('https://guild.example/api/army/preview',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:armySnapshot})}),armyPreviewBody=await armyPreview.json();
     check("real Workerd native-body reader returns nonpersistent aggregate preview",armyPreview.status===200&&armyPreviewBody.persisted===false&&JSON.stringify(armyPreviewBody.snapshot)===JSON.stringify(armySnapshot),armyPreview.status,armyPreviewBody.error);
     const armyWrite=await get('https://guild.example/api/army/publish',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:armySnapshot,previewToken:armyPreviewBody.previewToken||'',confirm:'PUBLISH'})}),armyWriteBody=await armyWrite.json();
     check("real Workerd Admin explicit publication succeeds through existing Native admission",armyWrite.status===200&&armyWriteBody.state==='published',armyWrite.status,armyWriteBody.error);
-    const armyPublic=await get('https://guild.example/api/army'),armyPublicBody=await armyPublic.json(),armyStored=await d1.prepare("SELECT value,updated_by FROM site_settings WHERE key='army:census:v2:1'").first();
-    check("real Workerd anonymous reader sees exact aggregate and no stored reporter ID",armyPublic.status===200&&JSON.stringify(armyPublicBody.snapshots[0])===JSON.stringify(armySnapshot)&&armyStored?.updated_by===null&&armyStored?.value===JSON.stringify(armySnapshot),armyPublic.status);
+    const armyPublic=await get('https://guild.example/api/army',{headers:{Cookie:cookie}}),armyPublicBody=await armyPublic.json(),armyStored=await d1.prepare("SELECT value,updated_by FROM site_settings WHERE key='army:census:v2:1'").first();
+    check("real Workerd signed-in reader sees exact aggregate and no stored reporter ID",armyPublic.status===200&&JSON.stringify(armyPublicBody.snapshots[0])===JSON.stringify(armySnapshot)&&armyStored?.updated_by===null&&armyStored?.value===JSON.stringify(armySnapshot),armyPublic.status);
     const armyOutcome=await get('https://guild.example/api/army/outcome',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:armySnapshot,previewToken:armyPreviewBody.previewToken||''})}),armyOutcomeBody=await armyOutcome.json();
     check("real Workerd original outcome check reads current exact snapshot without re-publish",armyOutcome.status===200&&armyOutcomeBody.state==='published',armyOutcome.status,armyOutcomeBody.error);
     const secondArmy=JSON.parse(JSON.stringify(armySnapshot));secondArmy.guilds[0].name='Olympus I';
     const secondPreview=await get('https://guild.example/api/army/preview',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:secondArmy})}),secondPreviewBody=await secondPreview.json();
     const secondWrite=await get('https://guild.example/api/army/publish',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:secondArmy,previewToken:secondPreviewBody.previewToken||'',confirm:'PUBLISH'})});
-    const bothArmy=await (await get('https://guild.example/api/army')).json();
+    const bothArmy=await (await get('https://guild.example/api/army',{headers:{Cookie:cookie}})).json();
     check("real Workerd retains distinct Olympus and Olympus I publications",secondWrite.status===200&&bothArmy.snapshots.length===2&&bothArmy.snapshots.some(v=>v.guilds[0].name==='Olympus')&&bothArmy.snapshots.some(v=>v.guilds[0].name==='Olympus I'));
     check("Army publication changes no schema or unrelated settings",armySchemaBefore===JSON.stringify((await d1.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY name").all()).results)&&armySettingsBefore===JSON.stringify((await d1.prepare("SELECT key,value,updated_at,updated_by FROM site_settings WHERE key NOT GLOB 'army:census:v2:*' ORDER BY key").all()).results));
     const signedOut = await get("https://guild.example/auth/logout", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example", "X-Olympus": "2" } }), stale = await get(applicationPath, { headers: { Cookie: adminCookie } });
     check("a normally retired original administrator session cannot read detail", signedOut.status === 200 && stale.status === 401, signedOut.status, stale.status);
+    const staleArmy=await get('https://guild.example/api/army',{headers:{Cookie:adminCookie}});check('retired original Admin cookie cannot read Army aggregates',staleArmy.status===401&&(await staleArmy.json()).error==='signed_out',staleArmy.status);
     check("native reads and refused writes preserve the actual target, rejection provenance and markers", JSON.stringify(await readTarget()) === JSON.stringify(originalTarget));
   } finally {
     await mf.dispose();
