@@ -4072,8 +4072,8 @@
     {
       "path": "worker/public/static/army-live/army.js",
       "mode": "100644",
-      "bytes": 13523,
-      "sha256": "da24d669664051f5752c5b685e8ba239d08659ec6f0f93e88f4dac220ad484fa"
+      "bytes": 15901,
+      "sha256": "16a59469e74179b5fa859f367436e62bb7c131201e0aa71ab46dbde5d3ff6c43"
     },
     {
       "path": "worker/public/static/army-live/protocol.js",
