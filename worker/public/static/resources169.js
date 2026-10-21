@@ -1,9 +1,13 @@
-/* Curated public-source references; the server owns all News/member admission (.169). */
+/* Curated public-source references; the server owns current signed-in admission. */
 (function () {
   "use strict";
   const CATALOG = "/static/resources169.json", UPDATES = "/api/resource-updates";
   const sourceHosts = new Set(["www.wowhead.com", "www.icy-veins.com", "www.wow-professions.com", "www.method.gg", "mobalytics.gg", "www.warcrafttavern.com", "news.blizzard.com", "us.forums.blizzard.com", "www.curseforge.com", "github.com", "community.restedxp.com", "zygorguides.com", "theforeverera.com", "classicwowforever.com", "forever-codex.com"]);
   const sourceIds = new Set(["blizzard-notes", "wowhead-forever", "wowhead-blues"]);
+  const foreverTrackers = Object.freeze([
+    { name: "Wowhead Forever Blue Tracker", url: "https://www.wowhead.com/forever/blue-tracker" },
+    { name: "BlueTracker Forever", url: "https://www.bluetracker.gg/wow/category/187-forever/" },
+  ].map(source => Object.freeze(source)));
   function el(tag, text, className) {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = String(text);
@@ -12,7 +16,7 @@
   }
   function safeUrl(raw) {
     if (typeof raw !== "string" || raw.length > 2048) return null;
-    try { const u = new URL(raw); return u.protocol === "https:" && !u.username && !u.password && !u.port && sourceHosts.has(u.hostname) ? u.href : null; }
+    try { const u = new URL(raw); return u.protocol === "https:" && !u.username && !u.password && !u.port && (sourceHosts.has(u.hostname) || foreverTrackers.some(source => source.url === u.href)) ? u.href : null; }
     catch (_) { return null; }
   }
   function link(label, raw) {
@@ -35,6 +39,13 @@
     const titles = { addons: "Addons for Forever", guides: "The adventurer's library", updates: "Game updates" };
     const introductions = { addons: "Choose tools for the way you play. Check the Forever file, its date and any overlap before installing.", guides: "Class, profession and leveling references from named publishers. Scope and beta limits stay beside each source.", updates: "Follow original publisher headlines and official changes. These sources are separate from Olympus decisions." };
     heading.append(el("h2", titles[view]), el("p", introductions[view], "resources169-intro"));
+    if (view === "updates") {
+      const direct = el("nav", undefined, "resources169-provenance"); direct.setAttribute("aria-label", "Forever blue trackers");
+      direct.append(el("h3", "Forever blue trackers"), el("p", "Open the publishers' Forever pages for their latest blue posts. These links stay available when automatic headline retrieval fails; no feed or current headline is implied.", "resources169-note"));
+      const list = el("ul");
+      for (const source of foreverTrackers) { const row = el("li"); row.append(link(source.name, source.url)); list.append(row); }
+      direct.append(list); heading.append(direct);
+    }
     wrap.append(heading, message, controls, results); container.append(wrap);
     const alive = () => !destroyed;
     function abort() { generation++; if (request) request.abort(); request = null; }
@@ -108,11 +119,11 @@
       for (const source of updateData.sources) {
         if (!visibleSources.has(source.sourceId)) continue;
         const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(link(source.publisher, source.sourceUrl));
-        card.append(heading, badge(source.status), el("p", source.scope, "resources169-note"));
+        card.append(heading, badge("Automatic feed: " + source.status), el("p", source.scope, "resources169-note"));
         const retrieval = el("details", undefined, "resources169-provenance");
         retrieval.append(el("summary", "Retrieval details"), el("p", `Last successful retrieval: ${time(source.fetchedAt)}. Last retrieval attempt: ${time(source.checkedAt)}.`, "resources169-meta"));
-        if (source.failure) card.append(el("p", `This source could not be refreshed. ${source.status === "stale" ? "The older headlines below are marked stale." : "No current headlines are available; open the original source."}`, "resources169-warning"));
-        else if (source.status === "unavailable") card.append(el("p", "This source is unavailable. No current headlines are available; open the original source.", "resources169-warning"));
+        if (source.failure) card.append(el("p", `This source could not be refreshed automatically. ${source.status === "stale" ? "The older headlines below are marked stale." : "No automatically retrieved headlines are available."} The publisher's website may still be available; open the original source.`, "resources169-warning"));
+        else if (source.status === "unavailable") card.append(el("p", "Automatic headlines are unavailable. The publisher's website may still be available; open the original source.", "resources169-warning"));
         if (source.failure) retrieval.append(el("p", `Reported failure: ${source.failure}`, "resources169-meta"));
         if (source.omittedItems) card.append(el("p", `${source.omittedItems} source entries were omitted because required fields or dates were invalid.`, "resources169-note"));
         const ul = el("ul", undefined, "resources169-headlines");

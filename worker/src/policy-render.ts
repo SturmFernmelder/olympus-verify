@@ -11,7 +11,7 @@ export const LOGIN_POLICY_CSP = STATIC_POLICY_CSP;
 export const escapeText = (s: unknown): string => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 /** body is composed by finite server templates, never arbitrary caller HTML. */
 export function policyShell(title: string, body: string, { policyNavigation = true, loginPresentation = false } = {}): string {
-  const nav = policyNavigation ? '<nav aria-label="Policies"><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a></nav>' : '';
+  const nav = policyNavigation ? '<nav aria-label="Policies"><a href="/legal/privacy">Privacy Policy</a><a href="/legal/terms">Terms of Service</a></nav>' : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="robots" content="noindex,nofollow"><title>Olympus — ${escapeText(title)}</title>${olympusSocialMetadata()}<link rel="icon" href="/static/wow/icon-shield.png"><link rel="stylesheet" href="/static/policies.css"><link rel="stylesheet" href="/static/wow-cursor.css"></head><body class="olympus-policy"><a class="skip-link" href="#policy-content">Skip to content</a><header class="policy-header"><a class="brand" href="/"><img src="/static/wow/icon-shield.png" alt="" width="40" height="40">Olympus</a>${nav}</header><main id="policy-content" tabindex="-1">${loginPresentation ? '' : `<h1>${escapeText(title)}</h1>`}${body}</main></body></html>`;
 }
 export function policyHeaders(forms = false): Headers {

@@ -24,6 +24,7 @@ const every = (result, predicate) => result.sources.length === 3 && result.sourc
 class Element {
   constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.listeners = {}; this.value = ''; this.textContent = ''; this.parent = null; }
   append(...nodes) { for (const child of nodes) { this.children.push(child); child.parent = this; } }
+  setAttribute(name, value) { this[name] = String(value); }
   replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
   addEventListener(name, fn) { this.listeners[name] = fn; }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); }
@@ -48,11 +49,11 @@ function renderer(fetcher) {
   const calls = [], goodCache = cacheOf({});
   const good = await loadResourceUpdates({ enabled: true, now: AT, cache: goodCache, fetcher: async (url, init) => { calls.push([url, init]); return fixtureFetch(url); } });
   check('actual three-source parser returns attributed plain-text items and separate source dates', every(good, s => s.status === 'fresh' && s.fetchedAt === AT && s.checkedAt === AT && s.items[0].title === 'Current & useful' && s.items[0].publishedAt < AT && s.failure === null));
-  check('only exact primary HTTPS feeds are fetched without credentials or redirects', calls.length === 3 && calls.every(([url, init]) => /^https:\/\//.test(url) && init.redirect === 'manual' && init.signal instanceof AbortSignal && Object.keys(init.headers).join() === 'Accept') && calls.some(([url]) => url.endsWith('blue-tracker?rss')) && calls.some(([url]) => url.includes('/2360696.rss')));
+  check('only exact primary HTTPS feeds are fetched without credentials or redirects', calls.length === 3 && calls.every(([url, init]) => /^https:\/\//.test(url) && init.redirect === 'manual' && init.signal instanceof AbortSignal && Object.keys(init.headers).join() === 'Accept') && calls.some(([url]) => url === 'https://www.wowhead.com/forever/blue-tracker?rss=') && calls.some(([url]) => url.includes('/2360696.rss')));
   check('cache receives only explicit public records, never request/auth fields', goodCache.calls.put.length === 3 && goodCache.calls.put.every(([id, value]) => ids.includes(id) && Object.keys(value).sort().join() === 'fetchedAt,items,omittedItems,sourceId,version' && Object.keys(value.items[0]).sort().join() === 'publishedAt,title,url'));
   const mixed = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => response(rss(item(idFor(url)) + item(idFor(url)).replace('<category>Forever</category>', '<category>Live</category>').replace('news=383436', 'news=1'))) });
   check('Forever filtering uses exact publisher category rather than /forever/ URL shape', mixed.sources[1].items.length === 1 && mixed.sources[1].items[0].url.includes('/news=383436/'));
-  check('all-WoW blue tracker remains explicitly all-WoW', mixed.sources[2].items.length === 2 && mixed.sources[2].scope.includes('All-WoW'));
+  check('the publisher-advertised Forever blue tracker preserves its original parser and linked Blizzard authority', mixed.sources[2].items.length === 2 && mixed.sources[2].sourceUrl === 'https://www.wowhead.com/forever/blue-tracker' && mixed.sources[2].scope.includes("publisher's Forever blue-tracker RSS") && mixed.sources[2].scope.includes('Blizzard original'));
   const unsafe = ['http://www.wowhead.com/a', 'https://www.wowhead.com.evil.invalid/a', 'https://127.0.0.1/a', 'https://user:pass@www.wowhead.com/a', 'https://www.wowhead.com:444/a', 'javascript:alert(1)', '//www.wowhead.com/a', 'https://us.forums.blizzard.com/a'];
   const unsafeCalls = [];
   const rejected = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => { unsafeCalls.push(url); return response(rss(idFor(url) === ids[1] ? unsafe.map(link => item(ids[1]).replace(/<link>.*?<\/link>/, `<link>${link}</link>`)).join('') : item(idFor(url)))); } });
@@ -93,12 +94,16 @@ function renderer(fetcher) {
   const cacheWrites = [], adapter = resourcePublicCache({ async match() { return null; }, async put(key, value) { cacheWrites.push({ key, value: await value.json(), headers: value.headers }); } });
   await adapter.put(ids[0], saved(ids[0]));
   check('Cache API keys contain only the fixed public-source ID and no member request', cacheWrites[0].key.url === 'https://olympus.roachcouncil.com/__public-publisher-headlines169/blizzard-notes' && !cacheWrites[0].headers.has('Set-Cookie') && cacheWrites[0].headers.get('Cache-Control').includes('public'));
+  await adapter.put(ids[2], saved(ids[2]));
+  check('.183 the new Forever feed cannot reuse a cached record from the old all-WoW blue feed', cacheWrites[1].key.url === 'https://olympus.roachcouncil.com/__public-publisher-headlines169/wowhead-blues-forever183' && cacheWrites[1].value.sourceId === 'wowhead-blues');
 
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'public/static/resources169.json'), 'utf8'));
-  check('catalog covers21 curated addons,12 guide sources and6 news/discovery sources', catalog.version === 1 && catalog.addons.length === 21 && catalog.guides.length === 12 && catalog.newsSources.length === 6);
+  check('catalog covers21 curated addons,12 guide sources and7 news/discovery sources', catalog.version === 1 && catalog.addons.length === 21 && catalog.guides.length === 12 && catalog.newsSources.length === 7);
   check('catalog explicitly disclaims exhaustive inventory and independent compatibility qualification', /not every addon/.test(catalog.viewNotes.addons) && /not.*guarantee of in-game compatibility/.test(catalog.disclaimer));
   check('every addon carries publisher identity, rationale, advertised client/release and limits', catalog.addons.every(a => a.id && a.name && a.category && a.rationale && a.status && a.version && /^2026-10-\d{2}$/.test(a.releasedAt) && a.gameBuild.includes('Forever') && a.sourceKind && a.limitations.length && new URL(a.url).protocol === 'https:'));
-  check('all catalog IDs are unique and guide provisional boundaries remain explicit', new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources].map(x => x.id)).size === 39 && catalog.guides.every(g => g.scope && g.status && g.sourceKind && g.limitations.length) && catalog.guides.find(g => g.id === 'wow-professions').limitations.some(x => /untested/.test(x)));
+  check('all catalog IDs are unique and guide provisional boundaries remain explicit', new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources].map(x => x.id)).size === 40 && catalog.guides.every(g => g.scope && g.status && g.sourceKind && g.limitations.length) && catalog.guides.find(g => g.id === 'wow-professions').limitations.some(x => /untested/.test(x)));
+  const trackerLinks = ['https://www.wowhead.com/forever/blue-tracker', 'https://www.bluetracker.gg/wow/category/187-forever/'];
+  check('.183 exact Forever tracker references distinguish the actual advertised RSS from an unverified machine feed', catalog.newsSources.some(s => s.url === trackerLinks[0] && s.status === 'Publisher-advertised RSS verified') && catalog.newsSources.some(s => s.url === trackerLinks[1] && s.status === 'Direct link only' && /No automatic feed is verified here/.test(s.scope)));
   check('Blizzard News is direct-link only and forums are not mislabelled all-official', catalog.newsSources.find(s => s.id === 'blizzard-news').status === 'Direct link only' && /not every topic/.test(catalog.newsSources.find(s => s.id === 'blizzard-forum').scope));
   check('source adapter has no database, cron, schema, settings or credential dependencies', !/env\.DB|site_settings|COOKIE_SECRET|Authorization:|registerCommunityData|scheduled\(/.test(source));
 
@@ -117,6 +122,7 @@ function renderer(fetcher) {
   guides.destroy();
   const u = renderer(async url => { assert.equal(url, '/api/resource-updates'); return Response.json(good); }), updateHolder = new Element('div');
   const updates = u.api.mount(updateHolder, { view: 'updates' }); await settle();
+  check('.183 Game Updates exposes both exact Forever tracker pages without any extra browser or upstream feed request', trackerLinks.every(url => walk(updateHolder).some(x => x.tagName === 'A' && x.href === url && x.rel === 'noopener noreferrer')) && u.calls.length === 1 && calls.length === 3);
   check('updates render separate actual retrieval/attempt/publisher dates and3 source filters', textOf(updateHolder).includes('Last successful retrieval:') && textOf(updateHolder).includes('Last retrieval attempt:') && textOf(updateHolder).includes('Published:') && walk(updateHolder).filter(x => x.type === 'checkbox').length === 3);
   check('only visible updates view schedules exactly60second refresh', u.intervals.size === 1 && [...u.intervals.values()][0].ms === 60000 && u.calls.length === 1);
   walk(updateHolder).find(x => x.type === 'checkbox').checked = false; walk(updateHolder).find(x => x.type === 'checkbox').fire('change');
@@ -133,6 +139,7 @@ function renderer(fetcher) {
   const groupedCards = walk(groupedHolder).filter(x => x.tagName === 'ARTICLE'), groupedLinks = walk(groupedCards[0]).filter(x => x.tagName === 'A');
   check('.174 repeated Blizzard thread title is grouped without losing either original post link or publisher date', textOf(groupedCards[0]).split('Development notes updated October 15').length === 2 && textOf(groupedCards[0]).includes('2 posts from this development-notes thread') && [6, 7].every(post => groupedLinks.some(x => x.textContent === 'Thread post ' + post && x.href.endsWith('/' + post))) && groupedData.sources[0].items.every(item => textOf(groupedCards[0]).includes(new Date(item.publishedAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC'))));
   check('.174 source failure is distinct from a successfully read empty feed window', textOf(groupedCards[1]).includes('This source could not be refreshed') && !textOf(groupedCards[1]).includes('No matching headlines') && textOf(groupedCards[2]).includes('No matching headlines') && !textOf(groupedCards[2]).includes('could not be refreshed'));
+  check('.183 an unavailable automatic feed does not claim that the publisher website is unavailable', textOf(groupedCards[1]).includes('Automatic feed: unavailable') && textOf(groupedCards[1]).includes('could not be refreshed automatically') && textOf(groupedCards[1]).includes("publisher's website may still be available") && !textOf(groupedCards[1]).includes('This source is unavailable') && trackerLinks.every(url => walk(groupedHolder).some(x => x.tagName === 'A' && x.href === url)));
   check('.174 refresh cadence/cache limits remain readable without internal admission wording', textOf(groupedHolder).includes('every 60 seconds') && textOf(groupedHolder).includes('ten minutes') && !textOf(groupedHolder).includes('admitted view'));
   groupedMount.destroy();
   for (const malformedUrl of ['not an absolute URL', '/en/wow/t/notes/2360696/6', 'https://evil.invalid/en/wow/t/notes/2360696/6']) {
@@ -153,6 +160,11 @@ function renderer(fetcher) {
   const unsafeCatalog = structuredClone(catalog); unsafeCatalog.addons[0].url = 'javascript:alert(1)';
   const unsafeUi = renderer(async () => Response.json(unsafeCatalog)), unsafeHolder = new Element('div'); unsafeUi.api.mount(unsafeHolder, { view: 'addons' }); await settle();
   check('catalog renderer refuses unsafe source URLs instead of constructing an active link', walk(unsafeHolder).filter(x => x.tagName === 'A').length === 0 && textOf(unsafeHolder).includes('could not be loaded'));
+  for (const url of ['https://www.bluetracker.gg/wow/category/1-general/', 'https://www.bluetracker.gg/wow/category/187-forever/?redirect=elsewhere', 'https://www.bluetracker.gg.evil.invalid/wow/category/187-forever/']) {
+    const otherCatalog = structuredClone(catalog); otherCatalog.addons[0].url = url;
+    const otherUi = renderer(async () => Response.json(otherCatalog)), otherHolder = new Element('div'); otherUi.api.mount(otherHolder, { view: 'addons' }); await settle();
+    check('.183 the exact BlueTracker reference does not admit another path, query or lookalike host: ' + url, walk(otherHolder).filter(x => x.tagName === 'A').length === 0 && textOf(otherHolder).includes('could not be loaded'));
+  }
 
   const began = performance.now(); let timeoutCancels = 0;
   const timed = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async () => response(new ReadableStream({ cancel() { timeoutCancels++; return new Promise(() => {}); } })) });

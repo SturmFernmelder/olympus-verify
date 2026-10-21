@@ -68,7 +68,7 @@ export function renderOrganization(main, data, ui) {
     h("p", { class: "small muted", text: "Drag to pan. Use +/− or Ctrl/⌘ + wheel to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, and Home or 0 to fit the selected branch. Escape closes full screen. List includes every office and group." }));
   chartHelp.open = true;
   const search = h("input", { type: "search", id: "organization-search", maxlength: "160", placeholder: "Find an office, rank or duty…", "aria-label": "Search all offices and 95 labels" });
-  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = true;
+  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = false, disposed = false;
   const zoomStatus = h("output", { class: "org-zoom", "aria-label": "Chart zoom" });
   function chartSummary() { return branchMode ? `Branch: ${byId.get(selected).title}. Parent and directly connected offices shown at a readable scale; drag to see the rest. Full map shows all ${visible.length} chart offices; List includes all ${data.nodes.length} groups.` : `Full map overview: all ${visible.length} chart offices. At overview scale, select an office and choose Fit branch to read it, or use List.`; }
   function drawLayout(shown, chartWidth, chartHeight) {
@@ -167,24 +167,24 @@ export function renderOrganization(main, data, ui) {
     const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
     detailDrawer.open = !narrow; chartHelp.open = !narrow;
     fullScreen.textContent = "Exit full screen"; fullScreen.setAttribute("aria-expanded", "true");
-    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected) { focusNode(selected); viewport.focus(); } });
+    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !disposed) { present(); viewport.focus(); } });
   } });
-  const branchButton = h("button", { type: "button", class: "btn small", text: "Fit branch", "aria-pressed": "true", onclick: fit });
-  const overviewButton = h("button", { type: "button", class: "btn small", text: "Full map", "aria-pressed": "false", onclick: overview });
+  const branchButton = h("button", { type: "button", class: "btn small", text: "Fit branch", "aria-pressed": "false", onclick: fit });
+  const overviewButton = h("button", { type: "button", class: "btn small", text: "Full map", "aria-pressed": "true", onclick: overview });
   const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), branchButton, overviewButton, h("button", { type: "button", class: "btn small org-center-selected", text: "Center selected", onclick: () => focusNode(selected) }), fullScreen);
   const chartShell = h("section", { class: "org-chart-shell", "aria-label": "Explore the organization" },
     h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), chartHelp,
     h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detailDrawer));
   chartLocation.append(chartShell);
   for (const disclosure of [detailDrawer, chartHelp]) disclosure.addEventListener("toggle", () => {
-    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !isList) focusNode(selected); });
+    requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !isList) present(); });
   });
   chartDialog.addEventListener("close", () => {
     stop(); chartLocation.append(chartShell); detailDrawer.open = true; chartHelp.open = true;
     fullScreen.textContent = "Full screen"; fullScreen.setAttribute("aria-expanded", "false");
-    requestAnimationFrame(() => { if (main.isConnected) { if (!isList) focusNode(selected); (isList ? listButton : fullScreen).focus(); } });
+    requestAnimationFrame(() => { if (main.isConnected && !disposed) { if (!isList) present(); (isList ? listButton : fullScreen).focus(); } });
   });
-  function view(asList) { stop(); isList = asList; list.hidden = !asList; viewport.hidden = asList; chartControls.hidden = asList; chartButton.setAttribute("aria-pressed", String(!asList)); listButton.setAttribute("aria-pressed", String(asList)); if (!asList) fit(); }
+  function view(asList) { stop(); isList = asList; list.hidden = !asList; viewport.hidden = asList; chartControls.hidden = asList; chartButton.setAttribute("aria-pressed", String(!asList)); listButton.setAttribute("aria-pressed", String(asList)); if (!asList) present(); }
   viewport.addEventListener("keydown", e => {
     if (e.target !== viewport) return;
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); const step = e.shiftKey ? 120 : 45; x += e.key === "ArrowLeft" ? step : e.key === "ArrowRight" ? -step : 0; y += e.key === "ArrowUp" ? step : e.key === "ArrowDown" ? -step : 0; transform(); }
@@ -244,7 +244,17 @@ export function renderOrganization(main, data, ui) {
   select(byId.has(parts[0]) ? parts[0] : "council");
   status.textContent = `${data.nodes.length} organizational groups · ${data.terms.length} titles and terms · ten native rank slots.`;
   view(typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches);
-  const present = () => { if (main.isConnected && !isList) focusNode(selected); };
+  function present() {
+    if (!main.isConnected || isList || disposed) return;
+    if (branchMode) fit();
+    else {
+      overview();
+      if (!fullPosition.has(selected)) status.textContent = "Rank and membership groupings have no command arrows. Their full descriptions are available in List. " + chartSummary();
+    }
+  }
   document.getElementById("organization-view-style").addEventListener("load", present, { once: true });
   requestAnimationFrame(present);
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => requestAnimationFrame(present)) : null;
+  if (observer) observer.observe(viewport);
+  return () => { disposed = true; if (observer) observer.disconnect(); stop(); if (chartDialog.open) chartDialog.close(); };
 }

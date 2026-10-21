@@ -1,19 +1,20 @@
 /* Army uses the main Olympus stylesheet, crest, client fonts and interface art.
    These scoped rules add only the aggregate reader and attended QR layout. */
 .army-site { min-height: 100vh; }
+.army-reader { min-width: 0; }
 .army-site main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
-.army-site button, .army-site input, .army-site textarea { font: inherit; }
-.army-site button {
+:is(.army-site, .army-reader) button, :is(.army-site, .army-reader) input, :is(.army-site, .army-reader) textarea { font: inherit; }
+:is(.army-site, .army-reader) button {
   min-height: 44px; padding: 6px 14px; border: 6px solid transparent;
   border-image: url('/static/wow/button-up.png') 6 7 fill / 6px 7px / 0 stretch;
   border-radius: 0; background: transparent; color: var(--gold);
   font: 15px/1.3 var(--font); text-shadow: 1px 1px 0 #000; cursor: pointer;
 }
-.army-site button:hover:not(:disabled) { border-image-source: url('/static/wow/button-hover.png'); color: var(--white); }
-.army-site button:active:not(:disabled), .army-site button.source.selected { border-image-source: url('/static/wow/button-down.png'); color: var(--white); }
-.army-site button:disabled { border-image-source: url('/static/wow/button-disabled.png'); color: #aaa18b; opacity: .65; cursor: not-allowed; }
-.army-site button.primary { box-shadow: 0 0 0 1px var(--brass); }
-.army-site :is(button,a,input,textarea,summary):focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 3px; }
+:is(.army-site, .army-reader) button:hover:not(:disabled) { border-image-source: url('/static/wow/button-hover.png'); color: var(--white); }
+:is(.army-site, .army-reader) button:active:not(:disabled), :is(.army-site, .army-reader) button.source.selected { border-image-source: url('/static/wow/button-down.png'); color: var(--white); }
+:is(.army-site, .army-reader) button:disabled { border-image-source: url('/static/wow/button-disabled.png'); color: #aaa18b; opacity: .65; cursor: not-allowed; }
+:is(.army-site, .army-reader) button.primary { box-shadow: 0 0 0 1px var(--brass); }
+:is(.army-site, .army-reader) :is(button,a,input,textarea,summary):focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 3px; }
 .army-site .skip { position: fixed; top: 12px; left: 16px; z-index: 100; width: 1px; height: 1px; clip-path: inset(100%); overflow: hidden; padding: 0; }
 .army-site .skip:focus { clip-path: none; width: auto; height: auto; overflow: visible; padding: 12px; background: #11140f; color: var(--white); border: 1px solid var(--gold); }
 .army-site .army-main-nav { min-width: 0; }
@@ -29,43 +30,43 @@
 .army-site .intro { margin-bottom: 20px; }
 .army-site .intro .eyebrow { margin: 0 0 8px; color: var(--muted); font-size: .78rem; letter-spacing: .06em; }
 .army-site .intro h1 { margin-bottom: 14px; }
-.army-site h2 { margin-bottom: 14px; }
-.army-site h3 { overflow-wrap: anywhere; }
+:is(.army-site, .army-reader) h2 { margin-bottom: 14px; }
+:is(.army-site, .army-reader) h3 { overflow-wrap: anywhere; }
 .army-site .lede { max-width: 60rem; color: var(--text); font-size: 1rem; }
 .army-site .trust-note { margin: 20px 0 0; padding: 10px 14px; border-left: 2px solid var(--brass); background: #10140fcc; color: var(--muted); font-size: .88rem; }
 .army-site .trust-note strong { color: var(--gold-soft); }
-.army-site .notice, .army-site .error {
+:is(.army-site, .army-reader) .notice, :is(.army-site, .army-reader) .error {
   width: auto; max-width: none; margin: 14px 0; padding: 12px 14px;
   border: 5px solid transparent; border-image: url('/static/wow/frame-tooltip-gold.png') 16 / 14px / 0 round;
   background: var(--tooltip) padding-box; color: var(--text); font-size: .9rem; overflow-wrap: anywhere;
 }
-.army-site .notice.error, .army-site .error { border-image-source: url('/static/wow/frame-tooltip-red.png'); background: rgba(40,6,6,.9) padding-box; color: #ffd4c7; }
-.army-site .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
-.army-site .army-results { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,420px),1fr)); gap: 20px; margin: 20px 0; }
-.army-site .army-card {
+:is(.army-site, .army-reader) .notice.error, :is(.army-site, .army-reader) .error { border-image-source: url('/static/wow/frame-tooltip-red.png'); background: rgba(40,6,6,.9) padding-box; color: #ffd4c7; }
+:is(.army-site, .army-reader) .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+:is(.army-site, .army-reader) .army-results { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,420px),1fr)); gap: 20px; margin: 20px 0; }
+:is(.army-site, .army-reader) .army-card {
   min-width: 0; padding: 18px 20px; border: 5px solid transparent;
   border-image: url('/static/wow/frame-tooltip-gold.png') 16 / 14px / 0 round;
   background: var(--tooltip) padding-box; box-shadow: 0 6px 18px #0008;
 }
-.army-site .army-card h2 { margin-bottom: 6px; }
-.army-site .source-label, .army-site .review-label { display: inline-block; margin-bottom: 12px; padding: 4px 8px; border: 1px solid var(--brass); color: var(--gold-soft); font-size: .74rem; }
-.army-site .figures { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
-.army-site .figures > div { min-width: 0; padding: 12px; border: 1px solid var(--line); background: #0006; }
-.army-site .figures dt { color: var(--muted); font-size: .8rem; }
-.army-site .figures dd { margin: 8px 0 0; color: var(--gold); font-size: clamp(1.2rem,2.2vw,1.8rem); line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.army-site .muted, .army-site .help { color: var(--muted); overflow-wrap: anywhere; }
-.army-site .muted { font-size: .86rem; }
-.army-site .help { margin: 10px 0 0; font-size: .82rem; line-height: 1.6; }
-.army-site .metadata { margin: 0; font-size: .82rem; }
-.army-site .metadata > div { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.2fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
-.army-site .metadata dt { color: var(--muted); }
-.army-site .metadata dd { margin: 0; overflow-wrap: anywhere; }
-.army-site .army-card details { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
-.army-site .army-card summary { min-height: 40px; color: var(--gold-soft); font-size: .9rem; cursor: pointer; }
-.army-site .distribution { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .82rem; }
-.army-site .distribution th, .army-site .distribution td { padding: 8px 5px; border-bottom: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; }
-.army-site .distribution th:last-child, .army-site .distribution td:last-child { width: 30%; text-align: right; font-variant-numeric: tabular-nums; }
-.army-site .distribution caption { padding: 8px 0; color: var(--gold-soft); text-align: left; }
+:is(.army-site, .army-reader) .army-card h2 { margin-bottom: 6px; }
+:is(.army-site, .army-reader) .source-label, :is(.army-site, .army-reader) .review-label { display: inline-block; margin-bottom: 12px; padding: 4px 8px; border: 1px solid var(--brass); color: var(--gold-soft); font-size: .74rem; }
+:is(.army-site, .army-reader) .figures { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
+:is(.army-site, .army-reader) .figures > div { min-width: 0; padding: 12px; border: 1px solid var(--line); background: #0006; }
+:is(.army-site, .army-reader) .figures dt { color: var(--muted); font-size: .8rem; }
+:is(.army-site, .army-reader) .figures dd { margin: 8px 0 0; color: var(--gold); font-size: clamp(1.2rem,2.2vw,1.8rem); line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+:is(.army-site, .army-reader) .muted, :is(.army-site, .army-reader) .help { color: var(--muted); overflow-wrap: anywhere; }
+:is(.army-site, .army-reader) .muted { font-size: .86rem; }
+:is(.army-site, .army-reader) .help { margin: 10px 0 0; font-size: .82rem; line-height: 1.6; }
+:is(.army-site, .army-reader) .metadata { margin: 0; font-size: .82rem; }
+:is(.army-site, .army-reader) .metadata > div { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.2fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+:is(.army-site, .army-reader) .metadata dt { color: var(--muted); }
+:is(.army-site, .army-reader) .metadata dd { margin: 0; overflow-wrap: anywhere; }
+:is(.army-site, .army-reader) .army-card details { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+:is(.army-site, .army-reader) .army-card summary { min-height: 40px; color: var(--gold-soft); font-size: .9rem; cursor: pointer; }
+:is(.army-site, .army-reader) .distribution { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .82rem; }
+:is(.army-site, .army-reader) .distribution th, :is(.army-site, .army-reader) .distribution td { padding: 8px 5px; border-bottom: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; }
+:is(.army-site, .army-reader) .distribution th:last-child, :is(.army-site, .army-reader) .distribution td:last-child { width: 30%; text-align: right; font-variant-numeric: tabular-nums; }
+:is(.army-site, .army-reader) .distribution caption { padding: 8px 0; color: var(--gold-soft); text-align: left; }
 .army-site .workspace { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 20px; align-items: start; }
 .army-site .input-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
 .army-site .source { min-width: 0; padding: 6px 3px; font-size: .8rem; }
@@ -80,12 +81,12 @@
 }
 .army-site .command-row { display: flex; gap: 8px; }
 .army-site .command-row input { font: 12px/1.6 ui-monospace,Consolas,monospace; }
-.army-site .command-row button { flex: 0 0 auto; }
+:is(.army-site, .army-reader) .command-row button { flex: 0 0 auto; }
 .army-site textarea { min-height: 135px; resize: vertical; font: 11px/1.65 ui-monospace,Consolas,monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
-.army-site .input-panel > button { margin-top: 10px; }
+:is(.army-site, .army-reader) .input-panel > button { margin-top: 10px; }
 .army-site .input-panel > p:first-child { font-size: .9rem; }
 .army-site .input-panel input[type=file] { width: 100%; font-size: .84rem; }
-.army-site input[type=file]::file-selector-button { min-height: 44px; padding: 6px 10px; border: 6px solid transparent; border-image: url('/static/wow/button-up.png') 6 7 fill / 6px 7px / 0 stretch; background: transparent; color: var(--gold); font: inherit; }
+:is(.army-site, .army-reader) input[type=file]::file-selector-button { min-height: 44px; padding: 6px 10px; border: 6px solid transparent; border-image: url('/static/wow/button-up.png') 6 7 fill / 6px 7px / 0 stretch; background: transparent; color: var(--gold); font: inherit; }
 .army-site .scan-status { display: flex; align-items: start; gap: 10px; min-height: 70px; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); }
 .army-site .scan-status strong { font-size: .9rem; }
 .army-site .scan-status p { margin: 3px 0 0; color: var(--muted); font-size: .82rem; }
@@ -94,7 +95,7 @@
 .army-site .status-dot.complete { background: var(--green-soft); }
 .army-site #countdown { margin-left: auto; color: var(--gold); font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .army-site .preview-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.army-site .preview-header h2 { margin: 0; }
+:is(.army-site, .army-reader) .preview-header h2 { margin: 0; }
 .army-site .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; padding: 24px; color: var(--muted); text-align: center; }
 .army-site .empty p { max-width: 280px; font-size: .9rem; }
 .army-site .quiet-label { color: var(--gold-soft); font-size: .78rem; }
@@ -110,14 +111,14 @@
 .army-site #media-area { margin-top: 18px; }
 .army-site video { display: block; width: 100%; max-height: 300px; object-fit: contain; border: 1px solid var(--line); background: #000; }
 .army-site .addon-setup { margin-bottom: 20px; }
-.army-site .addon-setup h2 { margin-bottom: 10px; }
+:is(.army-site, .army-reader) .addon-setup h2 { margin-bottom: 10px; }
 .army-site .addon-setup p:last-child { margin-bottom: 0; }
 .army-site .footer-in > .brand { min-width: 145px; }
 
 @media (max-width: 1000px) {
   .army-site .input-options { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .army-site .panel { padding: 16px; }
-  .army-site .metadata > div { grid-template-columns: 1fr; gap: 3px; }
+  :is(.army-site, .army-reader) .metadata > div { grid-template-columns: 1fr; gap: 3px; }
 }
 @media (max-width: 860px) {
   .army-site .workspace { grid-template-columns: 1fr; }
@@ -131,22 +132,22 @@
   .army-site .intro, .army-site .panel { padding: 14px; }
   .army-site .command-row { flex-wrap: wrap; }
   .army-site .command-row input { flex-basis: 100%; }
-  .army-site .command-row button { width: 100%; }
-  .army-site .army-card { padding: 16px; }
+  :is(.army-site, .army-reader) .command-row button { width: 100%; }
+  :is(.army-site, .army-reader) .army-card { padding: 16px; }
   .army-site .footer-in { flex-direction: column; }
 }
 @media (max-width: 480px) {
-  .army-site .figures, .army-site .privacy-grid { grid-template-columns: 1fr; }
+  :is(.army-site, .army-reader) .figures, :is(.army-site, .army-reader) .privacy-grid { grid-template-columns: 1fr; }
   .army-site .input-options { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .army-site .actions > button { flex: 1 1 100%; }
+  :is(.army-site, .army-reader) .actions > button { flex: 1 1 100%; }
   .army-site .intro, .army-site .panel { padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .army-site *, .army-site *::before, .army-site *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  :is(.army-site, .army-reader) *, :is(.army-site, .army-reader) *::before, :is(.army-site, .army-reader) *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors: active) {
-  .army-site .intro, .army-site .panel, .army-site .army-card, .army-site .notice, .army-site .error { border: 1px solid CanvasText; border-image: none; background: Canvas; color: CanvasText; }
-  .army-site button, .army-site input:not([type=file]):not([type=checkbox]), .army-site textarea { border: 1px solid ButtonText; border-image: none; }
+  :is(.army-site, .army-reader) .intro, :is(.army-site, .army-reader) .panel, :is(.army-site, .army-reader) .army-card, :is(.army-site, .army-reader) .notice, :is(.army-site, .army-reader) .error { border: 1px solid CanvasText; border-image: none; background: Canvas; color: CanvasText; }
+  :is(.army-site, .army-reader) button, :is(.army-site, .army-reader) input:not([type=file]):not([type=checkbox]), :is(.army-site, .army-reader) textarea { border: 1px solid ButtonText; border-image: none; }
   .army-site .source.selected { outline: 2px solid Highlight; }
   .army-site .status-dot { border: 2px solid CanvasText; }
 }

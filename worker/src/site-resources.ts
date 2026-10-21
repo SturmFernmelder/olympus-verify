@@ -44,7 +44,7 @@ interface Source {
 const SOURCES: readonly Source[] = Object.freeze(([
   { id: "blizzard-notes", publisher: "Blizzard", url: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1", feed: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss", itemHost: "us.forums.blizzard.com", scope: "Official Forever development-note thread; open the original post for context and corrections." },
   { id: "wowhead-forever", publisher: "Wowhead", url: "https://www.wowhead.com/forever/news", feed: "https://www.wowhead.com/news/rss/all", itemHost: "www.wowhead.com", scope: "Wowhead reporting explicitly categorized Forever in its latest all-WoW feed window.", foreverOnly: true as const },
-  { id: "wowhead-blues", publisher: "Wowhead Blue Tracker", url: "https://www.wowhead.com/blue-tracker", feed: "https://www.wowhead.com/blue-tracker?rss", itemHost: "www.wowhead.com", scope: "All-WoW blue tracker, not a Forever-only feed or an independent Blizzard publication." },
+  { id: "wowhead-blues", publisher: "Wowhead Forever Blue Tracker", url: "https://www.wowhead.com/forever/blue-tracker", feed: "https://www.wowhead.com/forever/blue-tracker?rss=", itemHost: "www.wowhead.com", scope: "The publisher's Forever blue-tracker RSS. Follow the linked Blizzard original for authority; this tracker is not an independent Blizzard publication." },
 ] satisfies Source[]).map(source => Object.freeze(source)));
 export const RESOURCE_FEED_LIMITS = Object.freeze({ timeoutMs: 8000, bytes: 1024 * 1024, items: 12, title: 240, freshS: 600, staleS: 86400 });
 class FeedError extends Error { constructor(readonly code: ResourceFeedFailure) { super(code); } }
@@ -201,14 +201,15 @@ async function retrieve(source: Source, fetcher: typeof fetch, at: number): Prom
 /** Optional Cloudflare Cache adapter: fixed keys and public records only. No incoming request is a cache key. */
 export function resourcePublicCache(cache: Cache | undefined = typeof caches === "undefined" ? undefined : caches.default): ResourcePublicCache | undefined {
   if (!cache) return undefined;
-  const key = (id: ResourceFeedId) => new Request(`https://olympus.roachcouncil.com/__public-publisher-headlines169/${id}`);
+  // The old all-WoW blue feed must not be projected under the new Forever scope after deployment.
+  const key = (id: ResourceFeedId) => new Request(`https://olympus.roachcouncil.com/__public-publisher-headlines169/${id === "wowhead-blues" ? "wowhead-blues-forever183" : id}`);
   return {
     async get(id) { const response = await cache.match(key(id)); if (!response) return null; try { return await response.json(); } catch { return null; } },
     async put(id, value) { await cache.put(key(id), new Response(JSON.stringify(value), { headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${RESOURCE_FEED_LIMITS.staleS}` } })); },
   };
 }
 
-/** Root integrates only behind the unchanged News flag and confirmed-member admission.
+/** The site route admits current signed-in users independently of private guild News and character proof.
  * Disabled is an early return, including zero cache access. A stale public record is
  * retained only for a bounded day and is labelled stale with the actual failure.
  */

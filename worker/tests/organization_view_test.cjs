@@ -54,15 +54,18 @@ function open({ mobile = false, width = 800 } = {}) {
   doc.getElementById = id => doc.all(n => n.id === id)[0] || null;
   const h = (tag, attrs, ...nodes) => { const el = doc.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (k === "text") el.textContent = v; else if (k.startsWith("on")) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v); } el.append(...nodes); return el; };
   const main = h("main"); doc.body.append(main); const frames = [];
-  const sandbox = { document: doc, requestAnimationFrame: fn => frames.push(fn), matchMedia: () => ({ matches: mobile }), console };
+  const observers = [];
+  class ResizeObserver { constructor(fn) { this.fn = fn; this.disconnected = false; observers.push(this); } observe(target) { this.target = target; } disconnect() { this.disconnected = true; } }
+  const sandbox = { document: doc, requestAnimationFrame: fn => frames.push(fn), matchMedia: () => ({ matches: mobile }), ResizeObserver, console };
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
-  sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [] });
+  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [] });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
   const node = id => main.all(n => n.getAttribute("data-organization-node") === id)[0];
   const pointer = (target, type, x, y, more = {}) => target.dispatch(type, { pointerId: 1, button: 0, isPrimary: true, clientX: x, clientY: y, ...more });
-  return { main, doc, flush, one, button, node, pointer, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
+  const resize = width => { doc.viewportWidth = width; for (const observer of observers) if (!observer.disconnected) observer.fn(); flush(); };
+  return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
@@ -78,6 +81,11 @@ check("the clarification links the existing operational charter", council.all(n 
 check("the static model still issues no appointments", data.appointmentsIssued === false);
 const chartNodes = data.nodes.filter(n => n.relation !== "classification"), visibleIds = page => page.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.getAttribute("data-organization-node"));
 const scaleOf = page => Number(/scale\(([^)]+)\)/.exec(page.stage.style.transform)?.[1]);
+const wholeMapFits = page => { const [, x, y, scale] = /translate\(([^p]+)px, ([^p]+)px\) scale\(([^)]+)\)/.exec(page.stage.style.transform).map(Number); return x >= 0 && y >= 0 && x + parseFloat(page.stage.style.width) * scale <= page.viewport.clientWidth && y + parseFloat(page.stage.style.height) * scale <= page.viewport.clientHeight; };
+check("initial desktop view shows every chart office fitted inside the viewport without a branch click", visibleIds(p).length === chartNodes.length && p.button("Full map").getAttribute("aria-pressed") === "true" && p.button("Fit branch").getAttribute("aria-pressed") === "false" && wholeMapFits(p));
+p.doc.getElementById("organization-view-style").dispatch("load");p.flush();p.resize(1000);
+check("stylesheet completion and viewport resize preserve the full initial overview", visibleIds(p).length === chartNodes.length && p.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(p));
+p.button("Fit branch").click();
 check("initial branch keeps the selected office, parent and its direct connections", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(chartNodes.filter(n => n.id === "council" || n.id === "founder" || n.parent === "council").map(n => n.id).sort()));
 check("branch fit keeps labels at a readable scale rather than shrinking the full map", scaleOf(p) >= .85 && p.button("Fit branch").getAttribute("aria-pressed") === "true" && p.one("org-chart-shell").textContent.includes("drag to see the rest"));
 check("the complete reading view retains every group and label", p.one("org-list").children.length === data.nodes.length && p.main.all(n => n.classList.contains("organization-term")).length === data.terms.length);
@@ -104,6 +112,12 @@ function crossesCard(path, cards) {
 }
 check("wrapped relationship connectors stay in the gutters and never cross an office label", renderedEdges.every(edge => !crossesCard(edge, mapBoxes)));
 check("the small full-map overview is explicitly distinguished from readable branch fit", p.one("org-chart-shell").textContent.includes("Full map overview") && p.one("org-chart-shell").textContent.includes("choose Fit branch to read it"));
+const overview183 = open();overview183.button("Full screen").click();overview183.flush();
+check("opening full screen preserves all offices in overview rather than zooming to the selected branch", visibleIds(overview183).length === chartNodes.length && overview183.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(overview183));
+overview183.button("Close full screen").click();overview183.flush();
+check("closing full screen preserves the complete inline overview", visibleIds(overview183).length === chartNodes.length && overview183.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(overview183));
+const disposedTransform183=overview183.stage.style.transform;overview183.dispose();overview183.resize(500);
+check("leaving the organization disconnects only its own resize observer and prevents late layout work", overview183.observers.every(observer=>observer.disconnected) && overview183.stage.style.transform===disposedTransform183);
 p.node("treasury").click(0); p.button("Fit branch").click();
 check("a selected branch includes incoming working partners without inventing reporting authority", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(["treasury", "council", "emissary-finance"].sort()) && p.node("treasury").getAttribute("aria-pressed") === "true" && scaleOf(p) >= .85);
 p.node("council").click(0);
@@ -167,6 +181,8 @@ check("Ctrl-wheel still zooms within the chart", k.viewport.dispatch("wheel", { 
 const mobile = open({ mobile: true, width: 315 });
 check("small screens retain the initial reading view", mobile.viewport.hidden && !mobile.one("org-list").hidden);
 mobile.button("Chart").click();
+check("opening Chart on mobile starts with all offices in a fitted complete overview", visibleIds(mobile).length === chartNodes.length && mobile.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(mobile));
+mobile.button("Fit branch").click();
 check("a narrow chart stacks connected offices inside its canvas at readable scale", parseFloat(mobile.stage.style.width) <= 315 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
 mobile.button("Full map").click();
 check("the narrow full map retains every office in a one-column canvas instead of widening the page", visibleIds(mobile).length === chartNodes.length && parseFloat(mobile.stage.style.width) <= 315 && boxes(mobile).every(b => b.left >= 0 && b.left + 230 <= parseFloat(mobile.stage.style.width)));

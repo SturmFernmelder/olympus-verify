@@ -347,9 +347,11 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   console.log("\n== the shell: signed out ==");
   const anonymous = await openPage(null);
   check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
-  check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
-  const publicPrivacy = await policyHTML("/privacy"), publicTerms = await policyHTML("/terms");
-  check(".167 public policy endpoints remain directly available with their policy navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/terms"') && publicTerms.text.includes('href="/privacy"'));
+  check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !anonymous.html.includes('href="/legal/privacy"') && !anonymous.html.includes('href="/legal/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
+  const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");
+  check(".183 canonical public policy endpoints remain directly available with their legal navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/legal/terms"') && publicTerms.text.includes('href="/legal/privacy"'));
+  const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
+  check(".183 original policy addresses redirect only to the exact canonical legal readers without private payload", oldPrivacy.response.status === 301 && oldPrivacy.response.headers.get("Location") === "/legal/privacy" && oldTerms.response.status === 301 && oldTerms.response.headers.get("Location") === "/legal/terms" && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
   let page = await openPage(MEMBER);
   {
     const fast = await openPage(MEMBER);
@@ -532,7 +534,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== the shell: a confirmed member, the directory and the profile editor ==");
   page = await openPage(MEMBER);
-  check("a confirmed member sees the Community menu and its admitted hub link, and the boot says confirmedGuildData", page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community" && !!group.querySelector('a[href="#/community"]')) && page.boot.community.capabilities.confirmedGuildData === true);
+  check("a confirmed member sees one admitted Community hub link without a dropdown, and the boot says confirmedGuildData", !!page.app.querySelector('nav.nav a[href="#/community"]') && !page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community") && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
   await waitFor(() => !!byText(page.app, "h3", "Member directory"), "the overview");
   check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
@@ -1698,8 +1700,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const VISITORS = { CHANNEL_VISITOR_CHAT: "1554265065509756989" };
     const nowS = () => Math.floor(Date.now() / 1000);
     const frameOf = (pg, title) => { const t = byText(pg.app, "h2", title); return t ? t.closest("section") : null; };
-    const seatBox = (pg) => pg.app.querySelectorAll(".notice-box").find((b) => b.textContent.includes("Olympus I is full right now")) || null;
-    const home = async (who, over) => { const pg = await openPage(who, over); await pg.go("#/"); await waitFor(() => !!pg.app.querySelector("h1"), "the home page"); return pg; };
+    const seatBox = (pg) => pg.app.querySelectorAll(".notice-box").find((b) => b.textContent.includes("Latest officer report: the Olympus I roster export") || b.textContent.includes("Latest invite report: an Olympus I invite was refused")) || null;
+    const home = async (who, over) => { const pg = await openPage(who, over); await pg.go("#/"); await waitFor(() => !!pg.app.querySelector("h1") && !pg.app.textContent.includes("Checking the latest Olympus I officer report"), "the home page and refreshed seat information"); return pg; };
 
     // ---- B: the seat state (a complete, trusted export of 1000 an hour ago; MEMBER's second character waits in the queue)
     const snap = Number((await fixtureRun("INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, trusted, complete, first_received_at) VALUES (?, ?, 'addon', 1000, 'fe115', 1, 1, ?)",now - 3600, now - 3600, now - 3600)).lastInsertRowid);
@@ -1710,10 +1712,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  the boot carries the member's own places and the member view of the seats (the hour only, no reason or exact time)", JSON.stringify(queued.boot.myQueue) === JSON.stringify([{ name: "Mia Alt", position: 1 }]) && queued.boot.seats.asOf % 3600 === 0 && !("reason" in queued.boot.seats) && !("rosterAt" in queued.boot.seats));
     const newbie = await home(NEWBIE);
     const nb = seatBox(newbie);
-    check("  an account without a confirmed character and no queue rows: the export's hour and count, verifying still works; without the channel id the channel name is plain text", !!nb && nb.textContent.includes("the officers' roster export of about") && nb.textContent.includes("counts 1000 of 1000 members") && nb.textContent.includes("Verifying in Discord still works") && nb.textContent.includes("#olympus-visitors in Asmongold's Discord") && !nb.querySelector("a"), nb && nb.textContent);
+    check("  an account without a confirmed character and no queue rows: the export's hour and count, verifying still works; without the channel id the channel name is plain text", !!nb && nb.textContent.includes("Latest officer report: the Olympus I roster export of about") && nb.textContent.includes("counts 1000 of 1000 members") && nb.textContent.includes("Verifying in Discord still works") && nb.textContent.includes("#olympus-visitors in Asmongold's Discord") && !nb.querySelector("a"), nb && nb.textContent);
     await newbie.go("#/apply");
-    await waitFor(() => !!newbie.app.querySelector("h2"), "the Apply page");
-    check("  the Apply page shows the same notice above everything else", !!seatBox(newbie) && seatBox(newbie).textContent.includes("counts 1000 of 1000 members") && newbie.app.querySelector("main").firstChild.textContent.includes("Olympus I is full right now"));
+    await waitFor(() => !!newbie.app.querySelector("h2") && !!seatBox(newbie), "the Apply page and refreshed seat information");
+    check("  the Apply page shows the same notice above everything else", !!seatBox(newbie) && seatBox(newbie).textContent.includes("counts 1000 of 1000 members") && newbie.app.querySelector("main").firstChild.textContent.includes("Latest officer report: the Olympus I roster export"));
     check("  a confirmed member without queue rows sees no seat notice", !seatBox(await home(OTHER)));
     const adm5 = await openPage(STAFF);
     const overviewLine = async () => {
@@ -1733,7 +1735,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     line = await overviewLine();
     check("  full by an invite refused for space after that export", line.startsWith("Olympus I: full (an invite was refused for space "), line);
     const rb = seatBox(await home(NEWBIE));
-    check("  the member's notice gives the refusal and no count", !!rb && rb.textContent.includes("the last invite was refused for lack of space (about ") && !rb.textContent.includes("of 1000"), rb && rb.textContent);
+    check("  the member's notice gives the refusal and no count", !!rb && rb.textContent.includes("Latest invite report: an Olympus I invite was refused for lack of space (about ") && !rb.textContent.includes("of 1000"), rb && rb.textContent);
     (await fixtureRun("UPDATE roster_snapshots SET trusted = 0 WHERE id = ?",snap));
     (await fixtureRun("DELETE FROM audit WHERE id = ?",refusal));
     line = await overviewLine();
@@ -2278,10 +2280,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const deniedCommunity = await indexMod.default.fetch(new Request("https://guild.example/api/community/directory", { headers: { Cookie: denied.cookie } }), env(), ctx);
   check("  but the real community API stays denied without guild payload", deniedCommunity.status === 403 && (await deniedCommunity.json()).error === "denied");
   const nothing = await openPage(MEMBER, { COMMUNITY_FEATURES: "" });
-  check("with every community flag off: no Community in the top bar, no private-request link", !texts(nothing.app, "nav.nav a").includes("Community") && !nothing.app.querySelector('.footer-links a[href="/privacy/contact"]'));
-  await nothing.go("#/community");
+  check("with every legacy Community flag off: one eligible Army hub, no private Community or private-request link", !!nothing.app.querySelector('nav.nav a[href="#/community"]') && !nothing.app.querySelector('nav.nav a[href="#/community/directory"]') && !nothing.app.querySelector('.footer-links a[href="/privacy/contact"]'));
+  await nothing.go("#/community/directory");
   await settle();
-  check("  and the Community page says it is not switched on", nothing.app.textContent.includes("not switched on yet"));
+  check("  and the disabled legacy Community page still says it is not switched on", nothing.app.textContent.includes("not switched on yet"));
   check("the page script writes no markup: every text goes through textContent (no innerHTML, outerHTML or insertAdjacentHTML assignment anywhere)", !/\.innerHTML\s*[=+]|\.outerHTML\s*=|insertAdjacentHTML/.test(APP_JS));
 
 

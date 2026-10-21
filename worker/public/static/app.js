@@ -15,6 +15,9 @@
   let timers = [];
   let disposeTool = null;
   let disposeGovernancePrint = null;
+  let disposeOrganization = null;
+  let disposeSeatsNotice = null;
+  const appointmentReaders = new Set(); // View disposers only; never a cross-route identity cache.
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
   let gameCursor = true;
@@ -156,11 +159,62 @@
   const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
   const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; const value = Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; return appointmentPointer(value) ? "Appointed member" : value; };
   const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
+  const appointmentLabelNode = (key, holder = appointedTo(key), bare = false) => h("span", { "data-appointment-label": key, "data-appointment-bare": bare ? "true" : "false", text: bare ? holder : appointmentLabel(holder) });
   const sentenceEnd = (text) => /[.!?]$/.test(text) ? text : text + ".";
   /** "Fernmelder has been appointed Treasurer / Guild Bank, so the role is no longer open to applications or votes." */
-  const appointedText = (keys) => (keys.length === 1
-    ? `${appointedTo(keys[0])} has been appointed ${roleName(keys[0])}, so the role is no longer open to applications or votes.`
-    : `${listText(keys.map((k, i) => `${appointedTo(k)}${i ? "" : " has been appointed"} ${roleName(k)}`))}, so those roles are no longer open to applications or votes.`);
+  const appointedText = (keys) => [...keys.flatMap((key, i) => [i ? i === keys.length - 1 ? " and " : ", " : "", appointmentLabelNode(key, appointedTo(key), true), i ? " " : " has been appointed ", roleName(key)]), `, so ${keys.length === 1 ? "the role is" : "those roles are"} no longer open to applications or votes.`];
+  /** Fresh, qualified-reader projection for this mounted view only. The server's
+   * separate site/Discord publication proofs remain the only identity authority. */
+  function hydrateAppointmentNames(root, ownsView = () => root.isConnected) {
+    const labels = [...root.querySelectorAll("[data-appointment-label]")], titles = [...root.querySelectorAll("[data-appointment-title]")], characterSlots = [...root.querySelectorAll("[data-appointment-characters]")];
+    if (!labels.length && !titles.length) return () => {};
+    const user = S.user, settings = S.settings, context = COM(), route = currentRoute();
+    const originals = labels.map(node => [node, node.textContent]), originalTitles = titles.map(node => [node, node.getAttribute("title")]);
+    let disposed = false, generation = 0, hidden = !!document.hidden;
+    const owned = () => !disposed && ownsView() && S.signedIn && !S.denied && S.user === user && S.settings === settings && COM() === context && currentRoute() === route && communityReader();
+    const live = () => owned() && !document.hidden;
+    const clearProjection = () => {
+      for (const [node, text] of originals) node.textContent = text;
+      for (const [node, title] of originalTitles) { if (title === null) node.removeAttribute("title"); else node.setAttribute("title", title); }
+      for (const node of characterSlots) clear(node);
+    };
+    const dispose = () => {
+      if (disposed) return; disposed = true; generation++; clearProjection();
+      document.removeEventListener("visibilitychange", onVisibility); window.removeEventListener("pagehide", dispose); appointmentReaders.delete(dispose);
+    };
+    const onVisibility = () => {
+      const nextHidden = !!document.hidden;
+      if (hidden === nextHidden) return;
+      hidden = nextHidden;
+      if (hidden) { generation++; clearProjection(); }
+      else if (owned()) read();
+      else dispose();
+    };
+    const read = () => {
+      if (!live()) return;
+      const requestedGeneration = ++generation, current = () => requestedGeneration === generation && live();
+      api("GET", "/api/appointed-identities", undefined, { live: current }).then(data => {
+        if (!current() || data?.scope !== "qualified_community_readers" || !Array.isArray(data.identities) || data.identities.length > 2) return;
+        const seen = new Set();
+        for (const person of data.identities) {
+          if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
+          seen.add(person.role); const name = discordIdentity(person);
+          for (const node of labels) if (node.getAttribute("data-appointment-label") === person.role) node.textContent = node.getAttribute("data-appointment-bare") === "true" ? name : appointmentLabel(name);
+          for (const node of titles) if (node.getAttribute("data-appointment-title") === person.role) node.setAttribute("title", appointmentLabel(name));
+          for (const node of characterSlots) if (node.getAttribute("data-appointment-characters") === person.role) {
+            clear(node); add(node, h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." }));
+          }
+        }
+      }).catch(error => {
+        // A current refusal closes this reader. Visibility never retries that failed admission.
+        if (current() && [401, 403, 503].includes(error?.status)) dispose();
+      });
+    };
+    appointmentReaders.add(dispose); document.addEventListener("visibilitychange", onVisibility); window.addEventListener("pagehide", dispose);
+    if (!owned()) dispose();
+    else if (!hidden) read();
+    return dispose;
+  }
   const tick = () => h("img", { class: "tick", src: art("ready"), alt: "", width: "16", height: "16" });
   /**
    * A role that takes applications but is chosen by the guild's leadership without a public vote (.45, Admin → Settings):
@@ -209,7 +263,7 @@
     const choose = onChoose && !holder && !current ? h("button", { class: "btn", type: "button", text: "Choose as my first choice" }) : null;
     const d = dialog(h("div", { class: "role-dialog" },
       h("h2", { id }, posIcon(p.key, "s"), " ", p.label),
-      holder ? h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(holder))} This role takes no applications.`) : null,
+      holder ? h("p", { class: "appointed-line" }, tick(), appointmentLabelNode(p.key, holder), ". This role takes no applications.") : null,
       !holder && noVoteOf(p) ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
       current ? h("p", { class: "appointed-line" }, tick(), "Your first choice.") : null,
       roleInfo(p),
@@ -217,6 +271,8 @@
     d.setAttribute("aria-labelledby", id);
     close.addEventListener("click", () => d.close());
     if (choose) choose.addEventListener("click", () => { d.close(); onChoose(); });
+    const dispose = hydrateAppointmentNames(d, () => d.open && d.isConnected);
+    d.addEventListener("close", dispose);
     return d;
   }
 
@@ -761,7 +817,7 @@
       const menu = h("details", { class: "nav-group", name: "olympus-sections" }, summary,
         h("div", { class: "nav-menu", id }, links.map(link)));
       let pointerInside = false;
-      summary.addEventListener("click", event => { event.preventDefault(); openNavMenu(menu, !menu.hasAttribute("open")); });
+      summary.addEventListener("click", event => { event.preventDefault(); openNavMenu(menu, pointerInside && event.detail > 0 ? true : !menu.hasAttribute("open")); });
       summary.addEventListener("keydown", event => {
         if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
         event.preventDefault(); openNavMenu(menu, true);
@@ -789,15 +845,17 @@
         }, 180);
       });
       menu.addEventListener("focusin", event => { cancelNavClose(); if (event.target !== summary) openNavMenu(menu, true); });
-      menu.addEventListener("focusout", event => { if (!pointerInside && !menu.contains(event.relatedTarget)) openNavMenu(menu, false); });
-      menu.addEventListener("click", event => { if (event.target.closest && event.target.closest("a")) closeNavMenus(); });
+      menu.addEventListener("focusout", event => { if (!pointerInside && event.relatedTarget && !menu.contains(event.relatedTarget)) openNavMenu(menu, false); });
+      menu.addEventListener("click", event => {
+        if (event.defaultPrevented || event.button && event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !event.target.closest || !event.target.closest("a")) return;
+        cancelNavClose(); navCloseTimer = setTimeout(() => { navCloseTimer = 0; openNavMenu(menu, false); }, 0);
+      });
       return menu;
     };
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
-      if (anyCommunity() && can("applicantWrite")) add(nav, group("Community", [["#/community", "Community hub"], ...(can("armyRead") ? [["#/community/army", "Army"]] : []), ...(S.settings && S.settings.newsOn ? [["#/community/news", "Guild news"]] : [])]));
-      if (!anyCommunity() && can("armyRead")) add(nav, link(["#/community/army", "Army"]));
+      if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) add(nav, link(["#/community", "Community"]));
       const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
@@ -919,8 +977,11 @@
   let chromeKey = "";
   function render() {
     closeNavMenus();
+    if (disposeSeatsNotice) disposeSeatsNotice();
+    for (const dispose of [...appointmentReaders]) dispose();
     if (disposeTool) disposeTool();
     if (disposeGovernancePrint) disposeGovernancePrint();
+    if (disposeOrganization) { disposeOrganization(); disposeOrganization = null; }
     if (disposeCensusPreview) disposeCensusPreview();
     for (const t of timers) clearInterval(t);
     timers = [];
@@ -965,7 +1026,9 @@
     main.dataset.viewRequest = viewRequest;
     try {
       const out = view(main, route.split("/").slice(1));
-      if (out && typeof out.catch === "function") out.catch(error => { if (main.dataset.viewRequest === viewRequest) showError(main)(error); });
+      const names = () => { if (main.parentNode === app && main.dataset.viewRequest === viewRequest) hydrateAppointmentNames(main, () => main.parentNode === app && main.dataset.viewRequest === viewRequest); };
+      if (out && typeof out.then === "function") out.then(names).catch(error => { if (main.dataset.viewRequest === viewRequest) showError(main)(error); });
+      else names();
     } catch (e) {
       showError(main)(e);
     }
@@ -1244,7 +1307,7 @@
     const data = await governanceModel();
     if (!app.contains(main)) return;
     const { renderOrganization } = await import("/static/organization-view.js");
-    if (app.contains(main)) renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection });
+    if (app.contains(main)) disposeOrganization = renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection });
   };
 
   // ---------------------------------------------------------------- home
@@ -1291,20 +1354,60 @@
       url ? h("a", { href: url, rel: "noopener", target: "_blank", text: "#olympus-visitors" }) : "#olympus-visitors",
       " in Asmongold's Discord; this flow verifies the main Olympus guild.");
   }
-  function seatsNotice() {
-    const s = S.seats;
-    const queue = Array.isArray(S.myQueue) ? S.myQueue : [];
-    if (!s || s.state !== "full" || !(queue.length || !can("confirmedGuildData"))) return null;
-    const when = `about ${fmtDateTime(s.asOf)}`;
-    const body = queue.length
-      ? [h("p", null, h("strong", { text: "Olympus I is full right now." })),
-          queue.map((q) => h("p", { text: `${q.name} is #${q.position} in line for a seat.` })),
-          h("p", { text: "Verified applicants wait in queue order (reserved names from the site go first). A full guild never costs you an invite attempt; the bot removes nobody, and officers may remove inactive characters to free seats." })]
-      : h("p", null, h("strong", { text: "Olympus I is full right now: " }),
-          s.source === "roster"
-            ? `the officers' roster export of ${when} counts ${s.members} of ${s.cap} members. Verifying in Discord still works and puts you in the invite queue.`
-            : `the last invite was refused for lack of space (${when}). Verifying in Discord still works and puts you in the invite queue.`);
-    return noticeBox("warn", "icon-clock", body, visitorsLine(s));
+  function seatsNotice(main) {
+    // Seat reports are informational, not admission or Army observations. Never keep a boot-time full banner alive.
+    const user = S.user, route = currentRoute(), view = main.dataset.viewRequest;
+    const box = h("div", { class: "mt seats-notice", "aria-live": "polite" }, h("p", { class: "muted small", role: "status", text: "Checking the latest Olympus I officer report…" }));
+    let disposed = false, generation = 0, expiryTimer = null, clockTimer = null;
+    const live = () => !disposed && main.parentNode === app && main.dataset.viewRequest === view && currentRoute() === route && S.signedIn && !S.denied && S.user === user && !document.hidden;
+    const forget = () => { S.seats = null; S.myQueue = []; };
+    const stopTimers = () => { if (expiryTimer !== null) clearTimeout(expiryTimer); if (clockTimer !== null) clearInterval(clockTimer); expiryTimer = clockTimer = null; };
+    const dispose = () => {
+      if (disposed) return; disposed = true; generation++; stopTimers();
+      document.removeEventListener("visibilitychange", onVisibility); window.removeEventListener("pagehide", dispose);
+      clear(box); box.hidden = true;
+      if (disposeSeatsNotice === dispose) { forget(); disposeSeatsNotice = null; }
+    };
+    const onVisibility = () => {
+      if (disposed) return;
+      if (document.hidden) { generation++; stopTimers(); forget(); clear(box); box.hidden = true; }
+      else if (live()) refresh();
+    };
+    disposeSeatsNotice = dispose; forget();
+    document.addEventListener("visibilitychange", onVisibility); window.addEventListener("pagehide", dispose);
+    const unavailable = () => { dispose(); box.hidden = false; add(box, h("p", { class: "muted small", role: "status", text: "Current seat information could not be checked. Reopen Home or Apply to try again." })); };
+    function refresh() {
+      if (!live()) return;
+      const requestGeneration = ++generation, requestLive = () => live() && generation === requestGeneration;
+      stopTimers(); forget(); clear(box); box.hidden = false;
+      add(box, h("p", { class: "muted small", role: "status", text: "Checking the latest Olympus I officer report…" }));
+      api("GET", "/api/me", undefined, { live: requestLive }).then(data => {
+        if (!requestLive()) return;
+        if (!data || data.signedIn !== true || data.denied !== false || !data.user || data.user.id !== user.id || !Number.isSafeInteger(data.now)) throw new Error("seat reader refused");
+        // Only these two fields are refreshed. Never replace account, settings, capabilities, application or form state.
+        const s = data.seats, queue = data.myQueue;
+        if (!s || s.state !== "full") { clear(box); box.hidden = true; return; }
+        const lifetime = s.source === "roster" ? 48 * 3600 : s.source === "refused_invite" ? 6 * 3600 : 0;
+        if (!lifetime || !Number.isSafeInteger(s.asOf) || s.asOf <= 0 || s.asOf > data.now || !Array.isArray(queue) || !queue.every(q => q && typeof q.name === "string" && q.name.length <= 80 && Number.isSafeInteger(q.position) && q.position > 0) || (s.source === "roster" && (!Number.isSafeInteger(s.members) || !Number.isSafeInteger(s.cap) || s.cap < 900 || s.cap > 1000 || s.members < s.cap))) throw new Error("invalid seat report");
+        // asOf is rounded DOWN to an hour, so this expires up to an hour before the server's original 48h/6h limit.
+        const expiresAt = s.asOf + lifetime, remaining = expiresAt - Math.max(data.now, nowSec());
+        if (remaining <= 0 || !(queue.length || !can("confirmedGuildData"))) { clear(box); box.hidden = true; return; }
+        S.seats = s; S.myQueue = queue;
+        const when = `about ${fmtDateTime(s.asOf)}`;
+        const report = s.source === "roster"
+          ? `Latest officer report: the Olympus I roster export of ${when} counts ${s.members} of ${s.cap} members.`
+          : `Latest invite report: an Olympus I invite was refused for lack of space (${when}).`;
+        const body = [h("p", null, h("strong", { text: report })),
+          ...queue.map(q => h("p", { text: `${q.name} is #${q.position} in line for a seat.` })),
+          h("p", { text: queue.length ? "Verified applicants wait in queue order (reserved names from the site go first). A full guild never costs you an invite attempt; the bot removes nobody, and officers may remove inactive characters to free seats." : "Verifying in Discord still works and puts you in the invite queue. This dated report does not promise the current number of free seats." })];
+        clear(box); add(box, noticeBox("warn", "icon-clock", body, visitorsLine(s)));
+        const expire = () => { if (!requestLive()) return; forget(); clear(box); box.hidden = true; stopTimers(); };
+        expiryTimer = setTimeout(expire, remaining * 1000);
+        clockTimer = setInterval(() => { if (nowSec() >= expiresAt) expire(); }, 1000);
+      }).catch(() => { if (requestLive()) unavailable(); });
+    }
+    refresh();
+    return box;
   }
 
   ROUTES[""] = function home(main) {
@@ -1345,7 +1448,7 @@
     const lost = isOpen ? mine.filter(appointedTo) : [];
     const lostNote = lost.length
       ? noticeBox("info", "icon-shield",
-          h("p", null, h("strong", { text: appointedText(lost) + " " }), appointedTo(firstChoiceKey(a)) ? "Your application still counts for your other choices." : "Your other choices still stand; there is nothing you need to do."),
+          h("p", null, h("strong", null, appointedText(lost), " "), appointedTo(firstChoiceKey(a)) ? "Your application still counts for your other choices." : "Your other choices still stand; there is nothing you need to do."),
           appointedTo(firstChoiceKey(a)) ? h("p", null, h("a", { href: "#/apply", text: "Open your application" }), " and choose another first choice when you next change it.") : null)
       : null;
     const catchUp = needsBoard
@@ -1357,14 +1460,14 @@
             h("p", null, h("strong", { text: "Add when you play. " }), "Your application was saved before the site asked for a weekly schedule, and the leadership plans the NA and EU raids with it."),
             h("p", null, h("a", { href: "#/apply", text: "Open your application" }), ", fill in the grid and save."))
         : null;
-    const seats = seatsNotice();
+    const seats = seatsNotice(main);
     add(main, [
       h("section", { class: "welcome mt" }, ownAvatar(S.user), h("h1", { text: `Welcome, ${discordIdentity(S.user)}` })),
       flash,
       S.reapply ? h("div", { class: "mt" }, noticeBox("warn", "icon-warning", // .114: a rename Blizzard required (the Worker's rename_holds)
         h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
         h("p", null, "Open ", h("a", { href: "#/apply", text: "Apply" }), ` and save your application once more, and verify ${S.reapply.to} again in Discord with Get my code in #join-olympus. Unless another of your characters is in the guild, your Guild Member role is on hold until the leadership approves the new application.`))) : null,
-      seats ? h("div", { class: "mt" }, seats) : null, // .115: Olympus I is full (seatsNotice)
+      seats,
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -1566,8 +1669,7 @@
     const s = S.settings || {};
     const locked = a && (a.status === "accepted" || a.status === "declined");
     const status = a ? h("span", { class: "aside" }, "Status: ", h("span", { class: "status " + a.status, text: statusText(a.status) }), ` · updated ${ago(a.updatedAt)}`) : null;
-    const seats = seatsNotice(); // .115: above every branch, so a closed or decided application still learns Olympus I is full
-    if (seats) add(main, h("div", { class: "mt" }, seats));
+    add(main, seatsNotice(main)); // Above every branch, including a closed or decided application; refreshes only dated seat information.
     if (locked) {
       add(main, frame("Your application", status,
         h("p", { text: a.status === "accepted" ? "Your application was accepted. The guild's leadership will be in touch in Discord." : "Your application was not accepted this time. It can no longer be changed." }),
@@ -1617,7 +1719,7 @@
       const quietLine = holder ? null : h("span", { class: "novote-by", id: `nv-${p.key}` }, crown(), "Chosen by the leadership: no public vote");
       if (quietLine) quietMarks.push([p, quietLine, radio]);
       const card = h("label", { class: "option" + (p.key === position ? " on" : "") + (holder ? " appointed" : "") }, posIcon(p.key), radio, h("b", { text: p.label }), h("span", { text: p.blurb }),
-        holder ? h("span", { class: "appointed-by" }, tick(), appointmentLabel(holder)) : null,
+        holder ? h("span", { class: "appointed-by" }, tick(), appointmentLabelNode(p.key, holder)) : null,
         quietLine);
       radio.addEventListener("change", () => { position = p.key; sync(); });
       positionBoxes.push(card);
@@ -1911,7 +2013,7 @@
     }
     const lost = a ? choicesOf(a).filter(appointedTo) : [];
     const lostNote = lost.length
-      ? noticeBox("info", "icon-shield", h("p", null, h("strong", { text: appointedText(lost) + " " }),
+      ? noticeBox("info", "icon-shield", h("p", null, h("strong", null, appointedText(lost), " "),
           appointedTo(firstChoiceKey(a))
             ? "Choose another first choice below to save your application again; until then it still counts for your other choices."
             : "It is off your backup choices below; saving keeps that, and your other choices stand either way."))
@@ -2003,7 +2105,7 @@
       const a = h("a", { class: "role-item" + (who ? " appointed" : quiet ? " novote" : ""), href: "#/vote/" + encodeURIComponent(b.key), "aria-current": b.key === role ? "page" : false },
         posIcon(b.key), h("span", { text: b.group === "class" ? b.label.replace(" Class Lead", "") : b.label }),
         who
-          ? h("span", { class: "n", title: `Appointed: ${who}` }, h("img", { class: "tick", src: art("ready"), alt: "appointed", width: "16", height: "16" }))
+          ? h("span", { class: "n", title: appointmentLabel(who), "data-appointment-title": b.key }, h("img", { class: "tick", src: art("ready"), alt: "appointed", width: "16", height: "16" }))
           : quiet
             ? h("span", { class: "n", title: "No public vote: the leadership chooses" }, crown("no public vote"))
             : h("span", { class: "n" + (c.votable && c.voted >= c.votable ? " done" : ""), text: c.votable ? `${c.voted}/${c.votable}` : "—", title: progressTitle(c) }));
@@ -2111,7 +2213,7 @@
       h("details", null, h("summary", { text: "Time, responsibilities and expectations" }), roleInfo(p, { about: false })));
   }
   const appointedNote = (ballot, holder) => noticeBox("ok", "icon-shield",
-    h("p", null, h("strong", { text: sentenceEnd(appointmentLabel(holder)) + " " }), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
+    h("p", null, h("strong", null, appointmentLabelNode(ballot.key, holder), ". "), `${ballot.label} is filled by appointment rather than by the board, so there is nothing to vote on or write in here.`));
   /** A role chosen without a public vote (.45): it takes applications, but there is no board and no write-ins. */
   function noVoteNote(ballot) {
     const a = S.application;
@@ -2361,7 +2463,7 @@
               h("span", { class: "badge" + (p.group === "leadership" ? "" : " blue"), text: p.group === "leadership" ? (holder ? "Leadership: appointed" : quiet ? "Leadership: no public vote" : "Leadership: voted on") : "Membership" }),
               first ? h("span", { class: "badge green", text: "Your first choice" }) : null,
               backup ? h("span", { class: "badge green", text: "Your backup" }) : null))),
-        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(holder))} This role takes no applications or votes.`)) : null,
+        holder ? h("div", { "data-appointed-person": p.key }, h("p", { class: "appointed-line" }, tick(), appointmentLabelNode(p.key, holder), ". This role takes no applications or votes."), h("div", { "data-appointment-characters": p.key })) : null,
         quiet ? h("p", { class: "novote-line" }, crown(), NO_VOTE_TEXT) : null,
         p.key === "class_lead" ? classRow() : null,
         h("p", { class: "muted", text: p.blurb }),
@@ -2382,23 +2484,6 @@
       h("div", { class: "group-label", text: "Membership" }),
       h("div", { class: "roles-grid" }, members.map(card)),
     ]);
-    // Fresh, explicitly associated identities only; never a cached character/name snapshot.
-    if (["co_gm", "treasurer"].some(key => Object.prototype.hasOwnProperty.call(s.appointed || {}, key))) {
-      const live = () => main.parentNode === app;
-      api("GET", "/api/appointed-identities", undefined, { live }).then(data => {
-        if (!live() || data?.scope !== "qualified_community_readers" || !Array.isArray(data.identities) || data.identities.length > 2) return;
-        const seen = new Set();
-        for (const person of data.identities) {
-          if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(s.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
-          seen.add(person.role);
-          const slot = main.querySelector(`[data-appointed-person="${person.role}"]`);
-          if (!slot) continue;
-          clear(slot);
-          add(slot, [h("p", { class: "appointed-line" }, tick(), `${sentenceEnd(appointmentLabel(discordIdentity(person)))} This role takes no applications or votes.`),
-            h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." })]);
-        }
-      }).catch(() => { /* Refused or unavailable identity details stay hidden; the appointment stays closed. */ });
-    }
     // "#/roles/liaison" (a chip here, or a link shared in Discord) lands on that role, below the sticky top bar; once more
     // when the game fonts have arrived (they change the page's height), unless the reader has scrolled since.
     if (target) {
@@ -3531,7 +3616,7 @@
         h("div", { class: "card-head" }, posIcon(b.key), h("h3", { text: b.label })),
         // A role without a public vote has no board: how many are "on" it would only count those who agreed for other roles.
         quiet ? null : h("p", { class: "muted small", text: `${plural(b.applicants, "applicant")} on the board · ${plural(b.voters, "voter")}` }),
-        appointedTo(b.key) ? h("p", { class: "small appointed-line" }, tick(), appointmentLabel(appointedTo(b.key))) : null,
+        appointedTo(b.key) ? h("p", { class: "small appointed-line" }, tick(), appointmentLabelNode(b.key)) : null,
         quiet ? h("p", { class: "small novote-line" }, crown(), "No public vote: its applicants are on the Applications tab") : null,
         b.top.length ? h("div", { class: "tally-top" }, b.top.map((t) => h("div", null, h("span", { text: t.label }), h("span", { class: "nowrap" }, h("span", { class: "yes", text: `+${t.yes}` }), " ", h("span", { class: "no", text: `−${t.no}` }))))) : h("p", { class: "faint small", text: "No board votes yet." }),
         w.top.length ? h("p", { class: "faint small mt-s", text: `Written in most: ${w.top.map((t) => `${t.label} (${t.votes})`).join(", ")}` }) : null);
@@ -3586,7 +3671,7 @@
     add(body, [
       h("p", null, h("a", { href: "#/admin/votes", text: "Back to all roles" })),
       frame(h("h2", null, posIcon(role, "s"), " ", data.role.label), h("span", { class: "aside", text: `${plural(data.voters, "voter")} on the board` }),
-        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: sentenceEnd(appointmentLabel(appointedTo(role))) + " " }), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
+        appointedTo(role) ? noticeBox("ok", "icon-shield", h("p", null, h("strong", null, appointmentLabelNode(role), ". "), "Members cannot choose this role, vote on it or write anyone in for it. The counts below are from before; they count again if you open the role in Settings.")) : null,
         noVoteFor(role) ? noticeBox("info", "icon-shield", h("p", null, h("strong", { text: "No public vote. " }), "Members can apply for this role but cannot vote on it or write anyone in. Its applicants are on the ",
           h("a", { href: "#/admin/applications", text: "Applications tab", onclick: () => { Object.assign(A.apps, { position: role.startsWith("class_lead:") ? "class_lead" : role, backups: true, profession: "", status: "open", q: "", offset: 0 }); } }),
           ". Any counts below are from before; they count again if you untick the role in Settings.")) : null,
@@ -3889,7 +3974,7 @@
   // ---------- the community pages ----------
   const newsOn = () => !!(S.settings && S.settings.newsOn); // .115: SiteSettings.newsOn, off unless an administrator switched it on
   function communityTabs(sub) {
-    const tabs = anyCommunity() ? [["", "Overview"]] : [];
+    const tabs = anyCommunity() || can("armyRead") ? [["", "Overview"]] : [];
     if (feat("directory")) tabs.push(["directory", "Directory"], ["profile", "My profile"]);
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
     if (feat("census") && can("confirmedGuildData")) tabs.push(["census", "Census preview"]);
@@ -3918,11 +4003,11 @@
   const memberActionNotice = () => noticeBox("info", "icon-shield", h("p", { text: "You can view the Community. Updating a member profile, responding to an event or using the Census preview still requires a verified character on the current guild roster." }), h("a", { href: "#/guide/member", text: "Read the member guide" }));
   ROUTES.community = async function community(main, parts) {
     const sub = parts[0] || "";
-    if (!anyCommunity() && sub !== "army") {
+    if (!anyCommunity() && sub !== "army" && !(sub === "" && can("armyRead"))) {
       add(main, frame("Community", null, noticeBox("info", "icon-clock", h("p", { text: "The community pages are not switched on yet." }))));
       return;
     }
-    const armyReaderOnly = sub === "army" && can("armyRead");
+    const armyReaderOnly = (sub === "army" || !anyCommunity() && sub === "") && can("armyRead");
     const accessLabel = !communityReader() ? armyReaderOnly ? "Signed-in Olympus member" : "Membership check needed" : S.user && S.user.isAdmin ? "Site administrator" : can("confirmedGuildData") ? "confirmed guild member" : "Guild Member role";
     add(main, frame("Community", h("span", { class: "badge " + (communityReader() || armyReaderOnly ? "green" : "muted"), text: accessLabel }), communityTabs(sub)));
     const body = h("div", { class: "stack mt" });
@@ -3962,17 +4047,39 @@
     if (feat("trials")) cards.push(h("a", { class: "card", href: "#/community/trial" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "My trial" })), h("p", { class: "muted small", text: "Your trial period as the officers recorded it: the review date and the outcome." })));
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
     if (newsOn()) cards.push(h("a", { class: "card", href: "#/community/news" }, h("div", { class: "card-head" }, icon("icon-launch"), h("h3", { text: "News" })), h("p", { class: "muted small", text: "Notices from the site's administrators, whether Olympus I has room, the guild in figures and what is coming up. For guild members and site administrators." }))); // .115
-    cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." }))); // .114
+    if (anyCommunity()) cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." }))); // .114
     add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
-  // .179: review-stage only. Source-fixed gates have no settings or browser override.
-  function communityArmyReview(body) {
+  // .183: read-only snapshots stay in this shell; attended reporting retains its separate capture policy.
+  async function communityArmyReview(body) {
+    const user = S.user, context = COM(), route = currentRoute(); let instance = null, disposed = false;
+    const live = () => !disposed && app.contains(body) && S.user === user && COM() === context && currentRoute() === route && can("armyRead");
+    const dispose = () => { if (disposed) return; disposed = true; if (instance && instance.destroy) instance.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    disposeTool = dispose;
+    const reader = h("div", { class: "army-reader" }, h("p", { role: "status", class: "muted", text: "Opening Army snapshots…" }));
     add(body, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
-        h("a", { class: "btn", href: "/army", text: "Open the Army page" }),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "/army/report", text: "Report a guild snapshot" }) : null,
-        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses a separate attended page and current server admission." }))));
+        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses a separate attended page and current server admission." }), reader)));
+    const load = async (namespace, file) => {
+      if (window[namespace]) return;
+      if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
+        const script = h("script", { src: file });
+        script.addEventListener("load", resolve);
+        script.addEventListener("error", () => { toolScripts.delete(namespace); reject(new Error("The Army reader could not be loaded. Open this section again to retry.")); });
+        document.head.appendChild(script);
+      }));
+      await toolScripts.get(namespace);
+      if (!window[namespace]) throw new Error("The Army reader is unavailable.");
+    };
+    try {
+      if (!document.querySelector('link[data-olympus-tool="OlympusArmyReader"]')) document.head.appendChild(h("link", { rel: "stylesheet", href: "/static/army-live/army.css", "data-olympus-tool": "OlympusArmyReader" }));
+      await load("OlympusGuildQRProtocol", "/static/army-live/protocol.js"); if (!live()) return;
+      await load("OlympusArmyReader", "/static/army-live/army.js"); if (!live()) return;
+      clear(reader); instance = await window.OlympusArmyReader.mount(reader, { isCurrent: live });
+      if (!live() && instance && instance.destroy) instance.destroy();
+    } catch (error) { if (live()) { clear(reader); add(reader, h("p", { role: "status", class: "muted", text: error.message || "Army snapshots could not be opened." })); } }
   }
 
   function communityCensus(body) {
