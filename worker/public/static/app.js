@@ -1237,7 +1237,8 @@
       h("div", { class: "governance-match-heading" }, matchStatus,
         h("button", { class: "btn small", type: "button", text: "Edit search", onclick: () => { search.focus({ preventScroll: true }); scrollToSection(search); } })),
       h("div", { class: "governance-match-buttons" }, matchPrev, matchNext));
-    let matches = [], activeMatch = -1, replacements = [];
+    const highlightWindowSize = 200;
+    let matches = [], activeMatch = -1, replacements = [], renderedMatches = [];
     const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
     const current = h("span", { class: "small" });
     let printState = null;
@@ -1296,6 +1297,7 @@
       const match = matches[i];
       matchPrev.disabled = matchNext.disabled = !match;
       if (!match) { matchStatus.textContent = "No matches"; return; }
+      if (!match.marks.length) renderMatchWindow(i);
       for (const mark of match.marks) mark.setAttribute("aria-current", "true");
       matchStatus.textContent = `Match ${i + 1} of ${matches.length} · ${match.chapter.title}`;
       if (scroll) {
@@ -1310,22 +1312,36 @@
     function moveMatch(delta) {
       if (matches.length) selectMatch((activeMatch + delta + matches.length) % matches.length, true);
     }
-    function highlightBlock(block, query, chapter) {
+    function restoreHighlights() {
+      // Restore original nodes rather than innerHTML, preserving inline markup.
+      for (const { parent, node, inserted } of replacements) { parent.insertBefore(node, inserted[0]); for (const item of inserted) parent.removeChild(item); }
+      for (const match of renderedMatches) match.marks = [];
+      replacements = []; renderedMatches = [];
+    }
+    function renderMatchWindow(i) {
+      restoreHighlights();
+      const start = Math.max(0, Math.min(matches.length - highlightWindowSize, i - Math.floor(highlightWindowSize / 2)));
+      renderedMatches = matches.slice(start, start + highlightWindowSize);
+      const blocks = new Map();
+      for (const match of renderedMatches) {
+        if (!blocks.has(match.block)) blocks.set(match.block, []);
+        blocks.get(match.block).push(match);
+      }
+      for (const [block, ranges] of blocks) highlightBlock(block, ranges);
+    }
+    function indexBlock(block, query, chapter) {
+      // Count every occurrence without creating a DOM node for every result.
+      // A common one-letter query must remain navigable on a mobile device.
+      const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+      for (const hit of block.textContent.matchAll(pattern)) matches.push({ chapter, block, start: hit.index, end: hit.index + hit[0].length, marks: [], ordinal: matches.length });
+    }
+    function highlightBlock(block, ranges) {
       const nodes = [];
       function textNodes(node) {
         if (node.nodeType === 3) nodes.push(node);
         else for (const child of node.childNodes) textNodes(child);
       }
       textNodes(block);
-      const text = nodes.map(node => node.textContent).join("");
-      // Case-insensitive literal matching preserves original UTF-16 offsets even
-      // when Unicode lowercasing would expand a character. Escape regex syntax.
-      const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
-      const ranges = [];
-      for (const hit of text.matchAll(pattern)) {
-        const match = { chapter, marks: [], ordinal: matches.length };
-        matches.push(match); ranges.push({ start: hit.index, end: hit.index + hit[0].length, match });
-      }
       let offset = 0;
       for (const node of nodes) {
         const original = node.textContent, end = offset + original.length;
@@ -1336,8 +1352,8 @@
           for (const range of overlaps) {
             const start = Math.max(0, range.start - offset), stop = Math.min(original.length, range.end - offset);
             if (start > cursor) insert(document.createTextNode(original.slice(cursor, start)));
-            const mark = h("mark", { class: "governance-search-match", "data-governance-match": range.match.ordinal, text: original.slice(start, stop) });
-            insert(mark); range.match.marks.push(mark); cursor = stop;
+            const mark = h("mark", { class: "governance-search-match", "data-governance-match": range.ordinal, text: original.slice(start, stop) });
+            insert(mark); range.marks.push(mark); cursor = stop;
           }
           if (cursor < original.length) insert(document.createTextNode(original.slice(cursor)));
           parent.removeChild(node); replacements.push({ parent, node, inserted });
@@ -1346,20 +1362,18 @@
       }
     }
     function filter() {
-      // Restore the original nodes, not innerHTML: repeated searches cannot nest
-      // marks, lose inline formatting, or change the hash-verified book's text.
-      for (const { parent, node, inserted } of replacements) { parent.insertBefore(node, inserted[0]); for (const item of inserted) parent.removeChild(item); }
-      replacements = []; matches = []; activeMatch = -1;
+      restoreHighlights(); matches = []; activeMatch = -1;
       const query = search.value.trim().toLowerCase(); let count = 0;
       for (const chapter of chapters) {
         const before = matches.length;
-        if (query) for (const block of searchBlocks.get(chapter.id)) highlightBlock(block, search.value.trim(), chapter);
+        if (query) for (const block of searchBlocks.get(chapter.id)) indexBlock(block, search.value.trim(), chapter);
         const found = !query || matches.length > before;
         const section = details.get(chapter.id); section.hidden = !found; toc.get(chapter.id).parentNode.hidden = !found;
         if (query) section.open = found;
         if (found) count++;
       }
       result.textContent = query ? `${count} of ${chapters.length} chapters match “${search.value.trim()}”.` : `The complete book • ${chapters.length} chapters. Select a chapter or search its full text.`;
+      if (matches.length > highlightWindowSize) result.textContent += ` Showing up to ${highlightWindowSize} highlights at a time; match navigation reaches every result.`;
       matchNav.hidden = !query;
       main.classList.toggle("governance-searching", !!query);
       selectMatch(matches.length ? 0 : -1);

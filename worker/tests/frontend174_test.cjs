@@ -175,6 +175,27 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   byText(member.app, "button", "Clear search").click();
   check("Clear search removes all marks and current-hit state while restoring all14 chapters exactly", governanceSearch.value === "" && governanceMarks().length === 0 && previousMatch.disabled && nextMatch.disabled && matchNavigation.hidden && member.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
 
+  // P2: a common one-character query must not turn the whole book into tens of
+  // thousands of DOM marks. Count independently from unmarked rendered source;
+  // the display budget must not truncate the searchable results or navigation.
+  const sourceBlocks = member.app.querySelectorAll("details.governance-chapter").flatMap(chapter => [chapter.querySelector("summary h2"), ...chapter.querySelectorAll(".governance-prose p, .governance-prose h3, .governance-prose h4, .governance-prose li, .governance-prose th, .governance-prose td").filter(block => !block.closest(".governance-instrument-note") && !block.closest(".governance-overview"))]);
+  const expectedSingleLetterHits = sourceBlocks.reduce((total, block) => total + [...block.textContent.matchAll(/e/giu)].length, 0);
+  const originalEmphasis = JSON.stringify(member.app.querySelectorAll(".governance-prose strong, .governance-prose code").map(node => ({ tag: node.tagName, text: node.textContent })));
+  const singleLetterBudget = () => governanceMarks().length > 0 && governanceMarks().length <= 200 && governanceGroups().length <= 200;
+  searchGovernance("e");
+  check("a common short query reports every source occurrence while bounding the initial highlight DOM", expectedSingleLetterHits > 10000 && matchStatus().includes("Match 1 of " + expectedSingleLetterHits) && currentGovernanceGroup().join(",") === "0" && singleLetterBudget() && member.app.querySelector('.governance-controls p[role="status"]').textContent.includes("Showing up to 200 highlights at a time") && member.app.querySelector('.governance-controls p[role="status"]').textContent.includes("match navigation reaches every result"));
+  previousMatch.click();
+  const lastShortHit = governanceMarks().find(mark => mark.getAttribute("aria-current") === "true");
+  check("short-query Previous wraps to the final global result and highlights it on demand within the same DOM budget", currentGovernanceGroup().join(",") === String(expectedSingleLetterHits - 1) && matchStatus().includes("Match " + expectedSingleLetterHits + " of " + expectedSingleLetterHits) && lastShortHit?.textContent.toLowerCase() === "e" && lastShortHit.closest("details.governance-chapter").open && singleLetterBudget());
+  nextMatch.click();
+  check("short-query Next wraps back to the first global result without accumulating old highlight windows", currentGovernanceGroup().join(",") === "0" && matchStatus().includes("Match 1 of " + expectedSingleLetterHits) && singleLetterBudget());
+  nextMatch.click();
+  check("short-query navigation inside the current window advances the logical result without exceeding the budget", currentGovernanceGroup().join(",") === "1" && matchStatus().includes("Match 2 of " + expectedSingleLetterHits) && singleLetterBudget() && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  searchGovernance("E");
+  check("editing a short query preserves its complete case-insensitive count and does not nest highlights", matchStatus().includes("Match 1 of " + expectedSingleLetterHits) && currentGovernanceGroup().join(",") === "0" && singleLetterBudget() && !member.app.querySelector("mark mark") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  byText(member.app, "button", "Clear search").click();
+  check("clearing a windowed search restores exact source text and emphasis with no leftover highlight nodes", governanceMarks().length === 0 && currentGovernanceGroup().length === 0 && matchNavigation.hidden && previousMatch.disabled && nextMatch.disabled && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText && JSON.stringify(member.app.querySelectorAll(".governance-prose strong, .governance-prose code").map(node => ({ tag: node.tagName, text: node.textContent }))) === originalEmphasis);
+
   const bookSearch = member.app.querySelector("#governance-search"), printStates = [], originalPrint = member.window.print;
   bookSearch.value = "Independent auditor warrant"; fire(bookSearch, "input");
   const nativeChapters = member.app.querySelectorAll("details.governance-chapter"), searchStatus = member.app.querySelector('.governance-controls p[role="status"]');

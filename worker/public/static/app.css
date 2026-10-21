@@ -844,6 +844,8 @@ table.data select, table.data input { max-width: 180px; }
 .governance-table th, .governance-table td { vertical-align: top; min-width: 100px; }
 .governance-overview { display: flex; gap: 16px; padding: 18px; background: var(--tooltip); border: 1px solid var(--brass); margin: 18px 0; }
 .governance-overview h3 { margin-top: 0; }
+.governance-overview > div { min-width: 0; }
+.governance-overview .btn { white-space: normal; max-width: 100%; }
 .governance-overview > .ico { flex: 0 0 32px; }
 .organization-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
 .organization-legend p { margin: 0; padding: 12px; background: var(--dialog); border-left: 3px solid var(--brass); font-size: 0.86rem; }
@@ -889,6 +891,7 @@ table.data select, table.data input { max-width: 180px; }
 }
 @media (max-width: 480px) {
   .governance-prose { padding: 16px; }
+  .governance-overview { flex-direction: column; gap: 8px; }
   .governance-toc ol, .organization-terms { columns: 1; }
   .organization-ranks, .organization-legend { grid-template-columns: minmax(0, 1fr); }
   .organization-children { padding-left: 10px; margin-left: 5px; }
