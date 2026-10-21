@@ -160,6 +160,51 @@ function renderer(fetcher) {
   check('.174 refresh cadence/cache limits remain readable without internal admission wording', textOf(groupedHolder).includes('every 60 seconds') && textOf(groupedHolder).includes('ten minutes') && !textOf(groupedHolder).includes('admitted view'));
   check('.184 retrieval details distinguish the upstream HTTP status from the successful site API', textOf(groupedCards[1]).includes('Publisher response: HTTP 503.') && !textOf(groupedCards[0]).includes('Publisher response:'));
   groupedMount.destroy();
+  const regionalTitle187 = 'Campfire source fixture', regionalDate187 = 'Sun, 18 Oct 2026 18:00:00 +0000';
+  const regionalUrls187 = ['https://www.wowhead.com/forever/blue-tracker/news/us/24301516', 'https://www.wowhead.com/forever/blue-tracker/news/eu/24301516'];
+  const regionalData187 = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => idFor(url) === 'wowhead-blues'
+    ? response(rss(regionalUrls187.map(href => `<item><title>${regionalTitle187}</title><link>${href}</link><pubDate>${regionalDate187}</pubDate></item>`).join('')))
+    : fixtureFetch(url) });
+  const regionalSource187 = regionalData187.sources.find(source => source.sourceId === 'wowhead-blues');
+  check('.187 the actual parser preserves both regional blue posts with identical title/date and distinct exact URLs', regionalSource187.items.length === 2 && regionalSource187.items.every((item, index) => item.title === regionalTitle187 && item.url === regionalUrls187[index] && item.publishedAt === Math.floor(Date.parse(regionalDate187) / 1000) && Object.keys(item).sort().join('|') === 'publishedAt|title|url') && limits.items === 12);
+  const regionalUi187 = renderer(async url => { assert.equal(url, '/api/resource-updates'); return Response.json(regionalData187); }), regionalHolder187 = new Element('div');
+  const regionalMount187 = regionalUi187.api.mount(regionalHolder187, { view: 'updates' }); await settle();
+  const regionalCard187 = walk(regionalHolder187).filter(node => node.tagName === 'ARTICLE')[2];
+  const regionalRows187 = walk(regionalCard187).find(node => node.className === 'resources169-headlines').children;
+  const regionalPublished187 = new Date(regionalSource187.items[0].publishedAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+  check('.187 blue-tracker variants retain two original links and dates with visible US/EU labels instead of identical-looking rows', regionalRows187.length === 2 && regionalRows187.every((row, index) => row.children[0].textContent === regionalTitle187 && row.children[0].href === regionalUrls187[index] && row.children[0].rel === 'noopener noreferrer' && row.children[1].textContent === 'Region: ' + ['US', 'EU'][index] + ' · Published: ' + regionalPublished187) && regionalUi187.calls.length === 1);
+  const regionalFilter187 = walk(regionalHolder187).filter(node => node.type === 'checkbox')[2];
+  regionalFilter187.checked = false; regionalFilter187.fire('change');
+  check('.187 filtering the blue tracker removes its regional rows without another source request', !textOf(regionalHolder187).includes('Region:') && !walk(regionalHolder187).some(node => node.tagName === 'A' && regionalUrls187.includes(node.href)) && regionalUi187.calls.length === 1);
+  regionalFilter187.checked = true; regionalFilter187.fire('change');
+  check('.187 re-enabling the source restores both regional labels and original links without refetching', textOf(regionalHolder187).includes('Region: US') && textOf(regionalHolder187).includes('Region: EU') && regionalUrls187.every(url => walk(regionalHolder187).some(node => node.tagName === 'A' && node.href === url)) && regionalUi187.calls.length === 1);
+  regionalMount187.destroy();
+  const topicUrls187 = ['https://www.wowhead.com/forever/blue-tracker/topic/us/2360696', 'https://www.wowhead.com/forever/blue-tracker/topic/eu/2360696'];
+  const topicData187 = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => idFor(url) === 'wowhead-blues'
+    ? response(rss(topicUrls187.map(href => `<item><title>Regional topic fixture</title><link>${href}</link><pubDate>${regionalDate187}</pubDate></item>`).join('')))
+    : fixtureFetch(url) });
+  const topicUi187 = renderer(async () => Response.json(topicData187)), topicHolder187 = new Element('div');
+  const topicMount187 = topicUi187.api.mount(topicHolder187, { view: 'updates' }); await settle();
+  const topicRows187 = walk(walk(topicHolder187).filter(node => node.tagName === 'ARTICLE')[2]).find(node => node.className === 'resources169-headlines').children;
+  check('.187 validated blue-tracker regional topic URLs also keep both exact links and dates with US/EU labels', topicData187.sources[2].items.length === 2 && topicRows187.length === 2 && topicRows187.every((row, index) => row.children[0].href === topicUrls187[index] && row.children[1].textContent === 'Region: ' + ['US', 'EU'][index] + ' · Published: ' + regionalPublished187) && topicUi187.calls.length === 1);
+  topicMount187.destroy();
+  for (const [sourceId187, url187] of [
+    ['wowhead-forever', regionalUrls187[0]], ['blizzard-notes', regionalUrls187[1]],
+    ['wowhead-blues', 'https://news.blizzard.com/forever/blue-tracker/news/us/24301516'],
+    ['wowhead-blues', 'https://www.wowhead.com/news/us/24301516'],
+    ['wowhead-blues', 'https://www.wowhead.com/forever/blue-tracker/news/24301516?region=us'],
+    ['wowhead-blues', 'https://www.wowhead.com/forever/blue-tracker/news/uk/24301516'],
+    ['wowhead-blues', 'https://www.wowhead.com/forever/blue-tracker/news/usual/24301516'],
+    ['wowhead-blues', 'https://www.wowhead.com/forever/blue-tracker/news/us/24301516extra'],
+    ['wowhead-blues', 'https://www.wowhead.com/forever/blue-tracker/topic/eu/not-a-story-id'],
+  ]) {
+    const unknownRegion187 = structuredClone(good); unknownRegion187.sources.forEach(source => { source.items = []; });
+    unknownRegion187.sources.find(source => source.sourceId === sourceId187).items = [{ title: 'Unclassified region fixture', url: url187, publishedAt: AT - DAY }];
+    const unknownUi187 = renderer(async () => Response.json(unknownRegion187)), unknownHolder187 = new Element('div');
+    const unknownMount187 = unknownUi187.api.mount(unknownHolder187, { view: 'updates' }); await settle();
+    check('.187 region is never inferred from another source, host, query or unmatched path: ' + sourceId187 + ' ' + url187, !textOf(unknownHolder187).includes('Region:') && walk(unknownHolder187).some(node => node.tagName === 'A' && node.href === url187) && textOf(unknownHolder187).includes('Unclassified region fixture') && unknownUi187.calls.length === 1);
+    unknownMount187.destroy();
+  }
   for (const unsafeStatus of ['PRIVATE_STATUS_TEXT', 99, 600, 503.5]) {
     const malformedStatus = structuredClone(groupedData); malformedStatus.sources[1].upstreamStatus = unsafeStatus;
     const statusUi = renderer(async () => Response.json(malformedStatus)), statusHolder = new Element('div');

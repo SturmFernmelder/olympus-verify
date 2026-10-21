@@ -123,9 +123,10 @@
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
     let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
     let reusableArtwork = null, artworkNotice = null, view = null, analysisView = null, feedbackSequence = 0;
-    const failedArtwork = new Set();
+    const failedArtwork = new Set(), artworkRecords = new WeakMap(), artworkQueue = [], loadingArtwork = new Set();
+    let pumpingArtwork = false;
     function cancelDetailLeave() { if (detailLeaveTimer !== null) clearTimeout(detailLeaveTimer); detailLeaveTimer = null; }
-    const controller = { destroy() { active = false; cancelDetailLeave(); analysisView?.destroy(); analysisView = null; view = null; failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
+    const controller = { destroy() { active = false; cancelDetailLeave(); analysisView?.destroy(); analysisView = null; view = null; artworkQueue.length = 0; for (const entry of loadingArtwork) entry.node.removeAttribute("src"); loadingArtwork.clear(); failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
     mounted.set(container, controller);
     const h = (tag, attrs, ...children) => {
       const node = document.createElement(tag);
@@ -144,15 +145,44 @@
       for (const node of failedArtwork) if (!container.contains(node)) failedArtwork.delete(node);
       if (active && artworkNotice) artworkNotice.hidden = failedArtwork.size === 0;
     }
+    function pumpArtwork() {
+      if (!active || pumpingArtwork) return;
+      pumpingArtwork = true;
+      try {
+        // .187: cold class switches must not start dozens of protected requests at once.
+        // Detached in-flight attempts retain their slot until load/error; dropping a
+        // stale queued node never grants another slot while its older request is live.
+        for (let i = artworkQueue.length - 1; i >= 0; i--) if (!container.contains(artworkQueue[i].node)) artworkQueue.splice(i, 1)[0].state = "cancelled";
+        while (loadingArtwork.size < 4 && artworkQueue.length) {
+          const entry = artworkQueue.shift();
+          if (entry.state !== "queued" || !container.contains(entry.node)) continue;
+          entry.state = "loading"; loadingArtwork.add(entry);
+          entry.node.setAttribute("src", entry.url);
+        }
+      } finally { pumpingArtwork = false; }
+    }
+    function settledArtwork(entry, loaded) {
+      if (!active || entry.state !== "loading") return;
+      const released = loadingArtwork.delete(entry);
+      entry.state = loaded ? "loaded" : "failed";
+      if (container.contains(entry.node)) {
+        entry.node.hidden = !loaded;
+        if (loaded) failedArtwork.delete(entry.node); else failedArtwork.add(entry.node);
+      }
+      updateArtworkNotice();
+      if (released) pumpArtwork();
+    }
     function image(url, attrs = {}) {
       // .177: reuse only images already mounted in this active calculator. Point edits
       // must not re-request every private icon. No cross-mount cache or admission bypass.
       const prior = reusableArtwork?.get(artworkKey(url, attrs))?.shift();
       if (prior) return prior;
-      return h("img", { ...attrs, src: url, alt: "", draggable: "false", decoding: "async",
-        onerror(event) { event.target.hidden = true; if (active) { failedArtwork.add(event.target); updateArtworkNotice(); } },
-        onload(event) { if (active) { event.target.hidden = false; failedArtwork.delete(event.target); updateArtworkNotice(); } }
-      });
+      const node = h("img", { ...attrs, alt: "", draggable: "false", decoding: "async", hidden: true });
+      const entry = { node, url, state: "queued" };
+      artworkRecords.set(node, entry); artworkQueue.push(entry);
+      node.addEventListener("error", () => settledArtwork(entry, false));
+      node.addEventListener("load", () => settledArtwork(entry, true));
+      return node;
     }
     container.replaceChildren(h("p", { role: "status", text: "Opening the talent library…" }));
     try {
@@ -205,7 +235,7 @@
       analysisView?.destroy(); analysisView = null;
       reusableArtwork = new Map();
       for (const node of container.querySelectorAll("img")) {
-        const key = artworkKey(node.getAttribute("src"), { class: node.className, "aria-hidden": node.getAttribute("aria-hidden") });
+        const key = artworkKey(artworkRecords.get(node)?.url || node.getAttribute("src"), { class: node.className, "aria-hidden": node.getAttribute("aria-hidden") });
         if (!reusableArtwork.has(key)) reusableArtwork.set(key, []);
         reusableArtwork.get(key).push(node);
       }
@@ -236,8 +266,11 @@
           // One explicit retry of failed, currently mounted images at their original URLs.
           // The Worker checks the current session and Native boundary again on every fetch.
           for (const node of failedArtwork) if (container.contains(node)) {
-            const url = node.getAttribute("src"); node.removeAttribute("src"); node.setAttribute("src", url);
+            const entry = artworkRecords.get(node);
+            if (!entry || entry.state === "queued" || entry.state === "loading") continue;
+            node.removeAttribute("src"); entry.state = "queued"; artworkQueue.push(entry);
           }
+          pumpArtwork();
         } }));
       function hideDetail() {
         cancelDetailLeave(); detail.hidden = true;
@@ -276,6 +309,7 @@
         for (const pick of buttons.values()) pick.removeAttribute("aria-describedby");
         if (button) button.setAttribute("aria-describedby", detailId);
         detail.hidden = !open;
+        pumpArtwork();
       }
       const treeCards = cls.trees.map((tree, treeIndex) => {
         const treeKey = cls.id + "-" + tree.id;
@@ -334,7 +368,7 @@
       const code = serializeBuild(data, build);
       const copy = h("button", { type: "button", text: "Copy link", async onclick() {
         const currentCode = serializeBuild(data, build), link = typeof location === "object" ? location.origin + location.pathname + "#/talents/" + cls.id + "/" + currentCode : currentCode;
-        try { if (!navigator.clipboard?.writeText) throw Error("clipboard unavailable"); await navigator.clipboard.writeText(link); status.textContent = "Build link copied. Anyone with the link can open it."; }
+        try { if (!navigator.clipboard?.writeText) throw Error("clipboard unavailable"); await navigator.clipboard.writeText(link); status.textContent = "Build link copied. Recipients must sign in and meet the site's access requirements."; }
         catch { status.textContent = "Copy the build code below; clipboard access is unavailable."; share.focus(); share.select(); }
       } });
       const reset = h("button", { type: "button", text: "Reset", onclick() { if (!active) return; build = emptyBuild(data, cls.id, build.level); message = "Build reset."; changed(); render("reset"); } });
