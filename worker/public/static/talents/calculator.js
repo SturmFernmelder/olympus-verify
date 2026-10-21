@@ -122,10 +122,10 @@
     mounted.get(container)?.destroy();
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
     let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
-    let reusableArtwork = null, artworkNotice = null;
+    let reusableArtwork = null, artworkNotice = null, view = null, analysisView = null, feedbackSequence = 0;
     const failedArtwork = new Set();
     function cancelDetailLeave() { if (detailLeaveTimer !== null) clearTimeout(detailLeaveTimer); detailLeaveTimer = null; }
-    const controller = { destroy() { active = false; cancelDetailLeave(); failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
+    const controller = { destroy() { active = false; cancelDetailLeave(); analysisView?.destroy(); analysisView = null; view = null; failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
     mounted.set(container, controller);
     const h = (tag, attrs, ...children) => {
       const node = document.createElement(tag);
@@ -186,25 +186,32 @@
       if (typeof options.onBuildChange === "function") options.onBuildChange({ className: build.className, build: serializeBuild(data, build), level: build.level, points: validateBuild(data, build).points });
     }
     function edit(talentId, delta) {
+      if (!active) return;
       selected = talentId; const result = allocate(data, build, talentId, delta);
       if (result.ok) { build = result.build; message = ""; changed(); } else message = result.error;
-      render(talentId);
+      render(talentId, result.ok ? delta > 0 ? "learn" : "refund" : "blocked");
     }
     function chooseClass(className) {
+      if (!active) return;
       if (className === build.className) return; // Re-selecting the active tab is not an explicit reset.
       build = emptyBuild(data, className, build.level); selected = talentsOf(classOf(data, className))[0].id; message = ""; changed(); render("class:" + className);
     }
-    function render(focus) {
+    function render(focus, feedback) {
       cancelDetailLeave();
       if (!active) return;
+      // .179: one mounted tree per class. A point, level, reset or comparison
+      // change paints existing controls; it must not detach focus or a tooltip.
+      if (view && view.className === build.className) { view.paint(focus, feedback); return; }
+      analysisView?.destroy(); analysisView = null;
       reusableArtwork = new Map();
       for (const node of container.querySelectorAll("img")) {
         const key = artworkKey(node.getAttribute("src"), { class: node.className, "aria-hidden": node.getAttribute("aria-hidden") });
         if (!reusableArtwork.has(key)) reusableArtwork.set(key, []);
         reusableArtwork.get(key).push(node);
       }
-      const cls = classOf(data, build.className), talents = talentsOf(cls), state = validateBuild(data, build), byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
-      const buttons = new Map(), classButtons = new Map();
+      const cls = classOf(data, build.className), talents = talentsOf(cls);
+      let state = validateBuild(data, build), byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]])), detailTalent = null, detailRefs = null;
+      const buttons = new Map(), classButtons = new Map(), nodeRefs = new Map(), connectionRefs = [], treePointLabels = [], specPointRefs = [], removedRefs = [];
       if (!talents.some(t => t.id === selected)) selected = talents[0].id;
       const classSelect = h("select", { id: "olympus-talent-class", "aria-label": "Character class", tabindex: "-1", onchange(event) { chooseClass(event.target.value); } }, data.classes.map(c => h("option", { value: c.id, text: c.name })));
       classSelect.value = cls.id;
@@ -213,12 +220,13 @@
         classButtons.set(c.id, button); return button;
       }));
       const level = h("select", { id: "olympus-talent-level", "aria-label": "Character level", onchange(event) {
+        if (!active) return;
         const next = { ...build, level: Number(event.target.value) }, checked = validateBuild(data, next);
         if (checked.ok) { build = next; message = ""; changed(); } else message = checked.error + " Refund points or reset first.";
         render("level");
       } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
       level.value = String(build.level);
-      const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { compare = event.target.checked; render("compare"); } });
+      const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { if (active) { compare = event.target.checked; render("compare"); } } });
       const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); hideDetail(); } } });
       const status = h("p", { class: "talents-feedback", role: "status", "aria-live": "polite", text: message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank." });
       artworkNotice = h("div", { class: "talents-artwork-notice", hidden: true, role: "status", "aria-live": "polite" },
@@ -238,22 +246,31 @@
       function showDetail(t, button, open = true) {
         cancelDetailLeave();
         const rank = byId.get(t.id), c = t.classic;
-        detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, image(art.talentIcons[t.id]), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { hideDetail(); if (button) button.focus(); hideDetail(); } })),
-          h("p", { class: "talents-rank", text: "Rank " + rank + " / " + t.maxRank + (t.passive ? " · Passive" : " · Active ability") }),
-          t.cost ? h("p", { class: "talents-cost", text: t.cost }) : null,
-          h("h4", { text: rank ? "Current rank" : "First rank" }), h("p", { class: "talents-description", text: t.descriptions[Math.max(0, rank - 1)] }),
-          rank > 0 && rank < t.maxRank ? h("div", null, h("h4", { text: "Next rank" }), h("p", { class: "talents-description", text: t.descriptions[rank] })) : null,
-          t.requires ? h("p", { class: "talents-requires", text: "Requires " + talents.find(p => p.id === t.requires).name + " at maximum rank." }) : null,
-          h("details", { class: "talents-all-ranks" }, h("summary", { text: "Read all " + t.maxRank + " ranks" }), h("ol", null, t.descriptions.map(text => h("li", { text })))),
-          h("div", { class: "talents-detail-controls" }, h("button", { type: "button", disabled: !allocate(data, build, t.id, -1).ok, onclick: () => edit(t.id, -1), text: "− Unlearn" }), h("button", { type: "button", disabled: !allocate(data, build, t.id, 1).ok, onclick: () => edit(t.id, 1), text: "+ Learn" }))].filter(node => node !== null && node !== undefined));
-        if (compare) detail.append(h("section", { class: "talents-classic" }, h("h4", { text: "Classic comparison" }), h("p", { class: "talents-badges" }, comparisonBadges(t).map(label => h("span", { class: "talents-badge " + label.toLowerCase(), text: label }))),
-          c.text ? h("div", null, h("p", { class: "talents-reference-label", text: "Classic rank-one reference · " + c.tree + " · " + c.max + " ranks" }), h("p", { class: "talents-description", text: c.text })) : h("p", { text: "No direct Classic counterpart is listed in this snapshot." }),
-          c.renamed ? h("p", { text: "Classic name: " + c.renamed }) : null,
-          c.note ? h("p", { text: c.note }) : null,
-          c.replaces?.length ? h("p", { text: "Replaces: " + c.replaces.join(", ") }) : null));
+        if (detailTalent?.id !== t.id) {
+          const rankLabel = h("p", { class: "talents-rank" }), currentHeading = h("h4"), currentText = h("p", { class: "talents-description" });
+          const nextText = h("p", { class: "talents-description" }), next = h("div", null, h("h4", { text: "Next rank" }), nextText), ranks = h("div");
+          const remove = h("button", { type: "button", onclick: () => edit(t.id, -1), text: "− Unlearn" }), learn = h("button", { type: "button", onclick: () => edit(t.id, 1), text: "+ Learn" });
+          const classic = h("section", { class: "talents-classic", hidden: !compare }, h("h4", { text: "Classic comparison" }), h("p", { class: "talents-badges" }, comparisonBadges(t).map(label => h("span", { class: "talents-badge " + label.toLowerCase(), text: label }))),
+            c.text ? h("div", null, h("p", { class: "talents-reference-label", text: "Classic rank-one reference · " + c.tree + " · " + c.max + " ranks" }), h("p", { class: "talents-description", text: c.text })) : h("p", { text: "No direct Classic counterpart is listed in this snapshot." }),
+            c.renamed ? h("p", { text: "Classic name: " + c.renamed }) : null,
+            c.note ? h("p", { text: c.note }) : null,
+            c.replaces?.length ? h("p", { text: "Replaces: " + c.replaces.join(", ") }) : null);
+          detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, image(art.talentIcons[t.id]), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { hideDetail(); if (button) button.focus(); hideDetail(); } })),
+            rankLabel, t.cost ? h("p", { class: "talents-cost", text: t.cost }) : null, ranks,
+            t.requires ? h("p", { class: "talents-requires", text: "Requires " + talents.find(p => p.id === t.requires).name + " at maximum rank." }) : null,
+            h("details", { class: "talents-all-ranks" }, h("summary", { text: "Read all " + t.maxRank + " ranks" }), h("ol", null, t.descriptions.map(text => h("li", { text })))),
+            h("div", { class: "talents-detail-controls" }, remove, learn), classic].filter(node => node !== null && node !== undefined));
+          detailTalent = t; detailRefs = { rankLabel, currentHeading, currentText, nextText, next, ranks, remove, learn, classic };
+        }
+        detailRefs.rankLabel.textContent = "Rank " + rank + " / " + t.maxRank + (t.passive ? " · Passive" : " · Active ability");
+        detailRefs.currentHeading.textContent = rank ? "Current rank" : "First rank";
+        detailRefs.currentText.textContent = t.descriptions[Math.max(0, rank - 1)];
+        detailRefs.nextText.textContent = t.descriptions[rank] || "";
+        detailRefs.ranks.replaceChildren(detailRefs.currentHeading, detailRefs.currentText, ...(rank > 0 && rank < t.maxRank ? [detailRefs.next] : []));
+        detailRefs.remove.disabled = !allocate(data, build, t.id, -1).ok; detailRefs.learn.disabled = !allocate(data, build, t.id, 1).ok; detailRefs.classic.hidden = !compare;
         if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
         if (button && button.parentNode) {
-          button.parentNode.append(detail);
+          if (detail.parentNode !== button.parentNode) button.parentNode.append(detail);
           if (open) button.parentNode.setAttribute("data-detail-open", "true");
         }
         for (const pick of buttons.values()) pick.removeAttribute("aria-describedby");
@@ -264,14 +281,21 @@
         const treeKey = cls.id + "-" + tree.id;
         const links = tree.talents.filter(t => t.requires).map(t => {
           const parent = talents.find(p => p.id === t.requires), ready = byId.get(parent.id) === parent.maxRank;
-          return h("span", { class: "talents-link from-r" + parent.row + " to-r" + t.row + " to-c" + t.column + " start-c" + Math.min(parent.column, t.column) + " span-r" + (t.row - parent.row) + " span-c" + Math.abs(t.column - parent.column) + (t.column < parent.column ? " leftward" : " rightward") + (t.row === parent.row ? " same-row" : "") + (ready ? " ready" : ""), "aria-hidden": "true" }, h("span", { class: "talents-link-h" }), h("span", { class: "talents-link-v" }), h("span", { class: "talents-link-arrow" }));
+          const baseClass = "talents-link from-r" + parent.row + " to-r" + t.row + " to-c" + t.column + " start-c" + Math.min(parent.column, t.column) + " span-r" + (t.row - parent.row) + " span-c" + Math.abs(t.column - parent.column) + (t.column < parent.column ? " leftward" : " rightward") + (t.row === parent.row ? " same-row" : "");
+          const node = h("span", { class: baseClass + (ready ? " ready" : ""), "aria-hidden": "true" }, h("span", { class: "talents-link-h" }), h("span", { class: "talents-link-v" }), h("span", { class: "talents-link-arrow" }));
+          connectionRefs.push({ node, baseClass, parent }); return node;
         });
+        const pointLabel = h("strong", { text: String(state.treePoints[treeIndex]) + (state.treePoints[treeIndex] === 1 ? " point" : " points") });
+        treePointLabels.push(pointLabel);
+        const removed = tree.removedClassic.length ? h("details", { class: "talents-removed", hidden: !compare }, h("summary", { text: "Classic-only references (" + tree.removedClassic.length + ")" }), tree.removedClassic.map(t => h("div", null, h("strong", { text: t.name }), h("p", { text: t.text || "No text supplied." })))) : null;
+        if (removed) removedRefs.push(removed);
         return h("section", { class: "talents-tree", "data-tree-index": treeIndex, "aria-label": tree.name },
-          h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h3", { text: tree.name }), h("strong", { text: String(state.treePoints[treeIndex]) + (state.treePoints[treeIndex] === 1 ? " point" : " points") })),
+          h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h3", { text: tree.name }), pointLabel),
           h("div", { class: "talents-tree-body" }, image(art.treeBackgrounds[treeKey], { class: "talents-backdrop", "aria-hidden": "true" }), h("div", { class: "talents-links", "aria-hidden": "true" }, links),
             h("div", { class: "talents-grid" }, tree.talents.map(t => {
               const rank = byId.get(t.id), canAdd = allocate(data, build, t.id, 1).ok, canRemove = allocate(data, build, t.id, -1).ok;
               const treeTabId = tree.talents.some(p => p.id === selected) ? selected : tree.talents[0].id;
+              const pill = h("span", { class: "talents-rank-pill", "aria-hidden": "true", text: rank + "/" + t.maxRank });
               const pick = h("button", { type: "button", class: "talents-pick", tabindex: treeTabId === t.id ? "0" : "-1", "aria-pressed": String(selected === t.id), "aria-label": t.name + ", rank " + rank + " of " + t.maxRank + (canAdd ? ". Add one point." : ". Read talent details."),
                 onclick: event => edit(t.id, event.shiftKey ? -1 : 1), oncontextmenu(event) { event.preventDefault(); edit(t.id, -1); },
                 onpointerenter() { showDetail(t, pick); },
@@ -287,8 +311,9 @@
                     .sort((a, b) => Math.abs(a.row - t.row) + Math.abs(a.column - t.column) - Math.abs(b.row - t.row) - Math.abs(b.column - t.column))[0];
                   if (near) buttons.get(near.id).focus();
                 }
-              }, image(art.talentIcons[t.id]), h("span", { class: "talents-name", text: t.name }), h("span", { class: "talents-rank-pill", "aria-hidden": "true", text: rank + "/" + t.maxRank }));
+              }, image(art.talentIcons[t.id]), h("span", { class: "talents-name", text: t.name }), pill);
               buttons.set(t.id, pick);
+              const badges = h("span", { class: "talents-node-badges", "aria-hidden": "true", hidden: !compare, text: comparisonBadges(t).map(label => label[0]).join("") });
               const node = h("div", { class: "talents-node" + (rank ? " invested" : "") + (rank === t.maxRank ? " complete" : "") + (canAdd ? " available" : "") + (!canAdd && !rank ? " locked" : "") + (compare ? " compare-" + t.classic.status : ""), "data-row": t.row, "data-column": t.column,
                 onpointerenter() { cancelDetailLeave(); },
                 onpointerleave(event) {
@@ -300,34 +325,104 @@
                     if (detail.parentNode === node && !node.contains(document.activeElement)) hideDetail();
                   }, 250);
                 } }, pick,
-                compare ? h("span", { class: "talents-node-badges", "aria-hidden": "true", text: comparisonBadges(t).map(label => label[0]).join("") }) : null);
+                badges);
+              nodeRefs.set(t.id, { node, pick, pill, badges, tree });
               return node;
             }))),
-          compare && tree.removedClassic.length ? h("details", { class: "talents-removed" }, h("summary", { text: "Classic-only references (" + tree.removedClassic.length + ")" }), tree.removedClassic.map(t => h("div", null, h("strong", { text: t.name }), h("p", { text: t.text || "No text supplied." })))) : null);
+          removed);
       });
-      const code = serializeBuild(data, build), link = typeof location === "object" ? location.origin + location.pathname + "#/talents/" + cls.id + "/" + code : code;
+      const code = serializeBuild(data, build);
       const copy = h("button", { type: "button", text: "Copy link", async onclick() {
+        const currentCode = serializeBuild(data, build), link = typeof location === "object" ? location.origin + location.pathname + "#/talents/" + cls.id + "/" + currentCode : currentCode;
         try { if (!navigator.clipboard?.writeText) throw Error("clipboard unavailable"); await navigator.clipboard.writeText(link); status.textContent = "Build link copied. Anyone with the link can open it."; }
         catch { status.textContent = "Copy the build code below; clipboard access is unavailable."; share.focus(); share.select(); }
       } });
-      const reset = h("button", { type: "button", text: "Reset", onclick() { build = emptyBuild(data, cls.id, build.level); message = "Build reset."; changed(); render("reset"); } });
+      const reset = h("button", { type: "button", text: "Reset", onclick() { if (!active) return; build = emptyBuild(data, cls.id, build.level); message = "Build reset."; changed(); render("reset"); } });
       const share = h("input", { class: "talents-share-code", readonly: "readonly", "aria-label": "Shareable talent build code", value: code });
+      const split = h("strong", { text: state.treePoints.join(" / ") }), pointsLeft = h("span", { text: "Points left: " + (state.budget - state.points) }), levelNeeded = h("span", { text: "Level needed: " + state.levelNeeded });
+      const legend = h("p", { class: "talents-comparison-legend", hidden: !compare, text: "N New · C Changed · M Moved · dimmed: same as Classic. Hover or focus a talent for its Classic reference." });
+      const analysisHost = options.analysis && typeof options.analysis.mount === "function" ? h("div", { class: "talents-analysis-host" }) : null;
+      const guides = options.guideBuilds, checkedGuides = guides?.revision === data.revision && Array.isArray(guides.records) && Array.isArray(guides.sources);
+      const guideSource = checkedGuides ? guides.sources.find(source => source.className === cls.id && typeof source.author === "string" && source.author && typeof source.updatedAt === "string" && source.updatedAt && /^https:\/\/www\.method\.gg\/wow-forever\/[a-z0-9-]+$/.test(source.url)) : null;
+      const guideRecords = guideSource ? guides.records.filter(record => record.className === cls.id && typeof record.id === "string" && /^[a-z0-9-]+$/.test(record.id) && typeof record.label === "string" && record.label && record.url === guideSource.url && (() => { const candidate = parseBuild(data, record.code); return candidate.ok && candidate.build.className === cls.id; })()) : [];
+      const guideStatus = h("p", { class: "talents-guide-status", role: "status", "aria-live": "polite", text: guideRecords.length ? "Choose a checked allocation to see its point budget, then load it when ready." : "No checked compatible allocation in this snapshot. Read the publisher's guide for its current recommendations." });
+      const guideSelect = h("select", { "aria-label": "Guide-recommended build", onchange() {
+        if (!active || view?.className !== cls.id || build.className !== cls.id || !container.contains(guideSelect)) return;
+        const record = guideRecords.find(item => item.id === guideSelect.value);
+        guideLoad.disabled = !record;
+        if (!record) { guideStatus.textContent = "Choose a checked allocation to see its point budget, then load it when ready."; return; }
+        const candidate = parseBuild(data, record.code);
+        if (!candidate.ok) { guideLoad.disabled = true; guideStatus.textContent = "That allocation does not match this talent snapshot. Your plan was not changed."; return; }
+        guideStatus.textContent = "Minimum level " + candidate.levelNeeded + " without Legacy bonuses. Load replaces your current plan and sets its level to " + candidate.build.level + ".";
+      } }, h("option", { value: "", text: "Choose a guide build" }), guideRecords.map(record => h("option", { value: record.id, text: record.label })));
+      const guideLoad = h("button", { type: "button", disabled: true, text: "Load guide build", onclick() {
+        if (!active || view?.className !== cls.id || build.className !== cls.id || !container.contains(guideLoad)) return;
+        const record = guideRecords.find(item => item.id === guideSelect.value), candidate = record && parseBuild(data, record.code);
+        if (!candidate?.ok || candidate.build.className !== cls.id) { guideStatus.textContent = "That allocation does not match this talent snapshot. Your plan was not changed."; return; }
+        build = candidate.build; selected = talents.find((talent, index) => build.ranks[index] > 0)?.id || talents[0].id;
+        message = "Loaded " + record.label + ". This changes only the local calculator plan."; changed(); render("guide");
+      } });
+      const guidePanel = guideSource ? h("section", { class: "talents-guides", "aria-label": "Guide-recommended builds" },
+        h("div", { class: "talents-guide-heading" }, h("h3", { text: "Guide builds" }), h("a", { href: guideSource.url, rel: "noopener noreferrer", text: "Read Method's " + cls.name + " guide" })),
+        guideRecords.length ? h("div", { class: "talents-guide-controls" }, h("label", null, "Checked allocation", guideSelect), guideLoad) : null,
+        guideStatus, h("details", { class: "talents-guide-about" }, h("summary", { text: "About these guide builds" }),
+          h("p", { class: "talents-guide-attribution", text: "By " + guideSource.author + " · Updated " + guideSource.updatedAt + ". Beta recommendations, not a guarantee of current tuning or optimal results." }),
+          h("p", { class: "talents-guide-limit", text: "Only allocations that pass this snapshot's point, tier and prerequisite rules are offered. Legacy bonus points and the publisher's leveling order are not applied here. Nothing is learned on a game character." }))) : null;
       const shell = h("section", { class: "talents-tool", "data-class": cls.id }, classRow,
         h("div", { class: "talents-toolbar" }, h("label", { class: "talents-class-select", "aria-hidden": "true" }, "Class", classSelect), h("label", null, "Level", level), reset, copy, h("label", { class: "talents-compare-switch" }, compareInput, "Compare to Classic")),
         h("header", { class: "talents-class-banner" }, image((art.classPortraits || art.classIcons)[cls.id], { class: "talents-portrait" }), h("div", { class: "talents-class-title" }, h("p", { class: "talents-eyebrow", text: "Olympus · Forever talents" }), h("h2", { text: cls.name })),
-          h("div", { class: "talents-spec-bars" }, cls.trees.map((tree, index) => h("div", null, h("span", { text: tree.name }), h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), h("b", { text: String(state.treePoints[index]) }))))),
-        h("div", { class: "talents-summary" }, h("strong", { text: state.treePoints.join(" / ") }), h("span", { text: "Points left: " + (state.budget - state.points) }), h("span", { text: "Level needed: " + state.levelNeeded })),
-        compare ? h("p", { class: "talents-comparison-legend", text: "N New · C Changed · M Moved · dimmed: same as Classic. Hover or focus a talent for its Classic reference." }) : null,
+          h("div", { class: "talents-spec-bars" }, cls.trees.map((tree, index) => {
+            const meter = h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), label = h("b", { text: String(state.treePoints[index]) });
+            specPointRefs.push({ meter, label }); return h("div", null, h("span", { text: tree.name }), meter, label);
+          }))),
+        guidePanel, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), legend,
         artworkNotice, h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
+        analysisHost,
         h("section", { class: "talents-sharing", "aria-label": "Share this build" }, h("label", null, "Share", share)),
         h("footer", { class: "talents-source" }, h("p", null, "Talent data: ", h("a", { href: "https://talentsforever.com/", rel: "noopener noreferrer", text: "Talents Forever" }), " · ", h("a", { href: data.source.licenseURL, rel: "noopener noreferrer", text: "CC BY 4.0" }), ". World of Warcraft artwork © Blizzard Entertainment. Unofficial guild tool; not affiliated with Blizzard."),
-          h("p", { text: "Beta client " + data.source.clientBuilds.join(", ") + " · Source generated " + data.source.upstreamGenerated + " · Snapshot fetched " + data.source.fetchedAt.slice(0, 10) + ". Not live tuning or a guide recommendation." }),
+          h("p", { text: "Beta client " + data.source.clientBuilds.join(", ") + " · Source generated " + data.source.upstreamGenerated + " · Snapshot fetched " + data.source.fetchedAt.slice(0, 10) + ". Not live tuning. The data itself is not a guide recommendation; guide allocations keep their own author and date." }),
           h("p", { text: "Standard level-10-to-60 points; Legacy Talented bonuses are not modeled. Classic comparison uses supplied rank-one references, not a full Classic calculator or a verified Classic build. Game names, text and artwork belong to Blizzard Entertainment." }),
           h("p", { class: "talents-keyboard", text: "Keyboard: Tab enters each tree; arrows move across its grid. Enter or + adds; − removes. I enters the full detail panel; Escape closes it. A refund cannot break a tier or prerequisite." })));
+      function paint(nextFocus, feedbackKind) {
+        if (!active || view?.className !== cls.id) return;
+        state = validateBuild(data, build); byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
+        level.value = String(build.level); compareInput.checked = compare; legend.hidden = !compare;
+        split.textContent = state.treePoints.join(" / "); pointsLeft.textContent = "Points left: " + (state.budget - state.points); levelNeeded.textContent = "Level needed: " + state.levelNeeded;
+        for (const [index, label] of treePointLabels.entries()) {
+          const points = state.treePoints[index], spec = specPointRefs[index]; label.textContent = points + (points === 1 ? " point" : " points");
+          spec.meter.setAttribute("max", String(state.budget)); spec.meter.setAttribute("value", String(points)); spec.meter.textContent = String(points); spec.label.textContent = String(points);
+        }
+        for (const t of talents) {
+          const { node, pick, pill, badges, tree } = nodeRefs.get(t.id), rank = byId.get(t.id), canAdd = allocate(data, build, t.id, 1).ok;
+          node.className = "talents-node" + (rank ? " invested" : "") + (rank === t.maxRank ? " complete" : "") + (canAdd ? " available" : "") + (!canAdd && !rank ? " locked" : "") + (compare ? " compare-" + t.classic.status : "");
+          pill.textContent = rank + "/" + t.maxRank; badges.hidden = !compare;
+          pick.setAttribute("aria-label", t.name + ", rank " + rank + " of " + t.maxRank + (canAdd ? ". Add one point." : ". Read talent details."));
+          pick.setAttribute("aria-pressed", String(selected === t.id));
+          pick.tabIndex = (tree.talents.some(p => p.id === selected) ? selected : tree.talents[0].id) === t.id ? 0 : -1;
+        }
+        for (const connection of connectionRefs) connection.node.className = connection.baseClass + (byId.get(connection.parent.id) === connection.parent.maxRank ? " ready" : "");
+        for (const removed of removedRefs) removed.hidden = !compare;
+        const currentCode = serializeBuild(data, build); share.value = currentCode; share.setAttribute("value", currentCode);
+        status.textContent = message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.";
+        if (buttons.has(nextFocus)) {
+          const target = buttons.get(nextFocus), insideDetails = detail.contains(document.activeElement) && detailTalent?.id === nextFocus;
+          showDetail(talents.find(t => t.id === nextFocus), target, true);
+          if (!insideDetails && document.activeElement !== target) target.focus({ preventScroll: true });
+          if (feedbackKind) nodeRefs.get(nextFocus).node.setAttribute("data-feedback", feedbackKind + (++feedbackSequence % 2 ? "-a" : "-b"));
+        } else {
+          if (detailTalent) showDetail(detailTalent, buttons.get(detailTalent.id), !detail.hidden);
+          if (nextFocus === "level" && document.activeElement !== level) level.focus();
+          else if (nextFocus === "compare" && document.activeElement !== compareInput) compareInput.focus();
+          else if (nextFocus === "reset" && document.activeElement !== reset) reset.focus();
+          else if (nextFocus === "guide" && document.activeElement !== guideLoad) guideLoad.focus();
+        }
+        analysisView?.update(build); updateArtworkNotice();
+      }
+      view = { className: cls.id, paint };
       container.replaceChildren(shell); showDetail(talents.find(t => t.id === selected), buttons.get(selected), false);
-      if (buttons.has(focus)) buttons.get(focus).focus();
-      else if (focus && focus.startsWith("class:")) classButtons.get(cls.id).focus();
-      else if (focus === "level") level.focus(); else if (focus === "compare") compareInput.focus(); else if (focus === "reset") reset.focus();
+      if (analysisHost) analysisView = options.analysis.mount(analysisHost, { data, build });
+      paint(focus, feedback);
+      if (focus && focus.startsWith("class:")) classButtons.get(cls.id).focus();
       reusableArtwork = null; updateArtworkNotice();
     }
   }

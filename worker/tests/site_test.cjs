@@ -345,9 +345,9 @@ async function legacySchemaHeld(old) {
   res = await call("GET", "/", { host: "verify.example" });
   check("the site is not served on the bot's host", res.status === 404);
   res = await call("GET", "/privacy");
-  check("the old privacy address redirects to the canonical legal reader without sign-in (.183)", res.status === 301 && res.headers.get("Location") === "/legal/privacy" && (await res.text()) === "");
+  check("the retired privacy address returns 410 without redirect, sign-in or payload", res.status === 410 && !res.headers.has("Location") && !res.headers.has("Set-Cookie") && (await res.text()) === "");
   res = await call("GET", "/terms");
-  check("  and the old terms address redirects to its exact legal reader", res.status === 301 && res.headers.get("Location") === "/legal/terms" && (await res.text()) === "");
+  check("  and the retired terms address returns the same empty 410", res.status === 410 && !res.headers.has("Location") && !res.headers.has("Set-Cookie") && (await res.text()) === "");
   res = await call("GET", "/tos", { host: "verify.example" });
   check("  the bot's old alias too", res.status === 301 && res.headers.get("Location") === "/legal/terms" && (await res.text()) === "");
   for (const [route, title] of [["/legal/privacy", "Privacy Policy"], ["/legal/terms", "Terms of Service"]]) {
@@ -1375,7 +1375,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-21.184 Publisher feed and Vote label repair" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-21.185 Addon discovery and talent comparisons" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

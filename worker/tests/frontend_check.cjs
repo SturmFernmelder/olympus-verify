@@ -351,7 +351,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");
   check(".183 canonical public policy endpoints remain directly available with their legal navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/legal/terms"') && publicTerms.text.includes('href="/legal/privacy"'));
   const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
-  check(".183 original policy addresses redirect only to the exact canonical legal readers without private payload", oldPrivacy.response.status === 301 && oldPrivacy.response.headers.get("Location") === "/legal/privacy" && oldTerms.response.status === 301 && oldTerms.response.headers.get("Location") === "/legal/terms" && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
+  check("retired root policy addresses are empty 410 responses without redirects, sign-in fallback or private payload", oldPrivacy.response.status === 410 && !oldPrivacy.response.headers.has("Location") && oldTerms.response.status === 410 && !oldTerms.response.headers.has("Location") && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
   let page = await openPage(MEMBER);
   {
     const fast = await openPage(MEMBER);

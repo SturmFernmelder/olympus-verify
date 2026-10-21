@@ -47,7 +47,7 @@ commit changes, with the same blobs, checked by the same rule; the publication h
 the public parent `e0c1fcee…`).
 
 The launch is judged on the ACTUAL final tuple, never on an earlier build's or a prepared candidate's state: the final
-head and its tree; the policies served at `/privacy` and `/terms` from that head (and their native generator parity);
+head and its tree; the policies served at `/legal/privacy` and `/legal/terms` from that head (and their native generator parity);
 the source; the official asset tuple (the reviewed asset contract and manifest); the required documents; the reviewed
 literal classifications regenerated for that head; the deployment profile (`worker/wrangler.toml`,
 `worker/wrangler.cutover.toml`) and, after step 3, the opening marker (`worker/wrangler.cutover.applied` and its commit);
@@ -69,7 +69,7 @@ bash scripts/deploy-commit.sh <P>                                          # the
 ```
 
 Check afterwards: `GET <PUBLIC_BASE_URL>/health` answers `ok` with the build string of the commit (`BUILD` in
-`worker/src/index.ts`); the site at `SITE_HOST` loads and signs in; `/privacy` and `/terms` are served by the Worker. The
+`worker/src/index.ts`); the site at `SITE_HOST` loads and signs in; `/legal/privacy` and `/legal/terms` are served by the Worker. Exactly `/privacy` and `/terms` are retired with empty 410 responses without redirects; the separate privacy account/access/erasure paths are unchanged. The
 community flags are all off in this configuration (`COMMUNITY_FEATURES = ""`, `CONTRIBUTIONS_MODE = "off"`,
 `PRIVACY_INTAKE_ENABLED = "false"`, `OFFICER_DIGEST_ENABLED = "false"`), so the Community pages and the Admin → Community
 tab do not appear yet; that is expected.
@@ -366,7 +366,7 @@ Suggested order and prerequisites, flag by flag:
 | the digest | `OFFICER_DIGEST_ENABLED = "true"` and a staff channel (`CHANNEL_MOD_ALERTS` or the review channel) | one daily post of counts after 15:00 UTC; Admin → Community shows its state |
 
 `ROLE_CALL_BUDGET` (40 requests per role-writing run) needs no change. Every feature's retention and erasure are registered
-in the Worker; a flag is switched on only when the privacy policy served at `/privacy` from the FINAL signed head says
+in the Worker; a flag is switched on only when the privacy policy served at `/legal/privacy` from the FINAL signed head says
 what the feature does, checked on that head's policy (not on an earlier build's or a prepared copy).
 
 ## 5. Publication (the public repository)

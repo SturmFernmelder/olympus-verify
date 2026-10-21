@@ -128,10 +128,12 @@ async function detailRenderRegression() {
   check('the real initial passive talent omits absent cost, prerequisite and next rank without literal null text', ownDataRequest && reads === 2 && detail().textContent.includes(heroic.descriptions[0]) && !detail().textContent.includes('null') && byClass(detail(), 'talents-cost').length === 0 && byClass(detail(), 'talents-requires').length === 0 && !titles().includes('Next rank'));
   check('the initial hidden detail has no elevated owner and empty trees use plural point labels', detail().hidden && detailOwners().length === 0 && pointLabels().join() === '0 points,0 points,0 points');
   const initialArtwork = container.querySelectorAll('img').filter(node => !detail().contains(node));
+  const initialShell179 = byClass(container, 'talents-tool')[0], initialTrees179 = byClass(container, 'talents-tree'), initialButtons179 = byClass(container, 'talents-pick'), initialDetail179 = detail(), initialToolbar179 = byClass(container, 'talents-toolbar')[0];
   pick(heroic.name).click();
   check('the real point control renders current and next rank text without converting absent fields to null', changes.at(-1).points === 1 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 1 / 3') && detail().textContent.includes(heroic.descriptions[0]) && detail().textContent.includes(heroic.descriptions[1]) && titles().includes('Next rank') && !detail().textContent.includes('null'));
   check('the real branch counter uses singular point only for one allocated point', pointLabels().join() === '1 point,0 points,0 points');
   check('a real point edit reuses every mounted class, portrait, tree and talent image without assigning their protected URLs again', initialArtwork.length > 60 && initialArtwork.every(node => container.contains(node) && node.srcAssignments === 1));
+  check('.179 a point paints the original shell, tree nodes, all buttons, toolbar and detail container in place', byClass(container, 'talents-tool')[0] === initialShell179 && initialTrees179.every((node, index) => byClass(container, 'talents-tree')[index] === node) && initialButtons179.every((node, index) => byClass(container, 'talents-pick')[index] === node) && detail() === initialDetail179 && byClass(container, 'talents-toolbar')[0] === initialToolbar179);
   const copyLink = () => byClass(container, 'talents-toolbar')[0].all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Copy link');
   copyLink().click(); await Promise.resolve();
   const beforeReselect = { callbacks: changes.length, code: byClass(container, 'talents-share-code')[0].getAttribute('value'), link: copiedLinks.at(-1), selected: pick(heroic.name) };
@@ -141,6 +143,11 @@ async function detailRenderRegression() {
   pick(heroic.name).click(); pick(heroic.name).click();
   check('the real maximum-rank render removes only the absent next rank and retains current/all-rank descriptions', changes.at(-1).points === 3 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 3 / 3') && detail().textContent.includes(heroic.descriptions[2]) && !titles().includes('Next rank') && byClass(detail(), 'talents-all-ranks')[0].all(node => node.tagName === 'LI').length === heroic.maxRank && !detail().textContent.includes('null'));
   check('multiple allocated points retain the plural branch counter and exact total', pointLabels().join() === '3 points,0 points,0 points' && changes.at(-1).points === 3);
+  const detailControls179 = byClass(detail(), 'talents-detail-controls')[0], refund179 = detailControls179.all(node => node.tagName === 'BUTTON')[0], learn179 = detailControls179.all(node => node.tagName === 'BUTTON')[1], allRanks179 = byClass(detail(), 'talents-all-ranks')[0];
+  allRanks179.open = true; detail().scrollTop = 37; refund179.focus(); refund179.click();
+  check('.179 refund keeps the active detail button, expanded rank list and detail scroll while updating exact ranks', document.activeElement === refund179 && byClass(detail(), 'talents-detail-controls')[0] === detailControls179 && byClass(detail(), 'talents-all-ranks')[0] === allRanks179 && allRanks179.open === true && detail().scrollTop === 37 && changes.at(-1).points === 2 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 2 / 3'));
+  learn179.focus(); learn179.click();
+  check('.179 learning keeps its original focused control and changes the model exactly once', document.activeElement === learn179 && byClass(detail(), 'talents-detail-controls')[0] === detailControls179 && changes.at(-2).points === 2 && changes.at(-1).points === 3 && learn179.disabled && initialButtons179.every(node => container.contains(node)));
   const mortal = find('Mortal Strike'), parent = all(data.classes[0]).find(talent => talent.id === mortal.requires);
   pick(mortal.name).focus();
   check('real present cost and prerequisite fields remain readable without allocating a locked talent or mutating the snapshot', byClass(detail(), 'talents-cost')[0].textContent === mortal.cost && byClass(detail(), 'talents-requires')[0].textContent === 'Requires ' + parent.name + ' at maximum rank.' && detail().textContent.includes(mortal.descriptions[0]) && !detail().textContent.includes('null') && changes.at(-1).points === 3 && initialJSON === JSON.stringify(data));
@@ -189,6 +196,7 @@ async function detailRenderRegression() {
   advance(250);
   check('a rebuild cancels the detached tooltip timer and preserves the newly focused detail', pendingBeforeRender && timers.size === 0 && !detail().hidden && detail().textContent.includes(mortal.name) && detailOwners().length === 1);
   check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 52 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
+  check('.179 Classic toggle retains all original talent buttons and detail container without an extra build callback', initialButtons179.every((button, index) => byClass(container, 'talents-pick')[index] === button) && detail() === initialDetail179 && byClass(container, 'talents-toolbar')[0] === initialToolbar179 && changes.at(-1).points === 3);
   pick(heroic.name).dispatch('keydown', { key: '-' }); pick(heroic.name).dispatch('keydown', { key: '+' });
   check('keyboard refund and allocation preserve the exact versioned share code and original point rules', changes.at(-2).points === 2 && changes.at(-1).points === 3 && api.validateBuild(data, api.parseBuild(data, byClass(container, 'talents-share-code')[0].getAttribute('value')).build).points === 3);
   const failedIcon = pick(deflection.name).all(node => node.tagName === 'IMG')[0], exactArtworkURL = failedIcon.getAttribute('src'), assignmentsBeforeFailure = failedIcon.srcAssignments;
@@ -221,6 +229,77 @@ async function detailRenderRegression() {
   check('destroying the calculator clears its outstanding pointer dismissal timer', pendingBeforeDestroy && timers.size === 0);
   currentRetry.click();
   check('a destroyed calculator cannot issue an artwork retry', currentFailedIcon.srcAssignments === beforeDestroyedRetry);
+  for (const cls of data.classes) {
+    const matrixContainer179 = document.createElement('main'), matrixChanges179 = [], first179 = all(cls).find(talent => talent.row === 1 && talent.maxRank > 1);
+    const matrix179 = await browserModule.exports.mount(matrixContainer179, { className: cls.id, onBuildChange: build => matrixChanges179.push(build) });
+    const grid179 = byClass(matrixContainer179, 'talents-grid'), buttons179 = byClass(matrixContainer179, 'talents-pick'), toolbar179 = byClass(matrixContainer179, 'talents-toolbar')[0];
+    const target179 = buttons179.find(button => button.getAttribute('aria-label').startsWith(first179.name + ', rank ')), level179 = toolbar179.all(node => node.tagName === 'SELECT').find(select => select.getAttribute('aria-label') === 'Character level');
+    level179.value = '10'; level179.dispatch('change'); target179.click();
+    const atOne179 = matrixChanges179.length, codeAtOne179 = byClass(matrixContainer179, 'talents-share-code')[0].getAttribute('value'); target179.click();
+    const rejected179 = matrixChanges179.length === atOne179 && byClass(matrixContainer179, 'talents-share-code')[0].getAttribute('value') === codeAtOne179;
+    level179.value = '11'; level179.dispatch('change'); target179.click();
+    const exactTwo179 = matrixChanges179.at(-1).points === 2 && api.parseBuild(data, byClass(matrixContainer179, 'talents-share-code')[0].getAttribute('value')).points === 2;
+    const compare179 = byClass(matrixContainer179, 'talents-compare-switch')[0].all(node => node.tagName === 'INPUT')[0], changesBeforeCompare179 = matrixChanges179.length;
+    compare179.dispatch('change', { target: { checked: true } }); compare179.dispatch('change', { target: { checked: false } });
+    const comparisonDidNotWrite179 = matrixChanges179.length === changesBeforeCompare179;
+    toolbar179.all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Reset').click();
+    check('.179 ' + cls.name + ': level, rapid rejected point, comparison and reset retain every mounted grid/button and strict share budget', rejected179 && exactTwo179 && comparisonDidNotWrite179 && matrixChanges179.at(-1).points === 0 && byClass(matrixContainer179, 'talents-toolbar')[0] === toolbar179 && grid179.every((grid, index) => byClass(matrixContainer179, 'talents-grid')[index] === grid) && buttons179.every((button, index) => byClass(matrixContainer179, 'talents-pick')[index] === button) && buttons179.every(button => button.all(node => node.tagName === 'IMG')[0].srcAssignments === 1));
+    matrix179.destroy();
+  }
+  check('.179 decorative feedback is limited to icon controls and explicitly disabled for reduced motion', css.includes('.talents-node[data-feedback="learn-a"]>.talents-pick') && css.includes('@media(prefers-reduced-motion:reduce){.talents-tool *{animation:none!important;transition:none!important}}') && !/\.talents-node\[data-feedback[^}]+\{[^}]*transform:/.test(css));
+  const guideContext179 = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(folder, 'guide-builds179.js'), 'utf8'), guideContext179, { filename: 'guide-builds179.js', timeout: 1000 });
+  const guideData179 = guideContext179.window.OlympusTalentGuides;
+  check('.179 guide inventory has fourteen allocations from seven classes and original guide sources for all nine', guideData179.revision === data.revision && guideData179.records.length === 14 && new Set(guideData179.records.map(r => r.className)).size === 7 && data.classes.every(c => guideData179.sources.filter(s => s.className === c.id).length === 1));
+  const currentMage185 = guideData179.records.filter(record => record.className === 'mage');
+  check('.185 current Method Mage allocations retain both independently decoded 21 October vectors and matching source dates', currentMage185.length === 2 && currentMage185[0].code === 'ot1.260cf99b52db.mage.60.0000000000000000000000000000000000000525003001001300100' && currentMage185[0].treePoints.join('/') === '0/0/21' && currentMage185[1].code === 'ot1.260cf99b52db.mage.60.0002000000000000000000000000000000000525003201001300200' && currentMage185[1].treePoints.join('/') === '2/0/24' && currentMage185.every(record => record.author === 'Celz' && record.updatedAt === '21st October 2026') && guideData179.sources.filter(source => ['hunter', 'mage'].includes(source.className)).every(source => source.updatedAt === '21st October 2026'));
+  for (const record of guideData179.records) {
+    const decoded179 = api.parseBuild(data, record.code), checked179 = decoded179.ok && api.validateBuild(data, decoded179.build), source179 = guideData179.sources.find(s => s.className === record.className);
+    check('.179 exact published guide vector stays valid without changing ranks: ' + record.id, checked179?.ok && decoded179.build.className === record.className && checked179.points === record.points && checked179.treePoints.join('/') === record.treePoints.join('/') && api.serializeBuild(data, decoded179.build) === record.code && record.url === source179.url && record.author === source179.author && record.updatedAt === source179.updatedAt);
+  }
+  for (const cls of data.classes) {
+    const guideContainer179 = document.createElement('main'), guideChanges179 = [];
+    const guideController179 = await browserModule.exports.mount(guideContainer179, { className: cls.id, guideBuilds: clone(guideData179), onBuildChange: change => guideChanges179.push(change) });
+    const panel179 = byClass(guideContainer179, 'talents-guides')[0], records179 = guideData179.records.filter(record => record.className === cls.id), source179 = guideData179.sources.find(source => source.className === cls.id);
+    const shell179 = byClass(guideContainer179, 'talents-tool')[0], about179 = byClass(guideContainer179, 'talents-guide-about')[0];
+    check('.179 ' + cls.name + ': compact guide controls precede the trees with source and limitations folded into native details', shell179.childNodes.indexOf(panel179) < shell179.childNodes.indexOf(byClass(guideContainer179, 'talents-workspace')[0]) && about179?.tagName === 'DETAILS' && about179.open !== true && about179.textContent.includes(source179.author));
+    if (!records179.length) {
+      check('.179 ' + cls.name + ': unavailable guide allocation retains author/date/source link without invented Load action', panel179?.textContent.includes('No checked compatible allocation in this snapshot') && panel179.textContent.includes(source179.author) && panel179.textContent.includes(source179.updatedAt) && panel179.all(node => node.tagName === 'A')[0].getAttribute('href') === source179.url && panel179.all(node => node.tagName === 'SELECT' || node.tagName === 'BUTTON').length === 0 && guideChanges179.length === 0);
+    } else {
+      const select179 = panel179.all(node => node.tagName === 'SELECT')[0], load179 = panel179.all(node => node.tagName === 'BUTTON')[0], before179 = byClass(guideContainer179, 'talents-share-code')[0].getAttribute('value'), tree179 = byClass(guideContainer179, 'talents-tree')[0], firstButton179 = byClass(guideContainer179, 'talents-pick')[0];
+      select179.value = records179[0].id; select179.dispatch('change');
+      const selectionOnly179 = guideChanges179.length === 0 && byClass(guideContainer179, 'talents-share-code')[0].getAttribute('value') === before179 && !load179.disabled && panel179.textContent.includes('Minimum level ' + Math.max(10, records179[0].points + 9));
+      load179.focus(); load179.click();
+      check('.179 ' + cls.name + ': guide selection only previews; explicit Load preserves mounted tree/focus and publishes the exact checked code once', selectionOnly179 && guideChanges179.length === 1 && guideChanges179[0].build === records179[0].code && byClass(guideContainer179, 'talents-share-code')[0].getAttribute('value') === records179[0].code && document.activeElement === load179 && byClass(guideContainer179, 'talents-tree')[0] === tree179 && byClass(guideContainer179, 'talents-pick')[0] === firstButton179 && panel179.textContent.includes(source179.author) && panel179.textContent.includes('Legacy bonus points') && panel179.textContent.includes("leveling order are not applied"));
+    }
+    guideController179.destroy();
+  }
+  const staleGuides179 = clone(guideData179), staleGuideContainer179 = document.createElement('main'), staleGuideChanges179 = [];
+  const staleGuide179 = await browserModule.exports.mount(staleGuideContainer179, { guideBuilds: staleGuides179, onBuildChange: change => staleGuideChanges179.push(change) });
+  const stalePanel179 = byClass(staleGuideContainer179, 'talents-guides')[0], staleSelect179 = stalePanel179.all(node => node.tagName === 'SELECT')[0], staleLoad179 = stalePanel179.all(node => node.tagName === 'BUTTON')[0];
+  staleSelect179.value = staleGuides179.records[0].id; staleSelect179.dispatch('change'); staleGuides179.records[0].code = 'ot1.invalid'; staleLoad179.click();
+  check('.179 guide Load rechecks the exact code and refuses a changed or invalid allocation without altering the plan', staleGuideChanges179.length === 0 && stalePanel179.textContent.includes('Your plan was not changed') && api.parseBuild(data, byClass(staleGuideContainer179, 'talents-share-code')[0].getAttribute('value')).points === 0);
+  staleGuide179.destroy();
+  const detachedGuideContainer179 = document.createElement('main'), detachedGuideChanges179 = [], detachedGuides179 = clone(guideData179);
+  const detachedGuide179 = await browserModule.exports.mount(detachedGuideContainer179, { guideBuilds: detachedGuides179, onBuildChange: change => detachedGuideChanges179.push(change) });
+  const detachedPanel179 = byClass(detachedGuideContainer179, 'talents-guides')[0], detachedSelect179 = detachedPanel179.all(node => node.tagName === 'SELECT')[0], detachedLoad179 = detachedPanel179.all(node => node.tagName === 'BUTTON')[0];
+  detachedSelect179.value = detachedGuides179.records[0].id; detachedSelect179.dispatch('change');
+  byClass(detachedGuideContainer179, 'talents-class-button').find(button => button.textContent === 'Druid').click();
+  const afterClassChange179 = byClass(detachedGuideContainer179, 'talents-share-code')[0].getAttribute('value'), detachedChangeCount179 = detachedGuideChanges179.length;
+  detachedSelect179.dispatch('change'); detachedLoad179.click();
+  check('.179 detached prior-class guide controls cannot replace the current local class plan', detachedGuideChanges179.length === detachedChangeCount179 && byClass(detachedGuideContainer179, 'talents-share-code')[0].getAttribute('value') === afterClassChange179 && api.parseBuild(data, afterClassChange179).build.className === 'druid');
+  detachedGuide179.destroy();
+  const mismatchedContainer179 = document.createElement('main'), mismatchedGuide179 = await browserModule.exports.mount(mismatchedContainer179, { guideBuilds: { ...guideData179, revision: '0'.repeat(12) } });
+  check('.179 a guide manifest for another data revision cannot expose a Load action', byClass(mismatchedContainer179, 'talents-guides').length === 0 && api.parseBuild(data, byClass(mismatchedContainer179, 'talents-share-code')[0].getAttribute('value')).points === 0);
+  mismatchedGuide179.destroy();
+  const analysisContainer179 = document.createElement('main'), analysisEvents179 = [];
+  const analysisController179 = await browserModule.exports.mount(analysisContainer179, { analysis: { mount(host, args) { analysisEvents179.push({ action: 'mount', host, className: args.build.className }); return { update(build) { analysisEvents179.push({ action: 'update', className: build.className, points: build.ranks.reduce((sum, rank) => sum + rank, 0) }); }, destroy() { analysisEvents179.push({ action: 'destroy' }); } }; } } });
+  const analysisHost179 = byClass(analysisContainer179, 'talents-analysis-host')[0];
+  byClass(analysisContainer179, 'talents-pick')[0].click();
+  check('.179 optional analysis receives the current valid point model while its original host stays mounted', analysisEvents179.filter(event => event.action === 'mount').length === 1 && analysisEvents179.at(-1).action === 'update' && analysisEvents179.at(-1).points === 1 && byClass(analysisContainer179, 'talents-analysis-host')[0] === analysisHost179);
+  byClass(analysisContainer179, 'talents-class-button').find(button => button.textContent === 'Druid').click();
+  analysisController179.destroy();
+  check('.179 analysis lifecycle destroys the prior class module and final mount without a data fetch', analysisEvents179.filter(event => event.action === 'mount').length === 2 && analysisEvents179.filter(event => event.action === 'destroy').length === 2 && reads === 2);
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

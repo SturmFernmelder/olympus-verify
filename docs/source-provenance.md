@@ -24,7 +24,9 @@ audit (below) refuses any of those names in a snapshot regardless of content.
 
 - `worker/src/policy-content.ts` is GENERATED from `policies/privacy.html` and `policies/terms.html` by
   `worker/scripts/build-policy-content.mjs` (`npm run build:policies`); `npm run check:policies` fails when they differ.
-  The Worker serves the policies from it at `/privacy` and `/terms`; the GitHub Pages mirror publishes the same HTML.
+  The Worker serves the policies from it at `/legal/privacy` and `/legal/terms`; the GitHub Pages mirror publishes the
+  same HTML. Exactly `/privacy` and `/terms` are retired with empty HTTP 410 responses, without redirects; the separate
+  `/privacy/account`, `/privacy/access` and other existing privacy-action handlers remain unchanged.
 - `worker/public/static/wow/*` (92 images, two WOFF2 fonts) are DERIVED from the game client's textures by
   `tools/build-site-assets.py`: crops, rearrangements, format changes, alpha and tint transforms, nothing redrawn. The
   input was a named extraction of the client made on the officer's computer on 30 September 2026
