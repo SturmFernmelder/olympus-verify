@@ -105,6 +105,24 @@ export interface Env {
   COOKIE_SECRET: string;            // signs the OAuth state cookie and the site's session cookie
   BNET_CLIENT_ID?: string;          // Battle.net API client (develop.battle.net) — enables the Battle.net-login fallback in /linked-role, and Phase 3
   BNET_CLIENT_SECRET?: string;      // same client; redirect URLs to register: <PUBLIC_BASE_URL>/bnet/link and, for Phase 3, /bnet/callback
+
+  // --- build .186: Olympus Link (link.ts, link-role.ts, docs/olympus-link.md). Shipped OFF: none of these is set in
+  // wrangler.toml, and without LINK_ENABLED exactly "true" plus the complete configuration nothing below is read. LINK_*
+  // is unrelated to LINKS_NOT_BEFORE* above and to the Discord Linked Role route (/linked-role, oauth.ts). The Link role
+  // lives in GUILD_ID (the owner's ruling of 21 Oct 2026: Asmongold's server; there is no separate Link guild). ---
+  LINK_ENABLED?: string;            // exactly "true" with the complete config = on; absent, "" or "false" = off (today's behaviour); anything else = held
+  LINK_DB?: D1Database;             // the separate olympus-link database (vendor/olympus-link/schema.sql); never the bot's DB
+  LINK_ROLE_ID?: string;            // the zero-permission "Olympus Link" role in GUILD_ID, below the bot's role
+  LINK_ORIGIN?: string;             // the Link page's origin, exactly "https://dnl-gentile.github.io" (CORS of POST /proof); any other value holds Link
+  LINK_MODE?: string;               // "c" (launch: a council confirmation only) or "a"; absent = upstream's default "c"
+  LINK_GUILD_POLICY?: string;       // "verified" (default) or "claimed"
+  LINK_BACKEND_PUBLIC?: string;     // the backend Ed25519 public key, 64 lowercase hex (the addon holds the same one)
+  LINK_BACKEND_PREVIOUS?: string;   // optional, while the backend key rotates: the old public key(s), 64 hex
+  LINK_CA_PUBLIC?: string;          // optional: the council authority's public key(s), 64 hex
+  LINK_COUNCIL_CHARACTERS?: string; // optional: the "Name-Realm" characters the council authority may certify; closed when empty
+  LINK_BACKEND_SEED?: string;       // secret: the backend Ed25519 seed, base64url (Daniel's scripts/link-keys.py backend)
+  LINK_ADMIN_TOKEN?: string;        // secret, 32 characters or more: the bearer of POST /api/link/keys
+  LINK_SITE_TOKEN?: string;         // optional secret: the token the Link page sends with POST /proof (upstream: a switch, not a secret)
 }
 
 export const isAdminMode = (env: Env) => env.ADMISSION_MODE === "review";

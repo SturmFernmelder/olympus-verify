@@ -1874,3 +1874,147 @@ The .193 hosted review also found that successful transport is not successful da
 
 
 Validation also precedes the destroyed-view early return. A request that settles after navigation still validates its data and evicts an invalid cached promise, so the first later mount can fetch healthy data. This performs no UI construction or error report for the dead view and retains validated-cache reuse.
+
+## Worker .194 — Olympus Link source, shipped off (21 October 2026)
+
+This decision was first prepared as .186 on the .185 main (1ee98168) and then planned as .190 on top of the unreleased
+.189. Neither was released, deployed or recorded live: .187, .191 and .192 shipped in between and .193 took the next
+number, so it takes effect with .194 on top of .193. The Link source is unchanged from the .186 preparation, and it
+still ships off.
+
+Daniel's Olympus Link lets the game prove that a character is a player's, and the bot then gives a cosmetic,
+zero-permission role. The owner ruled on 21 October 2026 that the role lives in `GUILD_ID` (Asmongold's server, where
+`/verify` lives), that it is granted only to a valid proof whose account is not verification-banned, whose privacy
+subject is active and who holds no `BLOCKING_ROLE_IDS` role, and that it is removed on the player's own delete.
+
+The core is Daniel's own file, vendored unmodified and SHA-256 pinned, rather than a port: his vectors keep checking
+the same code, and an upstream update is a pin change. Three behaviours could not stay as they are in this Worker, so a
+generator applies exactly three reviewed patches instead of a hand edit: the `env.DB` fallback could point Link at the
+bot's own `members` table, which its forget deletes from (P1); its error logs printed stacks, codes and ids into Workers
+Logs (P2); and its sign-in check used a bare `fetch` instead of `credentialFetch` (P3). The adapter hands link-core a
+frozen env without a `DB` key, loads it only behind the gate, and appends the code to `/verify` last, after the ban
+checks, so with Link off every `/verify` reply and the `/proof` and `/api/link/keys` answers are the .185 ones byte for
+byte, as they are in .193. The erasure, account-copy, ban and prune hooks come in Phase 1b, which is still pending;
+activation is the owner's Phase 2 (`docs/olympus-link.md`), also pending.
+
+### .194 hosted review successor: incomplete grants remain pending
+
+This supersedes the initial .194 preparation's unchanged-core and three-patch descriptions above. PR87's first
+head passed all 13 hosted jobs, but automated review found that a failed role grant followed by a failed rollback
+could leave a member and used code behind. A later proof could then report already-linked success without a role.
+The fourth generated patch group reserves `codes.used = 0` as a durable pending marker before recording or granting,
+and finalizes it to the original Unix-second time only after a confirmed grant. Pending proofs refuse before the
+already-linked branch; pending members cannot authorize confirmations or key ownership. A failed or uncertain
+finalization is held unless a single actual readback confirms it, with no automatic UPDATE or role resend.
+
+Prune retains a pending code only while a member references its code, preventing expiry from silently converting
+pending data into authority. A successful explicit new-code proof can supersede that reference, after which the
+older expired code can prune normally. The existing successful already-linked/no-second-PUT behavior remains.
+No schema, production data, setting, flag, Native E2, reset or launch gate changes; the vendored upstream files stay
+byte exact and the generator applies count-guarded replacements. Phase 1b's pending-state privacy/prune qualification
+and all existing activation blockers remain required, so Link still ships OFF.
+
+The next .194 review found that predecessor retention must include an in-flight replacement, not just the current
+member reference. Prune now keeps an expired pending code while the account has a member referencing another
+pending code. Coupled version checks prevent a request with a stale captured member from overwriting a newer
+settlement or reinserting a deleted owned row. Both member-write branches require the exact live pending claim
+atomically. Undo clears its own claim only after the actual member reaches the expected restored state or a new
+character is absent; an overlapping replacement therefore cannot restore a claim that undo prematurely cleared.
+The added SQLite races cover deferred promotion/prune/failure, stale and deleted captures, overlapping undo, and
+claim loss through deletion or expiry. This supersedes the initial direct-reference-only prune description above;
+no existing expiry seconds or production activation boundary change.
+
+
+### .194 player deletion and retained pending cleanup markers
+
+The third hosted review found player deletion could remove the cosmetic role, then erase every Link row while an admitted proof's delayed role PUT restored the role. Player deletion now uses a single D1 batch with an initial same-account pending-state result and seven guarded cleanup/revocation statements; code deletion stays last. Any pending claim keeps all cleanup data and refuses forgotten success. Deletion that commits before a claim removes the code, so the existing claim/record guards prevent promotion. Batch outcomes require all eight acknowledgements and a valid pending row; unknown outcomes are held without automatic replay. Prune retains every pending marker, including a superseded unreferenced claim whose external promotion may still be in flight; unclaimed/settled expiry and all existing deadlines remain strict.
+
+The real SQLite before-fix run was166/169: all prior164 controls passed and three new race checks failed. The fixed overlay passed176/176. Five earlier additive retention expectations are explicitly strengthened, rather than falsely described as byte-identical: pending predecessors, unrelated unreferenced claims and stale/replaced claims remain pending; pre-record pruning retains the claim and the rollback path is still tested. All original135 checks remain unchanged. The generator applies25 exact replacements (original11 P1-P3 plus14 P4), with inverse reconstruction and upstream pins intact. The test D1 shim now returns actual SELECT rows from its real SQLite transaction, matching the D1 batch result contract.
+
+This is a bounded cleanup guarantee, not universal cross-service role atomicity or completed erasure. Unresolved pending data may outlive normal expiry and needs keeper review. Raw operator forget remains separate, and Phase1b privacy/copy/prune/recovery composition plus Phase2 activation remain blocked. Link stays OFF; schema443, production settings/flags, Native E2, reset safeguards, public assets and launch gates do not change. A fresh exact successor manifest, original standard Workerd, hosted CI and completed zero-findings automated review are required; the2ba thirteen-job pass and this finding remain historical evidence.
+
+### .194 correction after the completed 0ff5c85 review: account deletion admission (22 October 2026)
+
+The entries above describe their historical source and evidence. In particular, the 176-check result and the
+25-replacement generator belong to `0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05`; they do not qualify the correction
+below. That head's completed hosted review found a valid role-loss ordering: PUT finishes, the player's DELETE removes
+the role, guarded cleanup refuses the still-pending code, and the proof finalizes successfully without its role.
+The pending cleanup guard was not account serialization, and the old unconditional orphan-role claim was overstated.
+The owner authorized correction of this race, honest revision of affected controls, and fresh qualification of .194
+and affected .195. Link activation and production schema or setting changes remain unauthorized.
+
+The corrected .194 uses one account deletion guard in LINK_DB's existing `limits` table. One atomic guarded INSERT
+admits deletion only when no code of the account is pending; every proof claim atomically requires that guard's
+absence. Thus a proof admitted first makes deletion refuse before demotion, while deletion admitted first prevents
+new claims across its role removal and guarded cleanup. Cleanup checks both pending state and ownership, retaining
+codes until dependent cleanup has read them. Already-linked answers revalidate the exact code/member and admission
+state in one snapshot without another PUT. This is shared database coordination across isolates, not a local lock or
+a separate pre-demotion read with an unprotected gap.
+
+The guard's key is a domain-separated, stable SHA-256 account digest under `delete:`. It remains the same across
+backend-key rotation, but is linkable for known Discord ids and is not the ordinary limiter's confidential HMAC.
+`n` carries a cryptographically random 52-bit ownership token; `until` is admission bookkeeping, not an expiry.
+Prune excludes the namespace, there is no TTL takeover, and an uncertain outcome can retain the row indefinitely.
+The final release matches its key, token and admission time and follows definitive role removal and acknowledged
+guarded cleanup, or a trusted definite nonapplication of .194's first DELETE without running cleanup. Only the
+returned internal `notApplied: true` result from DELETE HTTP 400, 401, 403, 404, 405 or 429 permits that second path,
+after specific 404 absence cases are handled. It releases once, keeps Link data unchanged and returns the existing
+`discord` failure without automatic retry; an unconfirmed release returns held `server` instead. The signal is never
+accepted from a thrown error. Transport errors, 5xx, unlisted statuses such as 408, bare false and uncertain
+acquisition/cleanup remain held; there is no blanket 4xx exemption. Lost
+release acknowledgement can follow a committed release, but the old request does no further role or cleanup work.
+
+DELETE transport uncertainty cannot be settled by a GET observing absence: the DELETE could still be queued and
+later remove a newly granted role. That outcome now refuses and holds admission. PUT retains its existing one-GET
+reconciliation and no-resend rule, with the separate reasoned residual that its GET can precede a late PUT. Raw
+maintenance can still bypass admission and is restricted to Link OFF with requests drained; removing an old guard is
+not a qualified recovery procedure. Concurrent code issuance is allowed, but cannot promote while admission is held,
+and may add a code after the cleanup snapshot. The protocol does not serialize all account mutations or prove that
+no account data exists at response time. Retention, account copy, erasure and recovery remain Phase 1b gates.
+
+This does not claim all F1/F2/F3 successor work complete: .194's pending check remains unbounded, and definite lost
+races retain their conservative behavior. The separately sealed .195's bounded predicate, second removal and
+lost-race work require affected integration and fresh qualification on the resulting head. Its bound must apply
+equally to admission and cleanup, and its admission must remain held through the second removal. Historical receipts
+remain separately attributed. The corrected .194 needs fresh exact-source generation, local qualification, hosted CI
+and completed zero-findings review before ordinary merge and rollout gates; this design entry reports none of those
+as passed. No vendored schema, production configuration, public asset, Native E2, reset safeguard or launch gate is
+changed by the admission design. Link stays OFF and Phase 2 remains an owner gate.
+
+The retained admission row introduces a **new activation blocker**, in addition to those historical residuals: an
+isolate death, uncertain acquisition/cleanup/release, or DELETE transport/5xx/unlisted-status/bare-false outcome can
+indefinitely prevent the same account from linking or completing its own
+deletion. There is no player path out; pressing again, issuing a new code, pruning, or passing .195's separate
+pending-code bound does not clear it. A normal confirmed final release deletes the row. Uncertain retained rows have
+no retention deadline, and their linkable account pseudonym needs explicit privacy and account-copy treatment.
+Availability and safe owner recovery remain unqualified for both releases, so this behavior is accepted only as an
+OFF-source limitation. No one-hour or other age-based takeover is added. `docs/olympus-link.md` gives one exact
+read-only keeper snapshot of the account's guard and pending-code tuples; old or absent rows and zero pending/member
+counts do not prove queued work ended. That diagnostic is not authority to release a row or perform recovery.
+Trusted first-removal nonapplication with acknowledged release is not an indefinite lockout trigger; its data is
+kept and only a later explicit request may try again. The affected .195 integration remains separately unqualified.
+
+
+22 October, verified pre-request boundary refinement: known DELETE preflight refusals (including configuration or
+adapter-id validation) carry the same internal notApplied evidence as a definitive nonapplication response. A
+requestMayHaveStarted boundary is set immediately before the write helper; pre-boundary caught failures are known
+nonapplication, while post-boundary uncertainty remains held. Exact final release preserves data and permits only
+a later explicit request, never an automatic retry. Ordinary privacy-reference read failure is caught and still
+sends DELETE. These direct captured-projection compositions are separate from normal OFF/held route admission,
+which never enters core. The previous1d48 qualification remains historical; changed bytes need new qualification.
+
+22 October, hosted quota correction: review of `5127536bee445f75209e66b9a3fc02dce1b39ef6` found that concurrent
+`issueCode` calls could all pass the two quota SELECTs before unconditional insertion. A bounded local SQLite probe
+held five requests at that boundary, then serialized their complete transactions: all five returned distinct codes
+and the counter reached five despite the limit of three. The failed cap assertion and that head's passing CI/local
+qualification remain historical evidence, not a clean review or acceptance of the next source.
+
+Generator patch P6 makes the code INSERT conditional on both the rolling 24-hour row count and the existing active
+first-code-anchored 86,400-second counter. Its immediately following counter UPSERT is conditional on `changes() = 1`
+from that INSERT in the same batch; other limit callers still use their unchanged helper. Only complete successful
+paired mutation counts of one return the newly signed code. A zero/zero pair returns the existing quota failure;
+mixed, missing or malformed acknowledgements throw without an automatic retry. An actual uniqueness exception
+rolls the transaction back and retains the original bounded collision retry. Sequential reuse remains uncharged,
+and concurrent requests may still issue distinct codes within the cap. This changes no quota value, clock, schema,
+configuration or deletion-admission rule. It needs new affected exact-head tests and genuine review; this entry
+does not assert those gates passed. Link remains OFF and all retained activation/privacy/recovery blockers remain.

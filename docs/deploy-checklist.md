@@ -6457,3 +6457,263 @@ PR86 head80483da9 passed all13 hosted jobs, but automated review correctly found
 
 
 The next exact-head review of7637 found the separate pre-validation destruction path: navigating away or switching class while HTTP200 data is pending returned before semantic preparation, leaving the invalid resolved payload cached for the first later opening. The next successor validates and evicts the relevant invalid load before checking whether the originating view was destroyed. A dead view still constructs no UI and reports no error into the removed view. Additive deferred-request regressions prove the first healthy remount requests fresh data after an invalid destroyed load, while a valid destroyed load can still be reused. Original52 checks and every application deadline remain unchanged; prior successful CI and the second finding remain historical evidence, and the next changed head requires genuine CI/review again.
+
+## Worker .194 — Olympus Link source, shipped off (21 October 2026)
+
+**It ships OFF.** This build carries Phase 1a of the reviewed Olympus Link integration (`docs/olympus-link.md`; the
+owner's rulings of 21 October 2026), which was prepared twice and never released. It was first prepared as .186 (commit
+f9f7ebea on the .185 main 1ee98168), then planned as .190 on top of the unreleased .189 character sheet. Neither .186
+nor .190 was released, deployed or recorded live: .187, .191 and .192 shipped first and .193 took the next number. The
+f9f7ebea commit was first ported onto the local .193 commit 7e836f2f (tree d8ba5b2d, the tree of PR86's first head
+80483da9; its parent b74edaa9 has tree 7b9184eb, the tree of the .192 main d097f054). It is applied here on top of the
+merged .193 main d125f955 (tree c116f9fa, the squash of PR86's final head 9d21bfa7, which adds the two review
+successors 7637aa67 and 9d21bfa7 to 80483da9). There was no .186 or .190 deploy-checklist or design entry on main to
+replace. .194 contains every .187, .191, .192 and .193 change unchanged, including both .193 character-sheet cache
+fixes described above; if .193 is not deployed first, deploying .194 also deploys the .193 changes. Files, comments
+and labels that belong to Link keep their .186 names (`link_integration_186_test.cjs`, the `.186` comments in
+`index.ts`, `interactions.ts`, `env.ts`, `link.ts`, `link-role.ts`, `hosts_test.cjs`, `.editorconfig` and `CLAUDE.md`,
+the generator `build-link-core.mjs` and the header it writes into `link-core.ts`, and the `.186` wording of
+`docs/olympus-link.md`, `docs/source-provenance.md`, `THIRD_PARTY_NOTICES.md` and
+`worker/vendor/olympus-link/README.md`); none was relabelled. The runbook, provenance and notice each gain one
+sentence naming .194 as the build that ships Link. Because .187 to .193 are numbered after .186 but have no Link,
+three statements now name .194 instead of reading ".186" as a version cutoff: the runbook's header note (which also
+says what its kept ".186" and ".185" labels mean), its Phase 2 secret precondition, and the bot-host sentence in
+`CLAUDE.md` (".194 (prepared as .186)").
+
+Scope (unchanged from f9f7ebea). Daniel's link-core is vendored unmodified at
+`dnl-gentile/olympus-addon@d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2` (`worker/vendor/olympus-link/`, MIT, SHA-256
+pinned) and generated into `worker/src/link-core.ts` by `worker/scripts/build-link-core.mjs` with three reviewed patches
+(P1 `LINK_DB` only, P2 `errorRef`-only logging, P3 an injected `credentialFetch`). `worker/src/link.ts` adds the gate,
+the `/verify` code block (appended last in both code replies, after the ban checks and every main-database statement),
+`OPTIONS`/`POST /proof` and `POST /api/link/keys` on the bot host; `worker/src/link-role.ts` writes the zero-permission
+Olympus Link role in `GUILD_ID` after the owner's eligibility checks (not banned, privacy subject active, no
+`BLOCKING_ROLE_IDS` role, in the server).
+
+Still pending, and not in this build. Phase 1b: the erasure hook (demote, then forget), the account-copy section, role
+removal on a ban or a blocking role, and the prune placement; it still waits on the open review items R3, R4, R5, R7,
+R14 and R15 and is an activation precondition. Phase 2, the owner's steps (`docs/olympus-link.md` section 8): the
+backend keys, the `LINK_BACKEND_SEED` and `LINK_ADMIN_TOKEN` secrets, the `olympus-link` D1 database and its schema, the
+`LINK_DB` binding and `LINK_*` variables, the zero-permission role, the OAuth redirect, activation and the message to
+Daniel. Releasing .194 authorizes none of them.
+
+Merge onto .193. Between .185 and .193 the Worker source changed only in the `index.ts` BUILD line and one
+`army-pages.ts` line (.192's read-time line); `interactions.ts` is byte-identical to .185, so the Link test's pinned
+.185 `interactions.ts` digest still holds. The first port, onto 7e836f2f, conflicted only in `worker/package.json`, the
+BUILD line and its three health-test pins, and these two docs. In `package.json`, `test` gains Link's
+`npm run check:link-core` tail, `build:link-core` and `check:link-core` are added, and `test:all` keeps .193's
+`talents_stats60_186_test.cjs` entry and adds Link's `link_integration_186_test.cjs` after `verify_button_test.cjs`,
+exactly where f9f7ebea put it. Carrying that port onto d125f955 conflicted only in this file and `docs/design.md`,
+where the .193 review successors appended text after the .193 entries; that text is kept unchanged and the .194
+entries follow it. `docs/source-provenance.md` merged without a conflict, and the .193 successors touch no other file
+that Link touches. Every other file f9f7ebea touches merged without a conflict. The Link-only files (the four vendor
+files, the generator, `link-core.ts`, `link.ts`, `link-role.ts`, the fixture and `link_integration_186_test.cjs`),
+`interactions.ts`, `env.ts` and `.editorconfig` are byte-identical to f9f7ebea; `CLAUDE.md` differs from it only by
+".194 (prepared as .186)" in the bot-host sentence; `index.ts` and the three health tests differ from it only by the
+BUILD line. `docs/olympus-link.md` keeps its Link text apart from the header note and the Phase 2 secret
+precondition, and `docs/source-provenance.md` and `THIRD_PARTY_NOTICES.md` keep its Link text and add only the .194
+sentence (both also keep their .187 to .193 content).
+
+Configuration deltas: EMPTY. `worker/wrangler.toml` and `worker/wrangler.cutover.toml` are unchanged: no `LINK_DB`
+binding, no `LINK_*` variable, no secret. With `LINK_ENABLED` absent the routes answer today's 404 byte for byte and
+every `/verify` reply and main-database statement is identical to .185 and .193 (`link_integration_186_test`;
+`full_release_roles_identity` 497/497). No schema statement, scheduled label, cron, budget line, pinned source, slash
+command, production setting, Discord role, Developer Portal setting or message to Daniel changes.
+
+Changed existing tests, against .193 (main d125f955, tree c116f9fa). `link_integration_186_test.cjs` (135 checks)
+and its fixture `worker/tests/fixtures/olympus-link/vectors-d03ea8a9.json` are new. The existing lines that change are
+the BUILD expected values in site, hosts and bnet_retention, now .194, and in `hosts_test.cjs` the `errorRef` and
+no-bare-fetch file lists, which gain the three Link modules (more files checked by the same assertions). `npm test`
+gains `check:link-core` and `test:all` gains the Link test. No assertion was removed or relaxed and no deadline or
+existing fixture changed; `talents_stats60_186_test.cjs` keeps .193's 54 checks unchanged.
+
+Pins: none moved. Link adds no file under `worker/public/` and leaves `app.js` unchanged, so
+`scripts/official_asset_reference.json`, REFERENCE_SHA256 in `scripts/official_assets.py`, the V4 pins in
+`scripts/reconcile_public_root.py`, both overlays' EXPECTED_SOURCE_SHA256 and the closed counts (512 assets, 494
+official paths, seven fixed art producer pins, 43 required resources, 555 public paths) stay as in .193 (d125f955,
+including the `stats60.js` pins its review successors refreshed). Only the BUILD pins in the three health tests move.
+
+Qualification: typecheck; the link_integration_186, verify_button, interactions_hardening, hardening, intros, site,
+hosts, full_release_roles_identity, talents_stats60_186 (54 checks), frontend174, bnet_retention and bundle_runtime
+suites; `npm test` (ending with `check:link-core`); the projection check and its test; publication-helper and
+publication-resource; deploy-commit, ci-gate, cutover-config and ci-workflow. Local results for this head are recorded
+in the lane logs (p194-fix-*; the earlier p194-* runs cover the first port's staged tree on 7e836f2f, and the p1a-* and
+p1a-fix-* runs belong to the unreleased .186 candidate). The local gitleaks run over d125f955..HEAD, the release patch
+and its `git am` check onto d125f955 are recorded in the lane receipt (`receipt-194.json`, outside the repository); the
+CI secret scan runs with the exact-head CI. Exact-head CI and review remain separate, and this entry does not assert
+that pending checks passed. Keep the local92 aggregate and review loop stopped.
+
+Rollout requires current owner authorization after qualification, an exact-head hosted CI run and review. If
+authorized: ordinary expected-head squash, verify the merged tree/archive, fresh verified portable D1 backup/full442
+application-object restore/integrity/FK/E2 within one hour, then archived-main --keep-vars/configDeltas{} deployment and
+live acceptance of `/health` reporting this BUILD; nothing to configure. No manual cron. Rollback is a separately
+authorized exact qualified predecessor (the live build at that time: .193, or .192 if .193 is not deployed first) under
+the same safeguards; there is no data or setting to undo. If Link is ever on, the immediate rollback is removing
+`LINK_ENABLED` (or setting it to `"false"`), never unbinding `LINK_DB` while it holds rows. No deployment is authorized
+by this note.
+
+### .194 hosted review correction: role grant and rollback uncertainty
+
+PR87 head3e62c766 genuinely passed all13 hosted jobs, but automated review thread PRRT_kwDOUgwmm86vBSBv found a
+separate defect: when promote and the rollback batch both failed, the committed member/code could make a later
+submission report already-linked success without granting the role. That pass is historical evidence and does not
+qualify changed successor bytes. This successor supersedes this entry's initial unchanged-Link-source and
+three-patch descriptions. P1-P3 and the three vendored upstream file pins stay intact; P4 uses the existing
+`codes.used = 0` slot as a pending-state marker, finalizes only after a confirmed role grant and refuses pending
+proofs before already-linked success. Pending members cannot serve as confirmer/key-owner authority, and prune
+retains an expired pending code while a member references it. A confirmed explicit newer-code link releases that
+reference; no other expiry seconds change. An uncertain finalization uses at most one readback and no blind UPDATE
+or role retry. Successful already-linked replies still issue no second PUT.
+
+The focused successor regression must reproduce the actual rollback failure, prevent later false success, cover
+unknown finalization and pending authority/expiry, and retain all original assertions and deadlines. Fresh current
+core generation, projection/pre-push, standard committed Workerd, exact-head hosted CI and completed automated
+review are required; their results belong to the actual successor manifest. Original sealed Claude receipts and
+head3e62 tests remain separately attributed. BUILD remains .194 because it has not been deployed. No public assets,
+main schema443, production flags/settings, Native E2, private Worker, reset or launch controls change. Link stays OFF;
+Phase 1b must cover pending erasure/copy/prune before activation, and Phase 2 is still a separate owner gate.
+
+The focused correction overlay passed 152/152 checks: the original 135 remain, with 17 additive controls. The
+before-fix run kept all original checks passing but failed 11 of the first 14 new controls (138/149); three more
+controls were added for the ambiguous recording acknowledgement and generator seam. The original P1-P3 pins stay
+strict, P4 adds 11 counted replacements, and inverse generation now reverses application order. The logging
+assertion accounts for the removed release-code site and two new fixed `errorRef` finalization sites, without
+allowing any raw error, identifier or credential. The peer overlay result is bound by exact source hashes in the
+successor manifest; it is not relabeled as Root execution or as a fresh full local chain.
+
+### .194 second hosted review: predecessor lifetime and concurrent replacement
+
+Head1579193 also passed all13 hosted jobs, but PRRT_kwDOUgwmm86vBneS found that prune could delete pending A while
+replacement B temporarily held the member reference, then B's failed role grant could restore the now-orphaned A.
+The current successor keeps expired pending predecessors while any member of the same account references a pending
+replacement. It also replaces the existing-owned upsert with an UPDATE comparing the examined code and linked time,
+so a stale request cannot overwrite a newer settlement or recreate a deleted owned row. New and replacement member
+writes both require the exact pending claim atomically. Undo acknowledges release only when the actual resulting
+member matches its captured destination, or the originally new character is absent; otherwise its claim stays
+pending. This prevents overlapping replacements from restoring a prematurely cleared claim. No blind write or role
+retry is added, and the original expiry cutoff remains strict.
+
+The actual focused predecessor run was153/156, then the extended pre-fix run was153/160; all152 prior controls passed
+in both. The fixed overlay passed164/164 with12 additive SQLite controls, including stale/deleted captures, concurrent
+prune and role failure, overlapping undo, and a claim removed by deletion or expiry before recording. Four controls
+were added after the preserved extended predecessor run and are not attributed to it. The generator now has23 exact
+replacements (original11 P1-P3 plus12 P4); inverse reconstruction, upstream pins, logging and original assertions and
+deadlines remain strict. Current Root committed qualification, exact-head CI and automated review must run on the
+actual successor; both earlier full CI passes and review findings remain historical. BUILD stays .194, public assets
+and all production controls stay unchanged, and Phase1b/Phase2 activation remains blocked.
+
+
+### .194 third hosted review: player deletion during promotion
+
+The third hosted review found player deletion could remove the cosmetic role, then erase every Link row while an admitted proof's delayed role PUT restored the role. Player deletion now uses a single D1 batch with an initial same-account pending-state result and seven guarded cleanup/revocation statements; code deletion stays last. Any pending claim keeps all cleanup data and refuses forgotten success. Deletion that commits before a claim removes the code, so the existing claim/record guards prevent promotion. Batch outcomes require all eight acknowledgements and a valid pending row; unknown outcomes are held without automatic replay. Prune retains every pending marker, including a superseded unreferenced claim whose external promotion may still be in flight; unclaimed/settled expiry and all existing deadlines remain strict.
+
+The real SQLite before-fix run was166/169: all prior164 controls passed and three new race checks failed. The fixed overlay passed176/176. Five earlier additive retention expectations are explicitly strengthened, rather than falsely described as byte-identical: pending predecessors, unrelated unreferenced claims and stale/replaced claims remain pending; pre-record pruning retains the claim and the rollback path is still tested. All original135 checks remain unchanged. The generator applies25 exact replacements (original11 P1-P3 plus14 P4), with inverse reconstruction and upstream pins intact. The test D1 shim now returns actual SELECT rows from its real SQLite transaction, matching the D1 batch result contract.
+
+This is a bounded cleanup guarantee, not universal cross-service role atomicity or completed erasure. Unresolved pending data may outlive normal expiry and needs keeper review. Raw operator forget remains separate, and Phase1b privacy/copy/prune/recovery composition plus Phase2 activation remain blocked. Link stays OFF; schema443, production settings/flags, Native E2, reset safeguards, public assets and launch gates do not change. A fresh exact successor manifest, original standard Workerd, hosted CI and completed zero-findings automated review are required; the2ba thirteen-job pass and this finding remain historical evidence.
+
+### .194 fourth hosted review: account deletion admission (22 October 2026)
+
+Historical boundary. The preceding third-review entry describes exact head
+`0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05` (tree `81a3d06d65362a17d7059f96e953af6fe545c131`), its 176-check
+suite and 25 counted replacements. Its local and hosted CI receipts remain attributed to that head. The completed
+review at 20:01:08 UTC raised P2 thread `PRRT_kwDOUgwmm86vW1gC`: a PUT can finish before player deletion removes the
+role, then cleanup refuses `used = 0` and the proof finalizes `linked` without the role. The earlier pending cleanup
+guard and unconditional orphan-role wording did not establish account serialization. This correction supersedes
+those current-behavior claims without rewriting their historical results.
+
+Owner scope. The owner authorized lifting the .194 source freeze for this confirmed correction, revising affected
+controls honestly, and fully requalifying .194 and affected .195 on their actual resulting heads. Link remains OFF;
+activation and production schema or settings changes are not authorized. That authorization is not a fresh source,
+CI, review, merge, deployment or live-acceptance receipt.
+
+Corrected protocol:
+
+- One atomic guarded INSERT into the existing LINK_DB `limits` table admits player deletion only when the account
+  has no `codes.used = 0` marker and no deletion guard. Every proof claim atomically requires the guard's absence.
+  A pending proof therefore refuses deletion before any DELETE, and admission acquired first excludes new claims
+  across role removal and guarded cleanup. A separate pending SELECT before demotion would not close that race.
+- An already-linked result revalidates its exact code, member and guard state in one snapshot without a PUT.
+  Cleanup keeps the pending guard and proves admission ownership; codes stay last for the dependent cleanup reads.
+- The account key is `delete:<64 hex digits>`, a domain-separated SHA-256 digest stable across backend-key rotation.
+  It is a linkable coordination pseudonym for a known Discord id, not an anonymous/confidential HMAC limiter key.
+  `n` is a cryptographically random 52-bit ownership token; `until` records admission time and is not expiry.
+  Prune excludes the namespace. No TTL, takeover, automatic retry or automatic recovery is added.
+- Release is the final operation and matches key, token and admission time after definitive DELETE and
+  acknowledged guarded cleanup, or after trusted definite nonapplication of the first DELETE with no cleanup.
+  Failed, missing or thrown acquisition/cleanup results and uncertain DELETE hold
+  admission when the row committed. Missing release acknowledgement can follow an actual release; the answer is
+  unconfirmed and the old request does no later role or cleanup work. Do not claim the row necessarily remains.
+- After specific 404 absence cases are handled, the trusted internal returned `notApplied: true` signal is limited to
+  known pre-request DELETE refusals or DELETE HTTP 400, 401, 403, 404, 405 and 429. A caught failure before the
+  write helper may start is classified inside the adapter; core never trusts a signal attached to a thrown error. That first-removal failure
+  releases its exact guard once as the last operation, preserves Link data and returns the existing `discord`
+  failure without automatic retry; unknown release returns held `server`. Transport errors, 5xx, unlisted statuses
+  such as 408, and bare false remain held. This is not a universal 4xx exemption.
+- A DELETE transport failure refuses even when a GET would observe absence, since a queued DELETE could still land
+  after a new PUT. PUT keeps its existing one-GET reconciliation/no-resend behavior, including its separate reasoned
+  GET-before-late-PUT residual. No new page reason value is needed.
+
+Affected controls must be revised openly: the old pending-deletion control required one DELETE while cleanup was
+refused; the corrected behavior refuses admission before that DELETE. The already path, acquisition/claim ordering,
+transport-uncertain DELETE, acknowledgement loss, token ownership, prune retention and final release need exact-head
+regressions. Preserve the old assertions and results as historical evidence instead of saying every control remained
+unchanged. The final generator replacement count, changed-path manifest and qualification counts belong in the actual
+new source receipt; no count or passing result is asserted by this entry.
+
+Residuals and data. A guard can remain indefinitely after uncertainty, including after account rows were already
+deleted. Retention and recovery are unqualified, and raw operator forget does not release the guard. Raw maintenance
+requires Link OFF and requests drained; age alone does not prove queued work ended. Concurrent `/verify` issuance is
+not frozen: a new code cannot be claimed under admission, but a code issued after the cleanup snapshot can remain.
+Late `logProof` writes can also add audit rows. Do not promise zero account data at response time or describe all
+retained `limits` rows as expiring daily counters. Privacy text approval, account copy, erasure, prune placement,
+pending-state and guard recovery remain Phase 1b gates (R3, R4, R5, R7, R14, R15); Phase 2 remains an owner gate.
+
+The correction does not declare all F1/F2/F3 work complete. .194 still has the unbounded pending-marker refusal and
+conservative definite lost-race behavior. The original .195 at `14e02bc5e56e2a44c0e959a3ab77c4f4a85e5fe0`, tree
+`ac45c98997a4d439b62bb0d12a482294d0b80335`, remains a separately sealed predecessor. Its bounded admission must use
+the same cutoff as its bounded cleanup, and admission must remain held through its second demotion. That affected
+integration needs fresh exact-head qualification; its original receipt cannot be transferred to changed bytes.
+
+Release gates remain: current source/generator/projection validation, the required local chain and original standard
+Workerd, exact-head hosted CI, completed zero-findings automated review, ordinary expected-head merge and verified
+merged tree/archive, fresh verified portable D1 backup and restore checks, then the authorized archived-main
+`--keep-vars` deployment with empty configuration deltas and live acceptance. No schema, binding, secret, flag,
+Native E2, reset safeguard, public asset, launch gate or manual cron change is authorized by this correction. This
+documentation edit ran no tests or provider actions and asserts no qualification, deployment or production result.
+
+New activation blocker, explicitly carried for both releases: an isolate death, uncertain admission/cleanup/release,
+or DELETE transport/5xx/unlisted-status/bare-false outcome can leave a persistent guard that prevents that account
+from linking or completing Delete my link indefinitely. Trusted first-removal nonapplication with acknowledged
+guard release is not such a trigger.
+Normal confirmed release deletes the guard, but a retained row has no TTL and player retry cannot clear or take it
+over. .195's pending-code bound does not authorize admission-row takeover. OFF publication accepts no activation,
+privacy-retention or recovery readiness for this behavior. A safe owner recovery procedure and the account-copy,
+privacy and availability treatment remain unqualified. The exact read-only guard/pending-code diagnostic and its
+limitations are in `docs/olympus-link.md`, section 6: absence, age, zero pending codes or zero member references are
+not evidence that queued work ended. No release/recovery SQL, mutation permission or automatic recovery is provided.
+
+The definite-nonapplication narrowing follows local candidate `1d973c616ad5cf52ee837e45b666e00ffea81c76`; that
+candidate's qualification remains historical and does not transfer to the changed successor. Fresh results and the
+actual new head belong in the new receipt; none are asserted here.
+
+
+Pre-request refinement: known adapter DELETE refusals before write may start also release exact admission once
+without cleanup; a requestMayHaveStarted boundary protects all uncertain provider outcomes. Normal OFF/held routes
+remain outside core, while direct captured-core compositions are covered separately. Ordinary privacy-read failure
+still proceeds to DELETE. The concurrent-delete message names the possibly running first request without an
+automatic retry. This refinement changes no schema, gate, setting or activation authority, and requires new exact
+source qualification; the earlier1d48 head and its results remain historical.
+
+22 October, additional genuine hosted P2 on `5127536bee445f75209e66b9a3fc02dce1b39ef6`: concurrent code issuance
+passed pre-write quota reads and could exceed three codes/draws. A bounded local before-probe issued five codes and
+charged five, preserving its failed safety assertion. That head's13 CI jobs/120 executed steps passed with49 original
+conditional skips; those successes did not clear the finding. Preserve the review, probe and historical qualification.
+
+The affected correction adds counted generator patch P6. It enforces both original quota predicates inside the code
+INSERT and charges the existing counter only from that immediately preceding insertion in the same D1 batch.
+Require real concurrent SQLite coverage, both independent quota guards, the original reset boundaries and reuse,
+collision rollback and conservative unknown-result handling. Only a full successful one/one acknowledgement may
+return the new token; zero/zero returns `limit`, and an uncertain/malformed/mixed outcome returns no code and does
+not automatically retry. Limit values and the 1.2-second reply deadline remain unchanged. No schema, settings,
+public assets or activation authority changes. The new actual source head, generator count, affected regression
+counts and fresh review/CI/Claude acceptance belong in its new receipt; none are implied by this checklist entry.
+The same affected correction must be integrated and requalified in .195 after actual .194 live acceptance.

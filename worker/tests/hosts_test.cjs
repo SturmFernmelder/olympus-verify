@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.193 Level-60 character sheet");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-21.194 Olympus Link source, shipped off");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -429,7 +429,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  a thrown string, object or null is 'thrown', never printed", logMod.errorRef("Bearer abc.def.ghi") === "thrown" && logMod.errorRef({ message: "Tag#1234", name: "K7Q2M9", toString: () => "cookie=abc.def.ghi" }) === "thrown" && logMod.errorRef(null) === "thrown" && logMod.errorRef(undefined) === "thrown");
   check("  every answer above is one of the allowed forms", [poisoned, new discord.DiscordError(500, "/", ""), new Error("D1_EXEC_ERROR"), "s", 42n, Symbol("x")].map((v) => logMod.errorRef(v)).every(isRef));
   check("  a custom_id is logged by its namespace only", logMod.idNamespace("ban:discord:123456789012345678") === "ban" && logMod.idNamespace(undefined) === "");
-  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-access.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts", "guild-seats.ts", "site-news.ts", "schema.ts"]; // .177: the member gate now reports only fixed stage and errorRef; previous logging modules remain covered.
+  const srcs = ["index.ts", "intros.ts", "names.ts", "site-admin.ts", "site-api.ts", "site-access.ts", "site-queue.ts", "bnet-retention.ts", "oauth.ts", "ingest.ts", "roster.ts", "restore.ts", "unverified.ts", "review.ts", "interactions.ts", "lookup.ts", "guide.ts", "site.ts", "discord.ts", "guild-seats.ts", "site-news.ts", "schema.ts", "link.ts", "link-role.ts", "link-core.ts"]; // .177: the member gate now reports only fixed stage and errorRef; previous logging modules remain covered. .186: the Olympus Link modules too (link-core.ts through its patch P2).
   const bareConsole = srcs.flatMap((f) => (fs.readFileSync(path.join(root, "src", f), "utf8").match(/console\.(error|warn|log)\([^\n]*/g) || []).filter((l) => !/errorRef\(/.test(l)).map((l) => `${f}: ${l.slice(0, 80)}`));
   check("no console call in src/ prints an error object or message (every one goes through errorRef)", bareConsole.length === 0, bareConsole.join("\n    "));
 
@@ -457,7 +457,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   await new Promise((r) => setTimeout(r, 80));
   check("  and the deadline alone still fires", alone.aborted === true && alone.reason?.name === "TimeoutError", alone.reason && alone.reason.name);
   fetchResponder = null;
-  for (const f of ["oauth.ts", "bnet-retention.ts", "site.ts", "discord.ts"]) { // bnet.ts went in .50
+  for (const f of ["oauth.ts", "bnet-retention.ts", "site.ts", "discord.ts", "link.ts", "link-role.ts", "link-core.ts"]) { // bnet.ts went in .50; .186: the Olympus Link modules (link-core.ts takes credentialFetch through its patch P3)
     const src = fs.readFileSync(path.join(root, "src", f), "utf8");
     const bare = (src.match(/\bawait fetch\(/g) || []).length;
     check(`${f} makes no bare fetch call (every credential-bearing call goes through credentialFetch)`, bare === 0, bare);

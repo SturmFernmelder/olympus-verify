@@ -10,6 +10,8 @@
  *   GET  /queue                 watcher: invites to write into OlympusQueue.lua; also carries its relay presence (relays.ts)
  *   POST /queue/written         watcher: ids it wrote to the queue file
  *   GET  /health
+ *   OPTIONS/POST /proof         .186 Olympus Link: the Link page's preflight and proofs (bot host only; 404 while Link is off)
+ *   POST /api/link/keys         .186 Olympus Link: confirmer keys, LINK_ADMIN_TOKEN bearer (bot host only; 404 while Link is off)
  *
  * On SITE_HOST (guild.roachcouncil.com, build .41) the guild site answers instead: site.ts. Its stylesheet, script and
  * images are static assets (public/static, [assets] in wrangler.toml); since .51 every request runs this code first
@@ -76,6 +78,7 @@ import {recoveryScalarArrayJSON} from './privacy-recovery-data-json';
 import {captureGlobalServingEntry,dispatchGlobalServingEntry,deferOriginalServing,assertGlobalServingDispatch,globalServingMode,preflightOriginalServingRequest,originalGlobalScheduledPhysicalCostObservation} from './privacy-global-serving-origin';
 import { captureLaneConfig, FRESH_AUDIT, type LaneCapture } from './full-release-roles';
 import { countStatements, type Admission } from './roster-effects';
+import { linkPreflight, routeLink } from './link';
 
 /** No installer runs here. An enabled but absent/unknown current-source installation refuses at ensureSchema. */
 function writeAdmissionEnv(env:Env):Env{
@@ -156,6 +159,9 @@ export default {
     // Fixed private control transport remains reachable during a CLOSED business floor. The separate operator
     // authenticates the original command before DO/D1 effects; its secret never belongs to this public Worker.
     if (host === 'bot' && path.startsWith('/private-production-control/')) return forwardPrivateProductionControl(request, env, path);
+    // .186 Olympus Link: the page's preflight, answered synchronously with no database and no await. Off: null, and the
+    // request continues exactly as in .185 (to the final 404).
+    if (host === 'bot' && path === '/proof' && request.method === 'OPTIONS') { const preflight = linkPreflight(request, env); if (preflight) return preflight; }
     // Public policies and their exact finite official-art closure are the login-wall exceptions.
     const policy = policyResponse(request, path);
     if (policy) {
@@ -552,6 +558,12 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     if (request.method === "GET" && path === "/admin/guild-map") return json({ build: BUILD, ...(await guildMap(env, query.get("guild") ?? "")) });
     if (request.method === "GET" && path === "/admin/backfill-roles") return json(await backfillRoles(env, backfillOptions(query),roleDispatch));
   }
+  // .186 Olympus Link (link.ts): POST /proof and POST /api/link/keys on the bot host only, never under /admin/ (that
+  // prefix takes WATCHER_TOKEN). While Link is off routeLink answers null and these reach the 404 below unchanged.
+  if ((path === "/proof" || path === "/api/link/keys") && classifyHost(env, new URL(request.url).hostname) === "bot") {
+    const linked = await routeLink(request, env, path, schemaReady);
+    if (linked) return linked;
+  }
 
   return new Response("not found", { status: 404 });
 }
@@ -579,7 +591,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-21.193 Level-60 character sheet";
+const BUILD = "2026-10-21.194 Olympus Link source, shipped off";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
