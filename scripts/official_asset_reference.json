@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 550728,
-      "sha256": "8eec3eb6eb9dfa5720de87ec7373397af40a705a269162cfdd2265f6a03fb6bc"
+      "bytes": 551510,
+      "sha256": "9adaf7e932228de430bc62b35c091a067f7b7c3aa24b32aa10a3e44974286dcb"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -650,14 +650,14 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 44333,
-      "sha256": "c0ba5d9f24ad92ec26284166d48b73a02c448a207156f6b810ef9581eae9a942"
+      "bytes": 47938,
+      "sha256": "2f6417a28170dc31a38f689a7bc510088fe1e49ff9a091947fa2bd2385bf83db"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 20850,
-      "sha256": "6c02ffdf14883f33683f0d952d38dc98dc4b5344728e115525ef95661b0206b4"
+      "bytes": 28926,
+      "sha256": "ad5e2ff2da6b017886f210e385a5d466d5303c3ca29d61a45e096136b971fd31"
     },
     {
       "path": "worker/public/static/resources169.js",
@@ -3620,6 +3620,7 @@
     "worker/public/static/talents/calculator.css",
     "worker/public/static/talents/calculator.js",
     "worker/public/static/talents/guide-builds179.js",
+    "worker/public/static/talents/stats60.js",
     "worker/public/static/wow-cursor.css",
     "worker/src/account-generation-contracts.ts",
     "worker/src/account-privacy-generations.ts",
@@ -3814,8 +3815,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 550728,
-      "sha256": "8eec3eb6eb9dfa5720de87ec7373397af40a705a269162cfdd2265f6a03fb6bc"
+      "bytes": 551510,
+      "sha256": "9adaf7e932228de430bc62b35c091a067f7b7c3aa24b32aa10a3e44974286dcb"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4116,6 +4117,24 @@
       "mode": "100644",
       "bytes": 9410,
       "sha256": "67db5ea92101ef63378ebbd776cacbdeb1f3b6b916d3a8c3a4d805e9ed4869b6"
+    },
+    {
+      "path": "worker/public/static/talents/naked60-186.json",
+      "mode": "100644",
+      "bytes": 356580,
+      "sha256": "f6d8b689031ca08d74e829e68a799fc9701b00c8b4e049d56cc1ddab2d348ced"
+    },
+    {
+      "path": "worker/public/static/talents/stat-effects186.json",
+      "mode": "100644",
+      "bytes": 237182,
+      "sha256": "42a079263a5b8faa2762eb8ba7095f14c48c244ae0257640e9869b264518aea0"
+    },
+    {
+      "path": "worker/public/static/talents/stats60.js",
+      "mode": "100644",
+      "bytes": 96953,
+      "sha256": "bde6568f978876fad7cfd5db378329fb2ddf7eb7df47c05fa18677695078834e"
     }
   ],
   "login_art_exception": {
