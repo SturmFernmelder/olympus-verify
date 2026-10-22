@@ -1932,3 +1932,56 @@ The third hosted review found player deletion could remove the cosmetic role, th
 The real SQLite before-fix run was166/169: all prior164 controls passed and three new race checks failed. The fixed overlay passed176/176. Five earlier additive retention expectations are explicitly strengthened, rather than falsely described as byte-identical: pending predecessors, unrelated unreferenced claims and stale/replaced claims remain pending; pre-record pruning retains the claim and the rollback path is still tested. All original135 checks remain unchanged. The generator applies25 exact replacements (original11 P1-P3 plus14 P4), with inverse reconstruction and upstream pins intact. The test D1 shim now returns actual SELECT rows from its real SQLite transaction, matching the D1 batch result contract.
 
 This is a bounded cleanup guarantee, not universal cross-service role atomicity or completed erasure. Unresolved pending data may outlive normal expiry and needs keeper review. Raw operator forget remains separate, and Phase1b privacy/copy/prune/recovery composition plus Phase2 activation remain blocked. Link stays OFF; schema443, production settings/flags, Native E2, reset safeguards, public assets and launch gates do not change. A fresh exact successor manifest, original standard Workerd, hosted CI and completed zero-findings automated review are required; the2ba thirteen-job pass and this finding remain historical evidence.
+
+### .194 correction after the completed 0ff5c85 review: account deletion admission (22 October 2026)
+
+The entries above describe their historical source and evidence. In particular, the 176-check result and the
+25-replacement generator belong to `0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05`; they do not qualify the correction
+below. That head's completed hosted review found a valid role-loss ordering: PUT finishes, the player's DELETE removes
+the role, guarded cleanup refuses the still-pending code, and the proof finalizes successfully without its role.
+The pending cleanup guard was not account serialization, and the old unconditional orphan-role claim was overstated.
+The owner authorized correction of this race, honest revision of affected controls, and fresh qualification of .194
+and affected .195. Link activation and production schema or setting changes remain unauthorized.
+
+The corrected .194 uses one account deletion guard in LINK_DB's existing `limits` table. One atomic guarded INSERT
+admits deletion only when no code of the account is pending; every proof claim atomically requires that guard's
+absence. Thus a proof admitted first makes deletion refuse before demotion, while deletion admitted first prevents
+new claims across its role removal and guarded cleanup. Cleanup checks both pending state and ownership, retaining
+codes until dependent cleanup has read them. Already-linked answers revalidate the exact code/member and admission
+state in one snapshot without another PUT. This is shared database coordination across isolates, not a local lock or
+a separate pre-demotion read with an unprotected gap.
+
+The guard's key is a domain-separated, stable SHA-256 account digest under `delete:`. It remains the same across
+backend-key rotation, but is linkable for known Discord ids and is not the ordinary limiter's confidential HMAC.
+`n` carries a cryptographically random 52-bit ownership token; `until` is admission bookkeeping, not an expiry.
+Prune excludes the namespace, there is no TTL takeover, and an uncertain outcome can retain the row indefinitely.
+The final release matches its key, token and admission time and follows only definitive role removal and acknowledged
+guarded cleanup. An uncertain acquisition, DELETE or cleanup does not cause automatic replay or guard release. Lost
+release acknowledgement can follow a committed release, but the old request does no further role or cleanup work.
+
+DELETE transport uncertainty cannot be settled by a GET observing absence: the DELETE could still be queued and
+later remove a newly granted role. That outcome now refuses and holds admission. PUT retains its existing one-GET
+reconciliation and no-resend rule, with the separate reasoned residual that its GET can precede a late PUT. Raw
+maintenance can still bypass admission and is restricted to Link OFF with requests drained; removing an old guard is
+not a qualified recovery procedure. Concurrent code issuance is allowed, but cannot promote while admission is held,
+and may add a code after the cleanup snapshot. The protocol does not serialize all account mutations or prove that
+no account data exists at response time. Retention, account copy, erasure and recovery remain Phase 1b gates.
+
+This does not claim all F1/F2/F3 successor work complete: .194's pending check remains unbounded, and definite lost
+races retain their conservative behavior. The separately sealed .195's bounded predicate, second removal and
+lost-race work require affected integration and fresh qualification on the resulting head. Its bound must apply
+equally to admission and cleanup, and its admission must remain held through the second removal. Historical receipts
+remain separately attributed. The corrected .194 needs fresh exact-source generation, local qualification, hosted CI
+and completed zero-findings review before ordinary merge and rollout gates; this design entry reports none of those
+as passed. No vendored schema, production configuration, public asset, Native E2, reset safeguard or launch gate is
+changed by the admission design. Link stays OFF and Phase 2 remains an owner gate.
+
+The retained admission row introduces a **new activation blocker**, in addition to those historical residuals: an
+isolate death or uncertain operation can indefinitely prevent the same account from linking or completing its own
+deletion. There is no player path out; pressing again, issuing a new code, pruning, or passing .195's separate
+pending-code bound does not clear it. A normal confirmed final release deletes the row. Uncertain retained rows have
+no retention deadline, and their linkable account pseudonym needs explicit privacy and account-copy treatment.
+Availability and safe owner recovery remain unqualified for both releases, so this behavior is accepted only as an
+OFF-source limitation. No one-hour or other age-based takeover is added. `docs/olympus-link.md` gives one exact
+read-only keeper snapshot of the account's guard and pending-code tuples; old or absent rows and zero pending/member
+counts do not prove queued work ended. That diagnostic is not authority to release a row or perform recovery.

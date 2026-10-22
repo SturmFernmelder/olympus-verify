@@ -20,7 +20,8 @@
  * DELETE (demote) skips 1-3: a player's own delete is never held back by eligibility (it reads the privacy subject only
  * to fence its audit rows, and goes ahead when that read fails). A role that no longer exists
  * (404/10011) counts as removed. A call that ends without an HTTP status (timeout, abort) is reconciled with one GET of
- * the member and never sent again (the role-settlements.ts rule).
+ * the member and never sent again (the role-settlements.ts rule). DELETE remains unconfirmed even if that GET finds absence;
+ * it does not prove a delayed DELETE has ended. The core retains its persistent admission guard in that case.
  *
  * Audit rows are written only here, so only while Link is on, and carry the Discord status and code, never a message.
  * A row that names the player goes through audit()'s privacy reference (db.ts): the subject's generation is read first
@@ -144,7 +145,7 @@ async function roleConfigured(env: Env): Promise<boolean> {
   return true;
 }
 
-/** No HTTP status came back: what is actually there now decides, by one GET; nothing is sent again. */
+/** No HTTP status came back: one diagnostic GET, never a resend. DELETE remains uncertain even if absent. */
 async function reconcile(env: Env, method: 'PUT' | 'DELETE', discordId: string, ref: PrivacyReference | null): Promise<LinkRoleResult> {
   let roles: string[] | null;
   try {
@@ -153,9 +154,14 @@ async function reconcile(env: Env, method: 'PUT' | 'DELETE', discordId: string, 
     await note(env, 'link.role_unconfirmed', ref, { method, status: e instanceof DiscordError ? e.status : null });
     return REFUSED;
   }
+  // Absence cannot prove a timed-out DELETE has drained; a delayed DELETE could remove a later PUT.
+  if (method === 'DELETE') {
+    await note(env, 'link.role_unconfirmed', ref, { method, status: null });
+    return REFUSED;
+  }
   if (roles === null) return NOT_IN_SERVER;
   const has = roles.includes(env.LINK_ROLE_ID!);
-  if (method === 'PUT' ? has : !has) return OK;
+  if (has) return OK;
   await note(env, 'link.role_unconfirmed', ref, { method, status: null });
   return REFUSED;
 }

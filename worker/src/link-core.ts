@@ -15,6 +15,10 @@
 //      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.
 //      Pending rows grant no confirmer/key authority.
 //      Prune retains every pending code; guarded player deletion atomically preserves all cleanup data while a claim is pending.
+//   P5 deletion admission uses a stable account pseudonym in limits; pending claims refuse before demotion.
+//      Proof claims exclude admission atomically; already revalidates settled rows and no guard in one snapshot.
+//      Keep admission on uncertain outcomes; release once after acknowledged role removal and guarded cleanup.
+//      until is admission bookkeeping, never a TTL. Generic pruning excludes delete: rows; recovery remains unqualified.
 //      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.
 // Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
 // src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).
@@ -538,7 +542,11 @@ export async function acceptProof(env, text, opts = {}) {
 	const v = x.verdict;
 	if (!v.ok) return v;
 	const { b, code } = x;
+	const deleteKey = await deletionAdmissionKey(code.discord_id);
 	if (v.already) {
+		// Revalidate the exact settled association and guard in one snapshot; examine's captured result can be stale.
+		const settled = await DB.prepare('SELECT 1 AS x FROM codes c JOIN members m ON m.r = c.r AND m.discord_id = c.discord_id WHERE c.r = ? AND c.used = ? AND m.character = ? AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ?)').bind(b.R, code.used, b.requester, deleteKey).first();
+		if (!settled) return pendingRole(b.R);
 		return { ...linkedAnswer(v, 'already', v.message), characters: await charactersOf(env, code.discord_id) };
 	}
 
@@ -546,7 +554,8 @@ export async function acceptProof(env, text, opts = {}) {
 	// only then give the role (Konig's review: two accounts linking the same character at the same
 	// moment each got the role, though only one got the character). Anything that fails after the
 	// claim undoes the record and releases the code, so the same link works on the next try.
-	const claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(0, b.R).run();
+	const claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ?)').bind(0, b.R, deleteKey).run();
+	if ((!claim.meta || claim.meta.changes !== 1) && await DB.prepare('SELECT 1 AS x FROM limits WHERE k = ?').bind(deleteKey).first()) return pendingRole(b.R);
 	if (!claim.meta || claim.meta.changes !== 1) return reject('code-used', 'This code was already used.', b.R);
 	const council = x.valid.filter((c) => c.key.council);
 	let wrote;
@@ -1016,15 +1025,54 @@ export async function handleProof(request, env, { promote, demote, fetchImpl } =
 // role yourself.
 // { ok: true, status: 'forgotten', reason: 'forgotten', message, discordId, username, characters }
 // (the characters it removed) or an error answer.
+async function deletionAdmissionKey(id) {
+	// Stable across seed rotations: this is a linkable coordination pseudonym, not a confidential limiter key.
+	return `delete:${bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(`olympus-link-delete~${id}`))))}`;
+}
+
+function deletionHeld() {
+	return failure('server', 'Deletion admission or its outcome could not be confirmed. No role change will be retried; ask the bot keeper to review it.');
+}
+
+async function admitDeletion(DB, id, t) {
+	if (!Number.isSafeInteger(t)) return null;
+	const random = crypto.getRandomValues(new Uint32Array(2));
+	const token = (random[0] & 0xfffff) * 0x100000000 + random[1] + 1;
+	const key = await deletionAdmissionKey(id);
+	try {
+		// One atomic write excludes both another deletion and any already-claimed proof. No TTL takeover.
+		const result = await DB.prepare('INSERT OR IGNORE INTO limits (k, until, n) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0)').bind(key, t, token, id).run();
+		return result && result.success === true && result.meta && result.meta.changes === 1 ? { key, token, at: t } : null;
+	} catch (err) {
+		console.error('olympus-link', 'delete_admit', errorRef(err));
+		return null;
+	}
+}
+
+async function releaseDeletion(DB, admission) {
+	try {
+		// This is the final operation: an unknown acknowledgement is never retried or followed by role work.
+		const result = await DB.prepare('DELETE FROM limits WHERE k = ? AND n = ? AND until = ?').bind(admission.key, admission.token, admission.at).run();
+		return !!(result && result.success === true && result.meta && result.meta.changes === 1);
+	} catch (err) {
+		console.error('olympus-link', 'delete_release', errorRef(err));
+		return false;
+	}
+}
+
 export async function forgetOwnLink(env, user, { demote, t = now() } = {}) {
 	const id = String(user && user.id);
 	if (!DISCORD_ID_RE.test(id)) return failure('login', 'Sign in with Discord first.');
+	const DB = database(env);
+	const admission = await admitDeletion(DB, id, t);
+	if (!admission) return deletionHeld();
 	if (typeof demote === 'function') {
 		const role = await promoted(demote, id);
-		if (!role.ok && role.reason !== 'not-in-server') return failure('discord', 'Discord did not take the role change: try again in a minute.');
+		if (!role.ok && role.reason !== 'not-in-server') return deletionHeld();
 	}
-	const gone = await forgetUser(env, id, t, { requireSettled: true });
+	const gone = await forgetUser(env, id, t, { requireSettled: true, admission });
 	if (!gone.ok) return gone;
+	if (!(await releaseDeletion(DB, admission))) return deletionHeld();
 	const kept = "Nothing is kept about this Discord account but how many codes and links it used today, until that day's limit ends.";
 	const message = gone.characters.length ? `${gone.characters.join(', ')}: no longer linked. ${kept}` : kept;
 	return { ok: true, status: 'forgotten', reason: 'forgotten', message, discordId: id, username: user.username, characters: gone.characters };
@@ -1363,7 +1411,7 @@ function publicKeyHex(s) {
 // the account itself) until their window ends, so a forget never gives more (Konig's review).
 // Take its role away yourself (the page's own delete does, with your demote). { ok, status,
 // discord_id, characters, keys }. `python3 scripts/link-keys.py forget <id>` prints the same SQL.
-export async function forgetUser(env, discordId, t = now(), { requireSettled = false } = {}) {
+export async function forgetUser(env, discordId, t = now(), { requireSettled = false, admission = null } = {}) {
 	const id = String(discordId);
 	if (!DISCORD_ID_RE.test(id)) return failure('format', 'A Discord id: digits only.');
 	const DB = database(env);
@@ -1374,16 +1422,18 @@ export async function forgetUser(env, discordId, t = now(), { requireSettled = f
 	const mine = 'SELECT character FROM members WHERE discord_id = ?';
 	if (requireSettled) {
 		// The first row and all guarded mutations share one D1 transaction. Codes go last, after every guard has read them.
-		const guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0)';
+		const ownership = admission ? 'EXISTS (SELECT 1 FROM limits WHERE k = ? AND n = ? AND until = ?)' : '1';
+		const ownerArgs = admission ? [admission.key, admission.token, admission.at] : [];
+		const guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0) AND ' + ownership;
 		const result = await DB.batch([
-			DB.prepare('SELECT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) AS pending').bind(id),
-			DB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id),
-			DB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id),
-			DB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id),
-			DB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id),
-			DB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id),
-			DB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id),
-			DB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id),
+			DB.prepare('SELECT (EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) OR NOT (' + ownership + ')) AS pending').bind(id, ...ownerArgs),
+			DB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id, ...ownerArgs),
+			DB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id, ...ownerArgs),
+			DB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id, ...ownerArgs),
+			DB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id, ...ownerArgs),
+			DB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),
+			DB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),
+			DB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),
 		]);
 		const pending = result && result[0] && result[0].results;
 		if (!Array.isArray(result) || result.length !== 8 || !result.every((r) => r && r.success === true) || !Array.isArray(pending) || pending.length !== 1 || !pending[0] || ![0, 1].includes(pending[0].pending)) {
@@ -1421,7 +1471,8 @@ export async function pruneLink(env, t = now()) {
 		DB.prepare('DELETE FROM codes WHERE exp < ? AND used IS NOT 0').bind(t - LINK.DELIVERY_GRACE),
 		DB.prepare('DELETE FROM used WHERE r NOT IN (SELECT r FROM codes) AND r NOT IN (SELECT r FROM members)'),
 		DB.prepare('DELETE FROM inbox_uploads WHERE uploaded < ?').bind(t - LINK.LOG_DAYS * 86400),
-		DB.prepare('DELETE FROM limits WHERE until <= ?').bind(t),
+		// Admission rows have no TTL: until records admission time and must never authorize reclaiming a delayed DELETE.
+		DB.prepare("DELETE FROM limits WHERE until <= ? AND k NOT LIKE 'delete:%'").bind(t),
 	]);
 	const n = (r) => (r && r.meta && Number(r.meta.changes)) || 0;
 	return { ok: true, status: 'ok', codes: n(codes), used: n(used), logs: n(logs), limits: n(limits) };

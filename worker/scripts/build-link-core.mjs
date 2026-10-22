@@ -5,7 +5,7 @@
 //   node scripts/build-link-core.mjs --check   fail when a vendored file's SHA-256 or the generated file drifts
 //
 // The three vendored files are byte-pinned to dnl-gentile/olympus-addon at the commit below (MIT). The generated module
-// is upstream's body plus four reviewed patch groups, each expressed as exact replacements that must match a fixed number of
+// is upstream's body plus five reviewed patch groups, each expressed as exact replacements that must match a fixed number of
 // times or the build fails, so an upstream change can never be patched silently:
 //   P1 database(): LINK_DB only. Upstream falls back to env.DB, and both schemas have a `members` table that
 //      forgetUser deletes from; a missing binding must never point Link at the bot's own database.
@@ -14,6 +14,7 @@
 //   P3 discordUser(): no globalThis.fetch default. The caller injects credentialFetch (discord.ts: no redirects, an
 //      8 s deadline); without one it throws link_fetch_missing instead of calling Discord with a bare fetch.
 //   P4 role settlement: pending state, finalization/readback, owned-row CAS, guarded player deletion, fail-observable undo and authority exclusions.
+//   P5 persistent deletion admission: atomic claim exclusion, owned cleanup/release and no TTL recovery.
 // Other limits, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
@@ -54,7 +55,7 @@ const PENDING_ROLE_PATCHES = Object.freeze([
   Object.freeze({
     id: "P4.2",
     find: "\tconst claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(t, b.R).run();",
-    replace: "\tconst claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(0, b.R).run();",
+    replace: "\tconst claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ?)').bind(0, b.R, deleteKey).run();\n\tif ((!claim.meta || claim.meta.changes !== 1) && await DB.prepare('SELECT 1 AS x FROM limits WHERE k = ?').bind(deleteKey).first()) return pendingRole(b.R);",
     count: 1,
   }),
   Object.freeze({
@@ -226,7 +227,7 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\tconst mine = 'SELECT character FROM members WHERE discord_id = ?';",
     ].join("\n"),
     replace: [
-      "export async function forgetUser(env, discordId, t = now(), { requireSettled = false } = {}) {",
+      "export async function forgetUser(env, discordId, t = now(), { requireSettled = false, admission = null } = {}) {",
       "\tconst id = String(discordId);",
       "\tif (!DISCORD_ID_RE.test(id)) return failure('format', 'A Discord id: digits only.');",
       "\tconst DB = database(env);",
@@ -237,16 +238,18 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\tconst mine = 'SELECT character FROM members WHERE discord_id = ?';",
       "\tif (requireSettled) {",
       "\t\t// The first row and all guarded mutations share one D1 transaction. Codes go last, after every guard has read them.",
-      "\t\tconst guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0)';",
+      "\t\tconst ownership = admission ? 'EXISTS (SELECT 1 FROM limits WHERE k = ? AND n = ? AND until = ?)' : '1';",
+      "\t\tconst ownerArgs = admission ? [admission.key, admission.token, admission.at] : [];",
+      "\t\tconst guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0) AND ' + ownership;",
       "\t\tconst result = await DB.batch([",
-      "\t\t\tDB.prepare('SELECT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) AS pending').bind(id),",
-      "\t\t\tDB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id),",
-      "\t\t\tDB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id),",
-      "\t\t\tDB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id),",
-      "\t\t\tDB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id),",
-      "\t\t\tDB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id),",
-      "\t\t\tDB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id),",
-      "\t\t\tDB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id),",
+      "\t\t\tDB.prepare('SELECT (EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) OR NOT (' + ownership + ')) AS pending').bind(id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),",
+      "\t\t\tDB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id, ...ownerArgs),",
       "\t\t]);",
       "\t\tconst pending = result && result[0] && result[0].results;",
       "\t\tif (!Array.isArray(result) || result.length !== 8 || !result.every((r) => r && r.success === true) || !Array.isArray(pending) || pending.length !== 1 || !pending[0] || ![0, 1].includes(pending[0].pending)) {",
@@ -255,6 +258,104 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\t\tif (pending[0].pending === 1) return failure('server', 'A link role change is still pending; no link data was deleted. Wait for the current request, or ask the bot keeper to review it.');",
       "\t\treturn { ok: true, status: 'ok', discord_id: id, characters, keys: keys.map((k) => k.key_id) };",
       "\t}",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P5.1",
+    find: [
+      "\tconst { b, code } = x;",
+      "\tif (v.already) {",
+      "\t\treturn { ...linkedAnswer(v, 'already', v.message), characters: await charactersOf(env, code.discord_id) };",
+      "\t}",
+    ].join("\n"),
+    replace: [
+      "\tconst { b, code } = x;",
+      "\tconst deleteKey = await deletionAdmissionKey(code.discord_id);",
+      "\tif (v.already) {",
+      "\t\t// Revalidate the exact settled association and guard in one snapshot; examine's captured result can be stale.",
+      "\t\tconst settled = await DB.prepare('SELECT 1 AS x FROM codes c JOIN members m ON m.r = c.r AND m.discord_id = c.discord_id WHERE c.r = ? AND c.used = ? AND m.character = ? AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ?)').bind(b.R, code.used, b.requester, deleteKey).first();",
+      "\t\tif (!settled) return pendingRole(b.R);",
+      "\t\treturn { ...linkedAnswer(v, 'already', v.message), characters: await charactersOf(env, code.discord_id) };",
+      "\t}",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P5.2",
+    find: [
+      "export async function forgetOwnLink(env, user, { demote, t = now() } = {}) {",
+      "\tconst id = String(user && user.id);",
+      "\tif (!DISCORD_ID_RE.test(id)) return failure('login', 'Sign in with Discord first.');",
+    ].join("\n"),
+    replace: [
+      "async function deletionAdmissionKey(id) {",
+      "\t// Stable across seed rotations: this is a linkable coordination pseudonym, not a confidential limiter key.",
+      "\treturn `delete:${bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(`olympus-link-delete~${id}`))))}`;",
+      "}",
+      "",
+      "function deletionHeld() {",
+      "\treturn failure('server', 'Deletion admission or its outcome could not be confirmed. No role change will be retried; ask the bot keeper to review it.');",
+      "}",
+      "",
+      "async function admitDeletion(DB, id, t) {",
+      "\tif (!Number.isSafeInteger(t)) return null;",
+      "\tconst random = crypto.getRandomValues(new Uint32Array(2));",
+      "\tconst token = (random[0] & 0xfffff) * 0x100000000 + random[1] + 1;",
+      "\tconst key = await deletionAdmissionKey(id);",
+      "\ttry {",
+      "\t\t// One atomic write excludes both another deletion and any already-claimed proof. No TTL takeover.",
+      "\t\tconst result = await DB.prepare('INSERT OR IGNORE INTO limits (k, until, n) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0)').bind(key, t, token, id).run();",
+      "\t\treturn result && result.success === true && result.meta && result.meta.changes === 1 ? { key, token, at: t } : null;",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'delete_admit', errorRef(err));",
+      "\t\treturn null;",
+      "\t}",
+      "}",
+      "",
+      "async function releaseDeletion(DB, admission) {",
+      "\ttry {",
+      "\t\t// This is the final operation: an unknown acknowledgement is never retried or followed by role work.",
+      "\t\tconst result = await DB.prepare('DELETE FROM limits WHERE k = ? AND n = ? AND until = ?').bind(admission.key, admission.token, admission.at).run();",
+      "\t\treturn !!(result && result.success === true && result.meta && result.meta.changes === 1);",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'delete_release', errorRef(err));",
+      "\t\treturn false;",
+      "\t}",
+      "}",
+      "",
+      "export async function forgetOwnLink(env, user, { demote, t = now() } = {}) {",
+      "\tconst id = String(user && user.id);",
+      "\tif (!DISCORD_ID_RE.test(id)) return failure('login', 'Sign in with Discord first.');",
+      "\tconst DB = database(env);",
+      "\tconst admission = await admitDeletion(DB, id, t);",
+      "\tif (!admission) return deletionHeld();",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P5.3",
+    find: [
+      "\t\tif (!role.ok && role.reason !== 'not-in-server') return failure('discord', 'Discord did not take the role change: try again in a minute.');",
+      "\t}",
+      "\tconst gone = await forgetUser(env, id, t, { requireSettled: true });",
+      "\tif (!gone.ok) return gone;",
+    ].join("\n"),
+    replace: [
+      "\t\tif (!role.ok && role.reason !== 'not-in-server') return deletionHeld();",
+      "\t}",
+      "\tconst gone = await forgetUser(env, id, t, { requireSettled: true, admission });",
+      "\tif (!gone.ok) return gone;",
+      "\tif (!(await releaseDeletion(DB, admission))) return deletionHeld();",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P5.4",
+    find: "\t\tDB.prepare('DELETE FROM limits WHERE until <= ?').bind(t),",
+    replace: [
+      "\t\t// Admission rows have no TTL: until records admission time and must never authorize reclaiming a delayed DELETE.",
+      "\t\tDB.prepare(\"DELETE FROM limits WHERE until <= ? AND k NOT LIKE 'delete:%'\").bind(t),",
     ].join("\n"),
     count: 1,
   }),
@@ -296,6 +397,10 @@ export const HEADER = [
   "//      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.",
   "//      Pending rows grant no confirmer/key authority.",
   "//      Prune retains every pending code; guarded player deletion atomically preserves all cleanup data while a claim is pending.",
+  "//   P5 deletion admission uses a stable account pseudonym in limits; pending claims refuse before demotion.",
+  "//      Proof claims exclude admission atomically; already revalidates settled rows and no guard in one snapshot.",
+  "//      Keep admission on uncertain outcomes; release once after acknowledged role removal and guarded cleanup.",
+  "//      until is admission bookkeeping, never a TTL. Generic pruning excludes delete: rows; recovery remains unqualified.",
   "//      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.",
   "// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
   "// src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).",

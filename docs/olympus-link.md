@@ -10,6 +10,11 @@ Prepared as .186 and then planned as .190, it was released under neither number 
 and every `/verify` reply and main-database statement are what .185 gave, which .187 to .193 left unchanged; other
 routes did change in those builds (for example .192's Army page and every build's `/health`).
 
+The corrected .194 candidate of 22 October adds account deletion admission after the completed review of
+`0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05`. That head and its receipts remain historical evidence: they do not
+qualify the correction. The owner authorized this correction and revised controls, followed by fresh qualification
+of .194 and the affected .195 successor. Neither that authorization nor this document enables Link.
+
 Sources: the reviewed integration plan (`renewed-request-2026-10-21/claude-link-186/integration-plan.md`, outside this
 repository) and the owner's rulings of 21 October 2026, recorded in section 2.
 
@@ -26,8 +31,10 @@ give their Discord account a cosmetic role for it:
    application, scope `identify`) and sends the link to this Worker's `POST /proof`.
 4. The Worker checks everything (Daniel's link-core: signatures, certificates, the code, the guild, limits), records
    the link in its own database, and gives the zero-permission **Olympus Link** role in `GUILD_ID`.
-5. On the same page, **Delete my link** takes the role away first, then deletes everything Link keeps about the
-   account, except the hashed daily limits.
+5. On the same page, **Delete my link** first obtains account deletion admission. A pending proof or an existing
+   deletion guard refuses that admission before any role removal. An admitted request removes the role, runs guarded
+   Link-data cleanup, and releases its guard only after confirmed outcomes. Daily limits remain, and an uncertain
+   deletion can leave a coordination guard indefinitely (section 4).
 
 ## 2. The owner's rulings (21 October 2026)
 
@@ -38,8 +45,9 @@ give their Discord account a cosmetic role for it:
   existing upstream reason: `not-in-server` when the member is not in the server, and `discord` for every refusal
   (banned, inactive subject, blocking role). link-core only knows those two outcomes of a promote, and the page cannot
   show anything else, so nothing new is added. The actual reason goes to the staff-visible audit row (section 5).
-- **Removal:** on the player's own "Delete my link" (link-core's forget, which demotes first). Removing the role on a
-  ban or an erasure is Phase 1b and is **not** implemented in .186.
+- **Removal:** on the player's own "Delete my link". The corrected .194 flow admits deletion before demotion, then
+  removes the role before guarded data cleanup. Removing the role on a ban or an erasure is Phase 1b and is **not**
+  implemented in .186.
 
 ## 3. Design
 
@@ -47,7 +55,7 @@ give their Discord account a cosmetic role for it:
 |---|---|
 | `worker/vendor/olympus-link/{link-core.mjs,schema.sql,LICENSE}` | Daniel's three files, byte for byte, at `dnl-gentile/olympus-addon@d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2` (MIT). Pins and notes: `worker/vendor/olympus-link/README.md`. |
 | `worker/scripts/build-link-core.mjs` | Checks the three SHA-256 pins and writes `worker/src/link-core.ts`. `npm run check:link-core` (part of `npm test`) fails on any drift. |
-| `worker/src/link-core.ts` | GENERATED, never edited by hand: upstream's text, a header and four count-guarded patch groups. **P1** `database()` uses `LINK_DB` only, never `env.DB` (both schemas have a `members` table, and `forgetUser` deletes from it). **P2** the nine `console.error` calls print a fixed stage and `errorRef(err)` only. **P3** `discordUser` has no `globalThis.fetch` default; the caller injects `credentialFetch` (no redirects, an 8 s deadline). **P4** keeps a code pending until the role grant is confirmed, so a failed rollback cannot make a later retry report a completed link or use the pending row as authority. |
+| `worker/src/link-core.ts` | GENERATED, never edited by hand: upstream's text, a header and count-guarded patch groups. **P1** `database()` uses `LINK_DB` only, never `env.DB` (both schemas have a `members` table, and `forgetUser` deletes from it). **P2** error logs print a fixed stage and `errorRef(err)` only. **P3** `discordUser` has no `globalThis.fetch` default; the caller injects `credentialFetch` (no redirects, an 8 s deadline). **P4** keeps a code pending until the role grant is confirmed, so a failed rollback cannot make a later retry report a completed link or use the pending row as authority. The corrected .194 also coordinates proof claims and player deletion through an account guard in the existing `limits` table (section 4). |
 | `worker/src/link.ts` | The gate (`linkState`), the narrowed env (`linkEnv`), the `/verify` block (`appendLinkBlock`), the preflight (`linkPreflight`) and the two routes (`routeLink`). It is the only module that loads link-core, by dynamic import, behind the gate. |
 | `worker/src/link-role.ts` | The one writer of the Olympus Link role (`linkRole`): eligibility, then `rest()` against `GUILD_ID`. A new module; `roles.ts` and `role-settlements.ts` are untouched. |
 
@@ -116,9 +124,11 @@ A confirmed undo frees the code. An unconfirmed undo keeps the code pending and 
   isolate and looked at again after any failed PUT: `LINK_ROLE_ID` must exist with permissions `"0"` and not be
   managed, otherwise it fails closed; (4) the PUT, with no sleeping retry on 429. The check sees the role's own
   permissions only, never channel overwrites (section 8, step 5).
-- **DELETE** skips the eligibility: a player's own delete is never held back. It reads the privacy subject only to
+- **DELETE** skips eligibility once the player's deletion has been admitted. It reads the privacy subject only to
   fence its audit rows, and goes ahead when that read fails. A role that no longer exists (404/10011) counts as removed.
-- A call that ends without an HTTP status (timeout, abort) is reconciled by one GET of the member and never sent again.
+- A **PUT** that ends without an HTTP status (timeout, abort) keeps the existing one-GET reconciliation and is never
+  sent again. A **DELETE** transport failure is unconfirmed even if a GET observes no role: that observation cannot
+  prove a queued DELETE has ended. The deletion guard is not released on that outcome, and no DELETE is resent.
 - At most four Discord requests and one main-database read per promote (one read per delete); every Discord call goes
   through `credentialFetch`, with the audit-log reason `olympus-verify: Olympus Link`.
 
@@ -130,7 +140,9 @@ The code is claimed with the reserved `codes.used = 0` marker before recording a
 The marker is finalized to the original Unix-second `t` only after the role writer confirms success. An uncertain
 finalization may be checked by one actual readback; neither the UPDATE nor the role PUT is blindly repeated.
 `examine` refuses a pending code before the already-linked branch. A pending member cannot authorize a confirmer
-or a non-bootstrap key owner. Normal completed links still use the original already-linked path without another PUT.
+or a non-bootstrap key owner. Normal completed links still use an already-linked path without another PUT; the
+corrected .194 revalidates the exact code, member and absence of deletion admission in one database snapshot before
+using a captured already-linked verdict.
 
 Every `codes.used = 0` marker is retained by prune, including a code no member currently references. An earlier
 promotion can still be awaiting its Discord result after a newer link settles; deleting its marker could let a
@@ -138,17 +150,57 @@ concurrent player delete erase the only cleanup record before the delayed PUT co
 settled-code expiry keeps its original strict cutoff. Unresolved pending markers may outlive that cutoff and
 require explicit keeper review; this is retention and refusal, not completed erasure.
 
-The player deletion flow uses a guarded D1 transaction after its role-removal attempt. The transaction captures
-same-account pending state and guards every cleanup/revocation statement against it, with code deletion last. If
-a pending claim exists, it deletes no Link data and does not report forgotten. If deletion commits first, a stale
-proof cannot claim the removed code or proceed to promotion. Missing or unsuccessful batch acknowledgements are
-unconfirmed outcomes, never a reason for an automatic write or role retry. The raw operator `forgetUser` default
-remains a separate maintenance API with its original cleanup SQL; it is not the concurrent player flow.
+### Account deletion admission (corrected .194 candidate, 22 October)
 
-These guards prevent the reported orphan-role-with-no-cleanup-record failure. They do not make D1 and Discord a
-single transaction or guarantee that a concurrent explicit role removal cannot follow a confirmed role PUT.
-Phase 1b must qualify pending-state erasure, account copy, prune/recovery, and raw-maintenance composition before
-activation. No automatic role replay or production SQL repair is authorized. Link remains OFF in this release.
+The completed exact-head review of `0ff5c85` found the opposite ordering to the earlier orphan-role report: a proof's
+PUT can finish, player deletion can remove the role and then refuse cleanup because `used = 0`, and the proof can
+subsequently finalize and answer `linked` without a role. The old cleanup guard alone did not serialize that ordering,
+and its earlier unconditional orphan-role guarantee was overstated. A separate read before demotion would leave a
+gap in which another claim could start.
+
+The correction obtains an account guard with one atomic `INSERT OR IGNORE ... SELECT` into the existing `limits`
+table, only when that account has no `codes.used = 0` row and no guard already exists. Every new proof claim atomically
+requires the same account guard to be absent. If the proof claim wins, deletion refuses before asking Discord to
+remove the role; if deletion wins, no proof can acquire a claim while its role and cleanup work run. The guarded
+cleanup still checks pending state and admission ownership, with codes last so earlier code-dependent cleanup can
+read them. An already-linked answer is revalidated against the current exact code/member and guard in one snapshot;
+it does not restore or repeat a role grant. A later concurrent deletion can still follow that read.
+
+The guard key is `delete:<64 hexadecimal digits>`, a domain-separated SHA-256 digest of the account id. It is stable
+across backend-key rotation, contains no raw id, and is linkable by anyone who knows an account id: it is a coordination
+pseudonym, not a confidential or anonymous rate-limit HMAC. Its `n` is a cryptographically random 52-bit ownership
+token and its `until` records admission time, not expiry. There is no TTL, lease takeover or automatic recovery;
+ordinary limit pruning explicitly excludes these rows.
+
+Only confirmed role removal followed by acknowledged guarded cleanup permits the final owner-matched guard release
+(`k`, `n` and admission time). Missing, failed or thrown acquisition/cleanup results, uncertain role removal and
+unconfirmed release answer as errors without automatically repeating role or database work. A guard committed before
+an acknowledgement was lost can remain indefinitely, including after account rows were deleted. A lost release
+acknowledgement can also follow an actual release: in that case the row is gone, but the old request performs no
+further role or cleanup work. This is why release is last. A held guard is not proof that deletion finished, and a
+retry does not take it over.
+
+**New activation blocker: indefinite account lockout.** If the deleting request dies or leaves an uncertain outcome
+with a retained guard, that account cannot make a new Link claim or complete another Delete my link, even with no
+pending code left. A later press, a new code, ordinary prune, and .195's separate one-hour pending-code allowance do
+not clear or take over this guard. Normal confirmed release deletes the guard; only retained outcomes have this
+indefinite lifetime. There is no implemented player recovery path. This is a new availability, privacy-retention and
+recovery blocker for activation of both releases, not an accepted production behavior. OFF publication does not
+waive it, and no age-based takeover is authorized.
+
+This coordinates the player's proof-claim and deletion paths; it is not general cross-service atomicity or completed
+erasure. Code issuance through `/verify` may run concurrently: its code cannot be claimed while the guard exists,
+but a new code issued after the cleanup snapshot can remain. Raw operator `forgetUser` remains a separate maintenance
+API and is not qualified for concurrent use. The unchanged PUT reconciliation can still observe absence before a
+queued PUT lands; that reasoned late-PUT residual is not solved by this correction. Phase 1b must qualify pending-state
+erasure, account copy, guard retention/recovery, prune and raw-maintenance composition, with approved privacy texts,
+before activation. No automatic guard repair, role replay or production SQL repair is authorized. Link remains OFF.
+
+This .194 correction does not claim all F1/F2/F3 successor work complete. In .194 every pending marker still blocks
+admission without an age bound, and definite lost uniqueness/CAS races retain the existing conservative behavior.
+The previously sealed .195 adds its own bounded predicate, second demotion and lost-race changes. Its affected
+integration must apply the same bound to both admission and cleanup, hold admission through its second removal,
+and be freshly qualified on its actual resulting head; its earlier receipt does not qualify that integration.
 
 Recording a replacement uses an atomic UPDATE matching the examined member's code and linked time; it cannot
 overwrite a newer snapshot or reinsert a deleted owned row. Both that UPDATE and a new-character INSERT require the
@@ -168,11 +220,15 @@ These checks use existing columns and do not add a schema, timestamp, role resen
 | `used` | Which key counted for which code. |
 | `inbox_uploads` | The audit trail of every link received (source, code, Discord id, requester, outcome). |
 | `revoked_keys`, `revoked_characters` | Revocation lists (key ids and characters only). |
-| `limits` | Rate-limit counters under a keyed hash (HMAC-SHA-256 with the backend seed) of an address, a sign-in or an account; never the value itself. |
+| `limits` | Ordinary rate-limit counters use a keyed hash (HMAC-SHA-256 with the backend seed) of an address, a sign-in or an account. The corrected .194 also stores `delete:<SHA-256 digest>` account coordination guards, a random ownership token and admission time. These linkable pseudonyms have no expiry and are exempt from limit pruning; they are not ordinary HMAC counters. |
 
-"Delete my link" removes the account's rows from `codes`, `members`, `keys` (their ids move to `revoked_keys`),
-`council_keys`, `used` and `inbox_uploads`. The `limits` rows stay until their window ends (upstream's design: a
-delete never grants more codes).
+An admitted, acknowledged "Delete my link" removes the matching account data in its guarded transaction from
+`codes`, `members`, `keys` (their ids move to `revoked_keys`), `council_keys`, `used` and `inbox_uploads`. A refusal
+does not complete that cleanup. Ordinary `limits` counters stay until their window ends so deletion never grants more
+codes; an uncertain deletion's coordination guard can remain indefinitely. Concurrent code issuance or later
+`logProof` audit writes can add data after the cleanup snapshot, so this is not a promise of zero account data at
+response time. The upstream forgotten message's "Nothing is kept ... but ... today" is not a complete retention
+description for those cases.
 
 **In the bot's database:** nothing new except audit rows, written through the existing `audit()` and only while Link
 is on: `link.promote_refused` (`why`: `banned` or `blocking_role`), `link.role_failed` (method, HTTP status, Discord
@@ -192,14 +248,20 @@ for up to an hour, as every ephemeral reply is. Logs carry fixed texts and `erro
 - **Not in .186 (Phase 1b):** the erasure hook (demote, then forget, inside the Native account erasure), the account-copy
   section, removing the role on a verification ban, the daily prune of `LINK_DB` (expired codes, 90-day trail, ended
   limits) and its placement. Until Phase 1b ships, an account erasure does not reach `LINK_DB`, which is why
-  activation waits for it (section 8, step 1).
+  activation waits for it (section 8, step 1). The corrected .194's coordination guards also need account-copy,
+  privacy-retention and safe recovery qualification. No automatic removal of a held guard is implemented or approved.
+- **New activation blocker: held deletion admission.** An isolate failure or uncertain operation can leave the account
+  unable to link or delete indefinitely. Player retry does not clear it; the privacy disclosure and owner recovery
+  procedure remain unqualified. The keeper's read-only diagnostic below is not recovery authority.
 - Eligibility refusals reach the player as upstream's "Discord did not take the role change: try again in a minute"
   (ruling, section 2). Staff see the real reason in the audit rows.
 - `POST /proof` lives on workers.dev, outside the roachcouncil.com zone's WAF; the in-memory filter and upstream's D1
   limits (before Discord is asked) are the flood protection.
 - An error raised outside `handleProof` (the Worker's top-level catch, a held write admission, the recovery floor)
   answers without CORS; the page then shows a generic failure.
-- A PUT that times out but lands later is reconciled by the confirming GET; link-core has no reconcile job of its own.
+- A PUT transport failure gets one confirming GET, without a resend. If that GET precedes a queued PUT, the later role
+  effect is still possible; this is a reasoned residual, not an ordering guarantee or a reproduced result here.
+  link-core has no reconcile job of its own. DELETE transport uncertainty instead holds deletion admission.
 - A role given stays until the player deletes the link (no removal on revoke, expiry or later ineligibility). The
   eligibility read, the member read and the PUT are separate steps: a ban or a blocking role that lands between them
   still gets the role, and nothing in Phase 1a takes it away. The Phase 1b ban and blocking-role removal hook closes
@@ -216,7 +278,47 @@ Remove `LINK_ENABLED` or set it to `"false"`: the routes answer 404 again and `/
 player's own "Delete my link" is a 404 too. Remove them by hand in Discord if the rollback is meant to take them away.
 Never delete the `olympus-link` database or unbind `LINK_DB` while it holds rows: from Phase 1b on, erasure and the
 account copy depend on it. A manual forget for one account against `LINK_DB` is the SQL that Daniel's
-`python3 scripts/link-keys.py forget <id>` prints (the same statements as link-core's `forgetUser`); the owner runs it.
+`python3 scripts/link-keys.py forget <id>` prints (the same statements as link-core's raw `forgetUser`); the owner runs
+it only with Link OFF and requests drained. It bypasses player admission and must not run against fresh in-flight
+claims. That SQL does not release coordination guards. A held guard requires a separately qualified owner recovery
+procedure that proves old role and database work have ended; neither deleting it because it is old nor assuming a
+rollback drained requests is authorized by this document. Keep retained guards with the database during rollback.
+
+### Keeper diagnostic for a held account (read-only, not recovery)
+
+The owner may inspect this single SQL snapshot in a separately authorized read-only LINK_DB context; agents do not
+run remote D1 queries. Replace both literals for the same account. The exact key is `delete:` followed by lowercase
+hex SHA-256 of the UTF-8 string `olympus-link-delete~<Discord id>`; compute it locally, without a backend secret.
+The account literal is the same digits-only id. This query changes nothing and grants no recovery or write authority.
+
+```sql
+WITH target(guard_key, discord_id) AS (
+  VALUES ('delete:<64 lowercase hex digest>', '<digits-only Discord id>')
+)
+SELECT
+  t.guard_key AS requested_guard_key,
+  CASE WHEN g.k IS NULL THEN 0 ELSE 1 END AS guard_present,
+  g.until AS admitted_at,
+  g.n AS ownership_token,
+  c.r AS pending_r,
+  c.created AS code_created,
+  c.exp AS code_exp,
+  c.used AS code_used,
+  CASE WHEN c.r IS NULL THEN NULL ELSE
+    (SELECT COUNT(*) FROM members m WHERE m.r = c.r)
+  END AS member_rows
+FROM target t
+LEFT JOIN limits g ON g.k = t.guard_key
+LEFT JOIN codes c ON c.discord_id = t.discord_id AND c.used = 0
+ORDER BY c.exp, c.r;
+```
+
+One row is returned per pending code; when none exists the code fields are NULL. `guard_present = 1` identifies a
+retained admission row, and `admitted_at` is bookkeeping rather than a safe-release time. No pending code, zero member
+references, an old admission time, or an absent guard does not prove that provider or database work has ended or that
+deletion completed. The snapshot can also change immediately after the read. Do not treat the ownership token as
+authorization to release anything. Recovery must separately establish ended work and qualify the resulting role,
+data and privacy state before activation; no mutation query or recovery action is supplied here.
 
 ## 7. Tests
 
@@ -235,6 +337,14 @@ or one erased mid-call); the upstream vectors (seeds and the derivable token fie
 `pruneLink`, `PROOF_REASONS`); and the logs. `hosts_test.cjs` adds the three Link modules to its `errorRef` and
 no-bare-fetch checks.
 
+For the corrected .194, qualification must also cover the completed review's PUT/DELETE/refusal/finalization ordering,
+both atomic admission/claim orderings, an already snapshot invalidated by deletion, token-owned cleanup and release,
+lost acknowledgements before and after commit, transport-uncertain DELETE, guard retention through prune, and
+concurrent issuance without an admitted proof. The old control that required one DELETE during pending refusal is
+intentionally revised to require refusal before role removal. The historical 176-check result at `0ff5c85` does not
+qualify those changed controls; exact-head results are recorded separately. This list is a qualification requirement,
+not a report that these checks ran or passed.
+
 **Updating upstream.** A new upstream commit is a reviewed change of its own (`worker/vendor/olympus-link/README.md`):
 besides this suite, run upstream's own `web/test` suite at the new commit (it needs upstream's seeds and
 `web/public/core.js`, which are not vendored here) and record the result with the change.
@@ -247,8 +357,10 @@ Agents prepare the exact commands; the owner runs them (`CLAUDE.md`: owner gates
 1. **Preconditions.** Phase 1b (erasure, account copy, role removal on a verification ban or a blocking role, prune) is
    shipped and release-qualified, and the privacy texts that describe Link data are approved and published. Phase 1b's
    erasure demote must not depend on `LINK_ENABLED`: `linkRole` refuses everything unless Link is on, so after a
-   rollback (section 6) an erasure built on it would never remove the role. Gate it on the `LINK_DB` binding with
-   `LINK_ROLE_ID` and the bot token, or count a refused demote while Link is off as done once `forgetUser` has run.
+   rollback (section 6) an erasure built on it would never remove the role. Qualify a removal path using the `LINK_DB`
+   binding, `LINK_ROLE_ID` and the bot token that remains available after rollback, together with deletion admission,
+   pending-state handling and guard recovery. A refused or uncertain demotion is not completed removal, and raw forget
+   is not a substitute for that qualification. Account copy and approved privacy texts must include retained guards.
 2. **Keys.** From a checkout of Daniel's repository, run `python3 scripts/link-keys.py backend`. It prints a seed and a
    public key once and writes nothing. Keep the seed in a password manager only; the public key (64 hex) is
    `LINK_BACKEND_PUBLIC`. Make the admin token, for example

@@ -6609,3 +6609,75 @@ The third hosted review found player deletion could remove the cosmetic role, th
 The real SQLite before-fix run was166/169: all prior164 controls passed and three new race checks failed. The fixed overlay passed176/176. Five earlier additive retention expectations are explicitly strengthened, rather than falsely described as byte-identical: pending predecessors, unrelated unreferenced claims and stale/replaced claims remain pending; pre-record pruning retains the claim and the rollback path is still tested. All original135 checks remain unchanged. The generator applies25 exact replacements (original11 P1-P3 plus14 P4), with inverse reconstruction and upstream pins intact. The test D1 shim now returns actual SELECT rows from its real SQLite transaction, matching the D1 batch result contract.
 
 This is a bounded cleanup guarantee, not universal cross-service role atomicity or completed erasure. Unresolved pending data may outlive normal expiry and needs keeper review. Raw operator forget remains separate, and Phase1b privacy/copy/prune/recovery composition plus Phase2 activation remain blocked. Link stays OFF; schema443, production settings/flags, Native E2, reset safeguards, public assets and launch gates do not change. A fresh exact successor manifest, original standard Workerd, hosted CI and completed zero-findings automated review are required; the2ba thirteen-job pass and this finding remain historical evidence.
+
+### .194 fourth hosted review: account deletion admission (22 October 2026)
+
+Historical boundary. The preceding third-review entry describes exact head
+`0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05` (tree `81a3d06d65362a17d7059f96e953af6fe545c131`), its 176-check
+suite and 25 counted replacements. Its local and hosted CI receipts remain attributed to that head. The completed
+review at 20:01:08 UTC raised P2 thread `PRRT_kwDOUgwmm86vW1gC`: a PUT can finish before player deletion removes the
+role, then cleanup refuses `used = 0` and the proof finalizes `linked` without the role. The earlier pending cleanup
+guard and unconditional orphan-role wording did not establish account serialization. This correction supersedes
+those current-behavior claims without rewriting their historical results.
+
+Owner scope. The owner authorized lifting the .194 source freeze for this confirmed correction, revising affected
+controls honestly, and fully requalifying .194 and affected .195 on their actual resulting heads. Link remains OFF;
+activation and production schema or settings changes are not authorized. That authorization is not a fresh source,
+CI, review, merge, deployment or live-acceptance receipt.
+
+Corrected protocol:
+
+- One atomic guarded INSERT into the existing LINK_DB `limits` table admits player deletion only when the account
+  has no `codes.used = 0` marker and no deletion guard. Every proof claim atomically requires the guard's absence.
+  A pending proof therefore refuses deletion before any DELETE, and admission acquired first excludes new claims
+  across role removal and guarded cleanup. A separate pending SELECT before demotion would not close that race.
+- An already-linked result revalidates its exact code, member and guard state in one snapshot without a PUT.
+  Cleanup keeps the pending guard and proves admission ownership; codes stay last for the dependent cleanup reads.
+- The account key is `delete:<64 hex digits>`, a domain-separated SHA-256 digest stable across backend-key rotation.
+  It is a linkable coordination pseudonym for a known Discord id, not an anonymous/confidential HMAC limiter key.
+  `n` is a cryptographically random 52-bit ownership token; `until` records admission time and is not expiry.
+  Prune excludes the namespace. No TTL, takeover, automatic retry or automatic recovery is added.
+- Release is the final operation and matches key, token and admission time only after definitive DELETE and
+  acknowledged guarded cleanup. Failed, missing or thrown acquisition/cleanup results and uncertain DELETE hold
+  admission when the row committed. Missing release acknowledgement can follow an actual release; the answer is
+  unconfirmed and the old request does no later role or cleanup work. Do not claim the row necessarily remains.
+- A DELETE transport failure refuses even when a GET would observe absence, since a queued DELETE could still land
+  after a new PUT. PUT keeps its existing one-GET reconciliation/no-resend behavior, including its separate reasoned
+  GET-before-late-PUT residual. No new page reason value is needed.
+
+Affected controls must be revised openly: the old pending-deletion control required one DELETE while cleanup was
+refused; the corrected behavior refuses admission before that DELETE. The already path, acquisition/claim ordering,
+transport-uncertain DELETE, acknowledgement loss, token ownership, prune retention and final release need exact-head
+regressions. Preserve the old assertions and results as historical evidence instead of saying every control remained
+unchanged. The final generator replacement count, changed-path manifest and qualification counts belong in the actual
+new source receipt; no count or passing result is asserted by this entry.
+
+Residuals and data. A guard can remain indefinitely after uncertainty, including after account rows were already
+deleted. Retention and recovery are unqualified, and raw operator forget does not release the guard. Raw maintenance
+requires Link OFF and requests drained; age alone does not prove queued work ended. Concurrent `/verify` issuance is
+not frozen: a new code cannot be claimed under admission, but a code issued after the cleanup snapshot can remain.
+Late `logProof` writes can also add audit rows. Do not promise zero account data at response time or describe all
+retained `limits` rows as expiring daily counters. Privacy text approval, account copy, erasure, prune placement,
+pending-state and guard recovery remain Phase 1b gates (R3, R4, R5, R7, R14, R15); Phase 2 remains an owner gate.
+
+The correction does not declare all F1/F2/F3 work complete. .194 still has the unbounded pending-marker refusal and
+conservative definite lost-race behavior. The original .195 at `14e02bc5e56e2a44c0e959a3ab77c4f4a85e5fe0`, tree
+`ac45c98997a4d439b62bb0d12a482294d0b80335`, remains a separately sealed predecessor. Its bounded admission must use
+the same cutoff as its bounded cleanup, and admission must remain held through its second demotion. That affected
+integration needs fresh exact-head qualification; its original receipt cannot be transferred to changed bytes.
+
+Release gates remain: current source/generator/projection validation, the required local chain and original standard
+Workerd, exact-head hosted CI, completed zero-findings automated review, ordinary expected-head merge and verified
+merged tree/archive, fresh verified portable D1 backup and restore checks, then the authorized archived-main
+`--keep-vars` deployment with empty configuration deltas and live acceptance. No schema, binding, secret, flag,
+Native E2, reset safeguard, public asset, launch gate or manual cron change is authorized by this correction. This
+documentation edit ran no tests or provider actions and asserts no qualification, deployment or production result.
+
+New activation blocker, explicitly carried for both releases: an isolate death or uncertain admission/DELETE/cleanup
+can leave a persistent guard that prevents that account from linking or completing Delete my link indefinitely.
+Normal confirmed release deletes the guard, but a retained row has no TTL and player retry cannot clear or take it
+over. .195's pending-code bound does not authorize admission-row takeover. OFF publication accepts no activation,
+privacy-retention or recovery readiness for this behavior. A safe owner recovery procedure and the account-copy,
+privacy and availability treatment remain unqualified. The exact read-only guard/pending-code diagnostic and its
+limitations are in `docs/olympus-link.md`, section 6: absence, age, zero pending codes or zero member references are
+not evidence that queued work ended. No release/recovery SQL, mutation permission or automatic recovery is provided.
