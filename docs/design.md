@@ -1871,3 +1871,6 @@ A comparison that cannot see a total must still see a rank change. When both tot
 
 
 The .193 hosted review also found that successful transport is not successful data validation. A HTTP200 JSON payload whose talent revision or semantics are invalid must be evicted from the shared sheet-load cache after preparation fails. Closing and reopening then requests current data, while successful data can still be reused and an older failed view cannot evict a newer load. This recovery changes no formula, value, grade, application admission, setting or activation gate.
+
+
+Validation also precedes the destroyed-view early return. A request that settles after navigation still validates its data and evicts an invalid cached promise, so the first later mount can fetch healthy data. This performs no UI construction or error report for the dead view and retains validated-cache reuse.

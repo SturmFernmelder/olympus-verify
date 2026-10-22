@@ -578,6 +578,41 @@ check('.193: a rejected data request is evicted before a healthy retry with the 
   assert.equal(await retry.ready, true); assert.deepEqual(urls, [S.urls.naked, S.urls.effects, S.urls.naked, S.urls.effects]); assert.ok(sheetRow(retryHost, 'health')); retry.destroy();
 });
 
+check('.193: destroying a pending sheet still evicts invalid HTTP 200 data before its first healthy remount', async () => {
+  for (const invalid of ['naked revision', 'effects revision']) {
+    const document = makeDocument(), urls = [], build = C.emptyBuild(data, 'mage', 60);
+    let healthy = false, release;
+    const pending = new Promise(resolve => { release = resolve; });
+    const fetcher = async url => {
+      urls.push(url);
+      const value = clone(url === S.urls.naked ? naked : effects);
+      if (!healthy && invalid === 'naked revision' && url === S.urls.naked) value.build.talentRevision = '000000000000';
+      if (!healthy && invalid === 'effects revision' && url === S.urls.effects) value.source.talentRevision = '000000000000';
+      if (!healthy) await pending;
+      return { ok: true, json: async () => value };
+    };
+    const abandonedHost = document.createElement('div'), abandoned = S.mount(abandonedHost, { data, build, fetch: fetcher });
+    const detached = abandonedHost.childNodes[0], originalText = detached.textContent;
+    assert.deepEqual(urls, [S.urls.naked, S.urls.effects]); abandoned.destroy(); assert.equal(abandonedHost.childNodes.length, 0);
+    release(); assert.equal(await abandoned.ready, false); assert.equal(abandonedHost.childNodes.length, 0); assert.equal(detached.textContent, originalText);
+    healthy = true;
+    const retryHost = document.createElement('div'), retry = S.mount(retryHost, { data, build, fetch: fetcher });
+    assert.equal(await retry.ready, true, invalid); assert.deepEqual(urls, [S.urls.naked, S.urls.effects, S.urls.naked, S.urls.effects]); assert.ok(sheetRow(retryHost, 'health')); retry.destroy();
+  }
+});
+check('.193: destroying a pending sheet preserves valid data for reuse without constructing or reporting into the dead view', async () => {
+  const document = makeDocument(), urls = [], build = C.emptyBuild(data, 'mage', 60);
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const fetcher = async url => { urls.push(url); await pending; return { ok: true, json: async () => clone(url === S.urls.naked ? naked : effects) }; };
+  const abandonedHost = document.createElement('div'), abandoned = S.mount(abandonedHost, { data, build, fetch: fetcher });
+  const detached = abandonedHost.childNodes[0], originalText = detached.textContent;
+  assert.deepEqual(urls, [S.urls.naked, S.urls.effects]); abandoned.destroy(); release();
+  assert.equal(await abandoned.ready, false); assert.equal(abandonedHost.childNodes.length, 0); assert.equal(detached.textContent, originalText);
+  const retryHost = document.createElement('div'), retry = S.mount(retryHost, { data, build, fetch: fetcher });
+  assert.equal(await retry.ready, true); assert.deepEqual(urls, [S.urls.naked, S.urls.effects]); assert.ok(sheetRow(retryHost, 'health')); retry.destroy();
+});
+
 console.log('\n== .186 optional loading inside the calculator ==');
 const art = JSON.parse(fs.readFileSync(path.join(folder, 'art.json'), 'utf8'));
 function calculatorRealm() {

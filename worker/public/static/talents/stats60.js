@@ -680,13 +680,13 @@
     const fetcher = ctx.fetch || (typeof fetch === "function" ? fetch : null);
     const loading = ctx.naked && ctx.effects ? Promise.resolve([ctx.naked, ctx.effects]) : load(fetcher);
     const ready = loading.then(([naked, effects]) => {
-      if (dead) return false;
       try { model = prepare(ctx.data, naked, effects); }
       catch (error) {
         // HTTP success can still carry invalid data. Retire only this load, never a newer concurrent retry.
         if (loads.get(fetcher) === loading) loads.delete(fetcher);
         throw error;
       }
+      if (dead) return false;
       if (!build || typeof build.className !== "string") throw userError("A talent build is required.");
       construct();
       return true;

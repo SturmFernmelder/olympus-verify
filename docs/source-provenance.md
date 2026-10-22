@@ -283,3 +283,6 @@ These resources were first prepared as .186 on the .185 PR head and then as .189
 
 
 The .193 PR86 review successor additionally fixes semantic data-load cache recovery in stats60.js. The two generated data files retain their original bytes; only the stats60.js required-resource row, REFERENCE_SHA256 and the two corresponding V4 consumer pins are refreshed for that code change. The previous chart-only identity description is the original sealed preparation, not the final review successor. No new resource, artwork exception, runtime path, producer, schema or activation switch is added.
+
+
+The further .193 review successor validates settled data even when its originating view was destroyed before arrival. This is another small stats60.js cache-recovery correction with additive cancellation regressions and the same one-resource/reference/V4 pin refresh; data and artwork identities remain unchanged.
