@@ -14,7 +14,8 @@
 //      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.
 //      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.
 //      Pending rows grant no confirmer/key authority.
-//      Prune retains referenced pending codes and their same-account pending predecessors until recovery settles or rolls back.
+//      Prune retains every pending code; guarded player deletion atomically preserves all cleanup data while a claim is pending.
+//      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.
 // Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
 // src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).
 import { errorRef } from './log';
@@ -1022,7 +1023,7 @@ export async function forgetOwnLink(env, user, { demote, t = now() } = {}) {
 		const role = await promoted(demote, id);
 		if (!role.ok && role.reason !== 'not-in-server') return failure('discord', 'Discord did not take the role change: try again in a minute.');
 	}
-	const gone = await forgetUser(env, id, t);
+	const gone = await forgetUser(env, id, t, { requireSettled: true });
 	if (!gone.ok) return gone;
 	const kept = "Nothing is kept about this Discord account but how many codes and links it used today, until that day's limit ends.";
 	const message = gone.characters.length ? `${gone.characters.join(', ')}: no longer linked. ${kept}` : kept;
@@ -1362,7 +1363,7 @@ function publicKeyHex(s) {
 // the account itself) until their window ends, so a forget never gives more (Konig's review).
 // Take its role away yourself (the page's own delete does, with your demote). { ok, status,
 // discord_id, characters, keys }. `python3 scripts/link-keys.py forget <id>` prints the same SQL.
-export async function forgetUser(env, discordId, t = now()) {
+export async function forgetUser(env, discordId, t = now(), { requireSettled = false } = {}) {
 	const id = String(discordId);
 	if (!DISCORD_ID_RE.test(id)) return failure('format', 'A Discord id: digits only.');
 	const DB = database(env);
@@ -1371,6 +1372,26 @@ export async function forgetUser(env, discordId, t = now()) {
 	const codes = 'SELECT r FROM codes WHERE discord_id = ?';
 	const links = 'SELECT r FROM members WHERE discord_id = ?';
 	const mine = 'SELECT character FROM members WHERE discord_id = ?';
+	if (requireSettled) {
+		// The first row and all guarded mutations share one D1 transaction. Codes go last, after every guard has read them.
+		const guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0)';
+		const result = await DB.batch([
+			DB.prepare('SELECT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) AS pending').bind(id),
+			DB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id),
+			DB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id),
+			DB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id),
+			DB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id),
+			DB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id),
+			DB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id),
+			DB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id),
+		]);
+		const pending = result && result[0] && result[0].results;
+		if (!Array.isArray(result) || result.length !== 8 || !result.every((r) => r && r.success === true) || !Array.isArray(pending) || pending.length !== 1 || !pending[0] || ![0, 1].includes(pending[0].pending)) {
+			return failure('server', 'The deletion outcome could not be confirmed. Ask the bot keeper to review it before trying again.');
+		}
+		if (pending[0].pending === 1) return failure('server', 'A link role change is still pending; no link data was deleted. Wait for the current request, or ask the bot keeper to review it.');
+		return { ok: true, status: 'ok', discord_id: id, characters, keys: keys.map((k) => k.key_id) };
+	}
 	// In this order: each reads what the next ones delete (link-keys.py forget prints the same).
 	await DB.batch([
 		DB.prepare(`DELETE FROM used WHERE r IN (${codes}) OR r IN (${links})`).bind(id, id),
@@ -1397,7 +1418,7 @@ export async function forgetUser(env, discordId, t = now()) {
 export async function pruneLink(env, t = now()) {
 	const DB = database(env);
 	const [codes, used, logs, limits] = await DB.batch([
-		DB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR (NOT EXISTS (SELECT 1 FROM members direct WHERE direct.r = codes.r) AND NOT EXISTS (SELECT 1 FROM members active JOIN codes pending ON pending.r = active.r WHERE active.discord_id = codes.discord_id AND pending.discord_id = codes.discord_id AND pending.used = 0)))').bind(t - LINK.DELIVERY_GRACE),
+		DB.prepare('DELETE FROM codes WHERE exp < ? AND used IS NOT 0').bind(t - LINK.DELIVERY_GRACE),
 		DB.prepare('DELETE FROM used WHERE r NOT IN (SELECT r FROM codes) AND r NOT IN (SELECT r FROM members)'),
 		DB.prepare('DELETE FROM inbox_uploads WHERE uploaded < ?').bind(t - LINK.LOG_DAYS * 86400),
 		DB.prepare('DELETE FROM limits WHERE until <= ?').bind(t),

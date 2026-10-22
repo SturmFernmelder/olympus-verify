@@ -132,13 +132,23 @@ finalization may be checked by one actual readback; neither the UPDATE nor the r
 `examine` refuses a pending code before the already-linked branch. A pending member cannot authorize a confirmer
 or a non-bootstrap key owner. Normal completed links still use the original already-linked path without another PUT.
 
-An expired pending code is retained while a member references its `r`, or while a member of that account references
-a pending replacement. Pruning the predecessor during replacement could otherwise make a rollback look complete.
-All other expiry seconds stay unchanged. Once an explicit new-code proof completes and supersedes the member's `r`,
-the older expired pending code can be pruned. The player's deletion/cleanup paths
-retain access to pending rows. An unresolved outcome needs an explicit new-code or deletion flow or keeper review;
-it does not trigger an automatic role retry or authorize a production SQL repair. Phase 1b must qualify erasure,
-account-copy and prune handling of this pending state before any activation. Link remains OFF in this release.
+Every `codes.used = 0` marker is retained by prune, including a code no member currently references. An earlier
+promotion can still be awaiting its Discord result after a newer link settles; deleting its marker could let a
+concurrent player delete erase the only cleanup record before the delayed PUT completes. Ordinary unclaimed and
+settled-code expiry keeps its original strict cutoff. Unresolved pending markers may outlive that cutoff and
+require explicit keeper review; this is retention and refusal, not completed erasure.
+
+The player deletion flow uses a guarded D1 transaction after its role-removal attempt. The transaction captures
+same-account pending state and guards every cleanup/revocation statement against it, with code deletion last. If
+a pending claim exists, it deletes no Link data and does not report forgotten. If deletion commits first, a stale
+proof cannot claim the removed code or proceed to promotion. Missing or unsuccessful batch acknowledgements are
+unconfirmed outcomes, never a reason for an automatic write or role retry. The raw operator `forgetUser` default
+remains a separate maintenance API with its original cleanup SQL; it is not the concurrent player flow.
+
+These guards prevent the reported orphan-role-with-no-cleanup-record failure. They do not make D1 and Discord a
+single transaction or guarantee that a concurrent explicit role removal cannot follow a confirmed role PUT.
+Phase 1b must qualify pending-state erasure, account copy, prune/recovery, and raw-maintenance composition before
+activation. No automatic role replay or production SQL repair is authorized. Link remains OFF in this release.
 
 Recording a replacement uses an atomic UPDATE matching the examined member's code and linked time; it cannot
 overwrite a newer snapshot or reinsert a deleted owned row. Both that UPDATE and a new-character INSERT require the

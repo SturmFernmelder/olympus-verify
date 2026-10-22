@@ -109,7 +109,7 @@ function linkD1() {
     batch: async (list) => {
       calls.n++;
       db.exec("BEGIN");
-      try { const out = []; for (const s of list) out.push(await s.run()); db.exec("COMMIT"); return out; }
+      try { const out = []; for (const s of list) out.push(await (/^\s*SELECT\b/i.test(s.sql) ? s.all() : s.run())); db.exec("COMMIT"); return out; }
       catch (err) { db.exec("ROLLBACK"); throw err; }
     },
   };
@@ -217,7 +217,7 @@ async function councillorLink(core, token, requester, issued, c) {
   check("  every original P1-P3 patch is an exact replacement that must match once (1 + 9 + 1)", originalPatches.length === 11 && originalPatches.every((p) => p.count === 1 && pristine.split(p.find).length === 2));
   let patchInput = pristine; const patchCounts = [];
   for (const p of gen.PATCHES) { const found = patchInput.split(p.find).length - 1; patchCounts.push(found === p.count); if (found === p.count) patchInput = patchInput.split(p.find).join(p.replace); }
-  check("P4: twelve exact counted replacements follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 23 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 12 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
+  check("P4: fourteen exact counted replacements follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 25 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 14 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
   const body = generated.slice(gen.HEADER.length);
   let undone = body;
   for (const p of [...gen.PATCHES].reverse()) undone = undone.split(p.replace).join(p.find);
@@ -801,10 +801,10 @@ async function councillorLink(core, token, requester, issued, c) {
       && (await pendingDb.prepare("SELECT used FROM codes WHERE r = ?").bind(nextProof.R).first()).used === T
       && (await core.checkProof(pendingEnv, proof.text, { discordId: USER_C })).reason === "server", recovered, alreadyRecovered, promotes);
     await core.pruneLink(pendingEnv, expireAt);
-    check(".194 after a confirmed newer code supersedes member.r, the old expired pending code can prune without reviving its proof",
-      !(await pendingDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(proof.R).first())
+    check(".194 a confirmed newer code does not erase an older expired unconfirmed marker or revive its proof",
+      (await pendingDb.prepare("SELECT used FROM codes WHERE r = ?").bind(proof.R).first())?.used === 0
       && (await pendingDb.prepare("SELECT r FROM members WHERE character = ?").bind("Pending Player-ClassicBetaPvP").first()).r === nextProof.R
-      && (await core.checkProof(pendingEnv, proof.text, { discordId: USER_C })).reason === "unknown-code");
+      && (await core.checkProof(pendingEnv, proof.text, { discordId: USER_C })).reason === "server");
   }
   {
     const pendingEnv = await seeded(), pendingDb = pendingEnv.LINK_DB;
@@ -908,8 +908,8 @@ async function councillorLink(core, token, requester, issued, c) {
       const oldDuring = await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(oldProof.R).first();
       check(".194 prune retains expired pending A while recovery B temporarily owns its same-account member during deferred promotion",
         held.reason === "server" && duringMember?.r === nextProof.R && oldDuring?.used === 0, held.reason, duringMember, oldDuring);
-      check(".194 pending recovery retention does not protect another account's unreferenced pending code or change the strict expiry boundary",
-        !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(unrelatedCode.R).first())
+      check(".194 expiry pruning preserves each account's pending markers independently and keeps the strict unused-code expiry boundary",
+        (await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(unrelatedCode.R).first())?.used === 0
         && !!(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind("PRUNECUT00").first())
         && !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind("PRUNEBEF00").first()));
       release(); const failed = await work;
@@ -922,9 +922,9 @@ async function councillorLink(core, token, requester, issued, c) {
         && admission.reason === "character-not-linked" && (await core.checkProof(raceEnv, oldProof.text, { discordId: USER_C })).reason === "server", failed.reason, restored, admission.reason);
       const settled = await core.acceptProof(raceEnv, nextProof.text, { discordId: USER_C, promote: async () => { promotes++; return true; } });
       await core.pruneLink(raceEnv, T);
-      check(".194 after explicit recovery B actually settles, expired A may prune and B's recorded authority remains valid",
+      check(".194 after explicit recovery B settles, expired unconfirmed A stays held while B's recorded authority remains valid",
         settled.reason === "linked" && promotes === 3
-        && !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(oldProof.R).first())
+        && (await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(oldProof.R).first())?.used === 0
         && (await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(nextProof.R).first())?.used === T
         && (await core.manageKeys(raceEnv, { key_id: "prunehold", public_key: candidate.publicHex, owner_discord_id: USER_C, character: "Prune Player-ClassicBetaPvP", kind: "p" })).ok === true, settled.reason, promotes);
     } finally { T = savedT; }
@@ -971,7 +971,8 @@ async function councillorLink(core, token, requester, issued, c) {
       const member = await race.db.prepare("SELECT r FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first();
       check(`.194 a recovery with a ${mode} owned snapshot cannot overwrite or resurrect the member after its recording pause`,
         race.held.reason === "server" && bResult.ok === false && bPromotes === 0
-        && !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(race.oldProof.R).first())
+        && (mode === "moved" ? (await race.db.prepare("SELECT used FROM codes WHERE r = ?").bind(race.oldProof.R).first())?.used === 0
+          : !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(race.oldProof.R).first()))
         && (mode === "moved" ? settled.result.reason === "linked" && member?.r === settled.R : member === null), bResult.reason, member, bPromotes);
     } finally { T = savedT; }
   }
@@ -1023,14 +1024,146 @@ async function councillorLink(core, token, requester, issued, c) {
       if (mode === "forget") await core.forgetUser(race.env, USER_C);
       else { T = code.exp + core.LINK.DELIVERY_GRACE + 1; await core.pruneLink(race.env, T); }
       release(); const result = await work;
-      check(`.194 a new-member claim removed by ${mode} before recording cannot recreate a member, promote or expose orphan authority`,
-        result.ok === false && result.reason === "server" && promotes === 0 && admittedOrphan === false
-        && !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(proof.R).first())
+      check(mode === "forget" ? ".194 a new-member claim removed by forget before recording cannot recreate a member, promote or expose orphan authority"
+        : ".194 expiry prune retains a newly pending claim; its ordinary failed promotion rolls back without exposing orphan authority",
+        result.ok === false && result.reason === (mode === "forget" ? "server" : "discord") && promotes === (mode === "forget" ? 0 : 1) && admittedOrphan === false
+        && (mode === "forget" ? !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(proof.R).first())
+          : (await race.db.prepare("SELECT used FROM codes WHERE r = ?").bind(proof.R).first())?.used === null)
         && !(await race.db.prepare("SELECT 1 AS x FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first()), result.reason, promotes, admittedOrphan);
     } finally { T = savedT; }
   }
   const upPage = (body, headers = {}, origin = ORIGIN) => new Request("https://verify.example/proof", { method: "POST", headers: { ...(origin ? { Origin: origin } : {}), "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
   const upProof = async (lenvX, text, token, headers = {}, origin = ORIGIN) => { const r = await core.handleProof(upPage({ text, discordToken: token }, headers, origin), lenvX, { promote: async () => {}, demote: async () => {}, fetchImpl: upFetch }); return { http: r.status, ...(await r.json()) }; };
+  async function playerForget194(env, demote) {
+    const response = await core.handleProof(upPage({ forget: true, discordToken: signin("some", "player", "0001") }), env, { demote, fetchImpl: upFetch });
+    return response.json();
+  }
+  {
+    const env = await seeded(); let entered, release, role = false, put = 0, del = 0;
+    const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+    const proofWork = core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => { put++; entered(); await finish; role = true; return true; } });
+    await started;
+    const deletion = await playerForget194(env, async () => { del++; role = false; return true; });
+    const held = !!(await env.LINK_DB.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first())
+      && (await env.LINK_DB.prepare("SELECT used FROM codes WHERE r = ?").bind(B1.R).first())?.used === 0;
+    release(); const proofResult = await proofWork;
+    check(".194 player deletion during an admitted delayed role PUT refuses success and preserves the member/claim until settlement",
+      deletion.ok === false && deletion.reason === "server" && held && put === 1 && del === 1 && role === true
+      && proofResult.reason === "linked" && !!(await env.LINK_DB.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first()), deletion.reason, proofResult.reason, held, role);
+  }
+  {
+    const env = await seeded(); let demoteEntered, releaseDemote, promoteEntered, releasePromote, role = true;
+    const deleting = new Promise((resolve) => { demoteEntered = resolve; }), finishDelete = new Promise((resolve) => { releaseDemote = resolve; });
+    const promoting = new Promise((resolve) => { promoteEntered = resolve; }), finishPromote = new Promise((resolve) => { releasePromote = resolve; });
+    const deleteWork = playerForget194(env, async () => { demoteEntered(); await finishDelete; role = false; return true; });
+    await deleting;
+    const proofWork = core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => { promoteEntered(); await finishPromote; role = true; return true; } });
+    await promoting;
+    releaseDemote(); const deletion = await deleteWork;
+    const held = (await env.LINK_DB.prepare("SELECT used FROM codes WHERE r = ?").bind(B1.R).first())?.used === 0;
+    releasePromote(); const proofResult = await proofWork;
+    check(".194 a same-account proof claimed during awaited demotion still prevents subsequent player cleanup from reporting forgotten",
+      deletion.ok === false && deletion.reason === "server" && held && proofResult.reason === "linked" && role === true
+      && !!(await env.LINK_DB.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first()), deletion.reason, proofResult.reason, held);
+  }
+  {
+    const env = await seeded(), db = env.LINK_DB, rawPrepare = db.prepare;
+    let entered, release, paused = false, put = 0;
+    const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+    const wrap = (s) => ({ ...s, bind: (...args) => wrap(s.bind(...args)), run: async () => {
+      if (!paused && /^UPDATE codes SET used = \? WHERE r = \? AND used IS NULL$/.test(s.sql)) { paused = true; entered(); await finish; }
+      return s.run();
+    } });
+    db.prepare = (sql) => wrap(rawPrepare(sql));
+    const proofWork = core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => { put++; return true; } });
+    await started;
+    const deletion = await playerForget194(env, async () => true);
+    release(); const proofResult = await proofWork;
+    check(".194 completed player cleanup before a proof claim prevents that old proof from recording a member or sending a PUT",
+      deletion.reason === "forgotten" && proofResult.ok === false && put === 0
+      && !(await db.prepare("SELECT 1 AS x FROM codes WHERE discord_id = ?").bind(USER_C).first())
+      && !(await db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first()), deletion.reason, proofResult.reason, put);
+  }
+  {
+    const env = await seeded(), db = env.LINK_DB;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    await db.prepare("UPDATE codes SET used = 0 WHERE r = ?").bind(TOKEN_A.R).run();
+    const other = JSON.stringify(await db.prepare("SELECT * FROM codes WHERE r = ?").bind(TOKEN_A.R).first());
+    const deletion = await playerForget194(env, async () => true);
+    check(".194 another account's pending proof does not block settled-account player deletion or lose that other account's marker",
+      deletion.reason === "forgotten" && !(await db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first())
+      && !(await db.prepare("SELECT 1 AS x FROM codes WHERE discord_id = ?").bind(USER_C).first())
+      && JSON.stringify(await db.prepare("SELECT * FROM codes WHERE r = ?").bind(TOKEN_A.R).first()) === other, deletion.reason);
+  }
+  {
+    const savedT = T, race = await pendingRaceFixture194(false); let entered, release, role = false, puts = 0;
+    const codeB = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+    const proofB = await councillorLink(core, codeB.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+    const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+    try {
+      T = codeB.exp + core.LINK.DELIVERY_GRACE - 1;
+      const workB = core.acceptProof(race.env, proofB.text, { discordId: USER_C, promote: async () => { puts++; entered(); await finish; role = true; return true; } });
+      await started;
+      const codeC = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+      const proofC = await councillorLink(core, codeC.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+      const settledC = await core.acceptProof(race.env, proofC.text, { discordId: USER_C, promote: async () => { puts++; role = true; return true; } });
+      T += 2;
+      await core.pruneLink(race.env, T);
+      const marker = (await race.db.prepare("SELECT used FROM codes WHERE r = ?").bind(proofB.R).first())?.used;
+      const deletion = await playerForget194(race.env, async () => { role = false; return true; });
+      release(); const resultB = await workB;
+      check(".194 expiry prune after newer C settles cannot discard delayed B's marker and let player deletion falsely succeed before B's PUT",
+        settledC.reason === "linked" && marker === 0 && deletion.ok === false && deletion.reason === "server"
+        && resultB.reason === "linked" && puts === 2 && role === true
+        && !!(await race.db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first()), marker, deletion.reason, resultB.reason, role);
+    } finally { T = savedT; }
+  }
+  {
+    const env = await seeded(), db = env.LINK_DB; let entered, release;
+    const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+    const proofWork = core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => { entered(); await finish; return false; } });
+    await started;
+    await db.prepare("INSERT INTO keys (key_id, public_key, owner_discord_id, character, kind, bootstrap, created) VALUES (?, ?, ?, ?, ?, ?, ?)").bind("heldkey1", "e".repeat(64), USER_C, B1.requester, "p", 0, T).run();
+    await db.prepare("INSERT INTO council_keys (public_key, key_id, character, cert_exp, first_seen) VALUES (?, ?, ?, ?, ?)").bind("d".repeat(64), "d".repeat(12), B1.requester, T + 3600, T).run();
+    await db.prepare("INSERT INTO inbox_uploads (source, r, discord_id, requester, from_character, uploaded, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind("site", B1.R, USER_C, B1.requester, B1.requester, T, "linked").run();
+    const snapshot = async () => {
+      const out = {};
+      for (const table of ["used", "inbox_uploads", "council_keys", "revoked_keys", "keys", "members", "codes"]) out[table] = (await db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).results;
+      return JSON.stringify(out);
+    };
+    const before = await snapshot(), deletion = await playerForget194(env, async () => true), after = await snapshot();
+    release(); await proofWork;
+    check(".194 a pending player deletion preserves every cleanup category and does not revoke a key in its guarded atomic batch",
+      deletion.ok === false && deletion.reason === "server" && before === after, deletion.reason, before === after);
+  }
+  for (const mode of ["before", "after", "missing-result", "failed-step"]) {
+    const env = await seeded(), db = env.LINK_DB;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const rawBatch = db.batch; let cleanups = 0, demotes = 0;
+    db.batch = async (statements) => {
+      if (!/^SELECT EXISTS \(SELECT 1 FROM codes/.test(statements[0]?.sql || "")) return rawBatch(statements);
+      cleanups++;
+      if (mode === "before") throw new Error("D1_ERROR: synthetic guarded cleanup before commit");
+      const result = await rawBatch(statements);
+      if (mode === "after") throw new Error("D1_ERROR: synthetic guarded cleanup acknowledgement");
+      if (mode === "missing-result") result[0] = { success: true };
+      if (mode === "failed-step") result[3] = { success: false };
+      return result;
+    };
+    const deletion = await playerForget194(env, async () => { demotes++; return true; });
+    const retained = !!(await db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first());
+    check(`.194 unconfirmed player cleanup (${mode}) is never reported forgotten or automatically retried`,
+      deletion.ok === false && deletion.reason === "server" && cleanups === 1 && demotes === 1 && retained === (mode === "before"), deletion.reason, cleanups, demotes, retained);
+  }
+  for (const mode of ["false", "throw"]) {
+    const env = await seeded(), db = env.LINK_DB;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const deletion = await playerForget194(env, async () => { if (mode === "throw") throw new Error("synthetic unknown DELETE acknowledgement"); return false; });
+    check(`.194 an unconfirmed role removal (${mode}) retains cleanup records and does not report forgotten`,
+      deletion.ok === false && deletion.reason === "discord"
+      && !!(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first())
+      && !!(await db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(B1.R).first()), deletion.reason);
+  }
   const madeUp = (i) => signin("made", "up", String(i).padStart(6, "0"));
   mainSpy.n = 0;
   {

@@ -13,7 +13,7 @@
 //      code R, Discord id, message or stack reaches Workers Logs.
 //   P3 discordUser(): no globalThis.fetch default. The caller injects credentialFetch (discord.ts: no redirects, an
 //      8 s deadline); without one it throws link_fetch_missing instead of calling Discord with a bare fetch.
-//   P4 acceptProof(): durable pending role state, finalization/readback, owned-row CAS, fail-observable undo, authority exclusions and safe prune.
+//   P4 role settlement: pending state, finalization/readback, owned-row CAS, guarded player deletion, fail-observable undo and authority exclusions.
 // Other limits, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
@@ -186,7 +186,7 @@ const PENDING_ROLE_PATCHES = Object.freeze([
   Object.freeze({
     id: "P4.11",
     find: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ?').bind(t - LINK.DELIVERY_GRACE),",
-    replace: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR (NOT EXISTS (SELECT 1 FROM members direct WHERE direct.r = codes.r) AND NOT EXISTS (SELECT 1 FROM members active JOIN codes pending ON pending.r = active.r WHERE active.discord_id = codes.discord_id AND pending.discord_id = codes.discord_id AND pending.used = 0)))').bind(t - LINK.DELIVERY_GRACE),",
+    replace: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ? AND used IS NOT 0').bind(t - LINK.DELIVERY_GRACE),",
     count: 1,
   }),
   Object.freeze({
@@ -203,6 +203,58 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\t\t\tx.owned",
       "\t\t\t\t? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ? AND linked = ? AND EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.guild, x.gv, b.faction, b.R, t, b.requester, code.discord_id, x.owned.r, x.owned.linked, b.R, code.discord_id)",
       "\t\t\t\t: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t, b.R, code.discord_id),",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.13",
+    find: "\tconst gone = await forgetUser(env, id, t);",
+    replace: "\tconst gone = await forgetUser(env, id, t, { requireSettled: true });",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.14",
+    find: [
+      "export async function forgetUser(env, discordId, t = now()) {",
+      "\tconst id = String(discordId);",
+      "\tif (!DISCORD_ID_RE.test(id)) return failure('format', 'A Discord id: digits only.');",
+      "\tconst DB = database(env);",
+      "\tconst characters = await charactersOf(env, id);",
+      "\tconst keys = (await DB.prepare('SELECT key_id FROM keys WHERE owner_discord_id = ? AND revoked = 0').bind(id).all()).results || [];",
+      "\tconst codes = 'SELECT r FROM codes WHERE discord_id = ?';",
+      "\tconst links = 'SELECT r FROM members WHERE discord_id = ?';",
+      "\tconst mine = 'SELECT character FROM members WHERE discord_id = ?';",
+    ].join("\n"),
+    replace: [
+      "export async function forgetUser(env, discordId, t = now(), { requireSettled = false } = {}) {",
+      "\tconst id = String(discordId);",
+      "\tif (!DISCORD_ID_RE.test(id)) return failure('format', 'A Discord id: digits only.');",
+      "\tconst DB = database(env);",
+      "\tconst characters = await charactersOf(env, id);",
+      "\tconst keys = (await DB.prepare('SELECT key_id FROM keys WHERE owner_discord_id = ? AND revoked = 0').bind(id).all()).results || [];",
+      "\tconst codes = 'SELECT r FROM codes WHERE discord_id = ?';",
+      "\tconst links = 'SELECT r FROM members WHERE discord_id = ?';",
+      "\tconst mine = 'SELECT character FROM members WHERE discord_id = ?';",
+      "\tif (requireSettled) {",
+      "\t\t// The first row and all guarded mutations share one D1 transaction. Codes go last, after every guard has read them.",
+      "\t\tconst guard = 'NOT EXISTS (SELECT 1 FROM codes pending WHERE pending.discord_id = ? AND pending.used = 0)';",
+      "\t\tconst result = await DB.batch([",
+      "\t\t\tDB.prepare('SELECT EXISTS (SELECT 1 FROM codes WHERE discord_id = ? AND used = 0) AS pending').bind(id),",
+      "\t\t\tDB.prepare(`DELETE FROM used WHERE (r IN (${codes}) OR r IN (${links})) AND ${guard}`).bind(id, id, id),",
+      "\t\t\tDB.prepare(`DELETE FROM inbox_uploads WHERE (discord_id = ? OR r IN (${codes}) OR requester IN (${mine}) OR from_character IN (${mine})) AND ${guard}`).bind(id, id, id, id, id),",
+      "\t\t\tDB.prepare(`DELETE FROM council_keys WHERE character IN (${mine}) AND ${guard}`).bind(id, id),",
+      "\t\t\tDB.prepare(`INSERT OR IGNORE INTO revoked_keys (key_id, revoked_at) SELECT key_id, COALESCE(revoked_at, ?) FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(t, id, id),",
+      "\t\t\tDB.prepare(`DELETE FROM keys WHERE owner_discord_id = ? AND ${guard}`).bind(id, id),",
+      "\t\t\tDB.prepare(`DELETE FROM members WHERE discord_id = ? AND ${guard}`).bind(id, id),",
+      "\t\t\tDB.prepare(`DELETE FROM codes WHERE discord_id = ? AND ${guard}`).bind(id, id),",
+      "\t\t]);",
+      "\t\tconst pending = result && result[0] && result[0].results;",
+      "\t\tif (!Array.isArray(result) || result.length !== 8 || !result.every((r) => r && r.success === true) || !Array.isArray(pending) || pending.length !== 1 || !pending[0] || ![0, 1].includes(pending[0].pending)) {",
+      "\t\t\treturn failure('server', 'The deletion outcome could not be confirmed. Ask the bot keeper to review it before trying again.');",
+      "\t\t}",
+      "\t\tif (pending[0].pending === 1) return failure('server', 'A link role change is still pending; no link data was deleted. Wait for the current request, or ask the bot keeper to review it.');",
+      "\t\treturn { ok: true, status: 'ok', discord_id: id, characters, keys: keys.map((k) => k.key_id) };",
+      "\t}",
     ].join("\n"),
     count: 1,
   }),
@@ -243,7 +295,8 @@ export const HEADER = [
   "//      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.",
   "//      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.",
   "//      Pending rows grant no confirmer/key authority.",
-  "//      Prune retains referenced pending codes and their same-account pending predecessors until recovery settles or rolls back.",
+  "//      Prune retains every pending code; guarded player deletion atomically preserves all cleanup data while a claim is pending.",
+  "//      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.",
   "// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
   "// src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).",
   "import { errorRef } from './log';",
