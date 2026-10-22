@@ -2002,3 +2002,19 @@ nonapplication, while post-boundary uncertainty remains held. Exact final releas
 a later explicit request, never an automatic retry. Ordinary privacy-reference read failure is caught and still
 sends DELETE. These direct captured-projection compositions are separate from normal OFF/held route admission,
 which never enters core. The previous1d48 qualification remains historical; changed bytes need new qualification.
+
+22 October, hosted quota correction: review of `5127536bee445f75209e66b9a3fc02dce1b39ef6` found that concurrent
+`issueCode` calls could all pass the two quota SELECTs before unconditional insertion. A bounded local SQLite probe
+held five requests at that boundary, then serialized their complete transactions: all five returned distinct codes
+and the counter reached five despite the limit of three. The failed cap assertion and that head's passing CI/local
+qualification remain historical evidence, not a clean review or acceptance of the next source.
+
+Generator patch P6 makes the code INSERT conditional on both the rolling 24-hour row count and the existing active
+first-code-anchored 86,400-second counter. Its immediately following counter UPSERT is conditional on `changes() = 1`
+from that INSERT in the same batch; other limit callers still use their unchanged helper. Only complete successful
+paired mutation counts of one return the newly signed code. A zero/zero pair returns the existing quota failure;
+mixed, missing or malformed acknowledgements throw without an automatic retry. An actual uniqueness exception
+rolls the transaction back and retains the original bounded collision retry. Sequential reuse remains uncharged,
+and concurrent requests may still issue distinct codes within the cap. This changes no quota value, clock, schema,
+configuration or deletion-admission rule. It needs new affected exact-head tests and genuine review; this entry
+does not assert those gates passed. Link remains OFF and all retained activation/privacy/recovery blockers remain.

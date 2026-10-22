@@ -5,7 +5,7 @@
 //   node scripts/build-link-core.mjs --check   fail when a vendored file's SHA-256 or the generated file drifts
 //
 // The three vendored files are byte-pinned to dnl-gentile/olympus-addon at the commit below (MIT). The generated module
-// is upstream's body plus five reviewed patch groups, each expressed as exact replacements that must match a fixed number of
+// is upstream's body plus six reviewed patch groups, each expressed as exact replacements that must match a fixed number of
 // times or the build fails, so an upstream change can never be patched silently:
 //   P1 database(): LINK_DB only. Upstream falls back to env.DB, and both schemas have a `members` table that
 //      forgetUser deletes from; a missing binding must never point Link at the bot's own database.
@@ -15,7 +15,8 @@
 //      8 s deadline); without one it throws link_fetch_missing instead of calling Discord with a bare fetch.
 //   P4 role settlement: pending state, finalization/readback, owned-row CAS, guarded player deletion, fail-observable undo and authority exclusions.
 //   P5 persistent deletion admission: atomic claim exclusion, owned cleanup/release and no TTL recovery.
-// Other limits, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
+//   P6 code issuance checks both retained daily quotas in its insertion transaction and charges only an inserted code.
+// Limit values, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -387,6 +388,28 @@ export const PATCHES = Object.freeze([
     count: 1,
   }),
   ...PENDING_ROLE_PATCHES,
+  Object.freeze({
+    id: "P6.1",
+    find: [
+      "\t\t\tawait DB.batch([",
+      "\t\t\t\tDB.prepare('INSERT INTO codes (r, discord_id, username, mode, draw_t, created, exp, token, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(R, id, username, mode, T, t, exp, token, source),",
+      "\t\t\t\tcountOne(DB, perDay, 86400, t),",
+      "\t\t\t]);",
+      "\t\t\treturn codeSuccess({ token, exp, mode, R, T });",
+    ].join("\n"),
+    replace: [
+      "\t\t\t// The earlier reads are only fast refusals. Both quota predicates are rechecked by this write.",
+      "\t\t\tconst issued = await DB.batch([",
+      "\t\t\t\tDB.prepare('INSERT INTO codes (r, discord_id, username, mode, draw_t, created, exp, token, source) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM codes WHERE discord_id = ? AND created > ?) < ? AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ? AND until > ? AND n >= ?)').bind(R, id, username, mode, T, t, exp, token, source, id, t - 86400, LINK.CODES_PER_DAY, perDay, t, LINK.CODES_PER_DAY),",
+      "\t\t\t\t// changes() belongs to the immediately preceding INSERT in this same transaction; no skipped code is charged.",
+      "\t\t\t\tDB.prepare('INSERT INTO limits (k, until, n) SELECT ?, ?, 1 WHERE changes() = 1 ON CONFLICT(k) DO UPDATE SET n = CASE WHEN limits.until > ? THEN limits.n + 1 ELSE 1 END, until = CASE WHEN limits.until > ? THEN limits.until ELSE excluded.until END').bind(perDay, t + 86400, t, t),",
+      "\t\t\t]);",
+      "\t\t\tif (!Array.isArray(issued) || issued.length !== 2 || !issued.every((r) => r && r.success === true && r.meta && [0, 1].includes(r.meta.changes)) || issued[0].meta.changes !== issued[1].meta.changes) throw new Error('could not confirm code quota admission');",
+      "\t\t\tif (issued[0].meta.changes === 0) return codeFailure('limit');",
+      "\t\t\treturn codeSuccess({ token, exp, mode, R, T });",
+    ].join("\n"),
+    count: 1,
+  }),
 ]);
 
 export const HEADER = [
@@ -412,7 +435,8 @@ export const HEADER = [
   "//      Keep admission on uncertain outcomes; release once after acknowledged role removal and guarded cleanup.",
   "//      until is admission bookkeeping, never a TTL. Generic pruning excludes delete: rows; recovery remains unqualified.",
   "//      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.",
-  "// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
+  "//   P6 code issuance atomically rechecks both daily quotas; only an inserted code charges the counter, and a full acknowledgement returns it.",
+  "// Upstream limit values, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
   "// src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).",
   "import { errorRef } from './log';",
   "",

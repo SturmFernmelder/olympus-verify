@@ -1,7 +1,7 @@
 // Build .186 (Olympus Link, Phase 1a; the reviewed integration plan and the owner's rulings of 21 Oct 2026), through the
 // REAL src/*.ts (transpiled by TypeScript itself) against the REAL schema in SQLite, with a second SQLite database
 // loaded from the vendored upstream schema standing in for LINK_DB. Only Discord's HTTP side is faked.
-//   - the generator: vendored bytes match their pins, src/link-core.ts is exactly pristine + P1-P3, drift is refused,
+//   - the generator: vendored bytes match their pins, src/link-core.ts is exactly pristine + counted P1-P6 patches, drift is refused,
 //     and --check also runs through a junction or symlink;
 //   - flag OFF is .185: the routes give today's 404 bytes with the same statements, and /verify replies and every
 //     main-database statement are byte-identical to the .185 interactions.ts (rebuilt from this one, digest-pinned);
@@ -213,11 +213,11 @@ async function councillorLink(core, token, requester, issued, c) {
   let refused = null;
   try { gen.generate(pristine.replace("CODES_PER_DAY: 3,", "CODES_PER_DAY: 30,")); } catch (e) { refused = e.message; }
   check("  a changed upstream byte is refused by its pin, never patched", /pin mismatch/.test(refused || ""), refused);
-  const originalPatches = gen.PATCHES.filter((p) => !/^P[45]\./.test(p.id));
+  const originalPatches = gen.PATCHES.filter((p) => !/^P[456]\./.test(p.id));
   check("  every original P1-P3 patch is an exact replacement that must match once (1 + 9 + 1)", originalPatches.length === 11 && originalPatches.every((p) => p.count === 1 && pristine.split(p.find).length === 2));
   let patchInput = pristine; const patchCounts = [];
   for (const p of gen.PATCHES) { const found = patchInput.split(p.find).length - 1; patchCounts.push(found === p.count); if (found === p.count) patchInput = patchInput.split(p.find).join(p.replace); }
-  check("P4/P5: fourteen retained P4 replacements and five admission corrections follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 30 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 14 && gen.PATCHES.filter((p) => p.id.startsWith("P5.")).length === 5 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
+  check("P4/P5/P6: fourteen retained P4, five admission and one atomic quota correction follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 31 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 14 && gen.PATCHES.filter((p) => p.id.startsWith("P5.")).length === 5 && gen.PATCHES.filter((p) => p.id.startsWith("P6.")).length === 1 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
   const body = generated.slice(gen.HEADER.length);
   let undone = body;
   for (const p of [...gen.PATCHES].reverse()) undone = undone.split(p.replace).join(p.find);
@@ -595,6 +595,159 @@ async function councillorLink(core, token, requester, issued, c) {
   const late = await LA.appendLinkBlock({ ...fullEnv(), LINK_DB: hangingDb }, { id: B, username: "bert_member" }, "whisper reply");
   const waited = performance.now() - deadlineStart;
   check(`  a LINK_DB that never answers: after ${L.LINK_CODE_DEADLINE_MS} ms the unchanged reply and one 'timeout' line (the 3 s interaction deadline is kept)`, late === "whisper reply" && L.LINK_CODE_DEADLINE_MS === 1200 && waited >= 1100 && waited < 2500 && LOGS.length === 1 && LOGS[0] === "olympus-link code not issued timeout", Math.round(waited), LOGS);
+
+  // ======================================================================================================================
+  console.log("\n== P6: concurrent issuance admits at most three codes and charges only committed admissions ==");
+  const quotaClock = T, quotaFetches = FETCHES.length, quotaRandom = globalThis.crypto.getRandomValues;
+  let quotaDraws = 0, forceQuotaDraw = null;
+  globalThis.crypto.getRandomValues = (arr) => {
+    if (arr.byteLength === 10) { quotaDraws++; if (forceQuotaDraw) return forceQuotaDraw(arr); }
+    return quotaRandom(arr);
+  };
+  const quotaUser = (username = "quota.player") => ({ id: "500000000000000199", username });
+  const quotaWorld = () => { const db = linkD1(); return { db, env: L.linkEnv({ ...baseVars, ...linkVars(keys, db) }) }; };
+  const quotaRows = (w) => w.db.sqlite.prepare("SELECT * FROM codes ORDER BY r").all();
+  const quotaCounters = (w) => w.db.sqlite.prepare("SELECT * FROM limits ORDER BY k").all();
+  const quotaSnapshot = (w) => JSON.stringify([quotaRows(w), quotaCounters(w)]);
+  const quotaDenied = (a) => a && a.ok === false && a.reason === "limit" && !["token", "command", "R", "T"].some((k) => k in a) && !JSON.stringify(a).includes("OLC2.");
+  const quotaWait = async (promise) => {
+    let timer;
+    try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("quota regression barrier exceeded 5000 ms")), 5000); })]); }
+    finally { clearTimeout(timer); }
+  };
+  const quotaSeed = async (w, count) => {
+    for (let i = 0; i < count; i++) {
+      const a = await core.issueCode(w.env, quotaUser("quota.seed" + i));
+      if (!a.ok) throw new Error("quota seed unexpectedly refused");
+      w.db.sqlite.prepare("UPDATE codes SET used = 1 WHERE r = ?").run(a.R);
+    }
+  };
+  // Hold each real batch before BEGIN, after every caller has performed its stale fast-path reads.
+  // Release one entire batch at a time: overlapping SQLite BEGIN would test the shim, not D1 admission.
+  const quotaConcurrent = async (w, users) => {
+    const rawBatch = w.db.batch, gates = [], events = [];
+    let allArrived;
+    const arrived = new Promise((resolve) => { allArrived = resolve; });
+    w.db.batch = async (statements) => {
+      if (statements.length !== 2 || !/^INSERT INTO codes\b/.test(statements[0].sql)) throw new Error("unexpected quota batch");
+      const index = gates.length;
+      let release, done;
+      const held = new Promise((resolve) => { release = resolve; }), committed = new Promise((resolve) => { done = resolve; });
+      gates.push({ release, committed }); events.push(["arrived", index]);
+      if (gates.length === users.length) allArrived();
+      await held;
+      try { const r = await rawBatch(statements); events.push(["committed", index, r.map((x) => x.meta.changes)]); return r; }
+      finally { done(); }
+    };
+    const work = users.map((u) => core.issueCode(w.env, u).then((answer) => ({ answer }), (error) => ({ error })));
+    try {
+      await quotaWait(arrived);
+      const before = { rows: quotaRows(w).length, counters: quotaCounters(w), waiting: gates.length };
+      for (let i = 0; i < gates.length; i++) { events.push(["release", i]); gates[i].release(); await quotaWait(gates[i].committed); }
+      const results = await quotaWait(Promise.all(work));
+      return { before, results, events, admitted: results.filter((r) => r.answer && r.answer.ok), denied: results.filter((r) => quotaDenied(r.answer)) };
+    } finally { w.db.batch = rawBatch; }
+  };
+  try {
+    for (const sameName of [true, false]) {
+      const w = quotaWorld(), start = quotaDraws;
+      const raced = await quotaConcurrent(w, Array.from({ length: 5 }, (_, i) => quotaUser(sameName ? "quota.player" : "quota.player" + i)));
+      const rows = quotaRows(w), counters = quotaCounters(w);
+      check(`P6 atomic quota (${sameName ? "same" : "different"} username): five callers finish their initial reads before any batch, then exactly three distinct codes persist and only three admissions are charged`,
+        raced.before.waiting === 5 && raced.before.rows === 0 && raced.before.counters.length === 0 && raced.admitted.length === 3 && raced.denied.length === 2
+        && new Set(raced.admitted.map((r) => r.answer.R)).size === 3 && rows.length === 3 && counters.length === 1 && counters[0].n === 3
+        && raced.admitted.every((r) => rows.some((row) => row.token === r.answer.token)) && quotaDraws - start === 5
+        && raced.events.slice(0, 5).every((e) => e[0] === "arrived") && raced.events.filter((e) => e[0] === "committed").map((e) => e[2].join("/")).join(",") === "1/1,1/1,1/1,0/0,0/0",
+        raced.events, rows.length, counters.map((c) => c.n));
+      check(`P6 atomic quota (${sameName ? "same" : "different"} username): both losing responses contain no code, command or random draw; no automatic batch retry`,
+        raced.denied.length === 2 && raced.results.every((r) => !r.error) && raced.events.filter((e) => e[0] === "arrived").length === 5);
+    }
+    const rowOnly = quotaWorld(); await quotaSeed(rowOnly, 2);
+    rowOnly.db.sqlite.prepare("UPDATE limits SET n = 0 WHERE k LIKE 'code:%'").run(); // Deliberate fixture disagreement: test the independent code-row predicate.
+    const rowRace = await quotaConcurrent(rowOnly, Array.from({ length: 5 }, (_, i) => quotaUser("quota.rows" + i)));
+    check("P6 code-row quota is atomic even when a stale day counter says zero: two existing codes leave only one of five concurrent admissions",
+      rowRace.before.rows === 2 && rowRace.before.counters[0].n === 0 && rowRace.admitted.length === 1 && rowRace.denied.length === 4 && quotaRows(rowOnly).length === 3 && quotaCounters(rowOnly)[0].n === 1);
+    const dayOnly = quotaWorld(); await quotaSeed(dayOnly, 2); await core.forgetUser(dayOnly.env, quotaUser().id);
+    const dayRace = await quotaConcurrent(dayOnly, Array.from({ length: 5 }, (_, i) => quotaUser("quota.day" + i)));
+    check("P6 retained day quota is atomic after actual forgetUser removes code rows: the two prior admissions leave only one new admission",
+      dayRace.before.rows === 0 && dayRace.before.counters[0].n === 2 && dayRace.admitted.length === 1 && dayRace.denied.length === 4 && quotaRows(dayOnly).length === 1 && quotaCounters(dayOnly)[0].n === 3);
+    const reset = quotaWorld(); await quotaSeed(reset, 3);
+    const firstUntil = quotaCounters(reset)[0].until, resetBefore = quotaSnapshot(reset), resetDraws = quotaDraws;
+    T = firstUntil - 1;
+    const beforeReset = await core.issueCode(reset.env, quotaUser("quota.reset"));
+    check("P6 one second before the daily boundary: refusal contains no code and does not draw or mutate either quota", quotaDenied(beforeReset) && quotaSnapshot(reset) === resetBefore && quotaDraws === resetDraws);
+    T = firstUntil;
+    const atReset = await core.issueCode(reset.env, quotaUser("quota.reset"));
+    check("P6 at the exact daily boundary: strict rolling-day and expired-counter predicates admit one code and reset the counter to one",
+      atReset.ok === true && quotaRows(reset).length === 4 && quotaCounters(reset)[0].n === 1 && quotaCounters(reset)[0].until === T + 86400 && quotaDraws === resetDraws + 1);
+    T = quotaClock;
+    const reuse = quotaWorld(); await quotaSeed(reuse, 2);
+    const reusable = await core.issueCode(reuse.env, quotaUser()), reuseBefore = quotaSnapshot(reuse), reuseDraws = quotaDraws;
+    const reuseBatch = reuse.db.batch; let reuseBatches = 0;
+    reuse.db.batch = async (list) => { reuseBatches++; return reuseBatch(list); };
+    const reused = await core.issueCode(reuse.env, quotaUser());
+    check("P6 a still-reusable code at the full quota returns that exact token, expiry, command and reply without another random draw, batch or quota charge",
+      reused.ok === true && ["token", "exp", "mode", "command", "reply"].every((k) => reused[k] === reusable[k]) && quotaDraws === reuseDraws && reuseBatches === 0 && quotaSnapshot(reuse) === reuseBefore);
+    reuse.db.sqlite.prepare("UPDATE codes SET used = 1").run();
+    const deniedBefore = quotaSnapshot(reuse), deniedDraws = quotaDraws;
+    const denied = await core.issueCode(reuse.env, quotaUser("quota.denied"));
+    check("P6 a sequential code-row denial returns no token and leaves all code/counter rows unchanged without any draw or batch", quotaDenied(denied) && quotaDraws === deniedDraws && reuseBatches === 0 && quotaSnapshot(reuse) === deniedBefore);
+    await core.forgetUser(reuse.env, quotaUser().id);
+    reuseBatches = 0; // The separately invoked maintenance batch is not an issuance attempt.
+    const retainedBefore = quotaSnapshot(reuse), retainedDenied = await core.issueCode(reuse.env, quotaUser("quota.denied"));
+    check("P6 a sequential retained-counter denial after forgetting also has no code, mutation, random draw or batch", quotaDenied(retainedDenied) && quotaRows(reuse).length === 0 && quotaCounters(reuse)[0].n === 3 && quotaSnapshot(reuse) === retainedBefore && quotaDraws === deniedDraws && reuseBatches === 0);
+
+    const collision = quotaWorld(), otherQuotaUser = { id: "500000000000000299", username: "quota.other" };
+    forceQuotaDraw = (arr) => { arr.fill(0); return arr; };
+    const occupied = await core.issueCode(collision.env, otherQuotaUser);
+    forceQuotaDraw = null;
+    const occupiedBefore = quotaSnapshot(collision), collisionDraws = quotaDraws, rawCollisionBatch = collision.db.batch;
+    let collisionBatches = 0, rolledBack = false;
+    forceQuotaDraw = (arr) => { if (quotaDraws === collisionDraws + 1) { arr.fill(0); return arr; } return quotaRandom(arr); };
+    collision.db.batch = async (list) => {
+      collisionBatches++;
+      try { return await rawCollisionBatch(list); }
+      catch (e) { rolledBack = /UNIQUE constraint failed: codes.r/.test(e.message) && quotaSnapshot(collision) === occupiedBefore; throw e; }
+    };
+    const afterCollision = await core.issueCode(collision.env, quotaUser());
+    forceQuotaDraw = null;
+    check("P6 a real duplicate-R SQLite constraint rolls back both statements before one fresh retry: existing account unchanged, new account charged exactly once",
+      occupied.ok && afterCollision.ok && occupied.R !== afterCollision.R && rolledBack && collisionBatches === 2 && quotaDraws === collisionDraws + 2
+      && quotaRows(collision).length === 2 && quotaCounters(collision).length === 2 && quotaCounters(collision).every((c) => c.n === 1));
+    const exhaustedBefore = quotaSnapshot(collision), exhaustedDraws = quotaDraws, exhaustedBatches = collisionBatches;
+    forceQuotaDraw = (arr) => { arr.fill(0); return arr; };
+    let exhaustedError = "";
+    try { await core.issueCode(collision.env, { id: "500000000000000399", username: "quota.exhausted" }); } catch (e) { exhaustedError = e.message; }
+    forceQuotaDraw = null;
+    check("P6 five real R collisions exhaust only the original bounded retry loop: no issued response or quota mutation", exhaustedError === "could not draw a free code" && quotaDraws === exhaustedDraws + 5 && collisionBatches === exhaustedBatches + 5 && quotaSnapshot(collision) === exhaustedBefore);
+
+    for (const mode of ["unknown-before", "unknown-after", "not-array", "missing-meta", "failed-step", "mixed-one-zero", "mixed-zero-one", "invalid-count"]) {
+      const w = quotaWorld(), raw = w.db.batch, start = quotaDraws;
+      let batches = 0, answer, failure = "";
+      w.db.batch = async (list) => {
+        batches++;
+        if (mode === "unknown-before") throw new Error("D1_ERROR: acknowledgement unavailable before commit");
+        const actual = await raw(list);
+        if (mode === "unknown-after") throw new Error("D1_ERROR: acknowledgement lost after commit");
+        if (mode === "not-array") return undefined;
+        if (mode === "missing-meta") return [{ success: true }, actual[1]];
+        if (mode === "failed-step") return [{ ...actual[0], success: false }, actual[1]];
+        if (mode === "mixed-one-zero") return [actual[0], { success: true, meta: { changes: 0 } }];
+        if (mode === "mixed-zero-one") return [{ success: true, meta: { changes: 0 } }, actual[1]];
+        return [{ success: true, meta: { changes: 2 } }, actual[1]];
+      };
+      try { answer = await core.issueCode(w.env, quotaUser()); } catch (e) { failure = e.message; }
+      const committed = mode !== "unknown-before", rows = quotaRows(w), counters = quotaCounters(w);
+      check(`P6 ${mode}: an unknown or malformed batch acknowledgement returns no token and never automatically resends the issuance`,
+        answer === undefined && failure.length > 0 && batches === 1 && quotaDraws === start + 1 && rows.length === Number(committed) && counters.length === Number(committed) && (!committed || counters[0].n === 1));
+      w.db.batch = async (list) => { batches++; return raw(list); };
+      const laterDraws = quotaDraws, later = await core.issueCode(w.env, quotaUser());
+      check(`P6 ${mode}: only a separately requested later call proceeds; it reuses any committed code without drawing or charging again`,
+        later.ok === true && quotaRows(w).length === 1 && quotaCounters(w)[0].n === 1
+        && (committed ? later.token === rows[0].token && batches === 1 && quotaDraws === laterDraws : batches === 2 && quotaDraws === laterDraws + 1));
+    }
+    check("P6 real core/SQLite quota regressions make no Discord or other HTTP request", FETCHES.length === quotaFetches);
+  } finally { T = quotaClock; forceQuotaDraw = null; globalThis.crypto.getRandomValues = quotaRandom; }
 
   // ======================================================================================================================
   console.log("\n== routes: OFF gives today's 404, ON serves the bot host only ==");

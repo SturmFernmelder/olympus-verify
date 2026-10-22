@@ -99,6 +99,17 @@ reply deadline; past that the reply goes out without the block and a `timeout` l
 out the code that landed meanwhile (upstream reuses an open code). A reply that would pass 1,990 characters drops the
 block whole; it is never split. Not changed: the already-member reply, `/verify-status`.
 
+Code issuance retains both upstream limits: at most three code rows created for an account in the rolling last
+86,400 seconds, and an account-hashed counter whose 86,400-second window starts with its first code. This is not a
+calendar-day or midnight reset. The initial reads can refuse quickly, but the code INSERT rechecks both predicates
+inside the same D1 batch as the counter update. The counter changes only when that INSERT inserted a row. A quota
+race loser gets the existing `limit` reply without a code; only a complete matching acknowledgement returns a newly
+signed token. Missing, malformed or uncertain batch results throw without an automatic issuance retry. A genuine
+uniqueness collision rolls the batch back and retains the existing bounded collision retry. Reusing a code remains
+uncharged; concurrent requests that all missed reuse may issue distinct codes up to the same cap. A candidate token
+may be drawn before admission, but a denied token is neither persisted nor returned. This quota transaction does
+not serialize issuance with deletion or eliminate the later-code and retention residuals below.
+
 ### Routes (bot host only, `PUBLIC_BASE_URL`)
 
 | Route | Notes |

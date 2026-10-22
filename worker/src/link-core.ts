@@ -20,7 +20,8 @@
 //      Keep admission on uncertain outcomes; release once after acknowledged role removal and guarded cleanup.
 //      until is admission bookkeeping, never a TTL. Generic pruning excludes delete: rows; recovery remains unqualified.
 //      Raw operator forgetUser remains a separate maintenance API; its Phase 1b concurrency/privacy qualification is still blocked.
-// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
+//   P6 code issuance atomically rechecks both daily quotas; only an inserted code charges the counter, and a full acknowledgement returns it.
+// Upstream limit values, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
 // src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).
 import { errorRef } from './log';
 // Olympus Link: the core, for the Olympus bot's Worker. Everything the bot needs to issue codes,
@@ -225,10 +226,14 @@ export async function issueCode(env, user, source = 'discord') {
 		const payload = `OLC2.${R}.${username}.${exp}.${mode}.${T}`;
 		const token = `${payload}.${await backendSign(env, payload)}`;
 		try {
-			await DB.batch([
-				DB.prepare('INSERT INTO codes (r, discord_id, username, mode, draw_t, created, exp, token, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(R, id, username, mode, T, t, exp, token, source),
-				countOne(DB, perDay, 86400, t),
+			// The earlier reads are only fast refusals. Both quota predicates are rechecked by this write.
+			const issued = await DB.batch([
+				DB.prepare('INSERT INTO codes (r, discord_id, username, mode, draw_t, created, exp, token, source) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM codes WHERE discord_id = ? AND created > ?) < ? AND NOT EXISTS (SELECT 1 FROM limits WHERE k = ? AND until > ? AND n >= ?)').bind(R, id, username, mode, T, t, exp, token, source, id, t - 86400, LINK.CODES_PER_DAY, perDay, t, LINK.CODES_PER_DAY),
+				// changes() belongs to the immediately preceding INSERT in this same transaction; no skipped code is charged.
+				DB.prepare('INSERT INTO limits (k, until, n) SELECT ?, ?, 1 WHERE changes() = 1 ON CONFLICT(k) DO UPDATE SET n = CASE WHEN limits.until > ? THEN limits.n + 1 ELSE 1 END, until = CASE WHEN limits.until > ? THEN limits.until ELSE excluded.until END').bind(perDay, t + 86400, t, t),
 			]);
+			if (!Array.isArray(issued) || issued.length !== 2 || !issued.every((r) => r && r.success === true && r.meta && [0, 1].includes(r.meta.changes)) || issued[0].meta.changes !== issued[1].meta.changes) throw new Error('could not confirm code quota admission');
+			if (issued[0].meta.changes === 0) return codeFailure('limit');
 			return codeSuccess({ token, exp, mode, R, T });
 		} catch (err) {
 			if (!/unique|constraint/i.test(String(err && err.message))) throw err; // an R taken: draw again

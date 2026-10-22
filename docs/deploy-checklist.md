@@ -6702,3 +6702,18 @@ remain outside core, while direct captured-core compositions are covered separat
 still proceeds to DELETE. The concurrent-delete message names the possibly running first request without an
 automatic retry. This refinement changes no schema, gate, setting or activation authority, and requires new exact
 source qualification; the earlier1d48 head and its results remain historical.
+
+22 October, additional genuine hosted P2 on `5127536bee445f75209e66b9a3fc02dce1b39ef6`: concurrent code issuance
+passed pre-write quota reads and could exceed three codes/draws. A bounded local before-probe issued five codes and
+charged five, preserving its failed safety assertion. That head's13 CI jobs/120 executed steps passed with49 original
+conditional skips; those successes did not clear the finding. Preserve the review, probe and historical qualification.
+
+The affected correction adds counted generator patch P6. It enforces both original quota predicates inside the code
+INSERT and charges the existing counter only from that immediately preceding insertion in the same D1 batch.
+Require real concurrent SQLite coverage, both independent quota guards, the original reset boundaries and reuse,
+collision rollback and conservative unknown-result handling. Only a full successful one/one acknowledgement may
+return the new token; zero/zero returns `limit`, and an uncertain/malformed/mixed outcome returns no code and does
+not automatically retry. Limit values and the 1.2-second reply deadline remain unchanged. No schema, settings,
+public assets or activation authority changes. The new actual source head, generator count, affected regression
+counts and fresh review/CI/Claude acceptance belong in its new receipt; none are implied by this checklist entry.
+The same affected correction must be integrated and requalified in .195 after actual .194 live acceptance.
