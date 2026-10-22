@@ -123,10 +123,13 @@
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
     let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
     let reusableArtwork = null, artworkNotice = null, view = null, analysisView = null, feedbackSequence = 0;
+    // .189 optional level-60 sheet (prepared as .186 on the .185 PR head, never released): loaded only when its section opens;
+    // a failure never blocks the calculator. The sheet draws no <img>, so the .187/.188 artwork queue never sees it.
+    let statsView = null, statsOpen = false, statsPending = null, statsFailed = null;
     const failedArtwork = new Set(), artworkRecords = new WeakMap(), artworkQueue = [], loadingArtwork = new Set();
     let pumpingArtwork = false;
     function cancelDetailLeave() { if (detailLeaveTimer !== null) clearTimeout(detailLeaveTimer); detailLeaveTimer = null; }
-    const controller = { destroy() { active = false; cancelDetailLeave(); analysisView?.destroy(); analysisView = null; view = null; artworkQueue.length = 0; for (const entry of loadingArtwork) entry.node.removeAttribute("src"); loadingArtwork.clear(); failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
+    const controller = { destroy() { active = false; cancelDetailLeave(); analysisView?.destroy(); analysisView = null; statsView?.destroy(); statsView = null; statsPending = null; statsFailed = null; view = null; artworkQueue.length = 0; for (const entry of loadingArtwork) entry.node.removeAttribute("src"); loadingArtwork.clear(); failedArtwork.clear(); reusableArtwork = null; artworkNotice = null; if (mounted.get(container) === controller) mounted.delete(container); } };
     mounted.set(container, controller);
     const h = (tag, attrs, ...children) => {
       const node = document.createElement(tag);
@@ -246,7 +249,7 @@
       // .179: one mounted tree per class. A point, level, reset or comparison
       // change paints existing controls; it must not detach focus or a tooltip.
       if (view && view.className === build.className) { view.paint(focus, feedback); return; }
-      analysisView?.destroy(); analysisView = null;
+      analysisView?.destroy(); analysisView = null; statsView?.destroy(); statsView = null; statsPending = null; statsFailed = null;
       reusableArtwork = new Map();
       for (const node of container.querySelectorAll("img")) {
         const record = artworkRecords.get(node); // .188: keyed by the requested class, never the transient pending class.
@@ -419,6 +422,30 @@
       // .186: an optional module that failed to load is named instead of silently missing; the next visit to the calculator retries it.
       const lost = Array.isArray(options.unavailable) ? options.unavailable : [], lostGuides = lost.includes("guideBuilds") && !guides, lostAnalysis = lost.includes("analysis") && !analysisHost;
       const moduleNote = lostGuides || lostAnalysis ? h("p", { class: "talents-module-note muted", text: (lostGuides ? "Guide builds" + (lostAnalysis ? " and build comparison" : "") : "Build comparison") + " could not be loaded. Reopen the calculator to try again." }) : null;
+      // .189 (prepared as .186): the level-60 sheet section. app.js hands over a settled lazy loader; a module that is missing after it
+      // settles is named unavailable inside this section, and closing and reopening the section asks for it again.
+      const statsSource = options.stats60 && typeof options.stats60.mount === "function" ? () => options.stats60 : typeof options.loadStats60 === "function" ? options.loadStats60 : null;
+      const statsBody = statsSource ? h("div", { class: "talents-stats60-body" }) : null;
+      const statsHost = statsSource ? h("details", { class: "talents-stats60-host", ontoggle() { statsOpen = statsHost.open === true; if (statsOpen) openStats(); } },
+        h("summary", null, h("span", { class: "talents-stats60-title", text: "Level-60 character sheet" }), h("span", { class: "talents-stats60-hint", text: "Classic-reference base stats with exact talent modifiers, charts and spec comparison" })), statsBody) : null;
+      function openStats() {
+        if (!active || !statsHost || statsPending === statsHost || view?.className !== cls.id || !container.contains(statsHost)) return;
+        // A sheet whose data never loaded is replaced on reopening, so "close and reopen" really retries.
+        if (statsView && statsFailed === statsView) { statsView.destroy(); statsView = null; statsFailed = null; }
+        // Collapsed sheets are not repainted on point edits; opening brings the existing one up to date.
+        if (statsView) { try { statsView.update(build); } catch { /* the sheet reports inside its own section */ } return; }
+        statsPending = statsHost; statsBody.replaceChildren(h("p", { role: "status", text: "Opening the level-60 sheet…" }));
+        const host = statsHost, guidesFor = guideRecords.map(record => ({ id: record.id, label: record.label, build: parseBuild(data, record.code).build }));
+        Promise.resolve().then(statsSource).then(module => {
+          if (!active || statsPending !== host || view?.className !== cls.id || !container.contains(host)) return;
+          if (!module || typeof module.mount !== "function") throw Error("unavailable");
+          statsBody.replaceChildren(); const mounted = module.mount(statsBody, { data, build, guides: guidesFor }) || null; statsView = mounted; statsPending = null;
+          if (mounted && mounted.ready && typeof mounted.ready.then === "function") mounted.ready.then(ok => { if (ok === false && statsView === mounted) statsFailed = mounted; }, () => { if (statsView === mounted) statsFailed = mounted; });
+        }).catch(() => {
+          if (statsPending === host) statsPending = null;
+          if (active && container.contains(host)) statsBody.replaceChildren(h("p", { role: "alert", text: "The level-60 sheet could not be loaded. The talent calculator still works; close and reopen this section to try again." }));
+        });
+      }
       const guidePanel = guideSource ? h("section", { class: "talents-guides", "aria-label": "Guide-recommended builds" },
         h("div", { class: "talents-guide-heading" }, h("h3", { text: "Guide builds" }), h("a", { href: guideSource.url, rel: "noopener noreferrer", text: "Read Method's " + cls.name + " guide" })),
         guideRecords.length ? h("div", { class: "talents-guide-controls" }, h("label", null, "Checked allocation", guideSelect), guideLoad) : null,
@@ -434,7 +461,7 @@
           }))),
         guidePanel, moduleNote, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), legend,
         artworkNotice, h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
-        analysisHost,
+        analysisHost, statsHost,
         h("section", { class: "talents-sharing", "aria-label": "Share this build" }, h("label", null, "Share", share)),
         h("footer", { class: "talents-source" }, h("p", null, "Talent data: ", h("a", { href: "https://talentsforever.com/", rel: "noopener noreferrer", text: "Talents Forever" }), " · ", h("a", { href: data.source.licenseURL, rel: "noopener noreferrer", text: "CC BY 4.0" }), ". World of Warcraft artwork © Blizzard Entertainment. Unofficial guild tool; not affiliated with Blizzard."),
           h("p", { text: "Beta client " + data.source.clientBuilds.join(", ") + " · Source generated " + data.source.upstreamGenerated + " · Snapshot fetched " + data.source.fetchedAt.slice(0, 10) + ". Not live tuning. The data itself is not a guide recommendation; guide allocations keep their own author and date." }),
@@ -473,11 +500,14 @@
           else if (nextFocus === "reset" && document.activeElement !== reset) reset.focus();
           else if (nextFocus === "guide" && document.activeElement !== guideLoad) guideLoad.focus();
         }
-        analysisView?.update(build); updateArtworkNotice();
+        analysisView?.update(build);
+        if (statsOpen) { try { statsView?.update(build); } catch { /* an optional sheet failure must not stop the calculator's paint */ } }
+        updateArtworkNotice();
       }
       view = { className: cls.id, paint };
       container.replaceChildren(shell); showDetail(talents.find(t => t.id === selected), buttons.get(selected), false);
       if (analysisHost) analysisView = options.analysis.mount(analysisHost, { data, build });
+      if (statsHost && statsOpen) { statsHost.open = true; openStats(); }
       paint(focus, feedback);
       if (focus && focus.startsWith("class:")) classButtons.get(cls.id).focus();
       reusableArtwork = null; updateArtworkNotice();

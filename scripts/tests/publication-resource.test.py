@@ -58,12 +58,14 @@ public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
 check(len(assets) == 512 and len(ref['official_paths']) == 494, '512 exact assets: all510 prior assets plus two independently approved custom variants;493 official image/font paths and1 historical video unchanged')
-check(len(resources) == 40 and len(public) == 552, '40 exact non-art resources: all38 prior resources plus the two finite talent analysis/guide scripts')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed552-path union')
+check(len(resources) == 43 and len(public) == 555, '43 exact non-art resources: all40 prior resources plus the .186 level-60 sheet script and its two data files')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed555-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all552 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all555 current public byte pins match the reviewed reference')
 talent_resources = {'worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'}
 check(talent_resources.issubset(resources) and not talent_resources.intersection(assets) and all(gate.runtime_path(p) and resources[p]['mode'] == '100644' for p in talent_resources), 'both new talent scripts are exact ordinary non-art runtime resources without an official/native art exception')
+sheet_script, sheet_data = 'worker/public/static/talents/stats60.js', {'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'}
+check(sheet_script in resources and sheet_data.issubset(resources) and not ({sheet_script} | sheet_data).intersection(assets) and gate.runtime_path(sheet_script) and sheet_script in ref['runtime_paths'] and not any(gate.runtime_path(p) for p in sheet_data) and all(resources[p]['mode'] == '100644' for p in {sheet_script} | sheet_data), '.186 level-60 sheet: one exact runtime script and two exact data files, none an official/native art exception')
 army_root = 'worker/public/static/army-qr-review/'
 check({p for p in resources if p.startswith(army_root)} == {army_root + name for name in ('protocol.js', 'decoder.js', 'pilot.js', 'manifest.json')}, 'Army adds exactly four closed resources without an artwork exception')
 army_manifest = json.loads(payloads[army_root + 'manifest.json'])
@@ -121,6 +123,8 @@ check({'worker/public' + url for url in set(art_map['talentIcons'].values()) | s
 check(all(row['path'] in assets and assets[row['path']]['bytes'] == row['bytes'] and assets[row['path']]['sha256'] == row['sha256'] for row in art_rows), 'every art provenance byte/hash agrees with its official publication pin')
 check(any(row['path'] == 'tools/build-talent-art.py' and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'finite no-network-default talent art producer is separately source-pinned')
 check('/static/talents/art.json' in covered['worker/public/static/talents/calculator.js'], 'actual calculator art-map dependency has finite required-resource coverage')
+check(covered['worker/public/static/talents/stats60.js'] == ['/static/talents/naked60-186.json', '/static/talents/stat-effects186.json'], '.186 level-60 sheet script covers exactly its two graded data files')
+check('/static/talents/stats60.js' in covered['worker/public/static/app.js'], '.186 app loader edge to the optional level-60 sheet script has finite required-resource coverage')
 
 login_video = 'worker/public/static/wow/login/dark-portal.webm'
 login_poster = 'worker/public/static/wow/login/dark-portal-poster.jpg'
@@ -187,7 +191,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 552 and proof['required_non_art_resource_pins_verified'] == 40, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 555 and proof['required_non_art_resource_pins_verified'] == 43, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')

@@ -1080,6 +1080,14 @@
     for (const [, namespace] of unavailable) toolScripts.delete(namespace);
     return {
       analysis: window.OlympusTalentAnalysis, guideBuilds: window.OlympusTalentGuides, unavailable: unavailable.map(([key]) => key),
+      // .189 (prepared as .186): the level-60 sheet is optional and independent; it loads only when its section is opened, never on
+      // route entry. It follows the same settled rule as the pair above: a load error, or a script that loaded without defining its
+      // global, resolves to undefined (the calculator names the sheet unavailable inside its section) and loses its cache entry, so
+      // the next opening requests stats60.js again. A script that never answers still holds only that section.
+      loadStats60: () => Promise.allSettled([loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js")]).then(() => {
+        if (!window.OlympusTalentStats60) toolScripts.delete("OlympusTalentStats60");
+        return window.OlympusTalentStats60;
+      }),
       className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
       onBuildChange: value => {
         if (main.parentNode !== app) return;

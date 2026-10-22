@@ -300,6 +300,42 @@ const recordTool169 = (page, namespace, calls) => {
     await waitFor(() => silentCalls186.length === 2, "calculator mount after the analysis script loads properly");
     check(".186 once the retried script defines its global the calculator receives it and nothing is named unavailable", silentCalls186.length === 2 && silentCalls186[1].options.analysis === silent186.window.OlympusTalentAnalysis && JSON.stringify(silentCalls186[1].options.unavailable) === "[]");
   }
+  // .189 (prepared as .186): the optional level-60 sheet is never requested on route entry; the calculator receives only a lazy loader.
+  const sheetPage = await openPage(MEMBER), sheetHead = head169(sheetPage), sheetCalls = [];
+  sheetPage.window.OlympusTalentAnalysis = {}; sheetPage.window.OlympusTalentGuides = {}; recordTool169(sheetPage, "OlympusTalents", sheetCalls);
+  await sheetPage.go("#/talents/druid"); await waitFor(() => sheetCalls.length === 1, "talent mount with the sheet loader");
+  check(".189 talent route entry requests no level-60 sheet script and hands over only a lazy loader", !sheetHead.querySelector('script[src="/static/talents/stats60.js"]') && typeof sheetCalls[0].options.loadStats60 === "function");
+  const sheetLoad = sheetCalls[0].options.loadStats60(), sheetScripts = sheetHead.querySelectorAll('script[src="/static/talents/stats60.js"]');
+  check(".189 opening the section requests exactly one same-origin stats60.js", sheetScripts.length === 1);
+  sheetPage.window.OlympusTalentStats60 = { synthetic: "sheet" }; sheetScripts[0].dispatchEvent(new Event("load"));
+  check(".189 the lazy loader resolves to the level-60 sheet namespace", (await sheetLoad) === sheetPage.window.OlympusTalentStats60);
+  // .189: the lazy sheet loader follows the .188 settled rule. A failed or silent stats60.js resolves to no module (the calculator
+  // names the sheet unavailable inside its section) and is requested again on the next opening instead of reusing a settled entry.
+  // Every wait is bounded, so a loader that never settles fails these checks instead of ending the run early.
+  {
+    const settled189 = promise => Promise.race([promise.then(value => ({ value }), () => ({ rejected: true })), pause169(2000).then(() => ({ pending: true }))]);
+    const lostPage = await openPage(MEMBER), lostHead = head169(lostPage), lostCalls = [];
+    const sheetScripts189 = () => lostHead.querySelectorAll('script[src="/static/talents/stats60.js"]');
+    lostPage.window.OlympusTalentAnalysis = {}; lostPage.window.OlympusTalentGuides = {}; recordTool169(lostPage, "OlympusTalents", lostCalls);
+    await lostPage.go("#/talents/rogue"); await waitFor(() => lostCalls.length === 1, "talent mount for a failing sheet script");
+    check(".189 the sheet is not part of the optional pair loaded on route entry", sheetScripts189().length === 0 && JSON.stringify(lostCalls[0].options.unavailable) === "[]");
+    const failedLoad = settled189(lostCalls[0].options.loadStats60());
+    sheetScripts189()[0]?.dispatchEvent(new Event("error"));
+    const failed = await failedLoad;
+    check(".189 a stats60.js load error settles to no module instead of rejecting", sheetScripts189().length === 1 && "value" in failed && failed.value === undefined);
+    const silentLoad = settled189(lostCalls[0].options.loadStats60());
+    check(".189 the next opening after a load error requests stats60.js again", sheetScripts189().length === 2);
+    sheetScripts189()[1]?.dispatchEvent(new Event("load")); // absent only if the retry never happened, which the previous check reports
+    const silent = await silentLoad;
+    check(".189 a stats60.js that loads without defining its global also settles to no module", "value" in silent && silent.value === undefined);
+    const retryLoad = settled189(lostCalls[0].options.loadStats60());
+    check(".189 the next opening requests that silent script again instead of reusing its settled cache entry", sheetScripts189().length === 3);
+    lostPage.window.OlympusTalentStats60 = { synthetic: "sheet" }; sheetScripts189()[2]?.dispatchEvent(new Event("load"));
+    const retried = await retryLoad;
+    check(".189 once the retried stats60.js defines its global the loader resolves to it", "value" in retried && retried.value === lostPage.window.OlympusTalentStats60);
+    const cached = await settled189(lostCalls[0].options.loadStats60());
+    check(".189 a loaded sheet module is reused without another request", "value" in cached && cached.value === lostPage.window.OlympusTalentStats60 && sheetScripts189().length === 3);
+  }
   const resourceCalls = []; recordTool169(tools, "OlympusResources", resourceCalls);
   await tools.go("#/addons"); await waitFor(() => resourceCalls.length === 1, "addon renderer");
   await tools.go("#/guides"); await waitFor(() => resourceCalls.length === 2, "guide directory renderer");
