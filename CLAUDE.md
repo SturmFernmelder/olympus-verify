@@ -78,7 +78,8 @@ There is no ESLint or Prettier;
 **Never run:** `npm run deploy` or `wrangler deploy` (the owner deploys, from an exact commit with
 `bash scripts/deploy-commit.sh <sha>`); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
 against the remote database (it re-applies `schema.sql`; the Worker migrates itself in `src/schema.ts`);
-`npm run register` / `register:intros` (owner, they rewrite the guild's command list); the watcher against the live
+`wrangler d1 create olympus-link` or any remote `wrangler d1 execute` against `olympus-link` (.186: Olympus Link's
+separate database; owner-only Phase 2 steps in `docs/olympus-link.md`); `npm run register` / `register:intros` (owner, they rewrite the guild's command list); the watcher against the live
 Worker; `scripts/cutover-config.sh --apply` before the cutover's gates are met (it is the authorized final source/config
 step: applied once, committed, rechecked and release-qualified on that exact commit before the deploy; it makes the
 next deploy of `main` serve Asmongold's server); `scripts/stage_publication.py`, `scripts/validate_publication.py` or
@@ -113,7 +114,10 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   and a legacy host answers sign-in and OAuth paths with an uncached 302 to the site's front page, never a forward.
   `POST /interactions` (build .47): body capped at 128 KiB before decoding, Ed25519 signature over timestamp + body
   with a 300 s window, `application_id` must be ours, and a command/button/form id is written to `seen_interactions`
-  before it runs and refused if already there. Ping and autocomplete are not ledgered.
+  before it runs and refused if already there. Ping and autocomplete are not ledgered. Since .194 (prepared as .186)
+  the bot host also has Olympus Link's `OPTIONS`/`POST /proof` and `POST /api/link/keys` (`src/link.ts`); they answer
+  today's 404 unless `LINK_ENABLED` is exactly `"true"` with the complete configuration, and `src/link-core.ts` is
+  generated, never edited (`docs/olympus-link.md`).
 - **Timestamps are Unix seconds** everywhere (`db.ts now()`); Forever used milliseconds. Never mix them.
 - **Codes:** `HMAC(VERIFY_SECRET, name | day)` for a character code, a 7-symbol ticket for a request code; the same
   vectors are checked from Python, TypeScript and Lua (`npm run check:vectors`, `watcher/tests/vectors.json`).

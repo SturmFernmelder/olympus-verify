@@ -45,6 +45,10 @@ audit (below) refuses any of those names in a snapshot regardless of content.
   renderer and CSP are source-pinned. Other eight account-picture sites keep official game icons. It does not relax
   the crest usage, local artwork/font paths, extractor or static/CSS guards, and grants no image ownership or licence.
 
+- `worker/src/link-core.ts` (.186) is GENERATED from `worker/vendor/olympus-link/link-core.mjs` by
+  `worker/scripts/build-link-core.mjs` (`npm run build:link-core`); `npm run check:link-core`, part of `npm test`, fails
+  when a vendored file's SHA-256 or the generated file drifts. It is never edited by hand (section "Ported modules").
+
 ## Ported modules
 
 The community modules under `worker/src/community-*.ts` were ported from Olympus Forever (the donor Worker, the same
@@ -53,6 +57,15 @@ names its donor source and frozen candidate manifest in its module header, and b
 consolidation log (`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`, outside this repository). The rank planner
 (`worker/src/site-ranks.ts`, `worker/public/static/rank-planner/`) came from the frozen rank-planner input prepared from
 the owner's document "Forever Guild Rank Codex.html".
+
+Olympus Link (.186) is third-party code, not a port from the donor: `worker/vendor/olympus-link/` holds
+`web/worker/link-core.mjs`, `web/worker/schema.sql` and `LICENSE` of `dnl-gentile/olympus-addon` at commit
+`d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`, byte for byte and SHA-256 pinned (MIT; `THIRD_PARTY_NOTICES.md`). The Worker
+runs the generated `worker/src/link-core.ts`: the same text plus three reviewed patches (P1 `LINK_DB` only, never
+`env.DB`; P2 `errorRef`-only logging; P3 an injected `credentialFetch`), listed in the generator and in
+`docs/olympus-link.md`. The vendored `schema.sql` belongs to the separate `olympus-link` D1 database; it is not part of
+`worker/schema.sql`, `ensureSchema` never runs it, and the keeper-database schema rule does not apply to it.
+It was prepared as .186 and then planned as .190, was released under neither number, and ships with .194.
 
 ## The publication helpers (`scripts/`)
 

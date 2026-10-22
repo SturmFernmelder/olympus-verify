@@ -6457,3 +6457,96 @@ PR86 head80483da9 passed all13 hosted jobs, but automated review correctly found
 
 
 The next exact-head review of7637 found the separate pre-validation destruction path: navigating away or switching class while HTTP200 data is pending returned before semantic preparation, leaving the invalid resolved payload cached for the first later opening. The next successor validates and evicts the relevant invalid load before checking whether the originating view was destroyed. A dead view still constructs no UI and reports no error into the removed view. Additive deferred-request regressions prove the first healthy remount requests fresh data after an invalid destroyed load, while a valid destroyed load can still be reused. Original52 checks and every application deadline remain unchanged; prior successful CI and the second finding remain historical evidence, and the next changed head requires genuine CI/review again.
+
+## Worker .194 — Olympus Link source, shipped off (21 October 2026)
+
+**It ships OFF.** This build carries Phase 1a of the reviewed Olympus Link integration (`docs/olympus-link.md`; the
+owner's rulings of 21 October 2026), which was prepared twice and never released. It was first prepared as .186 (commit
+f9f7ebea on the .185 main 1ee98168), then planned as .190 on top of the unreleased .189 character sheet. Neither .186
+nor .190 was released, deployed or recorded live: .187, .191 and .192 shipped first and .193 took the next number. The
+f9f7ebea commit was first ported onto the local .193 commit 7e836f2f (tree d8ba5b2d, the tree of PR86's first head
+80483da9; its parent b74edaa9 has tree 7b9184eb, the tree of the .192 main d097f054). It is applied here on top of the
+merged .193 main d125f955 (tree c116f9fa, the squash of PR86's final head 9d21bfa7, which adds the two review
+successors 7637aa67 and 9d21bfa7 to 80483da9). There was no .186 or .190 deploy-checklist or design entry on main to
+replace. .194 contains every .187, .191, .192 and .193 change unchanged, including both .193 character-sheet cache
+fixes described above; if .193 is not deployed first, deploying .194 also deploys the .193 changes. Files, comments
+and labels that belong to Link keep their .186 names (`link_integration_186_test.cjs`, the `.186` comments in
+`index.ts`, `interactions.ts`, `env.ts`, `link.ts`, `link-role.ts`, `hosts_test.cjs`, `.editorconfig` and `CLAUDE.md`,
+the generator `build-link-core.mjs` and the header it writes into `link-core.ts`, and the `.186` wording of
+`docs/olympus-link.md`, `docs/source-provenance.md`, `THIRD_PARTY_NOTICES.md` and
+`worker/vendor/olympus-link/README.md`); none was relabelled. The runbook, provenance and notice each gain one
+sentence naming .194 as the build that ships Link. Because .187 to .193 are numbered after .186 but have no Link,
+three statements now name .194 instead of reading ".186" as a version cutoff: the runbook's header note (which also
+says what its kept ".186" and ".185" labels mean), its Phase 2 secret precondition, and the bot-host sentence in
+`CLAUDE.md` (".194 (prepared as .186)").
+
+Scope (unchanged from f9f7ebea). Daniel's link-core is vendored unmodified at
+`dnl-gentile/olympus-addon@d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2` (`worker/vendor/olympus-link/`, MIT, SHA-256
+pinned) and generated into `worker/src/link-core.ts` by `worker/scripts/build-link-core.mjs` with three reviewed patches
+(P1 `LINK_DB` only, P2 `errorRef`-only logging, P3 an injected `credentialFetch`). `worker/src/link.ts` adds the gate,
+the `/verify` code block (appended last in both code replies, after the ban checks and every main-database statement),
+`OPTIONS`/`POST /proof` and `POST /api/link/keys` on the bot host; `worker/src/link-role.ts` writes the zero-permission
+Olympus Link role in `GUILD_ID` after the owner's eligibility checks (not banned, privacy subject active, no
+`BLOCKING_ROLE_IDS` role, in the server).
+
+Still pending, and not in this build. Phase 1b: the erasure hook (demote, then forget), the account-copy section, role
+removal on a ban or a blocking role, and the prune placement; it still waits on the open review items R3, R4, R5, R7,
+R14 and R15 and is an activation precondition. Phase 2, the owner's steps (`docs/olympus-link.md` section 8): the
+backend keys, the `LINK_BACKEND_SEED` and `LINK_ADMIN_TOKEN` secrets, the `olympus-link` D1 database and its schema, the
+`LINK_DB` binding and `LINK_*` variables, the zero-permission role, the OAuth redirect, activation and the message to
+Daniel. Releasing .194 authorizes none of them.
+
+Merge onto .193. Between .185 and .193 the Worker source changed only in the `index.ts` BUILD line and one
+`army-pages.ts` line (.192's read-time line); `interactions.ts` is byte-identical to .185, so the Link test's pinned
+.185 `interactions.ts` digest still holds. The first port, onto 7e836f2f, conflicted only in `worker/package.json`, the
+BUILD line and its three health-test pins, and these two docs. In `package.json`, `test` gains Link's
+`npm run check:link-core` tail, `build:link-core` and `check:link-core` are added, and `test:all` keeps .193's
+`talents_stats60_186_test.cjs` entry and adds Link's `link_integration_186_test.cjs` after `verify_button_test.cjs`,
+exactly where f9f7ebea put it. Carrying that port onto d125f955 conflicted only in this file and `docs/design.md`,
+where the .193 review successors appended text after the .193 entries; that text is kept unchanged and the .194
+entries follow it. `docs/source-provenance.md` merged without a conflict, and the .193 successors touch no other file
+that Link touches. Every other file f9f7ebea touches merged without a conflict. The Link-only files (the four vendor
+files, the generator, `link-core.ts`, `link.ts`, `link-role.ts`, the fixture and `link_integration_186_test.cjs`),
+`interactions.ts`, `env.ts` and `.editorconfig` are byte-identical to f9f7ebea; `CLAUDE.md` differs from it only by
+".194 (prepared as .186)" in the bot-host sentence; `index.ts` and the three health tests differ from it only by the
+BUILD line. `docs/olympus-link.md` keeps its Link text apart from the header note and the Phase 2 secret
+precondition, and `docs/source-provenance.md` and `THIRD_PARTY_NOTICES.md` keep its Link text and add only the .194
+sentence (both also keep their .187 to .193 content).
+
+Configuration deltas: EMPTY. `worker/wrangler.toml` and `worker/wrangler.cutover.toml` are unchanged: no `LINK_DB`
+binding, no `LINK_*` variable, no secret. With `LINK_ENABLED` absent the routes answer today's 404 byte for byte and
+every `/verify` reply and main-database statement is identical to .185 and .193 (`link_integration_186_test`;
+`full_release_roles_identity` 497/497). No schema statement, scheduled label, cron, budget line, pinned source, slash
+command, production setting, Discord role, Developer Portal setting or message to Daniel changes.
+
+Changed existing tests, against .193 (main d125f955, tree c116f9fa). `link_integration_186_test.cjs` (135 checks)
+and its fixture `worker/tests/fixtures/olympus-link/vectors-d03ea8a9.json` are new. The existing lines that change are
+the BUILD expected values in site, hosts and bnet_retention, now .194, and in `hosts_test.cjs` the `errorRef` and
+no-bare-fetch file lists, which gain the three Link modules (more files checked by the same assertions). `npm test`
+gains `check:link-core` and `test:all` gains the Link test. No assertion was removed or relaxed and no deadline or
+existing fixture changed; `talents_stats60_186_test.cjs` keeps .193's 54 checks unchanged.
+
+Pins: none moved. Link adds no file under `worker/public/` and leaves `app.js` unchanged, so
+`scripts/official_asset_reference.json`, REFERENCE_SHA256 in `scripts/official_assets.py`, the V4 pins in
+`scripts/reconcile_public_root.py`, both overlays' EXPECTED_SOURCE_SHA256 and the closed counts (512 assets, 494
+official paths, seven fixed art producer pins, 43 required resources, 555 public paths) stay as in .193 (d125f955,
+including the `stats60.js` pins its review successors refreshed). Only the BUILD pins in the three health tests move.
+
+Qualification: typecheck; the link_integration_186, verify_button, interactions_hardening, hardening, intros, site,
+hosts, full_release_roles_identity, talents_stats60_186 (54 checks), frontend174, bnet_retention and bundle_runtime
+suites; `npm test` (ending with `check:link-core`); the projection check and its test; publication-helper and
+publication-resource; deploy-commit, ci-gate, cutover-config and ci-workflow. Local results for this head are recorded
+in the lane logs (p194-fix-*; the earlier p194-* runs cover the first port's staged tree on 7e836f2f, and the p1a-* and
+p1a-fix-* runs belong to the unreleased .186 candidate). The local gitleaks run over d125f955..HEAD, the release patch
+and its `git am` check onto d125f955 are recorded in the lane receipt (`receipt-194.json`, outside the repository); the
+CI secret scan runs with the exact-head CI. Exact-head CI and review remain separate, and this entry does not assert
+that pending checks passed. Keep the local92 aggregate and review loop stopped.
+
+Rollout requires current owner authorization after qualification, an exact-head hosted CI run and review. If
+authorized: ordinary expected-head squash, verify the merged tree/archive, fresh verified portable D1 backup/full442
+application-object restore/integrity/FK/E2 within one hour, then archived-main --keep-vars/configDeltas{} deployment and
+live acceptance of `/health` reporting this BUILD; nothing to configure. No manual cron. Rollback is a separately
+authorized exact qualified predecessor (the live build at that time: .193, or .192 if .193 is not deployed first) under
+the same safeguards; there is no data or setting to undo. If Link is ever on, the immediate rollback is removing
+`LINK_ENABLED` (or setting it to `"false"`), never unbinding `LINK_DB` while it holds rows. No deployment is authorized
+by this note.

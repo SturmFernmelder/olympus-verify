@@ -16,3 +16,15 @@ indent_size = 4
 
 [*.sql]
 indent_size = 2
+
+# .186: Olympus Link's vendored upstream files and the module generated from them are byte-pinned
+# (worker/scripts/build-link-core.mjs --check); upstream's tabs and trailing spaces must survive an editor's save.
+[worker/vendor/olympus-link/**]
+trim_trailing_whitespace = false
+insert_final_newline = unset
+indent_style = unset
+indent_size = unset
+
+[worker/src/link-core.ts]
+trim_trailing_whitespace = false
+indent_style = tab

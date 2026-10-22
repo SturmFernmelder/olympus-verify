@@ -91,6 +91,19 @@ the inspected subset, and this notice asserts none. The proposed extension is th
 upstream 1.2.3 does not provide that optional method. It is composed with the pinned original Bridge only in memory
 for the test, and is not represented as adopted upstream code. Existing dependency notices above still apply.
 
+## Olympus Link core: copied under the MIT License (.186)
+
+Build .186 copies three files of `dnl-gentile/olympus-addon` at commit `d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`
+into `worker/vendor/olympus-link/`, byte for byte: `web/worker/link-core.mjs`, `web/worker/schema.sql` and the
+repository's `LICENSE`, the MIT License, "Copyright (c) 2026 Olympus addon contributors". That licence was verified at
+this exact commit, and its full notice is kept with the copies. This deliberately differs from the census note above,
+which concerns another commit and other files that are not copied. `worker/src/link-core.ts` is generated from the copied
+`link-core.mjs` (three reviewed patches, a header naming the source and the licence) and carries the same notice by
+reference. `worker/tests/fixtures/olympus-link/vectors-d03ea8a9.json` is upstream's test vectors from the same commit,
+with every seed field and the two derivable backend token fields removed. Pins and patches: `worker/vendor/olympus-link/README.md` and `docs/olympus-link.md`.
+These files are the contributors' work under their licence; this repository's own `LICENSE` does not cover them.
+Build .186 (and the planned .190) was never released; the copies ship with build .194.
+
 ## Trademarks
 
 World of Warcraft, Battle.net and Blizzard Entertainment are trademarks or registered trademarks of Blizzard

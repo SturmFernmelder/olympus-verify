@@ -1874,3 +1874,25 @@ The .193 hosted review also found that successful transport is not successful da
 
 
 Validation also precedes the destroyed-view early return. A request that settles after navigation still validates its data and evicts an invalid cached promise, so the first later mount can fetch healthy data. This performs no UI construction or error report for the dead view and retains validated-cache reuse.
+
+## Worker .194 — Olympus Link source, shipped off (21 October 2026)
+
+This decision was first prepared as .186 on the .185 main (1ee98168) and then planned as .190 on top of the unreleased
+.189. Neither was released, deployed or recorded live: .187, .191 and .192 shipped in between and .193 took the next
+number, so it takes effect with .194 on top of .193. The Link source is unchanged from the .186 preparation, and it
+still ships off.
+
+Daniel's Olympus Link lets the game prove that a character is a player's, and the bot then gives a cosmetic,
+zero-permission role. The owner ruled on 21 October 2026 that the role lives in `GUILD_ID` (Asmongold's server, where
+`/verify` lives), that it is granted only to a valid proof whose account is not verification-banned, whose privacy
+subject is active and who holds no `BLOCKING_ROLE_IDS` role, and that it is removed on the player's own delete.
+
+The core is Daniel's own file, vendored unmodified and SHA-256 pinned, rather than a port: his vectors keep checking
+the same code, and an upstream update is a pin change. Three behaviours could not stay as they are in this Worker, so a
+generator applies exactly three reviewed patches instead of a hand edit: the `env.DB` fallback could point Link at the
+bot's own `members` table, which its forget deletes from (P1); its error logs printed stacks, codes and ids into Workers
+Logs (P2); and its sign-in check used a bare `fetch` instead of `credentialFetch` (P3). The adapter hands link-core a
+frozen env without a `DB` key, loads it only behind the gate, and appends the code to `/verify` last, after the ban
+checks, so with Link off every `/verify` reply and the `/proof` and `/api/link/keys` answers are the .185 ones byte for
+byte, as they are in .193. The erasure, account-copy, ban and prune hooks come in Phase 1b, which is still pending;
+activation is the owner's Phase 2 (`docs/olympus-link.md`), also pending.

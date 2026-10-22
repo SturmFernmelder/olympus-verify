@@ -22,6 +22,7 @@ import { BNET_TTL_S, bnetFresh, everLinked } from "./bnet-retention";
 import { bnetLoginOn } from "./bnet-switch";
 import { openRenameHold, reapplyText } from "./rename-review";
 import { captureLaneConfig, FRESH_AUDIT, laneClock, LEGACY_BAN_ALLOWANCE, type LaneCapture } from "./full-release-roles";
+import { appendLinkBlock } from "./link"; // .186: the Olympus Link code, last in the two code replies; off, the very same string
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
 type Defer = (label: string, work: () => Promise<unknown>) => void;
@@ -139,7 +140,7 @@ async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCap
     await audit(env, user.id, "verify.requested", raw);
   }
   const code = await codeFor(env.VERIFY_SECRET, raw, dayBucket(new Date()));
-  return reply(
+  return reply(await appendLinkBlock(env, user,
     [
       `Your code for **${raw}**: \`${code}\`  (valid until <t:${expiresAt}:f>)`,
       ``,
@@ -150,7 +151,7 @@ async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCap
           : `Your Guild Member role follows automatically once you are on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
         : `Your guild invite is queued as soon as the code is confirmed${env.ADMISSION_MODE === "review" ? " and an officer approves" : ""} \u2014 already in the guild? Then your Discord account is linked to the character on the spot.`,
       `This is for the **main Olympus guild** only \u2014 Olympus 2 and the later Olympus guilds are not verified here (their members use ${visitorChat(env)}).`,
-    ].join("\n"),
+    ].join("\n")),
   );
 }
 
@@ -195,7 +196,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture): Promis
   if (!row) return reply("Could not issue a code just now \u2014 please try again in a minute.");
   // The mac is over the issue day; the addon accepts that day and the next, which covers the whole 24-hour lifetime.
   const code = await ticketFor(env.VERIFY_SECRET, row.nonce!, dayBucket(new Date(row.created_at * 1000)));
-  return reply(
+  return reply(await appendLinkBlock(env, user,
     [
       `Your code: \`${code}\`  (valid until <t:${row.expires_at}:f>)`,
       ``,
@@ -207,7 +208,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture): Promis
           : `Your Guild Member role follows automatically once that character is on the guild roster${env.ADMISSION_MODE === "review" ? ", after an officer approves" : ""} \u2014 already in the guild? Then it follows as soon as the code is confirmed.`
         : `Your guild invite is queued as soon as the code is confirmed${env.ADMISSION_MODE === "review" ? " and an officer approves" : ""}.`,
       `This is for the **main Olympus guild** only \u2014 Olympus 2 and the later Olympus guilds are not verified here (their members use ${visitorChat(env)}).`,
-    ].join("\n"),
+    ].join("\n")),
   );
 }
 
