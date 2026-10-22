@@ -61,8 +61,9 @@ the owner's document "Forever Guild Rank Codex.html".
 Olympus Link (.186) is third-party code, not a port from the donor: `worker/vendor/olympus-link/` holds
 `web/worker/link-core.mjs`, `web/worker/schema.sql` and `LICENSE` of `dnl-gentile/olympus-addon` at commit
 `d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`, byte for byte and SHA-256 pinned (MIT; `THIRD_PARTY_NOTICES.md`). The Worker
-runs the generated `worker/src/link-core.ts`: the same text plus three reviewed patches (P1 `LINK_DB` only, never
-`env.DB`; P2 `errorRef`-only logging; P3 an injected `credentialFetch`), listed in the generator and in
+runs the generated `worker/src/link-core.ts`: the same text plus four reviewed patch groups (P1 `LINK_DB` only, never
+`env.DB`; P2 `errorRef`-only logging; P3 an injected `credentialFetch`; P4 durable pending claims until role grant is
+confirmed, including authority and prune guards), listed in the generator and in
 `docs/olympus-link.md`. The vendored `schema.sql` belongs to the separate `olympus-link` D1 database; it is not part of
 `worker/schema.sql`, `ensureSchema` never runs it, and the keeper-database schema rule does not apply to it.
 It was prepared as .186 and then planned as .190, was released under neither number, and ships with .194.

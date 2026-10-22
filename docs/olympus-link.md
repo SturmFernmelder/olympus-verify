@@ -47,7 +47,7 @@ give their Discord account a cosmetic role for it:
 |---|---|
 | `worker/vendor/olympus-link/{link-core.mjs,schema.sql,LICENSE}` | Daniel's three files, byte for byte, at `dnl-gentile/olympus-addon@d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2` (MIT). Pins and notes: `worker/vendor/olympus-link/README.md`. |
 | `worker/scripts/build-link-core.mjs` | Checks the three SHA-256 pins and writes `worker/src/link-core.ts`. `npm run check:link-core` (part of `npm test`) fails on any drift. |
-| `worker/src/link-core.ts` | GENERATED, never edited by hand: upstream's text, a header and exactly three patches. **P1** `database()` uses `LINK_DB` only, never `env.DB` (both schemas have a `members` table, and `forgetUser` deletes from it). **P2** the nine `console.error` calls print a fixed stage and `errorRef(err)` only. **P3** `discordUser` has no `globalThis.fetch` default; the caller injects `credentialFetch` (no redirects, an 8 s deadline). |
+| `worker/src/link-core.ts` | GENERATED, never edited by hand: upstream's text, a header and four count-guarded patch groups. **P1** `database()` uses `LINK_DB` only, never `env.DB` (both schemas have a `members` table, and `forgetUser` deletes from it). **P2** the nine `console.error` calls print a fixed stage and `errorRef(err)` only. **P3** `discordUser` has no `globalThis.fetch` default; the caller injects `credentialFetch` (no redirects, an 8 s deadline). **P4** keeps a code pending until the role grant is confirmed, so a failed rollback cannot make a later retry report a completed link or use the pending row as authority. |
 | `worker/src/link.ts` | The gate (`linkState`), the narrowed env (`linkEnv`), the `/verify` block (`appendLinkBlock`), the preflight (`linkPreflight`) and the two routes (`routeLink`). It is the only module that loads link-core, by dynamic import, behind the gate. |
 | `worker/src/link-role.ts` | The one writer of the Olympus Link role (`linkRole`): eligibility, then `rest()` against `GUILD_ID`. A new module; `roles.ts` and `role-settlements.ts` are untouched. |
 
@@ -107,8 +107,8 @@ upstream's watcher inbox (`/api/link/inbox`, up to 500 promotes per call) and th
 ### The role writer (`link-role.ts`)
 
 `linkRole(env, 'PUT' | 'DELETE', discordId)` never throws and answers `{ok: true}` or `{ok: false, reason:
-'not-in-server' | 'discord'}`, the shape link-core reads. When link-core gets a failure it undoes the link, so the
-code stays usable.
+'not-in-server' | 'discord'}`, the shape link-core reads. When link-core gets a failure it attempts to undo the link.
+A confirmed undo frees the code. An unconfirmed undo keeps the code pending and cannot report a completed link.
 
 - **PUT**, in order: (1) one main-database read: `members.banned` and the privacy subject's state (no row, or
   `active`, as the house generation fence treats it); (2) `GET /guilds/{GUILD_ID}/members/{id}`: absent (404/10007) is
@@ -124,11 +124,26 @@ code stays usable.
 
 ## 4. What is stored
 
+### Pending role outcomes (P4, .194 hosted review successor)
+
+The code is claimed with the reserved `codes.used = 0` marker before recording a link or requesting its role.
+The marker is finalized to the original Unix-second `t` only after the role writer confirms success. An uncertain
+finalization may be checked by one actual readback; neither the UPDATE nor the role PUT is blindly repeated.
+`examine` refuses a pending code before the already-linked branch. A pending member cannot authorize a confirmer
+or a non-bootstrap key owner. Normal completed links still use the original already-linked path without another PUT.
+
+An expired pending code is retained while a member references its `r`; pruning that marker would otherwise make an
+unresolved member look complete. All other expiry seconds stay unchanged. Once an explicit new-code proof completes
+and supersedes the member's `r`, the older expired pending code can be pruned. The player's deletion/cleanup paths
+retain access to pending rows. An unresolved outcome needs an explicit new-code or deletion flow or keeper review;
+it does not trigger an automatic role retry or authorize a production SQL repair. Phase 1b must qualify erasure,
+account-copy and prune handling of this pending state before any activation. Link remains OFF in this release.
+
 **In `LINK_DB`** (the separate `olympus-link` database; tables from `vendor/olympus-link/schema.sql`):
 
 | Table | Holds |
 |---|---|
-| `codes` | One row per code: the code `r`, the Discord id and username, mode, draw threshold, issue and expiry times, the signed token (private: it makes each link's tag), the source (`discord`), when it was used. |
+| `codes` | One row per code: the code `r`, the Discord id and username, mode, draw threshold, issue and expiry times, the signed token (private: it makes each link's tag), the source (`discord`), when it was used. P4 reserves `used = 0` as a pending-state marker, not an event timestamp; only a confirmed grant finalizes it to the original Unix-second observation time. |
 | `members` | Linked characters: character, Discord id, guild, how the guild was checked, faction, the linking code, when. |
 | `keys` | Confirmer keys registered through `/api/link/keys`: key id, public key, owner's Discord id and username, character, kind, certificate expiry, replacement and revocation. |
 | `council_keys` | Council-authority keys seen in an accepted link (unused while `LINK_CA_PUBLIC` is unset). |

@@ -1896,3 +1896,20 @@ frozen env without a `DB` key, loads it only behind the gate, and appends the co
 checks, so with Link off every `/verify` reply and the `/proof` and `/api/link/keys` answers are the .185 ones byte for
 byte, as they are in .193. The erasure, account-copy, ban and prune hooks come in Phase 1b, which is still pending;
 activation is the owner's Phase 2 (`docs/olympus-link.md`), also pending.
+
+### .194 hosted review successor: incomplete grants remain pending
+
+This supersedes the initial .194 preparation's unchanged-core and three-patch descriptions above. PR87's first
+head passed all 13 hosted jobs, but automated review found that a failed role grant followed by a failed rollback
+could leave a member and used code behind. A later proof could then report already-linked success without a role.
+The fourth generated patch group reserves `codes.used = 0` as a durable pending marker before recording or granting,
+and finalizes it to the original Unix-second time only after a confirmed grant. Pending proofs refuse before the
+already-linked branch; pending members cannot authorize confirmations or key ownership. A failed or uncertain
+finalization is held unless a single actual readback confirms it, with no automatic UPDATE or role resend.
+
+Prune retains a pending code only while a member references its code, preventing expiry from silently converting
+pending data into authority. A successful explicit new-code proof can supersede that reference, after which the
+older expired code can prune normally. The existing successful already-linked/no-second-PUT behavior remains.
+No schema, production data, setting, flag, Native E2, reset or launch gate changes; the vendored upstream files stay
+byte exact and the generator applies count-guarded replacements. Phase 1b's pending-state privacy/prune qualification
+and all existing activation blockers remain required, so Link still ships OFF.

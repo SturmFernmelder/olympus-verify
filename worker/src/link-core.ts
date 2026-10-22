@@ -10,7 +10,10 @@
 //      "DB when there is no LINK_DB" is upstream's and no longer applies here.
 //   P2 the nine console.error sites print a fixed stage and errorRef(err) only (log.ts): no R, id, message or stack.
 //   P3 discordUser(): the caller injects fetchImpl (credentialFetch); there is no globalThis.fetch default.
-// Nothing else differs from upstream. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
+//   P4 role settlement: codes.used=0 is pending; ambiguous record errors never release it, and promotion alone cannot finalize it.
+//      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.
+//      Pending member rows grant no confirmer/key authority; prune retains their code until the member moves or is removed.
+// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
 // src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).
 import { errorRef } from './log';
 // Olympus Link: the core, for the Olympus bot's Worker. Everything the bot needs to issue codes,
@@ -442,6 +445,7 @@ async function examine(env, input, opts = {}) {
 	if (b.tag !== (await linkTag(tokenSig(code.token), b.requester))) {
 		return { verdict: reject('tag', 'This link was not made by the player who typed this code in the game.', b.R) };
 	}
+	if (code.used === 0) return { verdict: pendingRole(b.R) };
 	if (code.used !== null && code.used !== undefined) {
 		const same = await DB.prepare('SELECT guild, gv, faction FROM members WHERE character = ? AND discord_id = ? AND r = ?').bind(b.requester, code.discord_id, b.R).first();
 		if (same) {
@@ -539,7 +543,7 @@ export async function acceptProof(env, text, opts = {}) {
 	// only then give the role (Konig's review: two accounts linking the same character at the same
 	// moment each got the role, though only one got the character). Anything that fails after the
 	// claim undoes the record and releases the code, so the same link works on the next try.
-	const claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(t, b.R).run();
+	const claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(0, b.R).run();
 	if (!claim.meta || claim.meta.changes !== 1) return reject('code-used', 'This code was already used.', b.R);
 	const council = x.valid.filter((c) => c.key.council);
 	let wrote;
@@ -559,30 +563,45 @@ export async function acceptProof(env, text, opts = {}) {
 				: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t),
 		]);
 	} catch (err) {
-		// Nothing was written (a batch is all or nothing): the code only is released.
-		try {
-			await DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t).run();
-		} catch (e) {
-			console.error('olympus-link', 'release_code', errorRef(e));
-		}
-		const holder = await DB.prepare('SELECT discord_id FROM members WHERE character = ?').bind(b.requester).first();
-		if (holder && holder.discord_id !== code.discord_id) return linkedElsewhere(b);
+		// A lost acknowledgement can follow a committed batch. Keep the claim pending; never release it on an unknown result.
 		console.error('olympus-link', 'record_link', errorRef(err));
-		return failure('server', 'The link could not be recorded: send it again in a minute.', { R: b.R });
+		return pendingRole(b.R);
 	}
 	// The council authority's keys this link recorded first (each one's INSERT OR IGNORE wrote a row).
 	const first = council.filter((c, i) => changed(wrote[x.counted.length + 2 * i]));
 	if (!changed(wrote[wrote.length - 1])) {
-		await undo(DB, x, t, first);
+		if (!(await undo(DB, x, t, first))) return pendingRole(b.R);
 		return linkedElsewhere(b);
 	}
 	const role = await promoted(promote, code.discord_id, v);
 	if (!role.ok) {
-		await undo(DB, x, t, first);
+		if (!(await undo(DB, x, t, first))) return pendingRole(b.R);
 		if (role.reason === 'not-in-server') return reject('not-in-server', 'Join the Olympus Discord server first, then send the link again.', b.R);
 		return failure('discord', 'Discord did not take the role change: try again in a minute.', { R: b.R });
 	}
+	if (!(await finishLink(DB, b.R, t))) return pendingRole(b.R);
 	return { ...linkedAnswer(v, 'linked', `${b.requester} is now linked to @${code.username}.`), characters: await charactersOf(env, code.discord_id) };
+}
+
+function pendingRole(R) {
+	return failure('server', 'The role outcome is not confirmed. Wait for the current request; if this continues, ask the bot keeper to review it or request a new code.', { R });
+}
+
+// Exactly one finalization attempt after acknowledged promotion. Unknown or no-change results require readback, never a resend.
+async function finishLink(DB, R, t) {
+	try {
+		const result = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used = 0').bind(t, R).run();
+		if (changed(result)) return true;
+	} catch (err) {
+		console.error('olympus-link', 'finalize_link', errorRef(err));
+	}
+	try {
+		const row = await DB.prepare('SELECT used FROM codes WHERE r = ?').bind(R).first();
+		return !!row && row.used === t;
+	} catch (err) {
+		console.error('olympus-link', 'finalize_read', errorRef(err));
+		return false;
+	}
 }
 
 const changed = (r) => !!(r && r.meta && Number(r.meta.changes) > 0);
@@ -600,8 +619,9 @@ async function undo(DB, x, t, first) {
 				: DB.prepare('DELETE FROM members WHERE character = ? AND discord_id = ? AND r = ?').bind(b.requester, code.discord_id, b.R),
 			DB.prepare('DELETE FROM used WHERE r = ? AND t = ?').bind(b.R, t),
 			...first.map((c) => DB.prepare('DELETE FROM council_keys WHERE public_key = ? AND character = ? AND first_seen = ?').bind(c.key.public_key, c.key.character, t)),
-			DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t),
+			DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, 0),
 		]);
+		return true;
 	} catch (err) {
 		console.error('olympus-link', 'undo_link', errorRef(err));
 	}
@@ -640,7 +660,7 @@ async function checkConfirmation(env, b, p, code, t) {
 	if (p.issued > t + LINK.CLOCK_SKEW) return bad('signed in the future');
 	if (!(await ed25519Verify(key.public_key, b64urlDecode(p.sig), enc.encode(signedMessage(b, p))))) return bad('bad signature');
 	if (!key.council && !(key.kind === 'c' && key.bootstrap)) {
-		const mine = await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ?').bind(p.confirmer, key.owner_discord_id).first();
+		const mine = await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ? AND NOT EXISTS (SELECT 1 FROM codes WHERE codes.r = members.r AND codes.used = 0)').bind(p.confirmer, key.owner_discord_id).first();
 		if (!mine) return bad("the confirmer is not a linked character of the key's owner");
 	}
 	if (p.confirmer === b.requester) return bad('the confirmer is the requester');
@@ -1223,7 +1243,7 @@ export async function manageKeys(env, body, t = now()) {
 	if (await DB.prepare('SELECT 1 AS x FROM keys WHERE public_key = ?').bind(pub).first()) return fail('public-key-used', 'This public key is registered already.');
 	// The character confirms for its owner: one of the owner's linked characters (a bootstrap
 	// councillor key excepted: at launch nobody has linked one yet).
-	if (!bootstrap && !(await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ?').bind(character, owner).first())) {
+	if (!bootstrap && !(await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ? AND NOT EXISTS (SELECT 1 FROM codes WHERE codes.r = members.r AND codes.used = 0)').bind(character, owner).first())) {
 		return fail('character-not-linked', `${character} is not a linked character of this Discord account: a key confirms from one of its owner's linked characters.`);
 	}
 	const mine = await activeKeys(env, owner, keyId);
@@ -1375,7 +1395,7 @@ export async function forgetUser(env, discordId, t = now()) {
 export async function pruneLink(env, t = now()) {
 	const DB = database(env);
 	const [codes, used, logs, limits] = await DB.batch([
-		DB.prepare('DELETE FROM codes WHERE exp < ?').bind(t - LINK.DELIVERY_GRACE),
+		DB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR r NOT IN (SELECT r FROM members))').bind(t - LINK.DELIVERY_GRACE),
 		DB.prepare('DELETE FROM used WHERE r NOT IN (SELECT r FROM codes) AND r NOT IN (SELECT r FROM members)'),
 		DB.prepare('DELETE FROM inbox_uploads WHERE uploaded < ?').bind(t - LINK.LOG_DAYS * 86400),
 		DB.prepare('DELETE FROM limits WHERE until <= ?').bind(t),

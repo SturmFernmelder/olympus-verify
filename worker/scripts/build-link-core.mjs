@@ -5,7 +5,7 @@
 //   node scripts/build-link-core.mjs --check   fail when a vendored file's SHA-256 or the generated file drifts
 //
 // The three vendored files are byte-pinned to dnl-gentile/olympus-addon at the commit below (MIT). The generated module
-// is upstream's body plus exactly three reviewed patches, each an exact replacement that must match a fixed number of
+// is upstream's body plus four reviewed patch groups, each expressed as exact replacements that must match a fixed number of
 // times or the build fails, so an upstream change can never be patched silently:
 //   P1 database(): LINK_DB only. Upstream falls back to env.DB, and both schemas have a `members` table that
 //      forgetUser deletes from; a missing binding must never point Link at the bot's own database.
@@ -13,7 +13,8 @@
 //      code R, Discord id, message or stack reaches Workers Logs.
 //   P3 discordUser(): no globalThis.fetch default. The caller injects credentialFetch (discord.ts: no redirects, an
 //      8 s deadline); without one it throws link_fetch_missing instead of calling Discord with a bare fetch.
-// Nothing else changes: limits, checks, texts and reasons stay upstream's, so its vectors keep passing.
+//   P4 acceptProof(): durable pending role state, finalization/readback, fail-observable undo, authority exclusions and safe prune.
+// Other limits, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -41,6 +42,119 @@ const P2_SITES = [
   ["console.error('olympus-link: inbox log', err && err.stack ? err.stack : err);", "console.error('olympus-link', 'inbox_log', errorRef(err));"],
 ];
 
+// P4 keeps a role outcome pending durably in the existing codes.used column (reserved state 0, not an event time).
+// Only acknowledged promotion finalizes to the original Unix-second timestamp. No role or uncertain write is retried.
+const PENDING_ROLE_PATCHES = Object.freeze([
+  Object.freeze({
+    id: "P4.1",
+    find: "\tif (code.used !== null && code.used !== undefined) {",
+    replace: "\tif (code.used === 0) return { verdict: pendingRole(b.R) };\n\tif (code.used !== null && code.used !== undefined) {",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.2",
+    find: "\tconst claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(t, b.R).run();",
+    replace: "\tconst claim = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used IS NULL').bind(0, b.R).run();",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.3",
+    find: [
+      "\t} catch (err) {",
+      "\t\t// Nothing was written (a batch is all or nothing): the code only is released.",
+      "\t\ttry {",
+      "\t\t\tawait DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t).run();",
+      "\t\t} catch (e) {",
+      "\t\t\tconsole.error('olympus-link', 'release_code', errorRef(e));",
+      "\t\t}",
+      "\t\tconst holder = await DB.prepare('SELECT discord_id FROM members WHERE character = ?').bind(b.requester).first();",
+      "\t\tif (holder && holder.discord_id !== code.discord_id) return linkedElsewhere(b);",
+      "\t\tconsole.error('olympus-link', 'record_link', errorRef(err));",
+      "\t\treturn failure('server', 'The link could not be recorded: send it again in a minute.', { R: b.R });",
+      "\t}",
+    ].join("\n"),
+    replace: [
+      "\t} catch (err) {",
+      "\t\t// A lost acknowledgement can follow a committed batch. Keep the claim pending; never release it on an unknown result.",
+      "\t\tconsole.error('olympus-link', 'record_link', errorRef(err));",
+      "\t\treturn pendingRole(b.R);",
+      "\t}",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.4",
+    find: "\tif (!changed(wrote[wrote.length - 1])) {\n\t\tawait undo(DB, x, t, first);\n\t\treturn linkedElsewhere(b);\n\t}",
+    replace: "\tif (!changed(wrote[wrote.length - 1])) {\n\t\tif (!(await undo(DB, x, t, first))) return pendingRole(b.R);\n\t\treturn linkedElsewhere(b);\n\t}",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.5",
+    find: "\tif (!role.ok) {\n\t\tawait undo(DB, x, t, first);",
+    replace: "\tif (!role.ok) {\n\t\tif (!(await undo(DB, x, t, first))) return pendingRole(b.R);",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.6",
+    find: "\treturn { ...linkedAnswer(v, 'linked', `${b.requester} is now linked to @${code.username}.`), characters: await charactersOf(env, code.discord_id) };",
+    replace: "\tif (!(await finishLink(DB, b.R, t))) return pendingRole(b.R);\n\treturn { ...linkedAnswer(v, 'linked', `${b.requester} is now linked to @${code.username}.`), characters: await charactersOf(env, code.discord_id) };",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.7",
+    find: "const changed = (r) => !!(r && r.meta && Number(r.meta.changes) > 0);",
+    replace: [
+      "function pendingRole(R) {",
+      "\treturn failure('server', 'The role outcome is not confirmed. Wait for the current request; if this continues, ask the bot keeper to review it or request a new code.', { R });",
+      "}",
+      "",
+      "// Exactly one finalization attempt after acknowledged promotion. Unknown or no-change results require readback, never a resend.",
+      "async function finishLink(DB, R, t) {",
+      "\ttry {",
+      "\t\tconst result = await DB.prepare('UPDATE codes SET used = ? WHERE r = ? AND used = 0').bind(t, R).run();",
+      "\t\tif (changed(result)) return true;",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'finalize_link', errorRef(err));",
+      "\t}",
+      "\ttry {",
+      "\t\tconst row = await DB.prepare('SELECT used FROM codes WHERE r = ?').bind(R).first();",
+      "\t\treturn !!row && row.used === t;",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'finalize_read', errorRef(err));",
+      "\t\treturn false;",
+      "\t}",
+      "}",
+      "",
+      "const changed = (r) => !!(r && r.meta && Number(r.meta.changes) > 0);",
+    ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.8",
+    find: "\t\t\tDB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t),\n\t\t]);\n\t} catch (err) {",
+    replace: "\t\t\tDB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, 0),\n\t\t]);\n\t\treturn true;\n\t} catch (err) {",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.9",
+    find: "\t\tconst mine = await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ?').bind(p.confirmer, key.owner_discord_id).first();",
+    replace: "\t\tconst mine = await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ? AND NOT EXISTS (SELECT 1 FROM codes WHERE codes.r = members.r AND codes.used = 0)').bind(p.confirmer, key.owner_discord_id).first();",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.10",
+    find: "\tif (!bootstrap && !(await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ?').bind(character, owner).first())) {",
+    replace: "\tif (!bootstrap && !(await DB.prepare('SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ? AND NOT EXISTS (SELECT 1 FROM codes WHERE codes.r = members.r AND codes.used = 0)').bind(character, owner).first())) {",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.11",
+    find: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ?').bind(t - LINK.DELIVERY_GRACE),",
+    replace: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR r NOT IN (SELECT r FROM members))').bind(t - LINK.DELIVERY_GRACE),",
+    count: 1,
+  }),
+]);
+
 /** Each patch: the exact upstream text, its replacement, and how many times the text must occur. */
 export const PATCHES = Object.freeze([
   Object.freeze({
@@ -56,6 +170,7 @@ export const PATCHES = Object.freeze([
     replace: "export async function discordUser(accessToken, { clientId, fetchImpl } = {}) {\n\tif (!DISCORD_ID_RE.test(String(clientId || ''))) throw new Error('Olympus Link: set DISCORD_CLIENT_ID to your Discord application\\'s id');\n\tif (typeof fetchImpl !== 'function') throw new Error('link_fetch_missing');\n",
     count: 1,
   }),
+  ...PENDING_ROLE_PATCHES,
 ]);
 
 export const HEADER = [
@@ -71,7 +186,10 @@ export const HEADER = [
   "//      \"DB when there is no LINK_DB\" is upstream's and no longer applies here.",
   "//   P2 the nine console.error sites print a fixed stage and errorRef(err) only (log.ts): no R, id, message or stack.",
   "//   P3 discordUser(): the caller injects fetchImpl (credentialFetch); there is no globalThis.fetch default.",
-  "// Nothing else differs from upstream. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
+  "//   P4 role settlement: codes.used=0 is pending; ambiguous record errors never release it, and promotion alone cannot finalize it.",
+  "//      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.",
+  "//      Pending member rows grant no confirmer/key authority; prune retains their code until the member moves or is removed.",
+  "// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
   "// src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).",
   "import { errorRef } from './log';",
   "",

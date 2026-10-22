@@ -13,8 +13,10 @@ Build .186 copies three files of Daniel's Olympus addon repository byte for byte
 - Licence: MIT, "Copyright (c) 2026 Olympus addon contributors". `LICENSE` is the full notice, which goes with every
   copy. This is a third-party file set; the repository's own `LICENSE` does not cover it (`THIRD_PARTY_NOTICES.md`).
 - `link-core.mjs` is not loaded as it is. `worker/scripts/build-link-core.mjs` checks all three SHA-256 pins and writes
-  `worker/src/link-core.ts`: the same text with a generated header and three reviewed patches (P1 LINK_DB only, P2
-  errorRef-only logging, P3 an injected fetch). `npm run check:link-core`, part of `npm test`, fails on any drift.
+  `worker/src/link-core.ts`: the same text with a generated header and four reviewed patch groups (P1 LINK_DB only, P2
+  errorRef-only logging, P3 an injected fetch, P4 durable pending claims until role grant is confirmed, with authority
+  and prune guards). The three upstream files above remain unmodified. `npm run check:link-core`, part of `npm test`,
+  fails on any drift.
 - `schema.sql` is the schema of the separate `olympus-link` D1 database (`LINK_DB`). The owner applies it once, during
   activation (`docs/olympus-link.md`). It is not part of `worker/schema.sql` and `ensureSchema` never runs it; the
   keeper database's schema rule does not apply to it.

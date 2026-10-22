@@ -6550,3 +6550,32 @@ authorized exact qualified predecessor (the live build at that time: .193, or .1
 the same safeguards; there is no data or setting to undo. If Link is ever on, the immediate rollback is removing
 `LINK_ENABLED` (or setting it to `"false"`), never unbinding `LINK_DB` while it holds rows. No deployment is authorized
 by this note.
+
+### .194 hosted review correction: role grant and rollback uncertainty
+
+PR87 head3e62c766 genuinely passed all13 hosted jobs, but automated review thread PRRT_kwDOUgwmm86vBSBv found a
+separate defect: when promote and the rollback batch both failed, the committed member/code could make a later
+submission report already-linked success without granting the role. That pass is historical evidence and does not
+qualify changed successor bytes. This successor supersedes this entry's initial unchanged-Link-source and
+three-patch descriptions. P1-P3 and the three vendored upstream file pins stay intact; P4 uses the existing
+`codes.used = 0` slot as a pending-state marker, finalizes only after a confirmed role grant and refuses pending
+proofs before already-linked success. Pending members cannot serve as confirmer/key-owner authority, and prune
+retains an expired pending code while a member references it. A confirmed explicit newer-code link releases that
+reference; no other expiry seconds change. An uncertain finalization uses at most one readback and no blind UPDATE
+or role retry. Successful already-linked replies still issue no second PUT.
+
+The focused successor regression must reproduce the actual rollback failure, prevent later false success, cover
+unknown finalization and pending authority/expiry, and retain all original assertions and deadlines. Fresh current
+core generation, projection/pre-push, standard committed Workerd, exact-head hosted CI and completed automated
+review are required; their results belong to the actual successor manifest. Original sealed Claude receipts and
+head3e62 tests remain separately attributed. BUILD remains .194 because it has not been deployed. No public assets,
+main schema443, production flags/settings, Native E2, private Worker, reset or launch controls change. Link stays OFF;
+Phase 1b must cover pending erasure/copy/prune before activation, and Phase 2 is still a separate owner gate.
+
+The focused correction overlay passed 152/152 checks: the original 135 remain, with 17 additive controls. The
+before-fix run kept all original checks passing but failed 11 of the first 14 new controls (138/149); three more
+controls were added for the ambiguous recording acknowledgement and generator seam. The original P1-P3 pins stay
+strict, P4 adds 11 counted replacements, and inverse generation now reverses application order. The logging
+assertion accounts for the removed release-code site and two new fixed `errorRef` finalization sites, without
+allowing any raw error, identifier or credential. The peer overlay result is bound by exact source hashes in the
+successor manifest; it is not relabeled as Root execution or as a fresh full local chain.
