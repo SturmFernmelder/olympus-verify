@@ -13,7 +13,7 @@
 //      code R, Discord id, message or stack reaches Workers Logs.
 //   P3 discordUser(): no globalThis.fetch default. The caller injects credentialFetch (discord.ts: no redirects, an
 //      8 s deadline); without one it throws link_fetch_missing instead of calling Discord with a bare fetch.
-//   P4 acceptProof(): durable pending role state, finalization/readback, fail-observable undo, authority exclusions and safe prune.
+//   P4 acceptProof(): durable pending role state, finalization/readback, owned-row CAS, fail-observable undo, authority exclusions and safe prune.
 // Other limits, signature/authentication checks and clocks stay upstream's; pending refusals use its existing server reason.
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
@@ -131,8 +131,44 @@ const PENDING_ROLE_PATCHES = Object.freeze([
   }),
   Object.freeze({
     id: "P4.8",
-    find: "\t\t\tDB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t),\n\t\t]);\n\t} catch (err) {",
-    replace: "\t\t\tDB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, 0),\n\t\t]);\n\t\treturn true;\n\t} catch (err) {",
+    find: [
+      "async function undo(DB, x, t, first) {",
+      "\tconst { b, code, owned } = x;",
+      "\ttry {",
+      "\t\tawait DB.batch([",
+      "\t\t\towned",
+      "\t\t\t\t? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ?').bind(owned.guild, owned.gv, owned.faction, owned.r, owned.linked, b.requester, code.discord_id, b.R)",
+      "\t\t\t\t: DB.prepare('DELETE FROM members WHERE character = ? AND discord_id = ? AND r = ?').bind(b.requester, code.discord_id, b.R),",
+      "\t\t\tDB.prepare('DELETE FROM used WHERE r = ? AND t = ?').bind(b.R, t),",
+      "\t\t\t...first.map((c) => DB.prepare('DELETE FROM council_keys WHERE public_key = ? AND character = ? AND first_seen = ?').bind(c.key.public_key, c.key.character, t)),",
+      "\t\t\tDB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, t),",
+      "\t\t]);",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'undo_link', errorRef(err));",
+      "\t}",
+      "}",
+    ].join("\n"),
+    replace: [
+      "async function undo(DB, x, t, first) {",
+      "\tconst { b, code, owned } = x;",
+      "\ttry {",
+      "\t\tconst undone = await DB.batch([",
+      "\t\t\towned",
+      "\t\t\t\t? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ?').bind(owned.guild, owned.gv, owned.faction, owned.r, owned.linked, b.requester, code.discord_id, b.R)",
+      "\t\t\t\t: DB.prepare('DELETE FROM members WHERE character = ? AND discord_id = ? AND r = ?').bind(b.requester, code.discord_id, b.R),",
+      "\t\t\tDB.prepare('DELETE FROM used WHERE r = ? AND t = ?').bind(b.R, t),",
+      "\t\t\t...first.map((c) => DB.prepare('DELETE FROM council_keys WHERE public_key = ? AND character = ? AND first_seen = ?').bind(c.key.public_key, c.key.character, t)),",
+      "\t\t\t// A newer pending member may still roll back to this code: release only after our own rollback destination is present.",
+      "\t\t\towned",
+      "\t\t\t\t? DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ? AND EXISTS (SELECT 1 FROM members WHERE character = ? AND discord_id = ? AND r = ? AND linked = ?)').bind(b.R, 0, b.requester, code.discord_id, owned.r, owned.linked)",
+      "\t\t\t\t: DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ? AND NOT EXISTS (SELECT 1 FROM members WHERE character = ?)').bind(b.R, 0, b.requester),",
+      "\t\t]);",
+      "\t\treturn changed(undone[undone.length - 1]);",
+      "\t} catch (err) {",
+      "\t\tconsole.error('olympus-link', 'undo_link', errorRef(err));",
+      "\t}",
+      "}",
+    ].join("\n"),
     count: 1,
   }),
   Object.freeze({
@@ -150,7 +186,24 @@ const PENDING_ROLE_PATCHES = Object.freeze([
   Object.freeze({
     id: "P4.11",
     find: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ?').bind(t - LINK.DELIVERY_GRACE),",
-    replace: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR r NOT IN (SELECT r FROM members))').bind(t - LINK.DELIVERY_GRACE),",
+    replace: "\t\tDB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR (NOT EXISTS (SELECT 1 FROM members direct WHERE direct.r = codes.r) AND NOT EXISTS (SELECT 1 FROM members active JOIN codes pending ON pending.r = active.r WHERE active.discord_id = codes.discord_id AND pending.discord_id = codes.discord_id AND pending.used = 0)))').bind(t - LINK.DELIVERY_GRACE),",
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P4.12",
+    find: [
+      "\t\t\tx.owned",
+      "\t\t\t\t? DB.prepare(",
+      "\t\t\t\t\t\t'INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?) ' +",
+      "\t\t\t\t\t\t\t'ON CONFLICT(character) DO UPDATE SET guild = excluded.guild, gv = excluded.gv, faction = excluded.faction, r = excluded.r, linked = excluded.linked WHERE members.discord_id = excluded.discord_id',",
+      "\t\t\t\t\t).bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t)",
+      "\t\t\t\t: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t),",
+    ].join("\n"),
+    replace: [
+      "\t\t\tx.owned",
+      "\t\t\t\t? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ? AND linked = ? AND EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.guild, x.gv, b.faction, b.R, t, b.requester, code.discord_id, x.owned.r, x.owned.linked, b.R, code.discord_id)",
+      "\t\t\t\t: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t, b.R, code.discord_id),",
+    ].join("\n"),
     count: 1,
   }),
 ]);
@@ -188,7 +241,9 @@ export const HEADER = [
   "//   P3 discordUser(): the caller injects fetchImpl (credentialFetch); there is no globalThis.fetch default.",
   "//   P4 role settlement: codes.used=0 is pending; ambiguous record errors never release it, and promotion alone cannot finalize it.",
   "//      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.",
-  "//      Pending member rows grant no confirmer/key authority; prune retains their code until the member moves or is removed.",
+  "//      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.",
+  "//      Pending rows grant no confirmer/key authority.",
+  "//      Prune retains referenced pending codes and their same-account pending predecessors until recovery settles or rolls back.",
   "// Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;",
   "// src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).",
   "import { errorRef } from './log';",

@@ -12,7 +12,9 @@
 //   P3 discordUser(): the caller injects fetchImpl (credentialFetch); there is no globalThis.fetch default.
 //   P4 role settlement: codes.used=0 is pending; ambiguous record errors never release it, and promotion alone cannot finalize it.
 //      Finalize once after confirmed promotion and read back unknown outcomes; never automatically repeat a role or D1 write.
-//      Pending member rows grant no confirmer/key authority; prune retains their code until the member moves or is removed.
+//      Member writes require the pending claim; owned-row replacement uses CAS, and undo releases only an acknowledged rollback.
+//      Pending rows grant no confirmer/key authority.
+//      Prune retains referenced pending codes and their same-account pending predecessors until recovery settles or rolls back.
 // Other upstream limits, signature/authentication checks and clocks stay unchanged. Only worker/src/link.ts loads this module, by dynamic import, behind its gate;
 // src/index.ts never re-exports it (LINK and PROOF_REASONS are scalar exports, which workerd refuses in an entry).
 import { errorRef } from './log';
@@ -556,11 +558,8 @@ export async function acceptProof(env, text, opts = {}) {
 			// holds now is left as it is (nothing changes: refused below); a new one is inserted, and
 			// one another account linked since the check fails the whole batch: nothing is written.
 			x.owned
-				? DB.prepare(
-						'INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?) ' +
-							'ON CONFLICT(character) DO UPDATE SET guild = excluded.guild, gv = excluded.gv, faction = excluded.faction, r = excluded.r, linked = excluded.linked WHERE members.discord_id = excluded.discord_id',
-					).bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t)
-				: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t),
+				? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ? AND linked = ? AND EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.guild, x.gv, b.faction, b.R, t, b.requester, code.discord_id, x.owned.r, x.owned.linked, b.R, code.discord_id)
+				: DB.prepare('INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM codes WHERE r = ? AND discord_id = ? AND used = 0)').bind(b.requester, code.discord_id, b.guild, x.gv, b.faction, b.R, t, b.R, code.discord_id),
 		]);
 	} catch (err) {
 		// A lost acknowledgement can follow a committed batch. Keep the claim pending; never release it on an unknown result.
@@ -613,15 +612,18 @@ const changed = (r) => !!(r && r.meta && Number(r.meta.changes) > 0);
 async function undo(DB, x, t, first) {
 	const { b, code, owned } = x;
 	try {
-		await DB.batch([
+		const undone = await DB.batch([
 			owned
 				? DB.prepare('UPDATE members SET guild = ?, gv = ?, faction = ?, r = ?, linked = ? WHERE character = ? AND discord_id = ? AND r = ?').bind(owned.guild, owned.gv, owned.faction, owned.r, owned.linked, b.requester, code.discord_id, b.R)
 				: DB.prepare('DELETE FROM members WHERE character = ? AND discord_id = ? AND r = ?').bind(b.requester, code.discord_id, b.R),
 			DB.prepare('DELETE FROM used WHERE r = ? AND t = ?').bind(b.R, t),
 			...first.map((c) => DB.prepare('DELETE FROM council_keys WHERE public_key = ? AND character = ? AND first_seen = ?').bind(c.key.public_key, c.key.character, t)),
-			DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ?').bind(b.R, 0),
+			// A newer pending member may still roll back to this code: release only after our own rollback destination is present.
+			owned
+				? DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ? AND EXISTS (SELECT 1 FROM members WHERE character = ? AND discord_id = ? AND r = ? AND linked = ?)').bind(b.R, 0, b.requester, code.discord_id, owned.r, owned.linked)
+				: DB.prepare('UPDATE codes SET used = NULL WHERE r = ? AND used = ? AND NOT EXISTS (SELECT 1 FROM members WHERE character = ?)').bind(b.R, 0, b.requester),
 		]);
-		return true;
+		return changed(undone[undone.length - 1]);
 	} catch (err) {
 		console.error('olympus-link', 'undo_link', errorRef(err));
 	}
@@ -1395,7 +1397,7 @@ export async function forgetUser(env, discordId, t = now()) {
 export async function pruneLink(env, t = now()) {
 	const DB = database(env);
 	const [codes, used, logs, limits] = await DB.batch([
-		DB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR r NOT IN (SELECT r FROM members))').bind(t - LINK.DELIVERY_GRACE),
+		DB.prepare('DELETE FROM codes WHERE exp < ? AND (used IS NOT 0 OR (NOT EXISTS (SELECT 1 FROM members direct WHERE direct.r = codes.r) AND NOT EXISTS (SELECT 1 FROM members active JOIN codes pending ON pending.r = active.r WHERE active.discord_id = codes.discord_id AND pending.discord_id = codes.discord_id AND pending.used = 0)))').bind(t - LINK.DELIVERY_GRACE),
 		DB.prepare('DELETE FROM used WHERE r NOT IN (SELECT r FROM codes) AND r NOT IN (SELECT r FROM members)'),
 		DB.prepare('DELETE FROM inbox_uploads WHERE uploaded < ?').bind(t - LINK.LOG_DAYS * 86400),
 		DB.prepare('DELETE FROM limits WHERE until <= ?').bind(t),

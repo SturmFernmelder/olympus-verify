@@ -6579,3 +6579,24 @@ strict, P4 adds 11 counted replacements, and inverse generation now reverses app
 assertion accounts for the removed release-code site and two new fixed `errorRef` finalization sites, without
 allowing any raw error, identifier or credential. The peer overlay result is bound by exact source hashes in the
 successor manifest; it is not relabeled as Root execution or as a fresh full local chain.
+
+### .194 second hosted review: predecessor lifetime and concurrent replacement
+
+Head1579193 also passed all13 hosted jobs, but PRRT_kwDOUgwmm86vBneS found that prune could delete pending A while
+replacement B temporarily held the member reference, then B's failed role grant could restore the now-orphaned A.
+The current successor keeps expired pending predecessors while any member of the same account references a pending
+replacement. It also replaces the existing-owned upsert with an UPDATE comparing the examined code and linked time,
+so a stale request cannot overwrite a newer settlement or recreate a deleted owned row. New and replacement member
+writes both require the exact pending claim atomically. Undo acknowledges release only when the actual resulting
+member matches its captured destination, or the originally new character is absent; otherwise its claim stays
+pending. This prevents overlapping replacements from restoring a prematurely cleared claim. No blind write or role
+retry is added, and the original expiry cutoff remains strict.
+
+The actual focused predecessor run was153/156, then the extended pre-fix run was153/160; all152 prior controls passed
+in both. The fixed overlay passed164/164 with12 additive SQLite controls, including stale/deleted captures, concurrent
+prune and role failure, overlapping undo, and a claim removed by deletion or expiry before recording. Four controls
+were added after the preserved extended predecessor run and are not attributed to it. The generator now has23 exact
+replacements (original11 P1-P3 plus12 P4); inverse reconstruction, upstream pins, logging and original assertions and
+deadlines remain strict. Current Root committed qualification, exact-head CI and automated review must run on the
+actual successor; both earlier full CI passes and review findings remain historical. BUILD stays .194, public assets
+and all production controls stay unchanged, and Phase1b/Phase2 activation remains blocked.

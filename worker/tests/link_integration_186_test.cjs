@@ -217,7 +217,7 @@ async function councillorLink(core, token, requester, issued, c) {
   check("  every original P1-P3 patch is an exact replacement that must match once (1 + 9 + 1)", originalPatches.length === 11 && originalPatches.every((p) => p.count === 1 && pristine.split(p.find).length === 2));
   let patchInput = pristine; const patchCounts = [];
   for (const p of gen.PATCHES) { const found = patchInput.split(p.find).length - 1; patchCounts.push(found === p.count); if (found === p.count) patchInput = patchInput.split(p.find).join(p.replace); }
-  check("P4: eleven exact counted replacements follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 22 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 11 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
+  check("P4: twelve exact counted replacements follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 23 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 12 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
   const body = generated.slice(gen.HEADER.length);
   let undone = body;
   for (const p of [...gen.PATCHES].reverse()) undone = undone.split(p.replace).join(p.find);
@@ -876,6 +876,159 @@ async function councillorLink(core, token, requester, issued, c) {
       && (await recordDb.prepare("SELECT used FROM codes WHERE r = ?").bind(B1.R).first()).used === 0 && !!member === (mode === "after"), result, replay, promotes, batches);
   }
 
+  {
+    const savedT = T, raceDb = linkD1(), raceKeys = await backendKeys();
+    const raceEnv = L.linkEnv({ ...baseVars, ...linkVars(raceKeys, raceDb) });
+    const keeper = await councillor(core, raceEnv, "pruner01", "Prune Keeper-ClassicBetaPvP", "500000000000000092");
+    const oldCode = await core.issueCode(raceEnv, { id: USER_C, username: "some.player" });
+    const oldProof = await councillorLink(core, oldCode.token, "Prune Player-ClassicBetaPvP", T, keeper);
+    const unrelatedCode = await core.issueCode(raceEnv, { id: USER_A, username: "tester.two" });
+    await raceDb.prepare("UPDATE codes SET used = 0 WHERE r = ?").bind(unrelatedCode.R).run();
+    const rawBatch = raceDb.batch;
+    let undoFails = true, promotes = 0;
+    raceDb.batch = async (statements) => {
+      if (undoFails && statements.some((s) => /^DELETE FROM used WHERE r =/.test(s.sql))) throw new Error("D1_ERROR: synthetic prior pending undo");
+      return rawBatch(statements);
+    };
+    const held = await core.acceptProof(raceEnv, oldProof.text, { discordId: USER_C, promote: async () => { promotes++; return false; } });
+    undoFails = false;
+    try {
+      T = oldCode.exp + core.LINK.DELIVERY_GRACE + 1;
+      const nextCode = await core.issueCode(raceEnv, { id: USER_C, username: "some.player" });
+      const nextProof = await councillorLink(core, nextCode.token, "Prune Player-ClassicBetaPvP", T, keeper);
+      for (const [r, exp] of [["PRUNECUT00", T - core.LINK.DELIVERY_GRACE], ["PRUNEBEF00", T - core.LINK.DELIVERY_GRACE - 1]]) {
+        await raceDb.prepare("INSERT INTO codes (r, discord_id, username, mode, draw_t, created, exp, token, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(r, USER_A, "tester.two", "c", "00000000", savedT, exp, "synthetic-unused-prune-control", "discord").run();
+      }
+      let entered, release;
+      const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+      const work = core.acceptProof(raceEnv, nextProof.text, { discordId: USER_C, promote: async () => { promotes++; entered(); await finish; return false; } });
+      await started;
+      const duringMember = await raceDb.prepare("SELECT r FROM members WHERE character = ?").bind("Prune Player-ClassicBetaPvP").first();
+      await core.pruneLink(raceEnv, T);
+      const oldDuring = await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(oldProof.R).first();
+      check(".194 prune retains expired pending A while recovery B temporarily owns its same-account member during deferred promotion",
+        held.reason === "server" && duringMember?.r === nextProof.R && oldDuring?.used === 0, held.reason, duringMember, oldDuring);
+      check(".194 pending recovery retention does not protect another account's unreferenced pending code or change the strict expiry boundary",
+        !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(unrelatedCode.R).first())
+        && !!(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind("PRUNECUT00").first())
+        && !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind("PRUNEBEF00").first()));
+      release(); const failed = await work;
+      const restored = await raceDb.prepare("SELECT r FROM members WHERE character = ?").bind("Prune Player-ClassicBetaPvP").first();
+      const candidate = await backendKeys();
+      const admission = await core.manageKeys(raceEnv, { key_id: "prunehold", public_key: candidate.publicHex, owner_discord_id: USER_C, character: "Prune Player-ClassicBetaPvP", kind: "p" });
+      check(".194 failed deferred recovery undo restores a still-pending A that cannot authorize a key or successful proof replay",
+        failed.reason === "discord" && restored?.r === oldProof.R && promotes === 2
+        && (await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(oldProof.R).first())?.used === 0
+        && admission.reason === "character-not-linked" && (await core.checkProof(raceEnv, oldProof.text, { discordId: USER_C })).reason === "server", failed.reason, restored, admission.reason);
+      const settled = await core.acceptProof(raceEnv, nextProof.text, { discordId: USER_C, promote: async () => { promotes++; return true; } });
+      await core.pruneLink(raceEnv, T);
+      check(".194 after explicit recovery B actually settles, expired A may prune and B's recorded authority remains valid",
+        settled.reason === "linked" && promotes === 3
+        && !(await raceDb.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(oldProof.R).first())
+        && (await raceDb.prepare("SELECT used FROM codes WHERE r = ?").bind(nextProof.R).first())?.used === T
+        && (await core.manageKeys(raceEnv, { key_id: "prunehold", public_key: candidate.publicHex, owner_discord_id: USER_C, character: "Prune Player-ClassicBetaPvP", kind: "p" })).ok === true, settled.reason, promotes);
+    } finally { T = savedT; }
+  }
+  async function pendingRaceFixture194(createOld = true) {
+    const db = linkD1(), backend = await backendKeys(), env = L.linkEnv({ ...baseVars, ...linkVars(backend, db) });
+    const keeper = await councillor(core, env, "racekeep", "Race Keeper-ClassicBetaPvP", "500000000000000093");
+    if (!createOld) return { db, env, keeper };
+    const oldCode = await core.issueCode(env, { id: USER_C, username: "some.player" });
+    const oldProof = await councillorLink(core, oldCode.token, "Race Player-ClassicBetaPvP", T, keeper);
+    const rawBatch = db.batch; let failUndo = true;
+    db.batch = async (statements) => {
+      if (failUndo && statements.some((s) => /^DELETE FROM used WHERE r =/.test(s.sql))) throw new Error("D1_ERROR: synthetic race setup undo");
+      return rawBatch(statements);
+    };
+    const held = await core.acceptProof(env, oldProof.text, { discordId: USER_C, promote: async () => false });
+    failUndo = false;
+    return { db, env, keeper, oldCode, oldProof, held };
+  }
+  for (const mode of ["moved", "deleted"]) {
+    const savedT = T, race = await pendingRaceFixture194();
+    try {
+      T = race.oldCode.exp + core.LINK.DELIVERY_GRACE + 1;
+      const bCode = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+      const bProof = await councillorLink(core, bCode.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+      const rawBatch = race.db.batch; let entered, release, stopped = false, bPromotes = 0;
+      const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+      race.db.batch = async (statements) => {
+        if (!stopped && statements.some((s) => /INTO members|UPDATE members SET/.test(s.sql) && s.args.includes(bProof.R))) { stopped = true; entered(); await finish; }
+        return rawBatch(statements);
+      };
+      const bWork = core.acceptProof(race.env, bProof.text, { discordId: USER_C, promote: async () => { bPromotes++; return false; } });
+      await started;
+      let settled = null;
+      if (mode === "moved") {
+        const cCode = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+        const cProof = await councillorLink(core, cCode.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+        settled = { R: cProof.R, result: await core.acceptProof(race.env, cProof.text, { discordId: USER_C, promote: async () => true }) };
+        await core.pruneLink(race.env, T);
+      } else {
+        await core.forgetUser(race.env, USER_C);
+      }
+      release(); const bResult = await bWork;
+      const member = await race.db.prepare("SELECT r FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first();
+      check(`.194 a recovery with a ${mode} owned snapshot cannot overwrite or resurrect the member after its recording pause`,
+        race.held.reason === "server" && bResult.ok === false && bPromotes === 0
+        && !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(race.oldProof.R).first())
+        && (mode === "moved" ? settled.result.reason === "linked" && member?.r === settled.R : member === null), bResult.reason, member, bPromotes);
+    } finally { T = savedT; }
+  }
+  for (const initial of ["pending", "new"]) {
+    const race = await pendingRaceFixture194(initial === "pending");
+    const bCode = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+    const bProof = await councillorLink(core, bCode.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+    let enteredB, releaseB, enteredC, releaseC, promotes = 0;
+    const startedB = new Promise((resolve) => { enteredB = resolve; }), finishB = new Promise((resolve) => { releaseB = resolve; });
+    const startedC = new Promise((resolve) => { enteredC = resolve; }), finishC = new Promise((resolve) => { releaseC = resolve; });
+    const bWork = core.acceptProof(race.env, bProof.text, { discordId: USER_C, promote: async () => { promotes++; enteredB(); await finishB; return false; } });
+    await startedB;
+    const cCode = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+    const cProof = await councillorLink(core, cCode.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+    const cWork = core.acceptProof(race.env, cProof.text, { discordId: USER_C, promote: async () => { promotes++; enteredC(); await finishC; return false; } });
+    await startedC;
+    releaseB(); const bResult = await bWork;
+    const bUsedWhileC = (await race.db.prepare("SELECT used FROM codes WHERE r = ?").bind(bProof.R).first())?.used;
+    check(`.194 an overwritten B rollback (${initial} member) cannot release B's claim while pending C may still restore B`,
+      bResult.ok === false && bResult.reason === "server" && bUsedWhileC === 0
+      && (await race.db.prepare("SELECT r FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first())?.r === cProof.R, bResult.reason, bUsedWhileC);
+    releaseC(); const cResult = await cWork;
+    const candidate = await backendKeys();
+    const admission = await core.manageKeys(race.env, { key_id: "overlap01", public_key: candidate.publicHex, owner_discord_id: USER_C, character: "Race Player-ClassicBetaPvP", kind: "p" });
+    check(`.194 after C also fails (${initial} member), restored B is still pending and cannot authorize a key or completed replay`,
+      cResult.reason === "discord" && promotes === 2
+      && (await race.db.prepare("SELECT r FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first())?.r === bProof.R
+      && (await race.db.prepare("SELECT used FROM codes WHERE r = ?").bind(bProof.R).first())?.used === 0
+      && admission.reason === "character-not-linked" && (await core.checkProof(race.env, bProof.text, { discordId: USER_C })).reason === "server", cResult.reason, admission.reason);
+  }
+  for (const mode of ["forget", "prune"]) {
+    const savedT = T, race = await pendingRaceFixture194(false);
+    const code = await core.issueCode(race.env, { id: USER_C, username: "some.player" });
+    const proof = await councillorLink(core, code.token, "Race Player-ClassicBetaPvP", T, race.keeper);
+    const candidate = await backendKeys(), rawBatch = race.db.batch;
+    let entered, release, stopped = false, promotes = 0, admittedOrphan = false;
+    const started = new Promise((resolve) => { entered = resolve; }), finish = new Promise((resolve) => { release = resolve; });
+    race.db.batch = async (statements) => {
+      if (!stopped && statements.some((s) => /INTO members|UPDATE members SET/.test(s.sql) && s.args.includes(proof.R))) { stopped = true; entered(); await finish; }
+      return rawBatch(statements);
+    };
+    try {
+      const work = core.acceptProof(race.env, proof.text, { discordId: USER_C, promote: async () => {
+        promotes++;
+        admittedOrphan = (await core.manageKeys(race.env, { key_id: "lostclaim", public_key: candidate.publicHex, owner_discord_id: USER_C, character: "Race Player-ClassicBetaPvP", kind: "p" })).ok === true;
+        return false;
+      } });
+      await started;
+      if (mode === "forget") await core.forgetUser(race.env, USER_C);
+      else { T = code.exp + core.LINK.DELIVERY_GRACE + 1; await core.pruneLink(race.env, T); }
+      release(); const result = await work;
+      check(`.194 a new-member claim removed by ${mode} before recording cannot recreate a member, promote or expose orphan authority`,
+        result.ok === false && result.reason === "server" && promotes === 0 && admittedOrphan === false
+        && !(await race.db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(proof.R).first())
+        && !(await race.db.prepare("SELECT 1 AS x FROM members WHERE character = ?").bind("Race Player-ClassicBetaPvP").first()), result.reason, promotes, admittedOrphan);
+    } finally { T = savedT; }
+  }
   const upPage = (body, headers = {}, origin = ORIGIN) => new Request("https://verify.example/proof", { method: "POST", headers: { ...(origin ? { Origin: origin } : {}), "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
   const upProof = async (lenvX, text, token, headers = {}, origin = ORIGIN) => { const r = await core.handleProof(upPage({ text, discordToken: token }, headers, origin), lenvX, { promote: async () => {}, demote: async () => {}, fetchImpl: upFetch }); return { http: r.status, ...(await r.json()) }; };
   const madeUp = (i) => signin("made", "up", String(i).padStart(6, "0"));

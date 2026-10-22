@@ -132,12 +132,20 @@ finalization may be checked by one actual readback; neither the UPDATE nor the r
 `examine` refuses a pending code before the already-linked branch. A pending member cannot authorize a confirmer
 or a non-bootstrap key owner. Normal completed links still use the original already-linked path without another PUT.
 
-An expired pending code is retained while a member references its `r`; pruning that marker would otherwise make an
-unresolved member look complete. All other expiry seconds stay unchanged. Once an explicit new-code proof completes
-and supersedes the member's `r`, the older expired pending code can be pruned. The player's deletion/cleanup paths
+An expired pending code is retained while a member references its `r`, or while a member of that account references
+a pending replacement. Pruning the predecessor during replacement could otherwise make a rollback look complete.
+All other expiry seconds stay unchanged. Once an explicit new-code proof completes and supersedes the member's `r`,
+the older expired pending code can be pruned. The player's deletion/cleanup paths
 retain access to pending rows. An unresolved outcome needs an explicit new-code or deletion flow or keeper review;
 it does not trigger an automatic role retry or authorize a production SQL repair. Phase 1b must qualify erasure,
 account-copy and prune handling of this pending state before any activation. Link remains OFF in this release.
+
+Recording a replacement uses an atomic UPDATE matching the examined member's code and linked time; it cannot
+overwrite a newer snapshot or reinsert a deleted owned row. Both that UPDATE and a new-character INSERT require the
+account's exact pending code claim in the same statement. Undo releases its claim only when the actual resulting
+member matches the captured destination, or a newly created character is absent. If another pending replacement
+owns the row, undo keeps its own claim pending, so that replacement cannot later restore an unused predecessor.
+These checks use existing columns and do not add a schema, timestamp, role resend or background action.
 
 **In `LINK_DB`** (the separate `olympus-link` database; tables from `vendor/olympus-link/schema.sql`):
 

@@ -1913,3 +1913,13 @@ older expired code can prune normally. The existing successful already-linked/no
 No schema, production data, setting, flag, Native E2, reset or launch gate changes; the vendored upstream files stay
 byte exact and the generator applies count-guarded replacements. Phase 1b's pending-state privacy/prune qualification
 and all existing activation blockers remain required, so Link still ships OFF.
+
+The next .194 review found that predecessor retention must include an in-flight replacement, not just the current
+member reference. Prune now keeps an expired pending code while the account has a member referencing another
+pending code. Coupled version checks prevent a request with a stale captured member from overwriting a newer
+settlement or reinserting a deleted owned row. Both member-write branches require the exact live pending claim
+atomically. Undo clears its own claim only after the actual member reaches the expected restored state or a new
+character is absent; an overlapping replacement therefore cannot restore a claim that undo prematurely cleared.
+The added SQLite races cover deferred promotion/prune/failure, stale and deleted captures, overlapping undo, and
+claim loss through deletion or expiry. This supersedes the initial direct-reference-only prune description above;
+no existing expiry seconds or production activation boundary change.
