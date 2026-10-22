@@ -23,7 +23,8 @@
  * the member and never sent again (the role-settlements.ts rule). DELETE remains unconfirmed even if that GET finds absence;
  * it does not prove a delayed DELETE has ended. The core retains its persistent admission guard in that case.
  * A documented terminal 400/401/403/404/405/429 instead carries internal notApplied evidence, so core may release
- * only that admission without cleanup or an automatic resend. Server failures remain uncertain.
+ * only that admission without cleanup or an automatic resend. Known pre-request DELETE refusals carry the same
+ * evidence. Once write() may have started, server/transport failures remain uncertain.
  *
  * Audit rows are written only here, so only while Link is on, and carry the Discord status and code, never a message.
  * A row that names the player goes through audit()'s privacy reference (db.ts): the subject's generation is read first
@@ -189,8 +190,9 @@ async function write(env: Env, method: 'PUT' | 'DELETE', discordId: string, ref:
 /** Grant (PUT) or remove (DELETE) the Olympus Link role. Never throws. */
 export async function linkRole(env: Env, method: 'PUT' | 'DELETE', discordId: string): Promise<LinkRoleResult> {
   let ref: PrivacyReference | null = null;
+  let requestMayHaveStarted = false;
   try {
-    if (linkState(env) !== 'on' || (method !== 'PUT' && method !== 'DELETE') || typeof discordId !== 'string' || !SNOWFLAKE.test(discordId)) return REFUSED;
+    if (linkState(env) !== 'on' || (method !== 'PUT' && method !== 'DELETE') || typeof discordId !== 'string' || !SNOWFLAKE.test(discordId)) return method === 'DELETE' ? NOT_APPLIED : REFUSED;
     if (method === 'PUT') {
       const checked = await eligibility(env, discordId);
       ref = checked.ref;
@@ -209,9 +211,12 @@ export async function linkRole(env: Env, method: 'PUT' | 'DELETE', discordId: st
     } else {
       ref = await deleteReference(env, discordId);
     }
+    // From this boundary a provider request may have started; never classify an outer throw as non-application.
+    requestMayHaveStarted = true;
     return await write(env, method, discordId, ref);
   } catch (e) {
     console.error('olympus-link role not changed', method, errorRef(e));
+    if (method === 'DELETE' && !requestMayHaveStarted) return NOT_APPLIED;
     if (linkState(env) === 'on') await note(env, 'link.role_failed', ref, { method, status: e instanceof DiscordError ? e.status : null, code: e instanceof DiscordError ? discordCode(e) : null });
     return REFUSED;
   }

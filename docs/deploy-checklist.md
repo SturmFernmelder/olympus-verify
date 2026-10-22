@@ -6643,7 +6643,8 @@ Corrected protocol:
   admission when the row committed. Missing release acknowledgement can follow an actual release; the answer is
   unconfirmed and the old request does no later role or cleanup work. Do not claim the row necessarily remains.
 - After specific 404 absence cases are handled, the trusted internal returned `notApplied: true` signal is limited to
-  DELETE HTTP 400, 401, 403, 404, 405 and 429. It is never accepted from a thrown error. That first-removal failure
+  known pre-request DELETE refusals or DELETE HTTP 400, 401, 403, 404, 405 and 429. A caught failure before the
+  write helper may start is classified inside the adapter; core never trusts a signal attached to a thrown error. That first-removal failure
   releases its exact guard once as the last operation, preserves Link data and returns the existing `discord`
   failure without automatic retry; unknown release returns held `server`. Transport errors, 5xx, unlisted statuses
   such as 408, and bare false remain held. This is not a universal 4xx exemption.
@@ -6693,3 +6694,11 @@ not evidence that queued work ended. No release/recovery SQL, mutation permissio
 The definite-nonapplication narrowing follows local candidate `1d973c616ad5cf52ee837e45b666e00ffea81c76`; that
 candidate's qualification remains historical and does not transfer to the changed successor. Fresh results and the
 actual new head belong in the new receipt; none are asserted here.
+
+
+Pre-request refinement: known adapter DELETE refusals before write may start also release exact admission once
+without cleanup; a requestMayHaveStarted boundary protects all uncertain provider outcomes. Normal OFF/held routes
+remain outside core, while direct captured-core compositions are covered separately. Ordinary privacy-read failure
+still proceeds to DELETE. The concurrent-delete message names the possibly running first request without an
+automatic retry. This refinement changes no schema, gate, setting or activation authority, and requires new exact
+source qualification; the earlier1d48 head and its results remain historical.

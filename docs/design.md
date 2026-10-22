@@ -1993,3 +1993,12 @@ read-only keeper snapshot of the account's guard and pending-code tuples; old or
 counts do not prove queued work ended. That diagnostic is not authority to release a row or perform recovery.
 Trusted first-removal nonapplication with acknowledged release is not an indefinite lockout trigger; its data is
 kept and only a later explicit request may try again. The affected .195 integration remains separately unqualified.
+
+
+22 October, verified pre-request boundary refinement: known DELETE preflight refusals (including configuration or
+adapter-id validation) carry the same internal notApplied evidence as a definitive nonapplication response. A
+requestMayHaveStarted boundary is set immediately before the write helper; pre-boundary caught failures are known
+nonapplication, while post-boundary uncertainty remains held. Exact final release preserves data and permits only
+a later explicit request, never an automatic retry. Ordinary privacy-reference read failure is caught and still
+sends DELETE. These direct captured-projection compositions are separate from normal OFF/held route admission,
+which never enters core. The previous1d48 qualification remains historical; changed bytes need new qualification.

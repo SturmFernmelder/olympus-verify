@@ -427,6 +427,17 @@ async function councillorLink(core, token, requester, issued, c) {
   const deniedPut = await outcome("PUT", { status: 403, code: 50013 });
   check(".194 definite DELETE non-application metadata does not change a refused PUT or give it the removal marker",
     deniedPut.ok === false && deniedPut.reason === "discord" && deniedPut.notApplied !== true && roleCalls().length === 1 && roleCalls()[0].method === "PUT", deniedPut);
+  for (const spec of [
+    { name: "off", env: { ...venv, LINK_ENABLED: "false" }, id: ACTIVE },
+    { name: "held", env: { ...venv, LINK_ENABLED: "TRUE" }, id: ACTIVE },
+    { name: "invalid adapter snowflake", env: venv, id: "12345" },
+  ]) {
+    FETCHES = [];
+    const deletion = await RL.linkRole(spec.env, "DELETE", spec.id), put = await RL.linkRole(spec.env, "PUT", spec.id);
+    check(`.194 ${spec.name} adapter preflight sends no HTTP: DELETE certifies non-application, while PUT remains a plain refusal`,
+      deletion.ok === false && deletion.reason === "discord" && deletion.notApplied === true && put.ok === false && put.reason === "discord" && put.notApplied !== true && FETCHES.length === 0,
+      deletion, put, FETCHES.length);
+  }
   // The role's configuration: cached ten minutes, and looked at again right after a failed PUT.
   RL.resetLinkRoleCache();
   const roleListGets = () => FETCHES.filter((f) => f.url.endsWith(`/guilds/${GUILD}/roles`)).length;
@@ -1485,6 +1496,64 @@ async function councillorLink(core, token, requester, issued, c) {
       && !!(await deleteGuard194(db)) === (mode === "before")
       && !!(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first())
       && !!(await db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(B1.R).first()), deletion.reason, releases, demotes, cleanups);
+  }
+  console.log("\n== .194 known no-request preflight: direct composition, not OFF/held route admission ==");
+  for (const spec of [
+    { name: "off captured adapter", over: { LINK_ENABLED: "false" }, id: USER_C },
+    { name: "held captured adapter", over: { LINK_ENABLED: "TRUE" }, id: USER_C },
+    { name: "core-accepted five-digit ID", over: {}, id: "12345" },
+  ]) {
+    const env = await seeded(), db = env.LINK_DB, key = deleteKey194(spec.id), adapter = { ...venv, LINK_DB: db, ...spec.over };
+    const character = spec.id === USER_C ? B1.requester : "Preflight Small-Realm";
+    if (spec.id === USER_C) await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    else await db.prepare("INSERT INTO members (character, discord_id, guild, gv, faction, r, linked) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(character, spec.id, "Olympus II", "r", "Alliance", "0000000000", T).run();
+    let cleanups = 0; const acquisitions = [], releases = [], rawBatch = db.batch;
+    db.batch = async (statements) => { if (/^SELECT \(?EXISTS \(SELECT 1 FROM codes/.test(statements[0]?.sql || "")) cleanups++; return rawBatch(statements); };
+    const restore = interceptRun194(db, async (s, run) => {
+      if (/^INSERT(?: OR IGNORE)? INTO limits\b/.test(s.sql) && s.args.includes(key)) acquisitions.push([...s.args]);
+      if (/^DELETE FROM limits\b/.test(s.sql) && s.args.includes(key)) releases.push([...s.args]);
+      return run();
+    });
+    FETCHES = []; let demotes = 0;
+    const demote = (id) => { demotes++; return RL.linkRole(adapter, "DELETE", id); };
+    const first = await core.forgetOwnLink(env, { id: spec.id, username: "fixture.player" }, { demote });
+    const denied = { http: FETCHES.length, cleanups, demotes, acquisitions: acquisitions.length, releases: releases.length,
+      member: !!(await db.prepare("SELECT 1 AS x FROM members WHERE character = ? AND discord_id = ?").bind(character, spec.id).first()), guard: await deleteGuard194(db, spec.id) };
+    const exactFirstOwner = acquisitions.length === 1 && releases.length === 1 && JSON.stringify(releases[0]) === JSON.stringify([key, acquisitions[0][2], acquisitions[0][1]]);
+    if (spec.id === USER_C) adapter.LINK_ENABLED = "true";
+    responder = discordStub({ members: { [spec.id]: [LINK_ROLE] } });
+    const later = await core.forgetOwnLink(env, { id: spec.id, username: "fixture.player" }, { demote }); restore();
+    const exactLaterOwner = acquisitions.length === 2 && releases.length === 2 && JSON.stringify(releases[1]) === JSON.stringify([key, acquisitions[1][2], acquisitions[1][1]]);
+    check(`.194 ${spec.name} no-request composition releases only its exact admission owner, preserves data and allows a separate later press`,
+      first.reason === "discord" && /try again/i.test(first.message) && denied.http === 0 && denied.cleanups === 0 && denied.demotes === 1 && denied.member && !denied.guard && exactFirstOwner && exactLaterOwner
+      && acquisitions[0][2] !== acquisitions[1][2] && demotes === 2 && !(await deleteGuard194(db, spec.id))
+      && (spec.id === USER_C ? later.reason === "forgotten" && cleanups === 1 && FETCHES.filter(f => f.method === "DELETE").length === 1
+        : later.reason === "discord" && cleanups === 0 && FETCHES.length === 0 && !!(await db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(spec.id).first())),
+      first.reason, later.reason, denied, exactFirstOwner, exactLaterOwner, cleanups, demotes);
+  }
+  {
+    const env = await seeded(), db = env.LINK_DB; let privacyReads = 0;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const adapter = { ...venv, LINK_DB: db, DB: { prepare() { privacyReads++; throw new Error("synthetic ordinary privacy read failure"); } } };
+    responder = discordStub({ members: { [USER_C]: [LINK_ROLE] } }); FETCHES = [];
+    const deletion = await playerForget194(env, (id) => RL.linkRole(adapter, "DELETE", id));
+    check(".194 ordinary privacy-reference read failure is caught locally and still sends DELETE; its confirmed204 permits cleanup",
+      deletion.reason === "forgotten" && privacyReads > 0 && FETCHES.length === 1 && FETCHES[0].method === "DELETE" && !(await deleteGuard194(db))
+      && !(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first()), deletion.reason, privacyReads, FETCHES.map(f => f.method));
+  }
+  for (const mode of ["before", "after"]) {
+    const env = await seeded(), db = env.LINK_DB, adapter = { ...venv, LINK_DB: db, LINK_ENABLED: "false" }; let releases = 0, demotes = 0;
+    const restore = interceptRun194(db, async (s, run) => {
+      if (!isDeleteRelease194(s)) return run();
+      releases++;
+      if (mode === "before") throw new Error("D1_ERROR: synthetic no-request release before commit");
+      await run(); throw new Error("D1_ERROR: synthetic no-request release acknowledgement");
+    });
+    FETCHES = [];
+    const deletion = await playerForget194(env, (id) => { demotes++; return RL.linkRole(adapter, "DELETE", id); }); restore();
+    check(`.194 known no-request preflight with unknown release (${mode}) stays keeper-directed without retrying release or sending HTTP`,
+      deletion.reason === "server" && /keeper/.test(deletion.message) && !/try again/i.test(deletion.message) && releases === 1 && demotes === 1 && FETCHES.length === 0
+      && !!(await deleteGuard194(db)) === (mode === "before"), deletion.reason, releases, demotes, FETCHES.length);
   }
   const madeUp = (i) => signin("made", "up", String(i).padStart(6, "0"));
   mainSpy.n = 0;

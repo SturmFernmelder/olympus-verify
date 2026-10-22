@@ -128,8 +128,9 @@ frees the code. An unconfirmed undo keeps the code pending and cannot report a c
   permissions only, never channel overwrites (section 8, step 5).
 - **DELETE** skips eligibility once the player's deletion has been admitted. It reads the privacy subject only to
   fence its audit rows, and goes ahead when that read fails. A role that no longer exists (404/10011) counts as removed.
-  After the specific 404 absence cases are handled, only DELETE HTTP statuses **400, 401, 403, 404, 405 and 429**
-  carry trusted `notApplied: true`: the role writer confirms nonapplication. In corrected .194 that first-removal
+  Known pre-request DELETE refusals carry trusted `notApplied: true`, including OFF/held configuration or an invalid
+  adapter id, before `write()` may start. After the specific 404 absence cases are handled, DELETE HTTP statuses
+  **400, 401, 403, 404, 405 and 429** carry the same signal: the role writer confirms nonapplication. In corrected .194 that first-removal
   refusal keeps the Link data unchanged, releases the exact owned guard once as its last operation, and returns the
   existing `discord` failure. A later explicit player request can try again; no DELETE is automatically retried.
 - A **PUT** that ends without an HTTP status (timeout, abort) keeps the existing one-GET reconciliation and is never
@@ -181,7 +182,7 @@ ordinary limit pruning explicitly excludes these rows.
 
 Confirmed role removal followed by acknowledged guarded cleanup permits the final owner-matched guard release
 (`k`, `n` and admission time). The other permitted .194 path is trusted definite nonapplication of the first DELETE
-(only the six statuses above): cleanup does not run, the exact guard is released once, and the unchanged-data answer
+(the six statuses or known pre-request refusals above): cleanup does not run, the exact guard is released once, and the unchanged-data answer
 is the existing `discord` failure. An unconfirmed release on either path instead answers held `server`/keeper advice.
 Missing, failed or thrown acquisition/cleanup results and role outcomes without a trusted certainty signal do not
 release admission or automatically repeat work. A guard committed before an acknowledgement was lost can remain
@@ -198,7 +199,15 @@ not clear or take over this guard. Normal confirmed release deletes the guard; o
 indefinite lifetime. There is no implemented player recovery path. This is a new availability, privacy-retention and
 recovery blocker for activation of both releases, not an accepted production behavior. OFF publication does not
 waive it, and no age-based takeover is authorized. A trusted 400/401/403/404/405/429 first-removal nonapplication with
-acknowledged guard release is not such a lockout trigger.
+acknowledged guard release, or a known pre-request refusal with that release, is not such a lockout trigger.
+
+The adapter records a `requestMayHaveStarted` boundary immediately before calling its write helper. A caught
+DELETE failure before that boundary is known nonapplication; once the helper may have started, a throw cannot
+release admission as nonapplication. An ordinary privacy-subject read error is caught inside `deleteReference` and
+still proceeds to DELETE. Direct calls composed from an already captured core projection can encounter the
+OFF/held or invalid-id preflight; the normal OFF/held HTTP route refuses before entering core. This distinction
+does not change route admission or prove a live configuration race. A concurrent second press can also encounter
+a guard while the first completes normally; the held message names that possibility without starting a retry.
 
 This coordinates the player's proof-claim and deletion paths; it is not general cross-service atomicity or completed
 erasure. Code issuance through `/verify` may run concurrently: its code cannot be claimed while the guard exists,

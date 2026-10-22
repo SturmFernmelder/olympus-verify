@@ -295,7 +295,7 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "}",
       "",
       "function deletionHeld() {",
-      "\treturn failure('server', 'Deletion admission or its outcome could not be confirmed. No role change will be retried; ask the bot keeper to review it.');",
+      "\treturn failure('server', 'Another deletion may be running, or its outcome is unconfirmed. No role change will be retried automatically; if the outcome stays unclear, ask the bot keeper to review it.');",
       "}",
       "",
       "async function admitDeletion(DB, id, t) {",
