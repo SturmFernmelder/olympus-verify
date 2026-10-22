@@ -342,7 +342,11 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\tif (!gone.ok) return gone;",
     ].join("\n"),
     replace: [
-      "\t\tif (!role.ok && role.reason !== 'not-in-server') return deletionHeld();",
+      "\t\tif (!role.ok && role.reason !== 'not-in-server') {",
+      "\t\t\t// Only a returned, explicit no-application result can release admission without cleanup.",
+      "\t\t\tif (role.notApplied === true && await releaseDeletion(DB, admission)) return failure('discord', 'Discord did not take the role change: try again in a minute.');",
+      "\t\t\treturn deletionHeld();",
+      "\t\t}",
       "\t}",
       "\tconst gone = await forgetUser(env, id, t, { requireSettled: true, admission });",
       "\tif (!gone.ok) return gone;",
@@ -357,6 +361,12 @@ const PENDING_ROLE_PATCHES = Object.freeze([
       "\t\t// Admission rows have no TTL: until records admission time and must never authorize reclaiming a delayed DELETE.",
       "\t\tDB.prepare(\"DELETE FROM limits WHERE until <= ? AND k NOT LIKE 'delete:%'\").bind(t),",
     ].join("\n"),
+    count: 1,
+  }),
+  Object.freeze({
+    id: "P5.5",
+    find: "\tif (r && typeof r === 'object' && r.ok === false) return { ok: false, reason: r.reason === 'not-in-server' ? 'not-in-server' : 'discord' };",
+    replace: "\tif (r && typeof r === 'object' && r.ok === false) return { ok: false, reason: r.reason === 'not-in-server' ? 'not-in-server' : 'discord', notApplied: r.notApplied === true };",
     count: 1,
   }),
 ]);

@@ -655,7 +655,7 @@ async function promoted(promote, discordId, verdict) {
 		return { ok: false, reason: err && err.reason === 'not-in-server' ? 'not-in-server' : 'discord' };
 	}
 	if (r === false) return { ok: false, reason: 'discord' };
-	if (r && typeof r === 'object' && r.ok === false) return { ok: false, reason: r.reason === 'not-in-server' ? 'not-in-server' : 'discord' };
+	if (r && typeof r === 'object' && r.ok === false) return { ok: false, reason: r.reason === 'not-in-server' ? 'not-in-server' : 'discord', notApplied: r.notApplied === true };
 	return { ok: true };
 }
 
@@ -1068,7 +1068,11 @@ export async function forgetOwnLink(env, user, { demote, t = now() } = {}) {
 	if (!admission) return deletionHeld();
 	if (typeof demote === 'function') {
 		const role = await promoted(demote, id);
-		if (!role.ok && role.reason !== 'not-in-server') return deletionHeld();
+		if (!role.ok && role.reason !== 'not-in-server') {
+			// Only a returned, explicit no-application result can release admission without cleanup.
+			if (role.notApplied === true && await releaseDeletion(DB, admission)) return failure('discord', 'Discord did not take the role change: try again in a minute.');
+			return deletionHeld();
+		}
 	}
 	const gone = await forgetUser(env, id, t, { requireSettled: true, admission });
 	if (!gone.ok) return gone;

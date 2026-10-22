@@ -1955,8 +1955,13 @@ The guard's key is a domain-separated, stable SHA-256 account digest under `dele
 backend-key rotation, but is linkable for known Discord ids and is not the ordinary limiter's confidential HMAC.
 `n` carries a cryptographically random 52-bit ownership token; `until` is admission bookkeeping, not an expiry.
 Prune excludes the namespace, there is no TTL takeover, and an uncertain outcome can retain the row indefinitely.
-The final release matches its key, token and admission time and follows only definitive role removal and acknowledged
-guarded cleanup. An uncertain acquisition, DELETE or cleanup does not cause automatic replay or guard release. Lost
+The final release matches its key, token and admission time and follows definitive role removal and acknowledged
+guarded cleanup, or a trusted definite nonapplication of .194's first DELETE without running cleanup. Only the
+returned internal `notApplied: true` result from DELETE HTTP 400, 401, 403, 404, 405 or 429 permits that second path,
+after specific 404 absence cases are handled. It releases once, keeps Link data unchanged and returns the existing
+`discord` failure without automatic retry; an unconfirmed release returns held `server` instead. The signal is never
+accepted from a thrown error. Transport errors, 5xx, unlisted statuses such as 408, bare false and uncertain
+acquisition/cleanup remain held; there is no blanket 4xx exemption. Lost
 release acknowledgement can follow a committed release, but the old request does no further role or cleanup work.
 
 DELETE transport uncertainty cannot be settled by a GET observing absence: the DELETE could still be queued and
@@ -1977,7 +1982,8 @@ as passed. No vendored schema, production configuration, public asset, Native E2
 changed by the admission design. Link stays OFF and Phase 2 remains an owner gate.
 
 The retained admission row introduces a **new activation blocker**, in addition to those historical residuals: an
-isolate death or uncertain operation can indefinitely prevent the same account from linking or completing its own
+isolate death, uncertain acquisition/cleanup/release, or DELETE transport/5xx/unlisted-status/bare-false outcome can
+indefinitely prevent the same account from linking or completing its own
 deletion. There is no player path out; pressing again, issuing a new code, pruning, or passing .195's separate
 pending-code bound does not clear it. A normal confirmed final release deletes the row. Uncertain retained rows have
 no retention deadline, and their linkable account pseudonym needs explicit privacy and account-copy treatment.
@@ -1985,3 +1991,5 @@ Availability and safe owner recovery remain unqualified for both releases, so th
 OFF-source limitation. No one-hour or other age-based takeover is added. `docs/olympus-link.md` gives one exact
 read-only keeper snapshot of the account's guard and pending-code tuples; old or absent rows and zero pending/member
 counts do not prove queued work ended. That diagnostic is not authority to release a row or perform recovery.
+Trusted first-removal nonapplication with acknowledged release is not an indefinite lockout trigger; its data is
+kept and only a later explicit request may try again. The affected .195 integration remains separately unqualified.

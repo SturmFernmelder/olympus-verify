@@ -217,7 +217,7 @@ async function councillorLink(core, token, requester, issued, c) {
   check("  every original P1-P3 patch is an exact replacement that must match once (1 + 9 + 1)", originalPatches.length === 11 && originalPatches.every((p) => p.count === 1 && pristine.split(p.find).length === 2));
   let patchInput = pristine; const patchCounts = [];
   for (const p of gen.PATCHES) { const found = patchInput.split(p.find).length - 1; patchCounts.push(found === p.count); if (found === p.count) patchInput = patchInput.split(p.find).join(p.replace); }
-  check("P4/P5: fourteen retained P4 replacements and four admission corrections follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 29 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 14 && gen.PATCHES.filter((p) => p.id.startsWith("P5.")).length === 4 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
+  check("P4/P5: fourteen retained P4 replacements and five admission corrections follow the original eleven patches; every sequential seam matches once", gen.PATCHES.length === 30 && gen.PATCHES.filter((p) => p.id.startsWith("P4.")).length === 14 && gen.PATCHES.filter((p) => p.id.startsWith("P5.")).length === 5 && gen.PATCHES.every((p) => p.count === 1) && patchCounts.every(Boolean));
   const body = generated.slice(gen.HEADER.length);
   let undone = body;
   for (const p of [...gen.PATCHES].reverse()) undone = undone.split(p.replace).join(p.find);
@@ -414,6 +414,19 @@ async function councillorLink(core, token, requester, issued, c) {
     timeoutDelete.ok === false && timeoutDelete.reason === "discord" && roleCalls().length === 1 && roleCalls()[0].method === "DELETE"
     && audits("link.role_unconfirmed").length === beforeUnknownDelete + 1
     && JSON.parse(audits("link.role_unconfirmed").at(-1).details).method === "DELETE", timeoutDelete);
+  for (const status of [400, 401, 403, 404, 405, 429]) {
+    const denied = await outcome("DELETE", { status, code: 0 });
+    check(`.194 DELETE HTTP ${status} is a definite non-application marker after exactly one request`,
+      denied.ok === false && denied.reason === "discord" && denied.notApplied === true && roleCalls().length === 1 && roleCalls()[0].method === "DELETE", denied);
+  }
+  for (const status of [500, 503]) {
+    const unknown = await outcome("DELETE", { status, code: 0 });
+    check(`.194 DELETE HTTP ${status} remains an unconfirmed outcome with no non-application marker or retry`,
+      unknown.ok === false && unknown.reason === "discord" && unknown.notApplied !== true && roleCalls().length === 1, unknown);
+  }
+  const deniedPut = await outcome("PUT", { status: 403, code: 50013 });
+  check(".194 definite DELETE non-application metadata does not change a refused PUT or give it the removal marker",
+    deniedPut.ok === false && deniedPut.reason === "discord" && deniedPut.notApplied !== true && roleCalls().length === 1 && roleCalls()[0].method === "PUT", deniedPut);
   // The role's configuration: cached ten minutes, and looked at again right after a failed PUT.
   RL.resetLinkRoleCache();
   const roleListGets = () => FETCHES.filter((f) => f.url.endsWith(`/guilds/${GUILD}/roles`)).length;
@@ -687,7 +700,8 @@ async function councillorLink(core, token, requester, issued, c) {
   await call("https://verify.example/proof", onRoute(), { method: "POST", body: JSON.stringify({ text: link3.text, discordToken: SIGNIN1 }), headers: { Origin: ORIGIN } });
   responder = discordStub({ members: { [PLAYER]: [LINK_ROLE] }, oauth: OAUTH, del: { status: 403, code: 50013 } }); FETCHES = [];
   const keptLink = JSON.parse((await call("https://verify.example/proof", onRoute(), { method: "POST", body: JSON.stringify({ forget: true, discordToken: SIGNIN1 }), headers: { Origin: ORIGIN } })).text);
-  check("  when Discord refuses removal, records and admission stay held and the player is sent to the keeper instead of told to retry", keptLink.reason === "server" && /keeper/.test(keptLink.message) && !/try again/i.test(keptLink.message) && rl.sqlite.prepare("SELECT COUNT(*) AS n FROM members WHERE discord_id = ?").get(PLAYER).n === 1);
+  check("  definite Discord403 releases only deletion admission, preserves the link and allows a later explicit retry without an automatic DELETE", keptLink.reason === "discord" && /try again/i.test(keptLink.message) && rl.sqlite.prepare("SELECT COUNT(*) AS n FROM members WHERE discord_id = ?").get(PLAYER).n === 1
+    && rl.sqlite.prepare("SELECT COUNT(*) AS n FROM limits WHERE k = ?").get(`delete:${sha(`olympus-link-delete~${PLAYER}`)}`).n === 0 && FETCHES.filter((f) => f.method === "DELETE").length === 1);
   // limits, body cap, schema
   const big = await call("https://verify.example/proof", onRoute(), { method: "POST", body: "x".repeat(17 * 1024), headers: { Origin: ORIGIN } });
   check("a body over 16 KiB is 413 'format' with CORS, unread past the cap", big.status === 413 && JSON.parse(big.text).reason === "format" && big.headers["access-control-allow-origin"] === ORIGIN);
@@ -1402,6 +1416,75 @@ async function councillorLink(core, token, requester, issued, c) {
     check(".194 one account's deletion guard neither blocks another account's proof/deletion nor loses its own retained ownership",
       linked.reason === "linked" && deletion.reason === "forgotten" && !(await deleteGuard194(db))
       && JSON.stringify(await db.prepare("SELECT * FROM limits WHERE k = ?").bind(otherKey).first()) === before, linked.reason, deletion.reason);
+  }
+  console.log("\n== .194 definite DELETE refusal: acknowledged release permits only a later explicit attempt ==");
+  for (const status of [403, 429]) {
+    const env = await seeded(), db = env.LINK_DB, roleEnv = { ...venv, LINK_DB: db }; let cleanups = 0, acquisitions = 0;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const rawBatch = db.batch;
+    db.batch = async (statements) => { if (/^SELECT \(?EXISTS \(SELECT 1 FROM codes/.test(statements[0]?.sql || "")) cleanups++; return rawBatch(statements); };
+    const restore = interceptRun194(db, async (s, run) => { if (isDeleteAcquire194(s)) acquisitions++; return run(); });
+    responder = discordStub({ members: { [USER_C]: [LINK_ROLE] }, del: { status, code: status === 403 ? 50013 : 0 } }); FETCHES = [];
+    const first = await playerForget194(env, (id) => RL.linkRole(roleEnv, "DELETE", id));
+    const denied = { guard: await deleteGuard194(db), cleanups, acquisitions, deletes: FETCHES.filter(f => f.method === "DELETE").length,
+      member: !!(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first()), code: !!(await db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(B1.R).first()) };
+    responder = discordStub({ members: { [USER_C]: [LINK_ROLE] } });
+    const later = await playerForget194(env, (id) => RL.linkRole(roleEnv, "DELETE", id)); restore();
+    check(`.194 real-adapter DELETE${status} preserves records with no cleanup/automatic retry; a later explicit press admits again and can complete`,
+      first.ok === false && first.reason === "discord" && /try again/i.test(first.message) && !denied.guard && denied.cleanups === 0 && denied.acquisitions === 1 && denied.deletes === 1 && denied.member && denied.code
+      && later.reason === "forgotten" && acquisitions === 2 && cleanups === 1 && FETCHES.filter(f => f.method === "DELETE").length === 2
+      && !(await deleteGuard194(db)) && !(await db.prepare("SELECT 1 AS x FROM members WHERE discord_id = ?").bind(USER_C).first()), first.reason, later.reason, denied, acquisitions, cleanups);
+  }
+  for (const status of [500, 503]) {
+    const env = await seeded(), db = env.LINK_DB, roleEnv = { ...venv, LINK_DB: db }; let cleanups = 0;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const rawBatch = db.batch;
+    db.batch = async (statements) => { if (/^SELECT \(?EXISTS \(SELECT 1 FROM codes/.test(statements[0]?.sql || "")) cleanups++; return rawBatch(statements); };
+    responder = discordStub({ members: { [USER_C]: [LINK_ROLE] }, del: { status, code: 0 } }); FETCHES = [];
+    const first = await playerForget194(env, (id) => RL.linkRole(roleEnv, "DELETE", id));
+    const guard = await deleteGuard194(db);
+    const retry = await playerForget194(env, (id) => RL.linkRole(roleEnv, "DELETE", id));
+    check(`.194 real-adapter DELETE${status} retains admission/data and blocks a second DELETE, unlike a definite4xx refusal`,
+      first.reason === "server" && /keeper/.test(first.message) && !/try again/i.test(first.message) && !!guard && retry.reason === "server" && cleanups === 0
+      && FETCHES.filter(f => f.method === "DELETE").length === 1 && JSON.stringify(await deleteGuard194(db)) === JSON.stringify(guard)
+      && !!(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first()), first.reason, retry.reason, cleanups);
+  }
+  for (const flag of [undefined, false, "true", 1, null]) {
+    const env = await seeded(), db = env.LINK_DB; let demotes = 0;
+    const first = await playerForget194(env, async () => { demotes++; return { ok: false, reason: "discord", notApplied: flag }; });
+    const guard = await deleteGuard194(db);
+    const retry = await playerForget194(env, async () => { demotes++; return true; });
+    check(`.194 malformed non-application flag ${String(flag)} cannot release admission or invite a retry`,
+      first.reason === "server" && /keeper/.test(first.message) && !!guard && retry.reason === "server" && demotes === 1
+      && JSON.stringify(await deleteGuard194(db)) === JSON.stringify(guard), first.reason, retry.reason, demotes);
+  }
+  {
+    const env = await seeded(), db = env.LINK_DB; let demotes = 0;
+    const first = await playerForget194(env, async () => { demotes++; throw Object.assign(new Error("synthetic unknown DELETE"), { notApplied: true }); });
+    const guard = await deleteGuard194(db);
+    const retry = await playerForget194(env, async () => { demotes++; return true; });
+    check(".194 a thrown object cannot certify non-application even when it carries notApplied:true",
+      first.reason === "server" && !!guard && retry.reason === "server" && demotes === 1, first.reason, retry.reason, demotes);
+  }
+  for (const mode of ["before", "after", "missing-result", "failed-result"]) {
+    const env = await seeded(), db = env.LINK_DB; let releases = 0, demotes = 0, cleanups = 0;
+    await core.acceptProof(env, B1.bundle, { discordId: USER_C, promote: async () => true });
+    const rawBatch = db.batch;
+    db.batch = async (statements) => { if (/^SELECT \(?EXISTS \(SELECT 1 FROM codes/.test(statements[0]?.sql || "")) cleanups++; return rawBatch(statements); };
+    const restore = interceptRun194(db, async (s, run) => {
+      if (!isDeleteRelease194(s)) return run();
+      releases++;
+      if (mode === "before") throw new Error("D1_ERROR: synthetic definite refusal release before commit");
+      const result = await run();
+      if (mode === "after") throw new Error("D1_ERROR: synthetic definite refusal release acknowledgement");
+      return mode === "missing-result" ? { success: true, meta: {} } : { ...result, success: false };
+    });
+    const deletion = await playerForget194(env, async () => { demotes++; return { ok: false, reason: "discord", notApplied: true }; }); restore();
+    check(`.194 uncertain release after definite refusal (${mode}) does not claim retry permission or repeat DELETE/release/cleanup`,
+      deletion.reason === "server" && /keeper/.test(deletion.message) && !/try again/i.test(deletion.message) && releases === 1 && demotes === 1 && cleanups === 0
+      && !!(await deleteGuard194(db)) === (mode === "before")
+      && !!(await db.prepare("SELECT 1 AS x FROM members WHERE r = ?").bind(B1.R).first())
+      && !!(await db.prepare("SELECT 1 AS x FROM codes WHERE r = ?").bind(B1.R).first()), deletion.reason, releases, demotes, cleanups);
   }
   const madeUp = (i) => signin("made", "up", String(i).padStart(6, "0"));
   mainSpy.n = 0;

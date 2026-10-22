@@ -115,8 +115,10 @@ upstream's watcher inbox (`/api/link/inbox`, up to 500 promotes per call) and th
 ### The role writer (`link-role.ts`)
 
 `linkRole(env, 'PUT' | 'DELETE', discordId)` never throws and answers `{ok: true}` or `{ok: false, reason:
-'not-in-server' | 'discord'}`, the shape link-core reads. When link-core gets a failure it attempts to undo the link.
-A confirmed undo frees the code. An unconfirmed undo keeps the code pending and cannot report a completed link.
+'not-in-server' | 'discord'}`, the shape link-core reads. A trusted returned DELETE failure can also carry the internal
+`notApplied: true` signal described below; it is not a page reason. That signal is preserved only from a returned
+object, never from a thrown error. When proof promotion fails, link-core attempts to undo the link. A confirmed undo
+frees the code. An unconfirmed undo keeps the code pending and cannot report a completed link.
 
 - **PUT**, in order: (1) one main-database read: `members.banned` and the privacy subject's state (no row, or
   `active`, as the house generation fence treats it); (2) `GET /guilds/{GUILD_ID}/members/{id}`: absent (404/10007) is
@@ -126,9 +128,14 @@ A confirmed undo frees the code. An unconfirmed undo keeps the code pending and 
   permissions only, never channel overwrites (section 8, step 5).
 - **DELETE** skips eligibility once the player's deletion has been admitted. It reads the privacy subject only to
   fence its audit rows, and goes ahead when that read fails. A role that no longer exists (404/10011) counts as removed.
+  After the specific 404 absence cases are handled, only DELETE HTTP statuses **400, 401, 403, 404, 405 and 429**
+  carry trusted `notApplied: true`: the role writer confirms nonapplication. In corrected .194 that first-removal
+  refusal keeps the Link data unchanged, releases the exact owned guard once as its last operation, and returns the
+  existing `discord` failure. A later explicit player request can try again; no DELETE is automatically retried.
 - A **PUT** that ends without an HTTP status (timeout, abort) keeps the existing one-GET reconciliation and is never
   sent again. A **DELETE** transport failure is unconfirmed even if a GET observes no role: that observation cannot
-  prove a queued DELETE has ended. The deletion guard is not released on that outcome, and no DELETE is resent.
+  prove a queued DELETE has ended. Transport errors, 5xx, unlisted statuses such as 408, and bare false/missing
+  certainty signals retain the guard and answer held `server`/keeper advice. This is not a blanket 4xx exemption.
 - At most four Discord requests and one main-database read per promote (one read per delete); every Discord call goes
   through `credentialFetch`, with the audit-log reason `olympus-verify: Olympus Link`.
 
@@ -172,21 +179,26 @@ pseudonym, not a confidential or anonymous rate-limit HMAC. Its `n` is a cryptog
 token and its `until` records admission time, not expiry. There is no TTL, lease takeover or automatic recovery;
 ordinary limit pruning explicitly excludes these rows.
 
-Only confirmed role removal followed by acknowledged guarded cleanup permits the final owner-matched guard release
-(`k`, `n` and admission time). Missing, failed or thrown acquisition/cleanup results, uncertain role removal and
-unconfirmed release answer as errors without automatically repeating role or database work. A guard committed before
-an acknowledgement was lost can remain indefinitely, including after account rows were deleted. A lost release
+Confirmed role removal followed by acknowledged guarded cleanup permits the final owner-matched guard release
+(`k`, `n` and admission time). The other permitted .194 path is trusted definite nonapplication of the first DELETE
+(only the six statuses above): cleanup does not run, the exact guard is released once, and the unchanged-data answer
+is the existing `discord` failure. An unconfirmed release on either path instead answers held `server`/keeper advice.
+Missing, failed or thrown acquisition/cleanup results and role outcomes without a trusted certainty signal do not
+release admission or automatically repeat work. A guard committed before an acknowledgement was lost can remain
+indefinitely, including after account rows were deleted. A lost release
 acknowledgement can also follow an actual release: in that case the row is gone, but the old request performs no
 further role or cleanup work. This is why release is last. A held guard is not proof that deletion finished, and a
 retry does not take it over.
 
-**New activation blocker: indefinite account lockout.** If the deleting request dies or leaves an uncertain outcome
-with a retained guard, that account cannot make a new Link claim or complete another Delete my link, even with no
+**New activation blocker: indefinite account lockout.** If the deleting request dies, acquisition/cleanup or release
+is unconfirmed, or the DELETE has a transport error, 5xx, an unlisted status or no trusted certainty signal, a retained
+guard prevents that account from making a new Link claim or completing another Delete my link, even with no
 pending code left. A later press, a new code, ordinary prune, and .195's separate one-hour pending-code allowance do
 not clear or take over this guard. Normal confirmed release deletes the guard; only retained outcomes have this
 indefinite lifetime. There is no implemented player recovery path. This is a new availability, privacy-retention and
 recovery blocker for activation of both releases, not an accepted production behavior. OFF publication does not
-waive it, and no age-based takeover is authorized.
+waive it, and no age-based takeover is authorized. A trusted 400/401/403/404/405/429 first-removal nonapplication with
+acknowledged guard release is not such a lockout trigger.
 
 This coordinates the player's proof-claim and deletion paths; it is not general cross-service atomicity or completed
 erasure. Code issuance through `/verify` may run concurrently: its code cannot be claimed while the guard exists,
@@ -250,8 +262,10 @@ for up to an hour, as every ephemeral reply is. Logs carry fixed texts and `erro
   limits) and its placement. Until Phase 1b ships, an account erasure does not reach `LINK_DB`, which is why
   activation waits for it (section 8, step 1). The corrected .194's coordination guards also need account-copy,
   privacy-retention and safe recovery qualification. No automatic removal of a held guard is implemented or approved.
-- **New activation blocker: held deletion admission.** An isolate failure or uncertain operation can leave the account
-  unable to link or delete indefinitely. Player retry does not clear it; the privacy disclosure and owner recovery
+- **New activation blocker: held deletion admission.** An isolate failure, uncertain acquisition/cleanup/release, or
+  DELETE transport/5xx/unlisted-status/bare-false outcome can leave the account unable to link or delete indefinitely.
+  Trusted definite nonapplication of the first DELETE releases admission when that release is acknowledged; it does
+  not automatically retry the role request. Player retry does not clear a held guard; the privacy disclosure and owner recovery
   procedure remain unqualified. The keeper's read-only diagnostic below is not recovery authority.
 - Eligibility refusals reach the player as upstream's "Discord did not take the role change: try again in a minute"
   (ruling, section 2). Staff see the real reason in the audit rows.

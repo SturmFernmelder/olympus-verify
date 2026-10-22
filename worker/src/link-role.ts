@@ -22,6 +22,8 @@
  * (404/10011) counts as removed. A call that ends without an HTTP status (timeout, abort) is reconciled with one GET of
  * the member and never sent again (the role-settlements.ts rule). DELETE remains unconfirmed even if that GET finds absence;
  * it does not prove a delayed DELETE has ended. The core retains its persistent admission guard in that case.
+ * A documented terminal 400/401/403/404/405/429 instead carries internal notApplied evidence, so core may release
+ * only that admission without cleanup or an automatic resend. Server failures remain uncertain.
  *
  * Audit rows are written only here, so only while Link is on, and carry the Discord status and code, never a message.
  * A row that names the player goes through audit()'s privacy reference (db.ts): the subject's generation is read first
@@ -37,11 +39,13 @@ import { linkState } from './link';
 import { errorRef } from './log';
 import { readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
 
-export type LinkRoleResult = { ok: true } | { ok: false; reason: 'not-in-server' | 'discord' };
+export type LinkRoleResult = { ok: true } | { ok: false; reason: 'not-in-server' | 'discord'; notApplied?: true };
 
 const OK: LinkRoleResult = Object.freeze({ ok: true });
 const NOT_IN_SERVER: LinkRoleResult = Object.freeze({ ok: false, reason: 'not-in-server' });
 const REFUSED: LinkRoleResult = Object.freeze({ ok: false, reason: 'discord' });
+// Internal terminal no-application evidence; not a new public page reason and never inferred from transport errors.
+const NOT_APPLIED: LinkRoleResult = Object.freeze({ ok: false, reason: 'discord', notApplied: true });
 const SNOWFLAKE = /^\d{17,20}$/;
 const AUDIT_REASON = 'olympus-verify: Olympus Link';
 const ROLE_CHECK_MS = 10 * 60 * 1000;
@@ -177,6 +181,7 @@ async function write(env: Env, method: 'PUT' | 'DELETE', discordId: string, ref:
     if (e.status === 404 && code === 10007) return NOT_IN_SERVER;
     if (method === 'DELETE' && e.status === 404 && code === 10011) return OK; // the role itself was deleted: nothing to remove
     await note(env, 'link.role_failed', ref, { method, status: e.status, code });
+    if (method === 'DELETE' && [400, 401, 403, 404, 405, 429].includes(e.status)) return NOT_APPLIED;
     return REFUSED;
   }
 }

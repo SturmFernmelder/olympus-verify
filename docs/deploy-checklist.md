@@ -6637,10 +6637,16 @@ Corrected protocol:
   It is a linkable coordination pseudonym for a known Discord id, not an anonymous/confidential HMAC limiter key.
   `n` is a cryptographically random 52-bit ownership token; `until` records admission time and is not expiry.
   Prune excludes the namespace. No TTL, takeover, automatic retry or automatic recovery is added.
-- Release is the final operation and matches key, token and admission time only after definitive DELETE and
-  acknowledged guarded cleanup. Failed, missing or thrown acquisition/cleanup results and uncertain DELETE hold
+- Release is the final operation and matches key, token and admission time after definitive DELETE and
+  acknowledged guarded cleanup, or after trusted definite nonapplication of the first DELETE with no cleanup.
+  Failed, missing or thrown acquisition/cleanup results and uncertain DELETE hold
   admission when the row committed. Missing release acknowledgement can follow an actual release; the answer is
   unconfirmed and the old request does no later role or cleanup work. Do not claim the row necessarily remains.
+- After specific 404 absence cases are handled, the trusted internal returned `notApplied: true` signal is limited to
+  DELETE HTTP 400, 401, 403, 404, 405 and 429. It is never accepted from a thrown error. That first-removal failure
+  releases its exact guard once as the last operation, preserves Link data and returns the existing `discord`
+  failure without automatic retry; unknown release returns held `server`. Transport errors, 5xx, unlisted statuses
+  such as 408, and bare false remain held. This is not a universal 4xx exemption.
 - A DELETE transport failure refuses even when a GET would observe absence, since a queued DELETE could still land
   after a new PUT. PUT keeps its existing one-GET reconciliation/no-resend behavior, including its separate reasoned
   GET-before-late-PUT residual. No new page reason value is needed.
@@ -6673,11 +6679,17 @@ merged tree/archive, fresh verified portable D1 backup and restore checks, then 
 Native E2, reset safeguard, public asset, launch gate or manual cron change is authorized by this correction. This
 documentation edit ran no tests or provider actions and asserts no qualification, deployment or production result.
 
-New activation blocker, explicitly carried for both releases: an isolate death or uncertain admission/DELETE/cleanup
-can leave a persistent guard that prevents that account from linking or completing Delete my link indefinitely.
+New activation blocker, explicitly carried for both releases: an isolate death, uncertain admission/cleanup/release,
+or DELETE transport/5xx/unlisted-status/bare-false outcome can leave a persistent guard that prevents that account
+from linking or completing Delete my link indefinitely. Trusted first-removal nonapplication with acknowledged
+guard release is not such a trigger.
 Normal confirmed release deletes the guard, but a retained row has no TTL and player retry cannot clear or take it
 over. .195's pending-code bound does not authorize admission-row takeover. OFF publication accepts no activation,
 privacy-retention or recovery readiness for this behavior. A safe owner recovery procedure and the account-copy,
 privacy and availability treatment remain unqualified. The exact read-only guard/pending-code diagnostic and its
 limitations are in `docs/olympus-link.md`, section 6: absence, age, zero pending codes or zero member references are
 not evidence that queued work ended. No release/recovery SQL, mutation permission or automatic recovery is provided.
+
+The definite-nonapplication narrowing follows local candidate `1d973c616ad5cf52ee837e45b666e00ffea81c76`; that
+candidate's qualification remains historical and does not transfer to the changed successor. Fresh results and the
+actual new head belong in the new receipt; none are asserted here.
