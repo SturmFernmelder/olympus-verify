@@ -813,7 +813,8 @@ table.data select, table.data input { max-width: 180px; }
 .governance-controls label { width: 100%; color: var(--gold-soft); }
 .governance-controls input { flex: 1 1 18rem; min-width: 0; }
 .governance-controls [role="status"] { flex-basis: 100%; margin: 0; }
-.governance-searching { padding-bottom: 150px; }
+/* The fixed match navigator covers the bottom of the viewport. Reserve that space below the footer, which follows main, so the footer stays readable. */
+.governance-searching ~ .footer { padding-bottom: 150px; }
 .governance-match-nav { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 15; width: min(560px, calc(100% - 24px)); padding: 12px; background: #080816; border: 1px solid var(--brass); box-shadow: 0 4px 24px #000b; }
 .governance-match-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .governance-match-heading [role="status"] { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
@@ -898,10 +899,11 @@ table.data select, table.data input { max-width: 180px; }
   .organization-children > li::before { left: -10px; width: 10px; }
   .governance-hero { align-items: flex-start; gap: 12px; }
   .governance-hero > .ico { width: 40px; height: 40px; flex-basis: 40px; }
+  .governance-searching ~ .footer { padding-bottom: 200px; }
 }
 @media print {
   .topbar, .footer, .governance-controls, .governance-toc, .governance-page-nav, .governance-quicklinks, .governance-match-nav { display: none !important; }
-  .governance-searching { padding-bottom: 0; }
+  .governance-searching ~ .footer { padding-bottom: 0; }
   .governance-search-match, .governance-search-match[aria-current="true"] { color: inherit; background: transparent; outline: none; box-shadow: none; }
   .governance-layout { display: block; }
   .governance-chapter { display: block !important; break-before: page; color: #111; background: #fff; border-color: #999; }

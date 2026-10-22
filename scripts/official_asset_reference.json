@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 63240,
-      "sha256": "e77207f42f01dddb69530498eff74e0b781503eea53d2b94a1fd0cb2e3a7ca6a"
+      "bytes": 63475,
+      "sha256": "819b6cdc8e3fb4918685c2c986d150325c44d7bd0dea8c1f0e741905677fbb5e"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 546712,
-      "sha256": "9b753e92257b1067772a18360bc902d75fe54df0a04f853df9aae313410661d7"
+      "bytes": 550728,
+      "sha256": "8eec3eb6eb9dfa5720de87ec7373397af40a705a269162cfdd2265f6a03fb6bc"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -650,14 +650,14 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 41460,
-      "sha256": "7a0ee1c5d63d44a10876d13d8db084a44c0a982299694ea8ebd909dfdd233e8b"
+      "bytes": 44333,
+      "sha256": "c0ba5d9f24ad92ec26284166d48b73a02c448a207156f6b810ef9581eae9a942"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 20663,
-      "sha256": "ccfb8bb14d4ed4018df5843545bc6c6be4aa753068e3406dcec1ffcab0311821"
+      "bytes": 20850,
+      "sha256": "6c02ffdf14883f33683f0d952d38dc98dc4b5344728e115525ef95661b0206b4"
     },
     {
       "path": "worker/public/static/resources169.js",
@@ -3814,8 +3814,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 546712,
-      "sha256": "9b753e92257b1067772a18360bc902d75fe54df0a04f853df9aae313410661d7"
+      "bytes": 550728,
+      "sha256": "8eec3eb6eb9dfa5720de87ec7373397af40a705a269162cfdd2265f6a03fb6bc"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4072,8 +4072,8 @@
     {
       "path": "worker/public/static/army-live/army.js",
       "mode": "100644",
-      "bytes": 15901,
-      "sha256": "16a59469e74179b5fa859f367436e62bb7c131201e0aa71ab46dbde5d3ff6c43"
+      "bytes": 20277,
+      "sha256": "185345627d91fec25b6833eb0ff6b1afab1cee3726d44e289e111b9c92360d40"
     },
     {
       "path": "worker/public/static/army-live/protocol.js",
@@ -4108,8 +4108,8 @@
     {
       "path": "worker/public/static/talents/analysis.js",
       "mode": "100644",
-      "bytes": 77416,
-      "sha256": "ed1edf566f66939a1168e43621192e82d58c28db9468230882370f38a459698a"
+      "bytes": 78170,
+      "sha256": "5a1605910cf971e3436d8541db11f2175ca924af92c9ef6ab5548814c4b04372"
     },
     {
       "path": "worker/public/static/talents/guide-builds179.js",

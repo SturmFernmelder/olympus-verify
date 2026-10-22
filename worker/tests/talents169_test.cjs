@@ -157,7 +157,7 @@ async function detailRenderRegression() {
   allRanks179.open = true; detail().scrollTop = 37; refund179.focus(); refund179.click();
   check('.179 refund keeps the active detail button, expanded rank list and detail scroll while updating exact ranks', document.activeElement === refund179 && byClass(detail(), 'talents-detail-controls')[0] === detailControls179 && byClass(detail(), 'talents-all-ranks')[0] === allRanks179 && allRanks179.open === true && detail().scrollTop === 37 && changes.at(-1).points === 2 && byClass(detail(), 'talents-rank')[0].textContent.startsWith('Rank 2 / 3'));
   learn179.focus(); learn179.click();
-  check('.179 learning keeps its original focused control and changes the model exactly once', document.activeElement === learn179 && byClass(detail(), 'talents-detail-controls')[0] === detailControls179 && changes.at(-2).points === 2 && changes.at(-1).points === 3 && learn179.disabled && initialButtons179.every(node => container.contains(node)));
+  check('.179 learning changes the model exactly once; .186 the Learn control it disabled at the terminal rank hands focus to the open detail panel', document.activeElement === detail() && !detail().hidden && pick(heroic.name).getAttribute('aria-describedby') === detail().getAttribute('id') && byClass(detail(), 'talents-detail-controls')[0] === detailControls179 && changes.at(-2).points === 2 && changes.at(-1).points === 3 && learn179.disabled && initialButtons179.every(node => container.contains(node)));
   const mortal = find('Mortal Strike'), parent = all(data.classes[0]).find(talent => talent.id === mortal.requires);
   pick(mortal.name).focus();
   check('real present cost and prerequisite fields remain readable without allocating a locked talent or mutating the snapshot', byClass(detail(), 'talents-cost')[0].textContent === mortal.cost && byClass(detail(), 'talents-requires')[0].textContent === 'Requires ' + parent.name + ' at maximum rank.' && detail().textContent.includes(mortal.descriptions[0]) && !detail().textContent.includes('null') && changes.at(-1).points === 3 && initialJSON === JSON.stringify(data));
@@ -371,6 +371,160 @@ async function detailRenderRegression() {
   check('.187 destroy cancels owned in-flight URLs and stale completions cannot start queued images or touch another mount', activeA187.every(node => !pending187.has(node) && node.getAttribute('src') === null) && queuedA187.every(node => !node.srcAssignments) && attempts187.length === beforeDestroy187 && pending187.size === 4 && initialB187.every(node => pending187.has(node) && node.srcAssignments === 1));
   isolatedB187.destroy(); for (const node of initialB187) node.dispatch('load');
   check('.187 final mount destruction leaves no pending image attempts and no replacement URL assignments', pending187.size === 0 && attempts187.length === beforeDestroy187 && initialB187.every(node => node.getAttribute('src') === null) && initialJSON === JSON.stringify(data));
+
+  // .186: a Learn/Unlearn control that a paint disables never keeps keyboard focus; an enabled one keeps it.
+  const focusContainer186 = document.createElement('main'), focusChanges186 = [];
+  const focus186 = await browserModule.exports.mount(focusContainer186, { onBuildChange: change => focusChanges186.push(change) });
+  const pick186 = name => byClass(focusContainer186, 'talents-pick').find(node => (node.getAttribute('aria-label') || '').startsWith(name + ', rank '));
+  const detail186 = () => byClass(focusContainer186, 'talents-detail')[0], controls186 = () => byClass(detail186(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON');
+  pick186(deflection.name).focus();
+  const [unlearn186, learn186] = controls186();
+  check('.186 the focused talent opens its detail with Unlearn disabled and Learn available', !detail186().hidden && unlearn186.disabled && !learn186.disabled && document.activeElement === pick186(deflection.name));
+  learn186.focus(); learn186.click();
+  check('.186 a Learn control that stays available keeps focus after a non-terminal point', document.activeElement === learn186 && !learn186.disabled && focusChanges186.at(-1).points === 1 && !detail186().hidden);
+  for (let rank = 2; rank <= deflection.maxRank; rank++) learn186.click();
+  const learnedTo186 = document.activeElement, learnedChanges186 = focusChanges186.length;
+  learnedTo186.click(); learnedTo186.dispatch('keydown', { key: 'Enter', repeat: true });
+  check('.186 a Learn control disabled at the terminal rank hands focus to the open detail panel, where a repeated Enter or extra activation changes nothing', learn186.disabled && learnedTo186 === detail186() && document.activeElement === detail186() && focusChanges186.length === learnedChanges186 && focusChanges186.at(-1).points === deflection.maxRank && !detail186().hidden && pick186(deflection.name).getAttribute('aria-describedby') === detail186().getAttribute('id') && controls186()[1] === learn186);
+  unlearn186.focus(); unlearn186.click();
+  check('.186 an Unlearn control that stays available keeps focus after a refund', document.activeElement === unlearn186 && !unlearn186.disabled && !learn186.disabled && focusChanges186.at(-1).points === deflection.maxRank - 1);
+  for (let rank = deflection.maxRank - 1; rank >= 1; rank--) unlearn186.click();
+  const clearedTo186 = document.activeElement, clearedChanges186 = focusChanges186.length;
+  clearedTo186.click(); clearedTo186.dispatch('keydown', { key: 'Enter', repeat: true }); clearedTo186.click();
+  check('.186 an Unlearn control disabled at rank zero hands focus to the open detail panel, where extra activations leave the talent at rank zero', unlearn186.disabled && clearedTo186 === detail186() && document.activeElement === detail186() && focusChanges186.length === clearedChanges186 && focusChanges186.at(-1).points === 0 && pick186(deflection.name).getAttribute('aria-label').startsWith(deflection.name + ', rank 0 of ') && !detail186().hidden && controls186()[0] === unlearn186);
+  const escaped186 = detail186().dispatch('keydown', { key: 'Escape' });
+  check('.186 Escape from the handed-off detail panel returns focus to its talent', escaped186.defaultPrevented && document.activeElement === pick186(deflection.name) && detail186().hidden);
+  check('.186 a calculator whose optional modules all loaded shows no module note', byClass(focusContainer186, 'talents-module-note').length === 0);
+  focus186.destroy();
+  // .186: an optional module that failed to load is named, so its feature is not silently missing.
+  const notes186 = [];
+  for (const unavailable of [['analysis'], ['guideBuilds'], ['analysis', 'guideBuilds']]) {
+    const noteContainer = document.createElement('main'), noteController = await browserModule.exports.mount(noteContainer, { unavailable });
+    notes186.push(byClass(noteContainer, 'talents-module-note').map(node => node.textContent)); noteController.destroy();
+  }
+  check('.186 a failed optional module is named with a retry hint instead of silently missing', JSON.stringify(notes186) === JSON.stringify([['Build comparison could not be loaded. Reopen the calculator to try again.'], ['Guide builds could not be loaded. Reopen the calculator to try again.'], ['Guide builds and build comparison could not be loaded. Reopen the calculator to try again.']]));
+
+  // .188 F1/F2: the .187 delayed-document approach again, with its own attempt log. Only observable src assignments,
+  // terminal events, DOM ownership, classes and the hidden attribute are read; no queue internals.
+  const attempts188 = [], pending188 = new Map(); let maximum188 = 0;
+  const delayedDocument188 = {
+    createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null,
+    imageLoaded(node) {
+      if (pending188.has(node)) throw Error('An active image attempt was assigned again');
+      attempts188.push({ node, url: node.getAttribute('src') }); pending188.set(node, true); maximum188 = Math.max(maximum188, pending188.size);
+    },
+    imageRemoved(node) { pending188.delete(node); },
+  };
+  const settleImage188 = (node, type = 'load') => { if (!pending188.has(node)) throw Error('No pending image attempt to settle'); pending188.delete(node); node.dispatch(type); };
+  const isPending188 = node => node.className.split(/\s+/).includes('talents-art-pending');
+  const imagesOf188 = (host, name) => byClass(host, name).map(owner => owner.all(node => node.tagName === 'IMG')[0]);
+  const drain188 = () => { let settled = 0; while (pending188.size) { if (++settled > 200) throw Error('Image queue did not drain within the finite artwork inventory'); settleImage188([...pending188.keys()][0]); } return settled; };
+  const layoutHost188 = delayedDocument188.createElement('main'), layout188 = await browserModule.exports.mount(layoutHost188);
+  const layoutImages188 = layoutHost188.querySelectorAll('img'), navIcons188 = imagesOf188(layoutHost188, 'talents-class-button'), talentIcons188 = imagesOf188(layoutHost188, 'talents-pick');
+  const portrait188 = byClass(layoutHost188, 'talents-portrait')[0], backdrops188 = byClass(layoutHost188, 'talents-backdrop');
+  const layoutFirst188 = [...imagesOf188(layoutHost188, 'talents-tree-header'), ...backdrops188, portrait188, imagesOf188(layoutHost188, 'talents-tooltip-heading')[0]];
+  check('.188 queued and loading artwork keeps its CSS-sized layout box: every image carries the pending class, none has the hidden attribute, and the stylesheet hides it by visibility only',
+    pending188.size === 4 && layoutImages188.length === 69 && layoutImages188.filter(node => !node.srcAssignments).length === 65 && layoutImages188.every(node => isPending188(node) && !node.hidden)
+    && css.includes('.talents-tool img.talents-art-pending{visibility:hidden}') && !/talents-art-pending[^{]*\{[^}]*display\s*:/.test(css) && !/\.style\b|setAttribute\(["']style/.test(source));
+  // visibility:hidden reserves only the box CSS gives the image, so every mounted image role must keep its fixed size rules.
+  const hasClass188 = (node, name) => !!node && typeof node.className === 'string' && node.className.split(/\s+/).includes(name);
+  const roleOf188 = node => [hasClass188(node.parentNode, 'talents-class-button') && 'class', hasClass188(node, 'talents-portrait') && 'portrait', hasClass188(node.parentNode, 'talents-tree-header') && 'header',
+    hasClass188(node, 'talents-backdrop') && 'backdrop', hasClass188(node.parentNode, 'talents-pick') && 'talent', hasClass188(node.parentNode, 'talents-tooltip-heading') && 'tooltip'].filter(Boolean);
+  const roleCounts188 = {}; for (const node of layoutImages188) { const roles = roleOf188(node); const key = roles.length === 1 ? roles[0] : 'unsized:' + roles.join('+'); roleCounts188[key] = (roleCounts188[key] || 0) + 1; }
+  check('.188 each of the 69 pending images has exactly one CSS-sized role, and calculator.css keeps the fixed width and height of every role at desktop and narrower widths',
+    Object.keys(roleCounts188).length === 6 && Object.entries({ class: 9, portrait: 1, header: 3, backdrop: 3, talent: 52, tooltip: 1 }).every(([role, count]) => roleCounts188[role] === count)
+    && ['.talents-class-button img{width:26px;height:26px;', '.talents-class-banner .talents-portrait{flex:0 0 78px;width:78px;height:78px;', '.talents-class-banner .talents-portrait{width:62px;height:62px;flex-basis:62px}',
+      '.talents-tree-header>img{width:28px;height:28px;', '.talents-tree-header>img{width:25px;height:25px}', '.talents-backdrop{position:absolute;inset:0;width:100%;height:100%;',
+      '.talents-pick>img{display:block;width:40px;height:40px;', '.talents-tooltip-heading>img{width:32px;height:32px;'].every(rule => css.includes(rule)));
+  const layoutSettled188 = drain188(), order188 = attempts188.map(attempt => attempt.node), firstTalent188 = order188.findIndex(node => talentIcons188.includes(node));
+  check('.188 after the class strip, the class portrait, tree header icons and backdrops and the current tooltip icon are all requested before any talent icon',
+    layoutSettled188 === 69 && order188.length === 69 && new Set(order188).size === 69 && navIcons188.every((node, index) => order188[index] === node)
+    && firstTalent188 === navIcons188.length + layoutFirst188.length && layoutFirst188.every(node => { const at = order188.indexOf(node); return at >= navIcons188.length && at < firstTalent188; })
+    && order188.indexOf(portrait188) < firstTalent188 && talentIcons188.every((node, index) => order188[firstTalent188 + index] === node) && maximum188 === 4);
+  check('.188 loaded artwork drops the pending class, keeps its requested class and stays visible without a second request',
+    layoutImages188.every(node => !isPending188(node) && !node.hidden && node.srcAssignments === 1) && portrait188.className === 'talents-portrait' && backdrops188.every(node => node.className === 'talents-backdrop') && byClass(layoutHost188, 'talents-artwork-notice')[0].hidden);
+  layout188.destroy();
+  const switchHost188 = delayedDocument188.createElement('main'), switch188 = await browserModule.exports.mount(switchHost188);
+  const switchNav188 = imagesOf188(switchHost188, 'talents-class-button'), switchInFlight188 = [...pending188.keys()], beforeSwitch188 = attempts188.length, warriorHeaders188 = imagesOf188(switchHost188, 'talents-tree-header');
+  byClass(switchHost188, 'talents-class-button').find(button => button.textContent === 'Paladin').click();
+  check('.188 a cold class switch reuses still-pending class-strip images (keyed by their requested class), keeps them in layout and starts no new request while all four slots are held',
+    imagesOf188(switchHost188, 'talents-class-button').every((node, index) => node === switchNav188[index]) && switchInFlight188.every(node => switchNav188.includes(node) && pending188.has(node))
+    && switchNav188.filter(node => !node.srcAssignments).length === 5 && switchNav188.every(node => isPending188(node) && !node.hidden) && attempts188.length === beforeSwitch188
+    && switchHost188.querySelectorAll('img').every(node => isPending188(node) && !node.hidden));
+  drain188();
+  const switchOrder188 = attempts188.slice(beforeSwitch188).map(attempt => attempt.node), paladinTalents188 = imagesOf188(switchHost188, 'talents-pick'), firstPaladinTalent188 = switchOrder188.findIndex(node => paladinTalents188.includes(node));
+  const paladinFirst188 = [...imagesOf188(switchHost188, 'talents-tree-header'), ...byClass(switchHost188, 'talents-backdrop'), byClass(switchHost188, 'talents-portrait')[0], imagesOf188(switchHost188, 'talents-tooltip-heading')[0]];
+  check('.188 after that switch the new portrait, tree header icons, backdrops and tooltip icon still load ahead of every new talent icon, including still-queued Warrior tree icons reused as Paladin talent icons, and discarded Warrior artwork never starts',
+    paladinTalents188.filter(node => warriorHeaders188.includes(node)).length === 2 && firstPaladinTalent188 === 5 + paladinFirst188.length && paladinFirst188.every(node => { const at = switchOrder188.indexOf(node); return at >= 5 && at < firstPaladinTalent188; })
+    && switchOrder188.length === 5 + paladinFirst188.length + paladinTalents188.length && switchOrder188.every(node => switchHost188.contains(node)) && switchNav188.every(node => node.srcAssignments === 1 && !isPending188(node) && !node.hidden) && maximum188 === 4);
+  switch188.destroy();
+  // The reverse role change: still-queued Paladin talent icons that a switch to Warrior reuses as tree header icons leave the deferred group.
+  const reverseHost188 = delayedDocument188.createElement('main'), reverse188 = await browserModule.exports.mount(reverseHost188, { className: 'paladin' });
+  const reverseNav188 = imagesOf188(reverseHost188, 'talents-class-button'), paladinPicks188 = imagesOf188(reverseHost188, 'talents-pick'), reverseInFlight188 = [...pending188.keys()], beforeReverse188 = attempts188.length;
+  byClass(reverseHost188, 'talents-class-button').find(button => button.textContent === 'Warrior').click();
+  const reverseStarted188 = attempts188.length - beforeReverse188;
+  drain188();
+  const reverseOrder188 = attempts188.slice(beforeReverse188).map(attempt => attempt.node), reverseImages188 = reverseHost188.querySelectorAll('img'), warriorPicks188 = imagesOf188(reverseHost188, 'talents-pick');
+  const warriorHeaderIcons188 = imagesOf188(reverseHost188, 'talents-tree-header'), reusedHeaders188 = warriorHeaderIcons188.filter(node => paladinPicks188.includes(node)), firstWarriorTalent188 = reverseOrder188.findIndex(node => warriorPicks188.includes(node));
+  const warriorFirst188 = [...warriorHeaderIcons188, ...byClass(reverseHost188, 'talents-backdrop'), byClass(reverseHost188, 'talents-portrait')[0], imagesOf188(reverseHost188, 'talents-tooltip-heading')[0]];
+  check('.188 the reverse switch (Paladin to Warrior) moves still-queued Paladin talent icons reused as Warrior tree header icons ahead of every Warrior talent icon, with the rest of the Warrior layout artwork',
+    reverseStarted188 === 0 && reverseInFlight188.length === 4 && reverseInFlight188.every((node, index) => node === reverseNav188[index]) && reverseNav188.slice(4).every((node, index) => reverseOrder188[index] === node)
+    && reusedHeaders188.length === 2 && reusedHeaders188.every(node => { const at = reverseOrder188.indexOf(node); return at >= 5 && at < firstWarriorTalent188; })
+    && firstWarriorTalent188 === 5 + warriorFirst188.length && warriorFirst188.every(node => { const at = reverseOrder188.indexOf(node); return at >= 5 && at < firstWarriorTalent188; })
+    && reverseOrder188.length === reverseImages188.length - 4 && new Set(reverseOrder188).size === reverseOrder188.length && reverseOrder188.every(node => reverseHost188.contains(node))
+    && reverseImages188.every(node => node.srcAssignments === 1 && !isPending188(node) && !node.hidden) && maximum188 === 4);
+  reverse188.destroy();
+  const retryHost188 = delayedDocument188.createElement('main'), retryMount188 = await browserModule.exports.mount(retryHost188);
+  const retryImages188 = retryHost188.querySelectorAll('img'), firstURL188 = new Map();
+  let coldFailures188 = 0;
+  while (pending188.size) {
+    if (++coldFailures188 > 200) throw Error('Failing image queue did not drain within the finite artwork inventory');
+    const node = [...pending188.keys()][0]; firstURL188.set(node, node.getAttribute('src')); settleImage188(node, 'error');
+  }
+  const notice188 = byClass(retryHost188, 'talents-artwork-notice')[0];
+  check('.188 all 69 cold-mount images can fail, four at a time, with no automatic retry; each failed image leaves the layout as before .187 and the notice appears',
+    coldFailures188 === 69 && retryImages188.length === 69 && retryImages188.every(node => node.hidden && !isPending188(node) && node.srcAssignments === 1 && firstURL188.has(node)) && !notice188.hidden && maximum188 === 4);
+  const beforeRetry188 = attempts188.length;
+  notice188.all(node => node.tagName === 'BUTTON')[0].click();
+  const retried188 = attempts188.slice(beforeRetry188);
+  check('.188 one Retry click after 69 failures starts exactly four new attempts at their exact original URLs; the other 65 failed images stay without src',
+    retried188.length === 4 && pending188.size === 4 && retried188.every(attempt => pending188.has(attempt.node) && attempt.url === firstURL188.get(attempt.node) && !attempt.url.includes('?') && attempt.node.srcAssignments === 2)
+    && retryImages188.filter(node => !pending188.has(node)).length === 65 && retryImages188.filter(node => !pending188.has(node)).every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden) && maximum188 === 4);
+  notice188.all(node => node.tagName === 'BUTTON')[0].click();
+  check('.188 a second Retry click while those four retried attempts hold every slot starts nothing more; the other 65 failed images still wait without src',
+    attempts188.length === beforeRetry188 + 4 && pending188.size === 4 && retried188.every(attempt => pending188.has(attempt.node) && attempt.node.srcAssignments === 2)
+    && retryImages188.filter(node => !pending188.has(node)).every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden) && maximum188 === 4);
+  let retryDrained188 = 0, boundedRetry188 = true;
+  while (pending188.size) {
+    if (++retryDrained188 > 200) throw Error('Retried image queue did not drain within the finite artwork inventory');
+    const waiting = retryImages188.filter(node => node.srcAssignments === 1).length;
+    boundedRetry188 = boundedRetry188 && (waiting > 0 ? pending188.size === 4 : pending188.size <= 4);
+    settleImage188([...pending188.keys()][0]);
+  }
+  check('.188 the retried queue holds exactly four attempts in flight while any failed image waits, never more, and drains with each image retried once at its exact URL',
+    boundedRetry188 && retryDrained188 === 69 && attempts188.length === beforeRetry188 + 69 && retryImages188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === firstURL188.get(node) && !node.hidden && !isPending188(node)) && notice188.hidden && maximum188 === 4);
+  retryMount188.destroy();
+  // Retry while four other images still hold every slot: the failed images join the queue and start only as slots free.
+  const busyHost188 = delayedDocument188.createElement('main'), busyMount188 = await browserModule.exports.mount(busyHost188);
+  const busyImages188 = busyHost188.querySelectorAll('img'), busyFailed188 = [], busyURL188 = new Map();
+  while (busyFailed188.length < 5) { const node = [...pending188.keys()][0]; busyFailed188.push(node); busyURL188.set(node, node.getAttribute('src')); settleImage188(node, 'error'); }
+  const busyNotice188 = byClass(busyHost188, 'talents-artwork-notice')[0], busyRetry188 = busyNotice188.all(node => node.tagName === 'BUTTON')[0], busyInFlight188 = [...pending188.keys()], beforeBusyRetry188 = attempts188.length;
+  busyRetry188.click(); busyRetry188.click();
+  check('.188 Retry clicked twice while four other images hold every slot starts no attempt; the five failed images wait without src and stay out of the layout',
+    busyInFlight188.length === 4 && busyInFlight188.every(node => !busyFailed188.includes(node) && pending188.has(node)) && attempts188.length === beforeBusyRetry188 && pending188.size === 4
+    && busyFailed188.every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden && !isPending188(node)) && maximum188 === 4);
+  let busyDrained188 = 0, busyBounded188 = true;
+  while (pending188.size) {
+    if (++busyDrained188 > 200) throw Error('Busy retried image queue did not drain within the finite artwork inventory');
+    const waiting = busyImages188.filter(node => !pending188.has(node) && (!node.srcAssignments || (busyFailed188.includes(node) && node.srcAssignments === 1))).length;
+    busyBounded188 = busyBounded188 && (waiting > 0 ? pending188.size === 4 : pending188.size <= 4);
+    settleImage188([...pending188.keys()][0]);
+  }
+  check('.188 after a busy Retry exactly four attempts stay in flight while any image waits, and the queue drains with each failed image retried once at its exact URL and every other image requested once',
+    busyBounded188 && busyDrained188 === 69 && attempts188.length === beforeBusyRetry188 + 65 && busyFailed188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === busyURL188.get(node) && !busyURL188.get(node).includes('?') && !node.hidden && !isPending188(node))
+    && busyImages188.filter(node => !busyFailed188.includes(node)).every(node => node.srcAssignments === 1 && !node.hidden && !isPending188(node)) && busyNotice188.hidden && maximum188 === 4);
+  busyMount188.destroy();
+  check('.188 every .188 mount leaves no pending image attempt and the snapshot unchanged', pending188.size === 0 && initialJSON === JSON.stringify(data));
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

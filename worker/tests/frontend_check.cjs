@@ -839,6 +839,43 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await waitFor(() => !calendarTab(), "the current refresh adopting the changed context");
   check("F4b.1 follow-up: a current refusal's context refresh still adopts a changed context and redraws (the Calendar tab goes)", !calendarTab() && !!byText(o2.app, "button", "Sign out"));
   o2.answer(null);
+  // ---------- .186 (m1): an unchanged context refresh keeps the context object, so identity owners such as the Army reader stay current ----------
+  {
+    const army186 = await openPage(MEMBER), mounts186 = [];
+    army186.window.OlympusGuildQRProtocol = {};
+    army186.window.OlympusArmyReader = { mount(box, options) { const call = { options, destroyed: 0 }; mounts186.push(call); return { destroy() { call.destroyed++; } }; } };
+    const bootContext186 = army186.boot.community, refusedProfile186 = () => new Response('{"error":"community_disabled"}', { status: 403, headers: { "Content-Type": "application/json" } });
+    let contextAnswers186 = 0, contextReply186 = null, heldProfiles186 = 0, contextReads186 = 0;
+    // A context reply built by this check records when the page has read its body; what the page does after that is promise jobs only.
+    const contextResponse186 = (reply) => { const response = new Response(JSON.stringify(reply), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } }), text = response.text.bind(response); response.text = async () => { const body = await text(); contextReads186++; return body; }; return response; };
+    army186.answer((p) => { if (p === "/api/community/context") { contextAnswers186++; return contextReply186 === null ? null : contextResponse186(contextReply186); } return p === "/api/community/profile" ? refusedProfile186() : null; });
+    army186.hold((p) => p === "/api/community/profile" && heldProfiles186-- > 0 ? 300 : 0);
+    const armyCalendar186 = () => !!byText(army186.app, "a", "Calendar");
+    // A refused profile read answered after the page moved on to Army reaches the ungated refreshCommunity() while the reader is mounted.
+    const staleRefusal186 = async (reply) => {
+      contextReply186 = reply; heldProfiles186 = 1; const before = contextAnswers186, reads = contextReads186;
+      await army186.go("#/community/profile"); await army186.go("#/community/army");
+      await waitFor(() => mounts186.length > 0 && mounts186.at(-1).destroyed === 0 && mounts186.at(-1).options.isCurrent(), "the mounted Army reader");
+      const mounted = mounts186.at(-1), count = mounts186.length;
+      await waitFor(() => contextAnswers186 === before + 1, "the stale refusal's context refresh", 1500);
+      // Settle on an observable point rather than a wall-clock sleep: a built reply must have been read by the page, and then full
+      // event-loop turns drain the remaining promise jobs of refreshCommunity, so the negative checks below cannot run early.
+      if (reply !== null) await waitFor(() => contextReads186 === reads + 1, "the page reading the context reply", 1500);
+      for (let turn = 0; turn < 10; turn++) await settle();
+      return { mounted, count };
+    };
+    const real186 = await staleRefusal186(null);
+    check(".186 an unchanged context refresh keeps the community object: the mounted Army reader stays current and nothing is redrawn", contextAnswers186 === 1 && real186.mounted.options.isCurrent() && real186.mounted.destroyed === 0 && mounts186.length === real186.count && armyCalendar186() && !!army186.app.querySelector("[data-army-qr-review]"));
+    const later186 = await staleRefusal186({ ...bootContext186, now: bootContext186.now + 7 });
+    check(".186 a context equal apart from its server read time is unchanged too: the same reader stays current, no redraw", contextAnswers186 === 2 && later186.mounted.options.isCurrent() && later186.mounted.destroyed === 0 && mounts186.length === later186.count && armyCalendar186());
+    const subject186 = await staleRefusal186({ ...bootContext186, subject: { discordId: "999999999999999999" } });
+    await waitFor(() => mounts186.length === subject186.count + 1, "the redraw after a changed subject");
+    check(".186 a context that changes only its subject is adopted and redrawn once: the old reader is disposed and one new current reader mounts", contextAnswers186 === 3 && !subject186.mounted.options.isCurrent() && subject186.mounted.destroyed === 1 && mounts186.length === subject186.count + 1 && mounts186.at(-1).options.isCurrent() && mounts186.at(-1).destroyed === 0 && armyCalendar186());
+    const changed186 = await staleRefusal186({ ...bootContext186, features: { ...bootContext186.features, events: false } });
+    await waitFor(() => mounts186.length === changed186.count + 1, "the redraw after a changed context");
+    check(".186 a changed context is still adopted and redrawn once: the old reader is disposed, one new current reader mounts and the Calendar tab goes", contextAnswers186 === 4 && !changed186.mounted.options.isCurrent() && changed186.mounted.destroyed === 1 && mounts186.length === changed186.count + 1 && mounts186.at(-1).options.isCurrent() && !armyCalendar186());
+    army186.answer(null); army186.hold(null);
+  }
   await m2.go("#/community/trial");
   await waitFor(() => !!byText(m2.app, "span", "active"), "the trial page");
   check("the member's own trial: active, the start, the review date, what a trial is", !!byText(m2.app, "span", "active") && m2.app.textContent.includes("Review due") && m2.app.textContent.includes("Nothing on this page changes a role"));

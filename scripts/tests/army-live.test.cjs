@@ -14,7 +14,7 @@ const captureIds=['start','stop','copy','addon-command','frames','review-frames'
 const settle=async()=>{for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));};
 function harness(options={}){
  const ids=new Map(),events={},windowEvents={},calls=[],sources=['paste','image','window','camera'].map(name=>{const n=new Element('button');n.dataset.source=name;return n;}),timers=new Map();let serial=0,wall=NOW*1000,mono=1000;
- for(const id of options.mount?[]:options.public?['army-results','army-status','army-refresh']:[...reportIds,...captureIds])ids.set(id,new Element(id==='video'?'video':'div'));
+ for(const id of options.mount?[]:options.public?['army-results','army-status','army-refresh','army-read-time']:[...reportIds,...captureIds])ids.set(id,new Element(id==='video'?'video':'div'));
  const document={hidden:false,getElementById:id=>ids.get(id)||null,createElement:tag=>new Element(tag),querySelectorAll:selector=>selector==='[data-source]'?sources:[],addEventListener(k,fn){(events[k]??=[]).push(fn);},removeEventListener(k,fn){events[k]=(events[k]||[]).filter(value=>value!==fn);}};
  const scope={document,console,TextEncoder,TextDecoder,Uint8Array,Uint8ClampedArray,ArrayBuffer,AbortController,btoa,atob,crypto:webcrypto,performance:{now:()=>mono},isSecureContext:true,Date:class extends Date{static now(){return wall;}},setTimeout(fn,ms){const id=++serial;timers.set(id,{fn,ms,due:mono+ms,interval:false});return id;},clearTimeout:id=>timers.delete(id),setInterval(fn,ms){const id=++serial;timers.set(id,{fn,ms,due:mono+ms,interval:true});return id;},clearInterval:id=>timers.delete(id),addEventListener(k,fn){(windowEvents[k]??=[]).push(fn);},removeEventListener(k,fn){windowEvents[k]=(windowEvents[k]||[]).filter(value=>value!==fn);},navigator:{clipboard:{writeText:async()=>{}},mediaDevices:options.mediaDevices||{}},Worker:class{constructor(){throw Error('Synthetic paste test must not start a worker');}},fetch:async(url,init={})=>{
    const body=init.body===undefined?undefined:JSON.parse(init.body);calls.push({url,init,body});
@@ -126,10 +126,144 @@ let passed=0,failed=0;async function check(label,fn){try{await fn();passed++;con
    const h=harness({mount:true,snapshots:[fixture()]}),container=new Element(),controller=h.scope.OlympusArmyReader.mount(container,{isCurrent:()=>true});await settle();await h.pagehide(true);controller.destroy();await h.pageshow(true);await h.tick(180000);assert.equal(h.calls.length,1);assert.equal(container.children[2].children.length,0);
  });
  await check('successful refresh restores only previously expanded breakdowns for the same exact guild',async()=>{
-   const h=harness({public:true,snapshots:[fixture()]});await settle();const first=h.ids.get('army-results').children[0],breakdowns=first.children.filter(child=>child.tagName==='DETAILS');breakdowns[0].open=true;breakdowns[2].open=true;await h.tick(60000);const next=h.ids.get('army-results').children[0];assert.notEqual(first,next);assert.deepEqual(next.children.filter(child=>child.tagName==='DETAILS').map(child=>Boolean(child.open)),[true,false,true]);assert.equal(h.calls.length,2);
+   // .186: an unchanged timer answer now keeps the card nodes (checked below), so this replacement carries one changed figure.
+   let count=0;const h=harness({public:true,transport:async()=>{const snapshot=fixture();if(++count>1)snapshot.guilds[0].online=25;return new Response(JSON.stringify({format:'olympus-army-public-v1',now:NOW,snapshots:[snapshot]}));}});await settle();const first=h.ids.get('army-results').children[0],breakdowns=first.children.filter(child=>child.tagName==='DETAILS');breakdowns[0].open=true;breakdowns[2].open=true;await h.tick(60000);const next=h.ids.get('army-results').children[0];assert.notEqual(first,next);assert.deepEqual(next.children.filter(child=>child.tagName==='DETAILS').map(child=>Boolean(child.open)),[true,false,true]);assert.equal(h.calls.length,2);
  });
  await check('automatic refresh preserves exact response byte cap and rejects partial replacement data',async()=>{
    let count=0;const h=harness({public:true,transport:async()=>++count===1?new Response(JSON.stringify({format:'olympus-army-public-v1',now:NOW,snapshots:[fixture()]})):new Response(' '.repeat(524289))});await settle();await h.tick(60000);assert.equal(h.calls.length,2);assert.equal(h.ids.get('army-results').children.length,0);assert.match(h.ids.get('army-status').textContent,/could not be read/);
+ });
+ // .186: timer reads are quiet. Cards, live status, read time and Refresh stay until a validated answer replaces the cards at once.
+ const deferred=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
+ const armyResponse=(now,snapshots)=>new Response(JSON.stringify({format:'olympus-army-public-v1',now,snapshots}));
+ const textWrites=el=>{const log=[],own=Object.getOwnPropertyDescriptor(Element.prototype,'textContent');Object.defineProperty(el,'textContent',{configurable:true,get(){return own.get.call(this);},set(value){log.push(String(value));own.set.call(this,value);}});return log;};
+ const mutations=el=>{const log=[],replace=el.replaceChildren.bind(el),append=el.append.bind(el);el.replaceChildren=(...items)=>{replace(...items);log.push(['replace',items.length,el.children.length]);};el.append=(...items)=>{append(...items);log.push(['append',items.length,el.children.length]);};return log;};
+ await check('.186 a pending timer read keeps the cards, live status, read time and Refresh exactly as they were',async()=>{
+   let pending;const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):(pending=deferred()).promise});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),refresh=h.ids.get('army-refresh'),first=root.children[0],before={text:status.textContent,className:status.className,stamp:stamp.textContent},writes=textWrites(status),stamps=textWrites(stamp),changes=mutations(root);
+   assert.match(before.stamp,/^Read at .+\.$/);assert.equal(before.text,'Published observations. Checks for newer reports every 60 seconds while visible.');
+   await h.tick(60000);assert.equal(h.calls.length,2);assert.ok(pending);
+   for(const wait of [0,14000]){await h.tick(wait);assert.equal(root.children.length,1);assert.equal(root.children[0],first);assert.deepEqual(changes,[]);assert.equal(status.textContent,before.text);assert.equal(status.className,before.className);assert.deepEqual(writes,[]);assert.equal(stamp.textContent,before.stamp);assert.deepEqual(stamps,[]);assert.equal(refresh.disabled,false);}
+   pending.resolve(armyResponse(NOW+60,[fixture()]));await settle();assert.equal(root.children.length,1);assert.equal(h.calls.length,2);
+ });
+ await check('.186 a successful timer read swaps every card in one step and announces the changed published set once',async()=>{
+   let pending;const primary=fixture();primary.guilds[0]={...primary.guilds[0],name:'Olympus'};const changed=fixture();changed.guilds[0].online=25;
+   const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[primary,fixture()]):(pending=deferred()).promise});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),old=[...root.children],oldStamp=stamp.textContent,writes=textWrites(status),changes=mutations(root);
+   await h.tick(60000);assert.equal(h.calls.length,2);assert.deepEqual(root.children,old);
+   pending.resolve(armyResponse(NOW+120,[primary,changed]));await settle();
+   assert.deepEqual(changes,[['replace',2,2]]);assert.equal(root.children.length,2);assert.ok(root.children.every(card=>!old.includes(card)));
+   assert.deepEqual(root.children.map(card=>card.children.find(child=>child.tagName==='H2').textContent),['Olympus','Olympus I']);assert.equal(root.children[1].children.find(child=>child.className==='figures').children[1].children[1].textContent,'25');
+   assert.equal(writes.length,1);assert.match(writes[0],/^Published observations changed at .+\. Checks for newer reports every 60 seconds while visible\.$/);assert.equal(status.className,'notice');
+   assert.match(stamp.textContent,/^Read at .+\.$/);assert.notEqual(stamp.textContent,oldStamp);assert.equal(h.ids.get('army-refresh').disabled,false);
+ });
+ await check('.186 an unchanged timer read keeps every card node and the live status and rewrites only the read time',async()=>{
+   let count=0;const h=harness({public:true,transport:async()=>armyResponse(NOW+60*count++,[fixture()])});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),first=root.children[0],text=first.textContent,before={text:status.textContent,className:status.className,stamp:stamp.textContent},writes=textWrites(status),stamps=textWrites(stamp),changes=mutations(root);
+   await h.tick(60000);assert.equal(h.calls.length,2);assert.equal(root.children.length,1);assert.equal(root.children[0],first);assert.equal(first.textContent,text);assert.deepEqual(changes,[]);
+   assert.deepEqual(writes,[]);assert.equal(status.textContent,before.text);assert.equal(status.className,before.className);
+   assert.equal(stamps.length,1);assert.match(stamps[0],/^Read at .+\.$/);assert.notEqual(stamps[0],before.stamp);
+   await h.tick(60000);assert.equal(h.calls.length,3);assert.deepEqual(writes,[]);assert.equal(stamps.length,2);assert.deepEqual(changes,[]);assert.equal(root.children[0],first);
+ });
+ await check('.186 a failed timer read still clears figures and read time, and the next timer success replaces the error once',async()=>{
+   let pending;const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):calls.length===2?(pending=deferred()).promise:armyResponse(NOW+120,[fixture()])});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),first=root.children[0];
+   await h.tick(60000);assert.equal(root.children[0],first);assert.match(stamp.textContent,/^Read at /);
+   pending.resolve(new Response('{}',{status:503}));await settle();
+   assert.equal(root.children.length,0);assert.equal(stamp.textContent,'');assert.match(status.textContent,/No stale or partial figures are shown/);assert.equal(status.className,'notice error');assert.equal(h.ids.get('army-refresh').disabled,false);
+   const writes=textWrites(status);await h.tick(60000);assert.equal(h.calls.length,3);assert.match(root.children[0].textContent,/Olympus I/);assert.deepEqual(writes,['Published observations. Checks for newer reports every 60 seconds while visible.']);assert.equal(status.className,'notice');assert.match(stamp.textContent,/^Read at /);
+ });
+ await check('.186 a timer read that exceeds its 15-second deadline still clears instead of keeping old figures',async()=>{
+   let pending;const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):(pending=deferred()).promise});await settle();
+   const root=h.ids.get('army-results');await h.tick(60000);const signal=h.calls[1].init.signal;await h.tick(14999);assert.equal(signal.aborted,false);assert.equal(root.children.length,1);await h.tick(1);assert.equal(signal.aborted,true);
+   pending.resolve(armyResponse(NOW+60,[fixture()]));await settle();assert.equal(root.children.length,0);assert.equal(h.ids.get('army-read-time').textContent,'');assert.match(h.ids.get('army-status').textContent,/could not be read/);
+ });
+ await check('.186 deliberate Refresh keeps its visible reading state and restores open breakdowns',async()=>{
+   let pending;const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):(pending=deferred()).promise});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),refresh=h.ids.get('army-refresh'),first=root.children[0];first.children.filter(child=>child.tagName==='DETAILS')[1].open=true;
+   const clicked=refresh.click();await settle();
+   assert.equal(h.calls.length,2);assert.equal(root.children.length,0);assert.equal(status.textContent,'Reading published snapshots…');assert.equal(status.className,'notice');assert.equal(refresh.disabled,true);assert.equal(stamp.textContent,'');
+   pending.resolve(armyResponse(NOW+60,[fixture()]));await clicked;await settle();
+   assert.equal(root.children.length,1);assert.notEqual(root.children[0],first);assert.deepEqual(root.children[0].children.filter(child=>child.tagName==='DETAILS').map(child=>Boolean(child.open)),[false,true,false]);
+   assert.equal(status.textContent,'Published observations. Checks for newer reports every 60 seconds while visible.');assert.equal(refresh.disabled,false);assert.match(stamp.textContent,/^Read at .+\.$/);
+ });
+ await check('.186 a focused breakdown summary keeps keyboard focus across a quiet replacement',async()=>{
+   let count=0;const h=harness({public:true,transport:async()=>{const snapshot=fixture();if(++count>1)snapshot.guilds[0].online=25;return armyResponse(NOW,[snapshot]);}});await settle();const original=Element.prototype.focus;let focused=null,options;
+   Element.prototype.focus=function(value){focused=this;options=value;h.scope.document.activeElement=this;};
+   try{const root=h.ids.get('army-results'),old=root.children[0].children.filter(child=>child.tagName==='DETAILS')[1];old.open=true;h.scope.document.activeElement=old.children[0];
+     await h.tick(60000);assert.equal(h.calls.length,2);const next=root.children[0].children.filter(child=>child.tagName==='DETAILS')[1];assert.notEqual(next,old);assert.equal(next.open,true);assert.equal(focused,next.children[0]);assert.equal(options.preventScroll,true);}
+   finally{Element.prototype.focus=original;}
+ });
+ await check('.186 unchanged minutes leave a focused, expanded breakdown alone: no swap and no programmatic focus',async()=>{
+   let count=0;const h=harness({public:true,transport:async()=>armyResponse(NOW+60*count++,[fixture()])});await settle();const original=Element.prototype.focus,focusCalls=[];
+   Element.prototype.focus=function(value){focusCalls.push([this,value]);h.scope.document.activeElement=this;};
+   try{const root=h.ids.get('army-results'),first=root.children[0],breakdown=first.children.filter(child=>child.tagName==='DETAILS')[2];breakdown.open=true;h.scope.document.activeElement=breakdown.children[0];const changes=mutations(root);
+     for(let minute=1;minute<=5;minute++){await h.tick(60000);assert.equal(h.calls.length,1+minute);}
+     assert.deepEqual(changes,[]);assert.deepEqual(focusCalls,[]);assert.equal(root.children[0],first);assert.equal(breakdown.open,true);assert.equal(h.scope.document.activeElement,breakdown.children[0]);}
+   finally{Element.prototype.focus=original;}
+ });
+ await check('.186 an online count the page already withdrew is no change when the server withholds it too: no swap and no announcement',async()=>{
+   const aged=online=>{const snapshot=fixture();snapshot.observedAt=NOW-850;snapshot.guilds[0].receivedAt=NOW-850;snapshot.guilds[0].online=online;return snapshot;};
+   const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[aged(20)]):armyResponse(NOW+60*(calls.length-1),[aged(null)])});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),figure=()=>root.children[0].children.find(child=>child.className==='figures').children[1].children[1].textContent;
+   assert.equal(figure(),'20');const writes=textWrites(status),stamps=textWrites(stamp),changes=mutations(root);
+   await h.advance(51000);assert.equal(h.calls.length,1);assert.equal(figure(),'Unavailable');assert.match(root.textContent,/Online count no longer current/);assert.deepEqual(changes,[['replace',1,1]]);assert.deepEqual(writes,[]);
+   const shown=root.children[0];
+   await h.tick(9000);assert.equal(h.calls.length,2);assert.equal(root.children[0],shown);assert.deepEqual(changes,[['replace',1,1]]);assert.deepEqual(writes,[]);assert.equal(stamps.length,1);
+   await h.tick(60000);assert.equal(h.calls.length,3);assert.equal(root.children[0],shown);assert.deepEqual(changes,[['replace',1,1]]);assert.deepEqual(writes,[]);assert.equal(stamps.length,2);
+ });
+ await check('.186 a slow timer answer from just before the 900-second mark cannot bring back an online count the page already withdrew',async()=>{
+   const aged=()=>{const snapshot=fixture();snapshot.observedAt=NOW-840;snapshot.guilds[0].receivedAt=NOW-840;return snapshot;};let pending;
+   const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[aged()]):(pending=deferred()).promise});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),stamp=h.ids.get('army-read-time'),figure=()=>root.children[0].children.find(child=>child.className==='figures').children[1].children[1].textContent;
+   const writes=textWrites(status),changes=mutations(root);
+   await h.tick(60000);assert.equal(h.calls.length,2);assert.ok(pending);assert.equal(figure(),'20');assert.deepEqual(changes,[]);
+   await h.advance(1000);assert.equal(figure(),'Unavailable');assert.deepEqual(changes,[['replace',1,1]]);const shown=root.children[0];
+   // The server read at an age of exactly 900 s, so its answer still carries the count; the page's clock is already at 901 s.
+   pending.resolve(armyResponse(NOW+60,[aged()]));await settle();
+   assert.equal(root.children[0],shown);assert.equal(figure(),'Unavailable');assert.deepEqual(changes,[['replace',1,1]]);assert.deepEqual(writes,[]);assert.match(stamp.textContent,/^Read at .+\.$/);
+   await h.advance(1000);assert.equal(root.children[0],shown);assert.equal(figure(),'Unavailable');assert.deepEqual(changes,[['replace',1,1]]);assert.deepEqual(writes,[]);
+ });
+ await check('.186 Refresh during a pending timer read takes it over and starts a visible read at once',async()=>{
+   const pending=[];const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):(pending[calls.length-2]=deferred()).promise});await settle();
+   const root=h.ids.get('army-results'),status=h.ids.get('army-status'),refresh=h.ids.get('army-refresh'),changed=fixture();changed.guilds[0].online=25;
+   await h.tick(60000);assert.equal(h.calls.length,2);assert.equal(refresh.disabled,false);const quietSignal=h.calls[1].init.signal;
+   const clicked=refresh.click();await settle();
+   assert.equal(quietSignal.aborted,true);assert.equal(h.calls.length,3);assert.equal(h.calls[2].init.signal.aborted,false);assert.equal(status.textContent,'Reading published snapshots…');assert.equal(root.children.length,0);assert.equal(refresh.disabled,true);
+   pending[0].resolve(armyResponse(NOW+60,[changed]));await settle();assert.equal(root.children.length,0);assert.equal(status.textContent,'Reading published snapshots…');
+   pending[1].resolve(armyResponse(NOW+61,[fixture()]));await clicked;await settle();
+   assert.equal(root.children.length,1);assert.equal(root.children[0].children.find(child=>child.className==='figures').children[1].children[1].textContent,'20');assert.equal(status.textContent,'Published observations. Checks for newer reports every 60 seconds while visible.');assert.equal(refresh.disabled,false);
+   await h.tick(59999);assert.equal(h.calls.length,3);await h.tick(1);assert.equal(h.calls.length,4);
+ });
+ await check('.186 a sustained outage states its failure once instead of rewriting the polite region on every attempt',async()=>{
+   let pending;const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):calls.length<=4?new Response('{}',{status:503}):(pending=deferred()).promise});await settle();
+   const status=h.ids.get('army-status'),writes=textWrites(status);
+   for(let attempt=2;attempt<=4;attempt++){await h.tick(60000);assert.equal(h.calls.length,attempt);}
+   assert.equal(writes.length,1);assert.match(writes[0],/No stale or partial figures are shown/);assert.equal(status.className,'notice error');
+   await h.tick(60000);assert.equal(h.calls.length,5);await h.tick(15000);assert.equal(h.calls[4].init.signal.aborted,true);pending.resolve(armyResponse(NOW+300,[fixture()]));await settle();
+   assert.equal(writes.length,1);assert.equal(h.ids.get('army-results').children.length,0);assert.match(status.textContent,/could not be read/);assert.equal(status.className,'notice error');
+ });
+ await check('.186 a deliberate Refresh returns focus to the breakdown summary only if the reader has not moved focus meanwhile',async()=>{
+   const pending=[];const h=harness({public:true,transport:async(_url,_init,_body,calls)=>calls.length===1?armyResponse(NOW,[fixture()]):(pending[calls.length-2]=deferred()).promise});await settle();
+   const original=Element.prototype.focus,focusCalls=[];Element.prototype.focus=function(){focusCalls.push(this);h.scope.document.activeElement=this;};
+   try{
+     const root=h.ids.get('army-results'),refresh=h.ids.get('army-refresh'),elsewhere=new Element('a'),breakdown=()=>root.children[0].children.filter(child=>child.tagName==='DETAILS')[1];
+     breakdown().open=true;h.scope.document.activeElement=breakdown().children[0];
+     let clicked=refresh.click();await settle();assert.equal(root.children.length,0);
+     h.scope.document.activeElement=elsewhere;pending[0].resolve(armyResponse(NOW+60,[fixture()]));await clicked;await settle();
+     assert.equal(root.children.length,1);assert.equal(breakdown().open,true);assert.deepEqual(focusCalls,[]);assert.equal(h.scope.document.activeElement,elsewhere);
+     h.scope.document.activeElement=breakdown().children[0];clicked=refresh.click();await settle();
+     h.scope.document.activeElement=null;pending[1].resolve(armyResponse(NOW+120,[fixture()]));await clicked;await settle();
+     assert.equal(focusCalls.length,1);assert.equal(focusCalls[0],breakdown().children[0]);assert.equal(h.scope.document.activeElement,breakdown().children[0]);
+   }finally{Element.prototype.focus=original;}
+ });
+ await check('.186 the read time is a separate non-live line in the mounted and standalone readers',async()=>{
+   const h=harness({mount:true,snapshots:[fixture()]}),container=new Element(),controller=h.scope.OlympusArmyReader.mount(container,{isCurrent:()=>true});await settle();
+   assert.equal(container.children.length,4);const [actions,status,results,stamp]=container.children;assert.equal(actions.children[0].textContent,'Refresh snapshots');assert.equal(results.attributes['aria-label'],'Shared guild snapshots');
+   assert.equal(status.attributes.role,'status');assert.equal(status.attributes['aria-live'],'polite');assert.doesNotMatch(status.textContent,/read at/i);
+   assert.equal(stamp.tagName,'P');assert.equal(stamp.className,'muted');assert.equal(stamp.attributes.role,undefined);assert.equal(stamp.attributes['aria-live'],undefined);assert.match(stamp.textContent,/^Read at .+\.$/);
+   controller.destroy();assert.equal(stamp.textContent,'');
+   const pages=require(path.join(root,'worker/tests/helpers/privacy129_fixture.cjs')).load('army-pages'),html=await pages.publicArmyPage(new Request('https://olympus.invalid/army')).text();
+   assert.ok(html.includes('<p id="army-status" class="notice" role="status" aria-live="polite">'));assert.ok(html.includes('</section><p id="army-read-time" class="muted"></p><noscript>'));
  });
  await check('reporter without reader controls never polls or starts capture when reader clocks advance',async()=>{
    const h=harness();await settle();await h.tick(180000);assert.equal(h.calls.length,1);assert.equal(h.calls[0].url,'/api/army/reporter');assert.equal(h.ids.get('addon-command').value,'');assert.equal(h.ids.get('report-preview').disabled,true);assert.equal(h.ids.get('report-publish').disabled,true);

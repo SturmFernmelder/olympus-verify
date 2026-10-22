@@ -1071,12 +1071,15 @@
     disposeTool = () => { if (instance && instance.destroy) instance.destroy(); disposeTool = null; };
   }
   ROUTES.talents = (main, parts) => memberTool(main, "OlympusTalents", "/static/talents/calculator.js", "/static/talents/calculator.css", async () => {
-    await Promise.all([
-      loadMemberScript("OlympusTalentAnalysis", "/static/talents/analysis.js"),
-      loadMemberScript("OlympusTalentGuides", "/static/talents/guide-builds179.js"),
-    ]);
+    // .186: both modules are optional. allSettled lets a failed load leave the calculator working without that feature, and the
+    // calculator names what is missing. Any module whose global is still absent (a load error, or a script that loaded but threw or
+    // never defined it) loses its cache entry, so the next visit requests it again. A script that never answers still holds the route.
+    const optional = [["analysis", "OlympusTalentAnalysis", "/static/talents/analysis.js"], ["guideBuilds", "OlympusTalentGuides", "/static/talents/guide-builds179.js"]];
+    await Promise.allSettled(optional.map(([, namespace, file]) => loadMemberScript(namespace, file)));
+    const unavailable = optional.filter(([, namespace]) => !window[namespace]);
+    for (const [, namespace] of unavailable) toolScripts.delete(namespace);
     return {
-      analysis: window.OlympusTalentAnalysis, guideBuilds: window.OlympusTalentGuides,
+      analysis: window.OlympusTalentAnalysis, guideBuilds: window.OlympusTalentGuides, unavailable: unavailable.map(([key]) => key),
       className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
       onBuildChange: value => {
         if (main.parentNode !== app) return;
@@ -1238,7 +1241,9 @@
         h("button", { class: "btn small", type: "button", text: "Edit search", onclick: () => { search.focus({ preventScroll: true }); scrollToSection(search); } })),
       h("div", { class: "governance-match-buttons" }, matchPrev, matchNext));
     const highlightWindowSize = 200;
-    let matches = [], activeMatch = -1, replacements = [], renderedMatches = [];
+    // revealPending: typing selects match 1 without scrolling the page, so the
+    // first Next (button or Enter) reveals that match instead of skipping it.
+    let matches = [], activeMatch = -1, replacements = [], renderedMatches = [], revealPending = false;
     const prev = h("a", { class: "btn small", text: "Previous chapter" }), next = h("a", { class: "btn small", text: "Next chapter" });
     const current = h("span", { class: "small" });
     let printState = null;
@@ -1291,7 +1296,7 @@
       return section;
     });
     const tocList = chapters.map((chapter) => { const link = h("a", { href: "#/governance/" + chapter.id, text: chapter.title }); const item = h("li", null, link); toc.set(chapter.id, link); return item; });
-    function selectMatch(i, scroll = false) {
+    function selectMatch(i, scroll = false, reveal = false) {
       if (activeMatch >= 0) for (const mark of matches[activeMatch].marks) mark.removeAttribute("aria-current");
       activeMatch = i;
       const match = matches[i];
@@ -1299,24 +1304,54 @@
       if (!match) { matchStatus.textContent = "No matches"; return; }
       if (!match.marks.length) renderMatchWindow(i);
       for (const mark of match.marks) mark.setAttribute("aria-current", "true");
-      matchStatus.textContent = `Match ${i + 1} of ${matches.length} · ${match.chapter.title}`;
+      // The first Next after typing reveals the match already announced. Distinct
+      // wording makes the atomic live region speak again on that key press.
+      matchStatus.textContent = `${reveal ? "Showing match" : "Match"} ${i + 1} of ${matches.length} · ${match.chapter.title}`;
       if (scroll) {
         selection(chapters.indexOf(match.chapter));
         // Native overflow containers (notably tables) reveal their match too.
-        match.marks[0].scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-        const bar = document.querySelector(".topbar"), mark = match.marks[0];
+        // A block rewritten by another script after indexing may yield no mark.
+        const mark = match.marks[0];
+        if (!mark) return;
+        mark.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+        const bar = document.querySelector(".topbar");
         const top = bar ? bar.getBoundingClientRect().bottom : 0;
         if (mark.getBoundingClientRect().top < top + 16) window.scrollTo({ top: Math.max(0, window.scrollY + mark.getBoundingClientRect().top - top - 16), behavior: "auto" });
       }
     }
     function moveMatch(delta) {
-      if (matches.length) selectMatch((activeMatch + delta + matches.length) % matches.length, true);
+      if (!matches.length) return;
+      // The first Next after typing shows the selected match 1; Previous still
+      // steps back from it, wrapping to the last match.
+      const reveal = revealPending && delta > 0;
+      revealPending = false;
+      selectMatch(reveal ? activeMatch : (activeMatch + delta + matches.length) % matches.length, true, reveal);
     }
     function restoreHighlights() {
-      // Restore original nodes rather than innerHTML, preserving inline markup.
-      for (const { parent, node, inserted } of replacements) { parent.insertBefore(node, inserted[0]); for (const item of inserted) parent.removeChild(item); }
-      for (const match of renderedMatches) match.marks = [];
+      // Snapshot and reset first: another script (a page translator, say) may
+      // have replaced an inserted node, and a stale list must not make every
+      // later search throw. Restore original nodes rather than innerHTML,
+      // preserving inline markup, only where the insertion is still intact.
+      const pending = replacements, painted = renderedMatches;
       replacements = []; renderedMatches = [];
+      for (const match of painted) match.marks = [];
+      for (const { parent, node, inserted } of pending) {
+        try {
+          if (!node.parentNode && inserted.length && inserted.every(item => item.parentNode === parent)) {
+            parent.insertBefore(node, inserted[0]);
+            for (const item of inserted) parent.removeChild(item);
+          }
+        } catch (error) { /* one rewritten block must not stop the others */ }
+      }
+      // A rewritten entry keeps its new text where it is. Unwrap every search mark
+      // still in the page, its children kept in place: a mark the list still holds
+      // and one another script copied (a deep clone of an ancestor, say), which the
+      // list never held. No stale highlight remains, and the next search cannot nest.
+      for (const mark of main.querySelectorAll("mark.governance-search-match")) {
+        const host = mark.parentNode;
+        for (const child of [...mark.childNodes]) host.insertBefore(child, mark);
+        host.removeChild(mark);
+      }
     }
     function renderMatchWindow(i) {
       restoreHighlights();
@@ -1329,10 +1364,15 @@
       }
       for (const [block, ranges] of blocks) highlightBlock(block, ranges);
     }
-    function indexBlock(block, query, chapter) {
+    function searchPattern(query) {
+      // Literal words: any whitespace run in the query matches any run in the
+      // source, since the browser collapses the book's repeated spaces on screen.
+      const words = query.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      return new RegExp(words.join("\\s+"), "giu");
+    }
+    function indexBlock(block, pattern, chapter) {
       // Count every occurrence without creating a DOM node for every result.
       // A common one-letter query must remain navigable on a mobile device.
-      const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
       for (const hit of block.textContent.matchAll(pattern)) matches.push({ chapter, block, start: hit.index, end: hit.index + hit[0].length, marks: [], ordinal: matches.length });
     }
     function highlightBlock(block, ranges) {
@@ -1363,10 +1403,10 @@
     }
     function filter() {
       restoreHighlights(); matches = []; activeMatch = -1;
-      const query = search.value.trim().toLowerCase(); let count = 0;
+      const query = search.value.trim().toLowerCase(), pattern = query ? searchPattern(search.value) : null; let count = 0;
       for (const chapter of chapters) {
         const before = matches.length;
-        if (query) for (const block of searchBlocks.get(chapter.id)) indexBlock(block, search.value.trim(), chapter);
+        if (query) for (const block of searchBlocks.get(chapter.id)) indexBlock(block, pattern, chapter);
         const found = !query || matches.length > before;
         const section = details.get(chapter.id); section.hidden = !found; toc.get(chapter.id).parentNode.hidden = !found;
         if (query) section.open = found;
@@ -1377,8 +1417,17 @@
       matchNav.hidden = !query;
       main.classList.toggle("governance-searching", !!query);
       selectMatch(matches.length ? 0 : -1);
+      revealPending = matches.length > 0;
     }
     search.addEventListener("input", filter);
+    // Enter moves to the next match and Shift+Enter to the previous one, as the
+    // match buttons do; focus stays in the field so typing can continue.
+    search.addEventListener("keydown", event => {
+      // An IME commit (isComposing, or keyCode 229 in Safari) is not a search command.
+      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      moveMatch(event.shiftKey ? -1 : 1);
+    });
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
       h("h1", { text: "The Governance of Olympus" }), h("p", { text: "Charters, statute, bylaws, ordinances, office descriptions and reusable records — the adopted R7 text, including the operational charter." }))), governanceDraftNotice(),
       h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
@@ -4063,7 +4112,12 @@
     try {
       const fresh = await api("GET", "/api/community/context", undefined, live ? { live } : {});
       if (!current()) return; // the operation's view is gone or its rows were replaced: the context it asked for is not its to adopt
-      const changed = JSON.stringify([COM().capabilities, COM().features]) !== JSON.stringify([fresh.capabilities, fresh.features]);
+      // .186: a context JSON-equal to the current one (ignoring `now`, the server's read time, which every reply changes and the page never reads)
+      // keeps the existing object, so the three owners that check COM() === context (appointment-name hydration, the Army reader and the
+      // census preview) stay current. Nothing is adopted or redrawn.
+      if (S.community && JSON.stringify({ ...S.community, now: null }) === JSON.stringify({ ...fresh, now: null })) return;
+      // A different subject, capabilities or features redraws once, so those owners are rebuilt for the new context instead of ending quietly.
+      const changed = JSON.stringify([COM().subject, COM().capabilities, COM().features]) !== JSON.stringify([fresh.subject, fresh.capabilities, fresh.features]);
       S.community = fresh;
       if (changed) render(); // .100 (F5): the shell and the page follow what the Worker admits NOW, once; an unchanged context redraws nothing, so a refusal cannot loop
     } catch (ex) {
