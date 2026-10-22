@@ -4133,8 +4133,8 @@
     {
       "path": "worker/public/static/talents/stats60.js",
       "mode": "100644",
-      "bytes": 96953,
-      "sha256": "bde6568f978876fad7cfd5db378329fb2ddf7eb7df47c05fa18677695078834e"
+      "bytes": 97215,
+      "sha256": "6160fa44c3fffa47d517dbef34fc013d9095a4b1e047718dff1daafd4c925a9c"
     }
   ],
   "login_art_exception": {

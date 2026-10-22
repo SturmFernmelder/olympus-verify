@@ -540,6 +540,44 @@ check('a sheet with missing or mismatched data reports itself and throws nothing
   const failing = S.mount(document.createElement('div'), { data, build: C.emptyBuild(data, 'mage', 60), fetch: async () => ({ ok: false }) }); assert.equal(await failing.ready, false);
 });
 
+check('.193: HTTP 200 semantic data failures are retryable with the same fetcher, while concurrent healthy remounts reuse validated data', async () => {
+  for (const invalid of ['naked revision', 'effects revision']) {
+    const document = makeDocument(), urls = [], build = C.emptyBuild(data, 'mage', 60);
+    let healthy = false;
+    const fetcher = async url => {
+      urls.push(url);
+      return { ok: true, json: async () => {
+        const value = clone(url === S.urls.naked ? naked : effects);
+        if (!healthy && invalid === 'naked revision' && url === S.urls.naked) value.build.talentRevision = '000000000000';
+        if (!healthy && invalid === 'effects revision' && url === S.urls.effects) value.source.talentRevision = '000000000000';
+        return value;
+      } };
+    };
+    const firstHost = document.createElement('div'), first = S.mount(firstHost, { data, build, fetch: fetcher });
+    assert.equal(await first.ready, false, invalid); assert.match(firstHost.textContent, /does not match|snapshot revision changed/); first.destroy();
+    assert.deepEqual(urls, [S.urls.naked, S.urls.effects]);
+    healthy = true;
+    const nextHost = document.createElement('div'), next = S.mount(nextHost, { data, build, fetch: fetcher });
+    const concurrentHost = document.createElement('div'), concurrent = S.mount(concurrentHost, { data, build, fetch: fetcher });
+    assert.deepEqual(await Promise.all([next.ready, concurrent.ready]), [true, true], invalid);
+    assert.deepEqual(urls, [S.urls.naked, S.urls.effects, S.urls.naked, S.urls.effects]);
+    assert.ok(sheetRow(nextHost, 'health')); assert.ok(sheetRow(concurrentHost, 'health'));
+    const reuseHost = document.createElement('div'), reuse = S.mount(reuseHost, { data, build, fetch: fetcher });
+    assert.equal(await reuse.ready, true); assert.equal(urls.length, 4); assert.ok(sheetRow(reuseHost, 'health'));
+    next.destroy(); concurrent.destroy(); reuse.destroy();
+  }
+});
+check('.193: a rejected data request is evicted before a healthy retry with the same fetcher', async () => {
+  const document = makeDocument(), urls = [], build = C.emptyBuild(data, 'mage', 60);
+  let rejecting = true;
+  const fetcher = async url => { urls.push(url); if (rejecting && url === S.urls.naked) throw Error('synthetic network rejection'); return { ok: true, json: async () => clone(url === S.urls.naked ? naked : effects) }; };
+  const first = S.mount(document.createElement('div'), { data, build, fetch: fetcher });
+  assert.equal(await first.ready, false); assert.deepEqual(urls, [S.urls.naked, S.urls.effects]); first.destroy();
+  rejecting = false;
+  const retryHost = document.createElement('div'), retry = S.mount(retryHost, { data, build, fetch: fetcher });
+  assert.equal(await retry.ready, true); assert.deepEqual(urls, [S.urls.naked, S.urls.effects, S.urls.naked, S.urls.effects]); assert.ok(sheetRow(retryHost, 'health')); retry.destroy();
+});
+
 console.log('\n== .186 optional loading inside the calculator ==');
 const art = JSON.parse(fs.readFileSync(path.join(folder, 'art.json'), 'utf8'));
 function calculatorRealm() {
