@@ -591,7 +591,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-21.194 Olympus Link source, shipped off";
+const BUILD = "2026-10-22.195 Olympus Link deletion and race fixes, shipped off";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

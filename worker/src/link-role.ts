@@ -1,37 +1,19 @@
 /**
- * Build .186 (Olympus Link, Phase 1a): the one writer of the Olympus Link role, LINK_ROLE_ID in GUILD_ID (the owner's
- * ruling of 21 Oct 2026: the role lives in Asmongold's server, where /verify lives). link-core calls it as promote() when a
- * proof is accepted and as demote() for the player's own "Delete my link"; nothing else calls it in this phase (the ban
- * and erasure hooks are Phase 1b). It is a new module beside roles.ts and role-settlements.ts and touches neither.
+ * Build .195: the one writer of LINK_ROLE_ID. PUT eligibility and the corrected .194 request-start boundary are unchanged.
+ * Player deletion invokes DELETE before guarded cleanup and again only after its acknowledged commit, while its exact
+ * persistent admission is still held. The core releases admission last; an uncertain role/cleanup/release outcome holds.
  *
- * It never throws. It answers { ok: true } or { ok: false, reason }, the shape link-core's promoted() reads
- * (link-core.mjs :597-610). link-core turns 'not-in-server' into "Join the Olympus Discord server first" and every other
- * failure into "Discord did not take the role change: try again in a minute" and undoes the link, so the code stays
- * usable. Upstream offers no other reason a page can show (the owner's ruling: use the closest existing value and add
- * nothing the page cannot show), so the eligibility refusals answer 'discord' and the real reason goes to the audit row.
+ * PUT checks the active privacy subject, bans, membership/blocking roles and the zero-permission role, then sends once.
+ * Its existing one-GET reconciliation is unchanged; a late/applied PUT can still leave a role without settled Link data.
+ * DELETE skips eligibility and continues when the ordinary deleteReference read fails. Returned trusted notApplied is
+ * internal evidence only: documented 400/401/403/404/405/429 (after known absence cases) or a known pre-request refusal.
+ * requestMayHaveStarted is set immediately before write(); exceptions after that boundary are never non-application.
+ * A status-less DELETE gets one diagnostic GET and remains uncertain even if absent; no automatic DELETE retry occurs.
  *
- * PUT (promote) is granted only when, in this order:
- *   1. the account is not verification-banned (members.banned) and its privacy subject is active (no privacy_subjects
- *      row, or state 'active': the house generation fence) -- one main-database read;
- *   2. the member is in GUILD_ID ('not-in-server' otherwise) and holds none of BLOCKING_ROLE_IDS -- one GET;
- *   3. LINK_ROLE_ID exists there with no permissions and is not managed (cached ten minutes per isolate, looked at again
- *      after any failed PUT) -- one GET;
- *   4. the PUT itself, with attempt=1: no sleeping retry on 429 (discord.ts rest()).
- * DELETE (demote) skips 1-3: a player's own delete is never held back by eligibility (it reads the privacy subject only
- * to fence its audit rows, and goes ahead when that read fails). A role that no longer exists
- * (404/10011) counts as removed. A call that ends without an HTTP status (timeout, abort) is reconciled with one GET of
- * the member and never sent again (the role-settlements.ts rule). DELETE remains unconfirmed even if that GET finds absence;
- * it does not prove a delayed DELETE has ended. The core retains its persistent admission guard in that case.
- * A documented terminal 400/401/403/404/405/429 instead carries internal notApplied evidence, so core may release
- * only that admission without cleanup or an automatic resend. Known pre-request DELETE refusals carry the same
- * evidence. Once write() may have started, server/transport failures remain uncertain.
- *
- * Audit rows are written only here, so only while Link is on, and carry the Discord status and code, never a message.
- * A row that names the player goes through audit()'s privacy reference (db.ts): the subject's generation is read first
- * (with the eligibility on PUT, by itself on DELETE) and the INSERT happens only while that generation is still the
- * active one, as restore.ts and dm.ts write theirs. So a retiring or erased account, or one erased meanwhile, never gets
- * a new row naming it; the 'inactive' refusal writes none at all. A fault of the server's own configuration
- * (link.role_misconfigured) names no player.
+ * The first returned notApplied may release the exact admission without cleanup. After acknowledged cleanup, a second
+ * notApplied may release it and report data-deleted/press-again; unknown second outcomes keep it with truthful held text.
+ * Core promoted() normalizes returned failures and absorbs thrown adapter errors. The inherited PUT catch can itself
+ * reject if a gate accessor throws; no stronger Never-throws claim, status endpoint, recovery or new audit data is added.
  */
 import type { Env } from './env';
 import { audit, type PrivacyReference } from './db';
@@ -187,7 +169,7 @@ async function write(env: Env, method: 'PUT' | 'DELETE', discordId: string, ref:
   }
 }
 
-/** Grant (PUT) or remove (DELETE) the Olympus Link role. Never throws. */
+/** Grant (PUT) or remove (DELETE); core promoted() absorbs adapter rejection. */
 export async function linkRole(env: Env, method: 'PUT' | 'DELETE', discordId: string): Promise<LinkRoleResult> {
   let ref: PrivacyReference | null = null;
   let requestMayHaveStarted = false;

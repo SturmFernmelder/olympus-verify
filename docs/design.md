@@ -1956,11 +1956,14 @@ backend-key rotation, but is linkable for known Discord ids and is not the ordin
 `n` carries a cryptographically random 52-bit ownership token; `until` is admission bookkeeping, not an expiry.
 Prune excludes the namespace, there is no TTL takeover, and an uncertain outcome can retain the row indefinitely.
 The final release matches its key, token and admission time and follows definitive role removal and acknowledged
-guarded cleanup, or a trusted definite nonapplication of .194's first DELETE without running cleanup. Only the
-returned internal `notApplied: true` result from DELETE HTTP 400, 401, 403, 404, 405 or 429 permits that second path,
+guarded cleanup, or a trusted definite nonapplication of .194's first DELETE without running cleanup. Known
+pre-request refusals and a returned internal `notApplied: true` result from DELETE HTTP 400, 401, 403, 404, 405 or
+429 permit that second path,
 after specific 404 absence cases are handled. It releases once, keeps Link data unchanged and returns the existing
-`discord` failure without automatic retry; an unconfirmed release returns held `server` instead. The signal is never
-accepted from a thrown error. Transport errors, 5xx, unlisted statuses such as 408, bare false and uncertain
+`discord` failure without automatic retry; an unconfirmed release returns held `server` instead. Core never trusts
+the signal on a thrown error. The adapter itself returns known nonapplication for a caught pre-request failure
+before its write-start boundary; a caught failure after that boundary remains uncertain. Transport errors, 5xx,
+unlisted statuses such as 408, bare false and uncertain
 acquisition/cleanup remain held; there is no blanket 4xx exemption. Lost
 release acknowledgement can follow a committed release, but the old request does no further role or cleanup work.
 
@@ -2001,7 +2004,7 @@ requestMayHaveStarted boundary is set immediately before the write helper; pre-b
 nonapplication, while post-boundary uncertainty remains held. Exact final release preserves data and permits only
 a later explicit request, never an automatic retry. Ordinary privacy-reference read failure is caught and still
 sends DELETE. These direct captured-projection compositions are separate from normal OFF/held route admission,
-which never enters core. The previous1d48 qualification remains historical; changed bytes need new qualification.
+which never enters core. The previous 1d48 qualification remains historical; changed bytes need new qualification.
 
 22 October, hosted quota correction: review of `5127536bee445f75209e66b9a3fc02dce1b39ef6` found that concurrent
 `issueCode` calls could all pass the two quota SELECTs before unconditional insertion. A bounded local SQLite probe
@@ -2018,3 +2021,116 @@ rolls the transaction back and retains the original bounded collision retry. Seq
 and concurrent requests may still issue distinct codes within the cap. This changes no quota value, clock, schema,
 configuration or deletion-admission rule. It needs new affected exact-head tests and genuine review; this entry
 does not assert those gates passed. Link remains OFF and all retained activation/privacy/recovery blockers remain.
+
+### Historical .195 baseline carried from 0ff5c85 (not the corrected-parent qualification)
+
+The following .195 narrative and its test results describe the old branch ending at
+`14e02bc5e56e2a44c0e959a3ab77c4f4a85e5fe0` / tree `ac45c98997a4d439b62bb0d12a482294d0b80335`,
+parent `0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05`. It predates the account admission and quota corrections.
+Its behavioral descriptions are historical where the corrected-parent integration below supersedes them.
+They do not qualify the changed source, and neither its passes nor its diagnostic failures are transferred.
+
+*Historical supersession note from the pre-P5 .195 branch.* This paragraph referred to the first three .194
+hosted-review entries at 0ff5c85, not the later account-admission and quota corrections. "Any pending claim keeps all cleanup
+data" now holds only while the claim could still be in flight, and "Unresolved pending data ... needs keeper review" is
+replaced by that bound and the owner's read-only query in `docs/olympus-link.md`. The direct-reference and
+same-account prune descriptions were already superseded within .194 by the last entry (prune keeps every pending
+marker). The guarded deletion did not by itself close the orphan role it targeted; .195's second removal does.
+
+## Worker .195 historical baseline — Olympus Link deletion and race fixes, OFF source (22 October 2026)
+
+The verified review of the .194 head (0ff5c85b) found that one stuck pending marker refused the player's own Delete my
+link forever, that a role PUT landing between the first removal and the guarded batch survived a `forgotten` answer,
+and that a lost race for a new character was held pending instead of answering linked-elsewhere. .195 keeps the design
+and narrows each rule to what the evidence supports, still as count-guarded generator patches over Daniel's unmodified
+file. A marker blocks deletion only while its code could still be claimed or awaiting its role: `examine` stops
+accepting a code at `exp + DELIVERY_GRACE` and a claim's request ends within minutes, so the guard counts it until one
+hour after that (STUCK), at most about eight days after issue; a marker a member references is still never pruned on
+its own, because that would make the pending member count as settled. The player's delete removes the role, deletes
+under the guard, then removes the role again once the batch's commit is acknowledged: the batch deleted every code the
+account had, so only a code issued after it can start a claim (a whole new link that finishes before that removal
+keeps its record without the role, which a fresh code or the next press repairs), and any proof that settled or was
+undone before the batch already had its Discord answer. Deleting first and removing once was rejected, since a Discord
+outage would then delete the rows and keep the role. A race lost to another account is made definite
+(`ON CONFLICT(character) DO NOTHING`, and undo releases a new character's code when no member row holds it and the
+account holds none for the character), while an unknown record-batch result stays held, as Codex's policy requires. The
+page's answer lists use the authority checks' settled test; the deletion's report is read inside its own transaction.
+No reason value, schema, setting or route changes, and Link still ships OFF; Phase 1b and the owner's Phase 2 remain
+the activation gates.
+
+Review round 1 of .195 (same build) found that a race lost to the account's own other code, or an owned snapshot that
+moved before its CAS, still held the code until the deletion bound. Such a link wrote no member row, and a code is
+released only once nothing can roll back to it, so no row holds or can restore its code: undo now releases it on that
+alone (`wroteNothing`, P4.20 to P4.22) and the answer follows the character's holder, linked-elsewhere for another
+account and otherwise upstream's "send it again"; a failed promotion keeps the destination guards. The pending-deletion
+refusal now names its real bound (about eight days after issue, not an hour), and the docs state the residuals the
+review confirmed: an unconfirmed deletion runs no second removal (running it there too is an open decision), a
+concurrent proof can still log one audit line after a completed delete, and a refused press keeps the account's live
+keys.
+
+Review round 2 of .195 (same build, no behaviour change) corrected two statements of round 1. The audit lines after a
+completed delete are not one: any of the account's old links sent through the page later is logged too, and a second
+press removes only the lines sent by the account itself; another account's paste is logged under that account's id
+and goes with its delete, the Phase 1b prune after 90 days or a keeper's hand. And passing the bound changes nothing on the proof
+path: a held link answers `server` until its request settles it or a deletion removes its code, and prune keeps it.
+New checks pin both and the bound on the audit-trail and council-key deletions.
+
+## Worker .195 corrected-parent design — admission held through the second removal (23 October 2026 UTC)
+
+This entry supersedes current-behavior claims in the historical .195 section above, not its evidence. The old sealed
+14e02bc/ac45 source descends from 0ff5c85 and contains neither P5 nor P6. The new integration starts from actual
+corrected .194 squash `9baf5b6d49a0aa6cdd3301c4da5758dcd76e6d39` / tree
+`fcbace7d0e6d364bf4895d6baba6f857ffd223f2`; its resulting head/tree/scope, tests, signatures and hosted/live gates
+must be requalified. No new .195 result or deployment is asserted by this design note.
+
+A mechanical merge at the old gone.ok seam would put P5's release before .195's second DELETE. That would let a
+new proof claim after release, then remove its role with the second DELETE: the same linked-without-role class as
+the confirmed .194 review. The combined order is therefore exact admission → first removal → acknowledged cleanup
+→ second removal under that same guard → final exact-owner release. Unknown cleanup runs no second removal;
+uncertain second removal keeps admission. A trusted definite second-removal nonapplication may release and say data
+was deleted but the role removal failed, permitting only a later explicit request. Under held admission, the old
+"next press removes it" statement is false and is not recovery advice.
+
+Only deletion's pending test is bounded: `used = 0 AND exp >= live` with one captured
+`live = Math.floor(t) - LINK.DELIVERY_GRACE - 3600` used at admission, cause classification and all cleanup writes.
+Equality still refuses. The ten-result cleanup transaction reads pending/ownership state and its character/key
+report, then runs seven guarded mutations with codes last. All eight ownership predicates include the initial
+result; report reads are not mutations. Proof/authority/listing settled tests stay unbounded, pending prune retention
+stays intact, and old .195's definite lost-race undo merges with exact claim exclusion and one-snapshot
+classification. checkProof remains unwired and must not be exposed as an already/status answer without the player
+path's settled/admission revalidation. P6's atomic issuance/counter transaction remains unchanged.
+
+The pending-code bound assumes the original request does not outlive its extra hour. Request deadlines support
+that operational allowance but do not prove all external work ended. A persistent P5 guard instead denotes a DELETE
+whose effect may still be unknown; absence observed by GET cannot exclude a queued DELETE that later strips a new
+role. No established end or owner-approved bound exists for that operation, so this integration does not give its
+guard the pending marker's age allowance. This is a conservative asymmetry, not closure of L1: an isolate death or
+uncertain admission/cleanup/second-removal/release may indefinitely block the account, and no implemented or
+qualified recovery exists. New-code advice cannot help; a landed removal may leave linked data without its role,
+and isolate death plus raw forget may leave the role and the guard. Account-copy/privacy/erasure/recovery and
+availability treatment remain activation blockers. Lost acknowledgement after committed release is not proof of
+lockout, and release is always the last possible operation. No TTL, takeover or reclaim is authorized.
+
+The current guide also corrects Claude's L4/N1/N6/N7/N8 documentation findings. The rolling quota counts stored rows,
+not all historically issued codes; deletion does not reset the first-code-anchored counter, and five codes can fit
+across counter boundaries in one rolling 86,400 seconds while each counter window charges no more than three.
+An unseen committed code can consume a charge; reuse requires the same username with more than 12 hours left.
+The upstream forgotten words omit main-database link.* audit rows and possible later Link audits/concurrent codes.
+They are not an erasure guarantee. Pre-request adapter nonapplication is known before the request-may-have-started
+boundary; core never trusts notApplied on a thrown error. First-removal comments describe that first removal only;
+the second is after cleanup. Old spacing typos are corrected without moving any qualification onto changed bytes.
+
+All original 11 findings and partial-F2/old-doc history, old .195 13 nits/N3 charge consumption, raw forget, refused
+live-key retention, late audits and upstream text limitations remain disclosed with their original attribution.
+L5's late PUT and applied-502 cases were reproduced on .194 and remain unresolved; no new .195 reproduction or
+reconcile job is claimed. L6's production D1 changes()/meta.changes assumption remains locally supported but reasoned
+at production scope. L7's complete ownership tests must land before any recovery. The old .195 header-bound
+28 PASS / 4 FAIL and 14-note run and Claude's separate exact-235 26 PASS / 6 FAIL and 14 notes both had diagnostic
+exit 0; neither means all assertions passed or qualifies a new head. The original assertions, revised retention
+expectations, failure/deadline history and scope of each peer's review remain immutable.
+
+C1–C5 and R1–R12 remain the qualification contract. Link OFF, LINK_ENABLED absent and LINK_DB untouched are required;
+Phase 1b R3/R4/R5/R7/R14/R15, L1/L2/L3/L5/L6/L7 activation conditions and owner Phase 2 remain open. No provider smoke,
+recovery/schema protocol, activation or real role/key/proof action follows from OFF acceptance. The required affected
+source/test/Workerd/identity/hosted checks, genuine final-head Claude/Codex signatures and ordinary merge/live gates
+are recorded only when actually completed on the resulting source; none is inferred from this documentation edit.
