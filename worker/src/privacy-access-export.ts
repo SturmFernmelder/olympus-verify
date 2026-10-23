@@ -8,7 +8,7 @@ import './qr-phase1-data';
 import './privacy-access-data';
 import './ruleset-publication-data';
 import './site-news';
-import { communityDataNames, communityExportPlan } from './community-context';
+import { communityDataNames, communityExportPlan, communityPackedExportPlan } from './community-context';
 import { appOut, apiJson, type AppRow } from './site-core';
 import { bnetFresh } from './bnet-retention';
 import { secondsToIso } from './community-time';
@@ -35,8 +35,10 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  const {grant,collection,cursor}=await privacyAccessExportFormAction(request,env),id=grant.subject;
  if(collection!=='copy')return exportPrivacyHistory(env,grant,collection,cursor);
  const marker=await privacySubjectKey(env,id);
- const expected=['refs','directory','events','trials','restrictions','departures','contributions','news','event_delivery','event_reminders','privacy_access','councillor_verification','ruleset_publication'].sort();
- if(JSON.stringify(communityDataNames().slice().sort())!==JSON.stringify(expected)||communityExportPlan(env,id).statements.length!==36)throw new FormError('privacy_catalog_unqualified',503);
+ const expected=['refs','directory','events','trials','restrictions','departures','contributions','news','event_delivery','event_reminders','privacy_access','councillor_verification','ruleset_publication','discord_directory_visibility','news_webhook'].sort();
+ if(JSON.stringify(communityDataNames().slice().sort())!==JSON.stringify(expected)||communityExportPlan(env,id).statements.length!==39)throw new FormError('privacy_catalog_unqualified',503);
+ const selected=communityPackedExportPlan(env,id,['discord_directory_visibility','news_webhook']);
+ if(selected.statements.length!==1)throw new FormError('privacy_catalog_unqualified',503);
  const prepared=await Promise.all(PRIVACY_COPY_HISTORY_COLLECTIONS.map(c=>preparePrivacyHistory(env,grant,c,null,limit)));
  // Four base and four community singleton slots. Every preview has count + 26-row sentinel cap.
  const scalar=[
@@ -49,21 +51,24 @@ export async function exportPrivacyAccess(request:Request,env:Env):Promise<Respo
  privacyBoundedScalarStatement(env,id,'SELECT ref,created_at FROM community_refs WHERE discord_id=?1',["ref","created_at"]),
  privacyBoundedScalarStatement(env,id,'SELECT opened_at,retain_until,renewed_at,renewal_reason FROM community_restriction_periods WHERE discord_id=?1',["opened_at","retain_until","renewed_at","renewal_reason"]),
  ];
- let results:D1Result[];try{results=await env.DB.batch([...privacyAccessActionStatements(env,grant),env.DB.prepare('SELECT '+PRIVACY_ACCESS_NOW+' AS at'),...scalar,...prepared.flatMap(p=>p.statements),privacyBoundedScalarStatement(env,id,PRIVACY_SUBJECT_COPY_SQL,PRIVACY_SUBJECT_COPY_FIELDS),rejectionSummaryStatement(env,id,marker),privacyAccessConsumedReadFence(env,grant)]);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
+ // Original slots0..89 stay fixed; one packed own metadata slot90 is appended before
+ // the same consumed-grant fence. No extra read or writer transaction occurs.
+ let results:D1Result[];try{results=await env.DB.batch([...privacyAccessActionStatements(env,grant),env.DB.prepare('SELECT '+PRIVACY_ACCESS_NOW+' AS at'),...scalar,...prepared.flatMap(p=>p.statements),privacyBoundedScalarStatement(env,id,PRIVACY_SUBJECT_COPY_SQL,PRIVACY_SUBJECT_COPY_FIELDS),rejectionSummaryStatement(env,id,marker),...selected.statements,privacyAccessConsumedReadFence(env,grant)]);}catch{throw new FormError('privacy_copy_unconfirmed',503);}
  if(results[88]!.results.length>1)throw new FormError('privacy_copy_unconfirmed',503);
  const at=(results[3]?.results[0] as {at?:unknown}|undefined)?.at;
- if(results.length!==91||(results.at(-1)?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||typeof at!=='number'||!Number.isSafeInteger(at)||at<=0||at>=grant.expiresAt||scalar.some((_,i)=>results[4+i]!.results.length>1))throw new FormError('privacy_copy_unconfirmed',503);
+ if(results.length!==92||(results.at(-1)?.results[0] as {admitted?:unknown}|undefined)?.admitted!==1||typeof at!=='number'||!Number.isSafeInteger(at)||at<=0||at>=grant.expiresAt||scalar.some((_,i)=>results[4+i]!.results.length>1))throw new FormError('privacy_copy_unconfirmed',503);
  const histories=Object.fromEntries(await Promise.all(PRIVACY_COPY_HISTORY_COLLECTIONS.map(async(c,i)=>[c,await finishPrivacyHistory(env,grant,c,prepared[i]!,at,results[12+2*i]!.results[0] as Rec|undefined,results[13+2*i]!.results)]))) as Record<PrivacyCopyHistoryCollection,Awaited<ReturnType<typeof finishPrivacyHistory>>>;
  const entries=(c:PrivacyCopyHistoryCollection)=>histories[c].entries;
  const container=(c:PrivacyCopyHistoryCollection,rows=entries(c))=>({complete:histories[c].capture.complete,total:histories[c].capture.count,limit,rows});
  const a=results[4]!.results[0] as Rec|undefined,m=results[6]!.results[0] as Rec|undefined,p=results[9]!.results[0] as Rec|undefined,w=results[11]!.results[0] as Rec|undefined;
  const community:Record<string,Rec>={refs:{ref:(results[8]!.results[0] as Rec|undefined)?.ref??null,createdAt:results[8]!.results[0]?ownCopyDate((results[8]!.results[0] as Rec).created_at):null},directory:{ref:p?.ref??(results[10]!.results[0] as Rec|undefined)?.ref??null,revision:p?.revision??0,listed:p?.listed===1,createdAt:p?ownCopyDate(p.created_at):null,updatedAt:p?ownCopyDate(p.updated_at):null,departedAt:p?ownCopyDate(p.departed_at,true):null,main:p?.main_name!=null?{name:p.main_name,source:p.main_source,updatedAt:iso(p.main_updated_at)}:null,raidRole:p?.raid_role!=null?{value:p.raid_role,updatedAt:iso(p.role_updated_at)}:null},restrictions:{watchListPeriod:w?{openedAt:iso(w.opened_at),retainUntil:iso(w.retain_until),renewedAt:iso(w.renewed_at),renewalReason:w.renewal_reason}:null},contributions:{note:'Who observed or recorded a payment, payer names as written in the source, source identifiers and unmatched evidence are not included.'}};
+ Object.assign(community,selected.shape(results.slice(90,91)));
  const contributionRows=entries('contributionDecisions').map(r=>({action:r.action,at:Date.parse(r.at as string)/1000,guildScope:r.guildScope,retainUntil:r.retainUntil,own_subject:r.relation==='subject'||r.relation==='both'?1:0,own_actor:r.relation==='actor'||r.relation==='both'?1:0}));
  const body:Rec={generatedAt:secondsToIso(at),identity:{discordId:id,authority:'fresh_identify_only',expiresAt:secondsToIso(grant.expiresAt)},
  coverage:{kind:'curated_partial',ownAccountOnly:true,completeErasure:false,pageLimit:limit,storeInventory:accountDataCoverage('identify'),
  excluded:['staff notes/reasons/identities','raw roster snapshots','private payment details','provider logs and pointers','short-lived authentication secrets and OAuth codes','external Discord posts/connections','private recovery backups and the separately minimized independent birth/rejection replay companion','local watcher/game/download copies'],
  histories:Object.fromEntries(PRIVACY_COPY_HISTORY_COLLECTIONS.map(c=>[c,{collection:c,currentCursor:histories[c].currentCursor,nextCursor:histories[c].nextCursor,capture:histories[c].capture}])),
- continuation:'All 38 selected lists have a count and a preview of at most 25 entries. Save nextCursor to continue, or currentCursor to read again from the same range position. Reconnect Discord at /privacy/access, select the exact collection and paste its cursor; a separate history page contains at most 1,000 entries. Every page needs a fresh twelve-minute identify-only grant. The original retained range and twenty-four-hour deadline never extend; a changed range refuses continuation. Three extra collection-only histories are available separately: historical Battle.net character labels, original-generation roster intents and current setting updater metadata. They are not in this aggregate file. New privacy inbox requests are disabled.'},
+ continuation:'The 38 selected history lists each have a count and a preview of at most 25 entries. The separate current webhook-metadata list has an exact retained count and at most 1,000 entries, with explicit complete/truncated flags; remaining webhook records need attended review and have no history cursor. Save nextCursor to continue, or currentCursor to read again from the same range position. Reconnect Discord at /privacy/access, select the exact collection and paste its cursor; a separate history page contains at most 1,000 entries. Every page needs a fresh twelve-minute identify-only grant. The original retained range and twenty-four-hour deadline never extend; a changed range refuses continuation. Three extra collection-only histories are available separately: historical Battle.net character labels, original-generation roster intents and current setting updater metadata. They are not in this aggregate file. New privacy inbox requests are disabled.'},
  about:'Selected retained records about your own Discord account were read together in one database transaction at generatedAt. A missing website account is shown as null. Complete flags concern the selected retained range only. Histories use a fixed numeric native order, not an immutable content snapshot or proof of download, erasure or every external copy.',
  account:a?{discordId:a.discord_id,username:a.username,displayName:a.global_name,nickname:a.nick,avatar:a.avatar,accountCreated:iso(a.account_created),joinedServer:iso(a.server_joined),firstSignIn:iso(a.first_login),lastSignIn:iso(a.last_login),lastMembershipCheck:iso(a.checked_at),inServer:a.in_server===1,denied:a.denied===1,deniedAt:iso(a.denied_at)}:null,
  site:{application:application(results[5]!.results[0] as AppRow|undefined)},

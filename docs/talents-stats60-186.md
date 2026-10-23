@@ -55,7 +55,8 @@ both rows share by talent rank (.193): a rank change on the same modifier shows 
   Sta 1, Int 2, Spi 2). The ten Skyborne pairs have no values at all (grade U).
 - Classic stored attributes already include racial bonuses (CMaNGOS Player.cpp:2832), so percentage racial attribute
   traits such as The Human Spirit are listed but not applied again. For Gnomes the sheet also shows that Classic
-  Intellect may be about 5% high for Forever, because Forever's Expansive Mind is +5% maximum mana, rage or energy.
+  Intellect may be about 5% high for Forever, because Forever's Expansive Mind is +5% maximum mana, rage or energy;
+  the all-classes table repeats that note in its caption whenever Gnome is its chosen race (.196).
 
 HolyMinMax data from client 1.60.1.70009 (Champion of the Light 33/66/100 with healing, sword/mace racial crit) is
 superseded in 70425/70450 and is not used.
@@ -107,7 +108,9 @@ talent contributions list, an SVG diverging bar chart of the current build again
 (two panels: percent change for attributes and resources, percentage points for chances) with an equivalent data table,
 a spec comparison table (no talents, current build and each checked guide build of the class) and an "About these
 numbers" disclosure. Charts use `createElementNS` and presentation attributes only; chart rows are not tab stops,
-because the data table carries the same values. Tables restack below 560px so a 320px screen has no horizontal scroll.
+because the data table carries the same values. Tables restack below 560px so a 320px screen has no horizontal scroll
+(the two .196 sortable tables scroll inside their own labelled region instead, so the page itself never scrolls
+sideways).
 The site CSP (`script-src 'self'`, `style-src 'self'`) is unchanged.
 
 Loading is optional and independent: `app.js` passes a lazy `loadStats60` loader that is called only when the section
@@ -117,6 +120,55 @@ defining its global, resolves to no module and loses its cache entry, so the nex
 the script or either data file fails, the section names the sheet unavailable in an alert and the calculator keeps
 working; closing and reopening the section retries. A collapsed sheet is not repainted on point edits and catches up
 when it is opened again.
+
+## Comparison views (.196, owner item 9b)
+
+Three views follow the spec comparison inside the same section. They read only the talent snapshot and the two pinned
+data files (no new request, asset or data), use the sheet's own evaluator and grades, and depend on the selected race
+and assumptions only, so point edits never repaint them.
+
+- **Compare specs** puts the three trees of the class side by side. A reachability table lists, per tree, its stat
+  talents (every talent with a component in `stat-effects186.json`, plus Spirit Weapons, whose parry grant has no
+  published value), their points at maximum rank, prerequisites outside that set, the extra points the tier rule needs
+  and the minimum legal total under the calculator's rules (5 points per earlier row, prerequisites at maximum rank,
+  51 points at level 60). Extra points go to the lowest open row first, which gives the minimum; every tree's
+  allocation passes the calculator's own `validateBuild`, and all 27 trees are reachable in this snapshot. A second
+  table shows each tree's **upper bound**: the selected race's level-60 sheet plus every stat talent of that tree at
+  maximum rank. It is labelled as a bound on that tree's stat talents, not a recommended, checked or complete build (in
+  the caption and the paragraph above it; each column keeps a short "Not a build" note so narrow columns stay
+  readable); points in other trees are not counted. Checked guide builds stand beside the tree that holds most of their
+  points (beside each tied tree on a tie), and a tree without one says so (Priest and Shaman have none); a guide build
+  whose ranks cannot be evaluated reads Unavailable (U), never 0. Brackets show the change against no talents with the
+  existing spec comparison rule; where a total is Unavailable the change stays in modifier terms and its own grade is
+  named in the cell note. That is the rule of the sheet's Talents column and the existing spec comparison; the chart is
+  narrower: for Health with both totals Unavailable it says Unavailable even when one percentage modifier changes Health
+  directly (for example the Hunter Survival bound on a Skyborne race). A table per tree lists each stat talent's row and
+  required points, prerequisite, stat, kind, per-rank values, maximum-rank value and data grade.
+- **Stat impact by talent** (HolyMinMax style) lists every stat component of the class in all three trees, at maximum
+  rank and on its own, with the change it makes on the selected race's sheet (the same isolated-effect rule and grades
+  as the contributions list; modifier terms on Skyborne). Conditional talents show what they would add when their
+  assumption holds; scoped, proc, throughput and gear effects are listed and never added. The table sorts by talent,
+  tree, stat, kind, maximum-rank value, change (the talent's own row) or data grade; text sorts alphabetically in
+  English, ignoring case. A data grade badge names the stat file's own grade legend (A: a DB2 trait curve equals the
+  rank text; B: a semantic reading of client data), and Classic-reference parts of a change are greyed.
+- **All classes** shows one naked level-60 character per class for a race chosen in its own control: no talents, no
+  gear, no assumptions, with the race's applied racial traits (the sheet's Total column with no talents), 18 columns
+  with grades, labelled like the sheet's rows (so melee crit is the Agility part and modifiers: Human Ruthless and Orc
+  Savage are in it). A class the race cannot be reads "Not available for this race"; Skyborne values stay Unavailable
+  with grade U. The caption repeats the data file's own race and base notes for the chosen race (Gnome: Classic
+  Intellect may be about 5% high for Forever while Expansive Mind is applied to mana). Every column sorts; disputed
+  values sort by their lowest candidate and missing values always sort last.
+
+Honesty limits: nothing in these views was measured in WoW Forever (the views quote the data file's measurement
+protocol status, "not started"); base values stay Classic references (E) or estimates (D) and are greyed; an upper
+bound is not a build, a recommendation or a tuning claim, and talents in different trees can add more than any one
+tree's bound. Sorting by maximum value or change compares like with like only within one stat. The two sortable tables
+scroll sideways inside a labelled, keyboard-focusable region (native sort buttons in the column headers, `aria-sort`
+on the active one); the other new tables restack below 560px like the sheet. The views reuse the sheet's classes and the
+site's existing `table-wrap` and `table.data` styles; one line of `calculator.css`, scoped to `.talents-stats60`, keeps
+the two sortable tables' captions in view while they scroll (sticky, as wide as the scroll region), pins their row
+headers (class or talent name, with the header cell above them) and lets their column headers wrap, and greys
+Classic-reference parts of a change.
 
 ## Files and gates
 
@@ -128,8 +180,10 @@ when it is opened again.
   they use.
 - Tests: `worker/tests/talents_stats60_186_test.cjs` (data validation against an independent Classic fixture, worked
   examples, conditional exclusion, optional loading and retry, CSP rules, DOM rendering, chart comparisons with
-  Unavailable totals); `worker/tests/frontend169_test.cjs` (lazy loading from the talent route and the settled retry of
-  a failed or silent `stats60.js`).
+  Unavailable totals, and the .196 views: tree reachability against the calculator's rules, upper bounds and grades,
+  the all-classes table, per-talent impact, sorting, accessible table markup and unchanged loading);
+  `worker/tests/frontend169_test.cjs` (lazy loading from the talent route and the settled retry of a failed or silent
+  `stats60.js`).
 
 ## Measurement protocol
 

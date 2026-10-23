@@ -337,8 +337,8 @@ async function legacySchemaHeld(old) {
       failed.events.error();
       guardedPictures = allowed.every(avatarUrl => { const image = helpers.discordAvatar({ avatarUrl }); return image.attributes.src === avatarUrl && image.attributes.referrerpolicy === "no-referrer" && image.attributes.alt === "" && typeof image.events.error === "function"; }) && refused.every(avatarUrl => { const image = helpers.discordAvatar({ avatarUrl }); return image.attributes.src === "/static/wow/pos-member.png" && image.attributes.referrerpolicy === "no-referrer"; }) && failed.attributes.src === "/static/wow/pos-member.png" && ownPicture.attributes.src === allowed[0] && ownPicture.attributes.referrerpolicy === "no-referrer";
     }
-    check("  .169: own chrome and authenticated recommendation pictures share the strict Discord CDN guard; board and other portraits stay local",
-      guardedPictures && !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 3 && /it\.typed \? h\("img",[^\n]+: discordAvatar\(it\)/.test(appJs) && appJs.includes('src: accountArt(c), alt: "", width: "44"') && appJs.includes('src: accountArt(p), alt: "", width: "32"') && !appJs.includes("DISCORD_SVG"));
+    check("  .196: owner-approved applicant, admin and current-directory portraits share the original strict Discord CDN guard and retain class art",
+      guardedPictures && !/src:\s*[a-z.]*avatarUrl/.test(appJs) && (appJs.match(/ownAvatar\(/g) || []).length === 3 && /it\.typed \? h\("img",[^\n]+: discordAvatar\(it\)/.test(appJs) && appJs.includes('discordAvatar(c, { class: "avatar", width: "44", height: "44", loading: "lazy" })') && appJs.includes('discordAvatar(u, { class: "av", width: "32"') && appJs.includes('discordAvatar(member, { class: "av", width: "40"') && appJs.includes("c.class ? h(\"span\", null, icon(\"class-\" + c.class, \"s\"), \" \", clsLabel(c.class)) : null") && !appJs.includes("DISCORD_SVG"));
   }
   res = await call("POST", "/interactions", { body: {} });
   check("bot routes disclose nothing on the signed-out site host", res.status === 401);
@@ -410,16 +410,27 @@ async function legacySchemaHeld(old) {
   res = await call("GET", "/admin/ranks", { who: "300000000000000001" });
   check("a member who is not a site admin: 403", res.status === 403 && !(await res.text()).includes("data-olympus-rank-planner"));
   res = await call("GET", "/admin/ranks", { who: VIKTOR });
+  check("the admitted canonical planner redirects bodylessly into the shared SPA shell", res.status === 303 && res.headers.get("Location") === "/#/admin/ranks" && (await res.text()) === "" && !res.headers.has("Set-Cookie") && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY");
+  res = await call("GET", "/admin/ranks/fragment", { who: VIKTOR });
   const planner = await res.text();
+  const plannerShell = fs.readFileSync(path.join(root, "public/static/app.js"), "utf8");
   const externalRefs = planner.replace('href="https://raw.githubusercontent.com/Gethe/wow-ui-source/forever/Interface/AddOns/Blizzard_GuildControlUI/Blizzard_GuildControlUI.lua"', "");
-  check("a site admin gets the planner, its browser draft scoped to their own id, loading only this site's files, with the page headers",
-    res.status === 200 && planner.includes(`data-draft-owner="${VIKTOR}"`) && planner.includes('src="/static/rank-planner/app.js"') && planner.includes('href="/static/rank-planner/styles.css"') &&
+  check("a site admin gets the authored planner fragment, its browser draft scoped to their own id, loading only this site's files, with the page headers",
+    res.status === 200 && planner.includes(`data-draft-owner="${VIKTOR}"`) && planner.includes('data-planner-id-prefix="rank-planner-"') && !/<(?:script|style|link)\b/i.test(planner) && ['/static/rank-planner/app.js', '/static/rank-planner/model.js', '/static/rank-planner/catalogue.js', '/static/rank-planner/styles.css'].every(p => plannerShell.includes(p)) &&
     !/\b(src|href)="https?:/.test(externalRefs) && !!res.headers.get("Content-Security-Policy") && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY", res.status);
   check("  the shipped page carries no agent-review text (the user's Rank Codex document is named as the source)", !/Claude|ChatGPT|Codex review|reviews remain/.test(planner) && planner.includes("Forever Guild Rank Codex"));
   res = await call("POST", "/admin/ranks", { who: VIKTOR, body: {} });
   check("  the planner is read-only on the server: POST is 405 with Allow", res.status === 405 && res.headers.get("Allow") === "GET, HEAD");
   res = await call("HEAD", "/admin/ranks", { who: VIKTOR });
-  check("  HEAD answers without a body", res.status === 200 && (await res.text()) === "");
+  check("  canonical HEAD redirects into the same SPA route without a body", res.status === 303 && res.headers.get("Location") === "/#/admin/ranks" && (await res.text()) === "" && !res.headers.has("Set-Cookie"));
+  res = await call("HEAD", "/admin/ranks/fragment", { who: VIKTOR });
+  check("  the actual planner fragment HEAD answers200 without a body and keeps private headers", res.status === 200 && (await res.text()) === "" && /text\/html/.test(res.headers.get("Content-Type") || "") && !!res.headers.get("Content-Security-Policy") && res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY" && !res.headers.has("Set-Cookie"));
+  res = await call("GET", "/admin/ranks/fragment");
+  check("  the fragment remains signed-out denied without any planner owner markup", res.status === 401 && !(await res.text()).includes("data-olympus-rank-planner"));
+  res = await call("GET", "/admin/ranks/fragment", { who: "300000000000000001" });
+  check("  the fragment remains denied to an ordinary member", res.status === 403 && !(await res.text()).includes("data-olympus-rank-planner"));
+  res = await call("POST", "/admin/ranks/fragment", { who: VIKTOR, body: {} });
+  check("  the fragment remains server-read-only with exact Allow", res.status === 405 && res.headers.get("Allow") === "GET, HEAD");
   for (const f of ["app.js", "catalogue.js", "model.js", "styles.css"]) {
     const txt = fs.readFileSync(path.join(root, "public", "static", "rank-planner", f), "utf8");
     check(`  rank-planner/${f} fetches nothing and stores nothing on the server`, !/\bfetch\(|XMLHttpRequest|navigator\.sendBeacon|WebSocket/.test(txt));
@@ -563,9 +574,17 @@ async function legacySchemaHeld(old) {
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
     const guided = ["co_gm", "guild_master", "officer", "recruitment", "pvp_leader", "liaison", "treasurer", "raid_leader_na", "raid_leader_eu", "raid_assist_na", "raid_assist_eu"];
-    check("  .122 rank guidance is proposed for post-beta and reaches the boot data without Captain or native Treasurer claims",
-      guided.every((k) => /^Post-beta guidance:/.test(game(k))) && ps.every((p) => !/Captain|The Treasurer rank/.test(p.info.game)) &&
-      html.includes("Post-beta guidance:") && !html.includes("In the Olympus addon you are a Captain"));
+    // Owner item5 chooses the B ladder: Council one-based2, Treasurer one-based3 (zero-based2), Officer4.
+    // These are documented recommendations/appointments; no test claims actual in-game permission application.
+    const ownerRevised = ["co_gm", "officer", "pvp_leader", "treasurer"];
+    check("  .196 owner-selected B rank guidance reaches boot data without Captain or automatic native-permission claims",
+      guided.filter(k => !ownerRevised.includes(k)).every(k => /^Post-beta guidance:/.test(game(k))) && ps.every(p => !/Captain|The Treasurer rank/.test(p.info.game)) &&
+      game("co_gm").includes("core High Council appointment alongside Guild Master and Treasurer") && game("co_gm").includes("High Council in native Slot 2") && game("co_gm").includes("Applying here grants no rank") &&
+      game("officer").includes("native Slot 4") && game("officer").includes("applying here grants no rank") &&
+      ["co_gm", "officer", "treasurer"].every(k => game(k).startsWith("Recommended post-beta placement:") && game(k).includes("not verification of the holder’s current game rank")) &&
+      game("treasurer").includes("native Slot 3 (zero-based slot 2)") && !game("treasurer").includes("Fernmelder") && game("treasurer").includes("website recommendation grants none") &&
+      game("pvp_leader").includes("planning crosswalk recommends Raid Leader (Slot 5)") && game("pvp_leader").includes("not an extra native rank") &&
+      html.includes("High Council in native Slot 2") && html.includes("native Slot 3 (zero-based slot 2)") && !html.includes("In the Olympus addon you are a Captain"));
     check("  and the page shows them as the role's \"In game\" fact", /h\("dt", \{ text: "In game" \}\)/.test(js) && /info\.game/.test(js));
   }
 
@@ -1375,7 +1394,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-22.195 Olympus Link deletion and race fixes, shipped off" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-23.196 Olympus guild hall, public PvE and community tools" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

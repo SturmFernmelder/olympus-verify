@@ -6,7 +6,7 @@ const VOID = new Set(["meta", "link", "img", "br", "input"]);
 const TAGS = new Set(["html", "head", "body", "meta", "title", "style", "link", "main", "header", "nav", "section", "h1", "h2", "h3", "p", "a", "strong", "em", "b", "code", "ul", "ol", "li", "img", "br", "span"]);
 const ATTRS = new Set(["lang", "charset", "name", "content", "class", "id", "tabindex", "aria-label", "aria-current", "href", "src", "alt", "width", "height", "rel", "style"]);
 const LINKS = new Set(["./privacy.html", "./terms.html", "/", "/legal/privacy", "/legal/terms", "#policy-content", "/static/qr-beta-window-data.html", ...["account", "signin", "contact", "access", "case"].map(x => `${CANONICAL}/privacy/${x}`)]);
-const RESOURCES = new Set(["/static/policies.css", "/static/wow-cursor.css", "/static/olympus-icon.png"]);
+const RESOURCES = new Set(["/static/policies.css", "/static/wow-cursor.css", "/static/olympus-icon.png", "/static/wow/icon-shield.png"]);
 
 export function slots(source) {
   const lines = source.split("\n"), pairs = [], stack = [];
@@ -41,15 +41,16 @@ export function validateHtml(source, { mirror = false, slotStructural = false } 
     const tag = /^<(\/?)\s*([a-z][a-z0-9-]*)([\s\S]*?)>/i.exec(source.slice(pos)); if (!tag) throw Error("malformed_tag");
     const closing = tag[1] === "/", name = tag[2].toLowerCase(), raw = tag[3]; if (!TAGS.has(name)) throw Error("forbidden_tag:" + name);
     if (closing) { if (raw.trim() || VOID.has(name) || stack.pop() !== name) throw Error("mismatched_tag"); pos += tag[0].length; continue; }
+    const iconLink = name === "link" && (raw === ' rel="icon" href="/static/wow/icon-shield.png"' || raw === ' href="/static/wow/icon-shield.png" rel="icon"');
     const seen = new Set(); let rest = raw;
     while (rest.trim()) {
       const attr = /^\s+([a-z][a-z0-9-]*)\s*=\s*"([^"<>]*)"/i.exec(rest); if (!attr) throw Error("malformed_attribute"); const k = attr[1].toLowerCase(), v = attr[2];
       if (!ATTRS.has(k) || seen.has(k) || /[\u0000-\u001f]/.test(v)) throw Error("forbidden_or_duplicate_attribute"); seen.add(k);
       if (k === "href" && !(name === "link" ? RESOURCES.has(v) : LINKS.has(v))) throw Error("undeclared_url");
-      if (k === "src" && (name !== "img" || v !== "/static/wow/icon-shield.png")) throw Error("undeclared_resource");
+      if (k === "src" && (name !== "img" || !["/static/wow/icon-shield.png", "/static/olympus-icon.png"].includes(v))) throw Error("undeclared_resource");
       if (mirror && (name === "link" || name === "img" || k === "src")) throw Error("dependent_mirror");
       if (k === "style" && v !== "margin-top:2.5rem") throw Error("undeclared_inline_style");
-      if (k === "rel" && v !== "stylesheet") throw Error("undeclared_link_relation");
+      if (k === "rel" && v !== "stylesheet" && !(v === "icon" && iconLink)) throw Error("undeclared_link_relation");
       if (name === "meta" && k === "name" && !["viewport", "color-scheme"].includes(v)) throw Error("undeclared_meta");
       rest = rest.slice(attr[0].length);
     }

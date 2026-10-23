@@ -578,15 +578,16 @@
       const d = delta(sheet[spec.id], baseSheet[spec.id]), unit = spec.unit === "%" ? " pp" : "";
       // A flat modifier is shown as its own exact value; the sheet change after percentages and Classic rounding is a separate, weaker line.
       const flat = d.modifiers.length === 1 && d.modifiers[0].kind === "flat" && d.modifiers[0].key === effect.key ? d.modifiers[0] : null;
+      // .196: each part also carries its number (null when disputed or Unavailable) so the stat impact table can sort on it.
       if (flat && num(d.value) && Math.abs(d.value - flat.value) > 1e-9) {
-        parts.push({ row: spec.id, label: spec.label, text: signed(flat.value, spec.digits) + unit + " (modifier)", grade: flat.grade });
-        parts.push({ row: spec.id, label: spec.label + " on the sheet", text: signed(d.value, spec.digits) + unit + " after percentage bonuses and Classic rounding", grade: d.grade === flat.grade ? "E" : d.grade });
-      } else if (d.cands) parts.push({ row: spec.id, label: spec.label, text: candidateText(d.cands, c => signed(c.value, spec.digits) + unit), grade: d.grade });
-      else if (num(d.value) && Math.abs(d.value) > 1e-9) parts.push({ row: spec.id, label: spec.label, text: signed(d.value, spec.digits) + unit, grade: d.grade });
-      else if (d.unavailable && modifierSummary(d.modifiers, spec.unit)) parts.push({ row: spec.id, label: spec.label, text: modifierSummary(d.modifiers, spec.unit) + " (modifier; total unavailable)", grade: weakest(d.modifiers.map(m => m.grade), stackGrade(d.modifiers)) });
+        parts.push({ row: spec.id, label: spec.label, text: signed(flat.value, spec.digits) + unit + " (modifier)", grade: flat.grade, value: flat.value });
+        parts.push({ row: spec.id, label: spec.label + " on the sheet", text: signed(d.value, spec.digits) + unit + " after percentage bonuses and Classic rounding", grade: d.grade === flat.grade ? "E" : d.grade, value: d.value });
+      } else if (d.cands) parts.push({ row: spec.id, label: spec.label, text: candidateText(d.cands, c => signed(c.value, spec.digits) + unit), grade: d.grade, value: null });
+      else if (num(d.value) && Math.abs(d.value) > 1e-9) parts.push({ row: spec.id, label: spec.label, text: signed(d.value, spec.digits) + unit, grade: d.grade, value: d.value });
+      else if (d.unavailable && modifierSummary(d.modifiers, spec.unit)) parts.push({ row: spec.id, label: spec.label, text: modifierSummary(d.modifiers, spec.unit) + " (modifier; total unavailable)", grade: weakest(d.modifiers.map(m => m.grade), stackGrade(d.modifiers)), value: null });
       else if (d.unavailable) unavailable++;
     }
-    if (unavailable) parts.push({ row: null, label: unavailable + " dependent " + (unavailable === 1 ? "total" : "totals"), text: "Unavailable (no base values)", grade: "U" });
+    if (unavailable) parts.push({ row: null, label: unavailable + " dependent " + (unavailable === 1 ? "total" : "totals"), text: "Unavailable (no base values)", grade: "U", value: null });
     return parts;
   }
   function evaluate(model, options) {
@@ -637,6 +638,193 @@
     for (const buff of toggles.buffs) assumptions.push(buff + " active (only talent changes to it are counted)");
     return { ...meta, contributions, racials, assumptions };
   }
+  // Display text for one total and one change. Moved out of mount in .196 so every view uses exactly the same rules.
+  function cellText(cell, spec) {
+    if (cell.na) return { text: "n/a", grade: null };
+    if (cell.none) return { text: "none", grade: null };
+    if (cell.cands) return { text: candidateText(cell.cands, c => fmt(c.value, spec.digits) + spec.unit), grade: cell.grade, cls: "s60-disputed" };
+    if (!num(cell.value)) return { text: "Unavailable", grade: "U" };
+    return { text: fmt(cell.value, spec.digits) + spec.unit + (cell.approximate ? " (approximate)" : ""), grade: cell.grade };
+  }
+  function deltaText(d, spec) {
+    const unit = spec.unit === "%" ? " pp" : "";
+    if (d.cands) return { text: candidateText(d.cands, c => signed(c.value, spec.digits) + unit), grade: d.grade, cls: "s60-disputed" };
+    if (num(d.value)) return Math.abs(d.value) < 1e-9 ? { text: "—", grade: null } : { text: signed(d.value, spec.digits) + unit, grade: d.grade };
+    const mods = d.unavailable ? modifierSummary(d.modifiers, spec.unit) : "";
+    if (mods) return { text: mods + " (modifier; total unavailable)", grade: weakest(d.modifiers.map(m => m.grade), stackGrade(d.modifiers)) };
+    return d.unavailable ? { text: "Unavailable", grade: "U" } : { text: "—", grade: null };
+  }
+  // The spec comparison rule: a total keeps its own grade, and its change against no talents follows in brackets (in modifier terms
+  // when the totals are Unavailable). change carries the bracket's own text and grade.
+  function compareText(total, noTalents, spec) {
+    const shown = cellText(total, spec), change = noTalents ? deltaText(delta(total, noTalents), spec) : { text: "—", grade: null };
+    if (change.text !== "—") shown.text += " (" + (change.text === "Unavailable" ? "change Unavailable" : change.text.replace(/^disputed: /, "")) + ")";
+    return { ...shown, change };
+  }
+
+  // .196 item 9b: spec, talent and class comparisons. They use only the talent snapshot and the two pinned files. Nothing below is a
+  // recommendation, a checked build, a tuning claim or a value measured in WoW Forever.
+  const POINTS_AT_60 = LEVEL - 9; // the calculator's standard level-60 point budget
+  const count = (n, one, many) => n + " " + (n === 1 ? one : many);
+  const noteOf = value => typeof value === "string" && value ? value : null;
+  const KIND_LABEL = Object.freeze({ applied: "Added to the sheet", conditional: "Conditional: added only when its assumption is on", scoped: "Scoped: never added",
+    gear: "Needs gear: adds 0 when naked", other: "Not a sheet row", proc: "Proc: never added", throughput: "Throughput: never added", withheld: "Withheld: rank text changed" });
+  const UNIT_SUFFIX = Object.freeze({ pp: " pp", pct: "%", skill: " skill", rage_per_3s: " rage every 3 s", energy: " energy", resistance: " resistance", pct_of_level: "% of level", per_level: " per level", sec: " s" });
+  // The sheet row that a component's own target lands on; the stat impact table sorts "change" by that row.
+  const TARGET_ROW = Object.freeze({ str: "str", agi: "agi", sta: "sta", int: "int", spi: "spi", health: "health", mana: "mana", max_energy: "power", max_rage: "power", armor: "armor",
+    attack_power: "meleeAP", ranged_attack_power: "rangedAP", "crit.melee": "meleeCrit", "crit.melee_ranged": "meleeCrit", "crit.melee_spell": "meleeCrit", "crit.all": "meleeCrit", "crit.spell": "spellCrit",
+    dodge: "dodge", parry: "parry", block: "block", "hit.all": "hitMelee", "hit.melee": "hitMelee", "hit.melee_ranged": "hitMelee", "hit.spell": "hitSpell", defense: "defense",
+    mana_regen_casting: "regenCasting", spell_damage: "spellDamage", healing_power: "healing", spell_power: "spellDamage" });
+  // Columns of the all-classes table. Digits and units come from each class's own sheet rows; a row a class lacks reads n/a. Labels
+  // are the sheet's own row labels (the melee crit total includes applied racial traits such as Ruthless), except the shared power column.
+  const CLASS_COLUMNS = Object.freeze([["str", "Strength"], ["agi", "Agility"], ["sta", "Stamina"], ["int", "Intellect"], ["spi", "Spirit"], ["health", "Health"], ["mana", "Mana"],
+    ["power", "Maximum rage or energy"], ["armor", "Armor"], ["meleeAP", "Melee attack power"], ["rangedAP", "Ranged attack power"], ["meleeCrit", "Melee crit % (Agility part and modifiers)"],
+    ["spellCrit", "Spell crit %"], ["dodge", "Dodge %"], ["parry", "Parry %"], ["block", "Block %"], ["defense", "Defense skill"], ["regenSpirit", "Spirit mana regen per 2 s (not casting)"]].map(([id, label]) => Object.freeze({ id, label })));
+  const talentIndex = new WeakMap();
+  function componentsByTalent(model) {
+    let map = talentIndex.get(model);
+    if (!map) { map = new Map(); for (const entry of model.components) map.set(entry.comp.talentId, [...(map.get(entry.comp.talentId) || []), entry]); talentIndex.set(model, map); }
+    return map;
+  }
+  function classData(model, className) {
+    const cls = model.data.classes.find(c => c.id === className);
+    if (!cls || !model.naked.classes[className]) throw userError("Unknown character class.");
+    return cls;
+  }
+  const zeroRanks = cls => cls.trees.flatMap(t => t.talents).map(() => 0);
+  const requiresName = (tree, talent) => talent.requires ? (tree.talents.find(p => p.id === talent.requires) || {}).name || null : null;
+  // Talents of one tree with a stat component, plus a parry grant that changes a sheet row without a published value.
+  function statTalents(model, cls, tree) {
+    const index = componentsByTalent(model);
+    return tree.talents.filter(t => (index.get(t.id) || []).some(e => e.comp.cls === cls.id) || PARRY_GRANTS.includes(t.id));
+  }
+  // The fewest points that hold every wanted talent at maximum rank under the calculator's rules: a talent in row r needs 5 x (r - 1)
+  // points in earlier rows of its tree, and a prerequisite must be at maximum rank. Extra points go to the lowest open row first; for any
+  // total that maximises every row's earlier-row count, so the first legal total is the minimum. A reachability fact, not a suggestion.
+  function treeRequirement(tree, wanted) {
+    const byId = new Map(tree.talents.map(t => [t.id, t])), role = new Map();
+    for (const id of wanted) if (byId.has(id)) role.set(id, "stat");
+    for (const id of [...role.keys()]) for (let t = byId.get(byId.get(id).requires); t && !role.has(t.id); t = byId.get(t.requires)) role.set(t.id, "prerequisite");
+    const ranks = new Map(tree.talents.map(t => [t.id, role.has(t.id) ? t.maxRank : 0]));
+    const earlier = row => tree.talents.reduce((sum, t) => sum + (t.row < row ? ranks.get(t.id) : 0), 0);
+    const open = t => earlier(t.row) >= 5 * (t.row - 1);
+    const unlocked = t => { if (!t.requires) return true; const prior = byId.get(t.requires); return !!prior && ranks.get(prior.id) === prior.maxRank; };
+    const blocked = () => tree.talents.filter(t => ranks.get(t.id) > 0 && !open(t)).sort((a, b) => a.row - b.row)[0];
+    let filler = 0, legal = true;
+    for (let stuck = blocked(); stuck; stuck = blocked()) {
+      const next = tree.talents.filter(t => !role.has(t.id) && ranks.get(t.id) < t.maxRank && open(t) && unlocked(t)).sort((a, b) => a.row - b.row || a.column - b.column)[0];
+      if (!next || next.row >= stuck.row) { legal = false; break; }
+      ranks.set(next.id, ranks.get(next.id) + 1); filler++;
+    }
+    const points = kind => tree.talents.reduce((sum, t) => sum + (role.get(t.id) === kind ? t.maxRank : 0), 0);
+    const statPoints = points("stat"), prerequisitePoints = points("prerequisite"), minimum = legal ? statPoints + prerequisitePoints + filler : null;
+    return { statPoints, prerequisitePoints, fillerPoints: legal ? filler : null, minimum, legal, reachable: legal && minimum <= POINTS_AT_60,
+      prerequisites: tree.talents.filter(t => role.get(t.id) === "prerequisite").map(t => ({ id: t.id, name: t.name, maxRank: t.maxRank })), ranks };
+  }
+  // The trees holding most of a build's points (every tied tree; none for an empty build): checked guide builds stand beside them.
+  function mainTrees(cls, ranks) {
+    let offset = 0;
+    const sums = cls.trees.map(tree => { const sum = ranks.slice(offset, offset + tree.talents.length).reduce((a, b) => a + b, 0); offset += tree.talents.length; return sum; });
+    const best = Math.max(...sums);
+    return best > 0 ? sums.flatMap((sum, index) => sum === best ? [index] : []) : [];
+  }
+  function specOverview(model, className, guides) {
+    const cls = classData(model, className), all = cls.trees.flatMap(t => t.talents);
+    const checked = (Array.isArray(guides) ? guides : []).filter(g => g && typeof g.id === "string" && typeof g.label === "string" && g.build && g.build.className === className && Array.isArray(g.build.ranks) && g.build.ranks.length === all.length);
+    return cls.trees.map((tree, index) => {
+      const talents = statTalents(model, cls, tree), need = treeRequirement(tree, talents.map(t => t.id)), chosen = new Set(talents);
+      return { id: tree.id, name: tree.name, index, budget: POINTS_AT_60,
+        talents: talents.map(t => ({ id: t.id, name: t.name, row: t.row, maxRank: t.maxRank, pointsNeeded: 5 * (t.row - 1), requires: requiresName(tree, t) })),
+        statPoints: need.statPoints, prerequisitePoints: need.prerequisitePoints, fillerPoints: need.fillerPoints, minimum: need.minimum, legal: need.legal, reachable: need.reachable,
+        prerequisites: need.prerequisites, upperRanks: all.map(t => chosen.has(t) ? t.maxRank : 0), witnessRanks: all.map(t => need.ranks.get(t.id) || 0),
+        guides: checked.map(g => ({ g, main: mainTrees(cls, g.build.ranks) })).filter(x => x.main.includes(index)).map(x => ({ id: x.g.id, label: x.g.label, tied: x.main.length > 1 })) };
+    });
+  }
+  // Each tree's upper bound: the race's level-60 sheet plus every stat talent of that tree at maximum rank, through the same evaluator
+  // and grades as the sheet. It bounds that tree's stat talents only; it is not a build.
+  function specComparison(model, options) {
+    const className = options && options.className, cls = classData(model, className);
+    const none = evaluate(model, { className, race: options.race, ranks: zeroRanks(cls), toggles: options.toggles, totalsOnly: true });
+    const trees = specOverview(model, className, options.guides).map(tree => ({ ...tree, outcome: evaluate(model, { className, race: none.race, ranks: tree.upperRanks, toggles: none.toggles, totalsOnly: true }) }));
+    return { className, race: none.race, raceLabel: none.raceLabel, classLabel: none.classLabel, toggles: none.toggles, specs: none.specs, none, trees };
+  }
+  function rankSeries(comp) {
+    const unit = comp.unit === "pct_of_stat" ? "% of " + (STAT_LABEL[comp.sourceStat] || comp.sourceStat) : Object.hasOwn(UNIT_SUFFIX, comp.unit) ? UNIT_SUFFIX[comp.unit] : " " + String(comp.unit).replace(/_/g, " ");
+    return comp.values.map(v => fmt(v)).join(" / ") + unit;
+  }
+  // HolyMinMax-style rows: every stat component of the class, at maximum rank and alone, on the selected race's sheet.
+  function impactRows(model, options) {
+    const className = options && options.className, cls = classData(model, className);
+    const meta = evaluate(model, { className, race: options.race, ranks: zeroRanks(cls), toggles: options.toggles, totalsOnly: true });
+    const ctx = { className, combo: meta.combo, toggles: meta.toggles, parryGranted: false };
+    const baseEffects = [...formEffects(model, className, meta.toggles), ...racialEffects(model, className, meta.combo, meta.toggles).applied];
+    const place = id => { const entry = model.talents.get(id); return { tree: entry.tree.name, treeIndex: cls.trees.indexOf(entry.tree), index: entry.index, row: entry.talent.row, pointsNeeded: 5 * (entry.talent.row - 1), requires: requiresName(entry.tree, entry.talent) }; };
+    const rows = [];
+    for (const entry of model.components) {
+      const comp = entry.comp, at = model.talents.get(comp.talentId);
+      if (comp.cls !== className || !at || at.cls !== className) continue;
+      const base = { id: comp.id, talentId: comp.talentId, name: comp.name, ...place(comp.talentId), maxRank: comp.maxRank, tier: comp.tier, grade: comp.grade, target: comp.target,
+        stat: capital(TARGET_LABEL[comp.target] || String(comp.target).replace(/[._]/g, " ")), perRank: rankSeries(comp), conditions: comp.conditions.map(conditionText) };
+      if (!entry.verified) { rows.push({ ...base, group: "withheld", kind: KIND_LABEL.withheld, atMax: "Rank text changed since review; number withheld.", maxValue: null, effects: [], sortValue: null }); continue; }
+      const verdict = classify(comp, meta.toggles), effect = effectOf(comp, comp.maxRank), extra = { direction: comp.direction, statBasis: comp.statBasis, sourceStat: comp.sourceStat, procEffect: comp.procEffect };
+      const effects = verdict.group === "applied" || verdict.group === "conditional" || (verdict.group === "gear" && verdict.toggleable) ? isolatedEffect(model, ctx, baseEffects, comp, effect, meta.specs) : [];
+      const own = effects.find(p => p.row === TARGET_ROW[comp.target] && num(p.value)) || effects.find(p => num(p.value));
+      rows.push({ ...base, group: verdict.group, kind: KIND_LABEL[verdict.group] + (verdict.assumed ? " (your assumption is on)" : ""), atMax: modifierText(comp.op, comp.target, effect.value, comp.unit, extra),
+        maxValue: effect.value, effects, sortValue: own ? own.value : null });
+    }
+    for (const id of PARRY_GRANTS) {
+      const entry = model.talents.get(id);
+      if (!entry || entry.cls !== className) continue;
+      rows.push({ id: id + "#parry_grant", talentId: id, name: entry.talent.name, ...place(id), maxRank: entry.talent.maxRank, tier: "A", grade: "U", target: "parry", stat: capital(TARGET_LABEL.parry),
+        perRank: "not published", conditions: [], group: "applied", kind: "Grants parry; its value is not published", atMax: "Grants the ability to parry; the parry chance it gives is not published",
+        maxValue: null, effects: [{ row: "parry", label: "Parry %", text: "Unavailable (value not published)", grade: "U", value: null }], sortValue: null });
+    }
+    return { className, race: meta.race, raceLabel: meta.raceLabel, classLabel: meta.classLabel, toggles: meta.toggles, rows };
+  }
+  // One naked level-60 character per class for one race: no talents, no gear, no assumptions; applied racial traits included (the
+  // sheet's Total column with no talents). Classes the race cannot be are marked, never filled in. The data's own race and base
+  // notes travel with the table (Gnome: Classic Intellect may be about 5% high for Forever).
+  function classTable(model, raceId) {
+    const race = Object.hasOwn(model.naked.races, raceId) ? model.naked.races[raceId] : null;
+    if (!race) throw userError("Unknown race.");
+    return { race: raceId, raceLabel: race.name, note: noteOf(race.note), columns: CLASS_COLUMNS, rows: CLASS_IDS.map((className, order) => {
+      const label = model.naked.classes[className].name;
+      if (!race.classes.includes(className)) return { className, label, order, available: false, grade: null, note: null, cells: null };
+      const result = evaluate(model, { className, race: raceId, ranks: zeroRanks(classData(model, className)), toggles: emptyToggles(), totalsOnly: true }), specs = new Map(result.specs.map(s => [s.id, s]));
+      return { className, label, order, available: true, grade: result.combo.baseStats.grade, note: noteOf(result.combo.baseStats.note) || noteOf(race.note),
+        cells: Object.fromEntries(CLASS_COLUMNS.map(col => [col.id, specs.has(col.id) ? { cell: result.sheets.total[col.id], spec: specs.get(col.id) } : null])) };
+    }) };
+  }
+  // Sort keys. A disputed value sorts by its lowest candidate; Unavailable, n/a and "not available" have no key.
+  function classSortValue(row, key) {
+    if (key === "class") return row.label;
+    const entry = row.available ? row.cells[key] : null, cell = entry && entry.cell;
+    if (!cell || cell.na || cell.none) return null;
+    return num(cell.value) ? cell.value : cell.cands ? Math.min(...cell.cands.map(c => c.value)) : null;
+  }
+  function impactSortValue(row, key) {
+    switch (key) {
+      case "talent": return row.name;
+      case "tree": return row.treeIndex * 1000 + row.index;
+      case "stat": return row.stat;
+      case "kind": return row.kind;
+      case "max": return row.maxValue;
+      case "change": return row.sortValue;
+      case "grade": return Object.hasOwn(GRADE_ORDER, row.grade) ? GRADE_ORDER[row.grade] : null;
+      default: return null;
+    }
+  }
+  // Stable sort; a missing key (Unavailable, n/a, not available) always sorts last, in either direction. Text compares
+  // alphabetically in English, ignoring case, so the order does not depend on the viewer's locale.
+  const COLLATOR = typeof Intl === "object" && typeof Intl.Collator === "function" ? new Intl.Collator("en", { sensitivity: "base" }) : null;
+  function sortRows(items, valueOf, direction) {
+    const sign = direction === "descending" ? -1 : 1, missing = v => v === null || v === undefined || (typeof v === "number" && !Number.isFinite(v));
+    return items.map((item, i) => ({ item, i, v: valueOf(item) })).sort((a, b) => {
+      if (missing(a.v) || missing(b.v)) return missing(a.v) === missing(b.v) ? a.i - b.i : missing(a.v) ? 1 : -1;
+      const order = COLLATOR && typeof a.v === "string" && typeof b.v === "string" ? COLLATOR.compare(a.v, b.v) : a.v < b.v ? -1 : a.v > b.v ? 1 : 0;
+      return order ? sign * order : a.i - b.i;
+    }).map(x => x.item);
+  }
 
   async function fetchJSON(fetcher, url) {
     const response = await fetcher(url, { credentials: "same-origin" });
@@ -654,7 +842,8 @@
     if (!container || !container.ownerDocument || typeof container.appendChild !== "function") throw Error("A container is required for the level-60 sheet.");
     const doc = container.ownerDocument;
     let dead = false, build = ctx.build, model = null, ui = null, shownBuild = "", contribKey = "", outcomeCache = new Map();
-    const state = { race: "", toggles: emptyToggles(), reference: "none" };
+    // .196: the all-classes race and both table sort orders survive a class change.
+    const state = { race: "", toggles: emptyToggles(), reference: "none", allRace: "", sorts: { impact: { key: "tree", direction: "ascending" }, classes: { key: "class", direction: "ascending" } } };
     // Table roles keep row/cell semantics when narrow screens restack the cells with CSS.
     const TABLE_ROLE = { table: "table", thead: "rowgroup", tbody: "rowgroup", tr: "row", td: "cell" };
     const el = (tag, attrs, ...children) => {
@@ -696,31 +885,20 @@
     });
     const gradeLabel = grade => (model && model.naked.grades[grade] && (model.naked.grades[grade].label || model.naked.grades[grade].meaning)) || GRADE_FALLBACK[grade] || grade;
     const isReference = grade => grade === "E" || grade === "D";
-    function badge(node, grade) { node.textContent = grade; node.className = "s60-grade s60-grade-" + grade; node.setAttribute("title", "Grade " + grade + ": " + gradeLabel(grade)); node.hidden = false; }
-    function valueCell(label) {
+    // A talent component's data grade is named by the stat file's own legend (A: a DB2 trait curve equals the rank text), not by the
+    // sheet legend, whose A also covers in-game measurements that have not been made.
+    const componentLabel = grade => model && model.effects.grades && typeof model.effects.grades[grade] === "string" && model.effects.grades[grade] ? model.effects.grades[grade] : null;
+    function badge(node, grade, legend) { node.textContent = grade; node.className = "s60-grade s60-grade-" + grade; node.setAttribute("title", "Grade " + grade + ": " + (legend || gradeLabel(grade))); node.hidden = false; }
+    function valueCell(label, extra) {
       const value = el("span", { class: "s60-value" }), mark = el("abbr", { class: "s60-grade", hidden: true }), note = el("span", { class: "s60-cell-note", hidden: true });
-      return { td: el("td", { "data-label": label }, value, " ", mark, note), value, badge: mark, note };
+      // Only a class name string is kept, so a stray argument (such as an Array.map index) never becomes a class.
+      return { td: el("td", { "data-label": label }, value, " ", mark, note), value, badge: mark, note, extra: typeof extra === "string" ? extra : "" };
     }
     function setCell(ref, shown, note) {
       ref.value.textContent = shown.text;
-      ref.td.className = "s60-cell" + (isReference(shown.grade) ? " s60-ref" : "") + (shown.grade === "U" ? " s60-unavailable" : "") + (shown.cls ? " " + shown.cls : "");
+      ref.td.className = "s60-cell" + (ref.extra ? " " + ref.extra : "") + (isReference(shown.grade) ? " s60-ref" : "") + (shown.grade === "U" ? " s60-unavailable" : "") + (shown.cls ? " " + shown.cls : "");
       if (shown.grade) badge(ref.badge, shown.grade); else { ref.badge.hidden = true; ref.badge.textContent = ""; }
       ref.note.hidden = !note; ref.note.textContent = note || "";
-    }
-    function cellText(cell, spec) {
-      if (cell.na) return { text: "n/a", grade: null };
-      if (cell.none) return { text: "none", grade: null };
-      if (cell.cands) return { text: candidateText(cell.cands, c => fmt(c.value, spec.digits) + spec.unit), grade: cell.grade, cls: "s60-disputed" };
-      if (!num(cell.value)) return { text: "Unavailable", grade: "U" };
-      return { text: fmt(cell.value, spec.digits) + spec.unit + (cell.approximate ? " (approximate)" : ""), grade: cell.grade };
-    }
-    function deltaText(d, spec) {
-      const unit = spec.unit === "%" ? " pp" : "";
-      if (d.cands) return { text: candidateText(d.cands, c => signed(c.value, spec.digits) + unit), grade: d.grade, cls: "s60-disputed" };
-      if (num(d.value)) return Math.abs(d.value) < 1e-9 ? { text: "—", grade: null } : { text: signed(d.value, spec.digits) + unit, grade: d.grade };
-      const mods = d.unavailable ? modifierSummary(d.modifiers, spec.unit) : "";
-      if (mods) return { text: mods + " (modifier; total unavailable)", grade: weakest(d.modifiers.map(m => m.grade), stackGrade(d.modifiers)) };
-      return d.unavailable ? { text: "Unavailable", grade: "U" } : { text: "—", grade: null };
     }
     function construct() {
       root.replaceChildren(status); shownBuild = ""; contribKey = ""; outcomeCache = new Map();
@@ -778,7 +956,7 @@
       table.append(refs.caption, el("thead", null, el("tr", null, headers.map(text => el("th", { scope: "col", text })))));
       const body = el("tbody");
       for (const spec of specs) {
-        const cells = headers.slice(1).map(valueCell);
+        const cells = headers.slice(1).map(label => valueCell(label));
         body.appendChild(el("tr", { "data-row": spec.id }, el("th", { scope: "row" }, el("span", { class: "s60-row-label", text: spec.label }), spec.note ? el("span", { class: "s60-row-note", text: spec.note }) : null), cells.map(c => c.td)));
         refs.rows.set(spec.id, { spec, cells });
       }
@@ -826,6 +1004,8 @@
         refs.compare.set(spec.id, { spec, cells });
       }
       root.append(...[el("h3", { text: "Spec comparison" }), guides.length ? null : el("p", { class: "s60-small", text: "No checked guide build is available for this class in this snapshot; the table compares the current build with no talents." }), el("div", { class: "s60-table-wrap" }, compare)].filter(Boolean));
+      // (g)-(i) .196 item 9b: compare specs, stat impact by talent and all classes. They depend on race and assumptions, never on the build.
+      constructViews(refs, className, guides, specs);
       // (f) About these numbers: provenance and the measurement call to action, text only.
       const sources = model.naked.sources.filter(s => s.title).map(s => el("li", { text: s.title + (s.url ? " — " + s.url : "") + (s.grade ? " (grade " + s.grade + ")" : "") }));
       root.appendChild(el("details", { class: "s60-about" }, el("summary", { text: "About these numbers" }),
@@ -880,6 +1060,7 @@
       }
       renderChart(result, outcomes.get(state.reference) || outcomes.get("none"));
       renderCompare(outcomes);
+      paintViews(result, fixed);
       shownBuild = buildKey(build); // only a completed paint lets an identical update be skipped
     }
     function renderContributions(result) {
@@ -1005,11 +1186,165 @@
         setCell(ref.cells[i], shown, "");
       });
     }
+    // .196 item 9b views. Sort controls are native buttons inside the column headers, so Tab, Enter and Space work without extra
+    // handlers; aria-sort on the header names the current order. Wide tables scroll inside a focusable, labelled region.
+    const GRADE_NOTE = { E: "Base: Classic reference (E)", D: "Base: estimate from Classic data (D)", U: "Base: Unavailable (U)" };
+    const scroller = (label, table) => el("div", { class: "table-wrap", role: "region", tabindex: "0", "aria-label": label }, table);
+    function sorter(name, onChange) {
+      const sort = state.sorts[name], heads = [];
+      return {
+        head(key, label) {
+          const mark = el("span", { class: "s60-sort-mark", "aria-hidden": "true" });
+          const button = el("button", { type: "button", class: "s60-sort", onclick() {
+            sort.direction = sort.key === key && sort.direction === "ascending" ? "descending" : "ascending"; sort.key = key;
+            try { onChange(); } catch (error) { report(publicMessage(error, "This table could not be sorted.")); }
+          } }, el("span", { text: label }), " ", mark);
+          const th = el("th", { scope: "col", "aria-sort": "none" }, button);
+          heads.push({ key, th, mark });
+          return th;
+        },
+        order(items, valueOf) {
+          for (const h of heads) { const on = h.key === sort.key; h.th.setAttribute("aria-sort", on ? sort.direction : "none"); h.mark.textContent = on ? (sort.direction === "ascending" ? "▲" : "▼") : ""; }
+          return sortRows(items, item => valueOf(item, sort.key), sort.direction);
+        }
+      };
+    }
+    function gradeCell(grade, label) { const mark = el("abbr"); badge(mark, grade, componentLabel(grade)); return el("td", { "data-label": label, class: "s60-cell" + (isReference(grade) ? " s60-ref" : "") }, mark); }
+    const needsText = r => "Row " + r.row + (r.pointsNeeded ? ", " + r.pointsNeeded + " points in earlier rows" : ", no earlier points") + (r.requires ? "; requires " + r.requires + " at maximum rank" : "");
+    const maxText = r => r.atMax + (r.conditions.length ? " — " + listWords(r.conditions, "and") : "");
+    function changeCell(r) {
+      const td = el("td", { class: "wrap", "data-label": "Change on the sheet, alone" });
+      if (!r.effects.length) td.appendChild(el("span", { class: "s60-small", text: r.group === "withheld" ? "Number withheld" : r.group === "applied" ? "No change on this sheet" : "Not added to the sheet" }));
+      else if (r.group !== "applied") td.appendChild(el("span", { class: "s60-small", text: "Would add when its assumption holds: " }));
+      for (const part of r.effects) { const mark = el("abbr"); badge(mark, part.grade); td.appendChild(el("span", { class: "s60-effects" + (isReference(part.grade) ? " s60-ref" : "") }, part.label + " " + part.text + " ", mark)); }
+      return td;
+    }
+    function constructViews(refs, className, guides, specs) {
+      const overview = specOverview(model, className, guides), protocol = model.naked.measurementProtocol, measured = protocol && typeof protocol.status === "string" ? protocol.status : "";
+      const honesty = "Nothing here was measured in WoW Forever" + (measured ? " (in-game measurement protocol: " + measured + ")" : "") + ": grey values are Classic references or estimates from them, not Forever-verified, and Unavailable is never shown as 0.";
+      const views = refs.views = { key: "", classKey: "", specRows: new Map(), specColumns: [], trees: [], impact: [], classes: [] };
+      // (g) Compare specs: a reachability check, each tree's upper bound beside its checked guide builds, and each tree's stat talents.
+      const reach = tree => tree.reachable ? "Yes" : tree.legal ? "No: needs " + tree.minimum : "No: too few points below its top row";
+      const checkTable = el("table", { class: "s60-table s60-tree-check" });
+      checkTable.append(el("caption", { text: "What each tree's stat talents need at maximum rank under this snapshot's tier and prerequisite rules (" + POINTS_AT_60 + " points at level 60). A reachability check, not a recommendation." }),
+        el("thead", null, el("tr", null, ["Tree", "Stat talents", "Points at maximum rank", "Prerequisites outside the set", "Extra points for tier requirements", "Minimum legal total", "Within " + POINTS_AT_60 + " points", "Checked guide builds"].map(text => el("th", { scope: "col", text })))),
+        el("tbody", null, overview.map(tree => el("tr", { "data-tree": tree.id }, el("th", { scope: "row", text: tree.name }),
+          [["Stat talents", String(tree.talents.length)], ["Points at maximum rank", String(tree.statPoints)],
+            ["Prerequisites outside the set", tree.prerequisites.length ? tree.prerequisites.map(p => p.name + " " + p.maxRank + "/" + p.maxRank).join(", ") + " (" + tree.prerequisitePoints + (tree.prerequisitePoints === 1 ? " point)" : " points)") : "none"],
+            ["Extra points for tier requirements", tree.legal ? String(tree.fillerPoints) : "Unavailable"], ["Minimum legal total", tree.legal ? String(tree.minimum) : "Unavailable"],
+            ["Within " + POINTS_AT_60 + " points", reach(tree)], ["Checked guide builds", tree.guides.length ? tree.guides.map(g => g.label).join("; ") : "None in this snapshot"]]
+            .map(([label, text]) => el("td", { "data-label": label, text }))))));
+      const columns = [{ id: "none", kind: "none", label: "No talents", note: "The race's level-60 sheet without talent points" }];
+      for (const tree of overview) {
+        // Kept short so narrow columns stay readable; the caption and the paragraph above carry the full "not a recommended or checked build" wording.
+        columns.push({ id: "tree:" + tree.id, kind: "tree", tree, label: tree.name + ": upper bound",
+          note: (tree.talents.length === 1 ? "The only stat talent" : "All " + tree.talents.length + " stat talents") + " at maximum rank, " + count(tree.statPoints, "point", "points") + "; "
+            + (tree.reachable ? "reachable, minimum legal total " + tree.minimum : "not reachable within " + POINTS_AT_60) + ". Not a build." + (tree.guides.length ? "" : " No checked guide build for this tree.") });
+        for (const guide of tree.guides) columns.push({ id: guide.id, kind: "guide", tree, label: guide.label, note: "Checked guide build; most of its points are in " + tree.name + (guide.tied ? " (tied with another tree)" : "") });
+      }
+      views.specColumns = columns;
+      const specTable = el("table", { class: "s60-table s60-specs" }), specBody = el("tbody");
+      views.specCaption = el("caption");
+      specTable.append(views.specCaption, el("thead", null, el("tr", null, el("th", { scope: "col", text: "Stat" }), columns.map(c => el("th", { scope: "col" }, el("span", { text: c.label }), el("span", { class: "s60-row-note", text: c.note }))))), specBody);
+      for (const spec of specs) {
+        const cells = columns.map(c => valueCell(c.label));
+        specBody.appendChild(el("tr", { "data-spec-row": spec.id }, el("th", { scope: "row", text: spec.label }), cells.map(c => c.td)));
+        views.specRows.set(spec.id, { spec, cells });
+      }
+      views.trees = overview.map(tree => {
+        const body = el("tbody"), table = el("table", { class: "s60-table s60-tree-talents", "data-tree": tree.id });
+        table.append(el("caption", { text: tree.name + ": " + count(tree.talents.length, "talent", "talents") + " with a stat component, " + count(tree.statPoints, "point", "points") + " at maximum rank" }),
+          el("thead", null, el("tr", null, ["Talent", "Needs", "Stat", "Kind", "Per rank", "At maximum rank", "Data grade"].map(text => el("th", { scope: "col", text })))), body);
+        return { tree, body, table };
+      });
+      root.append(el("h3", { text: "Compare specs" }),
+        el("p", { class: "s60-small", text: "The three trees of this class side by side. Each tree lists every talent with a stat component in the pinned stat file. Its upper bound adds all of them at maximum rank to the selected race's level-60 sheet with the selected assumptions: it bounds what that tree's stat talents can add and is not a recommended, checked or complete build, and points in the other trees are not counted. Checked guide builds stand beside the tree that holds most of their points. " + honesty }),
+        el("div", { class: "s60-table-wrap" }, checkTable), el("div", { class: "s60-table-wrap" }, specTable),
+        el("h4", { text: "Stat talents in each tree" }), ...views.trees.map(t => el("div", { class: "s60-table-wrap" }, t.table)));
+      // (h) Stat impact by talent (HolyMinMax style), sortable.
+      views.impactSort = sorter("impact", orderImpact);
+      const impactTable = el("table", { class: "data s60-impact" });
+      views.impactCaption = el("caption"); views.impactBody = el("tbody");
+      impactTable.append(views.impactCaption, el("thead", null, el("tr", null, views.impactSort.head("talent", "Talent"), views.impactSort.head("tree", "Tree"), views.impactSort.head("stat", "Stat"), views.impactSort.head("kind", "Kind"),
+        el("th", { scope: "col", text: "Per rank" }), views.impactSort.head("max", "At maximum rank"), views.impactSort.head("change", "Change on the sheet, alone"), views.impactSort.head("grade", "Data grade"))), views.impactBody);
+      root.append(el("h3", { text: "Stat impact by talent" }),
+        el("p", { class: "s60-small", text: "Every talent of this class with a stat component, in all three trees, at maximum rank and on its own, against the selected race's level-60 sheet with the selected assumptions. A conditional talent shows what it would add when its assumption holds; scoped, proc, throughput and gear effects are listed and never added. Units differ between rows, so sorting by maximum or by change compares like with like only within one stat; values that are Unavailable or not added sort last." }),
+        scroller("Stat impact by talent, scrollable table", impactTable));
+      // (i) All classes for one race, sortable.
+      if (!Object.hasOwn(model.naked.races, state.allRace)) state.allRace = state.race;
+      const allRace = el("select", { "aria-label": "Race for the all-classes table", onchange() { state.allRace = allRace.value; paintClasses(); } },
+        Object.entries(model.naked.races).map(([id, race]) => el("option", { value: id, text: race.name })));
+      allRace.value = state.allRace;
+      views.classSort = sorter("classes", orderClasses);
+      const classTableNode = el("table", { class: "data s60-classes" });
+      views.classCaption = el("caption"); views.classBody = el("tbody");
+      classTableNode.append(views.classCaption, el("thead", null, el("tr", null, views.classSort.head("class", "Class"), CLASS_COLUMNS.map(col => views.classSort.head(col.id, col.label)))), views.classBody);
+      root.append(el("h3", { text: "All classes" }),
+        el("p", { class: "s60-small", text: "One naked level-60 character of every class for the chosen race: no talents, no gear and no assumptions; the race's applied racial traits are included, as in the sheet's Total column with no talents. Base attributes are Classic references (E) or estimates derived from them (D), and Skyborne has none (Unavailable). Parry 0% means the class cannot parry and block 0% means no shield is equipped (Classic references); n/a means the class has no such value. Disputed values sort by their lowest candidate. " + honesty }),
+        el("div", { class: "s60-controls" }, el("label", { class: "s60-field" }, el("span", { text: "Race for the all-classes table" }), allRace)),
+        scroller("All classes, scrollable table", classTableNode));
+    }
+    function paintViews(result, fixed) {
+      const views = ui.views, key = result.race + "|" + JSON.stringify(result.toggles);
+      if (views && views.key !== key) {
+        try {
+          const comparison = specComparison(model, { className: result.className, race: result.race, toggles: result.toggles, guides: ui.guides }), none = comparison.none;
+          const impact = impactRows(model, { className: result.className, race: result.race, toggles: result.toggles });
+          const where = "Level 60 " + result.raceLabel + " " + result.classLabel + (result.assumptions.length ? " with your hypothetical assumptions" : ", no gear, nothing active");
+          views.specCaption.textContent = where + ": each tree's stat talents at maximum rank (an upper bound only, not a recommended or checked build) beside the checked guide builds; brackets show the change against no talents.";
+          for (const [id, ref] of views.specRows) views.specColumns.forEach((column, i) => {
+            const outcome = column.kind === "none" ? none : column.kind === "tree" ? comparison.trees[column.tree.index].outcome : fixed.get(column.id);
+            if (!outcome) { setCell(ref.cells[i], { text: "Unavailable", grade: "U" }, ""); return; }
+            if (column.kind === "none") { setCell(ref.cells[i], cellText(none.sheets.total[id], ref.spec), ""); return; }
+            const shown = compareText(outcome.sheets.total[id], none.sheets.total[id], ref.spec);
+            // A change in modifier terms under an Unavailable total keeps its own grade, named in the cell note.
+            setCell(ref.cells[i], shown, shown.grade === "U" && shown.change.grade && shown.change.grade !== "U" ? "Change in modifier terms: grade " + shown.change.grade : "");
+          });
+          for (const t of views.trees) {
+            const rows = impact.rows.filter(r => r.treeIndex === t.tree.index).sort((a, b) => a.index - b.index);
+            t.body.replaceChildren(...rows.map(r => el("tr", { "data-component": r.id }, el("th", { scope: "row" }, el("span", { class: "s60-row-label", text: r.name }), el("span", { class: "s60-row-note", text: r.maxRank + (r.maxRank === 1 ? " rank" : " ranks") })),
+              el("td", { "data-label": "Needs", text: needsText(r) }), el("td", { "data-label": "Stat", text: r.stat }), el("td", { "data-label": "Kind", text: r.kind }),
+              el("td", { "data-label": "Per rank", text: r.perRank }), el("td", { "data-label": "At maximum rank", text: maxText(r) }), gradeCell(r.grade, "Data grade"))));
+          }
+          views.impactCaption.textContent = where + ": " + count(impact.rows.length, "stat component", "stat components") + " in " + count(new Set(impact.rows.map(r => r.talentId)).size, "talent", "talents") + ", each at maximum rank and alone.";
+          views.impact = impact.rows.map(r => ({ row: r, tr: el("tr", { "data-component": r.id }, el("th", { scope: "row", text: r.name }), el("td", { "data-label": "Tree", text: r.tree }),
+            el("td", { "data-label": "Stat", text: r.stat }), el("td", { class: "wrap", "data-label": "Kind", text: r.kind }), el("td", { "data-label": "Per rank", text: r.perRank }),
+            el("td", { class: "wrap", "data-label": "At maximum rank", text: maxText(r) }), changeCell(r), gradeCell(r.grade, "Data grade")) }));
+          orderImpact();
+          views.key = key;
+        } catch (error) { views.key = ""; report(publicMessage(error, "The spec, talent and class comparisons could not be computed.")); }
+      }
+      paintClasses();
+    }
+    function orderImpact() { const views = ui && ui.views; if (views) views.impactBody.replaceChildren(...views.impactSort.order(views.impact, (item, key) => impactSortValue(item.row, key)).map(item => item.tr)); }
+    function paintClasses() {
+      const views = ui && ui.views;
+      if (!views || views.classKey === state.allRace) return;
+      try {
+        const table = classTable(model, state.allRace);
+        // The data's race and base notes, each once, stay with the table whatever the sheet's own race and the sort order.
+        const notes = [...new Set([table.note, ...table.rows.map(r => r.note)].filter(Boolean))];
+        views.classCaption.textContent = "Level 60 " + table.raceLabel + ", every class: no talents, no gear, no assumptions." + notes.map(n => " " + n).join("");
+        views.classes = table.rows.map(row => {
+          if (!row.available) return { row, tr: el("tr", { "data-class": row.className }, el("th", { scope: "row", text: row.label }), el("td", { colspan: String(CLASS_COLUMNS.length), "data-label": "Availability", text: "Not available for this race" })) };
+          const cells = CLASS_COLUMNS.map(col => {
+            const entry = row.cells[col.id], ref = valueCell(col.label, entry && entry.cell.cands ? "wrap" : "");
+            setCell(ref, entry ? cellText(entry.cell, entry.spec) : { text: "n/a", grade: null }, "");
+            return ref.td;
+          });
+          return { row, tr: el("tr", { "data-class": row.className }, el("th", { scope: "row" }, el("span", { class: "s60-row-label", text: row.label }), el("span", { class: "s60-row-note", text: GRADE_NOTE[row.grade] || "" })), cells) };
+        });
+        views.classKey = state.allRace;
+        orderClasses();
+      } catch (error) { views.classKey = ""; report(publicMessage(error, "The all-classes table could not be computed.")); }
+    }
+    function orderClasses() { const views = ui && ui.views; if (views) views.classBody.replaceChildren(...views.classSort.order(views.classes, (item, key) => classSortValue(item.row, key)).map(item => item.tr)); }
     return {
       ready,
       update(next) { if (dead || !next) return; build = next; if (model && !(ui && ui.className === next.className && buildKey(next) === shownBuild)) render(); },
       destroy() { if (dead) return; dead = true; if (typeof root.remove === "function") root.remove(); else if (root.parentNode) root.parentNode.removeChild(root); }
     };
   }
-  return Object.freeze({ urls: Object.freeze({ naked: NAKED_URL, effects: EFFECTS_URL }), sha256, validateNaked, validateEffects, prepare, combosFor, evaluate, conditionText, modifierText, format: fmt, weakest, mount });
+  return Object.freeze({ urls: Object.freeze({ naked: NAKED_URL, effects: EFFECTS_URL }), sha256, validateNaked, validateEffects, prepare, combosFor, evaluate, conditionText, modifierText, format: fmt, weakest,
+    pointsAt60: POINTS_AT_60, treeRequirement, specOverview, specComparison, impactRows, classTable, classColumns: CLASS_COLUMNS, classSortValue, impactSortValue, sortRows, cellText, deltaText, compareText, mount });
 });

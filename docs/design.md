@@ -2134,3 +2134,12 @@ Phase 1b R3/R4/R5/R7/R14/R15, L1/L2/L3/L5/L6/L7 activation conditions and owner 
 recovery/schema protocol, activation or real role/key/proof action follows from OFF acceptance. The required affected
 source/test/Workerd/identity/hosted checks, genuine final-head Claude/Codex signatures and ordinary merge/live gates
 are recorded only when actually completed on the resulting source; none is inferred from this documentation edit.
+
+
+## 23 October 2026 — public PvE and Treasurer recommendation successor
+
+The owner's 23 October 2026 follow-up chooses B: Guild Master, High Council, Treasurer, Officer, Raid Leader, Veteran, Raider, Member, Alt and Initiate. High Council is Slot 2, Treasurer Slot 3 (zero-based index 2), Officer Slot 4; Officer Alt remains a historical label. Guild Master, Co-Guild Master and Treasurer are the core Council offices. Co-GM remains an appointment, with High Council Slot 2 recommended for native placement. Existing live ranks, all historical arrays and signer/reset contracts remain unchanged; the distinct new whole-ladder privileged mapping remains OFF.
+
+The public_direction ruleset is PVE - Alliance with no claimed live realm. The exact old beta profile is exported separately for signed observations. The five activation rows and any activated private full-release profile still fail closed. OFFICE_APPOINTMENTS is a generated immutable display-key catalogue:95 ordinal offices,25 legacy ballot aliases and10 native labels, with explicit non-applied placement metadata. Extended appointments do not become ballots or expand noVote. A new named Treasurer native mapping cannot reuse the old Council mapping or enroll a signer; privileged mapping remains unqualified.
+
+The R7 rulebook gains a current Royal Codex supplement with complete unexecuted instruments, member/officer guides, voluntary cosmetic Treasury tiers and operational boundaries. Historical PDF downloads are not relabelled as containing new content. The existing contribution ledger remains the receipt system. The chosen cosmetic schedule is Tithe Payer 25g+, Patron of the Treasury 100g+ and Benefactor of Olympus 500g+ per ninety-day season, for additional in-game gold mailed to Fernmelder with a TITHE reference. Source policy alone dispatches no roles. Publishing the policy makes no real payment receipt, bank permission, Council warrant or Discord effect.

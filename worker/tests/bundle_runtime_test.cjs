@@ -194,6 +194,9 @@ function splitFixtureSchema(source) {
           LEGACY_DB: { type: "d1", id: "runtime-legacy-db" },
           ASSETS: { type: "assets" },
           PUBLIC_BASE_URL: text("https://verify.example"), SITE_HOST: text("guild.example"), SITE_LEGACY_HOSTS: text("old.example"),
+          // Explicit synthetic publisher-available world for these original positive runtime cases.
+          // This does not qualify a shipped exporter, provider origin or any production setting.
+          ARMY_SITE_AGGREGATE_ENABLED: text("true"),
           SITE_GUILD_ID: text("236932545793490944"), SITE_ADMINS: text("472099715253796864"),
           GUILD_ID: text("1549537348516188200"), DISCORD_APP_ID: text("1550176895671341076"), DISCORD_PUBLIC_KEY: text(publicKeyHex),
           DISCORD_BOT_TOKEN: text("bot-token-for-tests"), DISCORD_CLIENT_SECRET: text("client-secret-for-tests"),
@@ -355,23 +358,32 @@ function splitFixtureSchema(source) {
     check("anonymous Army API refuses aggregate delivery",armyEmpty.status===401&&armyEmptyBody.error==='signed_out'&&!Object.hasOwn(armyEmptyBody,'snapshots'),armyEmpty.status);
     const armyCSS=await get("https://guild.example/static/army-live/army.css");
     check("anonymous Army reader assets are refused before storage delivery",armyCSS.status===401&&/application\/json/.test(armyCSS.headers.get('Content-Type')||''),armyCSS.status);
-    const armyAssetPaths=['/static/army-live/army.css','/static/army-live/army.js','/static/army-live/protocol.js','/static/army-live/olympus-army-addon-0.2.0.zip'];
-    for(const method of ['GET','HEAD'])for(const pathname of ['/army','/army/report','/api/army',...armyAssetPaths,'/static/army-live/report.js','/static/army-live/pilot.js','/static/army-live/decoder.js']){
+    const armyAssetPaths=['/static/army-live/army.css','/static/army-live/army.js','/static/army-live/protocol.js','/static/army-live/sanitized-export.js'];
+    const armyReporterAssetPaths=['/static/army-live/report.js','/static/army-live/savedvariables-import.js'];
+    const retiredArmyZip='/static/army-live/olympus-army-addon-0.2.0.zip';
+    for(const method of ['GET','HEAD'])for(const pathname of ['/army','/army/report','/army/report/fragment','/api/army',...armyAssetPaths,retiredArmyZip,...armyReporterAssetPaths,'/static/army-live/pilot.js','/static/army-live/decoder.js']){
       const refused=await get('https://guild.example'+pathname,{method,headers:{'User-Agent':'Googlebot',Cookie:'__Host-olg=untrusted'}}),body=await refused.text();
       check('real Workerd refuses unauthenticated '+method+' '+pathname+' with private cookie-dependent headers',refused.status===401&&refused.headers.get('Cache-Control')==='private, no-store, no-transform'&&refused.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||body==='')&&!body.includes('id="army-results"')&&!body.includes('OlympusArmyReport'),refused.status);
     }
     for(const method of ['GET','HEAD']){
-      const reader=await get('https://guild.example/army',{method,headers:{Cookie:cookie}}),body=await reader.text();
-      check('ordinary original-cookie '+method+' reader remains available without Admin promotion',reader.status===200&&reader.headers.get('Cache-Control')==='private, no-store, no-transform'&&reader.headers.get('Vary')==='Cookie'&&(method==='HEAD'?body==='':body.includes('id="army-results"')),reader.status);
+      const reader=await get('https://guild.example/army',{method,redirect:'manual',headers:{Cookie:cookie}}),body=await reader.text();
+      check('ordinary original-cookie '+method+' reader enters the shared Army SPA without Admin promotion',reader.status===302&&reader.headers.get('Location')==='/#/army'&&reader.headers.get('Cache-Control')==='private, no-store, no-transform'&&reader.headers.get('Vary')==='Cookie'&&body==='',reader.status);
       const counts=await get('https://guild.example/api/army',{method,headers:{Cookie:cookie}}),text=await counts.text();
       check('ordinary original-cookie '+method+' aggregate API remains available',counts.status===200&&counts.headers.get('Cache-Control')==='private, no-store, no-transform'&&counts.headers.get('Vary')==='Cookie'&&(method==='HEAD'?text==='':JSON.parse(text).snapshots.length===0),counts.status);
       for(const pathname of armyAssetPaths){const asset=await get('https://guild.example'+pathname,{method,headers:{Cookie:cookie}});check('ordinary original-cookie '+method+' '+pathname+' is privately delivered',asset.status===200&&asset.headers.get('Cache-Control')==='private, no-store, no-transform'&&asset.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await asset.text()===''),asset.status);}
+      const retired=await get('https://guild.example'+retiredArmyZip,{method,headers:{Cookie:cookie}}),retiredBody=await retired.text();
+      check('ordinary original-cookie '+method+' standalone Army ZIP is explicitly retired',retired.status===410&&retired.headers.get('Cache-Control')==='private, no-store, no-transform'&&retired.headers.get('Vary')==='Cookie'&&(method==='HEAD'?retiredBody==='':JSON.parse(retiredBody).error==='standalone_army_addon_retired'),retired.status);
+      for(const pathname of ['/army/report','/army/report/fragment',...armyReporterAssetPaths]){const refused=await get('https://guild.example'+pathname,{method,headers:{Cookie:cookie}}),refusedBody=await refused.text();check('ordinary reader '+method+' cannot become an Army publisher through '+pathname,refused.status===403&&!refused.headers.has('Location')&&refused.headers.get('Cache-Control')==='private, no-store, no-transform'&&refused.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||refusedBody==='')&&!refusedBody.includes('id="report-publish"'),refused.status);}
     }
     const noArmy=await get("https://guild.example/api/army/reporter");
     check("anonymous reporter access remains refused",noArmy.status===401,noArmy.status);
-    const armyReporter=await get("https://guild.example/army/report",{headers:{Cookie:adminCookie}}),armyReporterHTML=await armyReporter.text();
-    check("actual Admin reporter page alone admits attended capture policy",armyReporter.status===200&&armyReporterHTML.includes('id="report-publish"')&&armyReporter.headers.get('Permissions-Policy').includes('camera=(self)')&&armyReporter.headers.get('Permissions-Policy').includes('display-capture=(self)')&&armyReporter.headers.get('Content-Security-Policy').includes("worker-src 'self'"),armyReporter.status);
-    const ordinaryPublisher=await get('https://guild.example/army/report',{headers:{Cookie:cookie}});check('ordinary reader does not become an Army publisher',ordinaryPublisher.status===403,ordinaryPublisher.status);
+    for(const method of ['GET','HEAD']){
+      const armyReporter=await get('https://guild.example/army/report',{method,redirect:'manual',headers:{Cookie:adminCookie}}),body=await armyReporter.text();
+      check('actual Admin '+method+' reporter canonical route enters only its shared SPA',armyReporter.status===302&&armyReporter.headers.get('Location')==='/#/army/report'&&armyReporter.headers.get('Cache-Control')==='private, no-store, no-transform'&&armyReporter.headers.get('Vary')==='Cookie'&&body==='',armyReporter.status);
+      const fragment=await get('https://guild.example/army/report/fragment',{method,headers:{Cookie:adminCookie}}),fragmentHTML=await fragment.text(),csp=fragment.headers.get('Content-Security-Policy')||'',permissions=fragment.headers.get('Permissions-Policy')||'';
+      check('actual Admin '+method+' reporter fragment retains strict source-owned presentation and disables capture',fragment.status===200&&!fragment.headers.has('Location')&&/^text\/html\b/.test(fragment.headers.get('Content-Type')||'')&&fragment.headers.get('Cache-Control')==='private, no-store, no-transform'&&fragment.headers.get('Vary')==='Cookie'&&fragment.headers.get('Referrer-Policy')==='no-referrer'&&csp==="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'"&&permissions.includes('camera=()')&&permissions.includes('display-capture=()')&&(method==='HEAD'?fragmentHTML==='':fragmentHTML.includes('data-army-reporter-fragment')&&fragmentHTML.includes('id="report-publish"')&&fragmentHTML.includes('id="aggregate-file"')&&fragmentHTML.includes('https://www.curseforge.com/wow/addons/olympus-guild')&&!fragmentHTML.includes(retiredArmyZip)&&!/<(?:script|style|link|iframe)\b/i.test(fragmentHTML)),fragment.status);
+      for(const pathname of armyReporterAssetPaths){const asset=await get('https://guild.example'+pathname,{method,headers:{Cookie:adminCookie}});check('actual Admin '+method+' reporter asset '+pathname+' remains privately delivered',asset.status===200&&asset.headers.get('Cache-Control')==='private, no-store, no-transform'&&asset.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await asset.text()===''),asset.status);}
+    }
     const armyNow=Math.floor(Date.now()/1000),armySnapshot={format:'olympus-stat-observation-v2',scope:'own-guild',source:'volunteer-client',sourceVerified:false,membershipProof:false,addonVersion:'0.2.0',realmGroup:'World of Warcraft: Forever PvE',faction:'Alliance',observedAt:armyNow-10,guilds:[{name:'Olympus',receivedAt:armyNow-10,reportedCharacters:100,online:25,classes:[20,10,10,10,10,10,10,10,10],levels:[0,0,10,10,10,20,50],ranks:[10,10,10,10,10,10,10,10,10,10]}]};
     const armyHeaders={Cookie:adminCookie,Origin:'https://guild.example','X-Olympus':'2','Content-Type':'application/json'};
     const armyPreview=await get('https://guild.example/api/army/preview',{method:'POST',headers:armyHeaders,body:JSON.stringify({snapshot:armySnapshot})}),armyPreviewBody=await armyPreview.json();

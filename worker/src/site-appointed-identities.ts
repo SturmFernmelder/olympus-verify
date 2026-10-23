@@ -1,17 +1,25 @@
-/** Explicit publication for the two supported appointment offices only.
+/** Explicit publication for the source-authored appointment catalogue.
  * Canonical Discord pointers stay in the existing appointed setting: they confer
  * no permissions and the unchanged Native eraser already withholds exact pointers.
  * Names and characters are derived afresh; no identity/character snapshot is stored.
  */
 import type { Env } from './env';
-import { apiJson, shownName, sign, verify, type Found } from './site-core';
+import { apiJson, foundDiscordMember, isSiteAdmin, shownName, sign, verify, rateLimited, type Found } from './site-core';
 import { admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED } from './community-context';
 import { rest, DiscordError } from './discord';
 import { secondsToIso } from './community-time';
 import { FormError } from './policy-form-core';
+import { OFFICE_APPOINTMENTS } from './governance-offices';
+import { privacyGenerationLiteralFenceSql } from './privacy-serving-authority';
 
-export const APPOINTMENT_IDENTITY_ROLES = ['co_gm', 'treasurer'] as const;
+export const APPOINTMENT_IDENTITY_ROLES: readonly string[] = Object.freeze(OFFICE_APPOINTMENTS.map(office => office.key));
 type IdentityRole = typeof APPOINTMENT_IDENTITY_ROLES[number];
+const MAX_OFFICES = APPOINTMENT_IDENTITY_ROLES.length;
+// 32 holder reads leave room for both original role-reader admissions and refusal
+// explanation below the existing 40-call working ceiling / 50-call plan limit.
+const IDENTITY_PAGE = 32;
+const FRESH_SAVE_MEMBERS = 32;
+const PAGE_PURPOSE = 'appointed-identities-page-v1';
 export type AppointmentAccountStatus = 'eligible' | 'unavailable';
 const MAX_CHARACTERS = 50;
 const PROOF_PURPOSE = 'appointed-character-publication-v1';
@@ -39,13 +47,7 @@ const discordProofPayload = (role: IdentityRole, pointer: string) => JSON.string
 
 type DiscordAppointmentMember = { user?: { id?: unknown; username?: unknown; global_name?: unknown; avatar?: unknown; bot?: unknown }; nick?: unknown; avatar?: unknown; pending?: unknown };
 function foundAppointmentMember(raw: DiscordAppointmentMember, expectedId?: string): Found | null {
-  const u = raw?.user;
-  if (!u || typeof u.id !== 'string' || !/^[0-9]{17,20}$/.test(u.id) || expectedId && u.id !== expectedId
-    || typeof u.username !== 'string' || !u.username || u.username.length > 80 || u.bot === true
-    || u.bot !== undefined && typeof u.bot !== 'boolean' || raw.pending !== undefined && raw.pending !== false) return null;
-  const text = (v: unknown) => typeof v === 'string' ? v : null;
-  return { id: u.id, username: u.username, displayName: text(u.global_name), nick: text(raw.nick),
-    avatar: typeof raw.avatar === 'string' ? `g:${raw.avatar}` : typeof u.avatar === 'string' ? `u:${u.avatar}` : null };
+  return foundDiscordMember(raw, expectedId);
 }
 async function freshAppointmentMember(env: Env, id: string): Promise<Found | null> {
   if (!/^[0-9]{17,20}$/.test(env.SITE_GUILD_ID ?? '') || !env.DISCORD_BOT_TOKEN) throw Error('appointed_discord_unavailable');
@@ -89,7 +91,11 @@ export function containsInternalAppointmentProof(v: unknown): boolean {
 const validSetting = `CASE WHEN NOT json_valid(s.value) THEN 0 WHEN json_type(s.value)<>'object' THEN 0
  ELSE (SELECT COUNT(*) FROM json_each(s.value))=(SELECT COUNT(DISTINCT key) FROM json_each(s.value)) END`;
 const entries = `site_settings s,json_each(CASE WHEN ${validSetting} THEN s.value ELSE '{}' END) a`;
-const supported = "a.key IN('co_gm','treasurer') AND a.type='text'";
+// These keys are source constants, never request text. An unrelated flat setting
+// key cannot opt in or acquire a proof merely by resembling an office.
+if (!MAX_OFFICES || MAX_OFFICES > 250 || new Set(APPOINTMENT_IDENTITY_ROLES).size !== MAX_OFFICES
+  || APPOINTMENT_IDENTITY_ROLES.some(key => !/^[a-z][a-z0-9_:]{0,79}$/.test(key))) throw Error('appointment_catalogue_invalid');
+const supported = `a.key IN(${APPOINTMENT_IDENTITY_ROLES.map(key => `'${key}'`).join(',')}) AND a.type='text'`;
 const activeAccount = `u.in_server=1 AND u.denied=0 AND COALESCE(m.banned,0)=0
  AND typeof(u.account_incarnation)='text' AND length(u.account_incarnation)=32
  AND length(CAST(u.account_incarnation AS BLOB))=32 AND u.account_incarnation NOT GLOB '*[^0-9a-f]*'
@@ -106,15 +112,17 @@ const proofEntries = `(SELECT json_group_array(p.key) FROM (
  AND length(p.key)=length(a.key)+${PROOF_MARKER.length + 64}
  AND substr(p.key,length(a.key)+${PROOF_MARKER.length + 1}) NOT GLOB '*[^0-9a-f]*' ORDER BY p.key LIMIT 2) p)`;
 
-type PublicationTarget = { role: IdentityRole; id: string; birth: string | null };
-type AppointmentAccount = { id: string; birth: string | null; status: AppointmentAccountStatus };
-export type AppointmentPublicationFailure = { ok: false; role: IdentityRole; status: 'unavailable' | 'discord_unavailable' | 'account_changed' };
+type PublicationTarget = { role: IdentityRole; id: string; birth: string | null; generation: string | null };
+type AppointmentAccount = { id: string; birth: string | null; generation: string | null; status: AppointmentAccountStatus };
+export type AppointmentPublicationFailure = { ok: false; role: IdentityRole; status: 'unavailable' | 'discord_unavailable' | 'account_changed' | 'fresh_check_limit' };
 async function readAppointmentAccounts(env: Env, ids: readonly string[]): Promise<AppointmentAccount[]> {
   if (!ids.length) return [];
-  const rows = await env.DB.prepare(`SELECT wanted.value AS id,u.account_incarnation AS birth,
-   CASE WHEN ${allowedAccount('wanted.value')} THEN 'eligible' ELSE 'unavailable' END AS status
+  const rows = await env.DB.prepare(`SELECT wanted.value AS id,u.account_incarnation AS birth,p.generation AS generation,
+   CASE WHEN ${allowedAccount('wanted.value')} AND (p.subject_id IS NULL OR
+    (typeof(p.generation)='text' AND length(p.generation)=32 AND length(CAST(p.generation AS BLOB))=32 AND p.generation NOT GLOB '*[^0-9a-f]*'))
+    THEN 'eligible' ELSE 'unavailable' END AS status
    FROM json_each(?1) wanted LEFT JOIN site_users u ON u.discord_id=wanted.value
-   LEFT JOIN members m ON m.discord_id=wanted.value`).bind(JSON.stringify(ids)).all<AppointmentAccount>();
+   LEFT JOIN members m ON m.discord_id=wanted.value LEFT JOIN privacy_subjects p ON p.subject_id=wanted.value`).bind(JSON.stringify(ids)).all<AppointmentAccount>();
   return rows.results;
 }
 
@@ -130,7 +138,7 @@ export async function appointmentPublicationTargetFailure(env: Env, targets: rea
   for (const target of targets) {
     const current = accounts.get(target.id);
     if (!current || current.status !== 'eligible') return { ok: false, role: target.role, status: 'unavailable' };
-    if (current.birth !== target.birth) return { ok: false, role: target.role, status: 'account_changed' };
+    if (current.birth !== target.birth || current.generation !== target.generation) return { ok: false, role: target.role, status: 'account_changed' };
   }
   return null;
 }
@@ -139,30 +147,63 @@ export async function appointmentPublicationTargetFailure(env: Env, targets: rea
  * Lowercase hex obeys that eraser's existing flat-key grammar. An invalidated opaque
  * key can remain until a later authorized settings save; no physical purge is claimed.
  */
-export async function prepareAppointmentPublication(env: Env, appointed: Record<string, string>): Promise<{ ok: true; stored: Record<string, string>; targets: PublicationTarget[] } | AppointmentPublicationFailure> {
+/** Only the server's original raw setting is eligible for reuse. A JSON duplicate,
+ * malformed proof, changed pointer, changed site birth or client proof is never
+ * carried forward. Discord-only consent remains Discord-only after later login. */
+async function originalPublicationProofs(env: Env, originalValue: string | null): Promise<ProofRow[]> {
+  if (originalValue === null) return [];
+  const out = await env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.account_incarnation AS birth,${proofEntries} AS proofs
+   FROM (SELECT ?1 AS value) s,json_each(CASE WHEN ${validSetting} THEN s.value ELSE '{}' END) a
+   LEFT JOIN site_users u ON a.value='<@'||u.discord_id||'>'
+   WHERE ${supported} ORDER BY a.key LIMIT ${MAX_OFFICES}`).bind(originalValue).all<ProofRow>();
+  return out.results;
+}
+export async function prepareAppointmentPublication(env: Env, appointed: Record<string, string>, originalValue: string | null = null): Promise<{ ok: true; stored: Record<string, string>; targets: PublicationTarget[] } | AppointmentPublicationFailure> {
   const associations = APPOINTMENT_IDENTITY_ROLES.flatMap(role => {
     const pointer = own(appointed, role), id = appointmentAccountId(pointer);
     return id ? [{ role, pointer: pointer as string, id }] : [];
   });
   const stored = { ...appointed }, targets: PublicationTarget[] = [];
   const secret = env.COOKIE_SECRET;
+  const ids = [...new Set(associations.map(a => a.id))];
+  const captured = new Map((await readAppointmentAccounts(env, ids)).map(t => [t.id, t]));
+  const originals = new Map((await originalPublicationProofs(env, originalValue)).map(row => [row.role, row]));
+  const reused = new Map<string, string>(), fresh = new Map<string, IdentityRole>();
   for (const a of associations) {
-    let target = (await readAppointmentAccounts(env, [a.id]))[0];
+    const target = captured.get(a.id);
     if (!target || target.status !== 'eligible') return { ok: false, role: a.role, status: 'unavailable' };
-    const capturedBirth = target.birth;
+    const row = originals.get(a.role);
+    if (row && row.appointment === a.pointer && row.birth === target.birth &&
+      (await hasCurrentProof(env, row) || await hasDiscordProfileProof(env, row))) {
+      // Copy this exact original key, never sign a replacement with a new purpose,
+      // generation, person or character authority. No proof leaves the server.
+      reused.set(a.role, (JSON.parse(row.proofs) as string[])[0]!);
+    } else fresh.set(a.id, a.role);
+  }
+  // Count before the FIRST provider call. This limits changed work, not the map:
+  // a qualified 131-office map remains editable and can be built in finite batches.
+  if (fresh.size > FRESH_SAVE_MEMBERS) return { ok: false, role: fresh.values().next().value!, status: 'fresh_check_limit' };
+  for (const [id, role] of fresh) {
     try {
-      if (!await freshAppointmentMember(env, a.id)) return { ok: false, role: a.role, status: 'unavailable' };
-    } catch { return { ok: false, role: a.role, status: 'discord_unavailable' }; }
-    // Recheck keeper privacy/standing after the external read, then carry the
-    // captured presence/birth into the same original all-settings atomic CAS.
-    target = (await readAppointmentAccounts(env, [a.id]))[0];
+      if (!await freshAppointmentMember(env, id)) return { ok: false, role, status: 'unavailable' };
+    } catch { return { ok: false, role, status: 'discord_unavailable' }; }
+  }
+  // One original current read after all external/crypto waits; unchanged retained
+  // proofs do not bypass birth, privacy generation, standing or the final map CAS.
+  const current = new Map((await readAppointmentAccounts(env, ids)).map(t => [t.id, t]));
+  for (const a of associations) {
+    const target = current.get(a.id), before = captured.get(a.id)!;
     if (!target || target.status !== 'eligible') return { ok: false, role: a.role, status: 'unavailable' };
-    if (target.birth !== capturedBirth) return { ok: false, role: a.role, status: 'account_changed' };
-    const mac = target.birth
-      ? await sign(secret, PROOF_PURPOSE, proofPayload(a.role, a.pointer, target.birth))
-      : await sign(secret, DISCORD_PROOF_PURPOSE, discordProofPayload(a.role, a.pointer));
-    stored[a.role + PROOF_MARKER + hexMac(mac)] = a.pointer;
-    targets.push({ role: a.role, id: a.id, birth: target.birth });
+    if (target.birth !== before.birth || target.generation !== before.generation) return { ok: false, role: a.role, status: 'account_changed' };
+    const originalKey = reused.get(a.role);
+    if (originalKey) stored[originalKey] = a.pointer;
+    else {
+      const mac = target.birth
+        ? await sign(secret, PROOF_PURPOSE, proofPayload(a.role, a.pointer, target.birth))
+        : await sign(secret, DISCORD_PROOF_PURPOSE, discordProofPayload(a.role, a.pointer));
+      stored[a.role + PROOF_MARKER + hexMac(mac)] = a.pointer;
+    }
+    targets.push({ role: a.role, id: a.id, birth: target.birth, generation: target.generation });
   }
   return { ok: true, stored, targets };
 }
@@ -171,7 +212,9 @@ export async function prepareAppointmentPublication(env: Env, appointed: Record<
 export function appointmentPublicationTargetsCurrentSql(parameter: number): string {
   return `NOT EXISTS(SELECT 1 FROM json_each(?${parameter}) t LEFT JOIN site_users u ON u.discord_id=json_extract(t.value,'$.id')
    LEFT JOIN members m ON m.discord_id=json_extract(t.value,'$.id')
-   WHERE u.account_incarnation IS NOT json_extract(t.value,'$.birth') OR NOT(${allowedAccount("json_extract(t.value,'$.id')")}))`;
+   LEFT JOIN privacy_subjects p ON p.subject_id=json_extract(t.value,'$.id')
+   WHERE u.account_incarnation IS NOT json_extract(t.value,'$.birth') OR p.generation IS NOT json_extract(t.value,'$.generation')
+    OR NOT(${allowedAccount("json_extract(t.value,'$.id')")}))`;
 }
 
 type ProofRow = { role: IdentityRole; appointment: string; birth: string | null; proofs: string };
@@ -198,7 +241,7 @@ async function hasDiscordProfileProof(env: Env, r: ProofRow): Promise<boolean> {
  * published. Departed, pending, note-only, rejected and unbound links are excluded.
  */
 export function appointedIdentitiesStatement(env: Env): D1PreparedStatement {
-  return env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.username,u.global_name,u.nick,u.account_incarnation AS birth,${proofEntries} AS proofs,
+  return env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.username,u.global_name,u.nick,u.account_incarnation AS birth,(SELECT generation FROM privacy_subjects WHERE subject_id=substr(a.value,3,length(a.value)-3)) AS generation,${proofEntries} AS proofs,
    (SELECT json_group_array(json_object('name',c.name,'status',c.status,'verifiedAt',c.verified_at))
     FROM (SELECT name,status,verified_at FROM characters WHERE discord_id=u.discord_id
       AND status IN('verified','queued','member') AND typeof(verified_at)='integer' AND verified_at>0
@@ -208,7 +251,7 @@ export function appointedIdentitiesStatement(env: Env): D1PreparedStatement {
    WHERE s.key='appointed' AND ${supported} AND length(a.value) BETWEEN 20 AND 23
    AND substr(a.value,1,2)='<@' AND substr(a.value,-1)='>' AND substr(a.value,3,length(a.value)-3) NOT GLOB '*[^0-9]*'
    AND ${allowedAccount('substr(a.value,3,length(a.value)-3)')}
-   ORDER BY a.key LIMIT 2`);
+   ORDER BY a.key LIMIT ${MAX_OFFICES}`);
 }
 
 type IdentityRow = ProofRow & { username: string | null; global_name: string | null; nick: string | null; characters: string };
@@ -233,36 +276,70 @@ export async function projectAppointedIdentities(env: Env, rows: unknown[], disc
 }
 
 export async function appointedIdentitiesPage(request: Request, env: Env): Promise<Response> {
-  const ctx = await communityContext(env, request, { guildRoleRead: true });
-  let out = await admittedCommunityRead(env, ctx, [appointedIdentitiesStatement(env)]);
+  // This authentic context is zero-provider. Charge the original reader before
+  // either Guild Member admission or any appointee lookup; no anonymous bucket.
+  const ctx = await communityContext(env, request);
+  if (!ctx.subject) return apiJson({ error: 'signed_out' }, 401);
+  if (rateLimited('appointed-read:' + ctx.subject.discordId, 20, 60)) return apiJson({ error: 'slow_down' }, 429);
+  const q = new URL(request.url).searchParams, after = q.get('after'), revision = q.get('revision');
+  if ((after === null) !== (revision === null) || after !== null && (!APPOINTMENT_IDENTITY_ROLES.includes(after) || !/^[A-Za-z0-9_-]{43}$/.test(revision!)) ||
+      [...q.keys()].some(key => !['after', 'revision'].includes(key)) || [...q.keys()].length !== new Set(q.keys()).size)
+    return apiJson({ error: 'invalid_appointment_cursor' }, 400);
+  const statements = () => [env.DB.prepare("SELECT value FROM site_settings WHERE key='appointed'"), appointedIdentitiesStatement(env)];
+  let out = await admittedCommunityRead(env, ctx, statements());
   if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
-  const profiles = new Map<string, Found>();
-  let providerRead = false;
-  for (const raw of out[0]!.results) {
+  const originalValue = (out[0]!.results[0] as { value: string } | undefined)?.value ?? null;
+  // Only an opaque MAC and public office key are returned. Birth, generation,
+  // session version, raw map and internal publication proof keys stay private.
+  const subject = ctx.subject, originalRows = out[1]!.results;
+  // The full original Native payload is already bounded at 131 offices x 51
+  // character rows. Bind it privately so a prior page's birth, lifecycle, names
+  // or current characters cannot change unnoticed before collection completes.
+  const revisionPayload = JSON.stringify([subject.discordId, subject.sessionVersion, subject.expiresAt, subject.accountIncarnation, subject.privacyGeneration, originalValue, originalRows, APPOINTMENT_IDENTITY_ROLES]);
+  if (revision !== null && !await verify(env.COOKIE_SECRET, PAGE_PURPOSE, revisionPayload, revision))
+    return apiJson({ error: 'appointed_identities_changed', message: 'The appointment view changed. Refresh the page before reading it again.' }, 409);
+  const pageRevision = revision ?? await sign(env.COOKIE_SECRET, PAGE_PURPOSE, revisionPayload);
+  const pageRows = originalRows.filter(raw => (raw as IdentityRow).role > (after ?? '')).slice(0, IDENTITY_PAGE + 1);
+  const rows = pageRows.slice(0, IDENTITY_PAGE), profiles = new Map<string, Found>(), checked = new Set<string>();
+  for (const raw of rows) {
     const row = raw as IdentityRow;
     if (!await hasDiscordProfileProof(env, row)) continue;
-    providerRead = true;
+    const id = appointmentAccountId(row.appointment)!;
+    if (checked.has(id)) continue;
+    checked.add(id);
     try {
-      const profile = await freshAppointmentMember(env, appointmentAccountId(row.appointment)!);
+      const profile = await freshAppointmentMember(env, id);
       if (profile) profiles.set(profile.id, profile);
     } catch { return apiJson({ error: 'appointed_identity_unavailable', message: 'The current Discord appointment profile could not be confirmed. Try again shortly.' }, 503); }
   }
-  if (providerRead) {
-    // Do not deliver a pre-network reader/session, erased target or replaced map.
-    out = await admittedCommunityRead(env, ctx, [appointedIdentitiesStatement(env)]);
-    if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
-  }
-  return apiJson({ scope: 'qualified_community_readers', identities: await projectAppointedIdentities(env, out[0]!.results, profiles) });
+  // Repeat the admitted payload even on a no-provider page: crypto and revision
+  // checks also await. A changed map never releases a mixed-page projection.
+  // Finish all projection crypto before that final current Native witness; no
+  // further crypto/network await can reopen a target lifecycle race afterwards.
+  const identities = await projectAppointedIdentities(env, rows, profiles);
+  out = await admittedCommunityRead(env, ctx, statements());
+  if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
+  if (((out[0]!.results[0] as { value: string } | undefined)?.value ?? null) !== originalValue || JSON.stringify(out[1]!.results) !== JSON.stringify(originalRows))
+    return apiJson({ error: 'appointed_identities_changed', message: 'The appointment view changed. Refresh the page before reading it again.' }, 409);
+  const finalRows = rows;
+  const nextCursor = pageRows.length > IDENTITY_PAGE ? (finalRows[finalRows.length - 1] as IdentityRow).role : null;
+  return apiJson({ scope: 'qualified_community_readers', identities,
+    revision: pageRevision, nextCursor, complete: nextCursor === null });
 }
 
 /** Own-only association metadata; source names/characters already have their own
  * sections. No counterpart ID, approver, snapshot or other appointment is exported.
  */
 export function ownAppointmentPublicationsStatement(env: Env, id: string): D1PreparedStatement {
+  return ownPublicationStatement(env, id);
+}
+function ownPublicationStatement(env: Env, id: string, authorityKeys?: readonly string[]): D1PreparedStatement {
+  const authorityColumns = authorityKeys ? ',s.value AS appointed_value,(SELECT generation FROM privacy_subjects WHERE subject_id=?1) AS generation' : '';
+  const selected = authorityKeys ? `AND a.key IN(${authorityKeys.map(key => `'${key}'`).join(',')})` : '';
   return env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.account_incarnation AS birth,${proofEntries} AS proofs,s.updated_at AS recorded_at,
-   CASE WHEN ${activeAccount} THEN 1 ELSE 0 END AS available FROM ${entries}
+   CASE WHEN ${activeAccount} THEN 1 ELSE 0 END AS available ${authorityColumns} FROM ${entries}
    JOIN site_users u ON u.discord_id=?1 LEFT JOIN members m ON m.discord_id=u.discord_id
-   WHERE s.key='appointed' AND ${supported} AND a.value='<@'||?1||'>' ORDER BY a.key LIMIT 2`).bind(id);
+   WHERE s.key='appointed' AND ${supported} ${selected} AND a.value='<@'||?1||'>' ORDER BY a.key LIMIT ${authorityKeys?.length ?? MAX_OFFICES}`).bind(id);
 }
 
 export async function projectOwnAppointmentPublications(env: Env, rows: unknown[]) {
@@ -273,4 +350,51 @@ export async function projectOwnAppointmentPublications(env: Env, rows: unknown[
     if (!currentSiteProof && !await hasDiscordProfileProof(env, r)) return null;
     return { role: r.role, publication: currentSiteProof ? 'discord_profile_and_current_verified_characters' : 'discord_profile_only', audience: 'qualified_community_readers', currentlyPublished: r.available === 1, recordedAt: secondsToIso(r.recorded_at) };
   }))).filter(r => r !== null);
+}
+
+/** Private source-issued capability to repeat a currently published office in a
+ * caller's original atomic write. It is never returned in a member DTO. */
+export interface PublishedOfficeAuthority { readonly officeKeys: readonly string[] }
+type OfficeAuthorityRecord = { id: string; appointedValue: string; birth: string; generation: string | null };
+const officeAuthorities = new WeakMap<PublishedOfficeAuthority, OfficeAuthorityRecord>();
+export async function capturePublishedOfficeAuthority(env: Env, id: string, keys: readonly string[]): Promise<PublishedOfficeAuthority | null> {
+  if (!/^[0-9]{17,20}$/.test(id) || !keys.length || keys.some(key => !APPOINTMENT_IDENTITY_ROLES.includes(key))) return null;
+  const selected = [...new Set(keys)];
+  const before = await ownPublicationStatement(env, id, selected).all<ProofRow & { available: number; appointed_value: string; generation: string | null }>();
+  const found: string[] = [];
+  for (const row of before.results) {
+    if (keys.includes(row.role) && row.available === 1 && (await hasCurrentProof(env, row) || await hasDiscordProfileProof(env, row))) found.push(row.role);
+  }
+  if (!found.length) return null;
+  // Crypto awaits do not authorize a changed map, recreated account or lifecycle.
+  const after = await ownPublicationStatement(env, id, selected).all<ProofRow & { available: number; appointed_value: string; generation: string | null }>();
+  if (JSON.stringify(before.results) !== JSON.stringify(after.results)) return null;
+  const row = after.results[0];
+  if (!row || typeof row.birth !== 'string' || !/^[0-9a-f]{32}$/.test(row.birth) || typeof row.appointed_value !== 'string'
+    || row.generation !== null && (typeof row.generation !== 'string' || !/^[0-9a-f]{32}$/.test(row.generation))) return null;
+  const authority = Object.freeze({ officeKeys: Object.freeze(found) });
+  officeAuthorities.set(authority, Object.freeze({ id, appointedValue: row.appointed_value, birth: row.birth, generation: row.generation }));
+  return authority;
+}
+/** This predicate alone is not write authority: combine it with the caller's
+ * original Native session/CSRF admission in the SAME committing statement. */
+export function publishedOfficeAuthorityCondition(authority: PublishedOfficeAuthority, firstParameter: number): { sql: string; values: readonly string[] } {
+  const record = officeAuthorities.get(authority);
+  if (!record || !Number.isSafeInteger(firstParameter) || firstParameter < 1 || firstParameter > 90) throw Error('published_office_authority_held');
+  return { sql: `EXISTS(SELECT 1 FROM site_settings WHERE key='appointed' AND value=?${firstParameter})
+    AND EXISTS(SELECT 1 FROM site_users u LEFT JOIN members m ON m.discord_id=u.discord_id
+     WHERE u.discord_id=?${firstParameter + 1} AND u.account_incarnation=?${firstParameter + 2}
+     AND ${activeAccount} AND ${privacyGenerationLiteralFenceSql('u.discord_id', record.generation)})`,
+    values: Object.freeze([record.appointedValue, record.id, record.birth]) };
+}
+/** Presentation preference only. VIP alone is not a Broadcaster appointment. */
+export async function canUseStreamShield(env: Env, id: string): Promise<boolean> {
+  if (isSiteAdmin(env, id)) return true;
+  try { return !!await capturePublishedOfficeAuthority(env, id, ['office_12']); } catch { return false; }
+}
+/** Lead Correspondent's editor authority still needs the captured predicate at
+ * commit; a boolean in the page or boot state cannot authorize a news write. */
+export async function canEditTownCrier(env: Env, id: string): Promise<boolean> {
+  if (isSiteAdmin(env, id)) return true;
+  try { return !!await capturePublishedOfficeAuthority(env, id, ['office_50']); } catch { return false; }
 }

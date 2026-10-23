@@ -1,3 +1,9 @@
+# Current composition clarification — 23 October 2026
+
+The owner now directs Guild Master, Co-Guild Master and Treasurer as the core Council offices, supported by the portfolio ministers and accepted Council mandates. The chosen B ladder retains High Council Slot 2 and puts Treasurer in Slot 3 (index 2), above Officer Slot 4. No published name or native rank alone issues a Council vote, accepted warrant or actual permission. Existing current website associations remain unchanged. The dated 19 October proposal below is historical where superseded; no missing constitutional signature is manufactured.
+
+## Historical 19 October record
+
 # High Council composition — owner direction recorded 19 October 2026
 
 Status: owner-directed composition successor; constitutional process pending. This is not an adopted R8 charter or a record of a Council vote.

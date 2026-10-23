@@ -40,6 +40,7 @@ import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
+import { memberLegalNavigation } from "./member-legal-navigation";
 import { CAMERA_PAGE_PATH, memberSiteGate, privateCameraPageAsset, privateSiteAsset } from './site-access';
 import { forwardPrivateProductionControl } from './privacy-private-control-adapter';
 import { LOGIN_ASSETS, POLICY_ASSETS, policyHeaders } from "./policy-render";
@@ -79,6 +80,8 @@ import {captureGlobalServingEntry,dispatchGlobalServingEntry,deferOriginalServin
 import { captureLaneConfig, FRESH_AUDIT, type LaneCapture } from './full-release-roles';
 import { countStatements, type Admission } from './roster-effects';
 import { linkPreflight, routeLink } from './link';
+import { expireTreasuryCosmeticRoles, TREASURY_EXPIRY_SQL_MAX, TREASURY_EXPIRY_HTTP_MAX } from './role-settlements';
+import { newsWebhookMetadataExpiryPlan, NEWS_WEBHOOK_METADATA_EXPIRY_PHYSICAL_BOUND } from './site-news-webhook';
 
 /** No installer runs here. An enabled but absent/unknown current-source installation refuses at ensureSchema. */
 function writeAdmissionEnv(env:Env):Env{
@@ -162,6 +165,8 @@ export default {
     // .186 Olympus Link: the page's preflight, answered synchronously with no database and no await. Off: null, and the
     // request continues exactly as in .185 (to the final 404).
     if (host === 'bot' && path === '/proof' && request.method === 'OPTIONS') { const preflight = linkPreflight(request, env); if (preflight) return preflight; }
+    // Fixed member navigation is separate from the no-credential public policy responder.
+    if (host === "site") { const navigation = await memberLegalNavigation(request, env, path); if (navigation) return navigation; }
     // Public policies and their exact finite official-art closure are the login-wall exceptions.
     const policy = policyResponse(request, path);
     if (policy) {
@@ -281,14 +286,23 @@ export default {
       const constraint=resetMinute?scheduledFreeze({binding:scheduled.binding,check,costMode:'beta_reset' as const}):scheduledFreeze({binding:scheduled.binding,check});
       originalScheduledCallback(original,event,ctx);
       const globalEntry=captureGlobalServingEntry(env,ctx,'scheduled',undefined,constraint);scheduledCostConstraints.set(original,constraint);
-      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch);});
+      const roleSliceCost = (): OriginalScheduledSliceCost | null => {
+        const facts = originalScheduledCallbackPhysicalCostObservation(event, ctx);
+        const row = facts.jobs.find(job => job.job === 'sweepMemberRoles');
+        return row ? Object.freeze({ state: row.state, statements: row.statements, pendingGroups: row.pendingGroups, failedGroups: row.failedGroups }) : null;
+      };
+      const newsSliceCost = (): OriginalScheduledSliceCost | null => {
+        const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='newsCron');
+        return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;
+      };
+      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost);});
     } catch(e) {
       console.error("schema check failed; skipping this run",errorRef(e));
     }
   },
 };
 
-/** Original minute body only; the exported callback retains both false qualification guards.
+/** Original minute body only; the exported callback retains each schedule's qualification guard.
  * No extra scheduler or trigger is installed. Global dispatch and the same Native admission remain mandatory. */
 async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,originalDispatch?:BetaRoleDispatch):Promise<void>{
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
@@ -299,9 +313,10 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
   deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));
 }
 
-/** Unpublished source-owned whole-schedule measurement seam. The real scheduled handler keeps its false qualifier guard.
+/** Source-owned whole-schedule measurement seam. The real handler checks the installed Epoch2 qualification guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
-export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch): Promise<void> {
+type OriginalScheduledSliceCost = Readonly<{state:string;statements:number;pendingGroups:number;failedGroups:number}>;
+export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
     const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
     const rosterCadence=originalRosterScheduleFacts(rosterSchedule);
@@ -314,7 +329,20 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
       return;
     }
     deferOriginalServing(ctx,'sweepInviteQueue',()=>sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones
-    deferOriginalServing(ctx,'sweepMemberRoles',()=>sweepMemberRoles(env, "cron",undefined,roleDispatch)); // gives Guild Member back to members who lost it (restore.ts)
+    deferOriginalServing(ctx,'sweepMemberRoles',async()=>{
+      const calls=callBudget(env);
+      await sweepMemberRoles(env,"cron",calls,roleDispatch);
+      // Cosmetic expiry may use only the unused part of this original 120-statement
+      // role slice. Its numeric observation is not account or dispatch authority.
+      // Missing/failed Native observation means no cleanup, never an assumed reserve.
+      let cost:OriginalScheduledSliceCost|null=null;
+      try{cost=readOriginalRoleCost?.()??null;}catch{return;}
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>120)return;
+      const remaining=120-cost.statements;
+      if(remaining<TREASURY_EXPIRY_SQL_MAX||calls.limit-calls.attempts<TREASURY_EXPIRY_HTTP_MAX)return;
+      try{await expireTreasuryCosmeticRoles(env,{sqlRemaining:remaining,calls});}
+      catch(e){console.error('cosmetic expiry held',errorRef(e));}
+    });
     // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): a slice of the roster's pending member effects, so a
     // backlog an export could not finish in its own invocation is worked off between exports too (roster.ts, roster-effects.ts)
     deferOriginalServing(ctx,'continueRosterEffects',()=>continueRosterEffects(env,rosterSchedule,roleDispatch));
@@ -339,7 +367,16 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     deferOriginalServing(ctx,'sweepCommunityPrivacy',()=>sweepCommunityPrivacy(env).catch((e) => console.error("community privacy intake sweep failed", errorRef(e)))); // .82: expired private cases, always
     // .115: notices and their operation records past their time, always, whatever the switch says; then the News counts, at
     // most every 3 h, only while News is switched on, from the switch and cache the cleanup's batch read (site-news.ts newsCron)
-    deferOriginalServing(ctx,'newsCron',()=>rosterCadence.newsEnabled?newsCron(env):Promise.resolve());
+    deferOriginalServing(ctx,'newsCron',async()=>{
+      if(!rosterCadence.newsEnabled)return;
+      await newsCron(env);
+      let cost:OriginalScheduledSliceCost|null=null;
+      try{cost=readOriginalNewsCost?.()??null;}catch{return;}
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>31)return;
+      if(31-cost.statements<NEWS_WEBHOOK_METADATA_EXPIRY_PHYSICAL_BOUND)return;
+      try{await newsWebhookMetadataExpiryPlan(env).run();}
+      catch(e){console.error('news webhook metadata expiry held',errorRef(e));}
+    });
     deferOriginalServing(ctx,'runOfficerDigest',()=>runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
     deferOriginalServing(ctx,'runServingErasureJob',()=>runServingErasureJob(env).then(out=>{if(nativeErasureMode(env))console.log('native erasure tick',{attempted:out.attempted,completed:out.completed,held:out.held});}).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
     deferOriginalServing(ctx,'sweepServingRetention',()=>sweepServingRetention(env,originalRetentionSchedule).catch(e=>console.error('serving retention failed',errorRef(e))));
@@ -591,7 +628,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-22.195 Olympus Link deletion and race fixes, shipped off";
+const BUILD = "2026-10-23.196 Olympus guild hall, public PvE and community tools";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

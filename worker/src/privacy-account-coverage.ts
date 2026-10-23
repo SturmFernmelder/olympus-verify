@@ -677,10 +677,11 @@ const rows:StoreCoverage[]=[
   "coverage": "selected",
   "collections": [
    "aggregate singleton",
-   "site.settingUpdates"
+   "site.settingUpdates",
+   "community.news_webhook.deliveries"
   ],
-  "description": "The ordinary copy includes only your exact Co-Guild Master or Treasurer account-publication association, role, audience and current setting time. Separate identity-only history includes a closed known setting key and original timestamp only when you remain its current last updater. Other values, appointments and counterparts stay withheld; this is not edit history or proof of consent.",
-  "handling": "Own exact account-publication associations are selected in the ordinary copy. Reconnect Discord at /privacy/access for separate setting-update metadata. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
+  "description": "The ordinary copy includes your exact supported native-rank or extended-office account-publication associations, role, audience and current setting time, plus your account-bound Discord-directory suppression choice. Current stored Town Crier webhook metadata is selected separately by its exact editor association: revision, outcome, removal-pending flag and original dates only. Credentials, integrity proofs, provider pointers, notice bodies and counterparts are withheld. Separate identity-only history includes a closed known setting key and original timestamp only when you remain its current last updater. This is not complete edit history or proof of consent.",
+  "handling": "Own exact account-publication associations, directory suppression and selected current editor-associated webhook custody metadata are included in the ordinary copy. Reconnect Discord at /privacy/access for separate setting-update metadata. Missing, filtered and expired records do not prove no data is retained; attended review remains available."
  },
  {
   "store": "site_users",
@@ -729,11 +730,11 @@ const labels:Record<CoverageKind,string>={selected:'Selected own fields',collect
 const LIFECYCLE_COPY_STORES=new Set(['privacy_subjects','privacy_serving_jobs','privacy_provider_messages','privacy_restore_replay','privacy_denial_markers']);
 function accountCopyStores(mode:AccountCoverageMode,lifecycleRead:boolean):Array<StoreCoverage&{selectedInThisFile:boolean}>{
  return ACCOUNT_DATA_STORES.map(original=>{
-  // Identify-only export has no ordinary site.appointmentPublications projection.
-  // Its separate metadata history stays available without claiming values in this file.
-  const r:StoreCoverage=original.store==='site_settings'&&mode==='identify'?{...original,coverage:'collection',collections:['site.settingUpdates'],
-   description:'Separate identity-only download of a closed known setting key and original timestamp only when you remain its current last updater. Values/appointments/counterparts are withheld; this is not edit history or consent evidence.',
-   handling:'Not included in this identify-only copy. Reconnect Discord at /privacy/access and select this individual history. Missing, filtered and expired records do not prove no data is retained; attended review remains available.'}:original;
+  // Identify-only export selects only these registered own setting projections;
+  // the ordinary site.appointmentPublications projection stays ordinary-only.
+  const r:StoreCoverage=original.store==='site_settings'&&mode==='identify'?{...original,coverage:'selected',collections:['community.discord_directory_visibility','community.news_webhook.deliveries','site.settingUpdates'],
+   description:'Own account-bound Discord-directory suppression choice and exact editor-associated Town Crier webhook revision/outcome/removal-pending/original dates are included. The webhook list has an exact count and explicit complete/truncated flags, capped at 1,000 rows. Credentials, integrity proofs, provider pointers, notice bodies, appointments and counterparts are withheld. Separate identity-only setting-update history contains a closed known setting key and original timestamp only when you remain its current last updater; this is not edit history or consent evidence.',
+   handling:'Selected own directory suppression and bounded webhook metadata are included in this identify-only copy. Truncated webhook records require attended account-copy review; no hidden continuation is claimed. Reconnect Discord at /privacy/access for separate setting-update history. Missing, filtered and expired records do not prove no data is retained; attended review remains available.'}:original;
   const unavailable=LIFECYCLE_COPY_STORES.has(r.store)&&!lifecycleRead;
   return {...r,coverage:unavailable?'gap':r.coverage,
    description:unavailable?'Lifecycle records are not included through this connection.':r.description,

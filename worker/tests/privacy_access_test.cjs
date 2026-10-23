@@ -6,11 +6,22 @@ const ok=(name,value)=>{assert.ok(value,name);checks++;console.log('PASS '+name)
 const eq=(name,value,want)=>{assert.deepEqual(value,want,name);checks++;console.log('PASS '+name);};
 const context=vm.createContext({crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,ReadableStream,ReadableStreamDefaultReader,console,Request,Response,Headers,URL,URLSearchParams,atob,btoa,AbortController,AbortSignal,setTimeout,clearTimeout,
  fetch:async(url,init)=>{calls.push({url:String(url),init});if(!provider)throw Error('network forbidden');return provider(String(url),init);}});
+// Cache only immutable compiler output; a cleared module cache still reads source and executes fresh modules.
+// Keys include exact raw bytes, module name and the actual compiler options. No exports, VM or authority is cached.
+const transpiledSourceCache=new Map();
 function load(name){
  if(cache.has(name))return cache.get(name).exports;
  const module={exports:{}};cache.set(name,module);
- const source=fs.readFileSync(path.join(root,'src',name+'.ts'),'utf8');
- const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const sourceBytes=fs.readFileSync(path.join(root,'src',name+'.ts'));
+ const source=sourceBytes.toString('utf8');
+ const compilerOptions={module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022};
+ const compileKey=JSON.stringify([name,sourceBytes.toString('base64'),compilerOptions]);
+ let js;
+ if(transpiledSourceCache.has(compileKey))js=transpiledSourceCache.get(compileKey);
+ else{
+  js=ts.transpileModule(source,{compilerOptions}).outputText;
+  transpiledSourceCache.set(compileKey,js);
+ }
  vm.runInContext('(function(require,module,exports){'+js+'\n})',context,{filename:name})(q=>{if(q==='node:async_hooks')return require(q);if(!q.startsWith('./'))throw Error('external module refused');return load(q.slice(2));},module,module.exports);
  return module.exports;
 }

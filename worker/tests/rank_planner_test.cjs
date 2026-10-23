@@ -29,8 +29,8 @@ base.globalThis = base;
 vm.runInNewContext(read(path.join(dir, "catalogue.js")), base, { filename: "catalogue.js" });
 vm.runInNewContext(read(path.join(dir, "model.js")), base, { filename: "model.js" });
 const Model = base.OlympusStaffRankPlanner, catalogue = base.OlympusStaffRankCatalogue;
-const RECOMMENDED_CURRENT = ["gm", "highcouncil", "officer", "officeralt", "raidlead", "veteran", "raider", "member", "alt", "initiate"];
-check("RECOMMENDED uses High Council; Treasurer and Co-GM remain appointments", JSON.stringify([...Model.RECOMMENDED]) === JSON.stringify(RECOMMENDED_CURRENT));
+const RECOMMENDED_CURRENT = ["gm", "highcouncil", "treasurer", "officer", "raidlead", "veteran", "raider", "member", "alt", "initiate"];
+check("RECOMMENDED uses chosen Council Slot2 and Treasurer Slot3; Co-GM remains a separate core Council office", JSON.stringify([...Model.RECOMMENDED]) === JSON.stringify(RECOMMENDED_CURRENT));
 check("  REFERENCE is unchanged (protectRankIndex stays 5, informational only), so every saved and exported draft still imports", JSON.stringify(Model.REFERENCE) === JSON.stringify({ minRanks: 2, maxRanks: 10, captainRankIndex: 1, protectRankIndex: 5, protectRankIndexInformationalOnly: true }));
 check("  27 catalogue options with the original source stamp", catalogue.ranks.length === 27 && catalogue.source.sha256 === Model.SOURCE_SHA256);
 const reference = JSON.parse(read(path.join(repo, "scripts", "official_asset_reference.json")));
@@ -66,6 +66,7 @@ class Node {
   setAttribute(k, v) { this.attributes[k] = String(v); }
   getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; }
   addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); }
+  removeEventListener(t, f) { this.listeners[t] = (this.listeners[t] || []).filter((listener) => listener !== f); }
   fire(t) { const ev = { type: t, target: this, preventDefault() {} }; for (const f of this.listeners[t] || []) f.call(this, ev); }
   click() { if (this.disabled) return; this.fire("click"); if (this.tagName === "BUTTON" && this.type === "submit") { let f = this.parent; while (f && f.tagName !== "FORM") f = f.parent; if (f) f.fire("submit"); } }
   all(pred, out = []) { for (const c of this.children) { if (pred(c)) out.push(c); c.all(pred, out); } return out; }
@@ -132,7 +133,7 @@ check("  a reload restores the saved draft", store.get(STORAGE_KEY) === smallSav
 p.$("recommended").click();
 d = p.saved();
 check("  Use Olympus recommendation explicitly replaces the draft with the current preset", JSON.stringify(ids(d)) === JSON.stringify(RECOMMENDED_CURRENT) && p.$("feedback").textContent === "Olympus recommendation loaded. Bank withdrawals start at zero until you set your allowances.", ids(d));
-check("  it is a valid draft with an explicit positional-integration warning, unprotected entry rank and zero bank allowances", Model.validate(d, catalogue.ranks).length === 0 && Model.compatibility(d).captainCompatible === false && d.ranks[1].id === "highcouncil" && Model.notices(d).some(note => note.text.includes("Captain")) && d.ranks[d.ranks.length - 1].id === "initiate" && d.ranks[d.ranks.length - 1].permissions.auth === false && d.ranks.slice(1).every((r) => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0));
+check("  it is a valid draft with an explicit positional-integration warning, unprotected entry rank and zero bank allowances", Model.validate(d, catalogue.ranks).length === 0 && Model.compatibility(d).captainCompatible === false && d.ranks[2].id === "treasurer" && Model.notices(d).some(note => note.text.includes("Captain")) && d.ranks[d.ranks.length - 1].id === "initiate" && d.ranks[d.ranks.length - 1].permissions.auth === false && d.ranks.slice(1).every((r) => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0));
 check("  the reference block is the model's own (protectRankIndex 5, informational) and the review stays pending", JSON.stringify(d.reference) === JSON.stringify(Model.REFERENCE) && d.review.liveChangesApplied === false && d.source.sha256 === Model.SOURCE_SHA256);
 
 console.log("\n== the planner script ==");
@@ -147,11 +148,12 @@ check("  the script writes no markup and fetches nothing", !/\.innerHTML\s*[=+]|
 console.log("\n== owner policy, provenance and compatibility ==");
 const current = Model.createDraft(catalogue.ranks);
 const rank = id => current.ranks.find(r => r.id === id);
-check("the earlier 26 ideas retain their complete original data", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "752e85a9ea2e159a2b59b0bb16b9bae63274462d8abc842f35344b8e9da0e2b1");
-check("High Council's sensitive draft rights apply to all rank holders and require an authenticator", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]) && rank("officer").permissions.gold === false);
+check("the actual current 26-idea catalogue retains its exact current Treasurer metadata", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "1880c72fed9b7ae4855bfa936db50936f195eb2a564fa680cbf87c814f0f6f4b");
+check("High Council retains every original planning permission without applying a live grant", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]));
+check("Treasurer custody toggles require an authenticator without giving Officers gold withdrawal", ["gold","tabs","auth"].every(key => rank("treasurer").permissions[key]) && rank("officer").permissions.gold === false && current.ranks[1].id === "highcouncil");
 check("Raid Leader retains authenticator and Veteran has the requested invitations plus repairs", rank("raidlead").permissions.auth && rank("veteran").permissions.invite && rank("veteran").permissions.repair);
 check("the rendered planner reference agrees with the Veteran preset and records the actual owner basis", PAGE_HTML.includes("Veteran has Invite Member (owner item 26) and Guild Bank Repair (owner answer of 7 October); no amount is set.") && !PAGE_HTML.includes("without Invite") && !PAGE_HTML.includes("following the owner’s later decision"));
-check("new exports distinguish owner policy from the historical attachment and remain unapproved", current.schema === "olympus-rank-draft/v2" && current.source.policy === Model.POLICY && current.review.claudeCode === "pending" && current.review.codex === "pending" && current.review.liveChangesApplied === false);
+check("new exports distinguish owner policy from the historical attachment and remain unapproved", current.schema === "olympus-rank-draft/v4" && current.source.policy === Model.POLICY && current.review.claudeCode === "pending" && current.review.codex === "pending" && current.review.liveChangesApplied === false);
 check("every non-GM numeric allowance remains zero", current.ranks.slice(1).every(r => r.bank.goldPerDay === 0 && r.bank.defaultStacksPerTabPerDay === 0 && !r.bank.unlimited));
 const legacyText = read(path.join(__dirname,"fixtures","rank-planner-v1.json"));
 const legacyDraft = Model.importDraft(legacyText, catalogue.ranks);

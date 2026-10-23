@@ -431,17 +431,101 @@ end
 -- GetGuildRosterInfo indexes the *displayed* roster, so without this the export silently contains only the members
 -- who happen to be online — and the Worker would then strip the role from everyone else. Measured on the beta:
 -- GetNumGuildMembers() returned 450 total / 422 online.
-local function ShowOfflineMembers()
-  if SetGuildRosterShowOffline then pcall(SetGuildRosterShowOffline, true) end
-  if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster)
-  elseif GuildRoster then pcall(GuildRoster) end
+local ExportRoster
+local ROSTER_REQUEST_THROTTLE = 5
+local rosterAskedAt, rosterTimer, rosterExportPending = nil, false, false
+local RequestRoster
+local offlineSetAt, offlineSetting, legacyOfflineEstablished = nil, false, false
+-- Plain booleans are checked before they are used. A missing getter is the
+-- original legacy-client compatibility path, distinct from a refused/restricted
+-- getter. A successful setter establishes that legacy setting; it is not an
+-- independent readback or proof that the complete roster has arrived.
+local function ReadShowOffline()
+  local ok, value, missing = pcall(function()
+    if type(GetGuildRosterShowOffline) ~= "function" then return nil, true end
+    local v = GetGuildRosterShowOffline()
+    local secret = rawget(_G, "issecretvalue")
+    if type(secret) == "function" and secret(v) then return nil, false end
+    if type(v) == "boolean" then return v, false end
+    return nil, false
+  end)
+  if ok then return value, missing end
+  return nil, false
+end
+local function RosterVisibilityCurrent()
+  if offlineSetting then return false end
+  local value, missing = ReadShowOffline()
+  if missing then return legacyOfflineEstablished end
+  return value == true
+end
+local function EnsureShowOffline()
+  if offlineSetting then return false end
+  local value, missing = ReadShowOffline()
+  if value == true then return true end
+  local now = time()
+  if offlineSetAt and now < offlineSetAt then offlineSetAt = now end
+  if offlineSetAt and now - offlineSetAt < ROSTER_REQUEST_THROTTLE then
+    return missing and legacyOfflineEstablished or false
+  end
+  if type(SetGuildRosterShowOffline) ~= "function" then return false end
+  -- Claim BEFORE the setter: it may synchronously echo GUILD_ROSTER_UPDATE.
+  -- All callers, including force/logout, share this five-second setter bound.
+  offlineSetAt, offlineSetting, legacyOfflineEstablished = now, true, false
+  local ok = pcall(SetGuildRosterShowOffline, true)
+  offlineSetting = false
+  if not ok then return false end
+  local after, absent = ReadShowOffline()
+  legacyOfflineEstablished = absent == true
+  return after == true or legacyOfflineEstablished
+end
+local function ScheduleRoster(delay)
+  if rosterTimer or not (C_Timer and type(C_Timer.After) == "function") then return end
+  rosterTimer = true
+  local ok = pcall(C_Timer.After, delay, function()
+    rosterTimer = false
+    local export = rosterExportPending
+    rosterExportPending = false
+    if RequestRoster(false) then
+      -- This is only a cached-roster export attempt. The original 60-second
+      -- export throttle and completeness guard still apply; no code is replayed.
+      if export then ExportRoster(false, true) end
+    elseif export then
+      rosterExportPending = true
+    end
+  end)
+  if not ok then rosterTimer = false end
 end
 
-local function ExportRoster(force)
+RequestRoster = function(exportAfter)
+  if not IsInGuild() then return false end
+  local now = time()
+  -- A backwards wall clock cannot create a fresh request window.
+  if rosterAskedAt and now < rosterAskedAt then rosterAskedAt = now end
+  local delay = rosterAskedAt and (ROSTER_REQUEST_THROTTLE - (now - rosterAskedAt)) or 0
+  if delay > 0 then
+    if exportAfter then rosterExportPending = true end
+    ScheduleRoster(delay)
+    return false
+  end
+  -- Claim before the setter/request: either can synchronously echo an update.
+  rosterAskedAt = now
+  EnsureShowOffline() -- request attempt is bounded even when visibility cannot be established
+  if C_GuildInfo and type(C_GuildInfo.GuildRoster) == "function" then pcall(C_GuildInfo.GuildRoster)
+  elseif type(GuildRoster) == "function" then pcall(GuildRoster) end
+  return true
+end
+
+local function ShowOfflineMembers(exportAfter)
+  return RequestRoster(exportAfter)
+end
+
+ExportRoster = function(force, rosterAlreadyAsked)
   if not IsInGuild() then return end
   local now = time()
   if not force and now - lastRosterExport < ROSTER_THROTTLE then return end
-  ShowOfflineMembers()
+  if not rosterAlreadyAsked and not ShowOfflineMembers(not force) and not force then return end
+  -- Event responses establish visibility without issuing another roster request.
+  if not EnsureShowOffline() then return end
   local total, online = GetNumGuildMembers()
   if not total or total == 0 then return end
   lastRosterExport = now
@@ -457,6 +541,10 @@ local function ExportRoster(force)
       members[#members + 1] = { name = BaseName(name), full = name, rank = rank, rankIndex = rankIndex, level = level, class = classFile, note = note, onote = onote, guid = guid, lastOnline = lastOnline }
     end
   end
+  -- GetNumGuildMembers reports the guild total even when the displayed cache is
+  -- short. Reject a partial FIRST/forced export too: a 46-of-50 list passes the
+  -- original90% comparison. Keep the original snapshot/timestamp unchanged.
+  if #members ~= total or not RosterVisibilityCurrent() then return nil end
   -- Second guard, on this side of the wire: an export far smaller than the last one is almost certainly truncated
   -- (show-offline off, or a GUILD_ROSTER_UPDATE that fired before the full list arrived). Keep the previous one.
   local prev = OlympusVerifyDB.roster
@@ -487,12 +575,14 @@ end
 local function RemovalCandidates(limit)
   if not IsInGuild() then return {} end
   ShowOfflineMembers()
+  if not EnsureShowOffline() then return {}, 0 end
   local me = Presence.MyName()  -- the whole name: on the 27 Sep client UnitName("player") gives only its first part
   local total = GetNumGuildMembers()
-  local out = {}
+  local out, enumerated = {}, 0
   for i = 1, (total or 0) do
     local name, rank, rankIndex, level, _, _, note, onote, online, _, classFile = GetGuildRosterInfo(i)
     if name then
+      enumerated = enumerated + 1
       local base = BaseName(name)
       local days = DaysOffline(i, online)
       local need = RequiredDaysOffline(level)
@@ -512,6 +602,7 @@ local function RemovalCandidates(limit)
       end
     end
   end
+  if enumerated ~= total or not RosterVisibilityCurrent() then return {}, 0 end
   -- Ranked by how far past its own threshold each one is, not by raw days. With tiered thresholds raw days would
   -- bury a level 1 abandoned for three days beneath a level 40 away for three weeks, when the first is far more
   -- clearly a seat nobody is using. A lower level still breaks a tie: less invested.
@@ -675,12 +766,7 @@ end
 function Unverified.GrabRoster()
   -- Offline members only appear while show-offline is on. Asking the server for a fresh roster is throttled: the
   -- panel refreshes every few seconds and every request comes back as a GUILD_ROSTER_UPDATE.
-  if SetGuildRosterShowOffline then pcall(SetGuildRosterShowOffline, true) end
-  local t = time()
-  if t - (Unverified.lastRosterAsk or 0) >= 30 then
-    Unverified.lastRosterAsk = t
-    if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) elseif GuildRoster then pcall(GuildRoster) end
-  end
+  RequestRoster(true)
 end
 
 function Unverified.When(ts)
@@ -703,14 +789,18 @@ function Unverified.Candidates(limit)
   info.openTickets = tonumber(src.openTickets) or 0
   info.listAt = tonumber(src.snapshotAt)
   Unverified.GrabRoster()
-  local live = {}
-  for i = 1, (GetNumGuildMembers() or 0) do
+  if not EnsureShowOffline() then return {}, info, "offline roster visibility unavailable — kept the previous export; no removal candidates" end
+  local live, enumerated = {}, 0
+  local total = GetNumGuildMembers()
+  for i = 1, (total or 0) do
     local name, rank, rankIndex, level, _, _, note, onote, online, _, classFile = GetGuildRosterInfo(i)
     if name then
+      enumerated = enumerated + 1
       live[L.normalizeCharacter(BaseName(name))] = { i = i, full = name, rank = rank, rankIndex = rankIndex, level = level,
                                                     note = note, onote = onote, online = online, class = classFile }
     end
   end
+  if enumerated ~= total or not RosterVisibilityCurrent() then return {}, info, "complete offline roster unavailable — no removal candidates" end
   local me = L.normalizeCharacter(Presence.MyName() or "")
   local now = time()
   local ex = Unverified.Excluded()
@@ -1120,7 +1210,7 @@ end
 
 Presence.pendingNotes = {}
 local function AskForRoster()
-  if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) elseif GuildRoster then pcall(GuildRoster) end
+  RequestRoster(false)
 end
 
 local function NoteToSelf(text)
@@ -2794,7 +2884,6 @@ OlympusVerifyAPI = {
   end,
   ClearQueue = function() OlympusVerifyDB.queue = {}; OlympusVerifyDB.notePending = {}; frame:UpdateButton() end,
   ExportRoster = function()
-    if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() elseif GuildRoster then GuildRoster() end
     local n = ExportRoster(true)
     frame:UpdateButton()
     return n
@@ -3168,7 +3257,9 @@ frame:SetScript("OnEvent", function(self, event, ...)
     ScanMailbox()
   elseif event == "GUILD_ROSTER_UPDATE" then
     Presence.rosterVersion = Presence.rosterVersion + 1
-    ExportRoster(false)
+    -- This is already the response/update we were waiting for. Reading its
+    -- cache must not request another response, including an empty first page.
+    ExportRoster(false, true)
     Presence.Safely("sending notes that waited for your name", Presence.SendWaiting)
   elseif event == "PLAYER_LOGOUT" then
     ExportRoster(true)
@@ -3237,10 +3328,9 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
   if cmd == "ranks" then
     if OlympusVerifyRanks and OlympusVerifyRanks.Print then OlympusVerifyRanks.Print(Print)
     else Print("rank guide not loaded — restart the game once after updating the addon.") end
-  elseif cmd == "flush" then
+  elseif cmd == "flush" or cmd == "invite" then
     OlympusVerify_Flush() -- typed slash commands count as hardware events
   elseif cmd == "roster" then
-    if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() elseif GuildRoster then GuildRoster() end
     local n = ExportRoster(true)
     Print(string.format("roster exported: %s members (written to SavedVariables at logout or /reload).", tostring(n or 0)))
   elseif cmd == "clear" then
@@ -3260,7 +3350,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     -- buffer out, minutes means lines wait for the client's 48 KiB batch (27 Sep).
     local me = Presence.MyName()
     if not me then
-      if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
+      RequestRoster(false)
       Print("your whole character name is not known yet (the guild roster has not arrived) — try again in a few seconds.")
       return
     end
@@ -3404,7 +3494,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     else
       Print(string.format("presence checks: %s — the queue lists everyone.", Presence.blocked and "refused by this client" or (Presence.enabled and "no /who API here" or "off in Config.lua")))
     end
-    Print("/olv [ui|panel] | members [name] | ranks | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
+    Print("/olv [ui|panel] | members [name] | ranks | invite (one existing flush action) | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
   elseif cmd == "show" or cmd == "hide" or cmd == "ui" or cmd == "panel" or cmd == "" then
     if OlympusVerifyUI and OlympusVerifyUI.Toggle then
       if cmd == "show" then OlympusVerifyUI.Show() elseif cmd == "hide" then OlympusVerifyUI.Hide() else OlympusVerifyUI.Toggle() end

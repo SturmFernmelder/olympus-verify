@@ -1,4 +1,4 @@
-export {registerCommunityData,communityDataNames,communityEraseStatements,communityExportPlan,communityExport,type Eraser,type ExportPlan,type Exporter} from './community-data-registry';
+export {registerCommunityData,communityDataNames,communityEraseStatements,communityExportPlan,communityScopedExportPlan,communityPackedExportPlan,communityExport,type Eraser,type ExportPlan,type Exporter} from './community-data-registry';
 import { privacyGenerationLiteralFenceSql, privacyAccountIncarnation, privacyAccountIncarnationLiteralFenceSql } from './privacy-serving-authority';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 /**
@@ -292,14 +292,15 @@ export async function admittedCommunityRead(env: Env, ctx: CommunityContext, sta
     AND NOT EXISTS(SELECT 1 FROM members fm WHERE fm.discord_id=?1 AND fm.banned=1)
     AND (?4=1 OR ?5=1 OR EXISTS(SELECT 1 FROM characters fc WHERE fc.discord_id=?1 AND fc.status='member'))) AS ok`)
     .bind(subject.discordId, subject.sessionVersion, subject.expiresAt, staff ? 1 : 0, roleRead ? 1 : 0);
-  check(); const results = await env.DB.batch([probe, ...statements]); check();
+  check(); let results = await env.DB.batch([probe, ...statements]); check();
   if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
   if (roleRead) {
     if (!await currentGuildRoleRead(env, subject.discordId, check)) return FENCE_REFUSED;
-    // The role GET is asynchronous. Recheck the original Native session/ban
-    // after it too, so a concurrent sign-out or denial returns no earlier rows.
-    check(); const final = await env.DB.batch([probe]); check();
-    if (((final[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
+    // The role GET is asynchronous. Repeat the read-only payload with the same
+    // original reader probe after it, so target erasure/standing changes during
+    // that wait cannot release earlier rows either. No write uses this helper.
+    check(); results = await env.DB.batch([probe, ...statements]); check();
+    if (((results[0]?.results[0] as { ok?: number } | undefined)?.ok ?? 0) !== 1) return FENCE_REFUSED;
   }
   check(); return results.slice(1);
 }

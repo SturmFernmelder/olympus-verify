@@ -17,7 +17,7 @@ const body183 = String.raw`
   const page183=await openPage(MEMBER,{}, {bootTransform:transformed183});
   let reads183=0; const calls183=[];
   page183.before((pathname,init)=>{calls183.push({pathname,method:init.method||'GET'});if(pathname==='/api/appointed-identities')reads183++;return false;});
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[co183,treasury183]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]}:null);
   const hasNames183=root=>root.textContent.includes(coLabel183)&&root.textContent.includes(treasurerLabel183);
   const awaitNames183=async(root,label)=>waitFor(()=>hasNames183(root),label);
   const appointmentFlow183=(line,sentence)=>!!line&&line.childNodes.length===2&&line.children[0]?.tagName==='IMG'&&line.children[1]?.tagName==='SPAN'&&line.querySelector('[data-appointment-label]')?.parentNode===line.children[1]&&line.children[1].textContent.endsWith(sentence);
@@ -46,7 +46,7 @@ const body183 = String.raw`
   page183.document.hidden=true;page183.document.dispatchEvent(new Event('visibilitychange'));
   check('hiding a view clears fresh names and characters while leaving both appointments closed',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&page183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
   const changedTreasury183={...treasury183,displayName:'Fresh Returned Treasurer'},changedLabel183='Fresh Returned Treasurer (ledger.user)';
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[co183,changedTreasury183]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,changedTreasury183]}:null);
   page183.document.hidden=false;page183.document.dispatchEvent(new Event('visibilitychange'));await waitFor(()=>page183.app.textContent.includes(changedLabel183),'fresh appointment read after tab return');
   check('returning to the same admitted view reads names afresh instead of replaying the pre-hide projection',reads183===readsBeforeHide183+1&&page183.app.textContent.includes(changedLabel183)&&!page183.app.textContent.includes(treasurerLabel183)&&page183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes('Verified characters: Private Treasury Fixture'));
   page183.document.dispatchEvent(new Event('visibilitychange'));await settle();
@@ -54,8 +54,8 @@ const body183 = String.raw`
   for(const staleKind183 of ['identity','401']){
     await page183.go('#/');
     const held183=new WeakMap();let heldReply183=false;
-    page183.hold((pathname,init)=>{if(pathname==='/api/appointed-identities'&&!heldReply183){heldReply183=true;held183.set(init,staleKind183==='401'?new Response('{"error":"signed_out"}',{status:401,headers:{'Content-Type':'application/json'}}):{scope:'qualified_community_readers',identities:[co183,treasury183]});return 180;}return 0;});
-    page183.answer((pathname,init)=>pathname==='/api/appointed-identities'?(held183.has(init)?held183.get(init):{scope:'qualified_community_readers',identities:[co183,changedTreasury183]}):null);
+    page183.hold((pathname,init)=>{if(pathname==='/api/appointed-identities'&&!heldReply183){heldReply183=true;held183.set(init,staleKind183==='401'?new Response('{"error":"signed_out"}',{status:401,headers:{'Content-Type':'application/json'}}):{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]});return 180;}return 0;});
+    page183.answer((pathname,init)=>pathname==='/api/appointed-identities'?(held183.has(init)?held183.get(init):{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,changedTreasury183]}):null);
     await page183.go('#/roles');await waitFor(()=>heldReply183,'completed old appointment reply held');
     page183.document.hidden=true;page183.document.dispatchEvent(new Event('visibilitychange'));
     page183.document.hidden=false;page183.document.dispatchEvent(new Event('visibilitychange'));await waitFor(()=>page183.app.textContent.includes(changedLabel183),'new generation appointment reply');
@@ -71,21 +71,21 @@ const body183 = String.raw`
     refused183.document.hidden=true;refused183.document.dispatchEvent(new Event('visibilitychange'));refused183.document.hidden=false;refused183.document.dispatchEvent(new Event('visibilitychange'));await settle();
     check('a current appointment '+status183+' refusal is not automatically retried on tab return',refusedReads183===1&&!hasNames183(refused183.app)&&!refused183.app.textContent.includes('Private Treasury Fixture'));
   }
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[]}:null);
   await page183.go('#/');await page183.go('#/roles');await settle();
   check('an unavailable fresh identity never leaves cached names or changes the appointed closure',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&page183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
   page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'wrong-audience',identities:[co183,treasury183]}:null);
   await page183.go('#/');await page183.go('#/roles');await settle();
   check('a wrong audience cannot decorate a card with an otherwise valid identity DTO',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture'));
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[{...co183,role:'officer'},{...treasury183,characters:[{name:'UNBOUND_FIXTURE',status:'pending',verifiedAt:'not-a-proof'}]}]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[{...co183,role:'officer'},{...treasury183,characters:[{name:'UNBOUND_FIXTURE',status:'pending',verifiedAt:'not-a-proof'}]}]}:null);
   await page183.go('#/');await page183.go('#/roles');await settle();
   check('unsupported offices and unverified character shapes cannot supply appointment labels',!hasNames183(page183.app)&&!page183.app.textContent.includes('UNBOUND_FIXTURE'));
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[co183,treasury183]}:null);page183.hold(pathname=>pathname==='/api/appointed-identities'?120:0);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]}:null);page183.hold(pathname=>pathname==='/api/appointed-identities'?120:0);
   await page183.go('#/');await page183.go('#/roles');await page183.go('#/');await new Promise(resolve=>setTimeout(resolve,160));
   check('a late reply from a departed route cannot put names or characters on its replacement',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture'));
   page183.hold(null);
   const dotted183={...co183,displayName:'captain.user.',username:'captain.user.'};
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[dotted183]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[dotted183]}:null);
   await page183.go('#/roles');await waitFor(()=>page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line')?.textContent==='Appointed: captain.user. This role takes no applications or votes.','fresh terminal-period Roles label');
   check('fresh Roles labels retain the exact dotted username once and punctuate the private fallback separately',page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line').textContent==='Appointed: captain.user. This role takes no applications or votes.'&&page183.app.querySelector('[data-appointed-person="treasurer"] .appointed-line').textContent==='Filled by appointment. This role takes no applications or votes.'&&!page183.app.textContent.includes('captain.user..'));
   await page183.go('#/apply');page183.app.querySelector('button[aria-label="Details: Co-Guild Master"]').click();
@@ -93,11 +93,27 @@ const body183 = String.raw`
   const dottedDialog183=page183.document.body.querySelector('dialog');
   check('fresh role information ends the exact dotted account label once without offering an appointed role',dottedDialog183.querySelector('.appointed-line').textContent==='Appointed: captain.user. This role takes no applications.'&&!dottedDialog183.textContent.includes('captain.user..')&&!dottedDialog183.textContent.includes('Choose as my first choice'));
   dottedDialog183.close();
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[{...dotted183,displayName:'Synthetic Captain'}]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[{...dotted183,displayName:'Synthetic Captain'}]}:null);
   await page183.go('#/vote/co_gm');await waitFor(()=>page183.app.querySelector('.board-role-content')?.textContent.includes('Appointed: Synthetic Captain (captain.user.). Co-Guild Master'),'fresh dotted username in parenthetical Vote label');
   check('fresh appointed Vote sentence preserves a parenthetical dotted username and remains closed to votes',page183.app.querySelector('.board-role-content').textContent.includes('Appointed: Synthetic Captain (captain.user.). Co-Guild Master is filled by appointment rather than by the board')&&!page183.app.querySelector('.board-role-content').textContent.includes('captain.user..')&&!page183.app.querySelector('button.vote')&&!page183.app.querySelector('textarea')&&!page183.app.textContent.includes('Private Treasury Fixture'));
-  const unconfirmed183=await openPage(OTHER,{}, {bootTransform:transformed183});let unconfirmedReads183=0;unconfirmed183.before(pathname=>{if(pathname==='/api/appointed-identities')unconfirmedReads183++;return false;});unconfirmed183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers',identities:[co183,treasury183]}:null);await unconfirmed183.go('#/roles');unconfirmed183.document.hidden=true;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));unconfirmed183.document.hidden=false;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));await settle();
+  const unconfirmed183=await openPage(OTHER,{}, {bootTransform:transformed183});let unconfirmedReads183=0;unconfirmed183.before(pathname=>{if(pathname==='/api/appointed-identities')unconfirmedReads183++;return false;});unconfirmed183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]}:null);await unconfirmed183.go('#/roles');unconfirmed183.document.hidden=true;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));unconfirmed183.document.hidden=false;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));await settle();
   check('an ordinary unconfirmed viewer receives only generic closed appointments and makes no identity read',!unconfirmed183.boot.community.capabilities.communityRead&&!unconfirmed183.boot.community.capabilities.confirmedGuildData&&unconfirmedReads183===0&&!hasNames183(unconfirmed183.app)&&unconfirmed183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
+  const catalogPage183=await openPage(MEMBER,{}, {bootTransform:boot=>{boot.settings.appointed=Object.fromEntries(boot.meta.appointments.map(office=>[office.key,'Appointed member']));}});
+  const catalogRows183=catalogPage183.boot.meta.appointments.map(office=>office.key==='co_gm'?co183:office.key==='treasurer'?treasury183:{...co183,role:office.key,displayName:'Office '+office.key,username:'office.'+office.key,characters:[]});
+  catalogPage183.answer(path=>{
+    if(!path.startsWith('/api/appointed-identities'))return null;
+    const after183=new URL(path,'https://guild.example').searchParams.get('after')||'';
+    const remaining183=[...catalogRows183].sort((a,b)=>a.role<b.role?-1:a.role>b.role?1:0).filter(row=>row.role>after183),page183=remaining183.slice(0,32);
+    return {scope:'qualified_community_readers',revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',identities:page183,nextCursor:remaining183.length>32?page183[page183.length-1].role:null,complete:remaining183.length<=32};
+  });
+  await catalogPage183.go('#/roles');await waitFor(()=>hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-appointed-person="officer"]')?.textContent.includes('Office officer'),'all131 appointed identity projection');
+  check('all131 admitted offices retain CoGM Treasurer and a further supported Roles identity',catalogRows183.length===131&&hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-appointed-person="officer"]').textContent.includes('Office officer'));
+  catalogPage183.answer(path=>path==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[...catalogRows183,{...co183,role:'unregistered_office'}]}:null);
+  await catalogPage183.go('#/');await catalogPage183.go('#/roles');await settle();
+  check('a response above the actual131-office catalogue fails closed without private labels',!hasNames183(catalogPage183.app)&&!catalogPage183.app.textContent.includes('Office officer'));
+  await catalogPage183.go('#/');
+  const withheld183=await openPage(MEMBER,{}, {bootTransform:boot=>{boot.settings.appointed={treasurer:'Name withheld'};}});await withheld183.go('#/roles');
+  check('Name withheld and erased-holder projections contain no Treasurer literal in public role facts',withheld183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes('Name withheld')&&!withheld183.app.textContent.includes('Fernmelder')&&!withheld183.boot.meta.positions.find(p=>p.key==='treasurer').info.game.includes('Fernmelder'));
   check('appointment presentation issues only reads and never saves settings, modifies identity or obtains Army data',calls183.every(call=>call.method==='GET'&&!/army|privacy\/|census\/preview/.test(call.pathname))&&!one('SELECT 1 FROM site_users WHERE discord_id=?',discordOnly183));
   console.log('\n'+ok+'/'+n+' appointment display183 checks passed');process.exit(ok===n?0:1);
 })().catch(error=>{console.error(error);process.exit(1);});

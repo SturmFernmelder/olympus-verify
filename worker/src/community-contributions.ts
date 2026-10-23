@@ -433,7 +433,8 @@ export async function memberSnapshot(env: Env, guildScope: string, id: string, a
          ${gatedSumSql(receiptJournal("r.id"))} AS allocated, ${magnitudeSql(receiptJournal("r.id"))} AS allocated_magnitude,
          r.observed_at, r.matched_discord_id, r.status
        FROM ${T}receipts r
-       WHERE r.guild_scope = ?1 AND r.matched_discord_id = ?2 AND r.retired_copper < r.amount_copper AND r.voided_at IS NULL`,
+       WHERE r.guild_scope = ?1 AND r.matched_discord_id = ?2 AND r.retired_copper < r.amount_copper AND r.voided_at IS NULL
+        AND substr(r.source_id,1,18)<>'treasury-extra-v1:'`,
     ).bind(guildScope, id),
     env.DB.prepare(
       `SELECT p.receipt_id, p.obligation_id, ${gatedSumSql(pairJournal("p.receipt_id", "p.obligation_id"))} AS amount,
@@ -526,7 +527,7 @@ const nextRevision = (expected: LedgerRevision) => parseRevision(expected).revis
 const ADMITTED = `EXISTS (SELECT 1 FROM ${T}members WHERE guild_scope = ?1 AND discord_id = ?2 AND nonce = ?3)`;
 // .78: the week live and the receipt live and unvoided, by the database clock at the write (a deadline crossed since the snapshot admits nothing)
 const OWNED_PAIR = `EXISTS (SELECT 1 FROM ${T}obligations o WHERE o.id = ?5 AND o.guild_scope = ?1 AND o.discord_id = ?2 AND ${LIVE_WEEK("o")})
-  AND EXISTS (SELECT 1 FROM ${T}receipts r WHERE r.id = ?4 AND r.guild_scope = ?1 AND r.matched_discord_id = ?2 AND ${LIVE_RECEIPT("r")})`;
+  AND EXISTS (SELECT 1 FROM ${T}receipts r WHERE r.id = ?4 AND r.guild_scope = ?1 AND r.matched_discord_id = ?2 AND ${LIVE_RECEIPT("r")} AND substr(r.source_id,1,18)<>'treasury-extra-v1:')`;
 
 /** Plan allocations with the pure allocate() on one snapshot and apply them atomically; a stale snapshot writes nothing. */
 export async function applyAllocations(env: Env, guildScope: string, id: string, actor: string, at = now(), fence?: SessionFence): Promise<{ status: "applied" | "stale" | "nothing"; allocations: Allocation[]; unallocatedCredit: { receiptId: string; amountCopper: number }[] }> {

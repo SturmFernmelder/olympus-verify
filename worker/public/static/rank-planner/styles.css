@@ -190,3 +190,13 @@
 .olympus-rank-planner .feedback{background:rgba(6,26,8,.95);color:#f2e5c5;border:1px solid #3c6b3c}
 .olympus-rank-planner .ladder-row.selected{background:var(--gold-soft)}
 .olympus-rank-planner footer{color:var(--muted)}
+/* .196: the workbench lives inside the site's existing shell. Its own rules remain rooted here, never on body. */
+.olympus-rank-planner.rank-planner-embedded{background:transparent;margin:0;min-width:0}
+.olympus-rank-planner.rank-planner-embedded .planner-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 22px}
+.olympus-rank-planner.rank-planner-embedded .planner-heading h1{font-size:32px;margin:0}
+.olympus-rank-planner.rank-planner-embedded .planner-heading .lede{flex:1;min-width:min(100%,220px);font-size:14px}
+.olympus-rank-planner.rank-planner-embedded .wrap{max-width:none;padding:0 0 24px}
+.olympus-rank-planner.rank-planner-embedded .layout{grid-template-columns:minmax(0,1fr) minmax(310px,38%);gap:20px}
+.olympus-rank-planner.rank-planner-embedded .cards{grid-template-columns:1fr}
+.olympus-rank-planner.rank-planner-embedded .ladder{top:90px;max-height:calc(100vh - 110px)}
+@media(max-width:900px){.olympus-rank-planner.rank-planner-embedded .layout{display:flex;flex-direction:column}.olympus-rank-planner.rank-planner-embedded .catalogue,.olympus-rank-planner.rank-planner-embedded .ladder{width:100%}.olympus-rank-planner.rank-planner-embedded .ladder{position:static;max-height:none;overflow:visible;order:-1}.olympus-rank-planner.rank-planner-embedded .draft-badge{margin:0}}

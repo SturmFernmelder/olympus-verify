@@ -124,7 +124,7 @@ async function child<T>(o:Origin,parent:ServingContext,label:string,plans:readon
 }
 function groups(o:Origin):readonly Group[]{const id=o.session!.u,p=(sql:string,bind=true)=>payload(sql,bind?[id]:null),g=(label:string,method:Group['method'],plans:Plan[]):Group=>Object.freeze({label,method,plans:Object.freeze(plans)});
  const out=[
-  g('settings','all',[p('SELECT key, value FROM site_settings',false)]),
+  g('settings','all',[p("SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'",false)]),
   g('application','first',[p('SELECT * FROM site_applications WHERE discord_id = ?1')]),
   g('votes','all',[p('SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot')]),
   g('friends','all',[p('SELECT friend_kind AS kind, friend_key AS key, friend_label AS label, note FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label')]),

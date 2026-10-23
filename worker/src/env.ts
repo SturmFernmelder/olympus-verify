@@ -9,6 +9,12 @@ export interface Env {
   QR_NATIVE_ROLE_MAP?: string;
   QR_PRIVILEGED_RANK_MAPPING_ENABLED?: string;
   FULL_RELEASE_ROLES?: string; // unset by default; owner-supplied canonical JSON for the fresh member and ten rank roles (full-release-roles.ts); invalid present holds
+  TREASURY_COSMETIC_ROLES?: string; // absent: disabled; exact canonical guild/app, explicit 90-day season start + three cosmetic role IDs, separately owner-configured
+  TREASURY_COSMETIC_ENABLED?: string; // only literal true permits an explicitly confirmed single cosmetic role operation; never creates roles or auto-grants
+  ARMY_SITE_AGGREGATE_ENABLED?: string; // absent/OFF until the publisher ships and the owner verifies the dedicated unified exporter; never authenticates game origin
+  TOWN_CRIER_WEBHOOK?: string; // optional exact {guild,channel,webhook} operator JSON; normal text/announcement channel only, never supplied by a client
+  TOWN_CRIER_WEBHOOK_TOKEN?: string; // optional secret for that one incoming webhook; never stored in D1, logged, exported or returned
+  TOWN_CRIER_WEBHOOK_ENABLED?: string; // literal true permits separately previewed/confirmed sends; OFF still permits original known-copy cleanup
   STAFF_TEN_RANK_ROLES?: string; // unset, "" or "false" = .160; "true" or "raid-leader" = staff roles from the live ten-rank roster; anything else holds
   DB: D1Database;
   ASSETS: Fetcher;                  // .51: the site's static files (wrangler.toml [assets] binding; run_worker_first, so index.ts hands them over itself)

@@ -1,6 +1,6 @@
 'use strict';
 const {createHash}=require('node:crypto');
-const EXPECTED_SOURCE_SHA256='9adaf7e932228de430bc62b35c091a067f7b7c3aa24b32aa10a3e44974286dcb';
+const EXPECTED_SOURCE_SHA256='262177ed4837641d99dc9b7c84360d59bd8d43e1f97a8e0aa16a71d190e51969';
 function transformApp(source){
   if(typeof source!=='string'||createHash('sha256').update(source).digest('hex')!==EXPECTED_SOURCE_SHA256)throw Error('Exact reviewed production app source is required.');
   const once=(before,after)=>{if(source.split(before).length!==2)throw Error('Local Army source seam is not unique.');source=source.replace(before,after);};
@@ -19,7 +19,7 @@ function transformApp(source){
     return completion;
   }
 `);
-  once('  function render() {\n    closeNavMenus();\n','  function render() {\n    closeNavMenus();\n    if (disposeArmyQrLocal) disposeArmyQrLocal();\n    if (armyQrLocalCleanup) { armyQrRenderQueued = true; return; }\n');
+  once('    closeNavMenus();\n    if (disposeSeatsNotice) disposeSeatsNotice();\n','    closeNavMenus();\n    if (disposeArmyQrLocal) disposeArmyQrLocal();\n    if (armyQrLocalCleanup) { armyQrRenderQueued = true; return; }\n    if (disposeSeatsNotice) disposeSeatsNotice();\n');
   once('  async function signOut() {\n','  async function signOut() {\n    if (disposeArmyQrLocal) disposeArmyQrLocal();\n');
   once('news: "Guild news", army: "Army", leadership: "Leadership"','news: "Guild news", army: "Army", "army-qr-local": "Army · local QR preview", leadership: "Leadership"');
   once('    if (anyCommunity()) tabs.push(["leadership", "Leadership"]); // .114:','    if (anyCommunity() && can("applicantWrite") && communityReader()) tabs.push(["army-qr-local", "Army · local QR preview"]);\n    if (anyCommunity()) tabs.push(["leadership", "Leadership"]); // .114:');

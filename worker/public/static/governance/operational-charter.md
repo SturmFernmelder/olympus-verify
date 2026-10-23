@@ -18,7 +18,9 @@ Every instruction should make its source plain. An event order names the event l
 
 ## O3 The High Council and its offices
 
-The High Council is a body of accepted appointees, not every character carrying the native rank label. Its office register identifies each eligible seat once, including any combined portfolios, acting arrangement and recusal. One person does not gain another vote through an alt or an additional office. A vacant office stays visibly vacant; attendance by an adviser does not appoint them or create a vote.
+23 October 2026 owner direction: Guild Master, Co-Guild Master and Treasurer are the core leadership offices. The chosen B ladder retains High Council in Slot 2 and places Treasurer in Slot 3 (zero-based index 2) above Officer Slot 4; Officer Alt remains historical. Office acceptance, votes, live native ranks and platform permissions remain separate; this document executes none.
+
+The High Council is a body of accepted appointees, not every character carrying an Officer or Treasurer native rank. Its office register identifies each eligible seat once, including any combined portfolios, acting arrangement and recusal. One person does not gain another vote through an alt or an additional office. A vacant office stays visibly vacant; attendance by an adviser does not appoint them or create a vote.
 
 The two War Heads carry distinct PvP and Raiding portfolios. The Federal Treasurer carries the finance portfolio. The Ministers of Artisanry and Heraldry carry the crafting and community portfolios. Accepted High Councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review. Systems and Addons is a shared support division with a recorded lead; it is not an undeclared fifth ministry. Specialist service heads may advise the Council without becoming voting Council members unless separately appointed.
 
@@ -52,7 +54,7 @@ The established dues rule is one gold weekly, a fourteen-day new-member exemptio
 
 A requisition names the purpose, item or amount, event or beneficiary category, responsible requester and required date. The approver checks the budget and applicable threshold. The custodian records the actual transfer, and a different person reconciles it where independence is required. Related transfers are considered together so a substantial request cannot be split to evade review. No officer pays a private expense from the common bank merely because they hold a senior rank.
 
-The Independent Bank Auditor reports findings to the unconflicted reviewing authority. Before examination, actual withdrawal, custody and approval rights over the assets must be reconciled with audit independence, including rights inherited from a native High Council preset. A title saying “auditor” does not neutralize an existing withdrawal permission. The auditor verifies records and reports an exception; an authorized custodian executes any correction. The person who approved or handled the transaction does not independently certify their own work.
+The Independent Bank Auditor reports findings to the unconflicted reviewing authority. Before examination, actual withdrawal, custody and approval rights over the assets must be reconciled with audit independence, including rights inherited from a historical High Council preset. A title saying “auditor” does not neutralize an existing withdrawal permission. The auditor verifies records and reports an exception; an authorized custodian executes any correction. The person who approved or handled the transaction does not independently certify their own work.
 
 ## O7 The Association of Artisanry
 
@@ -146,7 +148,7 @@ Using the main guild's roster and members' stated availability, freejam helps fo
 
 European scheduling needs and recurring coordination problems should be brought to the relevant officers or Council portfolio so that the wider organization can respond. Hand-offs should identify the next responsible person and any outstanding decision.
 
-### Nomad — Hunter guidance, European activities and open-world PvP
+### Nomad — Hunter guidance, European activities and optional open-world PvP
 
 Discord: `nomadraider`
 

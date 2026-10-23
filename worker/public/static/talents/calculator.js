@@ -267,12 +267,19 @@
         const button = h("button", { type: "button", class: "talents-class-button", "data-class": c.id, "aria-pressed": String(c.id === cls.id), onclick() { chooseClass(c.id); } }, image(art.classIcons[c.id]), h("span", { text: c.name }));
         classButtons.set(c.id, button); return button;
       }));
-      const level = h("select", { id: "olympus-talent-level", "aria-label": "Character level", onchange(event) {
+      const chooseLevel = (value) => {
         if (!active) return;
-        const next = { ...build, level: Number(event.target.value) }, checked = validateBuild(data, next);
+        const next = { ...build, level: Number(value) }, checked = validateBuild(data, next);
         if (checked.ok) { build = next; message = ""; changed(); } else message = checked.error + " Refund points or reset first.";
         render("level");
-      } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
+      };
+      const level = h("select", { id: "olympus-talent-level", "aria-label": "Character level", onchange(event) { chooseLevel(event.target.value); } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
+      const levelPresetButtons = [];
+      const levelPresets = h("div", { class: "talents-level-presets", role: "group", "aria-label": "Point budget" }, [30, 60].map(value => {
+        const button = h("button", {type:"button", "data-level-preset":String(value), "aria-pressed":String(build.level === value),
+          text:`Level ${value} · ${value - 9} points`, onclick() { chooseLevel(value); }});
+        levelPresetButtons.push([value, button]); return button;
+      }));
       level.value = String(build.level);
       const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { if (active) { compare = event.target.checked; render("compare"); } } });
       const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); hideDetail(); } } });
@@ -405,20 +412,28 @@
       const guideStatus = h("p", { class: "talents-guide-status", role: "status", "aria-live": "polite", text: guideRecords.length ? "Choose a checked allocation to see its point budget, then load it when ready." : "No checked compatible allocation in this snapshot. Read the publisher's guide for its current recommendations." });
       const guideSelect = h("select", { "aria-label": "Guide-recommended build", onchange() {
         if (!active || view?.className !== cls.id || build.className !== cls.id || !container.contains(guideSelect)) return;
-        const record = guideRecords.find(item => item.id === guideSelect.value);
-        guideLoad.disabled = !record;
-        if (!record) { guideStatus.textContent = "Choose a checked allocation to see its point budget, then load it when ready."; return; }
-        const candidate = parseBuild(data, record.code);
-        if (!candidate.ok) { guideLoad.disabled = true; guideStatus.textContent = "That allocation does not match this talent snapshot. Your plan was not changed."; return; }
-        guideStatus.textContent = "Minimum level " + candidate.levelNeeded + " without Legacy bonuses. Load replaces your current plan and sets its level to " + candidate.build.level + ".";
+        paintGuideAllocation();
       } }, h("option", { value: "", text: "Choose a guide build" }), guideRecords.map(record => h("option", { value: record.id, text: record.label })));
       const guideLoad = h("button", { type: "button", disabled: true, text: "Load guide build", onclick() {
         if (!active || view?.className !== cls.id || build.className !== cls.id || !container.contains(guideLoad)) return;
         const record = guideRecords.find(item => item.id === guideSelect.value), candidate = record && parseBuild(data, record.code);
         if (!candidate?.ok || candidate.build.className !== cls.id) { guideStatus.textContent = "That allocation does not match this talent snapshot. Your plan was not changed."; return; }
-        build = candidate.build; selected = talents.find((talent, index) => build.ranks[index] > 0)?.id || talents[0].id;
-        message = "Loaded " + record.label + ". This changes only the local calculator plan."; changed(); render("guide");
+        const currentLevelBuild = { ...candidate.build, level: build.level };
+        if (!validateBuild(data, currentLevelBuild).ok) { guideLoad.disabled = true; guideStatus.textContent = "Needs level " + candidate.levelNeeded + ": choose Level 60 first. Your plan was not changed."; return; }
+        build = currentLevelBuild; selected = talents.find((talent, index) => build.ranks[index] > 0)?.id || talents[0].id;
+        message = "Loaded " + record.label + " at your selected level " + build.level + ". This changes only the local calculator plan."; changed(); render("guide");
       } });
+      function paintGuideAllocation() {
+        const record = guideRecords.find(item => item.id === guideSelect.value);
+        guideLoad.disabled = true;
+        if (!guideRecords.length) { guideStatus.textContent = "No checked compatible allocation in this snapshot. Read the publisher's guide for its current recommendations."; return; }
+        if (!record) { guideStatus.textContent = "Choose a checked allocation to see its point budget, then load it when ready."; return; }
+        const candidate = parseBuild(data, record.code);
+        if (!candidate.ok) { guideStatus.textContent = "That allocation does not match this talent snapshot. Your plan was not changed."; return; }
+        if (!validateBuild(data, { ...candidate.build, level: build.level }).ok) { guideStatus.textContent = "Minimum level " + candidate.levelNeeded + " without Legacy bonuses. Needs level " + candidate.levelNeeded + ": choose Level 60 first. Your plan was not changed."; return; }
+        guideLoad.disabled = false;
+        guideStatus.textContent = "Minimum level " + candidate.levelNeeded + " without Legacy bonuses. Load replaces your local ranks and keeps your selected level " + build.level + ".";
+      }
       // .186: an optional module that failed to load is named instead of silently missing; the next visit to the calculator retries it.
       const lost = Array.isArray(options.unavailable) ? options.unavailable : [], lostGuides = lost.includes("guideBuilds") && !guides, lostAnalysis = lost.includes("analysis") && !analysisHost;
       const moduleNote = lostGuides || lostAnalysis ? h("p", { class: "talents-module-note muted", text: (lostGuides ? "Guide builds" + (lostAnalysis ? " and build comparison" : "") : "Build comparison") + " could not be loaded. Reopen the calculator to try again." }) : null;
@@ -453,7 +468,7 @@
           h("p", { class: "talents-guide-attribution", text: "By " + guideSource.author + " · Updated " + guideSource.updatedAt + ". Beta recommendations, not a guarantee of current tuning or optimal results." }),
           h("p", { class: "talents-guide-limit", text: "Only allocations that pass this snapshot's point, tier and prerequisite rules are offered. Legacy bonus points and the publisher's leveling order are not applied here. Nothing is learned on a game character." }))) : null;
       const shell = h("section", { class: "talents-tool", "data-class": cls.id }, classRow,
-        h("div", { class: "talents-toolbar" }, h("label", { class: "talents-class-select", "aria-hidden": "true" }, "Class", classSelect), h("label", null, "Level", level), reset, copy, h("label", { class: "talents-compare-switch" }, compareInput, "Compare to Classic")),
+        h("div", { class: "talents-toolbar" }, h("label", { class: "talents-class-select", "aria-hidden": "true" }, "Class", classSelect), h("label", null, "Level", level), levelPresets, reset, copy, h("label", { class: "talents-compare-switch" }, compareInput, "Compare to Classic")),
         h("header", { class: "talents-class-banner" }, image((art.classPortraits || art.classIcons)[cls.id], { class: "talents-portrait" }), h("div", { class: "talents-class-title" }, h("p", { class: "talents-eyebrow", text: "Olympus · Forever talents" }), h("h2", { text: cls.name })),
           h("div", { class: "talents-spec-bars" }, cls.trees.map((tree, index) => {
             const meter = h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), label = h("b", { text: String(state.treePoints[index]) });
@@ -471,6 +486,8 @@
         if (!active || view?.className !== cls.id) return;
         state = validateBuild(data, build); byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
         level.value = String(build.level); compareInput.checked = compare; legend.hidden = !compare;
+        for (const [value, button] of levelPresetButtons) button.setAttribute("aria-pressed", String(build.level === value));
+        paintGuideAllocation();
         split.textContent = state.treePoints.join(" / "); pointsLeft.textContent = "Points left: " + (state.budget - state.points); levelNeeded.textContent = "Level needed: " + state.levelNeeded;
         for (const [index, label] of treePointLabels.entries()) {
           const points = state.treePoints[index], spec = specPointRefs[index]; label.textContent = points + (points === 1 ? " point" : " points");

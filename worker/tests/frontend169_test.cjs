@@ -60,7 +60,7 @@ const recordTool169 = (page, namespace, calls) => {
   }
   const avatarPage = await openPage(MEMBER);
   const promotion185 = avatarPage.app.querySelector('[data-addon-promotion="olympus-guild"]');
-  check(".185 signed-in Home promotes the optional addon without conflating verification or Army QR", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("separate from verification and Army QR"));
+  check(".196 signed-in Home promotes the unified optional addon, keeps verification separate and states that snapshot export awaits publisher adoption", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("Verification remains separate.") && promotion185.textContent.includes("website snapshot export still needs publisher adoption"));
   const promotionLink185 = promotion185?.querySelector('a[href="https://www.curseforge.com/wow/addons/olympus-guild"]');
   check(".185 the prominent publisher link opens safely and the catalog stays available", !!promotionLink185 && promotionLink185.getAttribute("target") === "_blank" && promotionLink185.getAttribute("rel") === "noopener noreferrer" && !!promotion185.querySelector('a[href="#/addons"]'));
   const anonymousPromotion185 = await openPage(null);
@@ -92,7 +92,7 @@ const recordTool169 = (page, namespace, calls) => {
   check(".169 failed recommendation pictures fall back without reloading an external address", recommendations[0].querySelector("img").getAttribute("src") === "/static/wow/pos-member.png");
   recommendations[1].dispatchEvent(new Event("mousedown", { bubbles: true }));
   const picked = avatarPage.app.querySelector("#friends .person") || avatarPage.app.querySelector(".person");
-  check(".169 picking a Discord recommendation returns to a local member portrait instead of publishing its CDN picture", !!picked && picked.textContent.includes("Avatar fixture 1") && picked.querySelector("img").getAttribute("src") === "/static/wow/pos-member.png");
+  check(".196 a selected Discord recommendation retains its guarded portrait", !!picked && picked.textContent.includes("Avatar fixture 1") && picked.querySelector("img").getAttribute("src") === good[1] && picked.querySelector("img").getAttribute("referrerpolicy") === "no-referrer");
   check(".169 own portraits retain their separately bounded CDN treatment", avatarPage.app.querySelector(".who img").getAttribute("src") === avatarPage.boot.user.avatarUrl && avatarPage.app.querySelector(".welcome img").getAttribute("src") === avatarPage.boot.user.avatarUrl);
 
   console.log("\n== .175: appointment association eligibility and current-profile lookup ==");
@@ -145,15 +145,15 @@ const recordTool169 = (page, namespace, calls) => {
   const member = await openPage(MEMBER);
   check(".169 native Guild and Resources menus contain the actual routes", !!group169(member, "Guild") && !!group169(member, "Resources") && ["#/roles", "#/governance", "#/organization", "#/talents", "#/addons", "#/guides", "#/guide/member", "#/guide/officer"].every(href => !!link169(member, href)));
   check(".169 a member has no Staff menu or Admin route link", !group169(member, "Staff") && !link169(member, "#/admin"));
-  check(".183 Community is one direct hub link while News OFF stays hidden and Game updates remain in Resources", !group169(member, "Community") && !!link169(member, "#/community") && !link169(member, "#/community/news") && !!group169(member, "Resources").querySelector('a[href="#/updates"]'));
+  check(".196 Community dropdown exposes its hub while News OFF stays hidden and Game updates remain in Resources", !!group169(member, "Community") && !!link169(member, "#/community") && !link169(member, "#/news") && !!group169(member, "Resources").querySelector('a[href="#/updates"]'));
   const newsMember = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.newsOn = true; } });
   await newsMember.go("#/community");
-  check(".183 News ON remains in the Community sections while the header keeps one hub destination and Game updates", !!link169(newsMember, "#/community") && !group169(newsMember, "Community") && !link169(newsMember, "#/community/news") && !!newsMember.app.querySelector('nav[aria-label="Community sections"] a[href="#/community/news"]') && !!link169(newsMember, "#/updates"));
+  check(".196 News ON exposes Town Crier in the Community dropdown and preserves the current Community section", !!link169(newsMember, "#/community") && !!group169(newsMember, "Community") && !!link169(newsMember, "#/news") && !!newsMember.app.querySelector('nav[aria-label="Community sections"] a[href="#/community/news"]') && !!link169(newsMember, "#/updates"));
   const heldCommunity = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.newsOn = true; boot.community.capabilities.applicantWrite = false; } });
   check(".170 missing private Community capability removes its menu and Guild news link without removing public Game updates", !group169(heldCommunity, "Community") && !link169(heldCommunity, "#/community") && !link169(heldCommunity, "#/community/news") && !!group169(heldCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const noCommunity = await openPage(MEMBER, { COMMUNITY_FEATURES: "" });
-  check(".183 legacy Community features OFF keeps one eligible Army hub and signed-in Game updates", !group169(noCommunity, "Community") && !!link169(noCommunity, "#/community") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
-  check(".183 Army remains available through the single Community hub with legacy features OFF without private routes or an extra top link", noCommunity.boot.community.capabilities.armyRead === true && !link169(noCommunity, "#/community/army") && !!link169(noCommunity, "#/community") && !link169(noCommunity, "#/community/news") && !link169(noCommunity, "#/community/census") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
+  check(".196 legacy Community features OFF keeps the eligible Army dropdown and signed-in Game updates", !!group169(noCommunity, "Community") && !!link169(noCommunity, "#/community") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
+  check(".196 Army remains in the guarded Community dropdown with legacy features OFF without private Census routes", noCommunity.boot.community.capabilities.armyRead === true && !!link169(noCommunity, "#/community/army") && !!link169(noCommunity, "#/community") && !link169(noCommunity, "#/community/news") && !link169(noCommunity, "#/community/census") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const staff = await openPage(STAFF);
   check(".169 only the actual staff boot receives the Staff group and Admin link", !!group169(staff, "Staff") && !!link169(staff, "#/admin") && staff.boot.user.isAdmin === true);
   console.log("\n== .170: exclusive fine-pointer, tap and keyboard navigation ==");

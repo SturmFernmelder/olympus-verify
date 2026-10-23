@@ -6,6 +6,7 @@ const worker=process.env.PRIVACY_REVIEW_WORKER||path.resolve(__dirname,'..');
 const original=path.join(worker,'tests/privacy_access_test.cjs'),source=fs.readFileSync(original,'utf8'),marker='async function main(){';
 if(source.split(marker).length!==2)throw Error('canonical native setup boundary changed');
 async function review(){
+ await require('./privacy_registered196_families.cjs').run(root);
  const forms=load('policy-forms'),formCore=load('policy-form-core'),history=load('privacy-access-family-history');
  const first=load('privacy-access-history'),sql=[];
  const paused='Automatic serving-account erasure is temporarily paused while Olympus checks older account records.';
@@ -108,7 +109,7 @@ async function review(){
  sql.length=0;r=await authority.requestServingErasure(f.env,request('/api/me/erasure',ordinary,'POST',{}, {'X-Olympus':core.PAGE_VERSION}),'f'.repeat(32));eq('disabled ordinary native admission remains original feature-disabled guard',await r.json(),{error:'feature_disabled'});eq('disabled ordinary native guard performs zero SQL',sql.length,0);
  sql.length=0;r=await call(f,'/privacy/access/export',connection.cookie,'POST',{...fields(section(onHtml,'/privacy/access/export')),collection:'copy'});const data=await r.json();
  eq('disabled genuine identity aggregate download succeeds',r.status,200);eq('disabled aggregate retains exact 38 coverage histories',Object.keys(data.coverage.histories).sort(),[...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS].sort());eq('disabled aggregate has only the 38 source-qualified histories',Object.keys(data.coverage.histories).length,38);
- eq('disabled aggregate costs exact97 physical attempts including two shared-publication queries and own lifecycle metadata',sql.length,97);eq('disabled aggregate preserves account authority and role/provider custody',state(f),before);
+ eq('disabled aggregate costs original97 plus1 packed own metadata read',sql.length,98);ok('disabled aggregate actual physical attempts stay strictly below100',sql.length<100);eq('disabled aggregate preserves account authority and role/provider custody',state(f),before);
  eq('disabled aggregate consumes only original own-export grant',JSON.parse(JSON.stringify(f.db.prepare('SELECT purpose,consumed_at IS NOT NULL AS spent FROM privacy_access_grants ORDER BY purpose').all())),[{purpose:'own_erasure',spent:0},{purpose:'own_export',spent:1}]);
  r=await call(f,'/privacy/access',connection.cookie);h=await r.text();ok('spent disabled page does not replace download with unavailable erasure form',!/<form\b/.test(h)&&h.includes('fresh download grant')&&h.includes(paused));
  const second=await connect(f),secondForm=await form(f,second);calls=[];sql.length=0;r=await call(f,'/privacy/access/export',second.cookie,'POST',{csrf:secondForm.csrf,grant:secondForm.grant,collection:'site.votes'});const page=await r.json();

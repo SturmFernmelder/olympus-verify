@@ -24,6 +24,10 @@ function fixture(changes = new Map(), repin = false) {
   return { ...base, get };
 }
 check('real staged projection graph passes', verify(base).result === 'PASS');
+for (const file of ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js']) {
+  rejects('master196 view byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
+  rejects('master196 view is required runtime code: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r=JSON.parse(s); r.runtime_paths=r.runtime_paths.filter(path=>path!==file); return JSON.stringify(r); }), true)), /two exact non-art master196 view resources/);
+}
 rejects('asset bytes are not silently refreshed', () => verify(fixture(changed('worker/public/static/app.css', s => s + '\n'))), /byte pin drift/);
 rejects('fixed source byte drift is refused', () => verify(fixture(changed('worker/src/site-data.ts', s => s + '\n'))), /byte pin drift/);
 rejects('extractor byte drift is refused', () => verify(fixture(changed('tools/build-site-assets.py', s => s + '\n'))), /byte pin drift/);
@@ -62,8 +66,13 @@ rejects('512 asset cap is not broadened for another custom image', () => verify(
 rejects('talent art map byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art.json', s => s + '\n'))), /byte pin drift/);
 rejects('talent art provenance byte drift is refused', () => verify(fixture(changed('worker/public/static/talents/art-provenance.json', s => s + '\n'))), /byte pin drift/);
 rejects('v2 protocol source cannot drift independently from its shipping copy', () => verify(fixture(changed('tools/army-qr-live/protocol.js', s => s + '\n'))), /exact live Army protocol projection/);
-rejects('addon ZIP bytes cannot be repinned independently from reviewed Lua sources', () => verify(fixture(changed('worker/public/static/army-live/olympus-army-addon-0.2.0.zip', s => s + 'x'), true)), /exact seven-source Army addon ZIP projection/);
-rejects('addon source cannot drift independently from the deterministic source ZIP', () => verify(fixture(changed('addon/OlympusStatsPilot/Army.lua', s => s + '\n'))), /exact seven-source Army addon ZIP projection/);
+const retiredArmyZip = 'worker/public/static/army-live/olympus-army-addon-0.2.0.zip';
+rejects('retired standalone Army ZIP cannot return to the shipping Git tree', () => { const f = fixture(); f.entries = new Map(f.entries).set(retiredArmyZip, {mode:'100644',oid:'0'.repeat(40)}); verify(f); }, /retired standalone Army ZIP must remain absent/);
+rejects('retired standalone Army ZIP cannot return as runtime code', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.runtime_paths.push(retiredArmyZip); return JSON.stringify(r); }), true)), /retired standalone Army ZIP must remain absent/);
+for (const file of ['worker/public/static/army-live/sanitized-export.js', 'worker/public/static/army-live/savedvariables-import.js']) {
+  rejects('dedicated aggregate code byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
+  rejects('dedicated aggregate code cannot become official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => {const r=JSON.parse(s);r.official_paths[0]=file;return JSON.stringify(r);}), true)), /eight exact non-art Army resources/);
+}
 for (const file of ['tools/shared-census-website/website-overlay.cjs', 'tools/army-qr-local/website-overlay.cjs']) {
   rejects('each local overlay requires the exact app source: ' + file, () => verify(fixture(changed(file, s => s.replace(/EXPECTED_SOURCE_SHA256\s*=\s*['"][a-f0-9]{64}['"]/, "EXPECTED_SOURCE_SHA256='" + '0'.repeat(64) + "'")))), /local overlay app-source pin drift/);
   rejects('each local overlay source declaration is mandatory: ' + file, () => verify(fixture(changed(file, s => s.replace('EXPECTED_SOURCE_SHA256', 'UNRECOGNIZED_SOURCE_SHA256')))), /local overlay source declaration/);

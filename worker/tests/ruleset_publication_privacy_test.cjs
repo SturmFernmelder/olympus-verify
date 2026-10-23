@@ -1,4 +1,4 @@
-// Genuine identify-only OAuth/form admission, native SQLite, actual 13-family serving/export graph.
+// Genuine identify-only OAuth/form admission, native SQLite, actual original13 plus2 independently proven metadata-family serving/export graph.
 // Reuse the house fixture constructor, not a duplicate authorization or projection implementation.
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 const p=path.join(__dirname,'privacy_access_test.cjs'),s=fs.readFileSync(p,'utf8'),cut=s.indexOf('async function main(){');
@@ -12,13 +12,14 @@ async function download(f,c='copy',cursor=''){
  f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=x=>batch.push(x.length);
  const r=await copy.exportPrivacyAccess(frm.request({collection:c,cursor}),f.env);
  f.hooks.statement=null;f.hooks.beforeBatch=null;
- eq(c+' exact attempts',attempts,c==='copy'?97:13);eq(c+' exact batch',batch,c==='copy'?[2,95]:[2,11]);
+ eq(c+' exact attempts',attempts,c==='copy'?98:13);eq(c+' exact batch',batch,c==='copy'?[2,96]:[2,11]);
  return r.json();
 }
 async function mainRulesetPrivacy(){
+ await require('./privacy_registered196_families.cjs').run(root);
  let f=fixture();await subject(f);
- eq('actual families13',community.communityDataNames().length,13);
- eq('actual registry statements36',community.communityExportPlan(f.env,A).statements.length,36);
+ eq('actual original13 plus exact2 independently proven families',community.communityDataNames().length,15);
+ eq('actual registry original36 plus exact3 metadata statements',community.communityExportPlan(f.env,A).statements.length,39);
  eq('aggregate curated histories38',history.PRIVACY_COPY_HISTORY_COLLECTIONS.length,38);eq('individual histories41',history.PRIVACY_ALL_HISTORY_COLLECTIONS.length,41);
  eq('current table has24 typed columns including original actor birth',f.db.prepare('PRAGMA table_info(ruleset_publications)').all().length,24);
  const insert=f.db.prepare('INSERT INTO ruleset_publications(guild_id,publication_id,target_key,selection_revision,profile_revision,plan_hash,actor,actor_generation,session_version,session_expires,parent_id,channel_id,message_id,frozen_payload,payload_hash,claim_nonce,stage,state,result_code,created_at,updated_at,actor_retain_until) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');

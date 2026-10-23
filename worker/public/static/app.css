@@ -910,3 +910,39 @@ table.data select, table.data input { max-width: 180px; }
   .governance-chapter > .governance-prose { display: block !important; }
   .governance-chapter > summary h2, .governance-prose h3, .governance-prose strong { color: #111; text-shadow: none; }
 }
+/* Owner's 23 Oct 2026 presentation control. It hides the page, never changes server authority. */
+.stream-shield-curtain{display:none}
+html[data-stream-shield="on"] .stream-shield-curtain{display:grid;place-content:center;position:fixed;inset:5rem 0 0;z-index:10000;padding:2rem;text-align:center;background:#0b0a08;color:#f2dfab;font-size:1.15rem}
+html[data-stream-shield="on"] .topbar{z-index:10001}
+html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.notice,html[data-stream-shield="on"] .who,html[data-stream-shield="on"] dialog,html[data-stream-shield="on"] [role="dialog"]{visibility:hidden!important}
+.stream-shield-toggle[aria-pressed="true"]{border-color:#e6c76c;background:#293b22}
+.legal-view196{min-width:0}
+.legal-view196 .legal-paper196{overflow-wrap:anywhere;color:#30200f;padding:clamp(1rem,3vw,2.5rem);border:11px solid transparent;border-image:url("/static/wow/frame-gold.png") 32 / 24px / 0 round;background:linear-gradient(#f1dfb9dd,#ead39add),url("/static/wow/parchment.jpg") center / cover;background-clip:padding-box}
+.legal-paper196 h1,.legal-paper196 h2,.legal-paper196 h3{font-family:OlympusMorpheus,Georgia,serif;color:#4c2d0d;line-height:1.25;scroll-margin-top:6rem}
+.legal-paper196 h1{font-size:clamp(2rem,4vw,3rem);border-bottom:1px solid #785a2f;padding-bottom:.5rem}
+.legal-paper196 h2{font-size:1.7rem;margin-top:1.6rem}
+.legal-paper196 p,.legal-paper196 li{color:#30200f}
+.legal-paper196 a{color:#65400d;font-weight:700}
+.legal-paper196 .policy-contents ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem 1.5rem}
+.legal-paper196 ol>li::before{content:none}
+.legal-paper196 .policy-anchor{display:block;scroll-margin-top:6rem}
+.legal-paper196 .data-controls{padding:1rem;border:1px solid #8f703d;background:#eddcaf88}
+.talents-level-presets{display:flex;flex-wrap:wrap;gap:.35rem}
+.approved-guild-helper196{min-width:0}
+.approved-guild-helper196 textarea{width:100%;max-width:100%;box-sizing:border-box}
+.approved-guild-helper196 .preview p{overflow-wrap:anywhere}
+.news-webhook196 .prewrap{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:40rem){.legal-paper196 .policy-contents ol{grid-template-columns:1fr}.legal-view196 .legal-paper196{padding:1rem}}
+
+/* Dated authoritative capacity is separate from unverified Army observations. */
+.army-capacity196 .army-capacity-meter { width: 100%; height: 1.1rem; }
+.army-capacity196 .army-capacity-unavailable { border: 1px dashed var(--muted); border-radius: 4px; padding: 8px 10px; color: var(--muted); }
+.army-capacity196 .army-capacity-grid { margin-top: 1rem; }
+.army-capacity196 .card { min-width: 0; overflow-wrap: anywhere; }
+
+/* Exact publication JSON stays readable inside the attended review card. */
+.ruleset-payload-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+
+/* Stream Shield remains outside private identity and wrapping navigation groups. */
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.stream-shield-toggle{white-space:nowrap}
+@media(max-width:760px){.topbar-actions{margin-left:auto;max-width:100%;flex-wrap:wrap;justify-content:flex-end}}

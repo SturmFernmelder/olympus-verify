@@ -6,6 +6,7 @@ import {nativeErasureMode} from './privacy-native-mode';
 import {captureAccountErasureProof,originalErasureJobBirthSql,CURRENT_ERASURE_SQL,PRIVACY_DB_NOW,admitInactiveServingAccount,type AccountErasureProof} from './privacy-serving-authority';
 import {continueServingErasure,erasureAttemptDiscipline,ERASURE_ATTEMPT_UNRESOLVED} from './privacy-serving-erase';
 import {cleanupPrivacyMessages} from './privacy-provider-messages';
+import {newsWebhookCleanupDueSql} from './site-news-webhook';
 import {admitInactiveBotAccount} from './privacy-inactive-bot';
 import {erasureAttemptFenceMode,claimOriginalErasureAttempt,originalErasureAttemptFacts,type OriginalErasureAttempt} from './privacy-erasure-attempt-identity';
 export const SERVING_ERASURE_JOB_WORST=151;
@@ -31,8 +32,8 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
  // The existing cleanup page owns rotation and exact bot/author/no-repeat checks;
  // minimized subjects need no account association to continue that custody.
  if(nativeErasureMode(env)){
-  const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages
-  WHERE cleanup_requested=1 AND state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();
+  const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages m
+  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();
   if(debt){await cleanupPrivacyMessages(env);return{attempted:0,completed:0,held:0};}
  }
  // An invalid discipline value holds new attempts and inactive admission; the independent provider-message debt lane continues.
@@ -41,13 +42,22 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
  FROM privacy_serving_jobs WHERE state IN('waiting_role','held') AND retain_until>${PRIVACY_DB_NOW} AND (last_attempt_at IS NULL OR last_attempt_at<=${PRIVACY_DB_NOW}-120)${discipline?DISCIPLINE_EXCLUSION:''}
  ORDER BY COALESCE(last_attempt_at,0),created_at,operation_id LIMIT 1`).first<OriginalQueuedErasure>();
  if(row)row=originalQueuedErasure(row);
- if(!row&&discipline!==null){const admitted=await admitInactiveServingAccount(env)??await admitInactiveBotAccount(env);if(admitted){const original=captureAccountErasureProof(admitted).proof;row=Object.freeze({subject:original.subject,subjectGeneration:original.subjectGeneration,operationId:original.operationId,requestDigest:original.requestDigest,accountIncarnation:original.accountIncarnation,last_attempt_at:null});}}
+ if(!row&&discipline!==null){const admitted=await admitInactiveServingAccount(env)??await admitInactiveBotAccount(env);if(admitted){
+  // Native admission has already durably retained the exact waiting_role job,
+  // birth, generation and fixed deadline. Its physical admission transaction
+  // and full terminal cleanup cannot share the installed 196-statement slice.
+  // The next ordinary invocation selects this original row through the same
+  // queue predicate; no new cadence, identity, deadline or attempt is minted.
+  if(nativeErasureMode(env))return{attempted:0,completed:0,held:0};
+  const original=captureAccountErasureProof(admitted).proof;row=Object.freeze({subject:original.subject,subjectGeneration:original.subjectGeneration,operationId:original.operationId,requestDigest:original.requestDigest,accountIncarnation:original.accountIncarnation,last_attempt_at:null});}}
  if(!row){
   // Completed local erasure can leave more than two pointer pages. Continue that independent
   // purpose custody in the same bounded job; no old account authority or new role effect is minted.
-  const debt=await env.DB.prepare(`SELECT json_extract(x.value,'$.id') AS subject FROM privacy_provider_messages m JOIN json_each(m.subjects)x
-  WHERE m.cleanup_requested=1 AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{subject:string}>();
-  if(debt&&/^\d{17,20}$/.test(debt.subject))await cleanupPrivacyMessages(env,debt.subject);
+  // This lane drains only requested/due operation custody. Selecting a message
+  // never authorizes marking every other message of its editor for account erasure.
+  const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages m
+  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{due:number}>();
+  if(debt)await cleanupPrivacyMessages(env);
   return{attempted:0,completed:0,held:0};
  }
  if(discipline)return continueDisciplinedQueuedErasure(env,row);

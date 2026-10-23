@@ -29,13 +29,15 @@
  */
 import type { Env } from "./env";
 import { audit, linksNotBefore, now } from "./db";
-import { apiJson, PAGE_VERSION, rateLimited, type SiteUser } from "./site-core";
+import { apiJson, PAGE_VERSION, rateLimited, sameOrigin, type SiteUser } from "./site-core";
 import { cleanText, loadSettings, settingsFrom } from "./site-data";
 import { admitted, admittedRead, admittedCommunityRead, communityReadRefusal, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, registerCommunityData, type CommunityContext } from "./community-context";
 import { secondsToIso } from "./community-time";
 import { hourOf, memberSeats, seatsFrom, seatsPlan } from "./guild-seats";
 import { leadershipStampStatement } from "./site-leadership";
 import { errorRef } from "./log";
+import { capturePublishedOfficeAuthority, publishedOfficeAuthorityCondition, type PublishedOfficeAuthority } from './site-appointed-identities';
+import { newsWebhookMutationPlan } from './site-news-webhook';
 
 export const NEWS_LIMITS = {
   titleMax: 80,
@@ -70,6 +72,14 @@ export interface ReleaseNote {
  * added in the commit that moves BUILD to it.
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    build: ".196", date: "2026-10-23", lines: [
+      "Public PvE Alliance direction, an Olympus-only Discord directory with opt-out, applicant portraits beside class icons, and listings for all native ranks and extended offices.",
+      "Army review, rank planning and legal pages share the guild hall. The approved local helper stays local; unified guild export still requires publisher adoption.",
+      "The nine-class talent planner supports comparisons and private application build attachments. Displayed calculations do not claim verified live game statistics.",
+      "Optional Town Crier, Stream Shield, Workshop and Treasury controls; Discord webhooks and cosmetic roles require operator configuration. Olympus Link remains off.",
+    ],
+  },
   {
     build: ".176", date: "2026-10-19", lines: [
       "Community viewing recognizes site administrators and current Guild Member Discord roles; member actions retain their existing verification checks.",
@@ -212,6 +222,7 @@ const rowsOf = <T>(r: D1Result<unknown> | undefined): T[] => ((r?.results ?? [])
 // the staff views and the administrator's own copy keep the id.
 const memberNotice = (r: NoticeRow) => ({ title: r.title, body: r.body, postedAt: r.created_at, editedAt: r.revision > 1 ? r.updated_at : null, until: r.retain_until });
 const adminNotice = (r: AdminRow) => ({ id: r.id, ...memberNotice(r), revision: r.revision, createdBy: r.created_by, updatedBy: r.updated_by });
+const noticeDto = (r: AdminRow, editor?: PublishedOfficeAuthority) => editor ? { id: r.id, ...memberNotice(r), revision: r.revision } : adminNotice(r);
 const newsOnFrom = (env: Env, value: string | null | undefined) => settingsFrom(env, typeof value === "string" ? [{ key: "newsOn", value }] : []).newsOn;
 
 // A new notice's operation id (Codex's finding 5, 3 Oct 2026): 22 base64url characters, the first eight the database's
@@ -404,21 +415,60 @@ export async function handleNewsAdmin(request: Request, env: Env, parts: string[
   return deleteNotice(request, env, ctx, body);
 }
 
-async function adminList(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const out = await admittedRead(env, ctx, "applicantWrite", [
+const editorForbidden = () => apiJson({ error: 'news_editor_forbidden', message: 'Your current Town Crier editor appointment could not be confirmed.' }, 403);
+const editorCondition = (editor: PublishedOfficeAuthority | undefined, first: number) => editor ? publishedOfficeAuthorityCondition(editor, first) : { sql: '1', values: [] as readonly string[] };
+const noticeRefusal = (request: Request, env: Env, editor?: PublishedOfficeAuthority) => editor ? editorForbidden() : refusal(env, request, 'applicantWrite');
+/** Each editor read, including a replay/refusal, repeats the exact original map
+ * and target incarnation in the same Native transaction as its payload. */
+async function newsRead(env: Env, ctx: CommunityContext, statements: D1PreparedStatement[], editor?: PublishedOfficeAuthority): Promise<D1Result[] | typeof FENCE_REFUSED> {
+  if (!editor) return admittedRead(env, ctx, 'applicantWrite', statements);
+  const condition = editorCondition(editor, 1);
+  const out = await admittedRead(env, ctx, 'applicantWrite', [env.DB.prepare(`SELECT (${condition.sql}) AS editor_ok`).bind(...condition.values), ...statements]);
+  return out === FENCE_REFUSED || rowsOf<{ editor_ok: number }>(out[0])[0]?.editor_ok !== 1 ? FENCE_REFUSED : out.slice(1);
+}
+
+/** /api/news/editor[/update|delete]. The real signed actor is supplied by the
+ * original site API; a boot flag, client actor or fabricated communityStaff is
+ * never an editor capability. Existing administrators keep their old handler. */
+export async function handleTownCrierEditor(request: Request, env: Env, parts: string[], user: SiteUser, body: Record<string, unknown>): Promise<Response> {
+  const ctx = await communityContext(env, request);
+  if (!ctx.subject || ctx.subject.discordId !== user.discord_id || !ctx.capabilities.applicantWrite || ctx.facts.banned) return editorForbidden();
+  if (ctx.capabilities.communityStaff) return handleNewsAdmin(request, env, parts, user, body);
+  const authority = await capturePublishedOfficeAuthority(env, ctx.subject.discordId, ['office_50']);
+  if (!authority || await newsRead(env, ctx, [env.DB.prepare('SELECT 1 AS editor_admitted')], authority) === FENCE_REFUSED) return editorForbidden();
+  const sub = parts.join('/');
+  let response: Response;
+  if (request.method === 'GET' && sub === '') response = await adminList(request, env, ctx, authority);
+  else {
+    if (request.method !== 'POST' || !['', 'update', 'delete'].includes(sub)) return apiJson({ error: 'not_found' }, 404);
+    if (!sameOrigin(request)) return apiJson({ error: 'bad_origin' }, 403);
+    if (request.headers.get('X-Olympus') !== PAGE_VERSION) return apiJson({ error: 'reload', message: 'Reload the page before editing News.' }, 409);
+    if (rateLimited(`nw:${ctx.subject.discordId}`, NEWS_LIMITS.writesPerMin, 60)) return apiJson({ error: 'slow_down' }, 429);
+    response = sub === '' ? await createNotice(request, env, ctx, body, authority)
+      : sub === 'update' ? await updateNotice(request, env, ctx, body, authority)
+        : await deleteNotice(request, env, ctx, body, authority);
+  }
+  // A successful commit remains committed if publication is revoked afterwards;
+  // its earlier content/receipt is withheld, not silently repeated or undone.
+  if (await newsRead(env, ctx, [env.DB.prepare('SELECT 1 AS editor_response_admitted')], authority) === FENCE_REFUSED) return editorForbidden();
+  return response;
+}
+
+async function adminList(request: Request, env: Env, ctx: CommunityContext, editor?: PublishedOfficeAuthority): Promise<Response> {
+  const out = await newsRead(env, ctx, [
     env.DB.prepare(`${ADMIN_COLUMNS} WHERE ${LIVE} ORDER BY created_at DESC, id LIMIT ${NEWS_LIMITS.liveMax}`),
     env.DB.prepare(
       `SELECT (SELECT COUNT(*) FROM site_news_notices WHERE retain_until <= ${DB_NOW}) AS expired, (SELECT COUNT(*) FROM site_news_ops) AS ops,
               (SELECT value FROM site_settings WHERE key = 'newsOn') AS news_on, ${DB_NOW} AS db_now`,
     ),
-  ]);
-  if (out === FENCE_REFUSED) return refusal(env, request, "applicantWrite");
+  ], editor);
+  if (out === FENCE_REFUSED) return noticeRefusal(request, env, editor);
   const c = rowsOf<{ expired: number; ops: number; news_on: string | null; db_now: number }>(out[1])[0];
   return apiJson({
     now: now(),
     newsOn: newsOnFrom(env, c?.news_on),
     limits: NEWS_LIMITS,
-    notices: rowsOf<AdminRow>(out[0]).map(adminNotice),
+    notices: rowsOf<AdminRow>(out[0]).map(row => noticeDto(row, editor)),
     awaitingCleanup: c?.expired ?? 0, // past their time: hidden from every read already, deleted by the next cron runs
     operationRecords: c?.ops ?? 0,
     // Codex's finding 5 (3 Oct 2026): the page's next create goes under this id, stamped with the database clock of this
@@ -428,7 +478,7 @@ async function adminList(request: Request, env: Env, ctx: CommunityContext): Pro
   });
 }
 
-async function createNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>): Promise<Response> {
+async function createNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, editor?: PublishedOfficeAuthority): Promise<Response> {
   if (!exactKeys(body, ["id", "title", "body", "days"])) return apiJson({ error: "invalid_request", message: "That request could not be read." }, 400);
   if (typeof body.id !== "string" || !ID.test(body.id)) return invalid("id", "That operation id could not be read.");
   const id = body.id;
@@ -437,6 +487,7 @@ async function createNotice(request: Request, env: Env, ctx: CommunityContext, b
   const hash = await opHash(v);
   const issued = opIssuedAt(id);
   const me = ctx.subject!.discordId, nonce = randomToken();
+  const condition = editorCondition(editor, 7);
   // The operation record first: the fence, the switch and the live count are judged inside it by the database, and an id
   // that already has a record (a replay, or a notice since deleted or expired) inserts nothing, so the notice cannot come
   // back. The record is kept opsKeepS from now, so the id's own age is judged here too, by the same clock (Codex's finding
@@ -447,11 +498,11 @@ async function createNotice(request: Request, env: Env, ctx: CommunityContext, b
     env.DB.prepare(
       `INSERT INTO site_news_ops (id, nonce, created_by, created_at, purge_after)
        SELECT ?4, ?5, ?1, ${DB_NOW}, ${DB_NOW} + ${NEWS_LIMITS.opsKeepS}
-        WHERE ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} AND ${NEWS_ON_SQL}
+        WHERE ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} AND (${condition.sql}) AND ${NEWS_ON_SQL}
           AND (SELECT COUNT(*) FROM site_news_notices WHERE ${LIVE}) < ${NEWS_LIMITS.liveMax}
           AND ?6 > ${DB_NOW} - ${NEWS_LIMITS.opIssueMaxAgeS} AND ?6 <= ${DB_NOW}
        ON CONFLICT(id) DO NOTHING`,
-    ).bind(me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, id, nonce, issued),
+    ).bind(me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, id, nonce, issued, ...condition.values),
     env.DB.prepare(
       `INSERT INTO site_news_notices (id, op_hash, title, body, revision, nonce, created_by, created_at, updated_by, updated_at, retain_until)
        SELECT o.id, ?3, ?4, ?5, 1, o.nonce, ?6, o.created_at, ?6, o.created_at, o.created_at + ?7 * ${DAY_S} FROM site_news_ops o WHERE o.id = ?1 AND o.nonce = ?2`,
@@ -461,29 +512,35 @@ async function createNotice(request: Request, env: Env, ctx: CommunityContext, b
   ]);
   if (out !== FENCE_REFUSED) {
     const row = rowsOf<AdminRow>(out[3])[0];
-    return row ? apiJson({ notice: adminNotice(row) }) : apiJson({ error: "not_found" }, 404);
+    return row ? apiJson({ notice: noticeDto(row, editor) }) : apiJson({ error: "not_found" }, 404);
   }
   // Refused: explained from one read by the database clock.
-  const why = await env.DB.prepare(
+  const whyStatement = env.DB.prepare(
     `SELECT EXISTS (SELECT 1 FROM site_news_ops WHERE id = ?1) AS op, EXISTS (SELECT 1 FROM site_news_notices WHERE id = ?1) AS present,
             (SELECT created_by FROM site_news_notices WHERE id = ?1) AS author, (SELECT op_hash FROM site_news_notices WHERE id = ?1) AS hash,
             EXISTS (SELECT 1 FROM site_news_notices WHERE id = ?1 AND ${LIVE}) AS live,
             (SELECT value FROM site_settings WHERE key = 'newsOn') AS news_on, (SELECT COUNT(*) FROM site_news_notices WHERE ${LIVE}) AS live_count,
             (?2 > ${DB_NOW} - ${NEWS_LIMITS.opIssueMaxAgeS} AND ?2 <= ${DB_NOW}) AS id_ok`,
   )
-    .bind(id, issued)
-    .first<{ op: number; present: number; author: string | null; hash: string | null; live: number; news_on: string | null; live_count: number; id_ok: number }>();
+    .bind(id, issued);
+  type Why = { op: number; present: number; author: string | null; hash: string | null; live: number; news_on: string | null; live_count: number; id_ok: number };
+  let why: Why | null;
+  if (editor) {
+    const read = await newsRead(env, ctx, [whyStatement], editor);
+    if (read === FENCE_REFUSED) return editorForbidden();
+    why = rowsOf<Why>(read[0])[0] ?? null;
+  } else why = await whyStatement.first<Why>();
   if (why?.op) {
     if (!why.present) return apiJson({ error: "deleted", message: "That notice was deleted or its time ran out; it is not posted again." }, 409);
     if (why.author !== me || why.hash !== hash) return apiJson({ error: "op_conflict", message: "A different notice was already posted under this operation. Reload and write it again." }, 409);
     if (!why.live) return apiJson({ error: "expired", message: "That notice's time is up; it is no longer shown." }, 409);
     // The same author and the same text: the earlier attempt stored it. A replay answers only while its author is still staff.
-    const fresh = await communityContext(env, request);
-    if (!fresh.capabilities.communityStaff) return refusal(env, request, "applicantWrite");
-    const again = await admittedRead(env, fresh, "applicantWrite", [env.DB.prepare(`${ADMIN_COLUMNS} WHERE id = ?1 AND ${LIVE}`).bind(id)]);
-    if (again === FENCE_REFUSED) return refusal(env, request, "applicantWrite");
+    const fresh = editor ? ctx : await communityContext(env, request);
+    if (!editor && !fresh.capabilities.communityStaff) return refusal(env, request, "applicantWrite");
+    const again = await newsRead(env, fresh, [env.DB.prepare(`${ADMIN_COLUMNS} WHERE id = ?1 AND ${LIVE}`).bind(id)], editor);
+    if (again === FENCE_REFUSED) return noticeRefusal(request, env, editor);
     const row = rowsOf<AdminRow>(again[0])[0];
-    return row ? apiJson({ notice: adminNotice(row), replay: true }) : apiJson({ error: "deleted", message: "That notice was deleted or its time ran out; it is not posted again." }, 409);
+    return row ? apiJson({ notice: noticeDto(row, editor), replay: true }) : apiJson({ error: "deleted", message: "That notice was deleted or its time ran out; it is not posted again." }, 409);
   }
   // No record under this id, and the id is too old (or was never handed out by this server): nothing was stored under it,
   // and it can no longer store anything. The page starts again with a fresh id (app.js refusedCreate).
@@ -492,12 +549,12 @@ async function createNotice(request: Request, env: Env, ctx: CommunityContext, b
   }
   if (!newsOnFrom(env, why?.news_on)) return apiJson({ error: "news_off", message: "News is switched off (Admin → Settings); notices cannot be posted while it is off." }, 409);
   if ((why?.live_count ?? 0) >= NEWS_LIMITS.liveMax) return apiJson({ error: "too_many", message: `At most ${NEWS_LIMITS.liveMax} notices can be shown at once. Delete one first.` }, 409);
-  return refusal(env, request, "applicantWrite");
+  return noticeRefusal(request, env, editor);
 }
 
 const revisionOf = (v: unknown): number | null => (typeof v === "number" && Number.isSafeInteger(v) && v >= 1 ? v : null);
 
-async function updateNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>): Promise<Response> {
+async function updateNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, editor?: PublishedOfficeAuthority): Promise<Response> {
   if (!exactKeys(body, ["id", "revision", "title", "body", "days"])) return apiJson({ error: "invalid_request", message: "That request could not be read." }, 400);
   if (typeof body.id !== "string" || !ID.test(body.id)) return invalid("id", "That notice id could not be read.");
   const id = body.id;
@@ -506,54 +563,59 @@ async function updateNotice(request: Request, env: Env, ctx: CommunityContext, b
   const v = noticeValues(body);
   if (v instanceof Response) return v;
   const me = ctx.subject!.discordId, nonce = randomToken();
+  const condition = editorCondition(editor, 10);
   // The new lifetime counts from the original posting; whether it is still ahead, and whether the notice is still live,
   // is the database clock's decision inside the statement (no JavaScript pre-check). op_hash stays: it names the create.
   const out = await admitted(env, ctx, [
     env.DB.prepare(
       `UPDATE site_news_notices SET title = ?6, body = ?7, retain_until = created_at + ?8 * ${DAY_S}, revision = revision + 1, nonce = ?5, updated_by = ?1, updated_at = ${DB_NOW}
-        WHERE id = ?4 AND revision = ?9 AND ${LIVE} AND created_at + ?8 * ${DAY_S} > ${DB_NOW} AND ${NEWS_ON_SQL} AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
-    ).bind(me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, id, nonce, v.title, v.text, v.days, revision),
+        WHERE id = ?4 AND revision = ?9 AND ${LIVE} AND created_at + ?8 * ${DAY_S} > ${DB_NOW} AND ${NEWS_ON_SQL} AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} AND (${condition.sql})`,
+    ).bind(me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, id, nonce, v.title, v.text, v.days, revision, ...condition.values),
+    newsWebhookMutationPlan(env, id, nonce),
     auditIfWritten(env, id, nonce, me, "edited"),
     env.DB.prepare(`${ADMIN_COLUMNS} WHERE id = ?1 AND nonce = ?2`).bind(id, nonce),
   ]);
   if (out !== FENCE_REFUSED) {
-    const row = rowsOf<AdminRow>(out[2])[0];
-    return row ? apiJson({ notice: adminNotice(row) }) : apiJson({ error: "not_found" }, 404);
+    const row = rowsOf<AdminRow>(out[3])[0];
+    return row ? apiJson({ notice: noticeDto(row, editor) }) : apiJson({ error: "not_found" }, 404);
   }
-  const read = await admittedRead(env, ctx, "applicantWrite", [
+  const read = await newsRead(env, ctx, [
     env.DB.prepare(
       `SELECT id, title, body, revision, created_by, updated_by, created_at, updated_at, retain_until, (${LIVE}) AS live, (created_at + ?2 * ${DAY_S} > ${DB_NOW}) AS period_ok
          FROM site_news_notices WHERE id = ?1`,
     ).bind(id, v.days),
     env.DB.prepare("SELECT value FROM site_settings WHERE key = 'newsOn'"),
-  ]);
-  if (read === FENCE_REFUSED) return refusal(env, request, "applicantWrite");
+  ], editor);
+  if (read === FENCE_REFUSED) return noticeRefusal(request, env, editor);
   const row = rowsOf<AdminRow & { live: number; period_ok: number }>(read[0])[0];
   if (!row) return apiJson({ error: "not_found", message: "That notice no longer exists." }, 404);
   if (!newsOnFrom(env, rowsOf<{ value: string }>(read[1])[0]?.value)) return apiJson({ error: "news_off", message: "News is switched off (Admin → Settings); notices cannot be changed while it is off. They can still be deleted." }, 409);
   if (!row.live) return apiJson({ error: "expired", message: "That notice's time is up; it can no longer be changed." }, 409);
   if (!row.period_ok) return apiJson({ error: "period_passed", field: "days", message: "That period has already passed since the notice was posted. Choose a longer one." }, 400);
-  if (row.revision !== revision) return apiJson({ error: "stale_revision", message: "Someone changed this notice first: reload it.", notice: adminNotice(row) }, 409);
-  return refusal(env, request, "applicantWrite");
+  if (row.revision !== revision) return apiJson({ error: "stale_revision", message: "Someone changed this notice first: reload it.", notice: noticeDto(row, editor) }, 409);
+  return noticeRefusal(request, env, editor);
 }
 
-async function deleteNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>): Promise<Response> {
+async function deleteNotice(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown>, editor?: PublishedOfficeAuthority): Promise<Response> {
   if (!exactKeys(body, ["id", "revision"])) return apiJson({ error: "invalid_request", message: "That request could not be read." }, 400);
   if (typeof body.id !== "string" || !ID.test(body.id)) return invalid("id", "That notice id could not be read.");
   const id = body.id;
   const revision = revisionOf(body.revision);
   if (revision === null) return invalid("revision", "That revision could not be read.");
   const me = ctx.subject!.discordId, nonce = randomToken();
+  const condition = editorCondition(editor, 7);
   // Whatever the switch says and even after expiry: deleting is cleanup. The operation record stays as the tombstone.
   const out = await admitted(env, ctx, [
-    env.DB.prepare(`UPDATE site_news_notices SET nonce = ?5 WHERE id = ?4 AND revision = ?6 AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(
+    env.DB.prepare(`UPDATE site_news_notices SET nonce = ?5 WHERE id = ?4 AND revision = ?6 AND ${fenceSql("applicantWrite", 1, 2, 3,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)} AND (${condition.sql})`).bind(
       me,
       ctx.subject!.sessionVersion,
       ctx.subject!.expiresAt,
       id,
       nonce,
       revision,
+      ...condition.values,
     ),
+    newsWebhookMutationPlan(env, id, nonce),
     auditIfWritten(env, id, nonce, me, "deleted"),
     env.DB.prepare("DELETE FROM site_news_notices WHERE id = ?1 AND nonce = ?2").bind(id, nonce),
   ]);
@@ -562,21 +624,21 @@ async function deleteNotice(request: Request, env: Env, ctx: CommunityContext, b
   // answers with the notice's title and text only while it is live, judged by the database clock inside this read. Past
   // its time a notice is gone from every read (adminList, newsPage, the update refusal), and a stale delete must not
   // bring it back: it gets the id and the current revision only, enough to delete it with the current revision.
-  const read = await admittedRead(env, ctx, "applicantWrite", [
+  const read = await newsRead(env, ctx, [
     env.DB.prepare(
       `SELECT id, revision, created_by, updated_by, created_at, updated_at, retain_until, (${LIVE}) AS live,
               CASE WHEN ${LIVE} THEN title END AS title, CASE WHEN ${LIVE} THEN body END AS body
          FROM site_news_notices WHERE id = ?1`,
     ).bind(id),
-  ]);
-  if (read === FENCE_REFUSED) return refusal(env, request, "applicantWrite");
+  ], editor);
+  if (read === FENCE_REFUSED) return noticeRefusal(request, env, editor);
   const row = rowsOf<AdminRow & { live: number }>(read[0])[0];
   if (!row) return apiJson({ error: "not_found", message: "That notice no longer exists." }, 404);
   if (row.revision !== revision) {
-    if (row.live === 1) return apiJson({ error: "stale_revision", message: "Someone changed this notice first: reload it.", notice: adminNotice(row) }, 409);
+    if (row.live === 1) return apiJson({ error: "stale_revision", message: "Someone changed this notice first: reload it.", notice: noticeDto(row, editor) }, 409);
     return apiJson({ error: "stale_revision", message: "Someone changed this notice first, and its time is up: it is no longer shown, and the cleanup deletes it.", notice: { id: row.id, revision: row.revision } }, 409);
   }
-  return refusal(env, request, "applicantWrite");
+  return noticeRefusal(request, env, editor);
 }
 
 // ---------- the cron ----------

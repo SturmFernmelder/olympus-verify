@@ -1,20 +1,23 @@
 /** Public game identity only. This module never selects admission, roster, role, invite or launch settings.
  *
- * 14 Oct 2026 (owner item 7): the identity the site, the intros, the guide and the staff publication project is a
- * RESOLVED SNAPSHOT, never a module constant: the public beta until the owner activates the full-release identity,
+ * 23 Oct 2026: the owner made Olympus's PvE / Alliance direction public. This changes public copy only: it does not
+ * select a live game realm, activate a launch or change admission, rank mapping or verification. The exact observed
+ * beta profile remains separately exported for historical QR observations. The site's legacy absent/"beta" selector
+ * now projects the public direction. It does not claim that the announced realm is known or the game has launched.
+ * The separately activated full-release identity
  * which lives only in the private secret RULESET_FUTURE_PROFILE until that day. Activation pins the opaque revision and
  * the secret's digest in site_settings (ruleset-publication.ts switchRulesetMode, one admitted batch). While the mode is
  * full_release, a missing, changed or malformed secret, a corrupt mode or incomplete pins HOLD every projection; they
- * never fall back to the beta. An absent mode row alone is the legitimate beta default.
+ * never falls back to public copy when its pins fail. No provider settings are changed by this source default.
  */
 export interface RulesetProfile {
   readonly schema: "olympus-ruleset-profile-v1";
   readonly revision: string;
-  readonly phase: "beta" | "full_release";
+  readonly phase: "beta" | "public_direction" | "full_release";
   readonly game: "World of Warcraft: Forever";
   readonly guild: "Olympus";
   readonly realm: string;
-  readonly ruleset: "Normal" | "PvP" | "Roleplaying" | "Hardcore";
+  readonly ruleset: "Normal" | "PvE" | "PvP" | "Roleplaying" | "Hardcore";
   readonly faction: "Alliance" | "Horde";
 }
 
@@ -23,7 +26,7 @@ const LABEL = /^[\p{L}\p{N} .:'()-]{1,80}$/u;
 const REVISION = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 /** The opaque revision a future profile must carry: it names nothing about the identity itself. */
 export const FUTURE_REVISION = /^forever-release-[a-z0-9][a-z0-9.-]{0,31}$/;
-const REVEALING = ["normal", "pvp", "roleplay", "hardcore", "alliance", "horde"];
+const REVEALING = ["normal", "pve", "pvp", "roleplay", "hardcore", "alliance", "horde"];
 
 /** A closed data parser, not evidence that a future profile is eligible or active. No input values enter errors. */
 export function parseRulesetProfile(input: unknown): RulesetProfile | null {
@@ -38,27 +41,35 @@ export function parseRulesetProfile(input: unknown): RulesetProfile | null {
     record[key] = own.value;
   }
   if (record.schema !== "olympus-ruleset-profile-v1" || !REVISION.test(record.revision as string)
-    || !["beta", "full_release"].includes(record.phase as string) || record.game !== "World of Warcraft: Forever"
+    || !["beta", "public_direction", "full_release"].includes(record.phase as string) || record.game !== "World of Warcraft: Forever"
     || record.guild !== "Olympus" || !LABEL.test(record.realm as string) || record.realm !== (record.realm as string).trim()
     || record.realm !== (record.realm as string).normalize("NFC")
-    || !["Normal", "PvP", "Roleplaying", "Hardcore"].includes(record.ruleset as string)
+    || !["Normal", "PvE", "PvP", "Roleplaying", "Hardcore"].includes(record.ruleset as string)
     || !["Alliance", "Horde"].includes(record.faction as string)) return null;
   return Object.freeze(record) as unknown as RulesetProfile;
 }
 
-// Owner-confirmed public beta identity. The future identity is never provisioned here.
+// Historical observed beta identity. Never relabel a signed observation with new public copy.
 const BETA = parseRulesetProfile({
   schema: "olympus-ruleset-profile-v1", revision: "forever-beta-pvp2-v1", phase: "beta",
   game: "World of Warcraft: Forever", guild: "Olympus", realm: "Classic Beta PvP 2", ruleset: "PvP", faction: "Alliance",
 });
 if (!BETA) throw new Error("Invalid public beta ruleset profile");
 
-/** The public beta identity as a constant (the QR profile and fixtures pin it). Projections use the resolved snapshot. */
-export function currentRulesetProfile(): RulesetProfile { return BETA!; }
+export function historicalBetaRulesetProfile(): RulesetProfile { return BETA!; }
+const PUBLIC_DIRECTION = parseRulesetProfile({
+  schema: "olympus-ruleset-profile-v1", revision: "forever-public-pve-alliance-20261023-v1", phase: "public_direction",
+  game: "World of Warcraft: Forever", guild: "Olympus", realm: "Realm not announced", ruleset: "PvE", faction: "Alliance",
+});
+if (!PUBLIC_DIRECTION) throw new Error("Invalid public Olympus direction");
+/** Announced guild direction, not proof of a live game realm, launch or native configuration. */
+export function currentRulesetProfile(): RulesetProfile { return PUBLIC_DIRECTION!; }
+export function publicRulesetSettingLabel(): "PVE - Alliance" { return "PVE - Alliance"; }
 
 export function rulesetLabel(profile: RulesetProfile = currentRulesetProfile()): string {
   const checked = parseRulesetProfile(profile);
   if (!checked) throw new Error("Invalid ruleset profile");
+  if (checked.phase === "public_direction") return `${checked.game} · ${checked.ruleset.toUpperCase()} - ${checked.faction} · public guild direction · ${checked.realm}`;
   return `${checked.game} · ${checked.phase === "beta" ? "Beta" : "Full release"} · ${checked.realm} · ${checked.ruleset} · ${checked.faction}`;
 }
 
@@ -98,7 +109,8 @@ export interface RulesetSnapshot {
   readonly activatedBy: string | null;
 }
 
-const BETA_SNAPSHOT: RulesetSnapshot = Object.freeze({ mode: "beta", modeRaw: null, profile: BETA!, held: null, revision: BETA!.revision, digest: null, activatedAt: null, activatedBy: null });
+// "beta" is the persisted legacy selector; keeping it avoids a settings write or a false activation receipt.
+const BETA_SNAPSHOT: RulesetSnapshot = Object.freeze({ mode: "beta", modeRaw: null, profile: PUBLIC_DIRECTION!, held: null, revision: PUBLIC_DIRECTION!.revision, digest: null, activatedAt: null, activatedBy: null });
 export function betaRulesetSnapshot(modeRaw: string | null = null): RulesetSnapshot { return modeRaw === null ? BETA_SNAPSHOT : Object.freeze({ ...BETA_SNAPSHOT, modeRaw }); }
 const heldSnapshot = (held: RulesetHold, modeRaw: string | null, pins: Partial<Pick<RulesetSnapshot, "revision" | "activatedAt" | "activatedBy">> = {}): RulesetSnapshot =>
   Object.freeze({ mode: "full_release", modeRaw, profile: null, held, revision: pins.revision ?? "", digest: null, activatedAt: pins.activatedAt ?? null, activatedBy: pins.activatedBy ?? null });
@@ -131,6 +143,7 @@ export async function activeRulesetSnapshot(env: { DB: D1Database; RULESET_FUTUR
 
 /** The day a full-release identity was activated, for the "(decided …)" line; the beta keeps its original date. */
 export function rulesetDecidedText(snapshot: RulesetSnapshot): string {
+  if (snapshot.profile?.phase === "public_direction") return "owner public direction 23 October 2026";
   if (snapshot.mode === "beta" || !snapshot.activatedAt) return "decided 16 September 2026";
   const d = new Date(snapshot.activatedAt * 1000);
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -154,7 +167,7 @@ export interface RulesetSwitchPublic {
 export function rulesetSwitchReadiness(target: unknown): RulesetSwitchPublic {
   const snapshot = target && typeof target === "object" && !Array.isArray(target) && "mode" in target && "held" in target ? (target as RulesetSnapshot) : null;
   if (!snapshot) {
-    return Object.freeze({ available: false as const, code: target === "full_release" ? "full_release_unavailable" as const : "unsupported_switch_target" as const, currentRevision: BETA!.revision, mode: "beta" as const, held: null, futureProfileConfigured: false as const, ownerEligibilityQualified: false as const, projectionSyncQualified: false as const });
+    return Object.freeze({ available: false as const, code: target === "full_release" ? "full_release_unavailable" as const : "unsupported_switch_target" as const, currentRevision: PUBLIC_DIRECTION!.revision, mode: "beta" as const, held: null, futureProfileConfigured: false as const, ownerEligibilityQualified: false as const, projectionSyncQualified: false as const });
   }
   return Object.freeze({
     available: false as const,

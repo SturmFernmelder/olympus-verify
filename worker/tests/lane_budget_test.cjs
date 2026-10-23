@@ -15,6 +15,7 @@ let passed=0;
 function check(name,value){assert.ok(value,name);passed++;console.log('PASS '+name);}
 const parent=(limit=40,attempts=0)=>({limit,attempts,calls:0,retries:0,exhausted:false,audited:false,inventoryFailed:false});
 const sha=text=>crypto.createHash('sha256').update(text.replace(/\r\n/g,'\n')).digest('hex');
+const { source196HistoricalDigest } = require('./source196-historical-projection.cjs');
 const state=(b,p)=>JSON.stringify({limit:b.limit,attempts:b.attempts,calls:b.calls,retries:b.retries,exhausted:b.exhausted,parent:p});
 function apply(b,op){try{op(b);return 'ok';}catch(e){return 'throw:'+e.message;}}
 (async()=>{
@@ -68,7 +69,7 @@ function apply(b,op){try{op(b);return 'ok';}catch(e){return 'throw:'+e.message;}
  // original796settlementlines bad16c4d3c773be54b76e85b8f3f8f871269e5cd9f3f1a0be6242be5e9caa37c.
  check('role-rank-continuation.ts is byte-identical to the reviewed .163 integrated source',sha(src('role-rank-continuation.ts'))==='bf4a2926770bf44af674e7a2ddc6f9b5c029960aaeca66a30947730d9d296561');
  check('roles.ts is byte-identical to the reviewed .163 integrated source',sha(src('roles.ts'))==='0fb851d804ddb97594a8b4109db3fad46a3f88df8c65475b63f2c79dbf89f6f8');
- check('role-settlements.ts is byte-identical to the entire reviewed .163 integrated source',sha(settlements)==='04bf328c854d60033a604e1f8b0e8d26712d3ec40b521985732a723a6d1c5672');
+ check('role-settlements.ts reconstructs the entire reviewed .163 integrated source through exact current pinned contextual reversals',source196HistoricalDigest('role-settlements',settlements)==='04bf328c854d60033a604e1f8b0e8d26712d3ec40b521985732a723a6d1c5672');
  check('the pure child budget never calls the new entry capture dependency',entryCaptureUses===0);
  console.log(`\n${passed} checks passed`);
 })().catch(e=>{console.error('FAIL',e);process.exit(1);});

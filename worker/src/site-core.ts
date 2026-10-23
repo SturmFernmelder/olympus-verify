@@ -280,12 +280,39 @@ export interface Found {
 const searchCache = new Map<string, { at: number; found: Found[] }>();
 const SEARCH_TTL = 300;
 
+/** Small authenticated member projection shared by name and exact-ID lookups.
+ * Invalid provider identities never become typed or invented website accounts. */
+export function foundDiscordMember(raw: unknown, expectedId?: string): Found | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const m = raw as { user?: unknown; nick?: unknown; avatar?: unknown; pending?: unknown };
+  if (!m.user || typeof m.user !== 'object' || Array.isArray(m.user)) return null;
+  const u = m.user as { id?: unknown; username?: unknown; global_name?: unknown; avatar?: unknown; bot?: unknown };
+  if (typeof u.id !== 'string' || !/^[0-9]{17,20}$/.test(u.id) || expectedId && u.id !== expectedId
+    || typeof u.username !== 'string' || !u.username || u.username.length > 80 || /[\p{Cc}\p{Cs}]/u.test(u.username)
+    || u.bot !== undefined && u.bot !== false || m.pending !== undefined && m.pending !== false) return null;
+  const text = (v: unknown): string | null => typeof v === 'string' && v.length <= 128 && !/[\p{Cc}\p{Cs}]/u.test(v) ? v : null;
+  const avatar = (v: unknown) => typeof v === 'string' && /^(?:a_)?[0-9a-f]{32}$/.test(v) ? v : null;
+  const guildAvatar = avatar(m.avatar), userAvatar = avatar(u.avatar);
+  return { id: u.id, username: u.username, displayName: text(u.global_name), nick: text(m.nick),
+    avatar: guildAvatar ? `g:${guildAvatar}` : userAvatar ? `u:${userAvatar}` : null };
+}
+
 /** Discord's member search in SITE_GUILD_ID (names that START with the query), cached for five minutes. */
 export async function searchMembers(env: Env, q: string): Promise<{ found: Found[]; limited?: boolean }> {
-  const key = q.toLowerCase();
+  const exactId = /^[0-9]{17,20}$/.test(q) ? q : /^<@!?([0-9]{17,20})>$/.exec(q)?.[1];
+  const key = `${env.SITE_GUILD_ID}:${q.toLowerCase()}`;
   const hit = searchCache.get(key);
-  if (hit && now() - hit.at < SEARCH_TTL) return { found: hit.found };
+  if (!exactId && hit && now() - hit.at < SEARCH_TTL) return { found: hit.found };
   try {
+    if (exactId) {
+      try {
+        const member = foundDiscordMember(await rest<unknown>(env, 'GET', `/guilds/${env.SITE_GUILD_ID}/members/${exactId}`, undefined, 1), exactId);
+        return { found: member ? [member] : [] };
+      } catch (e) {
+        if (e instanceof DiscordError && e.status === 404) return { found: [] };
+        throw e;
+      }
+    }
     const res = await rest<Array<{ user?: { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean }; nick?: string | null; avatar?: string | null }>>(
       env,
       "GET",
@@ -293,15 +320,8 @@ export async function searchMembers(env: Env, q: string): Promise<{ found: Found
       undefined,
       1, // no retry: a person is waiting, and they can type the name instead
     );
-    const found: Found[] = res
-      .filter((m) => m.user && !m.user.bot)
-      .map((m) => ({
-        id: m.user!.id,
-        username: m.user!.username,
-        displayName: m.user!.global_name ?? null,
-        nick: m.nick ?? null,
-        avatar: m.avatar ? `g:${m.avatar}` : m.user!.avatar ? `u:${m.user!.avatar}` : null,
-      }));
+    if (!Array.isArray(res) || res.length > 25) throw Error('discord_member_search_unavailable');
+    const found = res.map(m => foundDiscordMember(m)).filter((m): m is Found => m !== null);
     if (searchCache.size > 500) searchCache.clear();
     searchCache.set(key, { at: now(), found });
     return { found };

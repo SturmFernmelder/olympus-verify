@@ -52,7 +52,13 @@ for row in ref["assets"] + ref["fixed_art_source_pins"]:
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 43
+assert len(ref["required_public_resources"]) == 46
+# .196 adds four bounded application scripts and retires the separate Army ZIP.
+master196_resources = {"worker/public/static/army-live/sanitized-export.js", "worker/public/static/army-live/savedvariables-import.js", "worker/public/static/legal-view196.js", "worker/public/static/approved-guild-helper196.js"}
+assert master196_resources.issubset({row["path"] for row in ref["required_public_resources"]})
+assert master196_resources.issubset(ref["runtime_paths"])
+assert not master196_resources.intersection(ref["official_paths"] + ref["native_paths"])
+assert "worker/public/static/army-live/olympus-army-addon-0.2.0.zip" not in {row["path"] for row in ref["required_public_resources"]}
 talent_resources = {"worker/public/static/talents/analysis.js", "worker/public/static/talents/guide-builds179.js"}
 assert talent_resources.issubset({row["path"] for row in ref["required_public_resources"]})
 assert not talent_resources.intersection(ref["official_paths"] + ref["native_paths"])

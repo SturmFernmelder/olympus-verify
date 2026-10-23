@@ -123,8 +123,8 @@ function renderer(fetcher) {
   check('.185 exactly one Olympus Guild card leads the complete filtered addon catalog', featured185.length === 1 && walk(holder).filter(x => x.tagName === 'ARTICLE')[0] === featured185[0] && textOf(featured185[0]).includes('For Olympus players'));
   check('.185 the prominent install link stays on the official project with a safe external target', walk(featured185[0]).some(x => x.tagName === 'A' && x.textContent === 'Get Olympus Guild on CurseForge' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild' && x.target === '_blank' && x.rel === 'noopener noreferrer'));
   check('.185 the refreshed release is dated and distinguished from a compatibility qualification', olympus185.version === '1.3.2' && olympus185.releasedAt === '2026-10-21' && olympus185.status === 'Author lists Forever file' && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild/files/9273643'));
-  check('.185 optional addon and separate verification/reporting boundaries are visible beside the promotion', textOf(featured185[0]).includes('Optional for website readers; no desktop companion is needed.') && textOf(featured185[0]).includes('Separate from Olympus Verify and the Army QR reporting addon.') && textOf(featured185[0]).includes('not proof that every guild has a current website report'));
-  check('.185 documented permission-based addon features do not imply an available website census API', textOf(featured185[0]).includes("player's permission") && textOf(featured185[0]).includes('no guild census feed for this website') && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md') && r.calls.length === 1);
+  check('.196 optional unified addon replaces retired Army ZIP while retaining actual publisher and coverage boundaries', textOf(featured185[0]).includes('Optional for website readers; no desktop companion is needed.') && textOf(featured185[0]).includes('retired standalone Army ZIP is not offered') && textOf(featured185[0]).includes('Actual upstream adoption of the optional website exporter remains pending.') && textOf(featured185[0]).includes('not proof that every guild has a current website report'));
+  check('.196 permission-gated read-only checkpoint is distinguished from this website export and publisher adoption', textOf(featured185[0]).includes('permission-gated') && textOf(featured185[0]).includes('read-only GetCensusCheckpoint') && textOf(featured185[0]).includes('not this website’s OLCS2 export') && textOf(featured185[0]).includes('not publisher adoption') && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md') && r.calls.length === 1);
   const search = walk(holder).find(x => x.tagName === 'INPUT' && x.type === 'search'); search.value = 'Syndicator'; search.fire('input');
   check('catalog search includes documented dependency/limitation text', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 1 && textOf(holder).includes('Baganator'));
   check('.185 the feature obeys search filters instead of remaining as an unrelated pinned advertisement', !walk(holder).some(x => x.className && x.className.includes('resources169-featured')) && !textOf(holder).includes('Get Olympus Guild'));
@@ -134,7 +134,8 @@ function renderer(fetcher) {
   mounted.destroy(); check('unmount removes the view and leaves no polling timer', holder.children.length === 0 && r.intervals.size === 0);
   const guideRenderer = renderer(async () => Response.json(catalog)), guideHolder = new Element('div');
   const guides = guideRenderer.api.mount(guideHolder, { view: 'guides' }); await settle();
-  check('.174 guides preserve dated scope without addon-install instructions or internal extraction/audit copy', walk(guideHolder).filter(x => x.tagName === 'ARTICLE').length === 12 && textOf(guideHolder).includes(catalog.checkedAt) && textOf(guideHolder).includes('Alchemy 225–300') && !/Choose the author.s Forever file|not every addon|direct extraction|full-body audit|blanket peer-review/.test(textOf(guideHolder)) && textOf(guideHolder).includes('current articles could not be read'));
+  const curatedGuides196 = walk(guideHolder).find(x => x.className === 'resources169-grid');
+  check('.174 curated guide cards preserve dated scope without unrelated addon-install or internal audit copy; owner full directory is separate', walk(guideHolder).filter(x => x.tagName === 'ARTICLE').length === 12 && textOf(guideHolder).includes(catalog.checkedAt) && textOf(curatedGuides196).includes('Alchemy 225–300') && !/Choose the author.s Forever file|not every addon|direct extraction|full-body audit|blanket peer-review/.test(textOf(guideHolder)) && textOf(curatedGuides196).includes('current articles could not be read'));
   check('.174 source metadata remains accessible in native disclosures beside visible compatibility cautions', walk(guideHolder).filter(x => x.tagName === 'DETAILS').length === 13 && textOf(guideHolder).includes('Source and compatibility details') && textOf(guideHolder).includes('Guide scope:') && textOf(guideHolder).includes('responsible editor'));
   guides.destroy();
   const u = renderer(async url => { assert.equal(url, '/api/resource-updates'); return Response.json(good); }), updateHolder = new Element('div');
@@ -240,6 +241,40 @@ function renderer(fetcher) {
     const otherUi = renderer(async () => Response.json(otherCatalog)), otherHolder = new Element('div'); otherUi.api.mount(otherHolder, { view: 'addons' }); await settle();
     check('.183 the exact BlueTracker reference does not admit another path, query or lookalike host: ' + url, walk(otherHolder).filter(x => x.tagName === 'A').length === 0 && textOf(otherHolder).includes('could not be loaded'));
   }
+
+  const directory196 = catalog.ownerDirectory;
+  check('.196 actual catalogue embeds all five owner directory sections with separate historical and reconciliation dates', directory196?.version === 1 && directory196.sourceCheckedAt === '2026-10-18' && directory196.sections.length === 5 && new Set(directory196.sections.map(s => s.id)).size === 5 && directory196.sections.every(s => s.blocks.length > 0) && directory196.corrections.length > 0);
+  const full196 = renderer(async url => { assert.equal(url, '/static/resources169.json'); return Response.json(catalog); }), fullHolder196 = new Element('div');
+  const fullMount196 = full196.api.mount(fullHolder196, { view: 'guides' }); await settle();
+  const fullRoot196 = walk(fullHolder196).find(x => x.className === 'resources169-owner-directory');
+  check('.196 the complete directory is visible alongside all original curated guide cards', !!fullRoot196 && walk(fullRoot196).filter(x => x['data-directory-section']).length === 5 && walk(fullHolder196).filter(x => x.tagName === 'ARTICLE').length === 12 && directory196.sections.every(s => textOf(fullRoot196).includes(s.title) && s.blocks.every(b => textOf(fullRoot196).includes(b.heading) && b.text.every(p => textOf(fullRoot196).includes(p)))) && textOf(fullRoot196).includes('Corrections and limits') && full196.calls.length === 1);
+  const curatedSection196 = walk(fullHolder196).find(x => x.className === 'resources169-curated');
+  check('.196 curated cards have their own heading and date disclosure outside the full directory', !!curatedSection196 && curatedSection196.children[0].tagName === 'H2' && curatedSection196.children[0].textContent === 'Curated guide cards' && walk(curatedSection196).some(x => x.tagName === 'SUMMARY' && x.textContent === 'About these sources') && textOf(curatedSection196).includes(catalog.checkedAt) && walk(curatedSection196).filter(x => x.tagName === 'ARTICLE').length === 12 && !walk(fullRoot196).includes(curatedSection196));
+  check('.196 internal-copy guard covers the directory and provenance as well as the curated cards', !/Choose the author.s Forever file|not every addon|direct extraction|full-body audit|blanket peer-review/.test(textOf(fullHolder196)));
+  check('.196 full-directory source links retain exact publisher URLs, new-tab isolation and no embedded content', walk(fullRoot196).filter(x => x.tagName === 'A').every(a => a.href.startsWith('https://') && a.target === '_blank' && a.rel === 'noopener noreferrer') && !walk(fullRoot196).some(x => ['IFRAME','SCRIPT','IMG'].includes(x.tagName)));
+  fullMount196.destroy();
+  const literal196 = structuredClone(catalog); literal196.ownerDirectory.sections[0].blocks[0].text.push('<img src=x onerror="throw 1">');
+  const literalUi196 = renderer(async () => Response.json(literal196)), literalHolder196 = new Element('div'), literalMount196 = literalUi196.api.mount(literalHolder196, { view: 'guides' }); await settle();
+  check('.196 markup-shaped owner text stays literal without creating a tag or active attribute', textOf(literalHolder196).includes('<img src=x onerror="throw 1">') && !walk(literalHolder196).some(x => x.tagName === 'IMG' || x.onerror)); literalMount196.destroy();
+  for (const [label, change] of [
+    ['missing fifth section', d => d.sections.pop()],
+    ['sixth section', d => d.sections.push(structuredClone(d.sections[0]))],
+    ['duplicate section key', d => { d.sections[1].id = d.sections[0].id; }],
+    ['unbounded paragraphs', d => { d.sections[0].blocks[0].text = Array(13).fill('bounded fixture'); }],
+    ['oversized paragraph', d => { d.sections[0].blocks[0].text = ['x'.repeat(4001)]; }],
+    ['unsafe link', d => { d.sections[0].blocks[0].links = [{label:'unsafe',url:'https://www.wowhead.com.evil.invalid/private'}]; }],
+    ['credential link', d => { d.sections[0].blocks[0].links = [{label:'unsafe',url:'https://user:password@www.wowhead.com/forever'}]; }],
+    ['script link', d => { d.sections[0].blocks[0].links = [{label:'unsafe',url:'javascript:alert(1)'}]; }],
+    ['wrong fact-check date', d => { d.sourceCheckedAt = '2026-10-23'; }],
+    ['unexpected markup field', d => { d.sections[0].blocks[0].html = '<script></script>'; }],
+  ]) {
+    const bad196 = structuredClone(catalog); change(bad196.ownerDirectory);
+    const badUi196 = renderer(async () => Response.json(bad196)), badHolder196 = new Element('div'), badMount196 = badUi196.api.mount(badHolder196, { view: 'guides' }); await settle();
+    check('.196 invalid full directory is refused atomically: ' + label, !walk(badHolder196).some(x => x.className === 'resources169-owner-directory' || x.tagName === 'ARTICLE' || x.tagName === 'A') && textOf(badHolder196).includes('could not be loaded') && badUi196.calls.length === 1); badMount196.destroy();
+  }
+  const legacy196 = structuredClone(catalog); delete legacy196.ownerDirectory;
+  const legacyUi196 = renderer(async () => Response.json(legacy196)), legacyHolder196 = new Element('div'), legacyMount196 = legacyUi196.api.mount(legacyHolder196, { view: 'guides' }); await settle();
+  check('.196 historical catalogue without optional owner directory still renders its original twelve guides', walk(legacyHolder196).filter(x => x.tagName === 'ARTICLE').length === 12 && !walk(legacyHolder196).some(x => x.className === 'resources169-owner-directory')); legacyMount196.destroy();
 
   const began = performance.now(); let timeoutCancels = 0;
   const timed = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async () => response(new ReadableStream({ cancel() { timeoutCancels++; return new Promise(() => {}); } })) });

@@ -1,0 +1,11 @@
+# Keeper roster feedback
+
+The keeper addon now shares one five-second roster-request window across its automatic roster/UI reads, own-name lookup and manual export entry points. A burst keeps one trailing timer and one pending non-forced export attempt. Manual export still writes the current cache immediately; it does not bypass the request window. Automatic exports retain the original 60-second export throttle and short-roster guard.
+
+The offline-members setter runs only when the getter returns a readable boolean `false`, and only within an admitted request window. An already-on, missing, throwing, restricted or malformed getter does not authorize repeated switching. Roster-update events consume the updated cache without requesting another update. This prevents empty-cache or stuck-false setter/request echoes from sustaining their own feedback loop.
+
+The timer calls only the shared roster request and original cached-roster export. It never invites, sends Who, whispers, scans mail, stores/replays a proof or changes processed-mail keys. A clock rollback starts a bounded five-second delay instead of opening an immediate new request. If timers are unavailable, the next caller can request once the window expires; there is no fabricated timer or guaranteed completion claim.
+
+This is current keeper-protocol source. It imports no donor v3 attestation, withheld-proof retry, mail retry or new roster authority. A missing/unreadable offline getter does not prove a complete roster; existing cache, completeness, force-export and Worker admission limits remain. No installed client, protected game action or live watcher was exercised.
+
+The new synthetic actual-core leaf is `addon/tests/test_roster_feedback196.lua`, registered as `roster_feedback196` in the existing Lupa runner. It covers getter modes, event/UI storms, exact five-second timing, one trailing export, empty-cache synchronous echoes, original 60-second and short-roster guards, manual export, unavailable/refused APIs, rollback, legacy roster API and absence of protected effects. Original roster, unverified, presence and own-name leaves retain their assertions and pass separately. Complete attempt logs and source pins are in the private `master196-roster-feedback-qualification.json` receipt; they are local validation, not game or release acceptance.

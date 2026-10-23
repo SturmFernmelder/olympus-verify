@@ -351,7 +351,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
   check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !anonymous.html.includes('href="/legal/privacy"') && !anonymous.html.includes('href="/legal/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
   const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");
-  check(".183 canonical public policy endpoints remain directly available with their legal navigation", publicPrivacy.response.status === 200 && publicTerms.response.status === 200 && publicPrivacy.text.includes('href="/legal/terms"') && publicTerms.text.includes('href="/legal/privacy"'));
+  check(".196 canonical public policies remain script-free branded readers without default legal navigation", [publicPrivacy, publicTerms].every(p => p.response.status === 200 && scriptFreePolicy(p) && p.text.includes('<main id="policy-content"') && p.text.includes('class="brand"') && p.text.includes('src="/static/wow/icon-shield.png"') && !p.text.includes('<img src="/static/olympus-icon.png"') && p.text.includes('href="/static/policies.css"') && p.text.includes('href="/static/wow-cursor.css"') && p.text.includes('aria-label="On this page"') && !/<nav\b[^>]*aria-label="Policies"|<footer\b|class="footer-links"/.test(p.text) && !p.response.headers.has('Set-Cookie')));
   const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
   check("retired root policy addresses are empty 410 responses without redirects, sign-in fallback or private payload", oldPrivacy.response.status === 410 && !oldPrivacy.response.headers.has("Location") && oldTerms.response.status === 410 && !oldTerms.response.headers.has("Location") && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
   let page = await openPage(MEMBER);
@@ -470,19 +470,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const pointer = `<@${OTHER}>`;
     const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [identity] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
     await associated.go("#/roles");
     await waitFor(() => associated.app.textContent.includes("Private Verified Fixture"), ".167 explicit appointment UI projection");
     check(".167 masked general settings still display the fresh admitted appointment identity and verified characters", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", identities: [identity] } : null);
+    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
     associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
     await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");
     await new Promise(resolve => setTimeout(resolve, 160));
@@ -540,11 +540,13 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== the shell: a confirmed member, the directory and the profile editor ==");
   page = await openPage(MEMBER);
-  check("a confirmed member sees one admitted Community hub link without a dropdown, and the boot says confirmedGuildData", !!page.app.querySelector('nav.nav a[href="#/community"]') && !page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community") && page.boot.community.capabilities.confirmedGuildData === true);
+  check("a confirmed member sees the admitted Community hub and its directory dropdown, and the boot says confirmedGuildData", !!page.app.querySelector('nav.nav a[href="#/community"]') && page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community" && group.querySelector('a[href="#/community/directory"]')) && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
   await waitFor(() => !!byText(page.app, "h3", "Member directory"), "the overview");
   check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h3", "Member directory") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
   await page.go("#/community/directory");
+  check(".196 default member directory leaves optional guild profiles and crafting closed until requested", !!byText(page.app, "h2", "Discord member directory") && !!byText(page.app, "button", "Show opt-in guild profiles and crafting offers") && !byText(page.app, "h2", "Crafting offers"));
+  byText(page.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => page.app.textContent.includes("Nobody is listed yet"), "the empty directory");
   check("the empty directory says so and invites the member to list themselves", page.app.textContent.includes("Nobody is listed yet"));
   await page.go("#/community/profile");
@@ -570,6 +572,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the form is redrawn from the saved profile: listed badge, the main marked confirmed", !!byText(page.app, "span", "listed") && !!byText(page.app, "span", "confirmed"));
   const other = await openPage(OTHER);
   await other.go("#/community/directory");
+  byText(other.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => !!byText(other.app, "h3", "Mia"), "the listed member");
   const card = byText(other.app, "h3", "Mia").closest(".card");
   check("another confirmed member sees the listed profile: display name, the main with the confirmed badge, the alt as claimed, the profession with its skill, the offer; never a Discord id", !!card && card.textContent.includes("Mia One") && !!byText(card, "span", "confirmed") && card.textContent.includes("Mia Three") && !!byText(card, "span", "claimed") && card.textContent.includes("Alchemy") && card.textContent.includes("300") && card.textContent.includes("Flask of the Titans") && !other.app.textContent.includes(MEMBER));
@@ -843,6 +846,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   {
     const army186 = await openPage(MEMBER), mounts186 = [];
     army186.window.OlympusGuildQRProtocol = {};
+    army186.window.OlympusSanitizedExport = {}; // Loading prerequisite only; this existing check observes mount/disposal ownership, not sanitizer behavior.
     army186.window.OlympusArmyReader = { mount(box, options) { const call = { options, destroyed: 0 }; mounts186.push(call); return { destroy() { call.destroyed++; } }; } };
     const bootContext186 = army186.boot.community, refusedProfile186 = () => new Response('{"error":"community_disabled"}', { status: 403, headers: { "Content-Type": "application/json" } });
     let contextAnswers186 = 0, contextReply186 = null, heldProfiles186 = 0, contextReads186 = 0;
@@ -1073,6 +1077,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   pf.before((pathname) => { if (pathname === "/api/community/directory" || pathname === "/api/community/context") accessRefreshRequests.push(pathname); return false; });
   (await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER));
   await pf.go("#/community/directory");
+  byText(pf.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => pf.app.textContent.includes("no longer have access"), "the fresh shell");
   check("F5: a 403 re-reads the context once and the shell follows it: the Community tab gone, the page says the access ended", pf.app.textContent.includes("no longer have access") && !texts(pf.app, "nav.nav a").includes("Community") && accessRefreshRequests.filter((pathname) => pathname === "/api/community/directory").length === 1 && accessRefreshRequests.filter((pathname) => pathname === "/api/community/context").length === 1);
   pf.before(null);
@@ -1183,6 +1188,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // F100-3: a late crafting reply under a new query
   const cr = await openPage(MEMBER);
   await cr.go("#/community/directory");
+  byText(cr.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => !!byText(cr.app, "h2", "Crafting offers"), "the crafting panel");
   const craft3 = byText(cr.app, "h2", "Crafting offers").closest("section");
   let slow3 = false;
@@ -1197,7 +1203,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   cr.delay(null);
 
   console.log("\n== .105: two inherited wordings (Codex, 10:48) ==");
-  check("the application consent names the display name and the game's class icon as the picture, never the Discord picture", APP_JS.includes("Discord display name with the game's class icon as its picture") && APP_JS.includes("never your Discord picture") && !APP_JS.includes("They see your Discord name and picture"));
+  check(".196 application consent separates the optional Discord portrait from original board consent and class art", APP_JS.includes("They see your Discord display name and class icon") && APP_JS.includes("Your Discord picture is shown only if you choose the separate optional box below.") && APP_JS.includes("Also show my Discord profile picture on the voting board (optional).") && APP_JS.includes("Earlier board consent did not include a Discord picture.") && !APP_JS.includes("Discord display name and profile picture alongside your class icon") && !APP_JS.includes("never your Discord picture") && !APP_JS.includes("They see your Discord name and picture"));
   check("the admin CSV text names the six core record families and says what is not in them", APP_JS.includes("six core record families: applications, board votes, write-ins, friends, reserved names and accounts") && !APP_JS.includes("Spreadsheet files (CSV) of everything the site holds"));
 
   console.log("\n== .106: Codex's five .98 repair items (11:26) ==");
@@ -1338,6 +1344,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // group 5: the crafting generation advances before the empty-query return
   const cr7 = await openPage(OTHER);
   await cr7.go("#/community/directory");
+  byText(cr7.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => !!byText(cr7.app, "h2", "Crafting offers"), "the directory");
   const craft7 = byText(cr7.app, "h2", "Crafting offers").closest("section");
   let slow7 = false;
@@ -1654,7 +1661,13 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const good = ["https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/avatars/300000000000000003/a_0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/guilds/236932545793490944/users/300000000000000003/avatars/0123456789abcdef0123456789abcdef.png?size=64", "https://cdn.discordapp.com/embed/avatars/3.png"];
     const bad = ["https://evil.example/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64", "http://cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/attachments/1/2/x.png", "https://cdn.discordapp.com/embed/avatars/9.png", "https://cdn.discordapp.com.evil.example/embed/avatars/3.png", "//cdn.discordapp.com/embed/avatars/3.png", "https://cdn.discordapp.com/avatars/300000000000000003/0123456789abcdef0123456789abcdef.png?size=64&x=1"];
     check("  the picture rule admits only Discord's avatar addresses (profile, server, default) and nothing else", good.every((u) => AV.test(u)) && bad.every((u) => !AV.test(u)));
-    check("  member portraits keep game icons; only own chrome and authenticated recommendation results use the strict Discord avatar helper", (APP_JS.match(/ownAvatar\(/g) || []).length === 3 && (APP_JS.match(/accountArt\(/g) || []).length >= 7 && (APP_JS.match(/discordAvatar\(/g) || []).length === 3 && APP_JS.includes('it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : discordAvatar(it)') && APP_JS.includes('if (DISCORD_AVATAR.test(url))') && APP_JS.includes('function ownAvatar(user) { return discordAvatar(user); }'));
+    check(".196 applicants, account rows and recommendation portraits use the closed Discord helper while class art remains alongside", APP_JS.includes('discordAvatar(c, { class: "avatar"') && APP_JS.includes('const userCell = (u) => h("span", { class: "nowrap" }, discordAvatar(u,') && APP_JS.includes('c.class ? h("span", null, icon("class-" + c.class') && APP_JS.includes('it.typed ? h("img", { class: "typed-icon", src: art("icon-names"), alt: "" }) : discordAvatar(it)') && APP_JS.includes('function ownAvatar(user) { return discordAvatar(user); }'));
+    const avatarSource = APP_JS.slice(APP_JS.indexOf("  function discordAvatar("), APP_JS.indexOf("  function ownAvatar("));
+    const avatarRenderer = new Function("h", "accountArt", "DISCORD_AVATAR", avatarSource + "\nreturn discordAvatar;")((tag, attrs) => { const image = new Element(tag); for (const [key, value] of Object.entries(attrs)) image.setAttribute(key, value); return image; }, () => "/static/wow/pos-member.png", AV);
+    const safePortrait = avatarRenderer({avatarUrl:good[0]}), rejectedPortrait = avatarRenderer({avatarUrl:bad[0]}), absentPortrait = avatarRenderer({});
+    check(".196 actual portrait helper sets only the closed CDN address with no-referrer and local fallbacks", safePortrait.getAttribute("src") === good[0] && [safePortrait,rejectedPortrait,absentPortrait].every(image => image.getAttribute("referrerpolicy") === "no-referrer") && [rejectedPortrait,absentPortrait].every(image => image.getAttribute("src") === "/static/wow/pos-member.png"));
+    safePortrait.dispatchEvent(new Event("error"));
+    check(".196 a failed allowed portrait returns to its local fallback", safePortrait.getAttribute("src") === "/static/wow/pos-member.png");
 
     // the I-X leadership directory
     await p114.go("#/community/leadership");
@@ -1666,12 +1679,12 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await settle();
     check(".176 an ordinary account without roster or configured role proof gets the standing notice, not leadership", !unconf114.boot.user.isAdmin && !unconf114.boot.community.capabilities.communityRead && unconf114.app.textContent.includes("Guild Member role") && !byText(unconf114.app, "h2", "Leadership of the Olympus guilds"));
 
-    // Admin → Settings: the Battle.net switch, the directory editor, the end of the beta
+    // Admin → Settings: dormant Battle.net stays hidden; the directory editor and original beta-reset guards remain.
     const adm = await openPage(STAFF);
     await adm.go("#/admin/settings");
-    await waitFor(() => !!adm.app.querySelector("#bnet-switch") && !!adm.app.querySelector("#lead-gm-0") && !!byText(adm.app, "button", "Refresh reset status"), "the .114 settings blocks");
-    const bx = adm.app.querySelector("#bnet-switch");
-    check("Admin settings expose future enable intent while collection remains immutable OFF", bx.checked === false && bx.disabled === false && adm.app.textContent.includes("Enable records a request only. Collection stays OFF") && adm.app.textContent.includes("Request future enablement") && !!byText(adm.app, "h2", "Battle.net sign-in"));
+    await waitFor(() => !!adm.app.querySelector("#lead-gm-0") && !!byText(adm.app, "button", "Refresh reset status"), "the .114 settings blocks");
+    const dormantBnet = await indexMod.default.fetch(new Request("https://guild.example/api/admin/bnet-switch", {headers:{Cookie:adm.cookie}}), env(), ctx), dormantBnetState = await dormantBnet.json();
+    check(".196 dormant Battle.net collection is actually OFF and exposes no enable control in Admin", dormantBnet.status === 200 && dormantBnetState.effective === false && !adm.app.querySelector("#bnet-switch") && !adm.app.textContent.includes("Request future enablement") && !byText(adm.app, "h2", "Battle.net sign-in"));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
     check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
       adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Guild members and site administrators can read the directory.") &&
@@ -2114,14 +2127,14 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => slow.app.textContent.includes("Too many pages in one minute"), "the read limit");
     check("  too many reads in a minute (429) are said in words", slow.app.textContent.includes("Too many pages in one minute. Wait a moment, then carry on.") && !byText(slow.app, "h2", "Notices"));
 
-    // ---- the role copy, as the Roles page shows it. .115's rewrite of the lines was withdrawn on 3 Oct 2026 (the owner's
-    // answer 6: the in-game ladder is the ten ranks the .46 lines describe); the check of the page path stays.
+    // ---- Current ownerB ladder: Treasurer is native Slot3 and a separate accepted office.
+    // Source-equality, Raider/Class Lead facts and absence of automatic bank grants remain checked.
     const roles5 = await openPage(MEMBER);
     await roles5.go("#/roles");
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
     const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
-    check("(.122) the Roles page renders the real post-beta Treasurer appointment and preserves the Raider and Class Lead facts", ["treasurer", "raider", "class_lead"].every((k) => fact(k) === gameLine(k)) && fact("treasurer").startsWith("Post-beta guidance:") && /appointment within High Council, not a separate native rank/.test(fact("treasurer")) && fact("raider").startsWith("The Raider rank") && fact("class_lead").startsWith("No rank of its own"), fact("treasurer"), fact("raider"));
+    check(".196 Roles renders the B recommendation without a bank grant and agrees with all five office crosswalks", ["co_gm", "officer", "treasurer", "raider", "class_lead", "loot_council", "professions", "pvp_leader", "raid_assist_na", "raid_assist_eu"].every((k) => fact(k) === gameLine(k)) && ["co_gm", "officer", "treasurer"].every(k => fact(k).startsWith("Recommended post-beta placement:") && fact(k).includes("not verification of the holder’s current game rank")) && fact("treasurer").includes("Treasurer occupies native Slot 3 (zero-based slot 2)") && fact("treasurer").includes("the website recommendation grants none") && fact("raider").startsWith("The Raider rank") && [["class_lead","Officer (Slot 4)"],["loot_council","Raid Leader (Slot 5)"],["professions","Officer (Slot 4)"],["pvp_leader","Raid Leader (Slot 5)"],["raid_assist_na","Raid Leader (Slot 5)"],["raid_assist_eu","Raid Leader (Slot 5)"]].every(([key, placement]) => fact(key).includes("planning crosswalk recommends " + placement)), fact("treasurer"), fact("raider"));
 
     (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
     (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));
@@ -2506,7 +2519,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await p.go("#/governance");
     await waitFor(() => !!p.app.querySelector('[data-chapter="reading-and-adopting-this-book"]'), ".154 current member book");
     const chapters = p.app.querySelectorAll("details.governance-chapter");
-    check(".154 member can read all14 R7 chapters with authorized adoption and no issued appointments", chapters.length === 14 && p.app.textContent.includes("R7 • Guild rules adopted 13 October 2026") && p.app.textContent.includes("Adoption issues no individual appointment or named signature") && p.app.textContent.includes("changes no native rank, bank limit or platform permission"), p.app.textContent.slice(0, 1600));
+    check(".196 member can read all15 R7 chapters including Royal Codex with original adoption and no issued appointments", chapters.length === 15 && chapters.some(c => c.querySelector("summary").textContent.includes("Royal Codex")) && p.app.textContent.includes("R7 • Guild rules adopted 13 October 2026") && p.app.textContent.includes("Adoption issues no individual appointment or named signature") && p.app.textContent.includes("changes no native rank, bank limit or platform permission"), p.app.textContent.slice(0, 1600));
     check(".154 reading, adoption, appointment and operational entry links point at real chapters", ["reading-and-adopting-this-book", "adoption-and-office-registers", "3-letters-patent-and-warrants", "operational-charter-the-work-of-olympus"].every((id) => chapters.some((c) => c.getAttribute("data-chapter") === id) && p.app.querySelector(`a[href="#/governance/${id}"]`)));
     check("current R7 source and historical R6 downloads have exact distinct labels, paths and filenames", [["Historical R6 PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"], ["Historical R6 package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"], ["Historical R6 guide", "/static/governance/olympus-guide-r6.pdf", "Olympus Guild Guide - Draft R6.pdf"], ["Historical R6 checklist", "/static/governance/olympus-adoption-checklist-r6.pdf", "Olympus Adoption Checklist - Draft R6.pdf"], ["Historical R6 templates", "/static/governance/olympus-templates-r6.pdf", "Olympus Appointment and News Templates - Draft R6.pdf"], ["Release preparation PDF", "/static/governance/olympus-release-preparation.pdf", "Olympus Release Preparation Checklist.pdf"], ["Download current R7 source", "/static/governance/reconciled-book.md", "Olympus Governance R7.md"]].every(([label, href, filename]) => { const link = byText(p.app, "a", label); return link && link.getAttribute("href") === href && link.getAttribute("download") === filename; }));
     for (const [assetPath, contentType] of [["/static/governance/olympus-governance-r6.pdf", "application/pdf"], ["/static/governance/olympus-governance-r6.zip", "application/zip"], ...["olympus-guide-r6", "olympus-adoption-checklist-r6", "olympus-templates-r6", "olympus-release-preparation"].map((name) => ["/static/governance/" + name + ".pdf", "application/pdf"])]) {

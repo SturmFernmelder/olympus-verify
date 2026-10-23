@@ -31,8 +31,9 @@ async function fixture(generation=null,over={}){
  const env={...rawEnv,DB:load('privacy-write-admission').createPrivacyWriteAdmissionDatabase(DB,'writer','canonical',entry.ENTRY_EPOCH)},run=(sql,...values)=>env.DB.prepare(sql).bind(...values).run();
  await run('INSERT INTO site_users(discord_id,username,in_server,denied,session_version,first_login,last_login,checked_at)VALUES(?,?,1,0,1,?,?,?)',ADMIN,'synthetic-staff',T,T,T);
  if(generation)await run("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at,erased_at,retain_until)VALUES(?,?,'active',1,?,?,NULL,NULL)",ADMIN,generation,T,T);
- const messages=new Map(),calls=[];let effectHook=null,getHook=null,losePost=false,losePatch=false,responseScanVersion=undefined,next=900000000000000000n,wrongBot=false,wrongGuild=false;
+ const messages=new Map(),calls=[];let effectHook=null,getHook=null,losePost=false,losePatch=false,responseScanVersion=undefined,next=900000000000000000n,wrongBot=false,wrongGuild=false,rateLimitMethod=null;
  originalTestFetch=async(input,init={})=>{const request=input instanceof Request?input:null,url=new URL(request?request.url:input);if(url.origin!=='https://discord.com'||!url.pathname.startsWith('/api/v10/'))throw Error('no external network in publication fixtures');const p=url.pathname.replace(/^\/api\/v10/,''),m=request?request.method:init.method??'GET',body=request?await request.text():init.body;calls.push([m,p]);
+  if(m===rateLimitMethod)return new Response(JSON.stringify({retry_after:0}),{status:429,headers:{'content-type':'application/json'}});
   if(m==='GET'&&getHook){const h=getHook;getHook=null;await h(p);}
   const reply=(x,status=200)=>{const body=structuredClone(x);if(responseScanVersion!==undefined&&body?.channel_id&&Array.isArray(body.embeds))for(const embed of body.embeds)embed.content_scan_version=responseScanVersion;
    return new Response(status===204?null:JSON.stringify(body),{status,headers:{'content-type':'application/json'}});};let x;
@@ -55,10 +56,24 @@ async function fixture(generation=null,over={}){
   const req=new Request('https://guild.example/api/admin/ruleset-publication'+suffix,{method,headers:{Cookie:cookie,Origin:'https://guild.example','X-Olympus':core.PAGE_VERSION,'Content-Type':'application/json',...extra},...(method==='GET'?{}:{body:JSON.stringify(body)})});
   const start=sqlCount,physicalStart=physicalCount,res=await index.default.fetch(req,rawEnv,{waitUntil:()=>{}});maxSql=Math.max(maxSql,sqlCount-start);maxPhysicalSql=Math.max(maxPhysicalSql,physicalCount-physicalStart);return {status:res.status,data:await res.json()};};
  const select=async()=>{const a=await request('GET','');return request('POST','/select',{profileRevision:profile.currentRulesetProfile().revision,form:a.data.form});};
- return {db,env,run,reissue,request,select,messages,calls,get session(){return issued.session;},get effects(){return calls.filter(c=>c[0]!=='GET').length;},set before(v){before=v;},set after(v){after=v;},set effectHook(v){effectHook=v;},set getHook(v){getHook=v;},set losePost(v){losePost=v;},set losePatch(v){losePatch=v;},set responseScanVersion(v){responseScanVersion=v;},set lostBatch(v){lostBatch=v;},set wrongBot(v){wrongBot=v;},set wrongGuild(v){wrongGuild=v;},get cookie(){return cookie;},set cookie(v){cookie=v;}};
+ return {db,env,run,reissue,request,select,messages,calls,get session(){return issued.session;},get effects(){return calls.filter(c=>c[0]!=='GET').length;},set before(v){before=v;},set after(v){after=v;},set effectHook(v){effectHook=v;},set getHook(v){getHook=v;},set losePost(v){losePost=v;},set losePatch(v){losePatch=v;},set responseScanVersion(v){responseScanVersion=v;},set lostBatch(v){lostBatch=v;},set wrongBot(v){wrongBot=v;},set wrongGuild(v){wrongGuild=v;},set rateLimitMethod(v){rateLimitMethod=v;},get cookie(){return cookie;},set cookie(v){cookie=v;}};
 }
 (async()=>{
  const canonical=load('guide').guideMessage({ADMISSION_MODE:'review',OFFICER_CHARACTERS:'Synthetic Officer',ROLE_GUILD_MEMBER:'700000000000000099',SET_NICKNAME:'false'},profile.currentRulesetProfile());
+ // .196: exercise each actual one-effect publication stage through the original route/claim.
+ // A definite429 is one refused attempt, never a hidden second HTTP write.
+ for(const [stage,method] of [['create','POST'],['edit','PATCH'],['pin','PUT']]){
+  const limited=await fixture(g),pointer='800000000000000088';
+  if(stage==='edit'){const old={content:'',...load('guide').guideMessage(limited.env,profile.currentRulesetProfile()),id:pointer,channel_id:CH.guide,author:{id:BOT},pinned:true};old.embeds[0].description+=' historical copy';limited.messages.set(pointer,old);}
+  const selected=await limited.select(),operation=selected.data.publicationId;
+  if(stage==='pin'){const created=await limited.request('POST','/publish',{publicationId:operation,target:'guide'});check('429 pin fixture uses the original known created pointer',created.data.state==='known'&&limited.messages.size===1);limited.calls.length=0;}
+  const before=limited.db.prepare("SELECT * FROM ruleset_publications WHERE publication_id=? AND target_key='guide'").get(operation);
+  limited.rateLimitMethod=method;const response=await limited.request('POST','/publish',{publicationId:operation,target:'guide'}),after=limited.db.prepare("SELECT * FROM ruleset_publications WHERE publication_id=? AND target_key='guide'").get(operation);
+  check('429 '+stage+' performs exactly one original provider write and records definite refusal',response.status===200&&response.data.state==='refused'&&limited.calls.filter(c=>c[0]===method).length===1&&after.result_code==='refused');
+  check('429 '+stage+' preserves original payload/deadline and creates no provider result',after.frozen_payload===before.frozen_payload&&after.payload_hash===before.payload_hash&&after.actor_retain_until===before.actor_retain_until&&after.selection_revision===before.selection_revision&&after.profile_revision===before.profile_revision&&limited.messages.size===(stage==='create'?0:1)&&(stage!=='pin'||[...limited.messages.values()][0].pinned===false));
+ }
+ const readLimited=await fixture(g),readSelected=await readLimited.select();readLimited.rateLimitMethod='GET';const readRefused=await readLimited.request('POST','/publish',{publicationId:readSelected.data.publicationId,target:'guide'});
+ check('publication destination429 is not silently retried and makes no provider write',readRefused.status===503&&readLimited.calls.filter(c=>c[0]==='GET').length===1&&readLimited.effects===0);
  const received=structuredClone(canonical);received.embeds[0].type='rich';for(const field of received.embeds[0].fields??[])field.inline??=false;
  received.components.forEach(c=>{c.id=0;c.components.forEach(x=>{x.id=0;x.disabled=false;});});
  check('actual source payload accepts innocuous Discord response defaults',adapter.messageMatches(received,canonical));
@@ -96,7 +111,7 @@ async function fixture(generation=null,over={}){
  for(const key of ['olympus-info','guild-announcements']){const legacy=await load('intros').refreshIntros(f.env,GUILD,ADMIN,CH[key]);check('legacy refresh cannot compete for migrated identity slot '+key,legacy.outcomes.length===1&&legacy.outcomes[0].action==='skipped'&&f.effects===0);}
  f.env.ROLE_OFFICER=OTHER;
  for(const command of ['post-guide','refresh-guide']){const response=await load('interactions').handleInteraction(f.env,{type:2,guild_id:GUILD,channel_id:CH.guide,member:{user:{id:ADMIN},roles:[OTHER]},data:{name:'olympus-admin',options:[{type:1,name:command}]}});check('real legacy join guide command delegates without provider effects '+command,(await response.json()).data.content.includes('staff ruleset publication')&&f.effects===0);}
- check('real status previews exact source and fixed destinations',a.data.targets.length===3&&a.data.targets[0].channelId===CH.guide&&JSON.stringify(a.data.targets[0].payload.embeds)===JSON.stringify(load('guide').guideMessage(f.env).embeds));
+ check('real status previews exact source and fixed destinations',a.data.targets.length===3&&a.data.targets[0].channelId===CH.guide&&JSON.stringify(a.data.targets[0].payload.embeds)===JSON.stringify(load('guide').guideMessage(f.env,profile.currentRulesetProfile()).embeds));
  const copied=structuredClone(a.data.form);copied.operationId='z'.repeat(22);let copiedReply=await f.request('POST','/select',{profileRevision:profile.currentRulesetProfile().revision,form:copied});check('copied purpose cannot authorize another operation',copiedReply.status===403&&f.effects===0);
  const originalGeneration=f.session.g;await f.run('DELETE FROM privacy_subjects WHERE subject_id=?',ADMIN);await f.reissue();copiedReply=await f.request('POST','/select',{profileRevision:profile.currentRulesetProfile().revision,form:a.data.form});check('original generation-bound purpose cannot cross genuine re-admission from absence',copiedReply.status===403&&f.session.g!==originalGeneration&&f.effects===0);
  f=await fixture(g);a=await f.request('GET','');
@@ -107,7 +122,7 @@ async function fixture(generation=null,over={}){
  r=await p();check('single create retains a known pointer',r.status===200&&r.data.state==='known'&&f.effects===1&&f.messages.size===1);
  r=await p();check('next deliberate request pins the same guide',r.status===200&&r.data.state==='applied'&&f.effects===2&&f.messages.size===1);
  r=await p();check('applied replay does not dispatch again',r.status===200&&f.effects===2);
- check('real guide bytes equal approved source projection',JSON.stringify([...f.messages.values()][0].embeds)===JSON.stringify(load('guide').guideMessage(f.env).embeds));
+ check('real guide bytes equal approved source projection',JSON.stringify([...f.messages.values()][0].embeds)===JSON.stringify(load('guide').guideMessage(f.env,profile.currentRulesetProfile()).embeds));
  for(const key of ['olympus-info','guild-announcements']){r=await f.request('POST','/publish',{publicationId:id,target:key});check('approved actual intro created once '+key,r.status===200&&r.data.state==='known');r=await f.request('POST','/publish',{publicationId:id,target:key});check('approved intro pin confirmed '+key,r.status===200&&r.data.state==='applied');}
  const next=await f.select();r=await f.request('POST','/publish',{publicationId:next.data.publicationId,target:'olympus-info'});check('newer same-profile selection reuses known existing slot, not duplicate POST',r.status===200&&r.data.state==='applied'&&f.messages.size===3);
  f=await fixture();const stale='800000000000000001';
@@ -126,7 +141,7 @@ async function fixture(generation=null,over={}){
  f=await fixture(g);s=await f.select();f.effectHook=async()=>{await f.env.DB.batch(data.rulesetPublicationEraseStatements(f.env,ADMIN));await f.run('DELETE FROM site_users WHERE discord_id=?',ADMIN);await f.run("UPDATE privacy_subjects SET state='retired',revision=2,erased_at=?,retain_until=? WHERE subject_id=?",T,T+366*86400,ADMIN);};
  r=await f.request('POST','/publish',{publicationId:s.data.publicationId,target:'guide'});const erased=f.db.prepare("SELECT * FROM ruleset_publications WHERE target_key='guide'").get();
  check('erase during actual POST preserves late exact pointer without actor/session resurrection',r.status===200&&r.data.state==='held'&&erased.message_id&&erased.actor===null&&erased.actor_generation===null&&erased.session_version===null&&f.effects===1,{response:r,state:erased.state,messageId:erased.message_id,actor:erased.actor,incarnation:erased.actor_account_incarnation});
- check('erasure retains independent approved guild payload, not personal content',erased.frozen_payload.includes('Current game:')&&!erased.frozen_payload.includes(ADMIN));
+ check('erasure retains independent approved guild payload, not personal content',erased.frozen_payload.includes('Olympus guild direction:')&&JSON.stringify(JSON.parse(erased.frozen_payload).embeds)===JSON.stringify(load('guide').guideMessage(f.env,profile.currentRulesetProfile()).embeds)&&!erased.frozen_payload.includes(ADMIN));
  f=await fixture(g);s=await f.select();f.getHook=async()=>await f.run('UPDATE site_users SET session_version=2 WHERE discord_id=?',ADMIN);r=await f.request('POST','/publish',{publicationId:s.data.publicationId,target:'guide'});check('original session revoked across provider GET refuses before write',r.status!==200&&f.effects===0);
  for(const mode of ['retiring','generation','absence','destination','payload','selection','nonce']){
   f=await fixture(mode==='absence'?null:g);s=await f.select();f.getHook=async()=>{

@@ -63,9 +63,12 @@ import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, admittedReadAs, admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
-import { newsPage } from "./site-news";
+import { newsPage, handleTownCrierEditor } from "./site-news";
+import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
-import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers } from './site-appointed-identities';
+import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
+import { talentBuildAttachment } from './talent-build-attachment';
+import { TALENT_SNAPSHOT_REVISION } from './talent-build-contract';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -152,6 +155,9 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
   if (m === 'GET' && path === '/api/appointed-identities') return appointedIdentitiesPage(request, env);
   if (m === "GET" && path === "/api/news") return newsPage(request, env); // .115: News (site-news.ts), confirmed members, behind settings.newsOn
+  if (m === "GET" && path === "/api/news/editor") return handleTownCrierEditor(request, env, [], user, {});
+  if (m === "GET" && path === "/api/news/editor/webhook/preview") return handleTownCrierWebhook(request,env,['preview'],user,{});
+  if (m === "GET" && path === "/api/news/editor/webhook/retained") return handleTownCrierWebhook(request,env,['retained'],user,{});
   if (m === "GET" && path === "/api/resource-updates") return resourceUpdatesPage(request, env);
   if (m === "GET" && (path === "/api/board" || path.startsWith("/api/board/"))) {
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
@@ -185,6 +191,11 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
   const gone = await stillMember(env, user);
   if (gone) return gone;
+  if (m === "POST" && ["/api/news/editor", "/api/news/editor/update", "/api/news/editor/delete"].includes(path)) {
+    const sub = path.slice("/api/news/editor".length).replace(/^\//, "");
+    return handleTownCrierEditor(request, env, sub ? [sub] : [], user, body);
+  }
+  if(m==='POST'&&['/api/news/editor/webhook/publish','/api/news/editor/webhook/revoke','/api/news/editor/webhook/reconcile'].includes(path))return handleTownCrierWebhook(request,env,[path.slice('/api/news/editor/webhook/'.length)],user,body);
   if (m === "PUT" && path === "/api/application") return saveApplication(env, user, body);
   if (m === "DELETE" && path === "/api/application") return withdrawApplication(env, user);
   if (m === "PUT" && path === "/api/votes") return saveVotes(env, user, body);
@@ -270,7 +281,9 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
   return {
     signedIn: true,
     now: now(),
-    user: publicUser(env, user, admin),
+    user: { ...publicUser(env, user, admin),
+      canUseStreamShield: !user.denied && await canUseStreamShield(env, id),
+      canEditTownCrier: !user.denied && await canEditTownCrier(env, id) },
     denied: !!user.denied,
     deniedText: user.denied ? DENIED_TEXT : undefined,
     settings: generalSettingsDto(s),
@@ -328,7 +341,7 @@ export interface ValidApp {
   answers: string; // JSON
 }
 
-export function validateApplication(body: Record<string, unknown>, selfId: string, appointed: Record<string, string> = {}, noVote: readonly string[] = []): Fail | ValidApp {
+export function validateApplication(body: Record<string, unknown>, selfId: string, appointed: Record<string, string> = {}, noVote: readonly string[] = [], siteHost = "olympus.roachcouncil.com", previousTalentBuild?: string): Fail | ValidApp {
   const taken = (key: string) => isAppointed({ appointed }, key);
   const region = String(body.region ?? "");
   // A page opened before the NA/EU split may still send the old Raid Leader or Raid Assist; the region decides.
@@ -388,6 +401,18 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   const answers: Record<string, unknown> = {};
   for (const q of QUESTIONS) {
     if (q.leadership && !leading) continue;
+    if (q.key === "talentBuild") {
+      const build = talentBuildAttachment(raw.talentBuild, siteHost);
+      // An unchanged stored historical attachment is opaque evidence. It must not block an
+      // unrelated application edit, and is never revalidated as a current calculator build.
+      // previousTalentBuild comes only from the original own application read below.
+      const retained = !build && typeof previousTalentBuild === "string" && previousTalentBuild.length <= 256 && raw.talentBuild === previousTalentBuild
+        ? /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(?:[1-5][0-9]|60)\.[0-5]+$/.exec(previousTalentBuild) : null;
+      if (retained && retained[1] !== TALENT_SNAPSHOT_REVISION && retained[2] === cls) { answers.talentBuild = previousTalentBuild; continue; }
+      if (!build || build.className && build.className !== body.class) return fail("talentBuild", "Attach a valid current calculator build for your selected class, or leave the field empty.");
+      if (build.code) answers.talentBuild = build.code;
+      continue;
+    }
     if (q.key === "logs") {
       const link = parseLink(raw.logs);
       if (typeof link !== "string") return fail("logs", link.error);
@@ -437,6 +462,10 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   // Voted leadership roles put their applications on the board, and the form asks for that in so many words.
   if (voted && body.board !== true) return fail("board", "A leadership role you chose is voted on: tick the box to agree to your application being shown on the voting board (or keep it ticked) and save again, or choose only roles that are not voted on.");
   if (body.ack !== true) return fail("ack", "Tick the box to confirm you have read the warning about joke and abusive applications.");
+  // Portrait publication is a separate, optional current request choice. A prior
+  // board_at or a client answers field cannot supply this server-managed flag.
+  if (body.boardPortrait !== undefined && typeof body.boardPortrait !== "boolean") return fail("boardPortrait", "Choose whether to show your Discord profile picture, then save again.");
+  answers.boardPortraitOptIn = voted && body.board === true && body.boardPortrait === true;
   answers.ackAt = now();
   const fit = fitFromBits(bits);
 
@@ -467,7 +496,8 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
   if (existing && (existing.status === "accepted" || existing.status === "declined")) {
     return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
   }
-  const a = validateApplication(body, user.discord_id, s.appointed, s.noVote);
+  const storedTalent = existing ? parseAnswers(existing.answers).talentBuild : undefined;
+  const a = validateApplication(body, user.discord_id, s.appointed, s.noVote, env.SITE_HOST, typeof storedTalent === "string" ? storedTalent : undefined);
   // A page opened before a role was put to the vote hid the board box: the list it lacked comes back with the refusal,
   // so the page can show the box and the applicant tick it, without losing what they typed.
   if ("error" in a) return a.field === "board" ? apiJson({ ...a, noVote: s.noVote }, 400) : bad(a);
@@ -673,7 +703,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
       return {
         id,
         label: labelOf({ username: (r.username as string) ?? null, displayName: (r.global_name as string) ?? null, nick: (r.nick as string) ?? null }),
-        avatarUrl: avatarUrl(env, id, (r.avatar as string) ?? null),
+        avatarUrl: answers.boardPortraitOptIn === true ? avatarUrl(env, id, (r.avatar as string) ?? null) : null,
         class: r.class ?? null,
         role: r.role ?? null,
         region: r.region ?? null,

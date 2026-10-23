@@ -3,13 +3,13 @@ import type { Env } from './env';
 import { registerCommunityData,type ExportPlan,DB_NOW } from './community-context';
 import { registerServingPrivacyFamilies } from './privacy-business-catalog';
 import { RULESET_PUBLICATION_COLUMNS } from './ruleset-publication-schema';
-import { FUTURE_REVISION } from './ruleset-profile';
+import { FUTURE_REVISION,currentRulesetProfile,historicalBetaRulesetProfile } from './ruleset-profile';
 const STATES=['selected','pending','claimed','unknown','known','applied','refused','superseded','held'];
 const RESULTS=['confirmed','authority_closed','unknown','refused','actor_erased','actor_history_expired'];
 /** Unknown restored metadata cannot become a free-form own-copy disclosure channel. */
 export function projectOwnRulesetPublication(r:Record<string,unknown>):Record<string,unknown>{
- // Item 7: the beta revision or an opaque full-release revision shape; a restored or free-form string stays withheld.
- return {profile_revision:r.profile_revision==='forever-beta-pvp2-v1'||(typeof r.profile_revision==='string'&&FUTURE_REVISION.test(r.profile_revision))?r.profile_revision:null,
+ // Exact source-authored public/beta revisions or an opaque full-release shape; restored free-form text stays withheld.
+ return {profile_revision:[currentRulesetProfile().revision,historicalBetaRulesetProfile().revision].includes(r.profile_revision as string)||(typeof r.profile_revision==='string'&&FUTURE_REVISION.test(r.profile_revision))?r.profile_revision:null,
  selection_revision:typeof r.selection_revision==='number'&&Number.isSafeInteger(r.selection_revision)&&r.selection_revision>0?r.selection_revision:null,
  target_key:['$selection','guide','olympus-info','guild-announcements'].includes(r.target_key as string)?r.target_key:null,
  state:STATES.includes(r.state as string)?r.state:null,result_code:RESULTS.includes(r.result_code as string)?r.result_code:null,

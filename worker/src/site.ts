@@ -33,15 +33,16 @@ import { audit, now } from "./db";
 import { API, credentialFetch } from "./discord";
 import { recordNames } from "./names";
 import { policyResponse } from "./policies";
+import { memberLegalNavigation } from "./member-legal-navigation";
 import { handlePolicyForms } from "./policy-forms";
 import { policyHeaders } from "./policy-render";
 import { loadSiteState, meta, snowflakeTime } from "./site-data";
 import { generalSettingsDto, handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
-import { rankPlannerPage } from "./site-ranks";
+import { rankPlannerFragmentPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
-import { siteSignIn } from './site-access';
+import { siteSignInWithMedia } from './site-access';
 import { olympusSocialMetadata } from './site-brand';
 
 export { siteHost } from "./site-core";
@@ -97,8 +98,15 @@ export async function handleSite(
     try{return await callback(env,request,url,build,waitUntil,siteOAuthOrigin);}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}
   }
   if (m === "POST" && path === "/auth/logout") return logout(env, request);
-  if (path === "/admin/ranks") return rankPlannerPage(request, env, schemaReady); // .86: the staff rank planner (SITE_ADMINS; GET/HEAD only, judged there)
-  const policy = policyResponse(request, path); // normally answered in index.ts already; kept so this module stands alone
+  if (path === "/admin/ranks/fragment") return rankPlannerFragmentPage(request, env, schemaReady);
+  if (path === "/admin/ranks") {
+    const admitted = await rankPlannerFragmentPage(request, env, schemaReady);
+    if (!admitted.ok) return admitted;
+    const headers = new Headers(admitted.headers); headers.set("Location", "/#/admin/ranks");
+    return new Response(null, {status:303, headers});
+  }
+  const navigation = await memberLegalNavigation(request, env, path); if (navigation) return navigation;
+  const policy = policyResponse(request, path); // public fallback; normally answered in index.ts already
   if (policy) return policy;
   if (m === "GET" && path === "/robots.txt") {
     return new Response("User-agent: *\nDisallow: /api/\nDisallow: /auth/\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -121,13 +129,13 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
     const user = await currentUser(env, request);
     if (!user || user.in_server !== 1 || user.denied) {
       const flash = extra.flash as { kind?: string } | undefined;
-      return siteSignIn(request, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
+      return siteSignInWithMedia(request, env, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
     }
     const state = await loadSiteState(env), settings = state.settings;
     boot = user ? await meData(env, user, settings, state.ruleset) : { signedIn: false, settings: generalSettingsDto(settings), meta: meta(state.ruleset), now: now() };
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
-    return siteSignIn(request, 503, 'updating', cookies);
+    return siteSignInWithMedia(request, env, 503, 'updating', cookies);
   }
   // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker admits
   let community: ReturnType<typeof contextDto> | null = null;
@@ -269,9 +277,9 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   if (memRes.status === 404) {
     try {
       await step(()=>admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]));
-    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
+    } catch { return siteSignInWithMedia(request, env, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
     await step(()=>audit(env, 'site', "site.login_not_member"));
-    return siteSignIn(request, 403, 'not_member', [...clear, clearCookie(SESSION_COOKIE)]);
+    return siteSignInWithMedia(request, env, 403, 'not_member', [...clear, clearCookie(SESSION_COOKIE)]);
   }
   if (memRes.status === 429) return flash("busy", 429);
   if (!memRes.ok) {
@@ -283,8 +291,8 @@ async function callback(env: Env, request: Request, url: URL, build: string, wai
   if (member.pending) {
     try {
       await step(()=>admittedPrivacySubjectWrite(env, me.id, privacyCapture, [env.DB.prepare('UPDATE site_users SET in_server=0,checked_at=?2,session_version=session_version+1 WHERE discord_id=?1').bind(me.id, now())]));
-    } catch { return siteSignIn(request, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
-    return siteSignIn(request, 403, 'pending', [...clear, clearCookie(SESSION_COOKIE)]);
+    } catch { return siteSignInWithMedia(request, env, 503, 'privacy_held', [...clear, clearCookie(SESSION_COOKIE)]); }
+    return siteSignInWithMedia(request, env, 403, 'pending', [...clear, clearCookie(SESSION_COOKIE)]);
   }
 
   const t = now();

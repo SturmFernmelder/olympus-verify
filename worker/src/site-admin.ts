@@ -30,18 +30,21 @@ import { errorRef } from "./log";
 import type { Env } from "./env";
 import { audit, likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, onBoardSql, readJson, readSession, sameOrigin, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
+import { apiJson, appOut, avatarUrl, BOARD_COUNTS, choicesOf, forgetBoardCounts, isSiteAdmin, labelOf, ON_BOARD, onBoardSql, readJson, readSession, rateLimited, sameOrigin, PAGE_VERSION, ROLE_OF_FIRST, searchMembers, shownName, UNDER_ROLE, type AppRow, type SiteUser } from "./site-core";
 import { AVAIL_HOURS, availBits, BALLOTS, ballotOf, cleanAppointed, cleanNoVote, cleanText, fitFromBits, loadSettings, parseTime, POSITION_KEYS, professionOf, raidFit, roleLabel, settingsFrom, type SiteSettings } from "./site-data";
 import { queueReserved, releaseReserved, releaseReservedStatements } from "./site-queue";
 import { guildSeats } from "./guild-seats";
 import { accountInfo, ownerOfCharacter } from "./lookup";
-import { communityEraseStatements, fenceSql } from "./community-context";
+import { communityEraseStatements, communityContext, fenceSql } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
+import { DISCORD_INTENT_OPERATIONS } from "./discord-intent-operations";
 import { rest } from "./discord";
 import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
 import { loadLeadership, NAME_WITHHELD, saveLeadership } from "./site-leadership";
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 import { handleNewsAdmin } from "./site-news";
+import { handleTreasuryCosmeticAdmin } from "./treasury-cosmetic";
+import { discordDirectoryAttendedVisibility } from "./community-discord-directory";
 import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
 import {prepareMembershipDecision,membershipDecisionTargetToken,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
@@ -72,10 +75,17 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   const actor = admin.discord_id;
 
   if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);
+  if (parts[0] === 'treasury') return handleTreasuryCosmeticAdmin(request,env,parts.slice(1),admin,body);
+  if (parts[0] === 'discord-directory' && parts.length === 2) return discordDirectoryAttendedVisibility(request, env, await communityContext(env, request), parts[1]!, body);
 
   if (parts[0] === "community") return handleCommunityAdmin(request, env, path, admin, body); // .57
   if (m === "GET" && parts[0] === "overview") return apiJson(await overview(env));
-  if (m === "PUT" && parts[0] === "settings") return saveSettings(env, actor, body);
+  if (m === "PUT" && parts[0] === "settings") {
+    // Original authenticated administrator already captured by site-api.ts.
+    // The soft cap precedes every changed-holder provider lookup.
+    if (rateLimited('appointed-save:' + actor, 30, 60)) return apiJson({ error: 'slow_down' }, 429);
+    return saveSettings(env, actor, body);
+  }
   // .114: the Battle.net sign-in switch (bnet-switch.ts), the I-X leadership directory and the beta reset (site-leadership.ts), forced renames (rename-review.ts)
   if (parts[0] === "bnet-switch" && !parts[1]) {
     if (m === "GET") return apiJson(await bnetLoginState(env));
@@ -223,14 +233,19 @@ async function overview(env: Env) {
     queue: { waiting: queue?.waiting ?? 0, reserved: queue?.reserved ?? 0 },
     seats: (await guildSeats(env)).seats, // .115 (item B): exact, staff only (guild-seats.ts)
     settings: await loadSettings(env),
+    discordIntentOperations: DISCORD_INTENT_OPERATIONS,
   };
 }
 
 async function saveSettings(env: Env, actor: string, body: Record<string, unknown>): Promise<Response> {
-  const read = await env.DB.prepare("SELECT key, value FROM site_settings").all<{ key: string; value: string }>();
+  const read = await env.DB.prepare("SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'").all<{ key: string; value: string }>();
   const cur = settingsFrom(env, read.results);
   const storedValues = new Map(read.results.map((r) => [r.key, r.value]));
   const next: Partial<Record<keyof SiteSettings, string>> = {};
+  if (body.loginAnimation !== undefined) {
+    if (typeof body.loginAnimation !== "boolean") return apiJson({ error: "invalid", field: "loginAnimation", message: "Choose the still image or client-model animation using the checkbox." }, 400);
+    next.loginAnimation = body.loginAnimation ? "1" : "0";
+  }
   const time = (k: "namesOpenAt" | "launchAt") => {
     if (body[k] === undefined) return true;
     const t = typeof body[k] === "number" ? Math.floor(body[k] as number) : parseTime(String(body[k]), -1);
@@ -269,10 +284,10 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
       return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
     if (!appointmentPublicationConfirmation(appointedObj, body)) {
-      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies only to the Co-Guild Master and Treasurer account associations; it grants no role or permission.' }, 400);
+      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies to every office and rank account association; it grants no role or permission.' }, 400);
     }
   }
-  const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj) : null;
+  const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj, storedValues.get('appointed') ?? null) : null;
   if (prepared && !prepared.ok) return appointmentAccountRefusal(prepared);
   const publication = prepared?.ok ? prepared : null;
   if (publication) next.appointed = JSON.stringify(publication.stored);
@@ -306,7 +321,9 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
 }
 
 function appointmentAccountRefusal(failure: AppointmentPublicationFailure): Response {
-  const action = failure.status === 'discord_unavailable'
+  const action = failure.status === 'fresh_check_limit'
+    ? 'At most 32 new, changed or unqualified Discord members can be checked in one save. Save a smaller reviewed batch; unchanged qualified associations remain intact when included in the full map.'
+    : failure.status === 'discord_unavailable'
     ? 'Current Discord server membership could not be confirmed. Try searching and saving again shortly; website sign-in is not required.'
     : failure.status === 'account_changed'
       ? 'The selected site identity changed. Reload Settings and search for the account again before reviewing publication.'

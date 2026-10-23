@@ -1,0 +1,382 @@
+[
+  {
+    "key": "office_01",
+    "label": "Academy Lead (Training Lead)"
+  },
+  {
+    "key": "office_02",
+    "label": "Addon Developer"
+  },
+  {
+    "key": "office_03",
+    "label": "Addon / Discord Architect"
+  },
+  {
+    "key": "office_04",
+    "label": "Alt (Verified Alt)"
+  },
+  {
+    "key": "office_05",
+    "label": "Alt / Social Member"
+  },
+  {
+    "key": "office_06",
+    "label": "Ambassador"
+  },
+  {
+    "key": "office_07",
+    "label": "Artisan"
+  },
+  {
+    "key": "office_08",
+    "label": "Bank Auditor"
+  },
+  {
+    "key": "office_09",
+    "label": "Bank Manager"
+  },
+  {
+    "key": "office_10",
+    "label": "Bank Steward"
+  },
+  {
+    "key": "office_11",
+    "label": "Bench"
+  },
+  {
+    "key": "office_12",
+    "label": "Broadcaster"
+  },
+  {
+    "key": "office_13",
+    "label": "Casual"
+  },
+  {
+    "key": "office_14",
+    "label": "Chief of Intake (Gatekeeper, Intake Gatekeeper)"
+  },
+  {
+    "key": "office_15",
+    "label": "Chief of Staff"
+  },
+  {
+    "key": "office_16",
+    "label": "Chief Strategist (Head of Research)"
+  },
+  {
+    "key": "office_17",
+    "label": "Class Head"
+  },
+  {
+    "key": "office_18",
+    "label": "Class Lead"
+  },
+  {
+    "key": "office_19",
+    "label": "Co-GM"
+  },
+  {
+    "key": "office_20",
+    "label": "Coalition Lead (Foreign Affairs Lead)"
+  },
+  {
+    "key": "office_21",
+    "label": "Community & Events Lead"
+  },
+  {
+    "key": "office_22",
+    "label": "Community Officer (Social Officer)"
+  },
+  {
+    "key": "office_23",
+    "label": "Content Creator"
+  },
+  {
+    "key": "office_24",
+    "label": "Content Rep (Stream Rep)"
+  },
+  {
+    "key": "office_25",
+    "label": "Core Raider"
+  },
+  {
+    "key": "office_26",
+    "label": "Council of Justice"
+  },
+  {
+    "key": "office_27",
+    "label": "Crafter"
+  },
+  {
+    "key": "office_28",
+    "label": "Department Head"
+  },
+  {
+    "key": "office_29",
+    "label": "Deputy"
+  },
+  {
+    "key": "office_30",
+    "label": "Diplomat"
+  },
+  {
+    "key": "office_31",
+    "label": "Diplomatic Envoy"
+  },
+  {
+    "key": "office_32",
+    "label": "Discord Engineer"
+  },
+  {
+    "key": "office_33",
+    "label": "Discord Moderator"
+  },
+  {
+    "key": "office_34",
+    "label": "Emissary"
+  },
+  {
+    "key": "office_35",
+    "label": "Emissary of Artisanry"
+  },
+  {
+    "key": "office_36",
+    "label": "Emissary of Finance"
+  },
+  {
+    "key": "office_37",
+    "label": "Emissary of Heraldry"
+  },
+  {
+    "key": "office_38",
+    "label": "Emissary of War (War Emissary)"
+  },
+  {
+    "key": "office_39",
+    "label": "Event Coordinator"
+  },
+  {
+    "key": "office_40",
+    "label": "Event Officer"
+  },
+  {
+    "key": "office_41",
+    "label": "Final Authority"
+  },
+  {
+    "key": "office_42",
+    "label": "Founder"
+  },
+  {
+    "key": "office_43",
+    "label": "Guild Master (GM)"
+  },
+  {
+    "key": "office_44",
+    "label": "Guild Recruiter"
+  },
+  {
+    "key": "office_45",
+    "label": "High Council"
+  },
+  {
+    "key": "office_46",
+    "label": "Honorary / Emeritus"
+  },
+  {
+    "key": "office_47",
+    "label": "Inactive"
+  },
+  {
+    "key": "office_48",
+    "label": "Initiate"
+  },
+  {
+    "key": "office_49",
+    "label": "Intelligence / Scouting Lead"
+  },
+  {
+    "key": "office_50",
+    "label": "Lead Correspondent"
+  },
+  {
+    "key": "office_51",
+    "label": "Loot Council"
+  },
+  {
+    "key": "office_52",
+    "label": "Marshall"
+  },
+  {
+    "key": "office_53",
+    "label": "Media & Communications Lead"
+  },
+  {
+    "key": "office_54",
+    "label": "Media Lead"
+  },
+  {
+    "key": "office_55",
+    "label": "Member (Roster Member)"
+  },
+  {
+    "key": "office_56",
+    "label": "Mentor"
+  },
+  {
+    "key": "office_57",
+    "label": "Minister"
+  },
+  {
+    "key": "office_58",
+    "label": "Minister of Artisanry"
+  },
+  {
+    "key": "office_59",
+    "label": "Minister of Heraldry"
+  },
+  {
+    "key": "office_60",
+    "label": "Moderator"
+  },
+  {
+    "key": "office_61",
+    "label": "Muted"
+  },
+  {
+    "key": "office_62",
+    "label": "Officer"
+  },
+  {
+    "key": "office_63",
+    "label": "Officer Alt"
+  },
+  {
+    "key": "office_64",
+    "label": "Penal / Sentry Hold (Timeout)"
+  },
+  {
+    "key": "office_65",
+    "label": "Per-Guild Correspondent"
+  },
+  {
+    "key": "office_66",
+    "label": "Pledge"
+  },
+  {
+    "key": "office_67",
+    "label": "Privy Council"
+  },
+  {
+    "key": "office_68",
+    "label": "Probation"
+  },
+  {
+    "key": "office_69",
+    "label": "Profession Coordinator"
+  },
+  {
+    "key": "office_70",
+    "label": "PvP Captain"
+  },
+  {
+    "key": "office_71",
+    "label": "PvP Lead (PvP Leader)"
+  },
+  {
+    "key": "office_72",
+    "label": "Quartermaster"
+  },
+  {
+    "key": "office_73",
+    "label": "Raid Assist"
+  },
+  {
+    "key": "office_74",
+    "label": "Raid Leader (Raid Lead)"
+  },
+  {
+    "key": "office_75",
+    "label": "Raider"
+  },
+  {
+    "key": "office_76",
+    "label": "Recruit"
+  },
+  {
+    "key": "office_77",
+    "label": "Recruiter"
+  },
+  {
+    "key": "office_78",
+    "label": "Recruitment Lead"
+  },
+  {
+    "key": "office_79",
+    "label": "Recruitment Officer"
+  },
+  {
+    "key": "office_80",
+    "label": "Social"
+  },
+  {
+    "key": "office_81",
+    "label": "Sovereign (The King)"
+  },
+  {
+    "key": "office_82",
+    "label": "Tech / Tools Officer"
+  },
+  {
+    "key": "office_83",
+    "label": "Technical Envoy"
+  },
+  {
+    "key": "office_84",
+    "label": "The Court"
+  },
+  {
+    "key": "office_85",
+    "label": "Tithe Payer (Treasury Tiers)"
+  },
+  {
+    "key": "office_86",
+    "label": "Treasurer (Guild Bank)"
+  },
+  {
+    "key": "office_87",
+    "label": "Trial (Trial Member, Trialist, Trial/Recruit)"
+  },
+  {
+    "key": "office_88",
+    "label": "Trial Officer"
+  },
+  {
+    "key": "office_89",
+    "label": "Trial Raider"
+  },
+  {
+    "key": "office_90",
+    "label": "Veteran"
+  },
+  {
+    "key": "office_91",
+    "label": "Veteran Officer"
+  },
+  {
+    "key": "office_92",
+    "label": "Vice Guild Master"
+  },
+  {
+    "key": "office_93",
+    "label": "VIP"
+  },
+  {
+    "key": "office_94",
+    "label": "War Head"
+  },
+  {
+    "key": "office_95",
+    "label": "Welfare / Community Support Lead"
+  }
+]

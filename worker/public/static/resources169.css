@@ -30,3 +30,8 @@
 .resources169-featured h3 { font-family:Morpheus,Georgia,serif; font-size:clamp(1.6rem,4vw,2rem); }
 .resources169-featured-label { margin:0 0 .4rem; color:var(--gold,#dfbd76); font-size:.8rem; letter-spacing:.04em; }
 .resources169-primary { display:inline-flex; align-items:center; min-height:2.75rem; padding:.55rem .8rem; margin:.3rem 0 .6rem; border:1px solid var(--gold,#dfbd76); border-radius:.35rem; font-weight:600; }
+.resources169-owner-directory { min-width:0; padding:clamp(.9rem,3vw,1.5rem); border:1px solid var(--line,#675634); background:rgba(12,10,8,.55); border-radius:.4rem; overflow-wrap:anywhere; }
+.resources169-directory-section + .resources169-directory-section,.resources169-directory-corrections { border-top:1px solid var(--line,#675634); margin-top:1.5rem; padding-top:1rem; }
+.resources169-directory-block { margin:1rem 0; }
+.resources169-directory-block h4 { color:var(--gold,#dfbd76); margin-bottom:.4rem; }
+.resources169-directory-block p { line-height:1.65; }

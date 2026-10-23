@@ -198,7 +198,7 @@ end
 local function Tooltip(button, r)
   if not GameTooltip then return end
   GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-  GameTooltip:SetText("Olympus Discord verification")
+  GameTooltip:SetText(r.status == "unverified" and "Whisper Unverified" or "Olympus Discord verification")
   GameTooltip:AddLine(r.reason, 0.9, 0.86, 0.75, true)
   if r.at then GameTooltip:AddLine("Watcher fetched " .. date("%d %b %H:%M", r.at), 0.7, 0.7, 0.7) end
   if r.status == "unverified" then GameTooltip:AddLine("Online: click to open an editable whisper. Nothing is sent until you press Enter.", 0.9, 0.8, 0.5, true) end

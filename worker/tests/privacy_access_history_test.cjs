@@ -188,9 +188,10 @@ async function extraCollectionHistoryCases(){
  {
   const f=fixture();await subject(f);for(const c of extras)await seedExtra(f,c,1);const frm=await prepared(f);let attempts=0,batches=[],sql=[];f.hooks.statement=s=>{attempts++;sql.push(s);};f.hooks.beforeBatch=ss=>batches.push(ss.length);
   const r=await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env),data=await r.json();f.hooks.statement=null;f.hooks.beforeBatch=null;
-  eq('aggregate with extra retained rows has92 logical plus5 admission statements',attempts,97);eq('aggregate physical groups retain91 source payload statements',batches,[2,95]);eq('aggregate descriptors remain exact38',Object.keys(data.coverage.histories).sort(),Array.from(history.PRIVACY_COPY_HISTORY_COLLECTIONS).sort());
+  eq('aggregate original92 logical plus5 controls plus1 packed metadata read',attempts,98);ok('aggregate physical attempts stay strictly below100',attempts<100);eq('aggregate original payload group plus1 metadata read',batches,[2,96]);eq('aggregate descriptors remain exact38',Object.keys(data.coverage.histories).sort(),Array.from(history.PRIVACY_COPY_HISTORY_COLLECTIONS).sort());
   for(const c of extras)ok(c+' never silently previewed',!Object.hasOwn(data.coverage.histories,c));ok('aggregate no bnet/roster/settings history SQL',!sql.some(s=>/FROM bnet_characters|FROM roster_effects e|FROM site_settings WHERE updated_by/.test(s)));
-  for(const table of ['bnet_characters','roster_effects','site_settings']){const row=data.coverage.storeInventory.stores.find(r=>r.store===table);eq(table+' aggregate truthful collection-only coverage',[row.coverage,row.selectedInThisFile],['collection',false]);}
+  for(const table of ['bnet_characters','roster_effects']){const row=data.coverage.storeInventory.stores.find(r=>r.store===table);eq(table+' aggregate truthful collection-only coverage',[row.coverage,row.selectedInThisFile],['collection',false]);}
+  const settingCoverage=data.coverage.storeInventory.stores.find(r=>r.store==='site_settings');eq('settings updater history stays separate while bounded new own metadata is selected',[settingCoverage.coverage,settingCoverage.selectedInThisFile,Array.from(settingCoverage.collections)],['selected',true,['community.discord_directory_visibility','community.news_webhook.deliveries','site.settingUpdates']]);
   const con=await connect(f),html=await (await access.privacyAccessPage(new Request(BASE+'/privacy/access',{headers:{Cookie:con.cookie}}),f.env)).text();for(const c of extras)ok(c+' exact script-free selectable control',html.includes('<option value="'+c+'">'));ok('actual private page distinguishes37previews and40download options',html.includes('previews 38 selected histories')&&html.includes('41 individual history download options')&&html.includes('Those three are not in the account-copy file'));f.db.close();
  }
  // Closed original-generation context cannot accept an arbitrary field or mutable string object.
@@ -200,6 +201,7 @@ async function extraCollectionHistoryCases(){
 }
 
 async function mainHistory(){
+ await require('./privacy_registered196_families.cjs').run(root);
  eq('three closed collections',Array.from(history.PRIVACY_HISTORY_COLLECTIONS),['actions','eventChanges','contributionDecisions']);
  eq('cursor traversal fixed86400',history.PRIVACY_HISTORY_SECONDS,86400);
  for(const collection of history.PRIVACY_HISTORY_COLLECTIONS){
@@ -333,7 +335,7 @@ async function mainHistory(){
   const cookie=await issueFixtureCookie(f);
   const frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
   const aggregate=await (await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env)).json();f.hooks.statement=null;f.hooks.beforeBatch=null;
-  eq('metadata aggregate remains exactly97 physical Native statements',attempts,97);eq('metadata aggregate body has91 payload plus4 admission statements',batches,[2,95]);
+  eq('metadata aggregate is original97 plus1 packed metadata Native read',attempts,98);ok('metadata aggregate physical attempts remain below100',attempts<100);eq('metadata original payload plus1 packed read',batches,[2,96]);
   provider=null;
   const ordinaryResponse=await load('site').handleSite(new Request(BASE+'/api/me/export',{headers:{Cookie:cookie}}),f.env,'/api/me/export',true,'test',()=>{});
   eq('metadata ordinary actual signed session route admitted',ordinaryResponse.status,200);const ordinary=await ordinaryResponse.json();
@@ -444,7 +446,7 @@ async function mainHistory(){
  {
   f=fixture();const at=await nmSeed(f),frm=await prepared(f);let attempts=0,batches=[];f.hooks.statement=()=>attempts++;f.hooks.beforeBatch=s=>batches.push(s.length);
   const response=await copy.exportPrivacyAccess(frm.request({collection:'copy'}),f.env),identify=await response.json();f.hooks.statement=null;f.hooks.beforeBatch=null;
-  eq('next metadata original identify admitted',response.status,200);eq('next metadata exact97 aggregate physical Native statements',attempts,97);eq('next metadata exact91 payload plus4 admission body statements',batches,[2,95]);
+  eq('next metadata original identify admitted',response.status,200);eq('next metadata original97 plus1 packed Native read',attempts,98);ok('next metadata physical aggregate stays below100',attempts<100);eq('next metadata original body plus1 packed read',batches,[2,96]);
   const ordinaryResponse=await nmOrdinary(f);eq('next metadata original ordinary signed-session admitted',ordinaryResponse.status,200);const ordinary=await ordinaryResponse.json();
   for(const [lane,data] of [['ordinary',ordinary],['identify',identify]]){
    const c=data.community,o=c.contributions.obligations,r=c.contributions.receipts;
