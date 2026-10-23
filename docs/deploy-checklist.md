@@ -6701,11 +6701,11 @@ without cleanup; a requestMayHaveStarted boundary protects all uncertain provide
 remain outside core, while direct captured-core compositions are covered separately. Ordinary privacy-read failure
 still proceeds to DELETE. The concurrent-delete message names the possibly running first request without an
 automatic retry. This refinement changes no schema, gate, setting or activation authority, and requires new exact
-source qualification; the earlier1d48 head and its results remain historical.
+source qualification; the earlier 1d48 head and its results remain historical.
 
 22 October, additional genuine hosted P2 on `5127536bee445f75209e66b9a3fc02dce1b39ef6`: concurrent code issuance
 passed pre-write quota reads and could exceed three codes/draws. A bounded local before-probe issued five codes and
-charged five, preserving its failed safety assertion. That head's13 CI jobs/120 executed steps passed with49 original
+charged five, preserving its failed safety assertion. That head's 13 CI jobs/120 executed steps passed with 49 original
 conditional skips; those successes did not clear the finding. Preserve the review, probe and historical qualification.
 
 The affected correction adds counted generator patch P6. It enforces both original quota predicates inside the code
@@ -6717,3 +6717,398 @@ not automatically retry. Limit values and the 1.2-second reply deadline remain u
 public assets or activation authority changes. The new actual source head, generator count, affected regression
 counts and fresh review/CI/Claude acceptance belong in its new receipt; none are implied by this checklist entry.
 The same affected correction must be integrated and requalified in .195 after actual .194 live acceptance.
+
+### Historical .195 baseline carried from 0ff5c85 (not the corrected-parent qualification)
+
+The following .195 narrative and its test results describe the old branch ending at
+`14e02bc5e56e2a44c0e959a3ab77c4f4a85e5fe0` / tree `ac45c98997a4d439b62bb0d12a482294d0b80335`,
+parent `0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05`. It predates the account admission and quota corrections.
+Its behavioral descriptions are historical where the corrected-parent integration below supersedes them.
+They do not qualify the changed source, and neither its passes nor its diagnostic failures are transferred.
+
+*Historical supersession note from the pre-P5 .195 branch.* This paragraph referred to the first three .194
+hosted-review entries at 0ff5c85, not the later account-admission and quota corrections. Read with
+them: "Any pending claim keeps all cleanup data and refuses forgotten success" now holds only while the claim could
+still be in flight (until its code's `exp + DELIVERY_GRACE` plus one hour); "Unresolved pending data may outlive
+normal expiry and needs keeper review" is replaced by that bound and the owner's read-only held-account query
+(`docs/olympus-link.md`, section 6). The guarded deletion did not by itself close the orphan role it was written for:
+a role PUT landing after the first removal, whose link finalizes before the batch, still left a role with every row
+deleted; .195's second removal closes that ordering. The prune descriptions in the first and second entries (a pending
+code kept only while a member references it, then while the account references another pending code) were already
+superseded within .194 by the third entry: prune keeps every pending marker. "All original135 checks remain unchanged"
+is true of 0ff5c85b's own diff only: 15791935 rewrote the patch-count and console-count checks and reversed the inverse
+loop (disclosed in the first entry), and the original "Delete my link" check passes only with 0ff5c85b's change to the
+test shim. "Strengthened" for the five retention expectations means reversed: they required deletion and now require
+retention. The before-fix 166/169 run is the 2ba99447 suite plus the new shim and the first five new controls on the
+2ba99447 core; the committed 176-check suite scores 162/176 on that core, and seven of its controls came after that run.
+
+## Worker .195 historical baseline — Olympus Link deletion and race fixes, OFF source (22 October 2026)
+
+Base: Codex's PR87 .194 head 0ff5c85bea37a5f6ad38c18cc656875d6a8fbb05 (tree 81a3d06d65362a17d7059f96e953af6fe545c131,
+on main d125f955). This build implements the verified review of that head (findings F1 to F11), in commit e90251c8
+(tree d0cec017), and then that commit's own verified review (round 1, the last subsection below). Link still ships
+OFF: with `LINK_ENABLED` absent the Link routes answer today's 404 byte for byte, and every `/verify` reply and
+main-database statement is identical to .185 (`full_release_roles_identity` 497/497, `link_integration_186`'s off
+checks); `/health` reports the new BUILD, as in every build.
+
+What changed. Only the generated `worker/src/link-core.ts` changes behaviour, through
+`worker/scripts/build-link-core.mjs` (the vendored upstream files and their SHA-256 pins are unchanged; the generator
+now applies 33 counted single-match replacements, the original 11 P1-P3 plus 22 P4: 19 in e90251c8, and P4.20 to P4.22
+from round 1):
+
+- F1 (P4.14 amended): the player's guarded deletion counts a `codes.used = 0` marker only while its code could still be
+  in flight. `live = Math.floor(t) - LINK.DELIVERY_GRACE - STUCK`, with `STUCK = 3600` a local constant of the generated
+  `forgetUser` (no new `LINK` field); the pending SELECT gains `AND exp >= ?` and the guard `AND pending.exp >= ?`,
+  bound to `live` in all eight statements. A marker is refused through `exp + DELIVERY_GRACE + 3600` and forgotten one
+  second later. Prune is unchanged: a member-referenced marker is never pruned on its own.
+- F2 (P4.13 extended): after a committed guarded deletion (its commit acknowledged) `forgetOwnLink` removes the role
+  once more; if that second removal fails for any reason but not-in-server, the answer is `discord` with "Your link
+  data was deleted, but Discord did not take the role change: press delete again in a minute."
+  Delete-first-then-one-removal was rejected (a Discord outage would delete the rows and keep the role).
+- F3 (new P4.15, P4.16): the new-character INSERT carries `ON CONFLICT(character) DO NOTHING` (its `WHERE EXISTS`
+  stays, so SQLite's upsert parse is unambiguous), so a lost race is a definite no-change result; for a new character
+  undo releases the code when `NOT EXISTS (SELECT 1 FROM members WHERE r = ?) AND NOT EXISTS (SELECT 1 FROM members
+  WHERE character = ? AND discord_id = ?)`. A loser to another account answers linked-elsewhere with `used` NULL (in
+  e90251c8 a loser to the account's own other code, S10, stayed held; round 1 releases it, below). An unknown
+  record-batch throw (before or after commit) is still held pending, unchanged.
+- F6 (new P4.17 to P4.19): `charactersOf(env, id, { settled })` appends the authority checks' exact settled predicate;
+  only the `already` and `linked` answers pass `{ settled: true }`. `forgetUser`'s report stays inclusive.
+- F9 (P4.14): in the guarded branch the members and keys SELECTs are statements 2 and 3 of the deletion batch (length
+  10 required, their rows returned); the raw path's reads are unchanged.
+- F5 (P4.14): the pending refusal now reads "A link role change is still pending; no link data was deleted. Try again
+  later (this can last until about eight days after the link code was issued), or ask the bot keeper to review it."
+  (reason still `server`; no new PROOF_REASONS value). e90251c8 said "Try again in an hour", which round 1 corrected:
+  the bound is up to about eight days after issue.
+- F10/F11: the generated header lists the upstream comments P4 supersedes (P1-style; the body keeps them verbatim),
+  names the raw-forget race in the blocked item, and counts the console sites accurately (upstream's nine; P4 retires
+  `release_code` and adds `finalize_link` and `finalize_read`, ten in all). `docs/olympus-link.md` is corrected (no
+  unconditional-deletion promise is left, section 4's false orphan-role claim is rewritten, the keeper query, decision
+  rule and raw-forget caveat are in section 6, Phase 1b hooks must use the bounded guarded forget plus the second
+  removal, the late `inbox_uploads` audit row and the page's wording for a refused delete are stated). The header
+  comment of `worker/src/link-role.ts` (stale since .194) is corrected: no digest or identity pin covers that file;
+  only the `errorRef`/no-bare-fetch scans in `hosts_test.cjs` and the Link suite read it, and they still pass.
+- BUILD: `2026-10-22.195 Olympus Link deletion and race fixes, shipped off`.
+
+Nothing else in `worker/src` changes. Configuration deltas: EMPTY (no binding, variable, secret, schema statement,
+cron, public asset, pin or Discord setting). Pins: none moved; the bundle digest changes with the source.
+
+Changed existing tests in e90251c8, disclosed (old, then new; round 1's changes are listed in its subsection). In
+`worker/tests/link_integration_186_test.cjs`:
+
+- The header lines and the generator section title said "P1-P3"; they say "P1-P4" (wording only).
+- The counted-patch check required 25 patches with 14 P4; it requires 30 with 19 P4 (each still count 1, every seam
+  matching once, inverse reconstruction still exact).
+- The route check "Delete my link" required exactly one DELETE of `LINK_ROLE_ID`; it requires exactly two, both of
+  `LINK_ROLE_ID`, with the member still recorded at the first and gone at the second (every other conjunct unchanged).
+- Message pins: `/not confirmed/.test(first.message)` became equality with the full pending-role message; the
+  unknown-recording control, the moved/deleted owned-snapshot control and the two player-deletion refusal controls
+  gained equality checks on their messages (the deletion refusals with the new F5 words).
+- The four ".194 unconfirmed player cleanup" hooks matched the deletion batch by `statements[0]` and changed
+  `result[0]`/`result[3]` by position; they find the batch, the pending row and the council_keys step by content.
+  Same four modes, same assertions.
+- The PROOF_REASONS check gained one page pass (a character another account holds), so its expected list went from
+  `already,format,guild-unverified,linked,login,origin` to `already,format,guild-unverified,linked,linked-elsewhere,
+  login,origin`.
+- 19 new checks: the seven stuck-marker shapes (undo failure after a refused or a landed PUT, record batch failure
+  before or after commit, finalization and readback unconfirmed, isolate death after the claim, one account's two
+  codes racing), each refused before the bound and at it and forgotten one second later with no row naming the account
+  and its key revoked; a claim at `exp + DELIVERY_GRACE` still in flight; four second-removal controls (a PUT landing
+  after a slow first DELETE, a PUT finalizing while the batch is slow, a whole proof inside the window with the report
+  read in the deleting transaction, a refused second DELETE); guarded-deletion completeness through `POST /proof` on an
+  account built from real flows (superseded settled code with its used row, an inbox row tied only by its code, one tied
+  only by its character, a council_keys row recorded by a council-authority key, a player key); atomicity against a
+  real same-account claim found by content; settled-only answer lists; and upstream's Konig cases ported (held before
+  the check, raced between check and claim, own character taken, two accounts at once). The suite goes from 176 to 195
+  checks.
+
+In `site_test.cjs`, `hosts_test.cjs` and `bnet_retention_test.cjs` the BUILD expected value moves from .194 to .195. No
+assertion was removed or relaxed, and no deadline or fixture changed.
+
+Gates on e90251c8, all exit 0: typecheck; `check:link-core` (current, 30 patches); `link_integration_186` 195/195;
+`full_release_roles_identity` 497/497; site 363/363; hosts 198/198; bnet_retention 135/135; verify_button 25/25;
+interactions_hardening 53/53; hardening 70/70; bundle_runtime 100/100; `npm test`. A mutation pass on a copy (13
+mutants: no bound, a strict boundary, STUCK 0, no second removal, no ON CONFLICT, the old release guard, unsettled
+answer lists, reads outside the batch, codes or members deleted first, no key revocation, a separate unguarded
+pre-read, the old refusal words) is killed by the new checks every time; the round-1 review then found mutants that
+suite did not kill (the second removal skipped when the batch lists no character, not-in-server on the second removal
+counted as a failure, the second removal not gated on demote, the batch's length and row-array checks), which round
+1's checks now kill. The review's corrected-shim harness, run unmodified on e90251c8: 28 passed, 4 failed (0ff5c85b:
+26/6); S9 and S9b pass, S11's loser answers linked-elsewhere with its code NULL, S8 and N1 to N7 are unchanged (N3
+still uses up the day's codes). The four failures expect behaviour .195 deliberately does not have: generated S3b
+presses delete inside the bound (refused now), generated and upstream S7 expect a deletion during an in-flight promote
+to succeed, and S12 expects prune to drop an unreferenced pending marker (prune keeps every one, since .194). An
+extended copy (`p195-builder-harness2-fixedshim-195.cjs`, made by `p195-builder-mk-h2-195.cjs`) adds S3b-195: refused
+at `exp + DELIVERY_GRACE + 3600`, forgotten one second later (29 passed, 4 failed). The projection check (`--index`)
+passes on the staged tree. Gitleaks 8.30.1 in git mode with the repo config over d125f955..e90251c8: 5 commits, no
+leaks; the dir-mode comparison of the changed files is round 1's (below). Not run: hosted CI, automated review and the
+local workerd/Miniflare probes for this head; logs are in the lane (`p195-*`).
+
+Rollout requires current owner authorization after qualification, an exact-head hosted CI run and review. If
+authorized, it follows .194's procedure (expected-head squash, verified tree, fresh verified D1 backup and restore check
+within one hour, archived-main `--keep-vars` deployment with an empty configuration delta, live `/health` reporting this
+BUILD); nothing to configure, no manual cron. Rollback is a separately authorized exact qualified predecessor (the live
+build at that time); there is no data or setting to undo. If Link is ever on, the immediate rollback is removing
+`LINK_ENABLED` (or setting it to `"false"`), never unbinding `LINK_DB` while it holds rows.
+
+Still open, and not in this build. Three unknown record-batch failures in a day still use up that day's codes (N3,
+re-checked in round 1: three `server` answers, a fourth code refused with `limit`, the three codes held at `used` 0;
+the unknown-throw policy is unchanged). The optional decisions for Codex and the owner: check for a live pending row
+before the first removal (a refused press removes the role and keeps the rows and live keys, round-1 HI-4), revoke keys
+on a refused deletion, store the claim time as `used = -t`, run the second removal also after an unconfirmed or thrown
+deletion batch (round-1 FE-1; it would change the .194 controls' single removal there), and write the site's audit line
+only while its code still exists (round-1 HI-5). A PUT that times out and is reconciled before it applies can still
+leave a role (reasoned only), and STUCK assumes no claim's request outlives one hour (round-1 HI-2; reasoned from the
+8 s Discord deadlines, D1 latency not measured). The run-together numbers in the .194 entries above (for example
+"was166/169") are left as written. Activation stays blocked by Phase 1b (review items
+R3, R4, R5, R7, R14, R15, with the erasure and ban hooks using the bounded guarded forget and the second removal) and by
+the owner's Phase 2. No deployment is authorized by this note.
+
+### .195 review round 1 (22 October 2026)
+
+The verified review of e90251c8 (tree d0cec017) raised 24 findings in four lanes (interleavings, mutation, fresh eyes,
+docs); every gate passed on that commit (32/32). This round applies each finding that a verifier confirmed, as a new
+commit on top. Link still ships OFF, BUILD is unchanged (.195), and nothing else in `worker/src` changes.
+
+Code (generator only; 33 counted single-match replacements, 22 P4):
+
+- HI-1 and FE-3 (new P4.20 to P4.22). A record batch that committed without its member row (any lost race: another
+  account's insert, the account's own other code, or an owned snapshot that moved before its CAS) wrote no row that
+  holds or could restore its code. A row gets `r = R` only from R's own changed record batch or from an undo restoring
+  a snapshot of R's row, and every earlier release of R happened only when no row held it and nothing could restore
+  one, so undo now releases such a code on `NOT EXISTS (SELECT 1 FROM members WHERE r = ?)` alone (`undo(..., true)`,
+  `wroteNothing`). The answer then follows the character's holder, as upstream's lost race did: linked-elsewhere when
+  another account holds it, otherwise upstream's "The link could not be recorded: send it again in a minute." (reason
+  `server`; no new PROOF_REASONS value); a holder read that fails falls back to that answer, the code being released
+  by then. A failed promotion keeps P4.8/P4.16's destination guards, and an unknown record-batch throw stays held.
+  This settles S10, a held character re-linked by two of the account's codes, the account's own character taken
+  between check and claim (K3, linked-elsewhere as upstream) and an own snapshot that moved (with or without another
+  account then taking the character, B9); none of them leaves a marker any more.
+- FE-2: the pending refusal no longer says "Try again in an hour" (above).
+- HI-3, FE-4, FE-5 and DOC-LOSTRACE (wording, regenerated): the P4.13 comment no longer says no claim can start after
+  the batch (a code issued after it can); the generator header comment, the P4.15 comment and the HEADER say what a
+  lost race commits (its proofs and council keys, no member row) and how it settles; the HEADER's supersede list adds
+  PROOF_REASONS' and the answers comment's "error" lines, the overview's "takes it all back", and forgetOwnLink's
+  "nothing is deleted" (first removal only).
+- STYLE-LINKROLE-WIDTH: `worker/src/link-role.ts` lines 12-14 re-wrapped (comment only; no digest or identity pin
+  covers the file).
+
+Docs: `docs/olympus-link.md` (the off pins stated as .194 stated them, DOC-OFF-IDENTITY; the second removal runs once
+the batch's commit is acknowledged, and an unconfirmed or thrown batch runs none, FE-1; the page's words for an
+unconfirmed deletion, DOC-PAGE-UNCONFIRMED; a refused press keeps rows and live keys, HI-4; the STUCK premise, HI-2;
+the record-without-role window after the batch, HI-3; the lost-race paragraph and the 12-hour reuse condition,
+DOC-REUSE; a refused proof can log a late audit line and a second press removes it, HI-5; the tests list);
+`docs/design.md` (HI-3 wording, a round-1 note); this entry (the e90251c8 harness, gitleaks and mutation sentences
+corrected, DOC-HARNESS-REPORT, DOC-GITLEAKS, MT-5).
+
+Changed existing tests, disclosed (old = e90251c8, then new), in `worker/tests/link_integration_186_test.cjs`:
+
+- The counted-patch check required 30 patches with 19 P4; it requires 33 with 22 P4 (each count 1, every seam once,
+  inverse reconstruction exact).
+- The P2/P4 console check also requires exactly ten `console` mentions in the generated body (MT-6's hardening: a
+  bracket access or an alias would otherwise pass unseen).
+- `PENDING_FORGET_195` (pinned by equality at every refusal) holds the new refusal words.
+- `guardedDeletion195`: its DELETE alternative now has to carry the guard, so raw `forgetUser`'s batch no longer
+  matches (MT-4); every guarded batch still does.
+- The ".194 recovery with a moved owned snapshot" control: moved mode required `PENDING_ROLE_195`; it requires reason
+  `server` with upstream's "could not be recorded" words and B's code released (`used` NULL). Deleted mode keeps
+  `PENDING_ROLE_195` and now also checks that B's code row is gone.
+- The ".194 unconfirmed player cleanup" loop had four modes; it has seven (MT-3: the characters' rows, the keys' rows
+  and one result missing), all found by content, and every mode's message is pinned by equality ("Something went
+  wrong on our side." for a throw before or after commit, the "could not be confirmed" words otherwise).
+- The stuck-shape list had seven shapes; S10 is removed from it (it required `linked,server`, the loser at `used` 0 and
+  a refusal until the bound) and is covered by the new own-code lost-race check, where its loser is released.
+- The Konig own-character check required a held `server` answer, `used` 0, a refusal until the bound and then
+  forgotten; it requires linked-elsewhere in its exact words, `used` NULL, no used row, no PUT, the same replay and
+  forgotten at once.
+- The two F2 window checks (slow first DELETE, slow batch) each run three times: settled as before, and the PUT landing
+  while promote reports failure (an answer, or a throw), so the link is undone before the batch (MT-1). The settled
+  runs keep every earlier conjunct; the slow-DELETE one now also pins the characters and message, and the slow-batch
+  one adds the character to its no-row scan.
+- `bothChecked195` takes an optional statement pattern (default unchanged).
+- The log-leak scan also refuses any run of 15 or more digits (MT-6).
+- Comment wording only: the PROOF_REASONS pass now says "a race lost to another account".
+
+New checks (195 to 210, net 15): a departed player's Delete my link through `POST /proof` with Discord answering both
+DELETEs 404/10007 (MT-2); three not-in-server variants of the second removal (both answered, the player leaving
+between them, both thrown; MT-2); the second removal's undone half in both windows (four runs, above; MT-1);
+`forgetOwnLink` without demote; the three new cleanup modes (MT-3); lost races the account's own code wins (S10, a held
+character re-linked); an own snapshot that moved, with the character left free or taken by another account (B9).
+
+Mutation pass on my own worktree copy (13 generator mutants, each regenerated and run on the 210-check suite; the
+summary is `p195-fixer-r1-mutation-summary.json` in the lane): killed are the second removal only when the batch lists
+a character, not-in-server on the second removal counted as a failure, the second removal also after a refusal, the
+second removal not gated on demote, no row-array checks, no length check, the old unconfirmed words, the old refusal
+words, the old guards on a lost race, a lost race always answering linked-elsewhere, linked-elsewhere for any holder,
+and a lost race that keeps its code. One survives: a lost race releasing its code without
+`NOT EXISTS (members WHERE r = ?)`; that guard never decides in a reachable state (the argument above), so it stays as
+a defensive check.
+
+Harnesses (unmodified copies, run on this round's tree): `harness2-fixedshim.cjs` 28 passed, 4 failed, the same four
+expectations of the older design as on e90251c8; its S10 note now reads `loserUsed: null, loserReplay: linked`, the
+same as upstream's. `verify-fixedshim.cjs` is unchanged from e90251c8, N3 included (three `server` answers, a fourth
+code `limit`, codes held at `used` 0).
+
+Gitleaks 8.30.1 in dir mode over the 11 files this build changes against 0ff5c85b, on this round's tree and on
+0ff5c85b: with the repo's `.gitleaks.toml`, no leaks on either; with the default rules, one finding on each, the same
+one (`discord-client-id`, `worker/tests/hosts_test.cjs` line 431 column 83, a test snowflake outside this diff, which
+the repo config disables). Receipt: `p195-fixer-r1-gitleaks-dir.log`.
+
+Gates on this round's tree (staged before the commit, whose tree is the same; logs `p195-fixer-r1-final-*` in the
+lane), all exit 0: typecheck; `link_integration_186` 210/210; verify_button 25/25; interactions_hardening 53/53;
+hardening 70/70; intros 96/96; site 363/363; hosts 198/198; `full_release_roles_identity` 497/497; talents_stats60 54
+passed, 0 failed; frontend174 113/113; bnet_retention 135/135; bundle_runtime 100/100; `npm test` (ending with
+`check:link-core` current, 33 patches); `check-projections` (index, 1203 checks, PASS) and its test 66/66; the
+publication helper (247 PASS lines) and resource gate (246 PASS lines, 245 checks); deploy-commit 51/51; ci-gate 15/15;
+cutover-config PASS; ci-workflow 52/52; owner_requests 199/199; site_news 209/209; frontend_check 556/556;
+tickets_guid_relays 59/59; full_release_roles_config 93 checks; guild_seats 171/171; site_audit 161/161;
+scheduled_budget 70/70; scheduled_whole_composition 534/534; gitleaks dir mode as above. Not run: hosted CI,
+automated review, the workerd/Miniflare probes.
+
+Declined as code, applied as docs (both verifiers accepted disclosure, and each change needs a Codex or owner call):
+FE-1's second removal after an unconfirmed or thrown batch (it reverses the .194 controls' single removal and the
+documented no-retry rule), HI-5's fence on the site's late audit line (it changes upstream's audit contract), and
+HI-4's live-marker pre-check or key revocation on a refused press (open decisions above). HI-2 needs no change (an
+optional docs clause, added).
+
+### .195 review round 2 (22 October 2026)
+
+The verified review of c7cd9149 (tree 236f16b7) left three findings that a verifier confirmed; every gate passed on that
+commit (32/32). This round applies them as a new commit on top. Link still ships OFF, BUILD is unchanged (.195), and in
+`worker/src` only the generated header comment of `link-core.ts` changes (no behaviour change; still 33 counted
+single-match replacements, 22 P4, no new patch).
+
+- DR2-1 (generator HEADER, comment only, regenerated): the supersede note said a held `server` answer's link answers
+  `server` again "until it settles or the bound passes". The bound changes nothing on the proof path (`examine` answers
+  a pending code before its expiry check, and prune keeps every marker). It now says the link answers `server` again,
+  past the bound too, until its request settles it or a deletion removes the code (the account's own delete once the
+  bound has passed, or a raw operator forget), and that prune keeps it.
+- FE2-1 (docs): round 1's paragraph on late audit lines (`docs/olympus-link.md` section 4) said one line can follow a
+  completed delete and that a second press removes it. Any of the account's old links sent through the page after the
+  delete is logged too (`unknown-code`), and a second press removes only the lines the account sent itself; another
+  account's paste is logged under that account's id with the old code and the character, and only that account's own
+  delete, the Phase 1b prune after `LINK.LOG_DAYS` or a keeper's removal by hand takes it away (a read-only
+  `inbox_uploads` query by character is given). Upstream's watcher inbox is not served; a later phase that served it
+  would add such lines with no Discord id. One verifier refuted the watcher half because that route is not served, which
+  the text now states. No code change (`logProof` is upstream's audit contract). Round 1's sentence in the subsection
+  above ("a refused proof can log a late audit line and a second press removes it") and `docs/design.md`'s "one audit
+  line" stay as written, superseded by this entry and design.md's round-2 note.
+- MT2-1 (tests): no check exercised the bound on the guarded `inbox_uploads` and `council_keys` statements (the
+  stuck-shape fixtures have no such rows, and the completeness fixture has no marker), so a mutant giving either
+  statement alone the .194 guard, or a strict `pending.exp > ?`, passed 210/210.
+
+Changed existing tests: none. New checks in `worker/tests/link_integration_186_test.cjs` (210 to 213):
+
+- MT2-1: a stale marker (a second code whose record batch fails before commit, sent through the page) on an account
+  whose audit lines (its own page proofs, another account's paste of its code, a linked-elsewhere try on its character)
+  and its character's council_keys record come from real flows: refused before the bound and at it with the whole
+  snapshot unchanged, forgotten one second later with no row naming the account and its player key revoked.
+- DR2-1: past the bound a held link still answers `server` in the pending-role words with no PUT, `pruneLink` 400 days
+  later keeps its marker, and only the account's Delete my link removes the code (its replay then answers
+  `unknown-code`).
+- FE2-1: after a completed delete, the account's own old link sent through the page is logged under its id and its next
+  press removes the line; another account's paste is logged under that account's id with the old code and character,
+  the first account's next press leaves it, and the other account's delete removes it.
+
+Mutation pass on my own worktree (six generator mutants, each regenerated and run on the 213-check suite): the .194
+guard, no guard, and a strict `pending.exp > ?`, each on the `inbox_uploads` statement alone and on the `council_keys`
+statement alone. All six are killed by the MT2-1 check (the two no-guard mutants also by the existing .194
+cleanup-category control). Harnesses (unmodified copies, run on this round's working tree): `harness2-fixedshim.cjs`
+28 passed, 4 failed, the same four as round 1 (only a random code in one note differs); `verify-fixedshim.cjs` the
+same as round 1, N3 included.
+
+Gates on this round's working tree before the commit, all exit 0: typecheck; `check:link-core` current (33 patches);
+`link_integration_186` 213/213; `full_release_roles_identity` 497/497. The full gate list then runs on the commit
+itself (receipts `p195-r3-*` in the lane). Not run: hosted CI, automated review, the workerd/Miniflare probes.
+
+Still open: everything listed as open in the .195 entry and round 1 above, unchanged. One more Phase 1b note (seen in
+a probe on my own worktree, not committed as a check): once a daily prune runs, it deletes a settled code past its
+delivery grace while an audit line tied to the account only by that code (another account's paste of it under another
+character) stays until `LINK.LOG_DAYS`, and the account's later delete answers forgotten without finding it (its
+`r IN (codes)` match is gone). The Phase 1b erasure hook and prune placement should cover such lines or accept the
+90-day bound. No deployment is authorized by this note.
+
+## Worker .195 corrected-parent integration — OFF source candidate (23 October 2026 UTC)
+
+This is the current .195 section. The older .195 entry and rounds above are the historical 14e02bc/ac45 branch on
+0ff5c85; their 213-check results, original 13 nits, N3 unknown-failure code consumption, mutation evidence and
+attestations remain attributed to that source. Its header-bound diagnostic run was 28 PASS / 4 FAIL with 14 notes;
+exit 0 was diagnostic completion, not all-assertions-pass. Claude's separate final review of corrected .194 at
+235562d recorded 26 PASS / 6 FAIL and 14 notes; that is another tuple. Do not silently combine or transfer either.
+
+The actual predecessor for this integration is corrected .194 squash
+`9baf5b6d49a0aa6cdd3301c4da5758dcd76e6d39`, tree `fcbace7d0e6d364bf4895d6baba6f857ffd223f2`.
+The owner authorized affected requalification, preserving the old source and evidence. The resulting .195 head,
+tree, sole parent, source/scope manifest, genuine Claude/Codex acceptance, hosted CI/review and live receipts must
+be bound separately. This entry supplies no new .195 pass count, signature, PR, CI, merge, deployment or acceptance.
+
+Combined behavior and required controls (Claude R1–R12):
+
+- Deletion admission and every cleanup guard use the same captured time and bounded pending predicate:
+  `used = 0 AND exp >= Math.floor(t) - LINK.DELIVERY_GRACE - 3600`. Equality is pending. Distinguish pending refusal
+  from an already held admission row in the cause/message. Both refuse before the first DELETE. Passing that bound
+  does not settle a proof, make it authority, remove its marker through prune or clear a deletion guard.
+- Preserve the persistent account guard, every proof-claim exclusion and exact ownership checks. The ten-result
+  cleanup batch contains pending/ownership state, character/key report reads and seven guarded mutations. Codes
+  remain last; the report reads have no ownership arguments. Check all eight ownership predicates, including the
+  initial result, and all bounded predicates without changing the original deadlines or removing substantive checks.
+- After confirmed first removal and acknowledged cleanup, run the second DELETE while the exact admission is still
+  held. Final exact-owner release is last. A release before that DELETE would reopen the confirmed role-loss race.
+  Confirmed second removal permits forgotten after release; trusted definite nonapplication permits release and an
+  honest data-already-deleted Discord failure. Only a later explicit request may try again in that definite path.
+  Unknown second removal or unknown/thrown cleanup remains held with keeper advice; no second removal runs after
+  unknown cleanup, and no automatic replay or "next press removes it" promise is allowed under a retained guard.
+- Keep the known pre-request boundary and trusted first-removal nonapplication path. Known nonapplication permits
+  one exact-owner final release without cleanup; HTTP 400/401/403/404/405/429 are the enumerated returned cases after
+  specific absence handling. A signal on a thrown error is not trusted by core. Transport/5xx/408/bare-false or
+  unknown provider results stay conservative; a GET showing absence cannot prove a queued DELETE ended.
+- Merge old .195's definite lost-race undo and settled-only listings with P5's claim exclusion and already
+  revalidation. Refused-claim classification must use one snapshot. Authority/listing predicates stay unbounded;
+  the unwired checkProof helper is not safe to connect directly to an already/status answer.
+- Carry P6 unchanged. It atomically checks stored rolling code rows and the independent first-code-anchored
+  counter, with a paired 1/1 or 0/0 acknowledgement. No code is returned on mixed, missing, malformed or unknown
+  acknowledgement, and issuance never automatically retries that uncertainty. Reuse is uncharged; a real uniqueness
+  collision retains only the original bounded transaction-rollback retry.
+- The pending-code one-hour allowance is an operational request-lifetime assumption, not proof of provider drain.
+  The persistent guard represents an uncertain DELETE with no established end; a late DELETE could strip a new
+  role. Retaining it indefinitely explains the different treatment, but leaves L1 unresolved. No TTL, takeover,
+  reclaim, recovery, schema change or activation authority is inferred from the pending bound.
+
+C4 documentation corrections carried here (L4/N1/N6/N7/N8): the rolling quota counts only still-stored code rows;
+deleting them never resets the first-code counter, but five issued codes can fit in a rolling 86,400 seconds across
+counter-window boundaries while each counter window charges at most three. A committed code with a lost answer
+can still be charged and unseen; reuse requires the same username and more than 12 hours left. Link deletion is not
+zero-data erasure: main-database link.* audit rows survive, and later Link audit rows or concurrently issued codes
+can also exist. A held guard may remain with linkable account data indefinitely. The role-writer and generator
+header's first-removal comments do not describe the second DELETE's post-cleanup state. Known pre-request
+nonapplication is distinct from an uncertain caught provider outcome. The old checklist spacing typos are corrected.
+
+Retained findings and activation boundaries (not a claim that all were fixed by this integration):
+
+| Family | Retained limitation or decision |
+|---|---|
+| L1 | Indefinite uncertain-admission lockout; new codes/retry/prune cannot clear it. Landed DELETE can leave retained linked data without the role; isolate death followed by raw forget can leave a role and guard. No implemented or qualified recovery path; availability, privacy, account copy and erasure treatment remain blocked. |
+| L2/L3 | Definite-outcome/read/batch/release fault paths and misleading cause/retry/erasure words need the specified qualification. Lost acknowledgement after a committed release does not prove a remaining lock. The external page uses its own reason text and omits core keeper advice. |
+| L4/N1/N6 | Stored-row/counter-window quota distinction, main-database audit retention and unseen charged-code/reuse limitations are disclosed above; this is no quota-value or privacy-policy change. |
+| L5 | Reproduced .194 late PUT and applied-502 role-without-link residual; no new .195 runtime claim or reconcile sweep. |
+| L6 | Production D1 changes()/per-statement meta.changes behavior is locally supported but reasoned at production scope. P6 is preserved; no staged smoke or RETURNING change is authorized here. |
+| L7 | All cleanup ownership predicates and the initial ownership report need the added mutation/fault tests before any recovery path; no recovery is introduced. |
+| N2/N3/N4 | Treat stable unkeyed delete: digests as linkable account identifiers, retain the one-snapshot classification requirement, and keep checkProof unwired to status. The old .195 N3 charge-consumption finding is a separate historical label. |
+| N5/N7/N8/N9 | Quota losers can see limit despite reuse, header/doc corrections and typos are carried, and adapter throw/mutation gaps stay attributed until actual affected evidence says otherwise. |
+| Original F1–F11 / old .195 13 nits | Preserve each original finding, partial-F2/orphan-role and old-doc history, refused-delete live-key policy, raw-forget concurrency, late audit and upstream wording limits, assertion changes and provenance; the successor does not retroactively clear a .194 limitation. |
+
+Before publication, record the genuine C1–C5 conditions and complete limitations in both releases' receipts. Link
+stays OFF, LINK_ENABLED remains absent and LINK_DB is untouched. Activation still requires Phase 1b
+R3/R4/R5/R7/R14/R15 and owner Phase 2, L1 recovery/privacy/account-copy/erasure treatment, L2 fixes, approved L3 privacy
+text, L5 reconciliation, L6's separately authorized resolution and L7 coverage before recovery. No role/key/proof
+operation, QR publication, canary erasure, private/Floor/secret/reset/control/rule/settings/billing change is added.
+
+Qualification and rollout: run the affected union controls, boundary/ordering/full outcome matrix, one-shot faults,
+all ownership and delayed-statement controls; preserve and rerun the required P5 ownership/P6 mutants, diagnostic
+harnesses, battery, local workerd D1, source leaves and OFF identity on the actual candidate. Then require both genuine
+same-head signatures, completed exact-head zero-findings review, all threads resolved, no change request and all
+latest 13 CI jobs/every executed step successful. Ordinary expected-head merge, actual-main scope/tree/parent proof,
+archive, fresh full 442-object portable restore/integrity/FK/E2 backup qualification, one archived-main keep-vars
+configuration-empty deploy, full frozen readback/UI/assets and the next ordinary new-version callback remain required.
+Keep original conditional skips and every failure receipt. Packaging is not the tested Workerd artifact. Portable
+_cf_KV omission still means no physical/all-copy proof. Any timing criterion is release-specific; .193/.194 tolerances
+do not transfer, and no manual cron, extra callback observation, rerun-until-green or review retry is authorized.
