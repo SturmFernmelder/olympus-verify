@@ -1151,9 +1151,12 @@ local function RefreshRemoval(s)
 
   -- free a seat: shown whenever the guild is actually at the cap, and for an hour after the server last said so
   local full = fullBlocked or ((s.guildFullAt or 0) > 0 and (time() - s.guildFullAt) < 3600)
-  local cands = full and API.Candidates and API.Candidates(CAND_ROWS) or {}
+  local cands, totalEligible, unavailable = {}, 0, nil
+  if full and API.Candidates then cands, totalEligible, unavailable = API.Candidates(CAND_ROWS) end
   if full then
-    if #cands == 0 then
+    if unavailable then
+      candHeader:SetText(GOLD .. "Guild is full|r  " .. GREY .. "— removal candidates unavailable: " .. unavailable .. ". Refresh the complete roster.|r")
+    elseif #cands == 0 then
       candHeader:SetText(GOLD .. "Guild is full|r  " .. GREY .. "— nobody is eligible to remove. /olv full explains why.|r")
     elseif s.kickForbidden and s.macroForbidden then
       candHeader:SetText(RED .. "Guild is full|r  " .. GREY .. string.format("— this client blocks addon removals and macros; type %s <name> by hand|r", s.kickCommand or "/guildremove"))

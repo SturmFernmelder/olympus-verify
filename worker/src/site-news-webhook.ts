@@ -295,6 +295,11 @@ export function newsWebhookMutationPlan(env: Env, id: string, nonce: string): D1
 /** Same page SELECT/visit as existing custody: no extra cron statement or metadata query. */
 export const newsWebhookCleanupMetadataSql = `(SELECT value FROM site_settings WHERE key='newsWebhook:'||substr(m.operation_id,17,22))`;
 export const newsWebhookCleanupDueSql = `(substr(m.operation_id,1,16)='${NEWS_WEBHOOK_PREFIX}' AND NOT EXISTS(SELECT 1 FROM site_news_notices n WHERE n.id=substr(m.operation_id,17,22) AND n.revision=json_extract(CASE WHEN json_valid(${newsWebhookCleanupMetadataSql}) THEN ${newsWebhookCleanupMetadataSql} ELSE '{}' END,'$.revision') AND n.retain_until>${DB_NOW}))`;
+/** Disjoint candidates in the same original read: requested debt uses the existing
+ * cleanup index; unmarked expiry inspects only the webhook operation-key range.
+ * Neither a second SQL call nor a new index/clock/custody decision is introduced. */
+export const newsWebhookCleanupCandidatesSql = `SELECT m.operation_id FROM privacy_provider_messages m WHERE m.cleanup_requested=1 AND m.state IN('known','cleaning')
+ UNION ALL SELECT m.operation_id FROM privacy_provider_messages m WHERE m.cleanup_requested IS NOT 1 AND m.operation_id>='${NEWS_WEBHOOK_PREFIX}' AND m.operation_id<'news_webhook_v1;' AND m.state IN('known','cleaning') AND ${newsWebhookCleanupDueSql}`;
 
 /** Called before bot-only cleanup. Fixed webhook identity and exact pointer; one DELETE or GET-only absence proof. */
 export async function cleanupNewsWebhookMessage(env: Env, row: NewsWebhookCustodyRow, DB: D1Database): Promise<'removed' | 'held' | 'unchanged'> {

@@ -43,7 +43,7 @@ The owner pastes new values at Wrangler's hidden prompt or into the two local fi
    accepted at the Worker as soon as step one lands; a code shown to a member minutes before is then dead and they
    press **Get my code** again.
 5. **`WATCHER_TOKEN`:** the Worker secret, then `watcher/config.json` and a watcher restart. The watcher's outbox
-   keeps what it could not post and retries.
+   retains each original outbox item. Definitely uninvoked items can retry only in their original context; a dispatch that may have reached the provider, a context change, or an unknown acknowledgement stays held. Token rotation never rebinds or blindly replays old custody. Use the archive-first attended recovery steps in `docs/watcher-custody196.md` for a source-owned definite refusal.
 6. **`COOKIE_SECRET`:** the Worker secret only. Every signed-in site session and every in-flight OAuth state stops
    working; people sign in again.
 7. **Git credential:** revoke it under GitHub Settings → Applications and sign in again.
@@ -82,3 +82,5 @@ Deploy only a reviewed, committed snapshot that both agents signed in the task l
 `bash scripts/deploy-commit.sh <sha>` from the repository root (it exports the commit and runs the project's own
 wrangler against that export, so the working folder is never uploaded). Then read `/health`: it must name the build
 of that commit.
+
+Build .197: the owner explicitly superseded the external Claude sign-off requirement for this release. Root uses an independent internal review, exact-head automated GitHub review and the full local/13-job CI gates before the already-authorized merge and deployment. The historical dual-agent requirement above remains the record for earlier releases.

@@ -11,7 +11,7 @@ export function olympusSocialMetadata(): string {
     '<meta property="og:image:type" content="image/png">',
     '<meta property="og:image:width" content="250">',
     '<meta property="og:image:height" content="250">',
-    '<meta property="og:image:alt" content="Olympus crest: a mountain banner inside a circular gold frame">',
+    '<meta property="og:image:alt" content="Owner-approved Olympus guild tabard: a mountain banner inside a circular gold frame">',
     '<meta name="twitter:card" content="summary">',
     '<meta name="twitter:title" content="Olympus — World of Warcraft: Forever">',
     '<meta name="twitter:description" content="Enter the guild hall. Sign in with Discord to access Olympus.">',

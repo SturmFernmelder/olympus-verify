@@ -96,7 +96,7 @@ const body196=String.raw`
   }
   const attended196=await openPage(STAFF),attendedRequests196=[],attendedId196='730000000000000101';
   attended196.before((p,init)=>{if(p.startsWith('/api/admin/discord-directory/'))attendedRequests196.push({path:p,method:init.method,body:JSON.parse(init.body)});return false;});
-  attended196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true}:p==='/api/admin/discord-directory/visibility'?{discordId:attendedId196,listed:false}:null);
+  attended196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true,restoreAllowed:true,visibilityOrigin:'attended_request'}:p==='/api/admin/discord-directory/visibility'?{discordId:attendedId196,listed:false}:null);
   await attended196.go('#/admin/directory-visibility');
   const attendedTarget196=attended196.app.querySelector('#attended-directory-id'),attendedSave196=byText(attended196.app,'button','Save requested listing preference');
   check('attended preference page sends no command on entry and requires an exact-ID read',attendedRequests196.length===0&&attendedSave196.disabled);
@@ -109,7 +109,7 @@ const body196=String.raw`
   await attended196.go('#/roles');
   const attendedLate196=await openPage(STAFF),lateRequests196=[];
   attendedLate196.before((p,init)=>{if(p.startsWith('/api/admin/discord-directory/'))lateRequests196.push({path:p,method:init.method,body:JSON.parse(init.body)});return false;});
-  attendedLate196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true}:null);attendedLate196.hold(p=>p==='/api/admin/discord-directory/status'?180:0);
+  attendedLate196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true,restoreAllowed:true,visibilityOrigin:'attended_request'}:null);attendedLate196.hold(p=>p==='/api/admin/discord-directory/status'?180:0);
   await attendedLate196.go('#/admin/directory-visibility');const lateTarget196=attendedLate196.app.querySelector('#attended-directory-id'),lateListed196=attendedLate196.app.querySelector('#attended-directory-listed'),lateConfirmed196=attendedLate196.app.querySelector('#attended-directory-confirmed'),lateSave196=byText(attendedLate196.app,'button','Save requested listing preference');
   lateTarget196.value=attendedId196;lateTarget196.dispatchEvent(new Event('input'));byText(attendedLate196.app,'button','Read this member’s preference').click();
   check('pending attended status locks target, desired preference and confirmation',lateTarget196.disabled&&lateListed196.disabled&&lateConfirmed196.disabled&&lateSave196.disabled);
@@ -118,7 +118,7 @@ const body196=String.raw`
   await new Promise(resolve=>setTimeout(resolve,230));
   // The held response starts its180ms wait only after the real Worker completes.
   // Observe the actual original handler's release before judging a stale reply or starting another read.
-  if(!await waitFor(()=>!lateTarget196.disabled&&!lateListed196.disabled&&!lateConfirmed196.disabled&&!byText(attendedLate196.app,'button','Read this member’s preference').disabled,'original stale attended read releases its controls'))throw Error('Original stale attended read did not finish');
+  if(!await waitFor(()=>!lateTarget196.disabled&&lateListed196.disabled&&lateConfirmed196.disabled&&!byText(attendedLate196.app,'button','Read this member’s preference').disabled,'stale attended read releases target/read only; unqualified preference controls remain disabled'))throw Error('Original stale attended read did not finish');
   check('late A read cannot revive an A-to-B-to-A target or overwrite its desired preference',lateRequests196.length===1&&lateSave196.disabled&&lateListed196.checked===false&&!lateConfirmed196.checked&&!attendedLate196.app.textContent.includes('The eligible Olympus row can be listed.'));
   attendedLate196.hold(null);byText(attendedLate196.app,'button','Read this member’s preference').click();if(!await waitFor(()=>attendedLate196.app.textContent.includes('The eligible Olympus row can be listed.'),'fresh attended read after stale generation'))throw Error('Fresh exact attended read did not return');
   lateConfirmed196.checked=true;lateConfirmed196.dispatchEvent(new Event('change'));check('fresh confirmation is bound to the exact returned target and preference',!lateSave196.disabled&&lateTarget196.value===attendedId196&&lateListed196.checked===true&&lateConfirmed196.checked&&lateRequests196.length===2&&lateRequests196.every(request=>request.path==='/api/admin/discord-directory/status'&&request.method==='POST'&&JSON.stringify(request.body)===JSON.stringify({discordId:attendedId196})));

@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-23.196 Olympus guild hall, public PvE and community tools");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-24.197 Olympus guild tabard and Master follow-ups");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -151,6 +151,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
       check(`GET ${p} on ${host} is public canonical 200 HTML without redirect or database`, res.status === 200 && !res.headers.has("Location") && (await res.text()).includes(`<h1>${title}</h1>`) && touched === 0);
       res = await get(`https://${host}${p}`, trappedDb(), { method: "HEAD" });
       check(`HEAD ${p} on ${host} retains headers with no body, cookie or database`, res.status === 200 && /text\/html/.test(res.headers.get("Content-Type")) && (await res.text()) === "" && !res.headers.has("Set-Cookie") && touched === 0);
+    }
+    for (const method of ["GET", "HEAD"]) {
+      res = await get(`https://guild.example${p}?ignored=private-fixture`, trappedDb(), { method, headers: { Cookie: "__Host-olg=untrusted-fixture" } });
+      const body = await res.text();
+      check(`${method} ${p} with a cookie still uses the script-free canonical reader without authentication or D1`, res.status === 200 && !res.headers.has("Location") && !res.headers.has("Set-Cookie") && /script-src 'none'/.test(res.headers.get("Content-Security-Policy") || "") && (method === "HEAD" ? body === "" : body.includes(`<h1>${title}</h1>`) && !body.includes("private-fixture")) && touched === 0);
     }
   }
   res = await get("https://verify.example/legal/privacy", env(), { method: "HEAD" });

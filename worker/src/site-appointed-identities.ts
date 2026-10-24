@@ -11,6 +11,7 @@ import { secondsToIso } from './community-time';
 import { FormError } from './policy-form-core';
 import { OFFICE_APPOINTMENTS } from './governance-offices';
 import { privacyGenerationLiteralFenceSql } from './privacy-serving-authority';
+import { LEADERSHIP_POSITION_KEYS, LEADERSHIP_POSITIONS, LEADERSHIP_PROOF_PURPOSE, leadershipEnvelopeSql, leadershipPublication, leadershipProofPayload } from './site-leadership-data';
 
 export const APPOINTMENT_IDENTITY_ROLES: readonly string[] = Object.freeze(OFFICE_APPOINTMENTS.map(office => office.key));
 type IdentityRole = typeof APPOINTMENT_IDENTITY_ROLES[number];
@@ -49,7 +50,7 @@ type DiscordAppointmentMember = { user?: { id?: unknown; username?: unknown; glo
 function foundAppointmentMember(raw: DiscordAppointmentMember, expectedId?: string): Found | null {
   return foundDiscordMember(raw, expectedId);
 }
-async function freshAppointmentMember(env: Env, id: string): Promise<Found | null> {
+export async function freshAppointmentMember(env: Env, id: string): Promise<Found | null> {
   if (!/^[0-9]{17,20}$/.test(env.SITE_GUILD_ID ?? '') || !env.DISCORD_BOT_TOKEN) throw Error('appointed_discord_unavailable');
   try {
     const member = await rest<DiscordAppointmentMember>(env, 'GET', `/guilds/${env.SITE_GUILD_ID}/members/${id}`, undefined, 1);
@@ -112,10 +113,10 @@ const proofEntries = `(SELECT json_group_array(p.key) FROM (
  AND length(p.key)=length(a.key)+${PROOF_MARKER.length + 64}
  AND substr(p.key,length(a.key)+${PROOF_MARKER.length + 1}) NOT GLOB '*[^0-9a-f]*' ORDER BY p.key LIMIT 2) p)`;
 
-type PublicationTarget = { role: IdentityRole; id: string; birth: string | null; generation: string | null };
-type AppointmentAccount = { id: string; birth: string | null; generation: string | null; status: AppointmentAccountStatus };
+export type PublicationTarget = { role: IdentityRole; id: string; birth: string | null; generation: string | null };
+export type AppointmentAccount = { id: string; birth: string | null; generation: string | null; status: AppointmentAccountStatus };
 export type AppointmentPublicationFailure = { ok: false; role: IdentityRole; status: 'unavailable' | 'discord_unavailable' | 'account_changed' | 'fresh_check_limit' };
-async function readAppointmentAccounts(env: Env, ids: readonly string[]): Promise<AppointmentAccount[]> {
+export async function readAppointmentAccounts(env: Env, ids: readonly string[]): Promise<AppointmentAccount[]> {
   if (!ids.length) return [];
   const rows = await env.DB.prepare(`SELECT wanted.value AS id,u.account_incarnation AS birth,p.generation AS generation,
    CASE WHEN ${allowedAccount('wanted.value')} AND (p.subject_id IS NULL OR
@@ -336,20 +337,48 @@ export function ownAppointmentPublicationsStatement(env: Env, id: string): D1Pre
 function ownPublicationStatement(env: Env, id: string, authorityKeys?: readonly string[]): D1PreparedStatement {
   const authorityColumns = authorityKeys ? ',s.value AS appointed_value,(SELECT generation FROM privacy_subjects WHERE subject_id=?1) AS generation' : '';
   const selected = authorityKeys ? `AND a.key IN(${authorityKeys.map(key => `'${key}'`).join(',')})` : '';
+  // Branch display records share the original one physical copy slot only. They
+  // NEVER enter office authority selection or the 131-office proof catalogue.
+  const branch = authorityKeys ? '' : ` UNION ALL SELECT p.key AS role,json_extract(p.value,'$.pointer') AS appointment,u.account_incarnation AS birth,p.value AS proofs,s.updated_at AS recorded_at,
+   CASE WHEN ${activeAccount} AND u.account_incarnation IS json_extract(p.value,'$.birth')
+    AND (SELECT generation FROM privacy_subjects WHERE subject_id=u.discord_id) IS json_extract(p.value,'$.generation') THEN 1 ELSE 0 END AS available
+   FROM site_settings s,json_each(CASE WHEN ${leadershipEnvelopeSql('s.value')} THEN s.value ELSE '{}' END,'$.publications') p
+   JOIN site_users u ON u.discord_id=?1 LEFT JOIN members m ON m.discord_id=u.discord_id
+   WHERE s.key='leadership' AND json_extract(p.value,'$.pointer')='<@'||?1||'>'`;
   return env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.account_incarnation AS birth,${proofEntries} AS proofs,s.updated_at AS recorded_at,
    CASE WHEN ${activeAccount} THEN 1 ELSE 0 END AS available ${authorityColumns} FROM ${entries}
    JOIN site_users u ON u.discord_id=?1 LEFT JOIN members m ON m.discord_id=u.discord_id
-   WHERE s.key='appointed' AND ${supported} ${selected} AND a.value='<@'||?1||'>' ORDER BY a.key LIMIT ${authorityKeys?.length ?? MAX_OFFICES}`).bind(id);
+   WHERE s.key='appointed' AND ${supported} ${selected} AND a.value='<@'||?1||'>'${branch} ORDER BY role LIMIT ${authorityKeys?.length ?? MAX_OFFICES + LEADERSHIP_POSITION_KEYS.length}`).bind(id);
 }
 
 export async function projectOwnAppointmentPublications(env: Env, rows: unknown[]) {
   return (await Promise.all(rows.map(async raw => {
     const r = raw as ProofRow & { recorded_at: number; available: number };
+    if (LEADERSHIP_POSITION_KEYS.includes(r.role)) {
+      const p: unknown = JSON.parse(r.proofs), slot = LEADERSHIP_POSITIONS.find(p => p.key === r.role)!;
+      if (!Number.isSafeInteger(r.recorded_at) || r.recorded_at < 0 || !leadershipPublication(p)) throw new FormError('privacy_copy_unconfirmed',503);
+      if (p.pointer !== r.appointment || p.birth !== r.birth || !await verify(env.COOKIE_SECRET,LEADERSHIP_PROOF_PURPOSE,leadershipProofPayload(env.SITE_GUILD_ID??'',r.role,p),p.mac)) return null;
+      return {role:r.role,kind:'branch_leadership' as const,branch:slot.branch,position:slot.position,officerIndex:slot.officerIndex,
+        publication:'discord_profile_only',audience:'qualified_community_readers',currentlyPublished:r.available===1,recordedAt:secondsToIso(r.recorded_at)};
+    }
     if (!APPOINTMENT_IDENTITY_ROLES.includes(r.role) || !Number.isSafeInteger(r.recorded_at) || r.recorded_at < 0) throw new FormError('privacy_copy_unconfirmed', 503);
     const currentSiteProof = await hasCurrentProof(env, r);
     if (!currentSiteProof && !await hasDiscordProfileProof(env, r)) return null;
     return { role: r.role, publication: currentSiteProof ? 'discord_profile_and_current_verified_characters' : 'discord_profile_only', audience: 'qualified_community_readers', currentlyPublished: r.available === 1, recordedAt: secondsToIso(r.recorded_at) };
   }))).filter(r => r !== null);
+}
+
+/** Caller must place this payload behind its ORIGINAL admitted reader. The map
+ * and all target births/generations/standing are read in the same transaction. */
+export function leadershipIdentitySnapshotStatement(env:Env):D1PreparedStatement {
+  return env.DB.prepare(`SELECT s.value,s.updated_at,CASE WHEN ${leadershipEnvelopeSql('s.value')} THEN
+   (SELECT json_group_array(json_object('slot',p.key,'id',substr(json_extract(p.value,'$.pointer'),3,length(json_extract(p.value,'$.pointer'))-3),
+    'birth',u.account_incarnation,'generation',life.generation,'status',CASE WHEN ${allowedAccount("substr(json_extract(p.value,'$.pointer'),3,length(json_extract(p.value,'$.pointer'))-3)")}
+     AND(life.subject_id IS NULL OR(typeof(life.generation)='text' AND length(life.generation)=32 AND life.generation NOT GLOB '*[^0-9a-f]*')) THEN 'eligible' ELSE 'unavailable' END))
+    FROM json_each(s.value,'$.publications') p LEFT JOIN site_users u ON json_extract(p.value,'$.pointer')='<@'||u.discord_id||'>'
+    LEFT JOIN members m ON json_extract(p.value,'$.pointer')='<@'||m.discord_id||'>'
+    LEFT JOIN privacy_subjects life ON json_extract(p.value,'$.pointer')='<@'||life.subject_id||'>') ELSE '[]' END AS targets
+   FROM site_settings s WHERE s.key='leadership'`);
 }
 
 /** Private source-issued capability to repeat a currently published office in a

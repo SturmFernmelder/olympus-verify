@@ -504,7 +504,8 @@
         for (const connection of connectionRefs) connection.node.className = connection.baseClass + (byId.get(connection.parent.id) === connection.parent.maxRank ? " ready" : "");
         for (const removed of removedRefs) removed.hidden = !compare;
         const currentCode = serializeBuild(data, build); share.value = currentCode; share.setAttribute("value", currentCode);
-        status.textContent = message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.";
+        const announcement = message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.";
+        if (status.textContent !== announcement) status.textContent = announcement;
         if (buttons.has(nextFocus)) {
           const target = buttons.get(nextFocus), insideDetails = detail.contains(document.activeElement) && detailTalent?.id === nextFocus;
           showDetail(talents.find(t => t.id === nextFocus), target, true);

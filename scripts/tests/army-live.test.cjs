@@ -47,7 +47,7 @@ let passed=0,failed=0;async function check(label,fn){try{await fn();passed++;con
    for(const [render,publisher]of [[pages.publicArmyPage,false],[pages.armyReporterPage,true]]){
      const response=render(new Request('https://olympus.invalid/army'+(publisher?'/report':''))),html=await response.text();
      for(const resource of ['/static/app.css','/static/wow-cursor.css','/static/army-live/army.css','/static/wow/friz-quadrata.woff2','/static/wow/morpheus.woff2'])assert.ok(html.includes('href="'+resource+'"'));
-     assert.equal((html.match(/src="\/static\/wow\/icon-shield\.png"/g)||[]).length,2);assert.ok(html.includes('<link rel="icon" href="/static/wow/icon-shield.png" type="image/png">'));assert.doesNotMatch(html,/<img[^>]+src="\/static\/olympus-icon\.png"/);
+     assert.equal((html.match(/src="\/static\/olympus-icon\.png"/g)||[]).length,2);assert.ok(html.includes('<link rel="icon" href="/static/olympus-icon.png" type="image/png">'));assert.doesNotMatch(html,/<img[^>]+src="\/static\/wow\/icon-shield\.png"/);
      assert.ok(html.includes('class="topbar"'));assert.ok(html.includes('class="topbar-in"'));assert.ok(html.includes('class="nav army-main-nav"'));
      for(const href of ['/#/','/#/apply','/#/vote','/#/organization','/#/community','/#/guides'])assert.ok(html.includes('href="'+href+'"'));
      assert.ok(html.includes('href="/#/community" aria-current="page">Community</a>'));assert.ok(html.includes('href="'+(publisher?'/army/report':'/#/community/army')+'" aria-current="page">'+(publisher?'Reporter workspace':'Snapshots')+'</a>'));assert.ok(!html.includes('href="/army" aria-current="page">Army</a>'));

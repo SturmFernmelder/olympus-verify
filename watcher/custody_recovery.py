@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import re
-import secrets
 import stat
 import sys
 import time
@@ -99,28 +98,61 @@ def private_create(path: Path):
 
 
 class StateLease:
-    """One cooperating writer, including the normal watcher's main entry point."""
+    """One cooperating writer; the kernel releases ownership after process death."""
+    MARKER = b"OLYMPUS-STATE-ADVISORY-LOCK-V1\n"
+
     def __init__(self, state_path: Path):
         state_path = reviewed_path(state_path)
         self.path = state_path.with_name(state_path.name + ".custody-lock")
         self.fd: int | None = None
-        self.token = secrets.token_hex(16)
         self.identity: tuple[int, int] | None = None
 
     def __enter__(self):
-        # A stale lock is deliberately not reclaimed by age or PID reuse heuristics.
-        self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        # Keep one stable inode: unlinking a released advisory lock could split
+        # ownership between an existing opener and a newly created file. AA-LOCK,
+        # owner's .197 correction (2026-10-24): no PID/age reclamation is used.
+        created = False
+        flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            self.fd = os.open(self.path, flags | os.O_CREAT | os.O_EXCL, 0o600)
+            created = True
+        except FileExistsError:
+            regular_identity(self.path)
+            self.fd = os.open(self.path, flags)
         try:
             info = os.fstat(self.fd)
             self.identity = (info.st_dev, info.st_ino)
-            payload = json.dumps({"pid": os.getpid(), "at": int(time.time()), "token": self.token}).encode()
-            written = 0
-            while written < len(payload):
-                count = os.write(self.fd, payload[written:])
-                if count < 1:
-                    raise OSError("lease initialization incomplete")
-                written += count
-            os.fsync(self.fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                    or regular_identity(self.path) != self.identity):
+                raise ValueError("lock must remain an ordinary single-link file")
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    os.lseek(self.fd, 0, os.SEEK_SET)
+                    msvcrt.locking(self.fd, msvcrt.LK_NBLCK, 1)
+                elif os.name == "posix":
+                    import fcntl
+                    fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                else:
+                    raise OSError("unsupported state-lock platform")
+            except (BlockingIOError, PermissionError) as error:
+                raise FileExistsError("state has an active writer/recovery lease") from error
+            if created:
+                written = 0
+                while written < len(self.MARKER):
+                    count = os.write(self.fd, self.MARKER[written:])
+                    if count < 1:
+                        raise OSError("lease initialization incomplete")
+                    written += count
+                os.fsync(self.fd)
+            else:
+                os.lseek(self.fd, 0, os.SEEK_SET)
+                if os.read(self.fd, len(self.MARKER) + 1) != self.MARKER:
+                    # An old O_EXCL writer may still own this file without an OS
+                    # lock. Its PID/age cannot prove it stopped: never adopt it.
+                    raise FileExistsError("legacy/unreadable lease requires attended migration")
+            if regular_identity(self.path) != self.identity:
+                raise ValueError("state lock identity changed")
         except BaseException:
             self.__exit__()
             raise
@@ -128,17 +160,8 @@ class StateLease:
 
     def __exit__(self, *_):
         if self.fd is not None:
-            os.close(self.fd)
-            self.fd = None
-            # A delayed old owner must not remove a newer attended lease.
-            try:
-                if regular_identity(self.path) != self.identity:
-                    return
-                data = json.loads(self.path.read_bytes())
-                if isinstance(data, dict) and data.get("token") == self.token:
-                    self.path.unlink()
-            except (OSError, ValueError, TypeError):
-                pass  # Preserve any different/unreadable lock; never reclaim it.
+            fd, self.fd = self.fd, None
+            os.close(fd)  # OS lock release, including termination; never unlink.
 
 
 def digest(raw: bytes) -> str:
@@ -195,7 +218,9 @@ def classify(item: Any) -> str:
         return "legacy-or-changed-original-held"
     if item.get("acknowledged") is True:
         return "recorded-acknowledgment-local-settlement-only"
-    if type(item.get("refusal_status")) is int and item["refusal_status"] in (400, 401, 403, 404, 405, 429):
+    status = item.get("refusal_status")
+    if (type(status) is int and (status in (400, 401, 403, 404, 405, 429)
+            or status == 422 and item.get("path") == "/ingest/roster")):
         return "recorded-definite-nonapplication-attended-retirement-only"
     return "unknown-outcome-held"
 

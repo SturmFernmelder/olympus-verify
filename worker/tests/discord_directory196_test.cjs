@@ -271,6 +271,10 @@ async function fixture() {
     const out=await labels.call(ADMIN,'',{QR_NATIVE_ROLE_MAP:JSON.stringify({profile,roles:ids})});
     check('every public directory ordinal is bound to exact '+profile+' names',out.status===200&&out.body.members.length===names.length&&out.body.members.every((m,i)=>m.roles.length===1&&m.roles[0]==='Olympus '+names[i]));
   }
+  const legacyNames=['Guild Master','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Alt','Initiate'],legacyIds=legacyNames.map((_,i)=>String(740000000000000100n+BigInt(i)));
+  provider=async()=>answer(legacyNames.map((_,i)=>member(String(750000000000000100n+BigInt(i)),{user:{id:String(750000000000000100n+BigInt(i)),username:'historical-'+i},roles:[legacyIds[i]]})));
+  const historical=await labels.call(ADMIN,'',{FULL_RELEASE_ROLES:JSON.stringify({version:1,epoch:'a'.repeat(32),epochStart:T-100,grants:false,membership:'740000000000000099',native:legacyIds})});
+  check('legacy full-release native labels explicitly identify the historical ten-rank profile',historical.status===200&&historical.body.members.length===10&&historical.body.members.every((m,i)=>m.roles.length===1&&m.roles[0]==='Historical ten-rank profile — '+legacyNames[i]));
   const beforeUnknown=calls.length; const bad=await labels.call(ADMIN,'',{QR_NATIVE_ROLE_MAP:JSON.stringify({profile:'unknown-profile',roles:Array.from({length:10},(_,i)=>String(720000000000000100n+BigInt(i)))})});
   check('an unknown native profile fails closed before provider enumeration',bad.status===503&&calls.length===beforeUnknown&&!Object.hasOwn(bad.body,'members'));
   const attended=async(action,body,who=ADMIN,origin='https://guild.example')=>{const request=new Request('https://guild.example/api/admin/discord-directory/'+action,{method:'POST',headers:{Cookie:labels.cookies.get(who),Origin:origin,'X-Olympus':core.PAGE_VERSION}}),ctx=await context.communityContext(labels.env,request),response=await directory.discordDirectoryAttendedVisibility(request,labels.env,ctx,action,body);return{status:response.status,body:await response.json()};};
@@ -287,6 +291,36 @@ async function fixture() {
   await attended('visibility',{discordId:TARGET,listed:false,requestConfirmed:true});await labels.DB.batch(context.communityEraseStatements(labels.env,TARGET));
   check('registered eraser removes only the current account marker while retaining another objector',!JSON.parse(labels.db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value)[TARGET]&&JSON.parse(labels.db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value)[noAccount]==='discord-only-optout-v1');
   labels.close();
+  // A fresh world/window keeps these new preference controls independent of the
+  // original attended rate-limit and lifecycle cases; no bucket is reset.
+  T+=61;const preference=await fixture();
+  const attendedPreference=async(action,body)=>{const request=new Request('https://guild.example/api/admin/discord-directory/'+action,{method:'POST',headers:{Cookie:preference.cookies.get(ADMIN),Origin:'https://guild.example','X-Olympus':core.PAGE_VERSION}}),ctx=await context.communityContext(preference.env,request),response=await directory.discordDirectoryAttendedVisibility(request,preference.env,ctx,action,body);return{status:response.status,body:await response.json()};};
+  const auditRows=()=>preference.db.prepare("SELECT actor,subject,details FROM audit WHERE action='community.discord_directory_visibility' ORDER BY id").all();
+  const targetBirth=preference.db.prepare('SELECT account_incarnation FROM site_users WHERE discord_id=?').get(TARGET).account_incarnation;
+  let pref=await attendedPreference('status',{discordId:TARGET});
+  check('default visibility explains preference erasure without exposing private lifecycle facts',pref.status===200&&pref.body.listed===true&&pref.body.visibilityOrigin==='default'&&pref.body.restoreAllowed===true&&pref.body.erasureNotice.includes('erasure deletes this preference')&&!JSON.stringify(pref.body).includes(targetBirth));
+  await preference.visibility(TARGET,false);pref=await attendedPreference('status',{discordId:TARGET});
+  check('admin status distinguishes a member-owned self-service hide',pref.status===200&&pref.body.listed===false&&pref.body.visibilityOrigin==='self_service'&&pref.body.restoreAllowed===false);
+  const beforeRefusalAudit=auditRows().length;
+  for(const listed of [false,true]){const refused=await attendedPreference('visibility',{discordId:TARGET,listed,requestConfirmed:true});check('attended '+(listed?'restore':'hide')+' cannot overwrite the current member-owned preference',refused.status===409&&refused.body.error==='visibility_owned_by_member'&&refused.body.visibilityOrigin==='self_service'&&refused.body.restoreAllowed===false);}
+  check('refused attended changes preserve exact self marker and produce no success audit',JSON.parse(preference.db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value)[TARGET]===targetBirth&&auditRows().length===beforeRefusalAudit);
+  check('the original member can still explicitly restore their own listing',(await preference.visibility(TARGET,true)).body.listed===true);
+  pref=await attendedPreference('visibility',{discordId:TARGET,listed:false,requestConfirmed:true});
+  const attendedAudit=auditRows().at(-1);
+  check('explicit attended hide reports its origin and creates one atomic counts-only audit',pref.status===200&&pref.body.listed===false&&pref.body.visibilityOrigin==='attended_request'&&pref.body.restoreAllowed===true&&auditRows().length===beforeRefusalAudit+1&&attendedAudit.actor===ADMIN&&attendedAudit.subject===null&&attendedAudit.details===JSON.stringify({rows:1,listed:false,origin:'attended_request'})&&!attendedAudit.details.includes(TARGET));
+  pref=await attendedPreference('visibility',{discordId:TARGET,listed:true,requestConfirmed:true});
+  check('a confirmed attended restore removes only an attended marker and records the choice',pref.status===200&&pref.body.listed===true&&pref.body.visibilityOrigin==='default'&&auditRows().length===beforeRefusalAudit+2&&JSON.parse(auditRows().at(-1).details).listed===true);
+  // The self write lands after the admin's admitted original-facts read but
+  // before its mutation batch. The final marker CAS must refuse either action.
+  for(const listed of [false,true]){
+    await preference.visibility(TARGET,true);const count=auditRows().length;
+    preference.beforeAttendedWrite(()=>preference.visibility(TARGET,false));
+    const raced=await attendedPreference('visibility',{discordId:TARGET,listed,requestConfirmed:true});
+    check('late self opt-out wins the attended '+(listed?'restore':'hide')+' marker CAS without a false audit',raced.status===409&&raced.body.error==='visibility_not_saved'&&JSON.parse(preference.db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value)[TARGET]===targetBirth&&auditRows().length===count);
+  }
+  await preference.DB.batch(context.communityEraseStatements(preference.env,TARGET));pref=await attendedPreference('status',{discordId:TARGET});
+  check('erasure removes raw-ID preference rather than silently retaining a persistent suppression',pref.status===200&&pref.body.listed===true&&pref.body.visibilityOrigin==='default'&&!preference.db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value.includes(TARGET));
+  preference.close();
   for(const scenario of ['already-retiring','already-retired','birth-replaced','absence-became-account','generation-replaced','revision-changed','job-started']) {
     T+=61;const race=await fixture(),target=scenario==='absence-became-account'?'730000000000000102':TARGET;
     const subject=()=>race.db.prepare('SELECT * FROM privacy_subjects WHERE subject_id=?').get(target);

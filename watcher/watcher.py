@@ -100,7 +100,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.7"
+WATCHER_VERSION = "0.6.8"
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -296,6 +296,10 @@ class NoCustody(RuntimeError):
     """Stop consuming the source: no retained original owns this work yet."""
 
 
+class CustodyStopped(RuntimeError):
+    """Reload durable state in a new process; never discard an uncertain save."""
+
+
 class Delivery(str, Enum):
     DELIVERED = "delivered"
     HELD = "durable-held"
@@ -422,6 +426,22 @@ class Watcher:
             self._custody_warning = reason
             log("delivery held: " + reason)  # fixed text only: no payload, response or credential
 
+    @staticmethod
+    def _state_write_failed(phase: str, error: OSError) -> None:
+        # AA-W61 (.197, 2026-10-24): retain useful OS failure classification,
+        # never the exception message/path, which can contain private material.
+        errno = error.errno if type(error.errno) is int else 0
+        winerror = getattr(error, "winerror", None)
+        winerror = winerror if type(winerror) is int else 0
+        log(f"state write failed: {phase} {type(error).__name__} errno={errno} winerror={winerror}")
+
+    def _require_custody_continuation(self) -> None:
+        if self._custody_halted and self._ack_settlement_pending is None:
+            # A failed replace may have committed. Exiting allows a fresh load
+            # of either exact durable state; dropping the in-memory original
+            # and retrying here could contradict an already committed claim.
+            raise CustodyStopped("local custody persistence stopped; inspect storage and restart")
+
     def _delivery_binding(self) -> str:
         # Pin the original configured destination and officer/token context without persisting a credential.
         return hashlib.sha256(json.dumps([self.worker.base, self.officer_id, self.worker.token]).encode("utf-8")).hexdigest()
@@ -452,10 +472,11 @@ class Watcher:
         box.pop(0)
         try:
             self.state.save()
-        except OSError:
+        except OSError as error:
             box.insert(0, item)
             self._custody_halted = True
             self._ack_settlement_pending = ("outbox", item) if item.get("acknowledged") is True else None
+            self._state_write_failed("outbox-settlement", error)
             self._warn_custody("settlement could not be persisted; original retained and dispatch stopped")
             return Delivery.HELD
         self._custody_warning = None
@@ -488,8 +509,9 @@ class Watcher:
             item["refusal_status"] = self.worker.last_refusal
             try:
                 self.state.save()
-            except OSError:
+            except OSError as error:
                 self._custody_halted = True
+                self._state_write_failed("refusal-receipt", error)
             self._warn_custody("explicitly refused original retained for attended review")
         else:
             self._warn_custody("no application receipt; exact original remains held")
@@ -509,10 +531,11 @@ class Watcher:
         box.append(item)
         try:
             self.state.save()
-        except OSError:
+        except OSError as error:
             # Atomic replace may have an uncertain local outcome. Retain the in-memory original,
             # dispatch nothing, stop new custody, and leave the source cursor uncommitted.
             self._custody_halted = True
+            self._state_write_failed("reservation", error)
             self._warn_custody("custody persistence failed; dispatch stopped and source remains unconsumed")
             return Delivery.NO_CUSTODY
         if box[0] is not item:
@@ -1271,8 +1294,9 @@ class Watcher:
             self.state.d["queue_written_original"] = self._freeze_original("/queue/written", {"ids": pending, "officer": self.officer_id}, "queue written")
         try:
             self.state.save()  # file hash, IDs and actual original officer/body are one custody save
-        except OSError:
+        except OSError as error:
             self._custody_halted = True
+            self._state_write_failed("queue-reservation", error)
             raise NoCustody("queue file written but acknowledgment custody could not be persisted")
         log(f"queue file written: {len(entries)} entries ({len(queued)} new) — the addon reads it at the next /reload (the panel's Sync & reload)")
         if queued:
@@ -1296,11 +1320,12 @@ class Watcher:
         self.state.d["queue_written_original"] = None
         try:
             self.state.save()
-        except OSError:
+        except OSError as error:
             self.state.d["queue_written_pending"] = pending
             self.state.d["queue_written_original"] = original
             self._custody_halted = True
             self._ack_settlement_pending = ("queue-written", original) if original.get("acknowledged") is True else None
+            self._state_write_failed("queue-settlement", error)
             self._warn_custody("queue acknowledgment settlement could not be persisted; original retained")
             return Delivery.HELD
         return Delivery.DELIVERED
@@ -1442,7 +1467,9 @@ class Watcher:
         while True:
             try:
                 self.recover_local_settlement()
+                self._require_custody_continuation()
                 self.flush_outbox()
+                self._require_custody_continuation()
                 self.tail_chat_log()
                 self.check_savedvars()
                 self.pull_queue()
@@ -1450,8 +1477,9 @@ class Watcher:
                 if time.time() - self._last_lag_report > 1800 and self.state.d.get("lag"):
                     self._last_lag_report = time.time()
                     log(f"chat-log lag: {self.lag_summary()}")
-            except Exception as e:  # never die
-                log(f"loop error: {e!r}")
+            except Exception as e:  # ordinary loop errors retry; uncertain local custody exits below
+                self._require_custody_continuation()
+                log(f"loop error: {type(e).__name__}")
             time.sleep(self.poll)
 
 
@@ -1473,6 +1501,9 @@ def main() -> int:
             return 0
     except FileExistsError:
         log("state already has a writer/recovery lease; stop and inspect before continuing")
+        return 2
+    except CustodyStopped:
+        log("local custody persistence stopped; inspect storage and restart with the same state and configuration")
         return 2
     except ValueError as e:  # invalid configuration/state remains refused before dispatch
         log(f"config: {e}")

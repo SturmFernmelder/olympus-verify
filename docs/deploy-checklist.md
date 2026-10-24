@@ -7145,3 +7145,97 @@ Publication payload previews wrap their exact JSON text inside the review card, 
 Claude's full gate review of the earlier candidate found seven failures despite the focused passes. The real legacy-role regression came from inferring newly named native ladders from old roster rows: two profiles could fit the same unchanged roster. Historical two-profile inference is restored. A new ladder requires an explicit validated map; malformed legacy map metadata does not newly block the original membership path, and new profiles still cannot authorize privileged dispatch. Preserve the original identity trace and protected-source pins. Reviewed finite source projections must reconstruct the original whole sources, and only the exact approved PvE guide description line may be normalized for the historical trace comparison. The raw paired guide diagnostic retains all SQL, binds, batches, HTTP metadata, responses and twelve-role rows.
 
 The other gate corrections retain the original executable security and behavior controls while adapting obsolete login-art paths, the bodyless rank-planner redirect and protected fragment, governance search corpus, News editor additions and the finite publication resource set. News must reconstruct its original whole-source safeguard checksum through exact authorized reversals. The local Army transform attaches after the Stream Shield preamble and preserves original cancellation ownership. Canonical legal headers and the login/member shell use the same shield image; public asset permissions and social-preview metadata are unchanged. Portrait coverage must check the applicant's actual class icon as well as the avatar and label. Run the affected original gates on the corrected source before treating these findings as resolved; no prior pass, new checksum alone or diagnostic exit code supplies that acceptance.
+
+### Actual .196 closure — 24 October 2026
+
+This dated closure supplements the frozen instructions above; it does not rewrite their historical source or
+claim every item in the owner's broader request is complete. PR89's qualified source was
+`e3f663f42c635d10af09264b46b30a3d1fe7b74d`, tree `81d3d2378a20b6777a7fea626702c33c0c4add8e`, with accepted .195
+`5054be8c136835af2f198bf9a9ec12d87848a9b7` as sole source parent. The ordinary expected-head squash was
+`cf25cd021e4915b2165d064ad06ea450236f3ad6`. All 13 original hosted jobs passed, with 121 executed successful
+steps and 49 original conditional skips. The completed authentic automated review reported no findings or
+unresolved threads. The genuine exact-source Claude/Codex acceptance and all original limitations remain retained.
+
+The historical phrase **"no configuration deltas" in the .196 rollout paragraph is superseded for that actual
+deployment only** by the owner's exact three Town Crier bindings: `TOWN_CRIER_WEBHOOK` as plain-text canonical
+`{"guild":"236932545793490944","channel":"1554265182379839669","webhook":"1563307170055987250"}`,
+`TOWN_CRIER_WEBHOOK_ENABLED` as the plain-text string `"true"`, and `TOWN_CRIER_WEBHOOK_TOKEN` as `secret_text`.
+There was one archived-main `--keep-vars` provider deployment, not a later secret-put or independent settings
+operation. The source configuration-file delta was empty; the actual deployment binding delta was three.
+The token was not printed, hashed, put in environment/arguments, or retained in a public artifact. The owned
+temporary secrets file was cleaned up. The missing historical baseline alias and initial local PowerShell
+preparer refusal, before its provider child, remain preserved separately from the acknowledged linked completion;
+the original unknown attempt was not relabelled as a provider success or blindly retried.
+
+The actual deployment was version `b0f3907c-21cf-4063-9a14-771281d234b4`, code ETag
+`99470a8315877eef1ecb4774ba16062363abb49737c308da1731dd6f485f28d8`. Full readback retained all 443 live profile
+objects, Native E2 serving with zero active erasures, five unchanged private services/OFF controls, settings,
+launch and ordinary `*/15` guards, except the exact declared Town Crier overlay. Every `TREASURY_COSMETIC_*`
+binding remained absent, including `TREASURY_COSMETIC_ENABLED`; `ARMY_SITE_AGGREGATE_ENABLED` was absent.
+`LINK_ENABLED` was absent, Link remained OFF and `LINK_DB` was untouched. Neither Treasury's season/dispatch,
+Army publication, Link proof/key work, recovery/TTL takeover nor a protected game action was activated.
+
+The fresh portable backup was 53,533,509 bytes, SHA-256
+`23e6661766dbafec3140db78586037269a605fd98133cd37e1d7b0f8f188ca2b`, completed at 04:38:28.127 UTC, with the
+full 442-object local restore/integrity/foreign-key/Native qualification before the one deployment. The live
+profile had 443 objects. Omission of provider `_cf_KV` still means no physical-copy, all-copy or provider-drain
+qualification, and no production restore occurred.
+
+The owner's explicit option (b), recorded in `owner196-normal-carry-acceptance-criterion-20261024T0032Z.json`
+(SHA-256 `ef49c6af40469df6794115235ecceceb16bb8fcd8f8766c1c4796c159c2693bd`), accepted the actual earlier
+`8efed422` normal-whole execution as narrowly attributed evidence. It did not execute normal on af8 or e3f,
+rewrite that receipt's head, prove whole-freeze identity, or claim a complete dynamic read closure. The final
+e3f proof bound 183 declared build inputs plus three direct host inputs, a 184-path union with two overlaps,
+to their actual unchanged bytes and retained the different full freezes. The historical .196 final-head-only
+sentence above therefore has this explicit owner exception. The normal host's genuine-clock start window is
+still `[15:00, 23:25)` UTC with the original 2,100-second stage; this exception supplies no general clock or
+future-release authority.
+
+The first ordinary actual-version callback was 05:00:40.646–05:00:42.937 UTC (2,291 ms; CPU 368 ms), with zero
+errors, exceptions or holds and Native attempted/completed/held all zero. Fresh independent `role.sweep`22365
+was in the full audit-second bin 05:00:42.000–05:00:43.000 UTC. The raw 63 ms overhang, extension zero and lack
+of clock-offset proof remain unchanged. The owner expressly accepted a **.196-only 63 ms criterion** for
+that retained version/correlation, SHA-256 `9149084c86bc0f384012bfe230f5576b9f4cac15de10bf4844b1d8eb232fdcf0`.
+The owned tail stopped; no additional callback or manual cron was used. Immutable `final-live196-receipt.json`
+is SHA-256 `3d6775fd8899848fda481e6fcea3ea855805954de6f021557c5cc3bdad140e94`: Worker rollout accepted,
+broader owner request incomplete. Current responsive UI scope and exact assets are bound there; independent
+non-Admin, physical Safari, game, authentic HT1 application and upstream adoption remain separate.
+
+The subsequent exact-text-approved current PvE publication completed through normal authenticated UI, plan
+revision2/operation `PBEHZbGnGqbKRS7HO8O5zA`: guide `1555396363603415153`, Olympus-info `1554295688123383824`
+and pinned announcement `1554295694414848063` each had one Apply, retained the original message ID and stayed
+`applied` after Refresh. There were zero unknown outcomes or retries, automatic mentions were disabled and
+the approved announcement payload was compared before and after. Completion receipt SHA-256
+`3340673d35ffd296a609fe244cb0eedbee6b45171f6b1e515679cee8688358b9` claims that source-owned UI scope, not an
+independent Discord-client/direct-GET or unrelated channel-topic census. Do not replay these completed effects.
+TCW-6 unknown-SEND debt remains held, and watcher0.6.7 was **not rolled out**. The original unexplained watcher
+I/O failure has no established OneDrive/TMP root cause. The full 166 findings, deferred DROP-1/NITs, RO12/TG6
+partial scope, publisher/game/activation and privacy/recovery limits remain in the final master register.
+
+## Worker .197 — 24 October 2026 · follow-up candidate (qualification pending)
+
+The owner's direct .197 instruction permits Codex to proceed while external Claude is offline at its weekly
+limit. Root alone owns the runtime lane, Git/provider/release operations and final signature. Internal
+independent review, authentic exact-head automated GitHub review and all required 13 hosted CI jobs remain
+required; no new Claude signature is requested or inferred. Historical .196 signatures and acceptance bind
+their original tuples only. The candidate starts from actual accepted main `cf25cd021e4915b2165d064ad06ea450236f3ad6`.
+
+**Current source scope, not an execution claim.** The follow-up is integrating bounded remaining-source fixes
+with explicit file ownership. Canonical `/legal/privacy` and `/legal/terms` retain their script-free public
+reader even with a signed cookie or an unavailable member/serving state; `/#/legal/*` is the explicit optional
+shared-shell enhancement. No policy text, credentials, cookie, serving/admission or erasure authority is
+changed by that navigation repair. Watcher and reporter fixes remain separately owned and must receive
+their own actual tests before any rollout. RO12 canonical branch associations, TG6 multiple/private and
+explicitly shared builds, and other remaining-source work require their reviewed bounded contracts; source
+preparation alone does not close those requirements.
+
+**Pending release facts for Root to fill from actual receipts.** No .197 shipping head/tree, qualified local
+totals, hosted CI result, automated-review result, merge/archive/package, backup, deployed UUID/ETag or live
+acceptance is asserted by this section. Root must record the final exact source scope, actual commands and
+original deadlines, complete terminal outcomes/first failures, independent review and all CI steps without
+inventing passes, weakening assertions or repeating completed .196 work. Packaging and tested Workerd
+artifacts remain distinct. Preserve live443/portable442, Native E2, private5, original budgets, all OFF/
+activation/unknown-custody controls and launch gates. Any .197 deployment/configuration authority and actual
+first ordinary callback must be bound independently; no .196 timing criterion or normal-stage exception
+automatically transfers. Upstream PR72 adoption, real client/protected actions, watcher installation and
+Treasury/Army/Link activation remain separate actual gates.

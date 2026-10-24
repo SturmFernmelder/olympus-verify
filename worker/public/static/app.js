@@ -20,6 +20,7 @@
   let disposeSeatsNotice = null;
   let disposeArmyCapacity = null;
   const appointmentReaders = new Set(); // View disposers only; never a cross-route identity cache.
+  let appointmentPendingRead = null; // Same-view in-flight collection only; no resolved identity cache.
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
   let gameCursor = true;
@@ -99,7 +100,7 @@
     if (key.startsWith("class_lead:")) return M().classes.some((c) => c.key === key.slice(11)) ? icon("class-" + key.slice(11), cls) : icon("pos-unknown", cls);
     const office = (M().appointments || []).find(item => item.key === key);
     if (office && /^office_[0-9]{2}$/.test(key)) return icon("pos-community", cls);
-    if (office && /^rank_[a-z_]+$/.test(key)) return icon("pos-" + (key === "rank_guild_master" ? "guild_master" : key === "rank_treasurer" ? "treasurer" : "officer"), cls);
+    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon("pos-" + ({guild_master:"guild_master",high_council:"co_gm",treasurer:"treasurer",officer:"officer",raid_leader:"raid_leader",veteran:"raider",raider:"raider",member:"member",alt:"member",initiate:"member"}[rank] || "unknown"), cls); }
     const base = key.replace(/_(na|eu)$/, "");
     return icon("pos-" + (["co_gm", "guild_master", "officer", "raid_leader", "raid_assist", "class_lead", "recruitment", "community", "leveling", "pvp_leader", "liaison", "loot_council", "treasurer", "professions", "moderator", "raider", "pvp_team", "member"].includes(base) ? base : "unknown"), cls);
   }
@@ -233,7 +234,7 @@
       const nextHidden = !!document.hidden;
       if (hidden === nextHidden) return;
       hidden = nextHidden;
-      if (hidden) { generation++; clearProjection(); }
+      if (hidden) { appointmentPendingRead = null; generation++; clearProjection(); }
       else if (owned()) read();
       else dispose();
     };
@@ -244,6 +245,11 @@
       let after = null, revision = null, complete = false;
       clearProjection();
       try {
+        const pendingMatches = appointmentPendingRead && appointmentPendingRead.user===user && appointmentPendingRead.settings===settings && appointmentPendingRead.context===context && appointmentPendingRead.route===route && appointmentPendingRead.appointments===JSON.stringify(settings?.appointed || {});
+        let shared = pendingMatches ? appointmentPendingRead : null;
+        if(!shared){
+          shared={user,settings,context,route,appointments:JSON.stringify(settings?.appointed || {}),promise:null};
+          shared.promise=(async()=>{
         for (let page = 0; page < maxPages; page++) {
           const path = '/api/appointed-identities' + (after === null ? '' : '?' + qs({ after, revision }));
           const data = await api('GET', path, undefined, { live: current });
@@ -264,7 +270,14 @@
         }
         if (!current()) return;
         if (!complete || people.length > appointmentKeys.size) throw Error('appointment_page_unconfirmed');
-        for (const person of people) {
+            return people;
+          })();
+          appointmentPendingRead=shared;
+        }
+        let qualifiedPeople;
+        try{qualifiedPeople=await shared.promise;}finally{if(appointmentPendingRead===shared)appointmentPendingRead=null;}
+        if(!current() || !Array.isArray(qualifiedPeople))return;
+        for (const person of qualifiedPeople) {
           const name = discordIdentity(person);
           for (const node of labels) if (node.getAttribute("data-appointment-label") === person.role) node.textContent = appointmentLabelText(name, node.getAttribute("data-appointment-bare") === "true", node.getAttribute("data-appointment-sentence") === "true");
           for (const node of titles) if (node.getAttribute("data-appointment-title") === person.role) node.setAttribute("title", appointmentLabel(name));
@@ -402,7 +415,7 @@
       if (current) reloadNotice(data.message);
       throw new ApiError(409, Object.assign({}, data, { message: "Nothing was saved: reload the page first (your typing is still on this page)." }));
     }
-    if (!res.ok) throw new ApiError(res.status, data);
+    if (!res.ok) { const error = new ApiError(res.status, data); if(res.status===429){const seconds=Number(res.headers.get("Retry-After"));error.retryAfterSeconds=Number.isFinite(seconds)&&seconds>0?Math.min(900,Math.ceil(seconds)):60;} throw error; }
     return data;
   }
   // Optional census previews keep their raw lexical JSON and never use api() reserialization.
@@ -535,7 +548,7 @@
     const head = content && content.querySelector ? content.querySelector("h2, h3") : null;
     if (head) { if (!head.id) head.id = `dialog-title-${++dialogSeq}`; d.setAttribute("aria-labelledby", head.id); }
     d.addEventListener("close", () => d.remove());
-    if (streamShield) { setTimeout(() => d.dispatchEvent(new Event("close")), 0); return d; }
+    if (streamShield) { toast("Stream Shield is on. Turn it off to open private dialogs; no action was confirmed."); setTimeout(() => d.dispatchEvent(new Event("close")), 0); return d; }
     document.body.appendChild(d);
     d.showModal();
     return d;
@@ -846,7 +859,7 @@
   const signInIcon = () => icon("pos-community", "discord-mark");
   const signInButton = (big = true) => h("a", { class: "btn" + (big ? " big" : " small"), href: "/auth/login" }, signInIcon(), "Sign in with Discord");
   // .111: the Olympus crest (the guild's own logo, as on guild.roachcouncil.com) is the website's one exception to the official game art (Viktor, 1 Oct 2026)
-  const brand = () => h("a", { class: "brand", href: "#/" }, h("img", { src: "/static/wow/icon-shield.png", alt: "", width: "44", height: "44" }), h("span", null, h("b", { text: "Olympus" }), h("small", { text: "FOREVER" })));
+  const brand = () => h("a", { class: "brand", href: "#/" }, h("img", { src: "/static/olympus-icon.png", alt: "", width: "44", height: "44" }), h("span", null, h("b", { text: "Olympus" }), h("small", { text: "FOREVER" })));
 
   // .170: ordinary navigation disclosures, not ARIA application menus. Only one
   // is open; fine-mouse hover has a small bridge, while tap and keyboard stay explicit.
@@ -950,7 +963,7 @@
       shield.addEventListener("click", () => {
         streamShield = !streamShield;
         try { sessionStorage.setItem("olympus.streamShield", streamShield ? "on" : "off"); } catch { /* Presentation still changes for this page. */ }
-        if (streamShield) for (const open of document.querySelectorAll("dialog")) { if (open.open) open.close(); }
+        if (streamShield) { const dialogs = [...document.querySelectorAll("dialog")].filter(open => open.open); for (const open of dialogs) open.close(); if (dialogs.length) toast("Stream Shield closed the private dialog. No pending action was confirmed."); }
         document.documentElement.setAttribute("data-stream-shield", streamShield ? "on" : "off");
         shield.setAttribute("aria-pressed", String(streamShield));
       });
@@ -976,7 +989,7 @@
         h("div", null, brand(), cursor),
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
-          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. The login portal animation is a guild-rendered derivative of the original World of Warcraft client model and textures, with a static reduced-motion poster; it is not a publisher-issued movie or endorsement. The remaining game interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
+          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. The login portal animation is a guild-rendered derivative of the original World of Warcraft client model and textures, with a static reduced-motion poster; it is not a publisher-issued movie or endorsement. The remaining game interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this."))));
   }
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
@@ -1094,6 +1107,7 @@
     }
     closeNavMenus();
     if (disposeSeatsNotice) disposeSeatsNotice();
+    appointmentPendingRead = null;
     for (const dispose of [...appointmentReaders]) dispose();
     if (disposeTool) disposeTool();
     if (disposeGovernancePrint) disposeGovernancePrint();
@@ -1931,7 +1945,8 @@
       h("label", { class: "lab", for: `f-${key}` }, labelText, required ? h("span", { class: "req", "aria-hidden": "true", text: "*" }) : null),
       hintBelow ? null : hintEl,
       control, hintBelow ? hintEl : null, counter || null, err);
-    if (control.id === "") control.id = `f-${key}`;
+    if (!control.id) control.id = `f-${key}`;
+    box.querySelector("label").setAttribute("for", control.id);
     control.setAttribute("aria-describedby", `err-${key}`);
     return box;
   }
@@ -1947,11 +1962,12 @@
     return h("select", null, placeholder === null ? null : h("option", { value: "", text: placeholder }), [...list, ...extra].map((o) => h("option", { value: o.key, text: o.label, selected: o.key === value })));
   }
   function showFieldError(form, field, message) {
-    for (const f of form.querySelectorAll(".field.invalid")) { f.classList.remove("invalid"); const e = f.querySelector(".err"); if (e) e.hidden = true; }
+    const ownError = box => [...box.children].find(child => child.classList.contains("err"));
+    for (const f of form.querySelectorAll(".invalid")) { f.classList.remove("invalid"); const e = ownError(f); if (e) { e.hidden = true; e.textContent = ""; } }
     const box = field && form.querySelector(`[data-field="${CSS.escape(field)}"]`);
     if (box) {
       box.classList.add("invalid");
-      const e = box.querySelector(".err");
+      const e = ownError(box);
       if (e) { e.textContent = message; e.hidden = false; }
       box.scrollIntoView({ behavior: "smooth", block: "center" });
       const c = box.querySelector("input, select, textarea, button");
@@ -2099,9 +2115,9 @@
       noticeBox("info", "icon-vote",
         h("p", null, h("strong", { text: "Your application goes on the voting board. " }), "Leadership roles are voted on: everyone signed in here can read your application there and vote for or against. They see your Discord display name and class icon, your class, role, where you play from, which raid evenings you can make, and your answers to the four questions about your experience, why Olympus, leading people, and the loot argument. Your Discord picture is shown only if you choose the separate optional box below."),
         boardWhere,
-        h("p", { class: "small", text: "Your main character, professions, logs, references, voice, hours and the last box stay with the guild's leadership. Nobody but the leadership sees how anyone voted or any counts." }),
+        h("p", { class: "small", text: "Your main character, professions, logs, references, voice, hours and the last box stay with the guild's leadership unless you separately share declared character names and talent builds below. Nobody but the leadership sees how anyone voted or any counts." }),
         h("label", { class: "check" }, boardOk, h("span", { text: "Show my application on the voting board." })),
-        h("div", { "data-field": "boardPortrait" },
+        h("div", { class: "field", "data-field": "boardPortrait" },
           h("label", { class: "check" }, boardPortraitOk, h("span", { text: "Also show my Discord profile picture on the voting board (optional)." })),
           h("p", { class: "muted small", text: "Earlier board consent did not include a Discord picture. Leave this unticked to keep it hidden on the board; you can change this choice by saving your application." }),
           h("span", { class: "err", hidden: true }))),
@@ -2114,6 +2130,39 @@
     const character = h("input", { type: "text", value: (a && a.character) || "", maxlength: "40", placeholder: "First Last", autocomplete: "off", spellcheck: "false" });
     const cls = selectOf(meta.classes, a ? a.class : "", { extra: [{ key: "undecided", label: "Undecided" }] });
     const role = selectOf(meta.roles, a ? a.role : "");
+    // .197: declared application characters and their optional 30/60 builds, separate from verified roster identity.
+    const talentRows = [], talentList = h("div", {class:"stack"}), talentAdd = h("button", {type:"button",class:"btn small",text:"Add declared alt build"});
+    const talentSharing = h("input", {type:"checkbox",id:"board-talent-builds-opt-in",checked:!!(a && a.boardAt && ans.boardTalentBuildsOptIn === true)});
+    let talentRowSequence = 0;
+    const addTalentRow = (stored = {}, primary = false) => {
+      if (talentRows.length >= 3) return;
+      const id = ++talentRowSequence;
+      const name = h("input", {type:"text",maxlength:"40",value:primary ? character.value : stored.character || "",readonly:primary});
+      const classPick = selectOf(meta.classes, primary ? cls.value : stored.class || "", {placeholder:"Choose class…"}); classPick.disabled = primary;
+      const at30 = h("textarea", {rows:"2",maxlength:"768",value:stored.build30 || "",spellcheck:"false",autocomplete:"off"});
+      const at60 = h("textarea", {rows:"2",maxlength:"768",value:stored.build60 || "",spellcheck:"false",autocomplete:"off"});
+      const row = {name,classPick,at30,at60,primary};
+      const remove = h("button", {type:"button",class:"btn small",text:primary ? "Clear main builds" : "Remove declared alt"});
+      row.node = h("fieldset", {class:"card talent-application-character"}, h("legend", {text:primary ? "Main application character" : "Declared alt (self-reported)"}),
+        fieldBox("talent-name-"+id,"Character name",name),fieldBox("talent-class-"+id,"Class",classPick),
+        fieldBox("talent-30-"+id,"Level 30 build code (optional)",at30),fieldBox("talent-60-"+id,"Level 60 build code (optional)",at60),remove);
+      remove.addEventListener("click", () => { if(primary){at30.value=at60.value="";}else{talentRows.splice(talentRows.indexOf(row),1);row.node.remove();talentAdd.disabled=false;} touch(); });
+      for(const control of [name,classPick,at30,at60]) control.addEventListener("input",touch);
+      talentRows.push(row);talentList.appendChild(row.node);talentAdd.disabled=talentRows.length>=3;
+    };
+    const savedTalentCharacters = ans.talentBuilds && ans.talentBuilds.version === 1 && Array.isArray(ans.talentBuilds.characters) ? ans.talentBuilds.characters.slice(0,3) : [];
+    addTalentRow(savedTalentCharacters[0],true);for(const saved of savedTalentCharacters.slice(1)) addTalentRow(saved);
+    talentAdd.addEventListener("click", () => {addTalentRow();touch();});
+    const syncPrimaryBuild = () => {talentRows[0].name.value=character.value;talentRows[0].classPick.value=cls.value;};
+    character.addEventListener("input",syncPrimaryBuild);cls.addEventListener("change",syncPrimaryBuild);
+    const talentBuildBox = h("section", {class:"field", "data-field":"talentBuilds"},h("h3",{text:"Character talent builds (optional)"}),
+      h("p",{class:"muted small",text:"Attach level 30 and level 60 builds from the current talent calculator for your main and up to two declared alts. These names are self-reported application details, not roster verification. Builds remain with the leadership unless you make the separate board-sharing choice below."}),
+      h("a",{href:"#/talents",target:"_blank",rel:"noopener",text:"Open the talent calculator"}),talentList,talentAdd,
+      h("div",{class:"field", "data-field":"boardTalentBuilds"},h("label",{class:"check"},talentSharing,h("span",{text:"Also share these declared character names, classes and builds on my voting-board application (optional)."})),h("span",{class:"err",hidden:true})),h("span",{class:"err",hidden:true}));
+    const updateTalentSharing = () => {talentSharing.disabled=!isVoted() || !boardOk.checked;};
+    boardOk.addEventListener("change",updateTalentSharing);for(const control of [...backupSels,classLeadSel]) control.addEventListener("change",updateTalentSharing);
+    for(const card of positionBoxes) card.querySelector("input").addEventListener("change",updateTalentSharing);updateTalentSharing();
+
     let zone = (a && a.availTz && zoneOk(a.availTz)) ? a.availTz : myZone;
     const region = selectOf(meta.regions, a ? a.region : regionFromZone(zone));
     // The professions they plan to take on their main (.45, optional): the game's icons as toggles, two primary at most.
@@ -2270,6 +2319,7 @@
       h("div", { class: "section-title" }, icon("icon-pvp"), h("h3", { text: "Extras" })),
       h("div", { class: "grid two" }, textFor("logs", { hintBelow: true }), fieldBox("voice", "Can you use voice chat in raids?", voice, { required: true })),
       textFor("talentBuild", { hintBelow: true }),
+      talentBuildBox,
       h("div", { class: "field", "data-field": "references" },
         h("span", { class: "lab", text: "References (optional)" }),
         h("span", { class: "hint", text: `Up to ${meta.limits.references} people in the community who can vouch for you.` }),
@@ -2299,10 +2349,11 @@
       }
       answers.hours = hours.value;
       answers.voice = voice.value;
+      answers.talentBuilds = {version:1,characters:talentRows.filter(row => row.at30.value.trim() || row.at60.value.trim()).map(row => ({character:row.primary ? character.value : row.name.value,class:row.primary ? cls.value : row.classPick.value,build30:row.at30.value.trim(),build60:row.at60.value.trim()}))};
       answers.references = refs.map((r) => ({ kind: r.kind, key: r.key, label: r.label }));
       answers.professions = professions.filter((p) => profs.has(p.key)).map((p) => p.key);
       const backups = backupSels.map((x) => x.value).filter(Boolean);
-      const body = { position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, boardPortrait: isVoted() && boardOk.checked && boardPortraitOk.checked, answers, ack: true };
+      const body = { position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, boardPortrait: isVoted() && boardOk.checked && boardPortraitOk.checked, boardTalentBuilds:isVoted() && boardOk.checked && talentSharing.checked, answers, ack: true };
       submit.disabled = true;
       try {
         const out = await api("PUT", "/api/application", body);
@@ -2383,9 +2434,19 @@
       }
       add(paper, [h("h4", { text: q.label }), h("div", { class: "text", text: ans[q.key] })]);
     }
+    const declaredBuilds = ans.talentBuilds && ans.talentBuilds.version === 1 && Array.isArray(ans.talentBuilds.characters) ? ans.talentBuilds.characters.slice(0,3).flatMap(item => [30,60].filter(level => item["build"+level]).map(level => ({character:item.character,class:item.class,level,code:item["build"+level]}))) : [];
+    if(declaredBuilds.length) add(paper,[h("h4",{text:"Declared character talent builds"}),talentBuildLinks(declaredBuilds),h("p",{class:"muted small",text:ans.boardTalentBuildsOptIn === true ? "Separate board sharing was selected; the board shows only currently valid attachments while its consent remains active." : "Private application attachments; not shared on the voting board."})]);
     if (paper.firstChild) { paper.classList.add("mt"); out.appendChild(paper); }
     if ((ans.references || []).length) add(out, [h("h3", { class: "mt", text: "References" }), h("div", { class: "stack" }, ans.references.map((p) => personRow(p)))]);
     return out;
+  }
+
+  function talentBuildLinks(items) {
+    return h("ul", {class:"talent-build-links"}, items.slice(0,6).map(item => {
+      const code = typeof item.code === "string" ? item.code : "", match = /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(30|60)\.[0-5]+$/.exec(code);
+      const current = match && match[1] === M().talentSnapshotRevision && match[2] === item.class && Number(match[3]) === item.level;
+      return h("li",null,h("span",{text:String(item.character || "Declared character")+" · "+labelOf(M().classes || [],item.class)+" · level "+item.level+" — "}),current ? h("a",{href:`#/talents/${match[2]}/${encodeURIComponent(code)}`,text:"Open build"}) : h("span",{class:"muted",text:"Unavailable in the current calculator"}));
+    }));
   }
 
   // ---------------------------------------------------------------- vote: the board, and write-ins
@@ -2665,6 +2726,7 @@
       if (!c.answers[q.key]) continue;
       add(answers, [h("h4", { text: q.label }), h("div", { class: "text", text: c.answers[q.key] })]);
     }
+    if(Array.isArray(c.talentBuilds) && c.talentBuilds.length) add(answers,[h("h4",{text:"Shared declared character builds"}),talentBuildLinks(c.talentBuilds),h("p",{class:"muted small",text:"Self-reported character names; shared separately by this applicant. Not roster verification."})]);
     const more = h("button", { class: "link small", type: "button", text: "Read the whole application" });
     more.addEventListener("click", () => { const open = answers.classList.toggle("clamped"); more.textContent = open ? "Read the whole application" : "Show less"; });
     return h("article", { class: "card cand" },
@@ -3321,23 +3383,23 @@
       gm: h("input", { type: "text", maxlength: "40", value: g.gm, placeholder: "Not listed", autocomplete: "off", id: `lead-gm-${i}`, "aria-label": `${g.name}: Guild Master` }),
       officers: h("textarea", { rows: "3", maxlength: "600", value: g.officers.join("\n"), id: `lead-off-${i}`, "aria-label": `${g.name}: officers, one per line` }),
     }));
-    // This directory remains staff-confirmed display text; no account key or publication proof is stored here.
+    // .197: exact account pointers use separate publication consent and a session-bound row revision; typed labels remain unverified.
     const namesOk = h("input", { type: "checkbox", id: "lead-names-ok" });
+    const identitiesOk = h("input", {type:"checkbox",id:"lead-identities-ok"});
     const save = h("button", { class: "btn", type: "button", text: "Save the directory" });
     let panel = null, busy = false;
     const live = () => current() && !!panel && app.contains(panel);
     const sync = () => { if (panel) for (const input of panel.querySelectorAll("input, textarea, button")) input.disabled = busy; };
-    const invalidate = () => { namesOk.checked = false; };
+    const invalidate = () => { namesOk.checked = identitiesOk.checked = false; };
     const selectedName = person => {
-      if (!person || person.kind !== "discord" || typeof person.label !== "string" || /[\u0000-\u001f\u007f<>]/.test(person.label)) return null;
-      const name = person.label.trim().replace(/\s+/g, " ");
-      return name && name.length <= 40 && !/^[0-9]{17,20}$/.test(name) ? name : null;
+      if (!person || person.kind !== "discord" || typeof person.key !== "string" || !/^[1-9][0-9]{16,19}$/.test(person.key)) return null;
+      return `<@${person.key}>`;
     };
-    const chooseName = (row, officer) => picker({ label: `${row.g.name}: ${officer ? "add officer display name" : "choose Guild Master display name"}`, placeholder: "Find a Discord display name…", allowTyped: false, allowSelf: true, appointmentOnly: true, isCurrent: () => live() && !busy,
+    const chooseName = (row, officer) => picker({ label: `${row.g.name}: ${officer ? "associate officer account" : "associate Guild Master account"}`, placeholder: "Find a Discord display name…", allowTyped: false, allowSelf: true, appointmentOnly: true, isCurrent: () => live() && !busy,
       onPick: person => {
         if (!live() || busy) return;
         const name = selectedName(person);
-        if (!name) { toast("That display label cannot fit this plain-text directory. Type an agreed name of at most 40 characters instead.", "bad"); return; }
+        if (!name) { toast("That result has no eligible account reference. Use a current qualified Discord result, or enter an agreed legacy label.", "bad"); return; }
         if (officer) {
           const names = row.officers.value.split("\n").map(value => value.trim()).filter(Boolean);
           if (names.includes(name)) { invalidate(); return; }
@@ -3349,25 +3411,26 @@
     for (const row of rows) { row.gm.addEventListener("input", invalidate); row.officers.addEventListener("input", invalidate); }
     save.addEventListener("click", async () => {
       if (!live() || busy) return;
-      const sent = { guilds: rows.map(r => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map(x => x.trim()).filter(Boolean) })), namesConfirmed: namesOk.checked };
+      const sent = { guilds: rows.map(r => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map(x => x.trim()).filter(Boolean) })), namesConfirmed: namesOk.checked, expectedRevision:data.revision,leadershipIdentitiesConfirmed:identitiesOk.checked };
       busy = true; sync();
       try {
         const out = await api("PUT", "/api/admin/leadership", sent, { live });
         if (!live()) return;
         if (!out || out.ok !== true || !Array.isArray(out.guilds) || out.guilds.length !== 10) throw new ApiError(200, { error: "unreadable_answer" });
-        namesOk.checked = false;
-        toast("Directory saved.", "good");
+        data = out; namesOk.checked = identitiesOk.checked = false;
+        toast("Directory saved. Account associations are rechecked when members read them.", "good");
       } catch (err) { if (live()) toast(explain(err), "bad"); }
       finally { busy = false; if (live()) sync(); }
     });
     panel = frame("Olympus I–X leadership", null,
       h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as guild members and site administrators see them under Community → Leadership. Separate from the Olympus I staff channels and from the appointed roles above. A listing is a record only: it gives no powers in the bot, on this site or in Discord (the Council roles in Discord are given by hand). Up to twelve officers per guild, one per line." }),
-      h("p", { class: "muted small", text: "Discord search is a display-name convenience. Only the agreed, editable plain-text label is saved here, never an account ID. It is not a current account association, character proof or role grant. The website office/rank account picker above uses its separate publication checks." }),
+      h("p", { class: "muted small", text: "Discord search associates an eligible account with this exact guild and seat. Saving and later display recheck its current account and standing. A typed name remains a staff-entered, unverified label. Neither form proves a game character or grants any permission." }),
       h("div", { class: "grid two" }, rows.map(r => h("div", { class: "card" },
         h("h3", { text: r.g.name }),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm), chooseName(r, false),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers), chooseName(r, true)))),
       h("label", { class: "check field", for: "lead-names-ok" }, namesOk, h("span", { text: "Each person listed here agreed to be listed. Guild members and site administrators can read the directory." })),
+      h("label",{class:"check field",for:"lead-identities-ok"},identitiesOk,h("span",{text:"Each associated account holder agreed to publication of their current Discord label in this exact guild and seat. This listing gives no authority."})),
       h("p", { class: "muted small", text: "To remove a name on request, clear it or type Name withheld in its place." }),
       h("div", { class: "btn-row mt" }, save));
     return panel;
@@ -3636,7 +3699,7 @@
     const sync = () => { consent.disabled = decline.disabled = busy || !!spent || storageHeld; targetReference.disabled = busy || !target; record.disabled = busy || !target || !evidence.checked || !!spent || storageHeld; review.disabled = busy || !target || currentRecognition() === null || !!spent || storageHeld; status.disabled = busy || !/^[0-9a-f]{32}$/.test(operation.value.trim()); };
     const field = (text, input) => h("label", { class: "field" }, h("span", { class: "lab small", text }), input);
     add(panel, frame("Treasury · cosmetic recognition", null,
-      h("p", { text: "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to Fernmelder. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." }),
+      h("p", { text: "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to the designated Treasurer recipient shown through the qualified appointment listing. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." }),
       h("p", { class: "muted small", text: "Ordinary dues do not count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
       picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
       field("Immutable receipt reference", reference), field("Additional gold received", amount), field("Received at (your local time)", observed), field("Member's TITHE- reference", mail),
@@ -3709,7 +3772,7 @@
   }
 
   async function adminDirectoryVisibility(body) {
-    const owner = S.user, route = currentRoute(), panel = h("div", { class: "stack" }); let busy = false, selectedTarget = "", generation = 0, confirmedPreference = "";
+    const owner = S.user, route = currentRoute(), panel = h("div", { class: "stack" }); let busy = false, selectedTarget = "", generation = 0, confirmedPreference = "", restoreAllowed = false;
     const live = () => S.user === owner && owner?.isAdmin && S.signedIn && !S.denied && currentRoute() === route && app.contains(panel);
     const target = h("input", {type:"text", inputmode:"numeric", maxlength:"20", autocomplete:"off", id:"attended-directory-id"});
     const listed = h("input", {type:"checkbox", id:"attended-directory-listed"}), confirmed = h("input", {type:"checkbox", id:"attended-directory-confirmed"});
@@ -3717,15 +3780,15 @@
     const notice = h("p", {class:"muted small", role:"status"});
     const preferenceKey = () => JSON.stringify([selectedTarget, listed.checked]);
     const invalidateConfirmation = () => { confirmed.checked = false; confirmedPreference = ""; };
-    const sync = () => { read.disabled = target.disabled = listed.disabled = confirmed.disabled = busy; save.disabled = busy || !selectedTarget || selectedTarget !== target.value.trim() || !confirmed.checked || confirmedPreference !== preferenceKey(); };
-    target.addEventListener("input", () => { generation++; selectedTarget = ""; invalidateConfirmation(); notice.textContent = "Read the exact member ID before changing it."; sync(); });
+    const sync = () => { read.disabled = target.disabled = listed.disabled = confirmed.disabled = busy; listed.disabled = confirmed.disabled = busy || !restoreAllowed; save.disabled = busy || !restoreAllowed || !selectedTarget || selectedTarget !== target.value.trim() || !confirmed.checked || confirmedPreference !== preferenceKey(); };
+    target.addEventListener("input", () => { generation++; selectedTarget = ""; restoreAllowed = false; invalidateConfirmation(); notice.textContent = "Read the exact member ID before changing it."; sync(); });
     listed.addEventListener("change", () => { generation++; invalidateConfirmation(); sync(); });
     confirmed.addEventListener("change", () => { confirmedPreference = confirmed.checked ? preferenceKey() : ""; sync(); });
     read.addEventListener("click", async () => {
       const id = target.value.trim(); if (!live() || busy || !/^[1-9][0-9]{16,19}$/.test(id)) return;
       const requestedGeneration = ++generation, current = () => live() && generation === requestedGeneration && target.value.trim() === id;
       busy = true; selectedTarget = ""; invalidateConfirmation(); sync();
-      try { const d = await api("POST", "/api/admin/discord-directory/status", {discordId:id}, {live:current}); if (!current()) return; if (d?.discordId !== id || typeof d.listed !== "boolean") throw Error("Unreadable directory preference"); invalidateConfirmation(); selectedTarget = id; listed.checked = d.listed; notice.textContent = d.listed ? "The eligible Olympus row can be listed." : "The entire directory row is hidden."; }
+      try { const d = await api("POST", "/api/admin/discord-directory/status", {discordId:id}, {live:current}); if (!current()) return; if (d?.discordId !== id || typeof d.listed !== "boolean") throw Error("Unreadable directory preference"); invalidateConfirmation(); selectedTarget = id; listed.checked = d.listed; restoreAllowed = d.restoreAllowed === true; notice.textContent = (d.listed ? "The eligible Olympus row can be listed. " : "The entire directory row is hidden. ") + "Preference origin: " + String(d.visibilityOrigin || "unconfirmed") + ". " + (restoreAllowed ? "" : "Only this member can change their self-service preference. ") + (d.erasureNotice || ""); }
       catch (error) { if (current()) notice.textContent = explain(error,"The preference could not be confirmed; no change was sent."); }
       finally { busy = false; if (live()) sync(); }
     });
@@ -3738,7 +3801,7 @@
       finally { busy = false; selectedTarget = ""; invalidateConfirmation(); if (live()) sync(); }
     });
     clear(body); add(body, panel); add(panel, frame("Attended directory preference", null,
-      h("p", {text:"Use only for a person’s explicit listing request, including Olympus role holders who never registered on this website. This hides or restores the whole directory row; it changes no Discord role, account or optional profile."}),
+      h("p", {text:"Use only for a person’s explicit listing request, including Olympus role holders who never registered on this website. This hides or restores an attended preference for the whole directory row; it cannot override a member’s self-service choice and changes no Discord role, account or optional profile."}),
       fieldBox("attended-directory-id", "Exact Discord account ID supplied by the requester", target), read,
       h("label", null, listed, " List the eligible Olympus row"), h("label", null, confirmed, " I verified this exact account holder requested this preference"), save, notice));
   }
@@ -4994,24 +5057,34 @@
 
   /** .114: the leadership of every Olympus guild, as the site's administrators list it. A record only: it grants nothing. */
   async function communityLeadership(body) {
-    let data;
+    const owner=S.user, context=COM(), route=currentRoute();
+    const live=()=>S.user===owner && COM()===context && S.signedIn && !S.denied && currentRoute()===route && app.contains(body) && document.hidden!==true;
+    let data, revision=null, after=null;const identities=[];
     try {
-      data = await api("GET", "/api/leadership");
-    } catch (e) {
-      if (e && e.status === 403) refreshCommunity();
-      add(body, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The leadership directory could not be read.") })));
-      return;
-    }
-    const listed = data.guilds.filter((g) => g.gm || g.officers.length).length;
-    add(body, frame("Leadership of the Olympus guilds", null,
-      h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as the site's administrators list them. A listing is a record only: it gives no powers on this site, in the bot or in Discord." }),
-      listed ? null : noticeBox("info", "icon-clock", h("p", { text: "No guild leadership is listed yet. The leaders for the full release are chosen after the beta ends." })),
-      h("div", { class: "grid two" }, data.guilds.map((g) => h("div", { class: "card leadership-card" },
-        h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: g.name })),
-        h("dl", { class: "kv" },
-          h("dt", { text: "Guild Master" }), h("dd", { text: g.gm || "Not listed" }),
-          h("dt", { text: "Officers" }), h("dd", { text: g.officers.length ? g.officers.join(", ") : "None listed" }))))),
-      data.councilUrl ? h("p", { class: "muted small" }, "The Guild Masters and officers of every Olympus guild meet in the private ", h("a", { href: data.councilUrl, rel: "noopener", target: "_blank", text: "Olympus I–X Council" }), " in Asmongold's Discord; its roles are given by hand.") : null));
+      for(let page=0;page<5;page++) {
+        const next=await api("GET","/api/leadership"+(after ? `?after=${encodeURIComponent(after)}&revision=${encodeURIComponent(revision)}` : ""),undefined,{live});
+        if(!live()) return;
+        if(!next || !Array.isArray(next.guilds) || next.guilds.length!==10 || !Array.isArray(next.identities) || next.identities.length>32 || typeof next.revision!=="string" || !/^[A-Za-z0-9_-]{43}$/.test(next.revision) || (revision && next.revision!==revision) || typeof next.complete!=="boolean") throw Error("The leadership view changed or could not be checked. Refresh to read it again.");
+        revision=next.revision;data=next;identities.push(...next.identities);
+        if(next.complete){after=null;break;}
+        if(typeof next.nextCursor!=="string" || !/^guild_(?:0[1-9]|10)_(?:gm|officer_(?:0[1-9]|1[0-2]))$/.test(next.nextCursor) || next.nextCursor===after) throw Error("The leadership continuation could not be read.");
+        after=next.nextCursor;
+      }
+      if(after || !live()) {if(!live())return;throw Error("The leadership view is incomplete. Refresh to read it again.");}
+      const guilds=data.guilds.map(g=>({name:g.name,gm:g.gm,officers:[...g.officers]}));
+      const qualified=new Set();
+      for(const item of identities){
+        if(!item || !Number.isInteger(item.branch) || item.branch<1 || item.branch>10 || typeof item.label!=="string" || item.label.length>120 || !["gm","officer"].includes(item.position))throw Error("The leadership association could not be read.");
+        const g=guilds[item.branch-1];if(item.position==="gm"){g.gm=item.label;qualified.add(item.branch+":gm");}
+        else if(Number.isInteger(item.officerIndex)&&item.officerIndex>=0&&item.officerIndex<g.officers.length){g.officers[item.officerIndex]=item.label;qualified.add(item.branch+":"+item.officerIndex);}
+      }
+      const label=(value,key)=>h("span",null,value || "Not listed",value ? h("span",{class:"badge muted",text:qualified.has(key)?"current account association":"staff-entered / unverified"}):null);
+      add(body,frame("Leadership of the Olympus guilds",null,
+        h("p",{class:"muted small",text:"Current account associations are checked for this exact guild and seat. Legacy typed labels remain explicitly unverified. A directory listing grants no powers on the website, bot, Discord or in game."}),
+        h("div",{class:"grid two"},guilds.map((g,i)=>h("div",{class:"card leadership-card"},h("div",{class:"card-head"},icon("pos-guild_master"),h("h3",{text:g.name})),
+          h("dl",{class:"kv"},h("dt",{text:"Guild Master"}),h("dd",null,label(g.gm,(i+1)+":gm")),h("dt",{text:"Officers"}),h("dd",null,g.officers.length?g.officers.map((name,j)=>h("div",null,label(name,(i+1)+":"+j))):"None listed"))))),
+        data.councilUrl ? h("p",{class:"muted small"},"Council access is given separately in Discord. ",h("a",{href:data.councilUrl,rel:"noopener",target:"_blank",text:"Olympus I–X Council"})):null));
+    } catch(e){if(!live())return;if(e?.status===403)refreshCommunity();add(body,noticeBox("warn","icon-warning",h("p",{text:explain(e,"The leadership directory could not be read.")})));}
   }
   /**
    * .115 (Viktor's item A, 2 Oct 2026): News for confirmed members while an administrator has it switched on (the Worker's
@@ -5129,13 +5202,14 @@
   }
   async function communityDirectory(body) {
     const user = S.user, context = COM(), route = currentRoute();
-    let cursor = null, busy = false, disposed = false, expiryTimer = null, scanTimer = null, continuous = false;
+    let cursor = null, busy = false, disposed = false, expiryTimer = null, scanTimer = null, continuous = false, retryDelay = 1750, rateRetries = 0;
     const shown = new Set();
     const list = h("div", { class: "grid two", "data-discord-directory": "members" });
     const status = h("p", { class: "muted small", role: "status", "aria-live": "polite", text: "Reading Discord members…" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more members", hidden: true });
     const refresh = h("button", { class: "btn small", type: "button", text: "Refresh directory" });
     const scanAll = h("button", { class: "btn small", type: "button", text: "Load all eligible Olympus members", hidden: true });
+    const announce = message => {if(status.textContent !== message)status.textContent=message;};
     const stopScan = () => { continuous = false; clearTimeout(scanTimer); scanTimer = null; scanAll.textContent = "Load all eligible Olympus members"; };
     const live = () => !disposed && S.user === user && COM() === context && S.signedIn && !S.denied && currentRoute() === route && app.contains(body) && document.hidden !== true;
     const clearMembers = message => { stopScan(); clear(list); shown.clear(); cursor = null; more.hidden = scanAll.hidden = true; if (message) status.textContent = message; };
@@ -5163,7 +5237,7 @@
             characters.length ? h("ul", { class: "small" }, characters.map(character => h("li", { text: character.name + " · verified character" }))) : h("p", { class: "muted small", text: "No verified character published through a website account" }),
             member.charactersTruncated ? h("p", { class: "muted small", text: "Additional characters are not included on this page." }) : null));
         }
-        cursor = data.nextCursor; more.hidden = scanAll.hidden = !cursor;
+        cursor = data.nextCursor; more.hidden = scanAll.hidden = !cursor; retryDelay=1750;rateRetries=0;
         status.textContent = `${plural(shown.size, "Discord member")} shown · checked ${new Date(data.generatedAt).toLocaleString()}. ${data.complete ? "End of this traversal." : "More pages are available."} Discord membership can change while you browse; this is not an atomic roster snapshot.`;
         clearTimeout(expiryTimer);
         const expires = data.traversal && Date.parse(data.traversal.expiresAt);
@@ -5171,13 +5245,13 @@
       } catch (error) {
         if (!live()) return;
         if (error && (error.status === 401 || error.status === 403 || ["cursor_stale", "cursor_expired", "invalid_cursor"].includes(codeOf(error)))) clearMembers();
-        stopScan();
-        status.textContent = explain(error, "Discord members are unavailable. No empty or complete roster is inferred.");
+        if(error?.status===429 && continuous && ++rateRetries<=3){retryDelay=Math.max(1750,Math.min(900000,(error.retryAfterSeconds || 60)*1000));announce("Discord asked this directory to wait. Loading will resume after its retry delay; the existing view is not a complete roster.");}
+        else {stopScan();announce(explain(error, "Discord members are unavailable. No empty or complete roster is inferred."));}
       } finally {
         busy = false; if (!disposed) more.disabled = refresh.disabled = false;
         if (continuous && cursor && live()) {
           scanAll.textContent = "Pause loading remaining members";
-          scanTimer = setTimeout(() => { scanTimer = null; if (continuous && live()) load(false); }, 1750);
+          scanTimer = setTimeout(() => { scanTimer = null; if (continuous && live()) load(false); }, retryDelay);
         } else if (!cursor) stopScan();
       }
     };
@@ -5198,6 +5272,7 @@
         const listed = h("input", {type:"checkbox", checked:state.listed, id:"discord-directory-listed"});
         const save = h("button", {type:"button", class:"btn small", text:"Save my listing preference"});
         const note = h("p", {class:"muted small", role:"status", text:state.listed ? "Your eligible Olympus row can be listed." : "Your whole directory row is hidden."});
+        const erasureNote = h("p",{class:"muted small",text:state.erasureNotice || "Account erasure deletes this preference. An eligible Discord account may then appear in the directory; a fresh attended opt-out can hide it again."});
         save.addEventListener("click", async () => {
           if (!live() || save.disabled) return; save.disabled = true;
           try {
@@ -5208,7 +5283,7 @@
           } catch (error) { if (live()) note.textContent = explain(error,"The preference outcome is unconfirmed. Reopen the directory to read it before acting again."); }
           finally { if (live()) save.disabled = false; }
         });
-        add(ownVisibility, [h("label", {class:"check"}, listed, " List my Discord profile when I have an Olympus membership or rank role"), note, save]);
+        add(ownVisibility, [h("label", {class:"check"}, listed, " List my Discord profile when I have an Olympus membership or rank role"), note, erasureNote, save]);
       } catch (error) { if (live()) { clear(ownVisibility); add(ownVisibility, h("p", {class:"muted small", text:explain(error,"Your own directory preference is unavailable.")})); } }
     };
     loadOwnVisibility();

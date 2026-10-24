@@ -7,7 +7,7 @@ class Element {
   addEventListener(k,fn){if(!this.listeners.has(k))this.listeners.set(k,new Set());this.listeners.get(k).add(fn);}
   removeEventListener(k,fn){this.listeners.get(k)?.delete(fn);}
   setAttribute(k,value){this.attributes[k]=String(value);}
-  async fire(k,event={}){for(const fn of [...this.listeners.get(k)||[]])await fn({preventDefault(){},...event});}
+  async fire(k,event={}){const emitted={defaultPrevented:false,preventDefault(){this.defaultPrevented=true;},...event};if(this.inert&&['dragover','drop'].includes(k))return emitted;for(const fn of [...this.listeners.get(k)||[]])await fn(emitted);return emitted;}
   replaceChildren(...x){this.children=x;}append(...x){this.children.push(...x);}
 }
 const settle=async()=>{for(let n=0;n<10;n++)await new Promise(setImmediate);};
@@ -33,14 +33,15 @@ function harness(){
   scope.OlympusArmyCapture={refreshControls(){throw Error('Unowned global capture must not be touched');},clear(){throw Error('Unowned global capture must not be touched');}};scope.window=scope;vm.createContext(scope);
   for(const file of ['sanitized-export.js','report.js','savedvariables-import.js'])vm.runInContext(fs.readFileSync(path.join(assets,file),'utf8'),scope,{filename:file,timeout:1000});
   function root(){const ids=new Map();for(const id of ['aggregate-file','aggregate-drop','aggregate-status','aggregate-review','aggregate-clear','report-status','report-preview','report-clear','report-preview-results','report-consent-area','report-consent','report-publish','report-outcome'])ids.set(id,new Element());return{ids,querySelector:s=>ids.get(s.slice(1))||null};}
-  function mount(owner={},options={}){const node=root();let current=true,ownerCurrent=true;
+  function mount(owner={},options={}){const node=root();let current=true,ownerCurrent=true,importCurrent=true;
     const report=scope.OlympusArmyReportTool.mount(node,{owner,isCurrent:()=>current,isOwnerCurrent:()=>ownerCurrent,...options});
-    const importer=scope.OlympusArmyLocalImportTool.mount(node,{report,isCurrent:()=>current});
-    return{node,report,importer,leave(){current=false;report.destroy();importer.destroy();},revoke(){ownerCurrent=false;},owner};
+    const importer=scope.OlympusArmyLocalImportTool.mount(node,{report,isCurrent:()=>current&&importCurrent});
+    const importerTick=[...timers.values()].at(-1);
+    return{node,report,importer,leave(){current=false;report.destroy();importer.destroy();},revoke(){ownerCurrent=false;},invalidateImporter(){importCurrent=false;},tickImporter(){importerTick();},owner};
   }
-  return{scope,doc,win,timers,calls,mount,advance(milliseconds){wall+=milliseconds;},setExporterAvailable(value){exporterAvailable=value;},setMode:value=>mode=value,answerPreview:()=>previewAnswer(),answerAccess:()=>accessAnswer(),async prepare(instance){await settle();instance.report.onComplete(snapshot(),{wallDeadline:NOW*1000+300000,monotonicDeadline:300000});await instance.node.ids.get('report-preview').fire('click');instance.node.ids.get('report-consent').checked=true;},listeners(instance){return[...instance.node.ids.values(),doc,win].reduce((sum,item)=>sum+[...item.listeners.values()].reduce((n,v)=>n+v.size,0),0);}};
+  return{scope,doc,win,timers,calls,mount,advance(milliseconds){wall+=milliseconds;},setExporterAvailable(value){exporterAvailable=value;},setMode:value=>mode=value,answerPreview:()=>previewAnswer(),answerAccess:()=>accessAnswer(),async prepare(instance){await settle();instance.report.onComplete(snapshot(),{wallDeadline:NOW*1000+300000,monotonicDeadline:300000});await instance.node.ids.get('report-preview').fire('click');instance.node.ids.get('report-consent').checked=true;await instance.node.ids.get('report-consent').fire('change');},listeners(instance){return[...instance.node.ids.values(),doc,win].reduce((sum,item)=>sum+[...item.listeners.values()].reduce((n,v)=>n+v.size,0),0);}};
 }
-const importBlocked=(instance,blocked)=>{const ids=instance.node.ids;assert.equal(ids.get('aggregate-file').disabled,blocked);assert.equal(ids.get('aggregate-drop').inert,blocked);assert.equal(ids.get('aggregate-drop').attributes['aria-disabled'],String(blocked));};
+const importBlocked=(instance,blocked)=>{const ids=instance.node.ids;assert.equal(ids.get('aggregate-file').disabled,blocked);assert.equal(ids.get('aggregate-drop').inert,false,'drop prevention must remain reachable');assert.equal(ids.get('aggregate-drop').attributes.role,'group');assert.equal(ids.get('aggregate-drop').attributes['aria-disabled'],String(blocked));};
 const aggregateText=()=>{const value={schema:'olympus-site-aggregate',version:1,producer:'1.3.2-site.1',capturedAt:NOW,realmGroup:'Forever PvE',faction:'Alliance',guild:{name:'Olympus I',observedAt:NOW,characters:100,online:20}},lua=item=>typeof item==='object'?'{'+Object.entries(item).map(([key,child])=>'['+JSON.stringify(key)+']='+lua(child)+',').join('')+'}':JSON.stringify(item);return'OlympusSiteAggregate = '+lua(value)+'\n';};
 let passed=0;
 async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
@@ -55,8 +56,69 @@ async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
   await check('late file read after route destroy cannot paint or send data',async()=>{const h=harness(),x=h.mount();await settle();let answer;const file=x.node.ids.get('aggregate-file');file.files=[{name:'OlympusSiteAggregate.lua',size:20,text:()=>new Promise(resolve=>{answer=resolve;})}];const read=file.fire('change');await settle();x.leave();answer('not executable or parsed after disposal');await read;assert.equal(x.node.ids.get('aggregate-review').children.length,0);assert.equal(h.calls.length,1);assert.equal(h.listeners(x),0);});
   await check('unadopted exporter disables import and publication after authentic eligibility read',async()=>{const h=harness();h.setExporterAvailable(false);const x=h.mount();await settle();assert.equal(x.report.busy(),true);assert.equal(x.node.ids.get('aggregate-file').disabled,true);assert.equal(x.node.ids.get('report-preview').disabled,true);assert.equal(x.node.ids.get('report-publish').disabled,true);assert.throws(()=>x.report.onComplete(snapshot(),{wallDeadline:NOW*1000+300000,monotonicDeadline:300000}));assert.equal(h.calls.length,1);assert.match(x.node.ids.get('report-status').textContent,/publisher adoption/);importBlocked(x,true);let reads=0;const file={name:'OlympusSiteAggregate.lua',size:20,text:async()=>{reads++;throw Error('Unadopted file must never be read');}};x.node.ids.get('aggregate-file').files=[file];await x.node.ids.get('aggregate-file').fire('change');await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});assert.equal(reads,0);assert.equal(h.calls.length,1);assert.equal(x.node.ids.get('aggregate-review').children.length,0);importBlocked(x,true);x.leave();importBlocked(x,true);});
   await check('publisher hold preserves original unknown-outcome read without enabling new import',async()=>{const h=harness(),owner={},x=h.mount(owner);await h.prepare(x);h.setMode('lost');await x.node.ids.get('report-publish').fire('click');x.leave();h.setExporterAvailable(false);const y=h.mount(owner);await settle();assert.equal(y.report.busy(),true);assert.equal(y.node.ids.get('aggregate-file').disabled,true);assert.equal(y.node.ids.get('report-outcome').hidden,false);await y.node.ids.get('report-outcome').fire('click');assert.equal(h.calls.filter(c=>c.url==='/api/army/publish').length,1);assert.equal(h.calls.filter(c=>c.url==='/api/army/outcome').length,1);assert.equal(y.report.canLeave(),true);assert.equal(y.node.ids.get('aggregate-file').disabled,true);importBlocked(y,true);y.leave();importBlocked(y,true);});
-  await check('pending eligibility refuses file and drop reads, adopted access enables local review and disposal closes both controls',async()=>{const h=harness();h.setMode('access-pending');const x=h.mount();await settle();importBlocked(x,true);let reads=0;const content=aggregateText(),file={name:'OlympusSiteAggregate.lua',size:content.length,text:async()=>{reads++;return content;}};x.node.ids.get('aggregate-file').files=[file];await x.node.ids.get('aggregate-file').fire('change');await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});assert.equal(reads,0);assert.equal(h.calls.length,1);assert.equal(h.calls[0].signal.aborted,true);x.leave();h.answerAccess();await settle();importBlocked(x,true);assert.equal(reads,0);assert.equal(h.calls.length,1);const adopted=harness(),y=adopted.mount();await settle();importBlocked(y,false);y.node.ids.get('aggregate-file').files=[file];await y.node.ids.get('aggregate-file').fire('change');assert.equal(reads,1);assert.equal(y.node.ids.get('aggregate-review').children.length,1);assert.equal(y.node.ids.get('report-preview').disabled,false);assert.equal(adopted.calls.length,1);adopted.doc.hidden=true;await adopted.doc.fire('visibilitychange');importBlocked(y,true);adopted.doc.hidden=false;await adopted.doc.fire('visibilitychange');importBlocked(y,false);y.leave();importBlocked(y,true);await y.node.ids.get('aggregate-file').fire('change');await y.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});assert.equal(reads,1);assert.equal(adopted.calls.length,1);});
+  await check('pending eligibility refuses file and drop reads, adopted access enables local review and disposal closes both controls',async()=>{const h=harness();h.setMode('access-pending');const x=h.mount();await settle();importBlocked(x,true);let reads=0;const content=aggregateText(),file={name:'OlympusSiteAggregate.lua',size:content.length,text:async()=>{reads++;return content;}};x.node.ids.get('aggregate-file').files=[file];await x.node.ids.get('aggregate-file').fire('change');await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});assert.equal(reads,0);assert.equal(h.calls.length,1);assert.equal(h.calls[0].signal.aborted,false,'blocked import must not cancel the current eligibility read');x.leave();h.answerAccess();await settle();importBlocked(x,true);assert.equal(reads,0);assert.equal(h.calls.length,1);const adopted=harness(),y=adopted.mount();await settle();importBlocked(y,false);y.node.ids.get('aggregate-file').files=[file];await y.node.ids.get('aggregate-file').fire('change');assert.equal(reads,1);assert.equal(y.node.ids.get('aggregate-review').children.length,1);assert.equal(y.node.ids.get('report-preview').disabled,false);assert.equal(adopted.calls.length,1);adopted.doc.hidden=true;await adopted.doc.fire('visibilitychange');importBlocked(y,true);adopted.doc.hidden=false;await adopted.doc.fire('visibilitychange');importBlocked(y,false);y.leave();importBlocked(y,true);await y.node.ids.get('aggregate-file').fire('change');await y.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});assert.equal(reads,1);assert.equal(adopted.calls.length,1);});
   await check('changed exporter availability cannot silently enable old view and requires one fresh eligibility read',async()=>{const h=harness();h.setExporterAvailable(false);const x=h.mount();await settle();importBlocked(x,true);h.setExporterAvailable(true);await settle();importBlocked(x,true);assert.equal(h.calls.length,1);x.leave();const y=h.mount();await settle();importBlocked(y,false);assert.equal(h.calls.length,2);assert.ok(h.calls.every(call=>call.url==='/api/army/reporter'));y.leave();importBlocked(y,true);});
+  await check('blocked drag and drop swallow browser defaults without inspecting a file payload',async()=>{
+    for(const pending of [true,false]){
+      const h=harness();if(pending)h.setMode('access-pending');else h.setExporterAvailable(false);
+      const x=h.mount();await settle();importBlocked(x,true);let filesAccessed=0;
+      const transfer={dropEffect:'move',get files(){filesAccessed++;throw Error('Blocked drop must not inspect file payloads');}};
+      const drag=await x.node.ids.get('aggregate-drop').fire('dragover',{dataTransfer:transfer});
+      assert.equal(drag.defaultPrevented,true);assert.equal(transfer.dropEffect,'none');
+      const drop=await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:transfer});
+      assert.equal(drop.defaultPrevented,true);assert.equal(filesAccessed,0);assert.equal(h.calls.length,1);
+      assert.equal(h.calls[0].signal.aborted,false);assert.equal(x.node.ids.get('aggregate-review').children.length,0);
+      if(pending){h.answerAccess();await settle();importBlocked(x,false);assert.equal(h.calls.length,1);}
+      x.leave();assert.equal(h.listeners(x),0);
+    }
+  });
+  await check('adopted drag and drop review locally before an explicit preview and separate consent',async()=>{
+    const h=harness(),x=h.mount();await settle();importBlocked(x,false);let reads=0;
+    const content=aggregateText(),file={name:'OlympusSiteAggregate.lua',size:content.length,text:async()=>{reads++;return content;}},transfer={files:[file],dropEffect:'move'};
+    const drag=await x.node.ids.get('aggregate-drop').fire('dragover',{dataTransfer:transfer});
+    assert.equal(drag.defaultPrevented,true);assert.equal(transfer.dropEffect,'copy');
+    const drop=await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:transfer});
+    assert.equal(drop.defaultPrevented,true);assert.equal(reads,1);assert.equal(x.node.ids.get('aggregate-review').children.length,1);
+    assert.equal(x.node.ids.get('report-preview').disabled,false);assert.equal(x.node.ids.get('report-publish').disabled,true);
+    assert.equal(h.calls.length,1);await x.node.ids.get('report-preview').fire('click');assert.equal(h.calls.length,2);
+    assert.equal(h.calls[1].url,'/api/army/preview');assert.deepEqual(Object.keys(h.calls[1].body),['snapshot']);
+    assert.equal(h.calls[1].body.snapshot.realmGroup,'World of Warcraft: Forever PvE');
+    assert.equal(x.node.ids.get('report-consent').checked,false);assert.equal(x.node.ids.get('report-publish').disabled,true);
+    assert.equal(h.calls.filter(c=>c.url==='/api/army/publish').length,0);x.leave();
+  });
+  await check('replacement file clears the old preview before its asynchronous local read completes',async()=>{
+    const h=harness(),x=h.mount();await h.prepare(x);assert.equal(x.node.ids.get('report-publish').disabled,false);
+    let answer,reads=0;const content=aggregateText(),file={name:'OlympusSiteAggregate.lua',size:content.length,text:()=>{reads++;return new Promise(resolve=>{answer=resolve;});}};
+    const pending=x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:{files:[file]}});await settle();
+    assert.equal(reads,1);assert.equal(x.node.ids.get('report-preview-results').children.length,0);
+    assert.equal(x.node.ids.get('report-consent').checked,false);assert.equal(x.node.ids.get('report-publish').disabled,true);
+    await x.node.ids.get('report-publish').fire('click');assert.equal(h.calls.length,2);
+    answer(content);await pending;assert.equal(x.node.ids.get('aggregate-review').children.length,1);
+    assert.equal(x.node.ids.get('report-preview').disabled,false);assert.equal(x.node.ids.get('report-publish').disabled,true);
+    assert.equal(h.calls.length,2);x.leave();
+  });
+  await check('importer self-disposal closes its reporter immediately and refuses a late file completion',async()=>{
+    const h=harness(),x=h.mount();await settle();let answer,reads=0;const content=aggregateText();
+    x.node.ids.get('aggregate-file').files=[{name:'OlympusSiteAggregate.lua',size:content.length,text:()=>{reads++;return new Promise(resolve=>{answer=resolve;});}}];
+    const pending=x.node.ids.get('aggregate-file').fire('change');await settle();assert.equal(reads,1);
+    x.invalidateImporter();x.tickImporter();assert.equal(x.report.busy(),true);assert.equal(h.timers.size,0);assert.equal(h.listeners(x),0);importBlocked(x,true);
+    assert.throws(()=>x.report.onComplete(snapshot(),{}));await x.node.ids.get('report-publish').fire('click');
+    answer(content);await pending;assert.equal(x.node.ids.get('aggregate-review').children.length,0);assert.equal(h.calls.length,1);x.leave();
+  });
+  await check('late importer attachment to a disposed reporter leaves no live listeners or timers',async()=>{
+    const h=harness(),x=h.mount();await settle();x.report.destroy();assert.equal(h.listeners(x),0);assert.equal(h.timers.size,0);
+    const late=h.scope.OlympusArmyLocalImportTool.mount(x.node,{report:x.report,isCurrent:()=>true});
+    assert.equal(h.listeners(x),0);assert.equal(h.timers.size,0);importBlocked(x,true);assert.equal(h.calls.length,1);late.destroy();x.leave();
+  });
+  await check('importer self-disposal preserves the held original publication for exact deliberate recovery',async()=>{
+    const h=harness(),owner={},x=h.mount(owner);await h.prepare(x);h.setMode('lost');await x.node.ids.get('report-publish').fire('click');
+    const original=h.calls[2].body;x.invalidateImporter();x.tickImporter();assert.equal(h.listeners(x),0);assert.equal(h.timers.size,0);
+    assert.equal(h.scope.OlympusArmyReportTool.isNavigationHeld(),true);assert.throws(()=>h.mount({}));assert.equal(h.calls.length,3);
+    const y=h.mount(owner);await settle();assert.equal(h.calls.length,4);await y.node.ids.get('report-outcome').fire('click');
+    assert.equal(h.calls.filter(c=>c.url==='/api/army/publish').length,1);assert.equal(h.calls.filter(c=>c.url==='/api/army/outcome').length,1);
+    assert.equal(JSON.stringify(h.calls[4].body),JSON.stringify({snapshot:original.snapshot,previewToken:original.previewToken}));
+    assert.equal(y.report.canLeave(),true);assert.equal(h.scope.OlympusArmyReportTool.isNavigationHeld(),false);y.leave();
+  });
   for(const phase of ['preview','publish'])await check('online aging during '+phase+' refuses with specific recovery copy and no publication',async()=>{const h=harness(),x=h.mount();await settle();const value=snapshot();value.guilds[0].receivedAt=NOW-890;x.report.onComplete(value,{wallDeadline:NOW*1000+300000,monotonicDeadline:300000});if(phase==='publish'){await x.node.ids.get('report-preview').fire('click');x.node.ids.get('report-consent').checked=true;}h.advance(20000);await x.node.ids.get(phase==='preview'?'report-preview':'report-publish').fire('click');assert.match(x.node.ids.get('report-status').textContent,/online count aged past 15 minutes/);assert.match(x.node.ids.get('report-status').textContent,/select the dedicated export again/);assert.equal(h.calls.filter(c=>c.url==='/api/army/publish').length,0);assert.equal(h.calls.filter(c=>c.url==='/api/army/preview').length,phase==='publish'?1:0);assert.equal(x.report.canLeave(),true);x.leave();});
   console.log('RESULT '+passed+' lifecycle checks passed; no provider, SQLite or Workerd');clearTimeout(outer);
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});

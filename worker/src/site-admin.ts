@@ -19,7 +19,7 @@ import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy
  *   GET  lookup?q, GET account/{id}
  *   GET  export/{applications|board|votes|friends|reserved|users}
  *   GET  audit; GET audit-log?family&actor&subject&window&before&limit (.125: safe staff page)
- *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds, namesConfirmed (.115)}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
+ *   .114: GET|PUT bnet-switch {on, confirm}; GET|PUT leadership {guilds,namesConfirmed,expectedRevision,leadershipIdentitiesConfirmed (.197)}; GET beta-reset, PUT beta-reset/closed {betaClosedAt},
  *         POST beta-reset {confirm, notice}; GET renames, POST renames/forced {auditId, confirm}, POST renames/{id}/approve|cancel
  *   .115: GET news, POST news {id,title,body,days}, POST news/update {id,revision,title,body,days}, POST news/delete {id,revision}
  *         (site-news.ts); settings.newsOn
@@ -40,7 +40,7 @@ import { handleCommunityAdmin } from "./community-routes";
 import { DISCORD_INTENT_OPERATIONS } from "./discord-intent-operations";
 import { rest } from "./discord";
 import { bnetLoginState, setBnetSwitch } from "./bnet-switch";
-import { loadLeadership, NAME_WITHHELD, saveLeadership } from "./site-leadership";
+import { loadLeadershipAdmin, NAME_WITHHELD, saveLeadership } from "./site-leadership";
 import { closeRenameHold, listRenames, markForcedRename } from "./rename-review";
 import { handleNewsAdmin } from "./site-news";
 import { handleTreasuryCosmeticAdmin } from "./treasury-cosmetic";
@@ -100,10 +100,11 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
     }
   }
   if (parts[0] === "leadership" && !parts[1]) {
-    if (m === "GET") return apiJson(await loadLeadership(env));
+    if (m === "GET") { const view=await loadLeadershipAdmin(request,env,actor); return view instanceof Response?view:apiJson(view); }
     if (m === "PUT") {
-      const r = await saveLeadership(env, actor, body);
-      return r.ok ? apiJson({ ok: true, guilds: r.guilds }) : apiJson({ error: r.error, message: r.message }, r.error === "stale_directory" ? 409 : 400);
+      const r = await saveLeadership(env, actor, body,request);
+      if(!r.ok)return apiJson({error:r.error,message:r.message},r.error==='stale_directory'||r.error==='identity_unavailable'?409:400);
+      const view=await loadLeadershipAdmin(request,env,actor);return view instanceof Response?view:apiJson({ok:true,...view});
     }
   }
   if (parts[0] === "news") return handleNewsAdmin(request, env, parts.slice(1), admin, body); // .115: News notices (site-news.ts)

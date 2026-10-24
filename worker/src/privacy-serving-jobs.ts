@@ -6,7 +6,7 @@ import {nativeErasureMode} from './privacy-native-mode';
 import {captureAccountErasureProof,originalErasureJobBirthSql,CURRENT_ERASURE_SQL,PRIVACY_DB_NOW,admitInactiveServingAccount,type AccountErasureProof} from './privacy-serving-authority';
 import {continueServingErasure,erasureAttemptDiscipline,ERASURE_ATTEMPT_UNRESOLVED} from './privacy-serving-erase';
 import {cleanupPrivacyMessages} from './privacy-provider-messages';
-import {newsWebhookCleanupDueSql} from './site-news-webhook';
+import {newsWebhookCleanupCandidatesSql} from './site-news-webhook';
 import {admitInactiveBotAccount} from './privacy-inactive-bot';
 import {erasureAttemptFenceMode,claimOriginalErasureAttempt,originalErasureAttemptFacts,type OriginalErasureAttempt} from './privacy-erasure-attempt-identity';
 export const SERVING_ERASURE_JOB_WORST=151;
@@ -33,7 +33,7 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
  // minimized subjects need no account association to continue that custody.
  if(nativeErasureMode(env)){
   const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages m
-  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();
+  WHERE m.operation_id IN(${newsWebhookCleanupCandidatesSql}) AND m.state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();
   if(debt){await cleanupPrivacyMessages(env);return{attempted:0,completed:0,held:0};}
  }
  // An invalid discipline value holds new attempts and inactive admission; the independent provider-message debt lane continues.
@@ -56,7 +56,7 @@ export async function runServingErasureJob(env:Env):Promise<{attempted:number;co
   // This lane drains only requested/due operation custody. Selecting a message
   // never authorizes marking every other message of its editor for account erasure.
   const debt=await env.DB.prepare(`SELECT 1 AS due FROM privacy_provider_messages m
-  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{due:number}>();
+  WHERE m.operation_id IN(${newsWebhookCleanupCandidatesSql}) AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{due:number}>();
   if(debt)await cleanupPrivacyMessages(env);
   return{attempted:0,completed:0,held:0};
  }

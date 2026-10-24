@@ -462,6 +462,7 @@ local function EnsureShowOffline()
   if offlineSetting then return false end
   local value, missing = ReadShowOffline()
   if value == true then return true end
+  if value == nil and not missing then return false end -- restricted, throwing or unreadable getter: never toggle a setting we cannot verify
   local now = time()
   if offlineSetAt and now < offlineSetAt then offlineSetAt = now end
   if offlineSetAt and now - offlineSetAt < ROSTER_REQUEST_THROTTLE then
@@ -573,9 +574,9 @@ local function DaysOffline(i, online)
 end
 
 local function RemovalCandidates(limit)
-  if not IsInGuild() then return {} end
+  if not IsInGuild() then return {}, 0, "not in a guild" end
   ShowOfflineMembers()
-  if not EnsureShowOffline() then return {}, 0 end
+  if not EnsureShowOffline() then return {}, 0, "full roster visibility is unavailable" end
   local me = Presence.MyName()  -- the whole name: on the 27 Sep client UnitName("player") gives only its first part
   local total = GetNumGuildMembers()
   local out, enumerated = {}, 0
@@ -602,7 +603,7 @@ local function RemovalCandidates(limit)
       end
     end
   end
-  if enumerated ~= total or not RosterVisibilityCurrent() then return {}, 0 end
+  if enumerated ~= total or not RosterVisibilityCurrent() then return {}, 0, "the displayed roster is incomplete or changed" end
   -- Ranked by how far past its own threshold each one is, not by raw days. With tiered thresholds raw days would
   -- bury a level 1 abandoned for three days beneath a level 40 away for three weeks, when the first is far more
   -- clearly a seat nobody is using. A lower level still breaks a tie: less invested.
@@ -1090,14 +1091,16 @@ end
 -- the other officers rather than happening quietly in one person's client.
 local function NoteGuildFull()
   guildFullAt = time()
-  local list, totalEligible = RemovalCandidates(MAX_CANDIDATES)
+  local list, totalEligible, unavailable = RemovalCandidates(MAX_CANDIDATES)
   local slim = {}
   for i = 1, math.min(#list, 5) do
     local c = list[i]
     slim[i] = { name = c.name, level = c.level, rank = c.rank, days = math.floor(c.days) }
   end
-  Event({ type = "guild_full", ok = false, detail = string.format("%d eligible for removal", totalEligible or 0), candidates = slim })
-  if #list > 0 then
+  Event({ type = "guild_full", ok = false, detail = unavailable and ("removal candidates unavailable: " .. unavailable) or string.format("%d eligible for removal", totalEligible or 0), candidates = slim })
+  if unavailable then
+    Print("guild is full; removal candidates are unavailable because " .. unavailable .. ". Refresh the complete roster; no empty shortlist is inferred.")
+  elseif #list > 0 then
     Print(string.format("guild is full — %d member(s) are past their inactivity threshold (%s). /olv full lists them; the panel has a Remove button per row.", totalEligible or 0, OfflineRuleText()))
   else
     Print(string.format("guild is full, and nobody meets the removal criteria (%s). Relax offlineTiers in Config.lua, or raise the cap.", OfflineRuleText()))
@@ -3421,7 +3424,8 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     Print(string.format("  can you remove members at all? guild rank permission: %s",
       (CanGuildRemove and tostring(CanGuildRemove())) or "CanGuildRemove() not available on this client"))
   elseif cmd == "full" then
-    local list, total = RemovalCandidates(MAX_CANDIDATES)
+    local list, total, unavailable = RemovalCandidates(MAX_CANDIDATES)
+    if unavailable then Print("removal candidates unavailable: " .. unavailable .. ". Refresh the complete roster; no empty shortlist is inferred."); return end
     if #list == 0 then
       Print(string.format("no removal candidates: nobody is past their inactivity threshold (%s) and below rank index %d without a \"%s\" note.", OfflineRuleText(), PROTECT_RANK_INDEX, HOLD_NOTE))
     else

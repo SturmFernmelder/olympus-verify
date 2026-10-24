@@ -61,14 +61,13 @@ import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, admittedReadAs, admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED, refusal } from "./community-context";
-import { COUNCIL_INFO_URL, LEADERSHIP_KEY, parseLeadership } from "./site-leadership";
+import { qualifiedLeadershipPage } from "./site-leadership";
 import { openRenameHold } from "./rename-review";
 import { newsPage, handleTownCrierEditor } from "./site-news";
 import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
-import { talentBuildAttachment } from './talent-build-attachment';
-import { TALENT_SNAPSHOT_REVISION } from './talent-build-contract';
+import { applicationTalentBuilds, sharedApplicationTalentBuilds, talentBuildAttachment, unchangedHistoricalTalentBuild } from './talent-build-attachment';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -152,7 +151,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if (m === "GET" && path === "/api/me") return apiJson(await meData(env, user));
   if (m === "GET" && path === "/api/me/export") return exportMyData(request, env, user); // .71: the member's own copy
   if (m === "GET" && path === "/api/search") return search(env, user, new URL(request.url), admin);
-  if (m === "GET" && path === "/api/leadership") return leadershipPage(request, env); // .114: the I-X directory, confirmed members only
+  if (m === "GET" && path === "/api/leadership") return qualifiedLeadershipPage(request, env); // .114: the I-X directory, confirmed members only
   if (m === 'GET' && path === '/api/appointed-identities') return appointedIdentitiesPage(request, env);
   if (m === "GET" && path === "/api/news") return newsPage(request, env); // .115: News (site-news.ts), confirmed members, behind settings.newsOn
   if (m === "GET" && path === "/api/news/editor") return handleTownCrierEditor(request, env, [], user, {});
@@ -301,21 +300,6 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
   };
 }
 
-/**
- * .114: the Olympus I-X leadership directory for members (site-leadership.ts). Confirmed Olympus members only, the
- * community pages' own capability; a listing grants nothing anywhere. The Council link is only a Discord address.
- */
-async function leadershipPage(request: Request, env: Env): Promise<Response> {
-  // read behind the community reader boundary (Codex, log 19:17 UTC): the standing is judged in the same batch as the row,
-  // so a session, membership or roster proof lost before the read returns nothing
-  const out = await admittedCommunityRead(env, await communityContext(env, request, { guildRoleRead: true }), [
-    env.DB.prepare("SELECT value, updated_at FROM site_settings WHERE key = ?1").bind(LEADERSHIP_KEY),
-  ]);
-  if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
-  const row = (out[0]?.results[0] ?? null) as { value: string; updated_at: number } | null;
-  return apiJson({ guilds: parseLeadership(row?.value), updatedAt: row?.updated_at ?? null, councilUrl: COUNCIL_INFO_URL });
-}
-
 // ---------- the application ----------
 
 type Fail = { error: string; field: string; message: string };
@@ -341,7 +325,7 @@ export interface ValidApp {
   answers: string; // JSON
 }
 
-export function validateApplication(body: Record<string, unknown>, selfId: string, appointed: Record<string, string> = {}, noVote: readonly string[] = [], siteHost = "olympus.roachcouncil.com", previousTalentBuild?: string): Fail | ValidApp {
+export function validateApplication(body: Record<string, unknown>, selfId: string, appointed: Record<string, string> = {}, noVote: readonly string[] = [], siteHost = "olympus.roachcouncil.com", previousTalentBuild?: string, previousTalentBuilds?: unknown): Fail | ValidApp {
   const taken = (key: string) => isAppointed({ appointed }, key);
   const region = String(body.region ?? "");
   // A page opened before the NA/EU split may still send the old Raid Leader or Raid Assist; the region decides.
@@ -406,9 +390,8 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
       // An unchanged stored historical attachment is opaque evidence. It must not block an
       // unrelated application edit, and is never revalidated as a current calculator build.
       // previousTalentBuild comes only from the original own application read below.
-      const retained = !build && typeof previousTalentBuild === "string" && previousTalentBuild.length <= 256 && raw.talentBuild === previousTalentBuild
-        ? /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(?:[1-5][0-9]|60)\.[0-5]+$/.exec(previousTalentBuild) : null;
-      if (retained && retained[1] !== TALENT_SNAPSHOT_REVISION && retained[2] === cls) { answers.talentBuild = previousTalentBuild; continue; }
+      const retained = !build ? unchangedHistoricalTalentBuild(raw.talentBuild, previousTalentBuild, cls) : null;
+      if (retained) { answers.talentBuild = retained; continue; }
       if (!build || build.className && build.className !== body.class) return fail("talentBuild", "Attach a valid current calculator build for your selected class, or leave the field empty.");
       if (build.code) answers.talentBuild = build.code;
       continue;
@@ -426,6 +409,11 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
     }
     if (text) answers[q.key] = text;
   }
+  // .197: only declared application characters, never an inferred verified roster or profile.
+  // The previous collection comes exclusively from this account's admitted application read.
+  const talentBuilds = applicationTalentBuilds(raw.talentBuilds, { character, className: cls, siteHost, previous: previousTalentBuilds }, parseCharacterName);
+  if (!talentBuilds) return fail("talentBuilds", "Use at most three named application characters with distinct names and current level30/60 builds matching each class. Retain an older code only unchanged on its original character.");
+  if (talentBuilds.characters.length) answers.talentBuilds = talentBuilds;
   if (leading) {
     const hours = String(raw.hours ?? "");
     if (!HOUR_KEYS.has(hours)) return fail("hours", "Say how many hours a week you can give the role.");
@@ -466,6 +454,10 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   // board_at or a client answers field cannot supply this server-managed flag.
   if (body.boardPortrait !== undefined && typeof body.boardPortrait !== "boolean") return fail("boardPortrait", "Choose whether to show your Discord profile picture, then save again.");
   answers.boardPortraitOptIn = voted && body.board === true && body.boardPortrait === true;
+  if (body.boardTalentBuilds !== undefined && typeof body.boardTalentBuilds !== "boolean") return fail("boardTalentBuilds", "Choose separately whether to share the named character builds on the voting board.");
+  const shareTalentBuilds = voted && body.board === true && body.boardTalentBuilds === true;
+  if (shareTalentBuilds && !sharedApplicationTalentBuilds(talentBuilds, true, { character, className: cls, siteHost }, parseCharacterName).length) return fail("talentBuilds", "Only current level30/60 character builds can be shared. Replace retained historical codes or leave build sharing unchecked.");
+  answers.boardTalentBuildsOptIn = shareTalentBuilds;
   answers.ackAt = now();
   const fit = fitFromBits(bits);
 
@@ -496,8 +488,9 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
   if (existing && (existing.status === "accepted" || existing.status === "declined")) {
     return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
   }
-  const storedTalent = existing ? parseAnswers(existing.answers).talentBuild : undefined;
-  const a = validateApplication(body, user.discord_id, s.appointed, s.noVote, env.SITE_HOST, typeof storedTalent === "string" ? storedTalent : undefined);
+  const previousAnswers = existing ? parseAnswers(existing.answers) : {};
+  const storedTalent = previousAnswers.talentBuild;
+  const a = validateApplication(body, user.discord_id, s.appointed, s.noVote, env.SITE_HOST, typeof storedTalent === "string" ? storedTalent : undefined, previousAnswers.talentBuilds);
   // A page opened before a role was put to the vote hid the board box: the list it lacked comes back with the refusal,
   // so the page can show the box and the applicant tick it, without losing what they typed.
   if ("error" in a) return a.field === "board" ? apiJson({ ...a, noVote: s.noVote }, 400) : bad(a);
@@ -679,7 +672,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
   }
   const k = pageArgs.length;
   const rows = await env.DB.prepare(
-    `SELECT a.discord_id, a.position, a.class_lead, a.backup1, a.backup2, a.class, a.role, a.region, a.avail, a.answers,
+    `SELECT a.discord_id, a.position, a.class_lead, a.backup1, a.backup2, a.character, a.class, a.role, a.region, a.avail, a.answers,
             u.username, u.global_name, u.nick, u.avatar, (${myVoteSql(meAt)}) AS myVote
        ${base}${where}
       ORDER BY ((CAST(substr(a.discord_id, -6) AS INTEGER) * ?${k + 1} + ?${k + 2}) % 1000003), a.discord_id
@@ -711,6 +704,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
         choice, // 1 = their first choice, 2 or 3 = a backup
         // Only the written answers the application form says are shown here; logs, references and notes stay private.
         answers: Object.fromEntries(BOARD_ANSWERS.filter((k) => typeof answers[k] === "string").map((k) => [k, answers[k]])),
+        talentBuilds: sharedApplicationTalentBuilds(answers.talentBuilds, answers.boardTalentBuildsOptIn, { character: typeof r.character === "string" ? r.character : null, className: typeof r.class === "string" ? r.class : "", siteHost: env.SITE_HOST }, parseCharacterName),
         myVote: Number(r.myVote ?? 0),
         self: id === me,
       };

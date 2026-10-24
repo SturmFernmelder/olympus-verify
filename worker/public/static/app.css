@@ -946,3 +946,6 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 /* Stream Shield remains outside private identity and wrapping navigation groups. */
 .topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.stream-shield-toggle{white-space:nowrap}
 @media(max-width:760px){.topbar-actions{margin-left:auto;max-width:100%;flex-wrap:wrap;justify-content:flex-end}}
+
+/* .197: canonical policy See-also spacing survives the member-shell reader. */
+.legal-view196 .related{margin-top:1.5rem}
