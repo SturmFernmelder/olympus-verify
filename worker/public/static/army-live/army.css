@@ -111,6 +111,7 @@
 .army-site #media-area { margin-top: 18px; }
 .army-site video { display: block; width: 100%; max-height: 300px; object-fit: contain; border: 1px solid var(--line); background: #000; }
 .army-site .addon-setup { margin-bottom: 20px; }
+.army-site .addon-setup .btn { max-width: 100%; white-space: normal; }
 :is(.army-site, .army-reader) .addon-setup h2 { margin-bottom: 10px; }
 .army-site .addon-setup p:last-child { margin-bottom: 0; }
 .army-site .footer-in > .brand { min-width: 145px; }
