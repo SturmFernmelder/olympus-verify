@@ -217,6 +217,8 @@
     if (!Array.isArray(offices) || offices.length < 1 || offices.length > 131 || offices.some(office => !office || typeof office.key !== "string")) return () => {};
     const appointmentKeys = new Set(offices.map(office => office.key));
     if (appointmentKeys.size !== offices.length) return () => {};
+    const referencedKeys = new Set([...labels.map(node => node.getAttribute("data-appointment-label")), ...titles.map(node => node.getAttribute("data-appointment-title"))].filter(key => appointmentKeys.has(key)));
+    const requestedRole = referencedKeys.size === 1 ? [...referencedKeys][0] : null;
     const originals = labels.map(node => [node, node.textContent]), originalTitles = titles.map(node => [node, node.getAttribute("title")]);
     let disposed = false, generation = 0, hidden = !!document.hidden;
     const owned = () => !disposed && ownsView() && S.signedIn && !S.denied && S.user === user && S.settings === settings && COM() === context && currentRoute() === route && communityReader();
@@ -241,25 +243,26 @@
     const read = async () => {
       if (!live()) return;
       const requestedGeneration = ++generation, current = () => requestedGeneration === generation && live();
-      const seen = new Set(), people = [], pageSize = 32, maxPages = Math.ceil(appointmentKeys.size / pageSize);
+      const seen = new Set(), people = [], pageSize = 32, maxPages = requestedRole === null ? Math.ceil(appointmentKeys.size / pageSize) : 1;
       let after = null, revision = null, complete = false;
       clearProjection();
       try {
-        const pendingMatches = appointmentPendingRead && appointmentPendingRead.user===user && appointmentPendingRead.settings===settings && appointmentPendingRead.context===context && appointmentPendingRead.route===route && appointmentPendingRead.appointments===JSON.stringify(settings?.appointed || {});
+        const pendingMatches = appointmentPendingRead && appointmentPendingRead.user===user && appointmentPendingRead.settings===settings && appointmentPendingRead.context===context && appointmentPendingRead.route===route && appointmentPendingRead.appointments===JSON.stringify(settings?.appointed || {}) && (appointmentPendingRead.role===null || appointmentPendingRead.role===requestedRole);
         let shared = pendingMatches ? appointmentPendingRead : null;
         if(!shared){
-          shared={user,settings,context,route,appointments:JSON.stringify(settings?.appointed || {}),promise:null};
+          shared={user,settings,context,route,appointments:JSON.stringify(settings?.appointed || {}),role:requestedRole,promise:null};
           shared.promise=(async()=>{
         for (let page = 0; page < maxPages; page++) {
-          const path = '/api/appointed-identities' + (after === null ? '' : '?' + qs({ after, revision }));
+          const path = '/api/appointed-identities' + (requestedRole !== null ? '?' + qs({ role: requestedRole }) : after === null ? '' : '?' + qs({ after, revision }));
           const data = await api('GET', path, undefined, { live: current });
           if (!current()) return;
-          if (data?.scope !== 'qualified_community_readers' || !Array.isArray(data.identities) || data.identities.length > pageSize ||
+          if (data?.scope !== 'qualified_community_readers' || !Array.isArray(data.identities) || data.identities.length > (requestedRole === null ? pageSize : 1) ||
+              requestedRole !== null && (!data.complete || data.nextCursor !== null) ||
               !/^[A-Za-z0-9_-]{43}$/.test(data.revision || '') || revision !== null && data.revision !== revision ||
               typeof data.complete !== 'boolean' || data.complete !== (data.nextCursor === null) ||
               data.nextCursor !== null && (!appointmentKeys.has(data.nextCursor) || after !== null && data.nextCursor <= after)) throw Error('appointment_page_unconfirmed');
           for (const person of data.identities) {
-            if (!person || !appointmentKeys.has(person.role) || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) ||
+            if (!person || !appointmentKeys.has(person.role) || requestedRole !== null && person.role !== requestedRole || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) ||
                 after !== null && person.role <= after || data.nextCursor !== null && person.role > data.nextCursor ||
                 !appointmentPointer(person.appointment) || typeof person.displayName !== 'string' || typeof person.username !== 'string' ||
                 !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== 'string' || !['verified', 'queued', 'member'].includes(c.status) || typeof c.verifiedAt !== 'string')) throw Error('appointment_page_unconfirmed');
@@ -3764,7 +3767,10 @@
       if (!live() || status.disabled) return; busy = true; sync(); const id = operation.value.trim();
       try { const d = await api("POST", path + "status", { operationId: id }, { live }); if (!live()) return; const o = d?.operation;
         notice.textContent = o ? "Original operation: " + o.state + " · " + o.reason + " · attempts " + o.attempts + "." : "No recorded operation was returned. This does not establish that an unconfirmed provider command did not apply.";
-        if (o?.id === spent && o.state === "settled") { sessionStorage.removeItem(markerKey); spent = null; preview = null; clear(changes); consent.checked = false; decline.checked = false; }
+        // Only a fresh persisted original status can prove nonapplication. The confirm
+        // reply alone may outlive a failed receipt; unknown/spent custody stays held.
+        const definiteNoSend = o?.state === "held" && o.attempts === 1 && Number.isSafeInteger(o.checked_at) && o.checked_at > 0 && o.checked_at <= nowSec() && ["treasury_pre_dispatch_refused", "treasury_provider_definite_refusal"].includes(o.reason);
+        if (o?.id === spent && (o.state === "settled" || definiteNoSend)) { sessionStorage.removeItem(markerKey); spent = null; preview = null; clear(changes); consent.checked = false; decline.checked = false; if (definiteNoSend) notice.textContent += " The original stored receipt records definitive nonapplication. A new change still requires a fresh preview and explicit confirmation; the old operation is never replayed."; }
       } catch (e) { if (live()) notice.textContent = explain(e, "The original status could not be read; no role command was sent."); }
       finally { busy = false; if (live()) sync(); }
     });

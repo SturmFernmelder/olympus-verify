@@ -282,9 +282,10 @@ export async function appointedIdentitiesPage(request: Request, env: Env): Promi
   const ctx = await communityContext(env, request);
   if (!ctx.subject) return apiJson({ error: 'signed_out' }, 401);
   if (rateLimited('appointed-read:' + ctx.subject.discordId, 20, 60)) return apiJson({ error: 'slow_down' }, 429);
-  const q = new URL(request.url).searchParams, after = q.get('after'), revision = q.get('revision');
+  const q = new URL(request.url).searchParams, after = q.get('after'), revision = q.get('revision'), role = q.get('role');
   if ((after === null) !== (revision === null) || after !== null && (!APPOINTMENT_IDENTITY_ROLES.includes(after) || !/^[A-Za-z0-9_-]{43}$/.test(revision!)) ||
-      [...q.keys()].some(key => !['after', 'revision'].includes(key)) || [...q.keys()].length !== new Set(q.keys()).size)
+      role !== null && (!APPOINTMENT_IDENTITY_ROLES.includes(role) || after !== null || revision !== null) ||
+      [...q.keys()].some(key => !['after', 'revision', 'role'].includes(key)) || [...q.keys()].length !== new Set(q.keys()).size)
     return apiJson({ error: 'invalid_appointment_cursor' }, 400);
   const statements = () => [env.DB.prepare("SELECT value FROM site_settings WHERE key='appointed'"), appointedIdentitiesStatement(env)];
   let out = await admittedCommunityRead(env, ctx, statements());
@@ -296,11 +297,14 @@ export async function appointedIdentitiesPage(request: Request, env: Env): Promi
   // The full original Native payload is already bounded at 131 offices x 51
   // character rows. Bind it privately so a prior page's birth, lifecycle, names
   // or current characters cannot change unnoticed before collection completes.
-  const revisionPayload = JSON.stringify([subject.discordId, subject.sessionVersion, subject.expiresAt, subject.accountIncarnation, subject.privacyGeneration, originalValue, originalRows, APPOINTMENT_IDENTITY_ROLES]);
+  const revisionWitness = [subject.discordId, subject.sessionVersion, subject.expiresAt, subject.accountIncarnation, subject.privacyGeneration, originalValue, originalRows, APPOINTMENT_IDENTITY_ROLES];
+  const revisionPayload = JSON.stringify(role === null ? revisionWitness : [...revisionWitness, { role }]);
   if (revision !== null && !await verify(env.COOKIE_SECRET, PAGE_PURPOSE, revisionPayload, revision))
     return apiJson({ error: 'appointed_identities_changed', message: 'The appointment view changed. Refresh the page before reading it again.' }, 409);
   const pageRevision = revision ?? await sign(env.COOKIE_SECRET, PAGE_PURPOSE, revisionPayload);
-  const pageRows = originalRows.filter(raw => (raw as IdentityRow).role > (after ?? '')).slice(0, IDENTITY_PAGE + 1);
+  // A dialog can request one closed catalogue office without collecting all131.
+  // The original complete private witness and final admitted reread stay intact.
+  const pageRows = originalRows.filter(raw => role === null ? (raw as IdentityRow).role > (after ?? '') : (raw as IdentityRow).role === role).slice(0, IDENTITY_PAGE + 1);
   const rows = pageRows.slice(0, IDENTITY_PAGE), profiles = new Map<string, Found>(), checked = new Set<string>();
   for (const raw of rows) {
     const row = raw as IdentityRow;

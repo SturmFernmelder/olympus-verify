@@ -91,13 +91,15 @@ async function frontendOwner197() {
   // A main view and its role dialog can share only an unresolved read captured
   // from that same owner/settings/context/route. No result cache is introduced.
   const appointments = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { co_gm: 'Appointed member', treasurer: 'Appointed member' }; } });
-  const revision = 'A'.repeat(43), identityCalls = [], identityReplies = [];
+  const revision = 'A'.repeat(43), identityCalls = [], identityReplies = []; let wrongFilteredRole = false;
   appointments.before(url => { if (url.startsWith('/api/appointed-identities')) identityCalls.push(url); return false; });
   appointments.hold(url => url.startsWith('/api/appointed-identities') ? 120 : 0);
   appointments.answer(url => {
     if (!url.startsWith('/api/appointed-identities')) return null;
     identityReplies.push(url);
-    return { scope: 'qualified_community_readers', revision, complete: true, nextCursor: null, identities: ['co_gm', 'treasurer'].map(role => ({ role, appointment: '<@300000000000000097>', displayName: 'Qualified ' + role, username: 'qualified.' + role, characters: [] })) };
+    const selected = new URL(url, 'https://guild.example').searchParams.get('role');
+    const returned = selected ? [wrongFilteredRole ? 'treasurer' : selected] : ['co_gm', 'treasurer'];
+    return { scope: 'qualified_community_readers', revision, complete: true, nextCursor: null, identities: returned.map(role => ({ role, appointment: '<@300000000000000097>', displayName: 'Qualified ' + role, username: 'qualified.' + role, characters: [] })) };
   });
   await appointments.go('#/apply');
   await must(() => identityCalls.length === 1, 'one original pending appointment collection');
@@ -110,6 +112,7 @@ async function frontendOwner197() {
   check('one completed admitted collection paints both current owners without a second request', identityCalls.length === 1 && identityReplies.length === 1);
   dialog.close(); details.click(); dialog = appointments.document.querySelectorAll('dialog').find(item => item.open);
   await must(() => identityCalls.length === 2, 'new dialog performs a fresh uncached identity read');
+  check('.197 a completed main collection is not cached: the later dialog requests only its own existing catalogue office', new URL(identityCalls[1], 'https://guild.example').search === '?role=co_gm');
   check('resolved identities are never reused as a cross-view cache', identityReplies.length === 1 && !dialog.textContent.includes('Qualified co_gm'));
   appointments.document.hidden = true; appointments.document.dispatchEvent(new Event('visibilitychange'));
   await must(() => identityReplies.length === 2, 'original hidden collection terminal response'); await settle();
@@ -117,6 +120,11 @@ async function frontendOwner197() {
   appointments.document.hidden = false; appointments.document.dispatchEvent(new Event('visibilitychange'));
   await must(() => identityCalls.length === 3 && identityReplies.length === 3 && dialog.textContent.includes('Qualified co_gm'), 'fresh shared collection after visibility returns');
   check('visibility re-entry obtains one fresh shared read rather than restoring resolved data', identityCalls.length === 3 && identityReplies.length === 3 && appointments.app.textContent.includes('Qualified co_gm'));
+  check('.197 the main view retains its full collection and a same-capture dialog shares that superset', identityCalls[2] === '/api/appointed-identities');
+  dialog.close(); wrongFilteredRole = true; details.click(); dialog = appointments.document.querySelectorAll('dialog').find(item => item.open);
+  await must(() => identityReplies.length === 4, 'single-office wrong-holder terminal response'); await settle();
+  check('.197 a single-office reply containing another otherwise valid office fails closed without a stale or foreign holder', identityCalls.length === 4 && !dialog.textContent.includes('Qualified co_gm') && !dialog.textContent.includes('Qualified treasurer'));
+  wrongFilteredRole = false;
   await appointments.go('#/settings');
   const callsAtDisposal = identityCalls.length;
   appointments.document.hidden = true; appointments.document.dispatchEvent(new Event('visibilitychange')); appointments.document.hidden = false; appointments.document.dispatchEvent(new Event('visibilitychange')); await settle();

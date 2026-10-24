@@ -355,6 +355,41 @@ async function fixture() {
   let next='',pagesRead=0,seen=new Set();do{T+=2;const out=await scale.call(ADMIN,next);if(out.status!==200)throw Error('large traversal refused '+JSON.stringify(out.body));check('source1000 never expands captured/public output above100',out.body.members.length<=100);for(const m of out.body.members)seen.add(m.ref);pagesRead++;next=out.body.nextCursor;}while(next&&pagesRead<100);
   check('all600 Olympus holders across81000 server members fit original900second traversal',next===null&&seen.size===600&&pagesRead===82&&calls.length-scaleCalls===82);
   scale.close();
+  // New independent suppression matrix follows every original case and clock.
+  // Both registered copy forms use the real source SQL and unchanged Native port.
+  T+=61;const suppression197=await fixture(),noAccount197='760000000000000101';
+  const currentBirth197=suppression197.db.prepare('SELECT account_incarnation FROM site_users WHERE discord_id=?').get(TARGET).account_incarnation;
+  const setHidden197=value=>suppression197.write("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES('discordDirectoryHidden',?,?,NULL)ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=NULL",value,T);
+  const copyHidden197=async(id,packed)=>{const plan=(packed?context.communityPackedExportPlan:context.communityScopedExportPlan)(suppression197.env,id,['discord_directory_visibility']);return plan.shape(await suppression197.DB.batch(plan.statements)).discord_directory_visibility;};
+  for(const [name,id,marker,hidden]of[
+    ['current account birth',TARGET,currentBirth197,true],
+    ['previous account birth',TARGET,'e'.repeat(32),false],
+    ['registered attended marker',TARGET,'discord-only-optout-v1',true],
+    ['Discord-only attended marker',noAccount197,'discord-only-optout-v1',true],
+    ['Discord-only unrelated birth',noAccount197,'e'.repeat(32),false],
+    ['absent entry with no account',noAccount197,null,false],
+  ]){
+    await setHidden197(JSON.stringify(marker===null?{}:{[id]:marker}));provider=async()=>answer([member(id,{user:{id,username:'suppression-matrix'}})]);
+    const listed=await suppression197.call(),ordinary=await copyHidden197(id,false),packed=await copyHidden197(id,true);
+    check('single lookup preserves '+name+' directory exclusion',listed.status===200&&listed.body.members.length===(hidden?0:1));
+    check('single lookup preserves '+name+' in both own-copy forms',ordinary.optedOut===hidden&&packed.optedOut===hidden&&JSON.stringify(ordinary)===JSON.stringify(packed)&&!JSON.stringify(ordinary).includes(id));
+  }
+  for(const[name,value]of[
+    ['invalid JSON','{'],
+    ['nonobject','[]'],
+    ['duplicate target key','{"'+TARGET+'":"'+currentBirth197+'","'+TARGET+'":"discord-only-optout-v1"}'],
+    ['foreign malformed value',JSON.stringify({[TARGET]:currentBirth197,[noAccount197]:42})],
+    ['foreign malformed key',JSON.stringify({[TARGET]:currentBirth197,bad:'e'.repeat(32)})],
+  ]){
+    await setHidden197(value);provider=async()=>answer([member()]);const refused=await suppression197.call();let ordinaryRefused=false,packedRefused=false;
+    try{await copyHidden197(TARGET,false);}catch{ordinaryRefused=true;}
+    try{await copyHidden197(TARGET,true);}catch{packedRefused=true;}
+    check('single lookup retains global '+name+' directory refusal',refused.status===503&&refused.body.error==='discord_directory_unavailable'&&!Object.hasOwn(refused.body,'members'));
+    check('single lookup retains global '+name+' whole-copy refusal',ordinaryRefused&&packedRefused);
+  }
+  const suppressionSql197=suppression197.plans.flat().filter(sql=>sql.includes('discordDirectoryHidden')&&sql.includes('json_extract(CASE WHEN NOT json_valid(ds.value)'));
+  check('actual directory and copy statements each evaluate one strict suppression lookup',suppressionSql197.length>0&&suppressionSql197.every(sql=>(sql.match(/json_extract\(CASE WHEN NOT json_valid\(ds\.value\)/g)||[]).length===1));
+  suppression197.close();
   console.log(`\n${pass}/${n} passed; unexpected outbound=${unexpectedNetwork}`);
   if (pass !== n || unexpectedNetwork) process.exitCode = 1;
 })().catch(e => { console.error(e); process.exitCode = 1; });

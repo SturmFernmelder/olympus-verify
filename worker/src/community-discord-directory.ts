@@ -120,7 +120,7 @@ const permitted = `COALESCE(m.banned,0)=0 AND (u.discord_id IS NULL OR (
  AND (p.subject_id IS NULL OR (p.state='active' AND typeof(p.generation)='text' AND length(p.generation)=32
  AND p.generation NOT GLOB '*[^0-9a-f]*' AND typeof(p.revision)='integer' AND p.revision>=0))
  AND NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=wanted.value AND j.state IN('waiting_role','held','erasing'))
- AND NOT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND (json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"')=u.account_incarnation OR json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"')='discord-only-optout-v1'))`;
+ AND NOT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"') IN(u.account_incarnation,'discord-only-optout-v1'))`;
 const targetFrom = `FROM json_each(?1) wanted LEFT JOIN site_users u ON u.discord_id=wanted.value
  LEFT JOIN members m ON m.discord_id=wanted.value LEFT JOIN privacy_subjects p ON p.subject_id=wanted.value`;
 function captureTargets(env: Env, ids: readonly string[]): D1PreparedStatement {
@@ -286,11 +286,11 @@ export async function discordDirectoryAttendedVisibility(request: Request, env: 
 }
 
 registerCommunityData('discord_directory_visibility', (env, account) => [env.DB.prepare(`UPDATE site_settings SET value=json_remove((SELECT ${hiddenValue} FROM site_settings ds WHERE ds.key=?1),?2),updated_at=${DB_NOW},updated_by=NULL WHERE key=?1`).bind(VISIBILITY_KEY, '$."' + account + '"')], (env, account) => ({
-  statements: [env.DB.prepare(`SELECT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key=?1 AND (json_extract(${hiddenValue},?3)='discord-only-optout-v1' OR EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?2 AND json_extract(${hiddenValue},?3)=u.account_incarnation))) AS hidden`).bind(VISIBILITY_KEY, account, '$."' + account + '"')],
+  statements: [env.DB.prepare(`SELECT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key=?1 AND json_extract(${hiddenValue},?3) IN('discord-only-optout-v1',(SELECT u.account_incarnation FROM site_users u WHERE u.discord_id=?2))) AS hidden`).bind(VISIBILITY_KEY, account, '$."' + account + '"')],
   shape: rows => ({ listedByDefault: true, optedOut: ((rows[0]!.results[0] as { hidden: number })?.hidden ?? 0) === 1, scope: 'whole_directory_row', extraProfileDetails: 'separate_opt_in' }),
   packed: {
     maxRows: 1,
-    selectSql: `SELECT '' AS entry,json_object('hidden',EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND (json_extract(${hiddenValue},'$."'||?1||'"')='discord-only-optout-v1' OR EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?1 AND json_extract(${hiddenValue},'$."'||?1||'"')=u.account_incarnation)))) AS value`,
+    selectSql: `SELECT '' AS entry,json_object('hidden',EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND json_extract(${hiddenValue},'$."'||?1||'"') IN('discord-only-optout-v1',(SELECT u.account_incarnation FROM site_users u WHERE u.discord_id=?1)))) AS value`,
     shape: rows => {
       const value = rows.length === 1 && rows[0]!.entry === '' ? rows[0]!.value : null;
       if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== 1 || !Object.hasOwn(value, 'hidden')) throw Error('privacy_copy_unconfirmed');

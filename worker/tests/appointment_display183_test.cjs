@@ -17,7 +17,7 @@ const body183 = String.raw`
   const page183=await openPage(MEMBER,{}, {bootTransform:transformed183});
   let reads183=0; const calls183=[];
   page183.before((pathname,init)=>{calls183.push({pathname,method:init.method||'GET'});if(pathname==='/api/appointed-identities')reads183++;return false;});
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'||pathname==='/api/appointed-identities?role=co_gm'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:pathname.includes('?')?[co183]:[co183,treasury183]}:null);
   const hasNames183=root=>root.textContent.includes(coLabel183)&&root.textContent.includes(treasurerLabel183);
   const awaitNames183=async(root,label)=>waitFor(()=>hasNames183(root),label);
   const appointmentFlow183=(line,sentence)=>!!line&&line.childNodes.length===2&&line.children[0]?.tagName==='IMG'&&line.children[1]?.tagName==='SPAN'&&line.querySelector('[data-appointment-label]')?.parentNode===line.children[1]&&line.children[1].textContent.endsWith(sentence);
@@ -36,6 +36,7 @@ const body183 = String.raw`
   const dialog183=page183.document.body.querySelector('dialog');
   check('application role information resolves the current Discord-only holder and still offers no appointed-role selection',dialog183.textContent.includes(coLabel183)&&dialog183.textContent.includes('This role takes no applications')&&!dialog183.textContent.includes('Choose as my first choice')&&!dialog183.textContent.includes('Private Treasury Fixture'));
   check('appointed role information keeps the hydrated name and its sentence in one text flex item',appointmentFlow183(dialog183.querySelector('.appointed-line'),' This role takes no applications.'));
+  check('.197 the fresh CoGM dialog requests only that exact known office and never another holder',calls183.filter(call=>call.pathname==='/api/appointed-identities?role=co_gm').length===1&&calls183.filter(call=>call.pathname.includes('?role=')).every(call=>call.pathname==='/api/appointed-identities?role=co_gm'&&call.method==='GET'));
   dialog183.close();
   check('closing a role dialog clears its private label even from the detached node',!dialog183.textContent.includes(coLabel183)&&!page183.document.body.querySelector('dialog'));
   await page183.go('#/vote/co_gm');await waitFor(()=>page183.app.textContent.includes(coLabel183)&&page183.app.querySelector('[data-appointment-title="treasurer"]')?.getAttribute('title')==='Appointed: '+treasurerLabel183,'fresh appointed Vote labels');
@@ -85,7 +86,7 @@ const body183 = String.raw`
   check('a late reply from a departed route cannot put names or characters on its replacement',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture'));
   page183.hold(null);
   const dotted183={...co183,displayName:'captain.user.',username:'captain.user.'};
-  page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[dotted183]}:null);
+  page183.answer(pathname=>pathname==='/api/appointed-identities'||pathname==='/api/appointed-identities?role=co_gm'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[dotted183]}:null);
   await page183.go('#/roles');await waitFor(()=>page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line')?.textContent==='Appointed: captain.user. This role takes no applications or votes.','fresh terminal-period Roles label');
   check('fresh Roles labels retain the exact dotted username once and punctuate the private fallback separately',page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line').textContent==='Appointed: captain.user. This role takes no applications or votes.'&&page183.app.querySelector('[data-appointed-person="treasurer"] .appointed-line').textContent==='Filled by appointment. This role takes no applications or votes.'&&!page183.app.textContent.includes('captain.user..'));
   await page183.go('#/apply');page183.app.querySelector('button[aria-label="Details: Co-Guild Master"]').click();

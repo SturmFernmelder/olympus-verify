@@ -45,7 +45,12 @@ The owner pastes new values at Wrangler's hidden prompt or into the two local fi
 5. **`WATCHER_TOKEN`:** the Worker secret, then `watcher/config.json` and a watcher restart. The watcher's outbox
    retains each original outbox item. Definitely uninvoked items can retry only in their original context; a dispatch that may have reached the provider, a context change, or an unknown acknowledgement stays held. Token rotation never rebinds or blindly replays old custody. Use the archive-first attended recovery steps in `docs/watcher-custody196.md` for a source-owned definite refusal.
 6. **`COOKIE_SECRET`:** the Worker secret only. Every signed-in site session and every in-flight OAuth state stops
-   working; people sign in again.
+   working; people sign in again. It also authenticates the original Town Crier webhook cleanup credential pin.
+   Before a planned, non-emergency rotation, disable new cross-post sends and finish known cleanup with the exact
+   original credential and destination; follow `docs/town-crier-webhook196.md`. Do not reset the webhook token,
+   recreate/delete/move the webhook, or discard its fixed bindings while original cleanup is still needed.
+   For suspected compromise, rotate at once: never retain or restore an unsafe secret to unblock cleanup. Preserve
+   the original held custody and use attended incident review; rotation does not authorize a retry or ledger purge.
 7. **Git credential:** revoke it under GitHub Settings → Applications and sign in again.
 
 ## If something leaks
