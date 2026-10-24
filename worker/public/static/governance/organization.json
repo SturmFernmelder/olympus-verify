@@ -6,28 +6,43 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 157508,
-    "sha256": "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf"
+    "bytes": 173953,
+    "sha256": "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5"
   },
   "councilComposition": {
-    "status": "owner_directed_pending_constitutional_process",
-    "recordedAt": "2026-10-19",
+    "status": "owner_directed_20261023",
+    "recordedAt": "2026-10-23",
     "authority": "project owner direction",
     "offices": [
+      "Guild Master",
       "Co-Guild Master",
+      "Treasurer",
       "War Head for PvP",
       "War Head for Raiding",
-      "Federal Treasurer",
       "Minister of Artisanry",
       "Minister of Heraldry"
     ],
-    "summary": "The owner directed inclusion of the Co-Guild Master in the High Council alongside its five core portfolio offices.",
-    "formalStatus": "Constitutional recommendation and Founder ratification are not recorded; eligible seats and individual appointment instruments remain separate.",
+    "summary": "The owner directs Guild Master, Co-Guild Master and Treasurer as the core Council offices, supported by accepted portfolio mandates.",
+    "formalStatus": "Current owner composition direction is recorded. Constitutional recommendation and Founder ratification are not recorded. Individual accepted warrants, eligible votes and permissions remain separate.",
     "recommendationRecorded": false,
     "founderRatificationRecorded": false,
     "eligibleSeatIssued": false,
     "permissionsApplied": false,
-    "sourcePath": "/static/governance/council-composition-2026-10-19.md"
+    "sourcePath": "/static/governance/council-composition-2026-10-19.md",
+    "historicalDirection": {
+      "status": "owner_directed_pending_constitutional_process",
+      "recordedAt": "2026-10-19",
+      "offices": [
+        "Co-Guild Master",
+        "War Head for PvP",
+        "War Head for Raiding",
+        "Federal Treasurer",
+        "Minister of Artisanry",
+        "Minister of Heraldry"
+      ],
+      "summary": "The owner directed inclusion of the Co-Guild Master in the High Council alongside its five core portfolio offices.",
+      "formalStatus": "Constitutional recommendation and Founder ratification are not recorded; eligible seats and individual appointment instruments remain separate."
+    }
   },
   "legend": {
     "accountability": "Accountability within an accepted remit; no automatic platform permission.",
@@ -53,10 +68,10 @@
       "title": "High Council",
       "parent": "founder",
       "relation": "accountability",
-      "kind": "council and native rank",
+      "kind": "council of accepted offices",
       "icon": "officer",
       "remit": "Olympus-wide standards, budgets and portfolio coordination.",
-      "limits": "Native rank does not create an accepted seat, mandate or vote.",
+      "limits": "Guild Master, Co-Guild Master and Treasurer form the core Council offices. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -176,7 +191,7 @@
       "kind": "core portfolio",
       "icon": "treasurer",
       "remit": "Dues accounting, approved budgets, receipts and Finance Emissaries.",
-      "limits": "Treasurer is an appointment within High Council; bank preset, custody and approval are separate.",
+      "limits": "Treasurer is Slot 3 in the current native recommendation; the accepted Treasury office is separate; bank preset, custody and approval are separate.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -280,13 +295,13 @@
     },
     {
       "id": "officers",
-      "title": "Local Officers and Officer Alts",
+      "title": "Local Officers and historical Officer Alt duties",
       "parent": "guilds",
       "relation": "accountability",
-      "kind": "native ranks and delegated duties",
+      "kind": "native Officer rank and delegated duties",
       "icon": "officer",
       "remit": "Local leadership delegated by that guild’s Guild Master.",
-      "limits": "Sensitive powers need actual permission; Officer Alt is not another person or vote.",
+      "limits": "Sensitive powers need actual permission; Officer Alt is a historical office label, not another current native slot, person or vote.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -566,665 +581,1403 @@
       "label": "Academy Lead (Training Lead)",
       "classification": "shared",
       "nodeId": "events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_01"
     },
     {
       "ordinal": 2,
       "label": "Addon Developer",
       "classification": "shared",
       "nodeId": "systems",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_02"
     },
     {
       "ordinal": 3,
       "label": "Addon / Discord Architect",
       "classification": "shared",
       "nodeId": "systems",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_03"
     },
     {
       "ordinal": 4,
       "label": "Alt (Verified Alt)",
       "classification": "native",
       "nodeId": "native",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 9,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        9
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_04"
     },
     {
       "ordinal": 5,
       "label": "Alt / Social Member",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_05"
     },
     {
       "ordinal": 6,
       "label": "Ambassador",
       "classification": "shared",
       "nodeId": "diplomacy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_06"
     },
     {
       "ordinal": 7,
       "label": "Artisan",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_07"
     },
     {
       "ordinal": 8,
       "label": "Bank Auditor",
       "classification": "portfolios",
       "nodeId": "auditor",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_08"
     },
     {
       "ordinal": 9,
       "label": "Bank Manager",
       "classification": "local",
       "nodeId": "custody",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_09"
     },
     {
       "ordinal": 10,
       "label": "Bank Steward",
       "classification": "local",
       "nodeId": "custody",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_10"
     },
     {
       "ordinal": 11,
       "label": "Bench",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_11"
     },
     {
       "ordinal": 12,
       "label": "Broadcaster",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_12"
     },
     {
       "ordinal": 13,
       "label": "Casual",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_13"
     },
     {
       "ordinal": 14,
       "label": "Chief of Intake (Gatekeeper, Intake Gatekeeper)",
       "classification": "shared",
       "nodeId": "intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_14"
     },
     {
       "ordinal": 15,
       "label": "Chief of Staff",
       "classification": "leadership",
       "nodeId": "staff",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_15"
     },
     {
       "ordinal": 16,
       "label": "Chief Strategist (Head of Research)",
       "classification": "shared",
       "nodeId": "strategy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_16"
     },
     {
       "ordinal": 17,
       "label": "Class Head",
       "classification": "local",
       "nodeId": "class-support",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_17"
     },
     {
       "ordinal": 18,
       "label": "Class Lead",
       "classification": "local",
       "nodeId": "class-support",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_18"
     },
     {
       "ordinal": 19,
       "label": "Co-GM",
       "classification": "leadership",
       "nodeId": "executive",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        2
+      ],
+      "nativeMappingNote": "High Council (Slot 2) is the recommended placement for the appointed Co-Guild Master; the accepted executive delegation, vote and actual permissions remain separate.",
+      "mappingApplies": false,
+      "officeKey": "office_19"
     },
     {
       "ordinal": 20,
       "label": "Coalition Lead (Foreign Affairs Lead)",
       "classification": "shared",
       "nodeId": "diplomacy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_20"
     },
     {
       "ordinal": 21,
       "label": "Community & Events Lead",
       "classification": "shared",
       "nodeId": "events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_21"
     },
     {
       "ordinal": 22,
       "label": "Community Officer (Social Officer)",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_22"
     },
     {
       "ordinal": 23,
       "label": "Content Creator",
       "classification": "shared",
       "nodeId": "media",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_23"
     },
     {
       "ordinal": 24,
       "label": "Content Rep (Stream Rep)",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_24"
     },
     {
       "ordinal": 25,
       "label": "Core Raider",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        7
+      ],
+      "nativeMappingNote": "Raider is the activity placement; event attendance and loot eligibility remain separate.",
+      "mappingApplies": false,
+      "officeKey": "office_25"
     },
     {
       "ordinal": 26,
       "label": "Council of Justice",
       "classification": "leadership",
       "nodeId": "justice",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_26"
     },
     {
       "ordinal": 27,
       "label": "Crafter",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_27"
     },
     {
       "ordinal": 28,
       "label": "Department Head",
       "classification": "leadership",
       "nodeId": "council",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_28"
     },
     {
       "ordinal": 29,
       "label": "Deputy",
       "classification": "leadership",
       "nodeId": "executive",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_29"
     },
     {
       "ordinal": 30,
       "label": "Diplomat",
       "classification": "shared",
       "nodeId": "diplomacy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_30"
     },
     {
       "ordinal": 31,
       "label": "Diplomatic Envoy",
       "classification": "shared",
       "nodeId": "diplomacy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_31"
     },
     {
       "ordinal": 32,
       "label": "Discord Engineer",
       "classification": "shared",
       "nodeId": "systems",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_32"
     },
     {
       "ordinal": 33,
       "label": "Discord Moderator",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_33"
     },
     {
       "ordinal": 34,
       "label": "Emissary",
       "classification": "liaisons",
       "nodeId": "emissaries",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_34"
     },
     {
       "ordinal": 35,
       "label": "Emissary of Artisanry",
       "classification": "liaisons",
       "nodeId": "emissary-artisanry",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_35"
     },
     {
       "ordinal": 36,
       "label": "Emissary of Finance",
       "classification": "liaisons",
       "nodeId": "emissary-finance",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_36"
     },
     {
       "ordinal": 37,
       "label": "Emissary of Heraldry",
       "classification": "liaisons",
       "nodeId": "emissary-heraldry",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_37"
     },
     {
       "ordinal": 38,
       "label": "Emissary of War (War Emissary)",
       "classification": "liaisons",
       "nodeId": "emissaries",
-      "note": "War Emissary covers the distinct local PvP and Raiding liaisons."
+      "note": "War Emissary covers the distinct local PvP and Raiding liaisons.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_38"
     },
     {
       "ordinal": 39,
       "label": "Event Coordinator",
       "classification": "shared",
       "nodeId": "events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_39"
     },
     {
       "ordinal": 40,
       "label": "Event Officer",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_40"
     },
     {
       "ordinal": 41,
       "label": "Final Authority",
       "classification": "leadership",
       "nodeId": "founder",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        1
+      ],
+      "nativeMappingNote": "Reserved Founder authority is distinct from the local Guild Master rank; Slot 1 is a planning placement only for the actually designated local Guild Master.",
+      "mappingApplies": false,
+      "officeKey": "office_41"
     },
     {
       "ordinal": 42,
       "label": "Founder",
       "classification": "leadership",
       "nodeId": "founder",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        1
+      ],
+      "nativeMappingNote": "Reserved Founder authority is distinct from the local Guild Master rank; Slot 1 is a planning placement only for the actually designated local Guild Master.",
+      "mappingApplies": false,
+      "officeKey": "office_42"
     },
     {
       "ordinal": 43,
       "label": "Guild Master (GM)",
       "classification": "native",
       "nodeId": "guilds",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 1,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        1
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_43"
     },
     {
       "ordinal": 44,
       "label": "Guild Recruiter",
       "classification": "local",
       "nodeId": "local-intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_44"
     },
     {
       "ordinal": 45,
       "label": "High Council",
       "classification": "native",
       "nodeId": "council",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "The chosen ten-rank B ladder retains High Council immediately below Guild Master; an office, eligible vote and actual permission remain separate records.",
+      "nativeSlot": 2,
+      "nativeRelationship": "Native Slot 2 in chosen B ladder; Council office acceptance and existing proof profiles are separately qualified.",
+      "recommendedNativeSlots": [
+        2
+      ],
+      "nativeMappingNote": "High Council native Slot 2. Its name/index matches historical Council terminology, but this distinct new whole-ladder profile does not automatically qualify signing or privileged mapping.",
+      "mappingApplies": false,
+      "officeKey": "office_45"
     },
     {
       "ordinal": 46,
       "label": "Honorary / Emeritus",
       "classification": "honorary",
       "nodeId": "honorary",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        6
+      ],
+      "nativeMappingNote": "Veteran is an optional planning placement for recognized service. An honorary title alone performs no promotion or grant.",
+      "mappingApplies": false,
+      "officeKey": "office_46"
     },
     {
       "ordinal": 47,
       "label": "Inactive",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_47"
     },
     {
       "ordinal": 48,
       "label": "Initiate",
       "classification": "native",
       "nodeId": "native",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 10,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        10
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_48"
     },
     {
       "ordinal": 49,
       "label": "Intelligence / Scouting Lead",
       "classification": "shared",
       "nodeId": "strategy",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_49"
     },
     {
       "ordinal": 50,
       "label": "Lead Correspondent",
       "classification": "liaisons",
       "nodeId": "emissaries",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_50"
     },
     {
       "ordinal": 51,
       "label": "Loot Council",
       "classification": "local",
       "nodeId": "tactical",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Raid Leader is a planning placement for a separately appointed event lead; this does not command another guild or issue bank/verification rights.",
+      "mappingApplies": false,
+      "officeKey": "office_51"
     },
     {
       "ordinal": 52,
       "label": "Marshall",
       "classification": "local",
       "nodeId": "tactical",
-      "note": "Requested spelling retained; Marshal is the book’s event-appointment spelling."
+      "note": "Requested spelling retained; Marshal is the book’s event-appointment spelling.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Raid Leader is a planning placement for a separately appointed event lead; this does not command another guild or issue bank/verification rights.",
+      "mappingApplies": false,
+      "officeKey": "office_52"
     },
     {
       "ordinal": 53,
       "label": "Media & Communications Lead",
       "classification": "shared",
       "nodeId": "media",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_53"
     },
     {
       "ordinal": 54,
       "label": "Media Lead",
       "classification": "shared",
       "nodeId": "media",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_54"
     },
     {
       "ordinal": 55,
       "label": "Member (Roster Member)",
       "classification": "native",
       "nodeId": "native",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 8,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_55"
     },
     {
       "ordinal": 56,
       "label": "Mentor",
       "classification": "shared",
       "nodeId": "class-support",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_56"
     },
     {
       "ordinal": 57,
       "label": "Minister",
       "classification": "portfolios",
       "nodeId": "council",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_57"
     },
     {
       "ordinal": 58,
       "label": "Minister of Artisanry",
       "classification": "portfolios",
       "nodeId": "artisanry",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_58"
     },
     {
       "ordinal": 59,
       "label": "Minister of Heraldry",
       "classification": "portfolios",
       "nodeId": "heraldry",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_59"
     },
     {
       "ordinal": 60,
       "label": "Moderator",
       "classification": "local",
       "nodeId": "local-events",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_60"
     },
     {
       "ordinal": 61,
       "label": "Muted",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_61"
     },
     {
       "ordinal": 62,
       "label": "Officer",
       "classification": "native",
       "nodeId": "officers",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 4,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_62"
     },
     {
       "ordinal": 63,
       "label": "Officer Alt",
-      "classification": "native",
+      "classification": "shared",
       "nodeId": "officers",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Preserved historical Officer Alt label and holder key; a verified alternate may use native Alt without creating an extra person, native slot or vote.",
+      "nativeSlot": null,
+      "nativeRelationship": "Historical native Officer Alt remains an extended appointment/identity label; the chosen B ladder drops that native slot.",
+      "recommendedNativeSlots": [
+        9
+      ],
+      "nativeMappingNote": "Native Alt (Slot 9) is recommended for the historical Officer Alt identity label; no extra native slot or person is created.",
+      "mappingApplies": false,
+      "officeKey": "office_63"
     },
     {
       "ordinal": 64,
       "label": "Penal / Sentry Hold (Timeout)",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_64"
     },
     {
       "ordinal": 65,
       "label": "Per-Guild Correspondent",
       "classification": "liaisons",
       "nodeId": "emissaries",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_65"
     },
     {
       "ordinal": 66,
       "label": "Pledge",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_66"
     },
     {
       "ordinal": 67,
       "label": "Privy Council",
       "classification": "leadership",
       "nodeId": "council",
-      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_67"
     },
     {
       "ordinal": 68,
       "label": "Probation",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_68"
     },
     {
       "ordinal": 69,
       "label": "Profession Coordinator",
       "classification": "local",
       "nodeId": "artisanry",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_69"
     },
     {
       "ordinal": 70,
       "label": "PvP Captain",
       "classification": "local",
       "nodeId": "tactical",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Raid Leader is a planning placement for a separately appointed event lead; this does not command another guild or issue bank/verification rights.",
+      "mappingApplies": false,
+      "officeKey": "office_70"
     },
     {
       "ordinal": 71,
       "label": "PvP Lead (PvP Leader)",
       "classification": "local",
       "nodeId": "tactical",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Raid Leader is a planning placement for a separately appointed event lead; this does not command another guild or issue bank/verification rights.",
+      "mappingApplies": false,
+      "officeKey": "office_71"
     },
     {
       "ordinal": 72,
       "label": "Quartermaster",
       "classification": "local",
       "nodeId": "custody",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_72"
     },
     {
       "ordinal": 73,
       "label": "Raid Assist",
       "classification": "local",
       "nodeId": "tactical",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Raid Leader is a planning placement for a separately appointed event lead; this does not command another guild or issue bank/verification rights.",
+      "mappingApplies": false,
+      "officeKey": "office_73"
     },
     {
       "ordinal": 74,
       "label": "Raid Leader (Raid Lead)",
       "classification": "native",
       "nodeId": "tactical",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 5,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        5
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_74"
     },
     {
       "ordinal": 75,
       "label": "Raider",
       "classification": "native",
       "nodeId": "native",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 7,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        7
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_75"
     },
     {
       "ordinal": 76,
       "label": "Recruit",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_76"
     },
     {
       "ordinal": 77,
       "label": "Recruiter",
       "classification": "local",
       "nodeId": "local-intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_77"
     },
     {
       "ordinal": 78,
       "label": "Recruitment Lead",
       "classification": "shared",
       "nodeId": "intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_78"
     },
     {
       "ordinal": 79,
       "label": "Recruitment Officer",
       "classification": "shared",
       "nodeId": "intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_79"
     },
     {
       "ordinal": 80,
       "label": "Social",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_80"
     },
     {
       "ordinal": 81,
       "label": "Sovereign (The King)",
       "classification": "leadership",
       "nodeId": "founder",
-      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_81"
     },
     {
       "ordinal": 82,
       "label": "Tech / Tools Officer",
       "classification": "shared",
       "nodeId": "systems",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_82"
     },
     {
       "ordinal": 83,
       "label": "Technical Envoy",
       "classification": "shared",
       "nodeId": "systems",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_83"
     },
     {
       "ordinal": 84,
       "label": "The Court",
       "classification": "leadership",
       "nodeId": "founder",
-      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty."
+      "note": "Requested ceremonial vocabulary; creates no further governing body or real-world sovereignty.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_84"
     },
     {
       "ordinal": 85,
       "label": "Tithe Payer (Treasury Tiers)",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Cosmetic colour-only recognition per 90-day season: Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+ additional in-game gold to the designated Treasurer recipient with a TITHE reference. No native rank, channels, Council vote, bank right, loot or admission priority; amounts and private ledger data stay private.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_85"
     },
     {
       "ordinal": 86,
       "label": "Treasurer (Guild Bank)",
-      "classification": "portfolios",
+      "classification": "native",
       "nodeId": "treasury",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Treasurer is one-based native Slot 3, zero-based index 2, above Officer Slot 4 in the owner’s chosen B ladder. Accepted Treasury office, bank permission and Council vote remain separately qualified.",
+      "nativeSlot": 3,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        3
+      ],
+      "nativeMappingNote": "Treasurer native Slot 3 (zero-based index 2), directly above Officer Slot 4. Accepted office, bank custody, Council vote and actual permissions remain separate.",
+      "mappingApplies": false,
+      "officeKey": "office_86"
     },
     {
       "ordinal": 87,
       "label": "Trial (Trial Member, Trialist, Trial/Recruit)",
       "classification": "review",
       "nodeId": "review",
-      "note": "Status vocabulary alone applies no sanction or permission."
+      "note": "Status vocabulary alone applies no sanction or permission.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [],
+      "nativeMappingNote": "Courtesy, cosmetic or review status only. It recommends no native promotion, permission, Council vote or sanction.",
+      "mappingApplies": false,
+      "officeKey": "office_87"
     },
     {
       "ordinal": 88,
       "label": "Trial Officer",
       "classification": "local",
       "nodeId": "local-intake",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_88"
     },
     {
       "ordinal": 89,
       "label": "Trial Raider",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_89"
     },
     {
       "ordinal": 90,
       "label": "Veteran",
       "classification": "native",
       "nodeId": "native",
-      "note": "Native character rank and corresponding appointment or relationship are distinct."
+      "note": "Native character rank and corresponding appointment or relationship are distinct.",
+      "nativeSlot": 6,
+      "nativeRelationship": "Direct named native slot; no automatic permission or appointment.",
+      "recommendedNativeSlots": [
+        6
+      ],
+      "nativeMappingNote": "Matches the named native slot in the owner-directed ten-rank recommendation; actual adoption and permissions are separately reviewed.",
+      "mappingApplies": false,
+      "officeKey": "office_90"
     },
     {
       "ordinal": 91,
       "label": "Veteran Officer",
       "classification": "honorary",
       "nodeId": "honorary",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        6
+      ],
+      "nativeMappingNote": "Veteran is an optional planning placement for recognized service. An honorary title alone performs no promotion or grant.",
+      "mappingApplies": false,
+      "officeKey": "office_91"
     },
     {
       "ordinal": 92,
       "label": "Vice Guild Master",
       "classification": "leadership",
       "nodeId": "executive",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_92"
     },
     {
       "ordinal": 93,
       "label": "VIP",
       "classification": "activity",
       "nodeId": "activity",
-      "note": "Voluntary activity or courtesy tag, without office or automatic powers."
+      "note": "Voluntary activity or courtesy tag, without office or automatic powers.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_93"
     },
     {
       "ordinal": 94,
       "label": "War Head",
       "classification": "portfolios",
       "nodeId": "war",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        4
+      ],
+      "nativeMappingNote": "Officer (Slot 4) is the shared planning placement for this accepted leadership or specialist office. Scope, vote, confidential access, custody and permissions require their own records.",
+      "mappingApplies": false,
+      "officeKey": "office_94"
     },
     {
       "ordinal": 95,
       "label": "Welfare / Community Support Lead",
       "classification": "shared",
       "nodeId": "welfare",
-      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody."
+      "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
+      "nativeSlot": null,
+      "nativeRelationship": "Extended office, activity, alias or review status; no extra native rank slot or automatic permission.",
+      "recommendedNativeSlots": [
+        8
+      ],
+      "nativeMappingNote": "Member is the default planning placement for this support or activity title. Bank assistants and independent auditors receive no implied custody or withdrawal authority.",
+      "mappingApplies": false,
+      "officeKey": "office_95"
     }
   ],
   "nativeRanks": [
@@ -1236,17 +1989,17 @@
     {
       "order": 2,
       "name": "High Council",
-      "meaning": "Native rank; accepted Council seat and vote remain separate."
+      "meaning": "High Council native Slot 2. Its name/index matches historical Council terminology, but this distinct new whole-ladder profile does not automatically qualify signing or privileged mapping."
     },
     {
       "order": 3,
-      "name": "Officer",
-      "meaning": "Delegated local leadership and actual permission checks."
+      "name": "Treasurer",
+      "meaning": "Treasurer native Slot 3 (zero-based index 2), directly above Officer Slot 4. Accepted office, bank custody, Council vote and actual permissions remain separate."
     },
     {
       "order": 4,
-      "name": "Officer Alt",
-      "meaning": "Verified alternate of an officer, not another person or vote."
+      "name": "Officer",
+      "meaning": "Delegated local leadership and actual permission checks."
     },
     {
       "order": 5,
@@ -1266,7 +2019,7 @@
     {
       "order": 8,
       "name": "Member",
-      "meaning": "Full membership across social play, raiding, crafting, leveling and PvP."
+      "meaning": "Full membership across social play, raiding, crafting, leveling, PvE and voluntary PvP."
     },
     {
       "order": 9,
@@ -1378,7 +2131,7 @@
       "title": "Federal Treasurer",
       "duty": "Reconciles actual receipts, agreed budgets and finance correspondence.",
       "output": "Aggregate budget, commitments and reconciliation exceptions.",
-      "boundary": "Treasurer is a Council appointment, not a native rank or independent auditor of its own custody."
+      "boundary": "Treasurer has a recommended native Slot 3 (zero-based index 2) and a separate accepted Council office; the holder never independently audits their own custody."
     },
     {
       "nodeId": "artisanry",
@@ -1597,5 +2350,34 @@
       "output": "Contact, learning goals and a review opportunity.",
       "boundary": "Support is voluntary and separate from the membership decision."
     }
-  ]
+  ],
+  "currentOwnerDirection": {
+    "date": "2026-10-23",
+    "publicRuleset": "PVE - Alliance",
+    "nativeRecommendationApplied": false,
+    "permissionsApplied": false,
+    "coreCouncilOffices": [
+      "Guild Master",
+      "Co-Guild Master",
+      "Treasurer"
+    ],
+    "supplement": "Royal Codex — Service, Stewardship and Public Accountability",
+    "nativeLadderRuling": "Chosen B: High Council Slot 2, Treasurer Slot 3 (index 2), Officer Slot 4; Officer Alt remains historical and is not a current native slot.",
+    "rulingAt": "2026-10-23T12:47:24.752Z",
+    "cosmeticTitheTiers": [
+      {
+        "name": "Tithe Payer",
+        "minimumAdditionalGold": 25
+      },
+      {
+        "name": "Patron of the Treasury",
+        "minimumAdditionalGold": 100
+      },
+      {
+        "name": "Benefactor of Olympus",
+        "minimumAdditionalGold": 500
+      }
+    ],
+    "recognitionPeriod": "90-day season; expires at season end; cosmetic colour only"
+  }
 }

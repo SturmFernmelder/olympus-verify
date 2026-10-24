@@ -52,7 +52,7 @@ export function guideMessage(env: Env, profile: RulesetProfile, freshRoles = fal
         title: role ? "Join Olympus or restore your guild access" : "Join Olympus",
         color: GOLD,
         description: [
-          `Current game: **${rulesetLabel(profile)}**.`,
+          `${profile.phase === "public_direction" ? "Olympus guild direction" : "Current game"}: **${rulesetLabel(profile)}**.`,
           "",
           "For a character in, or applying to, the main Olympus guild. The website is optional for this verification flow.", // .114: no Battle.net promise while its sign-in is switched off (bnet-switch.ts)
           "",

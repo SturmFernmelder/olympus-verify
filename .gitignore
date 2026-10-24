@@ -37,3 +37,8 @@ docs/probe-results/2026-*
 
 # Added 2026-10-01 (publication helpers, docs/source-provenance.md): the local additive snapshots the helpers build
 .publication/
+
+# Private attended custody receipts and cooperating-writer locks
+*.custody-archive-*.json
+*.custody-lock
+*.custody-recovery.tmp

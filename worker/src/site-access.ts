@@ -23,14 +23,28 @@ const FLASH: Record<string, string> = {
   privacy_held: 'Your sign-in could not be completed while account controls are updating. Please try again later.',
 };
 
-export function siteSignIn(request: Request, status = 200, flash?: string, cookies: string[] = []): Response {
+export function siteSignIn(request: Request, status = 200, flash?: string, cookies: string[] = [], animation = false): Response {
   const note = flash && FLASH[flash] ? `<p role="status">${FLASH[flash]}</p>` : '';
-  // Owner's .173 choice: approved wide/portrait art fills the viewport, with sign-in below the shields.
-  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true"><picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture></div><div class="login-card"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
+  // Direct owner answer, 23 Oct 2026: approved .173 stills remain the default.
+  // The optional animation is a client-model render, not a publisher-issued video.
+  const media = animation && request.headers.get('Save-Data') !== 'on'
+    ? `<video class="login-portal-video" width="960" height="540" autoplay loop muted playsinline preload="metadata" poster="/static/wow/login/dark-portal-poster.jpg"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video>`
+    : `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
+  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true">${media}</div><div class="login-card"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
   const headers = loginHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
   // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.
   return new Response(request.method === 'HEAD' ? null : policyShell('Enter Olympus', body, { policyNavigation: false, loginPresentation: true }), { status, headers });
+}
+
+/** One public, nonpersonal branding bit only. Missing/unavailable/malformed settings retain stills.
+ * Legal readers remain database-free; this lookup never reads a session, member or private setting.
+ */
+export async function siteSignInWithMedia(request:Request,env:Env,status=200,flash?:string,cookies:string[]=[]):Promise<Response>{
+  if(request.headers.get('Save-Data')==='on')return siteSignIn(request,status,flash,cookies,false);
+  let animation=false;
+  try{const row=await env.DB.prepare("SELECT value FROM site_settings WHERE key='loginAnimation' AND value='1'").first<{value:string}>();animation=row?.value==='1';}catch{}
+  return siteSignIn(request,status,flash,cookies,animation);
 }
 
 /** Called only after the canonical host check. Public policies/assets are handled before this boundary. */
@@ -64,7 +78,7 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   }
   const status = user ? 403 : 401;
   if ((request.method === 'GET' || request.method === 'HEAD') && !path.startsWith('/api/') && !path.startsWith('/static/') && (!path.includes('.') || path === '/index.html')) {
-    return siteSignIn(request, path === '/' || path === '/index.html' ? 200 : status, user ? user.denied ? 'denied' : 'not_member' : undefined);
+    return siteSignInWithMedia(request, env, path === '/' || path === '/index.html' ? 200 : status, user ? user.denied ? 'denied' : 'not_member' : undefined);
   }
   const api = path.startsWith('/api/');
   const error = user ? user.denied ? 'denied' : 'not_member' : api ? 'signed_out' : 'discord_sign_in_required';

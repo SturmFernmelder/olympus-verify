@@ -18,6 +18,7 @@ import {originalPrivacyStatementGroupProjection} from './privacy-serving-authori
 import './community-routes';
 import {qrErasureCustodyClearSql} from './qr-phase1-data';
 import { communityDataNames,communityEraseStatements } from './community-context';
+import {communityScopedEraseStatements} from './community-data-registry';
 import { mentionDeletes, mentionExactReferenceSql } from './site-admin';
 import { servingPrivacyCatalogAndStaffCustody } from './privacy-business-catalog';
 import { cleanupPrivacyMessages,privacyMessageDebt } from './privacy-provider-messages';
@@ -105,6 +106,20 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof,a
  if(nativeErasureMode(env)){
   const references=await cleanupNativePersonalReferences(env,proof);
   if(references.state!=='cleaned')return held('native_reference_cleanup_unconfirmed','unknown');
+  // These registered, exact own-setting projections must precede the strict
+  // ambiguity check: their normal ID keys/actor fields are intentionally
+  // attributable, not arbitrary text. This does not run other feature erasers,
+  // delete provider pointers, resolve uncertain effects or admit completion.
+  // Both original guards share the same Native transaction as the projections;
+  // a stale proof or malformed suppression map rolls the entire group back.
+  try{
+   const original=captureAccountErasureProof(proof);original.check();
+   const guard=()=>env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(original.proof)}) THEN 1 ELSE json_extract('native_registered_settings_erasure_held','$') END AS current`)
+    .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest);
+   const scoped=communityScopedEraseStatements(env,proof.subject,['discord_directory_visibility','news_webhook']);
+   const result=await env.DB.batch<{current:number}>([guard(),...scoped,guard()]);original.check();
+   if(result.length!==scoped.length+2||result[0]?.results[0]?.current!==1||result.at(-1)?.results[0]?.current!==1)return held('native_registered_settings_cleanup_unconfirmed','unknown');
+  }catch{return held('native_registered_settings_cleanup_unconfirmed','unknown');}
   const cleanup=await cleanupNativeErasureRoles(env,proof);
   // Provider dispatch and the complete terminal data batch use separate bounded slices.
   // A later automatic continuation reconfirms absence before consuming its fresh receipt.

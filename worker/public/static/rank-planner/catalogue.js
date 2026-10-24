@@ -17,10 +17,10 @@
       "cat": "leadership",
       "tier": 2.1,
       "pos": "Olympus slot 2",
-      "purpose": "Olympus-wide leadership and departmental appointments. Treasurer is an appointment within High Council, rather than a separate rank in the Olympus preset.",
+      "purpose": "High Council occupies native Slot 2 in the owner’s 23 October chosen ladder, with Treasurer in Slot 3 and Officer in Slot 4. Historical drafts remain unchanged; accepted Council offices and native slots remain separate.",
       "perms": {"bundle": true, "promote": true, "demote": true, "invite": true, "remove": true, "repair": true, "gold": true, "tabs": true, "auth": true},
       "limits": "Highest daily allowance after Guild Master; amount and each bank tab need Guild Master review. Draft withdrawals start at zero.",
-      "note": "Owner-approved Olympus preset: Withdraw Gold and Modify Bank Tabs apply to every High Council character, including those without a Treasurer appointment. Co-GM is also an appointment. This draft applies no live permissions.",
+      "note": "The recommended draft retains the Council preset; no permissions are applied in game. A native label alone does not qualify a signer or activate a new proof profile. Council warrants, voting eligibility and bank access remain separate records. This draft applies no live permissions.",
       "origin": "Olympus owner decisions, October 2026",
       "src": []
     },
@@ -181,8 +181,8 @@
         "Bank Mule"
       ],
       "cat": "leadership",
-      "tier": 2.5,
-      "pos": "Slot 2–3",
+      "tier": 2,
+      "pos": "Olympus slot 3 · current recommendation",
       "purpose": "Custody of guild gold and tab layout, separated from general officers. Also the rank for a dedicated bank character.",
       "perms": {
         "gold": true,
@@ -374,7 +374,7 @@
         "repair": true
       },
       "limits": "Same shape as Raid Leader; drop the bundle if they never need officer chat.",
-      "note": "On the PvP ruleset the whole account is one faction, which is why PvP-focused tiers show up more often there.",
+      "note": "On PvP-ruleset realms the whole account is one faction, which explains the historical PvP-focused ideas in this reference. Olympus plays PvE · Alliance; these activity titles do not change its realm rules.",
       "src": [
         7,
         8,

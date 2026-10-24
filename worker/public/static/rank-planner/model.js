@@ -4,11 +4,15 @@
   else root.OlympusStaffRankPlanner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const SCHEMA = 'olympus-rank-draft/v2';
+  const SCHEMA = 'olympus-rank-draft/v4';
+  const INTERIM_SCHEMA = 'olympus-rank-draft/v3';
+  const INTERIM_POLICY = 'Olympus owner directive 23 October 2026: Treasurer in Slot 2; Council offices and native ranks remain separate';
   const LEGACY_SCHEMA = 'olympus-rank-draft/v1';
-  const POLICY = 'Olympus owner: High Council native rank; Treasurer and Co-GM appointments; October 2026';
+  const PREVIOUS_SCHEMA = 'olympus-rank-draft/v2';
+  const PREVIOUS_POLICY = 'Olympus owner: High Council native rank; Treasurer and Co-GM appointments; October 2026';
+  const POLICY = 'Olympus owner ruling 23 October 2026: High Council Slot 2, Treasurer Slot 3 above Officer Slot 4; Council offices and native ranks remain separate';
   const PERMISSIONS = ['all', 'bundle', 'promote', 'demote', 'invite', 'remove', 'speak', 'recruit', 'repair', 'gold', 'tabs', 'auth'];
-  const RECOMMENDED = ['gm', 'highcouncil', 'officer', 'officeralt', 'raidlead', 'veteran', 'raider', 'member', 'alt', 'initiate'];
+  const RECOMMENDED = ['gm', 'highcouncil', 'treasurer', 'officer', 'raidlead', 'veteran', 'raider', 'member', 'alt', 'initiate'];
   const REFERENCE = Object.freeze({ minRanks: 2, maxRanks: 10, captainRankIndex: 1, protectRankIndex: 5, protectRankIndexInformationalOnly: true });
   const SOURCE_SHA256 = '40BC6DF51C769ADAEDE8A0F29E7483970644B79643C3DDE4B475BA5D9E41EAA8';
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -61,10 +65,10 @@
     const add = text => issues.push(text);
     const templates = catalogueMap(catalogue);
     if (!sameKeys(draft, ['schema', 'status', 'title', 'source', 'review', 'reference', 'bankLimitScope', 'ranks'])) return ['Import a rank draft exported by this planner.'];
-    if (![SCHEMA, LEGACY_SCHEMA].includes(draft.schema) || draft.status !== 'draft') add('This planner accepts draft plans only.');
+    if (![SCHEMA, INTERIM_SCHEMA, PREVIOUS_SCHEMA, LEGACY_SCHEMA].includes(draft.schema) || draft.status !== 'draft') add('This planner accepts draft plans only.');
     if (typeof draft.title !== 'string' || draft.title.trim().length < 1 || draft.title.length > 100 || /[\u0000-\u001f\u007f]/.test(draft.title)) add('Give the plan a title between 1 and 100 characters.');
     const sourceKeys = draft.schema === LEGACY_SCHEMA ? ['attachment', 'sha256', 'recommendationsOnly'] : ['attachment', 'sha256', 'recommendationsOnly', 'policy'];
-    if (!sameKeys(draft.source, sourceKeys) || draft.source.attachment !== 'Forever Guild Rank Codex.html' || draft.source.sha256 !== SOURCE_SHA256 || draft.source.recommendationsOnly !== true || (draft.schema === SCHEMA && draft.source.policy !== POLICY)) add('The source reference must remain attached to this draft.');
+    if (!sameKeys(draft.source, sourceKeys) || draft.source.attachment !== 'Forever Guild Rank Codex.html' || draft.source.sha256 !== SOURCE_SHA256 || draft.source.recommendationsOnly !== true || (draft.schema === SCHEMA && draft.source.policy !== POLICY) || (draft.schema === INTERIM_SCHEMA && draft.source.policy !== INTERIM_POLICY) || (draft.schema === PREVIOUS_SCHEMA && draft.source.policy !== PREVIOUS_POLICY)) add('The source reference must remain attached to this draft.');
     if (draft.schema === LEGACY_SCHEMA && Array.isArray(draft.ranks) && draft.ranks.some(rank => rank && rank.id === 'highcouncil')) add('Use the current recommendation for a High Council draft with its owner-policy reference.');
     if (!sameKeys(draft.review, ['claudeCode', 'codex', 'liveChangesApplied']) || draft.review.claudeCode !== 'pending' || draft.review.codex !== 'pending' || draft.review.liveChangesApplied !== false) add('Exported drafts must show pending review and no live changes.');
     if (!sameKeys(draft.reference, Object.keys(REFERENCE)) || Object.entries(REFERENCE).some(([key, value]) => draft.reference[key] !== value)) add('Keep the documented rank limits and integration references.');
@@ -122,7 +126,7 @@
       if (next.ranks.length >= 10) fail('The ladder already uses all 10 rank slots.');
       if (next.ranks.some(rank => rank.id === id)) fail('That rank is already in the ladder.');
       const rank = makeRank(catalogueMap(catalogue).get(id));
-      if (id === 'highcouncil' && next.schema === LEGACY_SCHEMA) {
+      if (['highcouncil', 'treasurer'].includes(id) && next.schema !== SCHEMA) {
         next.schema = SCHEMA;
         next.source.policy = POLICY;
       }
@@ -174,8 +178,8 @@
   }
   function notices(draft) {
     const out = [];
-    if (draft.schema === LEGACY_SCHEMA) out.push({ level: 'info', text: 'Your earlier draft is preserved. Use Olympus recommendation to replace it with the current High Council ladder.' });
-    if (draft.ranks.some(rank => rank.id === 'highcouncil')) out.push({ level: 'info', text: 'Treasurer and Co-GM are appointments in the Olympus preset. High Council gold-withdrawal and bank-tab rights apply to every character at that rank. Review all allowances with the Guild Master.' });
+    if (draft.schema !== SCHEMA) out.push({ level: 'info', text: 'Your earlier draft is preserved. Use Olympus recommendation to replace it with the 23 October High Council and Treasurer ladder.' });
+    out.push({ level: 'info', text: 'The current recommendation keeps High Council in Slot 2 and places Treasurer in Slot 3 above Officer in Slot 4. Guild Master, Co-Guild Master and Treasurer form the core Council offices. Council membership, native rank and actual bank permissions remain separate; this draft changes none of them.' });
     const result = compatibility(draft);
     if (!result.captainCompatible) out.push({ level: 'warning', text: `The community addon treats the second rank as Captain. ${result.captainName} is there now; review that authority before adopting this ladder.` });
     draft.ranks.slice(1).forEach(rank => {
@@ -184,5 +188,5 @@
     out.push({ level: 'info', text: `Protected-rank reference: ${result.protectedRankName} (index 5). This is a review note only.` });
     return out;
   }
-  return { SCHEMA, LEGACY_SCHEMA, POLICY, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
+  return { SCHEMA, INTERIM_SCHEMA, INTERIM_POLICY, LEGACY_SCHEMA, PREVIOUS_SCHEMA, PREVIOUS_POLICY, POLICY, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
 });

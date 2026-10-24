@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='e5e7bed06635bbbe6b8754e3378a8d5fd9a38d2261c474f7e0938b382a9c2d1d'
+REFERENCE_SHA256='d0230dffc00bea35306884db3bd26c8fbc993972f6bc7163c909cfc0d5666506'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
@@ -53,7 +53,7 @@ def runtime_path(path: str) -> bool:
 
 def resource_rows(value, failure: str) -> dict[str,dict]:
     # Reviewed documents, data and protocol code are required bytes, never an image/font exception.
-    result=pin_rows(value,None,failure,maximum=43)
+    result=pin_rows(value,None,failure,maximum=46)
     if not result or any(not p.startswith('worker/public/static/') or (private_path(p) and not p.endswith('.zip'))
         or not (p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) or p=='worker/public/static/army-live/army.css') for p in result):
         raise ValueError(failure)
@@ -69,6 +69,18 @@ def references(data: bytes, path: str, expected: dict[str,dict], prefixes: set[s
     urls=set(re.findall(r'/static/[A-Za-z0-9_./-]*',text))
     for url in urls:
         if url in prefixes:continue
+        # This one URL names a retired endpoint, not a fetchable public resource.
+        # Admit it only in its exact authenticated 410 branch, never in consumers,
+        # CSS, another source path, another status, or repeated URL references.
+        retired='/static/army-live/olympus-army-addon-0.2.0.zip'
+        retired_branch='''  if (path === RETIRED_ARMY_ZIP) {
+    if (!["GET", "HEAD"].includes(request.method)) return method(request);
+    const reader = await armyReader(request, env); if (reader instanceof Response) return reader;
+    reader.check(); return privateArmyResponse(request, apiJson({ error: "standalone_army_addon_retired" }, 410));
+  }'''
+        if path=='worker/src/site-army.ts' and url==retired and text.count(retired)==1 \
+          and ('const RETIRED_ARMY_ZIP = "'+retired+'";') in text and retired_branch in text:
+            continue
         relative='worker/public'+url
         validate_path(relative)
         if relative not in expected and relative not in (resources or {}):

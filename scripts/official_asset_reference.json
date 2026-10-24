@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 63475,
-      "sha256": "819b6cdc8e3fb4918685c2c986d150325c44d7bd0dea8c1f0e741905677fbb5e"
+      "bytes": 66631,
+      "sha256": "fb7e3267734a1564a297404b479603dc9726e6507a7c8b26ec45abfe0536c866"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 551510,
-      "sha256": "9adaf7e932228de430bc62b35c091a067f7b7c3aa24b32aa10a3e44974286dcb"
+      "bytes": 631980,
+      "sha256": "262177ed4837641d99dc9b7c84360d59bd8d43e1f97a8e0aa16a71d190e51969"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -26,32 +26,32 @@
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 11437,
-      "sha256": "cea59f157cebf9b031fe73b6766fb25ab5e954f15c610eef576d6b44ed59d930"
+      "bytes": 11094,
+      "sha256": "1ae6f81f6496fa3688fc27d309eaaa6ba85889bcee571134936c089b41527cc4"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 15856,
-      "sha256": "a4d0d099bb9385b2d980488231d4658a51d3b4407e3c10ece7025effc23da819"
+      "bytes": 20463,
+      "sha256": "46a9350a34a1f03ec35c2d0dbec264a711a2f53fc439edb44c49f0dd268806e0"
     },
     {
       "path": "worker/public/static/rank-planner/catalogue.js",
       "mode": "100644",
-      "bytes": 20165,
-      "sha256": "e9dc0407370f1e9d36b8e4709ad450edf88e25e99c139cb72fd3eef2f9ddfb47"
+      "bytes": 20417,
+      "sha256": "4cb8a552c8fb4587259bc7811a002d483b16e5a7b472adbfd6b9dd4707d398a2"
     },
     {
       "path": "worker/public/static/rank-planner/model.js",
       "mode": "100644",
-      "bytes": 13596,
-      "sha256": "42261d9dfc55a19af3b0a1527c48cfc54eac9f4339377196491992fb4fb1d286"
+      "bytes": 14341,
+      "sha256": "8074d5a61a412739faaeb95be88b587fa70beb0cf6b98d5908b2bbba64dc9508"
     },
     {
       "path": "worker/public/static/rank-planner/styles.css",
       "mode": "100644",
-      "bytes": 19440,
-      "sha256": "e3bdfa2fa3d90822ac61dea6fcf12ce665b76e95088db03d79b2cf92fb62cc4d"
+      "bytes": 20761,
+      "sha256": "16ca863a6e15d422ac812647eb35bd7b19f6efc0ece81c017e3c7203284d0481"
     },
     {
       "path": "worker/public/static/wow/asset-provenance.json",
@@ -650,26 +650,26 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 47938,
-      "sha256": "2f6417a28170dc31a38f689a7bc510088fe1e49ff9a091947fa2bd2385bf83db"
+      "bytes": 49543,
+      "sha256": "38fd63a0b176e00fa43fb37c65d9627b68d3048bad7deb817e43f770efb41a8f"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
       "mode": "100644",
-      "bytes": 28926,
-      "sha256": "ad5e2ff2da6b017886f210e385a5d466d5303c3ca29d61a45e096136b971fd31"
+      "bytes": 29789,
+      "sha256": "76eea459d181434521013d9ad7dd93200d85cb2abd1de27608f53844c3f89cd5"
     },
     {
       "path": "worker/public/static/resources169.js",
       "mode": "100644",
-      "bytes": 17234,
-      "sha256": "1609881e2cffd4a3567515a4b98ba24dfa99c61f6ab3bb556e25445643315d75"
+      "bytes": 21496,
+      "sha256": "2dc0eef559034b2c96a28617206ed8a242dbee6a865da63fb8ccc099f4316bb5"
     },
     {
       "path": "worker/public/static/resources169.css",
       "mode": "100644",
-      "bytes": 3275,
-      "sha256": "b983b8fbd9775c0bba52651f94f3075505264f861db36a90079dc428d8005531"
+      "bytes": 3841,
+      "sha256": "55efa19d80ab6b8781717912d7267ac21319b31e4819b49427c83e03a994c91c"
     },
     {
       "path": "worker/public/static/wow/talents/bg-161.jpg",
@@ -3592,15 +3592,19 @@
   "runtime_paths": [
     "worker/public/static/app.css",
     "worker/public/static/app.js",
+    "worker/public/static/approved-guild-helper196.js",
     "worker/public/static/army-live/army.css",
     "worker/public/static/army-live/army.js",
     "worker/public/static/army-live/decoder.js",
     "worker/public/static/army-live/pilot.js",
     "worker/public/static/army-live/protocol.js",
     "worker/public/static/army-live/report.js",
+    "worker/public/static/army-live/sanitized-export.js",
+    "worker/public/static/army-live/savedvariables-import.js",
     "worker/public/static/army-qr-review/decoder.js",
     "worker/public/static/army-qr-review/pilot.js",
     "worker/public/static/army-qr-review/protocol.js",
+    "worker/public/static/legal-view196.js",
     "worker/public/static/organization-view.css",
     "worker/public/static/organization-view.js",
     "worker/public/static/policies.css",
@@ -3803,32 +3807,32 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 51295,
-      "sha256": "c30327f3045ff66c8f5b77006657f3c95ec9921522eccf49d43ddf045c5e8d3b"
+      "bytes": 53383,
+      "sha256": "47c85335bb04e6dbd1fd8a0e5827dd14412a0cbb27800319ac2ccb84c19fe0e6"
     },
     {
       "path": "worker/src/site-ranks.ts",
       "mode": "100644",
-      "bytes": 10023,
-      "sha256": "fe1a413d4f85167f236248c96386340e161a2e0c2965e132bc2eea7bcf5fc5e2"
+      "bytes": 12535,
+      "sha256": "3a0b2241740dff2f94287b1b4b7e01c0d8a542474874d727c1e45002d9310983"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 551510,
-      "sha256": "9adaf7e932228de430bc62b35c091a067f7b7c3aa24b32aa10a3e44974286dcb"
+      "bytes": 631980,
+      "sha256": "262177ed4837641d99dc9b7c84360d59bd8d43e1f97a8e0aa16a71d190e51969"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 15856,
-      "sha256": "a4d0d099bb9385b2d980488231d4658a51d3b4407e3c10ece7025effc23da819"
+      "bytes": 20463,
+      "sha256": "46a9350a34a1f03ec35c2d0dbec264a711a2f53fc439edb44c49f0dd268806e0"
     },
     {
       "path": "worker/src/site-core.ts",
       "mode": "100644",
-      "bytes": 17465,
-      "sha256": "ebec55954e780e22fa324329ce02180332bc4c92dfacdd562130b4576124fe96"
+      "bytes": 19235,
+      "sha256": "9befe42a3916db0ffac404570821083ea786ff974b88ca66588d1a2f18b923f3"
     },
     {
       "path": "tools/build-talent-art.py",
@@ -3923,14 +3927,14 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 58283,
-      "sha256": "8cde520ffee5b1fa6a15c735b5b818fd79ceaf8460827996c234ab2a83c6c8c3"
+      "bytes": 104770,
+      "sha256": "817f23271303d8067c4ac215b4f86523ff6f5a1fb27c3f5d6d0123f6330dc6d3"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 157508,
-      "sha256": "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf"
+      "bytes": 173953,
+      "sha256": "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -3983,14 +3987,14 @@
     {
       "path": "worker/public/static/governance/operational-charter.md",
       "mode": "100644",
-      "bytes": 27166,
-      "sha256": "a2beea4b43c2d5dfc23ebd49224bf7eb7955ee350af80da0790c136eaad326fe"
+      "bytes": 27576,
+      "sha256": "54b9edb44809c4456b7d79395a231d7d839dc8379f93e2737a9f0cce8a6b7b1f"
     },
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 28128,
-      "sha256": "7d9b20544329d9a7864730716c99801fdb63d3d94c18009342ac58a734ce7c11"
+      "bytes": 29005,
+      "sha256": "16c767a1b5e780b090009b0af9d3ba715be81b6486ebbb9babbe46c74b7a2fb1"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -4013,14 +4017,14 @@
     {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
-      "bytes": 19838,
-      "sha256": "074b14ec231421aa893be61d2b2e07052f77745bb1bb1ecb9128c3fe135ca7e4"
+      "bytes": 52292,
+      "sha256": "dde4b68d6896372fdee12b97042751e0f31167908a2cc808e0a153443a24eecc"
     },
     {
       "path": "worker/public/static/governance/council-composition-2026-10-19.md",
       "mode": "100644",
-      "bytes": 2297,
-      "sha256": "032daeb5be1a594210d19cad1a1587acbc8f5de134ff63ef12e0a2879a2f0e96"
+      "bytes": 2939,
+      "sha256": "1e680ab2afba2e40520a140518f9c8322246f51adb33c118ca70fbb791b94627"
     },
     {
       "path": "worker/public/static/talents/art.json",
@@ -4073,8 +4077,8 @@
     {
       "path": "worker/public/static/army-live/army.js",
       "mode": "100644",
-      "bytes": 20277,
-      "sha256": "185345627d91fec25b6833eb0ff6b1afab1cee3726d44e289e111b9c92360d40"
+      "bytes": 20401,
+      "sha256": "cf6ad74ffa5451d054f1e8a5fe766068ca9d4a8dd4ebbeb6969265ea3f2f3688"
     },
     {
       "path": "worker/public/static/army-live/protocol.js",
@@ -4085,8 +4089,8 @@
     {
       "path": "worker/public/static/army-live/report.js",
       "mode": "100644",
-      "bytes": 13846,
-      "sha256": "1679aec5ca860827cbab748a13baf375707c2b411ec1516a42e4224c6a4db1fc"
+      "bytes": 18800,
+      "sha256": "554905d640140d5f1f850fa84aa4ac951c6f2d29b259230137b5974fbdbce2e7"
     },
     {
       "path": "worker/public/static/army-live/pilot.js",
@@ -4101,10 +4105,16 @@
       "sha256": "83e7a0ce725f43594b189d9ecd6309a199118d6c60d9563a263ff449b1520bdd"
     },
     {
-      "path": "worker/public/static/army-live/olympus-army-addon-0.2.0.zip",
+      "path": "worker/public/static/army-live/sanitized-export.js",
       "mode": "100644",
-      "bytes": 62615,
-      "sha256": "8aeb5d78b55457116c43961bc13e598f3dd66561303c909e2d9c96aacb36303c"
+      "bytes": 6676,
+      "sha256": "fc110f6f44cda32a5754f3ea3a8251b41315a7cd14e9150a9a9fbc0e38478325"
+    },
+    {
+      "path": "worker/public/static/army-live/savedvariables-import.js",
+      "mode": "100644",
+      "bytes": 4366,
+      "sha256": "d471f7a795ba1d9d708ee7ddb49534d4def98efd478c132f8f5cb000e9998d3c"
     },
     {
       "path": "worker/public/static/talents/analysis.js",
@@ -4133,8 +4143,20 @@
     {
       "path": "worker/public/static/talents/stats60.js",
       "mode": "100644",
-      "bytes": 97215,
-      "sha256": "d0156fa10d8c425b001c21c399b924906c78c19eb1851a25621d65956e7e2179"
+      "bytes": 132381,
+      "sha256": "6071a11693f3114a3f9daab593d4868cdf65348548fef8ab8349f3a8bf12826c"
+    },
+    {
+      "path": "worker/public/static/legal-view196.js",
+      "mode": "100644",
+      "bytes": 9220,
+      "sha256": "e3fe37f402b9cdf017c94118450269785aa2223008a03f60f53c3618303deb16"
+    },
+    {
+      "path": "worker/public/static/approved-guild-helper196.js",
+      "mode": "100644",
+      "bytes": 13217,
+      "sha256": "456b7ae8e242a9462b81db74a6f958ffb6fa07dab7bcb203863b6a45312acd15"
     }
   ],
   "login_art_exception": {

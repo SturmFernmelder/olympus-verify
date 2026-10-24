@@ -756,7 +756,19 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const users = fs.readdirSync(path.join(root, "src")).filter((f) => f.endsWith(".ts") && fs.readFileSync(path.join(root, "src", f), "utf8").includes("leadershipStampStatement"));
   check("  only site-news.ts uses it (besides its own module)", users.sort().join() === "site-leadership.ts,site-news.ts", users);
   const idx = fs.readFileSync(path.join(root, "src", "index.ts"), "utf8");
-  check("the source scheduled body dispatches newsCron through its original cadence; News sweeps before its switch-controlled figures, with each failure logged through errorRef", idx.includes("deferOriginalServing(ctx,'newsCron',()=>rosterCadence.newsEnabled?newsCron(env):Promise.resolve());") && src.includes('console.error("site news sweep failed", errorRef(e));') && src.includes('console.error("news figures failed", errorRef(e));') && /known = \(await sweepSiteNews\(env\)\)\.settings;[\s\S]*?await refreshNewsFigures\(env, now\(\), known\);/.test(src));
+  // TCW-3 source-shape adaptation: retain exact original cadence/sweep/error assertions,
+  // and bind the complete reviewed metadata-expiry residual branch, not a broad regex.
+  const newsDispatch196 = `    deferOriginalServing(ctx,'newsCron',async()=>{
+      if(!rosterCadence.newsEnabled)return;
+      await newsCron(env);
+      let cost:OriginalScheduledSliceCost|null=null;
+      try{cost=readOriginalNewsCost?.()??null;}catch{return;}
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>31)return;
+      if(31-cost.statements<NEWS_WEBHOOK_METADATA_EXPIRY_PHYSICAL_BOUND)return;
+      try{await newsWebhookMetadataExpiryPlan(env).run();}
+      catch(e){console.error('news webhook metadata expiry held',errorRef(e));}
+    });`;
+  check("the source scheduled body dispatches newsCron through its original cadence; News sweeps before its switch-controlled figures, with each failure logged through errorRef", idx.includes(newsDispatch196) && src.includes('console.error("site news sweep failed", errorRef(e));') && src.includes('console.error("news figures failed", errorRef(e));') && /known = \(await sweepSiteNews\(env\)\)\.settings;[\s\S]*?await refreshNewsFigures\(env, now\(\), known\);/.test(src));
 
   // .116 News policy regression: real account forms, current curated export and held self-service actions.
   // These requests use the actual index and original native signing/verification, never a policy/profile override.
@@ -1028,16 +1040,90 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     ...["README.md", "CLAUDE.md", "docs/launch-runbook.md"].map((f) => [f, fs.readFileSync(path.join(repo, f), "utf8")]), // review of 3 Oct 2026: the whole files
     ...["docs/design.md", "docs/deploy-checklist.md", "docs/beta-test-plan.md"].map((f) => [`${f} (.115 sections)`, section115(path.join(repo, f))]),
   ];
-  const over = [];
-  for (const [file, text] of guarded) {
+  // Direct owner ruling of 23 Oct 2026: only these two exact current-ladder paragraphs are qualified.
+  // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
+  const CURRENT_CONTEXTS = Object.freeze([
+    {
+        "file": "docs/launch-runbook.md",
+        "startMarker": "The 23 October 2026 owner recommendation is ",
+        "paragraphSha256": "78f404642046ca59f75dacdc47dbf80b39436347c34463d751890444dbcae727",
+        "paragraphBytes": 791,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1
+    },
+    {
+        "file": "docs/launch-runbook.md",
+        "startMarker": "The current owner-chosen B ladder is ",
+        "paragraphSha256": "28b48c7e25b8ba42ea32789119fc78af1e75d5d83de43dd1a77295b150dd6371",
+        "paragraphBytes": 1025,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1
+    }
+]);
+  const guardedCounts = (text) => {
     const hits = {};
     for (const g of grams(text)) { const d = sha(g); if (GUARD.has(d)) hits[d] = (hits[d] || 0) + 1; }
-    for (const [d, c] of Object.entries(hits)) if (c > ((ALLOWED[file] || {})[d] || 0)) over.push(`${file}: digest ${d.slice(0, 12)} x${c}`);
-  }
+    return hits;
+  };
+  const currentContextQualification = (file, text) => {
+    const credits = {}, errors = [], spans = [], paragraphs = [];
+    for (const spec of CURRENT_CONTEXTS.filter((s) => s.file === file)) {
+      const start = text.indexOf(spec.startMarker);
+      if (start < 0 || text.indexOf(spec.startMarker, start + spec.startMarker.length) !== -1) {
+        errors.push(`${file}: current context marker missing or duplicated`); continue;
+      }
+      const rest = text.slice(start), boundary = /\r?\n\r?\n/.exec(rest);
+      const paragraph = boundary ? rest.slice(0, boundary.index) : rest.replace(/\r?\n$/, "");
+      const end = start + paragraph.length;
+      if (Buffer.byteLength(paragraph, "utf8") !== spec.paragraphBytes || sha(paragraph) !== spec.paragraphSha256 ||
+          text.indexOf(paragraph, start + 1) !== -1 || spans.some(([a, b]) => start < b && a < end)) {
+        errors.push(`${file}: current context bytes, uniqueness or bounds changed`); continue;
+      }
+      const count = guardedCounts(paragraph)[spec.digest] || 0;
+      if (!GUARD.has(spec.digest) || count !== spec.count) {
+        errors.push(`${file}: current context digest count changed`); continue;
+      }
+      spans.push([start, end]); paragraphs.push(paragraph);
+      credits[spec.digest] = (credits[spec.digest] || 0) + count;
+    }
+    return { credits, errors, paragraphs };
+  };
+  const overOriginalVocabularyAllowance = (file, hits, qualification) => {
+    const errors = [...qualification.errors];
+    for (const [d, c] of Object.entries(hits)) {
+      const credit = qualification.credits[d] || 0;
+      if (credit > c) errors.push(`${file}: current context credit exceeds original hits`);
+      if (c - credit > ((ALLOWED[file] || {})[d] || 0)) errors.push(`${file}: digest ${d.slice(0, 12)} x${c - credit}`);
+    }
+    return errors;
+  };
+  const vocabularyOverages = (file, text) => overOriginalVocabularyAllowance(file, guardedCounts(text), currentContextQualification(file, text));
+  const over = [];
+  for (const [file, text] of guarded) over.push(...vocabularyOverages(file, text));
   check("vocabulary guard: no file .115 changes names a withheld term beyond what was already there (every changed worker/src file among them)", over.length === 0 && GUARD.size === 28 && guarded.length === 29 && changedSources.length === 15 && guarded.every(([, t]) => t.length > 0), over.join("; "));
   const planted = new Set([sha("quartz lantern"), sha("ember")]);
   const found = grams("An old Quartz-Lantern, an EMBER; quartz lanterns").filter((g) => planted.has(sha(g)));
   check("  the guard's machinery finds a planted one- and two-word n-gram by digest, case and punctuation aside", found.join() === "quartz lantern,ember" && [...GUARD].every((d) => /^[0-9a-f]{64}$/.test(d)), found);
+
+
+  const currentFile = "docs/launch-runbook.md";
+  const currentText = guarded.find(([file]) => file === currentFile)[1];
+  const qualifiedCurrent = currentContextQualification(currentFile, currentText);
+  const currentDigest = CURRENT_CONTEXTS[0].digest;
+  const approvedGram = grams(qualifiedCurrent.paragraphs[0] || "").find((g) => sha(g) === currentDigest);
+  check("current-ladder contexts qualify only two exact original paragraph hits", qualifiedCurrent.errors.length === 0 && qualifiedCurrent.paragraphs.length === 2 && qualifiedCurrent.credits[currentDigest] === 2 && Object.keys(qualifiedCurrent.credits).length === 1);
+  const extraOutsideText = `${currentText}\n\n${approvedGram}`;
+  const extraOutsideQualification = currentContextQualification(currentFile, extraOutsideText);
+  check("an extra occurrence outside the approved paragraphs remains restricted", !!approvedGram && extraOutsideQualification.errors.length === 0 && extraOutsideQualification.credits[currentDigest] === 2 && vocabularyOverages(currentFile, extraOutsideText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  const originalParagraph = qualifiedCurrent.paragraphs[0] || "";
+  const changedParagraph = originalParagraph ? `${originalParagraph.slice(0, -1)}!` : "";
+  check("a context byte edit cannot borrow the approved paragraph qualification", !!originalParagraph && currentContextQualification(currentFile, currentText.replace(originalParagraph, changedParagraph)).errors.length > 0 && vocabularyOverages(currentFile, currentText.replace(originalParagraph, changedParagraph)).length > 0);
+  check("a duplicated approved paragraph cannot create a second qualification", !!originalParagraph && currentContextQualification(currentFile, `${currentText}\n\n${originalParagraph}`).errors.length > 0 && vocabularyOverages(currentFile, `${currentText}\n\n${originalParagraph}`).length > 0);
+  const otherDigest = [...GUARD].find((d) => d !== currentDigest);
+  // A synthetic digest-count negative avoids reconstructing any other withheld plaintext.
+  const otherDigestOver = overOriginalVocabularyAllowance(currentFile, { [currentDigest]: 2, [otherDigest]: 1 }, qualifiedCurrent);
+  check("every other digest still uses its original file allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedCurrent.credits[d] === undefined) && otherDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))));
+  check("approved paragraph bytes in a different guarded file receive no qualification", !!originalParagraph && vocabularyOverages("README.md", originalParagraph).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalParagraph).credits).length === 0);
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

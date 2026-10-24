@@ -39,11 +39,14 @@ const wrapper='worker/tests/privacy_normal_scheduled_whole_workerd_fixture.mjs',
 if(!build||build.schema!=='normal-scheduled-standalone-esbuild-receipt-v1'||build.sourceFreezeSHA256!==freezeSHA||build.sourceRoot!==source||build.entry!==wrapper||build.exitCode!==0||build.knownChildClosed!==true||build.shell!==false||build.sourceInputsPreserved!==true||!absolute(build.bundlePath)||!absolute(build.metafilePath)||build.outputFormat!=='esm'||build.handlerOverride!==false||build.sourceLoader!==false)throw Error('NORMAL_SCHEDULE_BUILD_CUSTODY_REQUIRED');
 regular(build.bundlePath);regular(build.metafilePath);const bundle=fs.readFileSync(build.bundlePath),metafileBytes=fs.readFileSync(build.metafilePath);if(bundle.length!==build.bundleBytes||sha(bundle)!==build.bundleSHA256||sha(metafileBytes)!==build.metafileSHA256)throw Error('NORMAL_SCHEDULE_BUILD_ARTIFACT_DRIFT');
 const metafile=JSON.parse(metafileBytes),workerRoot=path.join(source,'worker');if(!metafile||!metafile.inputs||!metafile.outputs||Object.keys(metafile.outputs).length!==1)throw Error('NORMAL_SCHEDULE_BUILD_METAFILE_REFUSED');
-// esbuild input metadata preserves four removed type/unused import edges as external.
+// esbuild input metadata preserves seven removed type/unused import edges as external.
 // Only these original source-contained pairs may appear there; none may survive output.
 const allowedUnusedInputEdges=[
  ['worker/src/db.ts','./privacy-serving-authority','worker/src/privacy-serving-authority.ts'],
+ ['worker/src/role-settlements.ts','./full-release-roles','worker/src/full-release-roles.ts'],
  ['worker/src/roster-effects.ts','./privacy-write-admission','worker/src/privacy-write-admission.ts'],
+ ['worker/src/army-body.ts','./site-core','worker/src/site-core.ts'],
+ ['worker/src/army-body.ts','./community-context','worker/src/community-context.ts'],
  ['worker/src/review.ts','./discord','worker/src/discord.ts'],
  ['worker/src/qr-phase1-route.ts','./privacy-site-session-incarnation','worker/src/privacy-site-session-incarnation.ts']
 ],inputs=[],unusedInputEdges=[];
@@ -60,7 +63,7 @@ for(const [name,value]of Object.entries(metafile.inputs)){
  }
  inputs.push(relative);
 }
-if(unusedInputEdges.length!==4||allowedUnusedInputEdges.some(item=>unusedInputEdges.filter(edge=>edge.from===item[0]&&edge.path===item[1]&&edge.target===item[2]).length!==1))throw Error('NORMAL_SCHEDULE_UNUSED_INPUT_EDGE_CENSUS_REFUSED');
+if(unusedInputEdges.length!==7||allowedUnusedInputEdges.some(item=>unusedInputEdges.filter(edge=>edge.from===item[0]&&edge.path===item[1]&&edge.target===item[2]).length!==1))throw Error('NORMAL_SCHEDULE_UNUSED_INPUT_EDGE_CENSUS_REFUSED');
 if(!inputs.includes(wrapper)||!inputs.includes('worker/src/index.ts')||!inputs.includes('worker/src/privacy-global-serving-origin.ts')||Object.values(metafile.outputs)[0].entryPoint!=='tests/privacy_normal_scheduled_whole_workerd_fixture.mjs'||Object.values(metafile.outputs)[0].imports.some(x=>!x.external||x.path!=='node:async_hooks'))throw Error('NORMAL_SCHEDULE_ACTUAL_INDEX_BUNDLE_REQUIRED');
 if(process.env.MINIFLARE_WORKERD_PATH!==WORKERD)throw Error('NORMAL_SCHEDULE_PINNED_WORKERD_REQUIRED');regular(WORKERD);
 fs.mkdirSync(out);const write=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'}),children=[],spawn=cp.spawn;
@@ -77,9 +80,9 @@ const JOBS=['ensureSchema','sweepInviteQueue','sweepMemberRoles','continueRoster
 const BASE_CAPS=[1,20,120,56,7,19,5,13,5,23,17,21,11,13,21,11,24,15,7,31,32,196,25,7];
 assert.equal(BASE_CAPS.reduce((a,b)=>a+b,0),700);
 const specs={canonical_first:{layout:'canonical',variant:'positive'},recorded_first:{layout:'recorded-live-20261010',variant:'positive'},canonical_second:{layout:'canonical',variant:'positive'},recorded_second:{layout:'recorded-live-20261010',variant:'positive'},native_lost_ack:{layout:'canonical',variant:'native_lost_ack'},provider_unknown:{layout:'recorded-live-20261010',variant:'provider_unknown'}};
-const cases=[],wireFiles=[],floorRPCs=[],providerCalls=[],captureErrors=[],providerErrors=[],realPhaseWaits=[];let firstPhaseSlot=null;
+const cases=[],wireFiles=[],floorRPCs=[],providerCalls=[],captureErrors=[],providerErrors=[],realPhaseWaits=[],observerDiagnosticFiles=[];let firstPhaseSlot=null;
 let mf,currentCase=null,currentInvocation=0,n=0,complete=false,unexpectedExternalAttempts=0;
-const result={schema:'actual-normal-default-scheduled-configured-whole-workerd-v1',sourceFreezeSHA256:freezeSHA,sourceRoot:source,sourceFileCount:expectedFileCount,nodePid:process.pid,bundleSHA256:build.bundleSHA256,metafileSHA256:build.metafileSHA256,sourceModuleInputs:inputs,unusedInputEdges,unusedInputEdgeTargetsSourcePinned:true,startedUtc:new Date().toISOString(),cases,wireFiles,floorRPCs,providerCalls,captureErrors,providerErrors,normalGlobalOFFBranchCapacityQualified:false,productionScheduledQualifier:false,production15UTCDigestCadenceQualified:false,bothActualRosterPhasesMeasured:false,realPhaseWaits,privateGlobalONQualified:false,erasureONQualified:false,providerOrDeploymentQualified:false,worker128MiBQualified:false,provider30SecondsQualified:false,allCopyQualified:false,clockOverrides:false,handlerOverride:false,sourceLoader:false,workerdMemoryAvailable:false,qualificationMode,qualificationMarker:marker,sourceLiterals:{EPOCH2_SCHEDULE_QUALIFIED:true,OFFICER_DIGEST_HOUR_UTC:digestHourUTC},genuineClock:{digestHourUTC,guardEvaluatedUtc:new Date(genuineStartMilliseconds).toISOString(),endUtc:null,productionDueWindow:productionWindow,firstCallbackStartUtc:null,lastCallbackFinishUtc:null,callbacksWithinProductionDueWindow:null},complete:false,closed:false};
+const result={schema:'actual-normal-default-scheduled-configured-whole-workerd-v1',sourceFreezeSHA256:freezeSHA,sourceRoot:source,sourceFileCount:expectedFileCount,nodePid:process.pid,bundleSHA256:build.bundleSHA256,metafileSHA256:build.metafileSHA256,sourceModuleInputs:inputs,unusedInputEdges,unusedInputEdgeTargetsSourcePinned:true,startedUtc:new Date().toISOString(),cases,wireFiles,floorRPCs,providerCalls,captureErrors,providerErrors,normalGlobalOFFBranchCapacityQualified:false,productionScheduledQualifier:false,production15UTCDigestCadenceQualified:false,bothActualRosterPhasesMeasured:false,realPhaseWaits,observerDiagnosticFiles,privateGlobalONQualified:false,erasureONQualified:false,providerOrDeploymentQualified:false,worker128MiBQualified:false,provider30SecondsQualified:false,allCopyQualified:false,clockOverrides:false,handlerOverride:false,sourceLoader:false,workerdMemoryAvailable:false,qualificationMode,qualificationMarker:marker,sourceLiterals:{EPOCH2_SCHEDULE_QUALIFIED:true,OFFICER_DIGEST_HOUR_UTC:digestHourUTC},genuineClock:{digestHourUTC,guardEvaluatedUtc:new Date(genuineStartMilliseconds).toISOString(),endUtc:null,productionDueWindow:productionWindow,firstCallbackStartUtc:null,lastCallbackFinishUtc:null,callbacksWithinProductionDueWindow:null},complete:false,closed:false};
 function check(label,value){assert.equal(value,true,label);n++;console.log('PASS '+label);}
 function object(value,keys){assert.ok(value&&typeof value==='object'&&!Array.isArray(value));assert.deepEqual(Object.keys(value).sort(),keys.split(' ').sort());}
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
@@ -146,7 +149,31 @@ async function controlledProvider(request){
   throw Error('NORMAL_WHOLE_UNEXPECTED_PROVIDER_FAMILY');
  }catch(error){providerErrors.push({case:currentCase?.key??null,invocation:currentInvocation,name:typeof error?.name==='string'?error.name:null,message:String(error?.message||'').slice(0,2048)});throw error;}
 }
-async function endpoint(name,method='GET',body){const r=await bounded(mf.dispatchFetch('https://normal-whole.invalid/'+name,{method,...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}),'NORMAL_WHOLE_FIXTURE_'+name,90000);if(r.status!==200){const body=await bounded(r.clone().text(),'NORMAL_WHOLE_FAILED_ORIGINAL_BODY',15000);write('fixture-original-http-failure.json',{name,method,status:r.status,bodyBytes:size(body),bodySHA256:sha(Buffer.from(body)),body:body.slice(0,16384),truncated:body.length>16384});}assert.equal(r.status,200);return bounded(r.json(),'NORMAL_WHOLE_FIXTURE_BODY',15000);}
+function validateObserverTimingRing(value,floor=false){
+ object(value,floor?'schema readOnly sqlStatements providerCalls limit count overflow records':'limit count overflow records');
+ if(floor){assert.equal(value.schema,'normal-whole-floor-observer-timing-v1');assert.equal(value.readOnly,true);assert.equal(value.sqlStatements,0);assert.equal(value.providerCalls,0);}
+ assert.equal(value.limit,256);assert.ok(integer(value.count)&&integer(value.overflow)&&Array.isArray(value.records));assert.ok(value.records.length<=256);assert.equal(value.count,value.records.length+value.overflow);
+ const allowed=new Set(floor?['entry','before-original-floor-dispatch','original-floor-returned','before-request-clone-read','request-clone-read','response-clone-read','packet-hashes-ready','capture-ack-returned','original-response-return','original-floor-observer-threw','failure-capture-ack-returned']:['entry','before-original-native-delegate','original-native-delegate-returned','original-native-delegate-threw','before-response-clone-read','response-clone-read','before-capture-request','capture-ack-returned','original-native-response-return','preparation-observer-threw']);
+ for(const [index,row]of value.records.entries()){
+  const keys=floor?['serial','path','state','phases']:['ordinal','scope','state','phases'];if(Object.hasOwn(row,'status'))keys.push('status');if(Object.hasOwn(row,'errorName'))keys.push('errorName');object(row,keys.join(' '));
+  assert.ok(['running','returned','threw'].includes(row.state));assert.equal(floor?row.serial:row.ordinal,index+1);if(floor)assert.ok(typeof row.path==='string'&&['/v1/','/v2/','/v3/'].some(prefix=>row.path.startsWith(prefix)));else assert.equal(row.scope,'preparation-native');
+  if(Object.hasOwn(row,'status'))assert.ok(Number.isInteger(row.status)&&row.status>=100&&row.status<=599);if(Object.hasOwn(row,'errorName'))assert.ok(row.errorName===null||typeof row.errorName==='string');
+  assert.ok(Array.isArray(row.phases)&&row.phases.length>=1&&row.phases.length<=16);let previous=-1;
+  for(const phase of row.phases){object(phase,'phase utcMilliseconds performanceMilliseconds');assert.ok(allowed.has(phase.phase)&&Number.isSafeInteger(phase.utcMilliseconds)&&phase.utcMilliseconds>0&&Number.isFinite(phase.performanceMilliseconds)&&phase.performanceMilliseconds>=previous);previous=phase.performanceMilliseconds;}
+ }
+}
+async function captureObserverDiagnosticsAfterOriginalReply(name,status){
+ const observedAfterReplyUtc=new Date().toISOString(),response=await bounded(mf.dispatchFetch('https://normal-whole.invalid/__normal_whole_observer_diagnostics'),'NORMAL_WHOLE_AFTER_REPLY_DIAGNOSTIC',15000);assert.equal(response.status,200);
+ const value=await bounded(response.json(),'NORMAL_WHOLE_AFTER_REPLY_DIAGNOSTIC_BODY',15000);object(value,'schema key phase readOnly sqlStatements providerCalls observedUtcMilliseconds native floor');assert.equal(value.schema,'normal-whole-after-reply-observer-timing-v1');assert.equal(value.key,currentCase.key);assert.equal(value.readOnly,true);assert.equal(value.sqlStatements,0);assert.equal(value.providerCalls,0);assert.ok(Number.isSafeInteger(value.observedUtcMilliseconds)&&value.observedUtcMilliseconds>0);validateObserverTimingRing(value.native);if(value.floor!==null)validateObserverTimingRing(value.floor,true);
+ const file='observer-after-original-reply-'+currentCase.key+'.json';write(file,{originalEndpoint:name,originalStatus:status,observedAfterReplyUtc,...value});observerDiagnosticFiles.push({case:currentCase.key,file,bytes:fs.statSync(path.join(out,file)).size,sha256:sha(fs.readFileSync(path.join(out,file)))});
+}
+async function endpoint(name,method='GET',body){
+ const r=await bounded(mf.dispatchFetch('https://normal-whole.invalid/'+name,{method,...(body===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}),'NORMAL_WHOLE_FIXTURE_'+name,90000);
+ // Preserve the ORIGINAL failure first; diagnostic failure must never replace it.
+ if(r.status!==200){const body=await bounded(r.clone().text(),'NORMAL_WHOLE_FAILED_ORIGINAL_BODY',15000);write('fixture-original-http-failure.json',{name,method,status:r.status,bodyBytes:size(body),bodySHA256:sha(Buffer.from(body)),body:body.slice(0,16384),truncated:body.length>16384});}
+ let diagnosticError=null;if(name==='__normal_whole_prepare'){try{await captureObserverDiagnosticsAfterOriginalReply(name,r.status);}catch(error){diagnosticError=error;write('observer-after-original-reply-'+currentCase.key+'-failure.json',{name:typeof error?.name==='string'?error.name:null,message:String(error?.message||'').slice(0,4096),originalStatus:r.status});}}
+ assert.equal(r.status,200);if(diagnosticError)throw diagnosticError;return bounded(r.json(),'NORMAL_WHOLE_FIXTURE_BODY',15000);
+}
 function reconcile(observation,invocation,negative){
  const c=observation.cost;object(c,'scope binding jobs statements trips returnedGroups failedGroups pendingGroups allScopesReturned normalScheduledEntryQualified originalSDKCostsIndependentlyQualified providerBudgetQualified createdAt expiresAt serial');assert.equal(c.scope,'original_scheduled_callback_physical_cost');assert.equal(c.expiresAt,c.createdAt+300);assert.ok(integer(c.createdAt)&&integer(c.serial)&&c.serial>0);assert.equal(c.normalScheduledEntryQualified,false);assert.equal(c.originalSDKCostsIndependentlyQualified,false);assert.equal(c.providerBudgetQualified,false);assert.equal(c.allScopesReturned,true);assert.equal(c.pendingGroups,0);
  const binding=JSON.parse(c.binding);assert.deepEqual(binding,['original-scheduled-callback-v1',CRON,observation.eventScheduledTime,c.createdAt,c.expiresAt,c.serial]);

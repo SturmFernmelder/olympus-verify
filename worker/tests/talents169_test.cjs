@@ -277,6 +277,11 @@ async function detailRenderRegression() {
     check('.179 ' + cls.name + ': compact guide controls precede the trees with source and limitations folded into native details', shell179.childNodes.indexOf(panel179) < shell179.childNodes.indexOf(byClass(guideContainer179, 'talents-workspace')[0]) && about179?.tagName === 'DETAILS' && about179.open !== true && about179.textContent.includes(source179.author));
     if (!records179.length) {
       check('.179 ' + cls.name + ': unavailable guide allocation retains author/date/source link without invented Load action', panel179?.textContent.includes('No checked compatible allocation in this snapshot') && panel179.textContent.includes(source179.author) && panel179.textContent.includes(source179.updatedAt) && panel179.all(node => node.tagName === 'A')[0].getAttribute('href') === source179.url && panel179.all(node => node.tagName === 'SELECT' || node.tagName === 'BUTTON').length === 0 && guideChanges179.length === 0);
+      const unavailableLevel179 = guideContainer179.all(node => node.tagName === 'BUTTON' && node.getAttribute('data-level-preset') === '30')[0];
+      if (!unavailableLevel179) throw Error('original level control missing for unavailable guide repaint');
+      unavailableLevel179.click();
+      const unchangedAllocation179 = api.parseBuild(data, byClass(guideContainer179, 'talents-share-code')[0].getAttribute('value'));
+      check('.196 ' + cls.name + ': repaint keeps unavailable guide notice and attribution without inventing a loadable allocation', panel179.textContent.includes('No checked compatible allocation in this snapshot') && panel179.textContent.includes(source179.author) && panel179.textContent.includes(source179.updatedAt) && panel179.all(node => node.tagName === 'A')[0].getAttribute('href') === source179.url && panel179.all(node => node.tagName === 'SELECT' || node.tagName === 'BUTTON').length === 0 && guideChanges179.length === 1 && guideChanges179[0].className === cls.id && guideChanges179[0].level === 30 && unchangedAllocation179.ok && unchangedAllocation179.build.className === cls.id && unchangedAllocation179.build.level === 30 && api.validateBuild(data, unchangedAllocation179.build).points === 0);
     } else {
       const select179 = panel179.all(node => node.tagName === 'SELECT')[0], load179 = panel179.all(node => node.tagName === 'BUTTON')[0], before179 = byClass(guideContainer179, 'talents-share-code')[0].getAttribute('value'), tree179 = byClass(guideContainer179, 'talents-tree')[0], firstButton179 = byClass(guideContainer179, 'talents-pick')[0];
       select179.value = records179[0].id; select179.dispatch('change');
@@ -286,6 +291,22 @@ async function detailRenderRegression() {
     }
     guideController179.destroy();
   }
+  // .196 TG4: checked guide allocations cannot silently change the selected point budget.
+  const budgetHost196=document.createElement('main'),budgetChanges196=[];
+  const budgetMount196=await browserModule.exports.mount(budgetHost196,{className:'mage',guideBuilds:clone(guideData179),onBuildChange:value=>budgetChanges196.push(value)});
+  const budgetPreset196=value=>budgetHost196.all(node=>node.tagName==='BUTTON'&&node.getAttribute('data-level-preset')===String(value))[0];
+  const budgetPanel196=byClass(budgetHost196,'talents-guides')[0],budgetSelect196=budgetPanel196.all(node=>node.tagName==='SELECT')[0],budgetLoad196=budgetPanel196.all(node=>node.tagName==='BUTTON')[0];
+  const mageRecords196=guideData179.records.filter(record=>record.className==='mage'),smallGuide196=mageRecords196.find(record=>record.points===21),largeGuide196=mageRecords196.find(record=>record.points>21);
+  budgetPreset196(30).click();const beforeGuide196=budgetChanges196.length,emptyCode196=byClass(budgetHost196,'talents-share-code')[0].value;
+  budgetSelect196.value=largeGuide196.id;budgetSelect196.dispatch('change');budgetLoad196.click();
+  check('.196 oversized guide stays disabled and cannot silently switch level30 to60 or publish ranks',budgetLoad196.disabled&&budgetPanel196.textContent.includes('choose Level 60 first')&&budgetChanges196.length===beforeGuide196&&byClass(budgetHost196,'talents-share-code')[0].value===emptyCode196&&api.parseBuild(data,emptyCode196).build.level===30);
+  budgetSelect196.value=smallGuide196.id;budgetSelect196.dispatch('change');budgetLoad196.click();
+  const loadedGuide196=api.parseBuild(data,byClass(budgetHost196,'talents-share-code')[0].value),originalGuide196=api.parseBuild(data,smallGuide196.code);
+  check('.196 fitting 21-point guide keeps selected level30 and every exact published rank',loadedGuide196.ok&&loadedGuide196.build.level===30&&loadedGuide196.points===21&&JSON.stringify(loadedGuide196.build.ranks)===JSON.stringify(originalGuide196.build.ranks)&&budgetChanges196.length===beforeGuide196+1&&budgetHost196.textContent.includes('selected level 30'));
+  budgetSelect196.value=largeGuide196.id;budgetSelect196.dispatch('change');const heldGuide196=budgetLoad196.disabled;budgetPreset196(60).click();
+  check('.196 explicit Level60 change re-evaluates the selected guide without automatically loading it',heldGuide196&&!budgetLoad196.disabled&&api.parseBuild(data,byClass(budgetHost196,'talents-share-code')[0].value).points===21);
+  check('.196 selected level has visible normal and forced-colour CSS states',css.includes('.talents-level-presets button[aria-pressed="true"]')&&css.includes('@media(forced-colors:active)')&&css.includes('outline:1px solid Highlight'));
+  budgetMount196.destroy();
   const staleGuides179 = clone(guideData179), staleGuideContainer179 = document.createElement('main'), staleGuideChanges179 = [];
   const staleGuide179 = await browserModule.exports.mount(staleGuideContainer179, { guideBuilds: staleGuides179, onBuildChange: change => staleGuideChanges179.push(change) });
   const stalePanel179 = byClass(staleGuideContainer179, 'talents-guides')[0], staleSelect179 = stalePanel179.all(node => node.tagName === 'SELECT')[0], staleLoad179 = stalePanel179.all(node => node.tagName === 'BUTTON')[0];
@@ -525,6 +546,77 @@ async function detailRenderRegression() {
     && busyImages188.filter(node => !busyFailed188.includes(node)).every(node => node.srcAssignments === 1 && !node.hidden && !isPending188(node)) && busyNotice188.hidden && maximum188 === 4);
   busyMount188.destroy();
   check('.188 every .188 mount leaves no pending image attempt and the snapshot unchanged', pending188.size === 0 && initialJSON === JSON.stringify(data));
+  // .196: exercise the actual level-preset and point controls after all original checks.
+  const levelHost196 = document.createElement('main'), levelChanges196 = [];
+  const levelMount196 = await browserModule.exports.mount(levelHost196, { onBuildChange: value => levelChanges196.push(value) });
+  const preset196 = value => levelHost196.all(node => node.tagName === 'BUTTON' && node.getAttribute('data-level-preset') === String(value))[0];
+  const levelSelect196 = levelHost196.all(node => node.tagName === 'SELECT' && node.getAttribute('aria-label') === 'Character level')[0];
+  const share196 = () => levelHost196.all(node => node.tagName === 'INPUT' && node.getAttribute('aria-label') === 'Shareable talent build code')[0].value;
+  const build196 = () => api.parseBuild(data, share196()).build;
+  const left196 = value => byClass(levelHost196, 'talents-summary')[0].all(node => node.tagName === 'SPAN').some(node => node.textContent === 'Points left: ' + value);
+  const meters196 = budget => levelHost196.all(node => node.tagName === 'METER').length === 3 && levelHost196.all(node => node.tagName === 'METER').every(node => node.getAttribute('max') === String(budget));
+  const shell196 = byClass(levelHost196, 'talents-tool')[0], toolbar196 = byClass(levelHost196, 'talents-toolbar')[0];
+  const trees196 = byClass(levelHost196, 'talents-tree'), picks196 = byClass(levelHost196, 'talents-pick');
+  const stable196 = () => byClass(levelHost196, 'talents-tool')[0] === shell196 && byClass(levelHost196, 'talents-toolbar')[0] === toolbar196
+    && byClass(levelHost196, 'talents-tree').length === trees196.length && byClass(levelHost196, 'talents-tree').every((node, index) => node === trees196[index])
+    && byClass(levelHost196, 'talents-pick').length === picks196.length && byClass(levelHost196, 'talents-pick').every((node, index) => node === picks196[index]);
+  check('.196 the real level buttons expose 21/51-point budgets and the empty level-60 selection accessibly',
+    preset196(30).textContent === 'Level 30 · 21 points' && preset196(60).textContent === 'Level 60 · 51 points'
+    && preset196(30).getAttribute('aria-pressed') === 'false' && preset196(60).getAttribute('aria-pressed') === 'true'
+    && levelSelect196.value === '60' && build196().ranks.every(rank => rank === 0) && left196(51) && meters196(51));
+  preset196(30).click();
+  check('.196 clicking Level 30 on an empty build sets level 30, 21 points and pressed state without replacing any tree or point control',
+    levelChanges196.at(-1).level === 30 && levelChanges196.at(-1).points === 0 && build196().level === 30 && build196().ranks.every(rank => rank === 0)
+    && levelSelect196.value === '30' && preset196(30).getAttribute('aria-pressed') === 'true' && preset196(60).getAttribute('aria-pressed') === 'false'
+    && left196(21) && meters196(21) && stable196());
+  preset196(60).click();
+  check('.196 clicking Level 60 restores the empty 51-point budget and accessible selection on the same mounted trees',
+    levelChanges196.at(-1).level === 60 && levelChanges196.at(-1).points === 0 && build196().level === 60 && levelSelect196.value === '60'
+    && preset196(30).getAttribute('aria-pressed') === 'false' && preset196(60).getAttribute('aria-pressed') === 'true' && left196(51) && meters196(51) && stable196());
+  const warriorTalents196 = all(data.classes.find(cls => cls.id === 'warrior'));
+  const pointButton196 = talent => picks196.find(node => (node.getAttribute('aria-label') || '').startsWith(talent.name + ', rank '));
+  let clicksValid196 = true, lastPoint196;
+  for (let point = 1; point <= 22; point++) {
+    const before = build196(), talent = warriorTalents196.find(candidate => api.allocate(data, before, candidate.id, 1).ok);
+    if (!talent) throw Error('The real Warrior snapshot cannot supply the bounded 22-point UI fixture.');
+    const expected = api.allocate(data, before, talent.id, 1).build, count = levelChanges196.length;
+    pointButton196(talent).click(); lastPoint196 = talent;
+    clicksValid196 = clicksValid196 && levelChanges196.length === count + 1 && levelChanges196.at(-1).points === point
+      && JSON.stringify(build196()) === JSON.stringify(expected) && stable196();
+  }
+  check('.196 22 actual talent-button clicks produce a valid level-60 vector and leave 29 points on the original controls',
+    clicksValid196 && api.validateBuild(data, build196()).ok && api.validateBuild(data, build196()).points === 22 && left196(29) && meters196(51));
+  const beforeRefusal196 = share196(), beforeRefusalChanges196 = levelChanges196.length;
+  preset196(30).click();
+  check('.196 Level 30 refuses an invested 22-point build without dropping ranks, publishing a change or changing its level, budget or pressed state',
+    share196() === beforeRefusal196 && levelChanges196.length === beforeRefusalChanges196 && api.validateBuild(data, build196()).points === 22
+    && levelSelect196.value === '60' && preset196(30).getAttribute('aria-pressed') === 'false' && preset196(60).getAttribute('aria-pressed') === 'true'
+    && left196(29) && meters196(51) && byClass(levelHost196, 'talents-feedback')[0].textContent.includes('Refund points or reset first.') && stable196());
+  const refundEvent196 = pointButton196(lastPoint196).dispatch('contextmenu'), refunded196 = build196();
+  check('.196 the real right-click point control refunds exactly one invested point before lowering the level',
+    refundEvent196.defaultPrevented && levelChanges196.at(-1).level === 60 && levelChanges196.at(-1).points === 21
+    && api.validateBuild(data, refunded196).ok && api.validateBuild(data, refunded196).points === 21 && left196(30) && stable196());
+  preset196(30).click();
+  check('.196 Level 30 accepts the refunded 21-point build with every remaining rank preserved and no points left',
+    levelChanges196.at(-1).level === 30 && levelChanges196.at(-1).points === 21 && build196().level === 30
+    && JSON.stringify(build196().ranks) === JSON.stringify(refunded196.ranks) && levelSelect196.value === '30'
+    && preset196(30).getAttribute('aria-pressed') === 'true' && preset196(60).getAttribute('aria-pressed') === 'false' && left196(0) && meters196(21) && stable196());
+  preset196(60).click();
+  pointButton196(lastPoint196).click();
+  const beforeResetRefusal196 = share196(), resetRefusalCount196 = levelChanges196.length;
+  preset196(30).click();
+  const resetRefused196 = share196() === beforeResetRefusal196 && levelChanges196.length === resetRefusalCount196 && api.validateBuild(data, build196()).points === 22;
+  levelHost196.all(node => node.tagName === 'BUTTON' && node.textContent === 'Reset')[0].click();
+  check('.196 Reset clears the actual refused 22-point build while retaining level 60 and the 51-point budget',
+    resetRefused196 && levelChanges196.at(-1).points === 0 && levelChanges196.at(-1).level === 60 && build196().ranks.every(rank => rank === 0)
+    && levelSelect196.value === '60' && preset196(60).getAttribute('aria-pressed') === 'true' && left196(51) && meters196(51)
+    && byClass(levelHost196, 'talents-feedback')[0].textContent === 'Build reset.' && stable196());
+  preset196(30).click();
+  check('.196 Level 30 accepts after Reset, exposes 21 available points and preserves the mounted tree identities and immutable data',
+    levelChanges196.at(-1).level === 30 && levelChanges196.at(-1).points === 0 && build196().ranks.every(rank => rank === 0)
+    && levelSelect196.value === '30' && preset196(30).getAttribute('aria-pressed') === 'true' && preset196(60).getAttribute('aria-pressed') === 'false'
+    && left196(21) && meters196(21) && stable196() && initialJSON === JSON.stringify(data));
+  levelMount196.destroy();
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

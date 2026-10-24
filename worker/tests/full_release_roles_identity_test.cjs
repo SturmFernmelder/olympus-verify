@@ -21,6 +21,8 @@
 // Re-recording (only when this fixture changes): export 5bea76e7's worker/src (git show) to a directory, then
 //   IDENTITY_RECORD=1 IDENTITY_SRC=<that directory> node tests/full_release_roles_identity_test.cjs
 // prints the PINS object to paste below. Synthetic IDs only; the twelve are read from beta-reset-policy.ts.
+// .196: only exact reviewed source additions and paired-dump-proven first guide line are projected.
+// Historical PINS and raw r.trace stay unchanged; no blanket current-source/dynamic digest re-pin.
 const fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), nodeCrypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite'), { AsyncLocalStorage } = require('node:async_hooks');
 const entry = require('./helpers/privacy129_fixture.cjs');
@@ -210,7 +212,21 @@ function projectApprovedManifest(value){
  const projected=JSON.stringify({...data,triggers:data.triggers.filter(t=>!SEAL_TRIGGER_NAMES.includes(t.name))});
  projectedManifests.set(value,projected);return projected;
 }
-const legacyOf = (r) => r.trace.filter((e) => e.tag === 'legacy').map(({ tag, ...e }) => e.params?{...e,params:e.params.map(projectApprovedManifest)}:e);
+// A paired original guide raw dump proved identical30events/SQL/binds/batches/HTTPmetadata/response/twelve
+// except this first line. Raw r.trace remains untouched; only historical comparison is projected.
+const PUBLIC_GUIDE_FIRST_LINE = "Olympus guild direction: **World of Warcraft: Forever · PVE - Alliance · public guild direction · Realm not announced**.";
+const HISTORICAL_GUIDE_FIRST_LINE = "Current game: **World of Warcraft: Forever · Beta · Classic Beta PvP 2 · PvP · Alliance**.";
+function projectKnownPublicGuide(e) {
+  if (e.k !== 'http' || e.method !== 'POST' || e.path !== `/channels/${CH_GUIDE}/messages` || typeof e.body !== 'string') return e;
+  let body; try { body = JSON.parse(e.body); } catch { return e; }
+  const description = body?.embeds?.[0]?.description;
+  if (!Array.isArray(body?.embeds) || typeof description !== 'string' || !description.startsWith(PUBLIC_GUIDE_FIRST_LINE + '\n\n')) return e;
+  const marker = '"description":"' + JSON.stringify(PUBLIC_GUIDE_FIRST_LINE).slice(1, -1) + '\\n\\n';
+  const replacement = '"description":"' + JSON.stringify(HISTORICAL_GUIDE_FIRST_LINE).slice(1, -1) + '\\n\\n';
+  if (e.body.split(marker).length !== 2) return e;
+  return { ...e, body: e.body.replace(marker, replacement) };
+}
+const legacyOf = (r) => r.trace.filter((e) => e.tag === 'legacy').map(({ tag, ...e }) => e.params?{...e,params:e.params.map(projectApprovedManifest)}:projectKnownPublicGuide(e));
 const laneOf = (r) => r.trace.filter((e) => e.tag === 'lane');
 // The documented A6 texts (configured and the fresh lane open), mapped back to their .160 wording; nothing else is masked.
 const A6 = [
@@ -313,9 +329,11 @@ const PINS = {
 // The last four are not edited by the design either (the deferral host, the statement budgets, the rename and card reviews).
 const PROTECTED = ['role-settlements', 'roles', 'role-rank-continuation', 'beta-reset-policy', 'beta-reset', 'beta-reset-grants', 'privacy-serving-jobs', 'privacy-serving-erase', 'privacy-erasure-terminal-job-read',
   'privacy-global-serving-origin', 'roster-effects', 'rename-review', 'review'];
+// .196 exact current-source projection: immutable historical whole seals and
+// dynamic oracles remain unchanged. The pure helper cannot start either suite.
+const { SOURCE196_COMPAT, SOURCE196_CRON, source196HistoricalDigest } = require('./source196-historical-projection.cjs');
 function sourceDigest(name) {
-  const text = fs.readFileSync(path.join(SRC, name + '.ts'), 'utf8');
-  return sha(text.replace(/\r\n/g,'\n')); // pin the entire integrated module, including all original and additive code
+  return source196HistoricalDigest(name, fs.readFileSync(path.join(SRC, name + '.ts'), 'utf8'));
 }
 /** Static value imports among src/*.ts (type-only imports and dynamic import() excluded). */
 function staticGraph() {
@@ -367,7 +385,7 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
   if (!PINS) throw Error('PINS not recorded');
 
   // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
-  for (const name of PROTECTED) check(`${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
+  for (const name of PROTECTED) check(SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
   modules=new Map();const exactManifest=load('privacy-write-admission-catalogue').ADMISSION_EXPECTED_JSON;
   check('the unprojected Native manifest is the exact reviewed224-trigger profile, including all three immutable-seal guards',sha(exactManifest)===COMPOSED_MANIFEST_SHA&&JSON.parse(exactManifest).triggers.length===224);
   const graph = staticGraph(), lanes = closure(graph, 'full-release-roles');
@@ -375,11 +393,11 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
     !lanes.has('full-release-roles') && [...lanes].every((m) => !(graph[m] || []).includes('full-release-roles')));
   check('full-release-pass is loaded only by dynamic import (no static value import anywhere in src)', Object.values(graph).every((deps) => !deps.includes('full-release-pass')));
   const indexText = fs.readFileSync(path.join(SRC, 'index.ts'), 'utf8');
-  check('index.ts keeps the original unconfigured queue/cron sweep with synchronous Native normalization before the same entry dispatch capture threaded to both',
+  check('index.ts keeps original Native normalization/entry dispatch/queue and exact current membership-first bounded Treasury cron wrapper',
     indexText.includes(`async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {\n    env=nativeServingEnvironment(env);\n    const roleDispatch=captureBetaRoleDispatch(env);`)
     &&indexText.includes(`async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {\n    env=nativeServingEnvironment(env);\n    const roleDispatch=captureBetaRoleDispatch(env);`)
     &&indexText.includes(`if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch));`)
-    &&indexText.includes(`deferOriginalServing(ctx,'sweepMemberRoles',()=>sweepMemberRoles(env, "cron",undefined,roleDispatch));`));
+    && indexText.split(SOURCE196_CRON).length === 2);
 
   // --- dynamic: every phase, scenario and variant against the .160 pins
   for (const phase of Object.keys(PHASES)) for (const profile of Object.keys(PROFILES)) for (const scenario of Object.keys(SCENARIOS)) {
@@ -388,12 +406,12 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
       const r = await runOnce(phase, profile, variant, scenario), where = `${phase}/${profile}/${scenario}/${variant}`, lane = laneOf(r);
       check(`${where}: no deferred work threw`, r.errors.length === 0, r.errors);
       if (UNCONFIGURED.includes(variant)) {
-        check(`${where}: identical to .160 (statements, binds, batch shapes, Discord requests, response, twelve rows); no lane function ran`,
+        check(`${where}: identical to .160${scenario === 'guide' ? ' after only the bounded known public-guide first-line projection' : ''} (statements, binds, batch shapes, Discord requests, response, twelve rows); no lane function ran`,
           same(digestOf(r), pin) && lane.length === 0 && r.laneCalls.length === 0, { got: digestOf(r), pin, laneCalls: r.laneCalls });
         continue;
       }
       const open = variant === 'configured' && phase === 'live';
-      check(`${where}: the legacy subsequence equals .160${open ? ' after masking only the documented A6 texts' : ' (unmasked)'}; the twelve rows end as under .160`, same(digestOf(r, open), pin), { got: digestOf(r, open), pin });
+      check(`${where}: the legacy subsequence equals .160${open ? ' after masking only the documented A6 texts' : ' (unmasked)'}${scenario === 'guide' ? ' plus the bounded known public-guide first-line projection' : ''}; the twelve rows end as under .160`, same(digestOf(r, open), pin), { got: digestOf(r, open), pin });
       const touched = lane.filter((e) => TWELVE.some((t) => JSON.stringify(e).includes(t)));
       check(`${where}: no lane statement or request names a twelve role ID`, touched.length === 0, touched.slice(0, 3));
       const effects = lane.filter((e) => e.k === 'http' && (e.method === 'PUT' || e.method === 'DELETE'));

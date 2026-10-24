@@ -8,6 +8,28 @@ if(source.split(boundary).length!==2)throw Error('canonical genuine OAuth fixtur
 async function review(){
  const index=load('index').default,site=load('site-data'),news=load('site-news');
  const bytes=value=>new TextEncoder().encode(typeof value==='string'?value:JSON.stringify(value)).byteLength;
+ // A talent attachment is a structured canonical code, not arbitrary max-512
+ // prose. Its current grammar has a fixed one-digit rank per class talent.
+ // Level 60 and every other allowed level have two digits; zero ranks are a
+ // valid allocation with that same maximum canonical width for each class.
+ const contract=load('talent-build-contract'),attachments=load('talent-build-attachment');
+ const candidates=Object.entries(contract.TALENT_ATTACHMENT_CLASSES).map(([className,rows])=>({className,code:'ot1.'+contract.TALENT_SNAPSHOT_REVISION+'.'+className+'.60.'+'0'.repeat(rows.length)}));
+ candidates.sort((a,b)=>b.code.length-a.code.length||a.className.localeCompare(b.className));
+ const maximumTalent=candidates[0],talentQuestion=site.QUESTIONS.find(q=>q.key==='talentBuild');
+ eq('all nine current attachment classes are considered',candidates.length,9);
+ ok('longest current canonical code fits the original structured field limits',!!talentQuestion&&maximumTalent.code.length<=256&&maximumTalent.code.length<=talentQuestion.max);
+ const validatedMaximum=attachments.talentBuildAttachment(maximumTalent.code,'verify.example');
+ ok('longest current code passes the actual unchanged validator',!!validatedMaximum);
+ eq('actual current validator preserves the full maximum-width code',validatedMaximum.code,maximumTalent.code);
+ eq('actual current validator returns the matching application class',validatedMaximum.className,maximumTalent.className);
+ eq('maximum-width fixture is a valid level-60 allocation',validatedMaximum.level,60);
+ eq('zero allocation has full encoded width without invented spent points',validatedMaximum.points,0);
+ eq('one surplus rank digit is not a valid larger current attachment',attachments.talentBuildAttachment(maximumTalent.code+'0','verify.example'),null);
+ for(const candidate of candidates){
+  ok('no current class has a longer canonical rank-vector code '+candidate.className,candidate.code.length<=maximumTalent.code.length);
+  ok('every current class maximum-width zero allocation is valid '+candidate.className,!!attachments.talentBuildAttachment(candidate.code,'verify.example'));
+ }
+ console.log('LEGITIMATE_TALENT_ATTACHMENT_MAX '+JSON.stringify({className:maximumTalent.className,canonicalCodepoints:maximumTalent.code.length,inputFieldMax:talentQuestion.max,scope:'longest-valid-current-canonical-stored-code',allClasses:candidates.map(c=>({className:c.className,canonicalCodepoints:c.code.length}))}));
  async function producer(){
   const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,PRIVACY_ERASURE_ENABLED:'false'});
   await fixtureWrite(f,'INSERT INTO site_users(discord_id,username,first_login,last_login,session_version,in_server,denied,checked_at)VALUES(?,?,?,?,7,1,0,?)',A,'Original writer',f.time(),f.time(),f.time());
@@ -29,13 +51,13 @@ async function review(){
  }
  for(const [label,character] of[['ASCII','X'],['Unicode','😀'],['escaped ASCII','"']]){
   const {f,api}=await producer(),answers={};
-  for(const q of site.QUESTIONS)answers[q.key]=q.key==='logs'?'https://example.test/'+('x'.repeat(200-'https://example.test/'.length)):character.repeat(q.max);
+  for(const q of site.QUESTIONS)answers[q.key]=q.key==='talentBuild'?maximumTalent.code:q.key==='logs'?'https://example.test/'+('x'.repeat(200-'https://example.test/'.length)):character.repeat(q.max);
   answers.hours='gt20';answers.voice='yes';
   answers.professions=['alchemy','blacksmithing','cooking','first_aid','fishing'];
   answers.references=[{kind:'discord',key:B,label:'Chosen reference'},{kind:'name',key:'other reference',label:'Other reference'}];
-  const saved=await api('/api/application','PUT',{position:'officer',class:'undecided',role:'tank',region:'na_east',avail:'f'.repeat(42),availTz:'UTC',answers,board:true,ack:true});
+  const saved=await api('/api/application','PUT',{position:'officer',class:maximumTalent.className,role:'tank',region:'na_east',avail:'f'.repeat(42),availTz:'UTC',answers,board:true,ack:true});
   const row=f.db.prepare('SELECT answers FROM site_applications WHERE discord_id=?').get(A),stored=JSON.parse(row.answers);
-  for(const q of site.QUESTIONS){eq(label+' actual writer preserves max '+q.key,stored[q.key],answers[q.key]);eq(label+' max '+q.key+' codepoint count',Array.from(stored[q.key]).length,q.max);}
+  for(const q of site.QUESTIONS){eq(label+' actual writer preserves max '+q.key,stored[q.key],answers[q.key]);eq(label+' max '+q.key+' codepoint count',Array.from(stored[q.key]).length,q.key==='talentBuild'?maximumTalent.code.length:q.max);}
   eq(label+' actual writer response matches stored answer lengths',saved.application.answers.experience,stored.experience);
   console.log('LEGITIMATE_APPLICATION_SIZE '+JSON.stringify({label,storedAnswerBytes:bytes(row.answers),storedAnswerCodepoints:Array.from(row.answers).length,utf16:row.answers.length}));
   if(!producerOnly){const data=await own(f);for(const q of site.QUESTIONS)eq(label+' whole own application preserves valid max '+q.key,data.site.application.answers[q.key],stored[q.key]);

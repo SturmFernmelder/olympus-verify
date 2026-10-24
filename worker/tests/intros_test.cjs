@@ -151,7 +151,11 @@ async function run(i) {
   check("every link is https and on Blizzard or an editorial guide site", hosts.length > 10 && hosts.every((u) => u.startsWith("https://") && LINK_HOSTS.includes(new URL(u).host)) || console.log("   ", hosts.filter((u) => !LINK_HOSTS.includes(new URL(u).host))));
   check("the launch timestamp is 4 Nov 2026 15:00 PST (23:00 UTC)", rendered.includes("<t:1793833200:F>") && Date.UTC(2026, 10, 4, 23) / 1000 === 1793833200);
   check("the dungeon example uses Hall of Thanes' level range from Wowhead (13-18)", rendered.includes("Hall of Thanes · 13–18") && !rendered.includes("28–34"));
-  check("Hardcore is said to come after launch", /Hardcore \(after launch\)/.test(rendered));
+  check("the current intro records public PvE Alliance direction without inventing a live realm or launch activation", rendered.includes("PVE - Alliance") && rendered.includes("The realm will be announced before launch.") && !rendered.includes("separately confirmed configuration") && BETA_SNAP.profile.phase==="public_direction" && BETA_SNAP.profile.faction==="Alliance" && !/Hardcore \(after launch\)/.test(rendered));
+  const switchedCopy = { ...BETA_SNAP, profile: { ...BETA_SNAP.profile, phase: "full_release", ruleset: "PvP", faction: "Horde", realm: "Synthetic announced realm" } };
+  const currentInfoCopy = textOf(renderEmbeds(INTROS.find(x=>x.key==="olympus-info"),CH,switchedCopy));
+  check("the member-facing ruleset field follows the supplied resolved snapshot instead of retaining a fixed PvE literal",currentInfoCopy.includes("PvP · Horde") && !currentInfoCopy.includes("PVE - Alliance") && !currentInfoCopy.includes("Historical beta observations"));
+  const originalBeta=load("./ruleset-profile").historicalBetaRulesetProfile();check("the historical beta observation keeps its exact PvP2 identity separately",originalBeta.phase==="beta"&&originalBeta.realm==="Classic Beta PvP 2"&&originalBeta.ruleset==="PvP");
   check("a channel missing from the config becomes plain text, not a broken mention", intros.resolveText("see {#nowhere}", CH) === "see #nowhere");
 
   console.log("== who may run it ==");

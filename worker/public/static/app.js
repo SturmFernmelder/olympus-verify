@@ -14,9 +14,11 @@
   const app = document.getElementById("app");
   let timers = [];
   let disposeTool = null;
+  let navigationGuard = null;
   let disposeGovernancePrint = null;
   let disposeOrganization = null;
   let disposeSeatsNotice = null;
+  let disposeArmyCapacity = null;
   const appointmentReaders = new Set(); // View disposers only; never a cross-route identity cache.
   const dirtyKeys = new Set(); // forms on the page with unsaved changes
   const PICK_KEY = "olympus.pick"; // sessionStorage: the role "Sign in to apply" was pressed for (see the end)
@@ -72,18 +74,18 @@
     const display = person.nick || person.displayName || person.username || "";
     return person.username && person.username.trim().toLowerCase() !== display.trim().toLowerCase() ? `${display} (${person.username})` : display;
   };
-  // .169: Discord pictures are limited to one's own chrome and authenticated recommendation search results.
-  // Board cards, typed names and other portraits still use local game icons. These are public Discord CDN URLs,
-  // with no referrer; a missing/failed/unrecognised address keeps the local fallback. No arbitrary image host is allowed.
+  // Owner directive, 23 Oct 2026: authenticated applicant, directory and account-search portraits use the
+  // same closed Discord CDN guard as one's own chrome. Keep class art beside applicant portraits and never
+  // accept an arbitrary image host. Missing, failed or unrecognised pictures retain the local fallback.
   // .114 (Viktor, 2 Oct 2026): the original exception to "images from this site only": the signed-in member's own Discord picture
   // in their own header and welcome panel. Only an avatar address on Discord's picture host passes (the Worker's avatarUrl: a profile picture, a
   // server picture or Discord's default one; the page's CSP allows that host and no other). Anything else, or a picture that
   // fails to load, shows the official Member icon. Set with setAttribute here on purpose: h() keeps its root-relative rule for
   // other image attributes on the site; recommendation results now use the same closed CDN guard.
   const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d{17,20}\/(?:a_)?[0-9a-f]{32}\.png\?size=64|guilds\/\d{17,20}\/users\/\d{17,20}\/avatars\/(?:a_)?[0-9a-f]{32}\.png\?size=64|embed\/avatars\/[0-5]\.png)$/;
-  function discordAvatar(user) {
+  function discordAvatar(user, attributes = {}) {
     const fallback = accountArt(user || {});
-    const img = h("img", { src: fallback, alt: "", referrerpolicy: "no-referrer" });
+    const img = h("img", { ...attributes, src: fallback, alt: "", referrerpolicy: "no-referrer" });
     const url = user && typeof user.avatarUrl === "string" ? user.avatarUrl : "";
     if (DISCORD_AVATAR.test(url)) {
       img.addEventListener("error", () => { if (img.getAttribute("src") !== fallback) img.setAttribute("src", fallback); });
@@ -95,6 +97,9 @@
   /** The icon for a position or role key: Class Lead shows its class, NA and EU raid roles share one. */
   function posIcon(key, cls = "") {
     if (key.startsWith("class_lead:")) return M().classes.some((c) => c.key === key.slice(11)) ? icon("class-" + key.slice(11), cls) : icon("pos-unknown", cls);
+    const office = (M().appointments || []).find(item => item.key === key);
+    if (office && /^office_[0-9]{2}$/.test(key)) return icon("pos-community", cls);
+    if (office && /^rank_[a-z_]+$/.test(key)) return icon("pos-" + (key === "rank_guild_master" ? "guild_master" : key === "rank_treasurer" ? "treasurer" : "officer"), cls);
     const base = key.replace(/_(na|eu)$/, "");
     return icon("pos-" + (["co_gm", "guild_master", "officer", "raid_leader", "raid_assist", "class_lead", "recruitment", "community", "leveling", "pvp_leader", "liaison", "loot_council", "treasurer", "professions", "moderator", "raider", "pvp_team", "member"].includes(base) ? base : "unknown"), cls);
   }
@@ -126,12 +131,13 @@
     const keys = ["schema", "revision", "phase", "game", "guild", "realm", "ruleset", "faction"];
     if (!p || typeof p !== "object" || Array.isArray(p) || Object.keys(p).length !== keys.length
       || !keys.every((k) => Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] === "string")
-      || p.schema !== "olympus-ruleset-profile-v1" || !["beta", "full_release"].includes(p.phase)
-      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || !["Normal", "PvP", "Roleplaying", "Hardcore"].includes(p.ruleset) || !["Alliance", "Horde"].includes(p.faction)
+      || p.schema !== "olympus-ruleset-profile-v1" || !["beta", "public_direction", "full_release"].includes(p.phase)
+      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || !["Normal", "PvE", "PvP", "Roleplaying", "Hardcore"].includes(p.ruleset) || !["Alliance", "Horde"].includes(p.faction)
       || !/^[\p{L}\p{N} .:'()-]{1,80}$/u.test(p.realm) || p.realm !== p.realm.trim() || p.realm !== p.realm.normalize("NFC")
       || (p.phase === "beta" && (p.revision !== "forever-beta-pvp2-v1" || p.realm !== "Classic Beta PvP 2" || p.ruleset !== "PvP" || p.faction !== "Alliance"))
+      || (p.phase === "public_direction" && (p.revision !== "forever-public-pve-alliance-20261023-v1" || p.realm !== "Realm not announced" || p.ruleset !== "PvE" || p.faction !== "Alliance"))
       || (p.phase === "full_release" && !/^forever-release-[a-z0-9][a-z0-9.-]{0,31}$/.test(p.revision))) return "Game identity unavailable";
-    return `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
+    return p.phase === "public_direction" ? `${p.game} · PVE - Alliance · public guild direction · ${p.realm}` : `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
   }
   function rulesetIdentity() { return M().rulesetHeld ? "Game identity unavailable" : identityOf(M().ruleset); }
   // .93: the community context from the boot (community-context.ts contextDto): flags for everyone, capabilities for the viewer
@@ -162,14 +168,54 @@
   const sentenceEnd = (text) => /[.!?]$/.test(text) ? text : text + ".";
   const appointmentLabelText = (holder, bare, sentence) => { const text = bare ? holder : appointmentLabel(holder); return sentence ? sentenceEnd(text) : text; };
   const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": key, "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
-  /** "Fernmelder has been appointed Treasurer / Guild Bank, so the role is no longer open to applications or votes." */
+  /** An appointed holder is projected only through the current qualified identity path. */
   const appointedText = (keys) => [...keys.flatMap((key, i) => [i ? i === keys.length - 1 ? " and " : ", " : "", appointmentLabelNode(key, appointedTo(key), true), i ? " " : " has been appointed ", roleName(key)]), `, so ${keys.length === 1 ? "the role is" : "those roles are"} no longer open to applications or votes.`];
+  /** The complete website display catalogue; it never applies a native rank or publishes a raw account pointer. */
+  function officeAssignmentPanel() {
+    const offices = M().appointments;
+    const groups = [["native", "Native-rank display records"], ["leadership", "Leadership display records"], ["class", "Class display records"], ["office", "Extended offices and display aliases"]];
+    const valid = Array.isArray(offices) && offices.length > 0 && offices.length <= 131 && new Set(offices.map(office => office?.key)).size === offices.length && offices.every(office =>
+      office && typeof office.key === "string" && /^[a-z][a-z0-9_:]{0,79}$/.test(office.key) && typeof office.label === "string" && office.label.length > 0 && office.label.length <= 160 && groups.some(([group]) => group === office.group));
+    if (!valid) return frame("Office and rank display records", null, h("p", { class: "muted", text: "The display catalogue is unavailable. No holder identities were loaded." }));
+    if (!S.signedIn || S.denied || !communityReader()) return frame("Office and rank display records", null, h("p", { class: "muted", text: "A qualified current guild reader can view the separately consented website holder records." }));
+    const assignments = (S.settings && S.settings.appointed) || {};
+    const displayHolder = key => {
+      if (!Object.prototype.hasOwnProperty.call(assignments, key) || assignments[key] === "") return "";
+      const value = assignments[key];
+      if (appointmentPointer(value)) return "Appointed member";
+      // Old staff-confirmed display text remains text; malformed/ID-like legacy values cannot become a disclosure.
+      if (typeof value !== "string" || value.length > 40 || /[\u0000-\u001f\u007f<>]/.test(value) || /^[0-9]{17,20}$/.test(value.trim())) return "Name withheld";
+      return value;
+    };
+    const panel = frame("Office and rank display records", null,
+      h("p", { text: "All supported website office, class and native-rank display records are listed here. An unfilled record is not an appointment. Display aliases do not add an eleventh native rank." }),
+      h("p", { class: "muted small", text: "Current account names and verified characters appear only through the separately admitted publication reader. Name withheld and unavailable identities remain opaque. Staff-confirmed plain text is not current account or character proof. These display records do not assign in-game or Discord ranks, bank access, votes or signing authority; the separately disclosed Broadcaster and Lead Correspondent website actions keep their own checks." }),
+      groups.map(([group, title]) => {
+        const rows = offices.filter(office => office.group === group);
+        return !rows.length ? null : h("details", { class: "mt", open: group === "native" },
+          h("summary", { text: `${title} (${rows.length})` }),
+          h("div", { class: "roles-grid mt-s" }, rows.map(office => {
+            const holder = displayHolder(office.key);
+            return h("article", { class: "card", "data-office-assignment": office.key },
+              h("h3", null, posIcon(office.key, "s"), h("span", { text: office.label })),
+              holder ? h("p", null, appointmentLabelNode(office.key, holder, false, true)) : h("p", { class: "muted", text: "No website appointment recorded." }),
+              holder ? h("div", { "data-appointment-characters": office.key }) : null,
+              office.aliasOf ? h("p", { class: "muted small", text: "Display alias; does not create another native-rank slot or transfer an appointment automatically." }) : null);
+          })));
+      }));
+    panel.setAttribute("data-office-assignment-catalogue", "true");
+    return panel;
+  }
   /** Fresh, qualified-reader projection for this mounted view only. The server's
    * separate site/Discord publication proofs remain the only identity authority. */
   function hydrateAppointmentNames(root, ownsView = () => root.isConnected) {
     const labels = [...root.querySelectorAll("[data-appointment-label]")], titles = [...root.querySelectorAll("[data-appointment-title]")], characterSlots = [...root.querySelectorAll("[data-appointment-characters]")];
     if (!labels.length && !titles.length) return () => {};
     const user = S.user, settings = S.settings, context = COM(), route = currentRoute();
+    const offices = M().appointments;
+    if (!Array.isArray(offices) || offices.length < 1 || offices.length > 131 || offices.some(office => !office || typeof office.key !== "string")) return () => {};
+    const appointmentKeys = new Set(offices.map(office => office.key));
+    if (appointmentKeys.size !== offices.length) return () => {};
     const originals = labels.map(node => [node, node.textContent]), originalTitles = titles.map(node => [node, node.getAttribute("title")]);
     let disposed = false, generation = 0, hidden = !!document.hidden;
     const owned = () => !disposed && ownsView() && S.signedIn && !S.denied && S.user === user && S.settings === settings && COM() === context && currentRoute() === route && communityReader();
@@ -191,25 +237,46 @@
       else if (owned()) read();
       else dispose();
     };
-    const read = () => {
+    const read = async () => {
       if (!live()) return;
       const requestedGeneration = ++generation, current = () => requestedGeneration === generation && live();
-      api("GET", "/api/appointed-identities", undefined, { live: current }).then(data => {
-        if (!current() || data?.scope !== "qualified_community_readers" || !Array.isArray(data.identities) || data.identities.length > 2) return;
-        const seen = new Set();
-        for (const person of data.identities) {
-          if (!person || !["co_gm", "treasurer"].includes(person.role) || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) || !appointmentPointer(person.appointment) || typeof person.displayName !== "string" || typeof person.username !== "string" || !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== "string" || !["verified", "queued", "member"].includes(c.status) || typeof c.verifiedAt !== "string")) continue;
-          seen.add(person.role); const name = discordIdentity(person);
+      const seen = new Set(), people = [], pageSize = 32, maxPages = Math.ceil(appointmentKeys.size / pageSize);
+      let after = null, revision = null, complete = false;
+      clearProjection();
+      try {
+        for (let page = 0; page < maxPages; page++) {
+          const path = '/api/appointed-identities' + (after === null ? '' : '?' + qs({ after, revision }));
+          const data = await api('GET', path, undefined, { live: current });
+          if (!current()) return;
+          if (data?.scope !== 'qualified_community_readers' || !Array.isArray(data.identities) || data.identities.length > pageSize ||
+              !/^[A-Za-z0-9_-]{43}$/.test(data.revision || '') || revision !== null && data.revision !== revision ||
+              typeof data.complete !== 'boolean' || data.complete !== (data.nextCursor === null) ||
+              data.nextCursor !== null && (!appointmentKeys.has(data.nextCursor) || after !== null && data.nextCursor <= after)) throw Error('appointment_page_unconfirmed');
+          for (const person of data.identities) {
+            if (!person || !appointmentKeys.has(person.role) || !Object.prototype.hasOwnProperty.call(settings?.appointed || {}, person.role) || seen.has(person.role) ||
+                after !== null && person.role <= after || data.nextCursor !== null && person.role > data.nextCursor ||
+                !appointmentPointer(person.appointment) || typeof person.displayName !== 'string' || typeof person.username !== 'string' ||
+                !Array.isArray(person.characters) || person.characters.length > 50 || person.characters.some(c => !c || typeof c.name !== 'string' || !['verified', 'queued', 'member'].includes(c.status) || typeof c.verifiedAt !== 'string')) throw Error('appointment_page_unconfirmed');
+            seen.add(person.role); people.push(person);
+          }
+          revision = data.revision; after = data.nextCursor; complete = data.complete;
+          if (complete) break;
+        }
+        if (!current()) return;
+        if (!complete || people.length > appointmentKeys.size) throw Error('appointment_page_unconfirmed');
+        for (const person of people) {
+          const name = discordIdentity(person);
           for (const node of labels) if (node.getAttribute("data-appointment-label") === person.role) node.textContent = appointmentLabelText(name, node.getAttribute("data-appointment-bare") === "true", node.getAttribute("data-appointment-sentence") === "true");
           for (const node of titles) if (node.getAttribute("data-appointment-title") === person.role) node.setAttribute("title", appointmentLabel(name));
           for (const node of characterSlots) if (node.getAttribute("data-appointment-characters") === person.role) {
             clear(node); add(node, h("p", { class: "muted small", text: person.characters.length ? `Verified characters: ${person.characters.map(c => c.name).join(", ")}${person.charactersTruncated ? " (first 50)" : ""}.` : "No current verified characters are available." }));
           }
         }
-      }).catch(error => {
-        // A current refusal closes this reader. Visibility never retries that failed admission.
-        if (current() && [401, 403, 503].includes(error?.status)) dispose();
-      });
+      } catch (error) {
+        // No partial/mixed collection survives an admission, cursor, rate or
+        // transport refusal. Visibility does not automatically retry a failure.
+        if (current()) dispose();
+      }
     };
     appointmentReaders.add(dispose); document.addEventListener("visibilitychange", onVisibility); window.addEventListener("pagehide", dispose);
     if (!owned()) dispose();
@@ -468,6 +535,7 @@
     const head = content && content.querySelector ? content.querySelector("h2, h3") : null;
     if (head) { if (!head.id) head.id = `dialog-title-${++dialogSeq}`; d.setAttribute("aria-labelledby", head.id); }
     d.addEventListener("close", () => d.remove());
+    if (streamShield) { setTimeout(() => d.dispatchEvent(new Event("close")), 0); return d; }
     document.body.appendChild(d);
     d.showModal();
     return d;
@@ -647,7 +715,7 @@
     return "";
   }
   function avatarEl(p) {
-    if (p.kind === "discord") return h("img", { src: accountArt(p), alt: "", width: "32", height: "32", loading: "lazy", referrerpolicy: "no-referrer" });
+    if (p.kind === "discord") return discordAvatar(p, { width: "32", height: "32", loading: "lazy" });
     return h("img", { class: "typed-icon", src: art("icon-names"), alt: "", width: "32", height: "32" }); // .112: a typed name shows the official scroll icon (INV_Scroll_03), not a letter badge
   }
   function personRow(p, { onRemove, extra, note } = {}) {
@@ -662,19 +730,19 @@
   }
   // Answers already fetched on this page, by query, for five minutes: the same letters are never asked for twice.
   const searchCache = new Map();
-  async function searchPeople(q, appointmentOnly = false) {
+  async function searchPeople(q, appointmentOnly = false, live) {
     // Appointment standing is a current admin hint. Do not reuse the ordinary five-minute name cache.
-    if (appointmentOnly) return api("GET", "/api/search?purpose=appointment&q=" + encodeURIComponent(q));
+    if (appointmentOnly) return api("GET", "/api/search?purpose=appointment&q=" + encodeURIComponent(q), undefined, { live });
     const key = q.toLowerCase();
     const hit = searchCache.get(key);
     if (hit && Date.now() - hit.at < 300000) return hit.res;
-    const res = await api("GET", "/api/search?q=" + encodeURIComponent(q));
+    const res = await api("GET", "/api/search?q=" + encodeURIComponent(q), undefined, { live });
     if (!res.limited && !res.unavailable) searchCache.set(key, { at: Date.now(), res });
     return res;
   }
 
   /** A search box over Asmongold's Discord (via the Worker) with a "type the name instead" fallback. */
-  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, appointmentOnly = false, exclude = () => false, label = "Find someone" }) {
+  function picker({ placeholder = "Search Discord by name…", onPick, allowTyped = true, allowSelf = false, appointmentOnly = false, exclude = () => false, label = "Find someone", isCurrent = () => true }) {
     const id = "pk" + Math.random().toString(36).slice(2, 8);
     const input = h("input", { type: "search", id, placeholder, autocomplete: "off", spellcheck: "false", role: "combobox", "aria-expanded": "false", "aria-controls": id + "-list", "aria-autocomplete": "list" });
     const onlySite = h("input", { type: "checkbox" });
@@ -729,17 +797,19 @@
       draw(notes);
     }
     async function run() {
+      if (!isCurrent()) { close(); return; }
       const q = input.value.trim().replace(/^@/, "");
       if ([...q].length < 2) { close(); return; }
       const my = ++seq;
       state("Searching…");
       let res;
-      try { res = await searchPeople(q, appointmentOnly); } catch (e) { res = { results: [], unavailable: e.status !== 429, limited: e.status === 429 }; }
-      if (my !== seq) return;
+      try { res = await searchPeople(q, appointmentOnly, isCurrent); } catch (e) { res = { results: [], unavailable: e.status !== 429, limited: e.status === 429 }; }
+      if (my !== seq || !isCurrent()) return;
       last = { res, q };
       build(res, q);
     }
     function choose(i) {
+      if (!isCurrent()) { close(); return; }
       const it = items[i];
       if (!it || !selectable(it)) return;
       onPick({ kind: it.kind, key: it.key, label: it.label, avatarUrl: it.avatarUrl || null });
@@ -856,19 +926,42 @@
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
-      if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) add(nav, link(["#/community", "Community"]));
+      if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
+        const sections = [["#/community", "Community overview"]];
+        if (can("armyRead")) sections.push(["#/community/army", "Army"]);
+        if (feat("directory")) sections.push(["#/community/directory", "Member directory"], ["#/community/profile", "My profile"]);
+        if (feat("crafting")) sections.push(["#/community/workshop", "Crafters & Artisans"]);
+        if (feat("events")) sections.push(["#/community/calendar", "Calendar"]);
+        if (feat("trials")) sections.push(["#/community/trial", "My trial"]);
+        if (feat("contributions")) sections.push(["#/community/dues", "Treasury & tithes"]);
+        if (newsOn()) sections.push(["#/news", "Town Crier"]);
+        if (anyCommunity()) sections.push(["#/community/leadership", "Leadership"]);
+        if (feat("census") && can("confirmedGuildData")) sections.push(["#/community/census", "Census preview"]);
+        add(nav, group("Community", sections));
+      }
       const resources = [["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides", "Class and profession guides"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
     if (S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
+    let shield = null;
+    if (S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
+      shield = h("button", { class: "btn small stream-shield-toggle", type: "button", text: "Stream Shield", "aria-pressed": String(streamShield), title: "Hide private page content in this window while streaming. This does not change server permissions." });
+      shield.addEventListener("click", () => {
+        streamShield = !streamShield;
+        try { sessionStorage.setItem("olympus.streamShield", streamShield ? "on" : "off"); } catch { /* Presentation still changes for this page. */ }
+        if (streamShield) for (const open of document.querySelectorAll("dialog")) { if (open.open) open.close(); }
+        document.documentElement.setAttribute("data-stream-shield", streamShield ? "on" : "off");
+        shield.setAttribute("aria-pressed", String(streamShield));
+      });
+    }
     const who = S.signedIn && S.user
       ? h("div", { class: "who" },
           ownAvatar(S.user), // .114: the member's own Discord picture (header only)
           h("span", { class: "name", text: discordIdentity(S.user), title: discordIdentity(S.user) }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
-    return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, who));
+    return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, h("div", { class: "topbar-actions" }, shield, who)));
   }
   function footer() {
     const cursor = h("button", { class: "btn small", type: "button", text: "Game cursor", "aria-pressed": String(gameCursor), title: "Use the World of Warcraft cursor with a mouse" });
@@ -883,11 +976,12 @@
         h("div", null, brand(), cursor),
         h("div", null,
           h("p", null, "A free, fan-made, non-commercial site for Olympus, a player guild in World of Warcraft: Forever. Not affiliated with or endorsed by Blizzard Entertainment or Discord."),
-          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. The login portal illustration is custom artwork created for Olympus, not an image from the game client. The remaining game interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
+          h("p", null, "World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries. The Olympus crest is the guild's own logo. The login portal animation is a guild-rendered derivative of the original World of Warcraft client model and textures, with a static reduced-motion poster; it is not a publisher-issued movie or endorsement. The remaining game interface artwork and icons come from the World of Warcraft game client and are the property of Blizzard Entertainment, Inc. The two interface fonts come from the same client and keep their embedded notices (Friz Quadrata: International Typeface Corporation, 1997; Morpheus: Kiwi Media/Design, Eric Oehler, 1996); they remain their respective owners' property, and the site's code licence does not extend to any of this. See the Terms of Service."))));
   }
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
     if (dirtyKeys.size && !(await confirmBox("Leave without saving?", "You have changes that are not saved yet.", "Sign out anyway"))) return;
+    if (disposeArmyCapacity) disposeArmyCapacity(); // Clear dated capacity before logout transport; preserve publisher custody.
     try { await api("POST", "/auth/logout"); } catch { /* signed out either way */ }
     location.href = "/";
   }
@@ -924,8 +1018,8 @@
   // Titles identify the section, never a private account, event or case from an address.
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
-    const community = { "": "Overview", directory: "Member directory", profile: "My profile", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", army: "Army", leadership: "Leadership" };
-    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
+    const community = { "": "Overview", directory: "Member directory", profile: "My profile", workshop: "Crafters & Artisans", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", army: "Army", leadership: "Leadership" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
     if (head === "community") {
@@ -937,13 +1031,27 @@
     if (head === "vote") { const ballot = M().ballots.find(b => b.key === dec(sub || "")); return ballot ? `${ballot.label} · Vote` : "Vote"; }
     if (head === "roles" && sub) { const role = M().positions.find(p => p.key === dec(sub)); if (role) return `${role.label} · Roles`; }
     if (head === "guide") return sub === "officer" ? "Officer guide" : "Member guide";
-    return ({ "": "Home", apply: "Apply", vote: "Vote", roles: "Roles", governance: "Governance", organization: "Organization", addons: "Addons", guides: "Guides", updates: "Game updates", data: "Account data", request: "Private request" })[head] || "Home";
+    if (head === "legal") return sub === "privacy" ? "Privacy Policy" : sub === "terms" ? "Terms of Service" : "Legal";
+    return ({ "": "Home", apply: "Apply", vote: "Vote", roles: "Roles", governance: "Governance", organization: "Organization", addons: "Addons", guides: "Guides", updates: "Game updates", news: "Town Crier", army: sub === "report" ? "Army reporter" : "Army", data: "Account data", request: "Private request" })[head] || "Home";
   }
   let lastHash = location.hash;
   let ignoreHash = false;
+  document.addEventListener("click", event => {
+    if (!S.signedIn || S.denied || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button && event.button !== 0) return;
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (!anchor || !app.contains(anchor) || anchor.getAttribute("target") === "_blank") return;
+    const href = anchor.getAttribute("href");
+    const legal = /^\/legal\/(privacy|terms)$/.exec(href || "") || /^https:\/\/olympus\.roachcouncil\.com\/legal\/(privacy|terms)$/.exec(href || "");
+    if (legal) { event.preventDefault(); location.hash = "#/legal/" + legal[1]; }
+  });
   window.addEventListener("hashchange", async () => {
     if (disposeCensusPreview) disposeCensusPreview();
     if (ignoreHash) { ignoreHash = false; return; }
+    if ((navigationGuard && !navigationGuard.canLeave() || window.OlympusArmyReportTool?.isNavigationHeld()) && currentRoute() !== "army/report") {
+      ignoreHash = true; location.hash = lastHash;
+      toast("The Army publication is awaiting an answer. Check its original outcome before leaving this workspace.", "bad");
+      return;
+    }
     if (dirtyKeys.size) {
       const target = location.hash;
       ignoreHash = true;
@@ -956,7 +1064,7 @@
     lastHash = location.hash;
     render();
   });
-  window.addEventListener("beforeunload", (e) => { if (dirtyKeys.size) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("beforeunload", (e) => { if (dirtyKeys.size || navigationGuard && !navigationGuard.canLeave() || window.OlympusArmyReportTool?.isNavigationHeld()) { e.preventDefault(); e.returnValue = ""; } });
   // "#/names" and "#/friends" are sections of Home. Clicked on Home itself, they only scroll there: no new page, so
   // nothing typed elsewhere on Home is lost or questioned. From any other page the router takes them (old links too).
   document.addEventListener("click", (e) => {
@@ -976,7 +1084,14 @@
   const setDirty = (key, on, el) => { if (on) dirtyKeys.add(key); else dirtyKeys.delete(key); if (el) el.hidden = !on; };
 
   let chromeKey = "";
+  let streamShield = false;
+  try { streamShield = S.signedIn && !S.denied && !!S.user && (S.user.isAdmin || S.user.canUseStreamShield === true) && sessionStorage.getItem("olympus.streamShield") === "on"; } catch { /* The current page still has an attended toggle. */ }
+  document.documentElement.setAttribute("data-stream-shield", streamShield ? "on" : "off");
   function render() {
+    if (!S.signedIn || S.denied || !S.user || !(S.user.isAdmin || S.user.canUseStreamShield === true)) {
+      streamShield = false;
+      document.documentElement.setAttribute("data-stream-shield", "off");
+    }
     closeNavMenus();
     if (disposeSeatsNotice) disposeSeatsNotice();
     for (const dispose of [...appointmentReaders]) dispose();
@@ -998,12 +1113,13 @@
     }
     const [head] = route.split("/");
     // Keep the loaded avatar and navigation mounted between routes. Rebuild when identity or admission changes.
-    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, anyCommunity(), can("applicantWrite"), can("armyRead"), can("confirmedGuildData"), communityReader(), S.qrVerification, S.settings && S.settings.newsOn, S.settings && S.settings.notice]);
+    const nextChromeKey = JSON.stringify([S.signedIn, S.denied, S.user, COM().features, anyCommunity(), can("applicantWrite"), can("armyRead"), can("confirmedGuildData"), communityReader(), S.qrVerification, S.settings && S.settings.newsOn, S.settings && S.settings.notice]);
     const previousMain = app.querySelector("main.shell");
     const reuseChrome = chromeKey === nextChromeKey && previousMain;
     if (!reuseChrome) {
       clear(app);
       app.appendChild(topbar(route));
+      app.appendChild(h("div", { class: "stream-shield-curtain", role: "status", text: "Stream Shield is on. Private guild content is hidden in this window. Use the header toggle to show it again." }));
       if (S.settings && S.settings.notice) app.appendChild(h("div", { class: "notice" }, noticeBox("info", "icon-apply", h("p", { text: S.settings.notice }))));
       chromeKey = nextChromeKey;
     } else {
@@ -1102,6 +1218,18 @@
       onRefused: status => { if (main.parentNode !== app) return; if (status === 401) { S.signedIn = false; render(); } else if (status === 403 || status === 503) refreshCommunity(); },
     });
   };
+  ROUTES.legal = async (main, parts) => {
+    const kind = parts[0];
+    if (parts.length !== 1 || !["privacy", "terms"].includes(kind)) { add(main, frame("Legal", null, h("p", {text:"There is no such legal document."}))); return; }
+    const owner = S.user, route = currentRoute(); let disposed = false, instance = null;
+    const live = () => !disposed && S.user === owner && S.signedIn && !S.denied && currentRoute() === route && main.parentNode === app;
+    const dispose = () => { disposed = true; instance?.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    disposeTool = dispose;
+    const box = h("div", {class:"legal-view196"}); add(main, box);
+    await loadMemberScript("OlympusLegalView", "/static/legal-view196.js"); if (!live()) return;
+    instance = window.OlympusLegalView.mount(box, {kind, isCurrent:live});
+    if (!live()) instance.destroy();
+  };
   ROUTES.addons = resourcesView("addons");
   ROUTES.guides = resourcesView("guides");
   ROUTES.updates = resourcesView("updates");
@@ -1130,7 +1258,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "5070062380f257451eb39fdf8b6320eb7b90897bad58085adde6dc8d1aa4afdf";
+  const GOVERNANCE_SHA256 = "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1142,7 +1270,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
-      if (bytes.length !== 157508) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 173953) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1154,7 +1282,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 157508 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 173953 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -1468,11 +1596,15 @@
     disposeGovernancePrint = () => { restorePrint(); window.removeEventListener("beforeprint", preparePrint); window.removeEventListener("afterprint", restorePrint); disposeGovernancePrint = null; };
   };
   ROUTES.organization = async (main, parts) => {
+    const user = S.user, settings = S.settings, context = COM(), route = currentRoute(), view = main.dataset.viewRequest;
+    const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;
     add(main, h("p", { role: "status", text: "Opening the organization…" }));
     const data = await governanceModel();
-    if (!app.contains(main)) return;
+    if (!current()) return;
     const { renderOrganization } = await import("/static/organization-view.js");
-    if (app.contains(main)) disposeOrganization = renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection });
+    if (!current()) return;
+    disposeOrganization = renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection });
+    add(main, officeAssignmentPanel()); // The router owns the same qualified reader after this async view finishes.
   };
 
   // ---------------------------------------------------------------- home
@@ -1639,7 +1771,7 @@
         h("div", { class: "btn-row" },
           h("a", { class: "btn", href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Get Olympus Guild" }),
           h("a", { class: "btn small", href: "#/addons", text: "Browse all addons" })),
-        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild is optional and separate from verification and Army QR reporting." })),
+        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild is the optional unified guild addon for census and Army reporting; website snapshot export still needs publisher adoption. Verification remains separate." })),
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -1660,6 +1792,10 @@
           h("div", { class: "card-head" }, icon("icon-names"), h("h3", { text: "Reserved names" })),
           h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : "Soon" }),
           h("p", { class: "muted small", text: namesOpen ? "entered below." : "Opens with Blizzard's name reservation." }))),
+      frame("Beta Epoch Archive", h("span", { class: "badge", text: "Guild history" }),
+        h("p", { text: "The Forever beta's last full day was 21 October 2026. Its guild work continues into the announced PvE · Alliance direction." }),
+        h("p", { class: "muted small", text: "This archive records the guild's published rules, release history and aggregate milestones. It contains no former-member roster, private account copies or erased member records; no exact beta shutdown hour is asserted." }),
+        h("div", { class: "btn-row" }, h("a", { class: "btn small", href: "#/governance", text: "Guild charter and adoption record" }), h("a", { class: "btn small", href: "#/news", text: "Town Crier and release history" }))),
       datesPanel(),
       h("div", { class: "grid two" }, namesPanel(), friendsPanel()),
     ]);
@@ -1934,6 +2070,7 @@
       const quiet = noVoteChosen();
       const names = listText(quiet.map(roleName));
       boardNote.hidden = !voted;
+      boardPortraitOk.disabled = !voted || !boardOk.checked;
       boardWhere.textContent = voted && quiet.length
         ? `${names} ${quiet.length === 1 ? "has" : "have"} no public vote, so your application is not listed under ${quiet.length === 1 ? "it" : "them"} there. If the leadership puts ${quiet.length === 1 ? "it" : "them"} to the vote later, it will be.`
         : "";
@@ -1955,13 +2092,19 @@
     // Voted leadership roles put the application on the board, and only with the applicant's own tick (an application
     // saved before the board covered one of its roles stays off it until then). The Worker checks the same.
     const boardOk = h("input", { type: "checkbox", checked: !!(a && a.boardAt && (a.status === "submitted" || a.status === "reviewing")) });
+    const boardPortraitOk = h("input", { type: "checkbox", id: "board-portrait-opt-in", checked: boardOk.checked && ans.boardPortraitOptIn === true });
+    boardOk.addEventListener("change", sync);
     const boardWhere = h("p", { class: "small", hidden: true });
     const boardNote = h("div", { class: "field", "data-field": "board" },
       noticeBox("info", "icon-vote",
-        h("p", null, h("strong", { text: "Your application goes on the voting board. " }), "Leadership roles are voted on: everyone signed in here can read your application there and vote for or against. They see your Discord display name with the game's class icon as its picture (the site shows the game's own icons, never your Discord picture), your class, role, where you play from, which raid evenings you can make, and your answers to the four questions about your experience, why Olympus, leading people, and the loot argument."), // .105: the picture is the official class icon, as on the board since .86
+        h("p", null, h("strong", { text: "Your application goes on the voting board. " }), "Leadership roles are voted on: everyone signed in here can read your application there and vote for or against. They see your Discord display name and class icon, your class, role, where you play from, which raid evenings you can make, and your answers to the four questions about your experience, why Olympus, leading people, and the loot argument. Your Discord picture is shown only if you choose the separate optional box below."),
         boardWhere,
         h("p", { class: "small", text: "Your main character, professions, logs, references, voice, hours and the last box stay with the guild's leadership. Nobody but the leadership sees how anyone voted or any counts." }),
-        h("label", { class: "check" }, boardOk, h("span", { text: "Show my application on the voting board." }))),
+        h("label", { class: "check" }, boardOk, h("span", { text: "Show my application on the voting board." })),
+        h("div", { "data-field": "boardPortrait" },
+          h("label", { class: "check" }, boardPortraitOk, h("span", { text: "Also show my Discord profile picture on the voting board (optional)." })),
+          h("p", { class: "muted small", text: "Earlier board consent did not include a Discord picture. Leave this unticked to keep it hidden on the board; you can change this choice by saving your application." }),
+          h("span", { class: "err", hidden: true }))),
       h("span", { class: "err", hidden: true }));
     // Leadership roles chosen without a public vote, and nothing voted: nothing to agree to, only this to know.
     const privateText = h("span");
@@ -2126,6 +2269,7 @@
       h("div", { class: "rule" }),
       h("div", { class: "section-title" }, icon("icon-pvp"), h("h3", { text: "Extras" })),
       h("div", { class: "grid two" }, textFor("logs", { hintBelow: true }), fieldBox("voice", "Can you use voice chat in raids?", voice, { required: true })),
+      textFor("talentBuild", { hintBelow: true }),
       h("div", { class: "field", "data-field": "references" },
         h("span", { class: "lab", text: "References (optional)" }),
         h("span", { class: "hint", text: `Up to ${meta.limits.references} people in the community who can vouch for you.` }),
@@ -2158,7 +2302,7 @@
       answers.references = refs.map((r) => ({ kind: r.kind, key: r.key, label: r.label }));
       answers.professions = professions.filter((p) => profs.has(p.key)).map((p) => p.key);
       const backups = backupSels.map((x) => x.value).filter(Boolean);
-      const body = { position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, answers, ack: true };
+      const body = { position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, boardPortrait: isVoted() && boardOk.checked && boardPortraitOk.checked, answers, ack: true };
       submit.disabled = true;
       try {
         const out = await api("PUT", "/api/application", body);
@@ -2230,6 +2374,13 @@
     if (ans.availability) add(paper, [h("h4", { text: "When can you play? (before the grid)" }), h("div", { class: "text", text: ans.availability })]);
     for (const q of meta.questions) {
       if (!ans[q.key]) continue;
+      if (q.key === "talentBuild") {
+        const code = String(ans[q.key]);
+        const match = /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(?:[1-5][0-9]|60)\.[0-5]+$/.exec(code);
+        const currentBuild = match && match[1] === meta.talentSnapshotRevision && match[2] === a.class;
+        add(paper, [h("h4", { text: q.label }), currentBuild ? h("a", { href: `#/talents/${match[2]}/${encodeURIComponent(code)}`, text: "Open the attached talent build" }) : h("p", { class: "muted small", text: "This attachment is unavailable in the current calculator." })]);
+        continue;
+      }
       add(paper, [h("h4", { text: q.label }), h("div", { class: "text", text: ans[q.key] })]);
     }
     if (paper.firstChild) { paper.classList.add("mt"); out.appendChild(paper); }
@@ -2518,11 +2669,11 @@
     more.addEventListener("click", () => { const open = answers.classList.toggle("clamped"); more.textContent = open ? "Read the whole application" : "Show less"; });
     return h("article", { class: "card cand" },
       h("div", { class: "cand-head" },
-        h("img", { class: "avatar", src: accountArt(c), alt: "", width: "44", height: "44", loading: "lazy", referrerpolicy: "no-referrer" }),
+        discordAvatar(c, { class: "avatar", width: "44", height: "44", loading: "lazy" }),
         h("div", null,
           h("div", { class: "cand-name" }, c.label, " ", c.self ? h("span", { class: "badge", text: "you" }) : null, " ", h("span", { class: "badge " + (c.choice === 1 ? "green" : "muted"), text: c.choice === 1 ? "First choice" : "Backup choice" })),
           h("div", { class: "cand-meta" },
-            c.class ? clsLabel(c.class) : null,
+            c.class ? h("span", null, icon("class-" + c.class, "s"), " ", clsLabel(c.class)) : null,
             c.role ? h("span", null, roleIcon(c.role), labelOf(meta.roles, c.role)) : null,
             c.region ? h("span", { text: labelOf(meta.regions, c.region) }) : null,
             fitView(c.fit))),
@@ -2653,10 +2804,16 @@
         h("p", { class: "muted small", text: `Leadership roles go on the voting board, where members read the applications and vote for or against; the guild's leadership makes the final choice.${lead.some(noVoteOf) || meta.classes.some((c) => noVoteFor(`class_lead:${c.key}`)) ? " Those marked “no public vote” are chosen by the leadership alone." : ""} Raider, PvP Team and Member are the plain ways in.` }),
         h("div", { class: "role-chips" }, lead.map(chip)),
         h("div", { class: "role-chips mt-s" }, members.map(chip))),
+      frame("Treasury Tiers & Tithe Payers", null,
+        h("p", {text:"Optional colour-only recognition for verified additional in-game gold: Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Ordinary dues do not count; use the designated Treasurer recipient and your TITHE reference."}),
+        h("p", {class:"muted small", text:"Only the highest qualifying tier applies during one configured 90-day season. Its start is recorded when live tier dispatch is activated; source publication does not start a season or enable roles. Staff verify the extra-gold receipt, record the member’s recognition consent and separately confirm each exact role change."}),
+        h("p", {class:"muted small", text:"These colours grant no membership, native rank, channel or bank access, vote, office or promotion. A website label reflects an actually held configured role during the season; it lapses at season end independently of Discord cleanup. Bounded removal may be delayed, and unknown provider outcomes remain held without blind retry."}),
+        h("a", {href:"#/governance", text:"Read the Treasury governance rules"})),
       h("div", { class: "group-label", text: "Leadership" }),
       h("div", { class: "roles-grid" }, lead.map(card)),
       h("div", { class: "group-label", text: "Membership" }),
       h("div", { class: "roles-grid" }, members.map(card)),
+      officeAssignmentPanel(),
     ]);
     // "#/roles/liaison" (a chip here, or a link shared in Discord) lands on that role, below the sticky top bar; once more
     // when the game fonts have arrived (they change the page's height), unless the reader has scrolled since.
@@ -2702,7 +2859,7 @@
     field.focus({ preventScroll: true });
     if (saved.start !== null && saved.end !== null && typeof field.setSelectionRange === "function") field.setSelectionRange(saved.start, saved.end, saved.direction || "none");
   }
-  const userCell = (u) => h("span", { class: "nowrap" }, h("img", { class: "av", src: accountArt(u), alt: "", referrerpolicy: "no-referrer" }), u.label || u.id, u.denied ? h("span", { class: "badge red", text: " denied" }) : null, u.inServer === false ? h("span", { class: "badge muted", text: " left" }) : null);
+  const userCell = (u) => h("span", { class: "nowrap" }, discordAvatar(u, { class: "av", width: "32", height: "32", loading: "lazy" }), discordIdentity(u) || u.label || u.id, u.denied ? h("span", { class: "badge red", text: " denied" }) : null, u.inServer === false ? h("span", { class: "badge muted", text: " left" }) : null);
   const ageText = (t) => (t ? `${plural(days(t), "day")} (${fmtShort(t)})` : "unknown");
   const splitBar = (yes, no) => {
     const t = yes + no || 1;
@@ -2716,7 +2873,7 @@
     const tabs = [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["settings", "Settings"], ["renames", "Renames"], ["news", "News"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]; // .114: Renames; .115: News; .125: Audit log
     if (anyCommunity()) tabs.push(["community", "Community"]); // .98: the staff surfaces of the community modules
     const choices = tabs.map(([k, t]) => ["#/admin" + (k ? "/" + k : ""), t, sub === k]);
-    choices.push(["/admin/ranks", "Rank planner", false]);
+    choices.push(["#/admin/ranks", "Rank planner", sub === "ranks"], ["#/admin/treasury", "Treasury", sub === "treasury"], ["#/admin/directory-visibility", "Directory preferences", sub === "directory-visibility"], ["#/admin/approved-guilds", "Signed guild list", sub === "approved-guilds"]);
     if (S.user?.id === "472099715253796864") choices.push(["/admin/qr/beta-window", "Named beta verification", false]);
     const select = h("select", { id: "admin-section-select", "aria-label": "Admin section" }, choices.map(([href, text, selected]) => h("option", { value: href, text, selected })));
     select.addEventListener("change", () => { location.href = select.value; });
@@ -2737,6 +2894,10 @@
       friends: adminFriends,
       lookup: (b) => adminLookup(b, dec(parts[1] || "")),
       settings: adminSettings,
+      treasury: adminTreasury,
+      "directory-visibility": adminDirectoryVisibility,
+      'approved-guilds': adminApprovedGuilds,
+      ranks: adminRankPlanner,
       renames: adminRenames, // .114
       news: (b) => adminNews(b), // .115
       audit: adminAudit, // .125: the safe projection of the dated staff log
@@ -2745,6 +2906,55 @@
     };
     await (own(views, sub) ? views[sub] : adminOverview)(body);
   };
+
+  /** Fixed server-authored fragments only. The response has already passed its own live authority check. */
+  async function authoredFragment(path, selector, controller) {
+    if (!["/admin/ranks/fragment", "/army/report/fragment"].includes(path)) throw Error("Unknown guild workspace.");
+    const response = await fetch(path, {method:"GET", credentials:"same-origin", cache:"no-store", redirect:"error", signal:controller.signal, headers:{Accept:"text/html"}});
+    if (!response.ok) throw new ApiError(response.status, {error:response.status === 401 ? "signed_out" : "forbidden"});
+    if (!/^text\/html\b/i.test(response.headers.get("Content-Type") || "")) throw Error("The workspace response is unavailable.");
+    const text = await response.text();
+    if (text.length > 150000) throw Error("The workspace response is too large.");
+    const parsed = new DOMParser().parseFromString(text, "text/html");
+    if (parsed.querySelector("script,style,link,iframe,object,embed,base,meta") || parsed.body.children.length !== 1) throw Error("The workspace markup is unavailable.");
+    const node = parsed.body.firstElementChild;
+    if (!node || !node.matches(selector)) throw Error("The workspace markup is unavailable.");
+    for (const element of [node, ...node.querySelectorAll("*")]) for (const attribute of [...element.attributes]) {
+      if (/^on/i.test(attribute.name) || attribute.name === "srcdoc" || /^(?:href|src|action|formaction)$/i.test(attribute.name) && /^\s*(?:javascript|data|vbscript):/i.test(attribute.value)) throw Error("The workspace markup is unavailable.");
+    }
+    return document.importNode(node, true);
+  }
+  async function adminRankPlanner(body) {
+    const owner = S.user, context = COM(), route = currentRoute(), controller = new AbortController();
+    let instance = null, disposed = false;
+    const live = () => !disposed && S.user === owner && owner && owner.isAdmin && COM() === context && currentRoute() === route && app.contains(body);
+    const dispose = () => { if (disposed) return; disposed = true; controller.abort(); instance?.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    disposeTool = dispose;
+    clear(body); add(body, h("p", {role:"status", text:"Opening the rank planner…"}));
+    try {
+      const node = await authoredFragment("/admin/ranks/fragment", ".olympus-rank-planner[data-olympus-rank-planner]", controller);
+      if (!live()) return;
+      if (node.getAttribute("data-draft-owner") !== owner.id) throw Error("The rank planner belongs to a different account. Reload to check your session.");
+      if (!document.querySelector('link[data-olympus-tool="OlympusRankPlanner"]')) document.head.appendChild(h("link", {rel:"stylesheet", href:"/static/rank-planner/styles.css", "data-olympus-tool":"OlympusRankPlanner"}));
+      await loadMemberScript("OlympusStaffRankCatalogue", "/static/rank-planner/catalogue.js"); if (!live()) return;
+      await loadMemberScript("OlympusStaffRankPlanner", "/static/rank-planner/model.js"); if (!live()) return;
+      await loadMemberScript("OlympusRankPlanner", "/static/rank-planner/app.js"); if (!live()) return;
+      clear(body); add(body, node);
+      instance = window.OlympusRankPlanner.mount(node, {owner:owner.id, isCurrent:live});
+      if (!live()) instance?.destroy();
+    } catch (error) { if (live()) { clear(body); add(body, noticeBox("warn", "icon-warning", h("p", {text:explain(error,"The rank planner could not be opened.")}))); } }
+  }
+
+  async function adminApprovedGuilds(body) {
+    const owner = S.user, route = currentRoute(); let disposed = false, instance = null;
+    const live = () => !disposed && S.signedIn && !S.denied && S.user === owner && owner?.isAdmin && currentRoute() === route && app.contains(body);
+    const dispose = () => { if (disposed) return; disposed = true; instance?.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    disposeTool = dispose;
+    const host = h("div"); clear(body); add(body, frame("Author-signed approved guild list", null, host));
+    try { await loadMemberScript("OlympusApprovedGuildHelper", "/static/approved-guild-helper196.js"); if (!live()) return;
+      instance = window.OlympusApprovedGuildHelper.mount(host, {isCurrent:live}); if (!live()) instance?.destroy();
+    } catch (error) { if (live()) { clear(host); add(host, errorLine(explain(error,"The local signed-list helper could not be opened."))); } }
+  }
 
   // ---------- overview ----------
   // .115 (item B): the staff's seat line, worded like the bot's (guild-seats.ts seatsStaffLine and its reasons), with exact times
@@ -2934,7 +3144,10 @@
   const toLocalInput = (t) => { const d = new Date(t * 1000); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
   const fromLocalInput = (v) => { const t = new Date(v).getTime(); return Number.isFinite(t) ? Math.floor(t / 1000) : null; };
   async function adminSettings(body) {
-    const o = await api("GET", "/api/admin/overview");
+    const owner = S.user, route = currentRoute();
+    const settingsLive = () => S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route && app.contains(body);
+    const o = await api("GET", "/api/admin/overview", undefined, { live: settingsLive });
+    if (!settingsLive()) return;
     const s = o.settings;
     const namesAt = h("input", { type: "datetime-local", value: toLocalInput(s.namesOpenAt) });
     const namesPt = h("span", { class: "hint" });
@@ -2957,10 +3170,12 @@
     // .115 (Viktor's item A, 2 Oct 2026): the members' News page is off until an administrator switches it on here (site-news.ts)
     const [newsBox, newsRow] = box(!!s.newsOn, "News page: guild members and site administrators can read Community → News", "Off: the page is hidden, no notice can be posted or changed and the figures stop; notices already posted keep their time and can still be deleted under Admin → News.");
     newsBox.id = "news-on";
+    const [loginAnimation, loginAnimationRow] = box(s.loginAnimation === true, "Use the optional animated login background", "Off by default: keeps the previously approved still image. On: uses the existing client-model render, not publisher video; reduced-motion and data-saving fallbacks still apply.");
+    loginAnimation.id = "login-animation";
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
     const was = s.appointed || {};
-    const appointed = M().ballots.map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
-    const associationStatus = new Map(["co_gm", "treasurer"].map(key => [key, h("span", { class: "hint", role: "status", "data-appointment-status": key })]));
+    const appointed = (M().appointments || M().ballots).map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
+    const associationStatus = new Map(appointed.map(([office]) => [office.key, h("span", { class: "hint", role: "status", "data-appointment-status": office.key })]));
     for (const [b, input] of appointed) {
       const status = associationStatus.get(b.key);
       if (!status) continue;
@@ -2969,14 +3184,14 @@
     }
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
       h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input),
-        ["co_gm", "treasurer"].includes(b.key) ? picker({ label: `${b.label}: associate Discord account`, placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true,
-          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }) : null,
+        picker({ label: `${b.label}: associate Discord account`, placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true,
+          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }),
         associationStatus.get(b.key))));
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
     const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");
     namesOk.id = "appointed-names-ok";
-    const [characterPublication, characterPublicationRow] = box(false, "The associated Co-Guild Master and Treasurer agreed to show their Discord name, username and current verified characters to guild members and site administrators", "This includes verified characters not listed in the directory. An account without a current website profile publishes its Discord name only. Selecting an account grants no role or permission.");
+    const [characterPublication, characterPublicationRow] = box(false, "Each associated officeholder agreed to show their Discord name, username and current verified characters to guild members and site administrators", "This includes verified characters not listed in the directory. An account without a current website profile publishes its Discord name only. A current Broadcaster association permits Stream Shield; a current Lead Correspondent association permits Town Crier editing. These actions require their separate account and privacy checks. Other display associations grant no action authority; none changes native ranks, Discord roles, bank access or signing authority.");
     characterPublication.id = "appointed-characters-ok";
     const quietWas = new Set(s.noVote || []);
     const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
@@ -2984,18 +3199,21 @@
       h("label", { class: "check field quiet-row" }, input, h("span", { class: "small" }, posIcon(b.key, "s"), " ", b.label))));
     const save = h("button", { class: "btn", type: "button", text: "Save settings" });
     save.addEventListener("click", async () => {
+      if (!settingsLive()) return;
       const a = fromLocalInput(namesAt.value), b = fromLocalInput(launchAt.value);
       if (!a || !b) return toast("Both times are needed.", "bad");
       save.disabled = true;
       try {
-        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, notice: notice.value,
+        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, loginAnimation: loginAnimation.checked === true, notice: notice.value,
           appointed: Object.fromEntries(appointed.map(([bb, input]) => [bb.key, input.value.trim()]).filter(([, who]) => who)),
-          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked });
+          noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked }, { live: settingsLive });
+        if (!settingsLive()) return;
         S.settings = out.settings;
         namesOk.checked = false;
         characterPublication.checked = false;
         toast("Settings saved.", "good");
       } catch (err) {
+        if (!settingsLive()) return;
         const role = err.data && err.data.error === "appointed_account_unavailable" && err.data.role;
         if (associationStatus.has(role)) {
           associationStatus.get(role).textContent = err.message;
@@ -3007,18 +3225,23 @@
     });
     clear(body);
     add(body, frame("Settings", null,
+      h("label", {class:"field"}, h("span", {class:"lab", text:"Public server ruleset"}),
+        h("input", {id:"public-ruleset", type:"text", value:M().ruleset?.phase === "public_direction" ? "PVE - Alliance" : rulesetIdentity(), readonly:true})),
+      h("p", {class:"muted small"}, "The announced default is PvE · Alliance. Public copy does not activate native roles or change launch guards. ", h("a", {href:"#/admin/ruleset-publication", text:"Review ruleset publication"})),
       h("div", { class: "grid two" },
         h("label", { class: "field" }, h("span", { class: "lab", text: "Name reservation opens" }), namesAt, namesPt),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Launch" }), launchAt, launchPt)),
       h("p", { class: "muted small", text: "Times are entered in your own time zone; the line under each shows the Pacific time Blizzard announces in." }),
-      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow,
+      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow, loginAnimationRow,
       h("label", { class: "field" }, h("span", { class: "lab", text: "Notice" }), notice),
       h("div", { class: "rule" }),
       h("h3", { text: "Appointed roles" }),
       h("p", { class: "muted small", text: "A role with a name here is filled by appointment: it cannot be chosen on the Apply page, its voting board and write-ins close, and members see who holds it. Votes and write-ins it already had are kept, and count again if you open it. Leave a box empty to open the role." }),
-      h("p", { class: "muted small", text: "For a Co-Guild Master or Treasurer account association, search by Discord name or exact user ID. A website sign-in, character link or roster confirmation is not required. Search and Save check current Discord server membership and account standing. Discord-only associations show the Discord name; they do not authorize private character publication after a later website sign-in." }),
+      h("p", { class: "muted small", text: "Every office and rank below has a Discord name or exact user ID selector. Search and Save check current server membership and account standing. A website sign-in, character link or roster confirmation is not required to associate a current Discord member. These website records do not change Discord roles, native ranks, bank access or signing authority. Existing ballot roles remain closed while appointed; extended offices are separate records." }),
       h("div", { class: "group-label", text: "Leadership" }), appointedGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), appointedGrid("class"),
+      h("details", { class: "mt" }, h("summary", { text: "Ten native rank display assignments" }), appointedGrid("native")),
+      h("details", { class: "mt" }, h("summary", { text: "All 95 extended offices and historical aliases" }), appointedGrid("office")),
       namesOkRow,
       characterPublicationRow,
       h("p", { class: "muted small", text: "To remove a name on request, type Name withheld (the role stays appointed) or clear it (the role reopens)." }),
@@ -3028,26 +3251,55 @@
       h("div", { class: "group-label", text: "Leadership" }), quietGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), quietGrid("class"),
       h("div", { class: "btn-row mt" }, save)));
-    add(body, [await bnetSwitchFrame(), await leadershipFrame(), await betaResetFrame(body)]); // .114
+    const intents = o.discordIntentOperations;
+    if (intents && intents.applicationId === "1550176895671341076") add(body, frame("Discord member access & annual renewal", null,
+      kv([["Application", intents.applicationId], ["Support request", "#" + intents.supportTicket], ["Required intent", intents.requiredIntent], ["Renewal review before", intents.reviewBefore], ["Responsible owner", "Application owner / guild administrators"]]),
+      h("p", { text: intents.permittedUse }),
+      h("p", { class: "muted small", text: "Server Members was observed enabled after a portal reload on 23 October 2026. This operational record is not a live entitlement check. Presence, message content, a Gateway connection and a persistent member mirror are not required. Reapply annually and review before 23 October 2027." }),
+      h("a", { class: "btn small", href: "https://discord.com/developers/applications/1550176895671341076/bot", target: "_blank", rel: "noopener noreferrer", text: "Review application intent settings" })));
+    const bnetPanel = await bnetSwitchFrame(settingsLive);
+    if (!settingsLive()) return;
+    const leadershipPanel = await leadershipFrame(settingsLive);
+    if (!settingsLive()) return;
+    add(body, [bnetPanel, leadershipPanel, await betaResetFrame(body)]); // .114
   }
   const kv = (pairs) => h("dl", { class: "kv" }, pairs.map(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
   /** .114: the Battle.net sign-in switch (the Worker's bnet-switch.ts). It cannot be switched on before the policy describes the login. */
-  async function bnetSwitchFrame() {
+  async function bnetSwitchFrame(settingsCurrent) {
+    const owner = S.user, route = currentRoute();
+    const current = () => settingsCurrent() && S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route;
     let st;
-    try { st = await api("GET", "/api/admin/bnet-switch"); } catch (e) { return frame("Battle.net sign-in", null, h("p", { class: "err small", text: explain(e, "The switch could not be read.") })); }
+    try { st = await api("GET", "/api/admin/bnet-switch", undefined, { live: current }); } catch (e) { return current() ? frame("Battle.net sign-in", null, h("p", { class: "err small", text: explain(e, "The switch could not be read.") })) : null; }
+    if (!current()) return null;
+    if (!st.effective) {
+      if (st.enableRequested !== true) return null;
+      const status = h("p", { class: "small", role: "status", text: "A future enable request is recorded. Collection stays OFF in this release." });
+      const withdraw = h("button", { class: "btn small", type: "button", text: "Withdraw recorded request" });
+      const panel = frame("Battle.net request", h("span", { class: "badge muted", text: "collection off" }), status, withdraw);
+      const live = () => current() && app.contains(panel);
+      withdraw.addEventListener("click", async () => {
+        if (!live() || withdraw.disabled) return;
+        withdraw.disabled = true;
+        try { const out = await api("PUT", "/api/admin/bnet-switch", { on: false }, { live }); if (out?.ok !== true || out.state?.enableRequested !== false || out.state?.effective !== false) throw new ApiError(200, { error: "unreadable_answer" }); if (live()) status.textContent = "The recorded request was withdrawn. Collection remains OFF."; }
+        catch (error) { if (live()) { status.textContent = explain(error, "Withdrawal is unconfirmed; read the current status before acting again."); withdraw.disabled = false; } }
+      });
+      return panel;
+    } // No dormant enable control is exposed.
     const reason = "Enable records a request only. Collection stays OFF until a reviewed same-version ON policy, suitable Forever API and recovery plan are released.";
     const locked = false; // a switch that is somehow on can always be turned off
     const box = h("input", { type: "checkbox", checked: st.enableRequested, disabled: locked, id: "bnet-switch" });
     const save = h("button", { class: "btn small", type: "button", text: "Save", disabled: locked });
     save.addEventListener("click", async () => {
+      if (!current()) return;
       const on = box.checked;
       if (on && !(await confirmBox("Request future Battle.net enablement?", "This records an enable request only. It cannot turn collection on in the current OFF release.", "Record request", { typeToConfirm: "ENABLE" }))) { box.checked = st.enableRequested; return; }
       save.disabled = true;
       try {
-        await api("PUT", "/api/admin/bnet-switch", on ? { on, confirm: "ENABLE" } : { on });
+        await api("PUT", "/api/admin/bnet-switch", on ? { on, confirm: "ENABLE" } : { on }, { live: current });
+        if (!current()) return;
         st.enableRequested = on;
         toast(on ? "Enable request recorded; collection remains off." : "Battle.net sign-in paused.", "good");
-      } catch (err) { box.checked = st.enableRequested; toast(explain(err), "bad"); } finally { save.disabled = locked; }
+      } catch (err) { if (current()) { box.checked = st.enableRequested; toast(explain(err), "bad"); } } finally { save.disabled = locked; }
     });
     return frame("Battle.net sign-in", h("span", { class: "badge " + (st.effective ? "green" : "muted"), text: st.effective ? "on" : "off" }),
       h("p", { class: "muted small", text: "The optional connector stays in its released OFF profile. Pausing is immediate; a reviewed policy release is needed to change the static OFF/ON profile. Legacy-data cleanup continues while off. Local unlink is separate from removing a connection in Discord." }),
@@ -3056,34 +3308,69 @@
       h("div", { class: "btn-row" }, save));
   }
   /** .114: the Olympus I-X leadership directory (the Worker's site-leadership.ts). Names only; a listing grants nothing. */
-  async function leadershipFrame() {
+  async function leadershipFrame(settingsCurrent = () => true) {
+    const owner = S.user, route = currentRoute();
+    const current = () => settingsCurrent() && S.user === owner && S.signedIn && !S.denied && !!S.user?.isAdmin && currentRoute() === route;
     let data;
-    try { data = await api("GET", "/api/admin/leadership"); } catch (e) { return frame("Olympus I–X leadership", null, h("p", { class: "err small", text: explain(e, "The directory could not be read.") })); }
+    try { data = await api("GET", "/api/admin/leadership", undefined, { live: current }); }
+    catch (e) { return current() ? frame("Olympus I–X leadership", null, h("p", { class: "err small", text: explain(e, "The directory could not be read.") })) : null; }
+    if (!current()) return null;
+    if (!data || !Array.isArray(data.guilds) || data.guilds.length !== 10 || data.guilds.some(g => !g || typeof g.name !== "string" || typeof g.gm !== "string" || !Array.isArray(g.officers) || g.officers.length > 12 || g.officers.some(name => typeof name !== "string"))) return frame("Olympus I–X leadership", null, h("p", { class: "err small", text: "The directory answer could not be read. No names were changed." }));
     const rows = data.guilds.map((g, i) => ({
       g,
       gm: h("input", { type: "text", maxlength: "40", value: g.gm, placeholder: "Not listed", autocomplete: "off", id: `lead-gm-${i}`, "aria-label": `${g.name}: Guild Master` }),
       officers: h("textarea", { rows: "3", maxlength: "600", value: g.officers.join("\n"), id: `lead-off-${i}`, "aria-label": `${g.name}: officers, one per line` }),
     }));
-    // .115 (item C): as for the appointed roles, a name is listed only after that person agreed (400 confirm_names without the tick)
+    // This directory remains staff-confirmed display text; no account key or publication proof is stored here.
     const namesOk = h("input", { type: "checkbox", id: "lead-names-ok" });
     const save = h("button", { class: "btn", type: "button", text: "Save the directory" });
+    let panel = null, busy = false;
+    const live = () => current() && !!panel && app.contains(panel);
+    const sync = () => { if (panel) for (const input of panel.querySelectorAll("input, textarea, button")) input.disabled = busy; };
+    const invalidate = () => { namesOk.checked = false; };
+    const selectedName = person => {
+      if (!person || person.kind !== "discord" || typeof person.label !== "string" || /[\u0000-\u001f\u007f<>]/.test(person.label)) return null;
+      const name = person.label.trim().replace(/\s+/g, " ");
+      return name && name.length <= 40 && !/^[0-9]{17,20}$/.test(name) ? name : null;
+    };
+    const chooseName = (row, officer) => picker({ label: `${row.g.name}: ${officer ? "add officer display name" : "choose Guild Master display name"}`, placeholder: "Find a Discord display name…", allowTyped: false, allowSelf: true, appointmentOnly: true, isCurrent: () => live() && !busy,
+      onPick: person => {
+        if (!live() || busy) return;
+        const name = selectedName(person);
+        if (!name) { toast("That display label cannot fit this plain-text directory. Type an agreed name of at most 40 characters instead.", "bad"); return; }
+        if (officer) {
+          const names = row.officers.value.split("\n").map(value => value.trim()).filter(Boolean);
+          if (names.includes(name)) { invalidate(); return; }
+          if (names.length >= 12) { toast("This guild already lists twelve officers. Remove a name before adding another.", "bad"); return; }
+          row.officers.value = [...names, name].join("\n");
+        } else row.gm.value = name;
+        invalidate();
+      } });
+    for (const row of rows) { row.gm.addEventListener("input", invalidate); row.officers.addEventListener("input", invalidate); }
     save.addEventListener("click", async () => {
-      save.disabled = true;
+      if (!live() || busy) return;
+      const sent = { guilds: rows.map(r => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map(x => x.trim()).filter(Boolean) })), namesConfirmed: namesOk.checked };
+      busy = true; sync();
       try {
-        await api("PUT", "/api/admin/leadership", { guilds: rows.map((r) => ({ gm: r.gm.value.trim(), officers: r.officers.value.split("\n").map((x) => x.trim()).filter(Boolean) })), namesConfirmed: namesOk.checked });
+        const out = await api("PUT", "/api/admin/leadership", sent, { live });
+        if (!live()) return;
+        if (!out || out.ok !== true || !Array.isArray(out.guilds) || out.guilds.length !== 10) throw new ApiError(200, { error: "unreadable_answer" });
         namesOk.checked = false;
         toast("Directory saved.", "good");
-      } catch (err) { toast(explain(err), "bad"); } finally { save.disabled = false; }
+      } catch (err) { if (live()) toast(explain(err), "bad"); }
+      finally { busy = false; if (live()) sync(); }
     });
-    return frame("Olympus I–X leadership", null,
+    panel = frame("Olympus I–X leadership", null,
       h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, as guild members and site administrators see them under Community → Leadership. Separate from the Olympus I staff channels and from the appointed roles above. A listing is a record only: it gives no powers in the bot, on this site or in Discord (the Council roles in Discord are given by hand). Up to twelve officers per guild, one per line." }),
-      h("div", { class: "grid two" }, rows.map((r) => h("div", { class: "card" },
+      h("p", { class: "muted small", text: "Discord search is a display-name convenience. Only the agreed, editable plain-text label is saved here, never an account ID. It is not a current account association, character proof or role grant. The website office/rank account picker above uses its separate publication checks." }),
+      h("div", { class: "grid two" }, rows.map(r => h("div", { class: "card" },
         h("h3", { text: r.g.name }),
-        h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm),
-        h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers)))),
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Guild Master" }), r.gm), chooseName(r, false),
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Officers" }), r.officers), chooseName(r, true)))),
       h("label", { class: "check field", for: "lead-names-ok" }, namesOk, h("span", { text: "Each person listed here agreed to be listed. Guild members and site administrators can read the directory." })),
       h("p", { class: "muted small", text: "To remove a name on request, clear it or type Name withheld in its place." }),
       h("div", { class: "btn-row mt" }, save));
+    return panel;
   }
   /** Fixed owner-approved member/rank reset. Only a fresh private preview can arm its immutable policy. */
   async function betaResetFrame(settingsBody) {
@@ -3324,12 +3611,146 @@
     }
   }
 
-  // Explicit approved-beta publication: request-driven steps, durable original operations, no future selector or automatic sends.
+  async function adminTreasury(body) {
+    const owner = S.user, path = "/api/admin/treasury/", markerKey = "olympus.treasuryAttempt";
+    let target = "", targetLabel = "", targetGeneration = 0, busy = false, preview = null, spent = null, storageHeld = false;
+    const panel = h("div", { class: "stack" }), notice = h("p", { role: "status", "aria-live": "polite", class: "small muted" });
+    const live = () => S.user === owner && owner?.isAdmin && S.signedIn && !S.denied && currentRoute() === "admin/treasury" && document.body.contains(panel);
+    const reference = h("input", { id: "treasury-reference", type: "text", maxlength: "60", autocomplete: "off" });
+    const amount = h("input", { id: "treasury-gold", type: "number", min: "0.0001", max: "214748.3647", step: "0.0001" });
+    const observed = h("input", { id: "treasury-observed", type: "datetime-local" });
+    const mail = h("input", { id: "treasury-mail", type: "text", maxlength: "40", autocomplete: "off", placeholder: "TITHE- reference from the ledger" });
+    const selected = h("p", { class: "small", text: "Choose a current Olympus member." });
+    const targetReference = h("button", { type: "button", class: "btn small", text: "Read member's TITHE reference" });
+    const evidence = h("input", { id: "treasury-gold-verified", type: "checkbox" });
+    const consent = h("input", { id: "treasury-recognition", type: "checkbox" });
+    const decline = h("input", { id: "treasury-decline-recognition", type: "checkbox" });
+    const record = h("button", { type: "button", class: "btn", text: "Record verified extra gold" });
+    const review = h("button", { type: "button", class: "btn", text: "Preview cosmetic role changes" });
+    const changes = h("div", { class: "stack" });
+    const operation = h("input", { id: "treasury-operation", type: "text", maxlength: "32", autocomplete: "off", placeholder: "Original operation ID" });
+    const status = h("button", { type: "button", class: "btn small", text: "Read original operation status" });
+    try { const raw = sessionStorage.getItem(markerKey); if (raw) { const v = JSON.parse(raw); if (!v || v.owner !== owner?.id || !/^[0-9a-f]{32}$/.test(v.operationId)) throw Error("unreadable original attempt"); spent = v.operationId; operation.value = spent; } }
+    catch { storageHeld = true; notice.textContent = "The original attempt marker could not be read. Role dispatch is held; inspect the original operation before making another change."; }
+    const currentRecognition = () => consent.checked && !decline.checked ? true : decline.checked && !consent.checked ? false : null;
+    const sync = () => { consent.disabled = decline.disabled = busy || !!spent || storageHeld; targetReference.disabled = busy || !target; record.disabled = busy || !target || !evidence.checked || !!spent || storageHeld; review.disabled = busy || !target || currentRecognition() === null || !!spent || storageHeld; status.disabled = busy || !/^[0-9a-f]{32}$/.test(operation.value.trim()); };
+    const field = (text, input) => h("label", { class: "field" }, h("span", { class: "lab small", text }), input);
+    add(panel, frame("Treasury · cosmetic recognition", null,
+      h("p", { text: "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to Fernmelder. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." }),
+      h("p", { class: "muted small", text: "Ordinary dues do not count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
+      picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
+      field("Immutable receipt reference", reference), field("Additional gold received", amount), field("Received at (your local time)", observed), field("Member's TITHE- reference", mail),
+      h("label", null, evidence, " I verified this additional gold in the in-game mail; it is not ordinary dues."), record,
+      h("label", null, consent, " The member agreed to this cosmetic recognition."),
+      h("label", null, decline, " The member declined public recognition. Preview removal only; keep their gold credit."), review, notice, changes,
+      field("Original role operation", operation), status));
+    clear(body); add(body, panel);
+    evidence.addEventListener("change", sync); operation.addEventListener("input", sync);
+    const recognitionChanged = (selected, other) => { if (selected.checked) other.checked = false; targetGeneration++; preview = null; clear(changes); notice.textContent = ""; sync(); };
+    consent.addEventListener("change", () => recognitionChanged(consent, decline));
+    decline.addEventListener("change", () => recognitionChanged(decline, consent));
+    targetReference.addEventListener("click", async () => {
+      if (!live() || targetReference.disabled) return; const originalTarget = target, generation = targetGeneration; busy = true; sync();
+      try { const d = await api("POST", path + "target", { discordId: originalTarget }, { live }); if (live() && generation === targetGeneration && target === originalTarget) { if (d?.discordId !== originalTarget || typeof d.mailReference !== "string" || !/^TITHE-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(d.mailReference)) throw Error("Unreadable target reference"); mail.value = d.mailReference; notice.textContent = "Reference read from the member's ledger. This is not proof of payment."; } }
+      catch (e) { if (live() && generation === targetGeneration) notice.textContent = explain(e, "The current member's reference could not be read."); }
+      finally { busy = false; if (live()) sync(); }
+    });
+    const drawPreview = (d, originalTarget, originalLabel, generation) => {
+      clear(changes);
+      add(changes, h("p", { class: "small", text: "Member: " + originalLabel + " · " + originalTarget + ". Qualifying extra gold: " + d.qualifyingGold + "g · season ends " + fmtDateTime(d.seasonEndsAt) + " · preview expires " + fmtDateTime(d.expiresAt) + "." }));
+      if (d.recognitionConsent === false) add(changes, h("p", { text: "Removal-only decline of recognition. The recorded extra-gold credit is kept. An unresolved original role attempt remains held." }));
+      if (!d.dispatchEnabled) add(changes, h("p", { class: "muted small", text: "New role dispatch is disabled in the server configuration." }));
+      if (!d.changes.length) add(changes, h("p", { text: "No cosmetic role change is needed." }));
+      const removals = d.changes.some(c => c.desired === 0);
+      for (const c of d.changes) {
+        const checked = h("input", { type: "checkbox" });
+        const button = h("button", { type: "button", class: "btn small", text: (c.desired ? "Grant " : "Remove ") + c.label, disabled: true });
+        checked.addEventListener("change", () => { button.disabled = busy || !!spent || storageHeld || !checked.checked || !d.dispatchEnabled || (c.desired === 1 && removals); });
+        button.addEventListener("click", async () => {
+          if (!live() || busy || spent || storageHeld || button.disabled || preview !== d || generation !== targetGeneration || target !== originalTarget || d.expiresAt <= nowSec()) return;
+          try { sessionStorage.setItem(markerKey, JSON.stringify({ owner: owner.id, operationId: c.operationId })); }
+          catch { storageHeld = true; notice.textContent = "The original attempt could not be retained. No role command was sent."; sync(); return; }
+          spent = c.operationId; operation.value = spent; busy = true; button.disabled = true; sync();
+          try { const out = await api("POST", path + "confirm", { token: d.token, operationId: c.operationId, confirmed: true }, { live }); if (live()) notice.textContent = out.state === "settled" ? "The original role operation for " + originalLabel + " · " + originalTarget + " settled. Read its status before preparing another change." : "The original role operation for " + originalLabel + " · " + originalTarget + " is held or unknown. Read its status; do not send it again."; }
+          catch { if (live()) notice.textContent = "The original role operation is unconfirmed. Read its status; do not send it again."; }
+          finally { busy = false; if (live()) { clear(changes); preview = null; sync(); } }
+        });
+        add(changes, h("div", { class: "field" }, h("p", { text: (c.desired ? "Grant " : "Remove ") + c.label + " · role " + c.roleId }), h("label", null, checked, " I reviewed this exact cosmetic change."), button,
+          c.desired === 1 && removals ? h("p", { class: "small muted", text: "Remove the previous tier first, read its settled status, then request a fresh preview." }) : null));
+      }
+    };
+    record.addEventListener("click", async () => {
+      if (!live() || record.disabled) return;
+      const gold = Number(amount.value), copper = Math.round(gold * 10000), at = fromLocalInput(observed.value), ref = reference.value.trim();
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,59}$/.test(ref) || !amount.value || !Number.isFinite(gold) || !Number.isSafeInteger(copper) || copper < 1 || copper > 2147483647 || Math.abs(gold * 10000 - copper) > 0.000001 || !at) { notice.textContent = "Enter the receipt reference, exact gold amount and receipt time."; return; }
+      const originalTarget = target, generation = targetGeneration;
+      busy = true; sync();
+      try { const out = await api("POST", path + "record", { reference: ref, discordId: originalTarget, amountCopper: copper, observedAt: at, mailReference: mail.value.trim(), verifiedAdditionalGold: true }, { live }); if (live() && generation === targetGeneration) { notice.textContent = out.recorded ? "Verified extra gold recorded" + (out.replay ? " (the identical original receipt)." : ".") : "Receipt outcome unconfirmed; preserve the same reference and amount."; evidence.checked = false; clear(changes); preview = null; } }
+      catch (e) { if (live() && generation === targetGeneration) notice.textContent = explain(e, "The receipt outcome is unconfirmed. Preserve its exact original reference and amount; do not create another receipt for the same gold."); }
+      finally { busy = false; if (live()) sync(); }
+    });
+    review.addEventListener("click", async () => {
+      if (!live() || review.disabled) return; const recognitionConsent = currentRecognition(); if (recognitionConsent === null) return; const originalTarget = target, originalLabel = targetLabel, generation = targetGeneration; busy = true; sync(); clear(changes); preview = null;
+      try { const d = await api("POST", path + "preview", { discordId: originalTarget, recognitionConsent }, { live }); if (!live() || generation !== targetGeneration || target !== originalTarget) return;
+        if (!d || d.recognitionConsent !== recognitionConsent || d.recognitionMode !== (recognitionConsent ? "recognize" : "decline") || typeof d.token !== "string" || !Number.isSafeInteger(d.expiresAt) || d.expiresAt <= nowSec() || !Number.isSafeInteger(d.seasonEndsAt) || typeof d.qualifyingGold !== "number" || !Number.isFinite(d.qualifyingGold) || typeof d.dispatchEnabled !== "boolean" || !Array.isArray(d.changes) || d.changes.length > 3 || d.recognitionConsent === false && d.changes.some(c => c?.desired !== 0) || d.changes.some(c => !c || !/^[0-9a-f]{32}$/.test(c.operationId) || !/^[0-9]{17,20}$/.test(c.roleId) || ![0, 1].includes(c.desired) || typeof c.label !== "string")) throw Error("Unreadable preview");
+        preview = d; notice.textContent = "Preview only. No role command was sent."; drawPreview(d, originalTarget, originalLabel, generation);
+      } catch (e) { if (live() && generation === targetGeneration) notice.textContent = explain(e, "The cosmetic preview is unavailable."); }
+      finally { busy = false; if (live()) sync(); }
+    });
+    status.addEventListener("click", async () => {
+      if (!live() || status.disabled) return; busy = true; sync(); const id = operation.value.trim();
+      try { const d = await api("POST", path + "status", { operationId: id }, { live }); if (!live()) return; const o = d?.operation;
+        notice.textContent = o ? "Original operation: " + o.state + " · " + o.reason + " · attempts " + o.attempts + "." : "No recorded operation was returned. This does not establish that an unconfirmed provider command did not apply.";
+        if (o?.id === spent && o.state === "settled") { sessionStorage.removeItem(markerKey); spent = null; preview = null; clear(changes); consent.checked = false; decline.checked = false; }
+      } catch (e) { if (live()) notice.textContent = explain(e, "The original status could not be read; no role command was sent."); }
+      finally { busy = false; if (live()) sync(); }
+    });
+    sync();
+  }
+
+  async function adminDirectoryVisibility(body) {
+    const owner = S.user, route = currentRoute(), panel = h("div", { class: "stack" }); let busy = false, selectedTarget = "", generation = 0, confirmedPreference = "";
+    const live = () => S.user === owner && owner?.isAdmin && S.signedIn && !S.denied && currentRoute() === route && app.contains(panel);
+    const target = h("input", {type:"text", inputmode:"numeric", maxlength:"20", autocomplete:"off", id:"attended-directory-id"});
+    const listed = h("input", {type:"checkbox", id:"attended-directory-listed"}), confirmed = h("input", {type:"checkbox", id:"attended-directory-confirmed"});
+    const read = h("button", {type:"button", class:"btn small", text:"Read this member’s preference"}), save = h("button", {type:"button", class:"btn", text:"Save requested listing preference", disabled:true});
+    const notice = h("p", {class:"muted small", role:"status"});
+    const preferenceKey = () => JSON.stringify([selectedTarget, listed.checked]);
+    const invalidateConfirmation = () => { confirmed.checked = false; confirmedPreference = ""; };
+    const sync = () => { read.disabled = target.disabled = listed.disabled = confirmed.disabled = busy; save.disabled = busy || !selectedTarget || selectedTarget !== target.value.trim() || !confirmed.checked || confirmedPreference !== preferenceKey(); };
+    target.addEventListener("input", () => { generation++; selectedTarget = ""; invalidateConfirmation(); notice.textContent = "Read the exact member ID before changing it."; sync(); });
+    listed.addEventListener("change", () => { generation++; invalidateConfirmation(); sync(); });
+    confirmed.addEventListener("change", () => { confirmedPreference = confirmed.checked ? preferenceKey() : ""; sync(); });
+    read.addEventListener("click", async () => {
+      const id = target.value.trim(); if (!live() || busy || !/^[1-9][0-9]{16,19}$/.test(id)) return;
+      const requestedGeneration = ++generation, current = () => live() && generation === requestedGeneration && target.value.trim() === id;
+      busy = true; selectedTarget = ""; invalidateConfirmation(); sync();
+      try { const d = await api("POST", "/api/admin/discord-directory/status", {discordId:id}, {live:current}); if (!current()) return; if (d?.discordId !== id || typeof d.listed !== "boolean") throw Error("Unreadable directory preference"); invalidateConfirmation(); selectedTarget = id; listed.checked = d.listed; notice.textContent = d.listed ? "The eligible Olympus row can be listed." : "The entire directory row is hidden."; }
+      catch (error) { if (current()) notice.textContent = explain(error,"The preference could not be confirmed; no change was sent."); }
+      finally { busy = false; if (live()) sync(); }
+    });
+    save.addEventListener("click", async () => {
+      const id = selectedTarget, requested = listed.checked; if (!live() || save.disabled || id !== target.value.trim() || confirmedPreference !== preferenceKey()) return;
+      const requestedGeneration = ++generation, current = () => live() && generation === requestedGeneration && target.value.trim() === id;
+      busy = true; sync();
+      try { const d = await api("POST", "/api/admin/discord-directory/visibility", {discordId:id,listed:requested,requestConfirmed:true}, {live:current}); if (!current()) return; if (d?.discordId !== id || d.listed !== requested) throw Error("Preference outcome unconfirmed"); notice.textContent = d.listed ? "Default eligibility restored at this member’s request." : "The member’s whole directory row is hidden; no website account was created."; }
+      catch (error) { if (current()) notice.textContent = explain(error,"Outcome unconfirmed. Read the same member’s preference before any further change."); }
+      finally { busy = false; selectedTarget = ""; invalidateConfirmation(); if (live()) sync(); }
+    });
+    clear(body); add(body, panel); add(panel, frame("Attended directory preference", null,
+      h("p", {text:"Use only for a person’s explicit listing request, including Olympus role holders who never registered on this website. This hides or restores the whole directory row; it changes no Discord role, account or optional profile."}),
+      fieldBox("attended-directory-id", "Exact Discord account ID supplied by the requester", target), read,
+      h("label", null, listed, " List the eligible Olympus row"), h("label", null, confirmed, " I verified this exact account holder requested this preference"), save, notice));
+  }
+
+  // Explicit publication: request-driven steps, durable original operations, no future selector or automatic sends.
   async function adminRulesetPublication(body) {
+    const owner = S.user, route = currentRoute();
     const path = "/api/admin/ruleset-publication", key = "olympus.rulesetSelection";
     const token = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{22}$/.test(v);
     const id = (v) => typeof v === "string" && /^[0-9]{17,20}$/.test(v);
     const obj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+    const revisionValid = (v) => typeof v === "string" && /^[a-z0-9][a-z0-9._-]{0,63}$/.test(v);
     const states = ["unselected", "pending", "claimed", "unknown", "known", "applied", "refused", "held"];
     const targets = ["guide", "olympus-info", "guild-announcements"];
     const formValid = (v) => obj(v) && token(v.operationId) && Number.isSafeInteger(v.expectedRevision) && v.expectedRevision >= 0 && Number.isSafeInteger(v.expiresAt) && v.expiresAt > nowSec() && typeof v.token === "string" && /^[A-Za-z0-9_-]{43}$/.test(v.token);
@@ -3337,40 +3758,41 @@
     // v2: the authenticated staff status is authoritative for this page; a shape-valid current profile replaces a stale boot copy (a lost switch answer) instead of being refused.
     const profileValid = (v) => obj(v) && identityOf(v) !== "Game identity unavailable";
     let current = null, busy = false, pending = null, storageFailed = false;
-    try { const raw = sessionStorage.getItem(key); if (raw) { pending = JSON.parse(raw); if (!obj(pending) || pending.profileRevision !== M().ruleset?.revision || !formValid(pending.form)) throw Error("unconfirmed original selection"); } }
+    try { const raw = sessionStorage.getItem(key); if (raw) { pending = JSON.parse(raw); if (!obj(pending) || !revisionValid(pending.profileRevision) || !formValid(pending.form)) throw Error("unconfirmed original selection"); } }
     catch { storageFailed = true; }
     const panel = h("div", { class: "stack" }); clear(body); add(body, panel);
-    const live = () => document.body.contains(panel) && currentRoute() === "admin/ruleset-publication" && S.signedIn && !S.denied && S.user?.isAdmin;
+    const live = () => document.body.contains(panel) && currentRoute() === route && route === "admin/ruleset-publication" && S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin;
     const notice = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
     const review = h("input", { type: "checkbox", id: "ruleset-publication-reviewed" });
-    const select = h("button", { class: "btn", type: "button", text: "Record current beta plan" });
+    const select = h("button", { class: "btn", type: "button", text: "Record current PvE Alliance plan" });
     const refresh = h("button", { class: "btn small", type: "button", text: "Refresh publication status" });
     const rows = h("div", { class: "stack" }), blockers = h("div", { class: "stack" }), switchBox = h("div", { class: "stack" });
+    const historicalPending = () => !!pending && revisionValid(pending.profileRevision) && !!current && profileValid(current.currentProfile) && pending.profileRevision !== current.currentProfile.revision;
     add(panel, frame("Ruleset publication", null,
-      h("p", { text: "Review the exact approved current-beta copy and destinations below. Recording the plan sends nothing. Each Apply next step sends at most one post, edit or pin; inspect its status before continuing. No future profile or automatic publication is available." }),
+      h("p", { text: "Review the approved current PvE Alliance copy and destinations below. Recording the plan sends nothing. Each Apply next step sends at most one post, edit or pin; inspect its status before continuing. No future profile or automatic publication is available." }),
       h("p", { class: "muted small", text: "Guide wording remains owner-approved. Erasing a publishing account removes its authorization metadata; the independent guild guide and original message custody remain. An unknown outcome is checked without sending again." }),
       notice, h("label", null, review, " I reviewed these approved payloads and destinations."), h("div", { class: "btn-row" }, select, refresh), switchBox, blockers, rows));
     const buttons = () => {
-      select.textContent = pending ? "Retry original selection" : (M().ruleset?.phase === "full_release" ? "Record current release plan" : "Record current beta plan");
-      select.disabled = busy || storageFailed || !current || (!pending && (!review.checked || !formValid(current.form)));
+      select.textContent = historicalPending() ? "Original selection needs review" : pending ? "Retry original selection" : (M().ruleset?.phase === "full_release" ? "Record current release plan" : "Record current PvE Alliance plan");
+      select.disabled = busy || storageFailed || !current || !profileValid(current.currentProfile) || historicalPending() || (!pending && (!review.checked || !formValid(current.form)));
       refresh.disabled = busy; review.disabled = busy;
-      for (const b of rows.querySelectorAll("button")) b.disabled = busy || !current || b.dataset.allowed !== "yes";
+      for (const b of rows.querySelectorAll("button")) b.disabled = busy || !current || b.dataset.allowed !== "yes" || (historicalPending() && b.dataset.effect === "yes");
       for (const b of blockers.querySelectorAll("button")) b.disabled = busy || !current;
     };
     const messageId = (text, channel) => { const v = text.trim(); if (id(v)) return v; const m = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/([0-9]{17,20})\/([0-9]{17,20})$/.exec(v); return m && m[1] === channel ? m[2] : null; };
     const action = async (kind, operation, input) => {
-      if (busy || !current || !live()) return;
+      if (busy || !current || !live() || (kind === "publish" && (historicalPending() || current.selected?.profileRevision !== current.currentProfile?.revision))) return;
       const payload = { publicationId: operation.publicationId, target: operation.target };
       if (kind === "reconcile") { const pointer = messageId(input.value || operation.messageId || "", operation.channelId); if (!pointer) { notice.textContent = "Enter the bot's message ID or its link in the displayed destination."; return; } payload.messageId = pointer; }
       busy = true; buttons();
-      try { const r = await api("POST", path + "/" + kind, payload); if (!obj(r) || !["applied", "known", "held", "unknown", "refused", "known_response_unrecorded"].includes(r.state)) throw new ApiError(200, { error: "unreadable_answer" }); }
+      try { const r = await api("POST", path + "/" + kind, payload, { live }); if (!obj(r) || !["applied", "known", "held", "unknown", "refused", "known_response_unrecorded"].includes(r.state)) throw new ApiError(200, { error: "unreadable_answer" }); }
       catch { if (live()) notice.textContent = "The operation is unconfirmed. Refresh its original status or check the existing message; do not create another copy."; }
       finally { busy = false; }
       if (live()) await load();
     };
     const operationControls = (operation, canApply) => {
       const pointer = h("input", { type: "text", autocomplete: "off", "aria-label": "Message ID for " + operation.target, placeholder: "Existing bot message ID or link", value: operation.messageId || "" });
-      const apply = h("button", { class: "btn small", type: "button", text: "Apply next step", "data-allowed": canApply ? "yes" : "no", onclick: () => { if (!apply.disabled) action("publish", operation); } });
+      const apply = h("button", { class: "btn small", type: "button", text: "Apply next step", "data-allowed": canApply ? "yes" : "no", "data-effect": "yes", onclick: () => { if (!apply.disabled) action("publish", operation); } });
       const check = h("button", { class: "btn small", type: "button", text: "Check existing message", "data-allowed": ["claimed", "unknown", "held"].includes(operation.state) ? "yes" : "no", onclick: () => { if (!check.disabled) action("reconcile", operation, pointer); } });
       return [h("div", { class: "btn-row" }, apply, check), pointer];
     };
@@ -3381,22 +3803,25 @@
       clear(switchBox);
       const confirm = h("input", { type: "checkbox", id: "ruleset-switch-confirmed" });
       const activate = h("button", { class: "btn small", type: "button", text: "Activate the full-release identity" });
-      const revert = h("button", { class: "btn small", type: "button", text: "Return to the beta identity" });
-      const sync = () => { activate.disabled = busy || !confirm.checked || !sw.activateAvailable; revert.disabled = busy || !confirm.checked || !sw.returnAvailable; };
+      const revert = h("button", { class: "btn small", type: "button", text: "Return to the current PvE Alliance identity" });
+      const sync = () => { activate.disabled = busy || historicalPending() || !confirm.checked || !sw.activateAvailable; revert.disabled = busy || historicalPending() || !confirm.checked || !sw.returnAvailable; };
       const flip = async (kind) => {
-        if (busy || !current || !live() || !confirm.checked) return;
+        if (busy || !current || !live() || historicalPending() || !confirm.checked) return;
         busy = true; buttons(); sync();
         try {
-          const r = await api("POST", path + "/" + kind, { form: current.form, confirm: true });
+          const r = await api("POST", path + "/" + kind, { form: current.form, confirm: true }, { live });
+          if (!live()) return;
           if (!obj(r) || !["beta", "full_release"].includes(r.mode) || !obj(r.profile)) throw new ApiError(200, { error: "unreadable_answer" });
           if (S.meta) { S.meta.ruleset = r.profile; S.meta.rulesetHeld = null; }
-          notice.textContent = kind === "activate" ? "Full-release identity activated and its publication selected. Apply each target below." : "Beta identity restored and its publication selected. Apply each target below.";
+          notice.textContent = kind === "activate" ? "Full-release identity activated and its publication selected. Apply each target below." : "Current PvE Alliance identity restored and its publication selected. Apply each target below.";
         } catch (e) { if (live()) notice.textContent = "The switch was refused or unconfirmed (" + ((e && e.data && e.data.error) || "unconfirmed") + "). Nothing was published; refresh the status."; }
         finally { busy = false; }
         if (live()) await load();
       };
-      activate.onclick = () => flip("activate"); revert.onclick = () => flip("deactivate"); confirm.addEventListener("change", sync);
-      add(switchBox, frame("Game identity switch", h("span", { class: "badge", text: sw.held ? "held: " + sw.held : sw.mode === "full_release" ? "full release" : "beta" }),
+      activate.addEventListener("click", () => { if (!activate.disabled) flip("activate"); });
+      revert.addEventListener("click", () => { if (!revert.disabled) flip("deactivate"); });
+      confirm.addEventListener("change", sync);
+      add(switchBox, frame("Game identity switch", h("span", { class: "badge", text: sw.held ? "held: " + sw.held : sw.mode === "full_release" ? "full release" : "PvE Alliance" }),
         h("p", { class: "small", text: "Mode " + sw.mode + (sw.revision ? " · revision " + sw.revision : "") + " · future profile configured: " + (sw.futureProfileConfigured ? "yes" : "no") + " · you may switch: " + (sw.ownerEligibilityQualified ? "yes" : "no") + " · publications settled: " + (sw.projectionSyncQualified ? "yes" : "no") }),
         h("p", { class: "muted small", text: "The future identity is read from a private server value the owner sets on the day; it is shown nowhere before activation. The switch records the identity and selects its publication in one step; the three Discord messages still change only through Apply next step." }),
         h("label", null, confirm, " I confirm the owner's condition is met and I intend to switch now."), h("div", { class: "btn-row" }, activate, revert)));
@@ -3406,17 +3831,18 @@
       if (obj(d) && switchValid(d.rulesetSwitch) && d.rulesetSwitch.held) {
         current = d; clear(rows); clear(blockers); review.checked = false;
         if (S.meta) { S.meta.ruleset = null; S.meta.rulesetHeld = d.rulesetSwitch.held; }
-        notice.textContent = "The game identity is held (" + d.rulesetSwitch.held + "). Restore the configured future profile or return to the beta identity; nothing can be published meanwhile.";
+        notice.textContent = "The game identity is held (" + d.rulesetSwitch.held + "). Restore the configured future profile or explicitly return to the current PvE Alliance identity; nothing can be published meanwhile. Stored selection custody is retained; a Return is available only when the server qualifies it.";
         drawSwitch(d.rulesetSwitch); buttons(); return;
       }
       if (!obj(d) || !switchValid(d.rulesetSwitch) || !profileValid(d.currentProfile) || d.futureSwitchAvailable !== false || d.automaticPublication !== false || !formValid(d.form) || !Array.isArray(d.targets) || d.targets.length !== 3 || !Array.isArray(d.blockingOperations) || d.blockingOperations.length > 3 || !d.blockingOperations.every(operationValid) ||
-        !(d.selected === null || obj(d.selected) && token(d.selected.publicationId) && Number.isSafeInteger(d.selected.revision) && d.selected.revision > 0 && d.selected.profileRevision === d.currentProfile.revision) ||
+        !(d.selected === null || obj(d.selected) && token(d.selected.publicationId) && Number.isSafeInteger(d.selected.revision) && d.selected.revision > 0 && revisionValid(d.selected.profileRevision)) ||
         d.targets.some((t,i) => !obj(t) || t.target !== targets[i] || !id(t.channelId) || t.parentId !== t.channelId || !states.includes(t.state) || !(t.stage === null || ["pending", "create", "edit", "pin"].includes(t.stage)) || !(t.messageId === null || id(t.messageId)) || !obj(t.payload) || !Array.isArray(t.payload.embeds) || !obj(t.payload.allowed_mentions) || !Array.isArray(t.payload.allowed_mentions.parse) || t.payload.allowed_mentions.parse.length !== 0 || JSON.stringify(t.payload).length > 16000)) throw new ApiError(200, { error: "unreadable_answer" });
       if (S.meta && (M().rulesetHeld || !obj(M().ruleset) || M().ruleset.revision !== d.currentProfile.revision)) { S.meta.ruleset = d.currentProfile; S.meta.rulesetHeld = null; } // reconcile a lost switch answer through the authenticated status
       current = d; drawSwitch(d.rulesetSwitch);
-      if (pending && d.selected?.publicationId === pending.form.operationId) { sessionStorage.removeItem(key); pending = null; }
+      const selectedCurrent = d.selected?.profileRevision === d.currentProfile.revision, historical = !!d.selected && !selectedCurrent;
+      if (pending && selectedCurrent && pending.profileRevision === d.currentProfile.revision && d.selected?.publicationId === pending.form.operationId) { sessionStorage.removeItem(key); pending = null; }
       review.checked = false; clear(rows); clear(blockers);
-      notice.textContent = storageFailed ? "Original operation storage is unavailable or expired. Publication is held; use an attended status check." : pending ? "An original selection is unconfirmed. Retry that exact selection or refresh its status." : d.selected ? "Selected revision " + d.selected.revision + " · " + d.currentProfile.revision : "No publication revision selected. " + d.currentProfile.realm + " · " + d.currentProfile.ruleset + " · " + d.currentProfile.faction;
+      notice.textContent = historicalPending() ? "Original selection for " + pending.profileRevision + " is retained and unconfirmed. The current profile differs; recording or applying a plan is blocked. Use an attended original-status check." : storageFailed ? "Original operation storage is unavailable or expired. Publication is held; use an attended status check." : pending ? "An original selection is unconfirmed. Retry that exact selection or refresh its status." : historical ? "Historical selection revision " + d.selected.revision + " · " + d.selected.profileRevision + ". The previews show current source " + d.currentProfile.revision + "; review and record its new plan before applying. Original message custody remains separate." : d.selected ? "Selected revision " + d.selected.revision + " · " + d.currentProfile.revision : "No publication revision selected. " + d.currentProfile.realm + " · " + d.currentProfile.ruleset + " · " + d.currentProfile.faction;
       for (const b of d.blockingOperations) {
         const input = h("input", { type: "text", "aria-label": "Held message ID for " + b.target, placeholder: "Original bot message ID or link", value: b.messageId || "" });
         add(blockers, frame("Original held operation: " + b.target, null, h("p", { text: "Revision " + b.revision + " · " + b.publicationId + " · " + b.state + " · channel " + b.channelId }), input,
@@ -3424,16 +3850,16 @@
       }
       for (const t of d.targets) {
         const operation = { ...t, publicationId: d.selected?.publicationId }, blocked = d.blockingOperations.some(b => b.target === t.target);
-        add(rows, frame(t.target, h("span", { class: "badge", text: t.state }), h("p", { class: "small", text: "Destination channel " + t.channelId + (d.selected ? " · operation " + d.selected.publicationId : "") }),
-          h("details", null, h("summary", { text: "Exact approved Discord payload" }), h("pre", { class: "details", text: JSON.stringify(t.payload, null, 2) })),
-          t.messageId ? h("p", { text: "Known message " + t.messageId }) : null,
-          operationControls(operation, !!d.selected && !blocked && ["pending", "known", "refused"].includes(t.state))));
+        add(rows, frame(t.target, h("span", { class: "badge", text: historical ? "Historical state: " + t.state : t.state }), h("p", { class: "small", text: "Destination channel " + t.channelId + (d.selected ? " · operation " + d.selected.publicationId : "") }),
+          h("details", null, h("summary", { text: historical ? "Current source preview · historical state is separate" : "Exact approved Discord payload" }), h("pre", { class: "details ruleset-payload-preview", text: JSON.stringify(t.payload, null, 2) })),
+          t.messageId ? h("p", { text: (historical ? "Historical message " : "Known message ") + t.messageId }) : null,
+          operationControls(operation, selectedCurrent && !blocked && ["pending", "known", "refused"].includes(t.state))));
       }
       buttons();
     };
     const load = async () => {
       if (busy || !live()) return; busy = true; buttons();
-      try { const d = await api("GET", path); if (live()) draw(d); }
+      try { const d = await api("GET", path, undefined, { live }); if (live()) draw(d); }
       catch { if (live()) { current = null; clear(rows); clear(blockers); notice.textContent = "Publication status is unavailable or unqualified. No action is enabled."; } }
       finally { busy = false; if (live()) buttons(); }
     };
@@ -3442,7 +3868,7 @@
       const exact = pending || { profileRevision: current.currentProfile.revision, form: current.form };
       try { sessionStorage.setItem(key, JSON.stringify(exact)); pending = exact; } catch { storageFailed = true; buttons(); notice.textContent = "The original selection could not be preserved. Nothing was sent."; return; }
       busy = true; buttons();
-      try { const r = await api("POST", path + "/select", exact); if (!obj(r) || r.publicationId !== exact.form.operationId || !Number.isSafeInteger(r.revision)) throw new ApiError(200, { error: "unreadable_answer" }); sessionStorage.removeItem(key); pending = null; }
+      try { const r = await api("POST", path + "/select", exact, { live }); if (!live()) return; if (!obj(r) || r.publicationId !== exact.form.operationId || !Number.isSafeInteger(r.revision)) throw new ApiError(200, { error: "unreadable_answer" }); sessionStorage.removeItem(key); pending = null; }
       catch { if (live()) notice.textContent = "The original selection remains unconfirmed. Refresh or retry only that exact operation."; }
       finally { busy = false; }
       if (live()) await load();
@@ -3459,10 +3885,86 @@
    * notice's revision, so a repeat after a lost answer is refused, never doubled; the page then re-reads the list.
    */
   const NEWS_LOST_CHANGE = "The answer was lost, so the notices were re-read: check the notice before changing it again (a repeated change with the old revision is refused, never doubled).";
-  async function adminNews(body, message = "") {
+  function newsWebhookControls(notice, retainedOnly = false) {
+    const owner=S.user, route=currentRoute(), path="/api/news/editor/webhook/";
+    let busy=false, snapshot=null, attempted=false;
+    const root=h("div",{class:"stack mt-s news-webhook196"}), content=h("div",{class:"stack"}), state=h("p",{class:"small muted",role:"status","aria-live":"polite"});
+    const read=h("button",{type:"button",class:"btn small",text:retainedOnly?"Review retained Discord cross-post":"Review optional Discord cross-post"});
+    const live=()=>S.user===owner&&S.signedIn&&!S.denied&&currentRoute()===route&&app.contains(root);
+    const draw=d=>{
+      clear(content); snapshot=d;
+      const destination=v=>v&&typeof v.guild==="string"&&typeof v.channel==="string"&&/^\d{17,20}$/.test(v.guild)&&/^\d{17,20}$/.test(v.channel);
+      const revision=v=>Number.isSafeInteger(v)&&v>0;
+      const payload=d?.payload, payloadValid=payload&&Array.isArray(payload.embeds)&&payload.embeds.length===1&&typeof payload.embeds[0].title==="string"&&typeof payload.embeds[0].description==="string"&&Array.isArray(payload.allowed_mentions?.parse)&&payload.allowed_mentions.parse.length===0;
+      if(!d||d.id!==notice.id||d.revision!==notice.revision||typeof d.canPublish!=="boolean"||typeof d.enabled!=="boolean"||typeof d.cleanupOnly!=="boolean"||typeof d.removalPending!=="boolean"||!["not_published","claimed","unknown","known","cleaning","removed","refused"].includes(d.state)||!(d.destination===null||destination(d.destination))||!(d.cleanupRevision===null&&d.cleanupDestination===null||revision(d.cleanupRevision)&&destination(d.cleanupDestination))||!(payload===null||payloadValid)||d.canPublish&&(!d.enabled||d.cleanupOnly||!destination(d.destination)||!payloadValid||typeof d.confirmation!=="string"||!Number.isSafeInteger(d.expiresAt)||d.expiresAt<=nowSec()))throw Error("Unreadable cross-post preview");
+      add(content,h("p",{class:"small",text:(d.destination?"Fixed Discord destination: server "+d.destination.guild+" · channel "+d.destination.channel+". ":"")+"Outcome: "+d.state+(d.removalPending?" · removal pending":"")+"."}));
+      if(payloadValid)add(content,h("details",null,h("summary",{text:"Current saved notice · revision "+notice.revision}),h("h4",{text:payload.embeds[0].title}),h("p",{class:"prewrap small",text:payload.embeds[0].description})));
+      if(d.cleanupRevision!==null)add(content,h("p",{class:"small",text:"Original cross-post revision "+d.cleanupRevision+" · removal destination: server "+d.cleanupDestination.guild+" · channel "+d.cleanupDestination.channel+"."}));
+      add(content,h("p",{class:"small muted",text:d.cleanupOnly||retainedOnly?"This view permits original-copy cleanup only. It authorizes no new send.":"No mentions are sent. Publishing is optional and sends one copy of this saved revision. An unknown send remains spent; editing requires old-copy cleanup and a new explicit preview."}));
+      const confirm=h("input",{type:"checkbox"}),publish=h("button",{type:"button",class:"btn small",text:"Publish this exact Discord cross-post",disabled:true});
+      confirm.addEventListener("change",()=>{publish.disabled=busy||attempted||!confirm.checked||!d.enabled||!d.canPublish||typeof d.confirmation!=="string"||!Number.isSafeInteger(d.expiresAt)||d.expiresAt<=nowSec();});
+      publish.addEventListener("click",async()=>{
+        if(!live()||retainedOnly||busy||publish.disabled||snapshot!==d||d.expiresAt<=nowSec())return;
+        attempted=true;busy=true;publish.disabled=true;read.disabled=true;
+        try{const out=await api("POST",path+"publish",{confirmation:d.confirmation,confirm:true},{live});if(live())state.textContent="Original cross-post outcome: "+String(out.state||"unconfirmed")+". Review its status before another action.";}
+        catch(error){if(live()){
+          const code=codeOf(error),outcome=error?.data?.state;
+          if(outcome==="refused")state.textContent="Discord refused this send. This revision remains spent; review its original status and edit the notice before a new publication.";
+          else if(outcome==="known")state.textContent="A Discord copy was recorded but was not accepted as current. Removal was requested; review the original cleanup state.";
+          else if(["explicit_confirmation_required","news_webhook_confirmation_invalid","news_webhook_confirmation_spent_or_changed","news_webhook_destination_unconfirmed","news_webhook_claim_refused","slow_down"].includes(code))state.textContent="This request was refused before a new send. Review the original status or open a fresh preview; any earlier uncertain copy remains held.";
+          else state.textContent="The original send is unconfirmed and must not be repeated. Review the original status; an absent pointer does not prove no message was sent.";
+        }}
+        finally{busy=false;if(live()){read.disabled=false;clear(content);snapshot=null;}}
+      });
+      if(!retainedOnly&&d.canPublish&&!attempted)add(content,[h("label",null,confirm," I reviewed this saved notice and exact destination."),publish]);
+      const removeConfirmed=h("input",{type:"checkbox"}),remove=h("button",{type:"button",class:"btn small",text:"Request cross-post removal",disabled:true});
+      removeConfirmed.addEventListener("change",()=>{remove.disabled=busy||!removeConfirmed.checked;});
+      const removal=async sub=>{
+        if(!live()||busy||snapshot!==d||!revision(d.cleanupRevision)||!destination(d.cleanupDestination))return;busy=true;read.disabled=true;remove.disabled=true;
+        try{const out=await api("POST",path+sub,{id:notice.id,revision:d.cleanupRevision},{live});if(live())state.textContent="Original cleanup state: "+String(out.state||"unconfirmed")+". Unknown outcomes remain held; no copy is resent.";}
+        catch{if(live())state.textContent="Cleanup is unconfirmed. Review the original state; no copy was resent.";}
+        finally{busy=false;if(live()){read.disabled=false;clear(content);snapshot=null;}}
+      };
+      remove.addEventListener("click",()=>{if(!remove.disabled)removal("revoke");});
+      if(d.cleanupRevision!==null&&!["not_published","removed","refused"].includes(d.state))add(content,[h("label",null,removeConfirmed," I intend to remove the original Discord cross-post."),remove]);
+      if(d.removalPending&&d.cleanupRevision!==null)add(content,h("button",{type:"button",class:"btn small",text:"Continue requested removal",onclick:()=>removal("reconcile")}));
+    };
+    read.addEventListener("click",async()=>{
+      if(!live()||busy)return;busy=true;read.disabled=true;clear(content);snapshot=null;
+      try{const d=await api("GET",path+"preview?id="+encodeURIComponent(notice.id)+"&revision="+notice.revision,undefined,{live});if(live()){draw(d);state.textContent="Preview and original status only. No cross-post was sent.";}}
+      catch(error){if(live())state.textContent=explain(error,"Optional cross-posting is unavailable. No message was sent.");}
+      finally{busy=false;if(live())read.disabled=false;}
+    });
+    add(root,[read,state,content]);return root;
+  }
+  function retainedNewsWebhookControls() {
+    const owner=S.user,route=currentRoute(),root=h("div",{class:"stack news-webhook-retained196"}),list=h("div",{class:"stack"});
+    const status=h("p",{class:"small muted",role:"status","aria-live":"polite",text:"Read original Discord cross-post custody, including notices no longer shown. No message is sent by this read."});
+    const read=h("button",{type:"button",class:"btn small",text:"Read retained cross-posts"}),next=h("button",{type:"button",class:"btn small",text:"Next retained cross-posts",disabled:true});
+    let busy=false,cursor=null,invalidTotal=0;
+    const live=()=>S.user===owner&&S.signedIn&&!S.denied&&currentRoute()===route&&app.contains(root);
+    const validId=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{22}$/.test(v);
+    const load=async after=>{
+      if(!live()||busy)return;busy=true;read.disabled=true;next.disabled=true;clear(list);
+      try{
+        const d=await api("GET","/api/news/editor/webhook/retained"+(after?"?after="+encodeURIComponent(after):""),undefined,{live});
+        if(!live())return;
+        const destination=v=>v&&typeof v.guild==="string"&&typeof v.channel==="string"&&/^\d{17,20}$/.test(v.guild)&&/^\d{17,20}$/.test(v.channel);
+        if(!d||d.readOnly!==true||d.limit!==50||!Array.isArray(d.records)||d.records.length>50||d.returnedCount!==d.records.length||!Number.isSafeInteger(d.inspectedCount)||d.inspectedCount<d.records.length||d.inspectedCount>50||!Number.isSafeInteger(d.invalidCount)||d.invalidCount<0||d.invalidCount>d.inspectedCount||typeof d.complete!=="boolean"||typeof d.exhausted!=="boolean"||typeof d.truncated!=="boolean"||!(d.nextCursor===null||validId(d.nextCursor))||d.exhausted!==(d.nextCursor===null)||d.complete!==(d.exhausted&&d.invalidCount===0)||d.truncated!==!d.exhausted||after&&d.nextCursor!==null&&d.nextCursor<=after||new Set(d.records.map(x=>x?.id)).size!==d.records.length||d.records.some(x=>!x||!validId(x.id)||after&&x.id<=after||!Number.isSafeInteger(x.cleanupRevision)||x.cleanupRevision<1||!destination(x.cleanupDestination)||!["claimed","unknown","known","cleaning"].includes(x.state)||typeof x.removalPending!=="boolean"||typeof x.uncertain!=="boolean"))throw Error("Unreadable retained cross-post list");
+        invalidTotal=(after?invalidTotal:0)+d.invalidCount;
+        cursor=d.nextCursor;
+        for(const n of d.records)add(list,h("div",{class:"card"},h("h3",{text:"Original cross-post · "+n.id}),h("p",{class:"small",text:"Revision "+n.cleanupRevision+" · "+n.state+(n.removalPending?" · removal pending":"")+" · server "+n.cleanupDestination.guild+" · channel "+n.cleanupDestination.channel}),newsWebhookControls({id:n.id,revision:n.cleanupRevision},true)));
+        status.textContent=d.records.length+" original cross-posts on this page. "+(d.exhausted?"End of this traversal.":"More retained entries remain; use Next.")+(invalidTotal?" "+invalidTotal+" unreadable entries were refused during this traversal; it is incomplete and requires attended review.":"")+" This is current retained custody, not complete publication history.";
+      }catch(e){if(live()){cursor=null;status.textContent=explain(e,"Retained cross-posts could not be read. No message was sent.");}}
+      finally{busy=false;if(live()){read.disabled=false;next.disabled=cursor===null;}}
+    };
+    read.addEventListener("click",()=>load(null));next.addEventListener("click",()=>{if(cursor!==null)load(cursor);});
+    add(root,[status,h("div",{class:"btn-row"},read,next),list]);return root;
+  }
+  async function adminNews(body, message = "", endpoint = "/api/admin/news") {
     let d;
     try {
-      d = await api("GET", "/api/admin/news");
+      d = await api("GET", endpoint);
     } catch (e) {
       clear(body);
       add(body, frame("News", null, h("p", { class: "err small", role: "alert", text: explain(e, "The notices could not be read.") })));
@@ -3506,9 +4008,9 @@
       err.hidden = false;
       if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity();
     };
-    const again = (note) => { setDirty("admin-news", false); return adminNews(body, note); };
+    const again = (note) => { setDirty("admin-news", false); return adminNews(body, note, endpoint); };
     const send = async (payload) => {
-      const out = await api("POST", "/api/admin/news", payload);
+      const out = await api("POST", endpoint, payload);
       if (!out || !out.notice || out.notice.id !== payload.id) throw new ApiError(200, { error: "unreadable_answer" }); // the answer is THIS operation's notice before anything is shown as posted
       toast(out.replay ? "This notice was already posted from this page." : "Posted.", "good");
       await again();
@@ -3531,7 +4033,7 @@
           retry: async () => { try { await send(frozen); return "done"; } catch (ex2) { if (uncertain(ex2)) return "lost"; frozen = null; clear(pending); await refusedCreate(ex2); return "done"; } },
           check: async () => {
             try {
-              const l = await api("GET", "/api/admin/news");
+              const l = await api("GET", endpoint);
               if (l && Array.isArray(l.notices) && l.notices.some((x) => x.id === opId)) { toast("It was stored.", "good"); await again(); return "found"; }
               // This list contains live notices only. Absence does not prove that the operation was never stored:
               // its deleted/expired notice may still have a tombstone. Keep the frozen operation and its retry.
@@ -3545,7 +4047,7 @@
       if (!(await confirmBox("Save the changes to this notice?", `"${title.value.trim() || n.title}" changes on News at once. It is shown until ${fmtDay(n.postedAt + days * 86400)}, counted from when it was first posted.`, "Save changes"))) return;
       lock(true);
       try {
-        const out = await api("POST", "/api/admin/news/update", { id: n.id, revision: n.revision, title: title.value.trim(), body: text.value, days });
+        const out = await api("POST", endpoint + "/update", { id: n.id, revision: n.revision, title: title.value.trim(), body: text.value, days });
         if (!out || !out.notice || out.notice.id !== n.id) throw new ApiError(200, { error: "unreadable_answer" });
         toast("Saved.", "good");
         await again();
@@ -3559,7 +4061,7 @@
     const remove = (n) => async () => {
       if (!(await confirmBox("Delete this notice?", `"${n.title}" disappears from News at once. A page opened earlier cannot post it again: a page posts only within 30 days of being opened, and this notice's id is kept for 120 days from its first posting.`, "Delete", { danger: true }))) return;
       try {
-        await api("POST", "/api/admin/news/delete", { id: n.id, revision: n.revision });
+        await api("POST", endpoint + "/delete", { id: n.id, revision: n.revision });
         toast("Deleted.", "good");
         await again();
       } catch (ex) {
@@ -3588,7 +4090,7 @@
       h("p", { class: "muted small", text: `Posted ${fmtDateTime(n.postedAt)}${n.editedAt ? ` · changed ${fmtDateTime(n.editedAt)}` : ""} · shown until ${fmtDateTime(n.until)} · revision ${n.revision}` }),
       h("div", { class: "btn-row" },
         h("button", { class: "btn small", type: "button", text: "Edit", disabled: !d.newsOn, onclick: edit(n) }),
-        h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: remove(n) }))));
+        h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: remove(n) })), newsWebhookControls(n)));
     clear(body);
     add(body, [
       message ? noticeBox("warn", "icon-warning", h("p", { text: message })) : null,
@@ -3597,6 +4099,7 @@
         d.newsOn ? null : noticeBox("info", "icon-clock", h("p", { text: "News is switched off (Admin → Settings); notices cannot be posted while it is off." })),
         kv([["Shown now", `${notices.length} of ${limits.liveMax || 20}`], ["Past their time, awaiting the cleanup", String(d.awaitingCleanup || 0)], ["Operation records kept (120 days each)", String(d.operationRecords || 0)]])),
       frame("Notices shown now", null, list.length ? list : h("p", { class: "muted small", text: "No notice is shown right now." })),
+      frame("Retained Discord cross-posts", null, retainedNewsWebhookControls()),
       frame(formTitle, null,
         h("p", { class: "muted small", text: "Write for the whole guild; do not name members. A notice is deleted when its time is up, at most 90 days after posting." }),
         h("div", { class: "btn-row" }, brief),
@@ -3715,7 +4218,7 @@
     clear(body);
     add(body, [
       h("p", null, h("a", { href: "#/admin/applications", text: "Back to all applications" })),
-      frame(h("h2", null, h("img", { class: "av", src: accountArt(u), alt: "", width: "32", height: "32", referrerpolicy: "no-referrer" }), u.label),
+      frame(h("h2", null, discordAvatar(u, { class: "av", width: "32", height: "32" }), discordIdentity(u) || u.label),
         h("span", null, u.denied ? h("span", { class: "badge red", text: "Denied" }) : a ? h("span", { class: "status " + a.status, text: statusText(a.status) }) : h("span", { class: "badge muted", text: "No application" })),
         h("dl", { class: "kv" },
           h("dt", { text: "Discord id" }), h("dd", { text: u.id }),
@@ -3812,7 +4315,7 @@
     const boardRows = shown.map((c, i) => {
       const tr = h("tr", { class: "clickable" },
         h("td", { class: "num", text: String(i + 1) }),
-        h("td", null, h("button", { class: "row-detail-open", type: "button", "aria-label": `Show votes for ${c.label}: ${data.role.label}`, onclick: () => showBoardVoters(data.role, c) }, h("img", { class: "av", src: accountArt(c), alt: "", referrerpolicy: "no-referrer" }), c.label), " ",
+        h("td", null, h("button", { class: "row-detail-open", type: "button", "aria-label": `Show votes for ${c.label}: ${data.role.label}`, onclick: () => showBoardVoters(data.role, c) }, discordAvatar(c, { class: "av", width: "32", height: "32" }), c.label), " ",
           c.denied ? h("span", { class: "badge red", text: "denied" }) : !c.onBoard ? h("span", { class: "badge muted", text: c.status ? `off the board: ${statusText(c.status).toLowerCase()}` : "off the board" }) : null),
         h("td", { text: c.choice === 1 ? "First" : c.choice === 2 ? "Second" : c.choice === 3 ? "Third" : "—" }),
         h("td", null, c.class ? clsLabel(c.class) : null),
@@ -3830,7 +4333,7 @@
       const tr = h("tr", { class: "clickable" },
         h("td", { class: "num", text: String(i + 1) }),
         h("td", null,
-          h("button", { class: "row-detail-open", type: "button", "aria-label": `Show write-ins for ${n.label}: ${wi.ballot.label}`, onclick: () => showVoters(wi.ballot, n) }, h("img", { class: "av", src: accountArt(n), alt: "", referrerpolicy: "no-referrer" }), n.label), " ",
+          h("button", { class: "row-detail-open", type: "button", "aria-label": `Show write-ins for ${n.label}: ${wi.ballot.label}`, onclick: () => showVoters(wi.ballot, n) }, discordAvatar(n, { class: "av", width: "32", height: "32" }), n.label), " ",
           n.kind === "name" ? h("span", { class: "badge muted", text: "typed name" }) : n.signedUp ? h("span", { class: "badge", text: "signed up" }) : null, " ",
           // Not signed up here: the label is what voters' pages sent, so the id (and a lookup) is the check.
           n.kind === "discord" && !n.signedUp ? h("a", { class: "id", href: `#/admin/lookup/${n.key}`, title: "Look this account up", text: n.key, onclick: (e) => e.stopPropagation() }) : null, " ",
@@ -4155,6 +4658,7 @@
   function communityTabs(sub) {
     const tabs = anyCommunity() || can("armyRead") ? [["", "Overview"]] : [];
     if (feat("directory")) tabs.push(["directory", "Directory"], ["profile", "My profile"]);
+    if (feat("crafting")) tabs.push(["workshop", "Crafters & Artisans"]);
     if (feat("events")) tabs.push(["calendar", "Calendar"]);
     if (feat("census") && can("confirmedGuildData")) tabs.push(["census", "Census preview"]);
     if (feat("trials")) tabs.push(["trial", "My trial"]);
@@ -4180,6 +4684,52 @@
       h("p", { class: "muted small", text: "Until access is confirmed the community pages show nothing of other members, and nothing you enter here is listed." }));
   }
   const memberActionNotice = () => noticeBox("info", "icon-shield", h("p", { text: "You can view the Community. Updating a member profile, responding to an event or using the Census preview still requires a verified character on the current guild roster." }), h("a", { href: "#/guide/member", text: "Read the member guide" }));
+  ROUTES.army = async function army(main, parts) {
+    if (!can("armyRead") || !S.signedIn || S.denied) { add(main, standingNotice()); return; }
+    if (!parts.length) return communityArmyReview(main);
+    if (parts.length !== 1 || parts[0] !== "report") { add(main, frame("Army", null, h("p", {text:"There is no such Army workspace."}))); return; }
+    if (!S.user?.isAdmin) { add(main, frame("Army reporter", null, h("p", {text:"Publishing a snapshot requires current site administrator authority."}))); return; }
+    return armyReporterWorkspace(main);
+  };
+  async function armyReporterWorkspace(body) {
+    const owner = S.user, context = COM(), route = currentRoute(), controller = new AbortController();
+    let instance = null, disposed = false;
+    const ownCurrent = () => S.user === owner && owner && owner.isAdmin && S.signedIn && !S.denied && COM() === context && can("armyRead");
+    const live = () => !disposed && ownCurrent() && currentRoute() === route && app.contains(body);
+    const dispose = () => { if (disposed) return; disposed = true; capacity.destroy(); controller.abort(); instance?.destroy(); if (navigationGuard === instance) navigationGuard = null; if (disposeTool === dispose) disposeTool = null; };
+    const capacity = armyCapacityPanel(live);
+    disposeTool = dispose;
+    add(body, [capacity.element, h("p", {role:"status", text:"Opening the Army reporter…"})]);
+    try {
+      const node = await authoredFragment("/army/report/fragment", ".army-site[data-army-reporter-fragment]", controller); if (!live()) return;
+      if (!document.querySelector('link[data-olympus-tool="OlympusArmyReader"]')) document.head.appendChild(h("link", {rel:"stylesheet", href:"/static/army-live/army.css", "data-olympus-tool":"OlympusArmyReader"}));
+      for (const [namespace, file] of [["OlympusGuildQRProtocol","protocol.js"],["OlympusSanitizedExport","sanitized-export.js"],["OlympusArmyReader","army.js"],["OlympusArmyReportTool","report.js"],["OlympusArmyLocalImportTool","savedvariables-import.js"]]) {
+        await loadMemberScript(namespace, "/static/army-live/" + file); if (!live()) return;
+      }
+      clear(body); add(body, [capacity.element, node]);
+      instance = window.OlympusArmyReportTool.mount(node, {owner, isCurrent:live, isOwnerCurrent:ownCurrent});
+      navigationGuard = instance;
+      window.OlympusArmyLocalImportTool.mount(node, {report:instance, isCurrent:live});
+      if (!live()) dispose();
+    } catch (error) { if (live()) { clear(body); add(body, [capacity.element, frame("Army reporter", null, noticeBox("warn", "icon-warning", h("p", {text:explain(error,"The reporter could not be opened.")})))]); } }
+  }
+  ROUTES.news = async function townCrier(main, parts) {
+    if (!S.signedIn || S.denied || !can("applicantWrite")) { add(main, standingNotice()); return; }
+    const editing = parts[0] === "edit";
+    add(main, frame("Town Crier", null,
+      h("p", { text: "Guild announcements and the Lead Correspondent's dispatches." }),
+      h("div", { class: "btn-row" }, h("a", { class: "btn small", href: "#/news", text: "Read dispatches" }),
+        S.user && S.user.canEditTownCrier ? h("a", { class: "btn small", href: "#/news/edit", text: "Edit dispatches" }) : null)));
+    const body = h("div", { class: "stack mt" }); main.appendChild(body);
+    if (editing) {
+      if (!S.user || !S.user.canEditTownCrier) { add(body, noticeBox("warn", "icon-shield", h("p", { text: "Editing requires the current Lead Correspondent appointment or site administrator authority." }))); return; }
+      return adminNews(body, "", "/api/news/editor");
+    }
+    if (parts.length) { add(body, h("p", { text: "There is no such Town Crier page." })); return; }
+    if (!communityReader()) { add(body, standingNotice()); return; }
+    if (!newsOn()) { add(body, h("p", { text: "Town Crier dispatches are switched off." })); return; }
+    return communityNews(body);
+  };
   ROUTES.community = async function community(main, parts) {
     const sub = parts[0] || "";
     if (!anyCommunity() && sub !== "army" && !(sub === "" && can("armyRead"))) {
@@ -4203,6 +4753,11 @@
     if (sub === "leadership") return communityLeadership(body); // .114
     if (sub === "census" && feat("census")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityCensus(body); }
     if (sub === "directory" && feat("directory")) return communityDirectory(body);
+    if (sub === "workshop" && feat("crafting")) {
+      add(body, [frame("Crafters & Artisans Workshop", h("a", { class: "btn small", href: "#/community/profile", text: "List my recipes" }),
+        h("p", { text: "Find members offering rare recipes, consumables and specialist crafts. Search by recipe or profession, then arrange materials and payment directly with the crafter." }),
+        h("p", { class: "muted small", text: "Offers and rarity are member supplied. A listing does not verify recipe ownership, reserve materials or authorize a guild-bank withdrawal." })), craftingPanel()]); return;
+    }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
       // .98: the organizer's pages live beside the member's (the Worker decides who may write; the page shows the refusal)
@@ -4219,9 +4774,10 @@
     if (can("armyRead")) cards.push(h("a", { class: "card", href: "#/community/army" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Army" })), h("p", { class: "muted small", text: "Read guild snapshots shared for signed-in Olympus members by authorized reporters. These unverified figures count characters, not people." })));
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
-      cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Mains, alts, professions and crafting offers of members who chose to be listed. For guild members and site administrators." })));
+      cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Current Discord members, their portraits and permitted public roles, with verified characters only for eligible website accounts." })));
       cards.push(h("a", { class: "card", href: "#/community/profile" }, h("div", { class: "card-head" }, icon("pos-member"), h("h3", { text: "My profile" })), h("p", { class: "muted small", text: "Opt in to the directory, and say what you play and craft. Nothing is listed until you tick the box." })));
     }
+    if (feat("crafting")) cards.push(h("a", { class: "card", href: "#/community/workshop" }, h("div", { class: "card-head" }, icon("pos-professions"), h("h3", { text: "Crafters & Artisans" })), h("p", { class: "muted small", text: "Search members' rare-recipe and profession offers, and list your own crafts through My profile." })));
     if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. For guild members and site administrators.` })));
     if (feat("trials")) cards.push(h("a", { class: "card", href: "#/community/trial" }, h("div", { class: "card-head" }, icon("icon-shield"), h("h3", { text: "My trial" })), h("p", { class: "muted small", text: "Your trial period as the officers recorded it: the review date and the outcome." })));
     if (feat("contributions")) cards.push(h("a", { class: "card", href: "#/community/dues" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "My dues" })), h("p", { class: "muted small", text: "The weeks the policy counts for you, what was applied, and the mail reference for paying." })));
@@ -4229,18 +4785,94 @@
     if (anyCommunity()) cards.push(h("a", { class: "card", href: "#/community/leadership" }, h("div", { class: "card-head" }, icon("pos-guild_master"), h("h3", { text: "Leadership" })), h("p", { class: "muted small", text: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." }))); // .114
     add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
+  // A fresh memberSeats read is separate from volunteer Army observations and
+  // boot state. Only Olympus I has an authoritative feed; no other branch is inferred.
+  function armyCapacityPanel(isCurrent) {
+    if (disposeArmyCapacity) disposeArmyCapacity();
+    const user = S.user, route = currentRoute(), context = COM();
+    const box = h("section", { class: "frame army-capacity196", "data-army-capacity": "current", "aria-label": "Olympus guild capacity" });
+    let disposed = false, generation = 0, expiryTimer = null, clockTimer = null;
+    const owned = () => !disposed && isCurrent() && S.signedIn && !S.denied && S.user === user && COM() === context && currentRoute() === route;
+    const live = () => owned() && !document.hidden;
+    const stop = () => { clearTimeout(expiryTimer); clearInterval(clockTimer); expiryTimer = clockTimer = null; };
+    const labels = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+    const unknown = text => h("div", { class: "army-capacity-unavailable", text });
+    const announcement = h("p", { class: "small", role: "status", "aria-live": "polite" });
+    const refreshButton = h("button", { type: "button", class: "btn small", text: "Refresh capacity evidence" });
+    refreshButton.addEventListener("click", () => { if (live()) refresh(); });
+    let first = null;
+    const draw = () => {
+      clear(box); box.hidden = false;
+      const rows = labels.map((name, index) => {
+        const row = h("article", { class: "card", "data-army-capacity-guild": name }, h("h3", { text: "Olympus " + name }));
+        if (!index) first = row;
+        else add(row, [unknown("Capacity unavailable"), h("p", { class: "muted small", text: "No trusted capacity feed is connected for this branch. Its size, available places and admission state are unknown." })]);
+        return row;
+      });
+      add(box, [h("div", { class: "plaque" }, h("h2", { text: "Olympus I–X capacity" }), refreshButton), announcement,
+        h("p", { class: "muted small", text: "Dated officer evidence is informational. It is separate from the unverified community snapshots below and never guarantees an invite or a place now." }),
+        h("div", { class: "grid two army-capacity-grid" }, rows),
+        h("p", { class: "small" }, "Alt placement: ask the current ", h("a", { href: "#/community/leadership", text: "guild officers and leadership" }), ". There is no automatic Alt routing or dedicated Alt guild established by this panel.")]);
+    };
+    const unavailable = text => { announcement.textContent = text || "Current capacity unavailable"; if (!first) return; clear(first); add(first, [h("h3", { text: "Olympus I" }), unknown(text || "Current capacity unavailable"), h("p", { class: "muted small", text: "A fresh checked officer roster or recent refused-invite report is needed. No count or free-place estimate is inferred." })]); };
+    function refresh() {
+      if (!live()) return;
+      const refocus = document.activeElement === refreshButton;
+      stop(); draw(); if (refocus) refreshButton.focus(); unavailable("Checking current officer evidence…");
+      const request = ++generation, requestLive = () => live() && generation === request;
+      api("GET", "/api/me", undefined, { live: requestLive }).then(data => {
+        if (!requestLive()) return;
+        if (!data || data.signedIn !== true || data.denied !== false || data.user?.id !== user.id || !Number.isSafeInteger(data.now) || data.now <= 0) throw Error("Capacity reader refused");
+        const seat = data.seats;
+        if (!seat || seat.state === "unknown") { unavailable(); return; }
+        // memberSeats currently labels an open checked roster with source:null;
+        // its nonnull rounded evidence time and consistent counts identify that DTO.
+        const roster = (seat.state === "full" && seat.source === "roster") || (seat.state === "open" && seat.source === null);
+        const refused = seat.state === "full" && seat.source === "refused_invite";
+        if ((!roster && !refused) || !Number.isSafeInteger(seat.asOf) || seat.asOf <= 0 || seat.asOf % 3600 !== 0 || seat.asOf > data.now) throw Error("Invalid dated capacity evidence");
+        if (roster && (!Number.isSafeInteger(seat.cap) || seat.cap < 900 || seat.cap > 1000 || !Number.isSafeInteger(seat.members) || seat.members < 0 || seat.members > 1000 || !Number.isSafeInteger(seat.free) || seat.free !== Math.max(0, seat.cap - seat.members) || (seat.state === "open" ? seat.members >= seat.cap : seat.members < seat.cap))) throw Error("Invalid checked roster counts");
+        // asOf is already rounded down by the server. Expire conservatively at
+        // that hour plus the original48h roster /6h refusal window, not receipt time.
+        const expiresAt = seat.asOf + (roster ? 48 : 6) * 3600, remaining = expiresAt - Math.max(data.now, nowSec());
+        if (remaining <= 0) { unavailable("Officer evidence is out of date"); return; }
+        clear(first); add(first, [h("h3", { text: "Olympus I" }),
+          h("time", { class: "small", "data-army-capacity-evidence": "current", datetime: new Date(seat.asOf * 1000).toISOString(), text: "Evidence time: about " + fmtDateTime(seat.asOf) })]);
+        if (roster) add(first, [
+          h("p", { text: "Checked officer roster: " + seat.members + " of " + seat.cap + " members." }),
+          h("meter", { class: "army-capacity-meter", min: "0", max: String(seat.cap), value: String(Math.min(seat.members, seat.cap)), "aria-label": "Olympus I recorded roster occupancy", text: seat.members + " of " + seat.cap }),
+          h("p", { class: "muted small", text: seat.state === "full" ? "Full in this roster report. This dated evidence is not a promise of the present guild state." : "Below the configured limit in this roster report. This does not reserve or promise a place." })]);
+        else add(first, [h("p", { text: "A recent Olympus I invite was refused for lack of space." }), h("p", { class: "muted small", text: "This refusal supplies no roster count or capacity meter. It does not establish the current number of available places." })]);
+        announcement.textContent = roster ? "Olympus I checked roster: " + seat.members + " of " + seat.cap + " members. Dated evidence, not a present capacity guarantee." : "A recent Olympus I invite was refused for lack of space; no roster count is available.";
+        const expire = () => { if (!requestLive()) return; stop(); unavailable("Officer evidence is out of date"); };
+        expiryTimer = setTimeout(expire, remaining * 1000);
+        clockTimer = setInterval(() => { if (nowSec() >= expiresAt) expire(); }, 1000);
+      }).catch(() => { if (requestLive()) unavailable(); });
+    }
+    const visibility = () => {
+      if (document.hidden) { generation++; stop(); clear(box); box.hidden = true; first = null; }
+      else if (owned()) refresh();
+    };
+    const destroy = () => { if (disposed) return; disposed = true; generation++; stop(); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pagehide", destroy); clear(box); box.hidden = true; first = null; if (disposeArmyCapacity === destroy) disposeArmyCapacity = null; };
+    disposeArmyCapacity = destroy;
+    document.addEventListener("visibilitychange", visibility); window.addEventListener("pagehide", destroy);
+    refresh();
+    return { element: box, destroy };
+  }
+
   // .183: read-only snapshots stay in this shell; attended reporting retains its separate capture policy.
   async function communityArmyReview(body) {
     const user = S.user, context = COM(), route = currentRoute(); let instance = null, disposed = false;
     const live = () => !disposed && app.contains(body) && S.user === user && COM() === context && currentRoute() === route && can("armyRead");
-    const dispose = () => { if (disposed) return; disposed = true; if (instance && instance.destroy) instance.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    const capacity = armyCapacityPanel(live);
+    const dispose = () => { if (disposed) return; disposed = true; capacity.destroy(); if (instance && instance.destroy) instance.destroy(); if (disposeTool === dispose) disposeTool = null; };
     disposeTool = dispose;
     const reader = h("div", { class: "army-reader" }, h("p", { role: "status", class: "muted", text: "Opening Army snapshots…" }));
-    add(body, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
+    add(body, [capacity.element, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
-        S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "/army/report", text: "Report a guild snapshot" }) : null,
-        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses a separate attended page and current server admission." }), reader)));
+        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Unified guild addon; optional website snapshot export requires publisher adoption."),
+        S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "#/army/report", text: "Report a guild snapshot" }) : null,
+        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. The optional website export still needs publisher adoption." }), reader))]);
     const load = async (namespace, file) => {
       if (window[namespace]) return;
       if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
@@ -4255,6 +4887,7 @@
     try {
       if (!document.querySelector('link[data-olympus-tool="OlympusArmyReader"]')) document.head.appendChild(h("link", { rel: "stylesheet", href: "/static/army-live/army.css", "data-olympus-tool": "OlympusArmyReader" }));
       await load("OlympusGuildQRProtocol", "/static/army-live/protocol.js"); if (!live()) return;
+      await load("OlympusSanitizedExport", "/static/army-live/sanitized-export.js"); if (!live()) return;
       await load("OlympusArmyReader", "/static/army-live/army.js"); if (!live()) return;
       clear(reader); instance = await window.OlympusArmyReader.mount(reader, { isCurrent: live });
       if (!live() && instance && instance.destroy) instance.destroy();
@@ -4495,6 +5128,93 @@
         m.crafts && m.crafts.length ? [h("dt", { text: "Crafts" }), h("dd", { text: `${plural(m.crafts.length, "offer")}: ${m.crafts.slice(0, 8).map((c) => c.recipe).join(", ")}${m.crafts.length > 8 ? ", …" : ""}` })] : null));
   }
   async function communityDirectory(body) {
+    const user = S.user, context = COM(), route = currentRoute();
+    let cursor = null, busy = false, disposed = false, expiryTimer = null, scanTimer = null, continuous = false;
+    const shown = new Set();
+    const list = h("div", { class: "grid two", "data-discord-directory": "members" });
+    const status = h("p", { class: "muted small", role: "status", "aria-live": "polite", text: "Reading Discord members…" });
+    const more = h("button", { class: "btn small", type: "button", text: "Show more members", hidden: true });
+    const refresh = h("button", { class: "btn small", type: "button", text: "Refresh directory" });
+    const scanAll = h("button", { class: "btn small", type: "button", text: "Load all eligible Olympus members", hidden: true });
+    const stopScan = () => { continuous = false; clearTimeout(scanTimer); scanTimer = null; scanAll.textContent = "Load all eligible Olympus members"; };
+    const live = () => !disposed && S.user === user && COM() === context && S.signedIn && !S.denied && currentRoute() === route && app.contains(body) && document.hidden !== true;
+    const clearMembers = message => { stopScan(); clear(list); shown.clear(); cursor = null; more.hidden = scanAll.hidden = true; if (message) status.textContent = message; };
+    const dispose = () => { disposed = true; clearTimeout(expiryTimer); clearMembers(); document.removeEventListener("visibilitychange", visibility); if (disposeTool === dispose) disposeTool = null; };
+    const visibility = () => { if (document.hidden) { clearTimeout(expiryTimer); clearMembers("The directory was cleared while this page was hidden. Refresh to read it again."); } };
+    document.addEventListener("visibilitychange", visibility);
+    disposeTool = dispose;
+    const load = async restart => {
+      if (busy || !live()) return;
+      busy = true; more.disabled = refresh.disabled = true;
+      if (restart) clearMembers("Reading Discord members…");
+      const originalCursor = cursor;
+      try {
+        const data = await api("GET", "/api/community/discord-directory" + (originalCursor ? `?cursor=${encodeURIComponent(originalCursor)}` : ""));
+        if (!live()) return;
+        if (!data || data.source !== "discord_members" || !Array.isArray(data.members) || data.members.length > 100 || typeof data.complete !== "boolean" || !(data.nextCursor === null || typeof data.nextCursor === "string" && data.nextCursor.length <= 8192) || !Number.isFinite(Date.parse(data.generatedAt))) throw new Error("The directory response could not be read.");
+        for (const member of data.members) {
+          if (!member || typeof member.ref !== "string" || shown.has(member.ref)) continue;
+          shown.add(member.ref);
+          const roles = Array.isArray(member.roles) ? member.roles.filter(role => typeof role === "string") : [];
+          const characters = Array.isArray(member.verifiedCharacters) ? member.verifiedCharacters.filter(character => character && typeof character.name === "string") : [];
+          list.appendChild(h("article", { class: "card member" },
+            h("div", { class: "card-head" }, discordAvatar(member, { class: "av", width: "40", height: "40", loading: "lazy" }), h("h3", { text: discordIdentity(member) || member.label || "Discord member" })),
+            roles.length ? h("p", { class: "small" }, roles.map(role => h("span", { class: "badge", text: role }))) : h("p", { class: "muted small", text: "No public Olympus role listed" }),
+            characters.length ? h("ul", { class: "small" }, characters.map(character => h("li", { text: character.name + " · verified character" }))) : h("p", { class: "muted small", text: "No verified character published through a website account" }),
+            member.charactersTruncated ? h("p", { class: "muted small", text: "Additional characters are not included on this page." }) : null));
+        }
+        cursor = data.nextCursor; more.hidden = scanAll.hidden = !cursor;
+        status.textContent = `${plural(shown.size, "Discord member")} shown · checked ${new Date(data.generatedAt).toLocaleString()}. ${data.complete ? "End of this traversal." : "More pages are available."} Discord membership can change while you browse; this is not an atomic roster snapshot.`;
+        clearTimeout(expiryTimer);
+        const expires = data.traversal && Date.parse(data.traversal.expiresAt);
+        expiryTimer = setTimeout(() => clearMembers("This directory view expired. Refresh to read current membership."), Number.isFinite(expires) ? Math.max(0, Math.min(expires - Date.now(), 15 * 60000)) : 5 * 60000);
+      } catch (error) {
+        if (!live()) return;
+        if (error && (error.status === 401 || error.status === 403 || ["cursor_stale", "cursor_expired", "invalid_cursor"].includes(codeOf(error)))) clearMembers();
+        stopScan();
+        status.textContent = explain(error, "Discord members are unavailable. No empty or complete roster is inferred.");
+      } finally {
+        busy = false; if (!disposed) more.disabled = refresh.disabled = false;
+        if (continuous && cursor && live()) {
+          scanAll.textContent = "Pause loading remaining members";
+          scanTimer = setTimeout(() => { scanTimer = null; if (continuous && live()) load(false); }, 1750);
+        } else if (!cursor) stopScan();
+      }
+    };
+    more.addEventListener("click", () => { stopScan(); load(false); }); refresh.addEventListener("click", () => load(true));
+    scanAll.addEventListener("click", () => { if (!live()) return; if (continuous) stopScan(); else if (cursor) { continuous = true; scanAll.textContent = "Pause loading remaining members"; load(false); } });
+    const profiles = h("div", { class: "stack" });
+    const showProfiles = h("button", { class: "btn small", type: "button", text: "Show opt-in guild profiles and crafting offers" });
+    const ownVisibility = h("div", {class:"stack", "data-directory-visibility":"own"});
+    showProfiles.addEventListener("click", async () => { if (!live()) return; showProfiles.disabled = true; try { await communityProfileDirectory(profiles); } finally { if (live()) showProfiles.hidden = true; } });
+    add(body, frame("Discord member directory", h("a", { class: "btn small", href: "#/community/profile", text: "My profile" }),
+      h("p", { class: "muted small", text: "Current holders of an Olympus membership or rank role, read a page at a time. Other members of the Asmongold Discord server are not listed. Your whole row is listed by default unless you opt out below; additional profile details remain a separate opt-in. Roles do not prove character membership. Verified characters are shown only for existing website accounts that pass current verification and privacy checks." }),
+      ownVisibility, status, list, h("div", { class: "btn-row" }, refresh, more, scanAll), showProfiles, profiles));
+    const loadOwnVisibility = async () => {
+      try {
+        const state = await api("GET", "/api/community/discord-directory/visibility"); if (!live()) return;
+        if (!state || typeof state.listed !== "boolean") throw Error("Your directory preference could not be read.");
+        clear(ownVisibility);
+        const listed = h("input", {type:"checkbox", checked:state.listed, id:"discord-directory-listed"});
+        const save = h("button", {type:"button", class:"btn small", text:"Save my listing preference"});
+        const note = h("p", {class:"muted small", role:"status", text:state.listed ? "Your eligible Olympus row can be listed." : "Your whole directory row is hidden."});
+        save.addEventListener("click", async () => {
+          if (!live() || save.disabled) return; save.disabled = true;
+          try {
+            const out = await api("PUT", "/api/community/discord-directory/visibility", {listed:listed.checked}); if (!live()) return;
+            if (!out || typeof out.listed !== "boolean") throw Error("The preference outcome is unconfirmed. Reopen the directory before acting again.");
+            listed.checked = out.listed; note.textContent = out.listed ? "Your eligible Olympus row can be listed." : "Your whole directory row is hidden. Earlier reader copies cannot be recalled.";
+            await load(true);
+          } catch (error) { if (live()) note.textContent = explain(error,"The preference outcome is unconfirmed. Reopen the directory to read it before acting again."); }
+          finally { if (live()) save.disabled = false; }
+        });
+        add(ownVisibility, [h("label", {class:"check"}, listed, " List my Discord profile when I have an Olympus membership or rank role"), note, save]);
+      } catch (error) { if (live()) { clear(ownVisibility); add(ownVisibility, h("p", {class:"muted small", text:explain(error,"Your own directory preference is unavailable.")})); } }
+    };
+    loadOwnVisibility();
+    await load(true);
+  }
+  async function communityProfileDirectory(body) {
     const list = h("div", { class: "stack" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     const status = h("p", { class: "muted small", text: "Loading…" });
@@ -4603,7 +5323,7 @@
     const dirtyMark = h("span", { class: "badge warn", text: "unsaved", hidden: true });
     function markDirty() { setDirty("community-profile", true, dirtyMark); }
     const form = h("form", { class: "stack", novalidate: true },
-      noticeBox("info", "icon-friends", h("p", null, h("strong", { text: "Who sees this: " }), "signed-in guild members and site administrators, by your display name and a random reference, never your Discord ID; only while you keep the box ticked and stay roster-confirmed. Officers may confirm or reject a claimed alt. Your recruitment application is separate and stays private.")),
+      noticeBox("info", "icon-friends", h("p", null, h("strong", { text: "Who sees this: " }), "signed-in guild members and site administrators, by your display name and a random reference, never your Discord ID; only while you keep the box ticked and stay roster-confirmed. Officers may confirm or reject a claimed alt. This optional detailed profile is separate from the default Discord directory row; use that directory's own visibility control to hide the whole row. Your recruitment application is separate: its stated board fields appear only if you agree to the voting board, and a board picture needs its separate optional choice.")),
       h("label", { class: "check" }, listed, " List me in the member directory"),
       fieldBox("main", "Main character", main, { hint: `${limits.nameMin}–${limits.nameMax} letters, as "First Last". It is marked confirmed when it matches a character verified on your account; a name verified on another account is refused.` }),
       p.main ? h("p", { class: "small" }, "Saved main: ", h("b", { text: p.main.name }), " ", proofBadge(p.main.source)) : null,

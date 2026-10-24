@@ -159,12 +159,17 @@ export const SCHEDULED_WORST_CASE = SCHEDULED_BUDGET.reduce((n, j) => n + j.wors
  * These are proposed source-only envelopes requiring a new exact-source native measurement, not a deploy/reopen, provider-meter or transition approval.
  */
 export const ADMISSION_SCHEDULED_BUDGET:ReadonlyArray<{job:string;worst:number}>=Object.freeze([
+ // Cosmetic expiry shares only an observed unused64 within the same original120
+ // role slice and8 remaining HTTP attempts; ordinary membership always runs first.
+ // Saturated/failed/unobserved slices defer cosmetic cleanup without a new effect.
  {job:'ensureSchema',worst:1},{job:'sweepInviteQueue',worst:20},{job:'sweepMemberRoles',worst:120},
  {job:'continueRosterEffects',worst:C.rosterEffectsStatements},{job:'refreshNames',worst:7},
  {job:'autoQueueReserved',worst:19},{job:'purgeSeenInteractions',worst:5},{job:'purgeBattleNetData',worst:13},
  {job:'sweepRenameHolds',worst:5},{job:'sweepCommunityProfiles',worst:23},{job:'sweepCommunityEvents',worst:17},
  {job:'runEventReminders',worst:21},{job:'sweepCommunityTrials',worst:11},{job:'sweepCommunityRestrictions',worst:13},
  {job:'departureIntake',worst:21},{job:'sweepCommunityDepartures',worst:11},{job:'openWeeklyObligations',worst:24},
+ // Expired webhook metadata uses only an observed spare5 in this same News31
+ // phase; original News cleanup/counts run first. Unknown external custody stays held.
  {job:'sweepCommunityContributions',worst:15},{job:'sweepCommunityPrivacy',worst:7},{job:'newsCron',worst:31},
  {job:'runOfficerDigest',worst:32},{job:'runServingErasureJob',worst:196},{job:'sweepServingRetention',worst:25},{job:'sweepRejectionExpiry',worst:7},
 ]);

@@ -44,9 +44,6 @@ function loadSnapshot(cwd, revision = null) {
     return blobs.get(entry.oid);
   }, mode(file) { return entries.get(file)?.mode; } };
 }
-const FILES=Object.freeze(['OlympusStatsPilot.toc','Core.lua','OlympusStatsPilot.lua','Army.lua','Libs/StatsPilotQr.lua','README.md','ARMY.md']);
-function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
-function armyAddonZip(get){const local=[],central=[];let offset=0;for(const file of FILES){const bytes=get('addon/OlympusStatsPilot/'+file),name=Buffer.from('OlympusStatsPilot/'+file),crc=crc32(bytes);if(!Buffer.isBuffer(bytes)||bytes.length>1000000)throw Error('Bounded addon source required');const h=Buffer.alloc(30);h.writeUInt32LE(0x04034b50,0);h.writeUInt16LE(20,4);h.writeUInt16LE(0x800,6);h.writeUInt16LE(33,12);h.writeUInt32LE(crc,14);h.writeUInt32LE(bytes.length,18);h.writeUInt32LE(bytes.length,22);h.writeUInt16LE(name.length,26);local.push(h,name,bytes);const c=Buffer.alloc(46);c.writeUInt32LE(0x02014b50,0);c.writeUInt16LE(0x0314,4);c.writeUInt16LE(20,6);c.writeUInt16LE(0x800,8);c.writeUInt16LE(33,14);c.writeUInt32LE(crc,16);c.writeUInt32LE(bytes.length,20);c.writeUInt32LE(bytes.length,24);c.writeUInt16LE(name.length,28);c.writeUInt32LE((0o100644<<16)>>>0,38);c.writeUInt32LE(offset,42);central.push(c,name);offset+=h.length+name.length+bytes.length;}const directory=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(FILES.length,8);end.writeUInt16LE(FILES.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);return Buffer.concat([...local,directory,end]);}
 function verify(snapshot) {
   let checks = 0;
   const check = (ok, label) => { checks++; need(ok, label); };
@@ -86,7 +83,7 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 43 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && ref.required_public_resources.length === 46 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
       && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset555-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
@@ -96,6 +93,9 @@ function verify(snapshot) {
   const talentSheetResources = ['worker/public/static/talents/stats60.js', 'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'];
   check(talentSheetResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) === file.endsWith('.js') && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'three exact non-art level-60 sheet resources');
+  const master196Resources = ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js'];
+  check(master196Resources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
+    && ref.runtime_paths.filter(path => path === file).length === 1 && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art master196 view resources');
   for (const row of variantPins) pin(row);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   // .179: only four exact dormant resources; no new artwork exception or runtime switch.
@@ -108,10 +108,11 @@ function verify(snapshot) {
   for (const name of armyNames.slice(0, 3)) check(text(armyRoot + name).startsWith("/* Dormant Army QR review bytes. No runtime activation or upload switch. */\n(function () {\n  'use strict';\n  const activation = false, uploads = false;\n  return; // Unconditional source-fixed stop; retained source below is never executed.\n"), 'dormant Army unconditional gate: ' + name);
 
   // .180: explicit owner authorization replaces the prior disabled-only restriction; old resources stay dormant.
-  const liveRoot = 'worker/public/static/army-live/', liveNames = ['army.css','army.js','protocol.js','report.js','pilot.js','decoder.js','olympus-army-addon-0.2.0.zip'];
-  check(ref.required_public_resources.filter(row => row.path.startsWith(liveRoot)).length === 7 && liveNames.every(name => ref.required_public_resources.some(row => row.path === liveRoot + name)), 'seven closed live Army resources');
+  const liveRoot = 'worker/public/static/army-live/', liveNames = ['army.css','army.js','protocol.js','report.js','pilot.js','decoder.js','sanitized-export.js','savedvariables-import.js'];
+  check(ref.required_public_resources.filter(row => row.path.startsWith(liveRoot)).length === 8 && liveNames.every(name => ref.required_public_resources.some(row => row.path === liveRoot + name) && ref.runtime_paths.includes(liveRoot + name) && !ref.official_paths.includes(liveRoot + name) && !ref.native_paths.includes(liveRoot + name)), 'eight exact non-art Army resources');
   check(get(liveRoot+'protocol.js').equals(get('tools/army-qr-live/protocol.js')), 'exact live Army protocol projection');
-  check(get(liveRoot+'olympus-army-addon-0.2.0.zip').equals(armyAddonZip(get)), 'exact seven-source Army addon ZIP projection');
+  const retiredArmyZip = liveRoot + 'olympus-army-addon-0.2.0.zip';
+  check(!snapshot.entries.has(retiredArmyZip) && !ref.required_public_resources.some(row => row.path === retiredArmyZip) && !ref.runtime_paths.includes(retiredArmyZip), 'retired standalone Army ZIP must remain absent');
   for (const file of ref.required_documents) check(get(file).length > 0, 'required document: ' + file);
   const v4Text = match('scripts/reconcile_public_root.py', /^V4_PINS=(\{[^\r\n]+\})/m, 'V4 pin declaration');
   const v4 = [...v4Text.matchAll(/'([^']+)':'([a-f0-9]{64})'/g)];

@@ -127,7 +127,20 @@ function sourceInventory(){
   "scheduledCostConstraints.set(original,constraint);",
   "await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch);});"
  ];
- assert.equal(guarded.tryBlock.statements.length,expected.length);expected.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[i],text,'scheduled guard/order '+i));
+ // Keep all fourteen original guard/order oracles. Exactly two read-only cost
+ // closures are inserted before the final dispatch; only its two callback args
+ // are additive. Any other statement, callback source or reordered guard fails.
+ const costReaders=[
+  "const roleSliceCost=():OriginalScheduledSliceCost|null=>{const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx);const row=facts.jobs.find(job=>job.job==='sweepMemberRoles');return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;};",
+  "const newsSliceCost=():OriginalScheduledSliceCost|null=>{const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='newsCron');return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;};"
+ ];
+ assert.equal(expected.length,14,'fourteen original scheduled guard/order oracles retained');
+ assert.equal(guarded.tryBlock.statements.length,expected.length+costReaders.length,'only two read-only original-job cost readers added');
+ costReaders.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[expected.length-1+i],text,'source-owned cost reader '+i));
+ const originalPrefix='runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch)',extendedPrefix='runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost)';
+ assert.equal(expected[13].split(originalPrefix).length,2,'original final dispatch has one ordinary body invocation');
+ expected.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[i<13?i:i+costReaders.length],i===13?text.replace(originalPrefix,extendedPrefix):text,'scheduled guard/order '+i));
+ check('exact two job-bound original cost readers add no new callback authority or top-level scheduled work',true);
  exactSyntax(guarded.catchClause,"catch(e){console.error(\"schema check failed; skipping this run\",errorRef(e));}",'original redacted catch');
  assertFalseExport('beta-reset.ts','BETA_RESET_SCHEDULE_QUALIFIED');assertTrueExport('scheduled-budget.ts','EPOCH2_SCHEDULE_QUALIFIED');
  check('source scheduled capture precedes inactive/false qualifiers and global dispatch',true);
@@ -146,14 +159,24 @@ function sourceInventory(){
  assert.equal(minute.body.statements.length,minuteExpected.length);minuteExpected.forEach((text,i)=>exactSyntax(minute.body.statements[i],text,'private minute body '+i));
  check('private minute source retains dispatch guard schema and one reset defer',true);
  const ordinary=declaration(sf,'runSourceEpoch2ScheduledBody');
- assert.equal(ordinary.parameters.length,4);exactSyntax(ordinary.parameters[2],'originalSchedule?:OriginalRosterSchedule','ordinary original schedule remains the third argument');exactSyntax(ordinary.parameters[3],'originalDispatch?:BetaRoleDispatch','ordinary original entry pair is additive fourth argument');
+ assert.equal(ordinary.parameters.length,6);exactSyntax(ordinary.parameters[2],'originalSchedule?:OriginalRosterSchedule','ordinary original schedule remains the third argument');exactSyntax(ordinary.parameters[3],'originalDispatch?:BetaRoleDispatch','ordinary original entry pair is additive fourth argument');
+ exactSyntax(ordinary.parameters[4],'readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null','only original role-slice cost is additive fifth argument');
+ exactSyntax(ordinary.parameters[5],'readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null','only original news-slice cost is additive sixth argument');
  const defers=allNodes(ordinary,node=>namedCall(node,'deferOriginalServing'));
  const labels=['sweepInviteQueue','sweepMemberRoles','continueRosterEffects','refreshNames','autoQueueReserved','purgeSeenInteractions','purgeBattleNetData','sweepRenameHolds','sweepCommunityProfiles','sweepCommunityEvents','runEventReminders','sweepCommunityTrials','sweepCommunityRestrictions','departureIntake','sweepCommunityDepartures','openWeeklyObligations','sweepCommunityContributions','sweepCommunityPrivacy','newsCron','runOfficerDigest','runServingErasureJob','sweepServingRetention','sweepRejectionExpiry'];
  assert.deepEqual(defers.map(call=>{assert.equal(call.arguments.length,3);assert.ok(ts.isIdentifier(call.arguments[0])&&call.arguments[0].text==='ctx'&&ts.isStringLiteral(call.arguments[1])&&ts.isArrowFunction(call.arguments[2]));return call.arguments[1].text;}),labels);
  for(let i=0;i<labels.length;i++){const call=sole(allNodes(defers[i].arguments[2],node=>namedCall(node,labels[i])),'original deferred job '+labels[i]);assert.equal(call.arguments[0].getText(),'env');}
  for(const [label,condition] of [['departureIntake','communityFeatures(env).has("departures")'],['openWeeklyObligations','communityFeatures(env).has("contributions")']]){const call=defers[labels.indexOf(label)],parent=call.parent.parent;assert.ok(ts.isIfStatement(parent)&&parent.thenStatement===call.parent);exactSyntax(parent.expression,condition,label+' condition');}
- exactSyntax(defers[labels.indexOf('newsCron')].arguments[2].body,'rosterCadence.newsEnabled?newsCron(env):Promise.resolve()','news cadence');
- exactSyntax(sole(allNodes(defers[1],node=>namedCall(node,'sweepMemberRoles')),'member role dispatch'),'sweepMemberRoles(env,"cron",undefined,roleDispatch)','member role sweep retains cron mode and receives the original restriction');
+ exactSyntax(defers[labels.indexOf('newsCron')].arguments[2],"async()=>{if(!rosterCadence.newsEnabled)return;await newsCron(env);let cost:OriginalScheduledSliceCost|null=null;try{cost=readOriginalNewsCost?.()??null;}catch{return;}if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>31)return;if(31-cost.statements<NEWS_WEBHOOK_METADATA_EXPIRY_PHYSICAL_BOUND)return;try{await newsWebhookMetadataExpiryPlan(env).run();}catch(e){console.error('news webhook metadata expiry held',errorRef(e));}}",'original news cadence and one original job precede only budgeted metadata expiry');
+ assert.equal(load('site-news-webhook').NEWS_WEBHOOK_METADATA_EXPIRY_PHYSICAL_BOUND,5,'news metadata expiry keeps its five-statement bound inside the original 31-statement slice');
+ sole(allNodes(defers[labels.indexOf('newsCron')],node=>namedCall(node,'newsWebhookMetadataExpiryPlan')),'one metadata expiry plan inside the original news defer');
+ exactSyntax(sole(allNodes(defers[1],node=>namedCall(node,'sweepMemberRoles')),'member role dispatch'),'sweepMemberRoles(env,"cron",calls,roleDispatch)','member role sweep retains cron mode and receives the original restriction and same bounded call budget');
+ exactSyntax(defers[1].arguments[2],"async()=>{const calls=callBudget(env);await sweepMemberRoles(env,\"cron\",calls,roleDispatch);let cost:OriginalScheduledSliceCost|null=null;try{cost=readOriginalRoleCost?.()??null;}catch{return;}if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>120)return;const remaining=120-cost.statements;if(remaining<TREASURY_EXPIRY_SQL_MAX||calls.limit-calls.attempts<TREASURY_EXPIRY_HTTP_MAX)return;try{await expireTreasuryCosmeticRoles(env,{sqlRemaining:remaining,calls});}catch(e){console.error('cosmetic expiry held',errorRef(e));}}",'original role job precedes only remaining-budget expiry, sharing its exact HTTP budget');
+ assert.equal(load('role-settlements').TREASURY_EXPIRY_SQL_MAX,64,'cosmetic expiry keeps its original 64-statement maximum');
+ assert.equal(load('role-settlements').TREASURY_EXPIRY_HTTP_MAX,8,'cosmetic expiry keeps its original eight-call maximum');
+ sole(allNodes(defers[1],node=>namedCall(node,'callBudget')),'one shared role call budget');
+ sole(allNodes(defers[1],node=>namedCall(node,'expireTreasuryCosmeticRoles')),'one cosmetic expiry invocation inside the original role defer');
+ check('both added continuations refuse absent/failed observations and fit only unused original SQL/HTTP slices',true);
  exactSyntax(sole(allNodes(defers[2],node=>namedCall(node,'continueRosterEffects')),'roster dispatch'),'continueRosterEffects(env,rosterSchedule,roleDispatch)','original roster schedule and entry restriction');
  exactSyntax(sole(allNodes(defers[7],node=>namedCall(node,'sweepRenameHolds')),'rename cleanup'),'sweepRenameHolds(env)','rename cleanup retains its original env-only invocation');
  exactSyntax(sole(allNodes(defers[21],node=>namedCall(node,'sweepServingRetention')),'retention dispatch'),'sweepServingRetention(env,originalRetentionSchedule)','original retention schedule');

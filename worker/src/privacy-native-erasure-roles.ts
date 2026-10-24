@@ -13,10 +13,10 @@ const INVENTORY='native_account_erasure_inventory',SUFFIX=':native_role_inventor
 const ID=/^[1-9][0-9]{16,19}$/,HEX=/^[0-9a-f]{32}$/;
 const COUNCIL=Object.freeze(['Olympus Council GM','Olympus Council Officer']);
 const ATTRIBUTED=Object.freeze(['roster_membership','verified_native_rank','roster_native_rank','verified_privileged_rank','roster_privileged_rank',
-  'fresh_roster_membership','fresh_roster_rank','staff_roster_rank','guild_departure','ban','rename_hold','blocking_role','account_erasure']);
+  'fresh_roster_membership','fresh_roster_rank','staff_roster_rank','guild_departure','ban','rename_hold','blocking_role','account_erasure','treasury_cosmetic','treasury_cosmetic_expiry']);
 const KEYS=['DB','GUILD_ID','DISCORD_APP_ID','DISCORD_BOT_TOKEN','PRIVACY_NATIVE_ERASURE_ENABLED','PRIVACY_ERASURE_ENABLED',
   'ROLE_GUILD_MEMBER','MEMBERSHIP_RETIRED_ROLE_ID','ROLE_OFFICER','ROLE_GUILD_LEADER','ROLE_GUILD_MASTER','ROLE_RAID_LEADER','ROLE_MODERATOR',
-  'BLOCKING_ROLE_IDS','QR_NATIVE_ROLE_MAP','FULL_RELEASE_ROLES'] as const;
+  'BLOCKING_ROLE_IDS','QR_NATIVE_ROLE_MAP','FULL_RELEASE_ROLES','TREASURY_COSMETIC_ROLES'] as const;
 type Role=Readonly<{id:string;name:string;position:number;permissions:bigint;managed:boolean}>;
 declare const receiptBrand:unique symbol;
 export type NativeErasureRoleReceipt=Readonly<{[receiptBrand]:true}>;
@@ -39,6 +39,7 @@ function configuredTargets(text:(k:typeof KEYS[number])=>string|undefined,guild:
   if(!validId(text('ROLE_GUILD_MEMBER')))throw Error('native_role_configuration');
   const qr=text('QR_NATIVE_ROLE_MAP');if(qr){const map=parseNativeRoleMap(qr);if(JSON.stringify({profile:map.profile,roles:map.roles})!==qr)throw Error('native_role_configuration');for(const id of map.roles)out.add(id);}
   const full=text('FULL_RELEASE_ROLES');if(full){if(full.length>1024)throw Error('native_role_configuration');const v=JSON.parse(full);if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).join(',')!=='version,epoch,epochStart,grants,membership,native'||v.version!==1||typeof v.epoch!=='string'||!/^olympus-full-release-[a-z0-9-]{1,32}$/.test(v.epoch)||!Number.isSafeInteger(v.epochStart)||v.epochStart<1792688400||typeof v.grants!=='boolean'||!Array.isArray(v.native)||v.native.length!==10||JSON.stringify(v)!==full)throw Error('native_role_configuration');const ids=[v.membership,...v.native];if(!ids.every(validId)||new Set(ids).size!==11)throw Error('native_role_configuration');for(const id of ids)out.add(id);}
+  const treasury=text('TREASURY_COSMETIC_ROLES');if(treasury){if(treasury.length>1024)throw Error('native_role_configuration');const v=JSON.parse(treasury);if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).join(',')!=='version,guildId,applicationId,seasonStartsAt,roles'||v.version!==1||v.guildId!==guild||v.applicationId!==text('DISCORD_APP_ID')||!Number.isSafeInteger(v.seasonStartsAt)||v.seasonStartsAt<1||!v.roles||typeof v.roles!=='object'||Array.isArray(v.roles)||Object.keys(v.roles).join(',')!=='tithePayer,patron,benefactor'||JSON.stringify(v)!==treasury)throw Error('native_role_configuration');const ids=Object.values(v.roles);if(!ids.every(validId)||new Set(ids).size!==3)throw Error('native_role_configuration');for(const id of ids)out.add(id as string);}
   return out;
 }
 function roleInventory(value:unknown):readonly Role[]{

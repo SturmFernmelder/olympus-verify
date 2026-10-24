@@ -32,7 +32,7 @@ function sourceGraph() {
 async function fresh(options={}) {
   const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');entry.installCurrentEntryEpoch(db);
   const now=db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) t").get().t,hooks={},native=entry.originalNativePort(db,{beforeBatch:plan=>hooks.beforeBatch?.(plan)}),load=sourceGraph();
-  const rawEnv=entry.currentEntryEnvironment({DB:native,COOKIE_SECRET:'army-publish-fictional-cookie-secret-only',VERIFY_SECRET:'army-publish-fictional-verify-only',SITE_HOST:'guild.example',SITE_GUILD_ID:'236932545793490944',GUILD_ID:'1549537348516188200',DISCORD_APP_ID:'1550176895671341076',SITE_ADMINS:options.admin===false?'':SUBJECT,COMMUNITY_FEATURES:'directory,census',PUBLIC_BASE_URL:'https://verify.example'});
+  const rawEnv=entry.currentEntryEnvironment({DB:native,COOKIE_SECRET:'army-publish-fictional-cookie-secret-only',VERIFY_SECRET:'army-publish-fictional-verify-only',ARMY_SITE_AGGREGATE_ENABLED:'true',SITE_HOST:'guild.example',SITE_GUILD_ID:'236932545793490944',GUILD_ID:'1549537348516188200',DISCORD_APP_ID:'1550176895671341076',SITE_ADMINS:options.admin===false?'':SUBJECT,COMMUNITY_FEATURES:'directory,census',PUBLIC_BASE_URL:'https://verify.example'});
   const writer=load('privacy-write-admission').createPrivacyWriteAdmissionDatabase(native,'writer','canonical',entry.ENTRY_EPOCH),env={...rawEnv,DB:writer};
   const write=(sql,...args)=>writer.prepare(sql).bind(...args).run();
   await write('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,session_version) VALUES(?,?,?,?,?,1,0,1)',SUBJECT,'fictional-admin',now,now,now);
@@ -82,20 +82,29 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
     const read=await f.publicRead();check('ordinary eligible signed-in user reads aggregate without character proof',read.status===200&&read.body.snapshots.length===0);
     const out=await f.call('preview',{snapshot:snapshot(f.now)});check('ordinary signed-in user with guild facts is not a reporter',out.status===403);
     const site=f.load('site-army'),page=await site.armyAfterMemberGate(f.readerRequest('/army'),f.env,'/army');
-    check('ordinary unconfirmed user gets the signed-in reader document',page.status===200&&(await page.text()).includes('id="army-results"')&&page.headers.get('Cache-Control')==='private, no-store, no-transform'&&page.headers.get('Vary')==='Cookie');
+    check('ordinary unconfirmed user enters the parent SPA reader only after admission',page.status===302&&page.headers.get('Location')==='/#/army'&&(await page.text())===''&&page.headers.get('Cache-Control')==='private, no-store, no-transform'&&page.headers.get('Vary')==='Cookie');
     check('ordinary reader still cannot open the Admin publisher',(await site.armyAfterMemberGate(f.readerRequest('/army/report'),f.env,'/army/report')).status===403);
   },{admin:false});
   await scenario('finite Army gate replies and assets are cookie-dependent and HEAD-safe',async f=>{
     const site=f.load('site-army'),pages=f.load('army-pages');let assetFetches=0;
     f.env.ASSETS={fetch:async()=>{assetFetches++;return new Response('synthetic finite asset',{headers:{'Content-Type':'text/javascript'}});}};
-    for(const method of ['GET','HEAD'])for(const pathname of ['/army','/army/report','/api/army','/api/army/reporter',...pages.ARMY_PUBLIC_ASSETS,...pages.ARMY_REPORTER_ASSETS]){
+    for(const method of ['GET','HEAD'])for(const pathname of ['/army','/army/report','/army/report/fragment','/api/army','/api/army/reporter',...pages.ARMY_PUBLIC_ASSETS,...pages.ARMY_REPORTER_ASSETS]){
       const request=f.readerRequest(pathname,{method,headers:{Cookie:''}}),gate=new Response('signed out',{status:401,headers:{'Content-Type':'application/json'}}),out=site.armyGateReply(request,pathname,gate);
       check('finite '+method+' '+pathname+' refuses shared caching',out.status===401&&out.headers.get('Cache-Control')==='private, no-store, no-transform'&&out.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await out.text()===''));
     }
     const original=new Response('unchanged',{status:403});check('unrelated route gate is returned without any mutation',site.armyGateReply(f.readerRequest('/api/me'),'/api/me',original)===original);
     for(const method of ['GET','HEAD'])for(const pathname of pages.ARMY_PUBLIC_ASSETS){const out=await site.armyAfterMemberGate(f.readerRequest(pathname,{method}),f.env,pathname);check('eligible '+method+' '+pathname+' remains a private asset',out.status===200&&out.headers.get('Cache-Control')==='private, no-store, no-transform'&&out.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await out.text()===''));}
     check('only the eight deliberate eligible asset requests reached storage',assetFetches===pages.ARMY_PUBLIC_ASSETS.length*2);
-    const reporterPage=await site.armyAfterMemberGate(f.readerRequest('/army/report'),f.env,'/army/report');check('private cache wrapper preserves admitted publisher camera and window policy',reporterPage.status===200&&reporterPage.headers.get('Permissions-Policy').includes('camera=(self)')&&reporterPage.headers.get('Permissions-Policy').includes('display-capture=(self)'));
+    const reporterPage=await site.armyAfterMemberGate(f.readerRequest('/army/report/fragment'),f.env,'/army/report/fragment');check('private cache wrapper preserves publisher camera and window denial',reporterPage.status===200&&reporterPage.headers.get('Permissions-Policy').includes('camera=()')&&reporterPage.headers.get('Permissions-Policy').includes('display-capture=()'));
+    const fragment=await reporterPage.text();check('guarded reporter fragment contains no remote shell or executable content',fragment.startsWith('<section class="army-site" data-army-reporter-fragment>')&&!/<(?:script|style|link|iframe)\b/i.test(fragment)&&reporterPage.headers.get('Content-Type')==='text/html; charset=utf-8');
+    const canonical=await site.armyAfterMemberGate(f.readerRequest('/army/report'),f.env,'/army/report');check('canonical reporter redirects to parent SPA only after admission',canonical.status===302&&canonical.headers.get('Location')==='/#/army/report'&&await canonical.text()==='');
+  });
+  await scenario('standalone Army artifact is gone and historical collectors never reach static delivery',async f=>{
+    const site=f.load('site-army');let fetched=0;f.env.ASSETS={fetch:async()=>{fetched++;throw Error('Retired asset must not reach storage');}};
+    for(const method of ['GET','HEAD'])for(const [asset,status]of [['/static/army-live/olympus-army-addon-0.2.0.zip',410],['/static/army-live/pilot.js',404],['/static/army-live/decoder.js',404],['/static/army-live/unknown.js',404]]){
+      const out=await site.armyAfterMemberGate(f.readerRequest(asset,{method}),f.env,asset);check(method+' retired/private asset '+asset+' is refused',out.status===status&&out.headers.get('Cache-Control')==='private, no-store, no-transform'&&out.headers.get('Vary')==='Cookie'&&(method!=='HEAD'||await out.text()===''));
+    }
+    check('retired assets produce zero storage requests',fetched===0);
   });
   await scenario('reader gate refuses cookie and User-Agent bypasses',async f=>{
     for(const method of ['GET','HEAD'])for(const headers of [{Cookie:''},{Cookie:'__Host-olg=made-up-session'},{Cookie:'', 'User-Agent':'Googlebot',Authorization:'Bearer pretend'}]){
@@ -128,8 +137,29 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
     for(const [label,options,status]of[['signed out',{headers:{Cookie:''}},401],['cross origin',{headers:{Origin:'https://other.example'}},403],['old page',{headers:{'X-Olympus':'1'}},409],['wrong type',{headers:{'Content-Type':'text/plain'}},415],['encoded body',{headers:{'Content-Encoding':'gzip'}},415],['query',{query:'?uploads=true'},400]]){const o=await f.call('preview',input,options);check(label+' cannot publish',o.status===status);}
     await f.write('UPDATE site_users SET denied=1 WHERE discord_id=?',SUBJECT);check('denied Admin cannot preview',(await f.call('preview',input)).status===403);
   });
+  await scenario('publisher adoption is required for new dedicated exports, never old outcome reads',async f=>{
+    f.env.ARMY_SITE_AGGREGATE_ENABLED='false';
+    const cap=await f.call('reporter');check('missing adoption switch reports exporter unavailable',cap.status===200&&cap.body.canPublish===true&&cap.body.sanitizedExporterAvailable===false);
+    const value=snapshot(f.now);value.addonVersion='1.3.2-site.1';for(const field of ['classes','levels','ranks'])value.guilds[0][field]=null;
+    const count=f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n;
+    const refused=await f.call('preview',{snapshot:value});check('unadopted dedicated preview cannot mint a token or persist',refused.status===503&&refused.body.error==='publisher_export_unavailable'&&!refused.body.previewToken&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===count);
+    const legacyRefused=await f.call('preview',{snapshot:snapshot(f.now)});check('legacy format cannot bypass the unified-exporter publication hold',legacyRefused.status===503&&legacyRefused.body.error==='publisher_export_unavailable'&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===count);
+    f.env.ARMY_SITE_AGGREGATE_ENABLED='true';const ready=await f.call('preview',{snapshot:value});check('explicit synthetic adopted-exporter configuration enables the original preview only',ready.status===200&&ready.body.persisted===false&&typeof ready.body.previewToken==='string');
+    f.env.ARMY_SITE_AGGREGATE_ENABLED='false';const publish=await f.call('publish',{snapshot:value,previewToken:ready.body.previewToken,confirm:'PUBLISH'});check('withdrawn availability refuses new publication even with an old preview token',publish.status===503&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===count);
+    const outcome=await f.call('outcome',{snapshot:value,previewToken:ready.body.previewToken});check('exact old outcome stays readable while adoption switch is off',outcome.status===200&&outcome.body.state==='not_current');
+  });
   await scenario('strict aggregate fields, privacy masking and clocks',async f=>{
     const good=snapshot(f.now),parse=f.route.validateArmySnapshot;
+    const unified=JSON.parse(JSON.stringify(good));unified.addonVersion='1.3.2-site.1';for(const key of ['classes','levels','ranks'])unified.guilds[0][key]=null;
+    check('real local unified producer is admitted without forging the legacy version',parse(unified,f.now).addonVersion==='1.3.2-site.1');
+    for (const field of ['classes','levels','ranks']) {
+      const inventedDistribution=JSON.parse(JSON.stringify(unified));
+      inventedDistribution.guilds[0][field]=good.guilds[0][field];
+      assert.throws(()=>parse(inventedDistribution,f.now));
+      check('dedicated producer refuses unexported '+field+' distribution before storage',true);
+    }
+    const invented=JSON.parse(JSON.stringify(unified));invented.addonVersion='1.3.2';let inventedHeld=false;try{parse(invented,f.now)}catch{inventedHeld=true}check('unmodified CurseForge version is not an invented export producer',inventedHeld);
+
     const P=require('../../tools/army-qr-live/protocol.js');check('canonical synthetic transfer agrees with browser v2 validator',P.validatePayload(new TextEncoder().encode(JSON.stringify(good)),{nowSeconds:f.now}).format===good.format);
     const uppercase=JSON.parse(JSON.stringify(good));uppercase.guilds[0].name='OLYMPUS';
     check('native uppercase guild remains a valid transfer label',P.validatePayload(new TextEncoder().encode(JSON.stringify(uppercase)),{nowSeconds:f.now}).guilds[0].name==='OLYMPUS');

@@ -14,6 +14,8 @@
 import type { Env } from "./env";
 import { normalizeCharacter } from "./codes";
 import { resolveRulesetSnapshot, rulesetSwitchReadiness, type RulesetSnapshot } from "./ruleset-profile";
+import { OFFICE_APPOINTMENTS } from "./governance-offices";
+import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -22,11 +24,10 @@ import { resolveRulesetSnapshot, rulesetSwitchReadiness, type RulesetSnapshot } 
  * how long it takes, `works` who they work with. Plain text: the page puts all of it on screen with textContent.
  *
  * `game` is informational guidance, not a grant of ranks, permissions or AddOn access. The proposed post-beta
- * native ladder is Guild Master, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt,
- * Initiate. Co-Guild Master and Treasurer are appointments within High Council, not separate native ranks.
- * The approved preset gives every High Council holder Withdraw Gold and Modify Bank Tabs and retains the
- * Raid Leader authenticator safeguard. Veteran has Invite Member and Guild Bank Repair. No numeric bank
- * allowances have been approved; zero preset allowances are unset placeholders, not an approved spending limit.
+ * native ladder is Guild Master, High Council, Treasurer, Officer, Raid Leader, Veteran, Raider, Member, Alt,
+ * Initiate. Co-Guild Master is a separate council appointment mapped to High Council; Treasurer occupies Slot 3 (zero-based slot 2).
+ * The website recommendation does not apply a native permission preset. Historical High Council signer and
+ * role bindings remain separately qualified. No numeric bank allowances have been approved.
  * The current in-game ladder is not certified here. Each Guild Master must review and configure ranks and bank
  * permissions in an attended session. Application choices do not change the native ladder or AddOn permissions.
  */
@@ -74,7 +75,7 @@ const raidAssistInfo = (region: string, evenings: string): RoleInfo => ({
   ],
   time: "Your region's raid nights, plus about an hour of setup a week.",
   works: "The Raid Leader, the Loot Council and the Class Leads.",
-  game: "Post-beta guidance: Raid Assist is an appointment, not a separate native rank. If assigned Raid Leader to stand in, the same authenticator safeguard applies. The Guild Master must approve and configure the rank; raid assistant is assigned within each raid.",
+  game: "Post-beta guidance: Raid Assist is an appointment, not a separate native rank. The planning crosswalk recommends Raid Leader (Slot 5), subject to separate Guild Master review; the appointment grants no rank, permissions or AddOn access. The holder keeps their current rank until an attended Guild Master decision. If assigned Raid Leader to stand in, the same authenticator safeguard applies; raid assistant is assigned within each raid.",
 });
 
 export const POSITIONS: Position[] = [
@@ -100,7 +101,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "15 hours a week or more, most of it in the evenings.",
       works: "Asmongold, the officers and every lead, and the Guild Masters of the other Olympus guilds.",
-      game: "Post-beta guidance: Co-Guild Master is an appointment within High Council, not a separate native rank. The Guild Master must appoint the holder and review rank permissions in game. Applying here does not grant a rank or AddOn access.",
+      game: "Recommended post-beta placement: Co-Guild Master is a core High Council appointment alongside Guild Master and Treasurer, mapped to High Council in native Slot 2. This is a planning recommendation, not verification of the holder’s current game rank. The Guild Master must appoint the holder and review any delegation in game. Applying here grants no rank, bank permission or AddOn access.",
     },
   },
   {
@@ -147,7 +148,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 8 to 15 hours a week.",
       works: "The Guild Master, the other officers and every lead.",
-      game: "Post-beta guidance: Officer sits below High Council in the proposed ten-rank ladder. The Guild Master must review and set its permissions in game; applying here does not grant a rank or AddOn access.",
+      game: "Recommended post-beta placement: Officer occupies native Slot 4, below Guild Master, High Council and Treasurer. This is a planning recommendation, not verification of the holder’s current game rank. The Guild Master must review and set permissions in game; applying here grants no rank or AddOn access.",
     },
   },
   { key: "raid_leader_na", label: "Raid Leader (NA raids)", group: "leadership", raidTime: "na", blurb: `Plans and calls the North American raids, ${NA_EVENINGS}: strategy, assignments, pace, and keeping forty people pointed the same way.`, info: raidLeaderInfo("North American", NA_EVENINGS) },
@@ -172,7 +173,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 5 hours a week besides raiding.",
       works: "The Raid Leaders and Assists, the Loot Council and the Profession Coordinator.",
-      game: "No rank of its own: you keep your rank, usually Raider.",
+      game: "Class Lead is an appointment, not an extra native rank. The planning crosswalk recommends Officer (Slot 4), subject to the Guild Master’s separate review. The appointment itself grants no rank, permissions or AddOn access.",
     },
   },
   {
@@ -214,7 +215,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 4 to 8 hours a week.",
       works: "The officers, the Discord Moderators, the Leveling Lead and the PvP Leader.",
-      game: "No rank of its own. In the Olympus addon, a Hand of the King if he names you: the Agenda, the King's week and polls.",
+      game: "Community & Events Lead is an appointment, not an extra native rank. The planning crosswalk recommends Member (Slot 8); actual rank and any AddOn delegation remain separately assigned.",
     },
   },
   {
@@ -239,12 +240,12 @@ export const POSITIONS: Position[] = [
     },
   },
   {
-    key: "pvp_leader", label: "PvP Leader", group: "leadership", blurb: "Leads world PvP and battlegrounds. Olympus plays on the PvP ruleset.",
+    key: "pvp_leader", label: "PvP Leader", group: "leadership", blurb: "Organizes optional battlegrounds and agreed competitive events. Olympus plays PvE · Alliance.",
     info: {
-      about: "Olympus plays on a PvP realm, as Alliance. The PvP Leader organizes the guild's fights: world PvP, battlegrounds, and defending Olympus members and raids when the Horde shows up.",
+      about: "Olympus plays on a PvE realm, as Alliance. The PvP Leader organizes optional battlegrounds and competitive events under the guild's conduct rules; participation never changes the server ruleset.",
       duties: [
-        "Lead the PvP Team in world PvP and battlegrounds, and call targets in voice chat.",
-        "Rally defenders when members are being camped or a raid is contested.",
+        "Lead optional scheduled battleground premades and agreed competitive events, and call targets in voice chat.",
+        "Arrange opt-in practice and agreed team events without changing the guild’s PvE realm direction.",
         "Schedule regular PvP nights and battleground premades.",
         "Keep the PvP Team's roster and roles current.",
         "Work out the guild's PvP conduct with the officers, and deal with other guilds through the Liaison.",
@@ -256,13 +257,13 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 5 to 10 hours a week.",
       works: "The PvP Team, the officers and the Liaison.",
-      game: "Post-beta guidance: PvP Leader is an appointment, not a separate native rank. Any Officer rank or AddOn access must be assigned and reviewed separately; applying here does not grant them.",
+      game: "PvP Leader is an optional activity appointment, not an extra native rank. The planning crosswalk recommends Raid Leader (Slot 5), subject to separate Guild Master review; no rank, permissions or AddOn access follows from this title.",
     },
   },
   {
-    key: "liaison", label: "Liaison", group: "leadership", blurb: "Speaks for Olympus to other guilds, the other Olympus guilds included, and keeps the peace on a busy PvP realm.",
+    key: "liaison", label: "Liaison", group: "leadership", blurb: "Speaks for Olympus to other guilds, the other Olympus guilds included, and keeps the peace on a busy PvE realm.",
     info: {
-      about: "The Liaison speaks for Olympus to other guilds: the other Olympus guilds, and the rest of the realm, Horde included. On a crowded PvP realm, good relations prevent a lot of trouble.",
+      about: "The Liaison speaks for Olympus to other guilds: the other Olympus guilds, and the rest of the realm, Horde included. On a crowded PvE realm, good relations prevent a lot of trouble.",
       duties: [
         "Be the day-to-day contact for the other Olympus guilds: news, shared events and problems, so their Guild Masters always know whom to ask.",
         "Be the contact for other guilds' leaders: world bosses, raid times and shared events.",
@@ -297,7 +298,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "Raid nights, plus about an hour a week on the record.",
       works: "The Raid Leaders and Assists, and the Class Leads.",
-      game: "No rank of its own: you keep your rank, usually Raider. In the Olympus addon, the officers write the loot notes.",
+      game: "Loot Council is an appointment, not an extra native rank. The planning crosswalk recommends Raid Leader (Slot 5), subject to separate Guild Master review; no rank, bank permission or AddOn access follows from this title.",
     },
   },
   {
@@ -318,7 +319,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 6 hours a week.",
       works: "The Guild Master, the officers, the Raid Leaders and the Profession Coordinator.",
-      game: "Post-beta guidance: Treasurer is an appointment within High Council, not a separate native rank. The approved preset includes Withdraw Gold and Modify Bank Tabs for every High Council holder, with the authenticator safeguard. The Guild Master must review and set bank limits in game; no numeric daily allowance is approved here.",
+      game: "Recommended post-beta placement: Treasurer occupies native Slot 3 (zero-based slot 2) above Officer and is a core High Council appointment alongside Guild Master and Co-Guild Master. This is a planning recommendation, not verification of the holder’s current game rank. The current holder is shown only through the qualified appointment-identity listing. The Guild Master must review bank permissions and limits in game; the website recommendation grants none.",
     },
   },
   {
@@ -339,7 +340,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 6 hours a week.",
       works: "The Treasurer, the Raid Leaders and the Class Leads.",
-      game: "No rank of its own. The Olympus addon's crafters' board shows who can craft what, from crafters who choose to be listed.",
+      game: "Profession Coordinator is an appointment. The planning crosswalk recommends Officer (Slot 4), subject to separate Guild Master review; no rank or bank access is granted here. Craft listings remain each crafter’s separate choice.",
     },
   },
   {
@@ -360,7 +361,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 6 hours a week, spread out.",
       works: "The officers and Asmongold's moderators.",
-      game: "No rank of its own: the job is on Discord.",
+      game: "Discord Moderator is a Discord appointment, not an in-game rank. The planning crosswalk recommends Member (Slot 8); the office itself grants no native rank or new permissions.",
     },
   },
   {
@@ -384,11 +385,11 @@ export const POSITIONS: Position[] = [
     },
   },
   {
-    key: "pvp_team", label: "PvP Team", group: "membership", blurb: "World PvP and battlegrounds with the PvP Leader, and answering the call when the Horde shows up.",
+    key: "pvp_team", label: "PvP Team", group: "membership", blurb: "Optional battleground premades and agreed competitive events with the PvP Leader.",
     info: {
-      about: "The PvP Team is Olympus's fighting force on the PvP realm: world PvP, battlegrounds, and defending guild members and raids.",
+      about: "The PvP Team organizes opt-in battlegrounds, premades and agreed competitive events on Olympus's PvE realm.",
       duties: [
-        "Answer the PvP Leader's calls when the guild needs defenders.",
+        "Join the PvP Leader's scheduled events when you choose to take part.",
         "Join the scheduled PvP nights and battleground premades.",
         "Follow the target calls in voice chat.",
         "Keep your PvP gear and consumables ready.",
@@ -515,6 +516,7 @@ export const QUESTIONS: Question[] = [
   { key: "leadership", label: "Tell us about a time you led people", hint: "In WoW or anywhere else. What went wrong, and what did you do?", max: 1500, required: true, leadership: true, board: true, long: true },
   { key: "scenario", label: "Two raiders start arguing in guild chat about a loot call, and it is getting personal. What do you do?", max: 1500, required: true, leadership: true, board: true, long: true },
   { key: "logs", label: "Logs or armory link", hint: "Optional. A Warcraft Logs link or similar.", max: 200, required: false, long: false },
+  { key: "talentBuild", label: "Talent build attachment", hint: "Optional. Paste a current Olympus talent build code or its shared link. It stays with the guild's leadership and must match your selected class.", max: 512, required: false, long: false },
   { key: "extra", label: "Anything else we should know?", hint: "Optional.", max: 1000, required: false, long: true },
 ];
 export const BOARD_ANSWERS = QUESTIONS.filter((q) => q.board).map((q) => q.key);
@@ -558,7 +560,7 @@ export function roleLabel(key: string): string {
   if (key === "raid_leader") return "Raid Leader (before the NA/EU split)";
   if (key === "raid_assist") return "Raid Assist (before the NA/EU split)";
   if (key === "class_lead") return "Class Lead";
-  return choiceOf(key)?.label ?? POSITION_BY_KEY.get(key)?.label ?? key;
+  return choiceOf(key)?.label ?? POSITION_BY_KEY.get(key)?.label ?? OFFICE_APPOINTMENTS.find(office => office.key === key)?.label ?? key;
 }
 
 export const LIMITS = { friends: 10, reserved: 3, references: 3, backups: 2, reason: 200, friendNote: 100, label: 80, typedName: 40, primaryProfessions: 2 };
@@ -628,6 +630,7 @@ export interface SiteSettings {
   appointed: Record<string, string>; // roles filled by appointment: role key -> who holds it, as members see it
   noVote: string[];           // roles that take applications but are chosen without a public vote (.45)
   newsOn: boolean;            // .115: the members' News page (site-news.ts); off until an administrator switches it on
+  loginAnimation: boolean;    // owner-selected nonpersonal login artwork; approved stills by default
 }
 
 /**
@@ -638,13 +641,13 @@ export interface SiteSettings {
  */
 export const DEFAULT_APPOINTED: Record<string, string> = { treasurer: "Fernmelder" };
 
-/** An admin's list of appointed roles, cleaned: real roles only (the board's keys), a name for each; null if unreadable. */
+/** Website office records include the complete catalog and native-rank display slots; they confer no authority. */
 export function cleanAppointed(v: unknown): Record<string, string> | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const out: Record<string, string> = {};
   for (const [key, name] of Object.entries(v as Record<string, unknown>)) {
     const who = cleanText(name, 40);
-    if (ballotOf(key) && who) out[key] = who;
+    if (OFFICE_APPOINTMENTS.some(office => office.key === key) && who) out[key] = who;
   }
   return out;
 }
@@ -717,17 +720,18 @@ export function settingsFrom(env: Env, rows: Array<{ key: string; value: string 
     appointed: parseAppointed(m.get("appointed")),
     noVote: parseNoVote(m.get("noVote")),
     newsOn: bool(m.get("newsOn"), false), // .115: a missing row means off (fail closed)
+    loginAnimation: m.get("loginAnimation") === "1", // strict operator boolean; malformed values retain the approved still
   };
 }
 
 export async function loadSettings(env: Env): Promise<SiteSettings> {
-  const rows = await env.DB.prepare("SELECT key, value FROM site_settings").all<{ key: string; value: string }>();
+  const rows = await env.DB.prepare("SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'").all<{ key: string; value: string }>();
   return settingsFrom(env, rows.results);
 }
 
 /** One read for the settings and the resolved game identity (item 7, 14 Oct 2026); the boot and /api/public use it. */
 export async function loadSiteState(env: Env): Promise<{ settings: SiteSettings; ruleset: RulesetSnapshot }> {
-  const rows = await env.DB.prepare("SELECT key, value FROM site_settings").all<{ key: string; value: string }>();
+  const rows = await env.DB.prepare("SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'").all<{ key: string; value: string }>();
   return { settings: settingsFrom(env, rows.results), ruleset: await resolveRulesetSnapshot(rows.results, env) };
 }
 
@@ -744,9 +748,11 @@ export function meta(ruleset?: RulesetSnapshot) {
     regions: REGIONS,
     hours: HOURS,
     voice: VOICE,
+    talentSnapshotRevision: TALENT_SNAPSHOT_REVISION,
     questions: QUESTIONS,
     professions: PROFESSIONS,
     ballots: BALLOTS,
+    appointments: OFFICE_APPOINTMENTS,
     limits: LIMITS,
     avail: { reference: AVAIL_REFERENCE, prime: PRIME },
   };

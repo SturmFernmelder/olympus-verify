@@ -74,10 +74,11 @@
 .olympus-policy:has(.portal-login){box-sizing:border-box;min-height:100svh;margin:0;overflow-x:clip;background:#030504}
 .olympus-policy:has(.portal-login)>.policy-header{display:none}
 .olympus-policy main:has(.portal-login){width:100%;max-width:none;min-height:100svh;margin:0;padding:0;border:0;border-image:none;background:none;box-shadow:none;color:#f5eccd}
-.olympus-policy .portal-login{position:relative;isolation:isolate;display:grid;align-content:start;justify-items:center;min-height:100svh;max-width:none;gap:1rem;padding:calc(55svh + max(1rem,env(safe-area-inset-top))) max(1rem,env(safe-area-inset-right)) max(1.5rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left))}
+.olympus-policy .portal-login{position:relative;isolation:isolate;display:grid;align-content:center;justify-items:center;min-height:100svh;max-width:none;gap:1rem;padding:max(1rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right)) max(1.5rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left))}
 .olympus-policy .portal-login .login-portal{position:fixed;inset:0;z-index:-1;min-width:0;background:#030504;pointer-events:none}
 .olympus-policy .portal-login .login-portal-art{display:block;width:100%;height:100%}
 .olympus-policy .portal-login .login-portal-poster{display:block;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none}
+.olympus-policy .portal-login .login-portal-video{display:block;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none}
 .olympus-policy .portal-login .login-card{position:relative;z-index:1;min-width:0;width:min(100%,36rem);padding:clamp(1rem,2vw,1.5rem);border:1px solid #9b8754;border-radius:.35rem;background:linear-gradient(135deg,#121712f5,#0a100af5);box-shadow:0 1rem 3rem #000b;color:#f5eccd;text-align:center}
 .olympus-policy .portal-login .login-card h1{margin:0 0 .6rem;padding:0;border:0;color:#ffe4a0;font-size:clamp(1.85rem,3vw,2.4rem);line-height:1.15;text-shadow:0 2px 3px #000}
 .olympus-policy .portal-login p{margin:.6rem 0;color:#e7e9d8}
@@ -87,9 +88,7 @@
 .olympus-policy .portal-login .login-card a[href="/army"]:hover,.olympus-policy .portal-login .login-card a[href="/army"]:focus-visible{color:#fff1c4}
 .olympus-policy main:has(.portal-login) :focus-visible{outline:3px solid #e1ffbd;outline-offset:5px}
 .olympus-policy:has(.portal-login) .skip-link{z-index:5;color:#fff1c4;background:#121a12}
-/* Centered cover keeps the supplied shield bounds above 58% through 32:9; the wide card starts below 60%. */
-@media(min-aspect-ratio:1/1){.olympus-policy .portal-login{padding-top:calc(60svh + max(1rem,env(safe-area-inset-top)))}}
+/* Client-rendered portal stays behind one centered, accessible login card at every aspect ratio. */
+@media(prefers-reduced-motion:reduce){.olympus-policy .portal-login .login-portal{background:#030504 url('/static/wow/login/dark-portal-poster.jpg') center/cover no-repeat}.olympus-policy .portal-login .login-portal-video{visibility:hidden}}
 @media(max-width:35rem){.olympus-policy .portal-login .login-card{padding:1.1rem 1rem}.olympus-policy .portal-login .eyebrow{letter-spacing:.12em}}
-/* Extreme ratios use full uncropped art followed by the card; short normal screens retain full-viewport scenery and scrolling. */
-@media(min-aspect-ratio:4/1),(max-aspect-ratio:1/3){.olympus-policy .portal-login{padding:0 0 max(1.5rem,env(safe-area-inset-bottom));gap:1rem}.olympus-policy .portal-login .login-portal{position:relative;inset:auto;width:100%;z-index:0}.olympus-policy .portal-login .login-portal-art{height:auto}.olympus-policy .portal-login .login-portal-poster{height:auto;object-fit:contain}.olympus-policy .portal-login .login-card{width:min(calc(100% - 2rem),36rem)}}
 @media(forced-colors:active){.olympus-policy .portal-login .login-card{border:2px solid CanvasText;background:Canvas;box-shadow:none}.olympus-policy .portal-login .login-card h1,.olympus-policy .portal-login p,.olympus-policy .portal-login .eyebrow{color:CanvasText;text-shadow:none}.olympus-policy main:has(.portal-login) :focus-visible{outline-color:Highlight}}

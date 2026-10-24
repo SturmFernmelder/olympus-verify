@@ -468,7 +468,7 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
     const before = settingsAudits().length;
     let winner;
     HOOK = async (sql, phase) => {
-      if (phase !== "read" || sql !== "SELECT key, value FROM site_settings") return;
+      if (phase !== "read" || sql !== "SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'") return;
       HOOK = null;
       winner = await http("PUT", "/api/admin/settings", { who: ADMIN, body: race.winner });
     };
@@ -694,7 +694,11 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   check("the terms: notices in #olympus-notices only, and the leadership and rename sentences", /#olympus-notices\)/.test(text) && !/#bot-announcements/.test(text) && /Renamed characters/.test(text) && /leadership directory/.test(text));
   res = await http("GET", "/admin/ranks", { who: ADMIN });
   text = await res.text();
-  check("the rank planner uses the official existing WoW shield and dark scheme (website-only art)", res.status === 200 && /class="brand-mark" src="\/static\/wow\/icon-shield\.png"/.test(text) && /<meta name="color-scheme" content="dark">/.test(text) && !/icon-friends\.png/.test(text));
+  check("the authenticated canonical rank route selects the shared staff shell with an empty fixed redirect", res.status === 303 && res.headers.get("Location")==="/#/admin/ranks" && text==="" && !res.headers.has("Set-Cookie"));
+  res=await http("GET","/",{who:ADMIN});text=await res.text();
+  check("the parent staff shell binds the official shield favicon and mounted brand with the dark scheme",res.status===200&&text.includes('<link rel="icon" href="/static/wow/icon-shield.png" type="image/png">')&&text.includes('<script type="application/json" id="boot">')&&fs.readFileSync(path.join(root,"public","static","app.js"),"utf8").includes('const brand = () => h("a", { class: "brand", href: "#/" }, h("img", { src: "/static/wow/icon-shield.png"')&&/<meta name="color-scheme" content="dark">/.test(text)&&!text.includes("src=\"/static/wow/icon-friends.png\""));
+  res=await http("GET","/admin/ranks/fragment",{who:ADMIN});text=await res.text();
+  check("the same authenticated fragment is markup only and account-owned, with no second page or injected resources",res.status===200&&text.includes("data-draft-owner=\""+ADMIN+"\"")&&text.includes("data-olympus-rank-planner")&&!/<(?:html|head|body|script|style|link)\b/i.test(text));
   const css = fs.readFileSync(path.join(root, "public", "static", "rank-planner", "styles.css"), "utf8");
   check("  its stylesheet takes the site's rock background, dialog frames and panel buttons", /\.114/.test(css) && css.includes('url("/static/wow/rock.jpg")') && css.includes('url("/static/wow/frame-dialog.png")') && css.includes('url("/static/wow/button-up.png")'));
   check("  every image it names is one this site serves", [...css.matchAll(/url\("([^"]+)"\)/g)].every((m) => /^\/static\/wow\/[a-z0-9_.-]+$/.test(m[1]) && fs.existsSync(path.join(root, "public", m[1]))));

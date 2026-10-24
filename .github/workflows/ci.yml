@@ -116,6 +116,8 @@ jobs:
         run: |
           python3 tests/test_watcher.py
           python3 tests/test_discord_relay.py
+          python3 tests/test_custody196.py
+          python3 tests/test_attended_custody196.py
         working-directory: watcher
       - name: Operator tools (each test is a standalone script with a fake Worker on 127.0.0.1)
         run: |
@@ -136,6 +138,8 @@ jobs:
         run: python3 -m pip install --user 'lupa==2.8'
       - name: Addon suites
         run: python3 addon/tests/run_lua_suites.py
+      - name: Dedicated aggregate producer
+        run: python3 addon/OlympusGuildCompatibility196/tests/site-aggregate-lua.py
 
   # The one status a ruleset on main requires. It always runs (a skipped required job counts as PASSED for merging,
   # per GitHub's status-check docs) and fails unless every job above reports exactly "success": failure, cancelled and

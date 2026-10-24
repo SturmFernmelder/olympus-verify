@@ -58,10 +58,14 @@ public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
 check(len(assets) == 512 and len(ref['official_paths']) == 494, '512 exact assets: all510 prior assets plus two independently approved custom variants;493 official image/font paths and1 historical video unchanged')
-check(len(resources) == 43 and len(public) == 555, '43 exact non-art resources: all40 prior resources plus the .186 level-60 sheet script and its two data files')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed555-path union')
+check(len(resources) == 46 and len(public) == 558, '46 exact non-art resources: prior43, retired standalone Army ZIP, two unified-addon parsers and two shared-shell helpers')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed558-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all555 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all558 current public byte pins match the reviewed reference')
+master196_resources = {'worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js', 'worker/public/static/army-live/sanitized-export.js', 'worker/public/static/army-live/savedvariables-import.js'}
+retired_army_zip = 'worker/public/static/army-live/olympus-army-addon-0.2.0.zip'
+check(master196_resources.issubset(resources) and not master196_resources.intersection(assets) and all(gate.runtime_path(p) and resources[p]['mode'] == '100644' for p in master196_resources), 'four exact master196 runtime helpers add no official/native art exception')
+check(retired_army_zip not in payloads and retired_army_zip not in resources and retired_army_zip not in ref['runtime_paths'], 'standalone Army ZIP remains retired from source, resource and runtime sets')
 talent_resources = {'worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'}
 check(talent_resources.issubset(resources) and not talent_resources.intersection(assets) and all(gate.runtime_path(p) and resources[p]['mode'] == '100644' for p in talent_resources), 'both new talent scripts are exact ordinary non-art runtime resources without an official/native art exception')
 sheet_script, sheet_data = 'worker/public/static/talents/stats60.js', {'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'}
@@ -76,6 +80,12 @@ check(not gate.runtime_path('worker/public/static/governance/olympus-governance-
 app = 'worker/public/static/app.js'
 refused(lambda: gate.references(payloads[app], app, assets, prefixes), 'unlisted_website_runtime_reference', 'old art-only URL classification reproduces the current app refusal')
 coverage = [{'path': p, 'references': gate.references(payloads[p], p, assets, prefixes, resources)} for p in runtime]
+retired_url = '/static/army-live/olympus-army-addon-0.2.0.zip'
+retired_source = 'worker/src/site-army.ts'
+check(retired_url in gate.references(payloads[retired_source], retired_source, assets, prefixes, resources), 'exact authenticated retired route remains visible in source coverage without becoming a public asset')
+refused(lambda: gate.references(payloads[retired_source].replace(b'}, 410)', b'}, 200)'), retired_source, assets, prefixes, resources), 'unlisted_website_runtime_reference', 'retired route exception refuses changed non-retirement response')
+refused(lambda: gate.references(payloads[retired_source], app, assets, prefixes, resources), 'unlisted_website_runtime_reference', 'retired route exception cannot authorize a consumer in another file')
+refused(lambda: gate.references(payloads[retired_source] + ('\nfetch("' + retired_url + '")').encode(), retired_source, assets, prefixes, resources), 'unlisted_website_runtime_reference', 'retired route exception refuses a second fetchable reference even in its source file')
 covered = {r['path']: r['references'] for r in coverage}
 expected_app = {
     '/static/governance/olympus-adoption-checklist-r6.pdf', '/static/governance/olympus-governance-r6.pdf',
@@ -156,7 +166,7 @@ check(login_record['schema'] == 'olympus-login-dark-portal-render-v1' and login_
 inputs = login_record['sourceInputs']
 check(len(inputs) == 28 and len({row['path'] for row in inputs}) == 28 and sum(row['path'].endswith('.m2') for row in inputs) == 1 and sum(row['path'].endswith('.skin') for row in inputs) == 2 and sum(row['path'].endswith('.blp') for row in inputs) == 25, 'separate source provenance records the exact1 model,2 skins and25 texture closure without publishing raw inputs')
 check(any(row['path'] == login_verifier and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'the finite offline login verifier is a seventh separate source pin, not a renderer or extractor execution')
-check('worker/src/site-access.ts' in ref['runtime_paths'] and {'/static/wow/login/olympus-dark-portal-wide.png', '/static/wow/login/olympus-dark-portal-portrait.png'}.issubset(covered['worker/src/site-access.ts']) and not {'/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg', '/static/wow/login/olympus-dark-portal.png'} & set(covered['worker/src/site-access.ts']), 'the actual login URL producer covers only the two current approved variants; historical media and still remain closed byte-pinned assets')
+check('worker/src/site-access.ts' in ref['runtime_paths'] and set(covered['worker/src/site-access.ts']) == {'/static/', '/static/qr-phase1.html', '/static/wow/login/olympus-dark-portal-wide.png', '/static/wow/login/olympus-dark-portal-portrait.png', '/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'} and '/static/wow/login/olympus-dark-portal.png' not in covered['worker/src/site-access.ts'], 'site-access coverage is exactly the existing static-prefix and private-camera references plus four owner-selected login media; the original1672x941 custom still remains byte-pinned and unused')
 check(not any(p.endswith(('.m2', '.skin', '.blp', '.wasm', '.data')) for p in public), 'no original client model, texture, renderer wasm or SDK data payload enters the public closure')
 
 manifest = {
@@ -191,7 +201,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 555 and proof['required_non_art_resource_pins_verified'] == 43, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 558 and proof['required_non_art_resource_pins_verified'] == 46, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')

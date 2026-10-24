@@ -26,6 +26,7 @@ SUITES = {
     "signed": (TESTS, Path("test_signed.lua")),
     "myname": (TESTS, Path("test_myname.lua")),
     "roster": (TESTS, Path("test_roster.lua")),
+    "roster_feedback196": (TESTS, Path("test_roster_feedback196.lua")),
     "preview": (ADDON, Path("test/preview.lua")),
 }
 

@@ -7,49 +7,1066 @@
     "guides": "Compare each guide's level range, update date and beta limitations. A published route or build is not a promise that every step has been tested in the current game."
   },
   "addons": [
-    {"id":"questie","name":"Questie","category":"Questing","rationale":"Quest objectives, map markers and quest tracking.","status":"Author lists Forever support","version":"12.1.0 + QuestieDB 1.0.6","releasedAt":"2026-10-12","gameBuild":"Forever 1.60.1","url":"https://github.com/Questie/Questie/releases","sourceKind":"Author releases","limitations":["Forever data and fixes remain in active development.","A quest helper, not a complete optimized leveling route."]},
-    {"id":"leatrix-plus","name":"Leatrix Plus","category":"Conveniences","rationale":"Optional looting, vendor, quest and interface conveniences.","status":"Author lists Forever file","version":"1.60.20-forever","releasedAt":"2026-10-15","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/leatrix-plus","sourceKind":"Author project page","limitations":["Choose the Forever file; other game flavors are separate.","Enable only the modules you want; features can overlap other addons."]},
-    {"id":"leatrix-maps","name":"Leatrix Maps","category":"Maps","rationale":"Optional world-map scaling, positioning and map conveniences.","status":"Author lists Forever file","version":"1.60.23-forever","releasedAt":"2026-10-14","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/leatrix-maps","sourceKind":"Author project page","limitations":["Select the Forever file and check overlap with other map addons."]},
-    {"id":"auctionator","name":"Auctionator","category":"Economy","rationale":"Auction-house pricing, buying and posting tools.","status":"Author lists Forever file","version":"341","releasedAt":"2026-10-13","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/auctionator","sourceKind":"Author project page","limitations":["Prices depend on actual scans and your market; not a profit guarantee."]},
-    {"id":"bagnon","name":"Bagnon","category":"Bags","rationale":"A combined inventory window and bag searching.","status":"Author lists Forever file","version":"12.1.7","releasedAt":"2026-10-15","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/bagnon","sourceKind":"Author project page","limitations":["An alternative to other bag replacements; choose one main bag interface."]},
-    {"id":"baganator","name":"Baganator","category":"Bags","rationale":"Categorized or single-view inventory management.","status":"Author lists Forever file","version":"838","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/baganator","sourceKind":"Author project page","limitations":["Requires Syndicator, as the author documents.","An alternative to Bagnon, not a requirement to install both."]},
-    {"id":"tomtom","name":"TomTom","category":"Maps","rationale":"Coordinate waypoints and navigation assistance.","status":"Author lists Forever file","version":"4.3.12-release","releasedAt":"2026-10-06","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/tomtom","sourceKind":"Author project page","limitations":["Coordinates and supplied routes still need the correct game data."]},
-    {"id":"details","name":"Details! Damage Meter","category":"Combat","rationale":"Combat analysis for damage, healing and encounters.","status":"Author lists Forever file","version":"Details.20261015.15339.172","releasedAt":"2026-10-16","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/details","sourceKind":"Author project page","limitations":["Publisher compatibility is not an independent test of every combat feature."]},
-    {"id":"dbm","name":"Deadly Boss Mods Core","category":"Encounters","rationale":"Encounter warnings and boss-mod framework.","status":"Author lists Forever file","version":"12.1.15","releasedAt":"2026-10-16","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/deadly-boss-mods","sourceKind":"Author project page","limitations":["A compatible core does not establish complete new-Forever encounter modules.","Choose an encounter suite that covers the content you actually play."]},
-    {"id":"bigwigs","name":"BigWigs","category":"Encounters","rationale":"An alternative encounter warning and timer suite.","status":"Author lists Forever file","version":"427.6","releasedAt":"2026-10-14","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/bigwigs","sourceKind":"Author project page","limitations":["A compatible core does not establish complete new-Forever encounter modules.","An alternative to DBM; check the author's required modules."]},
-    {"id":"restedxp","name":"RestedXP Guides","category":"Leveling routes","rationale":"Step-by-step leveling routes and developing dungeon routing.","status":"Released addon; guide-package coverage varies","version":"4.11.26","releasedAt":"2026-10-17","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/restedxp-guide","sourceKind":"Author project page","limitations":["The addon is free; expanded guide packages are paid.","The publisher reported levels 1–35 complete on October 9; testing above the beta cap remains limited.","Check the publisher's current package contents and price; full 1–60 coverage is not assured."]},
-    {"id":"guidelime-tugs","name":"Guidelime + TUGs","category":"Leveling routes","rationale":"Free route-following addon and a separate guide module.","status":"Author lists Forever guide file","version":"Guidelime 6.008; TUGs Forever file","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/guidelime_tugs","sourceKind":"Guide author's project page","limitations":["Also install Guidelime; the addon and guide are separate projects.","TUGs says levels 12–30 were beta-written; 30–60 currently includes a Classic fallback pending Forever updates."]},
-    {"id":"olympus-guild","name":"Olympus Guild","category":"Guild tools","rationale":"A shared in-game view of Olympus guilds, leaders and census reports.","status":"Author lists Forever file","version":"1.3.2","releasedAt":"2026-10-21","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/olympus-guild","sourceKind":"Author project and addon API documentation (reviewed 2026-10-21)","limitations":["Optional for website readers; no desktop companion is needed.","Separate from Olympus Verify and the Army QR reporting addon.","In-game census coverage depends on reports received by the addon; it is not proof that every guild has a current website report."],"fileUrl":"https://www.curseforge.com/wow/addons/olympus-guild/files/9273643","apiUrl":"https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md","integrationNote":"The supported addon API asks for the player's permission. It offers profile, rankings and other documented in-game features, but no guild census feed for this website."},
-    {"id":"forever-quest-tint","name":"Forever Quest Tint","category":"Forever discoveries","rationale":"Highlights quests absent from its original-Classic baseline.","status":"Forever-focused release","version":"0.6.2","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1 / interface 16001","url":"https://www.curseforge.com/wow/addons/forever-quest-tint","sourceKind":"Author project page","limitations":["The author acknowledges possible Classic-baseline omissions; tint is not official confirmation.","Overlaps the quest-highlighting features of ForeverChanges."]},
-    {"id":"foreverchanges","name":"ForeverChanges","category":"Forever discoveries","rationale":"Highlights new or changed quests, items and spells against Classic.","status":"Forever-focused release","version":"1.0.2","releasedAt":"2026-10-15","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/foreverchanges","sourceKind":"Author project page","limitations":["Baseline comparisons can be corrected as beta data changes.","Avoid enabling overlapping quest tint effects unintentionally."]},
-    {"id":"forever-goal-tracker","name":"Forever Goal Tracker","category":"Forever discoveries","rationale":"Long-term goals, step-by-step progress and cross-character tracking.","status":"Forever-focused; also supports Classic Era","version":"2.15.2","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/forever-goal-tracker","sourceKind":"Author project page","limitations":["Goal inclusion is not proof that every future item or activity is currently obtainable."]},
-    {"id":"forever-quest-pins","name":"Forever Quest Pins","category":"Forever discoveries","rationale":"Quest map assistance built for Forever.","status":"Forever-focused release","version":"0.2.22","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/forever-quest-pins","sourceKind":"Author project page","limitations":["Compare overlap with Questie before choosing your map setup."]},
-    {"id":"forever-statistics","name":"Forever Statistics","category":"Forever discoveries","rationale":"Character and play statistics for Forever.","status":"Forever-focused release","version":"0.2.54","releasedAt":"2026-10-12","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/foreverstatistics","sourceKind":"Author project page","limitations":["Review the author's local data and export features before enabling them."]},
-    {"id":"foreverforge","name":"ForeverForge","category":"Forever discoveries","rationale":"Modular convenience suite with a shared settings interface.","status":"Forever-focused release","version":"2.1.2","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/foreverforge","sourceKind":"Author project page","limitations":["Modules overlap bag, auction, quest and interface addons; select features deliberately."]},
-    {"id":"forever-unit-frames","name":"Forever Unit Frames","category":"Forever discoveries","rationale":"Unit and raid-frame interface for Forever.","status":"Forever-focused release","version":"0.31.2","releasedAt":"2026-10-18","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/forever-unit-frames","sourceKind":"Author project page","limitations":["Check compatibility with your other frame replacements and beta client."]},
-    {"id":"foreverauras","name":"ForeverAuras","category":"Forever discoveries","rationale":"A Forever aura framework fork.","status":"Author explicitly marks beta development","version":"0.92.6","releasedAt":"2026-10-17","gameBuild":"Forever 1.60.1","url":"https://www.curseforge.com/wow/addons/foreverauras","sourceKind":"Author project page","limitations":["Under development during beta; not a guarantee that existing WeakAuras imports work.","Inspect third-party aura code and the author's current limitations."]}
+    {
+      "id": "questie",
+      "name": "Questie",
+      "category": "Questing",
+      "rationale": "Quest objectives, map markers and quest tracking.",
+      "status": "Author lists Forever support",
+      "version": "12.1.0 + QuestieDB 1.0.6",
+      "releasedAt": "2026-10-12",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://github.com/Questie/Questie/releases",
+      "sourceKind": "Author releases",
+      "limitations": [
+        "Forever data and fixes remain in active development.",
+        "A quest helper, not a complete optimized leveling route."
+      ]
+    },
+    {
+      "id": "leatrix-plus",
+      "name": "Leatrix Plus",
+      "category": "Conveniences",
+      "rationale": "Optional looting, vendor, quest and interface conveniences.",
+      "status": "Author lists Forever file",
+      "version": "1.60.20-forever",
+      "releasedAt": "2026-10-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/leatrix-plus",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Choose the Forever file; other game flavors are separate.",
+        "Enable only the modules you want; features can overlap other addons."
+      ]
+    },
+    {
+      "id": "leatrix-maps",
+      "name": "Leatrix Maps",
+      "category": "Maps",
+      "rationale": "Optional world-map scaling, positioning and map conveniences.",
+      "status": "Author lists Forever file",
+      "version": "1.60.23-forever",
+      "releasedAt": "2026-10-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/leatrix-maps",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Select the Forever file and check overlap with other map addons."
+      ]
+    },
+    {
+      "id": "auctionator",
+      "name": "Auctionator",
+      "category": "Economy",
+      "rationale": "Auction-house pricing, buying and posting tools.",
+      "status": "Author lists Forever file",
+      "version": "341",
+      "releasedAt": "2026-10-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/auctionator",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Prices depend on actual scans and your market; not a profit guarantee."
+      ]
+    },
+    {
+      "id": "bagnon",
+      "name": "Bagnon",
+      "category": "Bags",
+      "rationale": "A combined inventory window and bag searching.",
+      "status": "Author lists Forever file",
+      "version": "12.1.7",
+      "releasedAt": "2026-10-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/bagnon",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "An alternative to other bag replacements; choose one main bag interface."
+      ]
+    },
+    {
+      "id": "baganator",
+      "name": "Baganator",
+      "category": "Bags",
+      "rationale": "Categorized or single-view inventory management.",
+      "status": "Author lists Forever file",
+      "version": "838",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/baganator",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Requires Syndicator, as the author documents.",
+        "An alternative to Bagnon, not a requirement to install both."
+      ]
+    },
+    {
+      "id": "tomtom",
+      "name": "TomTom",
+      "category": "Maps",
+      "rationale": "Coordinate waypoints and navigation assistance.",
+      "status": "Author lists Forever file",
+      "version": "4.3.12-release",
+      "releasedAt": "2026-10-06",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/tomtom",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Coordinates and supplied routes still need the correct game data."
+      ]
+    },
+    {
+      "id": "details",
+      "name": "Details! Damage Meter",
+      "category": "Combat",
+      "rationale": "Combat analysis for damage, healing and encounters.",
+      "status": "Author lists Forever file",
+      "version": "Details.20261015.15339.172",
+      "releasedAt": "2026-10-16",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/details",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Publisher compatibility is not an independent test of every combat feature."
+      ]
+    },
+    {
+      "id": "dbm",
+      "name": "Deadly Boss Mods Core",
+      "category": "Encounters",
+      "rationale": "Encounter warnings and boss-mod framework.",
+      "status": "Author lists Forever file",
+      "version": "12.1.15",
+      "releasedAt": "2026-10-16",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/deadly-boss-mods",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "A compatible core does not establish complete new-Forever encounter modules.",
+        "Choose an encounter suite that covers the content you actually play."
+      ]
+    },
+    {
+      "id": "bigwigs",
+      "name": "BigWigs",
+      "category": "Encounters",
+      "rationale": "An alternative encounter warning and timer suite.",
+      "status": "Author lists Forever file",
+      "version": "427.6",
+      "releasedAt": "2026-10-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/bigwigs",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "A compatible core does not establish complete new-Forever encounter modules.",
+        "An alternative to DBM; check the author's required modules."
+      ]
+    },
+    {
+      "id": "restedxp",
+      "name": "RestedXP Guides",
+      "category": "Leveling routes",
+      "rationale": "Step-by-step leveling routes and developing dungeon routing.",
+      "status": "Released addon; guide-package coverage varies",
+      "version": "4.11.26",
+      "releasedAt": "2026-10-17",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/restedxp-guide",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The addon is free; expanded guide packages are paid.",
+        "The publisher reported levels 1–35 complete on October 9; testing above the beta cap remains limited.",
+        "Check the publisher's current package contents and price; full 1–60 coverage is not assured."
+      ]
+    },
+    {
+      "id": "guidelime-tugs",
+      "name": "Guidelime + TUGs",
+      "category": "Leveling routes",
+      "rationale": "Free route-following addon and a separate guide module.",
+      "status": "Author lists Forever guide file",
+      "version": "Guidelime 6.008; TUGs Forever file",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/guidelime_tugs",
+      "sourceKind": "Guide author's project page",
+      "limitations": [
+        "Also install Guidelime; the addon and guide are separate projects.",
+        "TUGs says levels 12–30 were beta-written; 30–60 currently includes a Classic fallback pending Forever updates."
+      ]
+    },
+    {
+      "id": "olympus-guild",
+      "name": "Olympus Guild",
+      "category": "Guild tools",
+      "rationale": "A shared in-game view of Olympus guilds, leaders and census reports.",
+      "status": "Author lists Forever file",
+      "version": "1.3.2",
+      "releasedAt": "2026-10-21",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/olympus-guild",
+      "sourceKind": "Author project and addon API documentation (reviewed 2026-10-21)",
+      "limitations": [
+        "Optional for website readers; no desktop companion is needed.",
+        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Actual upstream adoption of the optional website exporter remains pending.",
+        "In-game census coverage depends on reports received by the addon; it is not proof that every guild has a current website report."
+      ],
+      "fileUrl": "https://www.curseforge.com/wow/addons/olympus-guild/files/9273643",
+      "apiUrl": "https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md",
+      "integrationNote": "The reviewed1.3.2 API includes permission-gated in-game features and a read-only GetCensusCheckpoint contract; it is not this website’s OLCS2 export. A locally prepared compatibility patch is not publisher adoption."
+    },
+    {
+      "id": "forever-quest-tint",
+      "name": "Forever Quest Tint",
+      "category": "Forever discoveries",
+      "rationale": "Highlights quests absent from its original-Classic baseline.",
+      "status": "Forever-focused release",
+      "version": "0.6.2",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1 / interface 16001",
+      "url": "https://www.curseforge.com/wow/addons/forever-quest-tint",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author acknowledges possible Classic-baseline omissions; tint is not official confirmation.",
+        "Overlaps the quest-highlighting features of ForeverChanges."
+      ]
+    },
+    {
+      "id": "foreverchanges",
+      "name": "ForeverChanges",
+      "category": "Forever discoveries",
+      "rationale": "Highlights new or changed quests, items and spells against Classic.",
+      "status": "Forever-focused release",
+      "version": "1.0.2",
+      "releasedAt": "2026-10-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/foreverchanges",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Baseline comparisons can be corrected as beta data changes.",
+        "Avoid enabling overlapping quest tint effects unintentionally."
+      ]
+    },
+    {
+      "id": "forever-goal-tracker",
+      "name": "Forever Goal Tracker",
+      "category": "Forever discoveries",
+      "rationale": "Long-term goals, step-by-step progress and cross-character tracking.",
+      "status": "Forever-focused; also supports Classic Era",
+      "version": "2.15.2",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/forever-goal-tracker",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Goal inclusion is not proof that every future item or activity is currently obtainable."
+      ]
+    },
+    {
+      "id": "forever-quest-pins",
+      "name": "Forever Quest Pins",
+      "category": "Forever discoveries",
+      "rationale": "Quest map assistance built for Forever.",
+      "status": "Forever-focused release",
+      "version": "0.2.22",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/forever-quest-pins",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Compare overlap with Questie before choosing your map setup."
+      ]
+    },
+    {
+      "id": "forever-statistics",
+      "name": "Forever Statistics",
+      "category": "Forever discoveries",
+      "rationale": "Character and play statistics for Forever.",
+      "status": "Forever-focused release",
+      "version": "0.2.54",
+      "releasedAt": "2026-10-12",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/foreverstatistics",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Review the author's local data and export features before enabling them."
+      ]
+    },
+    {
+      "id": "foreverforge",
+      "name": "ForeverForge",
+      "category": "Forever discoveries",
+      "rationale": "Modular convenience suite with a shared settings interface.",
+      "status": "Forever-focused release",
+      "version": "2.1.2",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/foreverforge",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Modules overlap bag, auction, quest and interface addons; select features deliberately."
+      ]
+    },
+    {
+      "id": "forever-unit-frames",
+      "name": "Forever Unit Frames",
+      "category": "Forever discoveries",
+      "rationale": "Unit and raid-frame interface for Forever.",
+      "status": "Forever-focused release",
+      "version": "0.31.2",
+      "releasedAt": "2026-10-18",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/forever-unit-frames",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Check compatibility with your other frame replacements and beta client."
+      ]
+    },
+    {
+      "id": "foreverauras",
+      "name": "ForeverAuras",
+      "category": "Forever discoveries",
+      "rationale": "A Forever aura framework fork.",
+      "status": "Author explicitly marks beta development",
+      "version": "0.92.6",
+      "releasedAt": "2026-10-17",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/foreverauras",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Under development during beta; not a guarantee that existing WeakAuras imports work.",
+        "Inspect third-party aura code and the author's current limitations."
+      ]
+    }
   ],
   "guides": [
-    {"id":"wowhead","name":"Wowhead Forever","category":"Class guides","rationale":"Named class writers, talent and gearing reference.","status":"Published beta guides","scope":"Current level-30 beta, with page-specific dates and builds","url":"https://www.wowhead.com/forever/guides","sourceKind":"Guide publisher","limitations":["Check each guide's date and activity; no final endgame-meta promise.","Some pages need JavaScript to display their full directory."]},
-    {"id":"icy-veins","name":"Icy Veins Forever","category":"Class guides","rationale":"Structured explanations for all nine classes and live profession pages.","status":"Published beta guides","scope":"Page-specific beta builds, levels and changelogs","url":"https://www.icy-veins.com/wow-forever/class-guides","sourceKind":"Guide publisher","limitations":["Check the date on each guide; the directory's date may differ.","Review and testing vary by article. Do not assume every profession route has been tested through skill 300."]},
-    {"id":"wow-professions","name":"WoW-Professions Forever","category":"Professions","rationale":"Practical leveling routes, material lists, trainers and camping.","status":"Published routes with explicit untested sections","scope":"Forever professions; later skill ranges may be provisional","url":"https://www.wow-professions.com/forever","sourceKind":"Guide publisher","limitations":["The Alchemy 225–300 route explicitly remains untested under the beta cap.","Material costs depend on your server's actual supply and prices."]},
-    {"id":"method","name":"Method Forever","category":"Leveling and dungeons","rationale":"Nine class-leveling directories, travel references and available dungeon walkthroughs.","status":"Published guides","scope":"Check the individual route or dungeon page","url":"https://www.method.gg/wow-forever/leveling-guides","sourceKind":"Guide publisher","limitations":["Some listed dungeons may not have a complete walkthrough.","Level-60 route outlines may include sections that have not been tested in beta."]},
-    {"id":"mobalytics","name":"Mobalytics Forever","category":"Additional guides","rationale":"Creator-authored professions, class and patch explanations.","status":"Published editorial and community guides","scope":"Article-specific author, date and evidence","url":"https://mobalytics.gg/wow-forever/guides","sourceKind":"Guide publisher","limitations":["Distinguish editorial articles from community submissions.","Later profession routes remain subject to beta restrictions."]},
-    {"id":"warcraft-tavern","name":"Warcraft Tavern Forever","category":"Additional guides","rationale":"Supplemental class and leveling guidance with identifiable authors.","status":"Directory listed; article contents not reviewed","scope":"Review the article's current date and level range","url":"https://www.warcrafttavern.com/forever/guides/","sourceKind":"Guide publisher","limitations":["The directory listing was found on the review date, but its current articles could not be read. Open the publisher to check their scope and availability."]},
-    {"id":"blizzard-deep-dive","name":"Blizzard Forever Deep Dive","category":"Official systems","rationale":"The announced camping, Legacy, profession and world systems.","status":"Official publisher explanation","scope":"Announcements, not an optimized class build","url":"https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap","sourceKind":"Blizzard official","limitations":["Later official development notes can supersede announced details."]},
-    {"id":"forever-era","name":"The Forever Era","category":"Supplemental tools","rationale":"Independent data, comparisons and talent/gear tools.","status":"Independent database and tools","scope":"Check build and source labels on each tool","url":"https://theforeverera.com/en/about/","sourceKind":"Independent tool publisher","limitations":["Its BiS tool discloses indicative weights with no simulations, unscored procs/set bonuses and Classic-derived sources."]},
-    {"id":"classicwowforever","name":"Classic WoW Forever","category":"Supplemental tools","rationale":"Dated comparisons and system/profession explanations with methodology disclosure.","status":"Independent database and guides","scope":"Page-specific beta build and comparison date","url":"https://classicwowforever.com/about/","sourceKind":"Independent tool publisher","limitations":["Discloses AI assistance and a responsible editor.","Recipe counts are dated database findings, not final Blizzard-confirmed totals."]},
-    {"id":"forever-codex","name":"Forever Codex","category":"Supplemental tools","rationale":"Additional reference data with source/status disclosures.","status":"Accessible fallback is older; live status needs JavaScript","scope":"Fallback build 1.60.1.70245, October 8 rebuild","url":"https://forever-codex.com/status/","sourceKind":"Independent tool publisher","limitations":["Do not infer that every page is current with every beta build."]},
-    {"id":"restedxp-scope","name":"RestedXP route progress","category":"In-game guide scope","rationale":"Publisher's dated explanation of the Forever route work.","status":"October 9 progress statement","scope":"Publisher reports 1–35 complete; dungeon routing developing","url":"https://community.restedxp.com/word-of-warcraft-forever-updates-10-09-2026/","sourceKind":"Guide publisher","limitations":["The playable beta cap limits normal testing above level 30.","Check current package contents and pricing with the publisher before purchasing."]},
-    {"id":"zygor","name":"Zygor Forever","category":"In-game guide scope","rationale":"Track the publisher's announced guide availability.","status":"Listed as coming soon on the review date","scope":"Publisher warns the launch 1–60 experience may be partially updated","url":"https://zygorguides.com/forever","sourceKind":"Guide publisher","limitations":["Check release status before purchasing; announced features may not yet be available or fully tested."]}
+    {
+      "id": "wowhead",
+      "name": "Wowhead Forever",
+      "category": "Class guides",
+      "rationale": "Named class writers, talent and gearing reference.",
+      "status": "Published guides; individual beta scope is dated",
+      "scope": "Level-30 examples are historical beta references; inspect each current page’s level, build and revision",
+      "url": "https://www.wowhead.com/forever/guides",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "Check each guide's date and activity; no final endgame-meta promise.",
+        "Some pages need JavaScript to display their full directory."
+      ]
+    },
+    {
+      "id": "icy-veins",
+      "name": "Icy Veins Forever",
+      "category": "Class guides",
+      "rationale": "Structured explanations for all nine classes and live profession pages.",
+      "status": "Published beta guides",
+      "scope": "Page-specific beta builds, levels and changelogs",
+      "url": "https://www.icy-veins.com/wow-forever/class-guides",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "Check the date on each guide; the directory's date may differ.",
+        "Review and testing vary by article. Do not assume every profession route has been tested through skill 300."
+      ]
+    },
+    {
+      "id": "wow-professions",
+      "name": "WoW-Professions Forever",
+      "category": "Professions",
+      "rationale": "Practical leveling routes, material lists, trainers and camping.",
+      "status": "Published routes with explicit untested sections",
+      "scope": "Forever professions; later skill ranges may be provisional",
+      "url": "https://www.wow-professions.com/forever",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "The Alchemy 225–300 route explicitly remains untested under the beta cap.",
+        "Material costs depend on your server's actual supply and prices."
+      ]
+    },
+    {
+      "id": "method",
+      "name": "Method Forever",
+      "category": "Leveling and dungeons",
+      "rationale": "Nine class-leveling directories, travel references and available dungeon walkthroughs.",
+      "status": "Published guides",
+      "scope": "Check the individual route or dungeon page",
+      "url": "https://www.method.gg/wow-forever/leveling-guides",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "Some listed dungeons may not have a complete walkthrough.",
+        "Level-60 route outlines may include sections that have not been tested in beta."
+      ]
+    },
+    {
+      "id": "mobalytics",
+      "name": "Mobalytics Forever",
+      "category": "Additional guides",
+      "rationale": "Creator-authored professions, class and patch explanations.",
+      "status": "Published editorial and community guides",
+      "scope": "Article-specific author, date and evidence",
+      "url": "https://mobalytics.gg/wow-forever/guides",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "Distinguish editorial articles from community submissions.",
+        "Later profession routes remain subject to beta restrictions."
+      ]
+    },
+    {
+      "id": "warcraft-tavern",
+      "name": "Warcraft Tavern Forever",
+      "category": "Additional guides",
+      "rationale": "Supplemental class and leveling guidance with identifiable authors.",
+      "status": "Directory listed; article contents not reviewed",
+      "scope": "Review the article's current date and level range",
+      "url": "https://www.warcrafttavern.com/forever/guides/",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "The directory listing was found on the review date, but its current articles could not be read. Open the publisher to check their scope and availability."
+      ]
+    },
+    {
+      "id": "blizzard-deep-dive",
+      "name": "Blizzard Forever Deep Dive",
+      "category": "Official systems",
+      "rationale": "The announced camping, Legacy, profession and world systems.",
+      "status": "Official publisher explanation",
+      "scope": "Announcements, not an optimized class build",
+      "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap",
+      "sourceKind": "Blizzard official",
+      "limitations": [
+        "Later official development notes can supersede announced details."
+      ]
+    },
+    {
+      "id": "forever-era",
+      "name": "The Forever Era",
+      "category": "Supplemental tools",
+      "rationale": "Independent data, comparisons and talent/gear tools.",
+      "status": "Independent database and tools",
+      "scope": "Check build and source labels on each tool",
+      "url": "https://theforeverera.com/en/about/",
+      "sourceKind": "Independent tool publisher",
+      "limitations": [
+        "Its BiS tool discloses indicative weights with no simulations, unscored procs/set bonuses and Classic-derived sources."
+      ]
+    },
+    {
+      "id": "classicwowforever",
+      "name": "Classic WoW Forever",
+      "category": "Supplemental tools",
+      "rationale": "Dated comparisons and system/profession explanations with methodology disclosure.",
+      "status": "Independent database and guides",
+      "scope": "Page-specific beta build and comparison date",
+      "url": "https://classicwowforever.com/about/",
+      "sourceKind": "Independent tool publisher",
+      "limitations": [
+        "Discloses AI assistance and a responsible editor.",
+        "Recipe counts are dated database findings, not final Blizzard-confirmed totals."
+      ]
+    },
+    {
+      "id": "forever-codex",
+      "name": "Forever Codex",
+      "category": "Supplemental tools",
+      "rationale": "Additional reference data with source/status disclosures.",
+      "status": "Accessible fallback is older; live status needs JavaScript",
+      "scope": "Fallback build 1.60.1.70245, October 8 rebuild",
+      "url": "https://forever-codex.com/status/",
+      "sourceKind": "Independent tool publisher",
+      "limitations": [
+        "Do not infer that every page is current with every beta build."
+      ]
+    },
+    {
+      "id": "restedxp-scope",
+      "name": "RestedXP route progress",
+      "category": "In-game guide scope",
+      "rationale": "Publisher's dated explanation of the Forever route work.",
+      "status": "October 9 progress statement",
+      "scope": "Publisher reports 1–35 complete; dungeon routing developing",
+      "url": "https://community.restedxp.com/word-of-warcraft-forever-updates-10-09-2026/",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "The playable beta cap limits normal testing above level 30.",
+        "Check current package contents and pricing with the publisher before purchasing."
+      ]
+    },
+    {
+      "id": "zygor",
+      "name": "Zygor Forever",
+      "category": "In-game guide scope",
+      "rationale": "Track the publisher's announced guide availability.",
+      "status": "Listed as coming soon on the review date",
+      "scope": "Publisher warns the launch 1–60 experience may be partially updated",
+      "url": "https://zygorguides.com/forever",
+      "sourceKind": "Guide publisher",
+      "limitations": [
+        "Check release status before purchasing; announced features may not yet be available or fully tested."
+      ]
+    }
   ],
   "newsSources": [
-    {"id":"blizzard-notes","name":"Blizzard Forever development notes","url":"https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1","sourceKind":"Blizzard official thread","status":"RSS verified","scope":"Official development-note thread; individual posts carry their actual dates."},
-    {"id":"blizzard-news","name":"Blizzard World of Warcraft news","url":"https://news.blizzard.com/en-us/feed/world-of-warcraft","sourceKind":"Blizzard official","status":"Direct link only","scope":"The current news endpoint is HTML; no unsupported RSS endpoint is promised."},
-    {"id":"blizzard-forum","name":"Forever beta forum","url":"https://us.forums.blizzard.com/en/wow/c/in-development/wow-forever-beta-discussion/349","sourceKind":"Blizzard-hosted community forum","status":"Direct link","scope":"Includes player discussions; not every topic is an official announcement."},
-    {"id":"wowhead-forever","name":"Wowhead Forever news","url":"https://www.wowhead.com/forever/news","sourceKind":"Independent reporting","status":"RSS verified; exact Forever category filtered","scope":"The latest window in Wowhead's all-WoW RSS, not an exhaustive news archive."},
-    {"id":"wowhead-blues","name":"Wowhead Forever Blue Tracker","url":"https://www.wowhead.com/forever/blue-tracker","sourceKind":"Third-party Forever tracker","status":"Publisher-advertised RSS verified","scope":"Publisher's Forever blue-tracker RSS; follow the linked Blizzard original for authority. Retrieval can fail even while its website remains available."},
-    {"id":"bluetracker-forever","name":"BlueTracker Forever","url":"https://www.bluetracker.gg/wow/category/187-forever/","sourceKind":"Third-party Forever tracker","status":"Direct link only","scope":"Publisher's Forever category. No automatic feed is verified here; follow the linked Blizzard original for authority."},
-    {"id":"curseforge-forever","name":"Browse more Forever addons","url":"https://www.curseforge.com/wow/search?class=addons&gameVersionTypeId=88568&page=1&pageSize=20&sortBy=relevancy","sourceKind":"Project directory","status":"Direct link","scope":"Forever support tags include established multi-game addons, not only new Forever-exclusive projects."}
-  ]
+    {
+      "id": "blizzard-notes",
+      "name": "Blizzard Forever development notes",
+      "url": "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1",
+      "sourceKind": "Blizzard official thread",
+      "status": "RSS verified",
+      "scope": "Official development-note thread; individual posts carry their actual dates."
+    },
+    {
+      "id": "blizzard-news",
+      "name": "Blizzard World of Warcraft news",
+      "url": "https://news.blizzard.com/en-us/feed/world-of-warcraft",
+      "sourceKind": "Blizzard official",
+      "status": "Direct link only",
+      "scope": "The current news endpoint is HTML; no unsupported RSS endpoint is promised."
+    },
+    {
+      "id": "blizzard-forum",
+      "name": "Forever beta forum",
+      "url": "https://us.forums.blizzard.com/en/wow/c/in-development/wow-forever-beta-discussion/349",
+      "sourceKind": "Blizzard-hosted community forum",
+      "status": "Direct link",
+      "scope": "Includes player discussions; not every topic is an official announcement."
+    },
+    {
+      "id": "wowhead-forever",
+      "name": "Wowhead Forever news",
+      "url": "https://www.wowhead.com/forever/news",
+      "sourceKind": "Independent reporting",
+      "status": "RSS verified; exact Forever category filtered",
+      "scope": "The latest window in Wowhead's all-WoW RSS, not an exhaustive news archive."
+    },
+    {
+      "id": "wowhead-blues",
+      "name": "Wowhead Forever Blue Tracker",
+      "url": "https://www.wowhead.com/forever/blue-tracker",
+      "sourceKind": "Third-party Forever tracker",
+      "status": "Publisher-advertised RSS verified",
+      "scope": "Publisher's Forever blue-tracker RSS; follow the linked Blizzard original for authority. Retrieval can fail even while its website remains available."
+    },
+    {
+      "id": "bluetracker-forever",
+      "name": "BlueTracker Forever",
+      "url": "https://www.bluetracker.gg/wow/category/187-forever/",
+      "sourceKind": "Third-party Forever tracker",
+      "status": "Direct link only",
+      "scope": "Publisher's Forever category. No automatic feed is verified here; follow the linked Blizzard original for authority."
+    },
+    {
+      "id": "curseforge-forever",
+      "name": "Browse more Forever addons",
+      "url": "https://www.curseforge.com/wow/search?class=addons&gameVersionTypeId=88568&page=1&pageSize=20&sortBy=relevancy",
+      "sourceKind": "Project directory",
+      "status": "Direct link",
+      "scope": "Forever support tags include established multi-game addons, not only new Forever-exclusive projects."
+    }
+  ],
+  "ownerDirectory": {
+    "version": 1,
+    "title": "The most trusted World of Warcraft: Forever guides and addons",
+    "sourceCheckedAt": "2026-10-18",
+    "reconciledAt": "2026-10-23T15:29:40.991Z",
+    "scopeNote": "The October 18 shortlist, presented in full thematic sections with original summaries and publisher links. October 18 beta limits and reported dates are historical context, not a claim about today’s playable cap. Public pages were re-read on October 23 where stated; advertised coverage, independent testing and installed-client compatibility remain separate. “Most trusted” describes a practical shortlist, not certification or a guild endorsement of every article.",
+    "sections": [
+      {
+        "id": "main-websites",
+        "title": "1. The main websites I would use",
+        "intro": "Start with Wowhead and Icy Veins for classes, WoW-Professions for profession routes, and Blizzard for announced rules. Add Method, Mobalytics and Warcraft Tavern for their specific authored coverage.",
+        "blocks": [
+          {
+            "heading": "Wowhead: named authors and review relationships",
+            "text": [
+              "Wowhead’s Forever team identifies the people behind its class advice. Hunter guides name Docoda and reviewer Neteyes; Rogue names Warstry and reviewer Simonize; Warlock names Zephan, associated with Classic Warlock; Paladin names Surveillant, associated with Light Club. Those are specific relationships, not evidence that every page has independent peer review.",
+              "Its level-30 writing-team article and Babyhoof’s Fury overview are dated beta evidence. Match the recommendation to that level, patch and activity; agreement between sites can reflect the same author or model."
+            ],
+            "links": [
+              {
+                "label": "Wowhead Forever guides",
+                "url": "https://www.wowhead.com/forever/guides"
+              },
+              {
+                "label": "Writing team and reviewers",
+                "url": "https://www.wowhead.com/forever/news/level-30-guides-are-here-meet-our-wow-forever-class-writing-team-383169"
+              },
+              {
+                "label": "Babyhoof’s level-30 Fury example",
+                "url": "https://www.wowhead.com/forever/guide/classes/warrior/fury/level-30-dps-overview"
+              }
+            ]
+          },
+          {
+            "heading": "Icy Veins: class explanations and choosing a main",
+            "text": [
+              "The class directory links all nine classes and their specializations. It is useful for learning a playstyle, talent choices and rotations; read the actual author, revision and scope on the selected page. Impakt’s Beast Mastery guide is a named-author example.",
+              "The Choosing Your Main guide is an additional starting point. Profession pages are available; the older blanket “coming soon” description is obsolete. A published page still does not prove every later profession step was tested."
+            ],
+            "links": [
+              {
+                "label": "Class guide directory",
+                "url": "https://www.icy-veins.com/wow-forever/class-guides"
+              },
+              {
+                "label": "Beast Mastery example",
+                "url": "https://www.icy-veins.com/wow-forever/beast-mastery-hunter-ranged-dps-pve-guide"
+              },
+              {
+                "label": "Choosing your main",
+                "url": "https://www.icy-veins.com/wow-forever/choosing-your-main"
+              },
+              {
+                "label": "Alchemy page",
+                "url": "https://www.icy-veins.com/wow-forever/alchemy"
+              }
+            ]
+          },
+          {
+            "heading": "Warcraft Tavern: additional class and system guidance",
+            "text": [
+              "The October 18 shortlist includes named-author class, leveling, class-quest and system articles and the publisher’s stated editing standards. Direct article retrieval returned HTTP 403 during the October 23 public source check; no fresh article-body or editorial-policy review is claimed. Open the publisher and check each article’s evidence and date."
+            ],
+            "links": [
+              {
+                "label": "Warcraft Tavern guide directory",
+                "url": "https://www.warcrafttavern.com/forever/guides/"
+              },
+              {
+                "label": "Affliction guide on the October 18 shortlist",
+                "url": "https://www.warcrafttavern.com/forever/guides/affliction-warlock/"
+              }
+            ]
+          },
+          {
+            "heading": "WoW-Professions: practical routes with explicit limits",
+            "text": [
+              "Use its profession hubs for trainer locations, materials, camping and route planning. The Alchemy page still labels its beta-derived plan as work in progress and later materials as estimates. Its Artisan section must not be presented as a fully tested, price-independent route to 300."
+            ],
+            "links": [
+              {
+                "label": "Profession hub",
+                "url": "https://www.wow-professions.com/forever"
+              },
+              {
+                "label": "Alchemy 1–300 and its qualifications",
+                "url": "https://www.wow-professions.com/forever/alchemy-leveling-guide"
+              }
+            ]
+          },
+          {
+            "heading": "Method: nine classes, travel and available dungeon walkthroughs",
+            "text": [
+              "The leveling directory links all nine classes. The dungeon directory links Hall of Thanes, Ruins of Lordaeron, Excavation Site: Wetlands and City of Dalaran; five additional new dungeons are listed without equivalent linked walkthroughs in the reviewed page.",
+              "Its travel article covers boats, zeppelins, trams, portals and Skyborne connections. A route outline or dungeon listing is not proof of completed endgame testing. Assess each guide directly rather than extending the publisher’s general raiding reputation."
+            ],
+            "links": [
+              {
+                "label": "Method leveling",
+                "url": "https://www.method.gg/wow-forever/leveling-guides"
+              },
+              {
+                "label": "Dungeon directory",
+                "url": "https://www.method.gg/wow-forever/dungeons"
+              },
+              {
+                "label": "Travel routes",
+                "url": "https://www.method.gg/wow-forever/all-travel-routes-in-wow-forever-boats-zeppelins"
+              }
+            ]
+          },
+          {
+            "heading": "Mobalytics: identifiable creators, separate community contributions",
+            "text": [
+              "Crix’s Alchemy, Engineering and Leatherworking articles provide complementary profession explanations. The October 18 review recorded October 15, 14 and 16 updates respectively; all three pages displayed October 21 revisions when re-read on October 23. Those timestamps describe the articles, not independent testing of every 1–300 step.",
+              "Separate editorial articles from user-submitted community builds. Check the particular creator, evidence and later corrections; material requirements and untested later routes remain provisional."
+            ],
+            "links": [
+              {
+                "label": "Mobalytics guides",
+                "url": "https://mobalytics.gg/wow-forever/guides"
+              },
+              {
+                "label": "Crix: Alchemy",
+                "url": "https://mobalytics.gg/wow-forever/guides/alchemy-profession-guide"
+              },
+              {
+                "label": "Crix: Engineering",
+                "url": "https://mobalytics.gg/wow-forever/guides/engineering-profession-guide"
+              },
+              {
+                "label": "Crix: Leatherworking",
+                "url": "https://mobalytics.gg/wow-forever/guides/leatherworking-profession-guide"
+              }
+            ]
+          },
+          {
+            "heading": "Blizzard: announced systems and subsequent corrections",
+            "text": [
+              "Use Blizzard’s Deep Dive for its descriptions of camping, Legacy, professions, rulesets and itemization. Later official notes can supersede those announcements. Specialist guides then explain practical choices; neither announcement nor datamining alone proves a tested build or an obtainable item."
+            ],
+            "links": [
+              {
+                "label": "Official Forever Deep Dive",
+                "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+              },
+              {
+                "label": "Official development-note thread",
+                "url": "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "class-communities",
+        "title": "2. Class Discords and deeper theorycrafting",
+        "intro": "Follow identifiable specialists and reproducible work, not a server’s reputation alone. Private Discord content and simulation spreadsheets were not independently audited.",
+        "blocks": [
+          {
+            "heading": "Use the documented connection, then check the actual advice",
+            "text": [
+              "The October 18 shortlist points to Classic Warlock through Zephan and Light Club through Surveillant’s public writer biographies. These are leads to investigate, not proof that every message, spreadsheet or pinned build targets the current Forever build. No Discord invitation or private-content scrape is embedded here."
+            ],
+            "links": [
+              {
+                "label": "Public writer biographies",
+                "url": "https://www.wowhead.com/forever/news/level-30-guides-are-here-meet-our-wow-forever-class-writing-team-383169"
+              }
+            ]
+          },
+          {
+            "heading": "A theorycrafting checklist",
+            "text": [
+              "Confirm an explicit Forever target, game build, level and activity. Identify the maintainer and the evidence: testing, calculations, assumptions or a reproducible example. Look for later corrections.",
+              "Check whether apparently agreeing sources share an author, data extraction or model. Repetition does not make them independent confirmations. Unverified claims that all class communities publish reliable simulations earlier than websites are excluded."
+            ],
+            "links": [
+              {
+                "label": "Named publisher guide team",
+                "url": "https://www.wowhead.com/forever/news/level-30-guides-are-here-meet-our-wow-forever-class-writing-team-383169"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "independent-databases",
+        "title": "3. Independent Forever databases and tools",
+        "intro": "These are supplementary references with useful source disclosures. An independent database, extracted count or automatic ranking is not a Blizzard certification or a measured final meta.",
+        "blocks": [
+          {
+            "heading": "The Forever Era",
+            "text": [
+              "The October 18 review describes announcements, beta tables, caches, hotfix information and marked Classic-derived inputs. Use it to compare changes and investigate items or talents.",
+              "Its reviewed BiS methodology used indicative weights without simulations or scoring for procs/set bonuses and included Classic-derived acquisition assumptions. The October 23 text retrieval did not expose that methodology again, so the limitation remains attributed to the dated October 18 review; no fresh simulation validation is claimed. Check the current page before relying on its ranking."
+            ],
+            "links": [
+              {
+                "label": "About and sources",
+                "url": "https://theforeverera.com/en/about/"
+              },
+              {
+                "label": "BiS tool",
+                "url": "https://theforeverera.com/en/bis/"
+              }
+            ]
+          },
+          {
+            "heading": "Classic WoW Forever",
+            "text": [
+              "Its methodology page describes source comparison, corrections and AI-assisted work with editorial responsibility. Use its linked evidence for systems and profession changes rather than assuming extracted recipes establish an optimal leveling route.",
+              "The crafting page still displays an October 9 comparison and counts of 860 new recipes and 299 Merchant’s Favor patterns. These are dated database findings, not final availability or a Blizzard-audited launch total. Blizzard’s broader announcement of over 600 recipes has a different scope."
+            ],
+            "links": [
+              {
+                "label": "About and methodology",
+                "url": "https://classicwowforever.com/about/"
+              },
+              {
+                "label": "Dated crafting comparison",
+                "url": "https://classicwowforever.com/professions/crafting/"
+              },
+              {
+                "label": "Blizzard’s profession announcement",
+                "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+              }
+            ]
+          },
+          {
+            "heading": "Forever Codex",
+            "text": [
+              "Its source register distinguishes client records, hotfixes, observations and Classic-derived information, including English and Spanish names. This makes it a useful additional reference when the relevant build is checked.",
+              "The accessible status page still exposes build 1.60.1.70245 and an October 8 rebuild while stating that live figures need JavaScript. That fallback does not establish every current dynamic page’s freshness, nor does it prove the whole site is stale."
+            ],
+            "links": [
+              {
+                "label": "Data sources",
+                "url": "https://forever-codex.com/sources/"
+              },
+              {
+                "label": "Status and fallback build",
+                "url": "https://forever-codex.com/status/"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "in-game-guides",
+        "title": "4. In-game leveling guides and quest helpers",
+        "intro": "Route planners, quest trackers and paid guide packages are different products. Choose the author’s correct Forever file; the free addon, its guide module and paid coverage can have separate availability.",
+        "blocks": [
+          {
+            "heading": "RestedXP: evaluate the released package, not its roadmap",
+            "text": [
+              "The addon is free; expanded guides are paid. Its October 9 progress report says the 1–35 routes were finished and dungeon routing was being developed. The author’s release history contains subsequent dungeon updates.",
+              "The current product roadmap separately places Forever 35–60 routes after launch, with Era routes available meanwhile; Discovery and Legacy remain planned features. A publisher’s completed-route statement is not independent testing above the old playable beta cap. Check current contents and price with the publisher; no price or exact free Forever 1–20 entitlement is promised here."
+            ],
+            "links": [
+              {
+                "label": "Dated route progress report",
+                "url": "https://community.restedxp.com/word-of-warcraft-forever-updates-10-09-2026/"
+              },
+              {
+                "label": "Author release history",
+                "url": "https://github.com/RestedXP/RXPGuides/releases"
+              },
+              {
+                "label": "Addon and included-route description",
+                "url": "https://www.curseforge.com/wow/addons/restedxp-guide"
+              }
+            ]
+          },
+          {
+            "heading": "Guidelime plus TUGs: separate addon and guide",
+            "text": [
+              "Guidelime is the route-following addon; TUGs is a separate module. The author lists starting zones, beta-written 12–30 routes and dungeon quest guidance through Dalaran. The page retains a Classic 30–60 fallback while Forever-specific later routes await release. Free availability does not make that fallback Forever-tested."
+            ],
+            "links": [
+              {
+                "label": "TUGs project and required addon",
+                "url": "https://www.curseforge.com/wow/addons/guidelime_tugs"
+              }
+            ]
+          },
+          {
+            "heading": "Questie: quest assistance, not a complete optimized route",
+            "text": [
+              "Its releases added Forever support and subsequently added and refreshed Forever data, including Zephras Isle fixes. The blanket claim that it has only Classic data is obsolete. It remains a quest/map helper with active corrections, not proof of a finished speed-leveling route or complete coverage of every new quest."
+            ],
+            "links": [
+              {
+                "label": "Questie author releases",
+                "url": "https://github.com/Questie/Questie/releases"
+              }
+            ]
+          },
+          {
+            "heading": "Zygor: announced coverage is not released coverage",
+            "text": [
+              "The public Forever page still advertises the product as coming soon. The October 18 review also recorded a partial-launch-coverage qualification. Judge the actual available edition and entitlement before purchase; plans for Skyborne, zones, dungeons, professions and travel do not establish fully tested 1–60 or all-nine-dungeon walkthroughs."
+            ],
+            "links": [
+              {
+                "label": "Zygor’s Forever availability",
+                "url": "https://zygorguides.com/forever"
+              }
+            ]
+          },
+          {
+            "heading": "Install deliberately",
+            "text": [
+              "The preserved addon catalogue below remains a dated selection of general tools and Forever-focused projects. Bag replacements, map helpers and encounter cores can overlap. Check dependencies and client flavor; publisher support is not an in-game compatibility test by Olympus.",
+              "Olympus Guild is the preferred unified guild package. Its existing1.3.2 release has not adopted this website’s optional aggregate exporter. The retired standalone Army ZIP is not a replacement recommendation; website publication remains unavailable until the real upstream workflow supports it."
+            ],
+            "links": [
+              {
+                "label": "Olympus Guild publisher",
+                "url": "https://www.curseforge.com/wow/addons/olympus-guild"
+              },
+              {
+                "label": "Author API documentation",
+                "url": "https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "confidence",
+        "title": "5. How much confidence to place in beta guides",
+        "intro": "The October 18 review concerned a level-30 beta. Those historical limits explain its examples; they are not a declaration that beta is still playable today.",
+        "blocks": [
+          {
+            "heading": "Observed gearing advice can be useful",
+            "text": [
+              "Advice based on an obtained beta item can be evidence-based. Complete level-60 loot rankings remain provisional when item discovery, hidden information and tuning are incomplete. Do not turn a useful level-30 example into a final raid-meta promise.",
+              "The October 18 review cited a developer interview about undiscovered gear. This directory does not independently certify that interview or any hidden-item model; official announcements and a guide’s actual evidence remain the references."
+            ],
+            "links": [
+              {
+                "label": "Official systems and itemization context",
+                "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+              }
+            ]
+          },
+          {
+            "heading": "Client records need interpretation",
+            "text": [
+              "An extracted record can be real without being intended, obtainable or functioning in the current game. The October 18 review included Blizzard’s October 16 clarification that certain datamined art was not intended for Forever. That dated correction is retained in the accompanying source record; it does not disqualify all datamining.",
+              "Similarly, exact-looking recipe counts need their build, comparison method and availability limits. Never replace an unknown measurement with a Classic number or zero."
+            ],
+            "links": [
+              {
+                "label": "Official systems source",
+                "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+              },
+              {
+                "label": "Example dated database comparison",
+                "url": "https://classicwowforever.com/professions/crafting/"
+              }
+            ]
+          },
+          {
+            "heading": "Classic routes are labelled fallbacks",
+            "text": [
+              "Classic geography or quest advice may help, but it does not show that new Forever quests, travel, itemization or class changes were incorporated. Keep fallback labels visible rather than presenting an old route as a verified new-game build."
+            ],
+            "links": [
+              {
+                "label": "TUGs’ explicit fallback",
+                "url": "https://www.curseforge.com/wow/addons/guidelime_tugs"
+              }
+            ]
+          },
+          {
+            "heading": "Seven checks before following a guide",
+            "text": [
+              "Version: does it explicitly target Forever? Scope: which level and activity? Date/build: was the relevant section revised after the change? Evidence: what testing, calculation or assumption is shown? Source labels: are Classic data, estimates and unconfirmed content distinguished? Availability: is the advertised feature actually released? Authorship: who maintains and corrects it?",
+              "A narrow class-quest guide need not discuss every new system to be useful. Select for the task, inspect corrections, and keep uncertainty proportional to the evidence."
+            ],
+            "links": [
+              {
+                "label": "Class-guide starting point",
+                "url": "https://www.wowhead.com/forever/guides"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "corrections": [
+      {
+        "claim": "Icy Veins professions are all coming soon.",
+        "treatment": "Its live profession pages exist; that is separate from full tested 1–300 coverage.",
+        "links": [
+          {
+            "label": "Alchemy page",
+            "url": "https://www.icy-veins.com/wow-forever/alchemy"
+          }
+        ]
+      },
+      {
+        "claim": "Method has seven classes and only two new dungeon guides.",
+        "treatment": "The reviewed directory links nine classes and four new-dungeon walkthroughs. Listing all nine dungeons does not provide nine walkthroughs.",
+        "links": [
+          {
+            "label": "Class directory",
+            "url": "https://www.method.gg/wow-forever/leveling-guides"
+          },
+          {
+            "label": "Dungeon directory",
+            "url": "https://www.method.gg/wow-forever/dungeons"
+          }
+        ]
+      },
+      {
+        "claim": "RestedXP is a paid addon with every routing mode finished.",
+        "treatment": "The addon is free and expanded guides are paid. Published dungeon updates and announced post-launch modes have different availability; the old exact price is not carried forward.",
+        "links": [
+          {
+            "label": "Dated progress report",
+            "url": "https://community.restedxp.com/word-of-warcraft-forever-updates-10-09-2026/"
+          },
+          {
+            "label": "Author releases",
+            "url": "https://github.com/RestedXP/RXPGuides/releases"
+          }
+        ]
+      },
+      {
+        "claim": "Zygor already delivers its full announced Forever scope.",
+        "treatment": "The page still marks the Forever product coming soon. The October 18 partial-launch qualification remains historical; check actual released contents.",
+        "links": [
+          {
+            "label": "Publisher page",
+            "url": "https://zygorguides.com/forever"
+          }
+        ]
+      },
+      {
+        "claim": "Questie only has Classic data.",
+        "treatment": "Its author releases include Forever support, base-data additions and later corrections. Individual coverage can still be incomplete.",
+        "links": [
+          {
+            "label": "Author releases",
+            "url": "https://github.com/Questie/Questie/releases"
+          }
+        ]
+      },
+      {
+        "claim": "An automatic independent BiS score establishes the best gear.",
+        "treatment": "The dated October 18 review records missing simulation, proc and set-bonus scoring. Such a score is a candidate-selection aid, not a tuning or final-meta result.",
+        "links": [
+          {
+            "label": "Reviewed tool",
+            "url": "https://theforeverera.com/en/bis/"
+          }
+        ]
+      },
+      {
+        "claim": "860 recipes and 299 patterns are final universally verified totals.",
+        "treatment": "Attribute those figures to the dated Classic WoW Forever comparison; Blizzard’s over-600 announcement measures a different stated scope. Neither establishes every recipe’s availability.",
+        "links": [
+          {
+            "label": "Database comparison",
+            "url": "https://classicwowforever.com/professions/crafting/"
+          },
+          {
+            "label": "Official announcement",
+            "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+          }
+        ]
+      },
+      {
+        "claim": "Forever Codex is proven current with every beta build.",
+        "treatment": "The accessible fallback still identifies70245/October8 and defers live figures to JavaScript. Check the particular current page rather than asserting universal freshness.",
+        "links": [
+          {
+            "label": "Status",
+            "url": "https://forever-codex.com/status/"
+          }
+        ]
+      },
+      {
+        "claim": "All prelaunch gearing advice is only guessing.",
+        "treatment": "Observed items can support useful advice. Unknown gear and future tuning limit complete endgame rankings; retain each recommendation’s evidence and scope.",
+        "links": [
+          {
+            "label": "Official itemization context",
+            "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap"
+          }
+        ]
+      },
+      {
+        "claim": "Every named source is peer-reviewed, most complete, or independently simulated.",
+        "treatment": "Those blanket endorsements were not established. Follow identified authors, explicit reviewer relationships, changelogs and disclosed methods. The October 18 review also noted a sponsorship/affiliate disclosure in an older comparison; its dated judgments are not imported as independent confirmation.",
+        "links": [
+          {
+            "label": "Named authors and reviewers",
+            "url": "https://www.wowhead.com/forever/news/level-30-guides-are-here-meet-our-wow-forever-class-writing-team-383169"
+          }
+        ]
+      }
+    ]
+  }
 }

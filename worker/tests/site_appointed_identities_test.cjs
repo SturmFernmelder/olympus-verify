@@ -1,4 +1,4 @@
-// Real source and Native SQLite: explicit two-office opt-in, member-only projection,
+// Real source and Native SQLite: explicit catalogue-office opt-in, member-only projection,
 // original-session races, own-copy coverage and the unchanged exact-pointer eraser.
 const fs = require('node:fs'), path = require('node:path'), ts = require('typescript');
 const { DatabaseSync } = require('node:sqlite');
@@ -24,10 +24,14 @@ function load(name) {
 }
 const identities = load('./site-appointed-identities'), api = load('./site-api'), core = load('./site-core'), site = load('./site');
 const cleanup = load('./privacy-native-erasure-cleanup'), admission = load('./privacy-write-admission');
-const ADMIN = '300000000000000071', HOLDER = '300000000000000072', SECOND = '300000000000000073', VIEWER = '300000000000000074', STRANGER = '300000000000000075';
+// Pure pointer/consent checks run before the first database fixture; each world below still replaces all five identities.
+let ADMIN, HOLDER = '300000000000000072', SECOND, VIEWER, STRANGER;
+let fixtureOrdinal196 = 0;
 let passed = 0, total = 0;
 function check(label, ok, detail) { total++; if (ok) passed++; console.log((ok ? 'PASS ' : 'FAIL ') + label); if (!ok && detail) console.log(detail); }
 async function fixture() {
+  const offset196 = BigInt(++fixtureOrdinal196) * 1000n;
+  [ADMIN, HOLDER, SECOND, VIEWER, STRANGER] = [71n, 72n, 73n, 74n, 75n].map(n => String(300000000000000000n + offset196 + n));
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON'); db.function('strftime', (format, input) => { if (format !== '%s' || input !== 'now') throw Error('unexpected fixture clock'); return String(T); }); entry.installCurrentEntryEpoch(db, { now: T });
   let before = null, beforeSave = null, beforeAccounts = null;
   const raw = entry.originalNativePort(db, { beforeBatch: async plan => {
@@ -67,7 +71,8 @@ async function fixture() {
 (async () => {
   check('only exact canonical Discord pointers opt in', identities.appointmentAccountId('<@' + HOLDER + '>') === HOLDER && [HOLDER, '<@!' + HOLDER + '>', '@holder-one', 'holder-one', '<@' + HOLDER + '> extra', 'Name withheld', '<@1>'].every(v => identities.appointmentAccountId(v) === null));
   check('publication confirmation is required for either supported pointer', !identities.appointmentPublicationConfirmation({ co_gm: '<@' + HOLDER + '>' }, {}) && !identities.appointmentPublicationConfirmation({ treasurer: '<@' + HOLDER + '>' }, { appointedCharactersConfirmed: 'true' }) && identities.appointmentPublicationConfirmation({ treasurer: '<@' + HOLDER + '>' }, { appointedCharactersConfirmed: true }));
-  check('typed labels and other roles retain existing semantics', identities.appointmentPublicationConfirmation({ co_gm: 'Typed person', officer: '<@' + HOLDER + '>' }, {}));
+  check('typed labels and unsupported keys retain non-publication semantics', identities.appointmentPublicationConfirmation({ co_gm: 'Typed person', unsupported_office: '<@' + HOLDER + '>' }, {}));
+  check('expanded Officer publication still requires separate explicit consent', !identities.appointmentPublicationConfirmation({officer:'<@'+HOLDER+'>'}, {}) && identities.appointmentPublicationConfirmation({officer:'<@'+HOLDER+'>'}, {appointedCharactersConfirmed:true}));
   for (const state of ['eligible', 'no-character', 'absent', 'denied', 'departed', 'banned', 'retiring', 'waiting_role', 'held', 'erasing']) {
     const f = await fixture(), target = SECOND;
     if (state === 'no-character') await f.write('DELETE FROM characters WHERE discord_id=?', target);
@@ -219,7 +224,7 @@ async function fixture() {
         if (change !== 'reader-birth-replaced' || !(e instanceof load('./privacy-serving-authority').PrivacySiteRequestHeld)) throw e;
         r = { status: 409, body: { error: 'original_native_request_held' } };
       }
-      const expected = change === 'new-site-birth' ? r.status === 200 && r.body.identities.length === 1 && r.body.identities[0].characters.length === 0
+      const expected = ['new-site-birth','target-banned','target-retiring','map-replaced'].includes(change) ? r.status === 409 && r.body.error === 'appointed_identities_changed' && !r.body.identities
         : change === 'provider-failure' ? r.status === 503 && !r.body.identities
           : change.startsWith('reader-') ? r.status !== 200 && !r.body.identities : r.status === 200 && r.body.identities.length === 0;
       check('.176 post-provider admission/target checks preserve ' + change + ' boundary', fired && expected);
@@ -276,7 +281,7 @@ async function fixture() {
     const overview = await f.call('GET', '/api/admin/overview', ADMIN);
     check('the exact admin editing read retains all canonical pointers and typed labels without internal proofs', overview.status === 200 && JSON.stringify(overview.body.settings.appointed) === JSON.stringify(appointed) && !JSON.stringify(overview.body.settings).includes(':publication:'));
     const memberRead = await f.call('GET', '/api/appointed-identities', VIEWER);
-    check('masking general settings preserves fresh confirmed-member identity publication', memberRead.status === 200 && memberRead.body.scope === 'qualified_community_readers' && memberRead.body.identities.length === 2 && memberRead.body.identities.find(p => p.role === 'co_gm').appointment === appointed.co_gm);
+    check('masking general settings preserves fresh confirmed-member identity publication', memberRead.status === 200 && memberRead.body.scope === 'qualified_community_readers' && memberRead.body.identities.length === 4 && JSON.stringify(memberRead.body.identities.map(p=>p.role).sort()) === JSON.stringify(['class_lead:priest','co_gm','officer','treasurer']) && memberRead.body.identities.every(p=>p.appointment===appointed[p.role]));
     const board = await f.call('GET', '/api/board/treasurer', STRANGER);
     check('an unconfirmed board read keeps the closed-role conflict without its account association', board.status === 409 && board.body.error === 'appointed' && board.body.appointed === 'Appointed member' && board.body.message.includes('Appointed member') && !JSON.stringify(board.body).includes(SECOND));
     const first = await f.call('PUT', '/api/application', STRANGER, { position: 'treasurer' });
@@ -291,7 +296,7 @@ async function fixture() {
     const denied = await f.call('GET', '/api/me', VIEWER), deniedPage = await f.page(VIEWER), deniedRead = await f.call('GET', '/api/appointed-identities', VIEWER);
     check('denied own data carries only masked settings while the actual identity read stays refused', denied.status === 200 && denied.body.denied === true && safe(denied.body.settings) && deniedRead.status === 403 && !('identities' in deniedRead.body));
     check('the real denied sign-in page contains no association or internal proof boot', deniedPage.status === 200 && deniedPage.boot === null && ![HOLDER, SECOND, ':publication:'].some(v => deniedPage.html.includes(v)));
-    check('every public/general read leaves the private stored map and HMAC proofs byte-identical', f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawBefore && Object.keys(stored).filter(k => k.includes(':publication:')).length === 2);
+    check('every public/general read leaves the private stored map and HMAC proofs byte-identical', f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawBefore && Object.keys(stored).filter(k => k.includes(':publication:')).length === 4);
     f.close();
   }
   {
@@ -314,7 +319,7 @@ async function fixture() {
     check('explicit association saves the exact pointer without changing role authority', r.status === 200 && r.body.settings.appointed.co_gm === next.co_gm && r.body.settings.appointed.treasurer === next.treasurer && load('./site-data').isAppointed(r.body.settings, 'co_gm'));
     const savedRaw = JSON.parse(f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value);
     const proofKeys = Object.keys(savedRaw).filter(k => k.includes(':publication:'));
-    check('only the server authors one lowercase-HMAC proof for each supported current account', proofKeys.length === 2 && proofKeys.every(k => /^(co_gm|treasurer):publication:[0-9a-f]{64}$/.test(k)) && savedRaw[proofKeys.find(k => k.startsWith('co_gm:'))] === next.co_gm);
+    check('only the server authors one lowercase-HMAC proof for each supported current account', proofKeys.length === 3 && proofKeys.every(k => /^(co_gm|treasurer|officer):publication:[0-9a-f]{64}$/.test(k)) && Object.keys(next).every(role=>proofKeys.filter(k=>k.startsWith(role+':publication:')).length===1 && savedRaw[proofKeys.find(k=>k.startsWith(role+':publication:'))]===next[role]));
     check('generic settings omit every internal proof key and retain genuine role count only', Object.keys(r.body.settings.appointed).length === 3 && !JSON.stringify(r.body).includes(':publication:'));
     const forged = await f.call('PUT', '/api/admin/settings', ADMIN, { appointed: { ...next, ['co_gm:publication:' + '0'.repeat(64)]: next.co_gm }, namesConfirmed: true, appointedCharactersConfirmed: true });
     check('client-forged or replayed internal proof fields are refused rather than accepted', forged.status === 400 && forged.body.error === 'internal_appointed_fields');
@@ -324,10 +329,10 @@ async function fixture() {
     check('unchanged submitted pointers also require explicit publication review', r.status === 400 && r.body.error === 'confirm_appointed_characters');
     r = await f.call('GET', '/api/appointed-identities', VIEWER);
     const one = r.body.identities.find(x => x.role === 'co_gm'), two = r.body.identities.find(x => x.role === 'treasurer');
-    check('a confirmed member reads exactly two supported offices', r.status === 200 && r.body.scope === 'qualified_community_readers' && r.body.identities.length === 2);
+    check('a confirmed member reads exactly the three separately consented supported offices', r.status === 200 && r.body.scope === 'qualified_community_readers' && r.body.identities.length === 3 && JSON.stringify(r.body.identities.map(x=>x.role).sort())===JSON.stringify(Object.keys(next).sort()) && r.body.identities.every(x=>x.appointment===next[x.role]));
     check('the current nickname/global name and username remain distinct', one.displayName === 'First Nick' && one.username === 'holder-one' && one.label === 'First Nick · First Display (@holder-one)' && one.appointment === next.co_gm);
     check('an absent differing display name remains an honest username fallback', two.displayName === 'holder-two' && two.label === '@holder-two');
-    check('only proven current characters are returned without IDs or staff data', one.characters.length === 1 && one.characters[0].status === 'member' && !('id' in one) && !('source' in one.characters[0]) && !JSON.stringify(r.body).includes('test-viewer'));
+    check('only proven current characters are returned without IDs or staff data', one.characters.length === 1 && one.characters[0].status === 'member' && !('id' in one) && !('source' in one.characters[0]) && !JSON.stringify(one).includes('test-viewer') && r.body.identities.find(x=>x.role==='officer').username==='test-viewer');
     const publicData = await f.call('GET', '/api/public');
     check('the anonymous settings endpoint never gains private character enrichment', publicData.status === 200 && !('identities' in publicData.body) && !JSON.stringify(publicData.body).includes('Proof 72'));
     for (const status of ['pending', 'left', 'left_pending', 'unbound', 'denied']) await f.write('INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at)VALUES(?,?,?,?,?,?)', status, 'Hidden ' + status, HOLDER, status, T - 10, T - 5);
@@ -338,8 +343,9 @@ async function fixture() {
     const own = await f.call('GET', '/api/me/export', HOLDER), other = await f.call('GET', '/api/me/export', VIEWER);
     check('the real own-copy route includes only the matching current publication association', own.status === 200 && own.body.site.appointmentPublications.length === 1 && own.body.site.appointmentPublications[0].role === 'co_gm' && own.body.site.appointmentPublications[0].audience === 'qualified_community_readers' && !JSON.stringify(own.body.site.appointmentPublications).includes(SECOND));
     check('own publication metadata exposes neither private proof nor account birth', !JSON.stringify(own.body.site.appointmentPublications).includes(':publication:') && !JSON.stringify(own.body.site.appointmentPublications).includes(f.db.prepare('SELECT account_incarnation FROM site_users WHERE discord_id=?').get(HOLDER).account_incarnation));
-    check('other account copies receive no association or counterpart pointer', other.status === 200 && other.body.site.appointmentPublications.length === 0);
-    check('the coverage inventory acknowledges the selected association, not complete settings', own.body.coverage.storeInventory.stores.some(s => s.store === 'site_settings' && s.coverage === 'selected' && s.description.includes('exact Co-Guild Master or Treasurer')));
+    check('another explicitly appointed account copies only its own office, with no counterpart pointer', other.status === 200 && other.body.site.appointmentPublications.length === 1 && other.body.site.appointmentPublications[0].role==='officer' && !JSON.stringify(other.body.site.appointmentPublications).includes(HOLDER) && !JSON.stringify(other.body.site.appointmentPublications).includes(SECOND));
+    const unrelated=await f.call('GET','/api/me/export',STRANGER);check('an unassociated account still receives no publication association or counterpart pointer',unrelated.status===200&&unrelated.body.site.appointmentPublications.length===0);
+    check('the coverage inventory acknowledges the selected association, not complete settings', own.body.coverage.storeInventory.stores.some(s => s.store === 'site_settings' && s.coverage === 'selected' && s.description.includes('exact supported native-rank or extended-office account-publication associations') && s.description.includes('Credentials, integrity proofs, provider pointers, notice bodies and counterparts are withheld')));
     await f.publish({ co_gm: '<@' + HOLDER + '>' });
     const missing = await f.call('PUT', '/api/admin/settings', ADMIN, { appointed: { co_gm: '<@' + HOLDER + '>', treasurer: '<@300000000000000099>' }, namesConfirmed: true, appointedCharactersConfirmed: true });
     check('an unavailable target cannot obtain a publication proof through a confirmed save', missing.status === 409 && missing.body.error === 'appointed_account_unavailable');
@@ -364,7 +370,7 @@ async function fixture() {
     const ownProofs = Object.keys(final).filter(k => k.startsWith('co_gm:publication:'));
     check('the unchanged Native eraser withholds every matching proof value too', ownProofs.length === 1 && ownProofs.every(k => final[k] === 'Name withheld') && final.treasurer === next.treasurer);
     r = await f.call('GET', '/api/appointed-identities', VIEWER);
-    check('erasing one holder preserves the other holder separate current proof', r.status === 200 && r.body.identities.length === 1 && r.body.identities[0].role === 'treasurer');
+    check('erasing one holder preserves both other separately consented office proofs', r.status === 200 && r.body.identities.length === 2 && JSON.stringify(r.body.identities.map(x=>x.role).sort())===JSON.stringify(['officer','treasurer']) && r.body.identities.every(x=>x.appointment===next[x.role]));
     check('the own-publication projection clears with that exact pointer, without Native edits', (await identities.ownAppointmentPublicationsStatement(f.env, HOLDER).all()).results.length === 0);
     f.close();
   }

@@ -4,7 +4,7 @@
  * community fence and the feature list itself.
  */
 import type { Env } from "./env";
-import { apiJson, type SiteUser } from "./site-core";
+import { apiJson, readJson, type SiteUser } from "./site-core";
 import { communityContext, contextDto, refusal } from "./community-context";
 import "./community-refs"; // registers its erasure and export
 import { adminAltDecision, adminDirectory, craftingSearch, directoryList, profileGet, profilePut } from "./community-directory";
@@ -19,18 +19,21 @@ import { adminListCases, adminReadCase, adminUpdateCase } from "./community-priv
 import { coverageReport, digestStatus, resumeDigest } from "./community-digest";
 import { censusPreview } from "./community-census-route";
 import { armyQrReviewRefusal } from "./army-qr-review";
+import { discordDirectoryList, discordDirectoryVisibility } from "./community-discord-directory";
 
 export async function handleCommunity(request: Request, env: Env, path: string): Promise<Response> {
   const armyQrDisabled = armyQrReviewRefusal(path);
   if (armyQrDisabled) return armyQrDisabled;
   const m = request.method;
-  const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
+  const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/discord-directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
   const ctx = await communityContext(env, request, { guildRoleRead: reader });
+  if ((m === "GET" || m === "PUT") && path === "/api/community/discord-directory/visibility") return discordDirectoryVisibility(request, env, ctx, m === "PUT" ? (await readJson(request) ?? undefined) : {});
   if (m === "POST" && path === "/api/community/census/preview") return censusPreview(request, env, ctx);
   if (m === "GET" && path === "/api/community/context") return apiJson(contextDto(ctx));
   if (m === "GET" && path === "/api/community/profile") return profileGet(request, env, ctx);
   if (m === "PUT" && path === "/api/community/profile") return profilePut(request, env, ctx);
   if (m === "GET" && path === "/api/community/directory") return directoryList(request, env, ctx);
+  if (m === "GET" && path === "/api/community/discord-directory") return discordDirectoryList(request, env, ctx);
   if (m === "GET" && path === "/api/community/crafting") return craftingSearch(request, env, ctx);
   // .59: the calendar
   if (m === "GET" && path === "/api/community/events") return listEvents(request, env, ctx);

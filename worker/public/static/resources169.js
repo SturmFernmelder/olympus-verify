@@ -24,6 +24,39 @@
     if (!url) return el("span", label);
     const a = el("a", label); a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; return a;
   }
+  // Owner's full 18 October directory is plain text and fixed publisher links.
+  // Keep its historical fact-check date distinct from later reconciliation.
+  function checkedOwnerDirectory(value) {
+    const text = (v, max) => typeof v === "string" && v.length > 0 && v.length <= max;
+    const fields = (v, keys) => v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).sort().join() === keys.sort().join();
+    const links = rows => Array.isArray(rows) && rows.length <= 12 && rows.every(row => fields(row, ["label", "url"]) && text(row.label, 200) && safeUrl(row.url));
+    if (!fields(value, ["version", "title", "sourceCheckedAt", "reconciledAt", "scopeNote", "sections", "corrections"]) || value.version !== 1 || !text(value.title, 200) || value.sourceCheckedAt !== "2026-10-18" || !text(value.reconciledAt, 40) || !/^2026-10-\d{2}(?:T[^\s]{1,25})?$/.test(value.reconciledAt) || !text(value.scopeNote, 4000) || !Array.isArray(value.sections) || value.sections.length !== 5 || !Array.isArray(value.corrections) || value.corrections.length > 20) throw Error("owner directory");
+    const ids = new Set();
+    for (const section of value.sections) {
+      if (!fields(section, ["id", "title", "intro", "blocks"]) || !text(section.id, 60) || !/^[a-z][a-z0-9-]*$/.test(section.id) || ids.has(section.id) || !text(section.title, 240) || !text(section.intro, 4000) || !Array.isArray(section.blocks) || section.blocks.length < 1 || section.blocks.length > 12) throw Error("owner directory section");
+      ids.add(section.id);
+      for (const block of section.blocks) if (!fields(block, ["heading", "text", "links"]) || !text(block.heading, 240) || !Array.isArray(block.text) || block.text.length < 1 || block.text.length > 12 || !block.text.every(p => text(p, 4000)) || !links(block.links)) throw Error("owner directory block");
+    }
+    for (const row of value.corrections) if (!fields(row, ["claim", "treatment", "links"]) || !text(row.claim, 4000) || !text(row.treatment, 4000) || !links(row.links)) throw Error("owner directory correction");
+    return value;
+  }
+  function ownerDirectory(value) {
+    const section = el("section", undefined, "resources169-owner-directory"); section.setAttribute("aria-label", value.title);
+    section.append(el("h2", value.title), el("p", `Reviewed: ${value.sourceCheckedAt}. Source checks: ${value.reconciledAt.slice(0, 10)}.`, "resources169-meta"), el("p", value.scopeNote, "resources169-note"));
+    const sourceLinks = rows => { const list = el("ul"); for (const row of rows) { const li = el("li"); li.append(link(row.label, row.url)); list.append(li); } return list; };
+    for (const item of value.sections) {
+      const part = el("section", undefined, "resources169-directory-section"); part.setAttribute("data-directory-section", item.id);
+      part.append(el("h3", item.title), el("p", item.intro));
+      for (const block of item.blocks) { const entry = el("div", undefined, "resources169-directory-block"); entry.append(el("h4", block.heading)); for (const paragraph of block.text) entry.append(el("p", paragraph)); if (block.links.length) entry.append(sourceLinks(block.links)); part.append(entry); }
+      section.append(part);
+    }
+    if (value.corrections.length) {
+      const corrections = el("section", undefined, "resources169-directory-corrections"); corrections.append(el("h3", "Corrections and limits"));
+      for (const row of value.corrections) { const entry = el("div", undefined, "resources169-directory-block"); entry.append(el("h4", row.claim), el("p", row.treatment)); if (row.links.length) entry.append(sourceLinks(row.links)); corrections.append(entry); }
+      section.append(corrections);
+    }
+    return section;
+  }
   function time(seconds) {
     if (!Number.isSafeInteger(seconds) || seconds < 1072915200) return "not supplied";
     return new Date(seconds * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC");
@@ -113,11 +146,18 @@
       try {
         const data = await read(CATALOG); if (!data) return;
         if (data.version !== 1 || !Array.isArray(data[view]) || data[view].length > 100 || !data[view].every(x => x && typeof x.name === "string" && typeof x.rationale === "string" && typeof x.category === "string" && safeUrl(x.url))) throw new Error("catalog");
+        const fullDirectory = view === "guides" && data.ownerDirectory !== undefined ? checkedOwnerDirectory(data.ownerDirectory) : null;
         catalog = data;
+        const curated = view === "guides" ? el("section", undefined, "resources169-curated") : null;
+        if (curated) {
+          curated.setAttribute("aria-label", "Curated guide cards");
+          curated.append(el("h2", "Curated guide cards"), message, controls, results);
+          wrap.replaceChildren(heading, ...(fullDirectory ? [ownerDirectory(fullDirectory)] : []), curated);
+        }
         const provenance = el("details", undefined, "resources169-provenance");
         provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${catalog.checkedAt}. ${catalog.disclaimer}`, "resources169-note"));
         if (catalog.viewNotes && typeof catalog.viewNotes[view] === "string") provenance.append(el("p", catalog.viewNotes[view], "resources169-note"));
-        heading.append(provenance);
+        (curated || heading).append(provenance);
         const searchLabel = el("label", "Search sources "), search = el("input"); search.type = "search"; search.placeholder = "Name, purpose or limitation"; searchLabel.append(search);
         const categoryLabel = el("label", "Category "), select = el("select"); categoryLabel.append(select);
         for (const value of ["all", ...new Set(data[view].map(x => x.category))]) { const option = el("option", value === "all" ? "All categories" : value); option.value = value; select.append(option); }

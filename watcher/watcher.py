@@ -36,12 +36,14 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import codes  # noqa: E402
 import savedvars  # noqa: E402
+from custody_recovery import StateLease  # noqa: E402
 
 # The sender is a character name, never a channel tag or a UI escape. Since patch 12.1 code shipped to this client,
 # Blizzard's Discord bridge can relay a Discord user's text into guild chat, and a Discord display name is free text:
@@ -98,7 +100,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.6"
+WATCHER_VERSION = "0.6.7"
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -233,6 +235,7 @@ class Worker:
             log(why)
 
     def call(self, method: str, path: str, body: Any = None, retries: int = 3) -> Any:
+        self.last_refusal = None  # internal evidence; the original (True, None) transport contract stays intact
         paused = self.paused()
         if paused:
             return False, paused
@@ -278,6 +281,7 @@ class Worker:
                 if 400 <= code < 500:
                     # the Worker understood and rejected it; retrying will not change the answer. Its body is not logged.
                     log(f"worker {method} {path} -> {code}")
+                    self.last_refusal = code
                     return True, None
                 log(f"worker {method} {path} -> {code}, retry {attempt + 1}/{retries}")
             except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
@@ -286,6 +290,20 @@ class Worker:
             time.sleep(delay)
             delay *= 2
         return False, "unreachable"
+
+
+class NoCustody(RuntimeError):
+    """Stop consuming the source: no retained original owns this work yet."""
+
+
+class Delivery(str, Enum):
+    DELIVERED = "delivered"
+    HELD = "durable-held"
+    NO_CUSTODY = "no-custody"
+
+    def __bool__(self) -> bool:
+        # Existing callers/tests that only ask whether delivery completed retain that meaning.
+        return self is Delivery.DELIVERED
 
 
 class State:
@@ -302,6 +320,7 @@ class State:
             "outbox": [],         # posts that have not been acknowledged yet; nothing is dropped on an outage
             "queue_hash": "",
             "queue_written_pending": [],
+            "queue_written_original": None,  # exact new acknowledgment; old bare pending IDs remain held
             "lag": [],            # [kind, seconds from the line's own timestamp to this watcher reading it, when] — last 60
             "diag": [],           # OLVDIAG markers: which file each reached, and how long after it was written
             "relay": {},          # from the addon's signed login note: {"character", "addon", "at"}
@@ -312,13 +331,20 @@ class State:
         }
         if path.exists():
             try:
-                self.d.update(json.loads(path.read_text(encoding="utf-8")))
-            except Exception:
-                log("state file unreadable, starting fresh")
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(loaded, dict) or not isinstance(loaded.get("outbox", []), list) or not isinstance(loaded.get("seen", []), list):
+                    raise ValueError("invalid custody state")
+                self.d.update(loaded)
+            except Exception as error:
+                # Starting empty would silently destroy the only copy of an unknown original.
+                raise ValueError("watcher state unreadable; original file retained, delivery must stay stopped") from error
 
     def save(self) -> None:
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.d), encoding="utf-8")
+        with tmp.open("w", encoding="utf-8") as stream:
+            stream.write(json.dumps(self.d))
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(tmp, self.path)
 
     @staticmethod
@@ -334,6 +360,10 @@ class State:
         self.d["seen"].append(h)
         self.d["seen"] = self.d["seen"][-8000:]
         return False
+
+    def was_seen(self, key: str) -> bool:
+        """Read only; a source claim is committed with its original's custody save."""
+        return self._k(key) in self.d["seen"] or key in self.d["seen"]
 
     def unsee(self, key: str) -> None:
         """Undo a seen() claim so the work is retried later (used when a post could not even be buffered)."""
@@ -366,6 +396,9 @@ class Watcher:
         self._last_unverified_pull = 0.0
         self._unverified: dict[str, Any] | None = None
         self.max_outbox = int(cfg.get("max_outbox", 500))
+        self._custody_halted = False
+        self._ack_settlement_pending: tuple[str, dict[str, Any]] | None = None
+        self._custody_warning = None
         # other client logs, scanned for OLVDIAG markers only (a C_Log test); what was there at start is not news
         self.logs_dir = wow / "Logs"
         self.wow_dir = wow
@@ -384,20 +417,145 @@ class Watcher:
             self.state.save()
 
     # ---------- delivery ----------
-    def post(self, path: str, body: Any, label: str) -> bool:
-        """Deliver now, or keep it for later. Never silently drop: an event that is not acknowledged is queued in the
-        state file and retried on every poll, so a Worker outage or a bad token costs latency, not verifications."""
-        ok, res = self.worker.call("POST", path, body)
-        if ok:
-            log(f"  -> delivered{Worker.summarize(res)}")  # 0.6.6: a fixed summary, never the body
-            return True
-        if len(self.state.d["outbox"]) >= self.max_outbox:
-            log(f"outbox full ({self.max_outbox}); dropping the oldest entry to keep the newest")
-            self.state.d["outbox"].pop(0)
-        self.state.d["outbox"].append({"path": path, "body": body, "label": label, "at": int(time.time())})
-        log(f"  -> not delivered ({res}); buffered, {len(self.state.d['outbox'])} waiting")
-        self.state.save()
-        return False
+    def _warn_custody(self, reason: str) -> None:
+        if self._custody_warning != reason:
+            self._custody_warning = reason
+            log("delivery held: " + reason)  # fixed text only: no payload, response or credential
+
+    def _delivery_binding(self) -> str:
+        # Pin the original configured destination and officer/token context without persisting a credential.
+        return hashlib.sha256(json.dumps([self.worker.base, self.officer_id, self.worker.token]).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _original_digest(item: dict[str, Any]) -> str:
+        return hashlib.sha256(json.dumps([item["path"], item["body"], item["at"], item["binding"]], allow_nan=False).encode("utf-8")).hexdigest()
+
+    def _retained_original(self, item: Any) -> bool:
+        try:
+            return (isinstance(item, dict) and item.get("custody") == 1 and item.get("binding") == self._delivery_binding()
+                    and type(item.get("at")) is int and item.get("digest") == self._original_digest(item))
+        except (KeyError, TypeError, ValueError, OverflowError):
+            return False
+
+    def _freeze_original(self, path: str, body: Any, label: str) -> dict[str, Any]:
+        frozen = json.loads(json.dumps(body, allow_nan=False))
+        item = {"path": path, "body": frozen, "label": label, "at": int(time.time()), "binding": self._delivery_binding(), "custody": 1}
+        item["digest"] = self._original_digest(item)
+        return item
+
+    def _settle_original(self, item: dict[str, Any]) -> Delivery:
+        box = self.state.d["outbox"]
+        if not box or box[0] is not item:
+            self._custody_halted = True
+            self._warn_custody("original queue order changed; no delivery was adopted")
+            return Delivery.HELD
+        box.pop(0)
+        try:
+            self.state.save()
+        except OSError:
+            box.insert(0, item)
+            self._custody_halted = True
+            self._ack_settlement_pending = ("outbox", item) if item.get("acknowledged") is True else None
+            self._warn_custody("settlement could not be persisted; original retained and dispatch stopped")
+            return Delivery.HELD
+        self._custody_warning = None
+        return Delivery.DELIVERED
+
+    def _dispatch_original(self, item: dict[str, Any], retries: int, settle: Any = None) -> Delivery:
+        if self._custody_halted or not self._retained_original(item):
+            self._warn_custody("legacy, changed or different-owner original requires attended recovery")
+            return Delivery.HELD
+        if item.get("acknowledged") is True:
+            return (settle or self._settle_original)(item)  # a persisted receipt never causes another HTTP request
+        if item.get("refusal_status") is not None:
+            self._warn_custody("explicitly refused original retained for attended review")
+            return Delivery.HELD
+        self.worker.last_refusal = None
+        try:
+            # A transport stub or caller cannot mutate the original body held in state.
+            body = json.loads(json.dumps(item["body"], allow_nan=False))
+            ok, res = self.worker.call("POST", item["path"], body, retries=retries)
+        except Exception:
+            self._warn_custody("transport outcome unknown; exact original remains held")
+            return Delivery.HELD
+        if ok and isinstance(res, dict):
+            item["acknowledged"] = True
+            result = (settle or self._settle_original)(item)
+            if result is Delivery.DELIVERED:
+                log(f"  -> delivered{Worker.summarize(res)}")
+            return result
+        if ok and res is None and type(self.worker.last_refusal) is int and 400 <= self.worker.last_refusal < 500:
+            item["refusal_status"] = self.worker.last_refusal
+            try:
+                self.state.save()
+            except OSError:
+                self._custody_halted = True
+            self._warn_custody("explicitly refused original retained for attended review")
+        else:
+            self._warn_custody("no application receipt; exact original remains held")
+        return Delivery.HELD
+
+    def post(self, path: str, body: Any, label: str) -> Delivery:
+        """Reserve an exact durable original before HTTP; never evict a prior unacknowledged body."""
+        box = self.state.d["outbox"]
+        if self._custody_halted or len(box) >= self.max_outbox:
+            self._warn_custody("no new custody available; source remains unconsumed")
+            return Delivery.NO_CUSTODY
+        try:
+            item = self._freeze_original(path, body, label)
+        except (TypeError, ValueError, OverflowError):
+            self._warn_custody("body cannot be retained exactly; source remains unconsumed")
+            return Delivery.NO_CUSTODY
+        box.append(item)
+        try:
+            self.state.save()
+        except OSError:
+            # Atomic replace may have an uncertain local outcome. Retain the in-memory original,
+            # dispatch nothing, stop new custody, and leave the source cursor uncommitted.
+            self._custody_halted = True
+            self._warn_custody("custody persistence failed; dispatch stopped and source remains unconsumed")
+            return Delivery.NO_CUSTODY
+        if box[0] is not item:
+            return Delivery.HELD  # no newer work overtakes an older original
+        return self._dispatch_original(item, retries=3)
+
+    def _post_claimed(self, path: str, body: Any, label: str, keys: list[str]) -> Delivery:
+        before = list(self.state.d["seen"])
+        for key in keys:
+            self.state.seen(key)
+        result = self.post(path, body, label)
+        if result is Delivery.NO_CUSTODY:
+            self.state.d["seen"] = before
+            raise NoCustody("source paused until original custody is available")
+        return result
+
+    def recover_local_settlement(self) -> bool:
+        """Retry local persistence of this process's actual ACK; never dispatch HTTP."""
+        pending = self._ack_settlement_pending
+        if not self._custody_halted or pending is None:
+            return False
+        lane, original = pending
+        if original.get("acknowledged") is not True or not self._retained_original(original):
+            return False
+        if lane == "outbox":
+            box = self.state.d["outbox"]
+            if not box or box[0] is not original:
+                return False
+            result = self._settle_original(original)
+        elif lane == "queue-written":
+            if (self.state.d.get("queue_written_original") is not original
+                    or original.get("body", {}).get("ids") != self.state.d.get("queue_written_pending")):
+                return False
+            result = self._settle_written_original(original)
+        else:
+            return False
+        if result is not Delivery.DELIVERED:
+            return False
+        self._ack_settlement_pending = None
+        self._custody_halted = False
+        self._custody_warning = None
+        log("local acknowledged settlement persisted; no request was repeated")
+        return True
 
     def flush_outbox(self) -> None:
         """Retry buffered posts oldest first, stopping at the first failure so ordering is preserved."""
@@ -405,16 +563,16 @@ class Watcher:
         if not box:
             return
         sent = 0
-        while box:
-            item = box[0]
-            ok, res = self.worker.call("POST", item["path"], item["body"], retries=1)
-            if not ok:
+        for _ in range(max(0, self.max_outbox)):
+            if not box or self._custody_halted:
                 break
-            box.pop(0)
+            item = box[0]
+            result = self._dispatch_original(item, retries=1)
+            if result is not Delivery.DELIVERED:
+                break
             sent += 1
         if sent:
             log(f"outbox: delivered {sent} buffered post(s), {len(box)} left")
-            self.state.save()
 
     # ---------- 1. chat log ----------
     FP_BYTES = 256
@@ -508,7 +666,7 @@ class Watcher:
             log(f"whisper from {sender}: invalid/expired code {code} (not forwarded)")
             return
         key = self.code_key("w", sender, code)
-        if self.state.seen(key):
+        if self.state.was_seen(key):
             self.note_ticket_reuse(sender, code)
             return
         self.note_ticket_sender(sender, code)
@@ -517,7 +675,7 @@ class Watcher:
         if guid:
             body["guid"] = guid
         log(f"whisper from {sender}: valid {'request ' if kind == 'ticket' else ''}code, forwarding{' (character ID known)' if guid else ''}")
-        self.post("/ingest/verify", body, f"verify {sender}")
+        self._post_claimed("/ingest/verify", body, f"verify {sender}", [key])
         self.state.save()
 
     @staticmethod
@@ -722,11 +880,11 @@ class Watcher:
         # system line ("X has joined the guild.", always written first) claimed the key and this signed note, the
         # one that can grant the role, was dropped as a duplicate (found 27 Sep).
         key = f"J:{codes.normalize_character(name)}:{int(line_epoch(line) or time.time()) // 600}"
-        if self.state.seen(key):
+        if self.state.was_seen(key):
             return True
         self.note_lag("signed", line)
         log(f"guild: {name} joined (addon-signed); forwarding")
-        self.post("/ingest/events", {"events": [{"type": "joined", "name": name, "ts": int(time.time()), "ok": True, "origin": "token", "detail": "addon-confirmed"}]}, f"joined {name}")
+        self._post_claimed("/ingest/events", {"events": [{"type": "joined", "name": name, "ts": int(time.time()), "ok": True, "origin": "token", "detail": "addon-confirmed"}]}, f"joined {name}", [key])
         self.state.save()
         return True
 
@@ -748,7 +906,7 @@ class Watcher:
             log(f"departure token for {name} did not verify (ignored)")
             return True
         key = f"L:{codes.normalize_character(name)}:{int(line_epoch(line) or time.time()) // 600}"
-        if self.state.seen(key):
+        if self.state.was_seen(key):
             return True
         self.note_lag("signed", line)
         if kind in ("space", "unverified"):
@@ -757,7 +915,7 @@ class Watcher:
             ev = {"type": "left", "detail": "left the guild (addon-signed)" if kind == "left" else "removed from the guild (addon-signed)"}
         ev.update({"name": name, "ts": int(time.time()), "ok": True, "origin": "token"})
         log(f"guild: {name} — {ev['detail']}; forwarding")
-        self.post("/ingest/events", {"events": [ev]}, f"{ev['type']} {name}")
+        self._post_claimed("/ingest/events", {"events": [ev]}, f"{ev['type']} {name}", [key])
         self.state.save()
         return True
 
@@ -823,9 +981,9 @@ class Watcher:
             return True
         name, guid = got
         key = f"g:{codes.normalize_character(name)}:{guid}"
-        if self.state.seen(key):
+        if self.state.was_seen(key):
             return True
-        self.post("/ingest/events", {"events": [{"type": "identity", "name": name, "guid": guid, "ts": int(time.time()), "ok": True, "origin": "token"}]}, f"identity {name}")
+        self._post_claimed("/ingest/events", {"events": [{"type": "identity", "name": name, "guid": guid, "ts": int(time.time()), "ok": True, "origin": "token"}]}, f"identity {name}", [key])
         self.state.save()
         return True
 
@@ -888,14 +1046,14 @@ class Watcher:
         # and in SavedVariables is forwarded once instead of being announced twice.
         bucket = int(line_epoch(line) or time.time()) // 600
         key = f"{'j' if ev['type'] == 'joined' else 'l'}:{codes.normalize_character(ev['name'])}:{bucket}"
-        if self.state.seen(key):
+        if self.state.was_seen(key):
             return
         self.note_lag("system", line)
         ev["ts"] = int(time.time())
         ev["ok"] = True
         ev["origin"] = "chatlog"  # forgeable with /emote: the Worker will not grant or remove a role on this alone
         log(f"guild: {ev['name']} — {ev['detail']} (chat log, unverified); forwarding")
-        self.post("/ingest/events", {"events": [ev]}, f"{ev['type']} {ev['name']}")
+        self._post_claimed("/ingest/events", {"events": [ev]}, f"{ev['type']} {ev['name']}", [key])
         self.state.save()
 
     # ---------- 2. SavedVariables ----------
@@ -914,14 +1072,16 @@ class Watcher:
             self.state.save()
             return
         db = data.get("OlympusVerifyDB") or {}
-        self.state.d["sv_mtime"] = mtime
         self.note_saved_relay(db, mtime)
         self.forward_events(db.get("events") or [])
         self.forward_roster(db.get("roster") or {})
+        self.state.d["sv_mtime"] = mtime
         self.state.save()
 
     def forward_events(self, events: list[dict[str, Any]]) -> None:
         relay: list[dict[str, Any]] = []
+        relay_keys: list[str] = []
+        batch_keys: set[str] = set()
         stale = 0
         for e in events:
             if not isinstance(e, dict):
@@ -934,7 +1094,7 @@ class Watcher:
                 key = self.code_key(t, name, strict) if strict else f"{t[0]}:{codes.normalize_character(name)}:{raw}"
                 if not codes.code_kind(self.secret, name, raw):
                     continue
-                if self.state.seen(key):
+                if self.state.was_seen(key) or key in batch_keys:
                     continue
                 if strict:
                     self.note_ticket_sender(name, strict)
@@ -942,12 +1102,13 @@ class Watcher:
                 if codes.is_guid(e.get("guid")):
                     body["guid"] = e["guid"]  # the addon read it from the whisper event itself
                 log(f"{t} from {name} (SavedVariables): forwarding")
-                self.post("/ingest/verify", body, f"verify {name}")
+                self._post_claimed("/ingest/verify", body, f"verify {name}", [key])
             elif t == "guild_full":
                 # No character of its own: key it on the minute so a burst of refused invites reports once.
                 key = f"gf:{ts // 60}"
-                if self.state.seen(key):
+                if self.state.was_seen(key) or key in batch_keys:
                     continue
+                relay_keys.append(key); batch_keys.add(key)
                 cands = e.get("candidates")
                 relay.append({
                     "type": t,
@@ -980,7 +1141,7 @@ class Watcher:
                     key = f"{('j' if t == 'joined' else 'l') if legacy else ('J' if t == 'joined' else 'L')}:{codes.normalize_character(name)}:{ts // 600}"
                 else:
                     key = f"e:{t}:{codes.normalize_character(name)}:{ts}"
-                if self.state.seen(key):
+                if self.state.was_seen(key) or key in batch_keys:
                     continue
                 ev = {
                     "type": t,
@@ -994,8 +1155,9 @@ class Watcher:
                 if e.get("reason"):
                     ev["reason"] = str(e["reason"])[:32]
                 relay.append(ev)
+                relay_keys.append(key); batch_keys.add(key)
         if relay:
-            self.post("/ingest/events", {"events": relay}, f"{len(relay)} addon event(s)")
+            self._post_claimed("/ingest/events", {"events": relay}, f"{len(relay)} addon event(s)", relay_keys)
         if stale and not getattr(self, "_stale_reported", False):
             self._stale_reported = True
             log(f"SavedVariables: {stale} join/departure event(s) older than {SV_EVENT_MAX_AGE // 3600} h not relayed (the roster export has settled them)")
@@ -1024,12 +1186,14 @@ class Watcher:
             ],
         }
         log(f"roster ({len(payload['members'])} members, exported {exported})")
-        if self.post("/ingest/roster", payload, f"roster {exported}"):
-            self.state.d["roster_sent"] = exported
+        previous_watermark = self.state.d["roster_sent"]
+        self.state.d["roster_sent"] = exported  # committed atomically with custody, before any dispatch
+        outcome = self.post("/ingest/roster", payload, f"roster {exported}")
+        if outcome is Delivery.NO_CUSTODY:
+            self.state.d["roster_sent"] = previous_watermark
+            raise NoCustody("roster source paused until original custody is available")
+        if outcome is Delivery.DELIVERED:
             self._last_unverified_pull = 0.0  # the list is derived from the roster: refresh it on the next queue pull
-        else:
-            # buffered: the watermark still moves, because the outbox now owns delivery
-            self.state.d["roster_sent"] = exported
 
     # ---------- 3. invite queue ----------
     def pull_unverified(self) -> None:
@@ -1074,6 +1238,12 @@ class Watcher:
         if time.time() - self._last_queue_pull < self.queue_poll:
             return
         self._last_queue_pull = time.time()
+        if self._custody_halted:
+            return
+        if self.state.d.get("queue_written_pending") or self.state.d.get("queue_written_original"):
+            self.retry_queue_written()
+            if self.state.d.get("queue_written_pending") or self.state.d.get("queue_written_original") or self._custody_halted:
+                return  # never merge/rebind a newer acknowledgment into an unknown original
         self.pull_unverified()
         path = "/queue" + (f"?officer={urllib.parse.quote(self.officer_id)}{self.presence_query()}" if self.officer_id else "")
         ok, res = self.worker.call("GET", path)
@@ -1094,25 +1264,46 @@ class Watcher:
         tmp.write_text(body, encoding="utf-8")
         os.replace(tmp, self.queue_file)
         self.state.d["queue_hash"] = h
-        self.state.save()
         queued = [e["id"] for e in entries if e.get("status") == "queued"]
+        if queued:
+            pending = sorted(set(queued))
+            self.state.d["queue_written_pending"] = pending
+            self.state.d["queue_written_original"] = self._freeze_original("/queue/written", {"ids": pending, "officer": self.officer_id}, "queue written")
+        try:
+            self.state.save()  # file hash, IDs and actual original officer/body are one custody save
+        except OSError:
+            self._custody_halted = True
+            raise NoCustody("queue file written but acknowledgment custody could not be persisted")
         log(f"queue file written: {len(entries)} entries ({len(queued)} new) — the addon reads it at the next /reload (the panel's Sync & reload)")
         if queued:
-            pending = sorted(set(self.state.d.get("queue_written_pending", [])) | set(queued))
-            self.state.d["queue_written_pending"] = pending
-            self.state.save()
             self.retry_queue_written()
 
-    def retry_queue_written(self) -> None:
-        """Tell the Worker which queue ids reached the file. Kept until acknowledged: without this the rows stay
-        'queued' forever and the file is rewritten every poll."""
+    def retry_queue_written(self) -> Delivery:
+        """Only the captured acknowledgment may be retried; bare legacy IDs are never assigned a new owner."""
         pending = self.state.d.get("queue_written_pending") or []
-        if not pending:
-            return
-        ok, _ = self.worker.call("POST", "/queue/written", {"ids": pending, "officer": self.officer_id}, retries=1)
-        if ok:
-            self.state.d["queue_written_pending"] = []
+        original = self.state.d.get("queue_written_original")
+        if not pending and original is None:
+            return Delivery.DELIVERED
+        if (not self._retained_original(original) or original["path"] != "/queue/written"
+                or not isinstance(original["body"], dict) or original["body"].get("ids") != pending):
+            self._warn_custody("legacy, changed or different-owner queue acknowledgment requires attended recovery")
+            return Delivery.HELD
+        return self._dispatch_original(original, retries=1, settle=self._settle_written_original)
+
+    def _settle_written_original(self, original: dict[str, Any]) -> Delivery:
+        pending = self.state.d["queue_written_pending"]
+        self.state.d["queue_written_pending"] = []
+        self.state.d["queue_written_original"] = None
+        try:
             self.state.save()
+        except OSError:
+            self.state.d["queue_written_pending"] = pending
+            self.state.d["queue_written_original"] = original
+            self._custody_halted = True
+            self._ack_settlement_pending = ("queue-written", original) if original.get("acknowledged") is True else None
+            self._warn_custody("queue acknowledgment settlement could not be persisted; original retained")
+            return Delivery.HELD
+        return Delivery.DELIVERED
 
     @staticmethod
     def render_queue(entries: list[dict[str, Any]], set_note: bool, unverified: dict[str, Any] | None = None) -> str:
@@ -1250,6 +1441,7 @@ class Watcher:
         log(f"watcher {WATCHER_VERSION}: watching {self.chat_log} and {self.sv_file}")
         while True:
             try:
+                self.recover_local_settlement()
                 self.flush_outbox()
                 self.tail_chat_log()
                 self.check_savedvars()
@@ -1271,14 +1463,20 @@ def main() -> int:
     with open(a.config, encoding="utf-8") as f:
         cfg = json.load(f)
     try:
-        w = Watcher(cfg)
-    except ValueError as e:  # 0.6.5: a worker_url that is not a bare HTTPS origin is refused before any request
+        # Acquire before Watcher construction, which can persist trusted_keys_since.
+        # The offline recovery command uses this same cooperating-writer lease.
+        with StateLease(Path(cfg.get("state_file", "watcher-state.json"))):
+            w = Watcher(cfg)
+            if a.check:
+                return w.check()
+            w.run()
+            return 0
+    except FileExistsError:
+        log("state already has a writer/recovery lease; stop and inspect before continuing")
+        return 2
+    except ValueError as e:  # invalid configuration/state remains refused before dispatch
         log(f"config: {e}")
         return 2
-    if a.check:
-        return w.check()
-    w.run()
-    return 0
 
 
 if __name__ == "__main__":

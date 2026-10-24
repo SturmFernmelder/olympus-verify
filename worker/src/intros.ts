@@ -81,7 +81,7 @@ export const INTROS: Intro[] = [
         title: "Olympus — Asmongold's guild in World of Warcraft: Forever",
         color: GOLD,
         description: [
-          "Current game: **{ruleset-label}**.",
+          "Olympus guild direction: **{ruleset-label}**.",
           "",
           "**Get into the guild channels**",
           "1. Read the server rules in {#server-rules}; they apply here too.",
@@ -103,7 +103,7 @@ export const INTROS: Intro[] = [
           { name: "Beta", value: "September 17 – October 21, 2026. Access is available to selected invited testers and eligible Skyborne Epic Pack or Warcraft Forever Collection accounts. Check Blizzard's current beta instructions; a guild application does not grant beta access." },
           { name: "Early name reservation", value: "October 27 – November 3, 2026 with an eligible upgrade purchase; up to three characters, first come, first served. A name on our guild planning list does not reserve it in the game." },
           { name: "First new raids", value: "Unlock December 9, 2026." },
-          { name: "Rulesets instead of realms", value: "Normal, PvP, Roleplaying and Hardcore (after launch). No grouping across rulesets; Horde and Alliance stay separate." },
+          { name: "Olympus ruleset", value: "{ruleset-ruleset} · {ruleset-faction} ({ruleset-decided}). The realm will be announced before launch." },
           { name: "New in Forever", value: "The Skyborne race (Zephras Isle), Mount Hyjal, Shen'dralas and Riverglades, nine new dungeons, the Hyjal Summit (20-player) and Barrow Deeps (10-player) raids, the Darkspear Islands 15 vs 15 battleground, Legacy progression for alts, camping and opt-in transmog." },
         ],
         footer: { text: "Official Blizzard announcements checked October 1, 2026. Planned details may change." },
@@ -155,7 +155,7 @@ export const INTROS: Intro[] = [
     embeds: [{
       title: "Guild announcements",
       color: GOLD,
-      description: "News from Olympus leadership.\nCurrent game: **{ruleset-label}**.\n**Ruleset: {ruleset-ruleset} · Faction: {ruleset-faction}** ({ruleset-decided}).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.",
+      description: "News from Olympus leadership.\nOlympus guild direction: **{ruleset-label}**.\n**Ruleset: {ruleset-ruleset} · Faction: {ruleset-faction}** ({ruleset-decided}).\nRaid notices are in {#raid-announcements}. React to acknowledge; questions go to {#guild-chat}.",
     }],
   },
   {
@@ -719,7 +719,7 @@ export async function introStatus(env: Env, guild: string): Promise<string> {
   const channels = parseChannels(env.INTROS_CHANNELS);
   const rows = await loadRows(env, guild);
   const lines = [
-    `**Olympus intros (${INTROS.length})**. The two beta identity slots use Admin → Ruleset publication. This command maintains the other sixteen intros and notices deleted or unpinned ones.`,
+    `**Olympus intros (${INTROS.length})**. The two ruleset identity intros use Admin → Ruleset publication. This command maintains the other sixteen intros and notices deleted or unpinned ones.`,
   ];
   for (const intro of INTROS) {
     const parent = channels[intro.channel];

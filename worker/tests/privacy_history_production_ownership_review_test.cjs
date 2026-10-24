@@ -6,6 +6,7 @@ const worker=process.env.PRIVACY_REVIEW_WORKER||path.resolve(__dirname,'..');
 const original=path.join(worker,'tests/privacy_access_test.cjs'),source=fs.readFileSync(original,'utf8'),boundary='async function main(){';
 if(source.split(boundary).length!==2)throw Error('canonical genuine OAuth fixture boundary changed');
 async function review(){
+ await require('./privacy_registered196_families.cjs').run(root);
  const registry=load('community-context'),before=Array.from(registry.communityDataNames());
  const index=load('index').default,policy=load('community-contribution-policy');
  const f=fixture();Object.assign(f.env,{PUBLIC_BASE_URL:'https://verify.example',SITE_ADMINS:A,PRIVACY_ERASURE_ENABLED:'false',COMMUNITY_FEATURES:'contributions,restrictions',CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'400'});
@@ -26,7 +27,7 @@ async function review(){
  const plan=registry.communityExportPlan(f.env,A),names=Array.from(registry.communityDataNames()),native=await f.env.DB.batch(plan.statements);
  const inventory={before,productionFamilies:names,productionStatementCount:plan.statements.length,queries:load('privacy-write-admission').originalPrivacyAdmissionGroupProjection(f.env.DB,plan.statements).logical.map((s,i)=>({index:i,tables:Array.from(new Set(Array.from(s.sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]+)/gi),x=>x[1]))),returned:native[i].results.length}))};
  console.log('ACTUAL_PRODUCTION_EXPORT_CENSUS '+JSON.stringify(inventory));
- eq('actual index imports thirteen registered families',names.length,13);eq('actual index imports36 registered copy statements',plan.statements.length,36);
+ eq('actual index imports original13 plus exact2 independently proven metadata families',names.length,15);eq('actual index imports original36 plus exact3 metadata statements',plan.statements.length,39);
  ok('production census includes purpose and news families',names.includes('privacy_access')&&names.includes('news'));
  async function own(collection){const connection=await connect(f),frm=await form(f,connection);provider=null;const response=await copy.exportPrivacyAccess(frm.request({collection}),f.env);eq('genuine own '+collection+' download admitted',response.status,200);return response.json();}
  const history=await own('contributionDecisions'),aggregate=await own('copy');

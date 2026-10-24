@@ -8,7 +8,7 @@ import { readRaw, PreviewRefusal } from "./army-body";
 
 export interface ArmySnapshot {
   format: "olympus-stat-observation-v2"; scope: "own-guild"; source: "volunteer-client";
-  sourceVerified: false; membershipProof: false; addonVersion: "0.2.0";
+  sourceVerified: false; membershipProof: false; addonVersion: "0.2.0" | "1.3.2-site.1";
   realmGroup: string; faction: "Alliance" | "Horde"; observedAt: number;
   guilds: [{ name: string; receivedAt: number; reportedCharacters: number | "few";
     online: number | "few" | null; classes: number[] | null; levels: number[] | null; ranks: number[] | null }];
@@ -29,7 +29,7 @@ export function armyKey(snapshot: ArmySnapshot): string { return PREFIX + String
 /** Reject unknown fields rather than redact them after persistence. Bucket labels are fixed, never client-supplied names. */
 export function validateArmySnapshot(value: unknown, now: number, fresh = true): ArmySnapshot {
   keys(value, ROOT);
-  if (value.format !== "olympus-stat-observation-v2" || value.scope !== "own-guild" || value.source !== "volunteer-client" || value.sourceVerified !== false || value.membershipProof !== false || value.addonVersion !== "0.2.0") bad();
+  if (value.format !== "olympus-stat-observation-v2" || value.scope !== "own-guild" || value.source !== "volunteer-client" || value.sourceVerified !== false || value.membershipProof !== false || !["0.2.0", "1.3.2-site.1"].includes(String(value.addonVersion))) bad();
   // Owner names the product/realm-group scope, not a future in-game free-text realm label.
   // The browser retains the raw game label locally and sends only this fixed, explicitly confirmed identifier.
   if (value.realmGroup !== "World of Warcraft: Forever PvE" || value.faction !== "Alliance") bad("unsupported_scope");
@@ -44,6 +44,9 @@ export function validateArmySnapshot(value: unknown, now: number, fresh = true):
   if (typeof online === "number" && typeof total === "number" && online >= 5 && total - online > 0 && total - online < 5) bad();
   // The upload must withhold already-old online data at the server receipt clock. Historical public reads remask again.
   if ((fresh ? now : value.observedAt as number) - (row.receivedAt as number) > 900 && online !== null) bad();
+  // This dedicated producer never exports distributions. Refuse them before preview or storage,
+  // matching the closed browser grammar instead of poisoning the later aggregate reader.
+  if (value.addonVersion === "1.3.2-site.1" && ["classes", "levels", "ranks"].some(field => row[field] !== null)) bad();
   for (const [field, length] of [["classes", 9], ["levels", 7], ["ranks", 10]] as const) {
     const dist = row[field]; if (dist === null) continue;
     if (total === "few" || !Array.isArray(dist) || dist.length !== length || dist.some(n => !integer(n, 0, 1000) || n > 0 && n < 5) || dist.reduce((a: number, b: number) => a + b, 0) !== total) bad();
@@ -182,7 +185,7 @@ export async function armyPrivate(request: Request, env: Env, path: string): Pro
     const expected = path.endsWith("/reporter") ? "GET" : "POST";
     if (request.method !== expected) return apiJson({ error: "method_not_allowed" }, 405, { Allow: expected });
     const reporter = await armyReporter(request, env); if (reporter instanceof Response) return reporter;
-    if (expected === "GET") { const state = await read(reporter); return apiJson({ format: "olympus-army-reporter-v1", canPublish: true, now: state.now }); }
+    if (expected === "GET") { const state = await read(reporter); return apiJson({ format: "olympus-army-reporter-v1", canPublish: true, sanitizedExporterAvailable: env.ARMY_SITE_AGGREGATE_ENABLED === "true", now: state.now }); }
     if (!sameOrigin(request)) return apiJson({ error: "bad_origin" }, 403);
     if (request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({ error: "reload" }, 409);
     if (!/^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i.test(request.headers.get("Content-Type") ?? "") || request.headers.has("Content-Encoding")) return apiJson({ error: "unsupported_content_type" }, 415);
@@ -195,7 +198,11 @@ export async function armyPrivate(request: Request, env: Env, path: string): Pro
     const preview = path.endsWith("/preview"), outcome = path.endsWith("/outcome");
     keys(body, preview ? ["snapshot"] : outcome ? ["snapshot", "previewToken"] : ["snapshot", "previewToken", "confirm"]);
     if (JSON.stringify(body) !== raw) bad();
-    const clock = await read(reporter), snapshot = validateArmySnapshot(body.snapshot, clock.now, !outcome), key = armyKey(snapshot), value = JSON.stringify(snapshot), current = await read(reporter, key);
+    const clock = await read(reporter), snapshot = validateArmySnapshot(body.snapshot, clock.now, !outcome);
+    // Old immutable outcome reads remain available while new exporter publication is held.
+    // An unadopted local compatibility file is not a currently shipped CurseForge workflow.
+    if (!outcome && env.ARMY_SITE_AGGREGATE_ENABLED !== "true") return apiJson({ error: "publisher_export_unavailable" }, 503);
+    const key = armyKey(snapshot), value = JSON.stringify(snapshot), current = await read(reporter, key);
     if (preview) {
       const expiresAt = Math.min(current.now + 900, snapshot.observedAt + 86400, snapshot.guilds[0].receivedAt + 86400);
       const previewToken = await token(reporter, { issued: current.now, expires: expiresAt, digest: await digest(value), key, previous: current.row ? await digest(current.row.value) : null });

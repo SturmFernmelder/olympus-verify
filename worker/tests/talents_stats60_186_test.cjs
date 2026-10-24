@@ -719,6 +719,477 @@ check('an opened sheet follows point edits in place, keeps its open state across
   assert.deepEqual([...new Set(urls)].sort(), ['/static/talents/naked60-186.json', '/static/talents/stat-effects186.json']);
 });
 
+console.log('\n== .196 item 9b: compare specs, stat impact by talent, all classes ==');
+const SPIRIT_WEAPONS = 'shaman-enhancement-spirit-weapons';
+const statTalentIds = (cls, tree) => tree.talents.filter(t => effects.components.some(c => c.talentId === t.id && c.cls === cls) || t.id === SPIRIT_WEAPONS).map(t => t.id);
+check('.196 tree check: all 27 trees list exactly their stat talents and need the provable minimum, and that allocation passes the calculator\'s own rules', () => {
+  let trees = 0;
+  for (const cls of data.classes) {
+    const overview = S.specOverview(model, cls.id), all = talentsOf(cls.id);
+    assert.deepEqual(overview.map(t => [t.id, t.name, t.budget]), cls.trees.map(t => [t.id, t.name, 51]));
+    for (const [i, tree] of cls.trees.entries()) {
+      const t = overview[i], expected = statTalentIds(cls.id, tree), byId = new Map(tree.talents.map(x => [x.id, x])); trees++;
+      assert.deepEqual(t.talents.map(x => x.id), expected, tree.id); assert.ok(expected.length > 0, tree.id);
+      assert.deepEqual(t.talents.map(x => [x.row, x.maxRank, x.pointsNeeded]), expected.map(id => [byId.get(id).row, byId.get(id).maxRank, 5 * (byId.get(id).row - 1)]), tree.id);
+      // Independent closure and lower bound: every row r holding a needed talent needs 5 x (r - 1) earlier points, and extra points can
+      // only add to those counts, so the largest shortfall is a lower bound; an allocation that reaches it is the minimum.
+      const needed = new Set(expected);
+      for (const id of expected) for (let p = byId.get(id).requires; p; p = byId.get(p).requires) needed.add(p);
+      const points = ids => ids.reduce((s, id) => s + byId.get(id).maxRank, 0), total = points([...needed]);
+      const shortfall = Math.max(0, ...[...needed].map(id => byId.get(id).row).map(r => 5 * (r - 1) - points([...needed].filter(id => byId.get(id).row < r))));
+      assert.equal(t.statPoints, points(expected), tree.id); assert.equal(t.prerequisitePoints, total - t.statPoints, tree.id);
+      assert.deepEqual(t.prerequisites.map(p => p.id), [...needed].filter(id => !expected.includes(id)).sort((a, b) => tree.talents.findIndex(x => x.id === a) - tree.talents.findIndex(x => x.id === b)), tree.id);
+      assert.equal(t.legal, true, tree.id); assert.equal(t.minimum, total + shortfall, tree.id); assert.equal(t.fillerPoints, t.minimum - total, tree.id);
+      assert.equal(t.reachable, t.minimum <= 51, tree.id); assert.equal(t.witnessRanks.reduce((a, b) => a + b, 0), t.minimum, tree.id);
+      const verdict = C.validateBuild(data, { className: cls.id, level: 60, ranks: t.witnessRanks });
+      assert.ok(verdict.ok, tree.id + ': ' + verdict.error); assert.deepEqual(verdict.treePoints.map((p, k) => k === i ? p : 0), verdict.treePoints, tree.id);
+      for (const id of needed) assert.equal(t.witnessRanks[all.findIndex(x => x.id === id)], byId.get(id).maxRank, id);
+      assert.deepEqual(t.upperRanks, all.map(x => expected.includes(x.id) ? x.maxRank : 0), tree.id);
+    }
+  }
+  assert.equal(trees, 27);
+  // Hand-checked against data.json: Holy needs Holy Shock (Divine Precision's prerequisite) and 25 points below Holy Power's row 6.
+  const pick = (cls, tree) => S.specOverview(model, cls).find(t => t.id === tree), fields = t => [t.talents.length, t.statPoints, t.prerequisites.map(p => p.name), t.prerequisitePoints, t.fillerPoints, t.minimum, t.reachable];
+  assert.deepEqual(fields(pick('paladin', 'holy')), [6, 24, ['Holy Shock'], 1, 5, 30, true]);
+  assert.deepEqual(fields(pick('warrior', 'protection')), [3, 15, [], 0, 15, 30, true]);
+  assert.deepEqual(fields(pick('mage', 'frost')), [4, 15, [], 0, 0, 15, true]);
+  assert.deepEqual(fields(pick('shaman', 'enhancement')), [9, 32, [], 0, 0, 32, true]);
+  // Retribution: Vengeance (row 5) needs 20 earlier points while only 16 are fixed below it, so 4 extra points, not the 3 that Champion of the Light's row 6 alone would need.
+  assert.deepEqual(fields(pick('paladin', 'retribution')), [6, 22, ['Sanctified Judgement'], 3, 4, 29, true]);
+  assert.ok(pick('shaman', 'enhancement').talents.some(t => t.id === SPIRIT_WEAPONS));
+});
+check('.196 tree check fails closed on synthetic trees: too few lower-row points is not legal, more than 51 points is not reachable, prerequisites and lowest-row filler are exact', () => {
+  const t = (id, row, column, maxRank, requires = null) => ({ id, name: id, row, column, maxRank, requires });
+  const thin = S.treeRequirement({ talents: [t('a', 1, 1, 2), t('b', 3, 1, 5)] }, ['b']);
+  assert.deepEqual([thin.legal, thin.minimum, thin.fillerPoints, thin.reachable], [false, null, null, false]);
+  const heavy = S.treeRequirement({ talents: [1, 2, 3, 4, 5, 6].map(row => t('r' + row, row, 1, 9)) }, ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']);
+  assert.deepEqual([heavy.legal, heavy.statPoints, heavy.fillerPoints, heavy.minimum, heavy.reachable], [true, 54, 0, 54, false]);
+  // c (row 3) needs p (row 2) at maximum rank: p needs 5 points in row 1 and c needs 10 below it, so 7 filler points go to row 1.
+  const chain = S.treeRequirement({ talents: [t('f1', 1, 1, 5), t('f2', 1, 2, 5), t('p', 2, 1, 3), t('c', 3, 1, 1, 'p')] }, ['c']);
+  assert.deepEqual([chain.statPoints, chain.prerequisites.map(p => p.id), chain.prerequisitePoints, chain.fillerPoints, chain.minimum, chain.reachable], [1, ['p'], 3, 7, 11, true]);
+  assert.deepEqual(['f1', 'f2', 'p', 'c'].map(id => chain.ranks.get(id)), [5, 2, 3, 1]);
+  // A filler talent with a prerequisite is used only after that prerequisite is at maximum rank.
+  const locked = S.treeRequirement({ talents: [t('q', 1, 2, 2), t('d', 1, 1, 5, 'q'), t('top', 2, 1, 1)] }, ['top']);
+  assert.deepEqual(['q', 'd', 'top'].map(id => locked.ranks.get(id)), [2, 3, 1]); assert.equal(locked.minimum, 6);
+  const none = S.treeRequirement({ talents: [t('a', 1, 1, 3)] }, []); assert.deepEqual([none.minimum, none.reachable, none.statPoints], [0, true, 0]);
+  // The budget boundary itself: exactly 51 points is reachable, 52 is not (no real tree needs exactly 51 in this snapshot).
+  assert.equal(S.pointsAt60, 51);
+  const edge = S.treeRequirement({ talents: [t('x', 1, 1, 51)] }, ['x']), over = S.treeRequirement({ talents: [t('x', 1, 1, 52)] }, ['x']);
+  assert.deepEqual([edge.legal, edge.minimum, edge.reachable, over.legal, over.minimum, over.reachable], [true, 51, true, true, 52, false]);
+  // The same boundary reached through filler points: a row-5 talent needs 20 earlier points, so 31 + 20 filler = 51.
+  const filled = S.treeRequirement({ talents: [t('f', 1, 1, 25), t('top', 5, 1, 31)] }, ['top']), overFilled = S.treeRequirement({ talents: [t('f', 1, 1, 25), t('top', 5, 1, 32)] }, ['top']);
+  assert.deepEqual([filled.fillerPoints, filled.minimum, filled.reachable, overFilled.minimum, overFilled.reachable], [20, 51, true, 52, false]);
+});
+check('.196 tree upper bound: one tree\'s stat talents at maximum rank through the sheet evaluator, labelled beside the checked guide builds of that tree', () => {
+  const pal = S.specComparison(model, { className: 'paladin', race: 'human', guides: guidesFor('paladin') }), [holy, prot, ret] = pal.trees, total = (o, id) => o.sheets.total[id];
+  assert.equal(pal.race, 'human'); assert.deepEqual(pal.trees.map(t => Array.from(t.guides, g => g.id)), [[], [], ['paladin-method-1']]);
+  assert.ok(close(total(holy.outcome, 'str').value, 115.5)); assert.equal(total(holy.outcome, 'int').value, 77); assert.equal(total(holy.outcome, 'mana').value, 2387); assert.equal(total(holy.outcome, 'int').grade, 'E');
+  assert.equal(total(holy.outcome, 'regenCasting').value, 30); assert.equal(total(holy.outcome, 'regenCasting').grade, 'A');
+  assert.equal(total(prot.outcome, 'hitMelee').value, 3); assert.equal(total(prot.outcome, 'hitMelee').grade, 'A'); assert.equal(total(prot.outcome, 'defense').value, 320); assert.equal(total(prot.outcome, 'health').value, 2241);
+  assert.equal(total(ret.outcome, 'parry').value, 10); assert.ok(close(total(ret.outcome, 'meleeCrit').value, 10.25)); assert.ok(close(total(ret.outcome, 'spellDamage').value, 21));
+  // The bound is the same evaluation as those ranks on the sheet.
+  for (const tree of pal.trees) { const direct = S.evaluate(model, { className: 'paladin', race: 'human', ranks: tree.upperRanks, totalsOnly: true }); for (const spec of pal.specs) assert.deepEqual(total(tree.outcome, spec.id), direct.sheets.total[spec.id], tree.id + ' ' + spec.id); }
+  const spec = id => pal.specs.find(s => s.id === id);
+  assert.deepEqual(S.compareText(total(prot.outcome, 'hitMelee'), total(pal.none, 'hitMelee'), spec('hitMelee')), { text: '3% (+3 pp)', grade: 'A', change: { text: '+3 pp', grade: 'A' } });
+  assert.deepEqual(S.compareText(total(holy.outcome, 'int'), total(pal.none, 'int'), spec('int')), { text: '77 (+7)', grade: 'E', change: { text: '+7', grade: 'E' } });
+  assert.deepEqual(S.compareText(total(pal.none, 'agi'), total(pal.none, 'agi'), spec('agi')), { text: '65', grade: 'E', change: { text: '—', grade: null } });
+  // Unavailable totals: the change stays in modifier terms with the modifier grade (E once two talents stack), never a number on a missing base.
+  const sky = S.specComparison(model, { className: 'druid', race: 'skyborne-windshaper' }), feral = sky.trees[1], sspec = id => sky.specs.find(s => s.id === id);
+  assert.equal(total(feral.outcome, 'int').value, null); assert.equal(total(feral.outcome, 'int').grade, 'U');
+  assert.deepEqual(S.compareText(total(feral.outcome, 'int'), total(sky.none, 'int'), sspec('int')), { text: 'Unavailable (+10% (modifier; total unavailable))', grade: 'U', change: { text: '+10% (modifier; total unavailable)', grade: 'A' } });
+  assert.deepEqual(S.compareText(total(feral.outcome, 'dodge'), total(sky.none, 'dodge'), sspec('dodge')).change, { text: '+9 pp (modifier; total unavailable)', grade: 'E' });
+  // Spirit Weapons is part of the Enhancement bound, so Shaman parry becomes Unavailable there instead of a guess.
+  const sham = S.specComparison(model, { className: 'shaman', race: 'orc' });
+  assert.deepEqual(S.compareText(total(sham.trees[1].outcome, 'parry'), total(sham.none, 'parry'), sham.specs.find(s => s.id === 'parry')), { text: 'Unavailable (change Unavailable)', grade: 'U', change: { text: 'Unavailable', grade: 'U' } });
+  // Assumptions are honoured: with a hypothetical shield, the Protection bound adds Shield Specialization and Anticipation's defense.
+  const shield = S.specComparison(model, { className: 'warrior', race: 'human', toggles: { shield: true } });
+  assert.deepEqual(S.compareText(total(shield.trees[2].outcome, 'block'), total(shield.none, 'block'), shield.specs.find(s => s.id === 'block')), { text: '10.8% (+5.8 pp)', grade: 'E', change: { text: '+5.8 pp', grade: 'E' } });
+  assert.throws(() => S.specComparison(model, { className: 'monk' }), /Unknown character class/);
+  // A guide build stands beside every tree that holds most of its points (both on a tie); an empty, foreign or malformed one beside none.
+  const warrior = talentsOf('warrior'), arms = data.classes.find(c => c.id === 'warrior').trees[0].talents.length, at = (index, rank) => warrior.map((_, i) => i === index ? rank : 0);
+  const fake = (id, ranks, className = 'warrior') => ({ id, label: id, build: { className, ranks } });
+  const tie = at(0, 3).map((r, i) => i === arms ? 3 : r), placed = S.specOverview(model, 'warrior', [fake('tie', tie), fake('arms', at(0, 3)), fake('empty', at(0, 0)), fake('short', [1]), fake('mage', at(0, 3), 'mage'), null]);
+  assert.deepEqual(placed.map(t => Array.from(t.guides, g => [g.id, g.tied])), [[['tie', true], ['arms', false]], [['tie', true]], []]);
+});
+check('.196 all classes: one naked row per class for the race, equal to the sheet\'s no-talent totals; Unavailable stays U and absent classes are marked', () => {
+  const human = S.classTable(model, 'human');
+  assert.deepEqual(human.rows.map(r => r.className), ['warrior', 'paladin', 'hunter', 'rogue', 'priest', 'shaman', 'mage', 'warlock', 'druid']);
+  assert.deepEqual(human.rows.filter(r => !r.available).map(r => r.className), ['shaman', 'druid']); assert.ok(human.rows.filter(r => !r.available).every(r => r.cells === null && r.grade === null));
+  assert.equal(S.classColumns.length, 18);
+  for (const race of Object.keys(naked.races)) for (const r of S.classTable(model, race).rows.filter(x => x.available)) {
+    const sheet = S.evaluate(model, { className: r.className, race, ranks: ranksFor(r.className, []) });
+    assert.equal(r.grade, sheet.combo.baseStats.grade);
+    for (const col of S.classColumns) {
+      const entry = r.cells[col.id], sheetRow = row(sheet, col.id);
+      if (!sheetRow) { assert.equal(entry, null, race + ' ' + r.className + ' ' + col.id); continue; }
+      assert.deepEqual(S.cellText(entry.cell, entry.spec), S.cellText(sheetRow.total, sheetRow), race + ' ' + r.className + ' ' + col.id);
+    }
+  }
+  const cell = (table, cls, id) => { const r = table.rows.find(x => x.className === cls), e = r.cells[id]; return e ? S.cellText(e.cell, e.spec) : null; };
+  assert.deepEqual(cell(human, 'paladin', 'health'), { text: '2201', grade: 'E' }); assert.deepEqual(cell(human, 'paladin', 'mana'), { text: '2282', grade: 'E' });
+  assert.deepEqual(cell(human, 'paladin', 'meleeCrit'), { text: '5.25%', grade: 'E' }); assert.equal(cell(human, 'warrior', 'mana'), null); assert.deepEqual(cell(human, 'rogue', 'power'), { text: '100', grade: 'E' });
+  assert.deepEqual(cell(human, 'mage', 'block'), { text: 'n/a', grade: null }); assert.deepEqual(cell(human, 'hunter', 'str'), { text: '55', grade: 'D' });
+  assert.deepEqual(cell(S.classTable(model, 'tauren'), 'warrior', 'health'), { text: '2760', grade: 'E' });
+  const sky = S.classTable(model, 'skyborne-high-order');
+  assert.deepEqual(sky.rows.filter(r => r.available).map(r => r.className), ['warrior', 'hunter', 'rogue', 'mage', 'druid']);
+  for (const r of sky.rows.filter(x => x.available)) {
+    assert.equal(r.grade, 'U');
+    for (const id of ['str', 'agi', 'sta', 'int', 'spi', 'health', 'armor', 'meleeAP', 'rangedAP', 'meleeCrit', 'spellCrit', 'dodge']) { assert.deepEqual(cell(sky, r.className, id), { text: 'Unavailable', grade: 'U' }, r.className + ' ' + id); assert.equal(r.cells[id].cell.value, null); }
+  }
+  assert.throws(() => S.classTable(model, 'pandaren'), /Unknown race/); assert.throws(() => S.classTable(model, 'constructor'), /Unknown race/);
+});
+check('.196 stat impact: every stat component of every class, at maximum rank and alone, with exact modifiers, graded sheet changes and modifier terms on Unavailable bases', () => {
+  for (const cls of data.classes) {
+    const result = S.impactRows(model, { className: cls.id, race: S.combosFor(model, cls.id)[0].race }), comps = effects.components.filter(c => c.cls === cls.id);
+    assert.deepEqual(result.rows.map(r => r.id).sort(), [...comps.map(c => c.id), ...(cls.id === 'shaman' ? [SPIRIT_WEAPONS + '#parry_grant'] : [])].sort(), cls.id);
+    for (const r of result.rows) {
+      const tree = cls.trees[r.treeIndex], talent = tree.talents.find(t => t.id === r.talentId), comp = comps.find(c => c.id === r.id); assert.ok(talent, r.id); assert.equal(r.row, talent.row); assert.equal(r.pointsNeeded, 5 * (talent.row - 1)); assert.equal(r.tree, tree.name);
+      // Grade and maximum rank come from the data: the six B components stay B, and the parry grant is U.
+      assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp ? comp.grade : 'U', r.id);
+    }
+  }
+  const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows, find = (rows, id) => rows.find(r => r.id === id);
+  const di = find(pal, 'paladin-holy-divine-intellect#intellect_pct');
+  assert.deepEqual([di.tree, di.row, di.pointsNeeded, di.requires, di.stat, di.group, di.kind, di.perRank, di.atMax, di.maxValue, di.sortValue, di.grade], ['Holy', 1, 0, null, 'Intellect', 'applied', 'Added to the sheet', '2 / 4 / 6 / 8 / 10%', '+10% Intellect (total)', 10, 7, 'A']);
+  assert.deepEqual(di.effects.map(e => [e.label, e.text, e.grade]), [['Intellect', '+7', 'E'], ['Mana', '+105', 'E'], ['Spell crit %', '+0.13 pp (both candidates)', 'E']]);
+  const anticipation = find(pal, 'paladin-protection-anticipation#defense_skill');
+  assert.deepEqual(anticipation.effects.map(e => [e.label, e.text, e.grade]), [['Dodge %', '+0.8 pp', 'E'], ['Parry %', '+0.8 pp', 'E'], ['Defense skill', '+20', 'A']]); assert.equal(anticipation.sortValue, 20);
+  const precision = find(pal, 'paladin-holy-divine-precision#spell_school_hit_chance');
+  assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['scoped', 'Holy Shock', 0, null, ['for Holy spells']]);
+  const vigor = find(S.impactRows(model, { className: 'rogue', race: 'gnome' }).rows, 'rogue-assassination-vigor#max_energy');
+  assert.deepEqual(vigor.effects.map(e => [e.label, e.text, e.grade, e.value]), [['Maximum energy', '+10 (modifier)', 'A', 10], ['Maximum energy on the sheet', '+11 after percentage bonuses and Classic rounding', 'E', 11]]);
+  assert.deepEqual([vigor.perRank, vigor.atMax, vigor.sortValue], ['5 / 10 energy', '+10 maximum energy', 10]);
+  const elf = S.impactRows(model, { className: 'druid', race: 'night-elf' }).rows, bear = find(elf, 'druid-feral-combat-heart-of-the-wild#stamina_pct_bear');
+  assert.deepEqual([bear.group, bear.kind, bear.conditions], ['conditional', 'Conditional: added only when its assumption is on', ['in Bear Form or Dire Bear Form']]);
+  assert.deepEqual(bear.effects.map(e => [e.label, e.text, e.grade]), [['Stamina', '+13.8', 'E'], ['Health', '+138', 'E']]);
+  const skyHotw = find(S.impactRows(model, { className: 'druid', race: 'skyborne-windshaper' }).rows, 'druid-feral-combat-heart-of-the-wild#intellect_pct');
+  assert.deepEqual(skyHotw.effects.map(e => [e.label, e.text, e.grade]), [['Intellect', '+10% (modifier; total unavailable)', 'A'], ['2 dependent totals', 'Unavailable (no base values)', 'U']]); assert.equal(skyHotw.sortValue, null);
+  const grant = find(S.impactRows(model, { className: 'shaman', race: 'orc' }).rows, SPIRIT_WEAPONS + '#parry_grant');
+  assert.deepEqual([grant.grade, grant.tree, grant.effects.map(e => [e.row, e.text, e.grade])], ['U', 'Enhancement', [['parry', 'Unavailable (value not published)', 'U']]]);
+  const shield = find(S.impactRows(model, { className: 'warrior', race: 'human', toggles: { shield: true } }).rows, 'warrior-protection-shield-specialization#block_chance');
+  assert.deepEqual([shield.group, shield.kind, shield.effects.map(e => e.text)], ['applied', 'Added to the sheet (your assumption is on)', ['+5 pp']]);
+  assert.equal(find(S.impactRows(model, { className: 'warrior', race: 'human' }).rows, 'warrior-protection-shield-specialization#block_chance').group, 'gear');
+  // A changed rank text withholds its number here too.
+  const changed = clone(data); changed.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-holy-divine-intellect').descriptions[4] = 'Increases your total Intellect by 99%.';
+  const withheld = find(S.impactRows(S.prepare(changed, naked, effects), { className: 'paladin', race: 'human' }).rows, 'paladin-holy-divine-intellect#intellect_pct');
+  assert.deepEqual([withheld.group, withheld.maxValue, withheld.effects.length, withheld.sortValue], ['withheld', null, 0, null]);
+});
+check('.196 sorting is stable, keeps missing values last in both directions and orders disputed values by their lowest candidate', () => {
+  const items = [{ k: 3, n: 'a' }, { k: null, n: 'b' }, { k: 1, n: 'c' }, { k: 3, n: 'd' }, { k: undefined, n: 'e' }, { k: 2, n: 'f' }, { k: NaN, n: 'g' }];
+  assert.deepEqual(S.sortRows(items, i => i.k, 'ascending').map(i => i.n), ['c', 'f', 'a', 'd', 'b', 'e', 'g']);
+  assert.deepEqual(S.sortRows(items, i => i.k, 'descending').map(i => i.n), ['a', 'd', 'f', 'c', 'b', 'e', 'g']);
+  assert.deepEqual(S.sortRows(['Warrior', 'Druid', 'Mage'], s => s, 'ascending'), ['Druid', 'Mage', 'Warrior']); assert.deepEqual(items.map(i => i.n).join(''), 'abcdefg');
+  const human = S.classTable(model, 'human'), r = id => human.rows.find(x => x.className === id);
+  assert.equal(S.classSortValue(r('paladin'), 'rangedAP'), 0); assert.equal(S.classSortValue(r('paladin'), 'class'), 'Paladin'); assert.equal(S.classSortValue(r('mage'), 'block'), null);
+  assert.equal(S.classSortValue(r('druid'), 'health'), null); assert.equal(S.classSortValue(r('warrior'), 'mana'), null); assert.equal(S.classSortValue(r('warrior'), 'spellCrit'), null);
+  const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows;
+  assert.deepEqual(S.sortRows(pal, x => S.impactSortValue(x, 'change'), 'descending').slice(0, 5).map(x => x.talentId), ['paladin-holy-reverence', 'paladin-retribution-champion-of-the-light', 'paladin-protection-anticipation', 'paladin-holy-divine-strength', 'paladin-holy-divine-intellect']);
+  assert.deepEqual(S.sortRows(pal, x => S.impactSortValue(x, 'tree'), 'ascending').map(x => x.id), [...pal].sort((a, b) => a.treeIndex - b.treeIndex || a.index - b.index || pal.indexOf(a) - pal.indexOf(b)).map(x => x.id));
+  assert.equal(S.impactSortValue(pal[0], 'grade'), 5); assert.equal(S.impactSortValue(pal[0], 'nonsense'), null);
+});
+
+const sectionTables = host => ({ check: byClass(host, 's60-tree-check')[0], specs: byClass(host, 's60-specs')[0], trees: byClass(host, 's60-tree-talents'), impact: byClass(host, 's60-impact')[0], classes: byClass(host, 's60-classes')[0] });
+const bodyRows = table => table.all(n => n.tagName === 'TBODY')[0].children;
+const sortButton = (table, label) => table.all(n => n.tagName === 'BUTTON' && n.children[0].textContent === label)[0];
+check('.196 the three views render captioned tables with scoped headers, labelled focusable scroll regions, native sort buttons and no style attribute', async () => {
+  const document = makeDocument(), host = document.createElement('div'), guides = guidesFor('warlock');
+  const ui = S.mount(host, { data, build: C.emptyBuild(data, 'warlock', 60), naked, effects, guides }); assert.equal(await ui.ready, true);
+  const headings = host.all(n => n.tagName === 'H3').map(n => n.textContent);
+  assert.deepEqual(headings.slice(-3), ['Compare specs', 'Stat impact by talent', 'All classes']); assert.ok(headings.indexOf('Compare specs') > headings.indexOf('Spec comparison'));
+  const t = sectionTables(host);
+  assert.equal(t.trees.length, 3);
+  for (const table of [t.check, t.specs, ...t.trees, t.impact, t.classes]) {
+    assert.equal(table.tagName, 'TABLE'); assert.equal(table.getAttribute('role'), 'table'); assert.equal(table.children[0].tagName, 'CAPTION'); assert.ok(table.children[0].textContent.length > 20, table.className);
+    const ths = table.all(n => n.tagName === 'TH'); assert.ok(ths.length > 3 && ths.every(th => ['col', 'row'].includes(th.getAttribute('scope'))), table.className);
+  }
+  for (const table of [t.impact, t.classes]) {
+    const wrap = table.parentNode; assert.equal(wrap.className, 'table-wrap'); assert.equal(wrap.getAttribute('role'), 'region'); assert.equal(wrap.getAttribute('tabindex'), '0'); assert.match(wrap.getAttribute('aria-label'), /, scrollable table$/);
+    const sortable = table.all(n => n.tagName === 'TH' && n.getAttribute('aria-sort') !== null);
+    assert.ok(sortable.length >= 6); assert.equal(sortable.filter(th => th.getAttribute('aria-sort') === 'ascending').length, 1); assert.ok(sortable.every(th => ['ascending', 'none'].includes(th.getAttribute('aria-sort'))));
+    assert.ok(sortable.every(th => th.children.length === 1 && th.children[0].tagName === 'BUTTON' && th.children[0].getAttribute('type') === 'button' && th.children[0].getAttribute('tabindex') === null && !th.children[0].disabled));
+    assert.ok(sortable.every(th => th.children[0].all(n => n.getAttribute('aria-hidden') === 'true').length === 1));
+  }
+  for (const table of [t.check, t.specs, ...t.trees]) assert.equal(table.parentNode.className, 's60-table-wrap');
+  // Warlock: one checked guide build per tree, each beside its tree; no guide column for the current build.
+  const heads = t.specs.all(n => n.tagName === 'THEAD')[0].all(n => n.tagName === 'TH'), headLabel = th => th.children.length ? th.children[0].textContent : th.textContent;
+  assert.deepEqual(heads.map(headLabel), ['Stat', 'No talents', 'Affliction: upper bound', guides[0].label, 'Demonology: upper bound', guides[1].label, 'Destruction: upper bound', guides[2].label]);
+  // Short column notes keep narrow columns readable; the caption and the paragraph above carry the full honesty wording.
+  assert.ok(heads.filter(th => headLabel(th).endsWith('upper bound')).every(th => /^All \d+ stat talents at maximum rank, \d+ points; reachable, minimum legal total \d+\. Not a build\.$/.test(byClass(th, 's60-row-note')[0].textContent)));
+  assert.match(t.specs.children[0].textContent, /\(an upper bound only, not a recommended or checked build\)/);
+  assert.deepEqual(bodyRows(t.check).map(tr => tr.children[7].textContent), Array.from(guides, g => g.label));
+  assert.deepEqual(bodyRows(t.check).map(tr => tr.children[6].textContent), ['Yes', 'Yes', 'Yes']);
+  // Guide columns use the same rule and values as the existing spec comparison table.
+  const compareRows = byClass(host, 's60-compare')[0].all(n => n.tagName === 'TBODY')[0].children;
+  for (const tr of bodyRows(t.specs)) { const id = tr.getAttribute('data-spec-row'), same = compareRows.find(x => x.children[0].textContent === tr.children[0].textContent); assert.ok(id && same, id); [3, 5, 7].forEach((col, g) => assert.equal(tr.children[col].textContent, same.children[3 + g].textContent, id)); }
+  const rootText = byClass(host, 'talents-stats60')[0].textContent;
+  assert.match(rootText, /in-game measurement protocol: not started/); assert.match(rootText, /not a recommended, checked or complete build/); assert.match(rootText, /A reachability check, not a recommendation\./);
+  assert.ok(host.all(() => true).every(n => !('style' in n.attributes)));
+  const textNodes = node => node.childNodes.flatMap(child => child instanceof FakeText ? [child] : textNodes(child));
+  assert.ok(textNodes(host).every(x => x.data !== 'null' && x.data !== 'undefined' && !/NaN|\[object/.test(x.data)));
+  ui.destroy();
+});
+check('.196 sort buttons (keyboard-operable native buttons) reorder the same rows, flip direction on a second activation and keep aria-sort on one header', async () => {
+  const document = makeDocument(), host = document.createElement('div'), ui = S.mount(host, { data, build: C.emptyBuild(data, 'paladin', 60), naked, effects }); await ui.ready;
+  const { classes, impact } = sectionTables(host), order = () => bodyRows(classes).map(tr => tr.getAttribute('data-class'));
+  assert.deepEqual(order(), ['druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior']);
+  assert.equal(bodyRows(classes).find(tr => tr.getAttribute('data-class') === 'shaman').children[1].textContent, 'Not available for this race');
+  assert.equal(bodyRows(classes).find(tr => tr.getAttribute('data-class') === 'shaman').children[1].getAttribute('colspan'), '18');
+  const before = new Set(bodyRows(classes)), health = sortButton(classes, 'Health');
+  health.focus(); assert.equal(document.activeElement, health); health.click();
+  assert.equal(health.parentNode.getAttribute('aria-sort'), 'ascending'); assert.equal(sortButton(classes, 'Class').parentNode.getAttribute('aria-sort'), 'none'); assert.equal(health.children[1].textContent, '▲');
+  // Classes the race cannot be have no value and stay last, in the standard class order.
+  assert.deepEqual(order(), ['mage', 'priest', 'warlock', 'rogue', 'hunter', 'paladin', 'warrior', 'shaman', 'druid']);
+  health.click(); assert.equal(health.parentNode.getAttribute('aria-sort'), 'descending'); assert.equal(health.children[1].textContent, '▼');
+  assert.deepEqual(order(), ['warrior', 'paladin', 'hunter', 'rogue', 'warlock', 'priest', 'mage', 'shaman', 'druid']);
+  assert.ok(bodyRows(classes).every(tr => before.has(tr)) && bodyRows(classes).length === 9);
+  assert.equal(classes.all(n => ['ascending', 'descending'].includes(n.getAttribute('aria-sort'))).length, 1);
+  const change = sortButton(impact, 'Change on the sheet, alone'); change.click(); change.click();
+  assert.deepEqual(bodyRows(impact).slice(0, 3).map(tr => tr.getAttribute('data-component')), ['paladin-holy-reverence#mana_regen_while_casting', 'paladin-retribution-champion-of-the-light#spell_damage_from_intellect', 'paladin-protection-anticipation#defense_skill']);
+  assert.equal(bodyRows(impact).at(-1).children[6].textContent, 'Not added to the sheet');
+  assert.equal(sortButton(impact, 'Tree').parentNode.getAttribute('aria-sort'), 'none');
+  sortButton(impact, 'Talent').click(); assert.equal(bodyRows(impact)[0].children[0].textContent, 'Anticipation');
+  ui.destroy();
+});
+check('.196 views follow race and assumption changes, keep their nodes across point edits, and the all-classes race is independent of the sheet race', async () => {
+  const document = makeDocument(), host = document.createElement('div'), guides = guidesFor('warrior');
+  const ui = S.mount(host, { data, build: C.emptyBuild(data, 'warrior', 60), naked, effects, guides }); await ui.ready;
+  let t = sectionTables(host);
+  const firstImpact = bodyRows(t.impact)[0], firstTree = bodyRows(t.trees[0])[0], firstClass = bodyRows(t.classes)[0], specCell = bodyRows(t.specs)[0].children[1];
+  assert.ok(firstImpact && firstTree && firstClass && specCell); // node identity below must not pass on undefined === undefined
+  ui.update(legalBuild('warrior', [['warrior-protection-shield-specialization', 5]])); ui.update(guides[0].build);
+  assert.equal(bodyRows(t.impact)[0], firstImpact); assert.equal(bodyRows(t.trees[0])[0], firstTree); assert.equal(bodyRows(t.classes)[0], firstClass); assert.equal(bodyRows(t.specs)[0].children[1], specCell);
+  assert.match(t.specs.children[0].textContent, /^Level 60 Human Warrior, no gear, nothing active/);
+  const race = host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === 'Race')[0]; race.value = 'skyborne-high-order'; race.dispatch('change');
+  assert.match(t.specs.children[0].textContent, /^Level 60 Skyborne \(High Order\) Warrior/); assert.notEqual(bodyRows(t.impact)[0], firstImpact); assert.equal(bodyRows(t.classes)[0], firstClass);
+  const strength = bodyRows(t.specs).find(tr => tr.getAttribute('data-spec-row') === 'str');
+  assert.ok(strength.children.slice(1).every(td => /^Unavailable/.test(td.children[0].textContent) && td.all(n => n.tagName === 'ABBR')[0].textContent === 'U'));
+  const parry = bodyRows(t.specs).find(tr => tr.getAttribute('data-spec-row') === 'parry'); assert.equal(parry.children[2].children[0].textContent, '10% (+5 pp)');
+  const shield = host.all(n => n.tagName === 'INPUT' && n.getAttribute('type') === 'checkbox')[0]; shield.checked = true; shield.dispatch('change');
+  assert.match(t.specs.children[0].textContent, /with your hypothetical assumptions/);
+  const spec = bodyRows(t.impact).find(tr => tr.getAttribute('data-component') === 'warrior-protection-shield-specialization#block_chance'); assert.equal(spec.children[3].textContent, 'Added to the sheet (your assumption is on)');
+  // The all-classes race has its own control; changing it leaves the sheet race alone.
+  const allRace = host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === 'Race for the all-classes table')[0];
+  assert.equal(allRace.value, 'human'); assert.equal(allRace.children.length, 10); assert.equal(allRace.parentNode.children[0].textContent, 'Race for the all-classes table');
+  allRace.value = 'tauren'; allRace.dispatch('change');
+  assert.match(t.classes.children[0].textContent, /^Level 60 Tauren, every class/); assert.equal(race.value, 'skyborne-high-order');
+  const warrior = bodyRows(t.classes).find(tr => tr.getAttribute('data-class') === 'warrior'); assert.equal(warrior.children[6].children[0].textContent, '2760'); assert.equal(warrior.children[6].all(n => n.tagName === 'ABBR')[0].textContent, 'E');
+  assert.ok(warrior.children[6].className.includes('s60-ref'));
+  allRace.value = 'skyborne-windshaper'; allRace.dispatch('change');
+  for (const tr of bodyRows(t.classes).filter(x => x.children.length > 2)) { assert.equal(tr.children[1].children[0].textContent, 'Unavailable'); assert.equal(tr.children[1].all(n => n.tagName === 'ABBR')[0].textContent, 'U'); assert.ok(tr.children[1].className.includes('s60-unavailable')); }
+  assert.deepEqual(bodyRows(t.classes).filter(x => x.children.length === 2).map(tr => tr.getAttribute('data-class')), ['mage', 'paladin', 'priest', 'warlock']);
+  // A class change rebuilds the views but keeps the all-classes race and the sort orders.
+  sortButton(t.classes, 'Health').click();
+  ui.update(C.emptyBuild(data, 'priest', 60)); t = sectionTables(host);
+  assert.equal(host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === 'Race for the all-classes table')[0].value, 'skyborne-windshaper');
+  assert.equal(sortButton(t.classes, 'Health').parentNode.getAttribute('aria-sort'), 'ascending');
+  assert.deepEqual(bodyRows(t.check).map(tr => tr.children[7].textContent), ['None in this snapshot', 'None in this snapshot', 'None in this snapshot']);
+  assert.ok(t.specs.all(n => n.tagName === 'THEAD')[0].all(n => n.tagName === 'TH').filter(th => /upper bound/.test(th.textContent)).every(th => /No checked guide build for this tree\./.test(th.textContent)));
+  ui.destroy();
+});
+check('.196 a Skyborne upper bound shows the change in modifier terms with its own grade in the cell note, and the views request nothing beyond the two data files', async () => {
+  const document = makeDocument(), host = document.createElement('div'), urls = [];
+  const ui = S.mount(host, { data, build: C.emptyBuild(data, 'druid', 60), fetch: sheetFetch(urls), guides: guidesFor('druid') }); assert.equal(await ui.ready, true);
+  const race = host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === 'Race')[0]; race.value = 'skyborne-windshaper'; race.dispatch('change');
+  const { specs, impact, classes } = sectionTables(host), feralColumn = specs.all(n => n.tagName === 'THEAD')[0].children[0].children.findIndex(th => th.textContent.startsWith('Feral Combat: upper bound'));
+  const cellOf = id => bodyRows(specs).find(tr => tr.getAttribute('data-spec-row') === id).children[feralColumn];
+  assert.equal(cellOf('int').children[0].textContent, 'Unavailable (+10% (modifier; total unavailable))'); assert.equal(cellOf('int').all(n => n.tagName === 'ABBR')[0].textContent, 'U');
+  assert.equal(byClass(cellOf('int'), 's60-cell-note')[0].textContent, 'Change in modifier terms: grade A'); assert.equal(byClass(cellOf('dodge'), 's60-cell-note')[0].textContent, 'Change in modifier terms: grade E');
+  const hotw = bodyRows(impact).find(tr => tr.getAttribute('data-component') === 'druid-feral-combat-heart-of-the-wild#intellect_pct');
+  assert.match(hotw.children[6].textContent, /^Intellect \+10% \(modifier; total unavailable\) A2 dependent totals Unavailable \(no base values\) U$/);
+  sortButton(classes, 'Spell crit %').click(); sortButton(impact, 'Data grade').click();
+  const allRace = host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === 'Race for the all-classes table')[0]; allRace.value = 'gnome'; allRace.dispatch('change');
+  assert.deepEqual([...new Set(urls)].sort(), ['/static/talents/naked60-186.json', '/static/talents/stat-effects186.json']); assert.equal(urls.length, 2);
+  ui.destroy();
+});
+
+// .196 review fixes: the rendered views are compared with the data, not only with the renderer's own helpers.
+const selectNamed = (host, label) => host.all(n => n.tagName === 'SELECT' && n.getAttribute('aria-label') === label)[0];
+const badgeOf = td => td.all(n => n.tagName === 'ABBR')[0];
+const headCells = table => table.all(n => n.tagName === 'THEAD')[0].all(n => n.tagName === 'TH');
+const mountFresh = async (cls, extra = {}) => { const document = makeDocument(), host = document.createElement('div'), ui = S.mount(host, { data, build: C.emptyBuild(data, cls, 60), naked, effects, ...extra }); assert.equal(await ui.ready, true); return { document, host, ui, t: sectionTables(host) }; };
+// One read-only mount per class with its checked guide builds and default race; checks that click or switch use mountFresh.
+let sharedMounts = null;
+const classMounts = () => sharedMounts ||= Promise.all(data.classes.map(async cls => { const m = await mountFresh(cls.id, { guides: guidesFor(cls.id) }); return { cls, ...m, race: selectNamed(m.host, 'Race').value }; }));
+check('.196 each tree table lists exactly that tree\'s stat components in talent order, with row, requirement, rank and grade from the data, for all nine classes', async () => {
+  let total = 0, bGrades = 0;
+  for (const { cls, t } of await classMounts()) {
+    const overview = S.specOverview(model, cls.id);
+    cls.trees.forEach((tree, i) => {
+      const trs = bodyRows(t.trees[i]), ids = trs.map(tr => tr.getAttribute('data-component'));
+      // Expected from the stat file and data.json alone: every component of the tree's talents in talent order, plus the parry grant.
+      const expected = tree.talents.flatMap(tal => [...effects.components.filter(c => c.cls === cls.id && c.talentId === tal.id).map(c => c.id), ...(tal.id === SPIRIT_WEAPONS ? [SPIRIT_WEAPONS + '#parry_grant'] : [])]);
+      assert.ok(trs.length > 0, tree.id); assert.deepEqual(ids, expected, tree.id); total += trs.length;
+      assert.deepEqual([...new Set(ids.map(id => id.split('#')[0]))], overview[i].talents.map(x => x.id), tree.id);
+      const talentIds = [...new Set(ids.map(id => id.split('#')[0]))], points = talentIds.reduce((s, id) => s + tree.talents.find(x => x.id === id).maxRank, 0);
+      assert.equal(t.trees[i].children[0].textContent, tree.name + ': ' + talentIds.length + (talentIds.length === 1 ? ' talent' : ' talents') + ' with a stat component, ' + points + (points === 1 ? ' point' : ' points') + ' at maximum rank', tree.id);
+      for (const tr of trs) {
+        const id = tr.getAttribute('data-component'), tal = tree.talents.find(x => x.id === id.split('#')[0]), prior = tal.requires ? tree.talents.find(x => x.id === tal.requires).name : null;
+        assert.equal(byClass(tr, 's60-row-note')[0].textContent, tal.maxRank + (tal.maxRank === 1 ? ' rank' : ' ranks'), id);
+        assert.equal(tr.children[1].textContent, 'Row ' + tal.row + (tal.row > 1 ? ', ' + 5 * (tal.row - 1) + ' points in earlier rows' : ', no earlier points') + (prior ? '; requires ' + prior + ' at maximum rank' : ''), id);
+        // Stat, kind, per-rank and maximum-rank text agree with the impact table's row for the same component.
+        const twin = bodyRows(t.impact).find(x => x.getAttribute('data-component') === id), comp = effects.components.find(c => c.id === id), want = comp ? comp.grade : 'U';
+        assert.deepEqual([2, 3, 4, 5].map(k => tr.children[k].textContent), [2, 3, 4, 5].map(k => twin.children[k].textContent), id);
+        assert.equal(badgeOf(tr.children[6]).textContent, want, id); assert.equal(badgeOf(twin.children[7]).textContent, want, id);
+        bGrades += (want === 'B') + (badgeOf(twin.children[7]).textContent === 'B');
+      }
+    });
+  }
+  // 141 components plus the Spirit Weapons parry grant; the six B components show B once in their tree table and once in the impact table.
+  assert.equal(total, 142); assert.equal(bGrades, 12);
+  const pal = (await classMounts()).find(m => m.cls.id === 'paladin').t;
+  assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-precision#spell_school_hit_chance').children[1].textContent, 'Row 5, 20 points in earlier rows; requires Holy Shock at maximum rank');
+  assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-intellect#intellect_pct').children[1].textContent, 'Row 1, no earlier points');
+  assert.equal(byClass(bodyRows((await classMounts()).find(m => m.cls.id === 'shaman').t.trees[1]).find(tr => tr.getAttribute('data-component') === SPIRIT_WEAPONS + '#parry_grant'), 's60-row-note')[0].textContent, '1 rank');
+});
+check('.196 reachability cells show the tree check\'s own numbers, counts read in the singular for one, data-grade tooltips use the stat file\'s legend and no cell gets a numeric class', async () => {
+  const one = /\b1 (stat )?talents\b|\b1 points\b|\b1 stat components\b/;
+  for (const { cls, host, t } of await classMounts()) {
+    const ov = S.specOverview(model, cls.id), rows = bodyRows(t.check);
+    assert.deepEqual(rows.map(tr => tr.getAttribute('data-tree')), cls.trees.map(x => x.id));
+    rows.forEach((tr, i) => assert.deepEqual([1, 2, 4, 5].map(k => tr.children[k].textContent), [ov[i].talents.length, ov[i].statPoints, ov[i].fillerPoints, ov[i].minimum].map(String), cls.id + ' ' + i));
+    const texts = [...headCells(t.specs).map(th => th.textContent), ...t.trees.map(x => x.children[0].textContent), t.impact.children[0].textContent, ...rows.map(tr => tr.textContent)];
+    assert.ok(texts.every(s => !one.test(s)), cls.id);
+    // Data grades are talent components: the stat file names them (A: a DB2 trait curve equals the rank text), never an in-game measurement.
+    for (const table of [...t.trees, t.impact]) for (const tr of bodyRows(table)) {
+      const mark = badgeOf(tr.children.at(-1)), g = mark.textContent;
+      assert.equal(mark.getAttribute('title'), 'Grade ' + g + ': ' + (effects.grades[g] || naked.grades.U.label), tr.getAttribute('data-component')); assert.ok(!/measurement/i.test(mark.getAttribute('title')));
+    }
+    assert.equal(naked.measurementProtocol.status, 'not started');
+    // valueCell keeps only a class name string: no td anywhere carries a token that starts with a digit (an Array.map index).
+    assert.ok(host.all(n => n.tagName === 'TD').every(td => td.className.split(/\s+/).every(token => !/^\d/.test(token))), cls.id);
+  }
+  const mounts = await classMounts(), pal = mounts.find(m => m.cls.id === 'paladin'), mage = mounts.find(m => m.cls.id === 'mage');
+  assert.deepEqual(bodyRows(pal.t.check).map(tr => tr.children.slice(0, 7).map(c => c.textContent)), [['Holy', '6', '24', 'Holy Shock 1/1 (1 point)', '5', '30', 'Yes'], ['Protection', '7', '26', 'none', '0', '26', 'Yes'], ['Retribution', '6', '22', 'Sanctified Judgement 3/3 (3 points)', '4', '29', 'Yes']]);
+  assert.match(pal.t.impact.children[0].textContent, /: 20 stat components in 19 talents, each at maximum rank and alone\.$/);
+  // The existing sheet's cells are unchanged by the valueCell parameter: Base and Total greyed, Racial and Talents plain.
+  assert.deepEqual(sheetRow(pal.host, 'str').children.slice(1).map(td => td.className), ['s60-cell s60-ref', 's60-cell', 's60-cell', 's60-cell s60-ref']);
+  // Mage Fire has exactly one stat talent.
+  const fire = headCells(mage.t.specs).find(th => th.children.length && th.children[0].textContent === 'Fire: upper bound');
+  assert.match(byClass(fire, 's60-row-note')[0].textContent, /^The only stat talent at maximum rank, 5 points; reachable, minimum legal total 25\. Not a build\./);
+  assert.equal(mage.t.trees[1].children[0].textContent, 'Fire: 1 talent with a stat component, 5 points at maximum rank');
+});
+check('.196 every all-classes cell for every race shows the model\'s own text and grade, a value a class lacks reads n/a without a badge, and each row names its base grade', async () => {
+  const { host, ui, t } = await mountFresh('warrior'), allRace = selectNamed(host, 'Race for the all-classes table'), NOTE = { E: 'Base: Classic reference (E)', D: 'Base: estimate from Classic data (D)', U: 'Base: Unavailable (U)' };
+  let cells = 0, missing = 0, disputed = 0;
+  for (const race of Object.keys(naked.races)) {
+    allRace.value = race; allRace.dispatch('change');
+    for (const r of S.classTable(model, race).rows) {
+      const tr = bodyRows(t.classes).find(x => x.getAttribute('data-class') === r.className);
+      if (!r.available) { assert.deepEqual([tr.children.length, tr.children[1].textContent], [2, 'Not available for this race'], race + ' ' + r.className); continue; }
+      assert.equal(byClass(tr.children[0], 's60-row-note')[0].textContent, NOTE[naked.combos.find(c => c.race === race && c.class === r.className).baseStats.grade], race + ' ' + r.className);
+      S.classColumns.forEach((col, i) => {
+        const e = r.cells[col.id], want = e ? S.cellText(e.cell, e.spec) : { text: 'n/a', grade: null }, td = tr.children[1 + i], mark = badgeOf(td), at = race + ' ' + r.className + ' ' + col.id;
+        assert.equal(td.getAttribute('data-label'), col.label, at); assert.equal(td.children[0].textContent, want.text, at); assert.equal(mark.hidden ? null : mark.textContent, want.grade, at);
+        if (!e) { missing++; assert.equal(mark.hidden, true, at); assert.equal(mark.textContent, '', at); assert.ok(!/s60-ref|s60-unavailable/.test(td.className), at); }
+        if (e && e.cell.cands) { disputed++; assert.ok(td.className.split(' ').includes('wrap'), at); }
+        cells++;
+      });
+    }
+  }
+  assert.equal(cells, 56 * 18); assert.ok(missing > 0 && disputed > 0);
+  allRace.value = 'human'; allRace.dispatch('change');
+  const warrior = bodyRows(t.classes).find(x => x.getAttribute('data-class') === 'warrior'), manaCell = warrior.children[1 + S.classColumns.findIndex(c => c.id === 'mana')];
+  assert.equal(manaCell.children[0].textContent, 'n/a'); assert.equal(badgeOf(manaCell).hidden, true);
+  ui.destroy();
+});
+check('.196 all-classes column labels are the sheet\'s own row labels (the melee crit value includes racial traits), except the shared power column', () => {
+  for (const cls of data.classes) {
+    const sheet = S.evaluate(model, { className: cls.id, race: S.combosFor(model, cls.id)[0].race, ranks: ranksFor(cls.id, []) });
+    for (const col of S.classColumns.filter(c => c.id !== 'power')) { const spec = sheet.specs.find(s => s.id === col.id); if (spec) assert.equal(col.label, spec.label, cls.id + ' ' + col.id); }
+  }
+  assert.equal(S.classColumns.find(c => c.id === 'meleeCrit').label, 'Melee crit % (Agility part and modifiers)');
+  // Human Paladin: 3.25% from Agility plus Ruthless +2 pp; Orc Warrior: Agility part plus Savage +1 pp.
+  const human = S.classTable(model, 'human').rows.find(r => r.className === 'paladin').cells.meleeCrit.cell, orc = S.evaluate(model, { className: 'warrior', race: 'orc', ranks: ranksFor('warrior', []) });
+  assert.equal(human.value, 5.25); assert.equal(S.classTable(model, 'orc').rows.find(r => r.className === 'warrior').cells.meleeCrit.cell.value, row(orc, 'meleeCrit').base.value + 1);
+});
+check('.196 the all-classes caption carries the data\'s own race and base notes (Gnome Intellect), whatever the sheet race and sort order', async () => {
+  const gnome = naked.races.gnome.note; assert.match(gnome, /Gnome Intellect may be about 5% high for Forever/);
+  const g = S.classTable(model, 'gnome'); assert.equal(g.note, gnome);
+  assert.deepEqual(g.rows.filter(r => r.available).map(r => [r.className, r.note]), ['warrior', 'rogue', 'priest', 'mage', 'warlock'].map(c => [c, gnome]));
+  assert.equal(S.classTable(model, 'human').note, null); assert.ok(S.classTable(model, 'human').rows.every(r => r.note === null));
+  const { host, ui, t } = await mountFresh('mage'), race = selectNamed(host, 'Race'), allRace = selectNamed(host, 'Race for the all-classes table'), caption = () => t.classes.children[0].textContent;
+  assert.equal(race.value, 'human'); assert.equal(allRace.value, 'human'); assert.equal(caption(), 'Level 60 Human, every class: no talents, no gear, no assumptions.');
+  allRace.value = 'gnome'; allRace.dispatch('change');
+  assert.equal(caption(), 'Level 60 Gnome, every class: no talents, no gear, no assumptions. ' + gnome); assert.equal(race.value, 'human');
+  // Gnome Mage: Classic Intellect 133, and Mana with Expansive Mind's +5% on top, which is why the note is shown.
+  const mage = bodyRows(t.classes).find(tr => tr.getAttribute('data-class') === 'mage'), col = id => 1 + S.classColumns.findIndex(c => c.id === id);
+  assert.equal(mage.children[col('int')].children[0].textContent, '133'); assert.equal(mage.children[col('mana')].children[0].textContent, String(Math.round((1273 + 20 + 15 * 113) * 1.05)));
+  sortButton(t.classes, 'Mana').click(); assert.equal(caption().split('about 5% high').length, 2);
+  allRace.value = 'human'; allRace.dispatch('change'); assert.ok(!/about 5% high/.test(caption()));
+  ui.destroy();
+});
+check('.196 a guide whose ranks cannot be evaluated stays beside its tree and reads Unavailable (U) in both comparison tables without breaking the sheet', async () => {
+  const good = guidesFor('warlock')[0], broken = { id: 'broken-guide', label: 'Broken guide (test)', build: { ...good.build, ranks: good.build.ranks.map(r => r ? 99 : 0) } };
+  const { host, ui, t } = await mountFresh('warlock', { guides: [broken] }), labelOf = th => th.children.length ? th.children[0].textContent : th.textContent;
+  const labels = headCells(t.specs).map(labelOf), col = labels.indexOf('Broken guide (test)');
+  assert.deepEqual(labels, ['Stat', 'No talents', 'Affliction: upper bound', 'Broken guide (test)', 'Demonology: upper bound', 'Destruction: upper bound']);
+  const compare = byClass(host, 's60-compare')[0], compareCol = headCells(compare).map(labelOf).indexOf('Broken guide (test)');
+  assert.ok(compareCol > 0);
+  for (const td of [...bodyRows(t.specs).map(tr => tr.children[col]), ...bodyRows(compare).map(tr => tr.children[compareCol])]) {
+    assert.equal(td.children[0].textContent, 'Unavailable'); assert.equal(badgeOf(td).hidden, false); assert.equal(badgeOf(td).textContent, 'U');
+    assert.ok(td.className.split(' ').includes('s60-unavailable') && !td.className.includes('s60-ref'));
+  }
+  assert.equal(byClass(host, 's60-status')[0].hidden, true);
+  ui.destroy();
+});
+check('.196 impact sort keys are the displayed fields, text sorts alphabetically ignoring case, and the Stat, Kind and At maximum rank headers order rows by them', async () => {
+  for (const cls of data.classes) for (const r of S.impactRows(model, { className: cls.id, race: S.combosFor(model, cls.id)[0].race }).rows) {
+    assert.deepEqual(['talent', 'stat', 'kind', 'max', 'change'].map(k => S.impactSortValue(r, k)), [r.name, r.stat, r.kind, r.maxValue, r.sortValue], r.id);
+    assert.match(r.stat, /^[A-Z]/, r.id);
+  }
+  const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows, di = pal.find(r => r.id === 'paladin-holy-divine-intellect#intellect_pct');
+  assert.deepEqual(['max', 'kind', 'stat'].map(k => S.impactSortValue(di, k)), [10, 'Added to the sheet', 'Intellect']);
+  assert.deepEqual(S.sortRows(['armor', 'Intellect', 'all resistances', 'Agility', 'Defense skill'], s => s, 'ascending'), ['Agility', 'all resistances', 'armor', 'Defense skill', 'Intellect']);
+  assert.deepEqual(S.sortRows(['b', 'A', 'a', 'B'], s => s, 'ascending'), ['A', 'a', 'b', 'B']); // case-insensitive ties keep their order
+  const mage = S.impactRows(model, { className: 'mage', race: 'human' }).rows.map(r => r.stat), sorted = S.sortRows(mage, s => s, 'ascending');
+  for (let i = 1; i < sorted.length; i++) assert.ok(sorted[i - 1].toLowerCase() <= sorted[i].toLowerCase() || /[^a-z ]/i.test(sorted[i - 1] + sorted[i]), sorted[i - 1] + ' / ' + sorted[i]);
+  const { ui, t } = await mountFresh('paladin');
+  for (const [label, field] of [['Stat', 'stat'], ['Kind', 'kind'], ['At maximum rank', 'maxValue']]) {
+    const button = sortButton(t.impact, label); button.click();
+    assert.equal(button.parentNode.getAttribute('aria-sort'), 'ascending', label);
+    assert.deepEqual(bodyRows(t.impact).map(tr => tr.getAttribute('data-component')), S.sortRows(pal, r => r[field], 'ascending').map(r => r.id), label);
+  }
+  ui.destroy();
+});
+check('.196 a conditional or gear effect reads "Would add when its assumption holds" and loses that prefix once its assumption is on; Classic-reference parts are greyed', async () => {
+  const druid = (await classMounts()).find(m => m.cls.id === 'druid'), cellOf = (t, id) => bodyRows(t.impact).find(tr => tr.getAttribute('data-component') === id).children[6];
+  assert.equal(druid.race, 'night-elf');
+  assert.match(cellOf(druid.t, 'druid-feral-combat-heart-of-the-wild#stamina_pct_bear').textContent, /^Would add when its assumption holds: Stamina \+13\.8 E/);
+  assert.ok(!/Would add/.test(cellOf(druid.t, 'druid-feral-combat-heart-of-the-wild#intellect_pct').textContent));
+  const { host, ui, t } = await mountFresh('warrior'), shieldId = 'warrior-protection-shield-specialization#block_chance';
+  assert.equal(cellOf(t, shieldId).textContent, 'Would add when its assumption holds: Block % +5 pp A');
+  const box = host.all(n => n.tagName === 'INPUT' && n.getAttribute('type') === 'checkbox')[0]; box.checked = true; box.dispatch('change');
+  assert.equal(cellOf(t, shieldId).textContent, 'Block % +5 pp A');
+  ui.destroy();
+  // E and D parts carry s60-ref (greyed by the stylesheet); an exact talent part does not.
+  const pal = (await classMounts()).find(m => m.cls.id === 'paladin').t, parts = id => byClass(cellOf(pal, id), 's60-effects').map(p => p.className);
+  assert.deepEqual(parts('paladin-holy-divine-intellect#intellect_pct'), ['s60-effects s60-ref', 's60-effects s60-ref', 's60-effects s60-ref']);
+  assert.deepEqual(parts('paladin-protection-anticipation#defense_skill'), ['s60-effects s60-ref', 's60-effects s60-ref', 's60-effects']);
+});
+check('.196 the disputed-change bracket drops its repeated "disputed:" prefix in both comparison tables', async () => {
+  const priest = S.specComparison(model, { className: 'priest', race: 'human' }), spec = priest.specs.find(s => s.id === 'spellCrit');
+  const text = 'disputed: 7.2% (CMaNGOS) · 5.23% (warcraft.wiki.gg) (+0.2 pp (CMaNGOS) · +0.18 pp (warcraft.wiki.gg))';
+  assert.equal(S.compareText(priest.trees[0].outcome.sheets.total.spellCrit, priest.none.sheets.total.spellCrit, spec).text, text);
+  const document = makeDocument(), host = document.createElement('div'), ui = S.mount(host, { data, build: legalBuild('priest', [['priest-discipline-mental-strength', 5]]), naked, effects }); assert.equal(await ui.ready, true);
+  const rowOf = table => bodyRows(table).find(tr => tr.children[0].textContent === 'Spell crit %'), compare = byClass(host, 's60-compare')[0], specs = sectionTables(host).specs;
+  assert.equal(rowOf(compare).children[2].children[0].textContent, text); // current build column
+  assert.equal(rowOf(specs).children[2].children[0].textContent, text); // Discipline upper bound
+  const textNodes = node => node.childNodes.flatMap(child => child instanceof FakeText ? [child] : textNodes(child));
+  assert.ok(textNodes(host).every(x => !x.data.includes('(disputed: ')));
+  ui.destroy();
+});
+check('.196 the stylesheet keeps the sortable tables\' captions in view, pins their row headers while they scroll sideways and greys Classic-reference effect parts', () => {
+  for (const rule of ['.talents-stats60 .table-wrap{container-type:inline-size;scroll-padding-left:8.5rem}',
+    '.talents-stats60 table.data caption{position:sticky;left:0;max-width:calc(100vw - 72px);max-width:100cqw;padding:6px 10px;text-align:left;font-size:12px;color:#d9cbab}',
+    '.talents-stats60 table.data th{white-space:normal}',
+    '.talents-stats60 table.data tbody th,.talents-stats60 table.data thead th:first-child{left:0;z-index:2;width:8rem;min-width:8rem;max-width:8rem;background:#19160e}',
+    '.talents-stats60 table.data tbody th{z-index:1;text-transform:none;letter-spacing:normal}',
+    '.talents-stats60 .s60-effects.s60-ref{color:#9e9b92;font-style:italic}']) assert.ok(css.includes(rule), rule);
+  // Outside every media query, after the base .s60-effects colour, and scoped to the sheet (no site-wide table rule changes).
+  const at = css.indexOf('.talents-stats60 .table-wrap{'); assert.ok(at > css.indexOf('.talents-stats60 .s60-effects{color:') && at < css.indexOf('@media(max-width:560px){'));
+  assert.ok(!/(^|[}\n])table\.data|(^|[}\n])\.table-wrap/.test(css));
+});
+
 Promise.all(pending).then(() => {
   finished = true;
   const complete = passed + failed === registered;

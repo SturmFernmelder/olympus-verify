@@ -13,14 +13,29 @@ export function qrErasureCustodyClearSql(identity:'?1'|'?2',native=false):string
  const selected=identity==='?1'?related:related.replaceAll('?1','?2');
  const clear=`NOT EXISTS(SELECT 1 FROM role_settlements WHERE (${selected}) AND attempts=1
  AND state IN('dispatching','unknown')) AND NOT ${relatedUnresolvedStaffSql(identity)}`;
- if(native)return `((${clear}) OR EXISTS(SELECT 1 FROM role_settlements nr JOIN privacy_serving_jobs j ON nr.id=j.operation_id||':native_role_inventory'
+ // Treasury grants are attended new effects. An old absence observation cannot
+ // cancel an unknown PUT or precede its later ACK. Retain unknown custody; a
+ // known returned grant needs a strictly later whole-second Native observation.
+ // Only Treasury's exact stored HTTP-refusal or proven pre-request no-send
+ // nonapplication receipt is exempt. It retains its spent claim. Missing/malformed receipt fields, a lost
+ // call, generic errors and all dispatching/unknown states remain held.
+ const definiteRefusal=`tg.state='held' AND tg.reason IN('treasury_provider_definite_refusal','treasury_pre_dispatch_refused')
+ AND typeof(tg.claim_nonce)='text' AND length(tg.claim_nonce)=32 AND tg.claim_nonce NOT GLOB '*[^0-9a-f]*'
+ AND typeof(tg.request_digest)='text' AND length(tg.request_digest)=64 AND tg.request_digest NOT GLOB '*[^0-9a-f]*'
+ AND typeof(tg.checked_at)='integer' AND tg.checked_at>=tg.created_at AND tg.checked_at<=CAST(strftime('%s','now') AS INTEGER)`;
+ const treasury=`NOT EXISTS(SELECT 1 FROM role_settlements tg WHERE tg.subject=${identity} AND tg.purpose='treasury_cosmetic' AND tg.desired=1 AND tg.attempts=1
+ AND NOT(${definiteRefusal})
+ AND (tg.state IN('dispatching','unknown') OR tg.checked_at IS NULL OR ${native?`NOT EXISTS(SELECT 1 FROM role_settlements tn JOIN privacy_serving_jobs tj ON tn.id=tj.operation_id||':native_role_inventory'
+ WHERE tn.subject=${identity} AND tn.subject=tj.subject_id AND tn.subject_generation=tj.subject_generation AND tn.request_digest=tj.request_digest AND tn.purpose='native_account_erasure_inventory' AND tn.attempts=0 AND tn.state='settled' AND tn.reason='observed_absent' AND tn.checked_at>tg.checked_at
+ AND tn.checked_at BETWEEN CAST(strftime('%s','now') AS INTEGER)-60 AND CAST(strftime('%s','now') AS INTEGER) AND tj.state IN('waiting_role','held','erasing') AND tj.retain_until>CAST(strftime('%s','now') AS INTEGER))`:'1'}))`;
+ if(native)return `(${treasury} AND ((${clear}) OR EXISTS(SELECT 1 FROM role_settlements nr JOIN privacy_serving_jobs j ON nr.id=j.operation_id||':native_role_inventory'
  WHERE nr.subject=${identity} AND nr.subject=j.subject_id AND nr.subject_generation=j.subject_generation AND nr.request_digest=j.request_digest
  AND nr.purpose='native_account_erasure_inventory' AND nr.desired=0 AND nr.attempts=0 AND nr.state='settled' AND nr.reason='observed_absent'
  AND nr.checked_at BETWEEN CAST(strftime('%s','now') AS INTEGER)-60 AND CAST(strftime('%s','now') AS INTEGER)
- AND j.state IN('waiting_role','held','erasing') AND j.retain_until>CAST(strftime('%s','now') AS INTEGER)))`;
+ AND j.state IN('waiting_role','held','erasing') AND j.retain_until>CAST(strftime('%s','now') AS INTEGER))))`;
  // Ordinary partial admin deletion has no erasure job. Its original no-unknown-effect
  // predicate remains sufficient; full account erasure separately consumes its native receipt.
- return clear;
+ return `(${clear} AND ${treasury})`;
 }
 export function qrErasureStatements(env:Env,id:string):D1PreparedStatement[]{return [
  // Never discard the sole durable no-repeat receipt while a provider effect remains unknown.

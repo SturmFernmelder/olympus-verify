@@ -140,7 +140,7 @@
         if (!data || Object.keys(data).sort().join('|') !== 'format|now|snapshots' || data.format !== 'olympus-army-public-v1' || !Number.isSafeInteger(data.now) || data.now < 0 || !Array.isArray(data.snapshots) || data.snapshots.length > 300 || !protocol) throw Error('The Army snapshot response was not recognized.');
         const snapshots = data.snapshots.map(snapshot => {
           if (!snapshot || !Number.isSafeInteger(snapshot.observedAt) || snapshot.observedAt > data.now) throw Error('The source time was not recognized.');
-          const checked = protocol.validatePayload(new TextEncoder().encode(JSON.stringify(snapshot)), {nowSeconds: snapshot.observedAt});
+          const checked = snapshot?.addonVersion === '1.3.2-site.1' ? window.OlympusSanitizedExport.validateSnapshot(snapshot, snapshot.observedAt) : protocol.validatePayload(new TextEncoder().encode(JSON.stringify(snapshot)), {nowSeconds: snapshot.observedAt});
           if (checked.realmGroup !== 'World of Warcraft: Forever PvE' || checked.faction !== 'Alliance' || !allowedGuild(checked.guilds[0].name)) throw Error('The publication scope was not recognized.');
           return checked;
         });
