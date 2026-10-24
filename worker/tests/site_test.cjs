@@ -314,12 +314,12 @@ async function legacySchemaHeld(old) {
   check("  no-store, no-transform (Cloudflare injects nothing) and frame denial", res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY");
   check('signed-out source contains no guild settings, appointment names or role descriptions', !page.html.includes('Fernmelder') && !page.html.includes('namesOpenAt') && !page.html.includes('primaryProfessions'));
   {
-    // .111: the tab icon and the brand are the Olympus crest again (Viktor's decision of 1 Oct 2026: the website's one exception to
-    // the official game art); the file is byte for byte the one live on guild.roachcouncil.com, and it is the only image outside wow/.
+    // .197: the owner-supplied tabard is the guild's approved brand exception;
+    // pin its exact supplied bytes and both the script-free gate and member brand.
     const icon = path.join(root, "public", "static", "olympus-icon.png");
     const png = fs.existsSync(icon) ? fs.readFileSync(icon) : Buffer.alloc(0);
     const imagesOutsideWow = (function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? (d.name === "wow" ? [] : walk(path.join(dir, d.name))) : (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i.test(d.name) ? [path.relative(path.join(root, "public"), path.join(dir, d.name)).replace(/\\/g, "/")] : [])); })(path.join(root, "public"));
-    check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !/<img\b[^>]*src=["']\/static\/olympus-icon\.png/.test(page.html) && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
+    check('the sign-in and member brand use the exact owner-approved tabard', png.length === 53204 && require('node:crypto').createHash('sha256').update(png).digest('hex') === '6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb' && page.html.includes('<link rel="icon" href="/static/olympus-icon.png" type="image/png">') && /<img\b[^>]*src=["']\/static\/olympus-icon\.png/.test(page.html) && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/olympus-icon.png"'));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     const avatarSource = ts.createSourceFile("app.js", appJs, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS), avatarParts = {};
     (function readAvatarDefinitions(node) {
