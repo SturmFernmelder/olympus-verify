@@ -214,4 +214,29 @@ check('anchored historical alt retains exact own private code and cannot newly s
   assert.deepEqual(collection(value,{...collectionContext,previous:value},collectionName),value);
   assert.equal(collection(value,collectionContext,collectionName),null);assert.deepEqual(shared(value,true,collectionContext,collectionName),[]);
 });
+
+check('changing main name or class with cleared main builds preserves exact historical alts on their own stored anchor', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));previous.characters[2].build60=previous.characters[2].build60.replace(data.revision,'e'.repeat(12));
+  for(const main of [{character:'Mia Four',className:'warrior'},{character:'Mia One',className:'mage'}]){
+    const value=clone(previous);Object.assign(value.characters[0],{character:main.character,class:main.className,build30:'',build60:''});
+    assert.deepEqual(collection(value,{...main,previous},collectionName),value);
+    assert.deepEqual(shared(value,true,main,collectionName),[]);
+  }
+});
+check('a changed main cannot obtain history from a malformed stored anchor or collection', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});
+  for(const mutate of [v=>v.version=2,v=>v.extra=true,v=>v.characters[0].character='not-a-name',v=>v.characters[0].class='undecided',v=>v.characters[0].privateNote='hidden',v=>v.characters[1].character='mia one',v=>v.characters.push(characterBuilds('Mia Five','priest'))]){const bad=clone(previous);mutate(bad);assert.equal(collection(value,{character:'Mia Four',className:'warrior',previous:bad},collectionName),null);}
+});
+check('main edits retain only the same historical alt name class level slot and exact code', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});const context={character:'Mia Four',className:'warrior',previous};
+  for(const mutate of [v=>v.characters[1].character='Mia Five',v=>v.characters[1].class='priest',v=>v.characters[1].build30+='0',v=>{v.characters[1].build60=v.characters[1].build30;v.characters[1].build30='';},v=>v.characters[0].character='Mia One',v=>v.characters[0].class='mage']){const bad=clone(value);mutate(bad);assert.equal(collection(bad,context,collectionName),null);}
+  assert.equal(collection(value,{character:'Mia Four',className:'warrior'},collectionName),null);
+});
+check('stored historical anchors refuse first-slot and name accessors without invoking them', () => {
+  for(const field of ['first','name']){
+    const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});let invoked=0;
+    if(field==='first')Object.defineProperty(previous.characters,'0',{enumerable:true,get(){invoked++;return characterBuilds('Mia One','warrior');}});else Object.defineProperty(previous.characters[0],'character',{enumerable:true,get(){invoked++;return 'Mia One';}});
+    assert.equal(collection(value,{character:'Mia Four',className:'warrior',previous},collectionName),null);assert.equal(invoked,0);
+  }
+});
 console.log(`\n${count} focused attachment checks passed; ${parityCases} actual-calculator parity cases; network calls ${networkCalls}.`);

@@ -49,6 +49,34 @@ async function applicationTalentCollection197(){
  const copied=JSON.parse(JSON.stringify(historical));copied.characters[0].character='Oz Two';
  r=await request('PUT','/api/application',{...body,character:'Oz Two',answers:{...body.answers,talentBuilds:copied}},OTHER);
  check('another account cannot newly adopt the original account historical code',r.response.status===400&&r.body?.field==='talentBuilds'&&!one('SELECT 1 FROM site_applications WHERE discord_id=?',OTHER));
+ // PR90: retain only own unchanged historical alts when the real main changes.
+ const mainEditHistory=collection();mainEditHistory.characters[1].build30=mainEditHistory.characters[1].build30.replace(data.revision,'f'.repeat(12));
+ for(const [caseIndex,main] of [{character:'Mia Four',class:'warrior'},{character:'Mia One',class:'mage'}].entries()){
+  // Fresh genuine own accounts isolate these new cases; the original MEMBER
+  // still executes its original30 writes against the unchanged30/minute cap.
+  const historyOwner=caseIndex===0?'300000000000000197':'300000000000000198',caseLabel=caseIndex===0?'main_rename':'main_class';
+  await siteUser(historyOwner,{global_name:'Synthetic historical-alt fixture'});await character(historyOwner,caseIndex===0?'History One':'History Two',caseIndex===0?'Player-1-0197':'Player-1-0198');
+  let historyWrite=0;const responseCodes=value=>typeof value==='string'&&/^[A-Za-z0-9_:-]{1,64}$/.test(value)?value:null;
+  const historyRequest=async(method,url,payload)=>{const result=await request(method,url,payload,historyOwner);console.log('HISTORY_MAIN_RESPONSE '+JSON.stringify({case:caseLabel,write:++historyWrite,status:result.response.status,error:responseCodes(result.body?.error),field:responseCodes(result.body?.field)}));return result;};
+  const historyStored=()=>{const row=one('SELECT answers,board_at,status FROM site_applications WHERE discord_id=?',historyOwner);return row?{...row,answers:JSON.parse(row.answers)}:null;};
+  const historyCandidate=async()=>{const result=await request('GET','/api/board/officer',undefined,OTHER);check('original eligible reader is admitted to the actual officer board',result.response.status===200);return result.body?.candidates?.find(row=>row.id===historyOwner);};
+  const setup=await historyRequest('PUT','/api/application',{...body,boardTalentBuilds:false});if(setup.response.status!==200)throw Error('historical-alt own application fixture refused: '+JSON.stringify({status:setup.response.status,error:responseCodes(setup.body?.error),field:responseCodes(setup.body?.field)}));
+
+  await fixtureRun('UPDATE site_applications SET character=?,class=?,answers=? WHERE discord_id=?','Mia One','warrior',JSON.stringify({...body.answers,talentBuilds:mainEditHistory,boardTalentBuildsOptIn:false}),historyOwner);
+  const edited=JSON.parse(JSON.stringify(mainEditHistory));Object.assign(edited.characters[0],{character:main.character,class:main.class,build30:'',build60:''});
+  const editBody={...body,...main,boardTalentBuilds:false,answers:{...body.answers,talentBuild:'',talentBuilds:edited}};
+  r=await historyRequest('PUT','/api/application',editBody);const actualMain=one('SELECT character,class FROM site_applications WHERE discord_id=?',historyOwner);
+  check('actual main '+main.character+'/'+main.class+' edit retains exact historical alt privately',r.response.status===200&&JSON.stringify(historyStored().answers.talentBuilds)===JSON.stringify(edited)&&historyStored().answers.boardTalentBuildsOptIn===false&&actualMain.character===main.character&&actualMain.class===main.class);
+  r=await historyRequest('PUT','/api/application',{...editBody,answers:{...editBody.answers,why:'Unrelated edit after main anchor change.'}});
+  check('unrelated save after main edit preserves unchanged private historical alt values',r.response.status===200&&historyStored().answers.why==='Unrelated edit after main anchor change.'&&JSON.stringify(historyStored().answers.talentBuilds)===JSON.stringify(edited));
+  const beforeAttack=JSON.stringify(historyStored());r=await historyRequest('PUT','/api/application',{...editBody,boardTalentBuilds:true});
+  check('main edit cannot turn historical alt retention into board sharing',r.response.status===400&&r.body?.field==='talentBuilds'&&JSON.stringify(historyStored())===beforeAttack&&(await historyCandidate())?.talentBuilds?.length===0);
+  for(const mutate of [v=>v.characters[1].character='Mia Five',v=>v.characters[1].class='priest',v=>v.characters[1].build30+='0',v=>{v.characters[1].build60=v.characters[1].build30;v.characters[1].build30='';},v=>v.characters[0].character='Other Person']){const bad=JSON.parse(JSON.stringify(edited));mutate(bad);r=await historyRequest('PUT','/api/application',{...editBody,answers:{...editBody.answers,talentBuilds:bad}});check('historical alt name/class/code/slot or incoming-main mutation refuses atomically',r.response.status===400&&r.body?.field==='talentBuilds'&&JSON.stringify(historyStored())===beforeAttack);}
+  const malformed=JSON.parse(JSON.stringify(mainEditHistory));malformed.characters[0].character='not-a-name';await fixtureRun('UPDATE site_applications SET character=?,class=?,answers=? WHERE discord_id=?','Mia One','warrior',JSON.stringify({...body.answers,talentBuilds:malformed,boardTalentBuildsOptIn:false}),historyOwner);const beforeMalformedHistory=JSON.stringify(historyStored());
+  r=await historyRequest('PUT','/api/application',editBody);check('malformed original stored anchor never authorizes historical alt',r.response.status===400&&r.body?.field==='talentBuilds'&&JSON.stringify(historyStored())===beforeMalformedHistory);
+  const currentOnly=JSON.parse(JSON.stringify(edited));currentOnly.characters[1].build30=code('mage',30);r=await historyRequest('PUT','/api/application',{...editBody,boardTalentBuilds:true,answers:{...editBody.answers,talentBuilds:currentOnly}});
+  check('current replacement codes admit changed main with fresh separate sharing choice',r.response.status===200&&historyStored().answers.boardTalentBuildsOptIn===true&&(await historyCandidate())?.talentBuilds?.length===4);
+ }
  r=await request('PUT','/api/application',{...body,boardTalentBuilds:true});
  check('replacing retained historical values with current codes permits a new separate sharing choice',r.response.status===200&&(await candidate())?.talentBuilds?.length===6);
  r=await request('DELETE','/api/application');

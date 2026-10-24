@@ -86,7 +86,15 @@ export function applicationTalentBuilds(input: unknown, context: TalentCollectio
   const selected = input === undefined ? context.previous ?? empty : input === null ? empty : input;
   const rows = collectionRows(selected, context, parseCharacter);
   if (!rows) return null;
-  const previous = context.previous === undefined ? [] : collectionRows(context.previous, context, parseCharacter) ?? [];
+  // Stored history keeps its own original main anchor; an incoming main edit
+  // must not discard unchanged private alt provenance. Read data slots only.
+  const previousEnvelope = closedData(context.previous, ['version', 'characters']);
+  const previousCharacters = Array.isArray(previousEnvelope?.characters) ? previousEnvelope.characters : null;
+  const previousFirst = previousCharacters ? Object.getOwnPropertyDescriptor(previousCharacters, '0') : null;
+  const previousAnchor = previousFirst && Object.hasOwn(previousFirst, 'value') ? closedData(previousFirst.value, ['character', 'class', 'build30', 'build60']) : null;
+  const previousName = previousAnchor ? parseCharacter(previousAnchor.character) : null;
+  const previous = previousAnchor && typeof previousAnchor.class === 'string' && previousName && !('error' in previousName)
+    ? collectionRows(context.previous, { character: previousName.name, className: previousAnchor.class }, parseCharacter) ?? [] : [];
   const characters: ApplicationTalentCharacter[] = [];
   for (const row of rows) {
     const prior = previous.find(value => value.key === row.key && value.class === row.class);
