@@ -22,9 +22,10 @@ export function leadershipPublication(v:unknown):v is LeadershipPublication{
 }
 export function leadershipEnvelope(v:unknown):v is LeadershipEnvelope{
   if(!record(v)||Object.keys(v).sort().join('|')!=='guilds|publications|schema'||v.schema!==LEADERSHIP_SCHEMA||!Array.isArray(v.guilds)||v.guilds.length!==10||!record(v.publications)||Object.keys(v.publications).length>130)return false;
-  if(v.guilds.some((g,i)=>!record(g)||Object.keys(g).sort().join('|')!=='gm|name|officers'||g.name!==GUILD_NAMES[i]||typeof g.gm!=='string'||g.gm.length>40||!Array.isArray(g.officers)||g.officers.length>12||g.officers.some(o=>typeof o!=='string'||o.length>40)))return false;
-  for(const [key,p] of Object.entries(v.publications))if(!LEADERSHIP_POSITION_KEYS.includes(key)||!leadershipPublication(p)||leadershipPointer(v.guilds,key)!==p.pointer)return false;
-  return LEADERSHIP_POSITIONS.every(p=>!leadershipAccountId(leadershipPointer(v.guilds,p.key))||Object.hasOwn(v.publications,p.key));
+  const guilds=v.guilds,publications=v.publications;
+  if(guilds.some((g,i)=>!record(g)||Object.keys(g).sort().join('|')!=='gm|name|officers'||g.name!==GUILD_NAMES[i]||typeof g.gm!=='string'||g.gm.length>40||!Array.isArray(g.officers)||g.officers.length>12||g.officers.some(o=>typeof o!=='string'||o.length>40)))return false;
+  for(const [key,p] of Object.entries(publications))if(!LEADERSHIP_POSITION_KEYS.includes(key)||!leadershipPublication(p)||leadershipPointer(guilds,key)!==p.pointer)return false;
+  return LEADERSHIP_POSITIONS.every(p=>!leadershipAccountId(leadershipPointer(guilds,p.key))||Object.hasOwn(publications,p.key));
 }
 export const leadershipProofPayload=(guild:string,key:string,p:Omit<LeadershipPublication,'mac'>)=>JSON.stringify([LEADERSHIP_SCHEMA,guild,key,p.pointer,p.birth,p.generation]);
 
