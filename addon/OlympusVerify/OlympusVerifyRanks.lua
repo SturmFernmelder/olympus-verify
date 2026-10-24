@@ -13,7 +13,7 @@ function OlympusVerifyRanks.Print(printLine)
   for i, rank in ipairs(ranks) do
     printLine(string.format("  %d: %s", i - 1, rank))
   end
-  printLine("Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (Slot 2); Treasurer is native Slot 3 and Officer is Slot 4. Officer Alt is a historical office alias, not an extra native rank.")
+  printLine("Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (native index 1, second rank); Treasurer is native index 2 (third rank) and Officer is native index 3 (fourth rank). Officer Alt is a historical office alias, not an extra native rank.")
   printLine("The approved preset gives every High Council member Withdraw Gold and Modify Bank Tabs.")
   printLine("Raid Leader retains the authenticator safeguard in the preset.")
   printLine("No numeric bank withdrawal allowances have been approved.")

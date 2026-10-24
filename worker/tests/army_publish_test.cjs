@@ -148,6 +148,16 @@ function epoch(f){return JSON.stringify(f.db.prepare('SELECT * FROM privacy_writ
     f.env.ARMY_SITE_AGGREGATE_ENABLED='false';const publish=await f.call('publish',{snapshot:value,previewToken:ready.body.previewToken,confirm:'PUBLISH'});check('withdrawn availability refuses new publication even with an old preview token',publish.status===503&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===count);
     const outcome=await f.call('outcome',{snapshot:value,previewToken:ready.body.previewToken});check('exact old outcome stays readable while adoption switch is off',outcome.status===200&&outcome.body.state==='not_current');
   });
+  await scenario('literally absent exporter adoption flag defaults OFF',async f=>{
+    delete f.env.ARMY_SITE_AGGREGATE_ENABLED;
+    check('absence fixture has no inherited or own adoption binding',!('ARMY_SITE_AGGREGATE_ENABLED' in f.env));
+    const cap=await f.call('reporter');check('absent binding reports unavailable exporter without changing authenticated admission',cap.status===200&&cap.body.canPublish===true&&cap.body.sanitizedExporterAvailable===false);
+    const count=f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n;
+    for(const version of ['0.2.0','1.3.2-site.1']){
+      const value=snapshot(f.now);value.addonVersion=version;if(version==='1.3.2-site.1')for(const key of ['classes','levels','ranks'])value.guilds[0][key]=null;
+      const out=await f.call('preview',{snapshot:value});check('absent flag holds '+version+' before token or persistence',out.status===503&&out.body.error==='publisher_export_unavailable'&&!out.body.previewToken&&f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n===count);
+    }
+  });
   await scenario('strict aggregate fields, privacy masking and clocks',async f=>{
     const good=snapshot(f.now),parse=f.route.validateArmySnapshot;
     const unified=JSON.parse(JSON.stringify(good));unified.addonVersion='1.3.2-site.1';for(const key of ['classes','levels','ranks'])unified.guilds[0][key]=null;

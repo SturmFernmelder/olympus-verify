@@ -93,7 +93,7 @@ for _, mode in ipairs({ "on", "off", "missing", "throw", "bad", "restricted" }) 
   check(mode .. ": first event exports only established visibility (legacy setter success separately attributed)", permitted and f.env.OlympusVerifyDB.roster.members and #f.env.OlympusVerifyDB.roster.members == 2 or not permitted and f.env.OlympusVerifyDB.roster.members == nil)
   for i = 1, 100 do f.event(); f.ask() end
   check(mode .. ": 200 event/UI refreshes retain one request window", f.asks == 1 and #f.timers == 1)
-  check(mode .. ": non-on visibility gets at most one bounded setter attempt", f.sets == (mode == "on" and 0 or 1))
+  check(mode .. ": non-on visibility gets at most one bounded setter attempt", f.sets == ((mode == "off" or mode == "missing") and 1 or 0))
   local exportedAt = f.env.OlympusVerifyDB.roster.exportedAt
   f.advance(4)
   check(mode .. ": trailing request does not run before five seconds", f.asks == 1 and #f.timers == 1)
@@ -203,8 +203,9 @@ for _, mode in ipairs({ "off", "missing", "throw", "bad", "restricted" }) do
   f.env.OlympusVerifyDB.roster = { exportedAt = f.env.NOW - 30, members = {{ name = "Previously complete" }}, total = 1 }
   local old = f.env.OlympusVerifyDB.roster
   f.event(); f.export(); f.logout()
-  check(mode .. ": refused/unknown or incomplete displayed roster cannot overwrite SavedVariables", f.env.OlympusVerifyDB.roster == old and f.sets == 1)
-  local list = f.candidates()
+  check(mode .. ": refused/unknown or incomplete displayed roster cannot overwrite SavedVariables", f.env.OlympusVerifyDB.roster == old and f.sets == ((mode == "off" or mode == "missing") and 1 or 0))
+  local list, candidateCount, candidateError = f.candidates()
+  check(mode .. ": unavailable shortlist has an explicit reason instead of an empty-roster claim", candidateCount == 0 and type(candidateError) == "string")
   local unverified, info, err = f.ask()
   check(mode .. ": incomplete visibility offers neither removal shortlist and no protected effect", #list == 0 and #unverified == 0 and type(err) == "string" and f.effects == 0 and f.mail == 0)
 end

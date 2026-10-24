@@ -78,7 +78,12 @@
 .olympus-policy .portal-login .login-portal{position:fixed;inset:0;z-index:-1;min-width:0;background:#030504;pointer-events:none}
 .olympus-policy .portal-login .login-portal-art{display:block;width:100%;height:100%}
 .olympus-policy .portal-login .login-portal-poster{display:block;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none}
-.olympus-policy .portal-login .login-portal-video{display:block;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none}
+.olympus-policy .portal-login .login-portal-video{position:fixed;inset:0;z-index:-1;display:block;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none}
+.olympus-policy .portal-login .login-motion{position:static;border:0;margin:0;padding:0;background:none}
+.olympus-policy .portal-login .login-motion summary{position:fixed;bottom:1rem;left:1rem;z-index:2;max-width:calc(100vw - 2rem);padding:.5rem .75rem;background:#121a12;color:#fff1c4;border:1px solid #9b8754;border-radius:.35rem;cursor:pointer}
+.olympus-policy .portal-login .login-motion .motion-hide,.olympus-policy .portal-login .login-motion[open] .motion-show{display:none}
+.olympus-policy .portal-login .login-motion[open] .motion-hide{display:inline}
+.olympus-policy .portal-login .login-card-crest{display:block;margin:0 auto .5rem;object-fit:contain}
 .olympus-policy .portal-login .login-card{position:relative;z-index:1;min-width:0;width:min(100%,36rem);padding:clamp(1rem,2vw,1.5rem);border:1px solid #9b8754;border-radius:.35rem;background:linear-gradient(135deg,#121712f5,#0a100af5);box-shadow:0 1rem 3rem #000b;color:#f5eccd;text-align:center}
 .olympus-policy .portal-login .login-card h1{margin:0 0 .6rem;padding:0;border:0;color:#ffe4a0;font-size:clamp(1.85rem,3vw,2.4rem);line-height:1.15;text-shadow:0 2px 3px #000}
 .olympus-policy .portal-login p{margin:.6rem 0;color:#e7e9d8}
@@ -89,6 +94,6 @@
 .olympus-policy main:has(.portal-login) :focus-visible{outline:3px solid #e1ffbd;outline-offset:5px}
 .olympus-policy:has(.portal-login) .skip-link{z-index:5;color:#fff1c4;background:#121a12}
 /* Client-rendered portal stays behind one centered, accessible login card at every aspect ratio. */
-@media(prefers-reduced-motion:reduce){.olympus-policy .portal-login .login-portal{background:#030504 url('/static/wow/login/dark-portal-poster.jpg') center/cover no-repeat}.olympus-policy .portal-login .login-portal-video{visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.olympus-policy .portal-login .login-motion{display:none}.olympus-policy .portal-login .login-portal-video{visibility:hidden}}
 @media(max-width:35rem){.olympus-policy .portal-login .login-card{padding:1.1rem 1rem}.olympus-policy .portal-login .eyebrow{letter-spacing:.12em}}
 @media(forced-colors:active){.olympus-policy .portal-login .login-card{border:2px solid CanvasText;background:Canvas;box-shadow:none}.olympus-policy .portal-login .login-card h1,.olympus-policy .portal-login p,.olympus-policy .portal-login .eyebrow{color:CanvasText;text-shadow:none}.olympus-policy main:has(.portal-login) :focus-visible{outline-color:Highlight}}

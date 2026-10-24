@@ -6,10 +6,48 @@ const scenarios=['positive','copied-plan','split-native-clock','delayed-native',
 let checks=0;const cases=[],canon=x=>JSON.parse(JSON.stringify(x));
 function eq(label,a,b){assert.deepEqual(canon(a),canon(b),label);checks++;console.log('PASS '+label);}
 async function refused(label,operation){let held=false;try{await operation();}catch{held=true;}eq(label,held,true);}
+// Observe the actual pure collector with its genuine same-source selection; no copied admission or execution adapter.
+function observeClosedCleanupCatalog(x,layout){
+ const erase=x.f.L('privacy-serving-erase'),registry=x.f.L('community-data-registry'),originalCollector=erase.originalClosedRecoveryCleanupPlans,originalNames=registry.communityDataNames;
+ const required=['contributions','councillor_verification','departures','directory','discord_directory_visibility','event_delivery','event_reminders','events','news','news_webhook','privacy_access','refs','restrictions','ruleset_publication','trials'];let calls=0;
+ erase.originalClosedRecoveryCleanupPlans=(env,selection)=>{
+  calls++;eq(layout+' actual original cleanup collector called once',calls,1);const names=originalNames();eq(layout+' loaded original registry has exact15 authored families',names.slice().sort(),required);
+  const before={native:x.transport.groups.length,do:x.d.calls.length};
+  for(const [kind,observed]of [['missing',names.filter(n=>n!=='news_webhook')],['extra',[...names,'unrecognized_cleanup_family']],['duplicate',[...names.filter(n=>n!=='news_webhook'),names[0]]]]){
+   let error=null;try{registry.communityDataNames=()=>observed.slice();originalCollector(env,selection);}catch(value){error=value;}finally{registry.communityDataNames=originalNames;}
+   eq(layout+' exact cleanup catalog refuses '+kind,error?.message,'closed_recovery_cleanup_namespace_incomplete');eq(layout+' '+kind+' catalog refusal has no Native or DO effects',{native:x.transport.groups.length,do:x.d.calls.length},before);
+  }
+  const plans=originalCollector(env,selection),account=x.f.L('privacy-production-control-origin').originalClosedRecoveryCleanupAccount(selection,env).subject;
+  // Only build the two real registered callbacks' SQL/bind data. This independent recorder cannot read or execute Native.
+  const recorded=new WeakMap(),record=(sql,values=[])=>{const handle={bind:(...v)=>record(sql,v)};recorded.set(handle,{sql,values:values.slice()});return handle;};
+  const expected=registry.communityScopedEraseStatements({DB:{prepare:sql=>record(sql)}},account,['discord_directory_visibility','news_webhook']).map(handle=>{assert.ok(recorded.has(handle));return recorded.get(handle);});
+  eq(layout+' two additional pure erasers contribute exact1plus2 statements',expected.length,3);
+  for(let i=0;i<expected.length;i++)eq(layout+' actual closed plan contains registered additional eraser'+i+' exactly once',plans.filter(p=>p.sql===expected[i].sql&&JSON.stringify(p.values)===JSON.stringify(expected[i].values)).length,1);
+  // Execute only captured data-only SQL in a separate minimal in-memory DB. This is no recovery admission or original effect.
+  const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(':memory:',{defensive:true});
+  try{
+   db.exec('CREATE TABLE site_settings(key TEXT PRIMARY KEY,value TEXT,updated_at INTEGER,updated_by TEXT);CREATE TABLE site_applications(discord_id TEXT,answers TEXT);CREATE TABLE audit(actor TEXT,action TEXT,subject TEXT,details TEXT,ts INTEGER);CREATE TABLE characters(discord_id TEXT,name TEXT,name_key TEXT,bound_at INTEGER);CREATE TABLE privacy_provider_messages(operation_id TEXT,purpose TEXT,state TEXT,subjects TEXT,cleanup_requested INTEGER,channel_id TEXT,message_id TEXT)');
+   const put=db.prepare('INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES(?,?,1,?)'),pre=()=>db.prepare(plans[0].sql).all(...plans[0].values);
+   eq(layout+' exact original closed settings preguard admits empty fixture',pre()[0].admitted,1);
+   put.run('discordDirectoryHidden',JSON.stringify({[account]:'discord-only-optout-v1'}),account);assert.throws(pre);eq(layout+' exact original preguard holds attributable visibility before erasure',db.prepare('SELECT COUNT(*) n FROM site_settings').get().n,1);db.exec('DELETE FROM site_settings');
+   put.run('newsWebhook:own',JSON.stringify({actor:account,birth:'1'.repeat(32),generation:'2'.repeat(32)}),account);assert.throws(pre);eq(layout+' exact original preguard holds attributable news metadata before erasure',db.prepare('SELECT COUNT(*) n FROM site_settings').get().n,1);db.exec('DELETE FROM site_settings');
+   const foreignMetadata=JSON.stringify({actor:R.FOREIGN,birth:'3'.repeat(32),generation:'4'.repeat(32)});put.run('newsWebhook:foreign',foreignMetadata,R.FOREIGN);eq(layout+' preguard does not infer foreign settings ownership',pre()[0].admitted,1);
+   put.run('discordDirectoryHidden',JSON.stringify({[account]:'discord-only-optout-v1',[R.FOREIGN]:'discord-only-optout-v1'}),account);put.run('newsWebhook:own',JSON.stringify({actor:account,birth:'1'.repeat(32),generation:'2'.repeat(32)}),account);
+   const message=db.prepare('INSERT INTO privacy_provider_messages VALUES(?,?,?,?,0,?,?)');for(const [operation,purpose,state,who]of [['news_webhook_v1:own','notice','known',account],['news_webhook_v1:foreign','notice','known',R.FOREIGN],['news_webhook_v1:removed','notice','removed',account],['other:own','notice','known',account]])message.run(operation,purpose,state,JSON.stringify([{id:who}]),'retained-channel','retained-message');
+   for(const step of expected)db.prepare(step.sql).run(...step.values);
+   eq(layout+' registered visibility eraser removes only own key',JSON.parse(db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value),{[R.FOREIGN]:'discord-only-optout-v1'});
+   const own=JSON.parse(db.prepare("SELECT value FROM site_settings WHERE key='newsWebhook:own'").get().value);eq(layout+' registered news eraser scrubs own three identity fields',[own.actor,own.birth,own.generation],[null,null,null]);eq(layout+' registered news eraser retains foreign metadata byte-exact',db.prepare("SELECT value FROM site_settings WHERE key='newsWebhook:foreign'").get().value,foreignMetadata);
+   eq(layout+' registered news eraser requests exact attributable active notice only',db.prepare('SELECT operation_id,cleanup_requested,channel_id,message_id FROM privacy_provider_messages ORDER BY operation_id').all(),[{operation_id:'news_webhook_v1:foreign',cleanup_requested:0,channel_id:'retained-channel',message_id:'retained-message'},{operation_id:'news_webhook_v1:own',cleanup_requested:1,channel_id:'retained-channel',message_id:'retained-message'},{operation_id:'news_webhook_v1:removed',cleanup_requested:0,channel_id:'retained-channel',message_id:'retained-message'},{operation_id:'other:own',cleanup_requested:0,channel_id:'retained-channel',message_id:'retained-message'}]);
+   db.prepare("UPDATE site_settings SET value=? WHERE key='discordDirectoryHidden'").run(JSON.stringify({[R.FOREIGN]:17}));assert.throws(()=>db.prepare(expected[0].sql).run(...expected[0].values));eq(layout+' registered visibility eraser retains malformed-map refusal',JSON.parse(db.prepare("SELECT value FROM site_settings WHERE key='discordDirectoryHidden'").get().value),{[R.FOREIGN]:17});
+  }finally{db.close();}
+  eq(layout+' pure catalog observation leaves original Native and DO effects unchanged',{native:x.transport.groups.length,do:x.d.calls.length},before);return plans;
+ };
+ return{check:()=>eq(layout+' one accepted actual collector delegation',calls,1),restore:()=>{erase.originalClosedRecoveryCleanupPlans=originalCollector;registry.communityDataNames=originalNames;}};
+}
 async function run(layout,scenario){
- const x=await R.seedOriginal(layout,'site-before-rejection');let getters=0;
+ const x=await R.seedOriginal(layout,'site-before-rejection');let getters=0,restoreAcknowledgementObserver=null,cleanupCatalogObserver=null;
  try{
-  const a=await R.originalAccepted(x,true),control=a.control;assert.ok(a.fence);if(scenario==='split-native-clock')R.fixtureAdvance(a.now+1);const replayPlan=await control.captureOriginalPrivateRecoveryReplay(a.installation,a.cut,a.source),replay=await control.executeOriginalPrivateRecoveryReplay(replayPlan),facts=control.originalPrivateRecoveryReplayFacts(replay);
+  const a=await R.originalAccepted(x,true),control=a.control;assert.ok(a.fence);if(scenario==='positive')cleanupCatalogObserver=observeClosedCleanupCatalog(x,layout);if(scenario==='split-native-clock')R.fixtureAdvance(a.now+1);const replayPlan=await control.captureOriginalPrivateRecoveryReplay(a.installation,a.cut,a.source);cleanupCatalogObserver?.check();const replay=await control.executeOriginalPrivateRecoveryReplay(replayPlan),facts=control.originalPrivateRecoveryReplayFacts(replay);
   eq(layout+'/'+scenario+' genuine nonempty closed replay before opener',[facts.nativeCleanupCommitted,facts.nativeClosedReadbackConfirmed,facts.independentReplayConfirmed,facts.servingModeEntered],[true,true,true,false]);
   const before=R.objects(x.copy),foreign=x.copy.prepare('SELECT * FROM site_users WHERE discord_id=?').get(R.FOREIGN),slot=x.copy.prepare("SELECT json_array(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes) tuple FROM privacy_write_admission").get().tuple;
   if(scenario==='split-native-clock'){
@@ -19,11 +57,20 @@ async function run(layout,scenario){
    cases.push({layout,scenario,sourceProfileAt:source.profileObservedAt,actualReplayACKAt:copyAt,actualNativeClock:a.now,nativeClockReads,nativeOpenAttempts:0,doOpenAttempts:0,singleCopyScopeOnly:true,providerDrainQualified:false,productionActivation:false});return;
   }
   const plan=await control.captureOriginalPrivateServingOpen(a.installation,a.cut,a.source,replay,a.fence),nativeBefore=x.transport.groups.length;let opens=0,doOpens=0,reserves=0,nativeOpenReserve=null;
+  // Observe actual source-returned branded ACK arguments. Both wrappers delegate the original source functions unchanged.
+  const migration=x.f.L('privacy-cookie-profile-migration'),sourceAckAssert=migration.assertOriginalNativeServingOpenAcknowledgement,sourceAckFacts=migration.originalNativeServingOpenAcknowledgementFacts;
+  let acknowledgementArguments=null,acknowledgementPacket=null,acknowledgementAssertionCalls=0,acknowledgementFactsCalls=0;
+  if(scenario==='positive'){
+   assert.equal(typeof sourceAckAssert,'function');
+   migration.assertOriginalNativeServingOpenAcknowledgement=(...args)=>{acknowledgementAssertionCalls++;acknowledgementArguments??=Object.freeze(args.slice());return sourceAckAssert(...args);};
+   migration.originalNativeServingOpenAcknowledgementFacts=(...args)=>{acknowledgementFactsCalls++;return sourceAckFacts(...args);};
+   restoreAcknowledgementObserver=()=>{migration.assertOriginalNativeServingOpenAcknowledgement=sourceAckAssert;migration.originalNativeServingOpenAcknowledgementFacts=sourceAckFacts;};
+  }
   x.transport.hook((statements,next)=>{
    if(!statements.some(s=>s.statement.includes("SET mode='serving'")))return next();opens++;
    eq(layout+'/'+scenario+' actual DO still closed before Native open',x.d.doDb.prepare('SELECT state FROM recovery_serving_gate').get().state,'closing_held');
    const reserved=x.d.doDb.prepare("SELECT state,created_at,expires_at FROM recovery_journal WHERE state='reserved'").all();eq(layout+'/'+scenario+' actual independent spend exists before Native effect',reserved,[{state:'reserved',created_at:a.now,expires_at:a.expires}]);reserves++;nativeOpenReserve=x.d.doDb.prepare("SELECT json_array(operation_id,purpose,nonce,original_floor,request_digest,created_at,expires_at,state,result_digest,completed_at) tuple FROM recovery_journal WHERE state='reserved'").get().tuple;
-   if(scenario==='delayed-native')R.fixtureAdvance(a.expires);const out=next();
+   if(scenario==='delayed-native')R.fixtureAdvance(a.expires);const out=next();if(scenario==='positive')acknowledgementPacket=out;
    if(scenario==='lost-native-ack')throw Error('fixture Native actual open COMMIT lost ACK');
    if(scenario==='native-ack-accessor')Object.defineProperty(out[2].results[0],'admitted',{get(){getters++;throw Error('fixture original Native open ACK accessor');},configurable:true});
    return out;
@@ -46,6 +93,31 @@ async function run(layout,scenario){
    if(scenario==='late-temp-object'){x.copy.exec('CREATE TEMP TABLE original_open_late_temp(value INTEGER)');eq(layout+' late Native temp object reached',x.copy.prepare('SELECT COUNT(*) n FROM temp.sqlite_master').get().n,1);}
    if(scenario==='positive'){
     const result=await control.executeOriginalPrivateServingOpen(plan),value=control.originalPrivateServingOpenFacts(result);eq(layout+' actual source Native then DO completion',[value.nativeModeOpened,value.independentOpenReserveCompleted,value.doGateManagedOpen,value.originalCreatedAt,value.originalExpiresAt,value.originalDeadlineRenewed,value.singleCopyScopeOnly,value.allPhysicalBackupsErased,value.providerDrainQualified,value.productionEndpointMounted,value.readyToReopen],[true,true,true,a.now,a.expires,false,true,false,false,false,false]);
+    eq(layout+' assertion-only boundaries avoid throwaway ACK data snapshots',[acknowledgementAssertionCalls>0,acknowledgementFactsCalls,acknowledgementArguments?.length],[true,1,7]);
+    const acknowledgementEffects={native:x.transport.groups.length,do:x.d.calls.length},clockModule=x.f.L('privacy-recovery-original-clock'),sourceClock=clockModule.originalRecoveryClockMilliseconds;
+    let clockCalls=0,factsClockCalls=0,assertClockCalls=0;
+    // Count delegated original source clock reads, preserving every returned value and all original intrinsic checks.
+    try{
+     clockModule.originalRecoveryClockMilliseconds=(...args)=>{clockCalls++;return sourceClock(...args);};
+     sourceAckFacts(...acknowledgementArguments).check();factsClockCalls=clockCalls;clockCalls=0;
+     eq(layout+' void ACK assertion returns no facts/callback',typeof sourceAckAssert(...acknowledgementArguments),'undefined');assertClockCalls=clockCalls;
+    }finally{clockModule.originalRecoveryClockMilliseconds=sourceClock;}
+    eq(layout+' one full fresh ACK traversal replaces two immediate traversals',[assertClockCalls>0,factsClockCalls],[true,2*assertClockCalls]);
+    console.log('MEASURED_NATIVE_ACK_ASSERTION_COUNTS '+JSON.stringify({layout,genuineBrandedAcknowledgement:true,factsThenCheckOriginalClockCalls:factsClockCalls,voidAssertionOriginalClockCalls:assertClockCalls,originalClockDelegatedUnchanged:true,clockValuesOverridden:false}));
+    const acknowledgementFacts=sourceAckFacts(...acknowledgementArguments);
+    eq(layout+' unchanged ACK facts API remains frozen data plus callable check',[Object.isFrozen(acknowledgementFacts),typeof acknowledgementFacts.check,acknowledgementFacts.nativeOpened,acknowledgementFacts.providerDrainQualified,acknowledgementFacts.readyToReopen,acknowledgementFacts.originalCreatedAt,acknowledgementFacts.originalExpiresAt,acknowledgementFacts.writeEpoch===acknowledgementArguments[1].nextEpoch,/^[0-9a-f]{64}$/.test(acknowledgementFacts.profileDigest64),/^[0-9a-f]{64}$/.test(acknowledgementFacts.nativeResultDigest64)],[true,'function',true,false,false,a.now,a.expires,true,true,true]);acknowledgementFacts.check();
+    for(let index=0;index<7;index++){
+     const foreign=acknowledgementArguments.slice();foreign[index]={...foreign[index]};
+     for(const [name,operation]of [['void',()=>sourceAckAssert(...foreign)],['facts-check',()=>sourceAckFacts(...foreign).check()]]){let error=null;try{operation();}catch(e){error=e;}eq(layout+' '+name+' rejects copied or mismatched ACK context slot'+index,error?.message,'privacy_write_admission_held:original_native_open_ack_foreign');}
+    }
+    let contextGetters=0;const foreignContext=acknowledgementArguments.slice();foreignContext[1]=Object.defineProperty({},'nextEpoch',{get(){contextGetters++;throw Error('fixture foreign ACK context getter');}});await refused(layout+' foreign context accessor has no authority',()=>sourceAckAssert(...foreignContext));eq(layout+' foreign context getter never executes',contextGetters,0);
+    const acknowledgementRow=acknowledgementPacket[2].results[0],admittedDescriptor=Object.getOwnPropertyDescriptor(acknowledgementRow,'admitted'),rowPrototype=Object.getPrototypeOf(acknowledgementRow);
+    try{Object.defineProperty(acknowledgementRow,'admitted',{...admittedDescriptor,value:0});await refused(layout+' void ACK rechecks changed original Native value',()=>sourceAckAssert(...acknowledgementArguments));await refused(layout+' unchanged facts API rejects same changed Native value',()=>sourceAckFacts(...acknowledgementArguments).check());}finally{Object.defineProperty(acknowledgementRow,'admitted',admittedDescriptor);}
+    eq(layout+' void ACK has no cached failure or success',typeof sourceAckAssert(...acknowledgementArguments),'undefined');
+    try{Object.setPrototypeOf(acknowledgementRow,Object.create(rowPrototype));await refused(layout+' void ACK rechecks original Native row prototype',()=>sourceAckAssert(...acknowledgementArguments));}finally{Object.setPrototypeOf(acknowledgementRow,rowPrototype);}
+    let acknowledgementGetters=0;try{Object.defineProperty(acknowledgementRow,'admitted',{get(){acknowledgementGetters++;throw Error('fixture late ACK accessor');},configurable:true,enumerable:admittedDescriptor.enumerable});await refused(layout+' void ACK rejects late Native row accessor',()=>sourceAckAssert(...acknowledgementArguments));eq(layout+' late ACK getter0',acknowledgementGetters,0);}finally{Object.defineProperty(acknowledgementRow,'admitted',admittedDescriptor);}
+    const originalPrepare=Object.getOwnPropertyDescriptor(x.transport.binding,'prepare');try{Object.defineProperty(x.transport.binding,'prepare',{...originalPrepare,value:function(...args){return Reflect.apply(originalPrepare.value,this,args);}});await refused(layout+' void ACK rechecks original Native method identity',()=>sourceAckAssert(...acknowledgementArguments));}finally{Object.defineProperty(x.transport.binding,'prepare',originalPrepare);}
+    eq(layout+' repeated fresh ACK assertions have no Native or DO effects',{native:x.transport.groups.length,do:x.d.calls.length},acknowledgementEffects);
     eq(layout+' exactly one Native3/DO source-open effect',[opens,doOpens,reserves],[1,1,1]);eq(layout+' actual DO managed open',x.d.doDb.prepare('SELECT state FROM recovery_serving_gate').get().state,'managed_open');
     const mode=JSON.parse(x.copy.prepare("SELECT json_array(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes) tuple FROM privacy_write_admission").get().tuple),old=JSON.parse(slot);eq(layout+' Native changes only original mode',mode,old.map((v,i)=>i===3?'serving':v));
     const count=x.transport.groups.length;await refused(layout+' completed opaque opener cannot dispatch again',()=>control.executeOriginalPrivateServingOpen(plan));eq(layout+' completed opener no repeat Native/DO',[x.transport.groups.length,doOpens],[count,1]);
@@ -60,7 +132,7 @@ async function run(layout,scenario){
   eq(layout+'/'+scenario+' complete original Native schema retained',R.objects(x.copy),before);eq(layout+'/'+scenario+' foreign values retained',x.copy.prepare('SELECT * FROM site_users WHERE discord_id=?').get(R.FOREIGN),foreign);eq(layout+'/'+scenario+' actual FKON and clean',[x.copy.prepare('PRAGMA foreign_keys').get().foreign_keys,x.copy.prepare('PRAGMA foreign_key_check').all().length],[1,0]);
   eq(layout+'/'+scenario+' fixed original rejection marker never renewed',x.copy.prepare('SELECT denied_at,retain_until FROM privacy_denial_markers').all(),[{denied_at:R.T,retain_until:R.T+31536000}]);
   cases.push({layout,scenario,originalCreatedAt:a.now,originalExpiresAt:a.expires,nativeOpenAttempts:opens,doOpenAttempts:doOpens,independentReserves:reserves,getterCalls:getters,nativeMode:x.copy.prepare('SELECT mode FROM privacy_write_admission').get().mode,doState:x.d.doDb.prepare('SELECT state FROM recovery_serving_gate').get().state,sourceNativeGroups:x.transport.groups.slice(nativeBefore).map(g=>g.length),singleCopyScopeOnly:true,providerDrainQualified:false,productionActivation:false});
- }finally{x.close();}
+ }finally{cleanupCatalogObserver?.restore();restoreAcknowledgementObserver?.();x.close();}
 }
 async function main(){for(const layout of ['canonical','recorded-live-20261010'])for(const scenario of scenarios)await run(layout,scenario);eq('all28 actual Native/DO opener scenarios reached',cases.length,28);const total=checks+R.fixtureChecks();console.log('MEASURED_NATIVE_OPEN_ORDERING '+JSON.stringify({schema:'same-original-native-do-open-ordering-v1',complete:true,cases,sourceNativeBeforeDO:true,modeledNativeClockOnly:true,syntheticManagedOpenProviderAndReleaseOnly:true,singleCopyScopeOnly:true,allPhysicalBackupsQualified:false,providerDrainQualified:false,productionActivation:false,passedAssertions:total}));console.log('native open ordering: '+total+'/'+total+' passed');}
 main().catch(error=>{console.error(error);process.exitCode=1;});

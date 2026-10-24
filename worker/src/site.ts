@@ -155,7 +155,7 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
 ${olympusSocialMetadata()}
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0a08">
-<link rel="icon" href="/static/wow/icon-shield.png" type="image/png">
+<link rel="icon" href="/static/olympus-icon.png" type="image/png">
 <link rel="preload" href="/static/wow/friz-quadrata.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/wow/morpheus.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v=${encodeURIComponent(build)}">

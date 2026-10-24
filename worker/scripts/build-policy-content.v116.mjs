@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { olympusSocialMetadata } from "../src/site-brand.ts";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,7 @@ export function build() {
     if (!title || !main) throw Error("missing_policy_shell");
     const body = main.replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./terms.html">', '<p class="meta related">See also the <a href="/legal/terms">').replace('<p class="meta" style="margin-top:2.5rem">See also the <a href="./privacy.html">', '<p class="meta related">See also the <a href="/legal/privacy">').replaceAll('href="./privacy.html"', 'href="/legal/privacy"').replaceAll('href="./terms.html"', 'href="/legal/terms"');
     if (/style=|\.\/(privacy|terms)\.html/.test(body)) throw Error("unconverted_policy_link");
-    const html = `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>${title}</title>\n<meta name="color-scheme" content="dark">\n<link rel="icon" href="/static/wow/icon-shield.png">\n<link rel="stylesheet" href="/static/policies.css">\n<link rel="stylesheet" href="/static/wow-cursor.css">\n</head>\n<body class="olympus-policy">\n<a class="skip-link" href="#policy-content">Skip to policy</a>\n<header class="policy-header">\n<a class="brand" href="/"><img src="/static/wow/icon-shield.png" alt="" width="40" height="40">Olympus</a>\n</header>\n<main id="policy-content" tabindex="-1">\n${body}\n</main>\n</body>\n</html>\n`;
+    const html = `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>${title}</title>\n<meta name="color-scheme" content="dark">\n${olympusSocialMetadata()}\n<link rel="icon" href="/static/olympus-icon.png">\n<link rel="stylesheet" href="/static/policies.css">\n<link rel="stylesheet" href="/static/wow-cursor.css">\n</head>\n<body class="olympus-policy">\n<a class="skip-link" href="#policy-content">Skip to policy</a>\n<header class="policy-header">\n<a class="brand" href="/"><img src="/static/olympus-icon.png" alt="" width="40" height="40">Olympus</a>\n</header>\n<main id="policy-content" tabindex="-1">\n${body}\n</main>\n</body>\n</html>\n`;
     validateHtml(html); return { page, source, html, sourceHash: sha(source), outsideHash: sha(outsideSlots(source)) };
   });
   const version = sha(docs.map(d => d.page.file + "\n" + d.sourceHash).join("\n"));

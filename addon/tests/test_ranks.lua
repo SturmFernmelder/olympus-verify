@@ -48,7 +48,7 @@ check("the heading distinguishes a recommended preset from live configuration", 
 for i, rank in ipairs(expectedRanks) do
   check("native index " .. (i - 1) .. " is " .. rank, guide[i + 1], "  " .. (i - 1) .. ": " .. rank)
 end
-check("current B slots and historical Officer Alt office alias remain distinct", guide[12], "Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (Slot 2); Treasurer is native Slot 3 and Officer is Slot 4. Officer Alt is a historical office alias, not an extra native rank.")
+check("current B slots and historical Officer Alt office alias remain distinct", guide[12], "Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (native index 1, second rank); Treasurer is native index 2 (third rank) and Officer is native index 3 (fourth rank). Officer Alt is a historical office alias, not an extra native rank.")
 check("withdrawal and tab management explicitly apply to every High Council member", contains(guide, "every High Council member Withdraw Gold and Modify Bank Tabs"), true)
 check("Raid Leader keeps the authenticator safeguard", contains(guide, "Raid Leader retains the authenticator safeguard"), true)
 check("numeric bank allowances are explicitly unapproved", contains(guide, "No numeric bank withdrawal allowances have been approved"), true)

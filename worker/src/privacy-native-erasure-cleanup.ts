@@ -5,6 +5,7 @@
 import type {Env} from './env';
 import {nativeErasureMode} from './privacy-native-mode';
 import {captureAccountErasureProof,originalErasureJobBirthSql,PRIVACY_DB_NOW,type AccountErasureProof} from './privacy-serving-authority';
+import {leadershipEnvelopeSql} from './site-leadership-data';
 
 const WITHHELD="'Name withheld'";
 const exactAccount=(value:string)=>`${value} IN(?2,'<@'||?2||'>','<@!'||?2||'>')`;
@@ -43,7 +44,7 @@ function redactPaths(doc:string,paths:string):string{
 /** Only the concrete directory fields accepted by cleanLeadership can be rewritten.
  * Guild labels, other fields and non-account names are never inferred as identities.
  */
-const directorySql=(doc:string)=>`CASE WHEN NOT json_valid(${doc}) THEN 0 WHEN json_type(${doc})<>'array' THEN 0
+const directorySql=(doc:string)=>`CASE WHEN NOT json_valid(${doc}) THEN 0 WHEN json_type(${doc})='object' THEN ${leadershipEnvelopeSql(doc)} WHEN json_type(${doc})<>'array' THEN 0
  WHEN json_array_length(${doc})<>10 THEN 0 ELSE NOT EXISTS(SELECT 1 FROM json_each(${doc}) g WHERE CASE
  WHEN g.type<>'object' THEN 1
  WHEN(SELECT COUNT(*) FROM json_each(g.value))<>3 OR(SELECT COUNT(DISTINCT key) FROM json_each(g.value))<>3 THEN 1
@@ -60,8 +61,14 @@ export function nativeErasurePersonalReferenceStatements(env:Env,input:AccountEr
  const bind=(sql:string)=>env.DB.prepare(sql).bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest);
  const appointed='site_settings.value';
  const appointmentPaths=`SELECT e.fullkey AS path FROM json_each(${appointed}) e WHERE ${exactAccount('e.value')}`;
- const directoryPaths=`SELECT '$['||g.key||'].gm' AS path FROM json_each(${appointed}) g WHERE ${exactAccount("json_extract(g.value,'$.gm')")}
- UNION ALL SELECT '$['||g.key||'].officers['||o.key||']' AS path FROM json_each(${appointed}) g,json_each(g.value,'$.officers') o WHERE ${exactAccount('o.value')}`;
+ const directoryGuilds=`CASE WHEN json_type(${appointed})='array' THEN ${appointed} ELSE json_extract(${appointed},'$.guilds') END`;
+ const directoryPrefix=`CASE WHEN json_type(${appointed})='array' THEN '$' ELSE '$.guilds' END`;
+ const directoryPaths=`SELECT ${directoryPrefix}||'['||g.key||'].gm' AS path,0 AS remove FROM json_each(${directoryGuilds}) g WHERE ${exactAccount("json_extract(g.value,'$.gm')")}
+ UNION ALL SELECT ${directoryPrefix}||'['||g.key||'].officers['||o.key||']' AS path,0 AS remove FROM json_each(${directoryGuilds}) g,json_each(g.value,'$.officers') o WHERE ${exactAccount('o.value')}
+ UNION ALL SELECT '$.publications.'||p.key AS path,1 AS remove FROM json_each(${appointed},'$.publications') p WHERE ${exactAccount("json_extract(p.value,'$.pointer')")}`;
+ const directoryRedacted=`(WITH RECURSIVE matches(path,remove,ordinal) AS(SELECT path,remove,ROW_NUMBER() OVER(ORDER BY path) FROM(${directoryPaths})),
+ scrubbed(ordinal,text) AS(SELECT 0,${appointed} UNION ALL SELECT s.ordinal+1,CASE WHEN m.remove=1 THEN json_remove(s.text,m.path) ELSE json_set(s.text,m.path,${WITHHELD}) END
+ FROM scrubbed s JOIN matches m ON m.ordinal=s.ordinal+1) SELECT text FROM scrubbed ORDER BY ordinal DESC LIMIT 1)`;
  const answer='a.answers',answerObject=objectSql(answer);
  const discordReference=`CASE WHEN e.type<>'object' THEN 0 ELSE json_type(e.value,'$.kind')='text'
  AND json_extract(e.value,'$.kind')='discord' AND json_type(e.value,'$.key')='text' AND ${exactAccount("json_extract(e.value,'$.key')")} END`;
@@ -73,7 +80,7 @@ export function nativeErasurePersonalReferenceStatements(env:Env,input:AccountEr
  AND CASE WHEN NOT(${objectSql(appointed)}) THEN 0 ELSE NOT EXISTS(SELECT 1 FROM json_each(${appointed}) e
  WHERE e.type<>'text' OR typeof(e.key)<>'text' OR length(e.key)=0 OR e.key GLOB '*[^a-z0-9_:]*')
  AND EXISTS(SELECT 1 FROM json_each(${appointed}) e WHERE ${exactAccount('e.value')}) END`),
- bind(`UPDATE site_settings SET value=${redactPaths(appointed,directoryPaths)} WHERE key='leadership' AND ${current}
+ bind(`UPDATE site_settings SET value=${directoryRedacted} WHERE key='leadership' AND ${current}
  AND CASE WHEN NOT(${directorySql(appointed)}) THEN 0 ELSE EXISTS(SELECT 1 FROM(${directoryPaths})) END`),
  bind(`UPDATE site_applications AS a SET answers=(WITH RECURSIVE matches(idx,ordinal) AS(
  SELECT CAST(e.key AS INTEGER),ROW_NUMBER() OVER(ORDER BY CAST(e.key AS INTEGER) DESC)

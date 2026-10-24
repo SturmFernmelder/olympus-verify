@@ -1,17 +1,11 @@
-/** Fixed private navigation only. The public script-free policy responder stays independent.
- * No provider read, session refresh, cookie write, query reflection or policy-content rewrite. */
+/** Canonical policies must remain readable without the member shell or JavaScript.
+ * The owner's .197 follow-up (24 Oct 2026) keeps /#/legal/* as an explicit
+ * enhancement, never an implicit redirect based on a cookie. A valid cookie does
+ * not prove the SPA can enter its current serving/standing gate. In particular,
+ * do not authenticate before the always-available public policy responder.
+ * This compatibility hook stays inert at both existing entry points: no D1,
+ * provider read, session refresh, cookie write, query reflection or text rewrite. */
 import type { Env } from './env';
-import { currentUser, securityHeaders, SESSION_COOKIE } from './site-core';
-export async function memberLegalNavigation(request: Request, env: Env, path: string): Promise<Response | null> {
-  if (!['/legal/privacy', '/legal/terms'].includes(path) || !['GET', 'HEAD'].includes(request.method)) return null;
-  const cookie = request.headers.get('Cookie');
-  if (!cookie || !cookie.split(';').some(part => part.trim().startsWith(SESSION_COOKIE + '='))) return null;
-  // A missing, stale, denied or held identity always retains the public reader.
-  try {
-    const user = await currentUser(env, request);
-    if (!user || user.in_server !== 1 || user.denied !== 0) return null;
-    const headers = securityHeaders(new Headers({ Location: '/#' + path, Vary: 'Cookie' }));
-    headers.set('Cache-Control', 'private, no-store, no-transform');
-    return new Response(null, { status: 303, headers });
-  } catch { return null; }
+export async function memberLegalNavigation(_request: Request, _env: Env, _path: string): Promise<Response | null> {
+  return null;
 }

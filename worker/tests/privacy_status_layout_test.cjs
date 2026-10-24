@@ -70,7 +70,7 @@ async function main() {
     check(route + ' contents requires neither scripts nor a wider CSP', !/<script\b/i.test(document) && policy.headers.get('Content-Security-Policy') === policies.POLICY_CSP);
     const head = policies.policyResponse(new Request('https://guild.example' + route, { method: 'HEAD' }), route);
     check(route + ' presentation keeps HEAD empty and public response uncached', (await head.text()) === '' && /no-store/.test(head.headers.get('Cache-Control')) && !head.headers.has('Set-Cookie'));
-    check(route + ' keeps the shared shield frame without default cross-policy navigation or retired links', document.includes('src="/static/wow/icon-shield.png"') && !document.includes('aria-label="Policies"') && !/<footer\b/i.test(document) && !/href="\/(?:privacy|terms)"/.test(document));
+    check(route + ' keeps the owner tabard frame without default cross-policy navigation or retired links', document.includes('src="/static/olympus-icon.png"') && !document.includes('aria-label="Policies"') && !/<footer\b/i.test(document) && !/href="\/(?:privacy|terms)"/.test(document));
     check(route + ' retains exact account, access and case action links', ['account', 'access', 'case'].every(action => document.includes('href="https://olympus.roachcouncil.com/privacy/' + action + '"')));
   }
   for (const route of ['/privacy/account', '/privacy/access', '/privacy/account/erasure-status', '/privacy/account/full-erase', '/privacy/account/site-erase', '/privacy/access/erasure', '/privacy/case', '/privacy/case/reply', '/api/privacy/requests', '/legal/privacy/anything', '/legal/terms/anything']) {

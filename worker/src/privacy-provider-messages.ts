@@ -5,7 +5,7 @@ import type { Env } from './env';
 import { rest,DiscordError } from './discord';
 import { PRIVACY_DB_NOW,PRIVACY_REPLAY,privacyProviderCustodyDatabase,privacyGenerationExpressionFenceSql,type PrivacySubject } from './privacy-serving-authority';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
-import { NEWS_WEBHOOK_PREFIX, cleanupNewsWebhookMessage, newsWebhookCleanupDueSql, newsWebhookCleanupMetadataSql, type NewsWebhookCustodyRow } from './site-news-webhook';
+import { NEWS_WEBHOOK_PREFIX, cleanupNewsWebhookMessage, newsWebhookCleanupDueSql, newsWebhookCleanupCandidatesSql, newsWebhookCleanupMetadataSql, type NewsWebhookCustodyRow } from './site-news-webhook';
 const ID=/^\d{17,20}$/,HEX=/^[0-9a-f]{32}$/;
 export type MessageSubject={subject:string;capture:PrivacySubject|null};
 const CURRENT=privacyGenerationExpressionFenceSql("json_extract(x.value,'$.id')","json_extract(x.value,'$.g')");
@@ -119,7 +119,7 @@ export async function cleanupPrivacyMessages(env:Env,subject?:string):Promise<{r
  const DB=privacyProviderCustodyDatabase(env);
  const admission=isPrivacyWriteAdmissionDatabase(DB),pageSize=admission?1:5;
  if(subject)await DB.prepare(`UPDATE privacy_provider_messages SET cleanup_requested=1 WHERE state NOT IN('removed','refused') AND EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1)`).bind(subject).run();
- const page=await DB.prepare(`SELECT m.operation_id,m.purpose,m.channel_id,m.message_id,m.state,m.subjects,m.created_at,m.updated_at,m.retain_until,CASE WHEN substr(m.operation_id,1,16)='${NEWS_WEBHOOK_PREFIX}' THEN ${newsWebhookCleanupMetadataSql} END AS webhook_metadata FROM privacy_provider_messages m WHERE (cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND state IN('known','cleaning')
+ const page=await DB.prepare(`SELECT m.operation_id,m.purpose,m.channel_id,m.message_id,m.state,m.subjects,m.created_at,m.updated_at,m.retain_until,CASE WHEN substr(m.operation_id,1,16)='${NEWS_WEBHOOK_PREFIX}' THEN ${newsWebhookCleanupMetadataSql} END AS webhook_metadata FROM privacy_provider_messages m WHERE m.operation_id IN(${newsWebhookCleanupCandidatesSql}) AND state IN('known','cleaning')
  ${subject?"AND EXISTS(SELECT 1 FROM json_each(subjects)x WHERE json_extract(x.value,'$.id')=?1)":''} ORDER BY ${admission?'updated_at,':''}created_at,operation_id LIMIT ${pageSize}`).bind(...(subject?[subject]:[])).all<NewsWebhookCustodyRow & {updated_at:number}>();
  let removed=0,held=0;
  for(const row of page.results){

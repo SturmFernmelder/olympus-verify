@@ -314,12 +314,12 @@ async function legacySchemaHeld(old) {
   check("  no-store, no-transform (Cloudflare injects nothing) and frame denial", res.headers.get("Cache-Control") === "no-store, no-transform" && res.headers.get("X-Frame-Options") === "DENY");
   check('signed-out source contains no guild settings, appointment names or role descriptions', !page.html.includes('Fernmelder') && !page.html.includes('namesOpenAt') && !page.html.includes('primaryProfessions'));
   {
-    // .111: the tab icon and the brand are the Olympus crest again (Viktor's decision of 1 Oct 2026: the website's one exception to
-    // the official game art); the file is byte for byte the one live on guild.roachcouncil.com, and it is the only image outside wow/.
+    // .197: the owner-supplied tabard is the guild's approved brand exception;
+    // pin its exact supplied bytes and both the script-free gate and member brand.
     const icon = path.join(root, "public", "static", "olympus-icon.png");
     const png = fs.existsSync(icon) ? fs.readFileSync(icon) : Buffer.alloc(0);
     const imagesOutsideWow = (function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? (d.name === "wow" ? [] : walk(path.join(dir, d.name))) : (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i.test(d.name) ? [path.relative(path.join(root, "public"), path.join(dir, d.name)).replace(/\\/g, "/")] : [])); })(path.join(root, "public"));
-    check('the sign-in and member brand use official Warcraft shield art', page.html.includes('/static/wow/icon-shield.png') && !/<img\b[^>]*src=["']\/static\/olympus-icon\.png/.test(page.html) && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/wow/icon-shield.png"'));
+    check('the sign-in and member brand use the exact owner-approved tabard', png.length === 53204 && require('node:crypto').createHash('sha256').update(png).digest('hex') === '6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb' && page.html.includes('<link rel="icon" href="/static/olympus-icon.png">') && /<img\b[^>]*src=["']\/static\/olympus-icon\.png/.test(page.html) && fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8').includes('src: "/static/olympus-icon.png"'));
     const appJs = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
     const avatarSource = ts.createSourceFile("app.js", appJs, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS), avatarParts = {};
     (function readAvatarDefinitions(node) {
@@ -394,6 +394,21 @@ async function legacySchemaHeld(old) {
     alice.account_created === data.snowflakeTime("300000000000000001") && alice.server_joined === Date.parse("2023-05-01T00:00:00.000Z") / 1000);
   check("  and the access token is stored nowhere", !JSON.stringify(db.prepare("SELECT * FROM site_users").all()).includes("tok-"));
   for (const id of [VIKTOR, "300000000000000002", "300000000000000003", "300000000000000006", "300000000000000007"]) await signIn(id);
+  // .197: use the original OAuth-issued member cookie, not an invented cookie or
+  // a mocked currentUser. Policy access must not depend on SPA admission or JS.
+  for (const [route, title] of [["/legal/privacy", "Privacy Policy"], ["/legal/terms", "Terms of Service"]]) {
+    res = await call("GET", route + "?ignored=private-fixture", { who: "300000000000000001" });
+    const canonicalMemberText = await res.text();
+    check(route + " keeps script-free canonical text for an actually signed-in member", jar.has("300000000000000001") && res.status === 200 && !res.headers.has("Location") && !res.headers.has("Set-Cookie") && /script-src 'none'/.test(res.headers.get("Content-Security-Policy") || "") && canonicalMemberText.includes(`<h1>${title}</h1>`) && !canonicalMemberText.includes("private-fixture"));
+    let policyDatabaseReads = 0;
+    const unavailableDatabase = { prepare() { policyDatabaseReads++; throw new Error("synthetic policy database unavailable"); } };
+    const policyEnv = { ...rawEnv(), DB: unavailableDatabase };
+    for (const method of ["GET", "HEAD"]) {
+      const publicPolicy = await index.fetch(new Request("https://guild.example" + route, { method, headers: { Cookie: jar.get("300000000000000001") } }), policyEnv, ctx);
+      await settle();
+      check(method + " " + route + " remains available with the real signed cookie even when every database read would fail", publicPolicy.status === 200 && !publicPolicy.headers.has("Location") && !publicPolicy.headers.has("Set-Cookie") && (await publicPolicy.text()) === (method === "HEAD" ? "" : canonicalMemberText) && policyDatabaseReads === 0);
+    }
+  }
   res = await call("GET", "/", { who: "300000000000000001" });
   page = await bootOf(res);
   check("signed in, the page's boot data is the member's own", page.boot.signedIn && page.boot.user.id === "300000000000000001" && page.boot.user.isAdmin === false && page.boot.meta.positions.length === 20 && page.boot.meta.avail.prime.na.length === 7);
@@ -1394,7 +1409,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-23.196 Olympus guild hall, public PvE and community tools" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-24.197 Olympus guild tabard and Master follow-ups" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

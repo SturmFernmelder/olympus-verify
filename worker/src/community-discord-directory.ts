@@ -1,5 +1,6 @@
 /** On-demand Discord membership, independent of optional self-published profiles.
- * One bounded REST page; no roster mirror, account creation, audit or role write.
+ * One bounded REST page; no roster mirror, account creation or role write.
+ * Attended preference writes retain only a counts/choice audit, never target identity.
  * The original reader and captured target birth/generation are re-admitted after
  * provider and crypto waits. A traversal is not an atomic whole-server snapshot. */
 import type { Env } from './env';
@@ -37,7 +38,7 @@ function publicRoles(env: Env): readonly (readonly [string, string])[] {
   if (env.FULL_RELEASE_ROLES) {
     const f = JSON.parse(env.FULL_RELEASE_ROLES);
     if (!f || Object.keys(f).join(',') !== 'version,epoch,epochStart,grants,membership,native' || f.version !== 1 || !validId(f.membership) || !Array.isArray(f.native) || f.native.length !== NATIVE_RANKS.length || !f.native.every(validId) || new Set([f.membership, ...f.native]).size !== 11 || JSON.stringify(f) !== env.FULL_RELEASE_ROLES) throw new PageFault('discord_directory_unavailable', 503);
-    roles.push([f.membership, 'Guild Member']); for (let i = 0; i < f.native.length; i++) roles.push([f.native[i], `Olympus ${NATIVE_RANKS[i]}`]);
+    roles.push([f.membership, 'Guild Member']); for (let i = 0; i < f.native.length; i++) roles.push([f.native[i], `Historical ten-rank profile — ${NATIVE_RANKS[i]}`]);
   }
   if (!roles.length) throw new PageFault('discord_directory_unavailable', 503);
   return roles;
@@ -119,7 +120,7 @@ const permitted = `COALESCE(m.banned,0)=0 AND (u.discord_id IS NULL OR (
  AND (p.subject_id IS NULL OR (p.state='active' AND typeof(p.generation)='text' AND length(p.generation)=32
  AND p.generation NOT GLOB '*[^0-9a-f]*' AND typeof(p.revision)='integer' AND p.revision>=0))
  AND NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=wanted.value AND j.state IN('waiting_role','held','erasing'))
- AND NOT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND (json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"')=u.account_incarnation OR json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"')='discord-only-optout-v1'))`;
+ AND NOT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND json_extract(${hiddenValue},'$.'||'"'||wanted.value||'"') IN(u.account_incarnation,'discord-only-optout-v1'))`;
 const targetFrom = `FROM json_each(?1) wanted LEFT JOIN site_users u ON u.discord_id=wanted.value
  LEFT JOIN members m ON m.discord_id=wanted.value LEFT JOIN privacy_subjects p ON p.subject_id=wanted.value`;
 function captureTargets(env: Env, ids: readonly string[]): D1PreparedStatement {
@@ -213,6 +214,13 @@ export async function discordDirectoryList(request: Request, env: Env, ctx: Comm
   }
 }
 
+const ERASURE_VISIBILITY_NOTICE = 'Account erasure deletes this preference. An eligible Discord account may then appear in the directory; a fresh attended opt-out can hide it again.';
+function visibilityFacts(marker: unknown, birth: unknown) {
+  const selfOwned = typeof birth === 'string' && HEX32.test(birth) && marker === birth;
+  return { listed: marker !== 'discord-only-optout-v1' && !selfOwned,
+    visibilityOrigin: selfOwned ? 'self_service' : marker === 'discord-only-optout-v1' ? 'attended_request' : marker === null ? 'default' : 'previous_account',
+    restoreAllowed: !selfOwned, erasureNotice: ERASURE_VISIBILITY_NOTICE };
+}
 /** Own-only opt-out, independent of profile publication and role proof. A person
  * may hide their row even while they cannot qualify for Community content. */
 export async function discordDirectoryVisibility(request: Request, env: Env, ctx: CommunityContext, body: Record<string, unknown> = {}): Promise<Response> {
@@ -220,7 +228,7 @@ export async function discordDirectoryVisibility(request: Request, env: Env, ctx
   const original = ctx.subject, capture = captureCommunitySubject(original), s = capture.subject;
   const check = () => { capture.check(); if (ctx.subject !== original) throw Error('discord_directory_original_reader_changed'); };
   const path = '$."' + s.discordId + '"';
-  const read = () => admittedRead(env, ctx, 'authenticatedIdentity', [env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key=?1 AND (json_extract(${hiddenValue},?2)=?3 OR json_extract(${hiddenValue},?2)='discord-only-optout-v1')) THEN 0 ELSE 1 END AS listed`).bind(VISIBILITY_KEY, path, s.accountIncarnation)]);
+  const read = () => admittedRead(env, ctx, 'authenticatedIdentity', [env.DB.prepare(`SELECT (SELECT json_extract(${hiddenValue},?2) FROM site_settings ds WHERE ds.key=?1) AS marker`).bind(VISIBILITY_KEY, path)]);
   if (request.method === 'PUT') {
     if (!sameOrigin(request) || request.headers.get('X-Olympus') !== PAGE_VERSION) return apiJson({ error: 'bad_origin' }, 403);
     if (Object.keys(body).join(',') !== 'listed' || typeof body.listed !== 'boolean') return apiJson({ error: 'invalid_visibility' }, 400);
@@ -230,7 +238,8 @@ export async function discordDirectoryVisibility(request: Request, env: Env, ctx
     if (written === FENCE_REFUSED) return apiJson({ error: 'visibility_not_saved' }, 409);
   } else if (request.method !== 'GET') return apiJson({ error: 'not_found' }, 404);
   check(); const result = await read(); check(); if (result === FENCE_REFUSED) return apiJson({ error: 'signed_out' }, 401);
-  return apiJson({ listed: (result[0]!.results[0] as { listed: number }).listed === 1, default: 'listed_if_olympus_member', scope: 'whole_directory_row', optionalProfileDetails: 'separate_opt_in' });
+  const facts = visibilityFacts((result[0]!.results[0] as { marker: unknown }).marker, s.accountIncarnation);
+  return apiJson({ ...facts, restoreAllowed: true, default: 'listed_if_olympus_member', scope: 'whole_directory_row', optionalProfileDetails: 'separate_opt_in' });
 }
 /** Attended suppression also covers Olympus role holders who never created a site account.
  * Exact-ID preference only: no profile, role, roster, account or provider write. */
@@ -248,31 +257,40 @@ export async function discordDirectoryAttendedVisibility(request: Request, env: 
     check(); const captureRows = await admittedRead(env, ctx, 'authenticatedIdentity', [env.DB.prepare(`SELECT
       CASE WHEN u.discord_id IS NULL THEN 0 ELSE 1 END AS sitePresent,u.account_incarnation AS birth,
       CASE WHEN p.subject_id IS NULL THEN 0 ELSE 1 END AS privacyPresent,p.state,p.generation,p.revision,
-      EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=?1 AND j.state IN('waiting_role','held','erasing')) AS activeJob
-      FROM (SELECT ?1 AS id) wanted LEFT JOIN site_users u ON u.discord_id=wanted.id LEFT JOIN privacy_subjects p ON p.subject_id=wanted.id`).bind(target)]); check();
+      EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=?1 AND j.state IN('waiting_role','held','erasing')) AS activeJob,
+      (SELECT json_extract(${hiddenValue},?3) FROM site_settings ds WHERE ds.key=?2) AS marker
+      FROM (SELECT ?1 AS id) wanted LEFT JOIN site_users u ON u.discord_id=wanted.id LEFT JOIN privacy_subjects p ON p.subject_id=wanted.id`).bind(target, VISIBILITY_KEY, targetPath)]); check();
     if (captureRows === FENCE_REFUSED) return apiJson({ error: 'forbidden' }, 403);
     const targetRows = captureRows[0]!.results;
-    const fact = targetRows.length === 1 ? targetRows[0] as {sitePresent:unknown;birth:unknown;privacyPresent:unknown;state:unknown;generation:unknown;revision:unknown;activeJob:unknown} : null;
+    const fact = targetRows.length === 1 ? targetRows[0] as {sitePresent:unknown;birth:unknown;privacyPresent:unknown;state:unknown;generation:unknown;revision:unknown;activeJob:unknown;marker:unknown} : null;
     if (!fact || ![0,1].includes(fact.sitePresent as number) || ![0,1].includes(fact.privacyPresent as number) || fact.activeJob !== 0
       || (fact.sitePresent === 1 ? typeof fact.birth !== 'string' || !HEX32.test(fact.birth) : fact.birth !== null)
-      || (fact.privacyPresent === 1 ? fact.state !== 'active' || typeof fact.generation !== 'string' || !HEX32.test(fact.generation) || !Number.isSafeInteger(fact.revision) || (fact.revision as number) < 0 : fact.state !== null || fact.generation !== null || fact.revision !== null)) return apiJson({error:'visibility_target_changed'},409);
+      || (fact.privacyPresent === 1 ? fact.state !== 'active' || typeof fact.generation !== 'string' || !HEX32.test(fact.generation) || !Number.isSafeInteger(fact.revision) || (fact.revision as number) < 0 : fact.state !== null || fact.generation !== null || fact.revision !== null)
+      || (fact.marker !== null && fact.marker !== 'discord-only-optout-v1' && (typeof fact.marker !== 'string' || !HEX32.test(fact.marker)))) return apiJson({error:'visibility_target_changed'},409);
+    // An attended request cannot replace the current person's own decision, even
+    // with another hide. The exact marker is also part of the final write CAS.
+    const originalVisibility = visibilityFacts(fact.marker, fact.birth);
+    if (!originalVisibility.restoreAllowed) return apiJson({ error: 'visibility_owned_by_member', message: 'The member controls this self-service preference. Ask them to change it while signed in.', discordId: target, ...originalVisibility, scope: 'whole_directory_row', noAccountCreated: true, noDiscordWrite: true }, 409);
     const targetFence = `((?9=0 AND NOT EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?8)) OR (?9=1 AND EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?8 AND u.account_incarnation=?10)))
       AND ((?11=0 AND NOT EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=?8)) OR (?11=1 AND EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=?8 AND p.state='active' AND p.generation=?12 AND p.revision=?13)))
-      AND NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=?8 AND j.state IN('waiting_role','held','erasing'))`;
-    check(); const written = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO site_settings(key,value,updated_at,updated_by) SELECT ?4,CASE WHEN ?7=1 THEN json_remove(${value},?5) ELSE json_set(${value},?5,?6) END,${DB_NOW},NULL WHERE ${fenceSql('applicantWrite', 1, 2, 3, subject.privacyGeneration, subject.accountIncarnation)} AND ${targetFence} AND (?7=1 OR (SELECT COUNT(*) FROM json_each(${value}))<10000 OR json_type(${value},?5) IS NOT NULL) ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=NULL`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt, VISIBILITY_KEY, targetPath, 'discord-only-optout-v1', body.listed ? 1 : 0, target, fact.sitePresent, fact.birth, fact.privacyPresent, fact.generation, fact.revision)]); check();
-    if (written === FENCE_REFUSED || written[0]?.meta.changes !== 1) return apiJson({ error: 'visibility_not_saved' }, 409);
+      AND NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=?8 AND j.state IN('waiting_role','held','erasing'))
+      AND json_extract(${value},?5) IS ?14`;
+    check(); const written = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO site_settings(key,value,updated_at,updated_by) SELECT ?4,CASE WHEN ?7=1 THEN json_remove(${value},?5) ELSE json_set(${value},?5,?6) END,${DB_NOW},NULL WHERE ${fenceSql('applicantWrite', 1, 2, 3, subject.privacyGeneration, subject.accountIncarnation)} AND ${targetFence} AND (?7=1 OR (SELECT COUNT(*) FROM json_each(${value}))<10000 OR json_type(${value},?5) IS NOT NULL) ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=NULL`).bind(subject.discordId, subject.sessionVersion, subject.expiresAt, VISIBILITY_KEY, targetPath, 'discord-only-optout-v1', body.listed ? 1 : 0, target, fact.sitePresent, fact.birth, fact.privacyPresent, fact.generation, fact.revision, fact.marker),
+      env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ${DB_NOW},?1,'community.discord_directory_visibility',NULL,?2 WHERE changes()=1`).bind(subject.discordId, JSON.stringify({ rows: 1, listed: body.listed, origin: 'attended_request' }))]); check();
+    if (written === FENCE_REFUSED || written[0]?.meta.changes !== 1 || written[1]?.meta.changes !== 1) return apiJson({ error: 'visibility_not_saved' }, 409);
   }
-  check(); const rows = await admittedRead(env, ctx, 'authenticatedIdentity', [env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_settings ds LEFT JOIN site_users u ON u.discord_id=?2 WHERE ds.key=?1 AND (json_extract(${hiddenValue},?3)='discord-only-optout-v1' OR json_extract(${hiddenValue},?3)=u.account_incarnation)) THEN 0 ELSE 1 END AS listed`).bind(VISIBILITY_KEY, target, targetPath)]); check();
+  check(); const rows = await admittedRead(env, ctx, 'authenticatedIdentity', [env.DB.prepare(`SELECT (SELECT json_extract(${hiddenValue},?3) FROM site_settings ds WHERE ds.key=?1) AS marker,(SELECT account_incarnation FROM site_users WHERE discord_id=?2) AS birth`).bind(VISIBILITY_KEY, target, targetPath)]); check();
   if (rows === FENCE_REFUSED) return apiJson({ error: 'forbidden' }, 403);
-  return apiJson({ discordId: target, listed: (rows[0]!.results[0] as { listed: number }).listed === 1, scope: 'whole_directory_row', noAccountCreated: true, noDiscordWrite: true });
+  const fact = rows[0]!.results[0] as { marker: unknown; birth: unknown };
+  return apiJson({ discordId: target, ...visibilityFacts(fact.marker, fact.birth), scope: 'whole_directory_row', noAccountCreated: true, noDiscordWrite: true });
 }
 
 registerCommunityData('discord_directory_visibility', (env, account) => [env.DB.prepare(`UPDATE site_settings SET value=json_remove((SELECT ${hiddenValue} FROM site_settings ds WHERE ds.key=?1),?2),updated_at=${DB_NOW},updated_by=NULL WHERE key=?1`).bind(VISIBILITY_KEY, '$."' + account + '"')], (env, account) => ({
-  statements: [env.DB.prepare(`SELECT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key=?1 AND (json_extract(${hiddenValue},?3)='discord-only-optout-v1' OR EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?2 AND json_extract(${hiddenValue},?3)=u.account_incarnation))) AS hidden`).bind(VISIBILITY_KEY, account, '$."' + account + '"')],
+  statements: [env.DB.prepare(`SELECT EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key=?1 AND json_extract(${hiddenValue},?3) IN('discord-only-optout-v1',(SELECT u.account_incarnation FROM site_users u WHERE u.discord_id=?2))) AS hidden`).bind(VISIBILITY_KEY, account, '$."' + account + '"')],
   shape: rows => ({ listedByDefault: true, optedOut: ((rows[0]!.results[0] as { hidden: number })?.hidden ?? 0) === 1, scope: 'whole_directory_row', extraProfileDetails: 'separate_opt_in' }),
   packed: {
     maxRows: 1,
-    selectSql: `SELECT '' AS entry,json_object('hidden',EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND (json_extract(${hiddenValue},'$."'||?1||'"')='discord-only-optout-v1' OR EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=?1 AND json_extract(${hiddenValue},'$."'||?1||'"')=u.account_incarnation)))) AS value`,
+    selectSql: `SELECT '' AS entry,json_object('hidden',EXISTS(SELECT 1 FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}' AND json_extract(${hiddenValue},'$."'||?1||'"') IN('discord-only-optout-v1',(SELECT u.account_incarnation FROM site_users u WHERE u.discord_id=?1)))) AS value`,
     shape: rows => {
       const value = rows.length === 1 && rows[0]!.entry === '' ? rows[0]!.value : null;
       if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== 1 || !Object.hasOwn(value, 'hidden')) throw Error('privacy_copy_unconfirmed');

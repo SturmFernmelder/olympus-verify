@@ -102,6 +102,26 @@ async function buildInBatches(f,map){let partial={};for(let i=0;i<Object.keys(ma
     }finally{H.setFetch(originalFetch);f.close();}
   }
   {
+    const f=await H.fixture(),{VIEWER}=H.ids(),map=fictionalMap(33,348000000000000000n),originalFetch=H.getFetch();
+    try{
+      await buildInBatches(f,map);const selected=roles[32],selectedId=H.identities.appointmentAccountId(map[selected]),lookups=[];
+      H.setFetch(async url=>{if(String(url).includes('/members/'))lookups.push(String(url));return originalFetch(url);});
+      const one=await f.call('GET','/api/appointed-identities?role='+encodeURIComponent(selected),VIEWER);
+      check('.197 a fresh single-office read reaches a holder beyond page32 with the original closed DTO and no other holder lookup',one.status===200&&one.body.complete===true&&one.body.nextCursor===null&&one.body.identities.length===1&&one.body.identities[0].role===selected&&one.body.identities[0].appointment===map[selected]&&Object.keys(one.body).every(key=>['scope','identities','revision','nextCursor','complete'].includes(key))&&lookups.filter(url=>url.endsWith('/members/'+selectedId)).length===1&&!Object.entries(map).some(([role,pointer])=>role!==selected&&lookups.some(url=>url.endsWith('/members/'+H.identities.appointmentAccountId(pointer)))));
+      const beforeEmpty=H.reads(),empty=await f.call('GET','/api/appointed-identities?role='+encodeURIComponent(roles[130]),VIEWER);
+      check('.197 an unfilled known office returns an empty complete admitted projection without enumerating other holders',empty.status===200&&empty.body.complete===true&&empty.body.nextCursor===null&&empty.body.identities.length===0&&H.reads()===beforeEmpty);
+      for(const suffix of ['?role=unregistered','?role='+selected+'&role='+selected,'?role='+selected+'&after='+roles[0]+'&revision='+one.body.revision,'?role='+selected+'&revision='+one.body.revision,'?role=']){
+        const before=H.reads(),bad=await f.call('GET','/api/appointed-identities'+suffix,VIEWER);
+        check('.197 unknown, duplicate or mixed single-office selectors refuse before holder work',bad.status===400&&!bad.body.identities&&H.reads()===before);
+      }
+      const beforeReuse=H.reads(),notContinuation=await requestPage(f,VIEWER,roles[0],one.body.revision);
+      check('.197 a single-office witness cannot become an unfiltered continuation',notContinuation.status===409&&notContinuation.body.error==='appointed_identities_changed'&&H.reads()===beforeReuse);
+      let fired=false;H.setFetch(async url=>{const response=await originalFetch(url);if(!fired&&String(url).endsWith('/members/'+selectedId)){fired=true;await f.setting({...saved(f),[roles[0]]:'Name withheld'});}return response;});
+      const changed=await f.call('GET','/api/appointed-identities?role='+encodeURIComponent(selected),VIEWER);
+      check('.197 the complete original private map witness is reread even for one office: an unrelated target change refuses the whole reply',fired&&changed.status===409&&changed.body.error==='appointed_identities_changed'&&!changed.body.identities&&!JSON.stringify(changed.body).includes(selectedId));
+    }finally{H.setFetch(originalFetch);f.close();}
+  }
+  {
     const f=await H.fixture(),{HOLDER,VIEWER}=H.ids(),map=fictionalMap(33,347000000000000000n);map[roles[0]]='<@'+HOLDER+'>';
     try{
       await buildInBatches(f,map);const first=await requestPage(f,VIEWER);
@@ -123,6 +143,7 @@ async function buildInBatches(f,map){let partial={};for(let i=0;i<Object.keys(ma
     try{
       for(let i=0;i<20;i++){const r=await requestPage(f,VIEWER);check('original authenticated reader soft allowance '+i,r.status===200);}
       const before=H.reads(),limited=await requestPage(f,VIEWER);check('reader request21 is held before any provider work',limited.status===429&&H.reads()===before);
+      const filteredLimited=await f.call('GET','/api/appointed-identities?role='+encodeURIComponent(roles[0]),VIEWER);check('.197 single-office selection cannot bypass the exhausted original20/min reader allowance',filteredLimited.status===429&&H.reads()===before);
       for(let i=0;i<30;i++){const r=await f.call('PUT','/api/admin/settings',ADMIN,{notice:'synthetic cap '+i});check('original authenticated administrator soft allowance '+i,r.status===200);}
       const state=f.db.prepare("SELECT value FROM site_settings WHERE key='notice'").get().value,beforeSave=H.reads(),r=await f.call('PUT','/api/admin/settings',ADMIN,{notice:'must not apply'});
       check('administrator save31 makes no provider call and changes nothing',r.status===429&&H.reads()===beforeSave&&f.db.prepare("SELECT value FROM site_settings WHERE key='notice'").get().value===state);

@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 import tempfile
+import urllib.error
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -81,6 +82,36 @@ class AttendedCustodyTests(unittest.TestCase):
         self.assertTrue(result['deliveryAcknowledged'])
         self.assertEqual(json.loads(Path(result['archive']).read_bytes())['original'], original)
         self.assertEqual(json.loads(self.path.read_bytes())['outbox'], [])
+        self.assertEqual(self.calls, [])
+
+    def test_recorded_roster_422_can_be_attended_retired_then_verify_delivers(self):
+        # Exercise the actual HTTPError classification and durable refusal path;
+        # only transport is synthetic. Retirement is local and never a resend.
+        actual_call = watcher.Worker.call.__get__(self.w.worker, watcher.Worker)
+        with patch.object(self.w.worker, 'call', actual_call), \
+                patch.object(self.w.worker.opener, 'open', side_effect=urllib.error.HTTPError(
+                    'https://example.invalid/ingest/roster', 422, 'synthetic refusal', {}, None)):
+            self.assertIs(self.w.post('/ingest/roster', {'members': []}, 'roster'), watcher.Delivery.HELD)
+        original = copy.deepcopy(self.w.state.d['outbox'][0])
+        self.assertEqual(original['refusal_status'], 422)
+        self.assertEqual(recovery.inspect(self.path)['outbox']['classification'],
+                         'recorded-definite-nonapplication-attended-retirement-only')
+        result = self.resolve()
+        self.assertFalse(result['deliveryAcknowledged'])
+        self.assertEqual(json.loads(Path(result['archive']).read_bytes())['original'], original)
+        restarted = watcher.Watcher(self.cfg)
+        restarted.worker.call = self.transport
+        self.assertIs(restarted.post('/ingest/verify', {'ts': 12}, 'verify'), watcher.Delivery.DELIVERED)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0][1], '/ingest/verify')
+
+    def test_422_other_lane_and_409_possible_application_remain_held(self):
+        for status in [422, 409]:
+            self.hold(status)  # /ingest/events, not the source-owned roster422 contract
+            before = self.path.read_bytes()
+            with self.assertRaises(ValueError):
+                self.resolve()
+            self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(self.calls, [])
 
     def test_unknown_legacy_changed_and_untrusted_refusal_never_retire(self):

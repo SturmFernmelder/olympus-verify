@@ -51,6 +51,11 @@ jobs:
       - name: Run every assigned original Worker command
         run: node scripts/ci-shards.cjs --shard ${{ matrix.shard }}
         working-directory: worker
+      - name: Contained Treasury expiry in actual local Workerd
+        if: matrix.shard == 8
+        timeout-minutes: 3
+        run: node scripts/ci-treasury-workerd.cjs
+        working-directory: worker
       - name: Reuse Lupa 2.8 for the optional census consumer chain
         if: matrix.shard == 8
         run: python3 -m pip install --user 'lupa==2.8'
@@ -79,6 +84,7 @@ jobs:
           bash scripts/tests/cutover-config.test.sh
           bash scripts/tests/publication-helper.test.sh
           node scripts/tests/ci-workflow.test.cjs
+          node scripts/tests/ci-treasury-workerd.test.cjs
           node scripts/tests/check-projections.test.cjs
       - name: Package the Worker without deploying
         if: matrix.shard == 8
@@ -118,6 +124,7 @@ jobs:
           python3 tests/test_discord_relay.py
           python3 tests/test_custody196.py
           python3 tests/test_attended_custody196.py
+          python3 tests/test_restart197.py
         working-directory: watcher
       - name: Operator tools (each test is a standalone script with a fake Worker on 127.0.0.1)
         run: |

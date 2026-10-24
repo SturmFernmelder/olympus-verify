@@ -351,7 +351,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
   check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !anonymous.html.includes('href="/legal/privacy"') && !anonymous.html.includes('href="/legal/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
   const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");
-  check(".196 canonical public policies remain script-free branded readers without default legal navigation", [publicPrivacy, publicTerms].every(p => p.response.status === 200 && scriptFreePolicy(p) && p.text.includes('<main id="policy-content"') && p.text.includes('class="brand"') && p.text.includes('src="/static/wow/icon-shield.png"') && !p.text.includes('<img src="/static/olympus-icon.png"') && p.text.includes('href="/static/policies.css"') && p.text.includes('href="/static/wow-cursor.css"') && p.text.includes('aria-label="On this page"') && !/<nav\b[^>]*aria-label="Policies"|<footer\b|class="footer-links"/.test(p.text) && !p.response.headers.has('Set-Cookie')));
+  check(".196 canonical public policies remain script-free branded readers without default legal navigation", [publicPrivacy, publicTerms].every(p => p.response.status === 200 && scriptFreePolicy(p) && p.text.includes('<main id="policy-content"') && p.text.includes('class="brand"') && p.text.includes('src="/static/olympus-icon.png"') && !p.text.includes('<img src="/static/wow/icon-shield.png"') && p.text.includes('href="/static/policies.css"') && p.text.includes('href="/static/wow-cursor.css"') && p.text.includes('aria-label="On this page"') && !/<nav\b[^>]*aria-label="Policies"|<footer\b|class="footer-links"/.test(p.text) && !p.response.headers.has('Set-Cookie')));
   const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
   check("retired root policy addresses are empty 410 responses without redirects, sign-in fallback or private payload", oldPrivacy.response.status === 410 && !oldPrivacy.response.headers.has("Location") && oldTerms.response.status === 410 && !oldTerms.response.headers.has("Location") && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
   let page = await openPage(MEMBER);
@@ -470,20 +470,22 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const pointer = `<@${OTHER}>`;
     const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
+    const selectedOfficeRequests197 = []; associated.before(pathname => { if (pathname.startsWith("/api/appointed-identities")) selectedOfficeRequests197.push(pathname); return false; });
+    associated.answer(pathname => (pathname === "/api/appointed-identities" || pathname === "/api/appointed-identities?role=treasurer") ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
     await associated.go("#/roles");
     await waitFor(() => associated.app.textContent.includes("Private Verified Fixture"), ".167 explicit appointment UI projection");
     check(".167 masked general settings still display the fresh admitted appointment identity and verified characters", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Associated display (associated.user)") && associated.app.textContent.includes("Verified characters: Private Verified Fixture") && !associated.app.textContent.includes(pointer));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
+    check(".197 the single visible Treasurer record uses its exact closed-office selector", selectedOfficeRequests197.length === 1 && selectedOfficeRequests197[0] === "/api/appointed-identities?role=treasurer");
+    associated.answer(pathname => (pathname === "/api/appointed-identities" || pathname === "/api/appointed-identities?role=treasurer") ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [{ ...identity, role: "co_gm", characters: [{ ...identity.characters[0], name: "UNAPPOINTED_OFFICE_CHARACTER" }] }, { ...identity, role: "officer", characters: [{ ...identity.characters[0], name: "UNSUPPORTED_OFFICE_CHARACTER" }] }] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 unsupported or currently unappointed office data cannot decorate another appointment", !associated.app.textContent.includes("UNAPPOINTED_OFFICE_CHARACTER") && !associated.app.textContent.includes("UNSUPPORTED_OFFICE_CHARACTER") && associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [] } : null);
+    associated.answer(pathname => (pathname === "/api/appointed-identities" || pathname === "/api/appointed-identities?role=treasurer") ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [] } : null);
     await associated.go("#/"); await associated.go("#/roles");
     await new Promise(resolve => setTimeout(resolve, 50));
     check(".167 an unavailable admitted identity leaves the generic closed appointment without cached private names", associated.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes("Filled by appointment") && !associated.app.textContent.includes("Private Verified Fixture") && !associated.app.textContent.includes("Associated display"));
-    associated.answer(pathname => pathname === "/api/appointed-identities" ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
-    associated.hold(pathname => pathname === "/api/appointed-identities" ? 120 : 0);
+    associated.answer(pathname => (pathname === "/api/appointed-identities" || pathname === "/api/appointed-identities?role=treasurer") ? { scope: "qualified_community_readers", revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true, identities: [identity] } : null);
+    associated.hold(pathname => (pathname === "/api/appointed-identities" || pathname === "/api/appointed-identities?role=treasurer") ? 120 : 0);
     await associated.go("#/"); await associated.go("#/roles"); await associated.go("#/");
     await new Promise(resolve => setTimeout(resolve, 160));
     check(".167 departed appointment reads expose no character names on another page", !associated.app.textContent.includes("Private Verified Fixture"));
@@ -506,6 +508,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.
   check("(.117) member footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
+  // Use supported ordinary anchor reads: the fixture intentionally has no *= selector operator.
+  const footerHasNoPolicyTargets197 = (node) => node.querySelectorAll("a").every((link) => {
+    try {
+      const target = new URL((link.getAttribute("href") || "").trim(), "https://guild.example/");
+      return !/^\/(?:legal\/)?(?:privacy|terms)(?:\.html)?(?:\/|$)/i.test(target.pathname) && !/^#\/(?:legal\/)?(?:privacy|terms)(?:[/?#]|$)/i.test(target.hash);
+    } catch { return false; }
+  });
+  check(".197 attribution ends at the licence notice and footer contains no Terms/Privacy link", page.app.querySelector("footer").textContent.endsWith("the site\'s code licence does not extend to any of this.") && !page.app.querySelector("footer").textContent.includes("See the Terms of Service.") && footerHasNoPolicyTargets197(page.app.querySelector("footer")));
+  check(".197 footer policy-target check rejects old and current legal routes while accepting the actual brand anchor", ["/legal/privacy", "/legal/terms", "#/legal/privacy", "#/legal/terms", "/privacy", "/terms", "privacy.html", "./terms.html", "https://guild.example/legal/privacy?view=1"].every((href) => {
+    const detached = page.document.createElement("footer"), link = page.document.createElement("a");
+    link.setAttribute("href", href); detached.appendChild(link);
+    return !footerHasNoPolicyTargets197(detached);
+  }) && footerHasNoPolicyTargets197(page.app.querySelector("footer")));
   await page.go("#/data");
   check("saved Your data fragment uses the actual replacement navigation to account controls", page.location.navigated === "/privacy/account" && page.location.replaced === true);
   const anonymousAccount = await policyHTML("/privacy/account");
@@ -1672,8 +1687,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // the I-X leadership directory
     await p114.go("#/community/leadership");
     await waitFor(() => !!byText(p114.app, "h2", "Leadership of the Olympus guilds"), "the leadership page");
-    check("(.114) Community → Leadership for a confirmed member: ten guilds, none listed yet, and the Council's link", texts(p114.app, ".leadership-card h3").length === 10 && texts(p114.app, ".leadership-card h3")[0] === "Olympus I" && texts(p114.app, ".leadership-card h3")[9] === "Olympus X" && p114.app.textContent.includes("No guild leadership is listed yet") && !!p114.app.querySelector('a[href="https://discord.com/channels/236932545793490944/1555636857621188669"]'));
-    check("  the Community tabs offer it, and the page says a listing grants nothing", texts(p114.app, 'nav[aria-label="Community sections"] a').includes("Leadership") && p114.app.textContent.includes("A listing is a record only"));
+    check("(.114/.197) Community → Leadership for a confirmed member: ten guilds, all seats empty, and the Council's link", texts(p114.app, ".leadership-card h3").length === 10 && texts(p114.app, ".leadership-card h3")[0] === "Olympus I" && texts(p114.app, ".leadership-card h3")[9] === "Olympus X" && p114.app.querySelectorAll(".leadership-card").every(card=>card.querySelectorAll("dd")[0].textContent==="Not listed"&&card.querySelectorAll("dd")[1].textContent==="None listed") && !!p114.app.querySelector('a[href="https://discord.com/channels/236932545793490944/1555636857621188669"]'));
+    check("  the Community tabs offer it, and legacy labels are unverified while a listing grants nothing", texts(p114.app, 'nav[aria-label="Community sections"] a').includes("Leadership") && p114.app.textContent.includes("Legacy typed labels remain explicitly unverified") && p114.app.textContent.includes("A directory listing grants no powers on the website, bot, Discord or in game."));
     const unconf114 = await openPage(STAFF, { SITE_ADMINS: "" });
     await unconf114.go("#/community/leadership");
     await settle();
@@ -1696,14 +1711,15 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  (.115) without the tick the directory save is refused, shown in words, and nothing is stored", !one("SELECT 1 FROM site_settings WHERE key = 'leadership'"));
     leadOk.checked = true;
     byText(adm.app, "button", "Save the directory").click();
-    await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'leadership'"), "the directory save");
-    const saved = JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value);
-    check("  the directory editor saves the Guild Master and the officers, one per line", saved[0].gm === "Fern Melder" && saved[0].officers.join(",") === "Ana,Bo" && saved.length === 10);
+    await waitFor(() => !!one("SELECT 1 FROM site_settings WHERE key = 'leadership'") && leadOk.checked === false, "the acknowledged directory save");
+    const savedDirectory197 = JSON.parse(one("SELECT value FROM site_settings WHERE key = 'leadership'").value), saved=savedDirectory197.guilds;
+    check("  the directory editor saves the Guild Master and officers in the versioned display envelope, without inventing account proofs", savedDirectory197.schema==="olympus-leadership-v1" && Object.keys(savedDirectory197.publications).length===0 && saved[0].gm === "Fern Melder" && saved[0].officers.join(",") === "Ana,Bo" && saved.length === 10);
     check("  (.115) the save carried the tick (the log records it, with a count and no names), and the box is cleared for the next save", (() => { const d = JSON.parse(one("SELECT details FROM audit WHERE action = 'site.leadership' ORDER BY id DESC LIMIT 1").details); return d.namesConfirmed === true && d.names === 3; })() && leadOk.checked === false);
     await p114.go("#/community"); // the same address again would not re-render
     await p114.go("#/community/leadership");
     await waitFor(() => p114.app.textContent.includes("Fern Melder"), "the listing on the member's page");
-    check("  and a confirmed member sees it", p114.app.textContent.includes("Ana, Bo") && !p114.app.textContent.includes("No guild leadership is listed yet"));
+    const savedOfficers197=p114.app.querySelectorAll(".leadership-card")[0].querySelectorAll("dd")[1];
+    check("  and a confirmed member sees both officers as staff-entered, unverified labels", savedOfficers197.children.length===2 && savedOfficers197.textContent.includes("Ana") && savedOfficers197.textContent.includes("Bo") && savedOfficers197.textContent.includes("staff-entered / unverified"));
     const savedResetDirectory = one("SELECT value FROM site_settings WHERE key='leadership'").value;
     const savedResetAppointments = one("SELECT value FROM site_settings WHERE key='appointed'");
     check("  reset preview fixes the owner cutoff and preserves leadership and appointments", adm.app.textContent.includes("22 October 2026, 17:00 UTC (noon CDT)") && adm.app.textContent.includes("website appointments and the leadership directory stay") && !byText(adm.app,"button","Reset guild leadership") && !adm.app.querySelector("#beta-closed-at"));
@@ -2134,7 +2150,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
     const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
-    check(".196 Roles renders the B recommendation without a bank grant and agrees with all five office crosswalks", ["co_gm", "officer", "treasurer", "raider", "class_lead", "loot_council", "professions", "pvp_leader", "raid_assist_na", "raid_assist_eu"].every((k) => fact(k) === gameLine(k)) && ["co_gm", "officer", "treasurer"].every(k => fact(k).startsWith("Recommended post-beta placement:") && fact(k).includes("not verification of the holder’s current game rank")) && fact("treasurer").includes("Treasurer occupies native Slot 3 (zero-based slot 2)") && fact("treasurer").includes("the website recommendation grants none") && fact("raider").startsWith("The Raider rank") && [["class_lead","Officer (Slot 4)"],["loot_council","Raid Leader (Slot 5)"],["professions","Officer (Slot 4)"],["pvp_leader","Raid Leader (Slot 5)"],["raid_assist_na","Raid Leader (Slot 5)"],["raid_assist_eu","Raid Leader (Slot 5)"]].every(([key, placement]) => fact(key).includes("planning crosswalk recommends " + placement)), fact("treasurer"), fact("raider"));
+    check(".196 Roles renders the B recommendation without a bank grant and agrees with all five office crosswalks", ["co_gm", "officer", "treasurer", "raider", "class_lead", "loot_council", "professions", "pvp_leader", "raid_assist_na", "raid_assist_eu"].every((k) => fact(k) === gameLine(k)) && ["co_gm", "officer", "treasurer"].every(k => fact(k).startsWith("Recommended post-beta placement:") && fact(k).includes("not verification of the holder’s current game rank")) && fact("treasurer").includes("Treasurer occupies native Slot 3 (zero-based slot 2)") && fact("treasurer").includes("the website recommendation grants none") && fact("raider").startsWith("Recommended post-beta placement: Raider in the current ten-rank plan.") && fact("raider").includes("not verification of active permissions or a game rank") && fact("raider").includes("The historical beta five-rank profile remains separate.") && [["class_lead","Officer (Slot 4)"],["loot_council","Raid Leader (Slot 5)"],["professions","Officer (Slot 4)"],["pvp_leader","Raid Leader (Slot 5)"],["raid_assist_na","Raid Leader (Slot 5)"],["raid_assist_eu","Raid Leader (Slot 5)"]].every(([key, placement]) => fact(key).includes("planning crosswalk recommends " + placement)), fact("treasurer"), fact("raider"));
 
     (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
     (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));

@@ -1814,16 +1814,16 @@
     "asset": {
       "path": "worker/public/static/olympus-icon.png",
       "mode": "100644",
-      "bytes": 58974,
-      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+      "bytes": 53204,
+      "sha256": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb"
     },
-    "usage": "brand_and_tab_icon_only",
-    "owner_instruction": "Crest is the exception",
-    "instruction_date": "2026-10-01",
+    "usage": "guild_brand_favicon_and_social_preview_only",
+    "owner_instruction": "Build .197 owner-supplied official tabard guild icon across every website shell",
+    "instruction_date": "2026-10-24",
     "generated_cover_website_shipping": false,
     "custom_svg_website_shipping": false,
     "other_custom_website_art_shipping": false,
-    "scope": "The aggregate custom-art flag is true solely because the exact Olympus crest ships. All other interface artwork remains the existing official WoW set; this record grants no additional artwork rights."
+    "scope": "Exact owner-supplied olympus-icon.png attachment, byte-for-byte. Approved guild branding, favicon and generic social preview across every shell. No additional publisher rights or other artwork approval is inferred."
   },
   "additional_extractions": [
     {

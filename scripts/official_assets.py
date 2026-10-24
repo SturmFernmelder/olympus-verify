@@ -6,10 +6,10 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='d0230dffc00bea35306884db3bd26c8fbc993972f6bc7163c909cfc0d5666506'
+REFERENCE_SHA256='46d91858dd9773de4ac30c0200cd1eec4705e5a471e55d489718a57ef178f670'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
-BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 58974, 'sha256': '867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66'}
+BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 53204, 'sha256': '6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb'}
 LOGIN_ART_EXCEPTION={'path': 'worker/public/static/wow/login/olympus-dark-portal.png', 'mode': '100644', 'bytes': 2761774, 'sha256': '7c344640d2dd628a6b235323cb27a2a8962ac4026a920d2c1809b652b1494342'}
 LOGIN_ART_VARIANTS=[{'path': 'worker/public/static/wow/login/olympus-dark-portal-wide.png', 'mode': '100644', 'bytes': 2972596, 'sha256': '17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6'}, {'path': 'worker/public/static/wow/login/olympus-dark-portal-portrait.png', 'mode': '100644', 'bytes': 2803728, 'sha256': '218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659'}]
 sha=lambda b:hashlib.sha256(b).hexdigest()
@@ -123,8 +123,8 @@ def reference() -> dict:
         for path in value:validate_path(path)
     brand=ref['brand_exception']
     if not isinstance(brand,dict) or set(brand)!={'asset','usage','owner_instruction','instruction_date'} \
-      or brand.get('asset')!=BRAND_EXCEPTION or brand.get('usage')!='brand_and_tab_icon_only' \
-      or brand.get('owner_instruction')!='Crest is the exception' or brand.get('instruction_date')!='2026-10-01':
+      or brand.get('asset')!=BRAND_EXCEPTION or brand.get('usage')!='guild_brand_favicon_and_social_preview_only' \
+      or brand.get('owner_instruction')!='Build .197 owner-supplied official tabard guild icon across every website shell' or brand.get('instruction_date')!='2026-10-24':
         raise ValueError('official_brand_exception_shape_invalid')
     login=ref['login_art_exception']
     if not isinstance(login,dict) or set(login)!={'asset','usage','owner_instruction','instruction_date','classification'} \
