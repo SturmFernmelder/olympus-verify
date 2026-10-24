@@ -67,7 +67,7 @@
     label(v.realmGroup); if (!['Alliance', 'Horde'].includes(v.faction)) fail();
     if (!integer(now, 0, 4102444800) || !integer(v.observedAt, 1, now) || now - v.observedAt > 86400 || !Array.isArray(v.guilds) || v.guilds.length !== 1) fail();
     const g = v.guilds[0]; keys(g, ROW);
-    if (!canonicalGuild(g.name) || !integer(g.receivedAt, 1, v.observedAt) || now - g.receivedAt > 86400) fail();
+    if (!NAMES.includes(g.name) || !integer(g.receivedAt, 1, v.observedAt) || now - g.receivedAt > 86400) fail();
     const total = g.reportedCharacters, online = g.online;
     if (total !== 'few' && !integer(total, 5, 1000)) fail();
     if (total === 'few' && online !== null || online !== null && online !== 'few' && !integer(online, 0, typeof total === 'number' ? total : 0)) fail();

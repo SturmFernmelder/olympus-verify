@@ -72,6 +72,32 @@ async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
       x.leave();assert.equal(h.listeners(x),0);
     }
   });
+  await check('adopted reporter blocks local payload inspection during preview, publish and unknown custody',async()=>{
+    for(const phase of ['preview','publish','unknown']){
+      const h=harness(),x=h.mount();await settle();importBlocked(x,false);let pending;
+      if(phase==='preview'){
+        h.setMode('preview-pending');x.report.onComplete(snapshot(),{wallDeadline:NOW*1000+300000,monotonicDeadline:300000});
+        pending=x.node.ids.get('report-preview').fire('click');await settle();
+      }else{
+        await h.prepare(x);h.setMode(phase==='publish'?'publish-pending':'lost');
+        pending=x.node.ids.get('report-publish').fire('click');await settle();if(phase==='unknown')await pending;
+      }
+      importBlocked(x,true);let filesAccessed=0;
+      Object.defineProperty(x.node.ids.get('aggregate-file'),'files',{get(){filesAccessed++;throw Error('Held input must not inspect a file payload');}});
+      const transfer={dropEffect:'move',get files(){filesAccessed++;throw Error('Held drop must not inspect a file payload');}},before=h.calls.length;
+      await x.node.ids.get('aggregate-file').fire('change');
+      const drag=await x.node.ids.get('aggregate-drop').fire('dragover',{dataTransfer:transfer});
+      const drop=await x.node.ids.get('aggregate-drop').fire('drop',{dataTransfer:transfer});
+      assert.equal(drag.defaultPrevented,true);assert.equal(drop.defaultPrevented,true);assert.equal(transfer.dropEffect,'none');
+      assert.equal(filesAccessed,0);assert.equal(h.calls.length,before);importBlocked(x,true);
+      if(phase==='preview'){h.answerPreview();await pending;importBlocked(x,false);}
+      else assert.equal(h.scope.OlympusArmyReportTool.isNavigationHeld(),true);
+      x.leave();if(phase==='publish')await pending;
+      assert.equal(h.listeners(x),0);assert.equal(h.timers.size,0);
+      assert.equal(h.calls.filter(c=>c.url==='/api/army/outcome').length,0,'no automatic recovery is introduced');
+      assert.equal(h.calls.filter(c=>c.url==='/api/army/publish').length,phase==='preview'?0:1);
+    }
+  });
   await check('adopted drag and drop review locally before an explicit preview and separate consent',async()=>{
     const h=harness(),x=h.mount();await settle();importBlocked(x,false);let reads=0;
     const content=aggregateText(),file={name:'OlympusSiteAggregate.lua',size:content.length,text:async()=>{reads++;return content;}},transfer={files:[file],dropEffect:'move'};

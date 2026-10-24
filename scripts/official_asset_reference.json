@@ -4108,7 +4108,7 @@
       "path": "worker/public/static/army-live/sanitized-export.js",
       "mode": "100644",
       "bytes": 6676,
-      "sha256": "fc110f6f44cda32a5754f3ea3a8251b41315a7cd14e9150a9a9fbc0e38478325"
+      "sha256": "c2ec728af166bfdb0a563c1991d05d40686e1840ab2cb6a5a0aff47de6e58194"
     },
     {
       "path": "worker/public/static/army-live/savedvariables-import.js",

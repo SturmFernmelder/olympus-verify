@@ -22,6 +22,24 @@ for (const [native,canonical] of [['OLYMPUS','Olympus'],['oLyMpUs iX','Olympus I
   assert.equal(out.guilds[0].name,canonical);
   assert.equal(out.guilds[0].receivedAt,NOW);
 });
+check('normalized v2 snapshots accept exactly the eleven canonical server guild names', () => {
+  const v=parser.parse(text(fixture()),{nowSeconds:NOW});
+  for(const name of ['Olympus','Olympus I','Olympus II','Olympus III','Olympus IV','Olympus V','Olympus VI','Olympus VII','Olympus VIII','Olympus IX','Olympus X']) {
+    const snapshot={...v,guilds:[{...v.guilds[0],name}]};
+    assert.equal(parser.validateSnapshot(snapshot,NOW),snapshot);
+    for(const variant of [name.toUpperCase(),name.toLowerCase()]) {
+      assert.throws(()=>parser.validateSnapshot({...snapshot,guilds:[{...snapshot.guilds[0],name:variant}]},NOW));
+      const producer=fixture();producer.guild.name=variant;
+      assert.equal(parser.parse(text(producer),{nowSeconds:NOW}).guilds[0].name,name,'producer case normalization remains separate from v2 validation');
+    }
+  }
+});
+check('normalized v2 snapshots refuse malformed, confusable and unknown guild names', () => {
+  const v=parser.parse(text(fixture()),{nowSeconds:NOW});
+  for(const name of [undefined,null,7,{},['Olympus'],'',' Olympus','Olympus ','Olympus XI','Olympus Alt','Other Guild','\u041elympus']) {
+    assert.throws(()=>parser.validateSnapshot({...v,guilds:[{...v.guilds[0],name}]},NOW));
+  }
+});
 for (const name of [' Olympus','Olympus ','Olympus XI','Оlympus']) check('refuses noncanonical scope '+name, () => {
   const v=fixture();v.guild.name=name;refuse(v);
 });
