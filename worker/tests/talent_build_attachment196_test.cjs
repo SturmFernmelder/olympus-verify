@@ -164,7 +164,7 @@ check('collection anchors primary character and class and refuses duplicate norm
 check('collection is a closed data envelope and never invokes unexpected property getters', () => {
   let invoked=0;const v=collectionFixture();Object.defineProperty(v.characters[1],'privateNote',{get(){invoked++;return'secret';},enumerable:true});
   assert.equal(collection(v,collectionContext,collectionName),null);assert.equal(invoked,0);
-  for(const mutate of [x=>x.version=2,x=>x.privateNote='secret',x=>x.characters[0].discordId='123',x=>x.characters[0].build30='x'.repeat(513),x=>x.characters[0].build60=null,x=>{x.characters[0].build30='';x.characters[0].build60='';}]){const x=collectionFixture();mutate(x);assert.equal(collection(x,collectionContext,collectionName),null);}
+  for(const mutate of [x=>x.version=2,x=>x.privateNote='secret',x=>x.characters[0].discordId='123',x=>x.characters[0].build30='x'.repeat(513),x=>x.characters[0].build60=null]){const x=collectionFixture();mutate(x);assert.equal(collection(x,collectionContext,collectionName),null);}
 });
 check('omission preserves own collection privately while explicit null or empty collection clears it', () => {
   const previous=collectionFixture(),context={...collectionContext,previous};
@@ -194,5 +194,24 @@ check('board revalidation refuses historical or changed primary context even wit
   assert.deepEqual(shared(v,true,{...collectionContext,previous:v},collectionName),[]);
   assert.deepEqual(shared(collectionFixture(),true,{...collectionContext,className:'mage'},collectionName),[]);
   assert.equal(networkCalls,0);
+});
+// PR90: optional empty primary anchors later alt builds but never becomes a build itself.
+check('empty main anchor retains only real alt builds with the original main binding', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';
+  assert.deepEqual(collection(value,collectionContext,collectionName),value);
+  const visible=shared(value,true,collectionContext,collectionName);assert.equal(visible.length,4);
+  assert.ok(visible.every(row=>row.character!=='Mia One'&&['mage','druid'].includes(row.class)));
+  assert.deepEqual(shared(value,false,collectionContext,collectionName),[]);
+});
+check('empty anchor refuses wrong main, missing main, empty alt and phantom-only input', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';
+  for(const mutate of [v=>v.characters[0].character='Other Person',v=>v.characters[0].class='mage',v=>v.characters.shift(),v=>v.characters.splice(1),v=>{v.characters[1].build30='';v.characters[1].build60='';}]){const bad=clone(value);mutate(bad);assert.equal(collection(bad,collectionContext,collectionName),null);}
+  assert.equal(collection(value,{...collectionContext,character:null},collectionName),null);
+  assert.deepEqual(collection({version:1,characters:[]},collectionContext,collectionName),{version:1,characters:[]});
+});
+check('anchored historical alt retains exact own private code and cannot newly share', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';value.characters[1].build30=value.characters[1].build30.replace(data.revision,'f'.repeat(12));
+  assert.deepEqual(collection(value,{...collectionContext,previous:value},collectionName),value);
+  assert.equal(collection(value,collectionContext,collectionName),null);assert.deepEqual(shared(value,true,collectionContext,collectionName),[]);
 });
 console.log(`\n${count} focused attachment checks passed; ${parityCases} actual-calculator parity cases; network calls ${networkCalls}.`);

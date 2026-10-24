@@ -60,6 +60,18 @@ async function applicationTalentCollection197(){
  check('board revalidation fails closed on a stored class-code mismatch without exposing a partial collection',(await candidate())?.talentBuilds?.length===0);
  r=await request('PUT','/api/application',{...body,boardTalentBuilds:false,answers:{...body.answers,talentBuilds:null}});
  check('explicit collection clear removes only the collection and preserves private legacy attachment',r.response.status===200&&!Object.hasOwn(stored().answers,'talentBuilds')&&stored().answers.talentBuild===privateCode&&stored().answers.boardTalentBuildsOptIn===false);
+ // PR90: actual Worker validates optional empty-main anchors and publishes no phantom attachment.
+ const altOnly=collection();altOnly.characters[0].build30=altOnly.characters[0].build60='';
+ r=await request('PUT','/api/application',{...body,boardTalentBuilds:false,answers:{...body.answers,talentBuilds:altOnly}});
+ check('empty bound main and four valid alt codes save privately without new identity',r.response.status===200&&JSON.stringify(stored().answers.talentBuilds)===JSON.stringify(altOnly)&&stored().answers.boardTalentBuildsOptIn===false&&stored().answers.talentBuild===privateCode&&!one('SELECT 1 FROM characters WHERE name IN (?,?)','Mia Two','Mia Three'));
+ r=await request('PUT','/api/application',{...body,boardTalentBuilds:false,answers:{...body.answers,why:'An unrelated edit after clearing optional main builds.',talentBuilds:altOnly}});
+ check('unrelated admitted save retains empty main and all four alt codes',r.response.status===200&&stored().answers.why==='An unrelated edit after clearing optional main builds.'&&JSON.stringify(stored().answers.talentBuilds)===JSON.stringify(altOnly));
+ r=await request('PUT','/api/application',{...body,boardTalentBuilds:true,answers:{...body.answers,talentBuilds:altOnly}});card=await candidate();
+ check('separate sharing returns only four minimal alt attachments without main phantom or private answers',r.response.status===200&&card?.talentBuilds?.length===4&&card.talentBuilds.every(row=>row.character!=='Mia One'&&['mage','druid'].includes(row.class)&&Object.keys(row).sort().join('|')==='character|class|code|level')&&!JSON.stringify(card).includes(privateCode)&&!JSON.stringify(card).includes(privateText));
+ const beforeEmptyAttacks=JSON.stringify(stored());
+ for(const mutate of [v=>v.characters[0].character='Other Person',v=>v.characters[0].class='mage',v=>v.characters.shift(),v=>v.characters.splice(1),v=>{v.characters[1].build30='';v.characters[1].build60='';}]){const bad=JSON.parse(JSON.stringify(altOnly));mutate(bad);r=await request('PUT','/api/application',{...body,answers:{...body.answers,talentBuilds:bad}});check('wrong main, missing main, phantom-only or empty-alt collection refuses atomically',r.response.status===400&&r.body?.field==='talentBuilds'&&JSON.stringify(stored())===beforeEmptyAttacks);}
+ r=await request('PUT','/api/application',{...body,boardTalentBuilds:false,answers:{...body.answers,talentBuilds:{version:1,characters:[]}}});
+ check('all-build clear stores no phantom anchor and preserves only private legacy attachment',r.response.status===200&&!Object.hasOwn(stored().answers,'talentBuilds')&&stored().answers.talentBuild===privateCode&&stored().answers.boardTalentBuildsOptIn===false&&(await candidate())?.talentBuilds?.length===0);
  check('feature changes no Native schema or separate board-vote rows',JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all())===schemaBefore&&!one('SELECT 1 FROM site_board_votes'));
  console.log('\n'+ok+'/'+n+' bounded application talent collection checks passed; actual Worker/SQLite, mocked Discord only');process.exit(ok===n?0:1);
 }

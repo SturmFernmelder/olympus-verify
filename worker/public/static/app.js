@@ -2352,7 +2352,9 @@
       }
       answers.hours = hours.value;
       answers.voice = voice.value;
-      answers.talentBuilds = {version:1,characters:talentRows.filter(row => row.at30.value.trim() || row.at60.value.trim()).map(row => ({character:row.primary ? character.value : row.name.value,class:row.primary ? cls.value : row.classPick.value,build30:row.at30.value.trim(),build60:row.at60.value.trim()}))};
+      const filledTalentRows = talentRows.filter(row => row.at30.value.trim() || row.at60.value.trim());
+      if (filledTalentRows.length && !filledTalentRows[0].primary) filledTalentRows.unshift(talentRows[0]);
+      answers.talentBuilds = {version:1,characters:filledTalentRows.map(row => ({character:row.primary ? character.value : row.name.value,class:row.primary ? cls.value : row.classPick.value,build30:row.at30.value.trim(),build60:row.at60.value.trim()}))};
       answers.references = refs.map((r) => ({ kind: r.kind, key: r.key, label: r.label }));
       answers.professions = professions.filter((p) => profs.has(p.key)).map((p) => p.key);
       const backups = backupSels.map((x) => x.value).filter(Boolean);
