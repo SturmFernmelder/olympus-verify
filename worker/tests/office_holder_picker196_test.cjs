@@ -75,11 +75,27 @@ const body196=String.raw`
   check('account picker cannot append a thirteenth officer',staff.app.querySelector('#lead-off-0').value.split('\n').length===12&&!staff.app.querySelector('#lead-off-0').value.includes(tag196));
   staff.app.querySelector('#lead-off-0').value=tag196;staff.app.querySelector('#lead-off-0').dispatchEvent(new Event('input'));
   const readLeadership197=async()=>{const response=await indexMod.default.fetch(new Request('https://guild.example/api/admin/leadership',{headers:{Cookie:staff.cookie}}),env(branchEnv197),ctx);if(response.status!==200)throw Error('actual original leadership revision unavailable');return response.json();};
-  const beforeRevision197=(await readLeadership197()).revision,originalRest197=stubs['./discord'].rest;let memberGets197=0;
-  stubs['./discord'].rest=async(e,method,route,body,attempts)=>{if(method!=='GET'||route!=='/guilds/'+e.SITE_GUILD_ID+'/members/'+account196||attempts!==1)throw Error('unexpected synthetic leadership provider request');memberGets197++;return{user:{id:account196,username:'office.fixture',global_name:'Agreed Display Name'},nick:null,roles:[],pending:false};};
+  const beforeRevision197=(await readLeadership197()).revision,originalProviderFetch197=originalTestFetch,originalLeadershipFetch197=indexMod.default.fetch;let memberGets197=0;
+  const leadershipResponses197=[];
+  // The original fixture loads the real Discord module before its spread stub through the privacy import cycle.
+  // Use that module's stable transport seam; only this exact synthetic member GET is permitted.
+  originalTestFetch=async(input,init={})=>{
+    const request=input instanceof Request?input:null,url=new URL(request?request.url:input),method=request?request.method:init.method||'GET',headers=new Headers(request?request.headers:init.headers);
+    if(url.href!=='https://discord.com/api/v10/guilds/236932545793490944/members/'+account196||method!=='GET'||headers.get('Authorization')!=='Bot '+branchEnv197.DISCORD_BOT_TOKEN||(request?request.redirect:init.redirect)!=='manual')throw Error('unexpected synthetic leadership provider request');
+    memberGets197++;return Response.json({user:{id:account196,username:'office.fixture',global_name:'Agreed Display Name'},nick:null,roles:[],pending:false});
+  };
+  // Clone each actual Worker PUT response for the oracle, returning the original unchanged and making no extra request.
+  indexMod.default.fetch=async function(...args){const response=await originalLeadershipFetch197.apply(this,args),request=args[0];if(request.method==='PUT'&&new URL(request.url).pathname==='/api/admin/leadership')leadershipResponses197.push({status:response.status,body:await response.clone().json()});return response;};
+  try{
   consent196.checked=true;identityConsent197.checked=false;byText(staff.app,'button','Save the directory').click();await waitFor(()=>writes196.length===1,'explicit account consent refusal sent');await waitFor(()=>!byText(staff.app,'button','Save the directory').disabled,'account consent refusal terminal');
   check('real Worker refuses missing account-publication consent before profile lookup or persistence',writes196[0].leadershipIdentitiesConfirmed===false&&writes196[0].expectedRevision===beforeRevision197&&memberGets197===0&&!one("SELECT value FROM site_settings WHERE key='leadership'"));
+  const refusal197=leadershipResponses197[0],exactRefusal197=leadershipResponses197.length===1&&refusal197.status===400&&refusal197.body?.error==='identity_confirmation';
+  check('real missing-consent PUT returns the exact identity_confirmation refusal',exactRefusal197,leadershipResponses197);
+  if(!exactRefusal197)throw Error('actual missing-consent response did not match its required refusal');
   consent196.checked=identityConsent197.checked=true;byText(staff.app,'button','Save the directory').click();await waitFor(()=>writes196.length===2,'current account association write captured');await waitFor(()=>!byText(staff.app,'button','Save the directory').disabled,'account association write terminal');
+  const savedResponse197=leadershipResponses197[1],savedRow197=one("SELECT value FROM site_settings WHERE key='leadership'"),exactSaved197=leadershipResponses197.length===2&&savedResponse197.status===200&&savedResponse197.body?.ok===true&&!!savedRow197;
+  check('real account association PUT returns success and persists before inspecting its server proofs',exactSaved197,leadershipResponses197);
+  if(!exactSaved197)throw Error('actual account-association save did not succeed and persist');
   const associated197=JSON.parse(one("SELECT value FROM site_settings WHERE key='leadership'").value),sentAssociation197=writes196[1];
   check('real admitted save binds10 branches, both explicit consents and the exact original revision while server owns both seat proofs',sentAssociation197.guilds.length===10&&sentAssociation197.guilds[0].gm===tag196&&sentAssociation197.guilds[0].officers.join(',')===tag196&&sentAssociation197.namesConfirmed===true&&sentAssociation197.leadershipIdentitiesConfirmed===true&&sentAssociation197.expectedRevision===beforeRevision197&&Object.keys(sentAssociation197).sort().join(',')==='expectedRevision,guilds,leadershipIdentitiesConfirmed,namesConfirmed'&&memberGets197===1&&Object.keys(associated197.publications).sort().join(',')==='guild_01_gm,guild_01_officer_01'&&associated197.publications.guild_01_gm.pointer===tag196&&associated197.publications.guild_01_gm.birth===one('SELECT account_incarnation FROM site_users WHERE discord_id=?',account196).account_incarnation&&!Object.hasOwn(sentAssociation197,'publications'));
   check('successful account publication clears both consents for the next edit',!consent196.checked&&!identityConsent197.checked);
@@ -88,7 +104,7 @@ const body196=String.raw`
   const nextRevision197=(await readLeadership197()).revision;consent196.checked=true;byText(staff.app,'button','Save the directory').click();await waitFor(()=>writes196.length===3,'manual legacy leadership write captured');await waitFor(()=>!byText(staff.app,'button','Save the directory').disabled,'manual legacy write terminal');
   const legacy197=JSON.parse(one("SELECT value FROM site_settings WHERE key='leadership'").value),sentLegacy197=writes196[2];
   check('manual legacy save retains10 plain-text branches and fresh revision without account consent or client proof',sentLegacy197.guilds.length===10&&sentLegacy197.namesConfirmed===true&&sentLegacy197.leadershipIdentitiesConfirmed===false&&sentLegacy197.expectedRevision===nextRevision197&&sentLegacy197.guilds[0].gm==='Hand edited name'&&sentLegacy197.guilds[0].officers[0]==='Agreed Display Name'&&Object.keys(sentLegacy197).sort().join(',')==='expectedRevision,guilds,leadershipIdentitiesConfirmed,namesConfirmed'&&!JSON.stringify(sentLegacy197).includes(account196)&&legacy197.guilds[0].gm==='Hand edited name'&&Object.keys(legacy197.publications).length===0&&!JSON.stringify(legacy197).includes(account196)&&memberGets197===1);
-  stubs['./discord'].rest=originalRest197;
+  }finally{originalTestFetch=originalProviderFetch197;indexMod.default.fetch=originalLeadershipFetch197;}
   const detachedSave196=byText(staff.app,'button','Save the directory');await staff.go('#/roles');detachedSave196.click();await settle();check('a detached I-X form cannot write',writes196.length===3);
   for(const status of [401,409]){
     const late=await openPage(STAFF);let reads196=0;late.before(url=>{if(url==='/api/admin/leadership')reads196++;return false;});late.hold(url=>url==='/api/admin/leadership'?70:0);late.answer(url=>url==='/api/admin/leadership'?new Response(JSON.stringify({error:status===401?'signed_out':'reload'}),{status,headers:{'Content-Type':'application/json'}}):null);
