@@ -506,7 +506,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // .117 (owner request): omit the public footer links; direct policies and contact routes remain available.
   check("(.117) member footer has no policy, account or contact link row", !page.app.querySelector(".footer-links") && !texts(page.app.querySelector("footer"), "a").includes("Private request"));
   check("the footer names the game artwork as Blizzard's and the fonts as their owners' (.92)", page.app.querySelector("footer").textContent.includes("International Typeface Corporation") && page.app.querySelector("footer").textContent.includes("respective owners"));
-  check(".197 attribution ends at the licence notice and footer contains no Terms/Privacy link", page.app.querySelector("footer").textContent.endsWith("the site\'s code licence does not extend to any of this.") && !page.app.querySelector("footer").textContent.includes("See the Terms of Service.") && !page.app.querySelector('footer a[href*="legal/"]'));
+  // Use supported ordinary anchor reads: the fixture intentionally has no *= selector operator.
+  const footerHasNoPolicyTargets197 = (node) => node.querySelectorAll("a").every((link) => {
+    try {
+      const target = new URL((link.getAttribute("href") || "").trim(), "https://guild.example/");
+      return !/^\/(?:legal\/)?(?:privacy|terms)(?:\.html)?(?:\/|$)/i.test(target.pathname) && !/^#\/(?:legal\/)?(?:privacy|terms)(?:[/?#]|$)/i.test(target.hash);
+    } catch { return false; }
+  });
+  check(".197 attribution ends at the licence notice and footer contains no Terms/Privacy link", page.app.querySelector("footer").textContent.endsWith("the site\'s code licence does not extend to any of this.") && !page.app.querySelector("footer").textContent.includes("See the Terms of Service.") && footerHasNoPolicyTargets197(page.app.querySelector("footer")));
+  check(".197 footer policy-target check rejects old and current legal routes while accepting the actual brand anchor", ["/legal/privacy", "/legal/terms", "#/legal/privacy", "#/legal/terms", "/privacy", "/terms", "privacy.html", "./terms.html", "https://guild.example/legal/privacy?view=1"].every((href) => {
+    const detached = page.document.createElement("footer"), link = page.document.createElement("a");
+    link.setAttribute("href", href); detached.appendChild(link);
+    return !footerHasNoPolicyTargets197(detached);
+  }) && footerHasNoPolicyTargets197(page.app.querySelector("footer")));
   await page.go("#/data");
   check("saved Your data fragment uses the actual replacement navigation to account controls", page.location.navigated === "/privacy/account" && page.location.replaced === true);
   const anonymousAccount = await policyHTML("/privacy/account");
@@ -2136,7 +2148,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const fact = (key) => { const dl = roles5.app.querySelector(`#role-${key} dl`); return dl ? kvOf(dl, "In game") || "" : ""; };
     const gameLine = (key) => load("./site-data").POSITIONS.find((x) => x.key === key).info.game;
-    check(".196 Roles renders the B recommendation without a bank grant and agrees with all five office crosswalks", ["co_gm", "officer", "treasurer", "raider", "class_lead", "loot_council", "professions", "pvp_leader", "raid_assist_na", "raid_assist_eu"].every((k) => fact(k) === gameLine(k)) && ["co_gm", "officer", "treasurer"].every(k => fact(k).startsWith("Recommended post-beta placement:") && fact(k).includes("not verification of the holder’s current game rank")) && fact("treasurer").includes("Treasurer occupies native Slot 3 (zero-based slot 2)") && fact("treasurer").includes("the website recommendation grants none") && fact("raider").startsWith("The Raider rank") && [["class_lead","Officer (Slot 4)"],["loot_council","Raid Leader (Slot 5)"],["professions","Officer (Slot 4)"],["pvp_leader","Raid Leader (Slot 5)"],["raid_assist_na","Raid Leader (Slot 5)"],["raid_assist_eu","Raid Leader (Slot 5)"]].every(([key, placement]) => fact(key).includes("planning crosswalk recommends " + placement)), fact("treasurer"), fact("raider"));
+    check(".196 Roles renders the B recommendation without a bank grant and agrees with all five office crosswalks", ["co_gm", "officer", "treasurer", "raider", "class_lead", "loot_council", "professions", "pvp_leader", "raid_assist_na", "raid_assist_eu"].every((k) => fact(k) === gameLine(k)) && ["co_gm", "officer", "treasurer"].every(k => fact(k).startsWith("Recommended post-beta placement:") && fact(k).includes("not verification of the holder’s current game rank")) && fact("treasurer").includes("Treasurer occupies native Slot 3 (zero-based slot 2)") && fact("treasurer").includes("the website recommendation grants none") && fact("raider").startsWith("Recommended post-beta placement: Raider in the current ten-rank plan.") && fact("raider").includes("not verification of active permissions or a game rank") && fact("raider").includes("The historical beta five-rank profile remains separate.") && [["class_lead","Officer (Slot 4)"],["loot_council","Raid Leader (Slot 5)"],["professions","Officer (Slot 4)"],["pvp_leader","Raid Leader (Slot 5)"],["raid_assist_na","Raid Leader (Slot 5)"],["raid_assist_eu","Raid Leader (Slot 5)"]].every(([key, placement]) => fact(key).includes("planning crosswalk recommends " + placement)), fact("treasurer"), fact("raider"));
 
     (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
     (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));
