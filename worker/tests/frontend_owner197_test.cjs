@@ -158,6 +158,39 @@ async function frontendOwner197() {
   await must(() => !stored()?.talentBuilds && stored()?.boardTalentBuildsOptIn === false && !optionalReload.app.querySelector('button[type="submit"]').disabled, 'actual all-build clear');
   check('all-build clear serializes no phantom anchor and leaves only the empty main editor', reloadedSends.at(-1).answers.talentBuilds.characters.length === 0 && optionalReload.app.querySelectorAll('.talent-application-character').length === 1 && optionalReload.app.querySelectorAll('.talent-application-character textarea').every(input => input.value === ''));
   check('these UI reads and explicit application saves create no board vote or alt verification', !one('SELECT 1 FROM site_board_votes') && !one('SELECT 1 FROM characters WHERE name IN (?,?)', 'Mia Two', 'Mia Three'));
+  // Real public Worker response and actual app index application after the
+  // exact Native-redacted envelope shape; actual Native SQL is covered in
+  // leadership197_test.cjs. Only Discord member transport is synthetic here.
+  const leadershipOver = { DISCORD_BOT_TOKEN: 'synthetic-leadership-fixture-only' };
+  const leadershipRequest = async (method, url, payload) => {
+    const response = await indexMod.default.fetch(new Request('https://guild.example' + url, { method, headers: { Cookie: await cookieFor(STAFF), Origin: 'https://guild.example', 'X-Olympus': siteCore.PAGE_VERSION, ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) }), env(leadershipOver), ctx);
+    return { response, body: await response.clone().json().catch(() => null) };
+  };
+  const leadershipTransport = originalTestFetch;
+  originalTestFetch = async url => {
+    const id = /\/members\/([0-9]{17,20})$/.exec(String(url))?.[1];
+    if ([MEMBER, OTHER].includes(id)) return new Response(JSON.stringify({ user: { id, username: id === MEMBER ? 'active-officer' : 'erased-officer' }, nick: id === MEMBER ? 'Active officer' : null, roles: [], pending: false }), { headers: { 'Content-Type': 'application/json' } });
+    return leadershipTransport(url);
+  };
+  try {
+    for (const trailingTyped of [true, false]) {
+      const admin = await leadershipRequest('GET', '/api/admin/leadership');
+      if (admin.response.status !== 200) throw Error('original leadership administrator view unavailable: ' + JSON.stringify({ status: admin.response.status, body: admin.body }));
+      const guilds = load('./site-leadership-data').GUILD_NAMES.map(name => ({ name, gm: '', officers: [] }));
+      guilds[0].officers = ['Name withheld', '<@' + OTHER + '>', '<@' + MEMBER + '>', ...(trailingTyped ? ['Typed officer'] : [])];
+      const saved = await leadershipRequest('PUT', '/api/admin/leadership', { guilds, expectedRevision: admin.body.revision, namesConfirmed: true, leadershipIdentitiesConfirmed: true });
+      if (saved.response.status !== 200) throw Error('original qualified leadership fixture save refused: ' + JSON.stringify({ status: saved.response.status, body: saved.body }));
+      const removed = JSON.parse(one("SELECT value FROM site_settings WHERE key='leadership'").value);
+      removed.guilds[0].officers[1] = 'Name withheld'; delete removed.publications.guild_01_officer_02;
+      if (!load('./site-leadership-data').leadershipEnvelope(removed)) throw Error('redacted leadership fixture lost its original schema');
+      await fixtureRun("UPDATE site_settings SET value=? WHERE key='leadership'", JSON.stringify(removed));
+      const leadershipPage = await openPage(MEMBER, leadershipOver); await leadershipPage.go('#/community/leadership');
+      await must(() => leadershipPage.app.querySelectorAll('.leadership-card').length === 10, 'complete original leadership view');
+      const officers = leadershipPage.app.querySelector('.leadership-card').querySelectorAll('dd')[1];
+      check('actual app keeps active officer at seat3 after repeated withheld markers' + (trailingTyped ? ' and preserves the following typed officer' : ' even at the terminal seat'), officers.children.length === (trailingTyped ? 4 : 3) && officers.children[0].textContent.includes('Name withheld') && officers.children[1].textContent.includes('Name withheld') && officers.children[2].textContent.includes('Active officer') && officers.children[2].textContent.includes('current account association') && (!trailingTyped || officers.children[3].textContent.includes('Typed officer') && officers.children[3].textContent.includes('staff-entered / unverified')) && !leadershipPage.app.textContent.includes(MEMBER) && !leadershipPage.app.textContent.includes(OTHER));
+      await leadershipPage.go('#/');
+    }
+  } finally { originalTestFetch = leadershipTransport; }
   console.log('\n' + ok + '/' + n + ' owner197 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
 }

@@ -61,10 +61,27 @@ export function cleanLeadership(v: unknown): GuildLeadership[] | null {
   return out;
 }
 
+/** Native erasure preserves a seat by replacing its pointer with NAME_WITHHELD.
+ * Qualified saves keep repeated removal markers at their original positions;
+ * ordinary names retain the legacy cleaning, truncation and deduplication rules.
+ * Call only after cleanLeadership has admitted the original input bounds. */
+function qualifiedGuilds(raw:unknown,cleaned:GuildLeadership[]):GuildLeadership[]{
+  return cleaned.map((g,i)=>{
+    const input=(raw as {officers?:unknown}[])[i]!.officers;
+    const officers=Array.isArray(input)?input.map(o=>cleanText(o,40)).filter(Boolean):[];
+    const seen=new Set<string>();
+    return {...g,officers:officers.filter(name=>{
+      if(name===NAME_WITHHELD)return true;
+      if(seen.has(name))return false;
+      seen.add(name);return true;
+    })};
+  });
+}
+
 export function parseLeadership(raw: string | undefined | null): GuildLeadership[] {
   if (!raw) return empty();
   try {
-    const parsed:unknown=JSON.parse(raw),guilds=cleanLeadership(leadershipEnvelope(parsed)?parsed.guilds:parsed)??empty();
+    const parsed:unknown=JSON.parse(raw),guilds=leadershipEnvelope(parsed)?parsed.guilds:cleanLeadership(parsed)??empty();
     // Compatibility/export-facing reader never turns a canonical account pointer
     // or a private proof into a person's name. Qualified display is separate.
     return guilds.map(g=>({...g,gm:leadershipAccountId(g.gm)?NAME_WITHHELD:g.gm,officers:g.officers.map(n=>leadershipAccountId(n)?NAME_WITHHELD:n)}));
@@ -102,7 +119,7 @@ export async function saveLeadership(env: Env, actor: string, body: Record<strin
   if (!guilds) return { ok: false, error: "invalid", message: `The directory could not be read: it needs ${GUILD_COUNT} guilds, each with at most ${OFFICERS_MAX} officers.` };
   const prior = await setting(env, LEADERSHIP_KEY);
   const oldDocument=leadershipDocument(prior?.value??null),hasPointers=LEADERSHIP_POSITIONS.some(p=>leadershipAccountId(leadershipPointer(guilds,p.key)));
-  if(hasPointers||oldDocument?.schema===LEADERSHIP_SCHEMA||Object.hasOwn(body,'expectedRevision'))return saveQualifiedLeadership(env,actor,body,guilds,request);
+  if(hasPointers||oldDocument?.schema===LEADERSHIP_SCHEMA||Object.hasOwn(body,'expectedRevision'))return saveQualifiedLeadership(env,actor,body,qualifiedGuilds(body.guilds,guilds),request);
   const confirmed = body.namesConfirmed === true;
   if (!confirmed) {
     const cur = parseLeadership(prior?.value);

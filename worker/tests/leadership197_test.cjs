@@ -178,6 +178,58 @@ async function negative(action){try{return await action();}catch(e){if(!(e insta
  // The original canonical-schema, original-job proof fixture is deliberately a
  // separate realm; it tests the exact existing six physical cleanup statements.
  const N=originalPrefix(path.join(__dirname,'privacy_native_erasure_cleanup_test.cjs'),'\n(async()=>{','fixture,cleanup,ID,OTHER,GEN,BIRTH,OP,DIGEST,T,pins');
+ // PR90 P2: a Native removal marker is a seat, not a duplicate person.
+ // Real cleanup runs in the original separate Native realm; its surviving
+ // server-signed proof is then read/saved by the real admitted Worker realm.
+ for(const trailingTyped of [true,false]){
+  const f=await H.fixture(),n=N.fixture(),{HOLDER,SECOND}=H.ids();
+  try{
+   const g=ten();g[0].officers=['Name withheld','<@'+HOLDER+'>','<@'+SECOND+'>',...(trailingTyped?['Typed officer']:[])];
+   assert.equal((await save(f,g)).status,200,'original consented two-account setup');
+   const doc=JSON.parse(stored(f)),active=JSON.stringify(doc.publications.guild_01_officer_03);
+   doc.guilds[0].officers[1]='<@'+N.ID+'>';
+   doc.publications.guild_01_officer_02={pointer:'<@'+N.ID+'>',birth:N.BIRTH,generation:N.GEN,mac:'A'.repeat(43)};
+   assert.ok(D.leadershipEnvelope(doc),'original Native input must be a qualified envelope');
+   n.set('leadership',doc);const cleanup=await N.cleanup.cleanupNativePersonalReferences(n.env,n.proof),after=JSON.parse(n.value('leadership'));
+   check('actual Native cleanup retains both withheld positions and the surviving original proof'+(trailingTyped?' before a typed officer':' at the terminal seat'),cleanup.state==='cleaned'&&cleanup.changed===1&&n.trace.length===6&&D.leadershipEnvelope(after)&&after.guilds[0].officers.length===(trailingTyped?4:3)&&after.guilds[0].officers[0]==='Name withheld'&&after.guilds[0].officers[1]==='Name withheld'&&JSON.stringify(after.publications.guild_01_officer_03)===active&&!Object.hasOwn(after.publications,'guild_01_officer_02'));
+   await setRow(f,after);const p=await page(f),expected=['Name withheld','Name withheld','Name withheld',...(trailingTyped?['Typed officer']:[])];
+   check('qualified read preserves original officer index2 and every following label'+(trailingTyped?' with trailing typed label':' without a following slot'),p.status===200&&JSON.stringify(p.body.guilds[0].officers)===JSON.stringify(expected)&&p.body.identities.length===1&&p.body.identities[0].slot==='guild_01_officer_03'&&p.body.identities[0].officerIndex===2&&p.body.identities[0].label==='holder-two'&&!JSON.stringify(p.body).includes(SECOND));
+   const admin=await view(f);assert.equal(admin.status,200);const originalFetch=H.getFetch();let targetGets=0;
+   H.setFetch(async url=>{if(String(url).endsWith('/members/'+SECOND))targetGets++;return originalFetch(url);});
+   try{
+    const again=await save(f,admin.body.guilds),saved=JSON.parse(stored(f));
+    check('unchanged admin roundtrip preserves repeated markers, original seat key and exact proof without target recheck'+(trailingTyped?' with trailing typed label':' at the terminal seat'),again.status===200&&JSON.stringify(saved.guilds)===JSON.stringify(after.guilds)&&Object.keys(saved.publications).join()==='guild_01_officer_03'&&JSON.stringify(saved.publications.guild_01_officer_03)===active&&targetGets===0);
+    admin.body.guilds[1].gm='Unrelated typed correction';const unrelated=await save(f,admin.body.guilds),kept=JSON.parse(stored(f));
+    check('an unrelated guild edit cannot compact Native removal markers or rebind the surviving seat'+(trailingTyped?' with trailing typed label':' at the terminal seat'),unrelated.status===200&&JSON.stringify(kept.guilds[0])===JSON.stringify(after.guilds[0])&&JSON.stringify(kept.publications.guild_01_officer_03)===active&&Object.keys(kept.publications).join()==='guild_01_officer_03'&&targetGets===0);
+   }finally{H.setFetch(originalFetch);}
+  }finally{n.close();f.close();}
+ }
+ {
+  const g=ten();g[0].gm='x'.repeat(41);g[0].officers=['  Repeated  ','Repeated','Name withheld','Name withheld'];
+  const legacy=L.cleanLeadership(g);
+  check('legacy cleaner still truncates40 characters and deduplicates ordinary names and removal labels',legacy[0].gm==='x'.repeat(40)&&JSON.stringify(legacy[0].officers)==='["Repeated","Name withheld"]'&&JSON.stringify(L.parseLeadership(JSON.stringify(g)))===JSON.stringify(legacy));
+  const max=ten();max[0].officers=Array(12).fill('Name withheld');const valid={schema:D.LEADERSHIP_SCHEMA,guilds:max,publications:{}};
+  check('validated qualified envelope keeps all12 marker positions without legacy compaction',D.leadershipEnvelope(valid)&&L.parseLeadership(JSON.stringify(valid))[0].officers.length===12);
+  for(const kind of ['thirteen-officers','overlong-label','wrong-guild','extra-envelope-key','missing-proof']){
+   const bad=JSON.parse(JSON.stringify(valid));
+   if(kind==='thirteen-officers')bad.guilds[0].officers.push('Name withheld');
+   if(kind==='overlong-label')bad.guilds[0].officers[0]='x'.repeat(41);
+   if(kind==='wrong-guild')bad.guilds[0].name='Different guild';
+   if(kind==='extra-envelope-key')bad.extra=true;
+   if(kind==='missing-proof')bad.guilds[0].officers[0]='<@'+N.ID+'>';
+   check('qualified read still refuses the complete malformed envelope: '+kind,!D.leadershipEnvelope(bad)&&L.parseLeadership(JSON.stringify(bad)).every(g=>g.gm===''&&g.officers.length===0));
+  }
+ }
+ {
+  const f=await H.fixture(),{SECOND}=H.ids();
+  try{
+   const g=ten();g[0].gm='x'.repeat(41);g[0].officers=[' Repeated ','Repeated','Name withheld','Name withheld','<@'+SECOND+'>'];
+   const r=await save(f,g),doc=JSON.parse(stored(f));
+   check('qualified save preserves repeated exact markers but retains ordinary name cleaning and40-character truncation',r.status===200&&doc.guilds[0].gm==='x'.repeat(40)&&JSON.stringify(doc.guilds[0].officers)===JSON.stringify(['Repeated','Name withheld','Name withheld','<@'+SECOND+'>'])&&Object.keys(doc.publications).join()==='guild_01_officer_04'&&D.leadershipEnvelope(doc));
+   const before=stored(f);g[0].officers=Array(13).fill('Name withheld');const over=await save(f,g);
+   check('thirteen nonempty input seats still refuse before deduplication and leave the prior directory exact',over.status===400&&over.body.error==='invalid'&&stored(f)===before);
+  }finally{f.close();}
+ }
  for(const state of ['waiting_role','held','erasing']){
   const f=N.fixture(state);
   try{
