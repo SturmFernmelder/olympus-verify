@@ -85,7 +85,7 @@
 .army-site textarea { min-height: 135px; resize: vertical; font: 11px/1.65 ui-monospace,Consolas,monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
 :is(.army-site, .army-reader) .input-panel > button { margin-top: 10px; }
 .army-site .input-panel > p:first-child { font-size: .9rem; }
-.army-site .input-panel input[type=file] { width: 100%; font-size: .84rem; }
+.army-site .input-panel input[type=file], .army-site #aggregate-file { width: 100%; max-width: 100%; min-width: 0; font-size: .84rem; }
 :is(.army-site, .army-reader) input[type=file]::file-selector-button { min-height: 44px; padding: 6px 10px; border: 6px solid transparent; border-image: url('/static/wow/button-up.png') 6 7 fill / 6px 7px / 0 stretch; background: transparent; color: var(--gold); font: inherit; }
 .army-site .scan-status { display: flex; align-items: start; gap: 10px; min-height: 70px; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); }
 .army-site .scan-status strong { font-size: .9rem; }
