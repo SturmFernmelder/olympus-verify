@@ -949,3 +949,17 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 
 /* .197: canonical policy See-also spacing survives the member-shell reader. */
 .legal-view196 .related{margin-top:1.5rem}
+
+/* .198: a touch-sized shield keeps its accessible name while freeing header space. */
+.stream-shield-toggle.btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;padding:5px;flex:none;border-radius:8px}
+.stream-shield-toggle .ico{width:30px;height:30px;margin:0;pointer-events:none}
+.stream-shield-toggle[aria-pressed="true"]{border-color:#ffe19a;background:#293b22;box-shadow:0 0 0 2px #e6c76c66,0 0 15px #f5ce7380,inset 0 0 8px #e6c76c40}
+.stream-shield-toggle[aria-pressed="true"] .ico{filter:brightness(1.25) drop-shadow(0 0 4px #ffe19a)}
+.beta-epoch-archive>summary{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;flex-wrap:wrap}
+.beta-epoch-archive>summary::after{content:"+";margin-left:auto;color:var(--gold);font-size:1.3rem}
+.beta-epoch-archive[open]>summary::after{content:"−"}
+.beta-epoch-archive-body{margin-top:1rem}
+.beta-epoch-figures{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px}
+.beta-epoch-figures dd{margin:0;color:var(--gold-soft);overflow-wrap:anywhere}
+@media(max-width:370px){.topbar-in{gap:8px}.topbar-actions{gap:6px}.beta-epoch-figures{grid-template-columns:1fr}.beta-epoch-figures dd{margin-bottom:8px}}
+@media(forced-colors:active){.stream-shield-toggle[aria-pressed="true"]{outline:3px solid Highlight;box-shadow:none}.stream-shield-toggle[aria-pressed="true"] .ico{filter:none}}

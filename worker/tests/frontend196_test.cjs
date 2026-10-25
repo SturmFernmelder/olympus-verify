@@ -12,14 +12,35 @@ const body196=String.raw`
   const member=await openPage(MEMBER), staff=await openPage(STAFF);
   const archive=byText(member.app,'h2','Beta Epoch Archive')?.closest('section');
   check('archive contains published nonpersonal dates and disclaims member records',!!archive && archive.textContent.includes('21 October 2026') && archive.textContent.includes('no former-member roster') && !archive.textContent.includes('Mia One'));
-  check('unappointed member has no Stream Shield affordance',!byText(member.app,'button','Stream Shield'));
-  const shield=byText(staff.app,'button','Stream Shield'), commands=[];
+  check('unappointed member has no Stream Shield affordance',!member.app.querySelector(".stream-shield-toggle"));
+  const shield=staff.app.querySelector(".stream-shield-toggle"), commands=[];
   staff.before((pathname,init)=>{if((init.method||'GET')!=='GET')commands.push(pathname);return false;});
   check('administrator has an explicitly reversible shield button',!!shield && shield.getAttribute('aria-pressed')==='false');
+  check('.198 shield is an icon-only control with an exact accessible name and tooltip',shield.textContent===''&&shield.getAttribute('aria-label')==='Stream Shield'&&shield.getAttribute('title')==='Stream Shield'&&shield.querySelector('img').getAttribute('src')==='/static/wow/icon-shield.png'&&shield.querySelector('img').getAttribute('alt')==='');
   shield.click();
   check('shield only masks presentation without a provider or API command',staff.document.documentElement.getAttribute('data-stream-shield')==='on' && shield.getAttribute('aria-pressed')==='true' && commands.length===0);
   shield.click();
   check('second attended action restores the normal view',staff.document.documentElement.getAttribute('data-stream-shield')==='off');
+  // .198: exercise the real Worker profile write and both admitted Workshop read modes.
+  const request198=async(method,url,payload)=>{
+    const response=await indexMod.default.fetch(new Request('https://guild.example'+url,{method,headers:{Cookie:await cookieFor(MEMBER),Origin:'https://guild.example','X-Olympus':siteCore.PAGE_VERSION,...(payload===undefined?{}:{'Content-Type':'application/json'})},...(payload===undefined?{}:{body:JSON.stringify(payload)})}),env(),ctx);
+    const data=await response.json();if(response.status!==200)throw Error('Workshop setup refused '+response.status+' '+JSON.stringify(data));return data;
+  };
+  let profile198=(await request198('GET','/api/community/profile')).profile;
+  profile198=(await request198('PUT','/api/community/profile',{revision:profile198.revision,listed:false,main:'Mia One',professions:[{name:'alchemy',skill:275}],crafts:[{profession:'alchemy',recipe:'Fictional Forever Elixir'}]})).profile;
+  const workshop198=await openPage(MEMBER);await workshop198.go('#/community/workshop');
+  await waitFor(()=>workshop198.app.textContent.includes('No offer matches.'),'unlisted Workshop draft');
+  check('.198 Workshop hides saved drafts and explains voluntary listing',!workshop198.app.textContent.includes('Fictional Forever Elixir')&&workshop198.app.textContent.includes('Untick the listing box'));
+  profile198=(await request198('PUT','/api/community/profile',{revision:profile198.revision,listed:true})).profile;
+  fire(workshop198.app.querySelector('form'),'submit');
+  await waitFor(()=>!!workshop198.app.querySelector('.craft'),'listed Workshop recipe');
+  check('.198 actual recipe directory shows opt-in skill, update date and a manual commission draft',workshop198.app.textContent.includes('Fictional Forever Elixir')&&workshop198.app.textContent.includes('self-reported skill 275')&&workshop198.app.textContent.includes('Listing updated')&&workshop198.app.querySelector('textarea[aria-label="Commission request text"]')?.value.includes('Hello Mia One'));
+  const mode198=workshop198.app.querySelector('[data-field="craft-mode"] select');mode198.value='professions';fire(mode198,'change');
+  await waitFor(()=>workshop198.app.querySelector('.craft')&&!workshop198.app.textContent.includes('Fictional Forever Elixir'),'Workshop profession mode');
+  check('.198 profession-only mode disables recipe search and retains the listed artisan',workshop198.app.querySelector('[data-field="craft-q"] input').disabled&&workshop198.app.textContent.includes('Alchemy')&&workshop198.app.textContent.includes('Member-supplied profession listing.'));
+  await request198('PUT','/api/community/profile',{revision:profile198.revision,listed:false});fire(workshop198.app.querySelector('form'),'submit');
+  await waitFor(()=>workshop198.app.textContent.includes('No profession listing matches.'),'Workshop opt-out');
+  check('.198 real profile opt-out removes both profession and recipe cards',!workshop198.app.querySelector('.craft')&&!workshop198.app.querySelector('.workshop-commission'));
   await staff.go('#/admin/settings');
   await waitFor(()=>!!staff.app.querySelector('[data-appointment-status="office_95"]'),'all offices rendered');
   check('all131 stable office and rank keys have a real Discord picker',staff.boot.meta.appointments.length===131 && staff.app.querySelectorAll('.appointed-row').length===131 && staff.app.querySelectorAll('.appointed-row [role="combobox"]').length===131);
@@ -125,7 +146,7 @@ const body196=String.raw`
   lateListed196.checked=false;lateListed196.dispatchEvent(new Event('change'));check('changing requested preference invalidates the earlier confirmation',lateSave196.disabled&&!lateConfirmed196.checked&&lateRequests196.length===2);
   await attendedLate196.go('#/roles');
   const workshop=await openPage(MEMBER); await workshop.go('#/community/workshop');
-  check('workshop reuses real recipe search with accurate listing provenance',workshop.app.textContent.includes('Crafters & Artisans Workshop') && workshop.app.textContent.includes('Offers and rarity are member supplied') && !!workshop.app.querySelector('input[type="search"]'));
+  check('workshop reuses real recipe search with accurate listing provenance',workshop.app.textContent.includes('Crafters & Artisans Workshop') && workshop.app.textContent.includes('Recipe ownership, rarity and skill are self-reported') && !!workshop.app.querySelector('input[type="search"]') && !!workshop.app.querySelector('[data-field="craft-mode"] select'));
   const treasury196=await openPage(STAFF), treasuryCommands196=[], op196='1'.repeat(32);
   treasury196.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))treasuryCommands196.push({path:p,method:init.method,body:init.body?JSON.parse(init.body):null});return false;});
   treasury196.answer(p=>p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Oz',shown:'Oz',onSite:true,appointmentStatus:'eligible'}]}:p==='/api/admin/treasury/target'?{discordId:OTHER,mailReference:'TITHE-ABCD-2345'}:p==='/api/admin/treasury/preview'?{token:'synthetic-ui-preview-only',expiresAt:Math.floor(Date.now()/1000)+180,qualifyingGold:25,seasonEndsAt:Math.floor(Date.now()/1000)+86400,dispatchEnabled:true,recognitionConsent:true,recognitionMode:'recognize',changes:[{operationId:op196,roleId:'123456789012345678',label:'Tithe Payer',desired:1}]}:p==='/api/admin/treasury/confirm'?{state:'unknown'}:p==='/api/admin/treasury/status'?{operation:{id:op196,state:'unknown',reason:'synthetic-ui-outcome',attempts:1},noRetry:true}:null);
@@ -413,6 +434,8 @@ const body196=String.raw`
   capacityStubs196(capacityPage196);let capacityReads196=0;
   capacityPage196.before((p,init)=>{if(p==='/api/me')capacityReads196++;return false;});
   await capacityPage196.go('#/army');
+  const betaArchive198=capacityPage196.app.querySelector('[data-beta-epoch-archive="october-2026"]');
+  check('.198 Army has a closed historical Beta card separate from live capacity',!!betaArchive198&&!betaArchive198.open&&betaArchive198.querySelector('summary').textContent.includes('Beta Veterans / Founding Epoch')&&betaArchive198.textContent.includes('1000/1000 characters')&&betaArchive198.textContent.includes('247 queued')&&betaArchive198.textContent.includes('unavailable live feed remains unavailable'));
   if(!await waitFor(()=>capacityFirst196(capacityPage196)?.textContent.includes('963 of 1000'),'actual fresh open roster'))throw Error('Fresh actual memberSeats never rendered: '+capacityPanel196(capacityPage196)?.textContent);
   check('Army capacity shows all10 named branches and reads current /api/me instead of stale boot seats',capacityPanel196(capacityPage196).querySelectorAll('[data-army-capacity-guild]').map(e=>e.getAttribute('data-army-capacity-guild')).join(',')==='I,II,III,IV,V,VI,VII,VIII,IX,X'&&capacityReads196===1&&!capacityFirst196(capacityPage196).textContent.includes('1000 of 1000'));
   check('a real open checked-roster DTO supplies the I meter and hour-rounded current evidence time',capacityFirst196(capacityPage196).querySelector('meter')?.value==='963'&&capacityFirst196(capacityPage196).querySelector('meter')?.getAttribute('max')==='1000'&&capacityFirst196(capacityPage196).querySelector('time')?.getAttribute('datetime')===new Date(capacityHour196*1000).toISOString()&&capacityFirst196(capacityPage196).textContent.includes('does not reserve or promise a place'));

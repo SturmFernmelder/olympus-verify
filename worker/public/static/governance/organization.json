@@ -6,8 +6,8 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 173953,
-    "sha256": "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5"
+    "bytes": 233733,
+    "sha256": "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758"
   },
   "councilComposition": {
     "status": "owner_directed_20261023",
@@ -2379,5 +2379,16 @@
       }
     ],
     "recognitionPeriod": "90-day season; expires at season end; cosmetic colour only"
+  },
+  "statutoryExpansion": {
+    "source": "docs/master198-governance-titles.md",
+    "recordedAt": "2026-10-25",
+    "authority": "explicit owner Build .198 direction",
+    "titles": 5,
+    "articles": 27,
+    "sections": 54,
+    "constitutionalVoteRecorded": false,
+    "namedSignaturesClaimed": false,
+    "permissionsApplied": false
   }
 }

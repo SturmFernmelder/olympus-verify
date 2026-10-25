@@ -7239,3 +7239,8 @@ activation/unknown-custody controls and launch gates. Any .197 deployment/config
 first ordinary callback must be bound independently; no .196 timing criterion or normal-stage exception
 automatically transfers. Upstream PR72 adoption, real client/protected actions, watcher installation and
 Treasury/Army/Link activation remain separate actual gates.
+
+
+## Worker .198 — 25 October 2026
+
+Stream Shield icon, substantive statutory/RP Titles I–V, opt-in Workshop recipe/profession browsing, separate Beta archive and absent-duplicate role safety. Configuration, schema, Native E2/private5 and activation gates remain unchanged. See [the complete .198 plan](build198-release-plan.md) for focused/single-final qualification, exact role deletion, backup, rollout, scoped probe/timing exceptions and rollback boundaries. Actual receipts follow execution; source preparation is not a live pass.

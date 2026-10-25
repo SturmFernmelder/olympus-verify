@@ -19,12 +19,14 @@ globalThis.Date = class extends RealDate {
   static now() { return T * 1000; }
 };
 let nativeTimeOverride = null;
+let nativeStatementAttempts = 0;
 function d1(db, hooks = {}) {
   let batches = 0;
   // Arm the existing races at the actual community payload boundary, after
   // authentication. Every physical guard remains in nativeTrace/nativeGroups.
   const payloadBatch = plan => plan.some(s => s.statement.includes("privacy_community_request_refused") || /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(s.statement));
   return entry.originalNativePort(db, {...hooks,
+    statement: () => { nativeStatementAttempts++; },
     beforeBatch: (plan) => payloadBatch(plan) ? hooks.beforeBatch?.(++batches, plan) : undefined,
     afterBatch: (plan) => payloadBatch(plan) ? hooks.afterBatch?.(batches, plan) : undefined,
   });
@@ -439,6 +441,80 @@ async function deleteThroughOriginalRoute(target, actor) {
   check("staff decision, AFTER SUCCESS: the decision committed (RETURNING in its own batch), then the admin denied: acknowledged with what the batch wrote", r.status === 200 && r.body.claim.status === "officer_confirmed" && r.body.revision === 4 && one("SELECT status FROM community_alt_claims WHERE discord_id = ? AND name_key = 'rae alt'", RM).status === "officer_confirmed", JSON.stringify(r.body).slice(0, 200));
   await fixtureRun("UPDATE site_users SET denied = 0 WHERE discord_id = ?",STAFF);
   check("(every armed hook fired at the batch it named)", BEFORE === null && AFTER === null);
+
+  console.log("\n== .198 opt-in Workshop: recipes, profession-only artisans and attended commissions ==");
+  // The same current Native schema, original cookies and admitted routes as the directory above; no Workshop table,
+  // registry, background job, contact ledger or permission shortcut is installed for this feature.
+  db = freshDb();
+  const ARTISAN = "300000000000000801", CUSTOMER = "300000000000000802", OTHER = "300000000000000803";
+  await siteUser(ARTISAN, { global_name: "Artisan" }); await confirm(ARTISAN, "Artisan Main", "Player-1-0801");
+  await siteUser(CUSTOMER); await confirm(CUSTOMER, "Customer Main", "Player-1-0802");
+  await siteUser(OTHER); await confirm(OTHER, "Other Main", "Player-1-0803");
+  const workshopSchemaBefore = db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name").all();
+  r = await call("PUT", "/api/community/profile", ARTISAN, { revision: 0, main: "Artisan Main",
+    professions: [{ name: "alchemy", skill: 300 }, { name: "tailoring", skill: null }],
+    crafts: [{ profession: "alchemy", recipe: "Flask of Endless Echoes", source: "official" }] });
+  check("Workshop drafts start unlisted; a client-supplied source cannot turn a recipe into an official claim", r.status === 200 && r.body.profile.listed === false && r.body.profile.crafts[0].source === "self");
+  r = await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  check("an artisan's unlisted recipe draft stays out of the all-offers Workshop", r.status === 200 && r.body.results.length === 0);
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  check("their unlisted profession draft stays out of the profession directory too", r.status === 200 && r.body.results.length === 0);
+  r = await call("PUT", "/api/community/profile", ARTISAN, { revision: 1, listed: true });
+  check("only the owner's explicit listing choice publishes the existing profile", r.status === 200 && r.body.profile.listed === true);
+  r = await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  check("recipe browsing returns the opt-in offer, matching self-reported skill and a currently proven main for manual contact", r.status === 200 && r.body.results.length === 1 && r.body.results[0].skill === 300 && r.body.results[0].commission?.character === "Artisan Main" && r.body.results[0].commission.mode === "manual_in_game" && r.body.results[0].commission.source === "keeper");
+  check("Workshop metadata disclaims official catalogue and recipe/skill verification, with no account id or executable action", r.body.workshop?.version === 1 && r.body.workshop.game === "World of Warcraft: Forever" && r.body.workshop.recipeClaims === "self_reported" && r.body.workshop.skillClaims === "self_reported" && r.body.workshop.officialCatalogue === false && r.body.workshop.mode === "recipes" && !JSON.stringify(r.body).includes(ARTISAN) && !JSON.stringify(r.body).includes("discord.com") && !JSON.stringify(r.body).includes("/whisper"));
+  const workshopReadBefore = nativeStatementAttempts;
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  const professionReadCost = nativeStatementAttempts - workshopReadBefore;
+  check("profession mode includes the artisan with no recipes in that profession, preserving an unknown skill as null", r.status === 200 && r.body.workshop.mode === "professions" && r.body.results.length === 2 && r.body.results.every(row => row.recipe === null && row.source === "self") && r.body.results.find(row => row.profession === "tailoring").skill === null);
+  const recipeReadBefore = nativeStatementAttempts;
+  await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  const recipeReadCost = nativeStatementAttempts - recipeReadBefore;
+  check("profession browsing uses exactly the same counted Native statement budget as recipe browsing", professionReadCost > 0 && recipeReadCost === professionReadCost);
+  console.log(`   Native statement attempts per full admitted request: recipes=${recipeReadCost}; professions=${professionReadCost}`);
+  r = await call("GET", "/api/community/crafting?mode=professions&profession=tailoring", CUSTOMER);
+  check("profession-only filtering works without forcing an artisan to invent a recipe", r.status === 200 && r.body.results.length === 1 && r.body.results[0].profession === "tailoring" && r.body.results[0].recipe === null);
+  const workshopDigest = await dir.orderDigest([["Artisan", one("SELECT ref FROM community_profiles WHERE discord_id = ?", ARTISAN).ref, 2]]);
+  const artisanRef = one("SELECT ref FROM community_profiles WHERE discord_id = ?", ARTISAN).ref;
+  const professionCursor = dir.encodeCursor([2, "professions", null, null, workshopDigest, "alchemy", "Artisan", artisanRef]);
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1&cursor=" + professionCursor, CUSTOMER);
+  check("a profession cursor continues in profession/name/ref order", r.status === 200 && r.body.results.length === 1 && r.body.results[0].profession === "tailoring");
+  r = await call("GET", "/api/community/crafting?browse=1&cursor=" + professionCursor, CUSTOMER);
+  check("a profession cursor cannot be reused for recipe results", r.status === 400 && r.body.error === "invalid_cursor");
+  r = await call("GET", "/api/community/crafting?mode=professions&profession=tailoring&cursor=" + professionCursor, CUSTOMER);
+  check("nor can its filter change between pages", r.status === 400 && r.body.error === "invalid_cursor");
+  r = await call("GET", "/api/community/crafting?mode=professions&q=Flask&browse=1", CUSTOMER);
+  check("a recipe query cannot silently become a profession or member-name query", r.status === 400 && r.body.error === "invalid_q");
+  r = await call("GET", "/api/community/crafting?mode=everyone&browse=1", CUSTOMER);
+  check("unknown Workshop modes are refused", r.status === 400 && r.body.error === "invalid_query");
+  r = await call("GET", "/api/community/crafting?browse=0", CUSTOMER);
+  check("browsing requires the exact explicit browse=1 value", r.status === 400 && r.body.error === "invalid_query");
+  // The listed owner remains a valid guild-data source, but a shared GUID withholds only contact routing.
+  await fixtureRun("UPDATE characters SET guid = 'Player-1-0801' WHERE discord_id = ?", OTHER);
+  r = await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  check("a currently conflicting GUID withholds the commission target rather than trusting saved keeper provenance", r.status === 200 && r.body.results.length === 1 && r.body.results[0].commission === null);
+  await fixtureRun("UPDATE characters SET guid = 'Player-1-0803' WHERE discord_id = ?", OTHER);
+  await fixtureRun("UPDATE characters SET name = 'Renamed Artisan' WHERE discord_id = ?", ARTISAN);
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  check("a changed current character name also withholds stale contact labels", r.status === 200 && r.body.results.length === 2 && r.body.results.every(row => row.commission === null));
+  await fixtureRun("UPDATE characters SET name = 'Artisan Main' WHERE discord_id = ?", ARTISAN);
+  r = await call("PUT", "/api/community/profile", ARTISAN, { revision: 2, main: "Artisan Label" });
+  check("a self-declared main remains an honest label", r.status === 200 && r.body.profile.main.source === "self");
+  r = await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  check("self-declared labels never become proven commission targets", r.status === 200 && r.body.results[0].commission === null);
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1&cursor=" + professionCursor, CUSTOMER);
+  check("an owner's profile edit invalidates an old profession cursor", r.status === 409 && r.body.error === "cursor_stale");
+  r = await call("PUT", "/api/community/profile", ARTISAN, { revision: 3, listed: false });
+  check("the owner can withdraw their listing with the same revision-fenced writer", r.status === 200 && r.body.profile.listed === false);
+  const hiddenRecipe = await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  const hiddenProfession = await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  check("opt-out immediately hides both Workshop modes", hiddenRecipe.body.results.length === 0 && hiddenProfession.body.results.length === 0);
+  const retainedWorkshopCopy = await context.communityExport(directEnv(), ARTISAN);
+  check("the unlisted owner's existing account copy still includes every recipe and profession", retainedWorkshopCopy.directory?.crafts.length === 1 && retainedWorkshopCopy.directory.professions.length === 2);
+  r = await call("PUT", "/api/community/profile", ARTISAN, { revision: 4, crafts: [], professions: [] });
+  check("the owner can delete all Workshop recipe/profession rows while retaining the rest of their profile", r.status === 200 && r.body.profile.crafts.length === 0 && r.body.profile.professions.length === 0 && r.body.profile.main.name === "Artisan Label" && !one("SELECT 1 FROM community_craft_offers WHERE discord_id = ?", ARTISAN) && !one("SELECT 1 FROM community_professions WHERE discord_id = ?", ARTISAN));
+  check("Workshop writes and reads preserve the exact existing Native schema", JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name").all()) === JSON.stringify(workshopSchemaBefore));
 
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
