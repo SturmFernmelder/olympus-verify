@@ -511,16 +511,52 @@ export async function directoryList(request: Request, env: Env, ctx: CommunityCo
   return apiJson({ generatedAt: secondsToIso(now()), members, counts: { listed: visible.length }, nextCursor });
 }
 
-/** GET /api/community/crafting?q=&profession=&cursor= → {results, nextCursor}: offers on listed, qualifying profiles. */
+/** .198 (owner, 25 Oct 2026): the Workshop reuses the directory's existing bounded JSON replacement writes,
+ * export/erasure family and two-statement admitted read. No catalogue, contact ledger or scheduled work is added.
+ * A commission target is a currently proven, listed main, never a free-text contact or a bot/game action. */
+export const WORKSHOP = {
+  version: 1,
+  game: "World of Warcraft: Forever",
+  recipeClaims: "self_reported",
+  skillClaims: "self_reported",
+  officialCatalogue: false,
+  commissionMode: "manual_in_game",
+  optIn: "listed_profile",
+} as const;
+// A private, bounded projection only. A crowded/ambiguous account can stay listed without a commission target.
+// SQL cannot reproduce communityKey's NFC and whitespace normalization, so identity comparison stays in that helper.
+const COMMISSION_NAME_SCAN_LIMIT = 50;
+function commissionContact(main: string | null, raw: string | null) {
+  if (main === null || raw === null) return null;
+  let names: unknown;
+  try { names = JSON.parse(raw); } catch { return null; }
+  if (!Array.isArray(names) || names.length > COMMISSION_NAME_SCAN_LIMIT) return null;
+  const key = communityKey(main);
+  const matches = names.flatMap(value => {
+    const name = validateName(value);
+    return name.ok && name.key === key ? [name.name] : [];
+  });
+  return matches.length === 1 ? { mode: "manual_in_game", character: matches[0]!, source: "keeper" } : null;
+}
+/** GET /api/community/crafting?q=&profession=&mode=professions&browse=1&cursor= → {results, nextCursor, workshop}:
+ * offers on listed, qualifying profiles. browse=1 explicitly requests the bounded all-offers directory. */
 export async function craftingSearch(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   if (!ctx.features.has("crafting")) return featureOff();
   const no = await communityReader(ctx, request, env);
   if (no) return no;
   if (rateLimited(`cc:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many searches in one minute. Wait a moment, then carry on." }, 429);
   const url = new URL(request.url);
+  const rawBrowse = url.searchParams.get("browse");
+  if (rawBrowse !== null && rawBrowse !== "1") return apiJson({ error: "invalid_query" }, 400);
+  const browse = rawBrowse === "1";
+  const rawMode = url.searchParams.get("mode");
+  if (rawMode !== null && rawMode !== "recipes" && rawMode !== "professions") return apiJson({ error: "invalid_query" }, 400);
+  const professionMode = rawMode === "professions";
+  const kind = professionMode ? "professions" : "crafting";
   const rawQ = url.searchParams.get("q"), rawP = url.searchParams.get("profession");
   let q: string | null = null;
   if (rawQ) {
+    if (professionMode) return apiJson({ error: "invalid_q" }, 400); // a recipe query cannot silently become a member search
     if (rawQ.length > LIMITS.recipeMax * 4) return apiJson({ error: "invalid_q" }, 400);
     const k = recipeKeyOf(normalizeRecipe(rawQ));
     if (k.length < 2 || k.length > 40 || UNSAFE.test(k)) return apiJson({ error: "invalid_q" }, 400);
@@ -531,14 +567,14 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
     if (!(PROFESSIONS as readonly string[]).includes(rawP)) return apiJson({ error: "invalid_profession" }, 400);
     profession = rawP as Profession;
   }
-  if (q === null && profession === null) return apiJson({ error: "invalid_query" }, 400);
+  if (q === null && profession === null && !browse) return apiJson({ error: "invalid_query" }, 400);
   const parts = cursorParts(url.searchParams.get("cursor"));
   if (parts === "invalid") return apiJson({ error: "invalid_cursor" }, 400);
   let after: { digest: string; key: string; name: string; ref: string } | null = null;
   if (parts) {
-    const [version, kind, cq, cp, digest, key, name, ref] = parts;
+    const [version, cursorKind, cq, cp, digest, key, name, ref] = parts;
     if (parts.length === 7 && parts[0] === 1 && parts[1] === "crafting") return apiJson({ error: "cursor_stale" }, 409); // a .57 cursor from an older page
-    if (parts.length !== 8 || version !== 2 || kind !== "crafting" || cq !== q || cp !== profession || !text(digest, 32) || !/^[0-9a-f]{32}$/.test(digest) || !text(key) || !text(name, 512) || !text(ref) || !REF.test(ref)) return apiJson({ error: "invalid_cursor" }, 400);
+    if (parts.length !== 8 || version !== 2 || cursorKind !== kind || cq !== q || cp !== profession || !text(digest, 32) || !/^[0-9a-f]{32}$/.test(digest) || !text(key) || !text(name, 512) || !text(ref) || !REF.test(ref)) return apiJson({ error: "invalid_cursor" }, 400);
     after = { digest, key, name, ref };
   }
   const limit = scanLimit(env);
@@ -546,19 +582,29 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
   // eligibility itself; the cursor carries the digest of the visible order (every qualifying owner with a matching offer,
   // by display name and ref, with the profile revision that every save of their offers bumps), so a rename, an edit, a
   // departure or an unlisting between pages is 409 cursor_stale and the page starts again (D20).
-  const filter = (qp: string, pp: string) => `(${qp} IS NULL OR instr(o.recipe_key, ${qp}) > 0) AND (${pp} IS NULL OR o.profession = ${pp})`;
+  // These fragments are closed source choices, never caller SQL. Both modes retain the same two read statements.
+  const table = professionMode ? "community_professions" : "community_craft_offers";
+  const rowKey = professionMode ? "o.profession" : "o.recipe_key";
+  const filter = (qp: string, pp: string) => `(${qp} IS NULL${professionMode ? "" : ` OR instr(o.recipe_key, ${qp}) > 0`}) AND (${pp} IS NULL OR o.profession = ${pp})`;
   const read = await admittedCommunityRead(env, ctx, [ // .72: the reader's admission, in the payload's transaction
     env.DB.prepare(
       `SELECT p.ref, p.revision, ${DISPLAY} AS display_name FROM community_profiles p JOIN site_users u ON u.discord_id = p.discord_id
-       WHERE p.listed = 1 AND ${VISIBLE_OWNER} AND EXISTS (SELECT 1 FROM community_craft_offers o WHERE o.discord_id = p.discord_id AND ${filter("?2", "?3")})
+       WHERE p.listed = 1 AND ${VISIBLE_OWNER} AND EXISTS (SELECT 1 FROM ${table} o WHERE o.discord_id = p.discord_id AND ${filter("?2", "?3")})
        ORDER BY ${DISPLAY} COLLATE NOCASE, p.ref LIMIT ?1`,
     ).bind(limit + 1, q, profession),
     env.DB.prepare(
-      `SELECT o.profession, o.recipe_name, o.recipe_key, o.updated_at, p.ref, ${DISPLAY} AS display_name
-       FROM community_craft_offers o JOIN community_profiles p ON p.discord_id = o.discord_id AND p.listed = 1 JOIN site_users u ON u.discord_id = o.discord_id
+      `SELECT o.profession, ${professionMode ? "NULL" : "o.recipe_name"} AS recipe_name, ${rowKey} AS recipe_key, o.updated_at, p.ref, ${DISPLAY} AS display_name,
+         ${professionMode ? "o.skill" : "(SELECT cp.skill FROM community_professions cp WHERE cp.discord_id = p.discord_id AND cp.profession = o.profession)"} AS skill,
+         p.main_name AS commission_main,
+         CASE WHEN p.main_source = 'keeper' THEN
+           (SELECT json_group_array(name) FROM
+             (SELECT cc.name FROM characters cc WHERE cc.discord_id = p.discord_id AND cc.status = 'member'
+               AND NOT EXISTS (SELECT 1 FROM characters cg WHERE cg.guid IS NOT NULL AND cg.guid = cc.guid AND cg.discord_id <> p.discord_id)
+               LIMIT ${COMMISSION_NAME_SCAN_LIMIT + 1})) ELSE '[]' END AS commission_candidates
+       FROM ${table} o JOIN community_profiles p ON p.discord_id = o.discord_id AND p.listed = 1 JOIN site_users u ON u.discord_id = o.discord_id
        WHERE ${VISIBLE_OWNER} AND ${filter("?1", "?2")}
-         AND (?3 = 0 OR o.recipe_key > ?4 OR (o.recipe_key = ?4 AND (${DISPLAY} > ?5 COLLATE NOCASE OR (${DISPLAY} = ?5 COLLATE NOCASE AND p.ref > ?6))))
-       ORDER BY o.recipe_key, ${DISPLAY} COLLATE NOCASE, p.ref LIMIT ?7`,
+         AND (?3 = 0 OR ${rowKey} > ?4 OR (${rowKey} = ?4 AND (${DISPLAY} > ?5 COLLATE NOCASE OR (${DISPLAY} = ?5 COLLATE NOCASE AND p.ref > ?6))))
+       ORDER BY ${rowKey}, ${DISPLAY} COLLATE NOCASE, p.ref LIMIT ?7`,
     ).bind(q, profession, after ? 1 : 0, after?.key ?? "", after?.name ?? "", after?.ref ?? "", PAGE_SIZE + 1),
   ]);
   if (read === FENCE_REFUSED) return communityReadRefusal(env, request);
@@ -567,12 +613,16 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
   if (visibleOwners.length > limit) return apiJson({ error: "directory_too_large" }, 503);
   const digest = await orderDigest(visibleOwners.map((o) => [o.display_name, o.ref, o.revision]));
   if (after && after.digest !== digest) return apiJson({ error: "cursor_stale" }, 409);
-  const offers = rows!.results as { profession: Profession; recipe_name: string; recipe_key: string; updated_at: number; ref: string; display_name: string }[];
+  const offers = rows!.results as { profession: Profession; recipe_name: string | null; recipe_key: string; updated_at: number; ref: string; display_name: string; skill: number | null; commission_main: string | null; commission_candidates: string | null }[];
   const page = offers.slice(0, PAGE_SIZE);
   const last = page.at(-1);
   return apiJson({
-    results: page.map((r) => ({ recipe: r.recipe_name, profession: r.profession, source: "self", crafter: { ref: r.ref, displayName: r.display_name }, updatedAt: secondsToIso(r.updated_at) })),
-    nextCursor: offers.length > PAGE_SIZE && last ? encodeCursor([2, "crafting", q, profession, digest, last.recipe_key, last.display_name, last.ref]) : null,
+    results: page.map((r) => ({ recipe: r.recipe_name, profession: r.profession, source: "self", skill: r.skill,
+      crafter: { ref: r.ref, displayName: r.display_name },
+      commission: commissionContact(r.commission_main, r.commission_candidates),
+      updatedAt: secondsToIso(r.updated_at) })),
+    nextCursor: offers.length > PAGE_SIZE && last ? encodeCursor([2, kind, q, profession, digest, last.recipe_key, last.display_name, last.ref]) : null,
+    workshop: { ...WORKSHOP, mode: professionMode ? "professions" : "recipes" },
   });
 }
 

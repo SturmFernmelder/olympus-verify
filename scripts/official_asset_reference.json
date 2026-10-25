@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 66755,
-      "sha256": "0fe3e469ba6c5109bf7aeab3a73fb9999f4f06dba8de7b87d4fa4a6ae5bf99bb"
+      "bytes": 68174,
+      "sha256": "c9a03c19204961bea48b5f3ad86d48f43ce5e074cf0ac0b11d7692393c27a9af"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 645095,
-      "sha256": "b475b88e85571e46b40baf21d4ac343e9cbf747f3b0153f39c2cd15a30905089"
+      "bytes": 649970,
+      "sha256": "d46a49a6eb2ab9bde97a5b0bbb5a898c0f2a61e58eb90241d6426f9e09390a24"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3819,8 +3819,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 645095,
-      "sha256": "b475b88e85571e46b40baf21d4ac343e9cbf747f3b0153f39c2cd15a30905089"
+      "bytes": 649970,
+      "sha256": "d46a49a6eb2ab9bde97a5b0bbb5a898c0f2a61e58eb90241d6426f9e09390a24"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3927,14 +3927,14 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 104770,
-      "sha256": "817f23271303d8067c4ac215b4f86523ff6f5a1fb27c3f5d6d0123f6330dc6d3"
+      "bytes": 105109,
+      "sha256": "d9a56c3bbd5bdfe54c779f917db6d10ae5e8897c5437065bdf014a5c0d9622fb"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 173953,
-      "sha256": "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5"
+      "bytes": 233733,
+      "sha256": "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",

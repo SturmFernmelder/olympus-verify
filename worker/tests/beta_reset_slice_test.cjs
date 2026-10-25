@@ -5,12 +5,12 @@ const root=path.join(__dirname,'..'),cache={};
 const currentEntry=require('./helpers/privacy129_fixture.cjs');
 function load(name){if(name==='node:async_hooks')return require(name);name=name.replace(/^\.\//,'');if(cache[name])return cache[name].exports;const m={exports:{}};cache[name]=m;const source=fs.readFileSync(path.join(root,'src',name+'.ts'),'utf8');new Function('module','exports','require',ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(m,m.exports,p=>load(p));return m.exports;}
 // Stable synthetic globals precede original source capture; never replace them mid-run.
-let db,env,clock,physical,requests,members,directory,sqlBefore,sqlAfter,sqlObserve,batchAfter,pageHook,memberHook,deleteHook,pageStatus,loseDelete,deleteNoEffect;
+let db,env,clock,physical,requests,members,directory,sqlBefore,sqlAfter,sqlObserve,batchAfter,pageHook,memberHook,deleteHook,pageStatus,loseDelete,deleteNoEffect,missingRole,roleInventoryHook;
 const realNow=Date.now;Date.now=()=>clock*1000;
 let providerFetch;globalThis.fetch=(input,init)=>providerFetch(input,init);
 providerFetch=async(input,init={})=>{if(input instanceof Request){init={method:input.method,headers:input.headers,...init};input=input.url;}const url=new URL(String(input)),p=url.pathname,method=init.method||'GET';requests.push({method,path:p,after:url.searchParams.get('after')});let value;
  if(p.endsWith('/members')&&method==='GET'){if(pageHook)await pageHook();if(pageStatus!==200)return new Response('{}',{status:pageStatus});assert.equal(url.searchParams.get('limit'),'1000');const after=BigInt(url.searchParams.get('after'));value=directory.filter(id=>BigInt(id)>after).slice(0,1000).map(id=>({user:{id,username:'PRIVATE_USERNAME_MARKER',avatar:'PRIVATE_AVATAR_MARKER'},nick:'PRIVATE_NICK_MARKER',roles:[...members.get(id)]}));}
- else if(p.endsWith('/users/@me'))value={id:bot};else if(p.endsWith('/roles')&&method==='GET')value=inventory;
+ else if(p.endsWith('/users/@me'))value={id:bot};else if(p.endsWith('/roles')&&method==='GET'){if(roleInventoryHook)await roleInventoryHook();value=inventory.filter(role=>role.id!==missingRole);}
  else{const m=p.match(/\/members\/(\d+)(?:\/roles\/(\d+))?$/);if(!m)throw Error('unexpected provider path '+p);
   if(m[2]){assert.equal(method,'DELETE','reset must never PUT');if(!deleteNoEffect)members.set(m[1],members.get(m[1]).filter(x=>x!==m[2]));if(deleteHook)await deleteHook(m[1],m[2]);if(loseDelete)throw Error('synthetic DELETE response lost');return new Response(null,{status:204});}
   if(memberHook)await memberHook(m[1]);if(!members.has(m[1]))return new Response('{}',{status:404});value={user:{id:m[1]},roles:[...members.get(m[1])]};}
@@ -32,7 +32,7 @@ function currentSetup(){currentEntry.installCurrentEntryEpoch(db,{now:clock});en
 
 const subject=i=>String(800000000000000000n+BigInt(i+1));
 const arm=()=>JSON.stringify({version:2,epoch:policy.BETA_RESET_EPOCH,cutoff:policy.BETA_RESET_CUTOFF,guildId:guild,roleIds:[...policy.BETA_RESET_ROLE_IDS],armedAt:policy.BETA_RESET_CUTOFF-100});
-async function reset(installed=false,count=1,roles=[memberRole]){if(db)db.close();clock=policy.BETA_RESET_CUTOFF;physical=0;requests=[];sqlBefore=null;sqlAfter=null;sqlObserve=null;batchAfter=null;pageHook=null;memberHook=null;deleteHook=null;pageStatus=200;loseDelete=false;deleteNoEffect=false;
+async function reset(installed=false,count=1,roles=[memberRole]){if(db)db.close();clock=policy.BETA_RESET_CUTOFF;physical=0;requests=[];sqlBefore=null;sqlAfter=null;sqlObserve=null;batchAfter=null;pageHook=null;memberHook=null;deleteHook=null;pageStatus=200;loseDelete=false;deleteNoEffect=false;missingRole=null;roleInventoryHook=null;
  db=new DatabaseSync(':memory:');db.function('strftime',(format,input)=>{assert.equal(format,'%s');assert.equal(input,'now');return String(clock);});// Empty database: the existing current epoch installer owns its exact physical schema.
 
  env={DB:d1(),GUILD_ID:guild,SITE_GUILD_ID:guild,SITE_ADMINS:owner,ROLE_GUILD_MEMBER:memberRole,ROLE_GUILD_MASTER:'',ROLE_GUILD_LEADER:leader,ROLE_OFFICER:officer,ROLE_RAID_LEADER:raidLeader,ROLE_MODERATOR:moderator,DISCORD_APP_ID:bot,DISCORD_BOT_TOKEN:'fixture-only',QR_NATIVE_ROLE_MAP:JSON.stringify({profile:'beta-five',roles:[policy.BETA_RESET_ROLE_IDS[2],policy.BETA_RESET_ROLE_IDS[4],policy.BETA_RESET_ROLE_IDS[7],policy.BETA_RESET_ROLE_IDS[9],policy.BETA_RESET_ROLE_IDS[11]]}),BETA_RESET_REMOVALS_ENABLED:'true'};
@@ -114,6 +114,20 @@ function unchangedPrivate(name,status){const privateData=JSON.stringify({jobs:jo
   check(label+' already admitted DELETE may complete after retirement with original spent dispatching custody',committed&&effects().length===1&&out.unknown===1&&debt.state==='dispatching'&&!!debt.claim_nonce&&targetCount()===0);
   const status=await engine.betaRoleResetStatus(env);check(label+' retired status preserves original digest debt and scan history without drain claim',status.phase==='retired_awaiting_drain'&&status.removals.unknown===1&&status.discovery.completedPasses===1&&!status.discovery.continuous&&!status.removalsActive&&!status.canArm&&!status.canRetire&&!status.finalCompletion&&!status.roleReuseReady);
   clock+=1801;out=await slice(label+' retired cannot redispatch');check(label+' retired old debt never retries or disappears',out.state==='held'&&out.http===0&&effects().length===1&&JSON.stringify(jobs().find(x=>x.id===debt.id))===savedDebt);
+ }
+ // .198 consolidation retains the historical policy/digest; only exact absent-duplicate observations close.
+ for(const installed of [false,true]){const label=installed?'admitted':'native',duplicate='1558657538960916490';
+  await reset(installed,1,[duplicate]);roleInventoryHook=()=>{missingRole=duplicate;members.set(subject(0),[...preserved]);};
+  let out=await slice(label+' deleted empty duplicate');
+  check(label+' absent duplicate settles only an unspent observation without DELETE',out.settled===1&&effects().length===0&&jobs().length===1&&jobs()[0].attempts===0&&jobs()[0].reason==='beta_reset_absent');
+  check(label+' historical twelve-role policy and primary member binding remain exact',JSON.stringify(JSON.parse(arm()).roleIds)===JSON.stringify(policy.BETA_RESET_ROLE_IDS)&&policy.BETA_RESET_ROLE_IDS.length===12&&env.ROLE_GUILD_MEMBER==='1552077551839617104');
+  await reset(installed,1,[duplicate]);roleInventoryHook=()=>{missingRole=duplicate;};out=await slice(label+' contradictory duplicate assignment');
+  check(label+' missing duplicate with a ghost member assignment holds',out.held===1&&effects().length===0&&jobs().every(row=>row.state!=='settled'));
+  await reset(installed);roleInventoryHook=()=>{missingRole=memberRole;members.set(subject(0),[...preserved]);};out=await slice(label+' missing primary role');
+  check(label+' missing primary is never admitted by duplicate exception',out.held===1&&effects().length===0&&jobs().every(row=>row.state!=='settled'));
+  await reset(installed,1,[duplicate]);loseDelete=true;await slice(label+' duplicate original lost DELETE');
+  const debt=jobs().find(row=>row.attempts===1);missingRole=duplicate;loseDelete=false;clock+=1801;out=await slice(label+' spent duplicate remains unknown');
+  check(label+' absent duplicate never clears or retries unknown attempted removal',!!debt&&effects().length===1&&jobs().find(row=>row.id===debt.id).state==='unknown'&&jobs().find(row=>row.id===debt.id).attempts===1);
  }
  await reset();delete env.BETA_RESET_REMOVALS_ENABLED;let out=await slice('default OFF');check('default OFF does no database or provider work',out.state==='inactive'&&physical===0&&requests.length===0&&scan()===null);
  await reset();clock=policy.BETA_RESET_CUTOFF-1;out=await slice('before cutoff');check('before cutoff never scans or removes',out.state==='held'&&requests.length===0&&scan()===null);

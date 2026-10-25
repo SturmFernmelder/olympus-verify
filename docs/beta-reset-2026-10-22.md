@@ -1,5 +1,7 @@
 # Beta member and rank reset — current integration candidate
 
+**25 October .198 consolidation:** The current membership binding is the populated role `1552077551839617104`. The owner authorized deletion of the empty duplicate `1558657538960916490` after safety verification. The twelve-role list below is historical policy scope: its exact order and bytes remain necessary to read original policies, retirement records and uncertain effects. It is not a new instruction to grant the duplicate or recreate it. A fresh full role/member inventory may close an unspent observation for this exact absent duplicate without a DELETE; an attempted unknown removal remains unknown. Missing primary or other roles still hold. Deletion, its live absence and the retained primary are recorded separately after the actual operation; this source text does not claim it has happened.
+
 Current guidance recorded 15 October 2026 UTC for the unshipped integration157 source composition. This document does not establish deployment, activation, full CI or Native minute qualification. Both configuration profiles retain only `*/15 * * * *`; `BETA_RESET_REMOVALS_ENABLED` is absent and therefore OFF, and the separate `BETA_RESET_SCHEDULE_QUALIFIED` source gate is false. No policy is seeded by source or migration. The earlier public154/V2 guide is preserved verbatim in the private documentation evidence; its trigger and cost claims are not current integrated qualification.
 
 ## Fixed owner scope

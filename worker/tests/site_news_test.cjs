@@ -1043,6 +1043,8 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // Direct owner ruling of 23 Oct 2026 qualifies the two original exact current-ladder paragraphs.
   // Canonical native-rank icon rendering is separately within the 24 Oct .197 owner scope;
   // its exact icon-map context below is qualified independently of those earlier paragraphs.
+  // .198 explicitly publishes the five Titles. Exactly one single-line Title II
+  // quicklink adds a public Council phrase; its bytes are qualified separately.
   // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
   const CURRENT_CONTEXTS = Object.freeze([
     {
@@ -1068,6 +1070,15 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
         "paragraphBytes": 676,
         "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
         "count": 1
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "        h(\"a\", { class: \"btn\", href: \"#/governance/title-ii-the-high-council-co-guild-master-privy-court\",",
+        "singleLine": true,
+        "paragraphSha256": "01792e5a7d9cef3fb51687e2a0fc1578f496072a05d724fad70cd37bcc7158c1",
+        "paragraphBytes": 146,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1
     }
 ]);
   const guardedCounts = (text) => {
@@ -1082,7 +1093,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
       if (start < 0 || text.indexOf(spec.startMarker, start + spec.startMarker.length) !== -1) {
         errors.push(`${file}: current context marker missing or duplicated`); continue;
       }
-      const rest = text.slice(start), boundary = /\r?\n\r?\n/.exec(rest);
+      const rest = text.slice(start), boundary = (spec.singleLine ? /\r?\n/ : /\r?\n\r?\n/).exec(rest);
       const paragraph = boundary ? rest.slice(0, boundary.index) : rest.replace(/\r?\n$/, "");
       const end = start + paragraph.length;
       if (Buffer.byteLength(paragraph, "utf8") !== spec.paragraphBytes || sha(paragraph) !== spec.paragraphSha256 ||
@@ -1140,16 +1151,22 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current native-rank icon map qualifies only its exact single original context", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 1 && qualifiedIcon.credits[currentDigest] === 1 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly the original icon map and one owner-approved Title II quicklink", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 2 && qualifiedIcon.credits[currentDigest] === 2 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the approved icon context remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 1 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the two exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 2 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
   check("approved icon bytes in another guarded file receive no qualification", !!originalIconContext && vocabularyOverages("README.md", originalIconContext).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalIconContext).credits).length === 0);
-  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 1, [otherDigest]: 1 }, qualifiedIcon);
+  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 2, [otherDigest]: 1 }, qualifiedIcon);
   check("every other icon-file digest retains its original allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedIcon.credits[d] === undefined) && otherIconDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))));
+  const titleIISpec = CURRENT_CONTEXTS.find(spec => spec.singleLine), titleIIContext = qualifiedIcon.paragraphs.find(text => text.startsWith(titleIISpec.startMarker)) || "";
+  check(".198 Title II qualification is one exact 146-byte line with only its single approved digest", titleIISpec.singleLine === true && Buffer.byteLength(titleIIContext, "utf8") === 146 && sha(titleIIContext) === titleIISpec.paragraphSha256 && titleIIContext.split("\n").length === 1 && JSON.stringify(guardedCounts(titleIIContext)) === JSON.stringify({ [currentDigest]: 1 }));
+  const alteredTitleIIContext = titleIIContext ? `${titleIIContext.slice(0, -1)}!` : "";
+  check(".198 any Title II link byte edit loses its fixed context credit", !!titleIIContext && currentContextQualification(iconFile, iconText.replace(titleIIContext, alteredTitleIIContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(titleIIContext, alteredTitleIIContext)).length > 0);
+  check(".198 duplicating the approved Title II line cannot borrow another credit", !!titleIIContext && currentContextQualification(iconFile, `${iconText}\n${titleIIContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n${titleIIContext}`).length > 0);
+  check(".198 exact Title II link bytes in another file receive no context credit", !!titleIIContext && Object.keys(currentContextQualification("README.md", titleIIContext).credits).length === 0 && vocabularyOverages("README.md", titleIIContext).some(s => s.includes(currentDigest.slice(0, 12))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

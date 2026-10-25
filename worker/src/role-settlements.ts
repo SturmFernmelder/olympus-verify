@@ -54,7 +54,7 @@ async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,read
 async function member(env:Env,b:AttemptBudget,subject:string,readAdmission?:()=>Promise<boolean>):Promise<Member|null> {
  try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`,readAdmission);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
 }
-async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false,readAdmission?:()=>Promise<boolean>) {
+async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false,readAdmission?:()=>Promise<boolean>,allowMissingBetaDuplicate=false) {
  if(!ID.test(env.GUILD_ID)||!ID.test(subject)||!ID.test(roleId)||!env.DISCORD_BOT_TOKEN)throw new Error('role_configuration');
  const me=await request<{id:string}>(env,b,'GET','/users/@me',readAdmission);if(!ID.test(env.DISCORD_APP_ID)||me.id!==env.DISCORD_APP_ID||me.id===subject)throw new Error('bot_identity');
  const roles=await request<Role[]>(env,b,'GET',`/guilds/${env.GUILD_ID}/roles`,readAdmission);
@@ -63,7 +63,13 @@ async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,gran
  if(roles.some(r=>!ID.test(r.id)||!Number.isInteger(r.position)||typeof r.permissions!=='string'||!/^\d{1,32}$/.test(r.permissions)||typeof r.managed!=='boolean')||new Set(roles.map(r=>r.id)).size!==roles.length)throw new Error('role_inventory');
  const inventory=new Map(roles.map(r=>[r.id,r]));const botRoles=bot.roles.map(id=>inventory.get(id));if(botRoles.some(r=>!r))throw new Error('bot_inventory');
  const highest=Math.max(0,...botRoles.map(r=>r!.position));const permission=botRoles.reduce((v,r)=>v|BigInt(r!.permissions),BigInt(inventory.get(env.GUILD_ID)?.permissions||'0'));
- for(const requested of [{id:roleId,cosmetic},...otherRoles]){const wanted=inventory.get(requested.id);if(!wanted&&allowMissingRetired&&membershipTransitionEnabled(env)&&membershipTargets(env).retired===requested.id)continue;if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||requested.cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');}
+ for(const requested of [{id:roleId,cosmetic},...otherRoles]){const wanted=inventory.get(requested.id);
+  // Owner .198 consolidation: preserve historical reset tuples, but a freshly absent empty
+  // duplicate needs no DELETE. This exception cannot admit a grant, another role or a ghost assignment.
+  if(!wanted&&allowMissingBetaDuplicate&&!grant&&!cosmetic&&otherRoles.length===0
+   &&env.GUILD_ID===BETA_RESET_GUILD_ID&&roleId==='1558657538960916490'&&requested.id===roleId
+   &&!target?.roles.includes(roleId)&&!!(permission&268435456n||permission&8n))continue;
+  if(!wanted&&allowMissingRetired&&membershipTransitionEnabled(env)&&membershipTargets(env).retired===requested.id)continue;if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||requested.cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');}
  if(target){if(target.roles.some(id=>!inventory.has(id))||Math.max(0,...target.roles.map(id=>inventory.get(id)!.position))>=highest)throw new Error('target_hierarchy');}
  if(grant&&(!target||(env.BLOCKING_ROLE_IDS||'').split(',').map(x=>x.trim()).some(x=>x&&target.roles.includes(x))))throw new Error('server_restriction');
  return target;
@@ -464,7 +470,7 @@ export async function settleBetaResetRemoval(env:Env,id:string,captured:BetaGran
  AND reason=json_extract(?6,'$.reason') AND created_at=json_extract(?6,'$.created_at') AND expires_at=json_extract(?6,'$.expires_at')`;
  const values=(row:Intent)=>[row.id,row.subject,row.guild_id,row.role_id,digest,original(row)];
  // Each qualification GET repeats policy plus the exact original live scan in one SQL read.
- try{target=await qualify(env,b,i.subject,i.role_id,false,false,[],false,readAdmission);}catch{
+ try{target=await qualify(env,b,i.subject,i.role_id,false,false,[],false,readAdmission,true);}catch{
   if(!await readAdmission())return result('held','beta_reset_scan_held',i.id);
   const g=guard(7);await env.DB.prepare(`UPDATE role_settlements SET state=CASE WHEN attempts=0 THEN 'held' ELSE 'unknown' END,
    reason='beta_reset_hierarchy_or_read_held',checked_at=${DB_NOW} WHERE ${owned} AND ${g.sql}`).bind(...values(i),...g.values).run();

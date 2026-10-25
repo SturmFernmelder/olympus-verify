@@ -15,7 +15,7 @@ let passed=0;
 function check(name,value){assert.ok(value,name);passed++;console.log('PASS '+name);}
 const parent=(limit=40,attempts=0)=>({limit,attempts,calls:0,retries:0,exhausted:false,audited:false,inventoryFailed:false});
 const sha=text=>crypto.createHash('sha256').update(text.replace(/\r\n/g,'\n')).digest('hex');
-const { source196HistoricalDigest } = require('./source196-historical-projection.cjs');
+const { SOURCE198_ROLE_SETTLEMENTS, source196HistoricalDigest } = require('./source196-historical-projection.cjs');
 const state=(b,p)=>JSON.stringify({limit:b.limit,attempts:b.attempts,calls:b.calls,retries:b.retries,exhausted:b.exhausted,parent:p});
 function apply(b,op){try{op(b);return 'ok';}catch(e){return 'throw:'+e.message;}}
 (async()=>{
@@ -70,6 +70,13 @@ function apply(b,op){try{op(b);return 'ok';}catch(e){return 'throw:'+e.message;}
  check('role-rank-continuation.ts is byte-identical to the reviewed .163 integrated source',sha(src('role-rank-continuation.ts'))==='bf4a2926770bf44af674e7a2ddc6f9b5c029960aaeca66a30947730d9d296561');
  check('roles.ts is byte-identical to the reviewed .163 integrated source',sha(src('roles.ts'))==='0fb851d804ddb97594a8b4109db3fad46a3f88df8c65475b63f2c79dbf89f6f8');
  check('role-settlements.ts reconstructs the entire reviewed .163 integrated source through exact current pinned contextual reversals',source196HistoricalDigest('role-settlements',settlements)==='04bf328c854d60033a604e1f8b0e8d26712d3ec40b521985732a723a6d1c5672');
+ // .198 preserves every request allowance and original whole-source seal. Only
+ // the three exact reviewed absent-duplicate qualification contexts are reversed.
+ const role198Pin=SOURCE198_ROLE_SETTLEMENTS,role198Raw=src('role-settlements.ts');
+ let role197Raw=role198Raw;
+ for(const edit of role198Pin.edits){assert.equal(edit.count,1);assert.equal(role197Raw.split(edit.from).length,2);role197Raw=role197Raw.replace(edit.from,edit.to);}
+ check('the exact three .198 role contexts reconstruct the entire accepted .197 source before historical checks',role198Pin.edits.length===3&&crypto.createHash('sha256').update(role198Raw).digest('hex')===role198Pin.exactCurrentRawSHA256&&crypto.createHash('sha256').update(role197Raw).digest('hex')===role198Pin.exact197RawSHA256&&source196HistoricalDigest('role-settlements',role197Raw)==='04bf328c854d60033a604e1f8b0e8d26712d3ec40b521985732a723a6d1c5672');
+ check('the .198 role projection rejects an unrelated byte edit and altered raw line endings',source196HistoricalDigest('role-settlements',role198Raw+'\n// unreviewed source\n')===null&&source196HistoricalDigest('role-settlements',role198Raw.replace(/\n/g,'\r\n'))===null);
  check('the pure child budget never calls the new entry capture dependency',entryCaptureUses===0);
  console.log(`\n${passed} checks passed`);
 })().catch(e=>{console.error('FAIL',e);process.exit(1);});

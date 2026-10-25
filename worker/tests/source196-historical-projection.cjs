@@ -62,4 +62,20 @@ function source197HistoricalDigest(name, raw) {
   }
   return source196HistoricalDigest(name, raw);
 }
-module.exports = Object.freeze({ SOURCE196_COMPAT, SOURCE196_CRON, source196HistoricalDigest: source197HistoricalDigest });
+// .198 owner-approved duplicate consolidation: reverse only the three reviewed
+// qualification contexts after requiring the entire exact current raw source.
+// The accepted .197 whole source then passes all unchanged .197/.196 historical
+// reversals; original .163/.164 seals, dynamic traces and budgets are not re-pinned.
+const SOURCE198_ROLE_SETTLEMENTS = freeze({"exactCurrentRawSHA256":"a0976acfa2887852fd173d0f8c1bd31a25f073e0e26acb30c7be23d7d02c2c95","exact197RawSHA256":"4c615ecce74bd3ec7cdd9a65fefd41721c0ca512295a21056d39c033ef58a04f","edits":[{"from":"async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false,readAdmission?:()=>Promise<boolean>,allowMissingBetaDuplicate=false) {\n","to":"async function qualify(env:Env,b:AttemptBudget,subject:string,roleId:string,grant:boolean,cosmetic=false,otherRoles:readonly {id:string;cosmetic:boolean}[]=[],allowMissingRetired=false,readAdmission?:()=>Promise<boolean>) {\n","count":1},{"from":" for(const requested of [{id:roleId,cosmetic},...otherRoles]){const wanted=inventory.get(requested.id);\n  // Owner .198 consolidation: preserve historical reset tuples, but a freshly absent empty\n  // duplicate needs no DELETE. This exception cannot admit a grant, another role or a ghost assignment.\n  if(!wanted&&allowMissingBetaDuplicate&&!grant&&!cosmetic&&otherRoles.length===0\n   &&env.GUILD_ID===BETA_RESET_GUILD_ID&&roleId==='1558657538960916490'&&requested.id===roleId\n   &&!target?.roles.includes(roleId)&&!!(permission&268435456n||permission&8n))continue;\n  if(!wanted&&allowMissingRetired&&membershipTransitionEnabled(env)&&membershipTargets(env).retired===requested.id)continue;if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||requested.cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');}\n","to":" for(const requested of [{id:roleId,cosmetic},...otherRoles]){const wanted=inventory.get(requested.id);if(!wanted&&allowMissingRetired&&membershipTransitionEnabled(env)&&membershipTargets(env).retired===requested.id)continue;if(!wanted||wanted.managed||wanted.id===env.GUILD_ID||wanted.position>=highest||requested.cosmetic&&wanted.permissions!=='0'||!(permission&268435456n||permission&8n))throw new Error('role_hierarchy');}\n","count":1},{"from":" try{target=await qualify(env,b,i.subject,i.role_id,false,false,[],false,readAdmission,true);}catch{\n","to":" try{target=await qualify(env,b,i.subject,i.role_id,false,false,[],false,readAdmission);}catch{\n","count":1}]});
+function source198HistoricalDigest(name, raw) {
+  if (name === 'role-settlements' && typeof raw === 'string'
+      && sha(raw) === SOURCE198_ROLE_SETTLEMENTS.exactCurrentRawSHA256) {
+    for (const edit of SOURCE198_ROLE_SETTLEMENTS.edits) {
+      if (edit.count !== 1 || !edit.from || raw.split(edit.from).length !== 2) return null;
+      raw = raw.replace(edit.from, edit.to);
+    }
+    if (sha(raw) !== SOURCE198_ROLE_SETTLEMENTS.exact197RawSHA256) return null;
+  }
+  return source197HistoricalDigest(name, raw);
+}
+module.exports = Object.freeze({ SOURCE196_COMPAT, SOURCE196_CRON, SOURCE198_ROLE_SETTLEMENTS, source196HistoricalDigest: source198HistoricalDigest });

@@ -962,7 +962,8 @@
     if (S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
     let shield = null;
     if (S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
-      shield = h("button", { class: "btn small stream-shield-toggle", type: "button", text: "Stream Shield", "aria-pressed": String(streamShield), title: "Hide private page content in this window while streaming. This does not change server permissions." });
+      // Owner .198: compact, named icon control; the preference remains presentation-only.
+      shield = h("button", { class: "btn small stream-shield-toggle", type: "button", "aria-label": "Stream Shield", "aria-pressed": String(streamShield), title: "Stream Shield" }, icon("icon-shield"));
       shield.addEventListener("click", () => {
         streamShield = !streamShield;
         try { sessionStorage.setItem("olympus.streamShield", streamShield ? "on" : "off"); } catch { /* Presentation still changes for this page. */ }
@@ -1275,7 +1276,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5";
+  const GOVERNANCE_SHA256 = "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1287,7 +1288,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
-      if (bytes.length !== 173953) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 233733) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1299,7 +1300,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 173953 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 233733 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -1582,13 +1583,18 @@
       moveMatch(event.shiftKey ? -1 : 1);
     });
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
-      h("h1", { text: "The Governance of Olympus" }), h("p", { text: "Charters, statute, bylaws, ordinances, office descriptions and reusable records — the adopted R7 text, including the operational charter." }))), governanceDraftNotice(),
+      h("h1", { text: "The Governance of Olympus" }), h("p", { text: "The adopted R7 book and its 25 October five-Title expansion: sovereign decrees, Council and Court procedure, Treasury stewardship, the Grand Alliance Concordat, and the Artisans' and Heralds' accords." }))), governanceDraftNotice(),
       h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
         h("a", { class: "btn", href: "#/governance/reading-and-adopting-this-book", text: "Start here" }),
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
         h("a", { class: "btn", href: "#/governance/3-letters-patent-and-warrants", text: "Appointment templates" }),
         h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
         h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Operational charter" }),
+        h("a", { class: "btn", href: "#/governance/title-i-the-sovereign-royal-decrees", text: "Title I · Sovereign" }),
+        h("a", { class: "btn", href: "#/governance/title-ii-the-high-council-co-guild-master-privy-court", text: "Title II · Council & Court" }),
+        h("a", { class: "btn", href: "#/governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger", text: "Title III · Treasury" }),
+        h("a", { class: "btn", href: "#/governance/title-iv-the-grand-alliance-concordat", text: "Title IV · Grand Alliance" }),
+        h("a", { class: "btn", href: "#/governance/title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord", text: "Title V · Artisans & Heralds" }),
         h("button", { class: "btn small", type: "button", text: "Print current R7 book", onclick: () => { preparePrint(); window.print(); } }),
         h("a", { class: "btn small", href: GOVERNANCE_BOOK, download: "Olympus Governance R7.md", text: "Download current R7 source" })),
       h("details", { class: "governance-archive" }, h("summary", { text: "Archive and release records" }),
@@ -4827,7 +4833,7 @@
     if (sub === "workshop" && feat("crafting")) {
       add(body, [frame("Crafters & Artisans Workshop", h("a", { class: "btn small", href: "#/community/profile", text: "List my recipes" }),
         h("p", { text: "Find members offering rare recipes, consumables and specialist crafts. Search by recipe or profession, then arrange materials and payment directly with the crafter." }),
-        h("p", { class: "muted small", text: "Offers and rarity are member supplied. A listing does not verify recipe ownership, reserve materials or authorize a guild-bank withdrawal." })), craftingPanel()]); return;
+        h("p", { class: "muted small", text: "Opt in through My profile: list your profile, professions and any recipes you wish to offer. Untick the listing box to withdraw from both directories, or remove individual offers there. Recipe ownership, rarity and skill are self-reported; confirm them before trading." })), craftingPanel(true)]); return;
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
@@ -4930,6 +4936,16 @@
     return { element: box, destroy };
   }
 
+  // Owner .198: immutable aggregate history stays separate from current branch capacity.
+  function betaEpochArchiveCard() {
+    return h("details", { class: "frame mt beta-epoch-archive", "data-beta-epoch-archive": "october-2026" },
+      h("summary", null, icon("icon-clock"), h("strong", { text: "Beta Veterans / Founding Epoch" }), h("span", { class: "badge", text: "October 2026 archive" })),
+      h("div", { class: "beta-epoch-archive-body" },
+        h("p", { text: "Before the Grand Alliance's new muster, Olympus filled its October Beta roster. This founding milestone belongs to the guild's history." }),
+        h("dl", { class: "beta-epoch-figures" }, h("dt", { text: "Archived Beta roster" }), h("dd", { text: "1000/1000 characters" }), h("dt", { text: "Archived queue" }), h("dd", { text: "247 queued" })),
+        h("p", { class: "muted small", text: "Historical aggregate snapshot, not a live census or a count of unique people. It identifies no former member and grants no veteran status, verification or invitation priority. Current Olympus I–X capacity is reported separately; an unavailable live feed remains unavailable." }),
+        h("a", { class: "btn small", href: "#/governance", text: "Read the Grand Alliance Concordat" })));
+  }
   // .183: read-only snapshots stay in this shell; attended reporting retains its separate capture policy.
   async function communityArmyReview(body) {
     const user = S.user, context = COM(), route = currentRoute(); let instance = null, disposed = false;
@@ -4938,7 +4954,7 @@
     const dispose = () => { if (disposed) return; disposed = true; capacity.destroy(); if (instance && instance.destroy) instance.destroy(); if (disposeTool === dispose) disposeTool = null; };
     disposeTool = dispose;
     const reader = h("div", { class: "army-reader" }, h("p", { role: "status", class: "muted", text: "Opening Army snapshots…" }));
-    add(body, [capacity.element, h("section", { class: "stack", "data-army-qr-review": "public-reader" },
+    add(body, [capacity.element, betaEpochArchiveCard(), h("section", { class: "stack", "data-army-qr-review": "public-reader" },
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
         h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Unified guild addon; optional website snapshot export requires publisher adoption."),
@@ -5327,15 +5343,29 @@
     ]);
     await load(true);
   }
-  function craftingPanel() {
+  function workshopCard(row) {
+    const target = row.commission?.mode === "manual_in_game" && row.commission.source === "keeper" && typeof row.commission.character === "string" ? row.commission.character : null;
+    const request = target ? `Hello ${target}, I found your Olympus Workshop listing. Could we arrange ${row.recipe || profLabel(row.profession)}? Please confirm materials, price/tip and timing before we trade.` : "";
+    return h("article", { class: "card craft" },
+      h("div", { class: "card-head" }, profIcon(row.profession), h("h3", { text: row.recipe || profLabel(row.profession) })),
+      h("p", { class: "muted small", text: `${row.crafter.displayName || "A listed member"} · ${profLabel(row.profession)} · ${row.skill === null ? "skill not supplied" : "self-reported skill " + row.skill}` }),
+      h("p", { class: "muted small", text: `Listing updated ${fmtShort(Math.floor(Date.parse(row.updatedAt) / 1000))}` }),
+      h("p", { class: "small", text: row.recipe === null ? "Member-supplied profession listing." : "Member-supplied recipe; ownership and rarity are not verified by the website." }),
+      target ? h("details", { class: "workshop-commission" }, h("summary", { text: `Arrange a commission with ${target}` }),
+        h("p", { class: "small", text: "This main currently matches the keeper's membership proof. Contact them in game and agree the craft yourself. Nothing is sent by this website." }),
+        h("label", { class: "field" }, h("span", { class: "lab small", text: "Request text to copy and edit" }), h("textarea", { readonly: true, rows: "5", value: request, "aria-label": "Commission request text" })))
+        : h("p", { class: "small", text: "No currently proven in-game contact on this listing." }));
+  }
+  function craftingPanel(workshop = false) {
     const q = h("input", { type: "search", maxlength: "60", placeholder: "a recipe name (two letters or more)", "aria-label": "Recipe" });
     const prof = selectOf(PROFESSION_KEYS.map((k) => ({ key: k, label: profLabel(k) })), "", { placeholder: "Any profession" });
+    const mode = selectOf([{ key: "recipes", label: "Recipes & commissions" }, { key: "professions", label: "Profession directory" }], "recipes");
     const results = h("div", { class: "stack" });
     const status = h("p", { class: "muted small" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     let cursor = null;
     let cursorFor = "", generation = 0; // .100 (F6): the query the continuation cursor belongs to; .104 (F100-3): a reply to a superseded search is discarded
-    const filtersNow = () => [q.value.trim() ? `q=${encodeURIComponent(q.value.trim())}` : "", prof.value ? `profession=${encodeURIComponent(prof.value)}` : ""].filter(Boolean).join("&");
+    const filtersNow = () => [workshop ? `browse=1&mode=${mode.value === "professions" ? "professions" : "recipes"}` : "", !q.disabled && q.value.trim() ? `q=${encodeURIComponent(q.value.trim())}` : "", prof.value ? `profession=${encodeURIComponent(prof.value)}` : ""].filter(Boolean).join("&");
     const search = async (restart) => {
       const filters = filtersNow();
       if (!restart && cursor && filters !== cursorFor) { toast("The filters changed; the search starts again."); return search(true); } // never an old cursor under new filters
@@ -5347,11 +5377,12 @@
       try {
         const data = await api("GET", `/api/community/crafting?${params.join("&")}`);
         if (gen !== generation) return; // a newer search (or continuation) replaced this one: its cards belong to a query that is gone
+        if (workshop && (!data.workshop || data.workshop.version !== 1 || data.workshop.mode !== mode.value || !Array.isArray(data.results))) throw new ApiError(200, { error: "unreadable_answer" });
         cursorFor = filters;
-        for (const r of data.results) results.appendChild(h("div", { class: "card craft" }, h("div", { class: "card-head" }, profIcon(r.profession), h("h3", { text: r.recipe })), h("p", { class: "muted small", text: `${profLabel(r.profession)} · offered by ${r.crafter.displayName || "a member"} · updated ${fmtShort(Math.floor(Date.parse(r.updatedAt) / 1000))}` })));
+        for (const r of data.results) results.appendChild(workshop ? workshopCard(r) : h("div", { class: "card craft" }, h("div", { class: "card-head" }, profIcon(r.profession), h("h3", { text: r.recipe })), h("p", { class: "muted small", text: `${profLabel(r.profession)} · offered by ${r.crafter.displayName || "a member"} · updated ${fmtShort(Math.floor(Date.parse(r.updatedAt) / 1000))}` })));
         cursor = data.nextCursor;
         more.hidden = !cursor;
-        status.textContent = results.firstChild ? "" : "No offer matches.";
+        status.textContent = results.firstChild ? (workshop ? "Member opt-ins only. Listings are not a live recipe scan." : "") : workshop && mode.value === "professions" ? "No profession listing matches." : "No offer matches.";
       } catch (e) {
         if (gen !== generation) return;
         if (codeOf(e) === "cursor_stale") { toast(COMMUNITY_ERRORS.cursor_stale); return search(true); }
@@ -5359,8 +5390,12 @@
       } finally { if (gen === generation) more.disabled = false; }
     };
     more.addEventListener("click", () => search(false));
-    const form = h("form", { class: "filters", novalidate: true }, fieldBox("craft-q", "Recipe", q), fieldBox("craft-prof", "Profession", prof), h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "submit", text: "Search" })));
+    const form = h("form", { class: "filters", novalidate: true }, workshop ? fieldBox("craft-mode", "Browse", mode) : null, fieldBox("craft-q", "Recipe", q), fieldBox("craft-prof", "Profession", prof), h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "submit", text: "Search" })));
     form.addEventListener("submit", (e) => { e.preventDefault(); search(true); });
+    if (workshop) {
+      mode.addEventListener("change", () => { q.disabled = mode.value === "professions"; if (q.disabled) q.value = ""; search(true); });
+      search(true);
+    }
     return frame("Crafting offers", null, h("p", { class: "muted small", text: "What listed members say they can make. Self-reported; arrange the materials and the tip with the crafter." }), form, status, results, h("div", { class: "btn-row" }, more));
   }
   // the profile editor
