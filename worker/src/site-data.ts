@@ -669,9 +669,13 @@ export function cleanAppointed(v: unknown): Record<string, string> | null {
 }
 
 /** Whether a role is appointed (own keys only: a role key never reaches Object.prototype). */
-/** Existing ballot identities stay unique even when a canonical office is an application target. */
-export const applicationSeatKeys199 = (key: string): readonly string[] => OFFICE_APPOINTMENTS.find(row => row.key === key)?.applicationRoleKeys || [];
-const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2}$/.test(row.key) && row.applicationRoleKeys.includes(key));
+/** Only eligible leadership adapters share ballot seats; membership-form routes are not appointment identities. */
+const applicationLeadershipSeat199 = (row: (typeof OFFICE_APPOINTMENTS)[number] | undefined) => !!row?.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack);
+export const applicationSeatKeys199 = (key: string): readonly string[] => {
+  const row = OFFICE_APPOINTMENTS.find(row => row.key === key);
+  return applicationLeadershipSeat199(row) ? row!.applicationRoleKeys : [];
+};
+const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2}$/.test(row.key) && applicationLeadershipSeat199(row) && row.applicationRoleKeys.includes(key));
 export const isAppointed = (s: { appointed: Record<string, string> }, key: string): boolean => {
   const owns = (k: string) => Object.prototype.hasOwnProperty.call(s.appointed, k);
   if (owns(key)) return true;

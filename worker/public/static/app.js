@@ -132,11 +132,14 @@
   const offices199 = () => M().appointments || [];
   const office199 = key => offices199().find(row => row.key === key);
   const track199 = id => tracks199().find(row => row.id === id);
+  // Membership-form adapters never turn separate artisan offices into one seat.
+  const applicationLeadershipSeat199 = row => !!row?.applicationEligible && ["officer", "high_council"].includes(row.applicationTrack);
+  const applicationSeatKeys199 = key => { const row = office199(key); return applicationLeadershipSeat199(row) ? row.applicationRoleKeys || [] : []; };
+  const applicationParent199 = key => offices199().find(row => /^office_\d{2}$/.test(row.key) && applicationLeadershipSeat199(row) && (row.applicationRoleKeys || []).includes(key));
   function displayHolder(key) {
     const assignments = S.settings?.appointed || {};
     const read = k => Object.prototype.hasOwnProperty.call(assignments, k) ? assignments[k] : "";
-    const row = office199(key), parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
-    const keys = row?.applicationRoleKeys || [];
+    const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
     const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
     if (!value) return "";
     if (!S.signedIn || S.denied || !communityReader()) return "Filled; identity unavailable";
@@ -257,7 +260,7 @@
   const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
   const appointedTo = (key) => {
     const a = S.settings?.appointed || {}, read = k => Object.prototype.hasOwnProperty.call(a, k) ? a[k] : "";
-    const row = office199(key), parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key)), keys = row?.applicationRoleKeys || [];
+    const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
     const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
     return appointmentPointer(value) ? "Appointed member" : value;
   };
@@ -267,9 +270,9 @@
   function appointmentSourceKey199(key) {
     const a = S.settings?.appointed || {}, has = k => Object.prototype.hasOwnProperty.call(a,k);
     if (has(key)) return key;
-    const parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
+    const parent = applicationParent199(key);
     if (parent && has(parent.key)) return parent.key;
-    const children = office199(key)?.applicationRoleKeys || [];
+    const children = applicationSeatKeys199(key);
     if (children.length === 1 && has(children[0])) return children[0];
     if (key === "office_86" && has("treasurer")) return "treasurer";
     if (key === "treasurer" && has("office_86")) return "office_86";
@@ -412,7 +415,7 @@
    * no voting board and no write-ins. Appointed comes first: an appointed role is closed altogether.
    */
   const noVoteFor = (key) => {
-    const quiet = S.settings?.noVote || [], parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
+    const quiet = S.settings?.noVote || [], parent = applicationParent199(key);
     return !appointedTo(key) && (quiet.includes(key) || !!parent && quiet.includes(parent.key));
   };
   /** A leadership role members vote on: what puts an application on the voting board. */

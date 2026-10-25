@@ -320,6 +320,13 @@ async function frontendOwner197() {
   check('.199 Rosetta Stone enumerates all 131 assignable keys exactly once across their ten rank rows', bridgeKeys199.length === 131 && new Set(bridgeKeys199).size === 131 && JSON.stringify(bridgeKeys199.slice().sort()) === JSON.stringify(expectedKeys199.slice().sort()) && rows199.every(row => row.querySelectorAll('li a').every(link => roles199.boot.meta.appointments.find(office => office.key === decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))).nativeRankOrdinal === Number(row.getAttribute('data-rank-crosswalk')))));
   const seatCards199 = roles199.app.querySelectorAll('.office-seat199'), eligibleKeys199 = roles199.boot.meta.appointments.filter(row => row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack));
   check('.199 all 95 stable offices and 131 assignment cards have individual rank badges and exact open-seat apply links', seatCards199.length === 131 && seatCards199.filter(card => /^office_[0-9]{2}$/.test(card.getAttribute('data-office-key'))).length === 95 && seatCards199.every(card => !!card.querySelector('.rank-office199')) && eligibleKeys199.every(row => !!roles199.app.querySelector('[data-office-key="' + row.key + '"] a[href="#/vote/' + row.applicationTrack + '/' + encodeURIComponent(row.key) + '"]')));
+  for (const appointedKey199 of ['member', 'office_07', 'office_27']) {
+    const artisanCards199 = await openPage(APPLICANT199, {}, { bootTransform: boot => { boot.settings.appointed = { [appointedKey199]: 'Recorded synthetic holder' }; } });
+    await artisanCards199.go('#/roles');
+    const targets199 = ['office_07', 'office_27'].map(key => ({ key, card: artisanCards199.app.querySelector('[data-office-key="' + key + '"]') }));
+    check('.199 actual Roles cards keep ' + appointedKey199 + ' separate from unrelated artisan route adapters', targets199.every(({ key, card }) => !!card && (key === appointedKey199 ? !!card.querySelector('[data-appointment-label="' + key + '"]') : !card.querySelector('[data-appointment-label]') && card.textContent.includes('No appointment recorded here; availability requires current leadership review.'))));
+    await artisanCards199.go('#/');
+  }
   const historical199 = roles199.app.querySelector('.technical-profile199');
   check('.199 competing historical profile guidance is closed under its explicit technical accordion', !!historical199 && !historical199.open && historical199.querySelector('summary').textContent === 'Technical & Historical Profile Notes' && roles199.app.textContent.includes('Co-Guild Master and Treasurer are appointments, not extra native ranks'));
   const goldKeys199 = roles199.boot.meta.royalWrits.map(row => row.key).sort();

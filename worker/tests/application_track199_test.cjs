@@ -35,7 +35,7 @@ async function applicationTrackWorker199(){
  check('single-seat Officer and Treasurer aliases close in both directions without closing other classes',sd199.isAppointed({appointed:{officer:'Recorded holder'}},'office_62')&&sd199.isAppointed({appointed:{office_62:'Recorded holder'}},'officer')&&sd199.isAppointed({appointed:{treasurer:'Recorded holder'}},'office_86')&&sd199.isAppointed({appointed:{office_86:'Recorded holder'}},'treasurer')&&!sd199.isAppointed({appointed:{'class_lead:mage':'Recorded holder'}},'class_lead:warrior'));
  // Execute these pure helpers from the actual current browser source, rather than
  // keeping a second appointment/alias implementation inside the fixture.
- const browserHelperNames199=new Set(['offices199','office199','displayHolder','appointmentPointer','appointedTo','noVoteFor']),browserHelperSource199=[];
+ const browserHelperNames199=new Set(['offices199','office199','applicationLeadershipSeat199','applicationSeatKeys199','applicationParent199','displayHolder','appointmentPointer','appointedTo','appointmentSourceKey199','noVoteFor']),browserHelperSource199=[];
  const browserAst199=ts.createSourceFile('app.js',APP_JS,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
  function visitBrowserHelper199(node){
   if(ts.isFunctionDeclaration(node)&&node.name&&browserHelperNames199.has(node.name.text)){browserHelperSource199.push(node.getText(browserAst199));browserHelperNames199.delete(node.name.text);return;}
@@ -44,8 +44,27 @@ async function applicationTrackWorker199(){
  }
  visitBrowserHelper199(browserAst199);assert199.equal(browserHelperNames199.size,0,'all actual browser helper source boundaries');
  const browserState199={settings:{appointed:{},noVote:[]},signedIn:true,denied:false},browserContext199={S:browserState199,M:()=>({appointments:catalogue199.OFFICE_APPOINTMENTS}),communityReader:()=>true};
- vm.runInNewContext(browserHelperSource199.join('\n')+'\nglobalThis.helper199={displayHolder,appointedTo,noVoteFor};',browserContext199,{filename:'actual-app199-appointment-helpers.js'});
+ vm.runInNewContext(browserHelperSource199.join('\n')+'\nglobalThis.helper199={displayHolder,appointedTo,appointmentSourceKey199,noVoteFor};',browserContext199,{filename:'actual-app199-appointment-helpers.js'});
  const browserHelper199=browserContext199.helper199;
+ // An artisan's membership-form route adapter is not a shared appointment seat.
+ for(const target of ['office_07','office_27']){
+  const other=target==='office_07'?'office_27':'office_07';
+  check(target+' keeps its member route adapter separate from leadership seat identities',JSON.stringify(intent199.applicationRoleKeys199(target))==='["member"]'&&sd199.applicationSeatKeys199(target).length===0);
+  browserState199.settings={appointed:{[target]:'Recorded artisan'},noVote:[]};
+  check(target+' appointment closes only its exact artisan target, never Member or the other artisan card',sd199.isAppointed(browserState199.settings,target)&&!!browserHelper199.appointedTo(target)&&!!browserHelper199.displayHolder(target)&&browserHelper199.appointmentSourceKey199(target)===target&&!sd199.isAppointed(browserState199.settings,'member')&&!browserHelper199.appointedTo('member')&&!browserHelper199.displayHolder('member')&&browserHelper199.appointmentSourceKey199('member')==='member'&&!sd199.isAppointed(browserState199.settings,other)&&!browserHelper199.appointedTo(other)&&!browserHelper199.displayHolder(other));
+  browserState199.settings={appointed:{member:'Recorded Member'},noVote:[]};
+  check('an exact Member holder cannot fill '+target+' through its application route adapter',!sd199.isAppointed(browserState199.settings,target)&&!browserHelper199.appointedTo(target)&&!browserHelper199.displayHolder(target)&&browserHelper199.appointmentSourceKey199(target)===target&&sd199.isAppointed(browserState199.settings,'member'));
+  browserState199.settings={appointed:{},noVote:[target]};
+  check(target+' no-vote setting cannot propagate into Member or another artisan route',sd199.isNoVote(browserState199.settings,target)&&browserHelper199.noVoteFor(target)&&!sd199.isNoVote(browserState199.settings,'member')&&!browserHelper199.noVoteFor('member')&&!sd199.isNoVote(browserState199.settings,other)&&!browserHelper199.noVoteFor(other)&&sd199.cleanNoVote([target]).length===0);
+  await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'",JSON.stringify({[target]:'Recorded artisan'}));
+  for(const track of ['member','patron','artisan']){const c=cases.find(row=>row.track===track),r=await request199('PUT','/api/application',{...bodyFor(c),targetOffice:null},owners.get(track));check(target+' appointment leaves a genuine untargeted '+track+' API application open',r.response.status===200&&stored199(owners.get(track)).answers.applicationTrack===track&&stored199(owners.get(track)).answers.targetOffice===null,r.response.status,r.body?.field);}
+  const artisan=cases.find(row=>row.track==='artisan'),artisanOwner=owners.get('artisan'),otherResult=await request199('PUT','/api/application',{...bodyFor(artisan),targetOffice:other},artisanOwner);
+  check(target+' appointment leaves the other exact artisan API target independently available',otherResult.response.status===200&&stored199(artisanOwner).answers.targetOffice===other,otherResult.response.status,otherResult.body?.field);
+  const beforeExact=JSON.stringify(stored199(artisanOwner)),exactResult=await request199('PUT','/api/application',{...bodyFor(artisan),targetOffice:target},artisanOwner);
+  check(target+' exact selected artisan target still refuses atomically when appointed',exactResult.response.status===400&&exactResult.body?.field==='targetOffice'&&JSON.stringify(stored199(artisanOwner))===beforeExact,exactResult.response.status,exactResult.body?.field);
+ }
+ browserState199.settings={appointed:{},noVote:[]};
+ await fixtureRun("UPDATE site_settings SET value='{}' WHERE key='appointed'");
  const singleAliasPairs199=[['office_62','officer'],['office_79','recruitment'],['office_21','community'],['office_71','pvp_leader'],['office_51','loot_council'],['office_69','professions'],['office_33','moderator']];
  for(const [parent,child]of singleAliasPairs199){
   browserState199.settings={appointed:{[parent]:'Recorded parent'},noVote:[]};const parentState=browserState199.settings;
