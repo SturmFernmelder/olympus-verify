@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 68174,
-      "sha256": "c9a03c19204961bea48b5f3ad86d48f43ce5e074cf0ac0b11d7692393c27a9af"
+      "bytes": 73042,
+      "sha256": "25cade8a48eba419202133369ff7d2aa2e9e1fd38b6245c8a6e546584b8f40f7"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 649970,
-      "sha256": "d46a49a6eb2ab9bde97a5b0bbb5a898c0f2a61e58eb90241d6426f9e09390a24"
+      "bytes": 669625,
+      "sha256": "f6886823a5ab674fb4fe1041b5f0eb357e1da51f320f6d13e913dd80c9762e25"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -44,8 +44,8 @@
     {
       "path": "worker/public/static/rank-planner/model.js",
       "mode": "100644",
-      "bytes": 14341,
-      "sha256": "8074d5a61a412739faaeb95be88b587fa70beb0cf6b98d5908b2bbba64dc9508"
+      "bytes": 15095,
+      "sha256": "9d501a9c4f2fecf361cede39773ae4e12209649822a1c02ff0837e1438dd3824"
     },
     {
       "path": "worker/public/static/rank-planner/styles.css",
@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 8902,
-      "sha256": "53be30c2cd9af3f88c110d642b61e45330a2f69fba5d553d5eda617146e70b3a"
+      "bytes": 10238,
+      "sha256": "28dbc4d88ece1836fe23c41311195d9b1a5625a8c5f90b5745ec1fed00fa0deb"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -3700,7 +3700,9 @@
     "worker/src/site-ranks.ts",
     "worker/src/site-resources.ts",
     "worker/src/site.ts",
-    "worker/src/unverified.ts"
+    "worker/src/unverified.ts",
+    "worker/public/static/role-rank199.js",
+    "worker/public/static/royal-writs199.js"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -3807,20 +3809,20 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 53957,
-      "sha256": "a808fe591a6a84e925f6e84750fddeaa4c0bd61febd78ac7bbf3f33dbc8043e6"
+      "bytes": 57711,
+      "sha256": "917c5becf1936e6db1f93701e7de1fd6356a02045a14b4ceb2645c4ec7fd5987"
     },
     {
       "path": "worker/src/site-ranks.ts",
       "mode": "100644",
-      "bytes": 12639,
-      "sha256": "e6a5ecf3391ff8151b1df8940d93176d87cbe57a56a5bf67d40db3a7cda5715a"
+      "bytes": 12624,
+      "sha256": "8101b6e4b8d3f042e633895487789c6e3570191795fc20944b59ab56ea33c66e"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 649970,
-      "sha256": "d46a49a6eb2ab9bde97a5b0bbb5a898c0f2a61e58eb90241d6426f9e09390a24"
+      "bytes": 669625,
+      "sha256": "f6886823a5ab674fb4fe1041b5f0eb357e1da51f320f6d13e913dd80c9762e25"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3927,14 +3929,14 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 105109,
-      "sha256": "d9a56c3bbd5bdfe54c779f917db6d10ae5e8897c5437065bdf014a5c0d9622fb"
+      "bytes": 345654,
+      "sha256": "e199a44d59f01af3442545a066c54d4ce30fa04acb6fea391f2a191d986ae9b4"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 233733,
-      "sha256": "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758"
+      "bytes": 259596,
+      "sha256": "dd1d8bbf0e5bb0ecc7e27a60ab62ff10e7df3753da7bb7f2e38b3927e46a3b97"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -3987,14 +3989,14 @@
     {
       "path": "worker/public/static/governance/operational-charter.md",
       "mode": "100644",
-      "bytes": 27576,
-      "sha256": "54b9edb44809c4456b7d79395a231d7d839dc8379f93e2737a9f0cce8a6b7b1f"
+      "bytes": 27941,
+      "sha256": "cd523718b9a1291fe4257fb23ec24493dfa5916cb3669564ac0c6e23cc061635"
     },
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 29005,
-      "sha256": "16c767a1b5e780b090009b0af9d3ba715be81b6486ebbb9babbe46c74b7a2fb1"
+      "bytes": 31830,
+      "sha256": "293f0af8ce5041dd6265816cadb4e6f6b3b3bf276960d9f5cd9b6e3c333bcc7e"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -4157,6 +4159,18 @@
       "mode": "100644",
       "bytes": 13217,
       "sha256": "456b7ae8e242a9462b81db74a6f958ffb6fa07dab7bcb203863b6a45312acd15"
+    },
+    {
+      "path": "worker/public/static/role-rank199.js",
+      "mode": "100644",
+      "bytes": 128659,
+      "sha256": "97975b6fc60a08a421a8d56b69f8481a39e06dbfa048ffcf39e5a854623f34ae"
+    },
+    {
+      "path": "worker/public/static/royal-writs199.js",
+      "mode": "100644",
+      "bytes": 13735,
+      "sha256": "3b68cb793279128d3b8feca75f508bcb2058949c28e7da0d4339ca5f68380f52"
     }
   ],
   "login_art_exception": {

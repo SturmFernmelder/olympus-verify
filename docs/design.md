@@ -2165,3 +2165,8 @@ The owner preauthorized a full 24-hour UTC local qualification window and a .197
 ## 25 October 2026 — .198 guild codices and Workshop
 
 The five-Title statutory/RP code expands the rendered current book without rewriting historical R7/R6 records or inventing upstream runtime powers. Workshop directory reads extend existing privacy-qualified profile/profession/craft storage and fences; no new schema or scheduled job is introduced. Manual commission text requires current keeper proof, while recipes and skill remain self-reported. The historical Beta card is separate from current capacity. The exact deleted duplicate may close an unspent absence observation but never erase attempted-effect custody. See [the .198 release plan](build198-release-plan.md).
+
+
+### Build .199 — one rank bridge and bounded application intent
+
+The current website guide uses Leader, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate at native slots0–9. Historical signed adapter profiles remain versioned proof contexts. Every stable office and assignment key carries a tier, native slot, codex and application classification. Eligible existing stable office keys become direct application/ballot choices; no new office identity or schema is introduced. Six validated tracks and a matching target key are stored in owned answers JSON and copied/erased with the row; public badges need new explicit consent on each save. The Royal Writ reference catalogue and manual court checklist issue no payment/provider action. Gold purchases no governing authority or safety immunity; eligibility, consent, real capacity and independent review remain necessary.

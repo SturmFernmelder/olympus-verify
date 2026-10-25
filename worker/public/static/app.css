@@ -963,3 +963,81 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .beta-epoch-figures dd{margin:0;color:var(--gold-soft);overflow-wrap:anywhere}
 @media(max-width:370px){.topbar-in{gap:8px}.topbar-actions{gap:6px}.beta-epoch-figures{grid-template-columns:1fr}.beta-epoch-figures dd{margin-bottom:8px}}
 @media(forced-colors:active){.stream-shield-toggle[aria-pressed="true"]{outline:3px solid Highlight;box-shadow:none}.stream-shield-toggle[aria-pressed="true"] .ico{filter:none}}
+
+/* .199: one rank guide and a five-column crosswalk; long office names remain readable at 320px. */
+.rank-guide199-grid,
+.rosetta199,
+.office-seat199,
+.royal-writs199,
+.technical-profile199,
+.application-intent199 { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.rank-guide199-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; list-style: none; margin: 18px 0 0; padding: 0; }
+.rank-guide199-grid > li { min-width: 0; margin: 0; padding: 12px 10px; }
+.rank-guide199-grid > li > h3 { font-size: 1.06rem; line-height: 1.35; }
+.rank-guide199-grid .badge { max-width: 100%; white-space: normal; }
+.rank-guide199-grid > li:nth-child(-n+2) { background-color: #30251cd9; }
+.rank-guide199-grid > li:nth-child(n+3):nth-child(-n+5) { background-color: #142333e8; }
+.rosetta199 { margin: 20px 0; scroll-margin-top: 7rem; }
+.rosetta-table199 { width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 16px; font-size: .86rem; line-height: 1.55; }
+.rosetta-table199 th,
+.rosetta-table199 td { min-width: 0; padding: 11px 9px; border: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+.rosetta-table199 th { color: var(--gold-soft); font-weight: 400; background: #30281be6; }
+.rosetta-table199 th:nth-child(1) { width: 15%; }
+.rosetta-table199 th:nth-child(2) { width: 17%; }
+.rosetta-table199 th:nth-child(3) { width: 25%; }
+.rosetta-table199 th:nth-child(4) { width: 23%; }
+.rosetta-table199 th:nth-child(5) { width: 20%; }
+.rosetta-table199 tbody tr:nth-child(even) { background: #ffffff05; }
+.rosetta-table199 td > p:last-child { margin-bottom: 0; }
+.rosetta-table199 details,
+.rosetta-table199 ul { min-width: 0; max-width: 100%; }
+.rosetta-table199 summary { cursor: pointer; color: var(--gold-soft); }
+.rosetta-table199 ul { margin: 10px 0 0; padding-left: 18px; }
+.rosetta-table199 li { margin-bottom: 8px; }
+.office-seat199 h3,
+.royal-writs199 .writ199 h3 { font-size: 1.16rem; line-height: 1.35; }
+.office-seat199 .btn,
+.royal-writs199 .btn,
+.technical-profile199 .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.badge.rank-office199,
+.application-intent199 > .badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.rank-office199 { margin-bottom: 9px; }
+.application-intent199 { margin: 8px 0; align-items: flex-start; }
+.royal-writs199 { margin: 20px 0; }
+.royal-writs199 > .notice-box { margin-bottom: 12px; }
+.royal-writs199 > details > summary,
+.technical-profile199 > summary { min-height: 44px; padding: 9px 0; color: var(--gold-soft); cursor: pointer; line-height: 1.5; }
+.royal-writs199 > details[open] > summary,
+.technical-profile199[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.royal-writs199 .roles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0; }
+.royal-writs199 .writ199 { min-width: 0; height: 100%; }
+.royal-writs199 .writ199 > p:last-child { margin-bottom: 0; }
+.royal-writs199 .stockades-checklist199 { padding-top: 12px; margin-top: 14px; border-top: 1px solid var(--line); }
+.stockades-checklist199 ol { margin: 12px 0; padding-left: 22px; }
+.stockades-checklist199 li { padding-left: 3px; margin-bottom: 12px; }
+.gold-policy199 { min-width: 0; overflow-wrap: anywhere; }
+.technical-profile199 { margin: 16px 0; }
+@media (max-width: 900px) {
+  .rank-guide199-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .rank-guide199-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .royal-writs199 .roles-grid { grid-template-columns: minmax(0, 1fr); }
+  .rosetta-table199,
+  .rosetta-table199 tbody { display: block; width: 100%; }
+  /* Keep real column headings in the accessibility tree; the visible labels repeat them per cell. */
+  .rosetta-table199 thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .rosetta-table199 tr { display: block; width: 100%; margin-bottom: 16px; border: 1px solid var(--line); }
+  .rosetta-table199 td { display: block; width: 100%; border: 0; border-bottom: 1px solid #5e533b80; padding: 10px 12px; }
+  .rosetta-table199 td:last-child { border-bottom: 0; }
+  .rosetta-table199 td::before { content: attr(data-column); display: block; margin-bottom: 5px; color: var(--gold-soft); font-size: .77rem; }
+  .rosetta-table199 td:first-child { background: #30281b99; }
+}
+@media (max-width: 480px) {
+  .rank-guide199-grid { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+  .rank-guide199-grid > li { padding: 10px 12px; }
+  .rosetta199 { padding: 10px 8px; }
+  .rosetta-table199 td { padding: 10px 8px; }
+  .office-seat199 .btn { width: 100%; min-height: 44px; }
+  .royal-writs199 > details.card { padding: 10px 8px; }
+}

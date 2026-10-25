@@ -28,6 +28,7 @@ function loadBrowserModel(file) {
 }
 const Model = loadBrowserModel('model.js'), catalogue = loadBrowserModel('catalogue.js').ranks;
 const expected = ['Guild Master', 'High Council', 'Treasurer', 'Officer', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
+const current199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
 (async () => {
   check('public PvE direction is frozen, explicit and makes no realm/launch claim', () => {
     const p = profile.currentRulesetProfile();
@@ -53,13 +54,14 @@ const expected = ['Guild Master', 'High Council', 'Treasurer', 'Officer', 'Raid 
   check('an activated but unqualified selector still holds instead of falling back to public copy', () => {
     assert.equal(held.profile, null); assert.equal(held.held, 'activation_pins_incomplete');
   });
-  check('chosen B source/native/planner recommendations agree on exactly ten Council and Treasurer slots', () => {
+  check('historical B proof stays exact while current .199 organization/planner use the owner-confirmed ten ranks', () => {
     assert.deepEqual(Array.from(qr.COUNCIL_TREASURER_NATIVE_RANKS), expected);
     assert.equal(qr.NATIVE_RANKS[1], 'High Council'); assert.equal(qr.SIGNER_NATIVE_RANKS, qr.NATIVE_RANKS);
-    assert.deepEqual(organization.nativeRanks.map(r => r.name), expected);
-    assert.deepEqual(Model.createDraft(catalogue).ranks.map(r => r.name), expected);
+    assert.deepEqual(organization.nativeRanks.map(r => r.name), current199);
+    assert.deepEqual(Model.createDraft(catalogue).ranks.map(r => r.name), current199);
+    assert.deepEqual(Array.from(offices.NATIVE_RANKS_199,r=>r.name),current199);
     assert.equal(Model.RECOMMENDED[1], 'highcouncil'); assert.equal(Model.createDraft(catalogue).review.liveChangesApplied, false);
-    const page=fs.readFileSync(path.join(worker,'src/site-ranks.ts'),'utf8');const html=JSON.parse(page.match(/const HTML = (".*");/)[1]);assert.ok(html.includes('27 preserved ideas · High Council Slot 2 · Treasurer Slot 3 · 10 places'));assert.ok(!html.includes('Treasurer Slot 2'));
+    const page=fs.readFileSync(path.join(worker,'src/site-ranks.ts'),'utf8');const html=JSON.parse(page.match(/const HTML = (".*");/)[1]);assert.ok(html.includes('Exact 10-rank hierarchy · High Council slot 1 · Officer slot 2'));assert.ok(html.includes('Co-Guild Master and Treasurer are appointments'));assert.ok(!html.includes('Treasurer Slot 3'));
   });
   const roleIds = Array.from({ length: 10 }, (_, i) => String(70000000000000000n + BigInt(i)));
   const oldMap = native.parseNativeRoleMap(JSON.stringify({ profile: 'ten-rank', roles: roleIds }));
@@ -113,33 +115,35 @@ const expected = ['Guild Master', 'High Council', 'Treasurer', 'Officer', 'Raid 
       const entry = offices.OFFICE_APPOINTMENTS.find(e => e.key === 'office_' + String(term.ordinal).padStart(2, '0'));
       assert.equal(entry.label, term.label); assert.equal(entry.termOrdinal, term.ordinal); assert.ok(Object.isFrozen(entry));
       assert.ok(Object.isFrozen(entry.recommendedNativeSlots)); assert.equal(entry.mappingApplies, false);
-      assert.ok(entry.recommendedNativeSlots.every(slot => Number.isInteger(slot) && slot >= 1 && slot <= 10));
+      assert.ok(entry.recommendedNativeSlots.every(slot => Number.isInteger(slot) && slot >= 0 && slot <= 9));
+      assert.equal(entry.nativeSlot,entry.nativeRankOrdinal-1);
     }
     assert.equal(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'co_gm').aliasOf, 'office_19');
     assert.equal(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'treasurer').aliasOf, 'office_86');
-    assert.deepEqual(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'co_gm').recommendedNativeSlots, [2]);
-    assert.deepEqual(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'office_85').recommendedNativeSlots, []);
-    assert.deepEqual(offices.OFFICE_APPOINTMENTS.filter(e => e.group === 'native').map(e => e.label), expected);
+    assert.deepEqual(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'co_gm').recommendedNativeSlots, [1]);
+    assert.deepEqual(offices.OFFICE_APPOINTMENTS.find(e => e.key === 'office_85').recommendedNativeSlots, [7]);
+    assert.deepEqual(offices.OFFICE_APPOINTMENTS.filter(e => e.group === 'native').map(e => e.label), current199);
   });
   check('Roles facts agree with the five stable office crosswalks without applying the recommendation', () => {
     const roles = load('site-data').POSITIONS;
-    for (const [key, ordinal, slot, name] of [['class_lead',18,4,'Officer'],['loot_council',51,5,'Raid Leader'],['professions',69,4,'Officer'],['pvp_leader',71,5,'Raid Leader'],['raid_assist_na',73,5,'Raid Leader'],['raid_assist_eu',73,5,'Raid Leader']]) {
+    for (const [key, ordinal, slot, name] of [['class_lead',18,2,'Officer'],['loot_council',51,4,'Raid Leader'],['professions',69,2,'Officer'],['pvp_leader',71,4,'Raid Leader'],['raid_assist_na',73,4,'Raid Leader'],['raid_assist_eu',73,4,'Raid Leader']]) {
       const office = offices.OFFICE_APPOINTMENTS.find(entry => entry.key === 'office_' + ordinal);
       assert.deepEqual(Array.from(office.recommendedNativeSlots), [slot]); assert.equal(office.mappingApplies, false);
       const fact = roles.find(role => role.key === key).info.game;
-      assert.ok(fact.includes('planning crosswalk recommends ' + name + ' (Slot ' + slot + ')'), key);
-      assert.match(fact, /no rank|grants no rank/); assert.match(fact, /Guild Master/);
+      assert.ok(fact.includes('Rank '+office.nativeRankOrdinal+' '+name+' (zero-based slot '+slot+')'), key);
+      assert.ok(fact.includes('not verification of the holder’s current game rank'),key);
     }
     for (const key of ['co_gm','officer','treasurer']) {
       const fact = roles.find(role => role.key === key).info.game;
-      assert.ok(fact.startsWith('Recommended post-beta placement:'), key);
-      assert.ok(fact.includes('not verification of the holder’s current game rank'), key);
+      const office=offices.OFFICE_APPOINTMENTS.find(entry=>entry.key===key);
+      assert.ok(fact.includes('Rank '+office.nativeRankOrdinal+' '+office.nativeRankName+' (zero-based slot '+office.nativeSlot+')'),key);
+      assert.ok(fact.includes('not verification of the holder’s current game rank'),key);
     }
     const book = fs.readFileSync(path.join(worker,'public/static/governance/reconciled-book.md'),'utf8');
-    assert.ok(book.includes('**Officer Alt.** A historical office label'));
-    assert.ok(!book.includes('native Alt or Officer Alt slot')); assert.ok(!book.includes('Native Officer and Officer Alt are distinct slots'));
-    assert.equal(organization.nodes.find(node => node.id === 'officers').kind, 'native Officer rank and delegated duties');
-    assert.ok(organization.officeMandates.some(office => office.boundary.includes('Treasurer has a recommended native Slot 3 (zero-based index 2)')));
+    assert.ok(book.includes('Officer Alt'));
+    assert.match(book,/zero-based Slot 3/i);
+    assert.equal(organization.nodes.find(node => node.id === 'officers').kind, 'Officer Corps native ranks and delegated duties');
+    assert.ok(organization.officeMandates.some(office => office.boundary.includes('Treasurer is an appointed High Council office associated with Rank 2, zero-based slot 1')));
   });
   check('saved v2 Council drafts remain their historical policy with no silent conversion', () => {
     const old = Model.createDraft(catalogue, ['gm', 'highcouncil', 'officer', 'officeralt', 'raidlead', 'veteran', 'raider', 'member', 'alt', 'initiate']);
@@ -182,14 +186,15 @@ const expected = ['Guild Master', 'High Council', 'Treasurer', 'Officer', 'Raid 
     assert.throws(()=>native.identifyConfiguredNativeProfile(qr.SIGNER_NATIVE_RANKS.map((rank,rank_index)=>({rank,rank_index})),chosen),/name_index_mismatch/);
     assert.throws(()=>native.identifyConfiguredNativeProfile([{rank:'Officer',rank_index:2}],chosen),/name_index_mismatch/);
     assert.equal(native.identifyConfiguredNativeProfile([{rank:'High Council',rank_index:1}],chosen),chosen.profile);
-    const oldKey=offices.OFFICE_APPOINTMENTS.find(e=>e.key==='rank_officer_alt');assert.ok(oldKey);assert.equal(oldKey.nativeIndex,undefined);assert.deepEqual(oldKey.recommendedNativeSlots,[9]);assert.equal(oldKey.group,'office');assert.equal(oldKey.aliasOf,'office_63');
+    const oldKey=offices.OFFICE_APPOINTMENTS.find(e=>e.key==='rank_officer_alt');assert.ok(oldKey);assert.equal(oldKey.nativeIndex,3);assert.deepEqual(oldKey.recommendedNativeSlots,[3]);assert.equal(oldKey.group,'native');assert.equal(oldKey.aliasOf,undefined);
+    const treasuryKey=offices.OFFICE_APPOINTMENTS.find(e=>e.key==='rank_treasurer');assert.equal(treasuryKey.group,'office');assert.equal(treasuryKey.aliasOf,'office_86');assert.equal(treasuryKey.nativeIndex,undefined);
   });
   check('interim A v3 drafts are preserved byte-for-byte under their exact historical policy', () => {
     const interim = Model.createDraft(catalogue,['gm','treasurer','officer','officeralt','raidlead','veteran','raider','member','alt','initiate']);
     interim.schema=Model.INTERIM_SCHEMA;interim.source.policy=Model.INTERIM_POLICY;
     const original=JSON.stringify(interim);assert.equal(JSON.stringify(Model.importDraft(original,catalogue)),original);
     const forged=JSON.parse(original);forged.source.policy=Model.POLICY;assert.throws(()=>Model.importDraft(JSON.stringify(forged),catalogue),/source reference/);
-    assert.equal(Model.SCHEMA,'olympus-rank-draft/v4');
+    assert.equal(Model.SCHEMA,'olympus-rank-draft/v5');
   });
   check('chosen seasonal tiers and restored PvP activity titles agree with exact human ruling', () => {
     assert.deepEqual(organization.currentOwnerDirection.cosmeticTitheTiers,[{name:'Tithe Payer',minimumAdditionalGold:25},{name:'Patron of the Treasury',minimumAdditionalGold:100},{name:'Benefactor of Olympus',minimumAdditionalGold:500}]);

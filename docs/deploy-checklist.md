@@ -7244,3 +7244,8 @@ Treasury/Army/Link activation remain separate actual gates.
 ## Worker .198 — 25 October 2026
 
 Stream Shield icon, substantive statutory/RP Titles I–V, opt-in Workshop recipe/profession browsing, separate Beta archive and absent-duplicate role safety. Configuration, schema, Native E2/private5 and activation gates remain unchanged. See [the complete .198 plan](build198-release-plan.md) for focused/single-final qualification, exact role deletion, backup, rollout, scoped probe/timing exceptions and rollback boundaries. Actual receipts follow execution; source preparation is not a live pass.
+
+
+## Worker .199 — exact ten-rank hierarchy, office applications and Royal Writs (25 October 2026)
+
+Owner-authorized solo candidate from accepted .198. The exact ten ranks, all95 stable offices/131 assignment keys, six application tracks, statutory Titles and reviewed gold-only schedules share bounded source catalogues. Track/office intent uses existing application answers JSON and separate fresh board-sharing consent. No DDL, addon authority, payment, role, unban or dispatch activation is part of publication. Stockades venue remains unconfirmed. Root must complete focused UI/runtime checks, 13 PR CI jobs, zero-finding automated review, one final198-command qualification, squash merge/main CI, a fresh verified backup and one deploy with public/UI/first ordinary callback evidence before marking live acceptance. CLAUDE.md's .199 override records release-specific timing/robots permissions; this paragraph is a plan, not a pass receipt.

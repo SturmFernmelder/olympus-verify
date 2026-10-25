@@ -47,7 +47,7 @@ class Element {
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false, width = 800 } = {}) {
+function open({ mobile = false, width = 800, officeAvailability = undefined } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
   doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
@@ -58,7 +58,7 @@ function open({ mobile = false, width = 800 } = {}) {
   class ResizeObserver { constructor(fn) { this.fn = fn; this.disconnected = false; observers.push(this); } observe(target) { this.target = target; } disconnect() { this.disconnected = true; } }
   const sandbox = { document: doc, requestAnimationFrame: fn => frames.push(fn), matchMedia: () => ({ matches: mobile }), ResizeObserver, console };
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
-  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [] });
+  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [], officeAvailability });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
@@ -68,6 +68,12 @@ function open({ mobile = false, width = 800 } = {}) {
   return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
+check(".199 exact ten ranks and individual High Council/Officer Corps cards are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 95 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
+check("each eligible office has its exact track and stable key in the application deep link",data.terms.filter(t=>t.applicationEligible).every(t=>p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).some(n=>n.getAttribute('href')==='#/vote/'+t.applicationTrack+'/'+encodeURIComponent(t.officeKey))));
+check("unknown vacancy is never described as an open seat and reserved roles have no application link", !p.main.textContent.includes('Open seat') && ['office_19','office_41','office_43','office_86'].every(key=>!p.main.all(n=>n.getAttribute('data-office-application')===key).length));
+const occupied199=open({officeAvailability:{office_03:false,office_62:false,office_74:true}});
+check("fresh closed/occupied seats suppress Apply while an explicitly open seat keeps its exact route",!occupied199.main.all(n=>['office_03','office_62'].includes(n.getAttribute('data-office-application'))).length&&occupied199.main.all(n=>n.getAttribute('data-office-application')==='office_74').every(n=>n.textContent==='Apply for this Seat on /#/vote'));
+check("historical profiles are collapsed behind the named technical disclosure and the crosswalk is linked",p.main.all(n=>n.tagName==='DETAILS'&&n.classList.contains('org-profile-notes')).some(n=>!n.open&&n.children[0].textContent==='Technical & Historical Profile Notes')&&p.main.all(n=>n.tagName==='A').some(n=>n.getAttribute('href')==='#/roles/rosetta-stone'));
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
 check("the Council remains initially selected", p.node("council").getAttribute("aria-pressed") === "true");
 const council = p.one("org-council-overview"), offices = p.one("org-council-offices");

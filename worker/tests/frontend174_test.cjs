@@ -129,7 +129,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   const instrumentNoteIndices = member.app.querySelectorAll("details.governance-chapter").map((chapter, index) => chapter.querySelector(".governance-instrument-note") ? index : null).filter(index => index !== null);
   const instrumentNoteIds = member.app.querySelectorAll("details.governance-chapter").filter(chapter => chapter.querySelector(".governance-instrument-note")).map(chapter => chapter.getAttribute("data-chapter")).sort();
   const instrumentIdsDigest = require("node:crypto").createHash("sha256").update(JSON.stringify(instrumentNoteIds)).digest("hex"), reviewedBookDigest = require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"))).digest("hex");
-  check(".196 current book's four instrument-note placements and execution limits remain exact", reviewedBookDigest === "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758" && instrumentIdsDigest === "a5cf89f9778efa8f188b4af0db64ab6fb02ca02a177206f7d8247034f47636cf" && JSON.stringify(instrumentNoteIndices) === "[2,3,17,18]" && member.app.querySelectorAll(".governance-instrument-note").every(note => note.textContent.includes("A blank field is not a completed record")));
+  check(".196 current book's four instrument-note placements and execution limits remain exact", reviewedBookDigest === "dd1d8bbf0e5bb0ecc7e27a60ab62ff10e7df3753da7bb7f2e38b3927e46a3b97" && instrumentIdsDigest === "a5cf89f9778efa8f188b4af0db64ab6fb02ca02a177206f7d8247034f47636cf" && JSON.stringify(instrumentNoteIndices) === "[2,3,17,18]" && member.app.querySelectorAll(".governance-instrument-note").every(note => note.textContent.includes("A blank field is not a completed record")));
   // Search through the real reviewed book, including its genuine strong/plain
   // inline boundary. Mark fragments share one logical match index; neither
   // generated reader controls nor adoption/instrument qualifications are hits.
@@ -144,25 +144,35 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   const matchStatus = () => matchNavigation.querySelector('[role="status"]').textContent;
   const searchGovernance = query => { governanceSearch.value = query; fire(governanceSearch, "input"); };
   check("governance match navigation starts hidden and disabled with no empty-query highlights", !!previousMatch && !!nextMatch && !!matchNavigation && matchNavigation.hidden && previousMatch.disabled && nextMatch.disabled && governanceMarks().length === 0);
-  const codices198 = [
+  const codices199 = [
     ["title-i-the-sovereign-royal-decrees", "Title I · Sovereign", "Verification checks the exact bytes"],
     ["title-ii-the-high-council-co-guild-master-privy-court", "Title II · Council & Court", "balance of probabilities"],
     ["title-iii-the-imperial-treasury-guild-bank-tithe-ledger", "Title III · Treasury", "Benefactor of Olympus — 500 gold"],
     ["title-iv-the-grand-alliance-concordat", "Title IV · Grand Alliance", "The October Beta census of 1,000/1,000 and 247 queued"],
     ["title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord", "Title V · Artisans & Heralds", "A received invitation, accepted group and completed arrival"]
   ];
-  check(".198 all five substantive statutory/RP Titles render with complete Articles,Sections and108subclauses", member.app.querySelectorAll("details.governance-chapter").length === 20 && codices198.every(([id, label]) => { const chapter = member.app.querySelector('[data-chapter="' + id + '"]'); return chapter && chapter.textContent.includes("Article ") && chapter.textContent.includes("Section ") && chapter.querySelector(".governance-prose").textContent.length > 8000 && byText(member.app, "a", label)?.getAttribute("href") === "#/governance/" + id; }) && member.app.querySelectorAll(".governance-prose h3").filter(node => /^Article [IVX]+\.\d+ — /.test(node.textContent)).length === 27 && member.app.querySelectorAll(".governance-prose h3").filter(node => /^Section [IVX]+\.\d+\.\d+ — /.test(node.textContent)).length === 54);
-  for (const [id, label, query] of codices198) {
+  check(".198 all five substantive statutory/RP Titles render with complete Articles,Sections and138subclauses", member.app.querySelectorAll("details.governance-chapter").length === 20 && codices199.every(([id, label]) => { const chapter = member.app.querySelector('[data-chapter="' + id + '"]'); return chapter && chapter.textContent.includes("Article ") && chapter.textContent.includes("Section ") && chapter.querySelector(".governance-prose").textContent.length > 8000 && byText(member.app, "a", label)?.getAttribute("href") === "#/governance/" + id; }) && member.app.querySelectorAll(".governance-prose h3").filter(node => /^Article [IVX]+\.\d+ — /.test(node.textContent)).length === 34 && member.app.querySelectorAll(".governance-prose h3").filter(node => /^Section [IVX]+\.\d+\.\d+ — /.test(node.textContent)).length === 68);
+  for (const [id, label, query] of codices199) {
     searchGovernance(query);
     const shown = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden);
     check(".198 whole-book search reaches the new code and selects the exact source chapter: " + label, shown.length === 1 && shown[0].getAttribute("data-chapter") === id && shown[0].open && governanceGroups().length === 1 && governanceMarks().map(mark => mark.textContent).join("") === query && currentGovernanceGroup().length === 1 && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  }
+  for (const [id, query] of [
+    ["title-ii-the-high-council-co-guild-master-privy-court", "Writ of Royal Clemency (Standard Unban Bail)"],
+    ["title-iii-the-imperial-treasury-guild-bank-tithe-ledger", "Flagship Charter of Direct Induction (Bypass Overflow into Olympus I)"],
+    ["title-iv-the-grand-alliance-concordat", "The stable 95-office register and its 131 assignable keys"],
+    ["title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord", "no raw or derived Discord ID is retained to suppress future directory eligibility"]
+  ]) {
+    searchGovernance(query);
+    const shown = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden);
+    check(".199 expanded gold/role/privacy code is searchable as one exact source occurrence: " + query, shown.length === 1 && shown[0].getAttribute("data-chapter") === id && shown[0].open && governanceGroups().length === 1 && governanceMarks().map(mark => mark.textContent).join("") === query && currentGovernanceGroup().length === 1 && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   }
   byText(member.app, "button", "Clear search").click();
   check(".198 new-Title searches clear to the complete20chapter book with all source and adoption protections intact", governanceMarks().length === 0 && member.app.querySelectorAll("details.governance-chapter").every(chapter => !chapter.hidden) && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText && adoption.textContent.includes("Adoption issues no individual appointment or named signature"));
   governanceSearch.focus();
   searchGovernance("tReAsUrEr");
   const treasurerGroups = governanceGroups(), matchingChapters = member.app.querySelectorAll("details.governance-chapter").filter(chapter => !chapter.hidden);
-  check("literal case-insensitive governance search marks source text and announces occurrence and chapter counts without moving typing focus", treasurerGroups.length > 8 && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer" && !!mark.closest("details.governance-chapter")) && matchingChapters.length === 11 && member.app.querySelector('.governance-controls p[role="status"]').textContent.includes("11 of 20 chapters") && /Match 1 of /i.test(matchStatus()) && matchStatus().includes(String(treasurerGroups.length)) && !matchNavigation.hidden && !previousMatch.disabled && !nextMatch.disabled && currentGovernanceGroup().length === 1 && currentGovernanceGroup()[0] === treasurerGroups[0] && member.document.activeElement === governanceSearch);
+  check("literal case-insensitive governance search marks source text and announces occurrence and chapter counts without moving typing focus", treasurerGroups.length > 8 && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer" && !!mark.closest("details.governance-chapter")) && matchingChapters.length === 12 && member.app.querySelector('.governance-controls p[role="status"]').textContent.includes("12 of 20 chapters") && /Match 1 of /i.test(matchStatus()) && matchStatus().includes(String(treasurerGroups.length)) && !matchNavigation.hidden && !previousMatch.disabled && !nextMatch.disabled && currentGovernanceGroup().length === 1 && currentGovernanceGroup()[0] === treasurerGroups[0] && member.document.activeElement === governanceSearch);
   check("governance highlights do not alter any rendered chapter text or inline emphasis", JSON.stringify(governanceSourceText()) === unmarkedGovernanceText && member.app.querySelectorAll(".governance-prose strong").length > 5 && !member.app.querySelector(".governance-toc mark") && !adoption.querySelector("mark") && !archive.querySelector("mark") && !member.app.querySelector(".governance-instrument-note mark"));
   previousMatch.click();
   check("Previous match wraps from the first occurrence to the last without leaving the chapter route", currentGovernanceGroup()[0] === treasurerGroups.at(-1) && member.location.hash === "#/governance");
@@ -229,9 +239,9 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   const markedTagCounts192 = () => { const counts = {}; for (const group of governanceGroups()) { const tag = blockTag192(governanceMarks().find(mark => groupOf192(mark) === group)); counts[tag] = (counts[tag] || 0) + 1; } return sortedCounts192(counts); };
   const sourceTagCounts192 = word => { const counts = {}; for (const block of sourceBlocks) { const hits = [...block.textContent.matchAll(new RegExp(word, "giu"))].length; if (hits) counts[block.tagName] = (counts[block.tagName] || 0) + hits; } return sortedCounts192(counts); };
   searchGovernance("Treasurer");
-  check(".192 a known office has its exact occurrence count, equal to an independent count of the unmarked source", governanceGroups().length === 51 && independentCount192("Treasurer", "giu") === 51 && matchStatus().includes("Match 1 of 51") && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer"));
+  check(".192 a known office has its exact occurrence count, equal to an independent count of the unmarked source", governanceGroups().length === 48 && independentCount192("Treasurer", "giu") === 48 && matchStatus().includes("Match 1 of 48") && governanceMarks().every(mark => mark.textContent.toLowerCase() === "treasurer"));
   searchGovernance("access");
-  check(".192 the exact count includes list items, table cells, headings and several hits in one block", governanceGroups().length === 95 && independentCount192("access", "giu") === 95 && markedTagCounts192() === sourceTagCounts192("access") && markedTagCounts192() === JSON.stringify([["H3", 3], ["LI", 2], ["P", 89], ["TD", 1]]) && member.app.querySelectorAll(".governance-prose p, .governance-prose li, .governance-prose td, .governance-prose h3").some(block => new Set(block.querySelectorAll("mark.governance-search-match").map(groupOf192)).size > 1) && matchStatus().includes("Match 1 of 95"));
+  check(".192 the exact count includes list items, table cells, headings and several hits in one block", governanceGroups().length === 101 && independentCount192("access", "giu") === 101 && markedTagCounts192() === sourceTagCounts192("access") && markedTagCounts192() === JSON.stringify([["H3", 3], ["LI", 2], ["P", 95], ["TD", 1]]) && member.app.querySelectorAll(".governance-prose p, .governance-prose li, .governance-prose td, .governance-prose h3").some(block => new Set(block.querySelectorAll("mark.governance-search-match").map(groupOf192)).size > 1) && matchStatus().includes("Match 1 of 101"));
   searchGovernance("No.");
   const literalHit192 = governanceMarks();
   check(".192 a query that a regular expression would read differently is matched literally", independentCount192("No.", "giu") > 100 && governanceGroups().length === 1 && literalHit192.length === 1 && literalHit192[0].textContent === "No." && blockTag192(literalHit192[0]) === "TH" && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
@@ -245,38 +255,38 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   searchGovernance("Treasurer");
   const scrollsAfterTyping192 = scrolled192.length, typedStatus192 = matchStatus();
   nextMatch.click();
-  check(".192 typing selects match 1 without scrolling, and the first Next reveals match 1 instead of skipping to match 2", scrollsAfterTyping192 === scrollsBeforeTyping192 && scrolled192.length === scrollsAfterTyping192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().includes("match 1 of 51") && scrolled192.at(-1).node.closest("details.governance-chapter").open && member.location.hash === "#/governance");
-  check(".192 the reveal announces itself with wording distinct from the typing announcement, for the same match and chapter", typedStatus192.startsWith("Match 1 of 51 · ") && matchStatus() === "Showing match" + typedStatus192.slice("Match".length));
+  check(".192 typing selects match 1 without scrolling, and the first Next reveals match 1 instead of skipping to match 2", scrollsAfterTyping192 === scrollsBeforeTyping192 && scrolled192.length === scrollsAfterTyping192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().includes("match 1 of 48") && scrolled192.at(-1).node.closest("details.governance-chapter").open && member.location.hash === "#/governance");
+  check(".192 the reveal announces itself with wording distinct from the typing announcement, for the same match and chapter", typedStatus192.startsWith("Match 1 of 48 · ") && matchStatus() === "Showing match" + typedStatus192.slice("Match".length));
   nextMatch.click();
-  check(".192 the next Next advances to match 2", currentGovernanceGroup().join(",") === "1" && groupOf192(scrolled192.at(-1).node) === "1" && matchStatus().includes("Match 2 of 51"));
+  check(".192 the next Next advances to match 2", currentGovernanceGroup().join(",") === "1" && groupOf192(scrolled192.at(-1).node) === "1" && matchStatus().includes("Match 2 of 48"));
   searchGovernance("Treasurer"); previousMatch.click();
-  check(".192 the first Previous after typing still goes to the last match", currentGovernanceGroup().join(",") === "50" && groupOf192(scrolled192.at(-1).node) === "50" && matchStatus().includes("Match 51 of 51"));
+  check(".192 the first Previous after typing still goes to the last match", currentGovernanceGroup().join(",") === "47" && groupOf192(scrolled192.at(-1).node) === "47" && matchStatus().includes("Match 48 of 48"));
   nextMatch.click();
-  check(".192 after Previous, Next wraps straight to match 1", currentGovernanceGroup().join(",") === "0" && groupOf192(scrolled192.at(-1).node) === "0" && matchStatus().includes("Match 1 of 51"));
+  check(".192 after Previous, Next wraps straight to match 1", currentGovernanceGroup().join(",") === "0" && groupOf192(scrolled192.at(-1).node) === "0" && matchStatus().includes("Match 1 of 48"));
 
   const key192 = (key, shift, extra) => { const event = new Event("keydown", { bubbles: true }); event.key = key; event.shiftKey = !!shift; Object.assign(event, extra || {}); governanceSearch.dispatchEvent(event); return event; };
   governanceSearch.focus(); searchGovernance("Treasurer");
   const firstEnter192 = key192("Enter");
-  check(".192 Enter in the search field reveals match 1 first, prevents the default action and keeps focus and query", firstEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 51 · ") && groupOf192(scrolled192.at(-1).node) === "0" && member.document.activeElement === governanceSearch && governanceSearch.value === "Treasurer");
+  check(".192 Enter in the search field reveals match 1 first, prevents the default action and keeps focus and query", firstEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 48 · ") && groupOf192(scrolled192.at(-1).node) === "0" && member.document.activeElement === governanceSearch && governanceSearch.value === "Treasurer");
   const secondEnter192 = key192("Enter");
-  check(".192 a second Enter moves to match 2 with focus kept", secondEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "1" && matchStatus().includes("Match 2 of 51") && member.document.activeElement === governanceSearch);
+  check(".192 a second Enter moves to match 2 with focus kept", secondEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "1" && matchStatus().includes("Match 2 of 48") && member.document.activeElement === governanceSearch);
   const shiftEnter192 = key192("Enter", true);
   check(".192 Shift+Enter moves back to match 1 with focus kept", shiftEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "0" && member.document.activeElement === governanceSearch);
   key192("Enter", true);
-  check(".192 Shift+Enter wraps from match 1 to the last match", currentGovernanceGroup().join(",") === "50" && matchStatus().includes("Match 51 of 51") && member.document.activeElement === governanceSearch);
+  check(".192 Shift+Enter wraps from match 1 to the last match", currentGovernanceGroup().join(",") === "47" && matchStatus().includes("Match 48 of 48") && member.document.activeElement === governanceSearch);
   searchGovernance("Treasurer");
   const firstShiftEnter192 = key192("Enter", true);
-  check(".192 the first Shift+Enter after typing goes to the last match, as Previous does", firstShiftEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "50" && member.document.activeElement === governanceSearch);
+  check(".192 the first Shift+Enter after typing goes to the last match, as Previous does", firstShiftEnter192.defaultPrevented && currentGovernanceGroup().join(",") === "47" && member.document.activeElement === governanceSearch);
   const otherKey192 = key192("a");
-  check(".192 other keys in the search field are left alone", !otherKey192.defaultPrevented && currentGovernanceGroup().join(",") === "50");
+  check(".192 other keys in the search field are left alone", !otherKey192.defaultPrevented && currentGovernanceGroup().join(",") === "47");
   searchGovernance("Treasurer");
   const scrollsBeforeIme192 = scrolled192.length;
   const composingEnter192 = key192("Enter", false, { isComposing: true });
-  check(".192 an IME composition Enter (isComposing) neither moves nor prevents the default action", !composingEnter192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 51 · ") && member.document.activeElement === governanceSearch);
+  check(".192 an IME composition Enter (isComposing) neither moves nor prevents the default action", !composingEnter192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 48 · ") && member.document.activeElement === governanceSearch);
   const safariCommit192 = key192("Enter", false, { keyCode: 229, isComposing: false });
-  check(".192 Safari's composition-commit Enter (keyCode 229) neither moves nor prevents the default action", !safariCommit192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 51 · ") && member.document.activeElement === governanceSearch);
+  check(".192 Safari's composition-commit Enter (keyCode 229) neither moves nor prevents the default action", !safariCommit192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Match 1 of 48 · ") && member.document.activeElement === governanceSearch);
   const afterIme192 = key192("Enter");
-  check(".192 after IME Enters the first real Enter still reveals match 1", afterIme192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 51 · "));
+  check(".192 after IME Enters the first real Enter still reveals match 1", afterIme192.defaultPrevented && scrolled192.length === scrollsBeforeIme192 + 1 && groupOf192(scrolled192.at(-1).node) === "0" && currentGovernanceGroup().join(",") === "0" && matchStatus().startsWith("Showing match 1 of 48 · "));
   searchGovernance("zzqx no such governance text");
   const emptyEnter192 = key192("Enter");
   check(".192 Enter without matches moves nothing and keeps focus in the field", emptyEnter192.defaultPrevented && governanceMarks().length === 0 && nextMatch.disabled && /No matches/.test(matchStatus()) && member.document.activeElement === governanceSearch);
@@ -342,7 +352,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
   try { byText(member.app, "button", "Clear search").click(); } catch (error) { copyError192 = error; }
   check(".192 Clear search after another script deep-copied a highlighted element leaves no stale highlight and exact text", copiedMark192 && copyError192 === null && governanceMarks().length === 0 && !strongCopy192.querySelector("mark") && strongCopy192.textContent === "Federal Treasurer." && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText, String(copyError192));
   searchGovernance("Treasurer");
-  check(".192 the next search after a deep copy keeps the exact count and nests no highlight", governanceGroups().length === 51 && !member.app.querySelector("mark mark") && !!strongCopy192.querySelector("mark.governance-search-match") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+  check(".192 the next search after a deep copy keeps the exact count and nests no highlight", governanceGroups().length === 48 && !member.app.querySelector("mark mark") && !!strongCopy192.querySelector("mark.governance-search-match") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   byText(member.app, "button", "Clear search").click();
 
   // A block another script shortened after indexing yields no mark for its match.

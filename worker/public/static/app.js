@@ -99,8 +99,8 @@
   function posIcon(key, cls = "") {
     if (key.startsWith("class_lead:")) return M().classes.some((c) => c.key === key.slice(11)) ? icon("class-" + key.slice(11), cls) : icon("pos-unknown", cls);
     const office = (M().appointments || []).find(item => item.key === key);
-    if (office && /^office_[0-9]{2}$/.test(key)) return icon("pos-community", cls);
-    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon("pos-" + ({guild_master:"guild_master",high_council:"co_gm",treasurer:"treasurer",officer:"officer",raid_leader:"raid_leader",veteran:"raider",raider:"raider",member:"member",alt:"member",initiate:"member"}[rank] || "unknown"), cls); }
+    if (office && /^office_[0-9]{2}$/.test(key)) return icon("pos-" + (office.tier === "leader" ? "guild_master" : office.tier === "high_council" ? "co_gm" : office.tier === "officer_corps" ? "officer" : "community"), cls);
+    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon("pos-" + ({guild_master:"guild_master",high_council:"co_gm",treasurer:"treasurer",officer:"officer",officer_alt:"officer",raid_leader:"raid_leader",veteran:"raider",raider:"raider",member:"member",alt:"member",initiate:"member"}[rank] || "unknown"), cls); }
     const base = key.replace(/_(na|eu)$/, "");
     return icon("pos-" + (["co_gm", "guild_master", "officer", "raid_leader", "raid_assist", "class_lead", "recruitment", "community", "leveling", "pvp_leader", "liaison", "loot_council", "treasurer", "professions", "moderator", "raider", "pvp_team", "member"].includes(base) ? base : "unknown"), cls);
   }
@@ -125,6 +125,97 @@
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
   const listText = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
   const M = () => S.meta || { positions: [], classes: [], roles: [], regions: [], hours: [], voice: [], questions: [], professions: [], ballots: [], limits: {}, avail: { reference: 0, prime: { na: [], eu: [], min: 3 } } };
+
+  // .199: one statutory bridge, served by the same catalogue as server validation.
+  const ranks199 = () => M().rankHierarchy || [];
+  const tracks199 = () => M().applicationTracks || [];
+  const offices199 = () => M().appointments || [];
+  const office199 = key => offices199().find(row => row.key === key);
+  const track199 = id => tracks199().find(row => row.id === id);
+  function displayHolder(key) {
+    const assignments = S.settings?.appointed || {};
+    const read = k => Object.prototype.hasOwnProperty.call(assignments, k) ? assignments[k] : "";
+    const row = office199(key), parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
+    const keys = row?.applicationRoleKeys || [];
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    if (!value) return "";
+    if (!S.signedIn || S.denied || !communityReader()) return "Filled; identity unavailable";
+    if (appointmentPointer(value)) return "Appointed member";
+    return typeof value === "string" && value.length <= 40 && !/[\u0000-\u001f\u007f<>]/.test(value) && !/^[0-9]{17,20}$/.test(value.trim()) ? value : "Name withheld";
+  }
+  function officeBadge199(row) {
+    return row?.nativeRankOrdinal ? h("span", { class: "badge rank-office199", text: `${row.tierLabel} · Rank ${row.nativeRankOrdinal} ${row.nativeRankName} · Title ${(row.codexTitles || []).join(" / ")}` }) : null;
+  }
+  function applicationBadges199(intent) {
+    const t = track199(intent?.applicationTrack), o = office199(intent?.targetOffice);
+    if (!t || (intent.targetOffice && (!o || o.applicationTrack !== t.id))) return null;
+    return h("div", { class: "role-tags application-intent199", "data-application-track": t.id }, h("span", { class: "badge blue", text: t.label }), o ? h("span", { class: "badge", "data-target-office": o.key, text: o.applicationLabel || o.label }) : null);
+  }
+  function goldBanner199() {
+    const policy = M().royalWritPolicy || {};
+    return noticeBox("info", "icon-treasury", h("p", { class: "gold-policy199", text: policy.banner || "100% World of Warcraft: Forever in-game gold only, via in-game mail/trade to Fernmelder. Zero real-world money, USD, Twitch subscriptions or crypto; all addons remain free with no paid addon gating. Officer review and Discord Trust & Safety rules apply." }));
+  }
+  function writsPanel199(page, { checklist = false, keys = null } = {}) {
+    const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
+    return h("section", { class: "royal-writs199", "data-royal-writ-page": page }, goldBanner199(),
+      h("details", { class: "card", open: checklist }, h("summary", { text: checklist ? "Stockades Appeals & Royal Pardons — operator reference" : "Schedule of Royal Writs, Indulgences & Guild Services" }),
+        h("p", { class: "muted small", text: policy.review }),
+        h("div", { class: "roles-grid" }, rows.map(row => h("article", { class: "card writ199", "data-writ-key": row.key }, h("h3", { text: row.label }), h("p", null, h("strong", { text: `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g` }), " · ", row.term), h("p", { text: row.outcome }), h("p", { class: "muted small", text: row.limits })))),
+        h("p", { class: "muted small", text: policy.dispatch }), h("p", { class: "muted small", text: policy.consent }),
+        checklist ? h("div", { class: "stockades-checklist199" }, h("h3", { text: "Manual case checklist" }), h("p", { text: policy.stockadesStatus }), h("ol", null, (M().stockadesChecklist || []).map(step => h("li", { text: typeof step === "string" ? step : step.text || step.label || step.action })))) : null,
+        h("a", { href: "#/governance", text: "Read Titles II–V and the governing review procedure" })));
+  }
+  function hierarchyPanel199() {
+    return frame("The exact 10-rank Olympus In-Game Hierarchy", h("a", { class: "btn small", href: "#/roles/rosetta-stone", text: "Open the Rosetta Stone" }),
+      h("p", { text: "Leader and High Council govern; the Officer Corps administers; members and specialists build the guild. Co-Guild Master and Treasurer are appointments, not extra native ranks. Actual game permissions are set separately by the Guild Master." }),
+      h("ol", { class: "rank-guide199-grid" }, ranks199().map(rank => h("li", { class: "card", "data-native-slot": String(rank.nativeSlot) }, h("h3", { text: `Rank ${rank.nativeRankOrdinal} — ${rank.name}` }), h("span", { class: "badge muted", text: `zero-based slot ${rank.nativeSlot}` })))));
+  }
+  function rosettaPanel199() {
+    const headings = ["In-Game Rank Number & Name", "Tier & Statutory Codex Title", "Organization Department & Branch Offices", "Discord Role & Portal Access", "How to Attain It"];
+    return h("section", { class: "card rosetta199", id: "role-rosetta-stone", tabindex: "-1" }, h("h2", { text: "Olympus Role & Rank Rosetta Stone" }),
+      h("p", { text: "95 stable offices and 131 assignable keys share this bridge. Display classification and an application do not confer an office, game rank, Discord role or portal access. Olympus Link remains OFF; /oly discord is a future qualified verification path, not a currently active admission shortcut." }),
+      h("table", { class: "rosetta-table199" }, h("thead", null, h("tr", null, headings.map(text => h("th", { scope: "col", text })))), h("tbody", null, ranks199().map(rank => {
+        const rows = offices199().filter(row => row.nativeSlot === rank.nativeSlot), tiers = [...new Set(rows.map(row => row.tierLabel))], titles = [...new Set(rows.flatMap(row => row.codexTitles || []))];
+        const cells = [h("strong", { text: `Rank ${rank.nativeRankOrdinal} ${rank.name}` }), h("div", null, tiers.join(" / "), h("br"), h("a", { href: "#/governance", text: `Title ${titles.join(" / ") || "I–V"}` })),
+          h("details", null, h("summary", { text: `${rows.length} mapped office / assignment keys` }), h("ul", null, rows.map(row => h("li", null, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }), " · ", row.department)))),
+          h("p", { text: [...new Set(rows.map(row => row.discordPortal))].join(" ") || "Olympus Guild Member; cosmetic tithe tiers and Broadcaster / Stream Shield are separate consented labels and capabilities." }),
+          h("p", null, "Apply on ", h("a", { href: "#/vote", text: "/#/vote" }), "; royal appointment or reviewed voluntary in-game gold writ where stated. In-game verification via /oly discord remains subject to separate Link activation.")];
+        return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal) }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
+      }))));
+  }
+  function officeTierPanels199() {
+    return [["leader", "Leader & Royal Appointments"], ["high_council", "High Council Roles"], ["officer_corps", "Officer Corps Roles"], ["member_specialist", "Member & Specialist Roles"]].map(([tier, label]) => frame(label, null,
+      h("div", { class: "roles-grid" }, offices199().filter(row => row.tier === tier).map(row => {
+        const holder = displayHolder(row.key), available = row.applicationEligible && !holder && S.settings?.applicationsOpen !== false;
+        return h("article", { class: "card office-seat199", "data-office-key": row.key }, h("h3", { text: row.applicationLabel || row.label }), officeBadge199(row),
+          h("p", { class: "muted small", text: row.department }), holder ? h("p", null, appointmentLabelNode(row.key, holder, false, true)) : h("p", { class: "muted small", text: "No appointment recorded here; availability requires current leadership review." }),
+          row.aliasOf ? h("p", { class: "muted small", text: `Assignment alias of ${row.aliasOf}; no additional native-rank slot.` }) : null,
+          available && ["officer", "high_council"].includes(row.applicationTrack) ? h("a", { class: "btn small", href: `#/vote/${row.applicationTrack}/${encodeURIComponent(row.key)}`, text: "Apply for this Seat on /#/vote" }) : null);
+      }))));
+  }
+  function applicationTrackPicker199(onChoose, initial = {}) {
+    const select = h("select", { id: "application-track199", "aria-label": "Application track" }, h("option", { value: "", text: "Select your application track…" }), tracks199().map(row => h("option", { value: row.id, selected: row.id === initial.applicationTrack, text: row.label + " — " + row.rankPath })));
+    const search = h("input", { type: "search", id: "application-office-search199", placeholder: "Search title, department or portfolio", "aria-label": "Search specific office" });
+    const offices = h("select", { id: "application-office199", "aria-label": "Specific office or Council portfolio" });
+    const specific = h("div", { class: "field" }, h("label", { for: "application-office-search199", text: "Search the Office / Portfolio Picker" }), search, h("label", { for: "application-office199", text: "Specific role" }), offices);
+    const description = h("p", { class: "muted small" }), button = h("button", { type: "button", class: "btn small", text: "Apply on this track" });
+    let chosen = initial.targetOffice || "";
+    function sync() {
+      const t = track199(select.value), needs = ["officer", "high_council"].includes(select.value), filter = search.value.trim().toLowerCase();
+      specific.hidden = !needs;
+      clear(offices); add(offices, h("option", { value: "", text: "Choose a specific office…" }));
+      const rows = offices199().filter(row => row.applicationEligible && row.applicationTrack === select.value && (!filter || [row.label, row.applicationLabel, row.department, ...(row.applicationAliases || [])].join(" ").toLowerCase().includes(filter)));
+      for (const row of rows) add(offices, h("option", { value: row.key, text: row.applicationLabel || row.label, selected: row.key === chosen, disabled: !!displayHolder(row.key) }));
+      offices.value = rows.some(row => row.key === chosen && !displayHolder(row.key)) ? chosen : "";
+      description.textContent = t?.description || "Choose your requested path. Selecting a track grants no rank, priority, vote, role or access.";
+      button.disabled = !t || (needs && !offices.value) || S.settings?.applicationsOpen === false;
+    }
+    select.addEventListener("change", () => { chosen = ""; search.value = ""; sync(); }); search.addEventListener("input", sync);
+    offices.addEventListener("change", () => { chosen = offices.value; button.disabled = !chosen || S.settings?.applicationsOpen === false; });
+    button.addEventListener("click", () => { if (!button.disabled) onChoose({ applicationTrack: select.value, targetOffice: specific.hidden ? null : offices.value }); });
+    sync();
+    return frame("What Are You Applying For? (Select Your Application Track & Specific Role)", h("a", { href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }), h("label", { for: "application-track199", text: "Application track" }), select, specific, description, button);
+  }
   // The boot carries the RESOLVED identity (item 7, 14 Oct 2026): the exact public beta, or an activated full-release profile
   // whose opaque revision has the server's shape. A held identity, or anything else, renders as unavailable; boot data never
   // selects a phase on its own.
@@ -164,11 +255,27 @@
   const isLeadershipKey = (k) => k.startsWith("class_lead:") || (byKey(M().positions, k) || {}).group === "leadership";
   /** Who holds a role filled by appointment (Admin → Settings), or "": such a role takes no applications, votes or write-ins. */
   const appointmentPointer = (value) => typeof value === "string" && /^<@[0-9]{17,20}>$/.test(value);
-  const appointedTo = (key) => { const a = (S.settings && S.settings.appointed) || {}; const value = Object.prototype.hasOwnProperty.call(a, key) ? a[key] : ""; return appointmentPointer(value) ? "Appointed member" : value; };
+  const appointedTo = (key) => {
+    const a = S.settings?.appointed || {}, read = k => Object.prototype.hasOwnProperty.call(a, k) ? a[k] : "";
+    const row = office199(key), parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key)), keys = row?.applicationRoleKeys || [];
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    return appointmentPointer(value) ? "Appointed member" : value;
+  };
   const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
   const sentenceEnd = (text) => /[.!?]$/.test(text) ? text : text + ".";
   const appointmentLabelText = (holder, bare, sentence) => { const text = bare ? holder : appointmentLabel(holder); return sentence ? sentenceEnd(text) : text; };
-  const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": key, "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
+  function appointmentSourceKey199(key) {
+    const a = S.settings?.appointed || {}, has = k => Object.prototype.hasOwnProperty.call(a,k);
+    if (has(key)) return key;
+    const parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
+    if (parent && has(parent.key)) return parent.key;
+    const children = office199(key)?.applicationRoleKeys || [];
+    if (children.length === 1 && has(children[0])) return children[0];
+    if (key === "office_86" && has("treasurer")) return "treasurer";
+    if (key === "treasurer" && has("office_86")) return "office_86";
+    return key;
+  }
+  const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": appointmentSourceKey199(key), "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
   /** An appointed holder is projected only through the current qualified identity path. */
   const appointedText = (keys) => [...keys.flatMap((key, i) => [i ? i === keys.length - 1 ? " and " : ", " : "", appointmentLabelNode(key, appointedTo(key), true), i ? " " : " has been appointed ", roleName(key)]), `, so ${keys.length === 1 ? "the role is" : "those roles are"} no longer open to applications or votes.`];
   /** The complete website display catalogue; it never applies a native rank or publishes a raw account pointer. */
@@ -198,7 +305,7 @@
           h("div", { class: "roles-grid mt-s" }, rows.map(office => {
             const holder = displayHolder(office.key);
             return h("article", { class: "card", "data-office-assignment": office.key },
-              h("h3", null, posIcon(office.key, "s"), h("span", { text: office.label })),
+              h("h3", null, posIcon(office.key, "s"), h("span", { text: office.label })), officeBadge199(office),
               holder ? h("p", null, appointmentLabelNode(office.key, holder, false, true)) : h("p", { class: "muted", text: "No website appointment recorded." }),
               holder ? h("div", { "data-appointment-characters": office.key }) : null,
               office.aliasOf ? h("p", { class: "muted small", text: "Display alias; does not create another native-rank slot or transfer an appointment automatically." }) : null);
@@ -217,7 +324,7 @@
     if (!Array.isArray(offices) || offices.length < 1 || offices.length > 131 || offices.some(office => !office || typeof office.key !== "string")) return () => {};
     const appointmentKeys = new Set(offices.map(office => office.key));
     if (appointmentKeys.size !== offices.length) return () => {};
-    const referencedKeys = new Set([...labels.map(node => node.getAttribute("data-appointment-label")), ...titles.map(node => node.getAttribute("data-appointment-title"))].filter(key => appointmentKeys.has(key)));
+    const referencedKeys = new Set([...labels.map(node => node.getAttribute("data-appointment-label")), ...titles.map(node => node.getAttribute("data-appointment-title"))].filter(key => appointmentKeys.has(key) && Object.prototype.hasOwnProperty.call(settings?.appointed || {}, key)));
     const requestedRole = referencedKeys.size === 1 ? [...referencedKeys][0] : null;
     const originals = labels.map(node => [node, node.textContent]), originalTitles = titles.map(node => [node, node.getAttribute("title")]);
     let disposed = false, generation = 0, hidden = !!document.hidden;
@@ -304,7 +411,10 @@
    * A role that takes applications but is chosen by the guild's leadership without a public vote (.45, Admin → Settings):
    * no voting board and no write-ins. Appointed comes first: an appointed role is closed altogether.
    */
-  const noVoteFor = (key) => !appointedTo(key) && ((S.settings && S.settings.noVote) || []).includes(key);
+  const noVoteFor = (key) => {
+    const quiet = S.settings?.noVote || [], parent = offices199().find(row => /^office_\d{2}$/.test(row.key) && (row.applicationRoleKeys || []).includes(key));
+    return !appointedTo(key) && (quiet.includes(key) || !!parent && quiet.includes(parent.key));
+  };
   /** A leadership role members vote on: what puts an application on the voting board. */
   const votedKey = (k) => isLeadershipKey(k) && !appointedTo(k) && !noVoteFor(k);
   /** The game's party-leader crown: the mark of a role the leadership chooses itself. */
@@ -1276,7 +1386,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "f2371fcc51e54f6c466b9ceb69edad72ba61f46cd8a5f238735cc11c690c1758";
+  const GOVERNANCE_SHA256 = "dd1d8bbf0e5bb0ecc7e27a60ab62ff10e7df3753da7bb7f2e38b3927e46a3b97";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1288,7 +1398,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
-      if (bytes.length !== 233733) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 259596) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1300,7 +1410,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 233733 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 259596 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -1589,6 +1699,7 @@
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
         h("a", { class: "btn", href: "#/governance/3-letters-patent-and-warrants", text: "Appointment templates" }),
         h("a", { class: "btn", href: "#/organization", text: "Interactive organization" }),
+        h("a", { class: "btn", href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }),
         h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Operational charter" }),
         h("a", { class: "btn", href: "#/governance/title-i-the-sovereign-royal-decrees", text: "Title I · Sovereign" }),
         h("a", { class: "btn", href: "#/governance/title-ii-the-high-council-co-guild-master-privy-court", text: "Title II · Council & Court" }),
@@ -1612,6 +1723,7 @@
         h("button", { class: "btn small", type: "button", text: "Collapse all chapters", onclick: () => { for (const section of details.values()) section.open = false; } }), result),
       h("div", { class: "governance-layout" }, h("aside", { class: "governance-toc" }, h("nav", { "aria-label": "Book chapters" }, h("h2", { text: "Contents" }), h("ol", null, tocList))),
         h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes)), matchNav]);
+    add(main, writsPanel199("governance"));
     selection(index); filter();
     if (selected >= 0) selection(index, true);
     window.addEventListener("beforeprint", preparePrint);
@@ -1626,8 +1738,9 @@
     if (!current()) return;
     const { renderOrganization } = await import("/static/organization-view.js");
     if (!current()) return;
-    disposeOrganization = renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection });
-    add(main, officeAssignmentPanel()); // The router owns the same qualified reader after this async view finishes.
+    disposeOrganization = renderOrganization(main, data, { h, add, clear, posIcon, parts, scrollToSection,
+      officeAvailability: Object.fromEntries(offices199().map(row => [row.key, S.settings?.applicationsOpen === false || displayHolder(row.key) ? false : true])) });
+    add(main, [writsPanel199("organization"), officeAssignmentPanel()]); // The router owns the same qualified reader after this async view finishes.
   };
 
   // ---------------------------------------------------------------- home
@@ -2014,6 +2127,11 @@
       return;
     }
     const ans = (a && a.answers) || {};
+    const pendingIntent199 = S.applicationIntent199;
+    const rememberedOffice199 = S.pick && office199(S.pick);
+    const rememberedIntent199 = rememberedOffice199?.applicationEligible && ["officer","high_council"].includes(rememberedOffice199.applicationTrack) ? {applicationTrack:rememberedOffice199.applicationTrack,targetOffice:rememberedOffice199.key} : null;
+    const intent199 = pendingIntent199 || (S.pick ? rememberedIntent199 : track199(ans.applicationTrack) ? {applicationTrack:ans.applicationTrack,targetOffice:ans.targetOffice || null} : !a ? {applicationTrack:"member",targetOffice:null} : null);
+    S.applicationIntent199 = null;
     const form = h("form", { novalidate: true });
     const unsaved = h("span", { class: "dirty", hidden: true, text: "Unsaved changes" });
     const touch = () => setDirty("apply", true, unsaved);
@@ -2037,11 +2155,24 @@
         if (base === "class_lead" && pick !== base && meta.classes.some((c) => c.key === cls) && !appointedTo(pick)) pickClass = cls;
       }
     }
-    const pickedKey = picked === "class_lead" ? (pickClass ? `class_lead:${pickClass}` : "") : picked;
+    if (intent199) {
+      const target199 = office199(intent199.targetOffice);
+      if (target199 && ["officer","high_council"].includes(intent199.applicationTrack)) {
+        const keys199 = target199.applicationRoleKeys || [target199.key];
+        const oldFirst199 = a && firstChoiceKey(a);
+        const actual199 = keys199.includes(oldFirst199) ? oldFirst199 : keys199.find(key => !appointedTo(key)) || keys199[0] || target199.key;
+        position = actual199.startsWith("class_lead:") ? "class_lead" : actual199;
+        if (position === "class_lead") { picked = "class_lead"; pickClass = target199.key.startsWith("class_lead:") ? target199.key.slice(11) : a?.classLead || ""; }
+      } else if (!["officer","high_council"].includes(intent199.applicationTrack)) position = intent199.applicationTrack === "raider" ? "raider" : "member";
+    }
+    const targetRoleKeys199 = office199(intent199?.targetOffice)?.applicationRoleKeys || [];
+    const regionalRole199 = targetRoleKeys199.length > 1 && targetRoleKeys199.every(key => /^(raid_leader|raid_assist)_(na|eu)$/.test(key)) ? h("select", {"aria-label":"Specific raid region"}, targetRoleKeys199.map(key => h("option", {value:key,text:roleName(key),selected:key === position,disabled:!!appointedTo(key)}))) : null;
+    if (regionalRole199) regionalRole199.addEventListener("change", () => {position = regionalRole199.value; sync(); touch();});
+    const pickedKey = position === "class_lead" ? ((pickClass || a?.classLead) ? `class_lead:${pickClass || a.classLead}` : "") : position;
     const positionBoxes = [];
     const classText = (c) => { const who = appointedTo(`class_lead:${c.key}`); return who ? `${c.label} (appointed: ${who})` : noVoteFor(`class_lead:${c.key}`) ? `${c.label} (no public vote)` : c.label; };
     const classLeadSel = h("select", null, h("option", { value: "", text: "Choose…" }),
-      meta.classes.map((c) => h("option", { value: c.key, text: classText(c), selected: picked === "class_lead" ? pickClass === c.key : !!a && a.classLead === c.key, disabled: !!appointedTo(`class_lead:${c.key}`) })));
+      meta.classes.map((c) => h("option", { value: c.key, text: classText(c), selected: picked === "class_lead" ? pickClass === c.key : !!a && a.classLead === c.key, disabled: !!appointedTo(`class_lead:${c.key}`) || !!intent199 && targetRoleKeys199.length > 0 && !targetRoleKeys199.includes(`class_lead:${c.key}`) })));
     const quietMarks = []; // [position, its "no public vote" line, its radio]: sync() keeps them to the current list
     const classLeadBox = fieldBox("classLead", "Which class would you lead?", classLeadSel, { required: true });
     const leaderBlock = h("div");
@@ -2083,6 +2214,8 @@
     const isVoted = () => chosenKeys().some((k) => (k === "class_lead" ? meta.classes.some((c) => votedKey(`class_lead:${c.key}`)) : votedKey(k)));
     const noVoteChosen = () => chosenKeys().filter((k) => k !== "class_lead" && noVoteFor(k));
     const sync = () => {
+      const first199 = position === "class_lead" && classLeadSel.value ? `class_lead:${classLeadSel.value}` : position;
+      for (const backup of backupSels) if (backup.value === first199) backup.value = "";
       for (const c of positionBoxes) c.classList.toggle("on", c.querySelector("input").checked);
       for (const [p, line, radio] of quietMarks) {
         line.hidden = !noVoteOf(p);
@@ -2096,6 +2229,7 @@
       const names = listText(quiet.map(roleName));
       boardNote.hidden = !voted;
       boardPortraitOk.disabled = !voted || !boardOk.checked;
+      boardIntentOk199.disabled = !voted || !boardOk.checked || !intent199;
       boardWhere.textContent = voted && quiet.length
         ? `${names} ${quiet.length === 1 ? "has" : "have"} no public vote, so your application is not listed under ${quiet.length === 1 ? "it" : "them"} there. If the leadership puts ${quiet.length === 1 ? "it" : "them"} to the vote later, it will be.`
         : "";
@@ -2114,9 +2248,16 @@
       h("div", { class: "group-label", text: "Membership" }),
       h("div", { class: "options" }, meta.positions.filter((p) => p.group === "membership").map(optionFor)),
       h("span", { class: "err", hidden: true }));
+    if (intent199) posField.hidden = true;
+    const trackPicker199 = applicationTrackPicker199(next => {
+      S.applicationIntent199 = next;
+      location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`;
+
+    }, intent199 || {});
     // Voted leadership roles put the application on the board, and only with the applicant's own tick (an application
     // saved before the board covered one of its roles stays off it until then). The Worker checks the same.
     const boardOk = h("input", { type: "checkbox", checked: !!(a && a.boardAt && (a.status === "submitted" || a.status === "reviewing")) });
+    const boardIntentOk199 = h("input", {type:"checkbox",id:"board-application-intent199",checked:false});
     const boardPortraitOk = h("input", { type: "checkbox", id: "board-portrait-opt-in", checked: boardOk.checked && ans.boardPortraitOptIn === true });
     boardOk.addEventListener("change", sync);
     const boardWhere = h("p", { class: "small", hidden: true });
@@ -2126,6 +2267,7 @@
         boardWhere,
         h("p", { class: "small", text: "Your main character, professions, logs, references, voice, hours and the last box stay with the guild's leadership unless you separately share declared character names and talent builds below. Nobody but the leadership sees how anyone voted or any counts." }),
         h("label", { class: "check" }, boardOk, h("span", { text: "Show my application on the voting board." })),
+        intent199 ? h("label", {class:"check"}, boardIntentOk199, h("span", {text:"Also show my selected application track and specific office / portfolio as badges on the voting board (optional; choose again on each save)."})) : null,
         h("div", { class: "field", "data-field": "boardPortrait" },
           h("label", { class: "check" }, boardPortraitOk, h("span", { text: "Also show my Discord profile picture on the voting board (optional)." })),
           h("p", { class: "muted small", text: "Earlier board consent did not include a Discord picture. Leave this unticked to keep it hidden on the board; you can change this choice by saving your application." }),
@@ -2296,6 +2438,9 @@
       h("nav", { class: "btn-row application-sections", "aria-label": "Application sections" }, [["application-choices", "Role choices"], ["application-about", "About you"], ["application-availability", "When you play"], ["application-submit", "Review and submit"]].map(([id, text]) =>
         h("button", { class: "btn small", type: "button", text, onclick: () => { const target = document.getElementById(id); if (target) scrollToSection(target); } }))),
       h("div", { class: "section-title", id: "application-choices" }, icon("icon-apply"), h("h3", { text: "Your first choice" })),
+      intent199 ? applicationBadges199(intent199) : h("p", {class:"muted small",text:"This older application has no track recorded. Choose a track below to add one; its existing role choices remain until then."}),
+      trackPicker199,
+      regionalRole199 ? fieldBox("applicationRaidRegion199", "Choose the specific raid-region seat", regionalRole199, {required:true}) : null,
       posField,
       classLeadBox,
       h("div", { class: "section-title" }, icon("icon-shield"), h("h3", { text: "Backup choices (optional)" })),
@@ -2364,11 +2509,12 @@
       answers.references = refs.map((r) => ({ kind: r.kind, key: r.key, label: r.label }));
       answers.professions = professions.filter((p) => profs.has(p.key)).map((p) => p.key);
       const backups = backupSels.map((x) => x.value).filter(Boolean);
-      const body = { position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, boardPortrait: isVoted() && boardOk.checked && boardPortraitOk.checked, boardTalentBuilds:isVoted() && boardOk.checked && talentSharing.checked, answers, ack: true };
+      const body = { ...(intent199 ? {applicationTrack:intent199.applicationTrack,targetOffice:intent199.targetOffice,boardApplicationIntent:isVoted() && boardOk.checked && boardIntentOk199.checked} : {}), position, classLead: position === "class_lead" ? classLeadSel.value : null, backups, character: character.value, class: cls.value, role: role.value, region: region.value, avail: hexFromBits(bitsFromBlocks(blocks, zone)), availTz: zone, fallback: fallback.checked, board: isVoted() && boardOk.checked, boardPortrait: isVoted() && boardOk.checked && boardPortraitOk.checked, boardTalentBuilds:isVoted() && boardOk.checked && talentSharing.checked, answers, ack: true };
       submit.disabled = true;
       try {
         const out = await api("PUT", "/api/application", body);
         S.application = out.application;
+        S.applicationIntent199 = null;
         setDirty("apply", false, unsaved);
         toast(a ? "Application updated." : "Application submitted. Good luck!", "good");
         render();
@@ -2423,7 +2569,7 @@
     row("Professions", profs.length ? profList(profs) : "");
     row("Voice", labelOf(meta.voice, ans.voice));
     row("Hours a week", ans.hours ? labelOf(meta.hours, ans.hours) : "");
-    const out = h("div", null, dl);
+    const out = h("div", null, applicationBadges199(ans), dl);
     if (a.avail) {
       add(out, [
         h("h3", { class: "mt", text: "When they play" }),
@@ -2465,12 +2611,28 @@
   const boardRoleCounts = new WeakMap(); // Counts only, scoped to the displayed role; never candidate data.
   const boardShells = new WeakMap(); // Mounted navigation only; each selected role still gets a fresh admitted read.
   ROUTES.vote = async function vote(main, parts) {
+    const selectedTrack199 = track199(dec(parts[0] || ""));
+    if (parts.length > 1) {
+      clear(main); boardShells.delete(main); main.dataset.applicationTrack199 = "true";
+      if (!selectedTrack199 || parts.length !== 2) {add(main, frame("Application track unavailable", null, h("a", {href:"#/vote",text:"Choose a supported application track"}))); return;}
+      const selectedOffice199 = dec(parts[1]), needsOffice199 = ["officer","high_council"].includes(selectedTrack199.id), office = office199(selectedOffice199);
+      if (needsOffice199 && (!office || !office.applicationEligible || office.applicationTrack !== selectedTrack199.id)) {
+        add(main, frame("Application track unavailable", null, h("p", {text:"Choose a currently supported office and its matching application track."}), h("a", {href:"#/vote",text:"Choose your application track"}))); return;
+      }
+      if (!needsOffice199 && selectedOffice199 !== "new") { add(main, h("p", {text:"This track does not use a specific office."})); return; }
+      S.applicationIntent199 = {applicationTrack:selectedTrack199.id,targetOffice:needsOffice199 ? selectedOffice199 : null};
+      ROUTES.apply(main); return;
+    }
     const meta = M();
     const s = S.settings || {};
     const closed = !s.votingOpen;
+    if (main.dataset.applicationTrack199) { clear(main); delete main.dataset.applicationTrack199; boardShells.delete(main); }
     const settingsKey = JSON.stringify([s.votingOpen, s.noVote, s.appointed]);
     let shell = boardShells.get(main);
     if (shell && shell.settingsKey !== settingsKey) { clear(main); shell = null; boardShells.delete(main); }
+    if (!main.querySelector("#application-track199")) {
+      add(main, [applicationTrackPicker199(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; }), writsPanel199("vote")]);
+    }
     // The Worker already caches these counts for 30 seconds. Reuse them while moving between roles, but always
     // read the selected role afresh: a changed appointment, membership or voting switch still refuses at the server.
     const cached = boardSummaryRead && nowMs() >= boardSummaryRead.at && nowMs() - boardSummaryRead.at < 30000;
@@ -2751,6 +2913,7 @@
             c.region ? h("span", { text: labelOf(meta.regions, c.region) }) : null,
             fitView(c.fit))),
         h("div", { class: "votes" }, forBtn, againstBtn)),
+      applicationBadges199(c.applicationIntent),
       answers.firstChild ? answers : null,
       answers.firstChild ? h("div", null, more) : null);
   }
@@ -2871,13 +3034,16 @@
     const lead = meta.positions.filter((p) => p.group === "leadership");
     const members = meta.positions.filter((p) => p.group === "membership");
     const chip = (p) => h("a", { class: "chip", href: "#/roles/" + encodeURIComponent(p.key) }, posIcon(p.key, "s"), h("span", { text: p.label }));
-    add(main, [
-      frame("Roles in Olympus", null,
+    add(main, [hierarchyPanel199(), rosettaPanel199(), ...officeTierPanels199(), writsPanel199("roles"),
+      h("details", {class:"card technical-profile199"}, h("summary", {text:"Technical & Historical Profile Notes"}),
+        h("p", {class:"muted small",text:"The exact ten-rank guide above is the current website classification. Historical beta-five and signed native-adapter profiles remain separate, versioned proof contexts. Publication does not certify actual game rank, install an addon, activate Link, or replace a Guild Master's attended game configuration."}),
+        officeAssignmentPanel()),
+      frame("Role responsibilities & application details", null,
         h("p", null, "Every role you can apply for: what it is, how much time it takes, who it works with, what you would be responsible for, and what the guild expects. You apply with a first choice and up to two backups."),
         h("p", { class: "muted small", text: `Leadership roles go on the voting board, where members read the applications and vote for or against; the guild's leadership makes the final choice.${lead.some(noVoteOf) || meta.classes.some((c) => noVoteFor(`class_lead:${c.key}`)) ? " Those marked “no public vote” are chosen by the leadership alone." : ""} Raider, PvP Team and Member are the plain ways in.` }),
         h("div", { class: "role-chips" }, lead.map(chip)),
         h("div", { class: "role-chips mt-s" }, members.map(chip))),
-      frame("Treasury Tiers & Tithe Payers", null,
+      h("details", {class:"card technical-profile199"}, h("summary", {text:"Historical three-tier provider profile (dispatch OFF)"}),
         h("p", {text:"Optional colour-only recognition for verified additional in-game gold: Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Ordinary dues do not count; use the designated Treasurer recipient and your TITHE reference."}),
         h("p", {class:"muted small", text:"Only the highest qualifying tier applies during one configured 90-day season. Its start is recorded when live tier dispatch is activated; source publication does not start a season or enable roles. Staff verify the extra-gold receipt, record the member’s recognition consent and separately confirm each exact role change."}),
         h("p", {class:"muted small", text:"These colours grant no membership, native rank, channel or bank access, vote, office or promotion. A website label reflects an actually held configured role during the season; it lapses at season end independently of Discord cleanup. Bounded removal may be delayed, and unknown provider outcomes remain held without blind retry."}),
@@ -2886,7 +3052,6 @@
       h("div", { class: "roles-grid" }, lead.map(card)),
       h("div", { class: "group-label", text: "Membership" }),
       h("div", { class: "roles-grid" }, members.map(card)),
-      officeAssignmentPanel(),
     ]);
     // "#/roles/liaison" (a chip here, or a link shared in Discord) lands on that role, below the sticky top bar; once more
     // when the game fonts have arrived (they change the page's height), unless the reader has scrolled since.
@@ -2956,6 +3121,7 @@
   ROUTES.admin = async function admin(main, parts) {
     const sub = parts[0] || "";
     add(main, frame("Admin", h("span", { class: "badge warn", text: "Visible to site admins only" }), adminTabs(sub)));
+    if (sub === "" || sub === "treasury") add(main, writsPanel199("admin", {checklist:true}));
     const body = h("div");
     main.appendChild(body);
     body.appendChild(h("p", { class: "muted", text: "Loading…" }));
@@ -3256,7 +3422,7 @@
       input.addEventListener("input", edit); edit();
     }
     const appointedGrid = (group) => h("div", { class: "appointed-grid" }, appointed.filter(([b]) => b.group === group).map(([b, input]) =>
-      h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label })), input),
+      h("div", { class: "field appointed-row" }, h("label", null, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: b.label }), officeBadge199(b)), input),
         picker({ label: `${b.label}: associate Discord account`, placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true,
           onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }),
         associationStatus.get(b.key))));
@@ -4212,7 +4378,7 @@
     const rows = data.items.map((it) => {
       const tr = h("tr", { class: "clickable" },
         h("td", { class: "wrap" }, h("a", { class: "application-open", href: `#/admin/applications/${it.user.id}`, title: "Open application" }, userCell(it.user))),
-        h("td", { class: "wrap" }, h("span", { class: "nowrap" }, posIcon(firstChoiceKey(it), "s"), " ", roleName(firstChoiceKey(it))), (it.backups || []).length ? h("div", { class: "faint small", text: "then " + it.backups.map(roleName).join(", ") }) : null),
+        h("td", { class: "wrap" }, applicationBadges199(it.answers), h("span", { class: "nowrap" }, posIcon(firstChoiceKey(it), "s"), " ", roleName(firstChoiceKey(it))), (it.backups || []).length ? h("div", { class: "faint small", text: "then " + it.backups.map(roleName).join(", ") }) : null),
         h("td", null, it.class ? clsLabel(it.class) : null, h("div", { class: "small muted" }, roleIcon(it.role), " ", labelOf(M().roles, it.role))),
         h("td", null, fitView(it.fit, { compact: true })),
         h("td", null, h("span", { class: "status " + (it.user.denied ? "denied" : it.status), text: it.user.denied ? "Denied" : statusText(it.status) })),
@@ -4793,6 +4959,7 @@
   ROUTES.news = async function townCrier(main, parts) {
     if (!S.signedIn || S.denied || !can("applicantWrite")) { add(main, standingNotice()); return; }
     const editing = parts[0] === "edit";
+    add(main, writsPanel199("news"));
     add(main, frame("Town Crier", null,
       h("p", { text: "Guild announcements and the Lead Correspondent's dispatches." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn small", href: "#/news", text: "Read dispatches" }),
@@ -4833,7 +5000,7 @@
     if (sub === "workshop" && feat("crafting")) {
       add(body, [frame("Crafters & Artisans Workshop", h("a", { class: "btn small", href: "#/community/profile", text: "List my recipes" }),
         h("p", { text: "Find members offering rare recipes, consumables and specialist crafts. Search by recipe or profession, then arrange materials and payment directly with the crafter." }),
-        h("p", { class: "muted small", text: "Opt in through My profile: list your profile, professions and any recipes you wish to offer. Untick the listing box to withdraw from both directories, or remove individual offers there. Recipe ownership, rarity and skill are self-reported; confirm them before trading." })), craftingPanel(true)]); return;
+        h("p", { class: "muted small", text: "Opt in through My profile: list your profile, professions and any recipes you wish to offer. Untick the listing box to withdraw from both directories, or remove individual offers there. Recipe ownership, rarity and skill are self-reported; confirm them before trading." })), writsPanel199("community/workshop"), craftingPanel(true)]); return;
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
@@ -4948,6 +5115,7 @@
   }
   // .183: read-only snapshots stay in this shell; attended reporting retains its separate capture policy.
   async function communityArmyReview(body) {
+    add(body, writsPanel199("army"));
     const user = S.user, context = COM(), route = currentRoute(); let instance = null, disposed = false;
     const live = () => !disposed && app.contains(body) && S.user === user && COM() === context && currentRoute() === route && can("armyRead");
     const capacity = armyCapacityPanel(live);
