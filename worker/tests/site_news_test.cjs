@@ -1043,8 +1043,11 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // Direct owner ruling of 23 Oct 2026 qualifies the two original exact current-ladder paragraphs.
   // Canonical native-rank icon rendering is separately within the 24 Oct .197 owner scope;
   // its exact icon-map context below is qualified independently of those earlier paragraphs.
-  // .198 explicitly publishes the five Titles. Exactly one single-line Title II
-  // quicklink adds a public Council phrase; its bytes are qualified separately.
+  // .198 explicitly publishes the five Titles. Its one Title II quicklink stays pinned.
+  // Direct owner199 scope additionally approves the exact ten-rank/office/Rosetta
+  // and application-track bridge below, including its local execution-policy paragraph.
+  // Each added source line is independently file/byte/count pinned; the updated
+  // icon map only adds the owner-approved Officer Alt native-rank display.
   // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
   const CURRENT_CONTEXTS = Object.freeze([
     {
@@ -1066,10 +1069,12 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     {
         "file": "worker/public/static/app.js",
         "startMarker": "    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon(",
-        "paragraphSha256": "8c42924a47c935630ee2dd5c312044e983e3aa8dee563dbf8bd73f9a1756bfcf",
-        "paragraphBytes": 676,
+        "paragraphSha256": "fa44193ecfc28838c7fa59c6677ca1203de9e4eb906877ae67bb297f87a0065b",
+        "paragraphBytes": 698,
         "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Exact current ten-rank native icon map; Officer Alt is slot3, Treasurer remains appointment metadata."
     },
     {
         "file": "worker/public/static/app.js",
@@ -1079,6 +1084,138 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
         "paragraphBytes": 146,
         "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
         "count": 1
+    },
+    {
+        "file": "worker/src/site-data.ts",
+        "startMarker": "  .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible",
+        "singleLine": true,
+        "paragraphSha256": "0593910dc99a5c66b1e4a61f6f94c93b31d39ddeafaa1345634f14644cbda0dc",
+        "paragraphBytes": 140,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/src/site-api.ts",
+        "startMarker": "  const officeLeadership199 = intent199?.applicationTrack === 'officer'",
+        "singleLine": true,
+        "paragraphSha256": "c3a82bcf9a5beccbe3b3925e15179bdc7f88ae0e5811156740c970c822f7ac81",
+        "paragraphBytes": 122,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "CLAUDE.md",
+        "startMarker": "**Build .199 owner override (25 Oct 2026):**",
+        "singleLine": true,
+        "paragraphSha256": "8bf5bb8b7fde55c9722d56605d400491f89664fa27fabcbe41bdbe31d075519f",
+        "paragraphBytes": 1461,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "    if (office && /^office_[0-9]{2}$/.test(key)) return icon(",
+        "singleLine": true,
+        "paragraphSha256": "1a3ef07bdc923a4fc1ffda9e0a86f3fc9513efc8ffeaea167b0080453746ea8b",
+        "paragraphBytes": 223,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "      h(\"p\", { text: \"Leader and High Council govern;",
+        "singleLine": true,
+        "paragraphSha256": "02b3d34889f0d5141a35285db5f80bbc649d2dff5893828f62d193c0a0d830c8",
+        "paragraphBytes": 266,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "    return [[\"leader\", \"Leader & Royal Appointments\"],",
+        "singleLine": true,
+        "paragraphSha256": "9150e9050271e45a6731f953e47bd5129b51c8c4e91a18dda13704759dbbde93",
+        "paragraphBytes": 230,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 2,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "          available && [\"officer\", \"high_council\"].includes(row.applicationTrack)",
+        "singleLine": true,
+        "paragraphSha256": "0ec0e06cd6c51dc44da0f5352ac95cbc2a052418bd53e80be6c278754c3595f5",
+        "paragraphBytes": 234,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "      const t = track199(select.value), needs = [\"officer\", \"high_council\"].includes(select.value)",
+        "singleLine": true,
+        "paragraphSha256": "d552d6ed9dae8466206e7e96b040bfdbb86b333e893d870de62bb61753bd6ca0",
+        "paragraphBytes": 143,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "    const rememberedIntent199 = rememberedOffice199?.applicationEligible",
+        "singleLine": true,
+        "paragraphSha256": "eb3101d1798c0e4eccc2c3c0a914c95405c737c0c478af03a42fbb5511003ea6",
+        "paragraphBytes": 252,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "      if (target199 && [\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
+        "singleLine": true,
+        "paragraphSha256": "deea89b1f132a5a337282a40fd6ce0a5242ae8b02d431ca354166d42cd5bb461",
+        "paragraphBytes": 89,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "      } else if (![\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
+        "singleLine": true,
+        "paragraphSha256": "677df54e09038998ace5bd0de800e7407bfc969bd322da1727a6a567c7f80ba5",
+        "paragraphBytes": 156,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "      const selectedOffice199 = dec(parts[1]), needsOffice199 = [\"officer\",\"high_council\"].includes(selectedTrack199.id)",
+        "singleLine": true,
+        "paragraphSha256": "3f9309ed7254ee02735f20d3b95a8692935d3b8c5251e9aaf39020749c2a2097",
+        "paragraphBytes": 160,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1,
+        "ownerRelease": 199,
+        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
     }
 ]);
   const guardedCounts = (text) => {
@@ -1151,15 +1288,15 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current app contexts qualify exactly the original icon map and one owner-approved Title II quicklink", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 2 && qualifiedIcon.credits[currentDigest] === 2 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly11 pinned icon, Title II and owner199 hierarchy/application bridge contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 11 && qualifiedIcon.credits[currentDigest] === 12 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the two exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 2 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the11 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 12 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
   check("approved icon bytes in another guarded file receive no qualification", !!originalIconContext && vocabularyOverages("README.md", originalIconContext).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalIconContext).credits).length === 0);
-  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 2, [otherDigest]: 1 }, qualifiedIcon);
+  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 12, [otherDigest]: 1 }, qualifiedIcon);
   check("every other icon-file digest retains its original allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedIcon.credits[d] === undefined) && otherIconDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))));
   const titleIISpec = CURRENT_CONTEXTS.find(spec => spec.singleLine), titleIIContext = qualifiedIcon.paragraphs.find(text => text.startsWith(titleIISpec.startMarker)) || "";
   check(".198 Title II qualification is one exact 146-byte line with only its single approved digest", titleIISpec.singleLine === true && Buffer.byteLength(titleIIContext, "utf8") === 146 && sha(titleIIContext) === titleIISpec.paragraphSha256 && titleIIContext.split("\n").length === 1 && JSON.stringify(guardedCounts(titleIIContext)) === JSON.stringify({ [currentDigest]: 1 }));
@@ -1167,6 +1304,23 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   check(".198 any Title II link byte edit loses its fixed context credit", !!titleIIContext && currentContextQualification(iconFile, iconText.replace(titleIIContext, alteredTitleIIContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(titleIIContext, alteredTitleIIContext)).length > 0);
   check(".198 duplicating the approved Title II line cannot borrow another credit", !!titleIIContext && currentContextQualification(iconFile, `${iconText}\n${titleIIContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n${titleIIContext}`).length > 0);
   check(".198 exact Title II link bytes in another file receive no context credit", !!titleIIContext && Object.keys(currentContextQualification("README.md", titleIIContext).credits).length === 0 && vocabularyOverages("README.md", titleIIContext).some(s => s.includes(currentDigest.slice(0, 12))));
+
+  const ownerContexts199 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 199);
+  check(".199 extends only13 exact public-rank contexts in four owner-authorized files with the original28-digest guard intact", ownerContexts199.length === 13 && GUARD.size === 28 && ownerContexts199.every(spec => spec.digest === currentDigest) && JSON.stringify([...new Set(ownerContexts199.map(spec => spec.file))].sort()) === JSON.stringify(["CLAUDE.md", "worker/public/static/app.js", "worker/src/site-api.ts", "worker/src/site-data.ts"].sort()));
+  for (const spec of ownerContexts199) {
+    const text = guarded.find(([file]) => file === spec.file)[1], qualified = currentContextQualification(spec.file, text);
+    const paragraph = qualified.paragraphs.find(value => value.startsWith(spec.startMarker)) || "";
+    const changed = paragraph ? `${paragraph.slice(0, -1)}!` : "";
+    check(".199 exact context qualifies only its pinned source bytes: " + spec.file + " / " + spec.paragraphSha256.slice(0, 12), qualified.errors.length === 0 && Buffer.byteLength(paragraph, "utf8") === spec.paragraphBytes && sha(paragraph) === spec.paragraphSha256 && (guardedCounts(paragraph)[currentDigest] || 0) === spec.count);
+    check(".199 context byte edit or duplicate cannot borrow its credit: " + spec.paragraphSha256.slice(0, 12), !!paragraph && currentContextQualification(spec.file, text.replace(paragraph, changed)).errors.length > 0 && vocabularyOverages(spec.file, text.replace(paragraph, changed)).length > 0 && currentContextQualification(spec.file, `${text}\n\n${paragraph}`).errors.length > 0 && vocabularyOverages(spec.file, `${text}\n\n${paragraph}`).length > 0);
+    check(".199 exact context in another guarded file receives no credit: " + spec.paragraphSha256.slice(0, 12), !!paragraph && Object.keys(currentContextQualification("README.md", paragraph).credits).length === 0 && vocabularyOverages("README.md", paragraph).some(value => value.includes(currentDigest.slice(0, 12))));
+  }
+  for (const file of [...new Set(ownerContexts199.map(spec => spec.file))]) {
+    const text = guarded.find(([name]) => name === file)[1], qualified = currentContextQualification(file, text);
+    const before = vocabularyOverages(file, text), outside = vocabularyOverages(file, `${text}\n\n${approvedGram}`);
+    check(".199 scope leaves an extra public-rank occurrence outside every exact context restricted: " + file, !!approvedGram && before.length === 0 && outside.some(value => value.includes(currentDigest.slice(0, 12))));
+    check(".199 scope does not raise any of the other27 withheld-digest allowances: " + file, [...GUARD].filter(digest => digest !== currentDigest).every(digest => qualified.credits[digest] === undefined && overOriginalVocabularyAllowance(file, { [digest]: ((ALLOWED[file] || {})[digest] || 0) + 1 }, qualified).some(value => value.includes(digest.slice(0, 12)))));
+  }
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

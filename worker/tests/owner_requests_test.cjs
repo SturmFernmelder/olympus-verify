@@ -424,7 +424,15 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: NAME_WITHHELD } } });
   out = await J(res);
   check("removal on request: typing Name withheld needs no tick", res.status === 200 && out.settings.appointed.treasurer === NAME_WITHHELD && JSON.parse(settingsAudits().at(-1).details).appointedNames === 1);
-  check("  the name leaves the member's settings, actual page and /api/me", !(await memberJson()).includes(defaultHolder) && !(await signedMemberBoot()).includes(defaultHolder) && !(await meJson()).includes(defaultHolder));
+  // .199 explicitly names Fernmelder as the public gold-mail recipient. Test removal of the
+  // appointment identity separately from that fixed public catalogue, then use a unique private sentinel.
+  check("  the default name leaves every actual appointment projection", [JSON.parse(await memberJson()),JSON.parse(await signedMemberBoot()),JSON.parse(await meJson())].every(dto => dto.settings.appointed.treasurer === NAME_WITHHELD && !Object.values(dto.settings.appointed).includes(defaultHolder)));
+  const removalWitness199 = "Private Office Sentinel199";
+  res = await http("PUT", "/api/admin/settings", {who:ADMIN,body:{appointed:{treasurer:removalWitness199},namesConfirmed:true}});
+  check("  a distinct private holder reaches all three real views before withdrawal", res.status === 200 && [await memberJson(),await signedMemberBoot(),await meJson()].every(raw => raw.includes(removalWitness199)));
+  res = await http("PUT", "/api/admin/settings", {who:ADMIN,body:{appointed:{treasurer:NAME_WITHHELD}}});
+  check("  withdrawing the private holder removes all occurrences from settings, actual page and own data", res.status === 200 && [await memberJson(),await signedMemberBoot(),await meJson()].every(raw => !raw.includes(removalWitness199)));
+
   res = await http("GET", "/api/board/treasurer", { who: PLAIN });
   out = await J(res);
   check("  the role stays appointed: its board stays closed, held by Name withheld", res.status === 409 && out.error === "appointed" && out.appointed === NAME_WITHHELD, res.status, out);

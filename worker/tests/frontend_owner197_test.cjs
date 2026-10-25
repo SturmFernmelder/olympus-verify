@@ -242,7 +242,100 @@ async function frontendOwner197() {
       await leadershipPage.go('#/');
     }
   } finally { originalTestFetch = leadershipTransport; }
-  console.log('\n' + ok + '/' + n + ' owner197 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
+  // .199: the same admitted app/Worker fixture now exercises the guided application
+  // UI. These are local synthetic reads/writes, not provider or game acceptance.
+  const APPLICANT199 = '730000000000000199';
+  await siteUser(APPLICANT199, { global_name: 'Iris' }); await character(APPLICANT199, 'Iris Main', 'Player-1-0199');
+  const guided199 = await openPage(APPLICANT199); await guided199.go('#/vote');
+  await must(() => !!guided199.app.querySelector('#application-track199'), '.199 six-track picker');
+  const tracks199 = guided199.app.querySelector('#application-track199'), offices199 = guided199.app.querySelector('#application-office199'), search199 = guided199.app.querySelector('#application-office-search199');
+  const trackIds199 = ['member', 'raider', 'artisan', 'officer', 'high_council', 'patron'];
+  check('.199 visible picker has exactly the six owner-directed application tracks', JSON.stringify(tracks199.options.filter(option => option.value).map(option => option.value)) === JSON.stringify(trackIds199) && tracks199.getAttribute('aria-label') === 'Application track');
+  tracks199.value = 'high_council'; fire(tracks199, 'change');
+  const councilKeys199 = offices199.options.filter(option => option.value).map(option => option.value);
+  check('.199 Council picker contains eligible Council portfolios and requires a specific seat', councilKeys199.includes('office_67') && councilKeys199.includes('office_58') && councilKeys199.every(key => guided199.boot.meta.appointments.find(row => row.key === key)?.applicationTrack === 'high_council') && byText(guided199.app, 'button', 'Apply on this track').disabled);
+  tracks199.value = 'officer'; fire(tracks199, 'change'); search199.value = 'Mage Class Lead'; fire(search199, 'input');
+  check('.199 searchable Officer picker narrows to the exact class office without Council leakage', offices199.options.some(option => option.value === 'class_lead:mage') && offices199.options.filter(option => option.value).every(option => /mage/i.test(option.textContent)) && !offices199.options.some(option => councilKeys199.includes(option.value)));
+  search199.value = ''; fire(search199, 'input'); offices199.value = 'office_62'; fire(offices199, 'change'); byText(guided199.app, 'button', 'Apply on this track').click();
+  await must(() => !!guided199.app.querySelector('form') && !!guided199.app.querySelector('[data-target-office="office_62"]'), '.199 actual picker enters exact Officer form');
+  check('.199 actual track action opens the exact office form with the canonical Officer first choice', guided199.location.hash === '#/vote/officer/office_62' && guided199.app.querySelector('#application-track199').value === 'officer' && guided199.app.querySelector('#application-office199').value === 'office_62' && guided199.app.querySelector('[data-field="position"]').hidden && guided199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'officer')?.checked);
+  const publicIntent199 = guided199.app.querySelector('#board-application-intent199');
+  check('.199 new office form never implies public intent, portrait or talent consent', !!publicIntent199 && !publicIntent199.checked && publicIntent199.disabled && !guided199.app.querySelector('#board-portrait-opt-in').checked && !guided199.app.querySelector('#board-talent-builds-opt-in').checked);
+  await guided199.go('#/vote/not-a-track/office_62');
+  check('.199 invalid track URL clears the prior valid application form and target badge', !guided199.app.querySelector('form') && !guided199.app.querySelector('[data-target-office="office_62"]') && guided199.app.textContent.includes('Application track unavailable'));
+  await guided199.go('#/vote/high_council/office_62');
+  check('.199 cross-tier office URL fails closed without mounting the former form', !guided199.app.querySelector('form') && guided199.app.textContent.includes('matching application track'));
+  await guided199.go('#/vote/high_council/office_67');
+  check('.199 exact Privy Council deep link preselects the Council track and matching portfolio', guided199.app.querySelector('#application-track199')?.value === 'high_council' && guided199.app.querySelector('#application-office199')?.value === 'office_67' && guided199.app.querySelector('[data-target-office="office_67"]') && guided199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'office_67')?.checked);
+  const membership199 = await openPage(APPLICANT199); await membership199.go('#/apply');
+  check('.199 fresh ordinary application defaults visibly to Member without a public-intent tick', membership199.app.querySelector('#application-track199')?.value === 'member' && membership199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'member')?.checked && !membership199.app.querySelector('#board-application-intent199')?.checked);
+  for (const [track, canonical] of [['raider', 'raider'], ['artisan', 'member'], ['patron', 'member']]) {
+    await membership199.go('#/vote/' + track + '/new');
+    check('.199 ' + track + ' track uses its honest canonical application position without an office grant', membership199.app.querySelector('#application-track199')?.value === track && membership199.app.querySelectorAll('input[name="position"]').find(input => input.value === canonical)?.checked && !membership199.app.querySelector('[data-target-office]') && !membership199.app.querySelector('#board-application-intent199')?.checked);
+  }
+
+  const seed199 = { ...body, character: 'Iris Main', class: 'mage', backups: ['class_lead:mage', 'raid_leader_na'], answers: { ...body.answers, extra: 'Private .199 office applicant sentinel' } }; delete seed199.answers.talentBuilds;
+  const seeded199 = await request('PUT', '/api/application', seed199, APPLICANT199);
+  if (seeded199.response.status !== 200) throw Error('.199 exact-office seed refused: ' + JSON.stringify(seeded199.body));
+  const exact199 = await openPage(APPLICANT199), exactSends199 = [];
+  exact199.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') exactSends199.push(JSON.parse(init.body)); return false; });
+  await exact199.go('#/vote/officer/class_lead%3Amage');
+  let exactForm199 = exact199.app.querySelector('form'), classPick199 = exact199.app.querySelector('[data-field="classLead"] select');
+  check('.199 exact Mage Class Lead form permits only its requested class and removes the same first-choice backup', classPick199.value === 'mage' && classPick199.options.filter(option => option.value).every(option => option.value === 'mage' ? !option.disabled : option.disabled) && exactForm199.querySelectorAll('[data-field="backups"] select').every(select => select.value !== 'class_lead:mage') && exactForm199.querySelectorAll('[data-field="backups"] select').some(select => select.value === 'raid_leader_na'));
+  check('.199 saved board membership still does not imply public office-intent consent', !exact199.app.querySelector('#board-application-intent199').checked && !exact199.app.querySelector('#board-application-intent199').disabled && !exact199.app.querySelector('#board-portrait-opt-in').checked && !exact199.app.querySelector('#board-talent-builds-opt-in').checked);
+  exactForm199.querySelector('[data-field="ack"] input').checked = true; fire(exactForm199, 'submit');
+  const saved199 = () => JSON.parse(one('SELECT answers FROM site_applications WHERE discord_id=?', APPLICANT199).answers);
+  await must(() => exactSends199.length === 1 && saved199().targetOffice === 'class_lead:mage' && !exact199.app.querySelector('button[type="submit"]').disabled, '.199 actual exact-class application save');
+  check('.199 actual save persists bounded track and target in owned answers while leaving all three publication choices private', exactSends199[0].position === 'class_lead' && exactSends199[0].classLead === 'mage' && exactSends199[0].applicationTrack === 'officer' && exactSends199[0].targetOffice === 'class_lead:mage' && exactSends199[0].boardApplicationIntent === false && exactSends199[0].boardPortrait === false && exactSends199[0].boardTalentBuilds === false && saved199().applicationTrack === 'officer' && saved199().boardApplicationIntentOptIn === false);
+  const privateIntentBoard199 = await openPage(OTHER); await privateIntentBoard199.go('#/vote/class_lead%3Amage');
+  await must(() => privateIntentBoard199.app.querySelectorAll('.cand').some(candidate => candidate.textContent.includes('Iris')), '.199 actual class board private-intent read');
+  let irisCard199 = privateIntentBoard199.app.querySelectorAll('.cand').find(candidate => candidate.textContent.includes('Iris'));
+  check('.199 other voter sees the original board answers but no unconsented intent badge or private extra', !!irisCard199 && !irisCard199.querySelector('.application-intent199') && !irisCard199.textContent.includes(seed199.answers.extra));
+  exactForm199 = exact199.app.querySelector('form'); const explicitIntent199 = exact199.app.querySelector('#board-application-intent199'); explicitIntent199.checked = true; fire(explicitIntent199, 'change'); exactForm199.querySelector('[data-field="ack"] input').checked = true; fire(exactForm199, 'submit');
+  await must(() => exactSends199.length === 2 && saved199().boardApplicationIntentOptIn === true && !exact199.app.querySelector('button[type="submit"]').disabled, '.199 separate exact-office publication choice');
+  const sharedIntentBoard199 = await openPage(OTHER); await sharedIntentBoard199.go('#/vote/class_lead%3Amage');
+  await must(() => !!sharedIntentBoard199.app.querySelector('.cand [data-target-office="class_lead:mage"]'), '.199 explicitly shared exact office badge');
+  irisCard199 = sharedIntentBoard199.app.querySelectorAll('.cand').find(candidate => candidate.textContent.includes('Iris'));
+  check('.199 explicit intent consent publishes only canonical track and office badges without portrait, talents or private extra', irisCard199.querySelector('.application-intent199')?.getAttribute('data-application-track') === 'officer' && irisCard199.querySelector('[data-target-office="class_lead:mage"]') && !irisCard199.querySelector('.talent-build-links') && !irisCard199.textContent.includes(seed199.answers.extra) && exactSends199[1].boardApplicationIntent === true && exactSends199[1].boardPortrait === false && exactSends199[1].boardTalentBuilds === false);
+  check('.199 successful save resets its separate public-intent control for the next save', !exact199.app.querySelector('#board-application-intent199').checked);
+  const regional199 = await openPage(APPLICANT199); await regional199.go('#/vote/officer/office_74');
+  const regionPick199 = regional199.app.querySelector('[data-field="applicationRaidRegion199"] select'), backupPick199 = regional199.app.querySelectorAll('[data-field="backups"] select')[0];
+  check('.199 canonical Raid Leader office exposes exactly NA and EU existing regional seats', JSON.stringify(regionPick199.options.map(option => option.value)) === JSON.stringify(['raid_leader_na', 'raid_leader_eu']));
+  backupPick199.value = 'raid_leader_eu'; fire(backupPick199, 'change'); regionPick199.value = 'raid_leader_eu'; fire(regionPick199, 'change');
+  check('.199 changing raid region removes that exact role from backups without inventing a new seat', backupPick199.value === '' && regionPick199.value === 'raid_leader_eu' && !regional199.app.querySelector('#board-application-intent199').checked);
+  const regionalSends199 = []; regional199.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') regionalSends199.push(JSON.parse(init.body)); return false; });
+  const regionalForm199 = regional199.app.querySelector('form'); regionalForm199.querySelector('[data-field="ack"] input').checked = true; fire(regionalForm199, 'submit');
+  await must(() => regionalSends199.length === 1 && !regional199.app.querySelector('button[type="submit"]').disabled, '.199 terminal regional selection save');
+  check('.199 actual regional save uses the existing EU ballot key and retains the exact canonical office intent privately', regionalSends199[0].position === 'raid_leader_eu' && regionalSends199[0].targetOffice === 'office_74' && !regionalSends199[0].backups.includes('raid_leader_eu') && one('SELECT position FROM site_applications WHERE discord_id=?', APPLICANT199).position === 'raid_leader_eu' && saved199().targetOffice === 'office_74' && saved199().boardApplicationIntentOptIn === false);
+
+  const roles199 = await openPage(APPLICANT199); await roles199.go('#/roles/rosetta-stone');
+  const exactNames199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
+  const nativeCards199 = roles199.app.querySelectorAll('.rank-guide199-grid [data-native-slot]');
+  check('.199 role guide fronts exactly ten ordered native ranks with the owner-confirmed zero-based slots', nativeCards199.length === 10 && nativeCards199.every((card, index) => card.getAttribute('data-native-slot') === String(index) && card.querySelector('h3').textContent === 'Rank ' + (index + 1) + ' — ' + exactNames199[index]));
+  const table199 = roles199.app.querySelector('.rosetta-table199'), headings199 = ['In-Game Rank Number & Name', 'Tier & Statutory Codex Title', 'Organization Department & Branch Offices', 'Discord Role & Portal Access', 'How to Attain It'];
+  const rows199 = table199.querySelectorAll('[data-rank-crosswalk]');
+  check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows', JSON.stringify(table199.querySelectorAll('th').map(th => th.textContent)) === JSON.stringify(headings199) && rows199.length === 10 && rows199.every((row, index) => row.getAttribute('data-rank-crosswalk') === String(index + 1) && row.querySelectorAll('td').length === 5 && row.querySelectorAll('td').every((td, column) => td.getAttribute('data-column') === headings199[column])));
+  const bridgeKeys199 = rows199.flatMap(row => row.querySelectorAll('li a').map(link => decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))));
+  const expectedKeys199 = roles199.boot.meta.appointments.map(row => row.key);
+  check('.199 Rosetta Stone enumerates all 131 assignable keys exactly once across their ten rank rows', bridgeKeys199.length === 131 && new Set(bridgeKeys199).size === 131 && JSON.stringify(bridgeKeys199.slice().sort()) === JSON.stringify(expectedKeys199.slice().sort()) && rows199.every(row => row.querySelectorAll('li a').every(link => roles199.boot.meta.appointments.find(office => office.key === decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))).nativeRankOrdinal === Number(row.getAttribute('data-rank-crosswalk')))));
+  const seatCards199 = roles199.app.querySelectorAll('.office-seat199'), eligibleKeys199 = roles199.boot.meta.appointments.filter(row => row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack));
+  check('.199 all 95 stable offices and 131 assignment cards have individual rank badges and exact open-seat apply links', seatCards199.length === 131 && seatCards199.filter(card => /^office_[0-9]{2}$/.test(card.getAttribute('data-office-key'))).length === 95 && seatCards199.every(card => !!card.querySelector('.rank-office199')) && eligibleKeys199.every(row => !!roles199.app.querySelector('[data-office-key="' + row.key + '"] a[href="#/vote/' + row.applicationTrack + '/' + encodeURIComponent(row.key) + '"]')));
+  const historical199 = roles199.app.querySelector('.technical-profile199');
+  check('.199 competing historical profile guidance is closed under its explicit technical accordion', !!historical199 && !historical199.open && historical199.querySelector('summary').textContent === 'Technical & Historical Profile Notes' && roles199.app.textContent.includes('Co-Guild Master and Treasurer are appointments, not extra native ranks'));
+  const goldKeys199 = roles199.boot.meta.royalWrits.map(row => row.key).sort();
+  check('.199 roles renders the complete 20-item reviewed gold-only schedule and truthful OFF gates', goldKeys199.length === 20 && JSON.stringify(roles199.app.querySelectorAll('.royal-writs199 [data-writ-key]').map(row => row.getAttribute('data-writ-key')).sort()) === JSON.stringify(goldKeys199) && roles199.app.querySelector('.gold-policy199').textContent === roles199.boot.meta.royalWritPolicy.banner && roles199.app.textContent.includes('Olympus Link remain OFF') && roles199.app.textContent.includes("recipient's prior, specific, revocable opt-in"));
+  for (const page199 of ['vote', 'governance', 'news', 'community/workshop']) {
+    const goldPage199 = await openPage(APPLICANT199); await goldPage199.go('#/' + page199);
+    await must(() => !!goldPage199.app.querySelector('[data-royal-writ-page="' + page199 + '"]'), '.199 ' + page199 + ' gold reference');
+    check('.199 ' + page199 + ' exposes all 20 catalogue rows with the shared gold-only, free-addon and officer-review policy', goldPage199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && goldPage199.app.querySelector('.gold-policy199')?.textContent === goldPage199.boot.meta.royalWritPolicy.banner && goldPage199.app.textContent.includes('no USD, Twitch subscriptions or crypto') && goldPage199.app.textContent.includes('zero paid addon gating'));
+  }
+  const army199 = await openPage(APPLICANT199); await army199.go('#/army');
+  await must(() => !!army199.app.querySelector('[data-royal-writ-page="army"]'), '.199 Army charter schedule');
+  check('.199 Army shows four reviewed flagship/leave writs without converting the unavailable live feed into capacity', army199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 4 && army199.app.querySelector('.gold-policy199')?.textContent === army199.boot.meta.royalWritPolicy.banner && !army199.app.querySelector('.royal-writs199 button'));
+  const admin199 = await openPage(STAFF); await admin199.go('#/admin/treasury');
+  await must(() => !!admin199.app.querySelector('.stockades-checklist199'), '.199 attended Treasury/Stockades operator reference');
+  check('.199 Treasury keeps all 20 writs and eight manual steps honest about the unconfirmed external appeal venue', admin199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && admin199.app.querySelectorAll('.stockades-checklist199 li').length === 8 && admin199.app.querySelector('.stockades-checklist199').textContent.includes('repurposing and an approved appeal invite are not confirmed') && admin199.app.querySelector('.gold-policy199')?.textContent === admin199.boot.meta.royalWritPolicy.banner && !admin199.app.querySelector('.stockades-checklist199 button'));
+  console.log('\n' + ok + '/' + n + ' owner197/199 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
 }
 const execution197 = new Module(__filename, module); execution197.filename = __filename; execution197.paths = Module._nodeModulePaths(__dirname);
