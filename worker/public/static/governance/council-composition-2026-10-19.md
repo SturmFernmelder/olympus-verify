@@ -1,3 +1,13 @@
+# .199 owner supersession notice — 25 October 2026
+
+**The current .199 website hierarchy supersedes the native-rank wording in this dated record.**
+
+The owner-directed website and planning guide uses **Leader: zero-based slot 0; High Council: zero-based slot 1; Officer: zero-based slot 2**. Co-Guild Master and Treasurer are High Council appointments, **not additional native ranks**. Read the complete current ten-rank guide at [Olympus Role & Rank Rosetta Stone](/#/roles/rosetta-stone).
+
+The entire 19–23 October record below is retained verbatim as **historical evidence**. Its older rank-order wording and references to what was “current” apply to those recorded dates; they do not set the .199 hierarchy. Actual in-game configuration, signing profiles, accepted warrants, Council votes and bank permissions require their separate attended verification and records.
+
+---
+
 # Current composition clarification — 23 October 2026
 
 The owner now directs Guild Master, Co-Guild Master and Treasurer as the core Council offices, supported by the portfolio ministers and accepted Council mandates. The chosen B ladder retains High Council Slot 2 and puts Treasurer in Slot 3 (index 2), above Officer Slot 4. No published name or native rank alone issues a Council vote, accepted warrant or actual permission. Existing current website associations remain unchanged. The dated 19 October proposal below is historical where superseded; no missing constitutional signature is manufactured.

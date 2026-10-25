@@ -32,8 +32,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 20463,
-      "sha256": "46a9350a34a1f03ec35c2d0dbec264a711a2f53fc439edb44c49f0dd268806e0"
+      "bytes": 20442,
+      "sha256": "3c86d84431b8692519fa3f6de356ab274c2e708f944be55e1bff3e9d8caf7271"
     },
     {
       "path": "worker/public/static/rank-planner/catalogue.js",
@@ -3815,8 +3815,8 @@
     {
       "path": "worker/src/site-ranks.ts",
       "mode": "100644",
-      "bytes": 12624,
-      "sha256": "8101b6e4b8d3f042e633895487789c6e3570191795fc20944b59ab56ea33c66e"
+      "bytes": 13721,
+      "sha256": "9b4b61a21de00ba6e6e4c6121daf65c3ba23548bd1bab823a873043e6d3a2659"
     },
     {
       "path": "worker/public/static/app.js",
@@ -3827,8 +3827,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 20463,
-      "sha256": "46a9350a34a1f03ec35c2d0dbec264a711a2f53fc439edb44c49f0dd268806e0"
+      "bytes": 20442,
+      "sha256": "3c86d84431b8692519fa3f6de356ab274c2e708f944be55e1bff3e9d8caf7271"
     },
     {
       "path": "worker/src/site-core.ts",
@@ -3995,8 +3995,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 31830,
-      "sha256": "293f0af8ce5041dd6265816cadb4e6f6b3b3bf276960d9f5cd9b6e3c333bcc7e"
+      "bytes": 31834,
+      "sha256": "effb2e54e8d2309fc6dac646379ba925483e5db331fd32ad4024c1cbec863a65"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -4025,8 +4025,8 @@
     {
       "path": "worker/public/static/governance/council-composition-2026-10-19.md",
       "mode": "100644",
-      "bytes": 2939,
-      "sha256": "1e680ab2afba2e40520a140518f9c8322246f51adb33c118ca70fbb791b94627"
+      "bytes": 3825,
+      "sha256": "c1a6969821135c369d1aef7c232cef2e628950d8a6ddd82f627b8dad90bcb1d8"
     },
     {
       "path": "worker/public/static/talents/art.json",

@@ -105,12 +105,46 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
     assert.ok(!html.includes('property="og:')); assert.ok(!html.includes('brand-mark'));
   });
   const b = browser(), Model = b.sandbox.OlympusStaffRankPlanner, catalogue = b.sandbox.OlympusStaffRankCatalogue.ranks, api = b.sandbox.OlympusRankPlanner;
+  await check('current ten-rank guide stays primary and all old rank ideas are inside a closed historical-only disclosure in both layouts', async () => {
+    const standalone = await (await server.exports.rankPlannerPage(request(), {}, true)).text();
+    const expected = ['Leader (Guild Master)','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Alt','Initiate'];
+    for (const [markup, prefix] of [[html, 'rank-planner-'], [standalone, '']]) {
+      const opening = markup.match(new RegExp('<details\\b[^>]*id="' + prefix + 'rank-ideas-history"[^>]*>'));
+      assert.ok(opening, 'authored historical disclosure exists'); assert.ok(!/\bopen(?:\s|=|>)/.test(opening[0]));
+      assert.ok(markup.includes('<summary>Historical &amp; Draft-Only Rank Ideas</summary>'));
+      const guide = markup.match(/<ol class="current-rank-guide">([\s\S]*?)<\/ol>/); assert.ok(guide);
+      const rows = [...guide[1].matchAll(/<li>(.*?)<\/li>/g)].map(match => match[1]);
+      assert.deepEqual(rows, expected.map((name, index) => name + ' — zero-based slot ' + index));
+      assert.ok(markup.indexOf(guide[0]) < markup.indexOf(opening[0]), 'current guide precedes historical alternatives');
+      const historyStart = markup.indexOf(opening[0]), historyEnd = markup.indexOf('</section>', historyStart);
+      assert.ok(historyEnd > historyStart);
+      for (const id of ['search','category','sort','cards','result-count']) {
+        const at = markup.indexOf('id="' + prefix + id + '"'); assert.ok(at > historyStart && at < historyEnd, id + ' remains in historical library');
+      }
+      assert.ok(markup.includes('Their slot numbers, offices and permission suggestions are historical source text.'));
+      assert.ok(markup.includes('Co-Guild Master and Treasurer are appointments associated with High Council, not additional native ranks'));
+    }
+  });
   const p = b.template(html); let current = true, instance;
   await check('mount restores the exact account key and owner199 ten-rank recommendation without touching shell', () => {
     const shell = b.document.createElement('input'); shell.id = 'search'; shell.value = 'shell stays unchanged'; b.document.body.append(shell);
     instance = api.mount(p.root, { owner: OWNER, isCurrent: () => current });
     const draft = JSON.parse(b.store.get(key(OWNER))); assert.deepEqual(draft.ranks.map(rank => rank.id), ['gm','highcouncil','officer','officeralt','raidlead','veteran','raider','member','alt','initiate']); assert.equal(draft.review.liveChangesApplied, false);
     assert.equal(p.$('ladder-list').children.length, 10); assert.equal(shell.value, 'shell stays unchanged'); assert.deepEqual([...new Set(b.writes)], [key(OWNER)]);
+  });
+  await check('current High Council editor keeps its old catalogue purpose only inside a closed historical recommendation', async () => {
+    const beforeCatalogue = read(path.join(folder, 'catalogue.js')), beforeModel = read(path.join(folder, 'model.js'));
+    await p.label('Review High Council, rank 2').click();
+    assert.equal(p.$('editor-title').textContent, 'High Council'); assert.equal(p.$('editor-position').textContent, 'Rank 2 of 10');
+    const content = p.$('editor-content'), history = content.all(node => node.tagName === 'DETAILS' && node.classList.contains('source-details'));
+    assert.equal(history.length, 1); assert.equal(history[0].open, false);
+    assert.equal(history[0].children[0].textContent, 'Historical draft recommendation');
+    const purpose = content.all(node => node.classList.contains('editor-purpose')); assert.equal(purpose.length, 1);
+    assert.equal(purpose[0].parentNode, history[0]); assert.equal(purpose[0].textContent, catalogue.find(rank => rank.id === 'highcouncil').purpose);
+    assert.ok(purpose[0].textContent.includes('native Slot 2'), 'the contradictory old source is retained, not rewritten');
+    assert.equal(read(path.join(folder, 'catalogue.js')), beforeCatalogue); assert.equal(read(path.join(folder, 'model.js')), beforeModel);
+    assert.deepEqual(JSON.parse(b.store.get(key(OWNER))).ranks.map(rank => rank.id), ['gm','highcouncil','officer','officeralt','raidlead','veteran','raider','member','alt','initiate']);
+    p.$('editor').close();
   });
   await check('planner buttons preserve floor, ceiling, fixed GM and unprotected entry rank', async () => {
     assert.equal(p.label('Move Leader down').disabled, true);
