@@ -331,7 +331,7 @@ const PROTECTED = ['role-settlements', 'roles', 'role-rank-continuation', 'beta-
   'privacy-global-serving-origin', 'roster-effects', 'rename-review', 'review'];
 // .196 exact current-source projection: immutable historical whole seals and
 // dynamic oracles remain unchanged. The pure helper cannot start either suite.
-const { SOURCE196_COMPAT, SOURCE196_CRON, source196HistoricalDigest } = require('./source196-historical-projection.cjs');
+const { SOURCE196_COMPAT, SOURCE196_CRON, SOURCE198_ROLE_SETTLEMENTS, source196HistoricalDigest } = require('./source196-historical-projection.cjs');
 function sourceDigest(name) {
   return source196HistoricalDigest(name, fs.readFileSync(path.join(SRC, name + '.ts'), 'utf8'));
 }
@@ -386,6 +386,25 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
 
   // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
   for (const name of PROTECTED) check(SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
+  // .198: the owner-approved absent empty duplicate changes three qualification
+  // contexts only. Historical file seals and every dynamic trace below stay fixed.
+  const role198Raw = fs.readFileSync(path.join(SRC, 'role-settlements.ts'), 'utf8'), role198Pin = SOURCE198_ROLE_SETTLEMENTS;
+  check('.198 role compatibility accepts only the exact raw source and three unique reviewed contexts', sha(role198Raw) === role198Pin.exactCurrentRawSHA256 && role198Pin.edits.length === 3 && role198Pin.edits.every(edit => edit.count === 1 && role198Raw.split(edit.from).length === 2) && source196HistoricalDigest('role-settlements', role198Raw) === PINS.files['role-settlements']);
+  const role197Raw = role198Pin.edits.reduce((raw, edit) => raw.replace(edit.from, edit.to), role198Raw);
+  check('.198 role compatibility reconstructs the entire accepted .197 source before all unchanged historical seals', sha(role197Raw) === role198Pin.exact197RawSHA256 && source196HistoricalDigest('role-settlements', role197Raw) === PINS.files['role-settlements']);
+  const role198Mutations = [
+    ['unreviewed prefix', '// unreviewed role context\n' + role198Raw],
+    ['unreviewed suffix', role198Raw + '\n// unreviewed role context\n'],
+    ['unrelated whitespace', role198Raw.replace('import ', 'import  ')],
+    ['changed qualifying parameter', role198Raw.replace('allowMissingBetaDuplicate=false', 'allowMissingBetaDuplicate=true')],
+    ['changed duplicate identity', role198Raw.replace("roleId==='1558657538960916490'", "roleId==='1552077551839617104'")],
+    ['missing no-grant guard', role198Raw.replace('allowMissingBetaDuplicate&&!grant&&!cosmetic', 'allowMissingBetaDuplicate&&!cosmetic')],
+    ['missing no-ghost guard', role198Raw.replace('!target?.roles.includes(roleId)&&', '')],
+    ['duplicate qualifying loop', role198Raw.replace(role198Pin.edits[1].from, role198Pin.edits[1].from + role198Pin.edits[1].from)],
+    ['changed accepted .197 source', role197Raw + '\n// unreviewed accepted role source\n'],
+  ];
+  for (const [label, raw] of role198Mutations) check('.198 role compatibility refuses ' + label, raw !== role198Raw && raw !== role197Raw && source196HistoricalDigest('role-settlements', raw) === null);
+  check('.198 role compatibility preserves exact raw line-ending custody', source196HistoricalDigest('role-settlements', role198Raw.replace(/\n/g, '\r\n')) === null);
   // .197: exact finite namespace15 compatibility must not admit any other source change.
   // These pure mutations run in this existing original198/CI suite before its unchanged dynamic oracles.
   const erase197Raw = fs.readFileSync(path.join(SRC, 'privacy-serving-erase.ts'), 'utf8');

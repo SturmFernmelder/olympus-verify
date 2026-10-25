@@ -523,6 +523,21 @@ export const WORKSHOP = {
   commissionMode: "manual_in_game",
   optIn: "listed_profile",
 } as const;
+// A private, bounded projection only. A crowded/ambiguous account can stay listed without a commission target.
+// SQL cannot reproduce communityKey's NFC and whitespace normalization, so identity comparison stays in that helper.
+const COMMISSION_NAME_SCAN_LIMIT = 50;
+function commissionContact(main: string | null, raw: string | null) {
+  if (main === null || raw === null) return null;
+  let names: unknown;
+  try { names = JSON.parse(raw); } catch { return null; }
+  if (!Array.isArray(names) || names.length > COMMISSION_NAME_SCAN_LIMIT) return null;
+  const key = communityKey(main);
+  const matches = names.flatMap(value => {
+    const name = validateName(value);
+    return name.ok && name.key === key ? [name.name] : [];
+  });
+  return matches.length === 1 ? { mode: "manual_in_game", character: matches[0]!, source: "keeper" } : null;
+}
 /** GET /api/community/crafting?q=&profession=&mode=professions&browse=1&cursor= → {results, nextCursor, workshop}:
  * offers on listed, qualifying profiles. browse=1 explicitly requests the bounded all-offers directory. */
 export async function craftingSearch(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
@@ -580,10 +595,12 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
     env.DB.prepare(
       `SELECT o.profession, ${professionMode ? "NULL" : "o.recipe_name"} AS recipe_name, ${rowKey} AS recipe_key, o.updated_at, p.ref, ${DISPLAY} AS display_name,
          ${professionMode ? "o.skill" : "(SELECT cp.skill FROM community_professions cp WHERE cp.discord_id = p.discord_id AND cp.profession = o.profession)"} AS skill,
+         p.main_name AS commission_main,
          CASE WHEN p.main_source = 'keeper' THEN
-           (SELECT cc.name FROM characters cc WHERE cc.discord_id = p.discord_id AND cc.name = p.main_name AND cc.status = 'member'
-             AND NOT EXISTS (SELECT 1 FROM characters cg WHERE cg.guid IS NOT NULL AND cg.guid = cc.guid AND cg.discord_id <> p.discord_id)
-             LIMIT 1) ELSE NULL END AS commission_character
+           (SELECT json_group_array(name) FROM
+             (SELECT cc.name FROM characters cc WHERE cc.discord_id = p.discord_id AND cc.status = 'member'
+               AND NOT EXISTS (SELECT 1 FROM characters cg WHERE cg.guid IS NOT NULL AND cg.guid = cc.guid AND cg.discord_id <> p.discord_id)
+               LIMIT ${COMMISSION_NAME_SCAN_LIMIT + 1})) ELSE '[]' END AS commission_candidates
        FROM ${table} o JOIN community_profiles p ON p.discord_id = o.discord_id AND p.listed = 1 JOIN site_users u ON u.discord_id = o.discord_id
        WHERE ${VISIBLE_OWNER} AND ${filter("?1", "?2")}
          AND (?3 = 0 OR ${rowKey} > ?4 OR (${rowKey} = ?4 AND (${DISPLAY} > ?5 COLLATE NOCASE OR (${DISPLAY} = ?5 COLLATE NOCASE AND p.ref > ?6))))
@@ -596,13 +613,13 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
   if (visibleOwners.length > limit) return apiJson({ error: "directory_too_large" }, 503);
   const digest = await orderDigest(visibleOwners.map((o) => [o.display_name, o.ref, o.revision]));
   if (after && after.digest !== digest) return apiJson({ error: "cursor_stale" }, 409);
-  const offers = rows!.results as { profession: Profession; recipe_name: string | null; recipe_key: string; updated_at: number; ref: string; display_name: string; skill: number | null; commission_character: string | null }[];
+  const offers = rows!.results as { profession: Profession; recipe_name: string | null; recipe_key: string; updated_at: number; ref: string; display_name: string; skill: number | null; commission_main: string | null; commission_candidates: string | null }[];
   const page = offers.slice(0, PAGE_SIZE);
   const last = page.at(-1);
   return apiJson({
     results: page.map((r) => ({ recipe: r.recipe_name, profession: r.profession, source: "self", skill: r.skill,
       crafter: { ref: r.ref, displayName: r.display_name },
-      commission: r.commission_character ? { mode: "manual_in_game", character: r.commission_character, source: "keeper" } : null,
+      commission: commissionContact(r.commission_main, r.commission_candidates),
       updatedAt: secondsToIso(r.updated_at) })),
     nextCursor: offers.length > PAGE_SIZE && last ? encodeCursor([2, kind, q, profession, digest, last.recipe_key, last.display_name, last.ref]) : null,
     workshop: { ...WORKSHOP, mode: professionMode ? "professions" : "recipes" },

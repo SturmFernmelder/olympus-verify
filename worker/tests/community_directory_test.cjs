@@ -516,6 +516,47 @@ async function deleteThroughOriginalRoute(target, actor) {
   check("the owner can delete all Workshop recipe/profession rows while retaining the rest of their profile", r.status === 200 && r.body.profile.crafts.length === 0 && r.body.profile.professions.length === 0 && r.body.profile.main.name === "Artisan Label" && !one("SELECT 1 FROM community_craft_offers WHERE discord_id = ?", ARTISAN) && !one("SELECT 1 FROM community_professions WHERE discord_id = ?", ARTISAN));
   check("Workshop writes and reads preserve the exact existing Native schema", JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name").all()) === JSON.stringify(workshopSchemaBefore));
 
+  console.log("\n== .198 automated review: commission names use the same complete communityKey equivalence as the save ==");
+  const CASE_ARTISAN = "300000000000000804", NFC_ARTISAN = "300000000000000805";
+  await siteUser(CASE_ARTISAN, { global_name: "Case artisan" }); await confirm(CASE_ARTISAN, "Case Artisan", "Player-1-0804");
+  r = await call("PUT", "/api/community/profile", CASE_ARTISAN, { revision: 0, listed: true, main: "cASE aRTISAN",
+    professions: [{ name: "alchemy", skill: 275 }], crafts: [{ profession: "alchemy", recipe: "Case Test Recipe" }] });
+  check("a case-variant main accepted by resolveCharacter remains keeper-proven", r.status === 200 && r.body.profile.main.source === "keeper");
+  const caseRef = r.body.profile.ref;
+  r = await call("GET", "/api/community/crafting?q=case", CUSTOMER);
+  check("the same case-variant profile supplies its currently stored keeper contact in recipe mode", r.status === 200 && r.body.results.find(row => row.crafter.ref === caseRef)?.commission?.character === "Case Artisan");
+  r = await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  check("and profession-only mode uses that identical canonical identity rule", r.status === 200 && r.body.results.find(row => row.crafter.ref === caseRef)?.commission?.character === "Case Artisan");
+  await siteUser(NFC_ARTISAN, { global_name: "NFC artisan" }); await confirm(NFC_ARTISAN, "Ärtisan Main", "Player-1-0805");
+  // The older ASCII fixture helper uses JS Unicode toLowerCase; this non-ASCII case needs the real keeper proof key.
+  await fixtureRun("UPDATE characters SET name_key = ? WHERE discord_id = ?", names.validateName("Ärtisan Main").proofKey, NFC_ARTISAN);
+  await fixtureRun("UPDATE characters SET name = ? WHERE discord_id = ?", "  A\u0308rtisan   Main  ", NFC_ARTISAN);
+  r = await call("PUT", "/api/community/profile", NFC_ARTISAN, { revision: 0, listed: true, main: "Ärtisan Main",
+    professions: [{ name: "tailoring", skill: 250 }], crafts: [{ profession: "tailoring", recipe: "Normalization Test Recipe" }] });
+  check("the original keeper resolver accepts stored NFC/whitespace variants as the same full name", r.status === 200 && r.body.profile.main.source === "keeper");
+  const nfcRef = r.body.profile.ref;
+  r = await call("GET", "/api/community/crafting?q=normalization", CUSTOMER);
+  check("commission comparison also normalizes NFC and whitespace, returning a clean contact label", r.status === 200 && r.body.results.find(row => row.crafter.ref === nfcRef)?.commission?.character === "Ärtisan Main");
+  await fixtureRun("UPDATE characters SET name = ? WHERE discord_id = ?", "ärtisan Main", NFC_ARTISAN);
+  r = await call("GET", "/api/community/crafting?q=normalization", CUSTOMER);
+  check("non-ASCII case variants remain distinct, exactly as communityKey requires", r.status === 200 && r.body.results.find(row => row.crafter.ref === nfcRef)?.commission === null);
+  await fixtureRun("UPDATE characters SET name = ? WHERE discord_id = ?", "Ärtisan Main", NFC_ARTISAN);
+  await fixtureRun("INSERT INTO characters (name_key,name,discord_id,status,bound_at,guid) VALUES (?,?,?,'member',?,?)", "duplicate-canonical-nfc-name", "  A\u0308rtisan Main  ", NFC_ARTISAN, T, "Player-1-0806");
+  r = await call("GET", "/api/community/crafting?q=normalization", CUSTOMER);
+  check("two current keeper rows matching one canonical main withhold an ambiguous commission target", r.status === 200 && r.body.results.find(row => row.crafter.ref === nfcRef)?.commission === null);
+  for (let index = 0; index < 50; index++) {
+    const label = "Crowded Artisan " + String.fromCharCode(65 + index % 26) + String.fromCharCode(65 + Math.floor(index / 26));
+    await confirm(CASE_ARTISAN, label, "Player-1-09" + String(index).padStart(2, "0"));
+  }
+  r = await call("GET", "/api/community/crafting?q=case", CUSTOMER);
+  check("more than fifty current private candidate names fail closed without leaking any unlisted character", r.status === 200 && r.body.results.find(row => row.crafter.ref === caseRef)?.commission === null && !JSON.stringify(r.body).includes("Crowded Artisan") && !JSON.stringify(r.body).includes("commission_candidates"));
+  const fixedRecipeStart = nativeStatementAttempts;
+  await call("GET", "/api/community/crafting?browse=1", CUSTOMER);
+  const fixedRecipeCost = nativeStatementAttempts - fixedRecipeStart;
+  const fixedProfessionStart = nativeStatementAttempts;
+  await call("GET", "/api/community/crafting?mode=professions&browse=1", CUSTOMER);
+  check("full canonical contact matching retains the original sixteen-statement admitted request budget in both modes", fixedRecipeCost === 16 && nativeStatementAttempts - fixedProfessionStart === 16);
+
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });
