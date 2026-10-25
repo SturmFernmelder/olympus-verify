@@ -3220,7 +3220,10 @@
     return `${line} · ${waiting} waiting in the invite queue.`;
   }
   async function adminOverview(body) {
-    const o = await api("GET", "/api/admin/overview");
+    const owner = S.user, route = currentRoute();
+    const overviewLive = () => S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route && app.contains(body);
+    const o = await api("GET", "/api/admin/overview", undefined, { live: overviewLive });
+    if (!overviewLive()) return;
     S.settings = o.settings;
     const c = o.counts || {};
     const byStatus = {};

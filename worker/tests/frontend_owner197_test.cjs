@@ -396,6 +396,70 @@ async function frontendOwner197() {
       check('.199 larger model ceiling preserves the original exact '+label+' validation',refused199.reads.length===1&&refused199.reads[0].status===200&&refusal199?.message==='The organization model has an unexpected shape.');
     }
   }
+  // .199 H4 browser finding: settle the old Admin response between the new
+  // Organization model read and its module load. No timer chooses this order.
+  // These are the exact production handlers/API/DOM helpers. Only dynamic
+  // module transport/rendering is a counted stand-in; real model HTTP and the
+  // unchanged Organization renderer are exercised independently just above.
+  {
+    const cut199 = (start, end) => { const a=APP_JS.indexOf(start),b=APP_JS.indexOf(end,a);if(a<0||b<=a)throw Error('owner199_overview_source_boundary');return APP_JS.slice(a,b); };
+    const domSource199=cut199('  function h(tag, props, ...kids) {','  // ---------------------------------------------------------------- the game');
+    const apiSource199=cut199('  class ApiError extends Error {','  // Optional census previews');
+    const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
+    const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
+    const moduleExpression199='await import("/static/organization-view.js")';
+    if(orgOriginal199.split(moduleExpression199).length!==2)throw Error('owner199_organization_module_boundary');
+    const orgSource199=orgOriginal199.replace(moduleExpression199,'await loadOrganization199()');
+    const deferred199=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
+    const realOverview199=await request('GET','/api/admin/overview',undefined,STAFF);
+    if(realOverview199.response.status!==200||!realOverview199.body.settings)throw Error('owner199_original_overview_fixture_refused');
+    const actualModel199=JSON.parse(fs.readFileSync(path.join(root,'public/static/governance/organization.json'),'utf8'));
+    function lifecycle199(status=200){
+      const w=makeWindow('{}'),oldMain=w.app.appendChild(new Element('main')),body=oldMain.appendChild(new Element('div'));
+      body.textContent='Loading original overview';
+      const initialSettings={appointed:{},applicationsOpen:true,notice:'original settings'},state={signedIn:true,denied:false,user:{id:STAFF,isAdmin:true},settings:initialSettings},context={},response=deferred199(),model=deferred199();
+      const seen={fetches:[],toasts:0,renders:0,reloads:0,heat:0,module:0,organization:0};let route='admin';
+      const plainFrame=title=>{const element=new Element('section');element.textContent=title;return element;};
+      const deps={document:w.document,Node,S:state,app:w.app,currentRoute:()=>route,COM:()=>context,ROUTES:{},
+        fetch:async(pathname,init)=>{seen.fetches.push({pathname,init});await response.promise;return new Response(JSON.stringify(status===200?{...realOverview199.body,settings:{...realOverview199.body.settings,notice:'late overview'}}:status===409?{error:'reload'}:{error:'signed_out'}),{status,headers:{'Content-Type':'application/json'}});},
+        toast:()=>{seen.toasts++;},dirtyKeys:new Set(['original-unsaved']),render:()=>{seen.renders++;},reloadNotice:()=>{seen.reloads++;},
+        M:()=>({positions:[],professions:[],ballots:[]}),A:{heat:'',apps:{}},statusText:value=>value,posIcon:()=>null,frame:plainFrame,icon:()=>null,plural:(count,word)=>count+' '+word,seatsStaffText:()=>'',zoneName:()=>'',myZone:'UTC',drawHeat:async()=>{seen.heat++;},
+        governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data)=>{seen.organization++;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
+        offices199:()=>[],displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
+      const handlers=new Function(...Object.keys(deps),domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization};')(...Object.values(deps));
+      return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
+    }
+    const race199=lifecycle199(),oldRead199=race199.handlers.overview(race199.body);
+    race199.route('organization/office_03');race199.oldMain.remove();
+    const organizationMain199=race199.app.appendChild(new Element('main'));organizationMain199.dataset.viewRequest='2';
+    const organizationRead199=race199.handlers.organization(organizationMain199,['office_03']);
+    check('.199 deterministic race starts Organization while the original admin answer and model are both pending',race199.seen.fetches.length===1&&race199.seen.fetches[0].pathname==='/api/admin/overview'&&organizationMain199.textContent==='Opening the organization…'&&race199.seen.module===0);
+    race199.response.resolve();await oldRead199;
+    check('.199 detached Admin overview success changes neither global settings nor its stale DOM',race199.state.settings===race199.initialSettings&&race199.body.textContent==='Loading original overview'&&race199.seen.heat===0);
+    race199.model.resolve();await organizationRead199;
+    check('.199 initial Organization navigation reaches its module and renders after the late old admin response',race199.seen.module===1&&race199.seen.organization===1&&organizationMain199.textContent==='Organization loaded 95 offices'&&!organizationMain199.textContent.includes('Opening the organization'));
+    for(const [label,invalidate]of[
+      ['same-route detached body',page=>page.oldMain.remove()],
+      ['changed route with attached body',page=>page.route('roles')],
+      ['changed account',page=>{page.state.user={id:OTHER,isAdmin:true};}],
+      ['signed out',page=>{page.state.signedIn=false;}],
+      ['denied admission',page=>{page.state.denied=true;}],
+      ['lost admin authority',page=>{page.state.user.isAdmin=false;}]
+    ]){
+      const page=lifecycle199(),pending=page.handlers.overview(page.body);invalidate(page);page.response.resolve();await pending;
+      check('.199 old overview refuses settings and DOM adoption after '+label,page.state.settings===page.initialSettings&&page.body.textContent==='Loading original overview'&&page.seen.heat===0);
+    }
+    const active199=lifecycle199(),activeRead199=active199.handlers.overview(active199.body);active199.response.resolve();await activeRead199;
+    check('.199 current admitted admin overview still adopts settings and paints its original report',active199.state.settings!==active199.initialSettings&&active199.state.settings.notice==='late overview'&&active199.seen.heat===1&&!active199.body.textContent.includes('Loading original overview'));
+    for(const status of[401,409]){
+      const stale=lifecycle199(status),pending=stale.handlers.overview(stale.body).catch(error=>error);stale.oldMain.remove();stale.route('organization/office_03');stale.response.resolve();const error=await pending;
+      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1);
+    }
+    const refused199=lifecycle199(401),refusalRead199=refused199.handlers.overview(refused199.body).catch(error=>error);refused199.response.resolve();const currentRefusal199=await refusalRead199;
+    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0);
+    const updated199=lifecycle199(409),updateRead199=updated199.handlers.overview(updated199.body).catch(error=>error);updated199.response.resolve();const currentUpdate199=await updateRead199;
+    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings);
+  }
   console.log('\n' + ok + '/' + n + ' owner197/199 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
 }
