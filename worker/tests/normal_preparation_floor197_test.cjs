@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),validate=require('./helpers/normal_preparation_floor197.cjs');
+let called=0;const ring={schema:'normal-whole-floor-observer-timing-v1',readOnly:true,sqlStatements:0,providerCalls:0,limit:256,count:0,overflow:0,records:[]};
+const existingValidator=(value,floor)=>{called++;assert.equal(value,ring);assert.equal(floor,true);};
+assert.throws(()=>validate(200,null,existingValidator),/successful original preparation/);assert.equal(called,0);
+validate(200,ring,existingValidator);assert.equal(called,1);
+validate(503,null,existingValidator);assert.equal(called,1);
+validate(503,ring,existingValidator);assert.equal(called,2);
+for(const status of [200,503])assert.throws(()=>validate(status,{},()=>{throw Error('original ring validator refused');}),/original ring validator refused/);
+const host=fs.readFileSync(path.join(__dirname,'privacy_normal_scheduled_whole_workerd_test.cjs'),'utf8');
+assert.ok(host.includes('validatePreparationFloor(status,value.floor,validateObserverTimingRing)'));
+assert.ok(host.includes("captureObserverDiagnosticsAfterOriginalReply(name,r.status)"));
+assert.ok(host.includes("assert.equal(r.status,200);if(diagnosticError)throw diagnosticError;"));
+console.log('7/7 status-bound original Floor witness controls passed; no Worker/clock/provider execution');

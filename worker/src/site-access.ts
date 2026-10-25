@@ -27,10 +27,10 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
   const note = flash && FLASH[flash] ? `<p role="status">${FLASH[flash]}</p>` : '';
   // Direct owner answer, 23 Oct 2026: approved .173 stills remain the default.
   // The optional animation is a client-model render, not a publisher-issued video.
-  const media = animation && request.headers.get('Save-Data') !== 'on'
-    ? `<video class="login-portal-video" width="960" height="540" autoplay loop muted playsinline preload="metadata" poster="/static/wow/login/dark-portal-poster.jpg"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video>`
-    : `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
-  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true">${media}</div><div class="login-card"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
+  const still = `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
+  const motion = animation && request.headers.get('Save-Data')?.trim().toLowerCase() !== 'on'
+    ? `<details class="login-motion" open><summary><span class="motion-hide">Hide animated background</span><span class="motion-show">Show animated background</span></summary><video class="login-portal-video" aria-hidden="true" width="960" height="540" autoplay loop muted playsinline preload="metadata"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video></details>` : '';
+  const body = `<section class="sign-in-gate portal-login"><div class="login-portal" aria-hidden="true">${still}</div>${motion}<div class="login-card"><img class="login-card-crest" src="/static/olympus-icon.png" alt="Olympus guild tabard" width="72" height="72"><h1>Enter Olympus</h1><p class="eyebrow">The gates of Olympus</p><p>Sign in with Discord to enter the guild hall. Membership of the Asmongold Discord server is required.</p>${note}<a class="policy-button" href="/auth/login">Sign in with Discord</a></div></section>`;
   const headers = loginHeaders();
   for (const value of cookies) headers.append('Set-Cookie', value);
   // Owner's entry-page simplification (18 Oct 2026): policy URLs remain public for Discord's application links.
@@ -41,7 +41,7 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
  * Legal readers remain database-free; this lookup never reads a session, member or private setting.
  */
 export async function siteSignInWithMedia(request:Request,env:Env,status=200,flash?:string,cookies:string[]=[]):Promise<Response>{
-  if(request.headers.get('Save-Data')==='on')return siteSignIn(request,status,flash,cookies,false);
+  if(request.headers.get('Save-Data')?.trim().toLowerCase()==='on')return siteSignIn(request,status,flash,cookies,false);
   let animation=false;
   try{const row=await env.DB.prepare("SELECT value FROM site_settings WHERE key='loginAnimation' AND value='1'").first<{value:string}>();animation=row?.value==='1';}catch{}
   return siteSignIn(request,status,flash,cookies,animation);

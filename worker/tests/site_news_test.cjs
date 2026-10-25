@@ -1040,7 +1040,9 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     ...["README.md", "CLAUDE.md", "docs/launch-runbook.md"].map((f) => [f, fs.readFileSync(path.join(repo, f), "utf8")]), // review of 3 Oct 2026: the whole files
     ...["docs/design.md", "docs/deploy-checklist.md", "docs/beta-test-plan.md"].map((f) => [`${f} (.115 sections)`, section115(path.join(repo, f))]),
   ];
-  // Direct owner ruling of 23 Oct 2026: only these two exact current-ladder paragraphs are qualified.
+  // Direct owner ruling of 23 Oct 2026 qualifies the two original exact current-ladder paragraphs.
+  // Canonical native-rank icon rendering is separately within the 24 Oct .197 owner scope;
+  // its exact icon-map context below is qualified independently of those earlier paragraphs.
   // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
   const CURRENT_CONTEXTS = Object.freeze([
     {
@@ -1056,6 +1058,14 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
         "startMarker": "The current owner-chosen B ladder is ",
         "paragraphSha256": "28b48c7e25b8ba42ea32789119fc78af1e75d5d83de43dd1a77295b150dd6371",
         "paragraphBytes": 1025,
+        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+        "count": 1
+    },
+    {
+        "file": "worker/public/static/app.js",
+        "startMarker": "    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon(",
+        "paragraphSha256": "8c42924a47c935630ee2dd5c312044e983e3aa8dee563dbf8bd73f9a1756bfcf",
+        "paragraphBytes": 676,
         "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
         "count": 1
     }
@@ -1124,6 +1134,22 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const otherDigestOver = overOriginalVocabularyAllowance(currentFile, { [currentDigest]: 2, [otherDigest]: 1 }, qualifiedCurrent);
   check("every other digest still uses its original file allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedCurrent.credits[d] === undefined) && otherDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))));
   check("approved paragraph bytes in a different guarded file receive no qualification", !!originalParagraph && vocabularyOverages("README.md", originalParagraph).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalParagraph).credits).length === 0);
+
+
+  const iconFile = "worker/public/static/app.js";
+  const iconText = guarded.find(([file]) => file === iconFile)[1];
+  const qualifiedIcon = currentContextQualification(iconFile, iconText);
+  const originalIconContext = qualifiedIcon.paragraphs[0] || "";
+  check("current native-rank icon map qualifies only its exact single original context", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 1 && qualifiedIcon.credits[currentDigest] === 1 && Object.keys(qualifiedIcon.credits).length === 1);
+  const extraIconText = `${iconText}\n\n${approvedGram}`;
+  const extraIconQualification = currentContextQualification(iconFile, extraIconText);
+  check("an extra occurrence outside the approved icon context remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 1 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
+  check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
+  check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
+  check("approved icon bytes in another guarded file receive no qualification", !!originalIconContext && vocabularyOverages("README.md", originalIconContext).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalIconContext).credits).length === 0);
+  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 1, [otherDigest]: 1 }, qualifiedIcon);
+  check("every other icon-file digest retains its original allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedIcon.credits[d] === undefined) && otherIconDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

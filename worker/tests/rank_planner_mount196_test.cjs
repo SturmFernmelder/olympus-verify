@@ -10,8 +10,14 @@ let user = null, admins = new Set([OWNER]), authCalls = 0;
 const source = read(path.join(worker, 'src/site-ranks.ts'));
 const compiled = ts.transpileModule(source, { reportDiagnostics: true, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
 assert.equal(compiled.diagnostics.length, 0);
+const brandSource = read(path.join(worker, 'src/site-brand.ts'));
+const brandCompiled = ts.transpileModule(brandSource, { reportDiagnostics: true, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+assert.equal(brandCompiled.diagnostics.length, 0);
+const brand = { exports: {} };
+new Function('module', 'exports', 'require', brandCompiled.outputText)(brand, brand.exports, name => { assert.fail('Unexpected site-brand import: ' + name); });
 const server = { exports: {} };
 new Function('module', 'exports', 'require', compiled.outputText)(server, server.exports, name => {
+  if (name === './site-brand') return brand.exports;
   assert.equal(name, './site-core');
   return { currentUser: async () => { authCalls++; return user; }, isSiteAdmin: (_env, id) => /^\d{17,20}$/.test(id) && admins.has(id), securityHeaders: headers => { headers.set('Cache-Control', 'no-store'); headers.set('Content-Security-Policy', "default-src 'self'"); return headers; } };
 });
@@ -81,6 +87,21 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
     assert.ok(!/<(?:html|body|main|nav|script|style|link|iframe)\b/i.test(html)); assert.ok(!html.includes('brand-mark')); assert.ok(!html.includes('__PLANNER_OWNER__'));
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]); assert.equal(ids.length, new Set(ids).size); assert.ok(ids.every(id => id.startsWith('rank-planner-')));
     for (const [, id] of html.matchAll(/\b(?:for|aria-labelledby)="([^"]+)"/g)) assert.ok(ids.includes(id), id);
+  });
+  await check('standalone uses the actual generic owner crest and250px social metadata while the fragment adds no second shell', async () => {
+    const standalone = await server.exports.rankPlannerPage(request(), {}, true), page = await standalone.text();
+    assert.equal(standalone.status, 200); assert.equal(standalone.headers.get('Cache-Control'), 'no-store');
+    assert.ok(page.includes('<title>Olympus \u00b7 Rank planner</title>'));
+    assert.ok(page.includes('<link rel="icon" href="/static/olympus-icon.png" type="image/png">'));
+    assert.ok(page.includes('<img class="brand-mark" src="/static/olympus-icon.png"'));
+    assert.ok(page.includes('<meta property="og:title" content="Olympus \u2014 World of Warcraft: Forever">'));
+    assert.ok(page.includes('<meta property="og:image" content="https://olympus.roachcouncil.com/static/olympus-icon.png">'));
+    for (const dimension of ['width', 'height']) assert.ok(page.includes('<meta property="og:image:' + dimension + '" content="250">'));
+    assert.ok(!page.includes('/static/wow/icon-member-shield.png'));
+    const metadata = (page.match(/<meta\b[^>]*>/g) || []).join('');
+    assert.ok(!metadata.includes(OWNER)); assert.ok(!metadata.includes('/admin/ranks'));
+    assert.ok(!/<(?:html|head|body|main|nav|script|style|link|iframe)\b/i.test(html));
+    assert.ok(!html.includes('property="og:')); assert.ok(!html.includes('brand-mark'));
   });
   const b = browser(), Model = b.sandbox.OlympusStaffRankPlanner, catalogue = b.sandbox.OlympusStaffRankCatalogue.ranks, api = b.sandbox.OlympusRankPlanner;
   const p = b.template(html); let current = true, instance;

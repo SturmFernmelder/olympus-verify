@@ -175,7 +175,7 @@ const forged = JSON.parse(Model.exportDraft(current,catalogue.ranks)); forged.so
 check("a forged owner-policy stamp is refused", Model.validate(forged,catalogue.ranks).length > 0);
 const falselySigned = JSON.parse(Model.exportDraft(current,catalogue.ranks)); falselySigned.review.claudeCode = "approved";
 check("imports cannot claim an agent approval or live application", Model.validate(falselySigned,catalogue.ranks).length > 0);
-check("rank planner uses the official Warcraft shield as brand and tab icon", PAGE_HTML.includes('<link rel="icon" href="/static/wow/icon-shield.png"') && PAGE_HTML.includes('<img class="brand-mark" src="/static/wow/icon-shield.png"') && !PAGE_HTML.includes("/static/olympus-icon.png"));
+check("rank planner uses the owner-approved tabard as brand and tab icon", PAGE_HTML.includes('<link rel="icon" href="/static/olympus-icon.png"') && PAGE_HTML.includes('<img class="brand-mark" src="/static/olympus-icon.png"'));
 
 console.log(`\n${ok}/${n} passed`);
 process.exit(ok === n ? 0 : 1);

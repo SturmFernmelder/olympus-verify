@@ -1,4 +1,6 @@
 /** Finite policy markup/slot grammar. This parser is intentionally smaller than HTML, and refuses ambiguity. */
+import { olympusSocialMetadata } from "../src/site-brand.ts";
+const BRAND_METADATA = new Set(olympusSocialMetadata().split("\n"));
 export const SLOT_NAMES = Object.freeze(["ACCOUNT_CONTROLS", "BNET_LOGIN"]);
 export const CANONICAL = "https://olympus.roachcouncil.com";
 export const FALLBACK_CONTROLS = '<section class="data-controls"><h2>Privacy and account data</h2><p><a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> · <a href="https://olympus.roachcouncil.com/privacy/access">Connect Discord for privacy actions</a> · <a href="https://olympus.roachcouncil.com/privacy/case">Read an existing case</a></p></section>';
@@ -41,7 +43,14 @@ export function validateHtml(source, { mirror = false, slotStructural = false } 
     const tag = /^<(\/?)\s*([a-z][a-z0-9-]*)([\s\S]*?)>/i.exec(source.slice(pos)); if (!tag) throw Error("malformed_tag");
     const closing = tag[1] === "/", name = tag[2].toLowerCase(), raw = tag[3]; if (!TAGS.has(name)) throw Error("forbidden_tag:" + name);
     if (closing) { if (raw.trim() || VOID.has(name) || stack.pop() !== name) throw Error("mismatched_tag"); pos += tag[0].length; continue; }
-    const iconLink = name === "link" && (raw === ' rel="icon" href="/static/wow/icon-shield.png"' || raw === ' href="/static/wow/icon-shield.png" rel="icon"');
+    // .197: only the fixed, generic guild-brand metadata is allowed, and only in the dependent head.
+    // Slot/body metadata, arbitrary URLs and private request context remain forbidden.
+    if (name === "meta" && BRAND_METADATA.has(tag[0])) {
+      if (mirror || stack.join(",") !== "html,head") throw Error("brand_metadata_outside_dependent_head");
+      pos += tag[0].length; continue;
+    }
+    const iconLink = name === "link" && ["/static/wow/icon-shield.png", "/static/olympus-icon.png"].some(icon =>
+      raw === ' rel="icon" href="' + icon + '"' || raw === ' href="' + icon + '" rel="icon"');
     const seen = new Set(); let rest = raw;
     while (rest.trim()) {
       const attr = /^\s+([a-z][a-z0-9-]*)\s*=\s*"([^"<>]*)"/i.exec(rest); if (!attr) throw Error("malformed_attribute"); const k = attr[1].toLowerCase(), v = attr[2];

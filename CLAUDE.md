@@ -262,6 +262,9 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 ## Collaboration and release qualification (renewed request, 14–15 Oct 2026)
 
+**Build .197 owner override (24 Oct 2026):** Claude is offline at the weekly usage limit. The direct owner solo-execution directive supersedes the external Claude signature and host-lane wait below for .197 only. Codex Root owns runtime, Git, qualification and deployment; an independently attributable internal review, completed exact-head automated GitHub review with zero findings, local checks and all original 13 CI jobs remain required. Do not poll or wait for a Claude entry. Local Workerd qualification may use the full 24-hour UTC window; .197-only ordinary-callback audit-bin acceptance is preauthorized up to 250 ms, with raw timing and no clock-offset claim. Earlier signatures and release criteria remain historical.
+
+
 - **The task log is append-only.** Headings `## [YYYY-MM-DD HH:MM:SS UTC] Agent — subject`. Never rewrite the other
   agent's text; correct with a new entry.
 - **Current qualification:** for the owner's renewed 14 October request, Claude Code and Codex collaborate with

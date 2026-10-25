@@ -96,7 +96,7 @@ const body196=String.raw`
   }
   const attended196=await openPage(STAFF),attendedRequests196=[],attendedId196='730000000000000101';
   attended196.before((p,init)=>{if(p.startsWith('/api/admin/discord-directory/'))attendedRequests196.push({path:p,method:init.method,body:JSON.parse(init.body)});return false;});
-  attended196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true}:p==='/api/admin/discord-directory/visibility'?{discordId:attendedId196,listed:false}:null);
+  attended196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true,restoreAllowed:true,visibilityOrigin:'attended_request'}:p==='/api/admin/discord-directory/visibility'?{discordId:attendedId196,listed:false}:null);
   await attended196.go('#/admin/directory-visibility');
   const attendedTarget196=attended196.app.querySelector('#attended-directory-id'),attendedSave196=byText(attended196.app,'button','Save requested listing preference');
   check('attended preference page sends no command on entry and requires an exact-ID read',attendedRequests196.length===0&&attendedSave196.disabled);
@@ -109,7 +109,7 @@ const body196=String.raw`
   await attended196.go('#/roles');
   const attendedLate196=await openPage(STAFF),lateRequests196=[];
   attendedLate196.before((p,init)=>{if(p.startsWith('/api/admin/discord-directory/'))lateRequests196.push({path:p,method:init.method,body:JSON.parse(init.body)});return false;});
-  attendedLate196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true}:null);attendedLate196.hold(p=>p==='/api/admin/discord-directory/status'?180:0);
+  attendedLate196.answer(p=>p==='/api/admin/discord-directory/status'?{discordId:attendedId196,listed:true,restoreAllowed:true,visibilityOrigin:'attended_request'}:null);attendedLate196.hold(p=>p==='/api/admin/discord-directory/status'?180:0);
   await attendedLate196.go('#/admin/directory-visibility');const lateTarget196=attendedLate196.app.querySelector('#attended-directory-id'),lateListed196=attendedLate196.app.querySelector('#attended-directory-listed'),lateConfirmed196=attendedLate196.app.querySelector('#attended-directory-confirmed'),lateSave196=byText(attendedLate196.app,'button','Save requested listing preference');
   lateTarget196.value=attendedId196;lateTarget196.dispatchEvent(new Event('input'));byText(attendedLate196.app,'button','Read this member’s preference').click();
   check('pending attended status locks target, desired preference and confirmation',lateTarget196.disabled&&lateListed196.disabled&&lateConfirmed196.disabled&&lateSave196.disabled);
@@ -118,7 +118,7 @@ const body196=String.raw`
   await new Promise(resolve=>setTimeout(resolve,230));
   // The held response starts its180ms wait only after the real Worker completes.
   // Observe the actual original handler's release before judging a stale reply or starting another read.
-  if(!await waitFor(()=>!lateTarget196.disabled&&!lateListed196.disabled&&!lateConfirmed196.disabled&&!byText(attendedLate196.app,'button','Read this member’s preference').disabled,'original stale attended read releases its controls'))throw Error('Original stale attended read did not finish');
+  if(!await waitFor(()=>!lateTarget196.disabled&&lateListed196.disabled&&lateConfirmed196.disabled&&!byText(attendedLate196.app,'button','Read this member’s preference').disabled,'stale attended read releases target/read only; unqualified preference controls remain disabled'))throw Error('Original stale attended read did not finish');
   check('late A read cannot revive an A-to-B-to-A target or overwrite its desired preference',lateRequests196.length===1&&lateSave196.disabled&&lateListed196.checked===false&&!lateConfirmed196.checked&&!attendedLate196.app.textContent.includes('The eligible Olympus row can be listed.'));
   attendedLate196.hold(null);byText(attendedLate196.app,'button','Read this member’s preference').click();if(!await waitFor(()=>attendedLate196.app.textContent.includes('The eligible Olympus row can be listed.'),'fresh attended read after stale generation'))throw Error('Fresh exact attended read did not return');
   lateConfirmed196.checked=true;lateConfirmed196.dispatchEvent(new Event('change'));check('fresh confirmation is bound to the exact returned target and preference',!lateSave196.disabled&&lateTarget196.value===attendedId196&&lateListed196.checked===true&&lateConfirmed196.checked&&lateRequests196.length===2&&lateRequests196.every(request=>request.path==='/api/admin/discord-directory/status'&&request.method==='POST'&&JSON.stringify(request.body)===JSON.stringify({discordId:attendedId196})));
@@ -186,6 +186,37 @@ const body196=String.raw`
   byText(decline196.app,'button','Read original operation status').click();await waitFor(()=>decline196.app.textContent.includes('This does not establish that an unconfirmed provider command did not apply.'),'decline no-row status remains held');
   check('a no-row status cannot unlock an invoked decline confirmation',declineReview196.disabled&&declineMode196.disabled&&declineCommands196.filter(x=>x.path.endsWith('/confirm')).length===1);
   await decline196.go('#/roles');
+  // Fresh status only: these DTOs exercise the actual current app controls.
+  // The real stored-receipt producer and its failed-write case are covered in
+  // treasury_cosmetic196_test.cjs; no provider result is inferred from this UI.
+  const noSendChecked197=Math.floor(Date.now()/1000),noSendOp197='9'.repeat(32);
+  const noSendOriginal197={id:noSendOp197,state:'held',reason:'treasury_pre_dispatch_refused',attempts:1,checked_at:noSendChecked197};
+  for(const [name,operation,unlocks]of[
+    ['pre-request stored refusal',noSendOriginal197,true],
+    ['provider stored definitive refusal',{...noSendOriginal197,reason:'treasury_provider_definite_refusal'},true],
+    ['missing original row',null,false],
+    ['another operation',{...noSendOriginal197,id:'8'.repeat(32)},false],
+    ['unknown original',{...noSendOriginal197,state:'unknown'},false],
+    ['still dispatching after failed receipt',{...noSendOriginal197,state:'dispatching',reason:'treasury_dispatching',checked_at:null},false],
+    ['acknowledged but unconfirmed',{...noSendOriginal197,reason:'treasury_acknowledged_unconfirmed'},false],
+    ['unspent original',{...noSendOriginal197,attempts:0},false],
+    ['malformed attempt count',{...noSendOriginal197,attempts:'1'},false],
+    ['missing stored observation',{...noSendOriginal197,checked_at:null},false],
+    ['invalid stored observation',{...noSendOriginal197,checked_at:0},false],
+    ['future stored observation',{...noSendOriginal197,checked_at:noSendChecked197+86400},false],
+    ['unsupported similarly named reason',{...noSendOriginal197,reason:'treasury_provider_refused'},false],
+  ]){
+    const page=await openPage(STAFF),requests=[],key='olympus.treasuryAttempt';let replies=0;
+    page.sessionStorage.setItem(key,JSON.stringify({owner:STAFF,operationId:noSendOp197}));
+    page.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))requests.push({path:p,body:JSON.parse(init.body)});return false;});
+    page.answer(p=>p==='/api/admin/treasury/status'?(replies++,{operation,noRetry:true}):null);
+    await page.go('#/admin/treasury');const recognition=page.app.querySelector('#treasury-recognition'),decline=page.app.querySelector('#treasury-decline-recognition'),readStatus=byText(page.app,'button','Read original operation status');
+    if(!recognition.disabled||!page.sessionStorage.getItem(key))throw Error('Original marker was not actually mounted for '+name);
+    readStatus.click();if(!await waitFor(()=>replies===1&&!readStatus.disabled,'fresh original no-send status '+name))throw Error('Original status reply did not complete for '+name);
+    check('.197 '+name+' releases only a proven original no-send marker',unlocks?page.sessionStorage.getItem(key)===null&&!recognition.disabled&&!decline.disabled&&!recognition.checked&&!decline.checked&&byText(page.app,'button','Preview cosmetic role changes').disabled:!!page.sessionStorage.getItem(key)&&recognition.disabled&&decline.disabled&&byText(page.app,'button','Preview cosmetic role changes').disabled);
+    check('.197 '+name+' status never replays the old command or silently starts a new preview',requests.length===1&&requests[0].path==='/api/admin/treasury/status'&&requests[0].body.operationId===noSendOp197);
+    await page.go('#/roles');
+  }
   const webhookNotice196='w'.repeat(22);
   await fixtureRun('INSERT INTO site_news_notices(id,op_hash,title,body,revision,created_by,created_at,updated_by,updated_at,retain_until) VALUES(?,?,?,?,?,?,?,?,?,?)',webhookNotice196,'a'.repeat(64),'Synthetic revised notice','Current saved revision, not the old Discord copy.',2,STAFF,now,STAFF,now,now+86400);
   const editor=await openPage(STAFF),webhookCommands196=[];

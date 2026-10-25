@@ -16,6 +16,7 @@ import { normalizeCharacter } from "./codes";
 import { resolveRulesetSnapshot, rulesetSwitchReadiness, type RulesetSnapshot } from "./ruleset-profile";
 import { OFFICE_APPOINTMENTS } from "./governance-offices";
 import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
+import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -319,7 +320,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "About 3 to 6 hours a week.",
       works: "The Guild Master, the officers, the Raid Leaders and the Profession Coordinator.",
-      game: "Recommended post-beta placement: Treasurer occupies native Slot 3 (zero-based slot 2) above Officer and is a core High Council appointment alongside Guild Master and Co-Guild Master. This is a planning recommendation, not verification of the holder’s current game rank. The current holder is shown only through the qualified appointment-identity listing. The Guild Master must review bank permissions and limits in game; the website recommendation grants none.",
+      game: "Recommended post-beta placement: Treasurer occupies native Slot 3 (zero-based slot 2) above Officer and is a core High Council appointment alongside Guild Master and Co-Guild Master. This is a planning recommendation, not verification of the holder’s current game rank. A qualified account association is shown through the appointment-identity listing; a legacy typed entry is a staff-entered label, not verified identity or game-rank proof. The Guild Master must review bank permissions and limits in game; the website recommendation grants none.",
     },
   },
   {
@@ -381,7 +382,7 @@ export const POSITIONS: Position[] = [
       ],
       time: "Your region's raid nights.",
       works: "The Raid Leaders and Assists, and your Class Lead.",
-      game: "The Raider rank: repairs from the guild bank, and its raid tab.",
+      game: "Recommended post-beta placement: Raider in the current ten-rank plan. Bank repairs and raid-tab access need attended Guild Master review; this is not verification of active permissions or a game rank. The historical beta five-rank profile remains separate.",
     },
   },
   {
@@ -419,7 +420,7 @@ export const POSITIONS: Position[] = [
         "You treat everyone with respect: you represent Asmongold's guild.",
       ],
       time: "No minimum.",
-      game: "The Member rank. Every new invite starts as Initiate, the lowest rank.",
+      game: "Recommended post-beta placement: Member, with new invites planned to start as Initiate. This is the current ten-rank recommendation, not an observed game rank or automatic promotion. The historical beta five-rank profile remains separate.",
     },
   },
 ];
@@ -749,6 +750,7 @@ export function meta(ruleset?: RulesetSnapshot) {
     hours: HOURS,
     voice: VOICE,
     talentSnapshotRevision: TALENT_SNAPSHOT_REVISION,
+    talentBuilds: TALENT_BUILD_COLLECTION_LIMITS,
     questions: QUESTIONS,
     professions: PROFESSIONS,
     ballots: BALLOTS,

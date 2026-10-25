@@ -386,6 +386,27 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
 
   // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
   for (const name of PROTECTED) check(SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
+  // .197: exact finite namespace15 compatibility must not admit any other source change.
+  // These pure mutations run in this existing original198/CI suite before its unchanged dynamic oracles.
+  const erase197Raw = fs.readFileSync(path.join(SRC, 'privacy-serving-erase.ts'), 'utf8');
+  const erase197Guard = " const facts=originalClosedRecoveryCleanupAccount(selection,env);facts.check();const namespaces=communityDataNames().slice().sort();if(namespaces.length!==15||JSON.stringify(namespaces)!==\"[\\\"contributions\\\",\\\"councillor_verification\\\",\\\"departures\\\",\\\"directory\\\",\\\"discord_directory_visibility\\\",\\\"event_delivery\\\",\\\"event_reminders\\\",\\\"events\\\",\\\"news\\\",\\\"news_webhook\\\",\\\"privacy_access\\\",\\\"refs\\\",\\\"restrictions\\\",\\\"ruleset_publication\\\",\\\"trials\\\"]\")throw Error('closed_recovery_cleanup_namespace_incomplete');const registered=new WeakMap<object,OriginalClosedCleanupStep>();\n";
+  const erase196Guard = " const facts=originalClosedRecoveryCleanupAccount(selection,env);facts.check();const namespaces=communityDataNames().slice().sort();if(namespaces.length!==13||JSON.stringify(namespaces)!==\"[\\\"contributions\\\",\\\"councillor_verification\\\",\\\"departures\\\",\\\"directory\\\",\\\"event_delivery\\\",\\\"event_reminders\\\",\\\"events\\\",\\\"news\\\",\\\"privacy_access\\\",\\\"refs\\\",\\\"restrictions\\\",\\\"ruleset_publication\\\",\\\"trials\\\"]\")throw Error('closed_recovery_cleanup_namespace_incomplete');const registered=new WeakMap<object,OriginalClosedCleanupStep>();\n";
+  check('.197 closed namespace projection accepts only the exact reviewed current raw source and unique guard', sha(erase197Raw) === 'aca1c0e136c1374b58235d5ec9cc8c9f02f3e209fc5b12e90881035ce98b4a12' && erase197Raw.split(erase197Guard).length === 2 && source196HistoricalDigest('privacy-serving-erase', erase197Raw) === PINS.files['privacy-serving-erase']);
+  const erase196Raw = erase197Raw.replace(erase197Guard, erase196Guard);
+  check('.197 closed namespace projection reconstructs the entire accepted .196 source before unchanged .164 seals', sha(erase196Raw) === 'ae7545ccdb4e49524d71b4fd0189b8a90d9d84f5768c44e30d89b622466124e8' && source196HistoricalDigest('privacy-serving-erase', erase196Raw) === PINS.files['privacy-serving-erase']);
+  const erase197Mutations = [
+    ['unreviewed prefix', '// unreviewed namespace context\n' + erase197Raw],
+    ['unreviewed suffix', erase197Raw + '\n// unreviewed namespace context\n'],
+    ['other source whitespace', erase197Raw.replace('import ', 'import  ')],
+    ['missing registered family', erase197Raw.replace(erase197Guard, erase197Guard.replace('news_webhook', ''))],
+    ['duplicate registered family', erase197Raw.replace(erase197Guard, erase197Guard.replace('news_webhook', 'news'))],
+    ['wrong family count', erase197Raw.replace(erase197Guard, erase197Guard.replace('namespaces.length!==15', 'namespaces.length!==14'))],
+    ['old count with current families', erase197Raw.replace(erase197Guard, erase197Guard.replace('namespaces.length!==15', 'namespaces.length!==13'))],
+    ['duplicated contextual guard', erase197Raw.replace(erase197Guard, erase197Guard + erase197Guard)],
+    ['changed accepted .196 source', erase196Raw + '\n// unreviewed accepted-source context\n'],
+  ];
+  for (const [label, raw] of erase197Mutations) check('.197 closed namespace compatibility refuses ' + label, raw !== erase197Raw && raw !== erase196Raw && source196HistoricalDigest('privacy-serving-erase', raw) === null);
+  check('.197 closed namespace compatibility retains exact raw line-ending custody', source196HistoricalDigest('privacy-serving-erase', erase197Raw.replace(/\n/g, '\r\n')) === null);
   modules=new Map();const exactManifest=load('privacy-write-admission-catalogue').ADMISSION_EXPECTED_JSON;
   check('the unprojected Native manifest is the exact reviewed224-trigger profile, including all three immutable-seal guards',sha(exactManifest)===COMPOSED_MANIFEST_SHA&&JSON.parse(exactManifest).triggers.length===224);
   const graph = staticGraph(), lanes = closure(graph, 'full-release-roles');

@@ -253,12 +253,14 @@ function censusNativeLedger() {
   return ledger;
 }
 function censusPosition(ledger){return {attempts,statementIndex:ledger.statements.length,groupIndex:ledger.groups.length,providerIndex:calls.length};}
+let censusObservationDirectory=null;
 function censusSave(name,value) {
-  const directory=path.join(root,'..','observations');
-  if(!fs.existsSync(directory))fs.mkdirSync(directory);
+  const directory=censusObservationDirectory||(censusObservationDirectory=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'olympus-serving-census-')));
   const file=path.join(directory,name+'.json'),bytes=Buffer.from(JSON.stringify(value,null,2)+'\n','utf8');
   fs.writeFileSync(file,bytes,{flag:'wx'});
-  return {file:path.relative(path.join(root,'..'),file).replace(/\\/g,'/'),bytes:bytes.length,sha256:censusHash(bytes)};
+  const artifact={file:file.replace(/\\/g,'/'),directory:directory.replace(/\\/g,'/'),bytes:bytes.length,sha256:censusHash(bytes)};
+  console.log('CENSUS_ORIGINAL_ENTRY_ARTIFACT '+JSON.stringify(artifact));
+  return artifact;
 }
 function censusSlotValid(snapshot) {
   const list=censusRows(snapshot,'privacy_write_admission'),row=list[0];

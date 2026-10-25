@@ -8,26 +8,26 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 66631,
-      "sha256": "fb7e3267734a1564a297404b479603dc9726e6507a7c8b26ec45abfe0536c866"
+      "bytes": 66755,
+      "sha256": "0fe3e469ba6c5109bf7aeab3a73fb9999f4f06dba8de7b87d4fa4a6ae5bf99bb"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 631980,
-      "sha256": "262177ed4837641d99dc9b7c84360d59bd8d43e1f97a8e0aa16a71d190e51969"
+      "bytes": 645095,
+      "sha256": "b475b88e85571e46b40baf21d4ac343e9cbf747f3b0153f39c2cd15a30905089"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
       "mode": "100644",
-      "bytes": 58974,
-      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+      "bytes": 53204,
+      "sha256": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb"
     },
     {
       "path": "worker/public/static/policies.css",
       "mode": "100644",
-      "bytes": 11094,
-      "sha256": "1ae6f81f6496fa3688fc27d309eaaa6ba85889bcee571134936c089b41527cc4"
+      "bytes": 11715,
+      "sha256": "2384e42f0a23337c9fde34242d3292838429606aea523cf0f0f3abfbc335d42a"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -56,8 +56,8 @@
     {
       "path": "worker/public/static/wow/asset-provenance.json",
       "mode": "100644",
-      "bytes": 66247,
-      "sha256": "845f3d10d5fc0951a9b9623c16968a75f96340f0289624b50e8b0dc8a526214b"
+      "bytes": 66339,
+      "sha256": "edf7a6dcc2c1aee00190848f4e90906aa788f4f49dbdaf54eab3f8e3dbbdf220"
     },
     {
       "path": "worker/public/static/wow/assist.png",
@@ -650,8 +650,8 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 49543,
-      "sha256": "38fd63a0b176e00fa43fb37c65d9627b68d3048bad7deb817e43f770efb41a8f"
+      "bytes": 49627,
+      "sha256": "13bb46cc0da6ccb79ce31ffa74c5f151e31e70e6ef2ae3e5fa0850660e768827"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
@@ -3807,20 +3807,20 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 53383,
-      "sha256": "47c85335bb04e6dbd1fd8a0e5827dd14412a0cbb27800319ac2ccb84c19fe0e6"
+      "bytes": 53957,
+      "sha256": "a808fe591a6a84e925f6e84750fddeaa4c0bd61febd78ac7bbf3f33dbc8043e6"
     },
     {
       "path": "worker/src/site-ranks.ts",
       "mode": "100644",
-      "bytes": 12535,
-      "sha256": "3a0b2241740dff2f94287b1b4b7e01c0d8a542474874d727c1e45002d9310983"
+      "bytes": 12639,
+      "sha256": "e6a5ecf3391ff8151b1df8940d93176d87cbe57a56a5bf67d40db3a7cda5715a"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 631980,
-      "sha256": "262177ed4837641d99dc9b7c84360d59bd8d43e1f97a8e0aa16a71d190e51969"
+      "bytes": 645095,
+      "sha256": "b475b88e85571e46b40baf21d4ac343e9cbf747f3b0153f39c2cd15a30905089"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3874,12 +3874,12 @@
     "asset": {
       "path": "worker/public/static/olympus-icon.png",
       "mode": "100644",
-      "bytes": 58974,
-      "sha256": "867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66"
+      "bytes": 53204,
+      "sha256": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb"
     },
-    "usage": "brand_and_tab_icon_only",
-    "owner_instruction": "Crest is the exception",
-    "instruction_date": "2026-10-01"
+    "usage": "guild_brand_favicon_and_social_preview_only",
+    "owner_instruction": "Build .197 owner-supplied official tabard guild icon across every website shell",
+    "instruction_date": "2026-10-24"
   },
   "required_public_resources": [
     {
@@ -3939,8 +3939,8 @@
     {
       "path": "worker/public/static/qr-beta-window-data.html",
       "mode": "100644",
-      "bytes": 2748,
-      "sha256": "3eb1d9618e49eb2c5e3cdc622a08f2205c07028996e02b13696de0d2093bb216"
+      "bytes": 3921,
+      "sha256": "2f61e24071f88ee80125d14a17013a2b93fb893afc612a4b2439ea108c61bab9"
     },
     {
       "path": "worker/public/static/qr-beta-window.mjs",
@@ -4071,8 +4071,8 @@
     {
       "path": "worker/public/static/army-live/army.css",
       "mode": "100644",
-      "bytes": 13201,
-      "sha256": "3b5944198ef2724409ee51d029efe81be751a6baa1698fbf9eaca17e1ad691e8"
+      "bytes": 13331,
+      "sha256": "d2196be282c061eb8f610162e90f21698097ce9632384beda860366123f7a8c1"
     },
     {
       "path": "worker/public/static/army-live/army.js",
@@ -4089,8 +4089,8 @@
     {
       "path": "worker/public/static/army-live/report.js",
       "mode": "100644",
-      "bytes": 18800,
-      "sha256": "554905d640140d5f1f850fa84aa4ac951c6f2d29b259230137b5974fbdbce2e7"
+      "bytes": 19222,
+      "sha256": "42bc7876b33ea38ebd919f2a95d093cc53843b7e415f6ee7d4335fe561557f77"
     },
     {
       "path": "worker/public/static/army-live/pilot.js",
@@ -4108,13 +4108,13 @@
       "path": "worker/public/static/army-live/sanitized-export.js",
       "mode": "100644",
       "bytes": 6676,
-      "sha256": "fc110f6f44cda32a5754f3ea3a8251b41315a7cd14e9150a9a9fbc0e38478325"
+      "sha256": "c2ec728af166bfdb0a563c1991d05d40686e1840ab2cb6a5a0aff47de6e58194"
     },
     {
       "path": "worker/public/static/army-live/savedvariables-import.js",
       "mode": "100644",
-      "bytes": 4366,
-      "sha256": "d471f7a795ba1d9d708ee7ddb49534d4def98efd478c132f8f5cb000e9998d3c"
+      "bytes": 4910,
+      "sha256": "b361d1f300135ea70117b2e5660ae0edeb229c9327f5d12a046b3692b07c31ae"
     },
     {
       "path": "worker/public/static/talents/analysis.js",

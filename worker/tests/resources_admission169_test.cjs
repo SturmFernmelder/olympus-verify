@@ -120,6 +120,22 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
   // reader/annotation deltas; writes, lifetimes, private fields and clocks still
   // have to match the original source bytes. This is not an arbitrary new pin.
   let originalNews = fs.readFileSync(path.join(root, 'src/site-news.ts'), 'utf8').replace(/\r\n/g, '\n');
+  // .197 adds this exact dated owner-authorized release note. Reverse only this
+  // finite literal before preserving every prior .196/.176 safeguard below.
+  const release197 = [
+    "export const RELEASE_NOTES: readonly ReleaseNote[] = [",
+    "  {",
+    "    build: \".197\", date: \"2026-10-24\", lines: [",
+    "      \"The owner-supplied guild tabard is the crest across the guild hall, sign-in, Army, rank planning and legal pages. Footer attribution ends at the code-licence notice.\",",
+    "      \"Canonical legal pages stay available without JavaScript. Optional login motion can be hidden, and reduced-motion/data-saving visits retain the approved stills.\",",
+    "      \"Declared talent builds need separate voting-board sharing consent. Branch links need publication consent and current account checks; neither grants a role or verifies a game character.\",",
+    "      \"Army import and watcher restart/custody follow-ups preserve unknown outcomes. Publisher adoption, real game checks and optional feature activation remain separate gates.\",",
+    "    ],",
+    "  },",
+    ""
+  ].join('\n');
+  check('Guild News exact authorized .197 release note occurs once', originalNews.split(release197).length === 2);
+  originalNews = originalNews.replace(release197, 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\n');
   // .196 owner-authorized Town Crier editor, optional webhook custody and
   // dated release-note deltas. Reverse these EIGHT finite exact blocks to the
   // accepted .195 source before the original five .176 reversals and original

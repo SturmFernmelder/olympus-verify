@@ -101,7 +101,7 @@ qr_edges = {
     'worker/public/static/qr-phase1.html': ['/static/app.css', '/static/qr-phase1.mjs'],
     'worker/public/static/qr-phase1.mjs': ['/static/qr-phase1-decoder.js'],
     'worker/public/static/qr-phase1-decoder.js': ['/static/qr-vendor/jsqr-1.4.0.js'],
-    'worker/public/static/qr-beta-window-data.html': ['/static/policies.css', '/static/qr-beta-window.mjs', '/static/wow/icon-shield.png'],
+    'worker/public/static/qr-beta-window-data.html': ['/static/olympus-icon.png', '/static/policies.css', '/static/qr-beta-window.mjs'],
     'worker/public/static/qr-beta-window.mjs': []
 }
 for p, urls in qr_edges.items():
@@ -166,7 +166,7 @@ check(login_record['schema'] == 'olympus-login-dark-portal-render-v1' and login_
 inputs = login_record['sourceInputs']
 check(len(inputs) == 28 and len({row['path'] for row in inputs}) == 28 and sum(row['path'].endswith('.m2') for row in inputs) == 1 and sum(row['path'].endswith('.skin') for row in inputs) == 2 and sum(row['path'].endswith('.blp') for row in inputs) == 25, 'separate source provenance records the exact1 model,2 skins and25 texture closure without publishing raw inputs')
 check(any(row['path'] == login_verifier and pin(row['path']) == row for row in ref['fixed_art_source_pins']), 'the finite offline login verifier is a seventh separate source pin, not a renderer or extractor execution')
-check('worker/src/site-access.ts' in ref['runtime_paths'] and set(covered['worker/src/site-access.ts']) == {'/static/', '/static/qr-phase1.html', '/static/wow/login/olympus-dark-portal-wide.png', '/static/wow/login/olympus-dark-portal-portrait.png', '/static/wow/login/dark-portal.webm', '/static/wow/login/dark-portal-poster.jpg'} and '/static/wow/login/olympus-dark-portal.png' not in covered['worker/src/site-access.ts'], 'site-access coverage is exactly the existing static-prefix and private-camera references plus four owner-selected login media; the original1672x941 custom still remains byte-pinned and unused')
+check('worker/src/site-access.ts' in ref['runtime_paths'] and set(covered['worker/src/site-access.ts']) == {'/static/', '/static/olympus-icon.png', '/static/qr-phase1.html', '/static/wow/login/dark-portal.webm', '/static/wow/login/olympus-dark-portal-portrait.png', '/static/wow/login/olympus-dark-portal-wide.png'} and '/static/wow/login/olympus-dark-portal.png' not in covered['worker/src/site-access.ts'], 'site-access coverage is exactly the existing static-prefix and private-camera references plus the owner tabard and three rendered login media; the original1672x941 custom still remains byte-pinned and unused')
 check(not any(p.endswith(('.m2', '.skin', '.blp', '.wasm', '.data')) for p in public), 'no original client model, texture, renderer wasm or SDK data payload enters the public closure')
 
 manifest = {

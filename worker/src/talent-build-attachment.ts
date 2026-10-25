@@ -39,3 +39,90 @@ export function talentBuildAttachment(input: unknown, siteHost = 'olympus.roachc
   }
   return { code, className, level, points };
 }
+
+export const TALENT_BUILD_COLLECTION_LIMITS = Object.freeze({ version: 1, characters: 3, builds: 6, levels: Object.freeze([30, 60]), bytes: 2048 });
+export interface ApplicationTalentCharacter { character: string; class: string; build30: string; build60: string }
+export interface ApplicationTalentBuilds { version: 1; characters: ApplicationTalentCharacter[] }
+export interface SharedApplicationTalentBuild { character: string; class: string; level: 30 | 60; code: string }
+export type TalentCharacterParser = (input: unknown) => { name: string; key: string } | { error: string };
+interface TalentCollectionContext { character: string | null; className: string; siteHost?: string; previous?: unknown }
+
+/** Only exact own stored old codes can survive unrelated edits; they remain opaque, never current calculator proof. */
+export function unchangedHistoricalTalentBuild(input: unknown, previous: unknown, className: string, level?: 30 | 60): string | null {
+  if (typeof input !== 'string' || input !== previous || input.length > 256) return null;
+  const match = /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.([1-5][0-9]|60)\.[0-5]+$/.exec(input);
+  return match && match[1] !== TALENT_SNAPSHOT_REVISION && match[2] === className && (level === undefined || Number(match[3]) === level) ? input : null;
+}
+
+function closedData(input: unknown, allowed: readonly string[]): Record<string, unknown> | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.getOwnPropertySymbols(input).length) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Object.entries(descriptors).some(([key, value]) => !allowed.includes(key) || !Object.hasOwn(value, 'value'))) return null;
+  return Object.fromEntries(Object.entries(descriptors).map(([key, value]) => [key, value.value]));
+}
+
+function collectionRows(input: unknown, context: TalentCollectionContext, parseCharacter: TalentCharacterParser): (ApplicationTalentCharacter & { key: string })[] | null {
+  const envelope = closedData(input, ['version', 'characters']);
+  if (!envelope || envelope.version !== 1 || !Array.isArray(envelope.characters) || envelope.characters.length > TALENT_BUILD_COLLECTION_LIMITS.characters) return null;
+  const rows: (ApplicationTalentCharacter & { key: string })[] = [], seen = new Set<string>();
+  for (const value of envelope.characters) {
+    const row = closedData(value, ['character', 'class', 'build30', 'build60']);
+    if (!row || typeof row.character !== 'string' || row.character.length > 40 || /[\u0000-\u001f\u007f]/.test(row.character) || typeof row.class !== 'string' || !Object.hasOwn(TALENT_ATTACHMENT_CLASSES, row.class)) return null;
+    const name = parseCharacter(row.character);
+    if ('error' in name || seen.has(name.key)) return null;
+    const build30 = row.build30 === undefined ? '' : row.build30, build60 = row.build60 === undefined ? '' : row.build60;
+    if (typeof build30 !== 'string' || typeof build60 !== 'string' || build30.length > 512 || build60.length > 512) return null;
+    // An empty main anchor may retain later alt builds; it never represents a build itself.
+    if (!build30 && !build60 && (rows.length > 0 || envelope.characters.length < 2)) return null;
+    if (!rows.length && (name.name !== context.character || row.class !== context.className)) return null;
+    seen.add(name.key); rows.push({ character: name.name, class: row.class, build30, build60, key: name.key });
+  }
+  return rows;
+}
+
+/** A maximum of three explicitly declared application characters, each with optional level30/60 builds. */
+export function applicationTalentBuilds(input: unknown, context: TalentCollectionContext, parseCharacter: TalentCharacterParser): ApplicationTalentBuilds | null {
+  const empty: ApplicationTalentBuilds = { version: 1, characters: [] };
+  const selected = input === undefined ? context.previous ?? empty : input === null ? empty : input;
+  const rows = collectionRows(selected, context, parseCharacter);
+  if (!rows) return null;
+  // Stored history keeps its own original main anchor; an incoming main edit
+  // must not discard unchanged private alt provenance. Read data slots only.
+  const previousEnvelope = closedData(context.previous, ['version', 'characters']);
+  const previousCharacters = Array.isArray(previousEnvelope?.characters) ? previousEnvelope.characters : null;
+  const previousFirst = previousCharacters ? Object.getOwnPropertyDescriptor(previousCharacters, '0') : null;
+  const previousAnchor = previousFirst && Object.hasOwn(previousFirst, 'value') ? closedData(previousFirst.value, ['character', 'class', 'build30', 'build60']) : null;
+  const previousName = previousAnchor ? parseCharacter(previousAnchor.character) : null;
+  const previous = previousAnchor && typeof previousAnchor.class === 'string' && previousName && !('error' in previousName)
+    ? collectionRows(context.previous, { character: previousName.name, className: previousAnchor.class }, parseCharacter) ?? [] : [];
+  const characters: ApplicationTalentCharacter[] = [];
+  for (const row of rows) {
+    const prior = previous.find(value => value.key === row.key && value.class === row.class);
+    const result: ApplicationTalentCharacter = { character: row.character, class: row.class, build30: '', build60: '' };
+    for (const level of [30, 60] as const) {
+      const key = level === 30 ? 'build30' : 'build60', raw = row[key];
+      if (!raw) continue;
+      const current = talentBuildAttachment(raw, context.siteHost);
+      if (current?.code && current.className === row.class && current.level === level) result[key] = current.code;
+      else {
+        const retained = unchangedHistoricalTalentBuild(raw, prior?.[key], row.class, level);
+        if (!retained) return null;
+        result[key] = retained;
+      }
+    }
+    characters.push(result);
+  }
+  const result: ApplicationTalentBuilds = { version: 1, characters };
+  return new TextEncoder().encode(JSON.stringify(result)).byteLength <= TALENT_BUILD_COLLECTION_LIMITS.bytes ? result : null;
+}
+
+/** Board callers supply only the separate consent flag and this collection, never the general answers object. */
+export function sharedApplicationTalentBuilds(input: unknown, consent: unknown, context: Omit<TalentCollectionContext, 'previous'>, parseCharacter: TalentCharacterParser): SharedApplicationTalentBuild[] {
+  if (consent !== true) return [];
+  const value = applicationTalentBuilds(input, { character: context.character, className: context.className, siteHost: context.siteHost }, parseCharacter);
+  if (!value) return [];
+  return value.characters.flatMap(character => ([30, 60] as const).flatMap(level => {
+    const code = level === 30 ? character.build30 : character.build60;
+    return code ? [{ character: character.character, class: character.class, level, code }] : [];
+  }));
+}

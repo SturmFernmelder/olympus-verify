@@ -29,7 +29,8 @@
     function importControls(blocked) {
       const file = root.querySelector('#aggregate-file'), zone = root.querySelector('#aggregate-drop');
       if (file) file.disabled = blocked;
-      if (zone) { zone.inert = blocked; zone.setAttribute('aria-disabled', String(blocked)); }
+      // Keep drop events reachable so the importer can suppress browser file navigation even while blocked.
+      if (zone) { zone.inert = false; zone.setAttribute('role', 'group'); zone.setAttribute('aria-disabled', String(blocked)); }
     }
     function controls() {
       if (!live()) return;
@@ -91,7 +92,11 @@
     const controller = Object.freeze({
       busy: () => !live() || !admitted || !!pending || unknown,
       clear, canLeave, destroy,
-      attachImport(value) { if (!disposed && value && typeof value.clear === 'function') localImport = value; },
+      attachImport(value) {
+        if (!value || typeof value.clear !== 'function' || typeof value.destroy !== 'function') throw Error('The local importer is unavailable.');
+        if (!live()) { value.destroy(); return; }
+        localImport = value; controls();
+      },
       onComplete(value, originalDeadline) {
         if (!live() || !admitted || pending || unknown || document.hidden) throw Error('Current reporter eligibility is required before a new observation.');
         if (!originalDeadline || !Number.isFinite(originalDeadline.wallDeadline) || !Number.isFinite(originalDeadline.monotonicDeadline) || originalDeadline.wallDeadline > Date.now() + 900000 || originalDeadline.monotonicDeadline > performance.now() + 900000) throw Error('The original local review deadline was refused.');
@@ -180,6 +185,8 @@
     })();
     function destroy() {
       if (disposed) return;
+      // Importer disposal closes its reporter too; mark this side first to make that reciprocal cleanup safe.
+      disposed = true;
       generation++; if (request) request.abort(); request = null;
       snapshot = null; preview = null; deadline = null; original = null;
       if (localImport) localImport.destroy(); localImport = null;
@@ -187,7 +194,7 @@
       ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren();
       for (const key of ['report-preview','report-publish','report-consent','report-outcome']) ui[key].disabled = true;
       importControls(true);
-      disposed = true; if (active === controller) active = null;
+      if (active === controller) active = null;
     }
     active = controller; controls(); return controller;
   }

@@ -26,4 +26,40 @@ function source196HistoricalDigest(name, raw) {
   const historical = sha(text);
   return historical === projection.historicalSHA256 ? historical : null;
 }
-module.exports = Object.freeze({ SOURCE196_COMPAT, SOURCE196_CRON, source196HistoricalDigest });
+// .197: only the exact reviewed indexed cleanup selector is reversed to the
+// accepted .196 whole source, then the untouched .196 historical projection runs.
+const SOURCE197_PRIVACY_JOBS = freeze({"exactCurrentRawSHA256":"720459ac03bf518a86c835383d9cc2ce8372fd28c764ad4f6a3a5b0c3fbf5c7a","exact196RawSHA256":"84d2273f897b43f7aa5b0bd286b2205a8b687577f8a5aa7ccee30c3cc0ab1675","edits":[{"from":"import {newsWebhookCleanupCandidatesSql} from './site-news-webhook';\n","to":"import {newsWebhookCleanupDueSql} from './site-news-webhook';\n","count":1},{"from":"  WHERE m.operation_id IN(${newsWebhookCleanupCandidatesSql}) AND m.state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();\n","to":"  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') AND (${PRIVACY_DB_NOW}/900)%2=0 LIMIT 1`).first<{due:number}>();\n","count":1},{"from":"  WHERE m.operation_id IN(${newsWebhookCleanupCandidatesSql}) AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{due:number}>();\n","to":"  WHERE (m.cleanup_requested=1 OR ${newsWebhookCleanupDueSql}) AND m.state IN('known','cleaning') ORDER BY m.created_at,m.operation_id LIMIT 1`).first<{due:number}>();\n","count":1}]});
+// .197 WK-2: reverse only the exact reviewed closed expiry reason mapping.
+// The complete accepted .196 role source and its historical guards stay required.
+const SOURCE197_ROLE_SETTLEMENTS = freeze({"exactCurrentRawSHA256":"4c615ecce74bd3ec7cdd9a65fefd41721c0ca512295a21056d39c033ef58a04f","exact196RawSHA256":"75ab96a8fa5a5938d260040dfd5304646aaf754396810bddc3847cc1ea79aac5","edits":[{"from":" }catch(error){const reason=error instanceof Error&&['treasury_role_inventory','treasury_member_inventory','treasury_hierarchy','treasury_role_not_cosmetic','treasury_channel_inventory','treasury_channel_access'].includes(error.message)?'expiry_'+error.message.slice('treasury_'.length):'expiry_qualification_held';await custody.prepare(`UPDATE role_settlements SET checked_at=${DB_NOW},reason=?2 WHERE id=?1 AND purpose='treasury_cosmetic_expiry' AND attempts=0`).bind(op,reason).run();return result('held','treasury_'+reason,op);}\n","to":" }catch{await custody.prepare(`UPDATE role_settlements SET checked_at=${DB_NOW},reason='expiry_qualification_held' WHERE id=?1 AND purpose='treasury_cosmetic_expiry' AND attempts=0`).bind(op).run();return result('held','treasury_expiry_qualification_held',op);}\n","count":1}]});
+// .197: reverse only the exact reviewed fifteen-family closed recovery guard.
+// All accepted .196 whole-source and historical reversal guards still run.
+const SOURCE197_PRIVACY_ERASE = freeze({"exactCurrentRawSHA256":"aca1c0e136c1374b58235d5ec9cc8c9f02f3e209fc5b12e90881035ce98b4a12","exact196RawSHA256":"ae7545ccdb4e49524d71b4fd0189b8a90d9d84f5768c44e30d89b622466124e8","edits":[{"from":" const facts=originalClosedRecoveryCleanupAccount(selection,env);facts.check();const namespaces=communityDataNames().slice().sort();if(namespaces.length!==15||JSON.stringify(namespaces)!==\"[\\\"contributions\\\",\\\"councillor_verification\\\",\\\"departures\\\",\\\"directory\\\",\\\"discord_directory_visibility\\\",\\\"event_delivery\\\",\\\"event_reminders\\\",\\\"events\\\",\\\"news\\\",\\\"news_webhook\\\",\\\"privacy_access\\\",\\\"refs\\\",\\\"restrictions\\\",\\\"ruleset_publication\\\",\\\"trials\\\"]\")throw Error('closed_recovery_cleanup_namespace_incomplete');const registered=new WeakMap<object,OriginalClosedCleanupStep>();\n","to":" const facts=originalClosedRecoveryCleanupAccount(selection,env);facts.check();const namespaces=communityDataNames().slice().sort();if(namespaces.length!==13||JSON.stringify(namespaces)!==\"[\\\"contributions\\\",\\\"councillor_verification\\\",\\\"departures\\\",\\\"directory\\\",\\\"event_delivery\\\",\\\"event_reminders\\\",\\\"events\\\",\\\"news\\\",\\\"privacy_access\\\",\\\"refs\\\",\\\"restrictions\\\",\\\"ruleset_publication\\\",\\\"trials\\\"]\")throw Error('closed_recovery_cleanup_namespace_incomplete');const registered=new WeakMap<object,OriginalClosedCleanupStep>();\n","count":1}]});
+function source197HistoricalDigest(name, raw) {
+  if (name === 'privacy-serving-erase' && typeof raw === 'string'
+      && sha(raw) === SOURCE197_PRIVACY_ERASE.exactCurrentRawSHA256) {
+    for (const edit of SOURCE197_PRIVACY_ERASE.edits) {
+      if (edit.count !== 1 || !edit.from || raw.split(edit.from).length !== 2) return null;
+      raw = raw.replace(edit.from, edit.to);
+    }
+    if (sha(raw) !== SOURCE197_PRIVACY_ERASE.exact196RawSHA256) return null;
+  }
+  if (name === 'role-settlements' && typeof raw === 'string'
+      && sha(raw) === SOURCE197_ROLE_SETTLEMENTS.exactCurrentRawSHA256) {
+    for (const edit of SOURCE197_ROLE_SETTLEMENTS.edits) {
+      if (edit.count !== 1 || !edit.from || raw.split(edit.from).length !== 2) return null;
+      raw = raw.replace(edit.from, edit.to);
+    }
+    if (sha(raw) !== SOURCE197_ROLE_SETTLEMENTS.exact196RawSHA256) return null;
+  }
+  if (name === 'privacy-serving-jobs' && typeof raw === 'string'
+      && sha(raw) === SOURCE197_PRIVACY_JOBS.exactCurrentRawSHA256) {
+    for (const edit of SOURCE197_PRIVACY_JOBS.edits) {
+      if (edit.count !== 1 || !edit.from || raw.split(edit.from).length !== 2) return null;
+      raw = raw.replace(edit.from, edit.to);
+    }
+    if (sha(raw) !== SOURCE197_PRIVACY_JOBS.exact196RawSHA256) return null;
+  }
+  return source196HistoricalDigest(name, raw);
+}
+module.exports = Object.freeze({ SOURCE196_COMPAT, SOURCE196_CRON, source196HistoricalDigest: source197HistoricalDigest });

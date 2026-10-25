@@ -64,18 +64,25 @@ const reply = text => new Response(text, { headers: { 'Content-Type': 'text/html
   for (const kind of ['privacy', 'terms']) canonical[kind] = await policies.policyResponse(new Request('https://olympus.roachcouncil.com/legal/' + kind), '/legal/' + kind).text();
   await check('canonical source, generated legal documents and mirrors agree; both slots and BNET OFF remain exact', () => {
     assert.deepEqual(generator.run(true), { policyVersion: generated.version, mirrors: 3, bnetLogin: 'OFF', publication: false });
-    for (const kind of ['privacy', 'terms']) { const source = read(path.join(repo, 'policies', kind + '.html')); assert.equal(source, read(path.join(repo, kind + '.html'))); assert.deepEqual(grammar.slots(source).map(s => s.name), ['ACCOUNT_CONTROLS', 'BNET_LOGIN']); const slot = grammar.slots(source).find(s => s.name === 'BNET_LOGIN'); assert.equal(source.split('\n').slice(slot.start + 1, slot.end).join('\n'), ''); assert.equal((source.match(/See also the/g)||[]).length,kind==='terms'?1:0); if(kind==='terms'){const related='<p class="meta related">See also the <a href="./privacy.html">Privacy Policy</a> for account data and erasure limits.</p>';assert.equal(source.split(related).length,2);assert.ok(canonical[kind].includes(related.replace('href="./privacy.html"','href="/legal/privacy"')));} assert.ok(!canonical[kind].includes('aria-label="Policies"')); assert.ok(canonical[kind].includes('src="/static/wow/icon-shield.png"')); assert.ok(!canonical[kind].includes('<img src="/static/olympus-icon.png"')); }
+    for (const kind of ['privacy', 'terms']) { const source = read(path.join(repo, 'policies', kind + '.html')); assert.equal(source, read(path.join(repo, kind + '.html'))); assert.deepEqual(grammar.slots(source).map(s => s.name), ['ACCOUNT_CONTROLS', 'BNET_LOGIN']); const slot = grammar.slots(source).find(s => s.name === 'BNET_LOGIN'); assert.equal(source.split('\n').slice(slot.start + 1, slot.end).join('\n'), ''); assert.equal((source.match(/See also the/g)||[]).length,kind==='terms'?1:0); if(kind==='terms'){const related='<p class="meta related">See also the <a href="./privacy.html">Privacy Policy</a> for account data and erasure limits.</p>';assert.equal(source.split(related).length,2);assert.ok(canonical[kind].includes(related.replace('href="./privacy.html"','href="/legal/privacy"')));} assert.ok(!canonical[kind].includes('aria-label="Policies"')); assert.ok(canonical[kind].includes('src="/static/olympus-icon.png"')); assert.ok(!canonical[kind].includes('<img src="/static/wow/icon-shield.png"')); }
     assert.equal(content.PRIVACY_DESCRIBES_BNET_LOGIN, false);
   });
-  await check('fixed signed-in legal navigation retains independent public no-credential readers', async () => {
+  await check('canonical legal navigation never authenticates or redirects; signed-in SPA viewing is explicit enhancement only', async () => {
     const navigation=load('member-legal-navigation').memberLegalNavigation, env={}, before=navigationReads;
     assert.equal(await navigation(new Request('https://guild.example/legal/privacy'),env,'/legal/privacy'),null);
     assert.equal(navigationReads,before);
     allowNavigationRead=true; navigationUser={in_server:1,denied:0};
-    for(const kind of ['privacy','terms']) for(const method of ['GET','HEAD']) { const r=await navigation(new Request('https://guild.example/legal/'+kind+'?ignored=private',{method,headers:{Cookie:'__Host-olg=fixture'}}),env,'/legal/'+kind); assert.equal(r.status,303); assert.equal(r.headers.get('Location'),'/#/legal/'+kind); assert.equal(await r.text(),''); assert.ok(!r.headers.has('Set-Cookie')); assert.equal(r.headers.get('Vary'),'Cookie'); assert.equal(r.headers.get('Cache-Control'),'private, no-store, no-transform'); }
+    for(const kind of ['privacy','terms']) for(const method of ['GET','HEAD']) {
+      const request=new Request('https://guild.example/legal/'+kind+'?ignored=private',{method,headers:{Cookie:'__Host-olg=fixture'}});
+      assert.equal(await navigation(request,env,'/legal/'+kind),null);
+      const r=policies.policyResponse(request,'/legal/'+kind);
+      assert.equal(r.status,200); assert.equal(r.headers.get('Location'),null); assert.ok(!r.headers.has('Set-Cookie'));
+      assert.equal(r.headers.get('Cache-Control'),'no-store, no-transform'); assert.ok(r.headers.get('Content-Security-Policy').includes("script-src 'none'"));
+      assert.equal(await r.text(),method==='HEAD'?'':canonical[kind]);
+    }
     for(const user of [null,{in_server:0,denied:0},{in_server:1,denied:1}]) { navigationUser=user; assert.equal(await navigation(new Request('https://guild.example/legal/privacy',{headers:{Cookie:'__Host-olg=fixture'}}),env,'/legal/privacy'),null); }
     navigationUser={in_server:1,denied:0}; navigationFailure=true; assert.equal(await navigation(new Request('https://guild.example/legal/privacy',{headers:{Cookie:'__Host-olg=fixture'}}),env,'/legal/privacy'),null); navigationFailure=false;
-    const reads=navigationReads; assert.equal(await navigation(new Request('https://guild.example/privacy/access',{headers:{Cookie:'__Host-olg=fixture'}}),env,'/privacy/access'),null); assert.equal(navigationReads,reads); allowNavigationRead=false;
+    const reads=navigationReads; assert.equal(await navigation(new Request('https://guild.example/privacy/access',{headers:{Cookie:'__Host-olg=fixture'}}),env,'/privacy/access'),null); assert.equal(navigationReads,reads); assert.equal(navigationReads,before); allowNavigationRead=false;
   });
   await check('existing Native/Link conditions, erasure limitations and copy treatment are byte-identical', () => {
     const privacy = read(path.join(repo, 'policies/privacy.html'));
@@ -151,6 +158,9 @@ const reply = text => new Response(text, { headers: { 'Content-Type': 'text/html
     const before = reuse.requests.length; for (const kind of ['__proto__', 'Privacy', '/legal/privacy?x', '', undefined]) assert.throws(() => reuse.api.mount(reuse.root, { kind })); assert.equal(reuse.requests.length, before); const obsolete = reuse.api.mount(reuse.root, { kind: 'privacy', isCurrent: () => false }); await obsolete.ready; assert.equal(reuse.requests.length, before);
   });
   await check('policy grammar permits only the two declared local crest assets and retains strict slot grammar', () => {
+    const brandMeta = '<meta property="og:image" content="https://olympus.roachcouncil.com/static/olympus-icon.png">';
+    assert.equal(grammar.validateHtml('<html><head>' + brandMeta + '</head><main></main></html>'), true);
+    for (const invalid of ['<html><main>' + brandMeta + '</main></html>', '<html><head>' + brandMeta.replace('olympus.roachcouncil.com', 'evil.example') + '</head></html>', '<html><head>' + brandMeta.replace('olympus-icon.png', 'olympus-icon.png?account=private') + '</head></html>']) assert.throws(() => grammar.validateHtml(invalid));
     for (const icon of ['/static/wow/icon-shield.png', '/static/olympus-icon.png']) assert.equal(grammar.validateHtml('<html><main><img src="' + icon + '"></main></html>'), true);
     for (const icon of ['/static/other.png', 'https://cdn.example/crest.png', 'data:image/png,x']) assert.throws(() => grammar.validateHtml('<html><main><img src="' + icon + '"></main></html>'));
     assert.throws(() => grammar.fillSlots(read(path.join(repo, 'policies/privacy.html')), { ACCOUNT_CONTROLS: '', BNET_LOGIN: '', EXTRA: '' }));

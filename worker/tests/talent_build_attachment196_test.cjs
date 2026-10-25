@@ -18,7 +18,7 @@ function load(name) {
   new Function('module', 'exports', 'require', result.outputText)(module, module.exports, load);
   return module.exports;
 }
-const contract = load('talent-build-contract'), { talentBuildAttachment: attachment } = load('talent-build-attachment');
+const contract = load('talent-build-contract'), { talentBuildAttachment: attachment, applicationTalentBuilds: collection, sharedApplicationTalentBuilds: shared, TALENT_BUILD_COLLECTION_LIMITS: collectionLimits } = load('talent-build-attachment');
 let count = 0, parityCases = 0, networkCalls = 0;
 globalThis.fetch = () => { networkCalls++; throw Error('No network in attachment checks'); };
 const check = (name, run) => { run(); count++; console.log('PASS ' + name); };
@@ -134,5 +134,109 @@ check('non-string and oversized input is refused without invoking getters or mak
   let invoked = 0; const object = { get code() { invoked++; return code; }, toString() { invoked++; return code; } };
   for (const input of [true, 1, [], object, { code }, 'x'.repeat(513)]) assert.equal(attachment(input), null);
   assert.equal(invoked, 0); assert.equal(networkCalls, 0);
+});
+// The production caller supplies the existing Forever character parser. The actual
+// API leaf below separately exercises that real parser; this seam keeps these checks pure.
+function collectionName(value) {
+  if (typeof value !== 'string' || !/^\p{L}{2,12} \p{L}{2,12}$/u.test(value.trim())) return { error: 'name' };
+  const name = value.trim().split(' ').map(part => part[0].toUpperCase() + part.slice(1).toLowerCase()).join(' ');
+  return { name, key: name.toLowerCase() };
+}
+const collectionCode = (cls, level) => calculator.serializeBuild(data, calculator.emptyBuild(data, cls, level));
+const collectionContext = { character: 'Mia One', className: 'warrior' };
+const characterBuilds = (character, cls) => ({ character, class: cls, build30: collectionCode(cls, 30), build60: collectionCode(cls, 60) });
+const collectionFixture = () => ({ version: 1, characters: [characterBuilds('Mia One', 'warrior'), characterBuilds('Mia Two', 'mage'), characterBuilds('Mia Three', 'druid')] });
+check('collection limits are frozen at three declared characters, six builds and2048UTF8 bytes', () => {
+  assert.ok(Object.isFrozen(collectionLimits)); assert.ok(Object.isFrozen(collectionLimits.levels));
+  assert.deepEqual(collectionLimits, { version: 1, characters: 3, builds: 6, levels: [30,60], bytes: 2048 });
+  const result=collection(collectionFixture(),collectionContext,collectionName);
+  assert.deepEqual(result,collectionFixture());assert.ok(new TextEncoder().encode(JSON.stringify(result)).length<=2048);
+});
+check('collection accepts only exact30/60 class builds and canonical local URLs reduce to codes', () => {
+  const input=collectionFixture();input.characters[1].build30='https://olympus.roachcouncil.com/#/talents/mage/'+input.characters[1].build30;
+  assert.deepEqual(collection(input,collectionContext,collectionName),collectionFixture());
+  for(const mutate of [v=>v.characters[0].build30=collectionCode('warrior',29),v=>v.characters[0].build30=collectionCode('warrior',60),v=>v.characters[1].build60=collectionCode('warrior',60),v=>v.characters[1].class='undecided',v=>v.characters[0].build60='https://evil.example/#/talents/warrior/'+v.characters[0].build60]){const v=collectionFixture();mutate(v);assert.equal(collection(v,collectionContext,collectionName),null);}
+});
+check('collection anchors primary character and class and refuses duplicate normalized names or extra characters', () => {
+  for(const mutate of [v=>v.characters[0].character='Other Person',v=>v.characters[0].class='mage',v=>v.characters[1].character='mia one',v=>v.characters[2].character='not-a-name',v=>v.characters.push(characterBuilds('Mia Four','priest')),v=>v.characters[0].character='Mia One\n']){const v=collectionFixture();mutate(v);assert.equal(collection(v,collectionContext,collectionName),null);}
+  assert.equal(collection(collectionFixture(),{...collectionContext,character:null},collectionName),null);
+});
+check('collection is a closed data envelope and never invokes unexpected property getters', () => {
+  let invoked=0;const v=collectionFixture();Object.defineProperty(v.characters[1],'privateNote',{get(){invoked++;return'secret';},enumerable:true});
+  assert.equal(collection(v,collectionContext,collectionName),null);assert.equal(invoked,0);
+  for(const mutate of [x=>x.version=2,x=>x.privateNote='secret',x=>x.characters[0].discordId='123',x=>x.characters[0].build30='x'.repeat(513),x=>x.characters[0].build60=null]){const x=collectionFixture();mutate(x);assert.equal(collection(x,collectionContext,collectionName),null);}
+});
+check('omission preserves own collection privately while explicit null or empty collection clears it', () => {
+  const previous=collectionFixture(),context={...collectionContext,previous};
+  assert.deepEqual(collection(undefined,context,collectionName),previous);
+  assert.deepEqual(collection(null,context,collectionName),{version:1,characters:[]});
+  assert.deepEqual(collection({version:1,characters:[]},context,collectionName),{version:1,characters:[]});
+  assert.deepEqual(collection(undefined,collectionContext,collectionName),{version:1,characters:[]});
+});
+check('old collection codes survive only exact original character class and30/60slot values', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));
+  assert.deepEqual(collection(previous,{...collectionContext,previous},collectionName),previous);
+  assert.equal(collection(previous,collectionContext,collectionName),null);
+  for(const mutate of [v=>v.characters[1].character='Mia Four',v=>v.characters[1].class='priest',v=>v.characters[1].build30+='0',v=>v.characters[1].build30=v.characters[1].build30.replace('.30.','.60.'),v=>v.characters[1].build30='https://olympus.roachcouncil.com/#/talents/mage/'+v.characters[1].build30]){const v=clone(previous);mutate(v);assert.equal(collection(v,{...collectionContext,previous},collectionName),null);}
+});
+check('invalid current codes never enter the historical retention branch', () => {
+  const previous=collectionFixture();previous.characters[0].build30=previous.characters[0].build30.slice(0,-1)+'9';
+  assert.equal(collection(previous,{...collectionContext,previous},collectionName),null);
+});
+check('board collection is minimal and requires a separate exact boolean choice', () => {
+  const v=collectionFixture();for(const choice of [undefined,false,null,1,'true'])assert.deepEqual(shared(v,choice,collectionContext,collectionName),[]);
+  const publicBuilds=shared(v,true,collectionContext,collectionName);assert.equal(publicBuilds.length,6);
+  assert.ok(publicBuilds.every(row=>Object.keys(row).sort().join('|')==='character|class|code|level'));
+  assert.deepEqual(publicBuilds.map(row=>row.level),[30,60,30,60,30,60]);
+});
+check('board revalidation refuses historical or changed primary context even with injected previous metadata', () => {
+  const v=collectionFixture();v.characters[1].build30=v.characters[1].build30.replace(data.revision,'f'.repeat(12));
+  assert.deepEqual(shared(v,true,{...collectionContext,previous:v},collectionName),[]);
+  assert.deepEqual(shared(collectionFixture(),true,{...collectionContext,className:'mage'},collectionName),[]);
+  assert.equal(networkCalls,0);
+});
+// PR90: optional empty primary anchors later alt builds but never becomes a build itself.
+check('empty main anchor retains only real alt builds with the original main binding', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';
+  assert.deepEqual(collection(value,collectionContext,collectionName),value);
+  const visible=shared(value,true,collectionContext,collectionName);assert.equal(visible.length,4);
+  assert.ok(visible.every(row=>row.character!=='Mia One'&&['mage','druid'].includes(row.class)));
+  assert.deepEqual(shared(value,false,collectionContext,collectionName),[]);
+});
+check('empty anchor refuses wrong main, missing main, empty alt and phantom-only input', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';
+  for(const mutate of [v=>v.characters[0].character='Other Person',v=>v.characters[0].class='mage',v=>v.characters.shift(),v=>v.characters.splice(1),v=>{v.characters[1].build30='';v.characters[1].build60='';}]){const bad=clone(value);mutate(bad);assert.equal(collection(bad,collectionContext,collectionName),null);}
+  assert.equal(collection(value,{...collectionContext,character:null},collectionName),null);
+  assert.deepEqual(collection({version:1,characters:[]},collectionContext,collectionName),{version:1,characters:[]});
+});
+check('anchored historical alt retains exact own private code and cannot newly share', () => {
+  const value=collectionFixture();value.characters[0].build30=value.characters[0].build60='';value.characters[1].build30=value.characters[1].build30.replace(data.revision,'f'.repeat(12));
+  assert.deepEqual(collection(value,{...collectionContext,previous:value},collectionName),value);
+  assert.equal(collection(value,collectionContext,collectionName),null);assert.deepEqual(shared(value,true,collectionContext,collectionName),[]);
+});
+
+check('changing main name or class with cleared main builds preserves exact historical alts on their own stored anchor', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));previous.characters[2].build60=previous.characters[2].build60.replace(data.revision,'e'.repeat(12));
+  for(const main of [{character:'Mia Four',className:'warrior'},{character:'Mia One',className:'mage'}]){
+    const value=clone(previous);Object.assign(value.characters[0],{character:main.character,class:main.className,build30:'',build60:''});
+    assert.deepEqual(collection(value,{...main,previous},collectionName),value);
+    assert.deepEqual(shared(value,true,main,collectionName),[]);
+  }
+});
+check('a changed main cannot obtain history from a malformed stored anchor or collection', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});
+  for(const mutate of [v=>v.version=2,v=>v.extra=true,v=>v.characters[0].character='not-a-name',v=>v.characters[0].class='undecided',v=>v.characters[0].privateNote='hidden',v=>v.characters[1].character='mia one',v=>v.characters.push(characterBuilds('Mia Five','priest'))]){const bad=clone(previous);mutate(bad);assert.equal(collection(value,{character:'Mia Four',className:'warrior',previous:bad},collectionName),null);}
+});
+check('main edits retain only the same historical alt name class level slot and exact code', () => {
+  const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});const context={character:'Mia Four',className:'warrior',previous};
+  for(const mutate of [v=>v.characters[1].character='Mia Five',v=>v.characters[1].class='priest',v=>v.characters[1].build30+='0',v=>{v.characters[1].build60=v.characters[1].build30;v.characters[1].build30='';},v=>v.characters[0].character='Mia One',v=>v.characters[0].class='mage']){const bad=clone(value);mutate(bad);assert.equal(collection(bad,context,collectionName),null);}
+  assert.equal(collection(value,{character:'Mia Four',className:'warrior'},collectionName),null);
+});
+check('stored historical anchors refuse first-slot and name accessors without invoking them', () => {
+  for(const field of ['first','name']){
+    const previous=collectionFixture();previous.characters[1].build30=previous.characters[1].build30.replace(data.revision,'f'.repeat(12));const value=clone(previous);Object.assign(value.characters[0],{character:'Mia Four',build30:'',build60:''});let invoked=0;
+    if(field==='first')Object.defineProperty(previous.characters,'0',{enumerable:true,get(){invoked++;return characterBuilds('Mia One','warrior');}});else Object.defineProperty(previous.characters[0],'character',{enumerable:true,get(){invoked++;return 'Mia One';}});
+    assert.equal(collection(value,{character:'Mia Four',className:'warrior',previous},collectionName),null);assert.equal(invoked,0);
+  }
 });
 console.log(`\n${count} focused attachment checks passed; ${parityCases} actual-calculator parity cases; network calls ${networkCalls}.`);
