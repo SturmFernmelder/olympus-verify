@@ -129,6 +129,36 @@ async function frontendOwner197() {
   const callsAtDisposal = identityCalls.length;
   appointments.document.hidden = true; appointments.document.dispatchEvent(new Event('visibilitychange')); appointments.document.hidden = false; appointments.document.dispatchEvent(new Event('visibilitychange')); await settle();
   check('route disposal removes old identity readers and cannot restore names or start another collection', identityCalls.length === callsAtDisposal && !appointments.app.textContent.includes('Qualified co_gm') && !appointments.app.textContent.includes('Qualified treasurer'));
+  // PR90 P2: a pending dialog-owned read cannot be inherited after that dialog is closed.
+  // Real app lifecycle; substituted qualified DTOs below prove presentation only, not backend identity authority.
+  const reopenRace = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { co_gm: 'Appointed member', treasurer: 'Appointed member' }; } });
+  const reopenCalls = [], reopenReplies = [], reopenOrdinals = new WeakMap();
+  reopenRace.before((url, init) => { if (url.startsWith('/api/appointed-identities')) { const ordinal = reopenCalls.length + 1; reopenOrdinals.set(init, ordinal); reopenCalls.push({ url, ordinal }); } return false; });
+  reopenRace.hold((url, init) => !url.startsWith('/api/appointed-identities') ? 0 : reopenOrdinals.get(init) === 2 ? 80 : reopenOrdinals.get(init) === 3 ? 400 : 0);
+  reopenRace.answer((url, init) => {
+    if (!url.startsWith('/api/appointed-identities')) return null;
+    const ordinal = reopenOrdinals.get(init); reopenReplies.push(ordinal);
+    const selected = new URL(url, 'https://guild.example').searchParams.get('role'), returned = selected ? [selected] : ['co_gm', 'treasurer'];
+    return { scope: 'qualified_community_readers', revision, complete: true, nextCursor: null, identities: returned.map(role => ({ role, appointment: '<@300000000000000097>', displayName: (ordinal === 2 ? 'Closed old ' : ordinal === 1 ? 'Initial current ' : 'Reopened current ') + role, username: 'qualified.' + role, characters: [] })) };
+  });
+  await reopenRace.go('#/apply');
+  await must(() => reopenReplies.includes(1) && reopenRace.app.textContent.includes('Initial current co_gm'), 'separate world original main identity read completed');
+  const reopenDetails = reopenRace.app.querySelector('button[aria-label="Details: ' + coGmLabel + '"]');
+  if (!reopenDetails) throw Error('actual role details control missing in reopen world');
+  reopenDetails.click(); const closedPendingDialog = reopenRace.document.querySelectorAll('dialog').find(item => item.open);
+  await must(() => reopenCalls.length === 2, 'dialog-owned identity read is pending before close');
+  check('.197 dialog owns a fresh single-role pending read after the main result has settled', !!closedPendingDialog && !reopenReplies.includes(2) && new URL(reopenCalls[1].url, 'https://guild.example').search === '?role=co_gm');
+  closedPendingDialog.close(); reopenDetails.click(); const reopenedPendingDialog = reopenRace.document.querySelectorAll('dialog').find(item => item.open);
+  await must(() => reopenCalls.length === 3, 'same-role reopen replaces disposed-owner pending identity read');
+  check('.197 close then immediate reopen starts exactly one replacement without stale identity paint', !!reopenedPendingDialog && reopenedPendingDialog !== closedPendingDialog && new URL(reopenCalls[2].url, 'https://guild.example').search === '?role=co_gm' && !reopenedPendingDialog.textContent.includes('Closed old co_gm') && !reopenedPendingDialog.textContent.includes('Reopened current co_gm'));
+  await must(() => reopenReplies.includes(2), 'old disposed-owner response is delivered'); await settle();
+  check('.197 late old identity reply cannot paint the closed or reopened dialog', !closedPendingDialog.textContent.includes('Closed old co_gm') && !reopenedPendingDialog.textContent.includes('Closed old co_gm') && (reopenReplies.includes(3) ? reopenedPendingDialog.textContent.includes('Reopened current co_gm') : !reopenedPendingDialog.textContent.includes('Reopened current co_gm')));
+  await must(() => reopenReplies.includes(3) && reopenedPendingDialog.textContent.includes('Reopened current co_gm'), 'replacement current-owner identity response hydrates reopened dialog');
+  check('.197 replacement reply belongs to the current role while main identity remains its own projection', reopenCalls.length === 3 && reopenReplies.length === 3 && !reopenedPendingDialog.textContent.includes('Initial current co_gm') && reopenRace.app.textContent.includes('Initial current co_gm'));
+  reopenedPendingDialog.close(); reopenDetails.click(); const uncachedReopen = reopenRace.document.querySelectorAll('dialog').find(item => item.open);
+  await must(() => reopenCalls.length === 4 && reopenReplies.includes(4) && uncachedReopen.textContent.includes('Reopened current co_gm'), 'settled replacement has no resolved private cache');
+  check('.197 each later settled dialog still performs its own role-filtered admitted read', new URL(reopenCalls[3].url, 'https://guild.example').search === '?role=co_gm' && reopenCalls.length === 4);
+  await reopenRace.go('#/settings');
   // PR90: real Clear control -> actual serialization/Worker -> fresh read -> separate board projection.
   const optionalMain = await openPage(MEMBER), optionalSends = [];
   optionalMain.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') optionalSends.push(JSON.parse(init.body)); return false; });

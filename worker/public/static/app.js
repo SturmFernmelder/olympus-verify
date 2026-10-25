@@ -247,10 +247,10 @@
       let after = null, revision = null, complete = false;
       clearProjection();
       try {
-        const pendingMatches = appointmentPendingRead && appointmentPendingRead.user===user && appointmentPendingRead.settings===settings && appointmentPendingRead.context===context && appointmentPendingRead.route===route && appointmentPendingRead.appointments===JSON.stringify(settings?.appointed || {}) && (appointmentPendingRead.role===null || appointmentPendingRead.role===requestedRole);
+        const pendingMatches = appointmentPendingRead && appointmentPendingRead.ownerCurrent() && appointmentPendingRead.user===user && appointmentPendingRead.settings===settings && appointmentPendingRead.context===context && appointmentPendingRead.route===route && appointmentPendingRead.appointments===JSON.stringify(settings?.appointed || {}) && (appointmentPendingRead.role===null || appointmentPendingRead.role===requestedRole);
         let shared = pendingMatches ? appointmentPendingRead : null;
         if(!shared){
-          shared={user,settings,context,route,appointments:JSON.stringify(settings?.appointed || {}),role:requestedRole,promise:null};
+          shared={user,settings,context,route,appointments:JSON.stringify(settings?.appointed || {}),role:requestedRole,ownerCurrent:current,promise:null};
           shared.promise=(async()=>{
         for (let page = 0; page < maxPages; page++) {
           const path = '/api/appointed-identities' + (requestedRole !== null ? '?' + qs({ role: requestedRole }) : after === null ? '' : '?' + qs({ after, revision }));
