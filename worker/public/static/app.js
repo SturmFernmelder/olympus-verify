@@ -156,7 +156,7 @@
   }
   function goldBanner199() {
     const policy = M().royalWritPolicy || {};
-    return noticeBox("info", "icon-treasury", h("p", { class: "gold-policy199", text: policy.banner || "100% World of Warcraft: Forever in-game gold only, via in-game mail/trade to Fernmelder. Zero real-world money, USD, Twitch subscriptions or crypto; all addons remain free with no paid addon gating. Officer review and Discord Trust & Safety rules apply." }));
+    return noticeBox("info", "pos-treasurer", h("p", { class: "gold-policy199", text: policy.banner || "100% World of Warcraft: Forever in-game gold only, via in-game mail/trade to Fernmelder. Zero real-world money, USD, Twitch subscriptions or crypto; all addons remain free with no paid addon gating. Officer review and Discord Trust & Safety rules apply." }));
   }
   function writsPanel199(page, { checklist = false, keys = null } = {}) {
     const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
@@ -2618,12 +2618,11 @@
     if (parts.length > 1) {
       clear(main); boardShells.delete(main); main.dataset.applicationTrack199 = "true";
       if (!selectedTrack199 || parts.length !== 2) {add(main, frame("Application track unavailable", null, h("a", {href:"#/vote",text:"Choose a supported application track"}))); return;}
-      const selectedOffice199 = dec(parts[1]), needsOffice199 = ["officer","high_council"].includes(selectedTrack199.id), office = office199(selectedOffice199);
-      if (needsOffice199 && (!office || !office.applicationEligible || office.applicationTrack !== selectedTrack199.id)) {
+      const selectedOffice199 = dec(parts[1]), needsOffice199 = ["officer","high_council"].includes(selectedTrack199.id), exactOffice199 = selectedOffice199 !== "new", office = office199(selectedOffice199);
+      if ((needsOffice199 || exactOffice199) && (!office || !office.applicationEligible || office.applicationTrack !== selectedTrack199.id)) {
         add(main, frame("Application track unavailable", null, h("p", {text:"Choose a currently supported office and its matching application track."}), h("a", {href:"#/vote",text:"Choose your application track"}))); return;
       }
-      if (!needsOffice199 && selectedOffice199 !== "new") { add(main, h("p", {text:"This track does not use a specific office."})); return; }
-      S.applicationIntent199 = {applicationTrack:selectedTrack199.id,targetOffice:needsOffice199 ? selectedOffice199 : null};
+      S.applicationIntent199 = {applicationTrack:selectedTrack199.id,targetOffice:exactOffice199 ? selectedOffice199 : null};
       ROUTES.apply(main); return;
     }
     const meta = M();

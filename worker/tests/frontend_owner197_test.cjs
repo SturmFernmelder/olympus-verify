@@ -330,18 +330,38 @@ async function frontendOwner197() {
   const historical199 = roles199.app.querySelector('.technical-profile199');
   check('.199 competing historical profile guidance is closed under its explicit technical accordion', !!historical199 && !historical199.open && historical199.querySelector('summary').textContent === 'Technical & Historical Profile Notes' && roles199.app.textContent.includes('Co-Guild Master and Treasurer are appointments, not extra native ranks'));
   const goldKeys199 = roles199.boot.meta.royalWrits.map(row => row.key).sort();
+  // Read the actual rendered banner source, rather than trusting a text-only
+  // banner check. The H7 browser found a complete but undecodable missing icon.
+  const goldArt199 = JSON.parse(fs.readFileSync(path.join(root, 'public/static/wow/asset-provenance.json'), 'utf8'));
+  const goldReference199 = JSON.parse(fs.readFileSync(path.join(root, '../scripts/official_asset_reference.json'), 'utf8'));
+  const goldBannerAsset199 = page => {
+    const policy = page.app.querySelector('.gold-policy199'), banner = policy?.parentNode?.parentNode;
+    const images = banner?.querySelectorAll('img') || []; if (!banner?.classList.contains('notice-box') || images.length !== 1) return false;
+    const src = images[0].getAttribute('src'); if (!/^\/static\/wow\/[a-z0-9_-]+\.png$/.test(src || '')) return false;
+    const file = path.join(root, 'public', src), relative = 'worker/public' + src;
+    if (!fs.existsSync(file)) return false;
+    const bytes = fs.readFileSync(file), hash = require('node:crypto').createHash('sha256').update(bytes).digest('hex');
+    const provenance = goldArt199.images_and_fonts.filter(row => row.path === relative), reference = goldReference199.assets.filter(row => row.path === relative);
+    return provenance.length === 1 && reference.length === 1 && provenance[0].classification === 'WoW client-derived image' && provenance[0].pixel_lineage === 'PASS'
+      && bytes.length > 24 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) && bytes.readUInt32BE(16) === provenance[0].width && bytes.readUInt32BE(20) === provenance[0].height
+      && [...provenance, ...reference].every(row => row.bytes === bytes.length && row.sha256 === hash) && images[0].getAttribute('alt') === '';
+  };
   check('.199 roles renders the complete 20-item reviewed gold-only schedule and truthful OFF gates', goldKeys199.length === 20 && JSON.stringify(roles199.app.querySelectorAll('.royal-writs199 [data-writ-key]').map(row => row.getAttribute('data-writ-key')).sort()) === JSON.stringify(goldKeys199) && roles199.app.querySelector('.gold-policy199').textContent === roles199.boot.meta.royalWritPolicy.banner && roles199.app.textContent.includes('Olympus Link remain OFF') && roles199.app.textContent.includes("recipient's prior, specific, revocable opt-in"));
+  check('.199 roles gold banner references an existing provenance-pinned PNG with matching original dimensions and bytes', goldBannerAsset199(roles199));
   for (const page199 of ['vote', 'governance', 'news', 'community/workshop']) {
     const goldPage199 = await openPage(APPLICANT199); await goldPage199.go('#/' + page199);
     await must(() => !!goldPage199.app.querySelector('[data-royal-writ-page="' + page199 + '"]'), '.199 ' + page199 + ' gold reference');
     check('.199 ' + page199 + ' exposes all 20 catalogue rows with the shared gold-only, free-addon and officer-review policy', goldPage199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && goldPage199.app.querySelector('.gold-policy199')?.textContent === goldPage199.boot.meta.royalWritPolicy.banner && goldPage199.app.textContent.includes('no USD, Twitch subscriptions or crypto') && goldPage199.app.textContent.includes('zero paid addon gating'));
+    check('.199 ' + page199 + ' gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(goldPage199));
   }
   const army199 = await openPage(APPLICANT199); await army199.go('#/army');
   await must(() => !!army199.app.querySelector('[data-royal-writ-page="army"]'), '.199 Army charter schedule');
   check('.199 Army shows four reviewed flagship/leave writs without converting the unavailable live feed into capacity', army199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 4 && army199.app.querySelector('.gold-policy199')?.textContent === army199.boot.meta.royalWritPolicy.banner && !army199.app.querySelector('.royal-writs199 button'));
+  check('.199 Army gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(army199));
   const admin199 = await openPage(STAFF); await admin199.go('#/admin/treasury');
   await must(() => !!admin199.app.querySelector('.stockades-checklist199'), '.199 attended Treasury/Stockades operator reference');
   check('.199 Treasury keeps all 20 writs and eight manual steps honest about the unconfirmed external appeal venue', admin199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && admin199.app.querySelectorAll('.stockades-checklist199 li').length === 8 && admin199.app.querySelector('.stockades-checklist199').textContent.includes('repurposing and an approved appeal invite are not confirmed') && admin199.app.querySelector('.gold-policy199')?.textContent === admin199.boot.meta.royalWritPolicy.banner && !admin199.app.querySelector('.stockades-checklist199 button'));
+  check('.199 admin Treasury gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(admin199));
   // .199 H2 browser finding: exercise the actual model loader over genuine
   // authenticated Worker static HTTP before rendering its returned data. The
   // finite model cap is separate from the unchanged 256KiB reviewed-book cap.
@@ -380,6 +400,31 @@ async function frontendOwner197() {
     rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
     const rendered199=rendererExecution199.exports();
     check('.199 the actual Organization renderer paints the model returned by the real app HTTP loader',rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
+    // Follow the renderer's real non-leadership links through the actual app,
+    // form submission and Worker; the office remains an intent, never a seat alias.
+    const nonleadLinks199 = [['office_07','artisan','member','730000000000001990','Artisan One'],['office_27','artisan','member','730000000000001991','Crafter One'],['office_25','raider','raider','730000000000001992','Raider One']];
+    for (const [target,track,canonical,id,name] of nonleadLinks199) {
+      const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),href=links[0]?.getAttribute('href');
+      check('.199 Organization emits the exact eligible '+target+' application link',links.length>0&&links.every(link=>link.getAttribute('href')==='#/vote/'+track+'/'+target)&&href==='#/vote/'+track+'/'+target);
+      await siteUser(id,{global_name:name});await character(id,name,'Player-199-'+id.slice(-4));
+      const seed={...body,position:canonical,backups:[],character:name,applicationTrack:track,targetOffice:null,board:false,boardApplicationIntent:false,answers:{...body.answers}};delete seed.answers.talentBuilds;
+      const seeded=await request('PUT','/api/application',seed,id);if(seeded.response.status!==200)throw Error('nonleadership original form seed refused');
+      const linked=await openPage(id),sent=[];linked.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sent.push(JSON.parse(init.body));return false;});
+      await linked.go(href);const form=linked.app.querySelector('form');
+      check('.199 actual Organization '+target+' link opens its matching form and exact target badge',!!form&&linked.app.querySelector('#application-track199')?.value===track&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
+      if(!form){await linked.go('#/');continue;}
+      check('.199 '+target+' link grants no public-intent or portrait consent',!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
+      form.querySelector('[data-field="ack"] input').checked=true;fire(form,'submit');
+      const saved=()=>{const row=one('SELECT answers FROM site_applications WHERE discord_id=?',id);return row&&JSON.parse(row.answers);};
+      await must(()=>sent.length===1&&saved()?.targetOffice===target&&!linked.app.querySelector('button[type="submit"]').disabled,'terminal actual Organization '+target+' form save');
+      check('.199 '+target+' form preserves its exact private intent through the real Worker',sent[0].position===canonical&&sent[0].applicationTrack===track&&sent[0].targetOffice===target&&sent[0].boardApplicationIntent===false&&saved().applicationTrack===track&&saved().targetOffice===target&&saved().boardApplicationIntentOptIn===false);
+      const copy=await request('GET','/api/me/export',undefined,id);
+      check('.199 signed-in own copy retains the exact Organization '+target+' intent',copy.response.status===200&&copy.body.site.application.answers.applicationTrack===track&&copy.body.site.application.answers.targetOffice===target);
+      for(const route of ['#/vote/member/'+target,'#/vote/'+track+'/office_99','#/vote/'+track+'/office_43','#/vote/officer/new']) {
+        await linked.go(route);check('.199 exact non-leadership link validation refuses '+route+' without a stale form',!linked.app.querySelector('form')&&!linked.app.querySelector('[data-target-office]')&&linked.app.textContent.includes('Application track unavailable'));
+      }
+      await linked.go('#/');
+    }
     rendered199.dispose();
     const padded199=size=>Buffer.concat([modelBytes199,Buffer.alloc(size-modelBytes199.length,0x20)]);
     const exactLimit199=loadClient199();exactLimit199.override(padded199(524288));

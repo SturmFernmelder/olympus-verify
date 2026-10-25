@@ -27,6 +27,23 @@ async function applicationTrackWorker199(){
   check(c.track+' stored intent stays below128bytes and confers no appointment',Buffer.byteLength(JSON.stringify({applicationTrack:row?.answers.applicationTrack,targetOffice:row?.answers.targetOffice}))<128&&one("SELECT value FROM site_settings WHERE key='appointed'").value==='{}'&&!one('SELECT 1 FROM role_settlements WHERE subject=?',id));
  }
  const officer199=cases.find(c=>c.track==='officer'),officerId199=owners.get('officer'),officerBody199=bodyFor(officer199);
+ // Organization links may select a non-leadership office without turning its
+ // membership-form route into a shared appointment or no-vote identity.
+ for(const [target,track,position]of [['office_07','artisan','member'],['office_27','artisan','member'],['office_25','raider','raider']]){
+  const original=cases.find(c=>c.track===track),id=owners.get(track),payload={...bodyFor(original),position,targetOffice:target,board:false,boardApplicationIntent:false};
+  const saved=await request199('PUT','/api/application',payload,id),row=stored199(id);
+  check(target+' exact non-leadership target roundtrips through the real Worker privately',saved.response.status===200&&row?.position===position&&row.answers.applicationTrack===track&&row.answers.targetOffice===target&&row.answers.boardApplicationIntentOptIn===false&&JSON.stringify(intent199.applicationIntentDto199(row.answers))===JSON.stringify({applicationTrack:track,targetOffice:target}),saved.response.status,saved.body?.field);
+  const copied=await request199('GET','/api/me/export',undefined,id);
+  check(target+' exact non-leadership intent remains in signed-in own copy',copied.response.status===200&&copied.body.site.application.answers.applicationTrack===track&&copied.body.site.application.answers.targetOffice===target);
+  const before=JSON.stringify(stored199(id));
+  for(const [label,patch,field]of [['mismatched track',{applicationTrack:track==='artisan'?'raider':'artisan'},'targetOffice'],['mismatched position',{position:position==='member'?'raider':'member'},'position'],['unknown target',{targetOffice:'office_99'},'targetOffice']]){
+   const refused=await request199('PUT','/api/application',{...payload,...patch},id);check(target+' '+label+' is refused without changing stored intent',refused.response.status===400&&refused.body?.field===field&&JSON.stringify(stored199(id))===before,refused.response.status,refused.body?.field);
+  }
+  await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'",JSON.stringify({[target]:'Recorded exact target holder'}));
+  const occupied=await request199('PUT','/api/application',payload,id);
+  check(target+' exact occupied target stays closed without fabricating a shared membership seat',occupied.response.status===400&&occupied.body?.field==='targetOffice'&&JSON.stringify(stored199(id))===before&&!sd199.isAppointed({appointed:{[target]:'Recorded exact target holder'}},position),occupied.response.status,occupied.body?.field);
+  await fixtureRun("UPDATE site_settings SET value='{}' WHERE key='appointed'");
+ }
  const noTaken=()=>false;
  const invalidIntents199=[['unknown track','unknown',null,'applicationTrack'],['null track',null,null,'applicationTrack'],['boolean track',true,null,'applicationTrack'],['oversize track','x'.repeat(81),null,'applicationTrack'],['unknown office','officer','office_99','targetOffice'],['track mismatch','high_council','office_62','targetOffice'],['reserved Treasury','high_council','office_86','targetOffice'],['reserved sovereign','high_council','office_43','targetOffice'],['missing leadership target','officer',undefined,'targetOffice'],['null leadership target','officer',null,'targetOffice'],['boolean target','officer',false,'targetOffice'],['object target','officer',{},'targetOffice'],['oversize target','officer','x'.repeat(81),'targetOffice'],['member cannot target an officer','member','office_62','targetOffice']];
  for(const [label,track,target,field]of invalidIntents199){const value=intent199.validateApplicationIntent199(track,target,noTaken);check(label+' is refused by the real finite intent validator',!!value&&value.error==='invalid'&&value.field===field);}
