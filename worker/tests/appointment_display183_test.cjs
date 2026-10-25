@@ -114,7 +114,10 @@ const body183 = String.raw`
   check('a response above the actual131-office catalogue fails closed without private labels',!hasNames183(catalogPage183.app)&&!catalogPage183.app.textContent.includes('Office officer'));
   await catalogPage183.go('#/');
   const withheld183=await openPage(MEMBER,{}, {bootTransform:boot=>{boot.settings.appointed={treasurer:'Name withheld'};}});await withheld183.go('#/roles');
-  check('Name withheld and erased-holder projections contain no Treasurer literal in public role facts',withheld183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes('Name withheld')&&!withheld183.app.textContent.includes('Fernmelder')&&!withheld183.boot.meta.positions.find(p=>p.key==='treasurer').info.game.includes('Fernmelder'));
+  const withheldTreasurer183=withheld183.app.querySelector('[data-appointed-person="treasurer"]');
+  // .199 separately names the public gold-mail recipient in its writ catalogue.
+  // That disclosure must not be mistaken for a private Treasurer appointment.
+  check('Name withheld and erased-holder projections contain no Treasurer identity in appointment facts',withheldTreasurer183.textContent.includes('Name withheld')&&!withheldTreasurer183.textContent.includes('Fernmelder')&&!withheld183.boot.meta.positions.find(p=>p.key==='treasurer').info.game.includes('Fernmelder')&&!withheld183.app.textContent.includes(treasurer183)&&!withheld183.app.textContent.includes('Private Treasury Fixture'));
   check('appointment presentation issues only reads and never saves settings, modifies identity or obtains Army data',calls183.every(call=>call.method==='GET'&&!/army|privacy\/|census\/preview/.test(call.pathname))&&!one('SELECT 1 FROM site_users WHERE discord_id=?',discordOnly183));
   console.log('\n'+ok+'/'+n+' appointment display183 checks passed');process.exit(ok===n?0:1);
 })().catch(error=>{console.error(error);process.exit(1);});

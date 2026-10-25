@@ -1407,7 +1407,7 @@
   }
   function governanceModel() {
     if (!governanceModelPromise) governanceModelPromise = (async () => {
-      const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 131072);
+      const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 524288);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
           !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 259596 || data.book.sha256 !== GOVERNANCE_SHA256 ||

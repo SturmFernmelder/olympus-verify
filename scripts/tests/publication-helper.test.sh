@@ -46,13 +46,18 @@ assert any(row["path"] == "tools/check-login-portal.py" for row in ref["fixed_ar
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
 assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
 # Keep the exact source/asset gate, including the .167 cursor additions, before publication.
-for row in ref["assets"] + ref["fixed_art_source_pins"]:
+for row in ref["assets"] + ref["fixed_art_source_pins"] + ref["required_public_resources"]:
     path = Path(row["path"])
     assert not path.is_symlink() and not path.is_junction(), row["path"]
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 46
+assert len(ref["required_public_resources"]) == 48
+# .199 adds the exact rank bridge and reference-only royal-writ catalogue; neither is official artwork.
+master199_resources = {"worker/public/static/role-rank199.js", "worker/public/static/royal-writs199.js"}
+assert master199_resources.issubset({row["path"] for row in ref["required_public_resources"]})
+assert master199_resources.issubset(ref["runtime_paths"])
+assert not master199_resources.intersection(ref["official_paths"] + ref["native_paths"])
 # .196 adds four bounded application scripts and retires the separate Army ZIP.
 master196_resources = {"worker/public/static/army-live/sanitized-export.js", "worker/public/static/army-live/savedvariables-import.js", "worker/public/static/legal-view196.js", "worker/public/static/approved-guild-helper196.js"}
 assert master196_resources.issubset({row["path"] for row in ref["required_public_resources"]})

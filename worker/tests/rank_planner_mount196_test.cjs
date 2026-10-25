@@ -83,7 +83,8 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
   await check('fragment is fixed authored markup with numeric owner, scoped IDs and no duplicate shell/resources', () => {
     assert.equal(response.status, 200); assert.equal(response.headers.get('Cache-Control'), 'no-store');
     assert.ok(html.includes('data-draft-owner="' + OWNER + '"')); assert.ok(html.includes('rank-planner-embedded'));
-    assert.ok(html.includes('High Council Slot 2 · Treasurer Slot 3')); assert.ok(!html.includes('Treasurer Slot 2'));
+    assert.ok(html.includes('High Council slot 1 · Officer slot 2')); assert.ok(html.includes('Officer Alt uses slot 3'));
+    assert.ok(html.includes('Co-Guild Master and Treasurer are appointments associated with High Council, not additional native ranks'));
     assert.ok(!/<(?:html|body|main|nav|script|style|link|iframe)\b/i.test(html)); assert.ok(!html.includes('brand-mark')); assert.ok(!html.includes('__PLANNER_OWNER__'));
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]); assert.equal(ids.length, new Set(ids).size); assert.ok(ids.every(id => id.startsWith('rank-planner-')));
     for (const [, id] of html.matchAll(/\b(?:for|aria-labelledby)="([^"]+)"/g)) assert.ok(ids.includes(id), id);
@@ -105,23 +106,26 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
   });
   const b = browser(), Model = b.sandbox.OlympusStaffRankPlanner, catalogue = b.sandbox.OlympusStaffRankCatalogue.ranks, api = b.sandbox.OlympusRankPlanner;
   const p = b.template(html); let current = true, instance;
-  await check('mount restores the exact account key and ten-slot Treasurer recommendation without touching shell', () => {
+  await check('mount restores the exact account key and owner199 ten-rank recommendation without touching shell', () => {
     const shell = b.document.createElement('input'); shell.id = 'search'; shell.value = 'shell stays unchanged'; b.document.body.append(shell);
     instance = api.mount(p.root, { owner: OWNER, isCurrent: () => current });
-    const draft = JSON.parse(b.store.get(key(OWNER))); assert.equal(draft.ranks.length, 10); assert.equal(draft.ranks[1].id, 'highcouncil'); assert.equal(draft.review.liveChangesApplied, false);
+    const draft = JSON.parse(b.store.get(key(OWNER))); assert.deepEqual(draft.ranks.map(rank => rank.id), ['gm','highcouncil','officer','officeralt','raidlead','veteran','raider','member','alt','initiate']); assert.equal(draft.review.liveChangesApplied, false);
     assert.equal(p.$('ladder-list').children.length, 10); assert.equal(shell.value, 'shell stays unchanged'); assert.deepEqual([...new Set(b.writes)], [key(OWNER)]);
   });
   await check('planner buttons preserve floor, ceiling, fixed GM and unprotected entry rank', async () => {
-    assert.equal(p.label('Move Guild Master down').disabled, true);
-    const staleCard = p.label('Review Treasurer in your ladder');
+    assert.equal(p.label('Move Leader down').disabled, true);
+    const staleCard = p.label('Review High Council in your ladder');
     await p.$('minimum').click(); const small = JSON.parse(b.store.get(key(OWNER))); assert.deepEqual(small.ranks.map(r => r.id), ['gm', 'initiate']);
     assert.equal(p.label('Remove Initiate').disabled, true); assert.equal(staleCard.listeners.click.length, 0);
     await p.label('Add Treasurer').click(); assert.equal(JSON.parse(b.store.get(key(OWNER))).ranks[1].id, 'treasurer');
     await p.$('recommended').click(); assert.equal(JSON.parse(b.store.get(key(OWNER))).ranks.length, 10); assert.equal(p.label('Add Crafter').disabled, true);
   });
   await check('export remains an unapproved JSON draft and opens only its own dialog', async () => {
+    // A separately selected local draft may include the historical Treasurer card;
+    // it is not part of the owner199 native-rank recommendation and grants no authority.
+    await p.$('minimum').click(); await p.label('Add Treasurer').click();
     await p.$('export').click(); assert.equal(p.$('export-dialog').open, true); assert.equal(Model.importDraft(p.$('export-text').value, catalogue).review.liveChangesApplied, false);
-    await p.label('Review Treasurer, rank 3').click(); assert.equal(p.$('editor').open, true); assert.ok(p.$('edit-name')); assert.ok(p.$('perm-auth').checked);
+    await p.label('Review Treasurer, rank 2').click(); assert.equal(p.$('editor').open, true); assert.ok(p.$('edit-name')); assert.ok(p.$('perm-auth').checked);
   });
   await check('destroy closes dialogs, removes all listeners/timers and revokes downloads without storage changes', async () => {
     await p.$('download').click(); const before = b.store.get(key(OWNER)); assert.ok(b.timers.size > 0); assert.equal(b.revoked.length, 0);

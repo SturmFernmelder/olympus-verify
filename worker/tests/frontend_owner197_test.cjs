@@ -335,6 +335,60 @@ async function frontendOwner197() {
   const admin199 = await openPage(STAFF); await admin199.go('#/admin/treasury');
   await must(() => !!admin199.app.querySelector('.stockades-checklist199'), '.199 attended Treasury/Stockades operator reference');
   check('.199 Treasury keeps all 20 writs and eight manual steps honest about the unconfirmed external appeal venue', admin199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && admin199.app.querySelectorAll('.stockades-checklist199 li').length === 8 && admin199.app.querySelector('.stockades-checklist199').textContent.includes('repurposing and an approved appeal invite are not confirmed') && admin199.app.querySelector('.gold-policy199')?.textContent === admin199.boot.meta.royalWritPolicy.banner && !admin199.app.querySelector('.stockades-checklist199 button'));
+  // .199 H2 browser finding: exercise the actual model loader over genuine
+  // authenticated Worker static HTTP before rendering its returned data. The
+  // finite model cap is separate from the unchanged 256KiB reviewed-book cap.
+  {
+    const modelPath199 = '/static/governance/organization.json';
+    const modelBytes199 = fs.readFileSync(path.join(root, 'public', modelPath199));
+    const loaderStart199 = APP_JS.indexOf('  const GOVERNANCE_BOOK = '), loaderEnd199 = APP_JS.indexOf('  const governanceSlug = ', loaderStart199);
+    if (loaderStart199 < 0 || loaderEnd199 <= loaderStart199) throw Error('owner199_actual_governance_loader_boundary');
+    const actualLoaderSource199 = APP_JS.slice(loaderStart199, loaderEnd199);
+    const instantiate199 = new Function('fetch', 'crypto', 'TextDecoder', 'own', actualLoaderSource199 + '\nreturn {governanceModel};');
+    const loadClient199 = () => {
+      const reads = []; let bodyOverride = null;
+      const actualStaticFetch = async (pathname, init) => {
+        if (pathname !== modelPath199) throw Error('owner199_unexpected_model_request');
+        const assets = { fetch: request => bodyOverride === null ? governanceAssets.fetch(request) : new Response(bodyOverride, { headers: {'Content-Type':'application/json; charset=utf-8'} }) };
+        const response = await indexMod.default.fetch(new Request('https://guild.example' + pathname, {headers:{Cookie:await cookieFor(MEMBER)}}), env({ASSETS:assets}), ctx);
+        reads.push({path:pathname,credentials:init.credentials,redirect:init.redirect,status:response.status,bytes:(await response.clone().arrayBuffer()).byteLength});
+        return response;
+      };
+      const loader = instantiate199(actualStaticFetch, globalThis.crypto, TextDecoder, (object,key)=>Object.prototype.hasOwnProperty.call(object,key));
+      return {read:()=>loader.governanceModel(),reads,override:bytes=>{bodyOverride=bytes;}};
+    };
+    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===345654&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 262144)'));
+    const currentClient199=loadClient199(),model199=await currentClient199.read();
+    check('.199 actual authenticated Worker HTTP and current app loader accept every345654 source byte with95 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===95&&model199.appointments.length===131);
+    // Reuse the existing Organization DOM fixture definitions, not its test body.
+    // Only that fixture's data binding is supplied from the real loader above;
+    // its actual organization-view.js renderer remains unchanged.
+    const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
+    const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='13c3695d6a32aad145117d4ca5d971c506f40d2cc30ef995551b2ae67e187406')throw Error('owner199_original_organization_fixture_prefix_drift');
+    const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
+    if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
+    const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
+    rendererExecution199.loadedModel199=model199;
+    rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
+    const rendered199=rendererExecution199.exports();
+    check('.199 the actual Organization renderer paints the model returned by the real app HTTP loader',rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
+    rendered199.dispose();
+    const padded199=size=>Buffer.concat([modelBytes199,Buffer.alloc(size-modelBytes199.length,0x20)]);
+    const exactLimit199=loadClient199();exactLimit199.override(padded199(524288));
+    const atLimit199=await exactLimit199.read();
+    check('.199 exactly524288 valid JSON bytes retain all shape checks at the model boundary',exactLimit199.reads[0].bytes===524288&&atLimit199.terms.length===95&&atLimit199.book.sha256===model199.book.sha256);
+    const oversized199=loadClient199();oversized199.override(padded199(524289));let oversizedError199=null;
+    try{await oversized199.read();}catch(error){oversizedError199=error;}
+    check('.199 actual524289-byte HTTP body fails closed before otherwise-valid model JSON can render',oversized199.reads.length===1&&oversized199.reads[0].status===200&&oversized199.reads[0].bytes===524289&&oversizedError199?.message==='The public governance file has an unexpected size.');
+    oversized199.override(null);const recovered199=await oversized199.read();
+    check('.199 a failed oversized read is not cached and an explicit later read loads only the genuine current body',oversized199.reads.length===2&&oversized199.reads[1].bytes===modelBytes199.length&&recovered199.terms.length===95);
+    for(const [label,patch]of [['schema',data=>{data.schema='wrong-synthetic-schema';}],['book pin',data=>{data.book.sha256='0'.repeat(64);}]]){
+      const altered199=JSON.parse(modelBytes199),refused199=loadClient199();patch(altered199);refused199.override(Buffer.from(JSON.stringify(altered199)));let refusal199=null;
+      try{await refused199.read();}catch(error){refusal199=error;}
+      check('.199 larger model ceiling preserves the original exact '+label+' validation',refused199.reads.length===1&&refused199.reads[0].status===200&&refusal199?.message==='The organization model has an unexpected shape.');
+    }
+  }
   console.log('\n' + ok + '/' + n + ' owner197/199 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
 }
