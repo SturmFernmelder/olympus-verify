@@ -14,7 +14,8 @@
 import type { Env } from "./env";
 import { normalizeCharacter } from "./codes";
 import { resolveRulesetSnapshot, rulesetSwitchReadiness, type RulesetSnapshot } from "./ruleset-profile";
-import { OFFICE_APPOINTMENTS } from "./governance-offices";
+import { OFFICE_APPOINTMENTS, NATIVE_RANKS_199, APPLICATION_TRACKS_199 } from "./governance-offices";
+import { ROYAL_WRIT_POLICY, ROYAL_WRITS, STOCKADES_CHECKLIST, ROYAL_WRIT_CATEGORIES } from './royal-writs199';
 import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
 import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
 
@@ -79,7 +80,7 @@ const raidAssistInfo = (region: string, evenings: string): RoleInfo => ({
   game: "Post-beta guidance: Raid Assist is an appointment, not a separate native rank. The planning crosswalk recommends Raid Leader (Slot 5), subject to separate Guild Master review; the appointment grants no rank, permissions or AddOn access. The holder keeps their current rank until an attended Guild Master decision. If assigned Raid Leader to stand in, the same authenticator safeguard applies; raid assistant is assigned within each raid.",
 });
 
-export const POSITIONS: Position[] = [
+const HISTORICAL_POSITION_COPY: Position[] = [
   {
     // .45: most of the rank drafts in the community's Rank Codex had one. Out of the box it is chosen without a public
     // vote (SiteSettings.noVote): a second in command is the Guild Master's pick, not a popularity contest.
@@ -424,6 +425,20 @@ export const POSITIONS: Position[] = [
     },
   },
 ];
+/** Current guide uses one .199 ladder; these mappings do not certify or change the game client. */
+const OFFICE_APPLICATION_POSITIONS_199: Position[] = OFFICE_APPOINTMENTS
+  .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack))
+  .filter(row => row.applicationRoleKeys.includes(row.key))
+  .filter(row => !HISTORICAL_POSITION_COPY.some(position => position.key === row.key))
+  .map(row => ({ key: row.key, label: row.applicationLabel || row.label, group: 'leadership', blurb: `${row.department} · ${row.tierLabel} · reviewed application for this specific office.`,
+    info: { about: `Apply for ${row.applicationLabel || row.label} in ${row.department}. A submitted request is not a vacancy guarantee or appointment.`, duties: ['Follow the office mandate and its applicable statutory Titles.', 'Keep decisions, conflicts and delegated authority reviewable.', 'Record handovers and escalate work outside the accepted mandate to the responsible portfolio.'], expect: ['Current leadership reviews eligibility, availability and any appointment separately.', 'Disclose conflicts and agree the required training, attendance and service boundaries before appointment.'], time: 'Agree the service commitment with the appointing authority.', works: `Coordinate through ${row.department} and the accepted office mandate.`, game: '' } }));
+export const POSITIONS: Position[] = [...HISTORICAL_POSITION_COPY, ...OFFICE_APPLICATION_POSITIONS_199].map(position => {
+  const office = OFFICE_APPOINTMENTS.find(row => row.key === position.key)
+    ?? (position.key === 'class_lead' ? OFFICE_APPOINTMENTS.find(row => row.group === 'class') : undefined);
+  const rank = office ? NATIVE_RANKS_199.find(row => row.nativeSlot === office.nativeSlot) : NATIVE_RANKS_199[7];
+  const game = rank ? `Rank ${rank.nativeRankOrdinal} ${rank.name} (zero-based slot ${rank.nativeSlot}). This is not verification of the holder’s current game rank. Co-Guild Master and Treasurer are appointments, not additional native ranks. Applying grants no rank, moderation, bank permission or addon access; the Guild Master reviews actual game permissions separately.` : 'Actual rank and permissions require separate Guild Master review.';
+  return { ...position, info: { ...position.info, game } };
+});
 export const POSITION_KEYS = new Set(POSITIONS.map((p) => p.key));
 const POSITION_BY_KEY = new Map(POSITIONS.map((p) => [p.key, p]));
 export const isLeadership = (position: string) => POSITION_BY_KEY.get(position)?.group === "leadership";
@@ -654,7 +669,22 @@ export function cleanAppointed(v: unknown): Record<string, string> | null {
 }
 
 /** Whether a role is appointed (own keys only: a role key never reaches Object.prototype). */
-export const isAppointed = (s: { appointed: Record<string, string> }, key: string) => Object.prototype.hasOwnProperty.call(s.appointed, key);
+/** Only eligible leadership adapters share ballot seats; membership-form routes are not appointment identities. */
+const applicationLeadershipSeat199 = (row: (typeof OFFICE_APPOINTMENTS)[number] | undefined) => !!row?.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack);
+export const applicationSeatKeys199 = (key: string): readonly string[] => {
+  const row = OFFICE_APPOINTMENTS.find(row => row.key === key);
+  return applicationLeadershipSeat199(row) ? row!.applicationRoleKeys : [];
+};
+const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2}$/.test(row.key) && applicationLeadershipSeat199(row) && row.applicationRoleKeys.includes(key));
+export const isAppointed = (s: { appointed: Record<string, string> }, key: string): boolean => {
+  const owns = (k: string) => Object.prototype.hasOwnProperty.call(s.appointed, k);
+  if (owns(key)) return true;
+  const parent = applicationParent199(key);
+  if (parent && parent.key !== key && owns(parent.key)) return true;
+  const children = applicationSeatKeys199(key);
+  if (children.length && !children.includes(key) && children.every(owns)) return true;
+  return key === 'treasurer' ? owns('office_86') : key === 'office_86' ? owns('treasurer') : false;
+};
 
 function parseAppointed(raw: string | undefined): Record<string, string> {
   if (raw === undefined) return { ...DEFAULT_APPOINTED };
@@ -676,12 +706,15 @@ export const DEFAULT_NO_VOTE: readonly string[] = ["co_gm"];
 /** An admin's list of roles without a public vote, cleaned: real roles only (the board's keys), each once; null if unreadable. */
 export function cleanNoVote(v: unknown): string[] | null {
   if (!Array.isArray(v)) return null;
-  const keys = new Set(v.map((k) => String(k ?? "")).filter((k) => ballotOf(k)));
+  const keys = new Set(v.flatMap(raw => {
+    const key = String(raw ?? "");
+    return ballotOf(key) ? [key] : applicationSeatKeys199(key).filter(k => ballotOf(k));
+  }));
   return BALLOTS.map((b) => b.key).filter((k) => keys.has(k)); // the board's own order
 }
 
 /** Whether a role takes applications without a public vote. An appointed role is closed altogether, which comes first. */
-export const isNoVote = (s: { noVote: readonly string[] }, key: string) => s.noVote.includes(key);
+export const isNoVote = (s: { noVote: readonly string[] }, key: string) => s.noVote.includes(key) || !!applicationParent199(key) && s.noVote.includes(applicationParent199(key)!.key);
 
 function parseNoVote(raw: string | undefined): string[] {
   if (raw === undefined) return [...DEFAULT_NO_VOTE];
@@ -755,6 +788,12 @@ export function meta(ruleset?: RulesetSnapshot) {
     professions: PROFESSIONS,
     ballots: BALLOTS,
     appointments: OFFICE_APPOINTMENTS,
+    rankHierarchy: NATIVE_RANKS_199,
+    applicationTracks: APPLICATION_TRACKS_199,
+    royalWritPolicy: ROYAL_WRIT_POLICY,
+    royalWrits: ROYAL_WRITS,
+    royalWritCategories: ROYAL_WRIT_CATEGORIES,
+    stockadesChecklist: STOCKADES_CHECKLIST,
     limits: LIMITS,
     avail: { reference: AVAIL_REFERENCE, prime: PRIME },
   };

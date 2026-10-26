@@ -103,3 +103,23 @@ condition = "AND"
 paths = ['''^worker/tests/resources_admission169_test\.cjs$''']
 regexTarget = "secret"
 regexes = ['''^wowhead-blues-forever183$''']
+
+# .199: two source-reviewed public test-code matches, not credentials.
+# Each exception requires this exact rule AND relative path AND anchored complete match.
+# Other findings in either file, changed values, other files and all historical commits remain scanned.
+
+[[allowlists]]
+description = "Exact public app-helper name adjacency in the .199 source-boundary fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/application_track199_test\.cjs$''']
+regexTarget = "match"
+regexes = ['''^applicationSeatKeys199','applicationParent199'$''']
+
+[[allowlists]]
+description = "Exact public office-card callback syntax in the .199 frontend assertion"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/frontend_owner197_test\.cjs$''']
+regexTarget = "match"
+regexes = ['''^key === appointedKey199 $''']

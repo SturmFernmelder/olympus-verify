@@ -68,11 +68,12 @@ import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
 import { applicationTalentBuilds, sharedApplicationTalentBuilds, talentBuildAttachment, unchangedHistoricalTalentBuild } from './talent-build-attachment';
+import { validateApplicationIntent199, applicationIntentDto199, applicationRoleKeys199 } from './application-track199';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
 const MEMBER_RECHECK = 3600;
-const generalAppointmentLabel = (value: string) => appointmentAccountId(value) ? 'Appointed member' : value;
+const generalAppointmentLabel = (value: string | undefined) => !value || appointmentAccountId(value) ? 'Appointed member' : value;
 
 /** General settings disclose closed offices, not member-only account associations.
  * Admin settings retain their exact editing values; the fresh admitted identity
@@ -357,7 +358,14 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   }
   // Any leadership choice brings the leadership questions; only one that is voted on brings the board (.45: a role
   // chosen without a public vote has no board, so an application naming only such roles stays with the leadership).
-  const leading = isLeadership(position) || backups.some((k) => choiceOf(k)?.leadership);
+  const rawAnswers199 = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers) ? body.answers as Record<string, unknown> : {};
+  const intent199 = validateApplicationIntent199(Object.hasOwn(body, 'applicationTrack') ? body.applicationTrack : rawAnswers199.applicationTrack, Object.hasOwn(body, 'targetOffice') ? body.targetOffice : rawAnswers199.targetOffice, taken);
+  if (intent199 && 'error' in intent199) return intent199;
+  const officeLeadership199 = intent199?.applicationTrack === 'officer' || intent199?.applicationTrack === 'high_council';
+  if (officeLeadership199 && !applicationRoleKeys199(intent199.targetOffice).includes(first)) return fail('targetOffice', 'Your selected office must match the role being submitted for review.');
+  if (officeLeadership199 && !isLeadership(position)) return fail('position', 'Choose a leadership review role for your Council or Officer office request.');
+  if (intent199 && !officeLeadership199 && position !== (intent199.applicationTrack === 'raider' ? 'raider' : 'member')) return fail('position', 'Non-office tracks must match their membership or Raider application choice.');
+  const leading = officeLeadership199 || isLeadership(position) || backups.some((k) => choiceOf(k)?.leadership);
   const voted = [first, ...backups].some((k) => choiceOf(k)?.leadership && !isNoVote({ noVote }, k));
 
   let character: string | null = null;
@@ -383,6 +391,10 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
 
   const raw = (body.answers ?? {}) as Record<string, unknown>;
   const answers: Record<string, unknown> = {};
+  if (intent199) {
+    answers.applicationTrack = intent199.applicationTrack;
+    answers.targetOffice = intent199.targetOffice;
+  }
   for (const q of QUESTIONS) {
     if (q.leadership && !leading) continue;
     if (q.key === "talentBuild") {
@@ -458,6 +470,8 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   const shareTalentBuilds = voted && body.board === true && body.boardTalentBuilds === true;
   if (shareTalentBuilds && !sharedApplicationTalentBuilds(talentBuilds, true, { character, className: cls, siteHost }, parseCharacterName).length) return fail("talentBuilds", "Only current level30/60 character builds can be shared. Replace retained historical codes or leave build sharing unchecked.");
   answers.boardTalentBuildsOptIn = shareTalentBuilds;
+  if (body.boardApplicationIntent !== undefined && typeof body.boardApplicationIntent !== 'boolean') return fail('boardApplicationIntent', 'Confirm whether your application track and target office may appear on the voting board.');
+  answers.boardApplicationIntentOptIn = !!intent199 && voted && body.board === true && body.boardApplicationIntent === true;
   answers.ackAt = now();
   const fit = fitFromBits(bits);
 
@@ -489,6 +503,12 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
     return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
   }
   const previousAnswers = existing ? parseAnswers(existing.answers) : {};
+  const sentAnswers199 = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers) ? body.answers as Record<string, unknown> : {};
+  // A legacy editor may retain intent privately; it cannot preserve board sharing without a fresh boolean below.
+  if (!Object.hasOwn(body, 'applicationTrack') && !Object.hasOwn(body, 'targetOffice') && !Object.hasOwn(sentAnswers199, 'applicationTrack') && !Object.hasOwn(sentAnswers199, 'targetOffice') && previousAnswers.applicationTrack !== undefined) {
+    body.applicationTrack = previousAnswers.applicationTrack;
+    body.targetOffice = previousAnswers.targetOffice;
+  }
   const storedTalent = previousAnswers.talentBuild;
   const a = validateApplication(body, user.discord_id, s.appointed, s.noVote, env.SITE_HOST, typeof storedTalent === "string" ? storedTalent : undefined, previousAnswers.talentBuilds);
   // A page opened before a role was put to the vote hid the board box: the list it lacked comes back with the refusal,
@@ -704,6 +724,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
         choice, // 1 = their first choice, 2 or 3 = a backup
         // Only the written answers the application form says are shown here; logs, references and notes stay private.
         answers: Object.fromEntries(BOARD_ANSWERS.filter((k) => typeof answers[k] === "string").map((k) => [k, answers[k]])),
+        applicationIntent: answers.boardApplicationIntentOptIn === true ? applicationIntentDto199(answers) : null,
         talentBuilds: sharedApplicationTalentBuilds(answers.talentBuilds, answers.boardTalentBuildsOptIn, { character: typeof r.character === "string" ? r.character : null, className: typeof r.class === "string" ? r.class : "", siteHost: env.SITE_HOST }, parseCharacterName),
         myVote: Number(r.myVote ?? 0),
         self: id === me,

@@ -9,3 +9,4 @@ for(const mutate of [rows=>{rows[11].label='Other office';},rows=>{rows[11].offi
 for(const mutate of [rows=>{rows[11].label='Other office';},rows=>{rows[11].key=rows[49].key;},rows=>{rows[0].label=rows[1].label;}]){const rows=copy(keys);mutate(rows);assert.throws(()=>assertOfficeKeys(terms,rows));checks++;}
 assert.equal(keys.find(row=>row.key==='office_12').label,'Broadcaster');assert.equal(keys.find(row=>row.key==='office_50').label,'Lead Correspondent');checks++;
 console.log(checks+'/'+checks+' passed');
+require('./role_rank199_test.cjs');

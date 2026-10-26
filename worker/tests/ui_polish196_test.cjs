@@ -61,7 +61,7 @@ let tabPreference196=null;
    await page.go('#/roles');
  }
  const sd196=load('./site-data'),offices196=load('./governance-offices').OFFICE_APPOINTMENTS;
- check('extended-office errors use human labels and historical Officer Alt is outside current leadership',sd196.roleLabel('office_50')==='Lead Correspondent'&&sd196.roleLabel('rank_high_council')==='High Council'&&offices196.find(o=>o.key==='rank_officer_alt').group==='office');
+ check('extended-office errors use human labels and .199 Officer Alt is native slot3 with Treasurer an appointment',sd196.roleLabel('office_50')==='Lead Correspondent'&&sd196.roleLabel('rank_high_council')==='High Council'&&offices196.find(o=>o.key==='rank_officer_alt').group==='native'&&offices196.find(o=>o.key==='rank_officer_alt').nativeIndex===3&&offices196.find(o=>o.key==='rank_treasurer').group==='office');
  console.log(ok+'/'+n+' passed');process.exit(ok===n?0:1);
 })().catch(error=>{console.error(error);process.exit(1);});
 `;

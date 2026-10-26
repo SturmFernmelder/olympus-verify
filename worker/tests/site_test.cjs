@@ -411,7 +411,7 @@ async function legacySchemaHeld(old) {
   }
   res = await call("GET", "/", { who: "300000000000000001" });
   page = await bootOf(res);
-  check("signed in, the page's boot data is the member's own", page.boot.signedIn && page.boot.user.id === "300000000000000001" && page.boot.user.isAdmin === false && page.boot.meta.positions.length === 20 && page.boot.meta.avail.prime.na.length === 7);
+  check("signed in, the page's boot data is the member's own", page.boot.signedIn && page.boot.user.id === "300000000000000001" && page.boot.user.isAdmin === false && page.boot.meta.positions.length === 69 && page.boot.meta.ballots.length === 74 && page.boot.meta.avail.prime.na.length === 7);
   check('only signed-in boot carries settings, appointed roles, descriptions and professions', page.boot.settings.namesOpenAt === data.DEFAULT_NAMES_OPEN_AT && page.boot.joinUrl === 'https://discord.gg/example' && page.boot.settings.appointed.treasurer === 'Fernmelder' && page.boot.meta.positions.every(p => p.info && p.info.about && p.info.duties.length && p.info.expect.length) && JSON.stringify(page.boot.settings.noVote) === '["co_gm"]' && page.boot.meta.professions.length === 12 && page.boot.meta.limits.primaryProfessions === 2);
   res = await call("GET", "/", { who: "300000000000000006" });
   page = await bootOf(res);
@@ -579,27 +579,22 @@ async function legacySchemaHeld(old) {
       ["leveling", "liaison", "pvp_team"].every((k) => ps.some((p) => p.key === k)) && ps.find((p) => p.key === "pvp_team").group === "membership" && ps.find((p) => p.key === "liaison").group === "leadership");
     const b = (k) => data.BALLOTS.find((x) => x.key === k);
     check("  Leveling Lead (two picks) and Liaison (one) are on the voting board, PvP Team is not", !!b("leveling") && b("leveling").seats === 2 && !!b("liaison") && b("liaison").seats === 1 && !b("pvp_team"));
-    const missing = ps.map((p) => p.key.replace(/_(na|eu)$/, "")).filter((k) => !fs.existsSync(path.join(root, "public", "static", "wow", `pos-${k}.png`)));
-    check("  every role has its icon from the game art", missing.length === 0, missing);
     const js = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");
-    const listed = (js.match(/icon\("pos-" \+ \((\[[^\]]+\])/) || [])[1];
-    check("  and the page script shows each one (none falls back to the question mark)", !!listed && ps.every((p) => JSON.parse(listed).includes(p.key.replace(/_(na|eu)$/, ""))));
+    const posIconSource199 = js.slice(js.indexOf("  function posIcon("), js.indexOf("  // ---------------------------------------------------------------- formatting"));
+    const projectedIcon199 = new Function('M','icon',posIconSource199 + '; return posIcon;')(() => data.meta(), name => name);
+    const missing = ps.map(p => projectedIcon199(p.key)).filter(name => !fs.existsSync(path.join(root, 'public/static/wow', name + '.png')));
+    check("  every legacy and canonical office role resolves to existing game art", missing.length === 0, missing);
+    check("  actual page icon mapping never falls back to the question mark for any current application position", ps.every(p => projectedIcon199(p.key) !== 'pos-unknown'));
     check("  all guild client routes require sign-in; only identity redirects remain", /ROUTES\.roles = function/.test(js) && /PUBLIC_ROUTES = new Set\(\["request", "data"\]\)/.test(js) && /!PUBLIC_ROUTES\.has\(head\)/.test(js));
     const html = page.html; // the signed-in page: the descriptions travel in the boot data like every other list
     check("  the descriptions reach the page in its boot data", html.includes("The Liaison speaks for Olympus to other guilds"));
     const game = (k) => ps.find((p) => p.key === k).info.game;
-    const guided = ["co_gm", "guild_master", "officer", "recruitment", "pvp_leader", "liaison", "treasurer", "raid_leader_na", "raid_leader_eu", "raid_assist_na", "raid_assist_eu"];
-    // Owner item5 chooses the B ladder: Council one-based2, Treasurer one-based3 (zero-based2), Officer4.
-    // These are documented recommendations/appointments; no test claims actual in-game permission application.
-    const ownerRevised = ["co_gm", "officer", "pvp_leader", "treasurer"];
-    check("  .196 owner-selected B rank guidance reaches boot data without Captain or automatic native-permission claims",
-      guided.filter(k => !ownerRevised.includes(k)).every(k => /^Post-beta guidance:/.test(game(k))) && ps.every(p => !/Captain|The Treasurer rank/.test(p.info.game)) &&
-      game("co_gm").includes("core High Council appointment alongside Guild Master and Treasurer") && game("co_gm").includes("High Council in native Slot 2") && game("co_gm").includes("Applying here grants no rank") &&
-      game("officer").includes("native Slot 4") && game("officer").includes("applying here grants no rank") &&
-      ["co_gm", "officer", "treasurer"].every(k => game(k).startsWith("Recommended post-beta placement:") && game(k).includes("not verification of the holder’s current game rank")) &&
-      game("treasurer").includes("native Slot 3 (zero-based slot 2)") && !game("treasurer").includes("Fernmelder") && game("treasurer").includes("website recommendation grants none") &&
-      game("pvp_leader").includes("planning crosswalk recommends Raid Leader (Slot 5)") && game("pvp_leader").includes("not an extra native rank") &&
-      html.includes("High Council in native Slot 2") && html.includes("native Slot 3 (zero-based slot 2)") && !html.includes("In the Olympus addon you are a Captain"));
+    check("  .199 exact ten-rank guidance reaches boot data while appointments grant no native permission",
+      data.meta().rankHierarchy.map(rank => rank.name).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' &&
+      data.meta().rankHierarchy.every((rank,i) => rank.nativeSlot === i && rank.nativeRankOrdinal === i+1) &&
+      ps.every(p => p.info.game.includes('Applying grants no rank') && p.info.game.includes('not verification of the holder’s current game rank') && !/Captain|The Treasurer rank/.test(p.info.game)) &&
+      game('co_gm').includes('Rank 2 High Council (zero-based slot 1)') && game('officer').includes('Rank 3 Officer (zero-based slot 2)') && game('treasurer').includes('Co-Guild Master and Treasurer are appointments, not additional native ranks') &&
+      html.includes('zero-based slot 1') && !html.includes('In the Olympus addon you are a Captain'));
     check("  and the page shows them as the role's \"In game\" fact", /h\("dt", \{ text: "In game" \}\)/.test(js) && /info\.game/.test(js));
   }
 
@@ -1409,7 +1404,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-25.198 Olympus codices and Guild Workshop" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-25.199 Olympus ten-rank hierarchy and Royal Writs" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

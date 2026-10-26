@@ -83,9 +83,9 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 46 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && ref.required_public_resources.length === 48 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset555-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset560-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
   check(talentComparisonResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art talent comparison resources');
@@ -93,6 +93,8 @@ function verify(snapshot) {
   const talentSheetResources = ['worker/public/static/talents/stats60.js', 'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'];
   check(talentSheetResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) === file.endsWith('.js') && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'three exact non-art level-60 sheet resources');
+  const master199Resources = ['worker/public/static/role-rank199.js', 'worker/public/static/royal-writs199.js'];
+  check(master199Resources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1 && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art master199 catalogue resources');
   const master196Resources = ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js'];
   check(master196Resources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.filter(path => path === file).length === 1 && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art master196 view resources');

@@ -217,9 +217,8 @@
       $('editor-title').textContent = rank.name;
       $('editor-position').textContent = `Rank ${index + 1} of ${draft.ranks.length}`;
       const content = element('div');
-      content.append(element('p', 'editor-purpose', template.purpose));
       const source = element('details', 'source-details');
-      source.append(element('summary', '', 'Read the source recommendation'), element('p', '', template.note), element('p', 'muted', `Suggested bank access: ${template.limits}`));
+      source.append(element('summary', '', 'Historical draft recommendation'), element('p', 'editor-purpose', template.purpose), element('p', '', template.note), element('p', 'muted', `Suggested bank access: ${template.limits}`));
       content.append(source);
       if (index === 0) { content.append(element('p', 'gm-note', 'Guild Master keeps full guild authority and unlimited bank access. Its position and permissions stay fixed.')); $('editor-content').replaceChildren(content); return; }
       const form = element('form');

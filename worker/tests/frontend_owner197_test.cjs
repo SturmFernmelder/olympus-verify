@@ -242,7 +242,270 @@ async function frontendOwner197() {
       await leadershipPage.go('#/');
     }
   } finally { originalTestFetch = leadershipTransport; }
-  console.log('\n' + ok + '/' + n + ' owner197 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
+  // .199: the same admitted app/Worker fixture now exercises the guided application
+  // UI. These are local synthetic reads/writes, not provider or game acceptance.
+  const APPLICANT199 = '730000000000000199';
+  await siteUser(APPLICANT199, { global_name: 'Iris' }); await character(APPLICANT199, 'Iris Main', 'Player-1-0199');
+  const guided199 = await openPage(APPLICANT199); await guided199.go('#/vote');
+  await must(() => !!guided199.app.querySelector('#application-track199'), '.199 six-track picker');
+  const tracks199 = guided199.app.querySelector('#application-track199'), offices199 = guided199.app.querySelector('#application-office199'), search199 = guided199.app.querySelector('#application-office-search199');
+  const trackIds199 = ['member', 'raider', 'artisan', 'officer', 'high_council', 'patron'];
+  check('.199 visible picker has exactly the six owner-directed application tracks', JSON.stringify(tracks199.options.filter(option => option.value).map(option => option.value)) === JSON.stringify(trackIds199) && tracks199.getAttribute('aria-label') === 'Application track');
+  tracks199.value = 'high_council'; fire(tracks199, 'change');
+  const councilKeys199 = offices199.options.filter(option => option.value).map(option => option.value);
+  check('.199 Council picker contains eligible Council portfolios and requires a specific seat', councilKeys199.includes('office_67') && councilKeys199.includes('office_58') && councilKeys199.every(key => guided199.boot.meta.appointments.find(row => row.key === key)?.applicationTrack === 'high_council') && byText(guided199.app, 'button', 'Apply on this track').disabled);
+  tracks199.value = 'officer'; fire(tracks199, 'change'); search199.value = 'Mage Class Lead'; fire(search199, 'input');
+  check('.199 searchable Officer picker narrows to the exact class office without Council leakage', offices199.options.some(option => option.value === 'class_lead:mage') && offices199.options.filter(option => option.value).every(option => /mage/i.test(option.textContent)) && !offices199.options.some(option => councilKeys199.includes(option.value)));
+  search199.value = ''; fire(search199, 'input'); offices199.value = 'office_62'; fire(offices199, 'change'); byText(guided199.app, 'button', 'Apply on this track').click();
+  await must(() => !!guided199.app.querySelector('form') && !!guided199.app.querySelector('[data-target-office="office_62"]'), '.199 actual picker enters exact Officer form');
+  check('.199 actual track action opens the exact office form with the canonical Officer first choice', guided199.location.hash === '#/vote/officer/office_62' && guided199.app.querySelector('#application-track199').value === 'officer' && guided199.app.querySelector('#application-office199').value === 'office_62' && guided199.app.querySelector('[data-field="position"]').hidden && guided199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'officer')?.checked);
+  const publicIntent199 = guided199.app.querySelector('#board-application-intent199');
+  check('.199 new office form never implies public intent, portrait or talent consent', !!publicIntent199 && !publicIntent199.checked && publicIntent199.disabled && !guided199.app.querySelector('#board-portrait-opt-in').checked && !guided199.app.querySelector('#board-talent-builds-opt-in').checked);
+  await guided199.go('#/vote/not-a-track/office_62');
+  check('.199 invalid track URL clears the prior valid application form and target badge', !guided199.app.querySelector('form') && !guided199.app.querySelector('[data-target-office="office_62"]') && guided199.app.textContent.includes('Application track unavailable'));
+  await guided199.go('#/vote/high_council/office_62');
+  check('.199 cross-tier office URL fails closed without mounting the former form', !guided199.app.querySelector('form') && guided199.app.textContent.includes('matching application track'));
+  await guided199.go('#/vote/high_council/office_67');
+  check('.199 exact Privy Council deep link preselects the Council track and matching portfolio', guided199.app.querySelector('#application-track199')?.value === 'high_council' && guided199.app.querySelector('#application-office199')?.value === 'office_67' && guided199.app.querySelector('[data-target-office="office_67"]') && guided199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'office_67')?.checked);
+  const membership199 = await openPage(APPLICANT199); await membership199.go('#/apply');
+  check('.199 fresh ordinary application defaults visibly to Member without a public-intent tick', membership199.app.querySelector('#application-track199')?.value === 'member' && membership199.app.querySelectorAll('input[name="position"]').find(input => input.value === 'member')?.checked && !membership199.app.querySelector('#board-application-intent199')?.checked);
+  for (const [track, canonical] of [['raider', 'raider'], ['artisan', 'member'], ['patron', 'member']]) {
+    await membership199.go('#/vote/' + track + '/new');
+    check('.199 ' + track + ' track uses its honest canonical application position without an office grant', membership199.app.querySelector('#application-track199')?.value === track && membership199.app.querySelectorAll('input[name="position"]').find(input => input.value === canonical)?.checked && !membership199.app.querySelector('[data-target-office]') && !membership199.app.querySelector('#board-application-intent199')?.checked);
+  }
+
+  const seed199 = { ...body, character: 'Iris Main', class: 'mage', backups: ['class_lead:mage', 'raid_leader_na'], answers: { ...body.answers, extra: 'Private .199 office applicant sentinel' } }; delete seed199.answers.talentBuilds;
+  const seeded199 = await request('PUT', '/api/application', seed199, APPLICANT199);
+  if (seeded199.response.status !== 200) throw Error('.199 exact-office seed refused: ' + JSON.stringify(seeded199.body));
+  const exact199 = await openPage(APPLICANT199), exactSends199 = [];
+  exact199.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') exactSends199.push(JSON.parse(init.body)); return false; });
+  await exact199.go('#/vote/officer/class_lead%3Amage');
+  let exactForm199 = exact199.app.querySelector('form'), classPick199 = exact199.app.querySelector('[data-field="classLead"] select');
+  check('.199 exact Mage Class Lead form permits only its requested class and removes the same first-choice backup', classPick199.value === 'mage' && classPick199.options.filter(option => option.value).every(option => option.value === 'mage' ? !option.disabled : option.disabled) && exactForm199.querySelectorAll('[data-field="backups"] select').every(select => select.value !== 'class_lead:mage') && exactForm199.querySelectorAll('[data-field="backups"] select').some(select => select.value === 'raid_leader_na'));
+  check('.199 saved board membership still does not imply public office-intent consent', !exact199.app.querySelector('#board-application-intent199').checked && !exact199.app.querySelector('#board-application-intent199').disabled && !exact199.app.querySelector('#board-portrait-opt-in').checked && !exact199.app.querySelector('#board-talent-builds-opt-in').checked);
+  exactForm199.querySelector('[data-field="ack"] input').checked = true; fire(exactForm199, 'submit');
+  const saved199 = () => JSON.parse(one('SELECT answers FROM site_applications WHERE discord_id=?', APPLICANT199).answers);
+  await must(() => exactSends199.length === 1 && saved199().targetOffice === 'class_lead:mage' && !exact199.app.querySelector('button[type="submit"]').disabled, '.199 actual exact-class application save');
+  check('.199 actual save persists bounded track and target in owned answers while leaving all three publication choices private', exactSends199[0].position === 'class_lead' && exactSends199[0].classLead === 'mage' && exactSends199[0].applicationTrack === 'officer' && exactSends199[0].targetOffice === 'class_lead:mage' && exactSends199[0].boardApplicationIntent === false && exactSends199[0].boardPortrait === false && exactSends199[0].boardTalentBuilds === false && saved199().applicationTrack === 'officer' && saved199().boardApplicationIntentOptIn === false);
+  const privateIntentBoard199 = await openPage(OTHER); await privateIntentBoard199.go('#/vote/class_lead%3Amage');
+  await must(() => privateIntentBoard199.app.querySelectorAll('.cand').some(candidate => candidate.textContent.includes('Iris')), '.199 actual class board private-intent read');
+  let irisCard199 = privateIntentBoard199.app.querySelectorAll('.cand').find(candidate => candidate.textContent.includes('Iris'));
+  check('.199 other voter sees the original board answers but no unconsented intent badge or private extra', !!irisCard199 && !irisCard199.querySelector('.application-intent199') && !irisCard199.textContent.includes(seed199.answers.extra));
+  exactForm199 = exact199.app.querySelector('form'); const explicitIntent199 = exact199.app.querySelector('#board-application-intent199'); explicitIntent199.checked = true; fire(explicitIntent199, 'change'); exactForm199.querySelector('[data-field="ack"] input').checked = true; fire(exactForm199, 'submit');
+  await must(() => exactSends199.length === 2 && saved199().boardApplicationIntentOptIn === true && !exact199.app.querySelector('button[type="submit"]').disabled, '.199 separate exact-office publication choice');
+  const sharedIntentBoard199 = await openPage(OTHER); await sharedIntentBoard199.go('#/vote/class_lead%3Amage');
+  await must(() => !!sharedIntentBoard199.app.querySelector('.cand [data-target-office="class_lead:mage"]'), '.199 explicitly shared exact office badge');
+  irisCard199 = sharedIntentBoard199.app.querySelectorAll('.cand').find(candidate => candidate.textContent.includes('Iris'));
+  check('.199 explicit intent consent publishes only canonical track and office badges without portrait, talents or private extra', irisCard199.querySelector('.application-intent199')?.getAttribute('data-application-track') === 'officer' && irisCard199.querySelector('[data-target-office="class_lead:mage"]') && !irisCard199.querySelector('.talent-build-links') && !irisCard199.textContent.includes(seed199.answers.extra) && exactSends199[1].boardApplicationIntent === true && exactSends199[1].boardPortrait === false && exactSends199[1].boardTalentBuilds === false);
+  check('.199 successful save resets its separate public-intent control for the next save', !exact199.app.querySelector('#board-application-intent199').checked);
+  const regional199 = await openPage(APPLICANT199); await regional199.go('#/vote/officer/office_74');
+  const regionPick199 = regional199.app.querySelector('[data-field="applicationRaidRegion199"] select'), backupPick199 = regional199.app.querySelectorAll('[data-field="backups"] select')[0];
+  check('.199 canonical Raid Leader office exposes exactly NA and EU existing regional seats', JSON.stringify(regionPick199.options.map(option => option.value)) === JSON.stringify(['raid_leader_na', 'raid_leader_eu']));
+  backupPick199.value = 'raid_leader_eu'; fire(backupPick199, 'change'); regionPick199.value = 'raid_leader_eu'; fire(regionPick199, 'change');
+  check('.199 changing raid region removes that exact role from backups without inventing a new seat', backupPick199.value === '' && regionPick199.value === 'raid_leader_eu' && !regional199.app.querySelector('#board-application-intent199').checked);
+  const regionalSends199 = []; regional199.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') regionalSends199.push(JSON.parse(init.body)); return false; });
+  const regionalForm199 = regional199.app.querySelector('form'); regionalForm199.querySelector('[data-field="ack"] input').checked = true; fire(regionalForm199, 'submit');
+  await must(() => regionalSends199.length === 1 && !regional199.app.querySelector('button[type="submit"]').disabled, '.199 terminal regional selection save');
+  check('.199 actual regional save uses the existing EU ballot key and retains the exact canonical office intent privately', regionalSends199[0].position === 'raid_leader_eu' && regionalSends199[0].targetOffice === 'office_74' && !regionalSends199[0].backups.includes('raid_leader_eu') && one('SELECT position FROM site_applications WHERE discord_id=?', APPLICANT199).position === 'raid_leader_eu' && saved199().targetOffice === 'office_74' && saved199().boardApplicationIntentOptIn === false);
+
+  const roles199 = await openPage(APPLICANT199); await roles199.go('#/roles/rosetta-stone');
+  const exactNames199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
+  const nativeCards199 = roles199.app.querySelectorAll('.rank-guide199-grid [data-native-slot]');
+  check('.199 role guide fronts exactly ten ordered native ranks with the owner-confirmed zero-based slots', nativeCards199.length === 10 && nativeCards199.every((card, index) => card.getAttribute('data-native-slot') === String(index) && card.querySelector('h3').textContent === 'Rank ' + (index + 1) + ' — ' + exactNames199[index]));
+  const table199 = roles199.app.querySelector('.rosetta-table199'), headings199 = ['In-Game Rank Number & Name', 'Tier & Statutory Codex Title', 'Organization Department & Branch Offices', 'Discord Role & Portal Access', 'How to Attain It'];
+  const rows199 = table199.querySelectorAll('[data-rank-crosswalk]');
+  check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows', JSON.stringify(table199.querySelectorAll('th').map(th => th.textContent)) === JSON.stringify(headings199) && rows199.length === 10 && rows199.every((row, index) => row.getAttribute('data-rank-crosswalk') === String(index + 1) && row.querySelectorAll('td').length === 5 && row.querySelectorAll('td').every((td, column) => td.getAttribute('data-column') === headings199[column])));
+  const bridgeKeys199 = rows199.flatMap(row => row.querySelectorAll('li a').map(link => decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))));
+  const expectedKeys199 = roles199.boot.meta.appointments.map(row => row.key);
+  check('.199 Rosetta Stone enumerates all 131 assignable keys exactly once across their ten rank rows', bridgeKeys199.length === 131 && new Set(bridgeKeys199).size === 131 && JSON.stringify(bridgeKeys199.slice().sort()) === JSON.stringify(expectedKeys199.slice().sort()) && rows199.every(row => row.querySelectorAll('li a').every(link => roles199.boot.meta.appointments.find(office => office.key === decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))).nativeRankOrdinal === Number(row.getAttribute('data-rank-crosswalk')))));
+  const seatCards199 = roles199.app.querySelectorAll('.office-seat199'), eligibleKeys199 = roles199.boot.meta.appointments.filter(row => row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack));
+  check('.199 all 95 stable offices and 131 assignment cards have individual rank badges and exact open-seat apply links', seatCards199.length === 131 && seatCards199.filter(card => /^office_[0-9]{2}$/.test(card.getAttribute('data-office-key'))).length === 95 && seatCards199.every(card => !!card.querySelector('.rank-office199')) && eligibleKeys199.every(row => !!roles199.app.querySelector('[data-office-key="' + row.key + '"] a[href="#/vote/' + row.applicationTrack + '/' + encodeURIComponent(row.key) + '"]')));
+  for (const appointedKey199 of ['member', 'office_07', 'office_27']) {
+    const artisanCards199 = await openPage(APPLICANT199, {}, { bootTransform: boot => { boot.settings.appointed = { [appointedKey199]: 'Recorded synthetic holder' }; } });
+    await artisanCards199.go('#/roles');
+    const targets199 = ['office_07', 'office_27'].map(key => ({ key, card: artisanCards199.app.querySelector('[data-office-key="' + key + '"]') }));
+    check('.199 actual Roles cards keep ' + appointedKey199 + ' separate from unrelated artisan route adapters', targets199.every(({ key, card }) => !!card && (key === appointedKey199 ? !!card.querySelector('[data-appointment-label="' + key + '"]') : !card.querySelector('[data-appointment-label]') && card.textContent.includes('No appointment recorded here; availability requires current leadership review.'))));
+    await artisanCards199.go('#/');
+  }
+  const historical199 = roles199.app.querySelector('.technical-profile199');
+  check('.199 competing historical profile guidance is closed under its explicit technical accordion', !!historical199 && !historical199.open && historical199.querySelector('summary').textContent === 'Technical & Historical Profile Notes' && roles199.app.textContent.includes('Co-Guild Master and Treasurer are appointments, not extra native ranks'));
+  const goldKeys199 = roles199.boot.meta.royalWrits.map(row => row.key).sort();
+  // Read the actual rendered banner source, rather than trusting a text-only
+  // banner check. The H7 browser found a complete but undecodable missing icon.
+  const goldArt199 = JSON.parse(fs.readFileSync(path.join(root, 'public/static/wow/asset-provenance.json'), 'utf8'));
+  const goldReference199 = JSON.parse(fs.readFileSync(path.join(root, '../scripts/official_asset_reference.json'), 'utf8'));
+  const goldBannerAsset199 = page => {
+    const policy = page.app.querySelector('.gold-policy199'), banner = policy?.parentNode?.parentNode;
+    const images = banner?.querySelectorAll('img') || []; if (!banner?.classList.contains('notice-box') || images.length !== 1) return false;
+    const src = images[0].getAttribute('src'); if (!/^\/static\/wow\/[a-z0-9_-]+\.png$/.test(src || '')) return false;
+    const file = path.join(root, 'public', src), relative = 'worker/public' + src;
+    if (!fs.existsSync(file)) return false;
+    const bytes = fs.readFileSync(file), hash = require('node:crypto').createHash('sha256').update(bytes).digest('hex');
+    const provenance = goldArt199.images_and_fonts.filter(row => row.path === relative), reference = goldReference199.assets.filter(row => row.path === relative);
+    return provenance.length === 1 && reference.length === 1 && provenance[0].classification === 'WoW client-derived image' && provenance[0].pixel_lineage === 'PASS'
+      && bytes.length > 24 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) && bytes.readUInt32BE(16) === provenance[0].width && bytes.readUInt32BE(20) === provenance[0].height
+      && [...provenance, ...reference].every(row => row.bytes === bytes.length && row.sha256 === hash) && images[0].getAttribute('alt') === '';
+  };
+  check('.199 roles renders the complete 20-item reviewed gold-only schedule and truthful OFF gates', goldKeys199.length === 20 && JSON.stringify(roles199.app.querySelectorAll('.royal-writs199 [data-writ-key]').map(row => row.getAttribute('data-writ-key')).sort()) === JSON.stringify(goldKeys199) && roles199.app.querySelector('.gold-policy199').textContent === roles199.boot.meta.royalWritPolicy.banner && roles199.app.textContent.includes('Olympus Link remain OFF') && roles199.app.textContent.includes("recipient's prior, specific, revocable opt-in"));
+  check('.199 roles gold banner references an existing provenance-pinned PNG with matching original dimensions and bytes', goldBannerAsset199(roles199));
+  for (const page199 of ['vote', 'governance', 'news', 'community/workshop']) {
+    const goldPage199 = await openPage(APPLICANT199); await goldPage199.go('#/' + page199);
+    await must(() => !!goldPage199.app.querySelector('[data-royal-writ-page="' + page199 + '"]'), '.199 ' + page199 + ' gold reference');
+    check('.199 ' + page199 + ' exposes all 20 catalogue rows with the shared gold-only, free-addon and officer-review policy', goldPage199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && goldPage199.app.querySelector('.gold-policy199')?.textContent === goldPage199.boot.meta.royalWritPolicy.banner && goldPage199.app.textContent.includes('no USD, Twitch subscriptions or crypto') && goldPage199.app.textContent.includes('zero paid addon gating'));
+    check('.199 ' + page199 + ' gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(goldPage199));
+  }
+  const army199 = await openPage(APPLICANT199); await army199.go('#/army');
+  await must(() => !!army199.app.querySelector('[data-royal-writ-page="army"]'), '.199 Army charter schedule');
+  check('.199 Army shows four reviewed flagship/leave writs without converting the unavailable live feed into capacity', army199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 4 && army199.app.querySelector('.gold-policy199')?.textContent === army199.boot.meta.royalWritPolicy.banner && !army199.app.querySelector('.royal-writs199 button'));
+  check('.199 Army gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(army199));
+  const admin199 = await openPage(STAFF); await admin199.go('#/admin/treasury');
+  await must(() => !!admin199.app.querySelector('.stockades-checklist199'), '.199 attended Treasury/Stockades operator reference');
+  check('.199 Treasury keeps all 20 writs and eight manual steps honest about the unconfirmed external appeal venue', admin199.app.querySelectorAll('.royal-writs199 [data-writ-key]').length === 20 && admin199.app.querySelectorAll('.stockades-checklist199 li').length === 8 && admin199.app.querySelector('.stockades-checklist199').textContent.includes('repurposing and an approved appeal invite are not confirmed') && admin199.app.querySelector('.gold-policy199')?.textContent === admin199.boot.meta.royalWritPolicy.banner && !admin199.app.querySelector('.stockades-checklist199 button'));
+  check('.199 admin Treasury gold banner image exists and matches its original official PNG provenance and asset pins', goldBannerAsset199(admin199));
+  // .199 H2 browser finding: exercise the actual model loader over genuine
+  // authenticated Worker static HTTP before rendering its returned data. The
+  // finite model cap is separate from the unchanged 256KiB reviewed-book cap.
+  {
+    const modelPath199 = '/static/governance/organization.json';
+    const modelBytes199 = fs.readFileSync(path.join(root, 'public', modelPath199));
+    const loaderStart199 = APP_JS.indexOf('  const GOVERNANCE_BOOK = '), loaderEnd199 = APP_JS.indexOf('  const governanceSlug = ', loaderStart199);
+    if (loaderStart199 < 0 || loaderEnd199 <= loaderStart199) throw Error('owner199_actual_governance_loader_boundary');
+    const actualLoaderSource199 = APP_JS.slice(loaderStart199, loaderEnd199);
+    const instantiate199 = new Function('fetch', 'crypto', 'TextDecoder', 'own', actualLoaderSource199 + '\nreturn {governanceModel};');
+    const loadClient199 = () => {
+      const reads = []; let bodyOverride = null;
+      const actualStaticFetch = async (pathname, init) => {
+        if (pathname !== modelPath199) throw Error('owner199_unexpected_model_request');
+        const assets = { fetch: request => bodyOverride === null ? governanceAssets.fetch(request) : new Response(bodyOverride, { headers: {'Content-Type':'application/json; charset=utf-8'} }) };
+        const response = await indexMod.default.fetch(new Request('https://guild.example' + pathname, {headers:{Cookie:await cookieFor(MEMBER)}}), env({ASSETS:assets}), ctx);
+        reads.push({path:pathname,credentials:init.credentials,redirect:init.redirect,status:response.status,bytes:(await response.clone().arrayBuffer()).byteLength});
+        return response;
+      };
+      const loader = instantiate199(actualStaticFetch, globalThis.crypto, TextDecoder, (object,key)=>Object.prototype.hasOwnProperty.call(object,key));
+      return {read:()=>loader.governanceModel(),reads,override:bytes=>{bodyOverride=bytes;}};
+    };
+    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===345654&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 262144)'));
+    const currentClient199=loadClient199(),model199=await currentClient199.read();
+    check('.199 actual authenticated Worker HTTP and current app loader accept every345654 source byte with95 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===95&&model199.appointments.length===131);
+    // Reuse the existing Organization DOM fixture definitions, not its test body.
+    // Only that fixture's data binding is supplied from the real loader above;
+    // its actual organization-view.js renderer remains unchanged.
+    const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
+    const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='13c3695d6a32aad145117d4ca5d971c506f40d2cc30ef995551b2ae67e187406')throw Error('owner199_original_organization_fixture_prefix_drift');
+    const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
+    if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
+    const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
+    rendererExecution199.loadedModel199=model199;
+    rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
+    const rendered199=rendererExecution199.exports();
+    check('.199 the actual Organization renderer paints the model returned by the real app HTTP loader',rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
+    // Follow the renderer's real non-leadership links through the actual app,
+    // form submission and Worker; the office remains an intent, never a seat alias.
+    const nonleadLinks199 = [['office_07','artisan','member','730000000000001990','Artisan One'],['office_27','artisan','member','730000000000001991','Crafter One'],['office_25','raider','raider','730000000000001992','Raider One']];
+    for (const [target,track,canonical,id,name] of nonleadLinks199) {
+      const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),href=links[0]?.getAttribute('href');
+      check('.199 Organization emits the exact eligible '+target+' application link',links.length>0&&links.every(link=>link.getAttribute('href')==='#/vote/'+track+'/'+target)&&href==='#/vote/'+track+'/'+target);
+      await siteUser(id,{global_name:name});await character(id,name,'Player-199-'+id.slice(-4));
+      const seed={...body,position:canonical,backups:[],character:name,applicationTrack:track,targetOffice:null,board:false,boardApplicationIntent:false,answers:{...body.answers}};delete seed.answers.talentBuilds;
+      const seeded=await request('PUT','/api/application',seed,id);if(seeded.response.status!==200)throw Error('nonleadership original form seed refused');
+      const linked=await openPage(id),sent=[];linked.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sent.push(JSON.parse(init.body));return false;});
+      await linked.go(href);const form=linked.app.querySelector('form');
+      check('.199 actual Organization '+target+' link opens its matching form and exact target badge',!!form&&linked.app.querySelector('#application-track199')?.value===track&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
+      if(!form){await linked.go('#/');continue;}
+      check('.199 '+target+' link grants no public-intent or portrait consent',!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
+      form.querySelector('[data-field="ack"] input').checked=true;fire(form,'submit');
+      const saved=()=>{const row=one('SELECT answers FROM site_applications WHERE discord_id=?',id);return row&&JSON.parse(row.answers);};
+      await must(()=>sent.length===1&&saved()?.targetOffice===target&&!linked.app.querySelector('button[type="submit"]').disabled,'terminal actual Organization '+target+' form save');
+      check('.199 '+target+' form preserves its exact private intent through the real Worker',sent[0].position===canonical&&sent[0].applicationTrack===track&&sent[0].targetOffice===target&&sent[0].boardApplicationIntent===false&&saved().applicationTrack===track&&saved().targetOffice===target&&saved().boardApplicationIntentOptIn===false);
+      const copy=await request('GET','/api/me/export',undefined,id);
+      check('.199 signed-in own copy retains the exact Organization '+target+' intent',copy.response.status===200&&copy.body.site.application.answers.applicationTrack===track&&copy.body.site.application.answers.targetOffice===target);
+      for(const route of ['#/vote/member/'+target,'#/vote/'+track+'/office_99','#/vote/'+track+'/office_43','#/vote/officer/new']) {
+        await linked.go(route);check('.199 exact non-leadership link validation refuses '+route+' without a stale form',!linked.app.querySelector('form')&&!linked.app.querySelector('[data-target-office]')&&linked.app.textContent.includes('Application track unavailable'));
+      }
+      await linked.go('#/');
+    }
+    rendered199.dispose();
+    const padded199=size=>Buffer.concat([modelBytes199,Buffer.alloc(size-modelBytes199.length,0x20)]);
+    const exactLimit199=loadClient199();exactLimit199.override(padded199(524288));
+    const atLimit199=await exactLimit199.read();
+    check('.199 exactly524288 valid JSON bytes retain all shape checks at the model boundary',exactLimit199.reads[0].bytes===524288&&atLimit199.terms.length===95&&atLimit199.book.sha256===model199.book.sha256);
+    const oversized199=loadClient199();oversized199.override(padded199(524289));let oversizedError199=null;
+    try{await oversized199.read();}catch(error){oversizedError199=error;}
+    check('.199 actual524289-byte HTTP body fails closed before otherwise-valid model JSON can render',oversized199.reads.length===1&&oversized199.reads[0].status===200&&oversized199.reads[0].bytes===524289&&oversizedError199?.message==='The public governance file has an unexpected size.');
+    oversized199.override(null);const recovered199=await oversized199.read();
+    check('.199 a failed oversized read is not cached and an explicit later read loads only the genuine current body',oversized199.reads.length===2&&oversized199.reads[1].bytes===modelBytes199.length&&recovered199.terms.length===95);
+    for(const [label,patch]of [['schema',data=>{data.schema='wrong-synthetic-schema';}],['book pin',data=>{data.book.sha256='0'.repeat(64);}]]){
+      const altered199=JSON.parse(modelBytes199),refused199=loadClient199();patch(altered199);refused199.override(Buffer.from(JSON.stringify(altered199)));let refusal199=null;
+      try{await refused199.read();}catch(error){refusal199=error;}
+      check('.199 larger model ceiling preserves the original exact '+label+' validation',refused199.reads.length===1&&refused199.reads[0].status===200&&refusal199?.message==='The organization model has an unexpected shape.');
+    }
+  }
+  // .199 H4 browser finding: settle the old Admin response between the new
+  // Organization model read and its module load. No timer chooses this order.
+  // These are the exact production handlers/API/DOM helpers. Only dynamic
+  // module transport/rendering is a counted stand-in; real model HTTP and the
+  // unchanged Organization renderer are exercised independently just above.
+  {
+    const cut199 = (start, end) => { const a=APP_JS.indexOf(start),b=APP_JS.indexOf(end,a);if(a<0||b<=a)throw Error('owner199_overview_source_boundary');return APP_JS.slice(a,b); };
+    const domSource199=cut199('  function h(tag, props, ...kids) {','  // ---------------------------------------------------------------- the game');
+    const apiSource199=cut199('  class ApiError extends Error {','  // Optional census previews');
+    const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
+    const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
+    const moduleExpression199='await import("/static/organization-view.js")';
+    if(orgOriginal199.split(moduleExpression199).length!==2)throw Error('owner199_organization_module_boundary');
+    const orgSource199=orgOriginal199.replace(moduleExpression199,'await loadOrganization199()');
+    const deferred199=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
+    const realOverview199=await request('GET','/api/admin/overview',undefined,STAFF);
+    if(realOverview199.response.status!==200||!realOverview199.body.settings)throw Error('owner199_original_overview_fixture_refused');
+    const actualModel199=JSON.parse(fs.readFileSync(path.join(root,'public/static/governance/organization.json'),'utf8'));
+    function lifecycle199(status=200){
+      const w=makeWindow('{}'),oldMain=w.app.appendChild(new Element('main')),body=oldMain.appendChild(new Element('div'));
+      body.textContent='Loading original overview';
+      const initialSettings={appointed:{},applicationsOpen:true,notice:'original settings'},state={signedIn:true,denied:false,user:{id:STAFF,isAdmin:true},settings:initialSettings},context={},response=deferred199(),model=deferred199();
+      const seen={fetches:[],toasts:0,renders:0,reloads:0,heat:0,module:0,organization:0};let route='admin';
+      const plainFrame=title=>{const element=new Element('section');element.textContent=title;return element;};
+      const deps={document:w.document,Node,S:state,app:w.app,currentRoute:()=>route,COM:()=>context,ROUTES:{},
+        fetch:async(pathname,init)=>{seen.fetches.push({pathname,init});await response.promise;return new Response(JSON.stringify(status===200?{...realOverview199.body,settings:{...realOverview199.body.settings,notice:'late overview'}}:status===409?{error:'reload'}:{error:'signed_out'}),{status,headers:{'Content-Type':'application/json'}});},
+        toast:()=>{seen.toasts++;},dirtyKeys:new Set(['original-unsaved']),render:()=>{seen.renders++;},reloadNotice:()=>{seen.reloads++;},
+        M:()=>({positions:[],professions:[],ballots:[]}),A:{heat:'',apps:{}},statusText:value=>value,posIcon:()=>null,frame:plainFrame,icon:()=>null,plural:(count,word)=>count+' '+word,seatsStaffText:()=>'',zoneName:()=>'',myZone:'UTC',drawHeat:async()=>{seen.heat++;},
+        governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data)=>{seen.organization++;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
+        offices199:()=>[],displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
+      const handlers=new Function(...Object.keys(deps),domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization};')(...Object.values(deps));
+      return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
+    }
+    const race199=lifecycle199(),oldRead199=race199.handlers.overview(race199.body);
+    race199.route('organization/office_03');race199.oldMain.remove();
+    const organizationMain199=race199.app.appendChild(new Element('main'));organizationMain199.dataset.viewRequest='2';
+    const organizationRead199=race199.handlers.organization(organizationMain199,['office_03']);
+    check('.199 deterministic race starts Organization while the original admin answer and model are both pending',race199.seen.fetches.length===1&&race199.seen.fetches[0].pathname==='/api/admin/overview'&&organizationMain199.textContent==='Opening the organization…'&&race199.seen.module===0);
+    race199.response.resolve();await oldRead199;
+    check('.199 detached Admin overview success changes neither global settings nor its stale DOM',race199.state.settings===race199.initialSettings&&race199.body.textContent==='Loading original overview'&&race199.seen.heat===0);
+    race199.model.resolve();await organizationRead199;
+    check('.199 initial Organization navigation reaches its module and renders after the late old admin response',race199.seen.module===1&&race199.seen.organization===1&&organizationMain199.textContent==='Organization loaded 95 offices'&&!organizationMain199.textContent.includes('Opening the organization'));
+    for(const [label,invalidate]of[
+      ['same-route detached body',page=>page.oldMain.remove()],
+      ['changed route with attached body',page=>page.route('roles')],
+      ['changed account',page=>{page.state.user={id:OTHER,isAdmin:true};}],
+      ['signed out',page=>{page.state.signedIn=false;}],
+      ['denied admission',page=>{page.state.denied=true;}],
+      ['lost admin authority',page=>{page.state.user.isAdmin=false;}]
+    ]){
+      const page=lifecycle199(),pending=page.handlers.overview(page.body);invalidate(page);page.response.resolve();await pending;
+      check('.199 old overview refuses settings and DOM adoption after '+label,page.state.settings===page.initialSettings&&page.body.textContent==='Loading original overview'&&page.seen.heat===0);
+    }
+    const active199=lifecycle199(),activeRead199=active199.handlers.overview(active199.body);active199.response.resolve();await activeRead199;
+    check('.199 current admitted admin overview still adopts settings and paints its original report',active199.state.settings!==active199.initialSettings&&active199.state.settings.notice==='late overview'&&active199.seen.heat===1&&!active199.body.textContent.includes('Loading original overview'));
+    for(const status of[401,409]){
+      const stale=lifecycle199(status),pending=stale.handlers.overview(stale.body).catch(error=>error);stale.oldMain.remove();stale.route('organization/office_03');stale.response.resolve();const error=await pending;
+      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1);
+    }
+    const refused199=lifecycle199(401),refusalRead199=refused199.handlers.overview(refused199.body).catch(error=>error);refused199.response.resolve();const currentRefusal199=await refusalRead199;
+    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0);
+    const updated199=lifecycle199(409),updateRead199=updated199.handlers.overview(updated199.body).catch(error=>error);updated199.response.resolve();const currentUpdate199=await updateRead199;
+    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings);
+  }
+  console.log('\n' + ok + '/' + n + ' owner197/199 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
 }
 const execution197 = new Module(__filename, module); execution197.filename = __filename; execution197.paths = Module._nodeModulePaths(__dirname);

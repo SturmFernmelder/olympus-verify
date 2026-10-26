@@ -101,6 +101,7 @@ async function applicationTalentCollection197(){
  r=await request('PUT','/api/application',{...body,boardTalentBuilds:false,answers:{...body.answers,talentBuilds:{version:1,characters:[]}}});
  check('all-build clear stores no phantom anchor and preserves only private legacy attachment',r.response.status===200&&!Object.hasOwn(stored().answers,'talentBuilds')&&stored().answers.talentBuild===privateCode&&stored().answers.boardTalentBuildsOptIn===false&&(await candidate())?.talentBuilds?.length===0);
  check('feature changes no Native schema or separate board-vote rows',JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all())===schemaBefore&&!one('SELECT 1 FROM site_board_votes'));
+ await require('./application_track199_test.cjs');
  console.log('\n'+ok+'/'+n+' bounded application talent collection checks passed; actual Worker/SQLite, mocked Discord only');process.exit(ok===n?0:1);
 }
 const run197=new Module(__filename,module);run197.filename=__filename;run197.paths=Module._nodeModulePaths(__dirname);run197._compile(prefix197+'\n('+applicationTalentCollection197.toString()+')().catch(error=>{console.error(error.stack);process.exit(1);});',__filename);

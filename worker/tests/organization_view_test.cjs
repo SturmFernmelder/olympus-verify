@@ -47,7 +47,7 @@ class Element {
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false, width = 800 } = {}) {
+function open({ mobile = false, width = 800, officeAvailability = undefined } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
   doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
@@ -58,7 +58,7 @@ function open({ mobile = false, width = 800 } = {}) {
   class ResizeObserver { constructor(fn) { this.fn = fn; this.disconnected = false; observers.push(this); } observe(target) { this.target = target; } disconnect() { this.disconnected = true; } }
   const sandbox = { document: doc, requestAnimationFrame: fn => frames.push(fn), matchMedia: () => ({ matches: mobile }), ResizeObserver, console };
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
-  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [] });
+  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts: [], officeAvailability });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
@@ -68,6 +68,12 @@ function open({ mobile = false, width = 800 } = {}) {
   return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
+check(".199 exact ten ranks and individual High Council/Officer Corps cards are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 95 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
+check("each eligible office has its exact track and stable key in the application deep link",data.terms.filter(t=>t.applicationEligible).every(t=>p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).some(n=>n.getAttribute('href')==='#/vote/'+t.applicationTrack+'/'+encodeURIComponent(t.officeKey))));
+check("unknown vacancy is never described as an open seat and reserved roles have no application link", !p.main.textContent.includes('Open seat') && ['office_19','office_41','office_43','office_86'].every(key=>!p.main.all(n=>n.getAttribute('data-office-application')===key).length));
+const occupied199=open({officeAvailability:{office_03:false,office_62:false,office_74:true}});
+check("fresh closed/occupied seats suppress Apply while an explicitly open seat keeps its exact route",!occupied199.main.all(n=>['office_03','office_62'].includes(n.getAttribute('data-office-application'))).length&&occupied199.main.all(n=>n.getAttribute('data-office-application')==='office_74').every(n=>n.textContent==='Apply for this Seat on /#/vote'));
+check("historical profiles are collapsed behind the named technical disclosure and the crosswalk is linked",p.main.all(n=>n.tagName==='DETAILS'&&n.classList.contains('org-profile-notes')).some(n=>!n.open&&n.children[0].textContent==='Technical & Historical Profile Notes')&&p.main.all(n=>n.tagName==='A').some(n=>n.getAttribute('href')==='#/roles/rosetta-stone'));
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
 check("the Council remains initially selected", p.node("council").getAttribute("aria-pressed") === "true");
 const council = p.one("org-council-overview"), offices = p.one("org-council-offices");
@@ -76,7 +82,14 @@ check("accepted seats are distinguished from a five-seat cap", council.textConte
 check("Justice keeps case designation and conflict review", council.textContent.includes("ordinarily serve the Council of Justice, subject to case designation and conflict review"));
 check("support, advisers, native rank and the Co-GM direction do not issue votes or permission", council.textContent.includes("shared support") && council.textContent.includes("not automatically voting councillors") && council.textContent.includes("does not itself issue an eligible vote, individual warrant, native rank or permission") && council.textContent.includes("One person still has one vote, subject to recusal"));
 check("the current composition direction keeps warrants, votes, permissions and missing signatures separate", council.textContent.includes("Guild Master, Co-Guild Master and Treasurer as the core Council offices") && p.one("org-composition-status").textContent === data.councilComposition.formalStatus && p.one("org-composition-status").textContent.includes("Individual accepted warrants, eligible votes and permissions remain separate") && p.one("org-composition-status").textContent.includes("Constitutional recommendation and Founder ratification are not recorded") && data.councilComposition.founderRatificationRecorded===false && data.councilComposition.eligibleSeatIssued===false && data.councilComposition.permissionsApplied===false && data.councilComposition.historicalDirection.formalStatus.includes("Founder ratification are not recorded"));
-check("the separate dated direction is reachable without relabelling R7 as adopted R8", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === data.councilComposition.sourcePath && n.textContent.includes("current Council direction and its dated history")) && data.revision === "R7" && data.councilComposition.founderRatificationRecorded === false);
+check("the separate dated direction is reachable without relabelling R7 as adopted R8", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === data.councilComposition.sourcePath && n.textContent === "Read the historical Council direction (19–23 October 2026)") && data.revision === "R7" && data.councilComposition.founderRatificationRecorded === false);
+const councilRecord199 = fs.readFileSync(path.join(root, "public", data.councilComposition.sourcePath.replace(/^\/+/, "")));
+const councilPriorStart199 = councilRecord199.indexOf(Buffer.from("# Current composition clarification — 23 October 2026"));
+const councilNotice199 = councilRecord199.subarray(0, councilPriorStart199), councilHistory199 = councilRecord199.subarray(councilPriorStart199);
+const councilDigest199 = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
+check("the dated Council record retains its entire original2939-byte historical body exactly after the new notice", councilPriorStart199 > 0 && councilHistory199.length === 2939 && councilDigest199(councilHistory199) === "1e680ab2afba2e40520a140518f9c8322246f51adb33c118ca70fbb791b94627");
+check("the owner supersession is one exact prefix and removing it recovers only the preserved historical record", councilNotice199.length === 886 && councilDigest199(councilNotice199) === "272199fde83ac5fa65d41c33711358c7ef8dc53bdd36d73c68b136a4818f5ac2" && Buffer.concat([councilNotice199, councilHistory199]).equals(councilRecord199));
+check("the current website notice states exactzero-based slots and appointments without claiming actual game or signing-profile adoption", councilNotice199.toString().includes("current .199 website hierarchy") && councilNotice199.toString().includes("Leader: zero-based slot 0; High Council: zero-based slot 1; Officer: zero-based slot 2") && councilNotice199.toString().includes("Co-Guild Master and Treasurer are High Council appointments, **not additional native ranks**") && councilNotice199.toString().includes("(/#/roles/rosetta-stone)") && councilNotice199.toString().includes("Actual in-game configuration, signing profiles, accepted warrants, Council votes and bank permissions require their separate attended verification and records."));
 check("the clarification links the existing operational charter", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === "#/governance/operational-charter-the-work-of-olympus" && n.textContent.includes("O3")));
 check("the static model still issues no appointments", data.appointmentsIssued === false);
 const chartNodes = data.nodes.filter(n => n.relation !== "classification"), visibleIds = page => page.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.getAttribute("data-organization-node"));

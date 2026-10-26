@@ -424,7 +424,15 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: { treasurer: NAME_WITHHELD } } });
   out = await J(res);
   check("removal on request: typing Name withheld needs no tick", res.status === 200 && out.settings.appointed.treasurer === NAME_WITHHELD && JSON.parse(settingsAudits().at(-1).details).appointedNames === 1);
-  check("  the name leaves the member's settings, actual page and /api/me", !(await memberJson()).includes(defaultHolder) && !(await signedMemberBoot()).includes(defaultHolder) && !(await meJson()).includes(defaultHolder));
+  // .199 explicitly names Fernmelder as the public gold-mail recipient. Test removal of the
+  // appointment identity separately from that fixed public catalogue, then use a unique private sentinel.
+  check("  the default name leaves every actual appointment projection", [JSON.parse(await memberJson()),JSON.parse(await signedMemberBoot()),JSON.parse(await meJson())].every(dto => dto.settings.appointed.treasurer === NAME_WITHHELD && !Object.values(dto.settings.appointed).includes(defaultHolder)));
+  const removalWitness199 = "Private Office Sentinel199";
+  res = await http("PUT", "/api/admin/settings", {who:ADMIN,body:{appointed:{treasurer:removalWitness199},namesConfirmed:true}});
+  check("  a distinct private holder reaches all three real views before withdrawal", res.status === 200 && [await memberJson(),await signedMemberBoot(),await meJson()].every(raw => raw.includes(removalWitness199)));
+  res = await http("PUT", "/api/admin/settings", {who:ADMIN,body:{appointed:{treasurer:NAME_WITHHELD}}});
+  check("  withdrawing the private holder removes all occurrences from settings, actual page and own data", res.status === 200 && [await memberJson(),await signedMemberBoot(),await meJson()].every(raw => !raw.includes(removalWitness199)));
+
   res = await http("GET", "/api/board/treasurer", { who: PLAIN });
   out = await J(res);
   check("  the role stays appointed: its board stays closed, held by Name withheld", res.status === 409 && out.error === "appointed" && out.appointed === NAME_WITHHELD, res.status, out);
@@ -436,24 +444,34 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
 
   // the I-X directory: a name added to a guild needs the tick; keeping, moving within its guild or removing one does not
   const directory = () => one("SELECT value FROM site_settings WHERE key = 'leadership'").value;
+  // Full-response privacy witnesses must not collide with the opaque base64url revision.
+  // These distinct private names contain spaces, unlike an authentication/view token.
+  const directoryWitnessOne199 = "Private Directory Holder One199", directoryWitnessTwo199 = "Private Directory Holder Two199";
   let dirBefore = directory();
   auditsBefore = audits("site.leadership").length;
-  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Cy", officers: ["Di"] } }) } });
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: directoryWitnessOne199, officers: [directoryWitnessTwo199] } }) } });
   out = await J(res);
   check("a directory save that adds names without namesConfirmed is refused (400 confirm_names), the reason in words, nothing stored", res.status === 400 && out.error === "confirm_names" && /agreed to be listed/.test(out.message) && directory() === dirBefore && audits("site.leadership").length === auditsBefore, out);
-  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Cy", officers: ["Di"] } }), namesConfirmed: true } });
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: directoryWitnessOne199, officers: [directoryWitnessTwo199] } }), namesConfirmed: true } });
   det = JSON.parse(audits("site.leadership").at(-1).details);
-  check("  with it the names are listed; the audit has the count and the tick, never the names", res.status === 200 && JSON.parse(directory())[2].gm === "Cy" && det.names === 2 && det.namesConfirmed === true && nobodyLogged(/\bCy\b|\bDi\b/), det);
-  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Di", officers: ["Cy"] } }) } });
-  check("  moving a name within its guild adds nobody: no tick needed, and none recorded", res.status === 200 && JSON.parse(directory())[2].gm === "Di" && !("namesConfirmed" in JSON.parse(audits("site.leadership").at(-1).details)));
+  check("  with it the names are listed; the audit has the count and the tick, never the names", res.status === 200 && JSON.parse(directory())[2].gm === directoryWitnessOne199 && det.names === 2 && det.namesConfirmed === true && nobodyLogged(new RegExp(directoryWitnessOne199 + "|" + directoryWitnessTwo199)), det);
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: directoryWitnessTwo199, officers: [directoryWitnessOne199] } }) } });
+  check("  moving a name within its guild adds nobody: no tick needed, and none recorded", res.status === 200 && JSON.parse(directory())[2].gm === directoryWitnessTwo199 && !("namesConfirmed" in JSON.parse(audits("site.leadership").at(-1).details)));
   dirBefore = directory();
-  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: "Di", officers: [] }, 3: { gm: "Cy", officers: [] } }) } });
+  res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: directoryWitnessTwo199, officers: [] }, 3: { gm: directoryWitnessOne199, officers: [] } }) } });
   check("  listing a name under another guild is listing it anew: refused without the tick", res.status === 400 && (await J(res)).error === "confirm_names" && directory() === dirBefore);
   res = await http("PUT", "/api/admin/leadership", { who: ADMIN, body: { guilds: ten({ 2: { gm: NAME_WITHHELD, officers: [] } }) } });
   out = await J(await http("GET", "/api/admin/leadership", { who: ADMIN }));
-  check("removing names (one cleared, one replaced by Name withheld) needs no tick, and they leave the directory", res.status === 200 && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out).includes("Cy") && !/\bDi\b/.test(JSON.stringify(out)));
+  check("removing names (one cleared, one replaced by Name withheld) needs no tick, and they leave the directory", res.status === 200 && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out).includes(directoryWitnessOne199) && !JSON.stringify(out).includes(directoryWitnessTwo199));
+  // Deterministic observer control: only replace the opaque metadata in a local DTO
+  // copy. This is not a signed revision and is never submitted to a real route.
+  const collisionDirectoryDto199 = { ...out, revision: "public-Cy-collision-control" };
+  const oldShortDirectoryCheck199 = dto => res.status === 200 && dto.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(dto).includes("Cy") && !/\bDi\b/.test(JSON.stringify(dto));
+  const directoryCollisionProof199 = { actualSaveStatus: res.status, actualPrivateDirectoryClear: out.guilds[2].gm === NAME_WITHHELD && [directoryWitnessOne199, directoryWitnessTwo199].every(name => !JSON.stringify(out).includes(name)), localMetadataControlReusesExactGuilds: collisionDirectoryDto199.guilds === out.guilds, syntheticRevisionAloneTriggersHistoricalShortCheck: !oldShortDirectoryCheck199(collisionDirectoryDto199), uniquePrivateWitnessesRemainAbsent: [directoryWitnessOne199, directoryWitnessTwo199].every(name => !JSON.stringify(collisionDirectoryDto199).includes(name)) };
+  check("an opaque metadata collision cannot stand in for disclosure of either unique private directory name", directoryCollisionProof199.actualSaveStatus === 200 && directoryCollisionProof199.actualPrivateDirectoryClear && directoryCollisionProof199.localMetadataControlReusesExactGuilds && directoryCollisionProof199.syntheticRevisionAloneTriggersHistoricalShortCheck && directoryCollisionProof199.uniquePrivateWitnessesRemainAbsent);
+  console.log("DIRECTORY_WITNESS_COLLISION199 " + JSON.stringify(directoryCollisionProof199));
   out = await J(await http("GET", "/api/leadership", { who: ALT }));
-  check("  a confirmed member's directory shows neither", out && Array.isArray(out.guilds) && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out.guilds).includes("Cy"), out);
+  check("  a confirmed member's directory shows neither", out && Array.isArray(out.guilds) && out.guilds[2].gm === NAME_WITHHELD && !JSON.stringify(out).includes(directoryWitnessOne199) && !JSON.stringify(out).includes(directoryWitnessTwo199), out);
 
   console.log("\n== atomic typed-name saves: real competing HTTP requests after the read ==");
   // The read hook captures A's real SQLite answer, runs B through index.fetch to completion at the SAME second, then
