@@ -1,0 +1,69 @@
+{
+  "schema": "governance-fact204-finite-source-delta-v1",
+  "base": "c9ccc3358ff4e0b538348b58371f22c4eeedb08e",
+  "oldOutside": {
+    "bytes": 176549,
+    "sha256": "0a2f6572735db2771855718aca643d4aab842555f549c7e48d01483b1f68c8d9"
+  },
+  "newOutside": {
+    "bytes": 178193,
+    "sha256": "76e6d09a68b5960655e37b775ddcaf89acc9299c12d9925fab0f4ee1d2ee7a71"
+  },
+  "originalBridgeUnchanged": {
+    "paragraphs": 17,
+    "baselineBytes": 173953,
+    "baselineSHA256": "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5"
+  },
+  "forwardExact": true,
+  "inverseExact": true,
+  "changes": [
+    {
+      "key": "facts204-01",
+      "kind": "replace",
+      "before": "Build .199 current owner direction: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide, all 95 stable offices / 131 assignable keys and six application tracks. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate.",
+      "after": "Build .199 current owner direction: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 95 stable offices / 131 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while the separate Admin switch is OFF. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate."
+    },
+    {
+      "key": "facts204-02",
+      "kind": "replace",
+      "before": "The supplied historical chart named Maxran for the then-recorded War portfolio, Akafoxslayer for raiding, and Fernmelder for treasury. The current public War portfolio is PvP; this update does not issue a new individual warrant. These are chart references pending individual warrants, not appointments made by this book. Fernmelder's existing website Treasurer appointment is separate from that pending governance warrant and remains retained under the owner's reset choice. Artisanry and Heraldry remain vacant. No vacancy is filled by implication.",
+      "after": "The supplied historical chart named Maxran for the then-recorded War portfolio, Akafoxslayer for raiding, and Fernmelder for treasury. The current War Head guide concerns organized PvE progression within the guild's PvE · Alliance direction; PvP coordination is an optional activity remit. The chart's older PvP portfolio label is retained as history, not the sole current War remit. These are chart references pending individual warrants, not appointments made by this book. Fernmelder's existing website Treasurer appointment is separate from that pending governance warrant and remains retained under the owner's reset choice. Artisanry and Heraldry remain vacant. No vacancy is filled by implication."
+    },
+    {
+      "key": "facts204-03",
+      "kind": "replace",
+      "before": "**War Head for PvP.** Coordinates shared PvP standards, event readiness and the network of PvP Emissaries. Maxran is the name shown in the submitted chart, pending an actual appointment record. The head supports local Captains, reviews legitimate intelligence and reports needs to the Council. Tactical event authority and local guild command remain separate.",
+      "after": "**War Head for PvP — retained chart portfolio.** The submitted chart uses this title for coordination of PvP standards, optional event readiness and PvP Emissaries. Maxran is the charted name, pending an actual appointment record. The current War Head guide concerns organized PvE progression; this retained PvP remit supports optional activities rather than changing the guild's PvE · Alliance direction. Local Captains retain their assigned event duties. Tactical authority and local guild command remain separate."
+    },
+    {
+      "key": "facts204-04",
+      "kind": "replace",
+      "before": "The two War Heads carry distinct PvP and Raiding portfolios. The Federal Treasurer carries the finance portfolio. The Ministers of Artisanry and Heraldry carry the crafting and community portfolios. Accepted High Councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review. Systems and Addons is a shared support division with a recorded lead; it is not an undeclared fifth ministry. Specialist service heads may advise the Council without becoming voting Council members unless separately appointed.",
+      "after": "The retained chart distinguishes PvP and Raiding portfolios; the current War Head guide centers organized PvE progression, with PvP an optional activity remit. Neither appointments nor warrants are changed. The Federal Treasurer carries the finance portfolio. The Ministers of Artisanry and Heraldry carry the crafting and community portfolios. Accepted High Councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review. Systems and Addons is a shared support division with a recorded lead; it is not an undeclared fifth ministry. Specialist service heads may advise the Council without becoming voting Council members unless separately appointed."
+    },
+    {
+      "key": "facts204-05",
+      "kind": "replace",
+      "before": "The War Head for PvP maintains shared objectives, readiness standards and a network of local PvP emissaries. For each operation the local Guild Master confirms participation and names a Captain. The Captain briefs the objective, force, communication channel, rendezvous, withdrawal condition and code of conduct. Scouts report lawful in-game observations with their age and uncertainty. An exciting rumour is not a verified enemy position or grounds for an accusation against a player.",
+      "after": "Current War leadership coordinates organized PvE progression. The retained War Head for PvP portfolio concerns optional events, readiness and local PvP emissaries; participation does not change the guild's PvE · Alliance direction. For an optional operation the local Guild Master confirms participation and names a Captain. The Captain briefs the objective, force, communication channel, rendezvous, withdrawal condition and code of conduct. Scouts report lawful in-game observations with their age and uncertainty. An exciting rumour is not a verified enemy position or grounds for an accusation against a player."
+    },
+    {
+      "key": "facts204-06",
+      "kind": "replace",
+      "before": "The War Head for PvP coordinates with each guild's PvP Emissary and appointed PvP Captain. The Captain briefs participants on objectives, communications, withdrawal and conduct. Intelligence or scouting collects relevant in-game observations obtained legitimately; it does not authorize harassment, impersonation, account access, exploit use, private-message surveillance or real-world targeting. Shared research should state the game version and what has actually been tested. Diplomacy handles proposed agreements with other communities through a delegated envoy. Neither a Captain nor a scout can bind Olympus to an alliance, resource exclusivity or a server-wide campaign without the relevant written authority.",
+      "after": "The current War Head remit is organized PvE progression. Optional PvP coordination retains its own Emissary and appointed Captain responsibilities within the guild's PvE · Alliance direction. The Captain briefs participants on objectives, communications, withdrawal and conduct. Intelligence or scouting collects relevant in-game observations obtained legitimately; it does not authorize harassment, impersonation, account access, exploit use, private-message surveillance or real-world targeting. Shared research should state the game version and what has actually been tested. Diplomacy handles proposed agreements with other communities through a delegated envoy. Neither a Captain nor a scout can bind Olympus to an alliance, resource exclusivity or a server-wide campaign without the relevant written authority."
+    },
+    {
+      "key": "facts204-07",
+      "kind": "insert",
+      "before": "## Looking toward launch",
+      "after": "## Looking toward launch\n\n26 October 2026 correction: Blizzard's 20 October update planned the final beta shutdown for 23 October 2026 at 10:00 AM PDT (17:00 UTC); this book does not claim an observed server closure. The following dated news paragraph retains the superseded schedule, not current timing or reset authority."
+    },
+    {
+      "key": "facts204-08",
+      "kind": "insert",
+      "before": "D05 Blizzard Entertainment The World of Warcraft Forever Beta Now Live. Official indexed material checked 2 October 2026 lists 21 October as the last full testing day. No shutdown hour is inferred. https://worldofwarcraft.blizzard.com/en-us/news/24304160/",
+      "after": "D05 Blizzard Entertainment The World of Warcraft Forever Beta Now Live. Official indexed material checked 2 October 2026 lists 21 October as the last full testing day. No shutdown hour is inferred. https://worldofwarcraft.blizzard.com/en-us/news/24304160/\n\nD18 Build .204 fact correction — 26 October 2026. D05's beta schedule is superseded by Blizzard community manager Kaivax's 20 October update: planned shutdown 23 October, 10:00 AM PDT / 17:00 UTC, not an observed closure. The owner's 22 October reset-policy cutoff remains separate. https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920"
+    }
+  ]
+}

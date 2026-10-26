@@ -2,6 +2,11 @@
 
 The original .196 custody slice changed `watcher/watcher.py`, added `watcher/tests/test_custody196.py`, and documented the local delivery contract. The reviewed successor also adds the attended local utility and tests described below. Both retain the keeper's existing HMAC/code formats, ingest paths, source timestamps and age limits, queue cap, three-attempt initial transport / one-attempt queued transport policy, auth/rate/redirect pauses and backend Native/Link guards. Preparing this source does not install or start a watcher, read user configuration/state, contact a provider or activate a v3 protocol.
 
+The .196/.197 results below retain their original source-qualification scope. The later
+[25 October one-host acceptance](#later-bounded-host-acceptance-25-october-2026) is separate:
+it supersedes a blanket pending-installation status for that host, not the original
+qualification history or the limits on normal ingestion and unknown provider outcomes.
+
 ## Ingest custody and backpressure
 
 `post()` now returns `Delivery.DELIVERED`, `Delivery.HELD` (`durable-held`) or `Delivery.NO_CUSTODY`. Boolean compatibility is deliberate: only delivered is true. Callers must distinguish held custody from no custody instead of interpreting every false result as buffered.
@@ -58,3 +63,38 @@ This does not solve genuinely unknown legacy delivery or a provider acknowledgme
 HTTP409 remains held: the Worker can return a privacy hold after an inner write already applied, so it is not evidence of definite nonapplication. A policy for attended retirement of possibly applied work is a separate owner decision. Token/origin/officer rotation still changes the custody binding; queued originals are not rebound, replayed under new authority or silently discarded. Drain and inspect known custody before planned rotation when possible; unresolved or legacy records need genuine outcome/owner evidence and a separately reviewed recovery procedure. Installing 0.6.8 on officer machines, changing scheduled tasks and migrating any existing private state/legacy lock are attended operator steps, not effects of a Worker deployment. Copy the complete watcher source package, including `custody_recovery.py`; copying only `watcher.py` is insufficient.
 
 The .197 focused tests use temporary synthetic files and stubbed transport. They exercise actual child-process termination/restart and live-writer exclusion, precommit and commit-then-error reservation reloads, and archive-first retirement of a recorded roster422 followed by later verification delivery. Windows results are recorded separately from the Linux/POSIX implementation; local Windows tests do not claim Linux execution or live installation.
+
+## Later bounded host acceptance (25 October 2026)
+
+The owner-authorized post-.198 host operation accepted **Watcher 0.6.8** on one Windows
+host. The retained `root-watcher-host-acceptance-final.json` records exact merged source
+binding for `watcher.py`, `custody_recovery.py` and `run-watcher.cmd`, a byte-exact copy of
+the existing state to a protected ordinary private path, and only the configured
+`state_file` location change. The original state and original failed attempts remain
+retained. Historical release text saying .198 itself did not install the watcher remains
+true; this was a later, separately authorized host operation.
+
+Its actual controlled proof covers cooperating-writer exclusion while the lease owner is
+alive, owned forced termination, reacquisition afterward with the same retained lock
+marker, and unchanged state bytes. The record also attributes **52 focused synthetic
+custody/restart tests** and **one authenticated health GET**. The independent
+`review-host-actual-v1.json` accepted that bounded host scope. Both receipts are retained
+outside the published source under the owner workspace's
+`post198-host-closeout-2026-10-25/evidence/`; no credential configuration or state payload
+is reproduced here. The three source hashes still matched that receipt during the
+26 October source fact-check; no restart or health request was repeated by that review.
+
+The acceptance explicitly records **`normalIngestStarted: false`**. It does not qualify
+normal watcher polling, queue claims or acknowledgments, game-client reload, current
+AddOn integration, role/verification actions, unattended operation, every officer PC or
+Linux runtime behavior. Installed source and an accepted restart check are not evidence
+that normal ingestion is currently running. A successful health response also does not
+prove that its backend performed no existing health/schema/Native work.
+
+The original **AA-W61 storage-fault cause remains unknown**. A working lease, current
+empty custody counters or later successful checks do not settle historical ambiguous
+provider originals, establish their nonapplication, or authorize a replay. HTTP409 and
+unknown/legacy delivery retain the holds and original-owner/current-outcome requirements
+above. The host acceptance does not activate Olympus Link, an Army exporter, a protocol
+migration or any other release gate. This documentation update performs no installation,
+state/configuration change, custody recovery, test, provider call or watcher start.

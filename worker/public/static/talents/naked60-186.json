@@ -12,7 +12,7 @@
   "generator": "gen_stats60.py",
   "researchSHA256": "93c53a998bc598338e3fd2c9bf6f3e33df23cd87290f5c69eb4c27d9e80b5356",
   "dataJsonSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
-  "status": "Exact WoW Forever level-60 base stats are not published anywhere (they are server-side). Base stats here are Classic references (grade E), derived estimates (grade D) or Unavailable (grade U); only DB2 fields (A/B) and Forever guide rules (C) are Forever evidence.",
+  "status": "This dataset has no independently verified Forever level-60 base-stat table; it makes no universal claim about publications elsewhere. Base stats here are Classic references (grade E), derived estimates (grade D) or Unavailable (grade U); only the named pinned DB2 fields (A/B) and dated Forever guide rules (C) are Forever evidence.",
   "grades": {
     "A": {
       "meaning": "Exact from current-build client data (DB2) or an in-game measurement.",
@@ -350,7 +350,7 @@
       "grade": "C",
       "title": "ForeverDB (fan database extracted from the local game client)",
       "url": "https://foreverdb.net",
-      "note": "Its /sim page states that its pre-gear stats are Classic's (CMaNGOS player_levelstats): even a client-extracting database publishes no Forever base stats. It also states 10 hit / 14 crit / 10 haste rating per 1% from gametables/combatratings.txt (level not stated). As reported by the 2026-10-21 verification; not re-fetched by this generator."
+      "note": "Its /sim page states that its pre-gear stats are Classic's (CMaNGOS player_levelstats); that dated comparison did not supply independently verified Forever base stats for this dataset. It also states 10 hit / 14 crit / 10 haste rating per 1% from gametables/combatratings.txt (level not stated). As reported by the 2026-10-21 verification; not re-fetched by this generator."
     },
     {
       "id": "wiki-spell-crit",

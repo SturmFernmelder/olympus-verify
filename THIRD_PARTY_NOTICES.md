@@ -30,11 +30,15 @@ extraction. The two 32-pixel PNGs preserve the source palette and alpha without 
 source hashes, client paths and conversion record are in `tools/wow-cursor-provenance.json` and appended to the public
 asset provenance. The same Blizzard ownership and limited pixel-lineage claim above apply to these two additions.
 
-`worker/public/static/olympus-icon.png` is the Olympus crest, the guild's own logo (the one shown on
-guild.roachcouncil.com). Since build .111 it is the site's brand and tab icon, by the owner's decision of 1 October
-2026, and it is the website's one image that does not come from the game client. It is not a game texture, it is not
-derived from one, and it is not attributed to Blizzard Entertainment. The publication reference pins it by path and
-SHA-256 (`867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66`).
+Since build .197, `worker/public/static/olympus-icon.png` is the exact owner-supplied tabard guild image approved on
+24 October 2026 for the website's guild branding, favicon and generic social preview across its shells. It is
+53,204 bytes, SHA-256 `6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb`, as recorded in the
+official-art reference and public asset provenance. "Owner-supplied" and "owner-approved" describe that source and
+use decision; they do not establish original authorship, non-derivation, Blizzard approval or additional publisher
+rights. The repository's code licence grants no rights to this image.
+
+The earlier build .111 crest had SHA-256 `867aafaa300e9f83479504b1d7c91478e4099bcc52d3e3a0172b8b55a1784d66`.
+That identity is retained as history, not the current tabard's publication pin.
 
 ## The two interface fonts
 

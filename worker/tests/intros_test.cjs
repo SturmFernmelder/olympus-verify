@@ -151,7 +151,7 @@ async function run(i) {
   check("every link is https and on Blizzard or an editorial guide site", hosts.length > 10 && hosts.every((u) => u.startsWith("https://") && LINK_HOSTS.includes(new URL(u).host)) || console.log("   ", hosts.filter((u) => !LINK_HOSTS.includes(new URL(u).host))));
   check("the launch timestamp is 4 Nov 2026 15:00 PST (23:00 UTC)", rendered.includes("<t:1793833200:F>") && Date.UTC(2026, 10, 4, 23) / 1000 === 1793833200);
   check("the dungeon example uses Hall of Thanes' level range from Wowhead (13-18)", rendered.includes("Hall of Thanes · 13–18") && !rendered.includes("28–34"));
-  check("the current intro records public PvE Alliance direction without inventing a live realm or launch activation", rendered.includes("PVE - Alliance") && rendered.includes("The realm will be announced before launch.") && !rendered.includes("separately confirmed configuration") && BETA_SNAP.profile.phase==="public_direction" && BETA_SNAP.profile.faction==="Alliance" && !/Hardcore \(after launch\)/.test(rendered));
+  check("the current intro records public PvE Alliance direction with realmless ruleset terminology, not a realm promise", rendered.includes("PVE - Alliance") && rendered.includes("Forever is realmless") && rendered.includes("rather than a traditional realm") && !rendered.includes("The realm will be announced before launch.") && BETA_SNAP.profile.phase==="public_direction" && BETA_SNAP.profile.faction==="Alliance");
   const switchedCopy = { ...BETA_SNAP, profile: { ...BETA_SNAP.profile, phase: "full_release", ruleset: "PvP", faction: "Horde", realm: "Synthetic announced realm" } };
   const currentInfoCopy = textOf(renderEmbeds(INTROS.find(x=>x.key==="olympus-info"),CH,switchedCopy));
   check("the member-facing ruleset field follows the supplied resolved snapshot instead of retaining a fixed PvE literal",currentInfoCopy.includes("PvP · Horde") && !currentInfoCopy.includes("PVE - Alliance") && !currentInfoCopy.includes("Historical beta observations"));
@@ -212,13 +212,14 @@ async function run(i) {
   check("mentions resolve to real channel ids", JSON.stringify(infoMsg.embeds).includes(`<#${CH["join-olympus"]}>`));
   const infoText = JSON.stringify(infoMsg.embeds);
   check("the join step says an invite can be requested before joining (.52, content candidate)", /request a guild invite this way before joining/.test(infoText) && !/Join the main Olympus guild in game, then/.test(infoText));
-  check("  the beta field names invited testers and says an application grants no beta access", /selected invited testers/.test(infoText) && /does not grant beta access/.test(infoText));
-  check("  name reservation: three characters, and the planning list reserves nothing", /up to three characters/.test(infoText) && /does not reserve it in the game/.test(infoText));
+  check("  beta uses the later announced October 23 shutdown, retains eligibility and does not claim observed closure", /selected invited testers/.test(infoText) && /does not grant beta access/.test(infoText) && /October 20 announcement planned/.test(infoText) && /October 23 at 10:00 a.m. PDT \(17:00 UTC\)/.test(infoText) && /not an observed server-closure receipt/.test(infoText) && !/September 17 – October 21/.test(infoText));
+  check("  name reservation gives NA's confirmed regional hour, exact eligible packs, three total across rulesets and no guild reservation claim", /North America opens October 27 at 1:00 p.m. PDT \(20:00 UTC\)/.test(infoText) && /other regions have separate hours/.test(infoText) && /Skyborne Heroic Pack, Skyborne Epic Pack or Warcraft Forever Collection/.test(infoText) && /on that WoW account/.test(infoText) && /Up to three characters total across all Rulesets/.test(infoText) && /does not reserve it in the game/.test(infoText));
+  check("  corrected facts link the later official beta, reservation and ruleset announcements", infoText.includes("/2387920") && infoText.includes("/24303866/") && infoText.includes("/24302070/"));
   check("  the add-on paragraph makes no claim about an unpublished policy", !/hasn't published/.test(infoText) && /reviewed release/.test(infoText));
   check("  no guide claims an unpublished add-on policy; #classes-and-builds gives the same supported guidance (.113)",
     !INTROS.some((x) => /hasn't published/.test(textOf(renderEmbeds(x, CH, BETA_SNAP))))
     && /reviewed release/.test(textOf(renderEmbeds(INTROS.find((x) => x.channel === "classes-and-builds"), CH, BETA_SNAP))));
-  check("  the facts footer is dated 1 October 2026", /checked October 1, 2026/.test(infoText));
+  check("  the corrected official schedule footer is dated 26 October 2026 without claiming observed game state", /checked October 26, 2026/.test(infoText) && /not observed game-state proof/.test(infoText));
 
   console.log("== second refresh, nothing changed ==");
   D.calls = []; D.followups = [];

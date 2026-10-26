@@ -23,7 +23,7 @@ const scenario=String.raw`
   throw Error('unrecognized synthetic provider endpoint');
  };
  let page=await openPage(STAFF,over);await page.go('#/admin/ruleset-publication');await waitFor(()=>page.app.querySelectorAll('pre').length===3,'complete publication preview');
- check('actual admin tab reaches current approved identity preview without effect',!!byText(page.app,'a','Ruleset publication')&&page.app.textContent.includes('PVE - Alliance')&&page.app.textContent.includes('Realm not announced')&&page.app.querySelectorAll('pre').length===3&&effects.length===0);
+ check('actual admin tab reaches current approved realmless identity preview without effect',!!byText(page.app,'a','Ruleset publication')&&page.app.textContent.includes('PVE - Alliance')&&page.app.textContent.includes('Realmless (ruleset-based)')&&page.app.querySelectorAll('pre').length===3&&effects.length===0);
  // .174: the ordinary Admin section picker is navigation, outside the protected publication frame.
  const consent=page.app.querySelector('#ruleset-publication-reviewed'),publicationPanel=consent?.closest('.frame'),navigation=page.app.querySelector('#admin-section-select'),selectors=page.app.querySelectorAll('select');
  check('plan requires deliberate review checkbox and has no future selector',!!consent&&consent.getAttribute('type')==='checkbox'&&!consent.checked&&byText(page.app,'button','Record current PvE Alliance plan').disabled&&!!publicationPanel&&!publicationPanel.querySelector('select')&&selectors.length===1&&selectors[0]===navigation&&navigation.getAttribute('aria-label')==='Admin section'&&!!navigation.closest('.admin-section-nav')&&navigation.value==='#/admin/ruleset-publication'&&page.app.textContent.includes('No future profile'));

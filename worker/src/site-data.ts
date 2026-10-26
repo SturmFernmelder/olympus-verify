@@ -45,7 +45,7 @@ const EU_EVENINGS = "evenings Central European time, about 7 pm to midnight (6 t
 
 /** The two raid roles read the same for NA and EU but for the region and its evenings. */
 const raidLeaderInfo = (region: string, evenings: string): RoleInfo => ({
-  about: `The Raid Leader plans and calls Olympus's ${region} raids, ${evenings}. Once the pull timer starts, yours is the voice forty people follow.`,
+  about: `The Raid Leader plans and calls Olympus's ${region} raids, ${evenings}. Once the pull timer starts, yours is the voice the raid follows, whether its encounter calls for 10, 20 or 40 players.`,
   duties: [
     "Set your region's raid schedule with the officers, and post it well ahead.",
     "Learn every fight first and explain it before the pull: strategy, positions, assignments.",
@@ -156,8 +156,8 @@ const HISTORICAL_POSITION_COPY: Position[] = [
       game: "Recommended post-beta placement: Officer occupies native Slot 4, below Guild Master, High Council and Treasurer. This is a planning recommendation, not verification of the holder’s current game rank. The Guild Master must review and set permissions in game; applying here grants no rank or AddOn access.",
     },
   },
-  { key: "raid_leader_na", label: "Raid Leader (NA raids)", group: "leadership", raidTime: "na", blurb: `Plans and calls the North American raids, ${NA_EVENINGS}: strategy, assignments, pace, and keeping forty people pointed the same way.`, info: raidLeaderInfo("North American", NA_EVENINGS) },
-  { key: "raid_leader_eu", label: "Raid Leader (EU raids)", group: "leadership", raidTime: "eu", blurb: `Plans and calls the European raids, ${EU_EVENINGS}: strategy, assignments, pace, and keeping forty people pointed the same way.`, info: raidLeaderInfo("European", EU_EVENINGS) },
+  { key: "raid_leader_na", label: "Raid Leader (NA raids)", group: "leadership", raidTime: "na", blurb: `Plans and calls the North American raids, ${NA_EVENINGS}: strategy, assignments and pace for the encounter's 10-, 20- or 40-player group.`, info: raidLeaderInfo("North American", NA_EVENINGS) },
+  { key: "raid_leader_eu", label: "Raid Leader (EU raids)", group: "leadership", raidTime: "eu", blurb: `Plans and calls the European raids, ${EU_EVENINGS}: strategy, assignments and pace for the encounter's 10-, 20- or 40-player group.`, info: raidLeaderInfo("European", EU_EVENINGS) },
   { key: "raid_assist_na", label: "Raid Assist (NA raids)", group: "leadership", raidTime: "na", blurb: `Backs up the NA raid leader, ${NA_EVENINGS}: marks, assignments, invites, loot and attendance.`, info: raidAssistInfo("North American", NA_EVENINGS) },
   { key: "raid_assist_eu", label: "Raid Assist (EU raids)", group: "leadership", raidTime: "eu", blurb: `Backs up the EU raid leader, ${EU_EVENINGS}: marks, assignments, invites, loot and attendance.`, info: raidAssistInfo("European", EU_EVENINGS) },
   {
@@ -642,7 +642,7 @@ export function cleanTimeZone(raw: unknown): string | null {
 
 export interface SiteSettings {
   namesOpenAt: number;        // when Blizzard's name reservation opens: the countdown, and when the names form opens
-  namesTimeConfirmed: boolean; // false until Blizzard names the hour; the page then says the hour is not known yet
+  namesTimeConfirmed: boolean; // saved admin choice; absent defaults confirm only the announced North American hour
   namesOpen: boolean;         // entering names at all (still only from namesOpenAt)
   launchAt: number;           // the live launch; approved names are queued from then when autoQueue is on
   autoQueue: boolean;
@@ -732,8 +732,9 @@ function parseNoVote(raw: string | undefined): string[] {
   }
 }
 
-/** 27 Oct 2026, 00:00 Pacific (PDT, UTC-7). Blizzard announced the date and not the hour, so this is the start of that day. */
-export const DEFAULT_NAMES_OPEN_AT = Date.UTC(2026, 9, 27, 7) / 1000;
+/** Blizzard's 20 Oct announcement: North America opens 27 Oct 2026 at 13:00 PDT = 20:00 UTC. Other regions differ.
+ * https://news.blizzard.com/en-us/article/24303866/claim-your-world-of-warcraft-forever-character-names */
+export const DEFAULT_NAMES_OPEN_AT = 1793131200;
 /** 4 Nov 2026, 3:00 p.m. PST: Blizzard's announced launch (the same timestamp the channel intros show). */
 export const DEFAULT_LAUNCH_AT = 1793833200;
 
@@ -749,9 +750,10 @@ const bool = (v: string | undefined, fallback: boolean) => (v === undefined ? fa
 
 export function settingsFrom(env: Env, rows: Array<{ key: string; value: string }>): SiteSettings {
   const m = new Map(rows.map((r) => [r.key, r.value]));
+  const namesOpenAt = parseTime(m.get("namesOpenAt"), parseTime(env.NAME_RESERVATION_AT, DEFAULT_NAMES_OPEN_AT));
   return {
-    namesOpenAt: parseTime(m.get("namesOpenAt"), parseTime(env.NAME_RESERVATION_AT, DEFAULT_NAMES_OPEN_AT)),
-    namesTimeConfirmed: bool(m.get("namesTimeConfirmed"), false),
+    namesOpenAt,
+    namesTimeConfirmed: bool(m.get("namesTimeConfirmed"), namesOpenAt === DEFAULT_NAMES_OPEN_AT),
     namesOpen: bool(m.get("namesOpen"), true),
     launchAt: parseTime(m.get("launchAt"), parseTime(env.LAUNCH_AT, DEFAULT_LAUNCH_AT)),
     autoQueue: bool(m.get("autoQueue"), true),
@@ -843,17 +845,18 @@ export function snowflakeTime(id: string): number | null {
 }
 
 /**
- * A Forever character name: two parts, 2-12 letters each ("Fern Melder"), written the way the game shows it: capital
- * first letter, the rest lower case. The key is the invite queue's own normalization (codes.ts), so a reserved name
+ * Olympus's local planning-name input: two parts, 2-12 letters each ("Fern Melder"), normalized to a capital
+ * first letter and lower-case remainder. Blizzard confirms two-part names, but these local length/alphabet rules
+ * are not independent validation of Blizzard's full naming policy or availability. The key is the invite queue's own normalization (codes.ts), so a reserved name
  * lines up with the roster and the queue exactly.
  */
 export function parseCharacterName(raw: unknown): { name: string; key: string } | { error: string } {
   const s = cleanText(raw, 40);
   if (!s) return { error: "Type the character's name." };
   const parts = s.split(" ");
-  if (parts.length !== 2) return { error: "Forever names have two parts, a first and a last name, like Fern Melder." };
+  if (parts.length !== 2) return { error: "Use two parts for this guild planning list, a first and a last name, like Fern Melder. Blizzard makes the final naming decision in game." };
   for (const p of parts) {
-    if (!/^\p{L}{2,12}$/u.test(p)) return { error: "Each part of the name is 2 to 12 letters: no digits, spaces or symbols inside a part." };
+    if (!/^\p{L}{2,12}$/u.test(p)) return { error: "This guild planning list accepts 2 to 12 letters per part, without digits or symbols. This is a local input rule, not a Blizzard name-availability check." };
   }
   const name = parts.map((p) => { const [first, ...rest] = Array.from(p); return first.toUpperCase() + rest.join("").toLowerCase(); }).join(" ");
   return { name, key: normalizeCharacter(name) };

@@ -1,9 +1,10 @@
 /** Public game identity only. This module never selects admission, roster, role, invite or launch settings.
  *
  * 23 Oct 2026: the owner made Olympus's PvE / Alliance direction public. This changes public copy only: it does not
- * select a live game realm, activate a launch or change admission, rank mapping or verification. The exact observed
+ * select a live game ruleset, activate a launch or change admission, rank mapping or verification. The exact observed
  * beta profile remains separately exported for historical QR observations. The site's legacy absent/"beta" selector
- * now projects the public direction. It does not claim that the announced realm is known or the game has launched.
+ * now projects the public direction. Forever's public terminology is realmless; the legacy realm field is retained
+ * for compatibility and historical beta observations. This does not claim that the game has launched.
  * The separately activated full-release identity
  * which lives only in the private secret RULESET_FUTURE_PROFILE until that day. Activation pins the opaque revision and
  * the secret's digest in site_settings (ruleset-publication.ts switchRulesetMode, one admitted batch). While the mode is
@@ -17,7 +18,7 @@ export interface RulesetProfile {
   readonly game: "World of Warcraft: Forever";
   readonly guild: "Olympus";
   readonly realm: string;
-  readonly ruleset: "Normal" | "PvE" | "PvP" | "Roleplaying" | "Hardcore";
+  readonly ruleset: "Normal" | "PvE" | "PvP" | "Roleplaying" | "Roleplay-PvP" | "Hardcore";
   readonly faction: "Alliance" | "Horde";
 }
 
@@ -44,7 +45,7 @@ export function parseRulesetProfile(input: unknown): RulesetProfile | null {
     || !["beta", "public_direction", "full_release"].includes(record.phase as string) || record.game !== "World of Warcraft: Forever"
     || record.guild !== "Olympus" || !LABEL.test(record.realm as string) || record.realm !== (record.realm as string).trim()
     || record.realm !== (record.realm as string).normalize("NFC")
-    || !["Normal", "PvE", "PvP", "Roleplaying", "Hardcore"].includes(record.ruleset as string)
+    || !["Normal", "PvE", "PvP", "Roleplaying", "Roleplay-PvP", "Hardcore"].includes(record.ruleset as string)
     || !["Alliance", "Horde"].includes(record.faction as string)) return null;
   return Object.freeze(record) as unknown as RulesetProfile;
 }
@@ -59,17 +60,25 @@ if (!BETA) throw new Error("Invalid public beta ruleset profile");
 export function historicalBetaRulesetProfile(): RulesetProfile { return BETA!; }
 const PUBLIC_DIRECTION = parseRulesetProfile({
   schema: "olympus-ruleset-profile-v1", revision: "forever-public-pve-alliance-20261023-v1", phase: "public_direction",
-  game: "World of Warcraft: Forever", guild: "Olympus", realm: "Realm not announced", ruleset: "PvE", faction: "Alliance",
+  game: "World of Warcraft: Forever", guild: "Olympus", realm: "Realmless (ruleset-based)", ruleset: "PvE", faction: "Alliance",
 });
 if (!PUBLIC_DIRECTION) throw new Error("Invalid public Olympus direction");
 /** Announced guild direction, not proof of a live game realm, launch or native configuration. */
 export function currentRulesetProfile(): RulesetProfile { return PUBLIC_DIRECTION!; }
 export function publicRulesetSettingLabel(): "PVE - Alliance" { return "PVE - Alliance"; }
 
+/** Display-only correction of the exact old public-direction label; never rewrites a saved profile or beta realm. */
+export function rulesetRealmLabel(profile: RulesetProfile): string {
+  return profile.phase === "public_direction" && profile.revision === PUBLIC_DIRECTION!.revision
+    && profile.game === "World of Warcraft: Forever" && profile.guild === "Olympus"
+    && profile.ruleset === "PvE" && profile.faction === "Alliance" && profile.realm === "Realm not announced"
+    ? PUBLIC_DIRECTION!.realm : profile.realm;
+}
+
 export function rulesetLabel(profile: RulesetProfile = currentRulesetProfile()): string {
   const checked = parseRulesetProfile(profile);
   if (!checked) throw new Error("Invalid ruleset profile");
-  if (checked.phase === "public_direction") return `${checked.game} · ${checked.ruleset.toUpperCase()} - ${checked.faction} · public guild direction · ${checked.realm}`;
+  if (checked.phase === "public_direction") return `${checked.game} · ${checked.ruleset.toUpperCase()} - ${checked.faction} · public guild direction · ${rulesetRealmLabel(checked)}`;
   return `${checked.game} · ${checked.phase === "beta" ? "Beta" : "Full release"} · ${checked.realm} · ${checked.ruleset} · ${checked.faction}`;
 }
 

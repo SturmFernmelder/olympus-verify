@@ -56,8 +56,13 @@ export const NEWS_LIMITS = {
   readsPerMin: 30,
   writesPerMin: 20,
 } as const;
-/** Blizzard names 21 October 2026 as the beta's last full day, and no hour (site-leadership.ts). */
-export const BETA_LAST_FULL_DAY = "2026-10-21";
+/** Later official announcement, 20 Oct 2026: a planned shutdown, not an observed server-closure receipt. */
+export const BETA_ANNOUNCED_CLOSURE = Object.freeze({
+  announcedClosureAt: 1792774800, // 23 Oct 2026, 10:00 PDT = 17:00 UTC
+  announcementDate: "2026-10-20",
+  source: "https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",
+  scheduleStatus: "announced-plan-not-observed",
+});
 /** The cron's cached figures: counts and the snapshot ids they were computed from. The ids are never sent. */
 export const FIGURES_KEY = "newsFigures";
 
@@ -72,6 +77,14 @@ export interface ReleaseNote {
  * added in the commit that moves BUILD to it.
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    build: ".204", date: "2026-10-26", lines: [
+      "Name-reservation defaults now use North America's announced 27 October, 20:00 UTC opening. Saved administrator settings still take precedence.",
+      "Beta dates identify Blizzard's later planned shutdown, with its source and announcement date, rather than claiming the server closure was observed.",
+      "Guild direction uses realmless ruleset terminology. Raid guides cover 10-, 20- and 40-player encounters; planning-name rules remain local, not a Blizzard availability check.",
+      "Dated talent evidence, publisher adoption and real game acceptance remain separate from these factual-copy corrections. Optional service and provider gates stay unchanged.",
+    ],
+  },
   {
     build: ".197", date: "2026-10-24", lines: [
       "The owner-supplied guild tabard is the crest across the guild hall, sign-in, Army, rank planning and legal pages. Footer attribution ends at the code-licence notice.",
@@ -351,7 +364,7 @@ export async function newsPage(request: Request, env: Env): Promise<Response> {
     // on the hour, like every staff-activity time members see (review of 3 Oct 2026): the exact second would say when an
     // administrator saved the directory; the page shows the day
     leadership: { updatedAt: typeof stamp === "number" ? hourOf(stamp) : null },
-    beta: { lastFullDay: BETA_LAST_FULL_DAY, launchAt: settings.launchAt },
+    beta: { ...BETA_ANNOUNCED_CLOSURE, launchAt: settings.launchAt },
     releases: RELEASE_NOTES.slice(0, 5),
   });
 }

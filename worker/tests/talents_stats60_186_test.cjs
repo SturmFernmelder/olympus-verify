@@ -410,6 +410,10 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
   const ranged = sheetRow(host, 'rangedAP'); assert.match(cellValue(ranged, 3), /^disputed: 0 \(0 per Agility/);
   const hit = sheetRow(host, 'hitMelee'); assert.equal(cellValue(hit, 0), 'none'); assert.equal(cellGrade(hit, 0), null);
   assert.match(rootNode.textContent, /Classic reference — not Forever-verified/);
+  assert.match(rootNode.textContent, /dataset has no independently verified Forever level-60 base-attribute table/);
+  assert.match(rootNode.textContent, /not a fresh live-tuning check/);
+  assert.match(rootNode.textContent, /does not establish that no authoritative publication exists elsewhere/);
+  assert.ok(!/not published anywhere|publishes none of them|does not publish its level-60/.test(rootNode.textContent));
   assert.match(byClass(host, 's60-provenance')[0].textContent, /^Base attributes: Classic reference — not Forever-verified \(CMaNGOS sql\/base\/mangos\.sql:5652\)/);
   const svgs = host.all(n => n.tagName === 'svg'); assert.ok(svgs.length >= 15 && svgs.every(n => n.namespaceURI === SVG_NS && n.getAttribute('aria-hidden') === 'true' && n.getAttribute('viewBox') === '0 0 200 14'));
   assert.ok(host.all(n => n.namespaceURI === SVG_NS && n.tagName === 'rect').every(n => /^-?[0-9.]+$/.test(n.getAttribute('x')) && /^[0-9.]+$/.test(n.getAttribute('width'))));

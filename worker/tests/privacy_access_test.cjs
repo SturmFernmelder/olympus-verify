@@ -70,6 +70,11 @@ async function form(f,c,purpose='own_export'){const page=await access.privacyAcc
  return {csrf,grant,request:(fields={},headers={})=>new Request(BASE+'/privacy/access/'+action,{method:'POST',headers:{Cookie:c.cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded',...headers},body:new URLSearchParams({csrf,grant,...(purpose==='own_erasure'?{confirm:'yes'}:{}),...fields})})};}
 async function refused(name,fn){let threw=false;try{await fn();}catch{threw=true;}ok(name,threw);}
 async function main(){
+ const privacyNotice=fs.readFileSync(path.join(root,'../policies/privacy.html'),'utf8'),historySource=load('privacy-access-history'),familyHistorySource=load('privacy-access-family-history');
+ const disclosedHistoryCount=/preview of up to 25 entries in each of its (\d+) covered history sections/.exec(privacyNotice);
+ eq('.204 privacy preview count matches the actual selected history registry',Number(disclosedHistoryCount?.[1]),historySource.PRIVACY_COPY_HISTORY_COLLECTIONS.length);
+ eq('.204 separate collection-only histories retain their distinct registry',familyHistorySource.PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS.length,3);
+ ok('.204 privacy notice distinguishes the three separate histories from the aggregate download',privacyNotice.includes('Three additional collection-only histories are available separately: historical Battle.net character labels, original-generation roster intents and current setting updater metadata; they are not included in that aggregate file.'));
  eq('schema additions exactly four statements',ddl.PRIVACY_ACCESS_SCHEMA.length,4);
  let f=fixture();const initialTables=f.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table'").get().n;
  calls=[];const c=await connect(f);eq('fresh identity lookup invokes two endpoints',calls.length,2);ok('no membership endpoint',calls.every(x=>!x.url.includes('/guilds/')));eq('identity never creates website account',count(f,'site_users'),0);eq('identity never creates bot member',count(f,'members'),0);eq('identity never creates serving subject',count(f,'privacy_subjects'),0);eq('identity never creates role intents',count(f,'role_settlements'),0);eq('grants include two purposes',count(f,'privacy_access_grants'),2);eq('grant fixed lifetime720',f.db.prepare('SELECT expires_at-created_at AS ttl FROM privacy_access_grants LIMIT 1').get().ttl,720);

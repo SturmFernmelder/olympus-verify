@@ -1,8 +1,9 @@
 # Guild roster verification and Olympus Guild coexistence
 
-Olympus Verify **0.6.9** adds a **Discord verification** column beside the native Guild & Communities
-**Roster** view. It uses the actual visible member rows, not their screen positions or a
-separate alphabetical list. It does not replace Blizzard functions, change native columns,
+Olympus Verify's **Discord verification** column sits beside the native Guild & Communities
+**Roster** view. Current AddOn source is **0.6.11**; the bounded native-layout acceptance below
+belongs to **0.6.9**. The column uses the actual visible member rows, not their screen
+positions or a separate alphabetical list. It does not replace Blizzard functions, change native columns,
 sort the guild, edit notes, invite, remove members, or send a whisper.
 
 The supported inline layout has `CommunitiesFrame.MemberList.ScrollBox`, native
@@ -65,17 +66,24 @@ The supplied CurseForge link is **Olympus Guild**, project **1708200**, by **dnl
 
 - [CurseForge source link](https://www.curseforge.com/wow/addons/olympus-guild)
 - [Upstream repository](https://github.com/dnl-gentile/olympus-addon)
-- Inspected version **1.2.3**, commit
-  [`f60f18814f2426a5c21f97e207611871a06366b4`](https://github.com/dnl-gentile/olympus-addon/tree/f60f18814f2426a5c21f97e207611871a06366b4)
-- [Public Bridge.lua](https://github.com/dnl-gentile/olympus-addon/blob/f60f18814f2426a5c21f97e207611871a06366b4/Olympus/Bridge.lua)
-- [MIT license](https://github.com/dnl-gentile/olympus-addon/blob/f60f18814f2426a5c21f97e207611871a06366b4/LICENSE),
-  copyright (c) 2026 Olympus addon contributors. No upstream source is bundled or installed.
+- Publisher version inspected on 26 October 2026: **1.3.2**, commit
+  [`d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`](https://github.com/dnl-gentile/olympus-addon/tree/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2),
+  [CurseForge file 9273643](https://www.curseforge.com/wow/addons/olympus-guild/files/9273643)
+- [Public Bridge.lua](https://github.com/dnl-gentile/olympus-addon/blob/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2/Olympus/Bridge.lua)
+- [MIT license](https://github.com/dnl-gentile/olympus-addon/blob/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2/LICENSE),
+  copyright (c) 2026 Olympus addon contributors. This optional display integration does
+  not bundle or install the upstream AddOn.
+
+The earlier inspection of **1.2.3**, commit
+[`f60f18814f2426a5c21f97e207611871a06366b4`](https://github.com/dnl-gentile/olympus-addon/tree/f60f18814f2426a5c21f97e207611871a06366b4),
+found no public census snapshot contract. That is a limitation of that inspected version,
+not a statement about current 1.3.2.
 
 The optional TOC dependency loads an installed, enabled Olympus first; it does not install
-or enable it. Its public `OlympusBridge.API_VERSION == 1` offers `GetCouncil`, `IsHighCouncillor` and a
-chat observer registration. It exposes **no public census/member snapshot API**. We do not
-read `OlympusDB`, private namespace tables, chat history, messages or private roster caches,
-register a chat observer, request a census, or add a network protocol.
+or enable it. The keeper's display integration uses `OlympusBridge.API_VERSION == 1`
+and `GetCouncil()`. It does not read `OlympusDB`, private namespace tables, chat history,
+messages or private roster caches, register a chat observer, request a census, or add a
+network protocol.
 
 `/olv olympus on` explicitly enables a session-only, bounded read of `GetCouncil()`.
 `/olv olympus status` reports its availability, council-name count and supplied realm.
@@ -85,10 +93,43 @@ unsupported. `OlympusVerifyGuild.OlympusSnapshot()` returns a fresh display-only
 its observation time and `censusAvailable = false`. Upstream's hidden-name behavior is
 preserved. These hints never affect verification, eligibility, ranks, signing or roles.
 
-This is compatibility with the inspected public API, not a claim that both projects have
-the same author, share signed authority, or that a council list is Discord verification.
-Actual census import is deliberately unavailable until upstream exposes a suitable public
-read-only snapshot API.
+This is display compatibility, not a claim that both projects have the same author, share
+signed authority, or that a council list is Discord verification.
+
+Official **1.3.2** separately exposes `CENSUS_CHECKPOINT_API_VERSION == 1` and the read-only
+`GetCensusCheckpoint()` contract. Its fresh copies contain census aggregates, not member
+names, chat or signing keys. That contract is distinct from the older local keeper
+`GetCensusSnapshot()` / `olympus-census-v1` consumer and the separate `OLCS2` QR prototype;
+the presence of a checkpoint does not make either prototype an official website exporter.
+
+The [optional website exporter proposal, PR #72](https://github.com/dnl-gentile/olympus-addon/pull/72),
+was still an **open, unmerged draft** in the 26 October review. It reads the public checkpoint
+and proposes a dedicated `OlympusSiteAggregate.lua` SavedVariables file in the same upstream
+release package. It does not add `GetCensusSnapshot()` or a QR transport. Local source and
+test receipts do not establish publisher adoption, a CurseForge package or supported-client
+loading. Website import remains held until separately reviewed publisher adoption and
+actual-client acceptance; see [the compatibility candidate](../addon/OlympusGuildCompatibility196/README.md)
+and [Army publication](army-qr-publishing.md).
+
+## Signed lists, Link and native ranks are separate
+
+`/oly approved paste` opens the official addon's dialog for an author-signed `HT1` list.
+The [author's RSA-2048/e=3/SHA-256 signature](https://github.com/dnl-gentile/olympus-addon/blob/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2/Olympus/Sign.lua)
+is distinct from [Olympus Link's Ed25519 peer proofs](https://github.com/dnl-gentile/olympus-addon/blob/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2/Olympus/Link.lua).
+The website's [local HT1 helper](approved-guild-helper196.md) cannot establish the addon's
+held timestamp, realm or successful in-game application. Pasting an approved list does not
+configure the ten native guild ranks or grant a website or Discord permission.
+
+**Held interoperability boundary:** official 1.3.2
+[`Core.lua`](https://github.com/dnl-gentile/olympus-addon/blob/d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2/Olympus/Core.lua#L844)
+fixes Captain/officer authority at native index **1**. The owner's website planning ladder
+places **High Council at slot 1** and **Officer at slot 2**. Those are not interchangeable
+authority models; publisher compatibility review and actual-client qualification are required
+before claiming shared authority. This documentation changes no rank or permission.
+Olympus Link remains OFF in the accepted website configuration. Official 1.3.2 ships a
+placeholder backend key and disabled Council-authority path; source implementation alone
+does not establish active peer verification. The local [B1 browser councillor bridge](councillor-verification.md)
+is another separately gated Ed25519 flow, not the HT1 list or official Link key system.
 
 ## Slash command ownership
 
@@ -100,9 +141,10 @@ status is unknown, use `/olv browser`. The release's browser page emits the coll
 command; never change the original challenge value while copying it.
 `/olv ui` and `/olv panel` both toggle the existing officer panel, just like `/olv`.
 The 0.6.8 layout corrected the 0.6.7 in-game navigation overlap. Version 0.6.9 also yields
-to the native member-details popup; that popup correction still requires an actual client
-check after installation. A stale watcher list remains **Stale list** until its existing
-authorized sync supplies fresh data; opening a native detail popup never refreshes it.
+to the native member-details popup. The later owner acceptance of that layout is described
+below; it does not qualify every current-client action. A stale watcher list remains
+**Stale list** until its existing authorized sync supplies fresh data; opening a native
+detail popup never refreshes it.
 
 ## Source and acceptance scope
 
@@ -111,8 +153,13 @@ Native layout/recipient calls were checked against the extracted Forever UI sour
 and its host's actual `GuildMemberDetailFrame` in
 [CommunitiesFrame.xml](https://github.com/Gethe/wow-ui-source/blob/735496de78ebd30ce816a0637982c556987f258c/Interface/AddOns/Blizzard_Communities/CommunitiesFrame.xml),
 and [ChatFrameUtil.lua](https://github.com/Gethe/wow-ui-source/blob/735496de78ebd30ce816a0637982c556987f258c/Interface/AddOns/Blizzard_ChatFrameBase/Shared/ChatFrameUtil.lua).
-Runtime detection still decides whether those APIs/layouts are available. This is source
-implementation only until the owner runs the existing Lua suites and checks the actual
-client. No AddOn installation, game action, external message, provider action or live
-visual acceptance was performed during this change. The frozen erasure/B1 evidence
-packages were not modified or activated.
+Runtime detection still decides whether those APIs/layouts are available. The initial
+implementation was source-only: it did not install an AddOn, perform a game/provider action,
+or supply live visual acceptance. Later, the owner accepted **0.6.9** native navigation,
+panel command and member-details placement, as recorded in the
+[member-experience .154 handoff](member-experience154-owner-handoff.md#readback-and-acceptance).
+The editable exact-recipient reminder remained untested because the loaded lists were stale;
+no reminder, roster sync or verification proof was sent during that acceptance. This is
+bounded layout evidence, not whole-client acceptance of current **0.6.11**, a protected invite,
+publisher exporter adoption or activation of Link/B1. This documentation correction adds
+no new test or game observation and leaves the frozen erasure/B1 evidence unchanged.
