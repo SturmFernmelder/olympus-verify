@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 10238,
-      "sha256": "28dbc4d88ece1836fe23c41311195d9b1a5625a8c5f90b5745ec1fed00fa0deb"
+      "bytes": 10487,
+      "sha256": "a092a8550ac61c75b1c839331499e6aa3510cb5d315821a277e918f51f0de36a"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
