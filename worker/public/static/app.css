@@ -1041,3 +1041,51 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .office-seat199 .btn { width: 100%; min-height: 44px; }
   .royal-writs199 > details.card { padding: 10px 8px; }
 }
+
+/* .200 application paths: illustrated choices, with the exact-key selectors retained. */
+.application-chooser200 { min-width: 0; }
+.application-chooser200 .application-tracks200,
+.application-chooser200 .application-offices200 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 16px 0; min-width: 0; }
+.application-chooser200 .application-track-card200,
+.application-chooser200 .application-office-card200 { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 4px; background: linear-gradient(145deg, #25271de8, #10140fe8); overflow-wrap: anywhere; }
+.application-chooser200 .application-card-head200 { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+.application-chooser200 .application-card-head200 > .ico { width: 48px; height: 48px; max-width: 48px; border: 1px solid var(--brass); border-radius: 3px; }
+.application-chooser200 .application-card-head200 h3,
+.application-chooser200 .application-card-head200 h4 { margin: 0; font-family: var(--title); font-size: 1.14rem; line-height: 1.35; color: var(--gold-soft); }
+.application-chooser200 .application-track-card200 p,
+.application-chooser200 .application-office-card200 p { margin: 0; }
+.application-chooser200 .application-track-card200 > ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: .87rem; }
+.application-chooser200 .application-track-card200 li + li { margin-top: 5px; }
+.application-chooser200 .application-track-card200 > .badge,
+.application-chooser200 .application-office-card200 > .badge { align-self: flex-start; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.application-chooser200 .application-track-card200 > .btn,
+.application-chooser200 .application-office-card200 > .btn { margin-top: auto; width: 100%; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.application-chooser200 .application-track-card200.chosen,
+.application-chooser200 .application-office-card200.chosen { border-color: var(--gold-soft); background: linear-gradient(145deg, #45391ee8, #1b2112ed); box-shadow: 0 0 0 1px #ffd56b4d, 0 0 16px #ffd10018; }
+.application-chooser200 .application-office-card200.appointed { border-style: dashed; background: #151713cc; }
+.application-chooser200 .application-office-card200.appointed .application-card-head200 { opacity: .7; }
+.application-chooser200 .application-expectations200 { min-width: 0; }
+.application-chooser200 .application-expectations200 > summary { min-height: 44px; display: list-item; padding: 9px 0; cursor: pointer; color: var(--gold-soft); font-size: .88rem; }
+.application-chooser200 .application-expectations200[open] > summary { margin-bottom: 8px; }
+.application-chooser200 .application-expectations200 .role-info { padding: 10px; }
+.application-chooser200 .application-expectations200 .role-facts { grid-template-columns: minmax(0, 1fr); }
+.application-chooser200 .application-expectations200 .role-facts dd { margin-bottom: 6px; }
+.application-chooser200 .application-expectations200 .role-info h4 { margin-top: 10px; }
+.application-chooser200 .application-expectations200 .role-info ul { padding-left: 18px; }
+.application-chooser200 .application-track-quick200 { margin-top: 20px; }
+.application-chooser200 .application-office-picker200 { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); min-width: 0; }
+.application-chooser200 .application-office-picker200 > h3 { margin-bottom: 8px; }
+.application-chooser200 .application-offices200 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.application-chooser200 select,
+.application-chooser200 input { width: 100%; min-width: 0; max-width: 100%; }
+.application-chooser200 .application-selection200 { margin: 14px 0; }
+@media (max-width: 950px) {
+  .application-chooser200 .application-tracks200 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .application-chooser200 .application-tracks200,
+  .application-chooser200 .application-offices200 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .application-chooser200 .application-track-card200,
+  .application-chooser200 .application-office-card200 { padding: 12px; }
+  .application-chooser200 > .btn { width: 100%; min-height: 44px; white-space: normal; }
+}

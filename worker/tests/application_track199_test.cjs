@@ -17,6 +17,8 @@ async function applicationTrackWorker199(){
  const stored199=id=>{const row=one('SELECT * FROM site_applications WHERE discord_id=?',id);return row?{...row,answers:JSON.parse(row.answers)}:null;};
  await siteUser(OTHER,{global_name:'Synthetic .199 reviewer'});await character(OTHER,'Review Reader','Player-199-0001');
  await fixtureRun("INSERT INTO site_settings(key,value,updated_at)VALUES('appointed','{}',?) ON CONFLICT(key) DO UPDATE SET value='{}'",now);
+ // .200: this six-track fixture exercises the explicitly enabled Royal Writs catalogue.
+ await fixtureRun("INSERT INTO site_settings(key,value,updated_at)VALUES('royalWritsOn','1',?) ON CONFLICT(key) DO UPDATE SET value='1'",now);
  check('all six exact application track IDs exist once',JSON.stringify(catalogue199.APPLICATION_TRACKS_199.map(t=>t.id))===JSON.stringify(cases.map(c=>c.track)));
  const canonicalOffices199=catalogue199.OFFICE_APPOINTMENTS.filter(o=>/^office_\d\d$/.test(o.key)&&o.applicationEligible&&['officer','high_council'].includes(o.applicationTrack));
  check('all59 canonical leadership intents map to actual eligible ballots without duplicate canonical seats',canonicalOffices199.length===59&&canonicalOffices199.every(o=>intent199.applicationRoleKeys199(o.key).length&&intent199.applicationRoleKeys199(o.key).every(key=>sd199.choiceOf(key)?.leadership&&sd199.ballotOf(key)))&&canonicalOffices199.filter(o=>intent199.applicationRoleKeys199(o.key).includes(o.key)).length===49);
