@@ -20,6 +20,7 @@ import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
 import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
 import { reservedApplication201 } from './application-track199';
 import { OFFICE_ROLE_GUIDES_201, NATIVE_RANK_GUIDES_201, roleGuides201 } from './site-role-guides201';
+import { ROLE_DIRECTORY_203 } from './site-role-directory203';
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -805,6 +806,7 @@ export function meta(ruleset?: RulesetSnapshot) {
     rankHierarchy: NATIVE_RANKS_199,
     applicationTracks: APPLICATION_TRACKS_199,
     roleGuides201: roleGuides201(POSITIONS),
+    roleDirectory203: ROLE_DIRECTORY_203,
     nativeRankGuides201: NATIVE_RANK_GUIDES_201,
     applicationPolicy201: { reservedTiers:['leader','high_council','officer_corps'],
       notice:'Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them. An empty listing is not an open vacancy.' },

@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 79658,
-      "sha256": "2eb5f6a95d9c4bb227451eefe48f8aa793a89fcc7f8f0ce23ff3de372da3d3d4"
+      "bytes": 83346,
+      "sha256": "8b59b235747e9d853d3740614924b8936458ab4e5966d2173d3a8fe8b7890774"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 675593,
-      "sha256": "af639128ae6ad54228138e7a9a0e965a10341a0cafe0b58821dfd802cade3336"
+      "bytes": 686271,
+      "sha256": "423ef8ad554b0478ce7b85ef88ca5ab9a85bab80d8d0816918a94b2c074e85e7"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 10487,
-      "sha256": "a092a8550ac61c75b1c839331499e6aa3510cb5d315821a277e918f51f0de36a"
+      "bytes": 10801,
+      "sha256": "1414e4d9e6c6d92eff04e15e3c982b0efc117f53e1d772138fbf21f37971eb96"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -3809,8 +3809,8 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 58892,
-      "sha256": "8b0e74bc4fd06f03ca87f67822c43bc8e4263c8cfb79aa3d500bc7460be0edf6"
+      "bytes": 58997,
+      "sha256": "13a9355eca4dfb041a5c6fba84a30cc39f02c102fbad6e2e7c250575dbb51760"
     },
     {
       "path": "worker/src/site-ranks.ts",
@@ -3821,8 +3821,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 675593,
-      "sha256": "af639128ae6ad54228138e7a9a0e965a10341a0cafe0b58821dfd802cade3336"
+      "bytes": 686271,
+      "sha256": "423ef8ad554b0478ce7b85ef88ca5ab9a85bab80d8d0816918a94b2c074e85e7"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3995,8 +3995,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 32303,
-      "sha256": "b9a76ca2754f2459a448bf4e0b40fd425232dbd1a517b3f6a12346d77c0d4ca2"
+      "bytes": 32988,
+      "sha256": "50f8b281aa61ff623fb010f4a9fb383cd9546faea2db6f3b83db572f1f413a7e"
     },
     {
       "path": "worker/public/static/talents/data.json",

@@ -13,6 +13,12 @@ const focus174 = Element.prototype.focus;
 Element.prototype.focus = function(...args) { this.lastFocusOptions174 = args[0]; focus174.apply(this, args); let documentNode = this; while (documentNode.parentNode) documentNode = documentNode.parentNode; if (documentNode.tagName === "#DOCUMENT") documentNode.activeElement = this; };
 Element.prototype.setSelectionRange = function(start, end, direction = "none") { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; };
 const enter174 = field => { const event = new Event("keydown", { bubbles: true }); event.key = "Enter"; field.dispatchEvent(event); };
+const directoryCoverage203 = page => {
+  const model=page.boot.meta.roleDirectory203, expected=[...page.boot.meta.appointments.map(row=>row.key),"member","raider","pvp_team"].sort();
+  const actual=page.app.querySelectorAll("[data-role-key201]").map(row=>row.getAttribute("data-role-key201")).sort();
+  return model?.version===1 && model.sourceKeyCount===134 && expected.length===134 && JSON.stringify(actual)===JSON.stringify(expected)
+    && page.app.querySelectorAll("details.role-family203").length===model.families.length;
+};
 (async () => {
   await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", "Player-1-0001");
   await siteUser(OTHER, { global_name: "Oz" }); await character(OTHER, "Oz Two", "Player-1-0002");
@@ -111,10 +117,10 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
 
   const appointments = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { officer: "richwcampbell.", treasurer: "Appointed member" }; } });
   await appointments.go("#/roles");
-  check("role descriptions preserve all responsibilities while defaulting to collapsed reading", appointments.app.querySelectorAll("details.role-entry201").length >= appointments.boot.meta.appointments.length && appointments.app.querySelectorAll("details.role-entry201").every(d => !d.open && d.textContent.includes("Responsibilities") && d.textContent.includes("Expectations")));
+  check("canonical role families preserve every original guide and its responsibilities while defaulting to collapsed reading", directoryCoverage203(appointments) && appointments.app.querySelectorAll("details.role-family203").every(d => !d.open && d.textContent.includes("Responsibilities") && d.textContent.includes("Expectations")));
   check("appointment labels retain a trailing-period username once and use an identity-free fallback", appointments.app.textContent.includes("Appointed: richwcampbell.") && !appointments.app.textContent.includes("richwcampbell..") && appointments.app.textContent.includes("Filled by appointment") && !appointments.app.textContent.includes("Appointed: Appointed member"));
   await appointments.go("#/roles/officer");
-  check("deep role links open that role's full responsibilities without losing other roles", appointments.app.querySelector("#role-officer")?.hasAttribute("open") === true && appointments.app.querySelectorAll(".role-entry201").length >= appointments.boot.meta.appointments.length);
+  check("deep role links open the original alias and its one canonical family without losing any source guide", appointments.app.querySelector("#role-officer")?.hasAttribute("open") === true && appointments.app.querySelector('[data-role-family203="officer"]')?.open === true && appointments.app.querySelector("#role-officer").textContent.includes("Responsibilities") && directoryCoverage203(appointments));
   await appointments.go("#/vote/officer");
   check("appointed role board preserves appointment closure without doubled punctuation", !appointments.app.textContent.includes("richwcampbell..") && appointments.app.textContent.includes("filled by appointment rather than by the board") && !appointments.app.querySelector("button.vote"));
   await appointments.go("#/apply");
