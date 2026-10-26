@@ -40,6 +40,49 @@ async function frontendOwner197() {
     answers: { experience: 'A fictional original application.', why: 'Help this fictional guild.', leadership: 'Led a fictional raid group.', scenario: 'Listen and follow the agreed loot rules.', hours: '10to20', voice: 'yes', extra: privateSentinel, talentBuilds: collection() } };
   const seeded = await request('PUT', '/api/application', body);
   if (seeded.response.status !== 200) throw Error('real primary collection setup refused: ' + JSON.stringify(seeded.body));
+  // .202: browsing the directory inside an editable form changes no answers.
+  // Exercise both a new draft and the ordinary record saved by the real Worker.
+  for (const [who202, label202] of [[OTHER, 'fresh ordinary form'], [MEMBER, 'saved ordinary application']]) {
+    const row202 = () => JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?', who202) || null);
+    const originalRow202 = row202(), writes202 = [];
+    const searchPage202 = await openPage(who202);
+    searchPage202.before((url, init) => { if (init.method !== 'GET') writes202.push({url, method:init.method}); return false; });
+    await searchPage202.go('#/apply');
+    const searchForm202 = searchPage202.app.querySelector('form');
+    const search202 = searchForm202.querySelector('#application-role-search201');
+    search202.value = 'NA'; fire(search202, 'input'); fire(search202, 'change');
+    const enter202 = new Event('keydown', { bubbles: true, key: 'Enter' }); search202.dispatchEvent(enter202);
+    check('.202 ' + label202 + ' Search Enter prevents implicit application submission without writing', enter202.defaultPrevented && writes202.length === 0);
+    const na202 = searchForm202.querySelector('[data-role-key201="raid_leader_na"]');
+    check('.202 ' + label202 + ' directory search filters actual entries without marking an answer dirty',
+      !!na202 && !na202.hidden && searchForm202.querySelector('[data-role-key201="member"]').hidden && searchForm202.querySelector('.dirty').hidden);
+    const cleanUnload202 = new Event('beforeunload'); searchPage202.window.dispatchEvent(cleanUnload202);
+    check('.202 ' + label202 + ' directory search alone leaves the unload guard clear', !cleanUnload202.defaultPrevented);
+    await searchPage202.go('#/roles');
+    const blockedSearch202 = searchPage202.document.body.querySelector('dialog');
+    check('.202 ' + label202 + ' can leave the filtered application without an unsaved-navigation prompt',
+      searchPage202.location.hash === '#/roles' && searchPage202.app.querySelector('main').dataset.routeHead === 'roles' && !blockedSearch202);
+    // Preserve a complete red-run terminal if the original regression blocks it.
+    if (blockedSearch202) { byText(blockedSearch202, 'button', 'Leave anyway').click(); await must(() => searchPage202.app.querySelector('main').dataset.routeHead === 'roles', '.202 original false prompt cleanup'); }
+    await searchPage202.go('#/apply');
+    const editForm202 = searchPage202.app.querySelector('form'), answer202 = editForm202.querySelector('[data-field="experience"] textarea');
+    const draft202 = 'Unsubmitted answer change for ' + label202;
+    answer202.value = draft202; fire(answer202, 'input');
+    const dirtyUnload202 = new Event('beforeunload'); searchPage202.window.dispatchEvent(dirtyUnload202);
+    check('.202 ' + label202 + ' actual answer edits retain both the dirty indicator and unload protection',
+      editForm202.querySelector('.dirty').hidden === false && dirtyUnload202.defaultPrevented);
+    await searchPage202.go('#/roles');
+    const realPrompt202 = searchPage202.document.body.querySelector('dialog');
+    check('.202 ' + label202 + ' actual answer edits still require explicit navigation confirmation',
+      searchPage202.location.hash === '#/apply' && realPrompt202?.textContent.includes('Leave without saving?') && searchPage202.app.querySelector('form') === editForm202);
+    byText(realPrompt202, 'button', 'Cancel').click(); await settle(); await settle();
+    check('.202 ' + label202 + ' cancelling navigation preserves the unsaved answer and exact stored record',
+      searchPage202.location.hash === '#/apply' && searchPage202.app.querySelector('form') === editForm202 && answer202.value === draft202 && editForm202.querySelector('.dirty').hidden === false && row202() === originalRow202 && writes202.length === 0);
+    await searchPage202.go('#/roles');
+    byText(searchPage202.document.body.querySelector('dialog'), 'button', 'Leave anyway').click();
+    await must(() => searchPage202.app.querySelector('main').dataset.routeHead === 'roles', '.202 answer draft explicit discard');
+    searchPage202.window.dispatchEvent(new Event('pagehide'));
+  }
   const page = await openPage(MEMBER), sent = [];
   page.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') sent.push(JSON.parse(init.body)); return false; });
   await page.go('#/apply');

@@ -279,7 +279,11 @@
       count.textContent = value ? `${matches} matching role, rank or title entries. Open an entry for its definition, responsibilities and expectations.`
         : `${entries.length} role, rank and title entries. Open a section, then an individual entry to read the full guide. Assignment aliases and native ranks are labelled separately.`;
     }
-    search.addEventListener("input",filter); filter();
+    // .202: directory browsing changes no application answers, even inside Apply.
+    search.addEventListener("input",event => { event.stopPropagation(); filter(); });
+    search.addEventListener("change",event => event.stopPropagation());
+    search.addEventListener("keydown",event => { if (event.key === "Enter") event.preventDefault(); });
+    filter();
     const chooser = frame("Explore Olympus roles, ranks and titles", h("a", {href:"#/roles/rosetta-stone",text:"Role & Rank Rosetta Stone"}),
       h("p", {text:"Choose a role by the work it involves, not just a rank name. Every entry explains its purpose, responsibilities, expectations and time commitment."}),
       noticeBox("info","pos-officer",h("p",{text:reservedNotice201}),h("p",{text:"Membership, Raider and Artisan applications remain available. A rank, title or unfilled listing never grants access, promotion or an appointment."})),
