@@ -1458,7 +1458,13 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await new Promise((r) => setTimeout(r, 400));
   check("(inbox list) a refreshed list (closed) retires the case detail still being read: no case detail repopulates under it", caseFrames().length === 0, JSON.stringify(caseFrames()));
   in8.delay(null);
-  stateSel8.value = "open"; fire(stateSel8, "change");
+  // The filter stays mounted across list reads. Await the actual Closed
+  // response before reopening it, rather than treating the elapsed late-detail
+  // delay alone as proof that list navigation has completed.
+  const closedState8 = () => in8.app.querySelector('select[aria-label="Case list filter"]');
+  if (!await waitFor(() => !!closedState8() && closedState8().isConnected && closedState8().value === "closed" && in8.app.textContent.includes("No closed case."), "the completed closed list")) throw Error("the closed list did not reach its terminal response");
+  const currentStateSel8 = closedState8();
+  currentStateSel8.value = "open"; fire(currentStateSel8, "change");
   await waitFor(() => !!cardFor(caseA) && !!cardFor(caseB), "the open list again");
   // (self-review, same function) the staff inbox's waiting update stays with its case
   byText(cardFor(caseB), "button", "Open").click();
@@ -1703,7 +1709,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
     check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
       adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Guild members and site administrators can read the directory.") &&
-      adm.app.textContent.includes("type Name withheld (the role stays appointed) or clear it (the role reopens)"));
+      adm.app.textContent.includes("type Name withheld to keep an anonymous appointment marker, or clear the display record. Reserved applications remain closed in either case.") && adm.app.textContent.includes("Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed."));
     adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
     adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
     byText(adm.app, "button", "Save the directory").click();

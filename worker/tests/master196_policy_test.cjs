@@ -2,7 +2,9 @@
 'use strict';
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript');
 const worker = path.join(__dirname, '..'), repo = path.join(worker, '..'), cache = new Map();
-const real = new Set(['ruleset-profile', 'qr-phase1', 'native-rank-adapter', 'governance-offices', 'ruleset-publication-data', 'site-data']);
+// .201 site-data constructs its position copy from the real role guides and
+// current reserved-seat classifier; those pure dependencies must not be stubs.
+const real = new Set(['ruleset-profile', 'qr-phase1', 'native-rank-adapter', 'governance-offices', 'ruleset-publication-data', 'site-data', 'site-role-guides201', 'application-track199']);
 let networkCalls = 0;
 globalThis.fetch = async () => { networkCalls++; throw Error('No provider access in policy checks'); };
 function load(name) {

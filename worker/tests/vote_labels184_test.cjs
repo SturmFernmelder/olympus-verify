@@ -51,7 +51,7 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
     const closureText184 = closureNote184?.textContent;
     const closurePhrase184 = suffix184 === 'appointed'
       ? 'is filled by appointment rather than by the board, so there is nothing to vote on or write in here.'
-      : "is chosen by the guild's leadership: they read the applications for it themselves, so there is no board to vote on and nobody to write in here.";
+      : "is a reserved appointment. Historical applications remain readable by leadership; there is no current application, public ballot or write-in invitation here.";
     await waitFor(() => page184.app.querySelector('.board-summary-status')?.textContent === '', key184 + ' delivered real summary');
     check(key184 + ' retains its special mobile label after the fresh zero-count summary', option184(page184, key184)?.textContent === expected184, option184(page184, key184)?.textContent);
     check(key184 + ' retains its original rail marker after the fresh summary', !!marker184(page184, key184, alt184));
