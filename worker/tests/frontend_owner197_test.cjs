@@ -13,6 +13,21 @@ async function frontendOwner197() {
   const must = async (predicate, label) => { if (!await waitFor(predicate, label)) throw Error(label + ' did not reach its original terminal witness'); };
   const ownError = box => [...box.children].find(child => child.classList.contains('err'));
   const stored = () => { const row = one('SELECT answers FROM site_applications WHERE discord_id=?', MEMBER); return row && JSON.parse(row.answers); };
+  const directoryModel203 = page => page.boot.meta.roleDirectory203;
+  const familyCards203 = page => page.app.querySelectorAll('details.role-family203');
+  const sourceGuides203 = page => page.app.querySelectorAll('[data-role-key201]');
+  const sourceVisible203 = node => { for (let current=node;current;current=current.parentNode) if (current.hidden) return false; return !!node; };
+  const familyForKey203 = (page,key) => page.app.querySelector('[data-role-family203="'+directoryModel203(page).keyToFamily[key]+'"]');
+  // Match the actual rendered family and source witnesses to the original API
+  // catalogue, not a retired one-card-per-alias count. All existing keys survive.
+  const directoryComplete203 = page => {
+    const model=directoryModel203(page), expected=[...page.boot.meta.appointments.map(row=>row.key),'member','raider','pvp_team'].sort();
+    if (!model || model.version!==1 || model.sourceKeyCount!==134 || !Array.isArray(model.families) || model.families.length!==64 || !Array.isArray(model.ranks)) return false;
+    const families=familyCards203(page), keys=sourceGuides203(page).map(row=>row.getAttribute('data-role-key201')).sort(), covered=model.families.flatMap(family=>family.sourceKeys).sort();
+    return expected.length===134 && new Set(expected).size===134 && JSON.stringify(keys)===JSON.stringify(expected) && JSON.stringify(covered)===JSON.stringify(expected)
+      && families.length===model.families.length && new Set(families.map(row=>row.getAttribute('data-role-family203'))).size===families.length
+      && model.families.every(family=>families.some(row=>row.getAttribute('data-role-family203')===family.key&&row.querySelector('summary .role-entry-name201')?.textContent===family.label)&&family.sourceKeys.every(key=>model.keyToFamily[key]===family.key));
+  };
   const data = JSON.parse(fs.readFileSync(path.join(root, 'public/static/talents/data.json')));
   const code = (cls, level) => 'ot1.' + data.revision + '.' + cls + '.' + level + '.' + '0'.repeat(data.classes.find(item => item.id === cls).trees.flatMap(tree => tree.talents).length);
   const characters = () => [['Mia One', 'warrior'], ['Mia Two', 'mage'], ['Mia Three', 'druid']].map(([character, cls]) => ({ character, class: cls, build30: code(cls, 30), build60: code(cls, 60) }));
@@ -40,6 +55,49 @@ async function frontendOwner197() {
     answers: { experience: 'A fictional original application.', why: 'Help this fictional guild.', leadership: 'Led a fictional raid group.', scenario: 'Listen and follow the agreed loot rules.', hours: '10to20', voice: 'yes', extra: privateSentinel, talentBuilds: collection() } };
   const seeded = await request('PUT', '/api/application', body);
   if (seeded.response.status !== 200) throw Error('real primary collection setup refused: ' + JSON.stringify(seeded.body));
+  // .202: browsing the directory inside an editable form changes no answers.
+  // Exercise both a new draft and the ordinary record saved by the real Worker.
+  for (const [who202, label202] of [[OTHER, 'fresh ordinary form'], [MEMBER, 'saved ordinary application']]) {
+    const row202 = () => JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?', who202) || null);
+    const originalRow202 = row202(), writes202 = [];
+    const searchPage202 = await openPage(who202);
+    searchPage202.before((url, init) => { if (init.method !== 'GET') writes202.push({url, method:init.method}); return false; });
+    await searchPage202.go('#/apply');
+    const searchForm202 = searchPage202.app.querySelector('form');
+    const search202 = searchForm202.querySelector('#application-role-search201');
+    search202.value = 'NA'; fire(search202, 'input'); fire(search202, 'change');
+    const enter202 = new Event('keydown', { bubbles: true, key: 'Enter' }); search202.dispatchEvent(enter202);
+    check('.202 ' + label202 + ' Search Enter prevents implicit application submission without writing', enter202.defaultPrevented && writes202.length === 0);
+    const na202 = searchForm202.querySelector('[data-role-key201="raid_leader_na"]');
+    check('.202 ' + label202 + ' directory search filters actual entries without marking an answer dirty',
+      !!na202 && sourceVisible203(na202) && familyForKey203(searchPage202,'member').hidden && searchForm202.querySelector('.dirty').hidden);
+    const cleanUnload202 = new Event('beforeunload'); searchPage202.window.dispatchEvent(cleanUnload202);
+    check('.202 ' + label202 + ' directory search alone leaves the unload guard clear', !cleanUnload202.defaultPrevented);
+    await searchPage202.go('#/roles');
+    const blockedSearch202 = searchPage202.document.body.querySelector('dialog');
+    check('.202 ' + label202 + ' can leave the filtered application without an unsaved-navigation prompt',
+      searchPage202.location.hash === '#/roles' && searchPage202.app.querySelector('main').dataset.routeHead === 'roles' && !blockedSearch202);
+    // Preserve a complete red-run terminal if the original regression blocks it.
+    if (blockedSearch202) { byText(blockedSearch202, 'button', 'Leave anyway').click(); await must(() => searchPage202.app.querySelector('main').dataset.routeHead === 'roles', '.202 original false prompt cleanup'); }
+    await searchPage202.go('#/apply');
+    const editForm202 = searchPage202.app.querySelector('form'), answer202 = editForm202.querySelector('[data-field="experience"] textarea');
+    const draft202 = 'Unsubmitted answer change for ' + label202;
+    answer202.value = draft202; fire(answer202, 'input');
+    const dirtyUnload202 = new Event('beforeunload'); searchPage202.window.dispatchEvent(dirtyUnload202);
+    check('.202 ' + label202 + ' actual answer edits retain both the dirty indicator and unload protection',
+      editForm202.querySelector('.dirty').hidden === false && dirtyUnload202.defaultPrevented);
+    await searchPage202.go('#/roles');
+    const realPrompt202 = searchPage202.document.body.querySelector('dialog');
+    check('.202 ' + label202 + ' actual answer edits still require explicit navigation confirmation',
+      searchPage202.location.hash === '#/apply' && realPrompt202?.textContent.includes('Leave without saving?') && searchPage202.app.querySelector('form') === editForm202);
+    byText(realPrompt202, 'button', 'Cancel').click(); await settle(); await settle();
+    check('.202 ' + label202 + ' cancelling navigation preserves the unsaved answer and exact stored record',
+      searchPage202.location.hash === '#/apply' && searchPage202.app.querySelector('form') === editForm202 && answer202.value === draft202 && editForm202.querySelector('.dirty').hidden === false && row202() === originalRow202 && writes202.length === 0);
+    await searchPage202.go('#/roles');
+    byText(searchPage202.document.body.querySelector('dialog'), 'button', 'Leave anyway').click();
+    await must(() => searchPage202.app.querySelector('main').dataset.routeHead === 'roles', '.202 answer draft explicit discard');
+    searchPage202.window.dispatchEvent(new Event('pagehide'));
+  }
   const page = await openPage(MEMBER), sent = [];
   page.before((url, init) => { if (url === '/api/application' && init.method === 'PUT') sent.push(JSON.parse(init.body)); return false; });
   await page.go('#/apply');
@@ -95,8 +153,9 @@ async function frontendOwner197() {
   await staff.go('#/');
 
   const ranks = await openPage(MEMBER); await ranks.go('#/roles');
-  const expectedIcons = { guild_master: 'guild_master', high_council: 'co_gm', treasurer: 'treasurer', officer: 'officer', raid_leader: 'raid_leader', veteran: 'raider', raider: 'raider', member: 'member', alt: 'member', initiate: 'member' };
-  check('all ten current rank display records use their intended existing icons without unknown rank art', Object.entries(expectedIcons).every(([rank, icon]) => ranks.app.querySelector('[data-office-assignment="rank_' + rank + '"] h3 img')?.getAttribute('src') === '/static/wow/pos-' + icon + '.png'));
+  const expectedIcons = ['guild_master','co_gm','officer','officer','raid_leader','raider','raider','member','member','member'];
+  const compactRanks203=ranks.app.querySelectorAll('.role-ranks203 [data-native-slot]');
+  check('.203 all ten compact native rank links retain their intended existing local icons and canonical family destination',compactRanks203.length===10&&compactRanks203.every((link,slot)=>link.tagName==='A'&&link.getAttribute('data-native-slot')===String(slot)&&link.querySelector('img')?.getAttribute('src')==='/static/wow/pos-'+expectedIcons[slot]+'.png'&&link.getAttribute('data-rank-family203')===directoryModel203(ranks).ranks[slot].familyKey&&link.getAttribute('href')==='#/roles/'+encodeURIComponent(ranks.boot.meta.appointments.find(row=>row.group==='native'&&row.nativeSlot===slot).key)&&!link.querySelector('.role-info')));
 
   // A main view and its role dialog can share only an unresolved read captured
   // from that same owner/settings/context/route. No result cache is introduced.
@@ -262,22 +321,29 @@ async function frontendOwner197() {
   const guided199=await openPage(APPLICANT199,{},writsOn200); await guided199.go('#/vote');
   await must(()=>!!guided199.app.querySelector('#application-directory201'),'complete .201 role directory');
   const allRows201=guided199.boot.meta.appointments, keys201=allRows201.map(row=>row.key).sort();
-  const entries201=guided199.app.querySelectorAll('[data-role-key201]');
-  check('.201 replaces both application dropdowns with all131 catalogue entries plus three ordinary role guides as individual disclosures',!guided199.app.querySelector('#application-track199')&&!guided199.app.querySelector('#application-office199')&&entries201.length===134&&JSON.stringify(entries201.map(row=>row.getAttribute('data-role-key201')).filter(key=>!['member','raider','pvp_team'].includes(key)).sort())===JSON.stringify(keys201)&&entries201.every(row=>row.tagName==='DETAILS'&&!!row.querySelector('summary')));
-  check('.201 offers five descriptive collapsible groups plus a separately enabled Patron reference',JSON.stringify(guided199.app.querySelectorAll('[data-role-section201]').map(row=>row.getAttribute('data-role-section201')))===JSON.stringify(['members','officers','council','royal','ranks','patron'])&&guided199.app.querySelector('[data-role-section201="members"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="officers"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="council"]').hasAttribute('open'));
-  check('.201 each individual entry retains local art, a rank association and substantial duties, expectations and time guidance',entries201.every(row=>row.querySelector('summary img')?.getAttribute('src')?.startsWith('/static/wow/')&&fs.existsSync(path.join(root,'public',row.querySelector('summary img').getAttribute('src')))&&(row.querySelector('.rank-office199')||['member','raider','pvp_team'].includes(row.getAttribute('data-role-key201')))&&row.querySelector('.role-info')?.textContent.includes('Responsibilities')&&row.querySelector('.role-info')?.textContent.includes('Expectations')&&row.querySelector('.role-info')?.textContent.includes('Time')&&row.querySelectorAll('.role-info li').length>=4));
+  const entries201=sourceGuides203(guided199),families203=familyCards203(guided199),model203=directoryModel203(guided199);
+  check('.203 replaces the dropdowns and duplicate alias cards with exactly one disclosure per canonical family while retaining all131 plus three ordinary source keys',!guided199.app.querySelector('#application-track199')&&!guided199.app.querySelector('#application-office199')&&directoryComplete203(guided199)&&families203.every(row=>!!row.querySelector('summary')));
+  check('.203 separates job families, optional activities, standing and institutions into descriptive collapsible groups plus the gated Patron reference',JSON.stringify(guided199.app.querySelectorAll('[data-role-section201]').map(row=>row.getAttribute('data-role-section201')))===JSON.stringify(['members','activities','officers','council','royal','standing','institutions','patron'])&&guided199.app.querySelector('[data-role-section201="members"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="officers"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="council"]').hasAttribute('open'));
+  check('.203 each canonical family retains local art and substantial duties, expectations and time guidance',families203.every(row=>row.querySelector('summary img')?.getAttribute('src')?.startsWith('/static/wow/')&&fs.existsSync(path.join(root,'public',row.querySelector('summary img').getAttribute('src')))&&(row.querySelector('.rank-office199')||['member','raider','pvp_team'].includes(model203.families.find(family=>family.key===row.getAttribute('data-role-family203')).primaryKey))&&row.querySelector('.role-info')?.textContent.includes('Responsibilities')&&row.querySelector('.role-info')?.textContent.includes('Expectations')&&row.querySelector('.role-info')?.textContent.includes('Time')&&row.querySelectorAll('.role-info li').length>=4));
+  check('.203 exactly three ordinary job families offer applications while optional activities, standings and institutions do not become application tracks',JSON.stringify(guided199.app.querySelectorAll('[data-family-apply203]').map(button=>button.getAttribute('data-family-apply203')).sort())===JSON.stringify(['artisan','member','raider'])&&guided199.app.querySelectorAll('.role-variant203').length===70&&new Set(families203.map(card=>card.querySelector('summary .role-entry-name201').textContent)).size===64);
   const reservedRows201=allRows201.filter(row=>row.reservedSeat201);
-  check('.201 every Leader, Council and Officer Corps entry is labelled reserved with no application button or link',reservedRows201.length>70&&reservedRows201.every(row=>{const card=guided199.app.querySelector('[data-role-key201="'+row.key+'"]');return card?.textContent.includes('Reserved seat — no applications')&&card.textContent.includes('You cannot apply')&&!card.querySelector('[data-apply-role201]')&&!card.querySelector('a[href^="#/vote/"]');}));
+  check('.203 every reserved source key retains its proper role, standing or institution badge and explicit closed-application policy',reservedRows201.length>70&&reservedRows201.every(row=>{const card=familyForKey203(guided199,row.key),family=model203.families.find(item=>item.key===model203.keyToFamily[row.key]),badge=family.kind==='status'?'Standing or recognition — not an application':family.kind==='institution'?'Governance body — not an application':'Reserved seat — no applications';return card?.querySelector('summary .badge')?.textContent===badge&&!!card.querySelector('[data-role-key201="'+row.key+'"]')&&card.querySelector('.reserved-explanation201')?.textContent.includes('You cannot apply')&&!card.querySelector('[data-apply-role201]')&&!card.querySelector('[data-family-apply203]')&&!card.querySelector('a[href^="#/vote/"]');}));
+  for(const [label,keys] of [['Officer',['office_62','officer','rank_officer']],['Raider',['office_75','raider','rank_raider']],['Treasurer',['office_86','treasurer','rank_treasurer']]]){
+    const familyKeys=keys.map(key=>model203.keyToFamily[key]);
+    check('.203 '+label+' aliases share one canonical job card rather than competing duplicate cards',new Set(familyKeys).size===1&&families203.filter(card=>card.getAttribute('data-role-family203')===familyKeys[0]).length===1&&keys.every(key=>!!guided199.app.querySelector('[data-role-key201="'+key+'"]')));
+  }
   for(const [key,region,times] of [['raid_leader_na','North American','7 pm to midnight (4 to 9 pm Pacific)'],['raid_leader_eu','European','7 pm to midnight (6 to 11 pm UK)']]){
     const card=guided199.app.querySelector('[data-role-key201="'+key+'"]');
-    check('.201 '+key+' preserves the detailed regional raid schedule, preparation, calls, loot and conduct mandate',card?.textContent.includes(region)&&card.textContent.includes(times)&&card.textContent.includes('2 to 3 hours of preparation')&&card.textContent.includes('strategy, positions, assignments')&&card.textContent.includes('pulls, wipes, pace and breaks')&&card.textContent.includes('Loot Council')&&card.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
+    check('.203 '+key+' remains a nested regional guide with its full schedule, preparation, calls, loot and conduct mandate',card?.classList.contains('role-variant203')&&familyForKey203(guided199,key).contains(card)&&card.textContent.includes(region)&&card.textContent.includes(times)&&card.textContent.includes('2 to 3 hours of preparation')&&card.textContent.includes('strategy, positions, assignments')&&card.textContent.includes('pulls, wipes, pace and breaks')&&card.textContent.includes('Loot Council')&&card.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
   }
+  const classKeys203=['warrior','paladin','hunter','rogue','priest','shaman','mage','warlock','druid'].map(key=>'class_lead:'+key);
+  check('.203 all nine class leads retain distinct nested duties and expectations under one class leadership family',new Set(classKeys203.map(key=>model203.keyToFamily[key])).size===1&&classKeys203.every(key=>{const card=guided199.app.querySelector('[data-role-key201="'+key+'"]'),guide=guided199.boot.meta.roleGuides201[key];return card?.classList.contains('role-variant203')&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&!card.querySelector('[data-apply-role201]');}));
   const search201=guided199.app.querySelector('#application-role-search201'); search201.value='Mage Class Lead'; fire(search201,'input');
-  check('.201 search reveals exact Mage role references without hiding the complete underlying catalogue or opening an application',entries201.length===134&&entries201.some(row=>!row.hidden&&row.getAttribute('data-role-key201')==='class_lead:mage')&&entries201.filter(row=>!row.hidden).every(row=>/mage/i.test(row.textContent))&&!guided199.app.querySelector('form'));
+  check('.203 class alias search reveals its nested full guide without deleting catalogue coverage or opening an application',directoryComplete203(guided199)&&sourceVisible203(guided199.app.querySelector('[data-role-key201="class_lead:mage"]'))&&familyForKey203(guided199,'class_lead:mage').querySelector('.role-search-match203').textContent.includes('Mage Class Lead')&&families203.filter(row=>!row.hidden).every(row=>/mage/i.test(row.textContent))&&!guided199.app.querySelector('form'));
   search201.value='';fire(search201,'input');
   for(const route of ['#/vote/officer/office_62','#/vote/high_council/office_67','#/vote/officer/class_lead%3Amage','#/vote/officer/office_74','#/vote/high_council/office_62','#/vote/officer/new']){
     await guided199.go(route);
-    check('.201 reserved deep link '+route+' provides a clear reference and no stale editable form',guided199.app.textContent.includes('Reserved seat — no applications')&&!guided199.app.querySelector('form')&&!guided199.app.querySelector('button[type="submit"]')&&guided199.app.querySelectorAll('[data-role-key201]').length===134);
+    check('.201 reserved deep link '+route+' provides a clear reference and no stale editable form',guided199.app.textContent.includes('Reserved seat — no applications')&&!guided199.app.querySelector('form')&&!guided199.app.querySelector('button[type="submit"]')&&directoryComplete203(guided199));
   }
   await guided199.go('#/vote/not-a-track/office_62');
   check('.201 unknown track still fails closed without mounting a previous application',!guided199.app.querySelector('form')&&guided199.app.textContent.includes('Application track unavailable'));
@@ -320,15 +386,15 @@ async function frontendOwner197() {
   }
   const roles199=await openPage(APPLICANT199,{},writsOn200);await roles199.go('#/roles/rosetta-stone');
   const exactNames199=['Leader','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Alt','Initiate'];
-  const nativeCards199=roles199.app.querySelectorAll('.rank-guide199-grid [data-native-slot]');
-  check('.199 role guide fronts exactly ten ordered native ranks with the owner-confirmed zero-based slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.getAttribute('data-native-slot')===String(index)&&card.querySelector('h3').textContent==='Rank '+(index+1)+' — '+exactNames199[index]));
+  const nativeCards199=roles199.app.querySelectorAll('.role-ranks203 [data-native-slot]');
+  check('.203 role guide fronts exactly ten compact links with the exact native rank names and owner-confirmed slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.tagName==='A'&&card.getAttribute('data-native-slot')===String(index)&&card.querySelector('.role-rank-number203').textContent===String(index+1)&&card.textContent.endsWith(exactNames199[index])&&card.getAttribute('data-rank-family203')===directoryModel203(roles199).ranks[index].familyKey&&card.getAttribute('href')==='#/roles/'+encodeURIComponent(roles199.boot.meta.appointments.find(row=>row.group==='native'&&row.nativeSlot===index).key)&&!card.querySelector('.role-info')));
   const table199=roles199.app.querySelector('.rosetta-table199'),headings199=['In-Game Rank Number & Name','Tier & Statutory Codex Title','Organization Department & Branch Offices','Discord Role & Portal Access','How to Attain It'];
   const rows199=table199.querySelectorAll('[data-rank-crosswalk]');
   check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows',JSON.stringify(table199.querySelectorAll('th').map(th=>th.textContent))===JSON.stringify(headings199)&&rows199.length===10&&rows199.every((row,index)=>row.getAttribute('data-rank-crosswalk')===String(index+1)&&row.querySelectorAll('td').length===5&&row.querySelectorAll('td').every((td,column)=>td.getAttribute('data-column')===headings199[column])));
   const bridgeKeys199=rows199.flatMap(row=>row.querySelectorAll('li a').map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))));
   check('.199 Rosetta Stone enumerates all131 assignable keys exactly once across their ten rank rows',bridgeKeys199.length===131&&new Set(bridgeKeys199).size===131&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201));
   const roleCards201=roles199.app.querySelectorAll('[data-role-key201]');
-  check('.201 Roles renders all95 stable offices plus all131 assignment guides, with no reserved application CTA',roleCards201.length===134&&roleCards201.filter(card=>/^office_[0-9]{2}$/.test(card.getAttribute('data-role-key201'))).length===95&&reservedRows201.every(row=>!roles199.app.querySelector('[data-role-key201="'+row.key+'"] [data-apply-role201]')));
+  check('.203 Roles keeps all95 stable office references and every original source key in canonical families, with no reserved application CTA',directoryComplete203(roles199)&&roleCards201.filter(card=>/^office_[0-9]{2}$/.test(card.getAttribute('data-role-key201'))).length===95&&reservedRows201.every(row=>!familyForKey203(roles199,row.key).querySelector('[data-apply-role201]')));
   for(const appointedKey199 of ['member','office_07','office_27']){
     const artisanCards199=await openPage(APPLICANT199,{}, {bootTransform:boot=>{boot.settings.appointed={[appointedKey199]:'Recorded synthetic holder'};}});await artisanCards199.go('#/roles');
     const targets199=['office_07','office_27'].map(key=>({key,card:artisanCards199.app.querySelector('[data-role-key201="'+key+'"]')}));
@@ -373,7 +439,7 @@ async function frontendOwner197() {
   // corruption below qualifies presentation only; no provider setting changes.
   const scheduleAbsent200 = page => !page.app.querySelector('.royal-writs199') && !page.app.querySelector('.gold-policy199') && !page.app.querySelector('.stockades-checklist199') && !page.app.querySelector('[data-writ-key]');
   const routeWitnesses200 = [
-    ['roles', page => !!page.app.querySelector('.rank-guide199-grid')],
+    ['roles', page => !!page.app.querySelector('.role-ranks203')],
     ['vote', page => !!page.app.querySelector('#application-directory201')],
     ['governance', page => !!page.app.querySelector('#governance-search')],
     ['news', page => page.app.textContent.includes('Town Crier')],
@@ -387,7 +453,7 @@ async function frontendOwner197() {
       const paused = await openPage(route.startsWith('admin') ? STAFF : APPLICANT199, {}, { bootTransform: boot => corrupt(boot.settings) });
       await paused.go('#/' + route); await must(() => mounted(paused), '.200 ' + label + ' ' + route + ' settled original view');
       check('.200 ' + route + ' hides the schedule, banner and Stockades checklist for ' + label + ' display setting', scheduleAbsent200(paused));
-      if (route === 'vote') check('.200 ' + label + ' setting keeps all six historical metadata tracks but offers only the all131 catalogue entries and three ordinary guides without a Patron offer', paused.boot.meta.applicationTracks.length === 6 && paused.boot.meta.applicationTracks.some(track => track.id === 'patron') && paused.app.querySelectorAll('[data-role-key201]').length === 134 && !paused.app.querySelector('[data-role-section201="patron"]') && !paused.app.querySelector('#application-track199'));
+      if (route === 'vote') check('.200 ' + label + ' setting keeps all six historical metadata tracks but offers only the canonical families retaining all134 source keys without a Patron offer', paused.boot.meta.applicationTracks.length === 6 && paused.boot.meta.applicationTracks.some(track => track.id === 'patron') && directoryComplete203(paused) && !paused.app.querySelector('[data-role-section201="patron"]') && !paused.app.querySelector('#application-track199'));
       if (route === 'roles') check('.200 ' + label + ' setting also hides the legacy price offer while preserving the exact ten ranks and historical profile notes', !paused.app.textContent.includes('Tithe Payer 25g+') && !!paused.app.querySelector('.technical-profile199') && paused.app.querySelectorAll('[data-native-slot]').length === 10 && paused.boot.settings.royalWritsOn!==true&&!paused.app.querySelector('[data-role-section201="patron"]'));
       if (route === 'governance') check('.200 ' + label + ' governance keeps the constitutional reader and current source download with a visible paused-reference notice', !!paused.app.querySelector('.governance-reader') && paused.app.querySelector('a[href="/static/governance/reconciled-book.md"]') && paused.app.querySelector('.writs-paused200')?.textContent.includes('not an offer of an available service'));
       if (route === 'admin/treasury') check('.200 ' + label + ' Treasury retains receipt/status tools without offering the old price tiers or Stockades service', !!paused.app.querySelector('#treasury-operation') && !!paused.app.querySelector('#treasury-reference') && paused.app.textContent.includes('Existing receipt and operation records remain available') && !paused.app.textContent.includes('Tithe Payer 25g+'));
@@ -398,19 +464,29 @@ async function frontendOwner197() {
   check('.200 actual Worker boot defaults the display switch OFF without removing the canonical writ/track catalogues', defaultBoot200.boot.settings.royalWritsOn === false && defaultBoot200.boot.meta.royalWrits.length === 20 && defaultBoot200.boot.meta.applicationTracks.length === 6);
   await defaultBoot200.go('#/vote/patron/new');
   await must(()=>defaultBoot200.app.textContent.includes('Patron applications are paused'),'.200 direct Patron pause terminal view');
-  check('.201 a direct paused Patron URL shows an explicit hold and the full directory, never a savable Member substitute',defaultBoot200.app.textContent.includes('Patron applications are paused')&&!defaultBoot200.app.querySelector('form')&&!defaultBoot200.app.querySelector('button[type="submit"]')&&defaultBoot200.app.querySelectorAll('[data-role-key201]').length===134&&!defaultBoot200.app.querySelector('[data-role-section201="patron"]'));
+  check('.201 a direct paused Patron URL shows an explicit hold and the full directory, never a savable Member substitute',defaultBoot200.app.textContent.includes('Patron applications are paused')&&!defaultBoot200.app.querySelector('form')&&!defaultBoot200.app.querySelector('button[type="submit"]')&&directoryComplete203(defaultBoot200)&&!defaultBoot200.app.querySelector('[data-role-section201="patron"]'));
 
+  // Explicit local settings fixture: use distinct original-key holders so the
+  // existing real Save Settings request must preserve the populated map exactly.
+  const beforeAdmin203=await request('GET','/api/admin/overview',undefined,STAFF);
+  if(beforeAdmin203.response.status!==200)throw Error('.203 original Admin settings fixture read refused');
+  const populatedAppointed203={...beforeAdmin203.body.settings.appointed,co_gm:'Synthetic Co-GM 203',office_03:'Synthetic Architect 203',rank_treasurer:'Synthetic Treasurer history 203'};
+  await fixtureRun("INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES('appointed',?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by",JSON.stringify(populatedAppointed203),now,STAFF);
+  const sortedAppointed203=value=>JSON.stringify(Object.keys(value).sort().map(key=>[key,value[key]]));
   const switchPage200 = await openPage(STAFF), switchSends200 = [];
   switchPage200.before((url, init) => { if (url === '/api/admin/settings' && init.method === 'PUT') switchSends200.push(JSON.parse(init.body)); return false; });
   await switchPage200.go('#/admin/settings'); await must(() => !!switchPage200.app.querySelector('#royal-writs-on'), '.200 original admin switch');
   const switchBox200 = switchPage200.app.querySelector('#royal-writs-on');
+  const appointmentFields203=switchPage200.app.querySelectorAll('[data-appointment-field203]'),expectedAppointmentKeys203=switchPage200.boot.meta.appointments.map(row=>row.key).sort();
+  check('.203 Admin family grouping retains all131 distinct original appointment fields and their populated exact-key values',appointmentFields203.length===131&&new Set(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203'))).size===131&&JSON.stringify(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203')).sort())===JSON.stringify(expectedAppointmentKeys203)&&Object.entries(populatedAppointed203).every(([key,value])=>switchPage200.app.querySelector('[data-appointment-field203="'+key+'"] input')?.value===value));
   check('.200 Admin renders an unchecked explicit switch with preservation and separate provider-OFF disclosure', switchBox200.getAttribute('type') === 'checkbox' && !switchBox200.checked && switchBox200.closest('label').textContent.includes('Existing applications, receipts and constitutional reference text are preserved') && switchBox200.closest('label').textContent.includes('does not enable payments, Discord role dispatch, Olympus Link'));
   switchBox200.checked = true; byText(switchPage200.app, 'button', 'Save settings').click();
   await must(() => switchSends200.length === 1 && one("SELECT value FROM site_settings WHERE key='royalWritsOn'")?.value === '1' && !byText(switchPage200.app, 'button', 'Save settings').disabled, '.200 original enabled-setting save');
   const enabledRead200 = await request('GET', '/api/admin/overview', undefined, STAFF);
   check('.200 actual Admin enable sends a boolean and adopts a genuine readable enabled setting without provider activation fields', switchSends200[0].royalWritsOn === true && typeof switchSends200[0].royalWritsOn === 'boolean' && enabledRead200.response.status === 200 && enabledRead200.body.settings.royalWritsOn === true && !Object.keys(switchSends200[0]).some(key => /TREASURY_COSMETIC|ARMY_SITE_AGGREGATE|LINK_DB|webhook/i.test(key)));
+  check('.203 the existing real settings save preserves every populated original holder key without family migration',sortedAppointed203(switchSends200[0].appointed)===sortedAppointed203(populatedAppointed203)&&sortedAppointed203(enabledRead200.body.settings.appointed)===sortedAppointed203(populatedAppointed203));
   await switchPage200.go('#/vote');
-  check('.200 admitted Admin readback enables the schedule and optional Patron disclosure in the same page state', switchPage200.app.querySelectorAll('[data-role-key201]').length === 134 && !!switchPage200.app.querySelector('[data-role-section201="patron"]') && switchPage200.app.querySelectorAll('[data-writ-key]').length === 20);
+  check('.200 admitted Admin readback enables the schedule and optional Patron disclosure in the same page state', directoryComplete203(switchPage200) && !!switchPage200.app.querySelector('[data-role-section201="patron"]') && switchPage200.app.querySelectorAll('[data-writ-key]').length === 20);
 
   const PATRON200 = '730000000000000200'; await siteUser(PATRON200, { global_name: 'Patron fixture' }); await character(PATRON200, 'Patron Main', 'Player-1-0200');
   const patronBody200 = { ...body, position: 'member', backups: [], character: 'Patron Main', class: 'mage', applicationTrack: 'patron', targetOffice: null, boardApplicationIntent: false, answers: { ...body.answers, extra: 'Private retained Patron fixture .200' } }; delete patronBody200.answers.talentBuilds;
@@ -423,11 +499,11 @@ async function frontendOwner197() {
   const disabledRead200 = await request('GET', '/api/admin/overview', undefined, STAFF);
   check('.200 actual Admin disable sends strict false and the fresh Worker readback confirms OFF', switchSends200[1].royalWritsOn === false && disabledRead200.response.status === 200 && disabledRead200.body.settings.royalWritsOn === false);
   await switchPage200.go('#/vote');
-  check('.200 same page after Admin ON to OFF removes the Patron disclosure and schedule', scheduleAbsent200(switchPage200) && switchPage200.app.querySelectorAll('[data-role-key201]').length === 134 && !switchPage200.app.querySelector('[data-role-section201="patron"]') && !switchPage200.app.querySelector('#application-track199'));
+  check('.200 same page after Admin ON to OFF removes the Patron disclosure and schedule', scheduleAbsent200(switchPage200) && directoryComplete203(switchPage200) && !switchPage200.app.querySelector('[data-role-section201="patron"]') && !switchPage200.app.querySelector('#application-track199'));
   const retained200 = await openPage(PATRON200), retainedRequests200 = [];
   retained200.before((url, init) => { if (url === '/api/application') retainedRequests200.push(init.method || 'GET'); return false; });
   await retained200.go('#/apply');
-  check('.200 an existing Patron application remains visibly labelled with its original private history and the full role directory while paused, without an edit form or silent write', retained200.app.textContent.includes('Patron applications are paused') && !!retained200.app.querySelector('[data-application-track="patron"]') && retained200.app.textContent.includes('Private retained Patron fixture .200') && retained200.app.querySelectorAll('[data-role-key201]').length===134 && !retained200.app.querySelector('form') && retainedRequests200.length === 0 && JSON.stringify(one('SELECT answers,position,status FROM site_applications WHERE discord_id=?', PATRON200)) === JSON.stringify(patronBefore200));
+  check('.200 an existing Patron application remains visibly labelled with its original private history and the full role directory while paused, without an edit form or silent write', retained200.app.textContent.includes('Patron applications are paused') && !!retained200.app.querySelector('[data-application-track="patron"]') && retained200.app.textContent.includes('Private retained Patron fixture .200') && directoryComplete203(retained200) && !retained200.app.querySelector('form') && retainedRequests200.length === 0 && JSON.stringify(one('SELECT answers,position,status FROM site_applications WHERE discord_id=?', PATRON200)) === JSON.stringify(patronBefore200));
   const patronCopy200 = await request('GET', '/api/me/export', undefined, PATRON200);
   check('.200 paused Patron history remains in the real own-copy with its canonical track and unchanged application content', patronCopy200.response.status === 200 && patronCopy200.body.site.application.answers.applicationTrack === 'patron' && patronCopy200.body.site.application.answers.extra === 'Private retained Patron fixture .200' && one('SELECT answers FROM site_applications WHERE discord_id=?', PATRON200).answers === patronBefore200.answers);
   retained200.app.querySelector('[data-apply-role201="member"]').click();
@@ -457,19 +533,19 @@ async function frontendOwner197() {
     const productionPicker200=sourcePart200('  // Owner decision, 26 Oct 2026: browse the whole directory; leadership seats are reserved.','  // The boot carries the RESOLVED');
     const productionBoardPrefix200=sourcePart200('  const V = { role:','    // The Worker already caches these counts');
     const w=makeWindow('{}'),state={settings:{royalWritsOn:true,votingOpen:true,appointed:{},noVote:[]}},meta={...defaultBoot200.boot.meta};
-    const deps={document:w.document,Node,Event,S:state,M:()=>meta,tracks199:()=>meta.applicationTracks,offices199:()=>meta.appointments,office199:key=>meta.appointments.find(row=>row.key===key),track199:id=>meta.applicationTracks.find(row=>row.id===id),displayHolder:()=>'',positionOf:key=>meta.positions.find(row=>row.key===key),posIcon:()=>null,officeBadge199:()=>null,roleInfo:()=>null,appointmentLabelNode:()=>null,ROUTES:{},location:w.location,dec:value=>value};
+    const deps={document:w.document,Node,Event,S:state,M:()=>meta,tracks199:()=>meta.applicationTracks,offices199:()=>meta.appointments,office199:key=>meta.appointments.find(row=>row.key===key),track199:id=>meta.applicationTracks.find(row=>row.id===id),displayHolder:()=>'',appointedTo:()=>'',communityReader:()=>false,positionOf:key=>meta.positions.find(row=>row.key===key),posIcon:()=>null,officeBadge199:()=>null,roleInfo:()=>null,appointmentLabelNode:()=>null,ROUTES:{},location:w.location,dec:value=>value};
     const cache200=new Function(...Object.keys(deps),productionDom200+'\n'+originalLine200('  const art = ')+'\n'+originalLine200('  const icon = ')+'\n'+originalLine200('  const frame = ')+'\n'+originalLine200('  const noticeBox = ')+'\n'+productionGate200+productionWrits200+productionPicker200+productionBoardPrefix200+'\nboardShells.set(main,{settingsKey}); }; return {vote:main=>ROUTES.vote(main,[]),panel:writsPanel199};')(...Object.values(deps));
     const sameMain200=w.app.appendChild(new Element('main')); await cache200.vote(sameMain200);
     const previousChooser200=sameMain200.querySelector('#application-directory201');
-    check('.200 original board cache prefix initially mounts all six enabled cards and the schedule', !!previousChooser200 && sameMain200.querySelectorAll('[data-role-key201]').length===134&&!!sameMain200.querySelector('[data-role-section201="patron"]') && sameMain200.querySelectorAll('[data-writ-key]').length===20);
+    check('.200 original board cache prefix initially mounts the canonical families, enabled Patron reference and schedule', !!previousChooser200 && directoryComplete203({app:sameMain200,boot:{meta}})&&!!sameMain200.querySelector('[data-role-section201="patron"]') && sameMain200.querySelectorAll('[data-writ-key]').length===20);
     state.settings.royalWritsOn=false; await cache200.vote(sameMain200);
-    check('.200 original same-mounted board cache invalidates on ON to OFF rather than retaining the Patron chooser or schedule', !sameMain200.contains(previousChooser200) && sameMain200.querySelectorAll('[data-role-key201]').length===134 && !sameMain200.querySelector('[data-role-section201="patron"]') && !sameMain200.querySelector('.royal-writs199'));
+    check('.200 original same-mounted board cache invalidates on ON to OFF rather than retaining the Patron chooser or schedule', !sameMain200.contains(previousChooser200) && directoryComplete203({app:sameMain200,boot:{meta}}) && !sameMain200.querySelector('[data-role-section201="patron"]') && !sameMain200.querySelector('.royal-writs199'));
     for(const malformed200 of[undefined,null,'true','1',1,{},[],false]){
       state.settings.royalWritsOn=malformed200;
       check('.200 original shared panel refuses every schedule location for '+JSON.stringify(malformed200), ['roles','vote','governance','organization','news','community/workshop','army','admin'].every(page=>cache200.panel(page,{checklist:true})===null));
     }
     state.settings.royalWritsOn=true; await cache200.vote(sameMain200);
-    check('.200 original same-mounted board cache can explicitly reopen all six cards while the canonical metadata remains unchanged', sameMain200.querySelectorAll('[data-role-key201]').length===134&&!!sameMain200.querySelector('[data-role-section201="patron"]') && sameMain200.querySelectorAll('[data-writ-key]').length===20 && meta.applicationTracks.length===6 && meta.royalWrits.length===20);
+    check('.200 original same-mounted board cache can explicitly reopen the Patron reference beside canonical families while metadata remains unchanged', directoryComplete203({app:sameMain200,boot:{meta}})&&!!sameMain200.querySelector('[data-role-section201="patron"]') && sameMain200.querySelectorAll('[data-writ-key]').length===20 && meta.applicationTracks.length===6 && meta.royalWrits.length===20);
     check('.200 actual Organization route delegates its schedule to the same strict shared gate without changing the imported model', sourcePart200('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home').includes('writsPanel199("organization")'));
   }
   // .199 H2 browser finding: exercise the actual model loader over genuine
@@ -502,7 +578,7 @@ async function frontendOwner197() {
     // its actual organization-view.js renderer remains unchanged.
     const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
     const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
-    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='13c3695d6a32aad145117d4ca5d971c506f40d2cc30ef995551b2ae67e187406')throw Error('owner199_original_organization_fixture_prefix_drift');
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='0c366a056a103c086de61489af9943864496e8d56296201a0041a8d07e1236c9')throw Error('owner199_original_organization_fixture_prefix_drift');
     const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
     if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
     const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
@@ -510,18 +586,22 @@ async function frontendOwner197() {
     rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
     const rendered199=rendererExecution199.exports();
     check('.199 the actual Organization renderer paints the model returned by the real app HTTP loader',rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
-    // Follow the renderer's real non-leadership links through the actual app,
-    // form submission and Worker; the office remains an intent, never a seat alias.
+    // Follow the canonical Artisan link through the real app and Worker. The
+    // former Crafter/Core Raider URLs below remain explicit historical intent
+    // compatibility, not additional publicly offered jobs or canonical aliases.
+    const publicChoices203=rendered199.main.all(node=>!!node.getAttribute('data-office-application'));
+    check('.203 Organization offers only the three canonical ordinary choices from its shared family contract',publicChoices203.length===3&&JSON.stringify(publicChoices203.map(node=>node.getAttribute('href')).sort())===JSON.stringify(['#/vote/artisan/office_07','#/vote/member/new','#/vote/raider/new']));
     const nonleadLinks199 = [['office_07','artisan','member','730000000000001990','Artisan One'],['office_27','artisan','member','730000000000001991','Crafter One'],['office_25','raider','raider','730000000000001992','Raider One']];
     for (const [target,track,canonical,id,name] of nonleadLinks199) {
-      const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),href=links[0]?.getAttribute('href');
-      check('.199 Organization emits the exact eligible '+target+' application link',links.length>0&&links.every(link=>link.getAttribute('href')==='#/vote/'+track+'/'+target)&&href==='#/vote/'+track+'/'+target);
+      const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),legacyHref203='#/vote/'+track+'/'+target;
+      const href=target==='office_07'?links[0]?.getAttribute('href'):legacyHref203;
+      check(target==='office_07'?'.203 Organization emits the exact canonical Artisan application link':'.203 former '+target+' URL is not offered as a separate public job but remains an explicit historical URL',target==='office_07'?links.length>0&&links.every(link=>link.getAttribute('href')===legacyHref203)&&href===legacyHref203:links.length===0&&!publicChoices203.some(link=>link.getAttribute('href')===legacyHref203));
       await siteUser(id,{global_name:name});await character(id,name,'Player-199-'+id.slice(-4));
       const seed={...body,position:canonical,backups:[],character:name,applicationTrack:track,targetOffice:null,board:false,boardApplicationIntent:false,answers:{...body.answers}};delete seed.answers.talentBuilds;
       const seeded=await request('PUT','/api/application',seed,id);if(seeded.response.status!==200)throw Error('nonleadership original form seed refused');
       const linked=await openPage(id),sent=[];linked.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sent.push(JSON.parse(init.body));return false;});
       await linked.go(href);const form=linked.app.querySelector('form');
-      check('.199 actual Organization '+target+' link opens its matching form and exact target badge',!!form&&!!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
+      check((target==='office_07'?'.203 actual canonical Organization link':'.203 explicit historical '+target+' URL')+' opens its matching form and exact target badge',!!form&&!!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
       if(!form){await linked.go('#/');continue;}
       check('.199 '+target+' link grants no public-intent or portrait consent',!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
       form.querySelector('[data-field="ack"] input').checked=true;fire(form,'submit');
@@ -530,6 +610,15 @@ async function frontendOwner197() {
       check('.199 '+target+' form preserves its exact private intent through the real Worker',sent[0].position===canonical&&sent[0].applicationTrack===track&&sent[0].targetOffice===target&&sent[0].boardApplicationIntent===false&&saved().applicationTrack===track&&saved().targetOffice===target&&saved().boardApplicationIntentOptIn===false);
       const copy=await request('GET','/api/me/export',undefined,id);
       check('.199 signed-in own copy retains the exact Organization '+target+' intent',copy.response.status===200&&copy.body.site.application.answers.applicationTrack===track&&copy.body.site.application.answers.targetOffice===target);
+      if(target==='office_27'){
+        const priorCrafter203=JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?',id));
+        await linked.go('#/');await linked.go('#/apply');
+        const oldGuide203=linked.app.querySelector('[data-role-key201="office_27"]');
+        check('.203 an existing Crafter intent reopens its original nested guide and target without canonicalizing history or writing',oldGuide203?.open===true&&familyForKey203(linked,'office_27').open===true&&linked.app.querySelector('#application-directory201').getAttribute('data-initial-role203')==='office_27'&&!!linked.app.querySelector('[data-target-office="office_27"]')&&saved().targetOffice==='office_27'&&sent.length===1&&JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?',id))===priorCrafter203);
+        const artisanChoice203=linked.app.querySelector('[data-family-apply203="artisan"]');
+        artisanChoice203.click();await must(()=>!!linked.app.querySelector('form')&&!!linked.app.querySelector('[data-target-office="office_07"]'),'.203 explicit canonical Artisan local choice');
+        check('.203 only an explicit new Artisan choice changes local intent while the stored Crafter record and consents stay untouched',linked.location.hash==='#/vote/artisan/office_07'&&saved().targetOffice==='office_27'&&sent.length===1&&JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?',id))===priorCrafter203&&!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
+      }
       for(const route of ['#/vote/member/'+target,'#/vote/'+track+'/office_99','#/vote/'+track+'/office_43','#/vote/officer/new']) {
         await linked.go(route);check('.199 exact non-leadership link validation refuses '+route+' without a stale form',!linked.app.querySelector('form')&&!linked.app.querySelector('[data-target-office]')&&(linked.app.textContent.includes('Application track unavailable')||linked.app.textContent.includes('Reserved seat — no applications')));
       }

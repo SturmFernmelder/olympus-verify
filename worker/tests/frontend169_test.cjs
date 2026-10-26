@@ -238,6 +238,7 @@ const recordTool169 = (page, namespace, calls) => {
   check(".169 reopening talents reuses its loaded script and stylesheet but creates a fresh renderer", talentCalls.length === 2 && head.querySelectorAll("script").length === 3 && head.querySelectorAll('link[data-olympus-tool="OlympusTalents"]').length === 1);
   await tools.go("#/roles");
   check(".169 a second tool instance also disposes exactly once", talentCalls[1].destroyed === 1);
+  check(".203 leaving the tool mounts the consolidated role families and ten linked native ranks without changing the original catalogue", tools.app.querySelectorAll("details.role-family203").length === tools.boot.meta.roleDirectory203.families.length && tools.app.querySelectorAll(".role-ranks203 [data-rank-family203]").length === 10 && tools.app.querySelectorAll("[data-role-key201]").length === 134 && new Set(tools.app.querySelectorAll("[data-role-key201]").map(row => row.getAttribute("data-role-key201"))).size === 134);
   const abandoned = await openPage(MEMBER), abandonedHead = head169(abandoned), abandonedCalls = [];
   await abandoned.go("#/talents/rogue"); await abandoned.go("#/guide/member");
   recordTool169(abandoned, "OlympusTalents", abandonedCalls); abandonedHead.querySelector("script").dispatchEvent(new Event("load")); await settle();

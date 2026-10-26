@@ -1051,6 +1051,21 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // .200 refreshes the one illustrated-picker predicate and pins its one new
   // public Council description line; no general vocabulary allowance changes.
   // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
+  // .203 replaces the .201 section tuple with explicit canonical-family predicates.
+  // This descriptor remains history only: it grants no credit against current bytes.
+  const RETIRED_CONTEXTS_203 = Object.freeze([
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      [\"council\", \"High Council — reserved seats\", \"high_council\"],",
+    "singleLine": true,
+    "paragraphSha256": "6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271",
+    "paragraphBytes": 69,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 2,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  }
+]);
   const CURRENT_CONTEXTS = Object.freeze([
   {
     "file": "docs/launch-runbook.md",
@@ -1265,17 +1280,6 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
   {
     "file": "worker/public/static/app.js",
-    "startMarker": "      [\"council\", \"High Council — reserved seats\", \"high_council\"],",
-    "singleLine": true,
-    "paragraphSha256": "6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271",
-    "paragraphBytes": 69,
-    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-    "count": 2,
-    "ownerRelease": 201,
-    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
-  },
-  {
-    "file": "worker/public/static/app.js",
     "startMarker": "              h(\"p\", { class: \"lead\", text: \"Explore Olympus membership, raiding and artisan roles, list the friends you are bringing, and enter your reserved names when name reservation opens. Leader, High Council and Officer Corps seats are reserved appointments.\" }),",
     "singleLine": true,
     "paragraphSha256": "f87ff22cdd392a3ee02cfcf45b68b5aa4b43c33ab0cc5ca71d4f652883100dd7",
@@ -1372,6 +1376,50 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     "count": 1,
     "ownerRelease": 201,
     "purpose": "Owner201 appointed-holder display guidance: clearing a holder cannot reopen reserved applications. Exact unique current line only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "        || ![\"leader\", \"high_council\", \"officer_corps\", \"member_specialist\"].includes(family.tier)",
+    "singleLine": true,
+    "paragraphSha256": "e65bbc23f9cc57e4c0719cd86e85ccb9a847725d84897f3dce083c000bf05643",
+    "paragraphBytes": 98,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 203,
+    "purpose": "Owner203 canonical-family presentation and current reserved-seat classification; exact unique source line only, no new authority or general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    const groups = [[\"members\", \"Member & specialist roles\", family => family.kind === \"role\" && ![\"leader\",\"high_council\",\"officer_corps\"].includes(family.tier)],",
+    "singleLine": true,
+    "paragraphSha256": "9d5fb2688346a0ed2794ef405091482e989ebe514f56bfbaf3e15df843afcb74",
+    "paragraphBytes": 163,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 203,
+    "purpose": "Owner203 canonical-family presentation and current reserved-seat classification; exact unique source line only, no new authority or general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      [\"council\", \"High Council — reserved seats\", family => family.kind === \"role\" && family.tier === \"high_council\"],",
+    "singleLine": true,
+    "paragraphSha256": "bc08f0898f2f641c0aaa5c29a597b8ca678b65d297773d08d32db08b12740ba8",
+    "paragraphBytes": 121,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 2,
+    "ownerRelease": 203,
+    "purpose": "Owner203 canonical-family presentation and current reserved-seat classification; exact unique source line only, no new authority or general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "        const row = office199(family.primaryKey), reserved = [\"leader\",\"high_council\",\"officer_corps\"].includes(family.tier) || family.sourceKeys.some(reservedKey201);",
+    "singleLine": true,
+    "paragraphSha256": "437d986083c837391fc4653333712ddc8a21a8d22086bd54a505a7d6e228a6a4",
+    "paragraphBytes": 167,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 203,
+    "purpose": "Owner203 canonical-family presentation and current reserved-seat classification; exact unique source line only, no new authority or general vocabulary allowance."
   }
 ]);
   const guardedCounts = (text) => {
@@ -1444,10 +1492,10 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current app contexts qualify exactly22 pinned icon, Title II, retained bridge and owner201 reserved-directory contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 22 && qualifiedIcon.credits[currentDigest] === 24 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly25 pinned icon, Title II, retained bridge, reserved-directory and owner203 family contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 25 && qualifiedIcon.credits[currentDigest] === 27 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the22 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 24 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the25 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 27 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
@@ -1482,13 +1530,27 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // credited against today's bytes. All new contexts retain byte/duplicate and
   // cross-file negative controls, with the original GUARD and ALLOWED unchanged.
   const ownerContexts201 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 201);
-  check('.201 pins only the exact approved reserved-directory contexts without raising any original vocabulary allowance',ownerContexts201.length === 15 && GUARD.size === 28 && ownerContexts201.every(spec=>spec.digest===currentDigest));
+  check('.201 pins only the exact approved reserved-directory contexts without raising any original vocabulary allowance',ownerContexts201.length === 14 && GUARD.size === 28 && ownerContexts201.every(spec=>spec.digest===currentDigest));
   for(const spec of ownerContexts201){
     const text=guarded.find(([file])=>file===spec.file)[1],qualified=currentContextQualification(spec.file,text),paragraph=qualified.paragraphs.find(value=>value.startsWith(spec.startMarker))||'',changed=paragraph?paragraph.slice(0,-1)+'!':'';
     check('.201 context qualifies only its exact current bytes: '+spec.paragraphSha256.slice(0,12),qualified.errors.length===0&&Buffer.byteLength(paragraph,'utf8')===spec.paragraphBytes&&sha(paragraph)===spec.paragraphSha256&&(guardedCounts(paragraph)[currentDigest]||0)===spec.count);
     check('.201 context edits or duplication cannot borrow credit: '+spec.paragraphSha256.slice(0,12),!!paragraph&&currentContextQualification(spec.file,text.replace(paragraph,changed)).errors.length>0&&vocabularyOverages(spec.file,text.replace(paragraph,changed)).length>0&&currentContextQualification(spec.file,text+'\n\n'+paragraph).errors.length>0&&vocabularyOverages(spec.file,text+'\n\n'+paragraph).length>0);
     check('.201 same bytes in another guarded file receive no qualification: '+spec.paragraphSha256.slice(0,12),!!paragraph&&Object.keys(currentContextQualification('README.md',paragraph).credits).length===0&&vocabularyOverages('README.md',paragraph).some(value=>value.includes(currentDigest.slice(0,12))));
   }
+
+  // .203's approved family consolidation changes presentation only. Four exact
+  // lines replace the retired section tuple; no file-level or digest allowance grows.
+  const ownerContexts203 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 203);
+  check('.203 qualifies only four exact family contexts and five public-rank hits',ownerContexts203.length === 4 && ownerContexts203.every(spec => spec.file === iconFile && spec.singleLine === true && spec.digest === currentDigest) && ownerContexts203.reduce((sum,spec) => sum + spec.count,0) === 5 && GUARD.size === 28);
+  for (const spec of ownerContexts203) {
+    const qualified = currentContextQualification(iconFile,iconText), paragraph = qualified.paragraphs.find(value => value.startsWith(spec.startMarker)) || '', changed = paragraph ? paragraph.slice(0,-1)+'!' : '';
+    check('.203 family context qualifies only its exact source bytes: '+spec.paragraphSha256.slice(0,12),qualified.errors.length === 0 && Buffer.byteLength(paragraph,'utf8') === spec.paragraphBytes && sha(paragraph) === spec.paragraphSha256 && (guardedCounts(paragraph)[currentDigest] || 0) === spec.count);
+    check('.203 family context edits or duplication cannot borrow credit: '+spec.paragraphSha256.slice(0,12),!!paragraph && currentContextQualification(iconFile,iconText.replace(paragraph,changed)).errors.length > 0 && vocabularyOverages(iconFile,iconText.replace(paragraph,changed)).length > 0 && currentContextQualification(iconFile,iconText+'\n\n'+paragraph).errors.length > 0 && vocabularyOverages(iconFile,iconText+'\n\n'+paragraph).length > 0);
+    check('.203 family context in another guarded file receives no credit: '+spec.paragraphSha256.slice(0,12),!!paragraph && Object.keys(currentContextQualification('README.md',paragraph).credits).length === 0 && vocabularyOverages('README.md',paragraph).some(value => value.includes(currentDigest.slice(0,12))));
+  }
+  const retired203 = RETIRED_CONTEXTS_203[0], retiredText203 = retired203.startMarker;
+  check('.203 preserves the removed .201 descriptor as non-crediting history',RETIRED_CONTEXTS_203.length === 1 && retired203.paragraphSha256 === '6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271' && !CURRENT_CONTEXTS.some(spec => spec.paragraphSha256 === retired203.paragraphSha256) && !iconText.includes(retiredText203) && sha(retiredText203) === retired203.paragraphSha256 && vocabularyOverages(iconFile,iconText+'\n\n'+retiredText203).some(value => value.includes(currentDigest.slice(0,12)+' x2')));
+  check('.203 leaves every other withheld-digest allowance unchanged',[...GUARD].filter(digest => digest !== currentDigest).every(digest => qualifiedIcon.credits[digest] === undefined && overOriginalVocabularyAllowance(iconFile,{[digest]:((ALLOWED[iconFile] || {})[digest] || 0)+1},qualifiedIcon).some(value => value.includes(digest.slice(0,12)))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

@@ -1119,3 +1119,59 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .role-section201 > summary { font-size: 17px; padding: 10px; }
   .role-entry201 > summary { padding: 10px; }
 }
+
+/* .203: one card per role family; scoped duties and records stay inside native disclosures. */
+.role-ranks203 { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px 14px; list-style: none; padding: 0; margin: 14px 0 0; }
+.role-ranks203 > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.role-ranks203 > li > a { display: inline-flex; align-items: baseline; gap: 7px; min-height: 32px; min-width: 0; overflow-wrap: anywhere; }
+.role-rank-number203 { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
+.rosetta199 > summary { min-height: 44px; padding: 6px 0; font-family: var(--title); font-size: 1.2rem; line-height: 1.4; color: var(--gold); cursor: pointer; }
+.role-family-grid203 { align-items: start; }
+.role-sections203 { display: flex; flex-direction: column; min-width: 0; }
+.role-family203 { max-width: 100%; overflow-wrap: anywhere; scroll-margin-top: 7rem; }
+.role-primary203,
+.role-variants203,
+.role-variant203,
+.role-variant-body203,
+.role-holder203,
+.appointment-family203 { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.role-primary203,
+.role-variant203 { scroll-margin-top: 7rem; }
+.role-aliases203 { margin: 12px 0; color: var(--muted); line-height: 1.65; }
+.role-aliases203 > strong { color: var(--gold-soft); }
+.role-search-match203 { padding: 8px 10px; border-left: 3px solid var(--gold); background: #ffd1000a; }
+.role-variants203 { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.role-variants203 > h4 { font-size: 1rem; margin: 0 0 8px; }
+.role-variant203 { margin: 10px 0 0; border: 1px solid #5e533b80; border-radius: 3px; background: #00000018; }
+.role-variant203 > summary { min-height: 44px; padding: 10px 12px; color: var(--gold-soft); cursor: pointer; line-height: 1.5; }
+.role-variant-body203 { padding: 0 10px 10px; }
+.role-holder203 { margin: 12px 0; padding: 8px 0; border-top: 1px solid #5e533b80; }
+.role-holder203 p:last-child { margin-bottom: 0; }
+.role-family203 .role-info { font-size: .94rem; line-height: 1.6; }
+.role-family203 .role-info ul { padding-left: 20px; }
+.appointment-family203 { border: 1px solid var(--line); border-radius: 4px; margin: 10px 0; padding: 0 12px; }
+.appointment-family203 > summary { cursor: pointer; min-height: 44px; padding: 10px 0; color: var(--gold-soft); line-height: 1.5; }
+.appointment-family203 > summary .badge { margin-left: 8px; max-width: 100%; white-space: normal; }
+.appointment-family203 .appointed-grid { align-items: start; }
+.appointment-family203 .appointed-row { min-width: 0; }
+@media (max-width: 950px) {
+  .role-ranks203 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .role-ranks203 { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3px 12px; }
+  .application-directory201[data-role-directory-version="203"] { padding-left: 8px; padding-right: 8px; }
+  .role-family-grid203 { padding: 6px; gap: 10px; }
+  .role-family203 .role-entry-body201 { padding: 0 8px 10px; }
+  .role-family203 .role-info { padding: 10px; }
+  .role-variant-body203 { padding: 0 6px 8px; }
+  .role-variant203 > summary { padding: 10px 8px; }
+  .appointment-family203 { padding: 0 8px; }
+}
+@media (max-width: 370px) {
+  .application-directory201[data-role-directory-version="203"] { padding-left: 5px; padding-right: 5px; }
+  .role-family-grid203 { padding: 4px; }
+  .role-family203 .role-entry-body201 { padding-left: 6px; padding-right: 6px; }
+  .role-family203 .role-info { padding: 10px 8px; }
+  .role-variant-body203 { padding-left: 4px; padding-right: 4px; }
+  .role-ranks203 { column-gap: 8px; }
+}
