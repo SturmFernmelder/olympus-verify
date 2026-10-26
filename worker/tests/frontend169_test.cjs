@@ -357,14 +357,14 @@ const recordTool169 = (page, namespace, calls) => {
   cold.hold(pathname => pathname === "/api/board" ? 500 : pathname.startsWith("/api/board/") ? 250 : 0);
   await cold.go("#/vote/officer");
   check(".169 uncached Vote mounts its role controls and write-in picker while summary and selected GET are pending", !!cold.app.querySelector(".role-pick") && !!cold.app.querySelector('.role-item[aria-current="page"]') && !!cold.app.querySelector(".picker") && cold.app.textContent.includes("Refreshing role counts…") && cold.app.textContent.includes("Checking applications…"));
-  await waitFor(() => !cold.app.querySelector(".board-summary-status").textContent && cold.app.textContent.includes("Nobody has applied for this role yet"), "cold board reads");
+  await waitFor(() => !cold.app.querySelector(".board-summary-status").textContent && cold.app.textContent.includes("No historical applications are listed for this role"), "cold board reads");
   check(".169 uncached Vote performs both original read endpoints rather than inferring candidates from counts", coldSummary === 1 && coldRole === 1);
   await cold.go("#/roles"); let cachedSummary = 0, cachedRole = 0;
   cold.before(pathname => { if (pathname === "/api/board") cachedSummary++; if (pathname.startsWith("/api/board/")) cachedRole++; return false; });
   cold.hold(pathname => pathname.startsWith("/api/board/") ? 250 : 0);
   await cold.go("#/vote/raid_leader_na");
-  check(".169 known-empty cached counts show a labelled last-check placeholder immediately, alongside a fresh pending read", !!cold.app.querySelector("[data-board-last-empty]") && cold.app.textContent.includes("No applications at the last check") && cold.app.textContent.includes("Checking applications…") && !cold.app.textContent.includes("Nobody has applied for this role yet"));
-  await waitFor(() => cold.app.textContent.includes("Nobody has applied for this role yet"), "cached-summary selected role fresh answer");
+  check(".169 known-empty cached counts show a labelled last-check placeholder immediately, alongside a fresh pending read", !!cold.app.querySelector("[data-board-last-empty]") && cold.app.textContent.includes("No applications at the last check") && cold.app.textContent.includes("Checking applications…") && !cold.app.textContent.includes("No historical applications are listed for this role"));
+  await waitFor(() => cold.app.textContent.includes("No historical applications are listed for this role"), "cached-summary selected role fresh answer");
   check(".169 an empty summary reuses counts only and still GETs the newly selected role exactly once", cachedSummary === 0 && cachedRole === 1 && !cold.app.querySelector("[data-board-last-empty]"));
 
   const race = await openPage(MEMBER); let summaryReplies = 0, selectedReplies = 0;

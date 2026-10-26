@@ -285,11 +285,11 @@ async function fixture() {
     const board = await f.call('GET', '/api/board/treasurer', STRANGER);
     check('an unconfirmed board read keeps the closed-role conflict without its account association', board.status === 409 && board.body.error === 'appointed' && board.body.appointed === 'Appointed member' && board.body.message.includes('Appointed member') && !JSON.stringify(board.body).includes(SECOND));
     const first = await f.call('PUT', '/api/application', STRANGER, { position: 'treasurer' });
-    check('an unconfirmed first-choice application remains refused without echoing the private pointer', first.status === 400 && first.body.field === 'position' && first.body.message.includes('Appointed member') && !JSON.stringify(first.body).includes(SECOND));
+    check('an unconfirmed first-choice application remains reserved without echoing the private pointer', first.status === 403 && first.body.error === 'reserved_seat' && first.body.field === 'position' && !JSON.stringify(first.body).includes(SECOND));
     const classLead = await f.call('PUT', '/api/application', STRANGER, { position: 'class_lead', classLead: 'priest' });
-    check('an unconfirmed class-lead choice retains its specific refusal without echoing the private pointer', classLead.status === 400 && classLead.body.field === 'classLead' && classLead.body.message.includes('Appointed member') && !JSON.stringify(classLead.body).includes(VIEWER));
+    check('an unconfirmed class-lead choice is reserved without echoing the private pointer', classLead.status === 403 && classLead.body.error === 'reserved_seat' && classLead.body.field === 'position' && !JSON.stringify(classLead.body).includes(VIEWER));
     const backup = await f.call('PUT', '/api/application', STRANGER, { position: 'member', backups: ['treasurer'] });
-    check('an unconfirmed backup application remains refused without echoing the private pointer', backup.status === 400 && backup.body.field === 'backups' && backup.body.message.includes('Appointed member') && !JSON.stringify(backup.body).includes(SECOND));
+    check('an unconfirmed backup application remains reserved without echoing the private pointer', backup.status === 403 && backup.body.error === 'reserved_seat' && backup.body.field === 'backups' && !JSON.stringify(backup.body).includes(SECOND));
     const vote = await f.call('PUT', '/api/board/vote', STRANGER, { role: 'treasurer', candidate: HOLDER, vote: 1 });
     check('an unconfirmed board vote keeps its original appointment conflict without disclosing the holder', vote.status === 409 && vote.body.error === 'appointed' && vote.body.appointed === 'Appointed member' && !JSON.stringify(vote.body).includes(SECOND) && !f.db.prepare('SELECT 1 FROM site_board_votes WHERE voter_id=?').get(STRANGER) && !f.db.prepare('SELECT 1 FROM site_applications WHERE discord_id=?').get(STRANGER));
     await f.write('UPDATE site_users SET denied=1 WHERE discord_id=?', VIEWER);

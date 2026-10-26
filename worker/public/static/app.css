@@ -1089,3 +1089,33 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .application-chooser200 .application-office-card200 { padding: 12px; }
   .application-chooser200 > .btn { width: 100%; min-height: 44px; white-space: normal; }
 }
+
+/* Owner's 26 Oct .201 directory: native disclosures keep every office readable on a small screen. */
+.application-directory201 { min-width: 0; }
+.application-directory201 input { width: 100%; min-width: 0; max-width: 100%; }
+.role-section201 { border: 1px solid var(--line); background: rgba(14,17,12,.8); margin: 12px 0; border-radius: 4px; min-width: 0; }
+.role-section201 > summary { cursor: pointer; min-height: 48px; padding: 12px; font-size: 19px; color: var(--gold); overflow-wrap: anywhere; }
+.role-section201 > summary .badge { margin-left: 10px; vertical-align: middle; }
+.role-directory-grid201 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 12px; align-items: start; }
+.role-entry201 { min-width: 0; border: 1px solid var(--line); border-radius: 4px; background: rgba(45,48,30,.35); }
+.role-entry201 > summary { cursor: pointer; padding: 12px; min-height: 60px; overflow-wrap: anywhere; }
+.role-entry201 > summary img { vertical-align: middle; margin-right: 8px; }
+.role-entry-name201 { font-weight: 700; }
+.role-entry201 > summary .badge { display: block; margin: 8px 0 0; width: fit-content; max-width: 100%; white-space: normal; }
+.role-entry201.chosen, .role-entry201[open] { border-color: #a68b47; }
+.role-entry-body201 { padding: 0 12px 12px; min-width: 0; overflow-wrap: anywhere; }
+.role-entry-body201 .role-info { padding: 12px; margin: 12px 0; min-width: 0; }
+.role-entry-body201 .role-facts { display: block; }
+.role-entry-body201 .role-facts dd { margin: 0 0 12px; }
+.role-entry-body201 .btn { min-height: 44px; white-space: normal; max-width: 100%; }
+.reserved-seat201 { color: #d7c8a5; background: #332b20; }
+.reserved-explanation201 { border-left: 3px solid #bda259; padding-left: 10px; }
+.org-role-guide201 { min-width: 0; overflow-wrap: anywhere; }
+.org-role-guide201 summary { cursor: pointer; min-height: 44px; padding: 8px 0; }
+.org-role-guide201 .role-facts { display: block; }
+.org-role-guide201 .role-facts dd { margin-left: 0; }
+@media (max-width: 700px) {
+  .role-directory-grid201 { grid-template-columns: minmax(0,1fr); padding: 8px; gap: 8px; }
+  .role-section201 > summary { font-size: 17px; padding: 10px; }
+  .role-entry201 > summary { padding: 10px; }
+}

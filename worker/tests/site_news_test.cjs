@@ -1052,206 +1052,327 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // public Council description line; no general vocabulary allowance changes.
   // No global allowance changes: any byte edit, duplicate, other file or other digest remains guarded.
   const CURRENT_CONTEXTS = Object.freeze([
-    {
-        "file": "docs/launch-runbook.md",
-        "startMarker": "The 23 October 2026 owner recommendation is ",
-        "paragraphSha256": "78f404642046ca59f75dacdc47dbf80b39436347c34463d751890444dbcae727",
-        "paragraphBytes": 791,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1
-    },
-    {
-        "file": "docs/launch-runbook.md",
-        "startMarker": "The current owner-chosen B ladder is ",
-        "paragraphSha256": "28b48c7e25b8ba42ea32789119fc78af1e75d5d83de43dd1a77295b150dd6371",
-        "paragraphBytes": 1025,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon(",
-        "paragraphSha256": "fa44193ecfc28838c7fa59c6677ca1203de9e4eb906877ae67bb297f87a0065b",
-        "paragraphBytes": 698,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Exact current ten-rank native icon map; Officer Alt is slot3, Treasurer remains appointment metadata."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "        h(\"a\", { class: \"btn\", href: \"#/governance/title-ii-the-high-council-co-guild-master-privy-court\",",
-        "singleLine": true,
-        "paragraphSha256": "01792e5a7d9cef3fb51687e2a0fc1578f496072a05d724fad70cd37bcc7158c1",
-        "paragraphBytes": 146,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1
-    },
-    {
-        "file": "worker/src/site-data.ts",
-        "startMarker": "  .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible",
-        "singleLine": true,
-        "paragraphSha256": "0593910dc99a5c66b1e4a61f6f94c93b31d39ddeafaa1345634f14644cbda0dc",
-        "paragraphBytes": 140,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/src/site-api.ts",
-        "startMarker": "  const officeLeadership199 = intent199?.applicationTrack === 'officer'",
-        "singleLine": true,
-        "paragraphSha256": "c3a82bcf9a5beccbe3b3925e15179bdc7f88ae0e5811156740c970c822f7ac81",
-        "paragraphBytes": 122,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "CLAUDE.md",
-        "startMarker": "**Build .199 owner override (25 Oct 2026):**",
-        "singleLine": true,
-        "paragraphSha256": "8bf5bb8b7fde55c9722d56605d400491f89664fa27fabcbe41bdbe31d075519f",
-        "paragraphBytes": 1461,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "    if (office && /^office_[0-9]{2}$/.test(key)) return icon(",
-        "singleLine": true,
-        "paragraphSha256": "1a3ef07bdc923a4fc1ffda9e0a86f3fc9513efc8ffeaea167b0080453746ea8b",
-        "paragraphBytes": 223,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      h(\"p\", { text: \"Leader and High Council govern;",
-        "singleLine": true,
-        "paragraphSha256": "02b3d34889f0d5141a35285db5f80bbc649d2dff5893828f62d193c0a0d830c8",
-        "paragraphBytes": 266,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "    return [[\"leader\", \"Leader & Royal Appointments\"],",
-        "singleLine": true,
-        "paragraphSha256": "9150e9050271e45a6731f953e47bd5129b51c8c4e91a18dda13704759dbbde93",
-        "paragraphBytes": 230,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 2,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "          available && [\"officer\", \"high_council\"].includes(row.applicationTrack)",
-        "singleLine": true,
-        "paragraphSha256": "0ec0e06cd6c51dc44da0f5352ac95cbc2a052418bd53e80be6c278754c3595f5",
-        "paragraphBytes": 234,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      const t = visibleTracks.find(row => row.id === select.value), needs = !!t && [\"officer\", \"high_council\"].includes(select.value)",
-        "singleLine": true,
-        "paragraphSha256": "e95728867b5a7c2be736310c04e25fd965e0b23cdeabfdb6688f42352460d4e2",
-        "paragraphBytes": 178,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "    const rememberedIntent199 = rememberedOffice199?.applicationEligible",
-        "singleLine": true,
-        "paragraphSha256": "eb3101d1798c0e4eccc2c3c0a914c95405c737c0c478af03a42fbb5511003ea6",
-        "paragraphBytes": 252,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      if (target199 && [\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
-        "singleLine": true,
-        "paragraphSha256": "deea89b1f132a5a337282a40fd6ce0a5242ae8b02d431ca354166d42cd5bb461",
-        "paragraphBytes": 89,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      } else if (![\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
-        "singleLine": true,
-        "paragraphSha256": "677df54e09038998ace5bd0de800e7407bfc969bd322da1727a6a567c7f80ba5",
-        "paragraphBytes": 156,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      const selectedOffice199 = dec(parts[1]), needsOffice199 = [\"officer\",\"high_council\"].includes(selectedTrack199.id)",
-        "singleLine": true,
-        "paragraphSha256": "5deea7c5b59630e75a8869dfd06961ceec8fb293e3c8cdef51d9faebd02719f3",
-        "paragraphBytes": 206,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
-    },
-    {
-        "file": "worker/src/site-data.ts",
-        "startMarker": "const applicationLeadershipSeat199 = ",
-        "singleLine": true,
-        "paragraphSha256": "89e2e83cb387ce496fc7609d957cce2ce13cf2ad4d5b50262ace608df7325e0c",
-        "paragraphBytes": 185,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Exact owner199 leadership-seat adapter predicate; membership and artisan route adapters confer no shared appointment identity."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "      high_council: { icon: \"pos-co_gm\", purpose: ",
-        "singleLine": true,
-        "paragraphSha256": "5b1efe83e3e659d06f8d061a6e29e09a61ded7932f63c2a92e9f04d7614b3b27",
-        "paragraphBytes": 481,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 3,
-        "ownerRelease": 200,
-        "purpose": "Exact owner200 illustrated High Council path copy; retained public-rank classification only, with no authority or access granted."
-    },
-    {
-        "file": "worker/public/static/app.js",
-        "startMarker": "  const applicationLeadershipSeat199 = ",
-        "singleLine": true,
-        "paragraphSha256": "164267c26e3f03b9bec2e80e9133ced6e1dcad4b65dcc4ec5d84d4856a4ad990",
-        "paragraphBytes": 135,
-        "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-        "count": 1,
-        "ownerRelease": 199,
-        "purpose": "Exact owner199 leadership-seat adapter predicate; membership and artisan route adapters confer no shared appointment identity."
-    }
+  {
+    "file": "docs/launch-runbook.md",
+    "startMarker": "The 23 October 2026 owner recommendation is ",
+    "paragraphSha256": "78f404642046ca59f75dacdc47dbf80b39436347c34463d751890444dbcae727",
+    "paragraphBytes": 791,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1
+  },
+  {
+    "file": "docs/launch-runbook.md",
+    "startMarker": "The current owner-chosen B ladder is ",
+    "paragraphSha256": "28b48c7e25b8ba42ea32789119fc78af1e75d5d83de43dd1a77295b150dd6371",
+    "paragraphBytes": 1025,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    if (office && /^rank_[a-z_]+$/.test(key)) { const rank = key.slice(5); return icon(",
+    "paragraphSha256": "fa44193ecfc28838c7fa59c6677ca1203de9e4eb906877ae67bb297f87a0065b",
+    "paragraphBytes": 698,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Exact current ten-rank native icon map; Officer Alt is slot3, Treasurer remains appointment metadata."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "        h(\"a\", { class: \"btn\", href: \"#/governance/title-ii-the-high-council-co-guild-master-privy-court\",",
+    "singleLine": true,
+    "paragraphSha256": "01792e5a7d9cef3fb51687e2a0fc1578f496072a05d724fad70cd37bcc7158c1",
+    "paragraphBytes": 146,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1
+  },
+  {
+    "file": "worker/src/site-data.ts",
+    "startMarker": "  .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible",
+    "singleLine": true,
+    "paragraphSha256": "0593910dc99a5c66b1e4a61f6f94c93b31d39ddeafaa1345634f14644cbda0dc",
+    "paragraphBytes": 140,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/src/site-api.ts",
+    "startMarker": "  const officeLeadership199 = intent199?.applicationTrack === 'officer'",
+    "singleLine": true,
+    "paragraphSha256": "c3a82bcf9a5beccbe3b3925e15179bdc7f88ae0e5811156740c970c822f7ac81",
+    "paragraphBytes": 122,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "CLAUDE.md",
+    "startMarker": "**Build .199 owner override (25 Oct 2026):**",
+    "singleLine": true,
+    "paragraphSha256": "8bf5bb8b7fde55c9722d56605d400491f89664fa27fabcbe41bdbe31d075519f",
+    "paragraphBytes": 1461,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    if (office && /^office_[0-9]{2}$/.test(key)) return icon(",
+    "singleLine": true,
+    "paragraphSha256": "1a3ef07bdc923a4fc1ffda9e0a86f3fc9513efc8ffeaea167b0080453746ea8b",
+    "paragraphBytes": 223,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      h(\"p\", { text: \"Leader and High Council govern;",
+    "singleLine": true,
+    "paragraphSha256": "02b3d34889f0d5141a35285db5f80bbc649d2dff5893828f62d193c0a0d830c8",
+    "paragraphBytes": 266,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    return [[\"leader\", \"Leader & Royal Appointments\"],",
+    "singleLine": true,
+    "paragraphSha256": "9150e9050271e45a6731f953e47bd5129b51c8c4e91a18dda13704759dbbde93",
+    "paragraphBytes": 230,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 2,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    const rememberedIntent199 = rememberedOffice199?.applicationEligible",
+    "singleLine": true,
+    "paragraphSha256": "eb3101d1798c0e4eccc2c3c0a914c95405c737c0c478af03a42fbb5511003ea6",
+    "paragraphBytes": 252,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      if (target199 && [\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
+    "singleLine": true,
+    "paragraphSha256": "deea89b1f132a5a337282a40fd6ce0a5242ae8b02d431ca354166d42cd5bb461",
+    "paragraphBytes": 89,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      } else if (![\"officer\",\"high_council\"].includes(intent199.applicationTrack))",
+    "singleLine": true,
+    "paragraphSha256": "677df54e09038998ace5bd0de800e7407bfc969bd322da1727a6a567c7f80ba5",
+    "paragraphBytes": 156,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      const selectedOffice199 = dec(parts[1]), needsOffice199 = [\"officer\",\"high_council\"].includes(selectedTrack199.id)",
+    "singleLine": true,
+    "paragraphSha256": "5deea7c5b59630e75a8869dfd06961ceec8fb293e3c8cdef51d9faebd02719f3",
+    "paragraphBytes": 206,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Direct owner199 rank/office/Rosetta/application bridge; exact file, source line, bytes and digest count only."
+  },
+  {
+    "file": "worker/src/site-data.ts",
+    "startMarker": "const applicationLeadershipSeat199 = ",
+    "singleLine": true,
+    "paragraphSha256": "89e2e83cb387ce496fc7609d957cce2ce13cf2ad4d5b50262ace608df7325e0c",
+    "paragraphBytes": 185,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 199,
+    "purpose": "Exact owner199 leadership-seat adapter predicate; membership and artisan route adapters confer no shared appointment identity."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "  const applicationLeadershipSeat199 = ",
+    "singleLine": true,
+    "paragraphSha256": "3ee1a14775fe1fbe423b8cd371ed9def01521595e420e33bb8f75f8aeea52ad8",
+    "paragraphBytes": 184,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 reserved-seat policy and rich role directory; exact public-rank source context only."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "          h(\"p\", null, rank.nativeSlot < 5 ? \"Reserved appointment — no applications for Leader, High Council or Officer Corps seats.\" : \"Membership, raiding and artisan work use the role directory; other standing and titles require their own review. \", rank.nativeSlot >= 5 ? h(\"a\", {href:\"#/vote\",text:\"Explore the role directory\"}) : null, \" In-game verification via /oly discord remains subject to separate Link activation.\")];",
+    "singleLine": true,
+    "paragraphSha256": "c58fa50d176a4d413750ec8f47eef7c115a101a270d38ee501c82523a08a95ea",
+    "paragraphBytes": 433,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "    return !!row?.reservedSeat201 || [\"leader\", \"high_council\", \"officer_corps\"].includes(row?.tier)",
+    "singleLine": true,
+    "paragraphSha256": "b52a118ba767a8af86909a6b83e0bc30ea3a1d79c5014a5981ef4cd6da055d72",
+    "paragraphBytes": 100,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "  const reservedIntent201 = intent => !!intent && ([\"officer\", \"high_council\"].includes(intent.applicationTrack) || reservedKey201(intent.targetOffice));",
+    "singleLine": true,
+    "paragraphSha256": "74735cb1102edcd0b96e5eb1318f31ebc16b01826bd7dd11c90efa2b2862f9b4",
+    "paragraphBytes": 153,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "  const reservedNotice201 = \"Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed.\";",
+    "singleLine": true,
+    "paragraphSha256": "a90a6063c7dfd9449f58483869c83a89915e480bc418d8fe3fcd7b22d48da59b",
+    "paragraphBytes": 165,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      [\"council\", \"High Council — reserved seats\", \"high_council\"],",
+    "singleLine": true,
+    "paragraphSha256": "6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271",
+    "paragraphBytes": 69,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 2,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "              h(\"p\", { class: \"lead\", text: \"Explore Olympus membership, raiding and artisan roles, list the friends you are bringing, and enter your reserved names when name reservation opens. Leader, High Council and Officer Corps seats are reserved appointments.\" }),",
+    "singleLine": true,
+    "paragraphSha256": "f87ff22cdd392a3ee02cfcf45b68b5aa4b43c33ab0cc5ca71d4f652883100dd7",
+    "paragraphBytes": 270,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "          h(\"p\", { text: \"Your historical application remains on record. Leader, High Council and Officer Corps seats are now reserved appointments, so the old board-consent and schedule prompts do not reopen them.\" }),",
+    "singleLine": true,
+    "paragraphSha256": "56915d7e3f1a88665c8cc15e0e44f752a3aa39dcff13018051b8e5c8e8027630",
+    "paragraphBytes": 219,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "            h(\"p\", null, \"A nomination does not open a reserved seat or appoint anyone. Leader, High Council and Officer Corps applications are closed. \", h(\"a\", {href:\"#/roles\",text:\"Read each role's responsibilities and appointment status\"}))))",
+    "singleLine": true,
+    "paragraphSha256": "a184c289d819d86507d2a9eef331101da994fa3b70aad91545c188013a6ab0a8",
+    "paragraphBytes": 246,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      h(\"p\", { class: \"muted small\", text: \"Other ordinary roles or activities you would take, in order. Leader, High Council and Officer Corps seats cannot be selected as first choices or backups. Historical board records are separate.\" }),",
+    "singleLine": true,
+    "paragraphSha256": "1c6ed51fdee3aef6445e53a1f948475f03a5d226c15397553965658fed4b58d3",
+    "paragraphBytes": 241,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      ? h(\"p\", { class: \"muted\", text: \"No historical applications are listed for this role. Nominations do not open a reserved seat or appoint anyone; current Officer Corps and High Council applications are closed.\" })",
+    "singleLine": true,
+    "paragraphSha256": "6172037e141da3464c493dd585b4400b36c05c2c9071b1b014ccf34eed6c8a04",
+    "paragraphBytes": 219,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      h(\"p\", { class: \"muted small\", text: \"These controls govern visibility and voting on historical records; they do not reopen reserved applications. Leader, High Council and Officer Corps seats remain appointment-only, with no first-choice or backup applications. Existing applications, votes, nominations and their original consent restrictions are preserved. A ticked role has no public board or write-ins; any retained application stays with leadership. Changing this setting never appoints a holder or supplies new publication consent.\" }),",
+    "singleLine": true,
+    "paragraphSha256": "8c4204abb2fe726359d9dc4bdbbcd29c0a93eb2db6f6424d19b89baf45d1c600",
+    "paragraphBytes": 548,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/src/site-data.ts",
+    "startMarker": "    applicationPolicy201: { reservedTiers:['leader','high_council','officer_corps'],",
+    "singleLine": true,
+    "paragraphSha256": "b1821ec4cef557fc1a96e12af14e334ef60a25f07b682fea46313ccfd7387e17",
+    "paragraphBytes": 84,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/src/site-data.ts",
+    "startMarker": "      notice:'Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them. An empty listing is not an open vacancy.' },",
+    "singleLine": true,
+    "paragraphSha256": "7fcbe2a6f87675563d850b4063943492e50ba61edcb30ad8b08a9d1e0ab1d8a5",
+    "paragraphBytes": 157,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "      h(\"p\", { class: \"muted small\", text: \"A role with a name here has an appointment display record. Its historical voting board and write-ins close while the appointment is recorded; prior votes and nominations are preserved. Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed. An empty field is not an application vacancy.\" }),",
+    "singleLine": true,
+    "paragraphSha256": "4796b19ea3e0c7c1738520dfd310826a84c4b50c4e4945536b36ed1e891ed62a",
+    "paragraphBytes": 411,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 appointed-holder display guidance: clearing a holder cannot reopen reserved applications. Exact unique current line only."
+  }
 ]);
   const guardedCounts = (text) => {
     const hits = {};
@@ -1323,10 +1444,10 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current app contexts qualify exactly13 pinned icon, Title II, owner199 bridge and owner200 illustrated-path contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 13 && qualifiedIcon.credits[currentDigest] === 16 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly22 pinned icon, Title II, retained bridge and owner201 reserved-directory contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 22 && qualifiedIcon.credits[currentDigest] === 24 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the13 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 16 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the22 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 24 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
@@ -1341,7 +1462,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   check(".198 exact Title II link bytes in another file receive no context credit", !!titleIIContext && Object.keys(currentContextQualification("README.md", titleIIContext).credits).length === 0 && vocabularyOverages("README.md", titleIIContext).some(s => s.includes(currentDigest.slice(0, 12))));
 
   const ownerContexts199 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 199);
-  check(".199 extends only15 exact public-rank contexts in four owner-authorized files with the original28-digest guard intact", ownerContexts199.length === 15 && GUARD.size === 28 && ownerContexts199.every(spec => spec.digest === currentDigest) && JSON.stringify([...new Set(ownerContexts199.map(spec => spec.file))].sort()) === JSON.stringify(["CLAUDE.md", "worker/public/static/app.js", "worker/src/site-api.ts", "worker/src/site-data.ts"].sort()));
+  check(".199 retains only12 unchanged exact public-rank contexts in four owner-authorized files with the original28-digest guard intact", ownerContexts199.length === 12 && GUARD.size === 28 && ownerContexts199.every(spec => spec.digest === currentDigest) && JSON.stringify([...new Set(ownerContexts199.map(spec => spec.file))].sort()) === JSON.stringify(["CLAUDE.md", "worker/public/static/app.js", "worker/src/site-api.ts", "worker/src/site-data.ts"].sort()));
   for (const spec of ownerContexts199) {
     const text = guarded.find(([file]) => file === spec.file)[1], qualified = currentContextQualification(spec.file, text);
     const paragraph = qualified.paragraphs.find(value => value.startsWith(spec.startMarker)) || "";
@@ -1356,13 +1477,17 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     check(".199 scope leaves an extra public-rank occurrence outside every exact context restricted: " + file, !!approvedGram && before.length === 0 && outside.some(value => value.includes(currentDigest.slice(0, 12))));
     check(".199 scope does not raise any of the other27 withheld-digest allowances: " + file, [...GUARD].filter(digest => digest !== currentDigest).every(digest => qualified.credits[digest] === undefined && overOriginalVocabularyAllowance(file, { [digest]: ((ALLOWED[file] || {})[digest] || 0) + 1 }, qualified).some(value => value.includes(digest.slice(0, 12)))));
   }
-  const ownerContexts200 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 200);
-  check(".200 adds only one exact illustrated-path line with three approved public-rank hits and the original28-digest guard", ownerContexts200.length === 1 && ownerContexts200[0].file === iconFile && ownerContexts200[0].singleLine === true && ownerContexts200[0].count === 3 && ownerContexts200[0].digest === currentDigest && GUARD.size === 28);
-  for (const spec of ownerContexts200) {
-    const paragraph = qualifiedIcon.paragraphs.find(value => value.startsWith(spec.startMarker)) || "", changed = paragraph ? `${paragraph.slice(0, -1)}!` : "";
-    check(".200 illustrated-path credit requires its exact unique481 source bytes and only the approved digest", qualifiedIcon.errors.length === 0 && Buffer.byteLength(paragraph, "utf8") === 481 && sha(paragraph) === spec.paragraphSha256 && JSON.stringify(guardedCounts(paragraph)) === JSON.stringify({ [currentDigest]: 3 }));
-    check(".200 edited or duplicated illustrated-path context cannot borrow its fixed credit", !!paragraph && currentContextQualification(iconFile, iconText.replace(paragraph, changed)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(paragraph, changed)).length > 0 && currentContextQualification(iconFile, `${iconText}\n\n${paragraph}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${paragraph}`).length > 0);
-    check(".200 exact illustrated-path bytes in another guarded file receive no qualification", !!paragraph && Object.keys(currentContextQualification("README.md", paragraph).credits).length === 0 && vocabularyOverages("README.md", paragraph).some(value => value.includes(currentDigest.slice(0, 12))));
+  // The .200 illustrated chooser was replaced by the owner's .201 disclosure
+  // directory. Its removed positive context is retained in Git history, never
+  // credited against today's bytes. All new contexts retain byte/duplicate and
+  // cross-file negative controls, with the original GUARD and ALLOWED unchanged.
+  const ownerContexts201 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 201);
+  check('.201 pins only the exact approved reserved-directory contexts without raising any original vocabulary allowance',ownerContexts201.length === 15 && GUARD.size === 28 && ownerContexts201.every(spec=>spec.digest===currentDigest));
+  for(const spec of ownerContexts201){
+    const text=guarded.find(([file])=>file===spec.file)[1],qualified=currentContextQualification(spec.file,text),paragraph=qualified.paragraphs.find(value=>value.startsWith(spec.startMarker))||'',changed=paragraph?paragraph.slice(0,-1)+'!':'';
+    check('.201 context qualifies only its exact current bytes: '+spec.paragraphSha256.slice(0,12),qualified.errors.length===0&&Buffer.byteLength(paragraph,'utf8')===spec.paragraphBytes&&sha(paragraph)===spec.paragraphSha256&&(guardedCounts(paragraph)[currentDigest]||0)===spec.count);
+    check('.201 context edits or duplication cannot borrow credit: '+spec.paragraphSha256.slice(0,12),!!paragraph&&currentContextQualification(spec.file,text.replace(paragraph,changed)).errors.length>0&&vocabularyOverages(spec.file,text.replace(paragraph,changed)).length>0&&currentContextQualification(spec.file,text+'\n\n'+paragraph).errors.length>0&&vocabularyOverages(spec.file,text+'\n\n'+paragraph).length>0);
+    check('.201 same bytes in another guarded file receive no qualification: '+spec.paragraphSha256.slice(0,12),!!paragraph&&Object.keys(currentContextQualification('README.md',paragraph).credits).length===0&&vocabularyOverages('README.md',paragraph).some(value=>value.includes(currentDigest.slice(0,12))));
   }
 
   console.log("\n== the schema in all three places ==");

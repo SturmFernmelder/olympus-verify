@@ -1,4 +1,5 @@
-/** Independent real ordinary writers -> genuine identify-only copy size regressions.
+/** Real current ordinary Raider writers and explicit historical leadership
+ * parser fixtures -> genuine identify-only copy size regressions (.201).
  * PRODUCER_ONLY validates immutable current writers while successor export source is unfinished.
  */
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
@@ -55,9 +56,17 @@ async function review(){
   answers.hours='gt20';answers.voice='yes';
   answers.professions=['alchemy','blacksmithing','cooking','first_aid','fishing'];
   answers.references=[{kind:'discord',key:B,label:'Chosen reference'},{kind:'name',key:'other reference',label:'Other reference'}];
-  const saved=await api('/api/application','PUT',{position:'officer',class:maximumTalent.className,role:'tank',region:'na_east',avail:'f'.repeat(42),availTz:'UTC',answers,board:true,ack:true});
+  // .201: preserve the maximum-width ordinary-writer regression for fields
+  // currently open to applicants, then explicitly retain the historical full
+  // leadership row for own-copy size coverage. No reserved PUT is bypassed.
+  const payload={position:'officer',class:maximumTalent.className,role:'tank',region:'na_east',avail:'f'.repeat(42),availTz:'UTC',answers,board:true,ack:true};
+  const ordinarySaved=await api('/api/application','PUT',{...payload,position:'raider',board:false});
+  for(const q of site.QUESTIONS.filter(q=>!q.leadership))eq(label+' current Raider writer preserves max '+q.key,ordinarySaved.application.answers[q.key],answers[q.key]);
+  const historical=await require('./historical_application201_fixture.cjs').historicalApplicationFixture201({validate:load('site-api').validateApplication,run:(sql,...params)=>fixtureWrite(f,sql,...params),previous:id=>f.db.prepare('SELECT * FROM site_applications WHERE discord_id=?').get(id),id:A,payload,time:f.time(),siteHost:f.env.SITE_HOST});
+  ok(label+' full historical leadership row passes the unchanged real parser',!('error' in historical.validation));
+  const saved=await api('/api/me','GET');
   const row=f.db.prepare('SELECT answers FROM site_applications WHERE discord_id=?').get(A),stored=JSON.parse(row.answers);
-  for(const q of site.QUESTIONS){eq(label+' actual writer preserves max '+q.key,stored[q.key],answers[q.key]);eq(label+' max '+q.key+' codepoint count',Array.from(stored[q.key]).length,q.key==='talentBuild'?maximumTalent.code.length:q.max);}
+  for(const q of site.QUESTIONS){eq(label+' historical full-row fixture preserves max '+q.key,stored[q.key],answers[q.key]);eq(label+' max '+q.key+' codepoint count',Array.from(stored[q.key]).length,q.key==='talentBuild'?maximumTalent.code.length:q.max);}
   eq(label+' actual writer response matches stored answer lengths',saved.application.answers.experience,stored.experience);
   console.log('LEGITIMATE_APPLICATION_SIZE '+JSON.stringify({label,storedAnswerBytes:bytes(row.answers),storedAnswerCodepoints:Array.from(row.answers).length,utf16:row.answers.length}));
   if(!producerOnly){const data=await own(f);for(const q of site.QUESTIONS)eq(label+' whole own application preserves valid max '+q.key,data.site.application.answers[q.key],stored[q.key]);

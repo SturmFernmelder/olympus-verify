@@ -438,7 +438,7 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   check("  the role stays appointed: its board stays closed, held by Name withheld", res.status === 409 && out.error === "appointed" && out.appointed === NAME_WITHHELD, res.status, out);
   res = await http("PUT", "/api/application", { who: PLAIN, body: { position: "treasurer" } });
   out = await J(res);
-  check("  and an application to it is refused on the role", res.status === 400 && out.field === "position" && /appointed/.test(out.message), res.status, out);
+  check("  and an application to the reserved seat is refused on the role", res.status === 403 && out.error === "reserved_seat" && out.field === "position" && /appointment/.test(out.message), res.status, out);
   res = await http("PUT", "/api/admin/settings", { who: ADMIN, body: { appointed: {} } });
   check("clearing the entry needs no tick either, and reopens the role", res.status === 200 && Object.keys((await J(res)).settings.appointed).length === 0 && (await http("GET", "/api/board/treasurer", { who: PLAIN })).status === 200);
 

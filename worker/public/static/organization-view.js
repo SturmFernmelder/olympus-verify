@@ -130,7 +130,8 @@ export function renderOrganization(main, data, ui) {
   const termPlacement = term => Number.isInteger(term.nativeSlot)
     ? `Rank ${term.nativeRankOrdinal} ${term.nativeRankName} · zero-based slot ${term.nativeSlot}. Display association; no rank or permission is applied.`
     : "No native rank placement or promotion follows from this title or status.";
-  const seatLink = term => term.applicationEligible && ui.officeAvailability?.[term.officeKey] !== false
+  const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
+  const seatLink = term => !reservedTerm201(term) && term.applicationEligible && ui.officeAvailability?.[term.officeKey] !== false
     ? h("a", { class: "btn small org-seat-apply", href: "#/vote/" + term.applicationTrack + "/" + encodeURIComponent(term.officeKey), "data-office-application": term.officeKey, "data-application-track": term.applicationTrack, text: ui.officeAvailability?.[term.officeKey] === true ? "Apply for this Seat on /#/vote" : "Review & apply for this Seat on /#/vote" })
     : null;
   const officeBadges = term => h("p", { class: "org-office-badges" }, h("span", { class: "org-tier-badge org-tier-" + term.tier, text: term.tierLabel }), h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " · " + term.nativeRankName }), h("span", { class: "small", text: term.codexTitles.map(title => "Title " + title).join(" · ") }));
@@ -231,7 +232,8 @@ export function renderOrganization(main, data, ui) {
       const closed = ui.officeAvailability?.[t.officeKey] === false;
       const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier }, h("button", { type: "button", class: "organization-term", text: t.label, onclick: () => select(t.nodeId, true, true, t) }), officeBadges(t), t.applicationAliases?.length ? h("p", { class: "small", text: "Application portfolio: " + t.applicationAliases.join(" · ") }) : null,
         h("p", { class: "small", text: t.department }), h("p", { class: "small", text: t.note }), h("p", { class: "small muted", text: termPlacement(t) }),
-        h("p", { class: "small muted", text: closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Application route available; appointment and current vacancy are reviewed separately." : t.acquisition }), seatLink(t));
+        h("p", { class: "small muted", text: reservedTerm201(t) ? "Reserved seat — no applications. A missing holder is not a vacancy; leadership fills this office by appointment." : closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Ordinary role application available; admission and any later standing are reviewed separately." : t.acquisition }),
+        ui.roleGuide201 ? h("details", {class:"org-role-guide201"},h("summary",{text:"Definition, responsibilities & expectations"}),ui.roleGuide201(t.officeKey)) : null, seatLink(t));
       group.append(li); termRows.push({t,li});
     }
     termList.append(h("section", { class: "org-office-tier-group", "data-tier-group": tier }, h("h3", { text: title + " · " + terms.length + " stable titles" }), group));

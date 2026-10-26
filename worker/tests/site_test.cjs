@@ -464,12 +464,31 @@ async function legacySchemaHeld(old) {
   const forgedBody = Buffer.from(JSON.stringify({ u: VIKTOR, v: 1, e: T + 9999 })).toString("base64url");
   res = await index.fetch(new Request("https://guild.example/api/me", { headers: { Cookie: `__Host-olg=${forgedBody}.${jar.get("300000000000000001").split(".")[1]}` } }), rawEnv(), ctx);
   check("someone else's id under a valid-looking signature: 401", res.status === 401);
+  // .201: reserved seats cannot be submitted now. Board, nomination and admin
+  // regressions below retain explicit historical data instead of disabling that
+  // admission rule. This fixture validates the old canonical payload, writes it
+  // directly to the original Native store, then reads the real owned GET DTO.
+  // It never reports that PUT /api/application accepted a reserved application.
+  const historicalValidation201 = async (body, who) => {
+    const settings = await data.loadSettings(env());
+    return siteApi.validateApplication(body, who, settings.appointed, settings.noVote, 'guild.example');
+  };
+  const historicalApplication201 = async (who, body) => {
+    const settings = await data.loadSettings(env());
+    const { validation } = await require('./historical_application201_fixture.cjs').historicalApplicationFixture201({ validate: siteApi.validateApplication, run: fixtureRun,
+      previous: id => db.prepare('SELECT * FROM site_applications WHERE discord_id=?').get(id), id: who, payload: body, time: T,
+      appointed: settings.appointed, noVote: settings.noVote });
+    if ('error' in validation) throw Error('invalid historical application fixture: '+JSON.stringify(validation));
+    core.forgetBoardCounts();
+    return call('GET','/api/me',{who});
+  };
   const appBody = {
     position: "raid_leader_eu", backups: ["officer", "class_lead:priest"], class: "priest", role: "healer", region: "eu", character: "fern melder", fallback: true, ack: true, board: true,
     avail: EU_EVENINGS, availTz: "Europe/Stockholm",
     answers: { experience: "Cleared Naxx in 2006 and again in 2020.", why: "Because Olympus is going to be great.", leadership: "Led a 40-man raid for two years.", scenario: "Move it to DMs, then decide by the rules.", hours: "10to20", voice: "yes", logs: "https://classic.warcraftlogs.com/character/eu/x/y", extra: "Private: I work nights on Sundays.", references: [{ kind: "discord", key: "300000000000000003", label: "Carol (@carol)" }] },
   };
   const memberBody = { ...appBody, position: "member", backups: [], character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { experience: "New to WoW, very keen.", why: "Asmon sent me here to learn.", voice: "listen" } };
+  const validationBody201 = { ...appBody, position: 'member', backups: [] };
   res = await call("PUT", "/api/application", { who: "300000000000000001", body: appBody, headers: { "X-Olympus": null } });
   check("a write without the page's X-Olympus header is refused", res.status === 403);
   res = await call("PUT", "/api/application", { who: "300000000000000001", body: appBody, origin: "https://evil.example" });
@@ -485,36 +504,37 @@ async function legacySchemaHeld(old) {
   check("  a header that is not a version number is refused as not from this page", res.status === 403);
 
   console.log("\n== application ==");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, ack: false } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, ack: false } });
   check("without the acknowledgement: 400 on the ack field", res.status === 400 && (await J(res)).field === "ack");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, answers: { ...appBody.answers, leadership: "" } } });
-  check("a leadership position needs the leadership answer", res.status === 400 && (await J(res)).field === "leadership");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, character: "Fern" } });
+  let historicalInvalid201 = await historicalValidation201({ ...appBody, answers: { ...appBody.answers, leadership: '' } }, '300000000000000001');
+  check("the historical leadership payload parser still requires its leadership answer", historicalInvalid201.field === 'leadership');
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, character: "Fern" } });
   check("a one-part character name is refused", res.status === 400 && (await J(res)).field === "character");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, answers: { ...appBody.answers, references: [{ kind: "discord", key: "300000000000000001", label: "me" }] } } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, answers: { ...appBody.answers, references: [{ kind: "discord", key: "300000000000000001", label: "me" }] } } });
   check("you cannot be your own reference", res.status === 400 && (await J(res)).field === "references");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, answers: { ...appBody.answers, logs: "javascript:alert(1)" } } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, answers: { ...appBody.answers, logs: "javascript:alert(1)" } } });
   check("a non-https link is refused", res.status === 400 && (await J(res)).field === "logs");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, position: "grand_poobah" } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, position: "grand_poobah" } });
   check("an unknown position is refused", res.status === 400 && (await J(res)).field === "position");
   for (const [backups, why] of [[["officer", "officer"], "the same backup twice"], [["raid_leader_eu"], "a backup equal to the first choice"], [["member"], "plain Member as a backup (the fallback box says that)"],
     [["class_lead"], "Class Lead without its class"], [["class_lead:bard"], "a class that does not exist"], [["officer", "treasurer", "professions"], "three backups"]]) {
-    res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, backups } });
-    check(`  refused: ${why}`, res.status === 400 && (await J(res)).field === "backups");
+    historicalInvalid201 = await historicalValidation201({ ...appBody, backups }, '300000000000000001');
+    check(`  historical canonical parser refuses: ${why}`, historicalInvalid201.error === 'invalid' && historicalInvalid201.field === 'backups');
   }
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, avail: hexOf([40, 41]) } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, avail: hexOf([40, 41]) } });
   check("fewer than three hours on the grid is refused", res.status === 400 && (await J(res)).field === "avail");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, avail: "zz" + EU_EVENINGS.slice(2) } });
+  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...validationBody201, avail: "zz" + EU_EVENINGS.slice(2) } });
   check("  so is a grid that is not 42 hex digits", res.status === 400 && (await J(res)).field === "avail");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, position: "raider", backups: ["officer"], answers: { ...appBody.answers, leadership: "" } } });
-  check("a leadership backup asks the leadership questions even when the first choice is Raider", res.status === 400 && (await J(res)).field === "leadership");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, board: false } });
-  check("a leadership application needs the voting-board box ticked", res.status === 400 && (await J(res)).field === "board");
+  historicalInvalid201 = await historicalValidation201({ ...appBody, position: 'raider', backups: ['officer'], answers: { ...appBody.answers, leadership: '' } }, '300000000000000001');
+  check("historical leadership backups still require leadership answers even for a Raider first choice", historicalInvalid201.field === 'leadership');
+  historicalInvalid201 = await historicalValidation201({ ...appBody, board: false }, '300000000000000001');
+  check("historical voted leadership payloads still require board agreement", historicalInvalid201.field === 'board');
   res = await call("PUT", "/api/application", { who: "300000000000000001", body: { ...appBody, position: "raid_leader", backups: [] } });
-  check("a page from before the NA/EU split still works: Raid Leader from Europe is saved as Raid Leader (EU raids)", res.status === 200 && (await J(res)).application.position === "raid_leader_eu");
-  res = await call("PUT", "/api/application", { who: "300000000000000001", body: appBody });
+  check("an old Raid Leader alias cannot bypass the current reserved-seat admission rule", res.status === 403 && (await J(res)).error === 'reserved_seat' && !db.prepare('SELECT 1 FROM site_applications').get());
+  check("the historical parser still normalizes Europe's old Raid Leader alias", (await historicalValidation201({ ...appBody, position: 'raid_leader', backups: [] }, '300000000000000001')).position === 'raid_leader_eu');
+  res = await historicalApplication201('300000000000000001', appBody);
   let out = await J(res);
-  check("a valid application is saved as submitted, with its backups in order", res.status === 200 && out.application.status === "submitted" && out.application.character === "Fern Melder" &&
+  check("an explicitly seeded historical application reads as submitted, with its backups in order", res.status === 200 && out.application.status === "submitted" && out.application.character === "Fern Melder" &&
     out.application.backups.join(",") === "officer,class_lead:priest", out.application);
   check("  the grid is kept as sent, with the time zone, and read as seven EU raid evenings and no NA ones",
     out.application.avail === EU_EVENINGS && out.application.availTz === "Europe/Stockholm" && out.application.fit.eu === 7 && out.application.fit.na === 0, out.application.fit);
@@ -543,9 +563,11 @@ async function legacySchemaHeld(old) {
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, backups: ["pvp_team"] } });
   check("  and a backup choice for a member", res.status === 200 && (await J(res)).application.backups.join(",") === "pvp_team");
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, position: "liaison" } });
-  check("Liaison (.44) is a leadership role: it asks the leadership questions", res.status === 400 && (await J(res)).field === "leadership");
+  check("Liaison is now a reserved seat rather than an applicant choice", res.status === 403 && (await J(res)).error === 'reserved_seat');
+  check("the historical Liaison parser retains its leadership-answer requirement", (await historicalValidation201({ ...memberBody, position: 'liaison' }, '300000000000000002')).field === 'leadership');
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: { ...memberBody, backups: ["leveling"] } });
-  check("  so does Leveling Lead as a backup", res.status === 400 && (await J(res)).field === "leadership");
+  check("  Leveling Lead is also reserved when sent as a backup", res.status === 403 && (await J(res)).error === 'reserved_seat');
+  check("  the historical Leveling Lead backup parser retains its leadership-answer requirement", (await historicalValidation201({ ...memberBody, backups: ['leveling'] }, '300000000000000002')).field === 'leadership');
   res = await call("PUT", "/api/application", { who: "300000000000000002", body: memberBody });
   check("  (back to a plain member application)", res.status === 200 && (await J(res)).application.backups.length === 0);
   // .45: the professions they plan to take on their main (optional): Forever's own, two primary at most.
@@ -672,10 +694,10 @@ async function legacySchemaHeld(old) {
     const A = "300000000000000001", B = "300000000000000002", C = "300000000000000003", G = "300000000000000007";
     // Alice: Raid Leader (EU) first, then Officer and Priest Class Lead. Carol: Officer, then Raid Assist (NA). Grace:
     // Raider first with Officer as a backup. Bob applied as a Member, which is never on the board.
-    res = await call("PUT", "/api/application", { who: C, body: { ...appBody, position: "officer", backups: ["raid_assist_na"], class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], experience: "Officer in two Classic guilds." } } });
-    check("Carol applies for Officer with a backup", res.status === 200, await J(res));
-    res = await call("PUT", "/api/application", { who: G, body: { ...appBody, position: "raider", backups: ["officer"], class: "warrior", role: "tank", region: "na_west", character: "", avail: hexOf([...evenings(24), ...evenings(18)]), availTz: "America/Los_Angeles" } });
-    check("Grace applies as a Raider with Officer as a backup", res.status === 200);
+    res = await historicalApplication201(C, { ...appBody, position: "officer", backups: ["raid_assist_na"], class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], experience: "Officer in two Classic guilds." } });
+    check("Carol's historical Officer application with a backup is readable", res.status === 200, await J(res));
+    res = await historicalApplication201(G, { ...appBody, position: "raider", backups: ["officer"], class: "warrior", role: "tank", region: "na_west", character: "", avail: hexOf([...evenings(24), ...evenings(18)]), availTz: "America/Los_Angeles" });
+    check("Grace's historical Raider application retains Officer as a backup", res.status === 200);
     res = await call("GET", "/api/board", { who: B });
     out = await J(res);
     const count = (k) => out.roles.find((r) => r.key === k);
@@ -835,9 +857,12 @@ async function legacySchemaHeld(old) {
     check("until the list is first saved, the Treasurer is appointed (Fernmelder)", (await me(A)).settings.appointed.treasurer === "Fernmelder");
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, position: "treasurer", backups: [] } });
     out = await J(res);
-    check("  so it cannot be a first choice", res.status === 400 && out.field === "position" && /appointed/.test(out.message), out);
+    check("  Treasury cannot be a new first choice because it is a reserved seat", res.status === 403 && out.error === 'reserved_seat', out);
+    historicalInvalid201 = await historicalValidation201({ ...appBody, position: 'treasurer', backups: [] }, B);
+    check("  the historical parser still reports the original Treasurer appointment on the first choice", historicalInvalid201.field === 'position' && /appointed/.test(historicalInvalid201.message));
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, backups: ["treasurer"] } });
-    check("  nor a backup", res.status === 400 && (await J(res)).field === "backups");
+    check("  nor can a reserved Treasury appointment be a new backup", res.status === 403 && (await J(res)).error === 'reserved_seat');
+    check("  the historical parser still refuses an appointed Treasury backup", (await historicalValidation201({ ...appBody, backups: ['treasurer'] }, B)).field === 'backups');
     res = await call("GET", "/api/board/treasurer", { who: B });
     out = await J(res);
     check("  its board is closed, and says who holds it", res.status === 409 && out.error === "appointed" && out.appointed === "Fernmelder");
@@ -864,9 +889,11 @@ async function legacySchemaHeld(old) {
     res = await call("GET", "/api/board/officer", { who: B });
     check("Alice stays on the board for her other choices", (await J(res)).candidates.some((x) => x.id === A));
     res = await call("PUT", "/api/application", { who: A, body: { ...appBody, position: "raid_leader_eu", backups: ["officer", "class_lead:priest"], class: "priest", role: "healer", region: "eu" } });
-    check("  and to save her application again she drops the appointed backup", res.status === 400 && (await J(res)).field === "backups");
+    check("  her historical leadership application cannot be edited through current admissions", res.status === 403 && (await J(res)).error === 'reserved_seat');
+    check("  the historical parser still requires dropping an appointed backup", (await historicalValidation201(appBody, A)).field === 'backups');
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, position: "class_lead", classLead: "priest", backups: [] } });
-    check("  Class Lead for an appointed class is refused on the class", res.status === 400 && (await J(res)).field === "classLead");
+    check("  Class Lead remains a reserved appointment, even for an already appointed class", res.status === 403 && (await J(res)).error === 'reserved_seat');
+    check("  the historical parser still reports an appointed Class Lead on the class field", (await historicalValidation201({ ...appBody, position: 'class_lead', classLead: 'priest', backups: [] }, B)).field === 'classLead');
     await call("PUT", "/api/votes", { who: C, body: { votes: [vote("officer", 1, "discord", A, "Alice"), vote("class_lead:priest", 1, "discord", A, "Alice")] } });
     const cRows = db.prepare("SELECT ballot, nominee_key FROM site_votes WHERE voter_id = ?1 ORDER BY ballot").all(C).map((r) => `${r.ballot}:${r.nominee_key}`).join();
     check("write-ins for an appointed role stay as they were; what the page sends for it is ignored", cRows === `class_lead:priest:${B},officer:${A}`, cRows);
@@ -878,7 +905,8 @@ async function legacySchemaHeld(old) {
     check("Leveling Lead and Liaison can be appointed like any board role; PvP Team, not being one, cannot",
       res.status === 200 && JSON.stringify(out.settings.appointed) === JSON.stringify({ leveling: "Nomad", liaison: "Kryptiiq" }), out.settings && out.settings.appointed);
     res = await call("PUT", "/api/application", { who: B, body: { ...appBody, position: "liaison", backups: [] } });
-    check("  and an appointed Liaison takes no applications", res.status === 400 && (await J(res)).field === "position");
+    check("  an appointed Liaison also remains reserved from new applications", res.status === 403 && (await J(res)).error === 'reserved_seat');
+    check("  the historical parser still refuses that appointed Liaison first choice", (await historicalValidation201({ ...appBody, position: 'liaison', backups: [] }, B)).field === 'position');
     await setAppointed({ treasurer: "Fernmelder" });
     const settingsRows = db.prepare("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id").all();
     const lastSettings = JSON.parse(settingsRows.at(-1).details);
@@ -899,20 +927,19 @@ async function legacySchemaHeld(old) {
     check("  and, until the list is first saved, it is chosen without a public vote", JSON.stringify((await me(A)).settings.noVote) === '["co_gm"]');
     const cogmBody = { ...appBody, position: "co_gm", backups: [], board: false, class: "warrior", role: "tank", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York",
       answers: { ...appBody.answers, references: [], professions: ["blacksmithing", "mining", "cooking"] } };
-    res = await call("PUT", "/api/application", { who: B, body: { ...cogmBody, answers: { ...cogmBody.answers, leadership: "" } } });
-    check("applying for it asks the leadership questions like any leadership role", res.status === 400 && (await J(res)).field === "leadership");
-    res = await call("PUT", "/api/application", { who: B, body: cogmBody });
+    historicalInvalid201 = await historicalValidation201({ ...cogmBody, answers: { ...cogmBody.answers, leadership: '' } }, B);
+    check("the historical Co-Guild Master payload still requires leadership answers", historicalInvalid201.field === 'leadership');
+    res = await historicalApplication201(B, cogmBody);
     out = await J(res);
-    check("  but not for the voting board: saved without the box, and kept off the board", res.status === 200 && out.application.position === "co_gm" && out.application.boardAt === null, out);
-    res = await call("PUT", "/api/application", { who: B, body: { ...cogmBody, board: true } });
-    check("  even when the page ticks it (nothing of it is voted on)", res.status === 200 && (await J(res)).application.boardAt === null && db.prepare("SELECT board_at FROM site_applications WHERE discord_id = ?1").get(B).board_at === null);
-    res = await call("PUT", "/api/application", { who: C, body: { ...appBody, position: "officer", backups: ["co_gm"], board: false, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } } });
+    check("  the explicit historical Co-GM fixture stays off the board without consent", res.status === 200 && out.application.position === "co_gm" && out.application.boardAt === null, out);
+    res = await historicalApplication201(B, { ...cogmBody, board: true });
+    check("  the historical non-voted Co-GM fixture stays off-board even with the old box ticked", res.status === 200 && (await J(res)).application.boardAt === null && db.prepare("SELECT board_at FROM site_applications WHERE discord_id = ?1").get(B).board_at === null);
+    historicalInvalid201 = await historicalValidation201({ ...appBody, position: "officer", backups: ["co_gm"], board: false, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } }, C);
+    check("historical voted Officer payloads beside a non-voted Co-GM backup still require consent", historicalInvalid201.field === 'board');
+    check("  the actual owned settings DTO retains the current no-vote list", JSON.stringify((await me(C)).settings.noVote) === '["co_gm"]');
+    res = await historicalApplication201(C, { ...appBody, position: "officer", backups: ["co_gm"], board: true, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } });
     out = await J(res);
-    check("a voted role beside it still needs the box (Officer first, Co-Guild Master as a backup)", res.status === 400 && out.field === "board");
-    check("  and the refusal carries the current list, so a page opened before a change can show the box", JSON.stringify(out.noVote) === '["co_gm"]', out);
-    res = await call("PUT", "/api/application", { who: C, body: { ...appBody, position: "officer", backups: ["co_gm"], board: true, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } } });
-    out = await J(res);
-    check("  and with it, Carol is on the board (her first agreement's time is kept)", res.status === 200 && out.application.boardAt !== null && out.application.boardAt < T && out.application.status === "submitted", out.application);
+    check("  Carol's historical fixture retains her first agreement's time on the board", res.status === 200 && out.application.boardAt !== null && out.application.boardAt < T && out.application.status === "submitted", out.application);
     res = await call("GET", "/api/board/co_gm", { who: A });
     out = await J(res);
     check("the Co-Guild Master has no board to read", res.status === 409 && out.error === "no_vote" && /without a public vote/.test(out.message), out);
@@ -948,8 +975,8 @@ async function legacySchemaHeld(old) {
     await call("PUT", "/api/votes", { who: C, body: { votes: [vote("officer", 1, "discord", B, "Bob")] } });
     const cOfficer = db.prepare("SELECT nominee_key FROM site_votes WHERE voter_id = ?1 AND ballot = 'officer'").all(C).map((r) => r.nominee_key).join();
     check("  its write-ins stay as they were (Carol's pick of Alice is kept; the page's new pick is ignored)", cOfficer === A, cOfficer);
-    res = await call("PUT", "/api/application", { who: C, body: { ...appBody, position: "officer", backups: ["co_gm"], board: false, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } } });
-    check("  Carol, with only roles without a public vote now, can save without the box (and leaves the board)", res.status === 200 && (await J(res)).application.boardAt === null);
+    res = await historicalApplication201(C, { ...appBody, position: "officer", backups: ["co_gm"], board: false, class: "mage", role: "dps", region: "na_east", character: "", avail: NA_EVENINGS, availTz: "America/New_York", answers: { ...appBody.answers, references: [], professions: ["tailoring", "enchanting"] } });
+    check("  Carol's explicit historical no-vote fixture has no board consent", res.status === 200 && (await J(res)).application.boardAt === null);
     const aliceMe = await me(A);
     check("  Alice is no longer told she was written in for Officer", !aliceMe.nominatedFor.includes("officer"), aliceMe.nominatedFor);
     check("  and Bob's votes on the Officer board (Alice and Carol) leave his progress", bobVotes === 2 && (await me(B)).boardVotes === 0, bobVotes);
@@ -963,15 +990,15 @@ async function legacySchemaHeld(old) {
     check("  (back to the Co-Guild Master alone)", res.status === 200 && JSON.stringify((await J(res)).settings.noVote) === '["co_gm"]');
     // One class's Class Lead without a public vote; and a role both appointed and on the list is simply appointed.
     await setNoVote(["co_gm", "class_lead:mage"]);
-    res = await call("PUT", "/api/application", { who: B, body: { ...cogmBody, position: "class_lead", classLead: "mage", backups: [], board: false } });
+    res = await historicalApplication201(B, { ...cogmBody, position: "class_lead", classLead: "mage", backups: [], board: false });
     out = await J(res);
-    check("a Class Lead for a class without a public vote needs no board consent", res.status === 200 && out.application.boardAt === null, out);
+    check("a historical Class Lead fixture for a non-voted class has no board consent", res.status === 200 && out.application.boardAt === null, out);
     res = await call("GET", "/api/board/class_lead:mage", { who: A });
     check("  that class's board is closed", res.status === 409 && (await J(res)).error === "no_vote");
     res = await call("GET", "/api/board/class_lead:priest", { who: A });
     check("  and another class's is not", res.status === 200);
-    res = await call("PUT", "/api/application", { who: B, body: { ...cogmBody, position: "class_lead", classLead: "priest", backups: [], board: false } });
-    check("  a voted class still needs it", res.status === 400 && (await J(res)).field === "board");
+    historicalInvalid201 = await historicalValidation201({ ...cogmBody, position: 'class_lead', classLead: 'priest', backups: [], board: false }, B);
+    check("  a historical voted class payload still requires board agreement", historicalInvalid201.field === 'board');
     await setNoVote(["co_gm", "treasurer"]);
     res = await call("GET", "/api/board/treasurer", { who: A });
     out = await J(res);
@@ -980,7 +1007,7 @@ async function legacySchemaHeld(old) {
     out = await J(res);
     check("  the board's summary shows no count for an appointed role either", out.roles.find((r) => r.key === "treasurer").applicants === 0);
     await setNoVote(["co_gm"]);
-    await call("PUT", "/api/application", { who: B, body: cogmBody });
+    await historicalApplication201(B, cogmBody);
 
     // Professions, for the leadership: a table on the admin overview, a filter on the applications, a column in the export.
     res = await call("GET", "/api/admin/overview", { who: VIKTOR });
@@ -1006,8 +1033,8 @@ async function legacySchemaHeld(old) {
     check("  Forever's professions: nine primary, three secondary, no Jewelcrafting or Inscription",
       data.PROFESSIONS.filter((p) => p.kind === "primary").length === 9 && data.PROFESSIONS.filter((p) => p.kind === "secondary").length === 3 && !data.PROFESSIONS.some((p) => /jewel|inscri/.test(p.key)));
     // A page from before .45 sends no professions: the stored ones stay. The .45 form always sends its list, even empty.
-    res = await call("PUT", "/api/application", { who: B, body: { ...cogmBody, answers: { ...cogmBody.answers, professions: undefined } } });
-    check("a re-save from a page that does not know professions keeps the stored ones", res.status === 200 && (await J(res)).application.answers.professions.join() === "blacksmithing,mining,cooking");
+    res = await call("PUT", "/api/application", { who: B, body: { ...memberBody, answers: { ...memberBody.answers, professions: undefined } } });
+    check("an explicit ordinary Member replacement from a legacy page retains existing professions", res.status === 200 && (await J(res)).application.answers.professions.join() === "blacksmithing,mining,cooking");
     await call("DELETE", "/api/application", { who: C });
     res = await call("GET", "/api/admin/overview", { who: VIKTOR });
     check("the professions table counts open applications only: Carol's withdrawn one leaves it", !(await J(res)).professions.some((r) => r.profession === "tailoring"));
@@ -1404,7 +1431,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-26.200 Olympus illustrated applications and Royal Writs switch" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-26.201 Olympus role directory and reserved appointments" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");
