@@ -247,6 +247,10 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (typeof body.loginAnimation !== "boolean") return apiJson({ error: "invalid", field: "loginAnimation", message: "Choose the still image or client-model animation using the checkbox." }, 400);
     next.loginAnimation = body.loginAnimation ? "1" : "0";
   }
+  if (body.royalWritsOn !== undefined) {
+    if (typeof body.royalWritsOn !== "boolean") return apiJson({ error: "invalid", field: "royalWritsOn", message: "Choose whether the Royal Writs schedule is shown using the checkbox." }, 400);
+    next.royalWritsOn = body.royalWritsOn ? "1" : "0";
+  }
   const time = (k: "namesOpenAt" | "launchAt") => {
     if (body[k] === undefined) return true;
     const t = typeof body[k] === "number" ? Math.floor(body[k] as number) : parseTime(String(body[k]), -1);

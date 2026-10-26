@@ -1404,7 +1404,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-25.199 Olympus ten-rank hierarchy and Royal Writs" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-26.200 Olympus illustrated applications and Royal Writs switch" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

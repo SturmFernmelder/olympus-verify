@@ -147,7 +147,23 @@ const body196=String.raw`
   await attendedLate196.go('#/roles');
   const workshop=await openPage(MEMBER); await workshop.go('#/community/workshop');
   check('workshop reuses real recipe search with accurate listing provenance',workshop.app.textContent.includes('Crafters & Artisans Workshop') && workshop.app.textContent.includes('Recipe ownership, rarity and skill are self-reported') && !!workshop.app.querySelector('input[type="search"]') && !!workshop.app.querySelector('[data-field="craft-mode"] select'));
-  const treasury196=await openPage(STAFF), treasuryCommands196=[], op196='1'.repeat(32);
+  const pausedTreasury200=await openPage(STAFF),pausedTreasuryCommands200=[];
+  pausedTreasury200.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))pausedTreasuryCommands200.push({path:p,method:init.method});return false;});
+  await pausedTreasury200.go('#/admin/treasury');
+  check('.200 default Treasury preserves receipt/status tools with paused operational copy and no price offer or command',pausedTreasury200.boot.settings.royalWritsOn===false&&pausedTreasury200.app.textContent.includes('The Royal Writs schedule and new Patron applications are paused.')&&pausedTreasury200.app.textContent.includes('Existing receipt and operation records remain available for staff review.')&&!pausedTreasury200.app.textContent.includes('Tithe Payer 25g+')&&!!pausedTreasury200.app.querySelector('#treasury-reference')&&!!pausedTreasury200.app.querySelector('#treasury-operation')&&!pausedTreasury200.app.querySelector('.royal-writs199')&&pausedTreasuryCommands200.length===0);
+  // The historical seasonal-tier fixture is explicitly ON for its own boot.
+  // Restore the exact prior local setting before any other fixture opens.
+  const priorRoyalSetting200=one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='royalWritsOn'");
+  let treasury196;
+  try {
+    await fixtureRun("INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES('royalWritsOn','1',?,NULL) ON CONFLICT(key) DO UPDATE SET value='1'",now);
+    treasury196=await openPage(STAFF);
+  } finally {
+    if(priorRoyalSetting200)await fixtureRun("UPDATE site_settings SET value=?,updated_at=?,updated_by=? WHERE key='royalWritsOn'",priorRoyalSetting200.value,priorRoyalSetting200.updated_at,priorRoyalSetting200.updated_by);
+    else await fixtureRun("DELETE FROM site_settings WHERE key='royalWritsOn'");
+  }
+  const treasuryCommands196=[], op196='1'.repeat(32);
+  check('.200 only the historical Treasury fixture captures ON and its temporary local setting is restored exactly',treasury196.boot.settings.royalWritsOn===true&&JSON.stringify(one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='royalWritsOn'"))===JSON.stringify(priorRoyalSetting200));
   treasury196.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))treasuryCommands196.push({path:p,method:init.method,body:init.body?JSON.parse(init.body):null});return false;});
   treasury196.answer(p=>p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Oz',shown:'Oz',onSite:true,appointmentStatus:'eligible'}]}:p==='/api/admin/treasury/target'?{discordId:OTHER,mailReference:'TITHE-ABCD-2345'}:p==='/api/admin/treasury/preview'?{token:'synthetic-ui-preview-only',expiresAt:Math.floor(Date.now()/1000)+180,qualifyingGold:25,seasonEndsAt:Math.floor(Date.now()/1000)+86400,dispatchEnabled:true,recognitionConsent:true,recognitionMode:'recognize',changes:[{operationId:op196,roleId:'123456789012345678',label:'Tithe Payer',desired:1}]}:p==='/api/admin/treasury/confirm'?{state:'unknown'}:p==='/api/admin/treasury/status'?{operation:{id:op196,state:'unknown',reason:'synthetic-ui-outcome',attempts:1},noRetry:true}:null);
   await treasury196.go('#/admin/treasury');

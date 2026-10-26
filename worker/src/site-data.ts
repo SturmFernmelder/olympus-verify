@@ -647,6 +647,7 @@ export interface SiteSettings {
   noVote: string[];           // roles that take applications but are chosen without a public vote (.45)
   newsOn: boolean;            // .115: the members' News page (site-news.ts); off until an administrator switches it on
   loginAnimation: boolean;    // owner-selected nonpersonal login artwork; approved stills by default
+  royalWritsOn: boolean;      // .200: display the Royal Writs schedule only after an administrator enables it
 }
 
 /**
@@ -755,6 +756,7 @@ export function settingsFrom(env: Env, rows: Array<{ key: string; value: string 
     noVote: parseNoVote(m.get("noVote")),
     newsOn: bool(m.get("newsOn"), false), // .115: a missing row means off (fail closed)
     loginAnimation: m.get("loginAnimation") === "1", // strict operator boolean; malformed values retain the approved still
+    royalWritsOn: m.get("royalWritsOn") === "1", // absent or malformed settings keep the schedule off
   };
 }
 

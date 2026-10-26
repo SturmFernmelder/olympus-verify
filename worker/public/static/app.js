@@ -132,6 +132,8 @@
   const offices199 = () => M().appointments || [];
   const office199 = key => offices199().find(row => row.key === key);
   const track199 = id => tracks199().find(row => row.id === id);
+  // .200: presentation and new Patron requests are paused unless an admin explicitly enables them.
+  const royalWritsVisible200 = () => S.settings?.royalWritsOn === true;
   // Membership-form adapters never turn separate artisan offices into one seat.
   const applicationLeadershipSeat199 = row => !!row?.applicationEligible && ["officer", "high_council"].includes(row.applicationTrack);
   const applicationSeatKeys199 = key => { const row = office199(key); return applicationLeadershipSeat199(row) ? row.applicationRoleKeys || [] : []; };
@@ -159,6 +161,7 @@
     return noticeBox("info", "pos-treasurer", h("p", { class: "gold-policy199", text: policy.banner || "100% World of Warcraft: Forever in-game gold only, via in-game mail/trade to Fernmelder. Zero real-world money, USD, Twitch subscriptions or crypto; all addons remain free with no paid addon gating. Officer review and Discord Trust & Safety rules apply." }));
   }
   function writsPanel199(page, { checklist = false, keys = null } = {}) {
+    if (!royalWritsVisible200()) return null;
     const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
     return h("section", { class: "royal-writs199", "data-royal-writ-page": page }, goldBanner199(),
       h("details", { class: "card", open: checklist }, h("summary", { text: checklist ? "Stockades Appeals & Royal Pardons — operator reference" : "Schedule of Royal Writs, Indulgences & Guild Services" }),
@@ -182,7 +185,7 @@
         const cells = [h("strong", { text: `Rank ${rank.nativeRankOrdinal} ${rank.name}` }), h("div", null, tiers.join(" / "), h("br"), h("a", { href: "#/governance", text: `Title ${titles.join(" / ") || "I–V"}` })),
           h("details", null, h("summary", { text: `${rows.length} mapped office / assignment keys` }), h("ul", null, rows.map(row => h("li", null, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }), " · ", row.department)))),
           h("p", { text: [...new Set(rows.map(row => row.discordPortal))].join(" ") || "Olympus Guild Member; cosmetic tithe tiers and Broadcaster / Stream Shield are separate consented labels and capabilities." }),
-          h("p", null, "Apply on ", h("a", { href: "#/vote", text: "/#/vote" }), "; royal appointment or reviewed voluntary in-game gold writ where stated. In-game verification via /oly discord remains subject to separate Link activation.")];
+          h("p", null, "Apply on ", h("a", { href: "#/vote", text: "/#/vote" }), royalWritsVisible200() ? "; royal appointment or reviewed voluntary in-game gold writ where stated." : "; royal appointment where required. Royal Writs and new Patron applications are paused.", " In-game verification via /oly discord remains subject to separate Link activation.")];
         return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal) }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
       }))));
   }
@@ -197,27 +200,69 @@
       }))));
   }
   function applicationTrackPicker199(onChoose, initial = {}) {
-    const select = h("select", { id: "application-track199", "aria-label": "Application track" }, h("option", { value: "", text: "Select your application track…" }), tracks199().map(row => h("option", { value: row.id, selected: row.id === initial.applicationTrack, text: row.label + " — " + row.rankPath })));
+    const visibleTracks = tracks199().filter(row => row.id !== "patron" || royalWritsVisible200());
+    const trackCopy = {
+      member: { icon: "pos-member", purpose: "Find your place in Olympus at your own pace: leveling, dungeons, guild events and everyday company.", duties: ["Join the activities that suit your interests and availability.", "Help fellow members and follow the guild's published rules."], commitment: "No minimum commitment. Admission and verified standing are reviewed; selecting this path does not grant a rank." },
+      raider: { icon: "pos-raider", purpose: "Build toward dependable PvE progression with a prepared character and a team that knows when you can play.", duties: ["Prepare your gear and consumables for the content you join.", "Communicate availability, listen to assignments and help the raid improve."], commitment: "Your team's agreed raid times and readiness review apply. An application guarantees neither a raid place nor loot." },
+      artisan: { icon: "pos-professions", purpose: "Put your professions and rare recipes to work for the guild through the opt-in Workshop.", duties: ["Offer the recipes and services you choose to list.", "Agree materials, fees and timing before accepting a commission."], commitment: "Offer only the work you can fulfil. A profession listing or specialist title grants no officer, moderation or bank permissions." },
+      officer: { icon: "pos-officer", purpose: "Take responsibility for a specific part of guild life: branch leadership, raids, class support, recruitment, events or moderation.", duties: ["Choose the exact office below and explain the service you can provide.", "Work within that office's remit and keep decisions accountable."], commitment: "Time and duties depend on the selected seat. Appointment, native rank and access require separate review." },
+      high_council: { icon: "pos-co_gm", purpose: "Apply to steward a High Council portfolio, from the Privy Court and War Council to intake, artisanry, systems or heraldry.", duties: ["Choose the portfolio whose responsibilities match your experience.", "Explain your plans, availability and how you will handle conflicts of interest."], commitment: "High Council is separate from the Officer Corps. An application is not an appointment, signing authority or permission grant." },
+      patron: { icon: "pos-treasurer", purpose: "Request a reviewed Royal Patron or Flagship charter through the voluntary in-game gold writ track.", duties: ["Read the applicable writ and confirm its review and capacity conditions.", "Use only the designated in-game mail or trade procedure when authorized."], commitment: "In-game gold only; no real-world money or paid addon gating. A writ grants no automatic rank, access, moderation outcome or place." }
+    };
+    const select = h("select", { id: "application-track199", "aria-label": "Application track" }, h("option", { value: "", text: "Select your application track…" }), visibleTracks.map(row => h("option", { value: row.id, selected: row.id === initial.applicationTrack, text: row.label + " — " + row.rankPath })));
+    const trackStates = [], trackCards = h("div", { class: "application-tracks200", "aria-label": "Illustrated application paths" }, visibleTracks.map(row => {
+      const copy = trackCopy[row.id] || { icon: "pos-member", purpose: row.description, duties: [], commitment: "Your application is reviewed separately from any appointment or access." };
+      const choose = h("button", { type: "button", class: "btn small", "aria-label": "Choose application path: " + row.label, "aria-pressed": "false", "data-choose-track200": row.id, text: "Choose this path" });
+      const card = h("article", { class: "application-track-card200", "data-application-track-card": row.id },
+        h("div", { class: "application-card-head200" }, icon(copy.icon, "l"), h("h3", { text: row.label })),
+        h("span", { class: "badge", text: row.rankPath }), h("p", { text: copy.purpose }),
+        h("ul", null, copy.duties.map(text => h("li", { text }))),
+        h("details", { class: "application-expectations200" }, h("summary", { text: "Commitment & expectations" }), h("p", { class: "small", text: copy.commitment })), choose);
+      choose.addEventListener("click", () => { if (select.value !== row.id) { select.value = row.id; select.dispatchEvent(new Event("change", { bubbles: true })); } });
+      trackStates.push({ id: row.id, card, choose });
+      return card;
+    }));
     const search = h("input", { type: "search", id: "application-office-search199", placeholder: "Search title, department or portfolio", "aria-label": "Search specific office" });
     const offices = h("select", { id: "application-office199", "aria-label": "Specific office or Council portfolio" });
-    const specific = h("div", { class: "field" }, h("label", { for: "application-office-search199", text: "Search the Office / Portfolio Picker" }), search, h("label", { for: "application-office199", text: "Specific role" }), offices);
-    const description = h("p", { class: "muted small" }), button = h("button", { type: "button", class: "btn small", text: "Apply on this track" });
+    const officeCards = h("div", { class: "application-offices200" }), officeCount = h("p", { class: "muted small", "aria-live": "polite" });
+    const specific = h("div", { class: "field application-office-picker200" }, h("h3", { text: "Choose the specific office you want to serve" }), h("p", { class: "muted small", text: "These are individual offices, not extra native ranks. A recorded vacancy still requires current leadership review; filled seats cannot be selected." }), h("label", { for: "application-office-search199", text: "Search the Office / Portfolio Picker" }), search, h("label", { for: "application-office199", text: "Specific role — quick selector" }), offices, officeCount, officeCards);
+    const description = h("p", { class: "muted small application-selection200", "aria-live": "polite" }), button = h("button", { type: "button", class: "btn small", text: "Apply on this track" });
+    let officeStates = [];
     let chosen = initial.targetOffice || "";
-    function sync() {
-      const t = track199(select.value), needs = ["officer", "high_council"].includes(select.value), filter = search.value.trim().toLowerCase();
+    function sync(rebuild = true) {
+      const t = visibleTracks.find(row => row.id === select.value), needs = !!t && ["officer", "high_council"].includes(select.value), filter = search.value.trim().toLowerCase();
       specific.hidden = !needs;
-      clear(offices); add(offices, h("option", { value: "", text: "Choose a specific office…" }));
-      const rows = offices199().filter(row => row.applicationEligible && row.applicationTrack === select.value && (!filter || [row.label, row.applicationLabel, row.department, ...(row.applicationAliases || [])].join(" ").toLowerCase().includes(filter)));
-      for (const row of rows) add(offices, h("option", { value: row.key, text: row.applicationLabel || row.label, selected: row.key === chosen, disabled: !!displayHolder(row.key) }));
+      const rows = needs ? offices199().filter(row => row.applicationEligible && row.applicationTrack === select.value && (!filter || [row.label, row.applicationLabel, row.department, ...(row.applicationAliases || [])].join(" ").toLowerCase().includes(filter))) : [];
+      if (rebuild) {
+        clear(offices); add(offices, h("option", { value: "", text: "Choose a specific office…" }));
+        clear(officeCards); officeStates = [];
+        for (const row of rows) {
+          const holder = displayHolder(row.key), p = positionOf(row.key);
+          add(offices, h("option", { value: row.key, text: row.applicationLabel || row.label, selected: row.key === chosen, disabled: !!holder }));
+          const choose = h("button", { type: "button", class: "btn small", "aria-label": "Choose office: " + (row.applicationLabel || row.label), disabled: !!holder, "aria-pressed": "false", "data-choose-office200": row.key, text: holder ? "Seat filled" : "Choose this office" });
+          const card = h("article", { class: "application-office-card200" + (holder ? " appointed" : ""), "data-application-office-card": row.key },
+            h("div", { class: "application-card-head200" }, posIcon(row.key, "l"), h("h4", { text: row.applicationLabel || row.label })), officeBadge199(row),
+            h("p", { class: "muted small", text: row.department }), h("p", { text: p?.blurb || `${row.label} is a specific ${row.tierLabel} office in ${row.department}.` }),
+            h("details", { class: "application-expectations200" }, h("summary", { text: "Responsibilities & expectations" }), p?.info ? roleInfo(p) : h("div", null, h("p", { class: "small", text: row.acquisition }), h("p", { class: "small", text: row.discordPortal }))),
+            h("p", { class: "muted small", text: holder ? "An appointment is recorded; this seat takes no applications." : "No appointment recorded here. Selection does not confer the office or its permissions." }), choose);
+          choose.addEventListener("click", () => { if (!choose.disabled) { offices.value = row.key; offices.dispatchEvent(new Event("change", { bubbles: true })); } });
+          officeStates.push({ key: row.key, card, choose }); add(officeCards, card);
+        }
+      }
       offices.value = rows.some(row => row.key === chosen && !displayHolder(row.key)) ? chosen : "";
+      for (const state of trackStates) { const active = state.id === t?.id; state.card.classList.toggle("chosen", active); state.choose.setAttribute("aria-pressed", String(active)); state.choose.textContent = active ? "Selected path" : "Choose this path"; }
+      for (const state of officeStates) { const active = state.key === offices.value; state.card.classList.toggle("chosen", active); state.choose.setAttribute("aria-pressed", String(active)); if (!state.choose.disabled) state.choose.textContent = active ? "Selected office" : "Choose this office"; }
+      officeCount.textContent = rows.length ? `${rows.length} matching office${rows.length === 1 ? "" : "s"}. Choose one specific seat to continue.` : "No offices match this search. Try another title, department or portfolio.";
       description.textContent = t?.description || "Choose your requested path. Selecting a track grants no rank, priority, vote, role or access.";
       button.disabled = !t || (needs && !offices.value) || S.settings?.applicationsOpen === false;
     }
-    select.addEventListener("change", () => { chosen = ""; search.value = ""; sync(); }); search.addEventListener("input", sync);
-    offices.addEventListener("change", () => { chosen = offices.value; button.disabled = !chosen || S.settings?.applicationsOpen === false; });
+    select.addEventListener("change", () => { chosen = ""; search.value = ""; sync(); }); search.addEventListener("input", () => sync());
+    offices.addEventListener("change", () => { chosen = offices.value; sync(false); });
     button.addEventListener("click", () => { if (!button.disabled) onChoose({ applicationTrack: select.value, targetOffice: specific.hidden ? null : offices.value }); });
     sync();
-    return frame("What Are You Applying For? (Select Your Application Track & Specific Role)", h("a", { href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }), h("label", { for: "application-track199", text: "Application track" }), select, specific, description, button);
+    const chooser = frame("What Are You Applying For? (Select Your Application Track & Specific Role)", h("a", { href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }), h("p", { text: "Choose a path by what you want to do for the guild, then tell us about yourself. You can explore the responsibilities before making a choice." }), trackCards, h("div", { class: "field application-track-quick200" }, h("label", { for: "application-track199", text: "Application track — quick selector" }), select), specific, description, button);
+    chooser.classList.add("application-chooser200");
+    return chooser;
   }
   // The boot carries the RESOLVED identity (item 7, 14 Oct 2026): the exact public beta, or an activated full-release profile
   // whose opaque revision has the server's shape. A held identity, or anything else, renders as unavailable; boot data never
@@ -1726,7 +1771,7 @@
         h("button", { class: "btn small", type: "button", text: "Collapse all chapters", onclick: () => { for (const section of details.values()) section.open = false; } }), result),
       h("div", { class: "governance-layout" }, h("aside", { class: "governance-toc" }, h("nav", { "aria-label": "Book chapters" }, h("h2", { text: "Contents" }), h("ol", null, tocList))),
         h("div", { class: "governance-reader" }, h("nav", { class: "governance-page-nav", "aria-label": "Chapter navigation" }, prev, current, next), chapterNodes)), matchNav]);
-    add(main, writsPanel199("governance"));
+    add(main, royalWritsVisible200() ? writsPanel199("governance") : h("p", {class:"muted small writs-paused200",text:"Royal Writs and new Patron applications are currently paused. The constitutional book and its downloads retain the adopted policy text for reference; they are not an offer of an available service."}));
     selection(index); filter();
     if (selected >= 0) selection(index, true);
     window.addEventListener("beforeprint", preparePrint);
@@ -2135,6 +2180,14 @@
     const rememberedIntent199 = rememberedOffice199?.applicationEligible && ["officer","high_council"].includes(rememberedOffice199.applicationTrack) ? {applicationTrack:rememberedOffice199.applicationTrack,targetOffice:rememberedOffice199.key} : null;
     const intent199 = pendingIntent199 || (S.pick ? rememberedIntent199 : track199(ans.applicationTrack) ? {applicationTrack:ans.applicationTrack,targetOffice:ans.targetOffice || null} : !a ? {applicationTrack:"member",targetOffice:null} : null);
     S.applicationIntent199 = null;
+    if (intent199?.applicationTrack === "patron" && !royalWritsVisible200()) {
+      add(main, [frame("Patron applications are paused", null,
+        h("p", {text:"Royal Writs are currently switched off. You can explore the other application paths below. Any existing application and its original track remain recorded; choosing another path is a new, explicit edit."}),
+        a ? applicationSummary(a) : null,
+        a && a.status !== "withdrawn" ? h("button", {class:"btn small",type:"button",text:"Withdraw my application",onclick:withdraw}) : null),
+        applicationTrackPicker199(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; })]);
+      return;
+    }
     const form = h("form", { novalidate: true });
     const unsaved = h("span", { class: "dirty", hidden: true, text: "Unsaved changes" });
     const touch = () => setDirty("apply", true, unsaved);
@@ -2629,7 +2682,7 @@
     const s = S.settings || {};
     const closed = !s.votingOpen;
     if (main.dataset.applicationTrack199) { clear(main); delete main.dataset.applicationTrack199; boardShells.delete(main); }
-    const settingsKey = JSON.stringify([s.votingOpen, s.noVote, s.appointed]);
+    const settingsKey = JSON.stringify([s.votingOpen, s.noVote, s.appointed, s.royalWritsOn === true]);
     let shell = boardShells.get(main);
     if (shell && shell.settingsKey !== settingsKey) { clear(main); shell = null; boardShells.delete(main); }
     if (!main.querySelector("#application-track199")) {
@@ -3045,11 +3098,11 @@
         h("p", { class: "muted small", text: `Leadership roles go on the voting board, where members read the applications and vote for or against; the guild's leadership makes the final choice.${lead.some(noVoteOf) || meta.classes.some((c) => noVoteFor(`class_lead:${c.key}`)) ? " Those marked “no public vote” are chosen by the leadership alone." : ""} Raider, PvP Team and Member are the plain ways in.` }),
         h("div", { class: "role-chips" }, lead.map(chip)),
         h("div", { class: "role-chips mt-s" }, members.map(chip))),
-      h("details", {class:"card technical-profile199"}, h("summary", {text:"Historical three-tier provider profile (dispatch OFF)"}),
+      royalWritsVisible200() ? h("details", {class:"card technical-profile199"}, h("summary", {text:"Historical three-tier provider profile (dispatch OFF)"}),
         h("p", {text:"Optional colour-only recognition for verified additional in-game gold: Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Ordinary dues do not count; use the designated Treasurer recipient and your TITHE reference."}),
         h("p", {class:"muted small", text:"Only the highest qualifying tier applies during one configured 90-day season. Its start is recorded when live tier dispatch is activated; source publication does not start a season or enable roles. Staff verify the extra-gold receipt, record the member’s recognition consent and separately confirm each exact role change."}),
         h("p", {class:"muted small", text:"These colours grant no membership, native rank, channel or bank access, vote, office or promotion. A website label reflects an actually held configured role during the season; it lapses at season end independently of Discord cleanup. Bounded removal may be delayed, and unknown provider outcomes remain held without blind retry."}),
-        h("a", {href:"#/governance", text:"Read the Treasury governance rules"})),
+        h("a", {href:"#/governance", text:"Read the Treasury governance rules"})) : null,
       h("div", { class: "group-label", text: "Leadership" }),
       h("div", { class: "roles-grid" }, lead.map(card)),
       h("div", { class: "group-label", text: "Membership" }),
@@ -3416,6 +3469,8 @@
     newsBox.id = "news-on";
     const [loginAnimation, loginAnimationRow] = box(s.loginAnimation === true, "Use the optional animated login background", "Off by default: keeps the previously approved still image. On: uses the existing client-model render, not publisher video; reduced-motion and data-saving fallbacks still apply.");
     loginAnimation.id = "login-animation";
+    const [royalWrits, royalWritsRow] = box(s.royalWritsOn === true, "Show the Schedule of Royal Writs, Indulgences & Guild Services", "Off by default: hides the schedule across the site and pauses new Patron-track applications. Existing applications, receipts and constitutional reference text are preserved. Turning this on does not enable payments, Discord role dispatch, Olympus Link or any other provider action.");
+    royalWrits.id = "royal-writs-on";
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
     const was = s.appointed || {};
     const appointed = (M().appointments || M().ballots).map((b) => [b, h("input", { type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${b.label}: appointed to` })]);
@@ -3448,7 +3503,7 @@
       if (!a || !b) return toast("Both times are needed.", "bad");
       save.disabled = true;
       try {
-        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, loginAnimation: loginAnimation.checked === true, notice: notice.value,
+        const out = await api("PUT", "/api/admin/settings", { namesOpenAt: a, launchAt: b, namesTimeConfirmed: confirmed.checked, namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked, newsOn: newsBox.checked, loginAnimation: loginAnimation.checked === true, royalWritsOn: royalWrits.checked === true, notice: notice.value,
           appointed: Object.fromEntries(appointed.map(([bb, input]) => [bb.key, input.value.trim()]).filter(([, who]) => who)),
           noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key), namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked }, { live: settingsLive });
         if (!settingsLive()) return;
@@ -3476,7 +3531,7 @@
         h("label", { class: "field" }, h("span", { class: "lab", text: "Name reservation opens" }), namesAt, namesPt),
         h("label", { class: "field" }, h("span", { class: "lab", text: "Launch" }), launchAt, launchPt)),
       h("p", { class: "muted small", text: "Times are entered in your own time zone; the line under each shows the Pacific time Blizzard announces in." }),
-      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow, loginAnimationRow,
+      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow, loginAnimationRow, royalWritsRow,
       h("label", { class: "field" }, h("span", { class: "lab", text: "Notice" }), notice),
       h("div", { class: "rule" }),
       h("h3", { text: "Appointed roles" }),
@@ -3881,7 +3936,7 @@
     const sync = () => { consent.disabled = decline.disabled = busy || !!spent || storageHeld; targetReference.disabled = busy || !target; record.disabled = busy || !target || !evidence.checked || !!spent || storageHeld; review.disabled = busy || !target || currentRecognition() === null || !!spent || storageHeld; status.disabled = busy || !/^[0-9a-f]{32}$/.test(operation.value.trim()); };
     const field = (text, input) => h("label", { class: "field" }, h("span", { class: "lab small", text }), input);
     add(panel, frame("Treasury · cosmetic recognition", null,
-      h("p", { text: "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to the designated Treasurer recipient shown through the qualified appointment listing. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." }),
+      h("p", { text: royalWritsVisible200() ? "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to the designated Treasurer recipient shown through the qualified appointment listing. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." : "The Royal Writs schedule and new Patron applications are paused. Existing receipt and operation records remain available for staff review. Provider dispatch has its own separate OFF gate; this display switch does not enable it." }),
       h("p", { class: "muted small", text: "Ordinary dues do not count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
       picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
       field("Immutable receipt reference", reference), field("Additional gold received", amount), field("Received at (your local time)", observed), field("Member's TITHE- reference", mail),

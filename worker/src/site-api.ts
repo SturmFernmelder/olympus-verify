@@ -514,7 +514,10 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
   // A page opened before a role was put to the vote hid the board box: the list it lacked comes back with the refusal,
   // so the page can show the box and the applicant tick it, without losing what they typed.
   if ("error" in a) return a.field === "board" ? apiJson({ ...a, noVote: s.noVote }, 400) : bad(a);
-  const answers = JSON.parse(a.answers) as { references?: Pick[]; professions?: string[] };
+  const answers = JSON.parse(a.answers) as { applicationTrack?: string; references?: Pick[]; professions?: string[] };
+  if (answers.applicationTrack === 'patron' && !s.royalWritsOn) {
+    return apiJson({ error: 'royal_writs_paused', field: 'applicationTrack', message: 'Royal Writs and Patron applications are paused. Your existing application is unchanged; other application tracks remain available.' }, 403);
+  }
   let changed = false;
   if (answers.references?.length) {
     answers.references = await trustedLabels(env, answers.references);
