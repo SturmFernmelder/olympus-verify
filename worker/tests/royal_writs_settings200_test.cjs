@@ -97,8 +97,13 @@ const body200 = String.raw`
   res200 = await call('GET', '/api/me/export', { who: member200 }); result200 = await J(res200);
   check('pause preserves the existing Patron intent in Native owned copy', res200.status === 200 && result200.site?.application.answers.applicationTrack === 'patron' && JSON.stringify(application200()) === preservedPatron200);
   for (const [track, position, targetOffice, board] of [['member', 'member', null, false], ['raider', 'raider', null, false], ['artisan', 'member', null, false], ['officer', 'officer', 'office_62', true], ['high_council', 'office_03', 'office_03', true]]) {
+    const beforeTrack200 = JSON.stringify(db.prepare('SELECT * FROM site_applications WHERE discord_id=?').get(otherMember200));
     res200 = await call('PUT', '/api/application', { who: otherMember200, body: { ...applicationBody200, character: 'Other Tester', applicationTrack: track, position, targetOffice, board } }); result200 = await J(res200);
-    check(track + ' remains available while Royal Writs and Patron are OFF', res200.status === 200 && result200.application?.answers.applicationTrack === track && setting200().value === '0', res200.status, result200);
+    if (['officer', 'high_council'].includes(track)) {
+      check(track + ' is a reserved appointment independently of the Royal Writs switch', res200.status === 403 && result200.error === 'reserved_seat' && JSON.stringify(db.prepare('SELECT * FROM site_applications WHERE discord_id=?').get(otherMember200)) === beforeTrack200 && setting200().value === '0', res200.status, result200);
+    } else {
+      check(track + ' remains available while Royal Writs and Patron are OFF', res200.status === 200 && result200.application?.answers.applicationTrack === track && setting200().value === '0', res200.status, result200);
+    }
   }
   const beforeLogout200 = snapshot200();
   const logout200 = await call('POST', '/auth/logout', { who: VIKTOR });

@@ -22,16 +22,17 @@ const body183 = String.raw`
   const awaitNames183=async(root,label)=>waitFor(()=>hasNames183(root),label);
   const appointmentFlow183=(line,sentence)=>!!line&&line.childNodes.length===2&&line.children[0]?.tagName==='IMG'&&line.children[1]?.tagName==='SPAN'&&line.querySelector('[data-appointment-label]')?.parentNode===line.children[1]&&line.children[1].textContent.endsWith(sentence);
   await page183.go('#/roles'); await awaitNames183(page183.app,'fresh Roles names');
-  check('both supported Roles cards use their fresh admitted display labels, not account pointers',hasNames183(page183.app)&&page183.app.querySelector('[data-appointed-person="co_gm"]').textContent.includes(coLabel183)&&page183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes(treasurerLabel183)&&!page183.app.textContent.includes(discordOnly183)&&!page183.app.textContent.includes(treasurer183));
-  check('Discord-only projection needs no invented website account and reveals no private characters',!one('SELECT 1 FROM site_users WHERE discord_id=?',discordOnly183)&&page183.app.querySelector('[data-appointed-person="co_gm"]').textContent.includes('No current verified characters are available')&&!page183.app.querySelector('[data-appointed-person="co_gm"]').textContent.includes('Private Treasury Fixture'));
-  check('existing character details remain on the separate supported Roles slot',page183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes('Verified characters: Private Treasury Fixture'));
-  check('each appointed Roles name and its following sentence share one text flex item beside the tick',page183.app.querySelectorAll('[data-appointed-person] .appointed-line').length===2&&page183.app.querySelectorAll('[data-appointed-person] .appointed-line').every(line=>appointmentFlow183(line,' This role takes no applications or votes.')));
+  check('both supported Roles cards use their fresh admitted display labels, not account pointers',hasNames183(page183.app)&&page183.app.querySelector('[data-office-assignment="co_gm"]').textContent.includes(coLabel183)&&page183.app.querySelector('[data-office-assignment="treasurer"]').textContent.includes(treasurerLabel183)&&!page183.app.textContent.includes(discordOnly183)&&!page183.app.textContent.includes(treasurer183));
+  check('Discord-only projection needs no invented website account and reveals no private characters',!one('SELECT 1 FROM site_users WHERE discord_id=?',discordOnly183)&&page183.app.querySelector('[data-office-assignment="co_gm"]').textContent.includes('No current verified characters are available')&&!page183.app.querySelector('[data-office-assignment="co_gm"]').textContent.includes('Private Treasury Fixture'));
+  check('existing character details remain on the separate supported Roles slot',page183.app.querySelector('[data-office-assignment="treasurer"]').textContent.includes('Verified characters: Private Treasury Fixture'));
+  check('current directory appointment names remain single punctuated text spans beside separate reserved guidance',['co_gm','treasurer'].every(key=>{const label=page183.app.querySelector('[data-role-key201="'+key+'"] [data-appointment-label]');return label?.tagName==='SPAN'&&label.parentNode.tagName==='P'&&label.textContent.endsWith('.')&&!label.textContent.includes('..');}));
   const rolesReads183=reads183;
   await page183.go('#/apply'); await awaitNames183(page183.app,'fresh application names');
   const radio183=key=>page183.app.querySelectorAll('input[name="position"]').find(node=>node.value===key);
-  check('application choices use the same fresh holder labels while both appointments stay disabled',hasNames183(page183.app)&&radio183('co_gm').disabled&&radio183('treasurer').disabled&&reads183===rolesReads183+1);
+  check('current application directory keeps fresh holder labels while both reserved seats have no selection controls',hasNames183(page183.app)&&['co_gm','treasurer'].every(key=>!radio183(key)&&!!page183.app.querySelector('[data-role-key201="'+key+'"] .reserved-explanation201')&&!page183.app.querySelector('[data-role-key201="'+key+'"] [data-apply-role201]'))&&reads183===rolesReads183+1);
   check('application labels do not copy the private character list or raw account association',!page183.app.textContent.includes('Private Treasury Fixture')&&!page183.app.textContent.includes(discordOnly183));
-  const details183=page183.app.querySelector('button[aria-label="Details: Co-Guild Master"]');details183.click();
+  // The leadership-radio Details entrance was retired; invoke the actual production dialog through the bounded local VM exposure below.
+  const details183={click:()=>page183.window.__roleDialog201('co_gm')};details183.click();
   await waitFor(()=>page183.document.body.querySelector('dialog')?.textContent.includes(coLabel183),'fresh appointment role dialog');
   const dialog183=page183.document.body.querySelector('dialog');
   check('application role information resolves the current Discord-only holder and still offers no appointed-role selection',dialog183.textContent.includes(coLabel183)&&dialog183.textContent.includes('This role takes no applications')&&!dialog183.textContent.includes('Choose as my first choice')&&!dialog183.textContent.includes('Private Treasury Fixture'));
@@ -45,11 +46,11 @@ const body183 = String.raw`
   check('a reused Vote shell re-reads the current role instead of carrying a cross-route identity cache',page183.app.querySelector('.board-role-content').textContent.includes(treasurerLabel183)&&!page183.app.querySelector('.board-role-content').textContent.includes(coLabel183));
   await page183.go('#/roles');await awaitNames183(page183.app,'names before visibility clear');const readsBeforeHide183=reads183;
   page183.document.hidden=true;page183.document.dispatchEvent(new Event('visibilitychange'));
-  check('hiding a view clears fresh names and characters while leaving both appointments closed',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&page183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
+  check('hiding a view clears fresh names and characters while leaving both appointments closed',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&['co_gm','treasurer'].every(key=>page183.app.querySelector('[data-office-assignment="'+key+'"]')?.textContent.includes('Filled by appointment')));
   const changedTreasury183={...treasury183,displayName:'Fresh Returned Treasurer'},changedLabel183='Fresh Returned Treasurer (ledger.user)';
   page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,changedTreasury183]}:null);
   page183.document.hidden=false;page183.document.dispatchEvent(new Event('visibilitychange'));await waitFor(()=>page183.app.textContent.includes(changedLabel183),'fresh appointment read after tab return');
-  check('returning to the same admitted view reads names afresh instead of replaying the pre-hide projection',reads183===readsBeforeHide183+1&&page183.app.textContent.includes(changedLabel183)&&!page183.app.textContent.includes(treasurerLabel183)&&page183.app.querySelector('[data-appointed-person="treasurer"]').textContent.includes('Verified characters: Private Treasury Fixture'));
+  check('returning to the same admitted view reads names afresh instead of replaying the pre-hide projection',reads183===readsBeforeHide183+1&&page183.app.textContent.includes(changedLabel183)&&!page183.app.textContent.includes(treasurerLabel183)&&page183.app.querySelector('[data-office-assignment="treasurer"]').textContent.includes('Verified characters: Private Treasury Fixture'));
   page183.document.dispatchEvent(new Event('visibilitychange'));await settle();
   check('an unchanged visibility notification does not issue a second appointment read',reads183===readsBeforeHide183+1);
   for(const staleKind183 of ['identity','401']){
@@ -61,7 +62,7 @@ const body183 = String.raw`
     page183.document.hidden=true;page183.document.dispatchEvent(new Event('visibilitychange'));
     page183.document.hidden=false;page183.document.dispatchEvent(new Event('visibilitychange'));await waitFor(()=>page183.app.textContent.includes(changedLabel183),'new generation appointment reply');
     await new Promise(resolve=>setTimeout(resolve,210));
-    check('a pre-hide '+staleKind183+' reply cannot overwrite or sign out the fresh returned appointment view',page183.app.textContent.includes(changedLabel183)&&!page183.app.textContent.includes(treasurerLabel183)&&!page183.app.textContent.includes('You were signed out')&&!!page183.app.querySelector('[data-appointed-person="treasurer"]'));
+    check('a pre-hide '+staleKind183+' reply cannot overwrite or sign out the fresh returned appointment view',page183.app.textContent.includes(changedLabel183)&&!page183.app.textContent.includes(treasurerLabel183)&&!page183.app.textContent.includes('You were signed out')&&!!page183.app.querySelector('[data-office-assignment="treasurer"]'));
     page183.hold(null);
   }
   for(const status183 of [401,403,503]){
@@ -74,7 +75,7 @@ const body183 = String.raw`
   }
   page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[]}:null);
   await page183.go('#/');await page183.go('#/roles');await settle();
-  check('an unavailable fresh identity never leaves cached names or changes the appointed closure',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&page183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
+  check('an unavailable fresh identity never leaves cached names or changes the appointed closure',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture')&&['co_gm','treasurer'].every(key=>page183.app.querySelector('[data-office-assignment="'+key+'"]')?.textContent.includes('Filled by appointment')));
   page183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'wrong-audience',identities:[co183,treasury183]}:null);
   await page183.go('#/');await page183.go('#/roles');await settle();
   check('a wrong audience cannot decorate a card with an otherwise valid identity DTO',!hasNames183(page183.app)&&!page183.app.textContent.includes('Private Treasury Fixture'));
@@ -87,9 +88,9 @@ const body183 = String.raw`
   page183.hold(null);
   const dotted183={...co183,displayName:'captain.user.',username:'captain.user.'};
   page183.answer(pathname=>pathname==='/api/appointed-identities'||pathname==='/api/appointed-identities?role=co_gm'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[dotted183]}:null);
-  await page183.go('#/roles');await waitFor(()=>page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line')?.textContent==='Appointed: captain.user. This role takes no applications or votes.','fresh terminal-period Roles label');
-  check('fresh Roles labels retain the exact dotted username once and punctuate the private fallback separately',page183.app.querySelector('[data-appointed-person="co_gm"] .appointed-line').textContent==='Appointed: captain.user. This role takes no applications or votes.'&&page183.app.querySelector('[data-appointed-person="treasurer"] .appointed-line').textContent==='Filled by appointment. This role takes no applications or votes.'&&!page183.app.textContent.includes('captain.user..'));
-  await page183.go('#/apply');page183.app.querySelector('button[aria-label="Details: Co-Guild Master"]').click();
+  await page183.go('#/roles');await waitFor(()=>page183.app.querySelector('[data-office-assignment="co_gm"] [data-appointment-label]')?.textContent==='Appointed: captain.user.','fresh terminal-period Roles label');
+  check('fresh Roles labels retain the exact dotted username once and punctuate the private fallback separately',page183.app.querySelector('[data-office-assignment="co_gm"] [data-appointment-label]').textContent==='Appointed: captain.user.'&&page183.app.querySelector('[data-office-assignment="treasurer"] [data-appointment-label]').textContent==='Filled by appointment.'&&!page183.app.textContent.includes('captain.user..'));
+  await page183.go('#/apply');page183.window.__roleDialog201('co_gm');
   await waitFor(()=>page183.document.body.querySelector('dialog .appointed-line')?.textContent==='Appointed: captain.user. This role takes no applications.','fresh terminal-period dialog label');
   const dottedDialog183=page183.document.body.querySelector('dialog');
   check('fresh role information ends the exact dotted account label once without offering an appointed role',dottedDialog183.querySelector('.appointed-line').textContent==='Appointed: captain.user. This role takes no applications.'&&!dottedDialog183.textContent.includes('captain.user..')&&!dottedDialog183.textContent.includes('Choose as my first choice'));
@@ -98,7 +99,7 @@ const body183 = String.raw`
   await page183.go('#/vote/co_gm');await waitFor(()=>page183.app.querySelector('.board-role-content')?.textContent.includes('Appointed: Synthetic Captain (captain.user.). Co-Guild Master'),'fresh dotted username in parenthetical Vote label');
   check('fresh appointed Vote sentence preserves a parenthetical dotted username and remains closed to votes',page183.app.querySelector('.board-role-content').textContent.includes('Appointed: Synthetic Captain (captain.user.). Co-Guild Master is filled by appointment rather than by the board')&&!page183.app.querySelector('.board-role-content').textContent.includes('captain.user..')&&!page183.app.querySelector('button.vote')&&!page183.app.querySelector('textarea')&&!page183.app.textContent.includes('Private Treasury Fixture'));
   const unconfirmed183=await openPage(OTHER,{}, {bootTransform:transformed183});let unconfirmedReads183=0;unconfirmed183.before(pathname=>{if(pathname==='/api/appointed-identities')unconfirmedReads183++;return false;});unconfirmed183.answer(pathname=>pathname==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[co183,treasury183]}:null);await unconfirmed183.go('#/roles');unconfirmed183.document.hidden=true;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));unconfirmed183.document.hidden=false;unconfirmed183.document.dispatchEvent(new Event('visibilitychange'));await settle();
-  check('an ordinary unconfirmed viewer receives only generic closed appointments and makes no identity read',!unconfirmed183.boot.community.capabilities.communityRead&&!unconfirmed183.boot.community.capabilities.confirmedGuildData&&unconfirmedReads183===0&&!hasNames183(unconfirmed183.app)&&unconfirmed183.app.querySelectorAll('[data-appointed-person]').every(node=>node.textContent.includes('Filled by appointment')));
+  check('an ordinary unconfirmed viewer receives only generic closed appointments and makes no identity read',!unconfirmed183.boot.community.capabilities.communityRead&&!unconfirmed183.boot.community.capabilities.confirmedGuildData&&unconfirmedReads183===0&&!hasNames183(unconfirmed183.app)&&['co_gm','treasurer'].every(key=>!!unconfirmed183.app.querySelector('[data-role-key201="'+key+'"] .reserved-explanation201')));
   const catalogPage183=await openPage(MEMBER,{}, {bootTransform:boot=>{boot.settings.appointed=Object.fromEntries(boot.meta.appointments.map(office=>[office.key,'Appointed member']));}});
   const catalogRows183=catalogPage183.boot.meta.appointments.map(office=>office.key==='co_gm'?co183:office.key==='treasurer'?treasury183:{...co183,role:office.key,displayName:'Office '+office.key,username:'office.'+office.key,characters:[]});
   catalogPage183.answer(path=>{
@@ -107,14 +108,14 @@ const body183 = String.raw`
     const remaining183=[...catalogRows183].sort((a,b)=>a.role<b.role?-1:a.role>b.role?1:0).filter(row=>row.role>after183),page183=remaining183.slice(0,32);
     return {scope:'qualified_community_readers',revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',identities:page183,nextCursor:remaining183.length>32?page183[page183.length-1].role:null,complete:remaining183.length<=32};
   });
-  await catalogPage183.go('#/roles');await waitFor(()=>hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-appointed-person="officer"]')?.textContent.includes('Office officer'),'all131 appointed identity projection');
-  check('all131 admitted offices retain CoGM Treasurer and a further supported Roles identity',catalogRows183.length===131&&hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-appointed-person="officer"]').textContent.includes('Office officer'));
+  await catalogPage183.go('#/roles');await waitFor(()=>hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-office-assignment="officer"]')?.textContent.includes('Office officer'),'all131 appointed identity projection');
+  check('all131 admitted offices retain CoGM Treasurer and a further supported Roles identity',catalogRows183.length===131&&hasNames183(catalogPage183.app)&&catalogPage183.app.querySelector('[data-office-assignment="officer"]').textContent.includes('Office officer'));
   catalogPage183.answer(path=>path==='/api/appointed-identities'?{scope:'qualified_community_readers', revision:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',nextCursor:null,complete:true,identities:[...catalogRows183,{...co183,role:'unregistered_office'}]}:null);
   await catalogPage183.go('#/');await catalogPage183.go('#/roles');await settle();
   check('a response above the actual131-office catalogue fails closed without private labels',!hasNames183(catalogPage183.app)&&!catalogPage183.app.textContent.includes('Office officer'));
   await catalogPage183.go('#/');
   const withheld183=await openPage(MEMBER,{}, {bootTransform:boot=>{boot.settings.appointed={treasurer:'Name withheld'};}});await withheld183.go('#/roles');
-  const withheldTreasurer183=withheld183.app.querySelector('[data-appointed-person="treasurer"]');
+  const withheldTreasurer183=withheld183.app.querySelector('[data-office-assignment="treasurer"]');
   // .199 separately names the public gold-mail recipient in its writ catalogue.
   // That disclosure must not be mistaken for a private Treasurer appointment.
   check('Name withheld and erased-holder projections contain no Treasurer identity in appointment facts',withheldTreasurer183.textContent.includes('Name withheld')&&!withheldTreasurer183.textContent.includes('Fernmelder')&&!withheld183.boot.meta.positions.find(p=>p.key==='treasurer').info.game.includes('Fernmelder')&&!withheld183.app.textContent.includes(treasurer183)&&!withheld183.app.textContent.includes('Private Treasury Fixture'));
@@ -122,4 +123,10 @@ const body183 = String.raw`
   console.log('\n'+ok+'/'+n+' appointment display183 checks passed');process.exit(ok===n?0:1);
 })().catch(error=>{console.error(error);process.exit(1);});
 `;
-const execution183 = new Module(fixture183, module); execution183.filename = fixture183; execution183.paths = Module._nodeModulePaths(path183.dirname(fixture183)); execution183._compile(source183.slice(0, starts183[0].index) + '\n' + body183, fixture183);
+const execution183 = new Module(fixture183, module); execution183.filename = fixture183; execution183.paths = Module._nodeModulePaths(path183.dirname(fixture183)); // Expose only the existing production roleDialog for its retained identity and
+// punctuation checks after the owner retired the leadership-radio Details button.
+// No production source, request handler or admission is changed by this local seam.
+const prefix183=source183.slice(0,starts183[0].index),runLine201='vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });';
+if(prefix183.split(runLine201).length!==2)throw Error('appointment201_original_app_execution_boundary');
+const exposed183=prefix183.replace(runLine201,'vm.runInNewContext(APP_JS.replace("  render();\\n})();", "  window.__roleDialog201 = key => roleDialog(positionOf(key));\\n  render();\\n})();"), sandbox, { filename: "app.js" });');
+execution183._compile(exposed183+'\n'+body183,fixture183);

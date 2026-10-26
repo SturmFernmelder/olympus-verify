@@ -68,7 +68,7 @@ import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
 import { applicationTalentBuilds, sharedApplicationTalentBuilds, talentBuildAttachment, unchangedHistoricalTalentBuild } from './talent-build-attachment';
-import { validateApplicationIntent199, applicationIntentDto199, applicationRoleKeys199 } from './application-track199';
+import { validateApplicationIntent199, applicationIntentDto199, applicationRoleKeys199, reservedApplication201 } from './application-track199';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -509,12 +509,21 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
     body.applicationTrack = previousAnswers.applicationTrack;
     body.targetOffice = previousAnswers.targetOffice;
   }
+  const reserved = reservedApplication201(body);
+  if (reserved) return apiJson(reserved, 403);
   const storedTalent = previousAnswers.talentBuild;
   const a = validateApplication(body, user.discord_id, s.appointed, s.noVote, env.SITE_HOST, typeof storedTalent === "string" ? storedTalent : undefined, previousAnswers.talentBuilds);
   // A page opened before a role was put to the vote hid the board box: the list it lacked comes back with the refusal,
   // so the page can show the box and the applicant tick it, without losing what they typed.
   if ("error" in a) return a.field === "board" ? apiJson({ ...a, noVote: s.noVote }, 400) : bad(a);
-  const answers = JSON.parse(a.answers) as { applicationTrack?: string; references?: Pick[]; professions?: string[] };
+  const answers = JSON.parse(a.answers) as { applicationTrack?: string; targetOffice?: string | null; references?: Pick[]; professions?: string[] };
+  // Recheck normalized choices as well as raw aliases. This also fails closed
+  // if a later vocabulary addition introduces another leadership position.
+  const resolvedReserved = reservedApplication201({ ...answers, position: a.position, backups: [a.backup1, a.backup2].filter(Boolean) });
+  if (resolvedReserved) return apiJson(resolvedReserved, 403);
+  if (isLeadership(a.position) || [a.backup1, a.backup2].some(key => key && choiceOf(key)?.leadership)) {
+    return apiJson({ error: 'reserved_seat', field: 'position', message: 'Leadership roles are reserved seats filled by appointment. You cannot apply for them. Your existing application is unchanged.' }, 403);
+  }
   if (answers.applicationTrack === 'patron' && !s.royalWritsOn) {
     return apiJson({ error: 'royal_writs_paused', field: 'applicationTrack', message: 'Royal Writs and Patron applications are paused. Your existing application is unchanged; other application tracks remain available.' }, 403);
   }

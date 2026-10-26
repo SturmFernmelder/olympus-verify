@@ -32,7 +32,7 @@ const body196=String.raw`
   await waitFor(()=>fullPages.requests.length===5,'five original bounded page requests');
   check('no partial page publishes a holder before the final page is qualified',!full.app.textContent.includes('Bounded co_gm')&&!full.app.textContent.includes('Bounded treasurer'));
   await pending;await waitFor(()=>full.app.textContent.includes('Bounded co_gm')&&full.app.textContent.includes('Bounded treasurer'),'complete catalogue identity collection');
-  check('the actual app traverses exactly five source-key pages and hydrates supported visible roles',fullPages.requests.length===5&&fullPages.requests[0]==='/api/appointed-identities'&&fullPages.requests.slice(1).every(path=>new URL(path,'https://guild.example').searchParams.get('revision')===revision196)&&full.app.querySelector('[data-appointed-person="officer"]').textContent.includes('Bounded officer'));
+  check('the actual app traverses exactly five source-key pages and hydrates supported visible roles',fullPages.requests.length===5&&fullPages.requests[0]==='/api/appointed-identities'&&fullPages.requests.slice(1).every(path=>new URL(path,'https://guild.example').searchParams.get('revision')===revision196)&&full.app.querySelector('[data-role-key201="officer"]').textContent.includes('Bounded officer'));
   for(const mode of ['changed','revision','stuck','unregistered']){
     const page=await openPage(MEMBER,{}, {bootTransform:transform196}),trace=pages196(page,mode);
     const baselineVisibility=new Set(page.document.listeners.visibilitychange||[]),baselinePagehide=new Set(page.window.listeners.pagehide||[]);

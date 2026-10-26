@@ -18,6 +18,8 @@ import { OFFICE_APPOINTMENTS, NATIVE_RANKS_199, APPLICATION_TRACKS_199 } from ".
 import { ROYAL_WRIT_POLICY, ROYAL_WRITS, STOCKADES_CHECKLIST, ROYAL_WRIT_CATEGORIES } from './royal-writs199';
 import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
 import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
+import { reservedApplication201 } from './application-track199';
+import { OFFICE_ROLE_GUIDES_201, NATIVE_RANK_GUIDES_201, roleGuides201 } from './site-role-guides201';
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -430,8 +432,11 @@ const OFFICE_APPLICATION_POSITIONS_199: Position[] = OFFICE_APPOINTMENTS
   .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack))
   .filter(row => row.applicationRoleKeys.includes(row.key))
   .filter(row => !HISTORICAL_POSITION_COPY.some(position => position.key === row.key))
-  .map(row => ({ key: row.key, label: row.applicationLabel || row.label, group: 'leadership', blurb: `${row.department} · ${row.tierLabel} · reviewed application for this specific office.`,
-    info: { about: `Apply for ${row.applicationLabel || row.label} in ${row.department}. A submitted request is not a vacancy guarantee or appointment.`, duties: ['Follow the office mandate and its applicable statutory Titles.', 'Keep decisions, conflicts and delegated authority reviewable.', 'Record handovers and escalate work outside the accepted mandate to the responsible portfolio.'], expect: ['Current leadership reviews eligibility, availability and any appointment separately.', 'Disclose conflicts and agree the required training, attendance and service boundaries before appointment.'], time: 'Agree the service commitment with the appointing authority.', works: `Coordinate through ${row.department} and the accepted office mandate.`, game: '' } }));
+  .map(row => {
+    const guide = OFFICE_ROLE_GUIDES_201[row.key];
+    return { key: row.key, label: row.applicationLabel || row.label, group: 'leadership', blurb: guide.definition,
+      info: { about: guide.definition, duties: [...guide.responsibilities], expect: [...guide.expectations], time: guide.commitment, works: guide.worksWith, game: guide.boundaries } };
+  });
 export const POSITIONS: Position[] = [...HISTORICAL_POSITION_COPY, ...OFFICE_APPLICATION_POSITIONS_199].map(position => {
   const office = OFFICE_APPOINTMENTS.find(row => row.key === position.key)
     ?? (position.key === 'class_lead' ? OFFICE_APPOINTMENTS.find(row => row.group === 'class') : undefined);
@@ -778,7 +783,7 @@ export function meta(ruleset?: RulesetSnapshot) {
     ruleset: ruleset?.profile ?? null,
     rulesetHeld: ruleset ? ruleset.held : ("ruleset_unresolved" as const),
     rulesetSwitch: rulesetSwitchReadiness(ruleset ?? "unresolved"),
-    positions: POSITIONS,
+    positions: POSITIONS.map(position => ({ ...position, reservedSeat201: !!reservedApplication201({position:position.key}) })),
     classes: CLASSES,
     roles: ROLES,
     regions: REGIONS,
@@ -789,9 +794,20 @@ export function meta(ruleset?: RulesetSnapshot) {
     questions: QUESTIONS,
     professions: PROFESSIONS,
     ballots: BALLOTS,
-    appointments: OFFICE_APPOINTMENTS,
+    // The .199 seat adapters remain historical vocabulary for old applications.
+    // The owner's 26 Oct decision closes current leadership applications, including empty seats.
+    appointments: OFFICE_APPOINTMENTS.map(office => {
+      const reservedSeat201 = !!reservedApplication201({targetOffice:office.key});
+      return { ...office, historicalApplicationEligible:office.applicationEligible,
+        applicationEligible:office.applicationEligible && !reservedSeat201, reservedSeat201,
+        acquisition:reservedSeat201 ? 'Reserved seat — filled by appointment. Applications are not accepted, including when no holder is recorded.' : office.acquisition };
+    }),
     rankHierarchy: NATIVE_RANKS_199,
     applicationTracks: APPLICATION_TRACKS_199,
+    roleGuides201: roleGuides201(POSITIONS),
+    nativeRankGuides201: NATIVE_RANK_GUIDES_201,
+    applicationPolicy201: { reservedTiers:['leader','high_council','officer_corps'],
+      notice:'Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them. An empty listing is not an open vacancy.' },
     royalWritPolicy: ROYAL_WRIT_POLICY,
     royalWrits: ROYAL_WRITS,
     royalWritCategories: ROYAL_WRIT_CATEGORIES,
