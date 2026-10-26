@@ -219,6 +219,11 @@
     if (!directory || directory.version !== 1 || directory.sourceKeyCount !== 134 || !Array.isArray(directory.families)
       || !directory.families.length || !Array.isArray(directory.ranks) || directory.ranks.length !== 10
       || !directory.keyToFamily || typeof directory.keyToFamily !== "object") return null;
+    const registry = M().appointments;
+    if (!Array.isArray(registry) || registry.length !== 131) return null;
+    const registeredKeys = registry.map(row => row?.key);
+    if (new Set(registeredKeys).size !== 131 || registeredKeys.some(key => typeof key !== "string"
+      || ["member", "raider", "pvp_team"].includes(key) || !Object.prototype.hasOwnProperty.call(directory.keyToFamily, key))) return null;
     const keys = [], familyKeys = new Set();
     for (const family of directory.families) {
       if (!family || typeof family.key !== "string" || !/^[a-z][a-z0-9_]{0,79}$/.test(family.key) || familyKeys.has(family.key)
