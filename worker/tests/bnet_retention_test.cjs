@@ -464,7 +464,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the historical plain cron object cannot bypass the original epoch-2 callback gate", JSON.stringify(db.prepare('SELECT * FROM members ORDER BY discord_id').all())===beforeUnqualifiedCron && m("100000000000000015").battletag==='Cron#15');
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-10-26.203 Olympus consolidated role families" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
+  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-10-26.204 Olympus factual corrections" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");

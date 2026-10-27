@@ -98,9 +98,25 @@ const reply = text => new Response(text, { headers: { 'Content-Type': 'text/html
         assert.equal(selected.split(explicitSafetyPurpose).length,2);
         selected=selected.replace(explicitSafetyPurpose,'');
       }
+      if(start==='<h2>Your copy</h2>'){
+        const previousPreview='a preview of up to 25 entries in each of its 36 covered history sections.',currentPreview='a preview of up to 25 entries in each of its 38 covered history sections.';
+        const separateHistories=' Three additional collection-only histories are available separately: historical Battle.net character labels, original-generation roster intents and current setting updater metadata; they are not included in that aggregate file.';
+        assert.equal(selected.split(currentPreview+separateHistories).length,2);
+        assert.equal(selected.split(previousPreview).length,1);
+        selected=selected.replace(currentPreview+separateHistories,previousPreview);
+      }
       assert.equal(sha(selected),hash);
     }
     assert.ok(privacy.includes('Rich Campbell')); assert.ok(privacy.includes('on behalf of Asmongold and Rich Campbell'));
+  });
+  await check('.204 current tabard attribution binds the owner-supplied asset without asserting authorship or publisher rights', () => {
+    const notice=read(path.join(repo,'THIRD_PARTY_NOTICES.md')),manifest=JSON.parse(read(path.join(repo,'scripts/official_asset_reference.json')));
+    const crest=fs.readFileSync(path.join(worker,'public/static/olympus-icon.png')),brand=manifest.brand_exception.asset;
+    assert.equal(brand.path,'worker/public/static/olympus-icon.png');assert.equal(brand.bytes,crest.length);assert.equal(brand.sha256,sha(crest));
+    assert.ok(notice.includes('exact owner-supplied tabard guild image'));assert.ok(notice.includes(brand.sha256));
+    assert.ok(notice.includes('do not establish original authorship, non-derivation, Blizzard approval or additional publisher'));
+    assert.ok(notice.includes('That identity is retained as history, not the current tabard'));
+    assert.ok(!notice.includes('It is not a game texture, it is not'));
   });
   await check('new disclosures distinguish Olympus-only default directory, opt-out, opt-in details and private talent code', () => {
     const privacy = read(path.join(repo, 'policies/privacy.html'));

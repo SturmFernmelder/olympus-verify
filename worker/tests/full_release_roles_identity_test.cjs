@@ -214,7 +214,7 @@ function projectApprovedManifest(value){
 }
 // A paired original guide raw dump proved identical30events/SQL/binds/batches/HTTPmetadata/response/twelve
 // except this first line. Raw r.trace remains untouched; only historical comparison is projected.
-const PUBLIC_GUIDE_FIRST_LINE = "Olympus guild direction: **World of Warcraft: Forever · PVE - Alliance · public guild direction · Realm not announced**.";
+const PUBLIC_GUIDE_FIRST_LINE = "Olympus guild direction: **World of Warcraft: Forever · PVE - Alliance · public guild direction · Realmless (ruleset-based)**.";
 const HISTORICAL_GUIDE_FIRST_LINE = "Current game: **World of Warcraft: Forever · Beta · Classic Beta PvP 2 · PvP · Alliance**.";
 function projectKnownPublicGuide(e) {
   if (e.k !== 'http' || e.method !== 'POST' || e.path !== `/channels/${CH_GUIDE}/messages` || typeof e.body !== 'string') return e;

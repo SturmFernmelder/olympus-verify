@@ -14,13 +14,11 @@ privacy, launch or production setting.
 
 ## What is exact and what is not
 
-WoW Forever does not publish level-60 base attributes, base health or base mana. They live on the server; the client
-DB2 tables carry none of them, and no public Forever table exists (research F1, confirmed by an independent
-verification). The sheet therefore never presents a Forever total as verified. Every number carries a grade:
+This dataset does not contain independently verified Forever level-60 base attributes, base health or base mana. The included client exports and reviewed references do not establish that no authoritative publication exists elsewhere. Base columns therefore remain explicitly graded Classic references or derived estimates, not fresh live-server measurements.
 
 | Grade | Meaning | Display |
 |---|---|---|
-| A | Exact from current-build client data (DB2) | normal |
+| A | Exact from the named pinned client-build data (DB2) | normal |
 | B | DB2 value with a semantic reading (for example aura type) | normal |
 | C | Rule confirmed by a WoW Forever guide (Warcraft Tavern Forever stats guide) | normal |
 | D | Estimate derived from Classic-reference data | greyed, "Derived estimate from Classic reference — not Forever-verified" |

@@ -120,6 +120,49 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
   // reader/annotation deltas; writes, lifetimes, private fields and clocks still
   // have to match the original source bytes. This is not an arbitrary new pin.
   let originalNews = fs.readFileSync(path.join(root, 'src/site-news.ts'), 'utf8').replace(/\r\n/g, '\n');
+  // .204 corrects only the announced beta DTO and this exact dated release note.
+  // Invert these THREE finite literals first; all .197/.196/.176 inverses and
+  // the original whole-file SHA safeguard below remain unchanged.
+  const authorizedNews204Deltas = [
+    [
+      'later announced beta schedule constant',
+      [
+        '/** Later official announcement, 20 Oct 2026: a planned shutdown, not an observed server-closure receipt. */',
+        'export const BETA_ANNOUNCED_CLOSURE = Object.freeze({',
+        '  announcedClosureAt: 1792774800, // 23 Oct 2026, 10:00 PDT = 17:00 UTC',
+        '  announcementDate: "2026-10-20",',
+        '  source: "https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",',
+        '  scheduleStatus: "announced-plan-not-observed",',
+        '});',
+      ].join('\n'),
+      '/** Blizzard names 21 October 2026 as the beta\'s last full day, and no hour (site-leadership.ts). */\nexport const BETA_LAST_FULL_DAY = "2026-10-21";',
+    ],
+    [
+      'exact dated .204 factual-copy release note',
+      [
+        'export const RELEASE_NOTES: readonly ReleaseNote[] = [',
+        '  {',
+        '    build: ".204", date: "2026-10-26", lines: [',
+        '      "Name-reservation defaults now use North America\'s announced 27 October, 20:00 UTC opening. Saved administrator settings still take precedence.",',
+        '      "Beta dates identify Blizzard\'s later planned shutdown, with its source and announcement date, rather than claiming the server closure was observed.",',
+        '      "Guild direction uses realmless ruleset terminology. Raid guides cover 10-, 20- and 40-player encounters; planning-name rules remain local, not a Blizzard availability check.",',
+        '      "Dated talent evidence, publisher adoption and real game acceptance remain separate from these factual-copy corrections. Optional service and provider gates stay unchanged.",',
+        '    ],',
+        '  },',
+        '',
+      ].join('\n'),
+      'export const RELEASE_NOTES: readonly ReleaseNote[] = [\n',
+    ],
+    [
+      'announced-plan News response DTO',
+      '    beta: { ...BETA_ANNOUNCED_CLOSURE, launchAt: settings.launchAt },',
+      '    beta: { lastFullDay: BETA_LAST_FULL_DAY, launchAt: settings.launchAt },',
+    ],
+  ];
+  for (const [label, current, preceding] of authorizedNews204Deltas) {
+    check('Guild News exact authorized .204 delta occurs once: ' + label, originalNews.split(current).length === 2);
+    originalNews = originalNews.replace(current, preceding);
+  }
   // .197 adds this exact dated owner-authorized release note. Reverse only this
   // finite literal before preserving every prior .196/.176 safeguard below.
   const release197 = [

@@ -42,14 +42,17 @@ export interface Intro {
   embeds: Embed[]; // {#key} anywhere in the text becomes a channel mention
 }
 
-/** Checked 28 Sep 2026: all live and the pages their labels say. Blizzard is the source of every fact; the others
- *  are linked as unofficial guides only (asmongold-channel-copy.md). */
+/** Official schedule and ruleset corrections checked 26 Oct 2026; older guide links retain their original
+ *  source scope. Unofficial guides are not Blizzard confirmation or live-client verification. */
 const LINKS = {
   foreverSite: "https://worldofwarcraft.blizzard.com/en-us/forever",
   foreverForum: "https://us.forums.blizzard.com/en/wow/c/wow-forever/346",
   datesEditions: "https://news.blizzard.com/en-us/article/24301508/pre-purchase-world-of-warcraft-forever-upgrades-and-begin-your-next-journey-in-azeroth",
   whatsNext: "https://news.blizzard.com/en-us/article/24303862/world-of-warcraft-forever-whats-next-panel-recap",
   deepDive: "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap",
+  betaClosure: "https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",
+  nameReservation: "https://news.blizzard.com/en-us/article/24303866/claim-your-world-of-warcraft-forever-character-names",
+  rulesets: "https://news.blizzard.com/en-us/article/24302070/updated-10-22-choose-your-ruleset-in-world-of-warcraft-forever",
   wowheadHub: "https://www.wowhead.com/forever",
   icyHub: "https://www.icy-veins.com/wow-forever/",
   tavernProfessions: "https://www.warcrafttavern.com/forever/guides/professions/",
@@ -100,13 +103,13 @@ export const INTROS: Intro[] = [
         color: GOLD,
         fields: [
           { name: "Launch", value: "<t:1793833200:F> (November 4, 2026, 3:00 p.m. PST, global). Included with a WoW subscription or Game Time." },
-          { name: "Beta", value: "September 17 – October 21, 2026. Access is available to selected invited testers and eligible Skyborne Epic Pack or Warcraft Forever Collection accounts. Check Blizzard's current beta instructions; a guild application does not grant beta access." },
-          { name: "Early name reservation", value: "October 27 – November 3, 2026 with an eligible upgrade purchase; up to three characters, first come, first served. A name on our guild planning list does not reserve it in the game." },
+          { name: "Beta", value: "Began September 17, 2026. Blizzard's October 20 announcement planned the final shutdown for October 23 at 10:00 a.m. PDT (17:00 UTC); this is the announced schedule, not an observed server-closure receipt. Access was for selected invited testers and eligible Skyborne Epic Pack or Warcraft Forever Collection accounts; a guild application does not grant beta access." },
+          { name: "Early name reservation", value: "October 27 – November 3, 2026. North America opens October 27 at 1:00 p.m. PDT (20:00 UTC); other regions have separate hours. Skyborne Heroic Pack, Skyborne Epic Pack or Warcraft Forever Collection purchase is required on that WoW account. Up to three characters total across all Rulesets, first come, first served. A name on our guild planning list does not reserve it in the game." },
           { name: "First new raids", value: "Unlock December 9, 2026." },
-          { name: "Olympus ruleset", value: "{ruleset-ruleset} · {ruleset-faction} ({ruleset-decided}). The realm will be announced before launch." },
+          { name: "Olympus ruleset", value: "{ruleset-ruleset} · {ruleset-faction} ({ruleset-decided}). Forever is realmless: choose the guild's ruleset and region, rather than a traditional realm." },
           { name: "New in Forever", value: "The Skyborne race (Zephras Isle), Mount Hyjal, Shen'dralas and Riverglades, nine new dungeons, the Hyjal Summit (20-player) and Barrow Deeps (10-player) raids, the Darkspear Islands 15 vs 15 battleground, Legacy progression for alts, camping and opt-in transmog." },
         ],
-        footer: { text: "Official Blizzard announcements checked October 1, 2026. Planned details may change." },
+        footer: { text: "Official schedule and ruleset announcements checked October 26, 2026. Announcements are not observed game-state proof." },
       },
       {
         title: "Guides and resources",
@@ -116,6 +119,9 @@ export const INTROS: Intro[] = [
           `• [Forever website](${LINKS.foreverSite})`,
           `• [Forever forum](${LINKS.foreverForum})`,
           `• [Dates and editions](${LINKS.datesEditions})`,
+          `• [Later beta shutdown announcement](${LINKS.betaClosure})`,
+          `• [Regional name reservation hours and eligibility](${LINKS.nameReservation})`,
+          `• [Rulesets, including the October 22 update](${LINKS.rulesets})`,
           `• [What's Next panel recap](${LINKS.whatsNext})`,
           `• [Deep Dive panel recap](${LINKS.deepDive})`,
           "",

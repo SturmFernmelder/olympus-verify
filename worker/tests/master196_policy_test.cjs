@@ -34,9 +34,9 @@ const current199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Le
 (async () => {
   check('public PvE direction is frozen, explicit and makes no realm/launch claim', () => {
     const p = profile.currentRulesetProfile();
-    assert.deepEqual(p, { schema: 'olympus-ruleset-profile-v1', revision: 'forever-public-pve-alliance-20261023-v1', phase: 'public_direction', game: 'World of Warcraft: Forever', guild: 'Olympus', realm: 'Realm not announced', ruleset: 'PvE', faction: 'Alliance' });
+    assert.deepEqual(p, { schema: 'olympus-ruleset-profile-v1', revision: 'forever-public-pve-alliance-20261023-v1', phase: 'public_direction', game: 'World of Warcraft: Forever', guild: 'Olympus', realm: 'Realmless (ruleset-based)', ruleset: 'PvE', faction: 'Alliance' });
     assert.ok(Object.isFrozen(p)); assert.equal(profile.publicRulesetSettingLabel(), 'PVE - Alliance');
-    assert.match(profile.rulesetLabel(p), /PVE - Alliance.*public guild direction.*Realm not announced/);
+    assert.match(profile.rulesetLabel(p), /PVE - Alliance.*public guild direction.*Realmless \(ruleset-based\)/);
   });
   check('historical beta and signed QR profile keep exact original observation', () => {
     assert.equal(profile.historicalBetaRulesetProfile().revision, 'forever-beta-pvp2-v1');

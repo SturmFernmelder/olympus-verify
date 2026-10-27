@@ -45,7 +45,7 @@ export function applicationRoleKeys199(targetOffice:unknown):readonly string[] {
 
 export function validateApplicationIntent199(track: unknown, office: unknown, taken: (key: string) => boolean): ApplicationIntent199 | InvalidIntent | null {
   if (track === undefined && office === undefined) return null; // Historical applications retain their original meaning.
-  if (typeof track !== 'string' || !tracks.has(track)) return invalid('applicationTrack', 'Choose one of the six application tracks.');
+  if (typeof track !== 'string' || !tracks.has(track)) return invalid('applicationTrack', 'Choose a supported application category.');
   if (office !== undefined && office !== null && typeof office !== 'string') return invalid('targetOffice', 'Choose a supported office from the picker.');
   const key = typeof office === 'string' ? office : '';
   if (key.length > 80) return invalid('targetOffice', 'That office key is too long.');

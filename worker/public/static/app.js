@@ -395,12 +395,13 @@
     if (!p || typeof p !== "object" || Array.isArray(p) || Object.keys(p).length !== keys.length
       || !keys.every((k) => Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] === "string")
       || p.schema !== "olympus-ruleset-profile-v1" || !["beta", "public_direction", "full_release"].includes(p.phase)
-      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || !["Normal", "PvE", "PvP", "Roleplaying", "Hardcore"].includes(p.ruleset) || !["Alliance", "Horde"].includes(p.faction)
+      || p.game !== "World of Warcraft: Forever" || p.guild !== "Olympus" || !["Normal", "PvE", "PvP", "Roleplaying", "Roleplay-PvP", "Hardcore"].includes(p.ruleset) || !["Alliance", "Horde"].includes(p.faction)
       || !/^[\p{L}\p{N} .:'()-]{1,80}$/u.test(p.realm) || p.realm !== p.realm.trim() || p.realm !== p.realm.normalize("NFC")
       || (p.phase === "beta" && (p.revision !== "forever-beta-pvp2-v1" || p.realm !== "Classic Beta PvP 2" || p.ruleset !== "PvP" || p.faction !== "Alliance"))
-      || (p.phase === "public_direction" && (p.revision !== "forever-public-pve-alliance-20261023-v1" || p.realm !== "Realm not announced" || p.ruleset !== "PvE" || p.faction !== "Alliance"))
+      || (p.phase === "public_direction" && (p.revision !== "forever-public-pve-alliance-20261023-v1" || !["Realmless (ruleset-based)", "Realm not announced"].includes(p.realm) || p.ruleset !== "PvE" || p.faction !== "Alliance"))
       || (p.phase === "full_release" && !/^forever-release-[a-z0-9][a-z0-9.-]{0,31}$/.test(p.revision))) return "Game identity unavailable";
-    return p.phase === "public_direction" ? `${p.game} · PVE - Alliance · public guild direction · ${p.realm}` : `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
+    // .204: display-only translation of the exact legacy direction; no stored identity or game setup changes.
+    return p.phase === "public_direction" ? `${p.game} · PVE - Alliance · public guild direction · Realmless (ruleset-based)` : `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
   }
   function rulesetIdentity() { return M().rulesetHeld ? "Game identity unavailable" : identityOf(M().ruleset); }
   // .93: the community context from the boot (community-context.ts contextDto): flags for everyone, capabilities for the viewer
@@ -1557,7 +1558,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "dd1d8bbf0e5bb0ecc7e27a60ab62ff10e7df3753da7bb7f2e38b3927e46a3b97";
+  const GOVERNANCE_SHA256 = "e0800f5eacba0151d31df57412ea47a0e28920a4e1995cb7273a8236ca9dc924";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1569,7 +1570,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 262144);
-      if (bytes.length !== 259596) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 262067) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1581,7 +1582,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 524288);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 259596 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 262067 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -2113,8 +2114,8 @@
           h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : "Soon" }),
           h("p", { class: "muted small", text: namesOpen ? "entered below." : "Opens with Blizzard's name reservation." }))),
       frame("Beta Epoch Archive", h("span", { class: "badge", text: "Guild history" }),
-        h("p", { text: "The Forever beta's last full day was 21 October 2026. Its guild work continues into the announced PvE · Alliance direction." }),
-        h("p", { class: "muted small", text: "This archive records the guild's published rules, release history and aggregate milestones. It contains no former-member roster, private account copies or erased member records; no exact beta shutdown hour is asserted." }),
+        h("p", null, "Blizzard's 20 October update scheduled the final beta shutdown for 23 October 2026 at 10:00 AM PDT (17:00 UTC). ", h("a", {href:"https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",target:"_blank",rel:"noopener noreferrer",text:"Read the announced schedule"}), ". Its guild work continues into the announced PvE · Alliance direction."),
+        h("p", { class: "muted small", text: "This archive records the guild's published rules, release history and aggregate milestones. It contains no former-member roster, private account copies or erased member records. The shutdown time is Blizzard's announced plan, not a server closure observed by this site; the guild's separate reset-policy cutoff is unchanged." }),
         h("div", { class: "btn-row" }, h("a", { class: "btn small", href: "#/governance", text: "Guild charter and adoption record" }), h("a", { class: "btn small", href: "#/news", text: "Town Crier and release history" }))),
       datesPanel(),
       h("div", { class: "grid two" }, namesPanel(), friendsPanel()),
@@ -2134,7 +2135,7 @@
     if (!t) return "";
     const parts = t.split(" ");
     if (parts.length !== 2) return "Two parts, a first and a last name, like Fern Melder.";
-    if (!parts.every((p) => NAME_PART.test(p))) return "Each part is 2 to 12 letters, no digits or symbols.";
+    if (!parts.every((p) => NAME_PART.test(p))) return "This guild form accepts 2 to 12 letters per part, with no digits or symbols; check the game's current naming rules separately.";
     return "";
   }
   function namesPanel() {
@@ -2146,7 +2147,8 @@
     const badgeOf = (r) => h("span", { class: "badge " + (SHOWN[r.status] || SHOWN.saved)[1], text: (SHOWN[r.status] || SHOWN.saved)[0] });
     const intro = h("div", { class: "parchment" },
       h("h3", { text: "What happens to them" }),
-      h("p", null, "Blizzard's early name reservation lets every account with an upgrade pack reserve up to three character names before launch. Once you have reserved yours in game, enter them here."),
+      h("p", null, "Blizzard's early name reservation lets the WoW account that purchased a Skyborne Heroic Pack, Skyborne Epic Pack or Warcraft Forever Collection reserve up to three characters total across all rulesets from 27 October to 3 November. Names are first come, first served and are not guaranteed. Once you have reserved yours in game, enter them here."),
+      h("p", {class:"muted small",text:"This guild form uses its own two-part, 2–12-letter input limits. These local limits are not a claim to reproduce every current Blizzard naming rule. The countdown and form opening use North America's start; the notice identifies Europe's earlier opening."}),
       h("p", null, "The guild's leadership keeps this list privately and picks who has been promised a seat. At launch those names go to the top of the invite queue. An officer still sends each invite by hand, so be online on that character."),
       h("p", null, "To link your Discord account to the character, you still whisper your verification code to an officer in game, like everyone else. Entering a name here does not link or reserve anything by itself."));
     const section = h("section", { class: "frame", id: "names" }, h("div", { class: "plaque" }, h("h2", { text: "Your reserved names" })));
@@ -5168,7 +5170,7 @@
     if (feat("census") && can("confirmedGuildData")) cards.push(h("a", { class: "card", href: "#/community/census" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Census preview" })), h("p", { class: "muted small", text: "Paste an optional addon export to inspect unsigned guild observations. Private preview only; nothing is saved." })));
     if (feat("directory")) {
       cards.push(h("a", { class: "card", href: "#/community/directory" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Member directory" })), h("p", { class: "muted small", text: "Current Discord members, their portraits and permitted public roles, with verified characters only for eligible website accounts." })));
-      cards.push(h("a", { class: "card", href: "#/community/profile" }, h("div", { class: "card-head" }, icon("pos-member"), h("h3", { text: "My profile" })), h("p", { class: "muted small", text: "Opt in to the directory, and say what you play and craft. Nothing is listed until you tick the box." })));
+      cards.push(h("a", { class: "card", href: "#/community/profile" }, h("div", { class: "card-head" }, icon("pos-member"), h("h3", { text: "My profile" })), h("p", { class: "muted small", text: "Opt in to a detailed profile and crafting offers. Those extra details stay unlisted until you tick the box. Your separate default Discord directory row has its own visibility control." })));
     }
     if (feat("crafting")) cards.push(h("a", { class: "card", href: "#/community/workshop" }, h("div", { class: "card-head" }, icon("pos-professions"), h("h3", { text: "Crafters & Artisans" })), h("p", { class: "muted small", text: "Search members' rare-recipe and profession offers, and list your own crafts through My profile." })));
     if (feat("events")) cards.push(h("a", { class: "card", href: "#/community/calendar" }, h("div", { class: "card-head" }, icon("icon-clock"), h("h3", { text: "Calendar" })), h("p", { class: "muted small", text: `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. For guild members and site administrators.` })));
@@ -5516,7 +5518,10 @@
         d.leadership && d.leadership.updatedAt ? `Last changed ${fmtDay(d.leadership.updatedAt)}. ` : "Not changed yet. ",
         h("a", { href: "#/community/leadership", text: "Open Community → Leadership" }))),
       frame("The road to launch", null,
-        h("p", { text: `Blizzard gives ${isoDay(d.beta && d.beta.lastFullDay)} as the beta's last full day.` }),
+        d.beta && d.beta.scheduleStatus === "announced-plan-not-observed" && Number.isSafeInteger(d.beta.announcedClosureAt)
+          ? h("p", null, `Blizzard's 20 October update scheduled the final beta shutdown for ${fmtDateTime(d.beta.announcedClosureAt)} (${fmtPacific(d.beta.announcedClosureAt)}). `,
+              h("a", {href:"https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",target:"_blank",rel:"noopener noreferrer",text:"Announced plan"}), "; actual server closure was not observed by this site.")
+          : h("p", {class:"muted",text:"The latest announced beta shutdown schedule is unavailable here; check Blizzard's original update. No actual closure time is inferred."}),
         launchAt
           ? h("div", { class: "date-card" }, icon("icon-launch", "l"), h("div", null,
               h("h3", { text: nowSec() >= launchAt ? "World of Warcraft: Forever" : "World of Warcraft: Forever launches in" }),

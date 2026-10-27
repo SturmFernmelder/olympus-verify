@@ -242,7 +242,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   r = await newsGet(MEMBER);
   check("a confirmed member: 200 with exactly the DTO keys", r.status === 200 && keys(r.body) === "beta,events,figures,leadership,notices,now,releases,seats", r.body && keys(r.body));
   check("  the seat state is the members' shape (no reason, no exact time)", keys(r.body.seats) === "asOf,cap,free,members,source,state,visitorsUrl" && r.body.seats.state === "unknown", r.body.seats);
-  check("  no figures yet (null), no notices, the release notes, the beta's last full day", r.body.figures === null && r.body.notices.length === 0 && r.body.releases.length >= 1 && r.body.beta.lastFullDay === "2026-10-21");
+  check("  no figures yet (null), no notices, release notes and the later announced beta shutdown", r.body.figures === null && r.body.notices.length === 0 && r.body.releases.length >= 1 && r.body.beta.announcedClosureAt === 1792774800 && r.body.beta.scheduleStatus === "announced-plan-not-observed" && !Object.hasOwn(r.body.beta, "lastFullDay"));
   check("  no digest field and no author anywhere", !/digest/i.test(JSON.stringify(r.body)) && !JSON.stringify(r.body).includes("createdBy"));
   // standing lost between the context read and the admitted batch: the probe is prepared last, just before the batch runs
   HOOK = async (sql, phase) => { if (phase === "prepare" && /^SELECT \(EXISTS\(SELECT 1 FROM site_users fu/.test(sql)) { await run("UPDATE characters SET status = 'left' WHERE discord_id = ?", MEMBER); HOOK = null; } };
@@ -506,7 +506,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const lrow = one("SELECT updated_at FROM site_settings WHERE key = 'leadership'");
   r = await newsGet(MEMBER);
   check("leadership.updatedAt is the directory row's updated_at rounded down to the hour (review of 3 Oct 2026), and no name from the directory appears in the News JSON", r.body.leadership.updatedAt === Math.floor(lrow.updated_at / H) * H && r.body.leadership.updatedAt % H === 0 && !JSON.stringify(r.body).includes("Zed Leader") && !JSON.stringify(r.body).includes("Quill Officer"), r.body.leadership, lrow);
-  check("beta: the last full day and launchAt from the member's settings", r.body.beta.lastFullDay === "2026-10-21" && r.body.beta.launchAt === (await http("GET", "/api/public", { who: MEMBER })).body.settings.launchAt);
+  check("beta: exact later official schedule DTO, no observed-closure claim, and launchAt from member settings", keys(r.body.beta) === "announcedClosureAt,announcementDate,launchAt,scheduleStatus,source" && r.body.beta.announcedClosureAt === Date.UTC(2026, 9, 23, 17) / 1000 && r.body.beta.announcementDate === "2026-10-20" && r.body.beta.scheduleStatus === "announced-plan-not-observed" && r.body.beta.source === "https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920" && r.body.beta.launchAt === (await http("GET", "/api/public", { who: MEMBER })).body.settings.launchAt);
   check("releases: the newest first, at most 5, plain {build, date, lines}", r.body.releases.length >= 1 && r.body.releases.length <= 5 && r.body.releases.every((x) => keys(x) === "build,date,lines"));
 
   console.log("\n== the figures ==");
