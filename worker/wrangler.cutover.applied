@@ -50,3 +50,7 @@ activated_at = "2026-10-17T19:46:17Z"
 # Owner-authorized .164 source profile: bounded Native erasure and attempt discipline; no provider operation asserted.
 activation_profile_sha256 = "6e4f3de1a497e4475fdb671a684a01adc14fdbb887d770cd01aa7ba313e45506"
 activated_at = "2026-10-18T02:49:11Z"
+# Owner-authorized .204 SOURCE-ONLY factual correction: NAME_RESERVATION_AT 07:00Z -> 20:00Z, plus truthful directory-limit comment.
+# No --activate invocation, provider operation, saved-setting rewrite or optional feature activation is asserted.
+activation_profile_sha256 = "a7aaff90f926a1dafcbc227758e00576cff91d81eb1d7b903174a6cebd26338a"
+activated_at = "2026-10-27T00:07:44Z"
