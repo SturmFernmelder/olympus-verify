@@ -3809,8 +3809,8 @@
     {
       "path": "worker/src/site-data.ts",
       "mode": "100644",
-      "bytes": 59470,
-      "sha256": "3a998815551a4f7540a4852dbf3d33516675f7914c91f8100c4e9cbaa1ec7834"
+      "bytes": 59721,
+      "sha256": "a14d5eee788cc282e71aeafeb4021df3fe5364a35078437f5859cf2753195a3e"
     },
     {
       "path": "worker/src/site-ranks.ts",
@@ -4169,8 +4169,8 @@
     {
       "path": "worker/public/static/royal-writs199.js",
       "mode": "100644",
-      "bytes": 13735,
-      "sha256": "3b68cb793279128d3b8feca75f508bcb2058949c28e7da0d4339ca5f68380f52"
+      "bytes": 13849,
+      "sha256": "27b2d48a57602a9fc05aa50040f1b384835132329b1f551622e221d54638a49d"
     }
   ],
   "login_art_exception": {

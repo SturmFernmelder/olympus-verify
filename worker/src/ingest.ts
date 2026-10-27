@@ -424,7 +424,7 @@ export function explainRefusal(code: string | null | undefined): string {
         "your invite is lifted and an officer will send it shortly. Stay logged in on that character"
       );
     case "guild_full":
-      return "the guild is at its 1000-member cap, so no invite can go out yet \u2014 you keep your place in the queue";
+      return "the guild has reached its configured 1000-character planning limit, so no invite can go out yet \u2014 you keep your place in the queue";
     case "offline":
       return "the last invite went out while that character was offline \u2014 be logged in on it and the next one will land";
     case "declined":

@@ -442,7 +442,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'The sessions accepted plus preparation for the assigned team.', 'PvP Lead, other Captains and event organizers.'
   ],
   office_71: [
-    'The PvP Lead organizes optional battleground premades and agreed competitive events on the guild’s PvE realm. The role builds a dependable team and a clear voice channel without turning optional competition into compulsory participation or changing the announced ruleset.',
+    'The PvP Lead organizes optional battleground premades and agreed competitive events within the guild’s PvE ruleset direction. The role builds a dependable team and a clear voice channel without turning optional competition into compulsory participation or changing the announced ruleset.',
     ['Publish optional PvP nights and maintain the willing team’s composition.', 'Prepare strategy, assign Captains and call or delegate target priorities.', 'Review conduct and coordinate inter-guild questions through the appropriate Liaison.'],
     ['Have practical group-leading experience and a calm microphone presence.', 'Keep event objectives and rivalry within the guild and platform rules.'],
     'About 5 to 10 hours a week when an active program is scheduled.', 'PvP Captains, War Head, officers and Liaison.'
@@ -460,7 +460,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'Regional raid nights plus about an hour of setup a week.', 'Regional Raid Leader, Loot Council and Class Leads.'
   ],
   office_74: [
-    'A Raid Leader prepares and calls an agreed regional raid team. Once the pull starts, the group needs one clear plan: assignments, positioning, pace and recovery from mistakes, supported by preparation that happens before forty people are waiting in the instance.',
+    'A Raid Leader prepares and calls an agreed regional raid team. Once the pull starts, the group needs one clear plan: assignments, positioning, pace and recovery from mistakes, supported by preparation before the encounter’s 10, 20 or 40 players are waiting in the instance.',
     ['Set the regional schedule and publish strategy and sign-up expectations ahead of time.', 'Build the raid with Assists and Class Leads, then call pulls, breaks and encounter priorities.', 'Review difficult nights constructively and keep loot handling aligned with the published policy.'],
     ['Attend nearly every agreed raid, on time, with a steady microphone.', 'Learn encounter and class responsibilities first; correct mistakes without humiliating players.'],
     'Regional raid nights plus 2 to 3 hours of weekly preparation; see the individual NA/EU seats below.', 'Raid Assists, Class Leads, Loot Council and officers.'

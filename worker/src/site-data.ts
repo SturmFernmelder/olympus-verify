@@ -28,9 +28,10 @@ import { ROLE_DIRECTORY_203 } from './site-role-directory203';
  * `about` says what the role is, `duties` what the holder does, `expect` what the guild expects of them, `time` roughly
  * how long it takes, `works` who they work with. Plain text: the page puts all of it on screen with textContent.
  *
- * `game` is informational guidance, not a grant of ranks, permissions or AddOn access. The proposed post-beta
- * native ladder is Guild Master, High Council, Treasurer, Officer, Raid Leader, Veteran, Raider, Member, Alt,
- * Initiate. Co-Guild Master is a separate council appointment mapped to High Council; Treasurer occupies Slot 3 (zero-based slot 2).
+ * `game` is informational guidance, not a grant of ranks, permissions or AddOn access. The current native ladder
+ * is Leader, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate.
+ * Co-Guild Master and Treasurer are appointments within Leader / High Council, not additional native ranks.
+ * Historical position copy below is projected through the current rank catalogue before publication.
  * The website recommendation does not apply a native permission preset. Historical High Council signer and
  * role bindings remain separately qualified. No numeric bank allowances have been approved.
  * The current in-game ladder is not certified here. Each Guild Master must review and configure ranks and bank
@@ -112,7 +113,7 @@ const HISTORICAL_POSITION_COPY: Position[] = [
   {
     key: "guild_master", label: "Guild Master (Olympus 2 and later)", group: "leadership", blurb: "Leads one of the Olympus guilds after the first: its rules, its officers, its roster. Answers to the Olympus leadership.",
     info: {
-      about: "A guild has room for 1,000 characters and far more people want to join Olympus, so the community spreads over several guilds: Olympus 2, Olympus 3 and so on. Each needs a Guild Master who holds the top rank in game, leads it day to day, and answers to the Olympus leadership.",
+      about: "Olympus uses a 1,000-character branch planning boundary; the current Forever game cap has not been independently verified here. To organize demand, the community plans several guilds: Olympus 2, Olympus 3 and so on. Each needs a Guild Master who holds the top rank in game, leads it day to day, and answers to the Olympus leadership.",
       duties: [
         "Found your guild at launch: the charter and its signatures, the tabard, and ranks and permissions set up the way Olympus does it.",
         "Pick your officers with the Olympus leadership, and hold them to the same rules as everyone else.",
@@ -247,10 +248,10 @@ const HISTORICAL_POSITION_COPY: Position[] = [
   {
     key: "pvp_leader", label: "PvP Leader", group: "leadership", blurb: "Organizes optional battlegrounds and agreed competitive events. Olympus plays PvE · Alliance.",
     info: {
-      about: "Olympus plays on a PvE realm, as Alliance. The PvP Leader organizes optional battlegrounds and competitive events under the guild's conduct rules; participation never changes the server ruleset.",
+      about: "Olympus follows a PvE ruleset direction, as Alliance. The PvP Leader organizes optional battlegrounds and competitive events under the guild's conduct rules; participation never changes the server ruleset.",
       duties: [
         "Lead optional scheduled battleground premades and agreed competitive events, and call targets in voice chat.",
-        "Arrange opt-in practice and agreed team events without changing the guild’s PvE realm direction.",
+        "Arrange opt-in practice and agreed team events without changing the guild’s PvE ruleset direction.",
         "Schedule regular PvP nights and battleground premades.",
         "Keep the PvP Team's roster and roles current.",
         "Work out the guild's PvP conduct with the officers, and deal with other guilds through the Liaison.",
@@ -266,9 +267,9 @@ const HISTORICAL_POSITION_COPY: Position[] = [
     },
   },
   {
-    key: "liaison", label: "Liaison", group: "leadership", blurb: "Speaks for Olympus to other guilds, the other Olympus guilds included, and keeps the peace on a busy PvE realm.",
+    key: "liaison", label: "Liaison", group: "leadership", blurb: "Speaks for Olympus to other guilds, the other Olympus guilds included, and keeps the peace within the shared PvE community.",
     info: {
-      about: "The Liaison speaks for Olympus to other guilds: the other Olympus guilds, and the rest of the realm, Horde included. On a crowded PvE realm, good relations prevent a lot of trouble.",
+      about: "The Liaison speaks for Olympus to other guilds: the other Olympus guilds, and the wider ruleset community, Horde included. Within the shared PvE ruleset, good relations prevent a lot of trouble.",
       duties: [
         "Be the day-to-day contact for the other Olympus guilds: news, shared events and problems, so their Guild Masters always know whom to ask.",
         "Be the contact for other guilds' leaders: world bosses, raid times and shared events.",
@@ -392,7 +393,7 @@ const HISTORICAL_POSITION_COPY: Position[] = [
   {
     key: "pvp_team", label: "PvP Team", group: "membership", blurb: "Optional battleground premades and agreed competitive events with the PvP Leader.",
     info: {
-      about: "The PvP Team organizes opt-in battlegrounds, premades and agreed competitive events on Olympus's PvE realm.",
+      about: "The PvP Team organizes opt-in battlegrounds, premades and agreed competitive events within Olympus's PvE ruleset direction.",
       duties: [
         "Join the PvP Leader's scheduled events when you choose to take part.",
         "Join the scheduled PvP nights and battleground premades.",
@@ -420,7 +421,7 @@ const HISTORICAL_POSITION_COPY: Position[] = [
       ],
       expect: [
         "You follow the guild rules, in game and on Discord.",
-        "You stay active: a guild holds 1,000 characters, so when it is full, characters that stop logging in can be removed to make room, low-level ones soonest.",
+        "You stay active: Olympus plans up to 1,000 characters per branch; actual game capacity is separately unverified, so when it is full, characters that stop logging in can be removed to make room, low-level ones soonest.",
         "You treat everyone with respect: you represent Asmongold's guild.",
       ],
       time: "No minimum.",
