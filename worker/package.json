@@ -61,9 +61,9 @@
     "test:owner207": "node tests/treasury_plan207_test.cjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260916.1",
+    "@cloudflare/workers-types": "^5.20261021.1",
     "typescript": "^5.6.0",
-    "wrangler": "^4.135.0"
+    "wrangler": "^4.151.3"
   },
   "overrides": {
     "miniflare@5.20260918.0-alpha": {
