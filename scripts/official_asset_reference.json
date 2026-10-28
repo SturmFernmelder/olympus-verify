@@ -8,8 +8,8 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 83346,
-      "sha256": "8b59b235747e9d853d3740614924b8936458ab4e5966d2173d3a8fe8b7890774"
+      "bytes": 83537,
+      "sha256": "7b210b3bb1d2376fd2e72e4029a0b3a68afbdb31e907fdf0d114492342d664b3"
     },
     {
       "path": "worker/public/static/app.js",
