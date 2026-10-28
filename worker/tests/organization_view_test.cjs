@@ -58,7 +58,7 @@ class Element {
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [], overview205 = false } = {}) {
+function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [], overview205 = false, model = data } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
   doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
@@ -71,7 +71,7 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
   // The shared directory implementation is exercised by the actual app suites.
   // This module fixture supplies its documented canonical ordinary link contract.
-  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, allianceOverview205:overview205?()=>h('section',{class:'org-alliance'}):undefined, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
+  const dispose = sandbox.renderOrganization(main, model, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, allianceOverview205:overview205?()=>h('section',{class:'org-alliance'}):undefined, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
@@ -81,6 +81,11 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
+check('.208 chart search accessible name states all96 current labels', data.terms.length === 96 && p.doc.getElementById('organization-search').getAttribute('aria-label') === 'Search all offices and 96 labels');
+const originalDataCount208 = JSON.stringify(data), syntheticCountModel208 = { ...data, terms: [...data.terms, { ...data.terms[95], ordinal: 97, officeKey: 'office_97', label: 'Synthetic label-count witness only' }] };
+const syntheticCountView208 = open({ model: syntheticCountModel208 });
+check('.208 accessible search count follows its supplied model without mutating the canonical catalogue', syntheticCountModel208.terms.length === 97 && syntheticCountView208.doc.getElementById('organization-search').getAttribute('aria-label') === 'Search all offices and 97 labels' && JSON.stringify(data) === originalDataCount208 && data.terms.length === 96);
+syntheticCountView208.dispose();
 const wide205=open({overview205:true});
 check('.205 default wide overview keeps the exact map available in a collapsed disclosure',!wide205.one('org-relationship-map205').open&&!!wide205.one('org-alliance'));
 const deepOffice205=open({overview205:true,parts:['office_27']});

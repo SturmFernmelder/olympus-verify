@@ -582,7 +582,7 @@ async function frontendOwner197() {
     // overview and its actual context module have their own qualified leaf.
     const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
     const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
-    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='acf31d37bcffc860d853779696e518c2f2f945a6d0771cff7bb76f8d50690502')throw Error('owner199_original_organization_fixture_prefix_drift');
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='78635b63279c9a26bf5746274f5ee0d774b6fa649836239a21bde9c35288fafd')throw Error('owner199_original_organization_fixture_prefix_drift');
     const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
     if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
     const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
