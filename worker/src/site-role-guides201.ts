@@ -34,7 +34,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'Project-based development, with agreed availability around releases.', 'Systems Architect, Technical Envoys and the official addon publisher.', 'A contribution does not publish a CurseForge release, grant signing keys or authorize automated game actions.'
   ],
   office_03: [
-    'The Addon / Discord Architect owns the design of the bridge between the addon, website and bot. The architect decides how identity, authority and failure states fit together, then makes those decisions explicit enough that another maintainer can operate and review them.',
+    'The Addon / Discord Architect carries the alliance-wide Systems High Council remit and owns the design of the bridge between the addon, website and bot. The architect decides how identity, authority and failure states fit together, then makes those decisions explicit enough that another maintainer can operate and review them. Engineering support retains its separate Officer Corps scope.',
     ['Define versioned interfaces and compatibility plans before changing cross-system messages.', 'Review authentication, erasure, statement budgets and fail-closed behaviour across service boundaries.', 'Coordinate release evidence, incident handovers and a recovery plan that separates known outcomes from unknown provider states.'],
     ['Explain risks in language officers and members can understand.', 'Require independent review for consequential changes and never treat a website label as authority.'],
     'Continuing design stewardship and scheduled release reviews.', 'Addon Developer, Discord Engineers, Treasurer and the High Council.', 'Architecture approval alone cannot activate production providers, alter game permissions or replace the publisher’s adoption decision.'
@@ -100,7 +100,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'No fixed minimum; any accepted group reservation should still be honoured.', 'Social Members, Mentors and Community Officers.'
   ],
   office_14: [
-    'The Chief of Intake leads the admission policy and the people applying it. The Gatekeeper balances a welcoming first contact with fair capacity decisions, consistent identity checks and a process that does not quietly privilege an officer’s friends.',
+    'The Chief of Intake carries the alliance-wide High Council intake remit and leads the admission policy and the people applying it. The Gatekeeper balances a welcoming first contact with fair capacity decisions, consistent identity checks and a process that does not quietly privilege an officer’s friends. Branch Recruiters retain their local guidance and capacity handovers.',
     ['Set a clear intake workflow, waiting-list handover and escalation route for difficult cases.', 'Review recruitment outcomes across branches for inconsistent standards or unexplained delays.', 'Train recruiters on publication consent, evidence handling and the distinction between a request and an approved invite.'],
     ['Explain an admission standard before using it to judge an applicant.', 'Protect private applicant information and separate personal sponsorship from an official decision.'],
     'Recurring intake reviews, recruiter support and busier periods around launch.', 'Recruitment Lead, branch Guild Masters and High Council.'
@@ -172,7 +172,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'The team’s agreed recurring raid nights, plus personal preparation.', 'Regional Raid Leader, Raid Assists and Class Lead.'
   ],
   office_26: [
-    'The Council of Justice hears contested conduct matters with a fair process. Its purpose is to establish what the evidence supports, hear the affected sides and give a reasoned outcome, rather than reward the loudest accusation or revisit a case through public pressure.',
+    'The Head of Justice carries the alliance-wide High Council remit for Justice administration and an unconflicted review route. The Council of Justice hears contested conduct matters with a fair process: establish what the evidence supports, hear the affected sides and give a reasoned outcome, rather than reward the loudest accusation or revisit a case through public pressure. Individual panel designation remains separate; hearing-panel service gives no blanket Council membership, eligible vote, case access or enforcement power.',
     ['Identify the rule, allegation, relevant evidence and appropriate hearing scope.', 'Give affected parties a reasonable chance to respond and record recusals for conflicts.', 'Issue reasons, proportionate remedies and the available appeal route within the adopted procedure.'],
     ['Keep evidence private to its authorized audience and distinguish testimony from proven fact.', 'Do not promise a gold pardon, overturn platform enforcement or sit in judgment on your own dispute.'],
     'Case preparation, attended hearings and timely written outcomes.', 'Privy Council, Moderation, Treasurer where receipts are relevant, and the designated appeal authority.'
@@ -364,13 +364,13 @@ const content201: Readonly<Record<string, Content201>> = {
     'Continuing portfolio leadership and Council review.', 'Leader, Co-Guild Master, Department Heads and branch Emissaries.'
   ],
   office_58: [
-    'The Minister of Artisanry leads the alliance’s Workshop and profession policy. The task is to grow access to knowledge and dependable crafts while preserving each crafter’s choice, rare-recipe stewardship and the line between a directory entry and an actual transaction.',
+    'The Minister of Artisanry carries the alliance-wide High Council remit for the Workshop and profession policy. The task is to grow access to knowledge and dependable crafts while preserving each crafter’s choice, rare-recipe stewardship and the line between a directory entry and an actual transaction.',
     ['Coordinate profession coverage, teaching priorities and cross-branch craft requests.', 'Set clear Workshop listing and commission-handling expectations.', 'Review reported craft disputes and refer custody or conduct questions to the proper authority.'],
     ['Do not promise a rare recipe or another player’s labour without agreement.', 'Keep procurement, featured recognition and any paused gold schedules distinct from office authority.'],
     'Regular Workshop coordination and planned guild crafting projects.', 'Profession Coordinators, Artisanry Emissaries and Treasurer.'
   ],
   office_59: [
-    'The Minister of Heraldry safeguards the guild’s public identity and official communications. Heraldry joins words, symbols and announcements so members can recognize what is adopted, what is a draft and what is simply another player’s creative work.',
+    'The Minister of Heraldry carries the alliance-wide High Council remit for public identity and official communications. Heraldry joins words, symbols and announcements so members can recognize what is adopted, what is a draft and what is simply another player’s creative work.',
     ['Maintain approved guild identity and publication standards.', 'Coordinate alliance announcements, branch news and corrections through named editors.', 'Review privacy and consent questions arising from broadcasts, quotations or public event coverage.'],
     ['Give accurate credit for official and third-party artwork.', 'Avoid implying that an announcement appoints a person or activates a technical service.'],
     'Continuing editorial oversight and major-announcement review.', 'Lead Correspondent, Media & Communications Lead and Heraldry Emissaries.'
@@ -442,7 +442,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'The sessions accepted plus preparation for the assigned team.', 'PvP Lead, other Captains and event organizers.'
   ],
   office_71: [
-    'The PvP Lead organizes optional battleground premades and agreed competitive events within the guild’s PvE ruleset direction. The role builds a dependable team and a clear voice channel without turning optional competition into compulsory participation or changing the announced ruleset.',
+    'The PvP Lead organizes optional battleground premades and agreed competitive events within the guild’s PvE ruleset direction. The role builds a dependable team and a clear voice channel without turning optional competition into compulsory participation or changing the announced ruleset. This regional or branch Officer Corps role is distinct from the alliance-wide MAIN PvP Lead Council remit.',
     ['Publish optional PvP nights and maintain the willing team’s composition.', 'Prepare strategy, assign Captains and call or delegate target priorities.', 'Review conduct and coordinate inter-guild questions through the appropriate Liaison.'],
     ['Have practical group-leading experience and a calm microphone presence.', 'Keep event objectives and rivalry within the guild and platform rules.'],
     'About 5 to 10 hours a week when an active program is scheduled.', 'PvP Captains, War Head, officers and Liaison.'
@@ -460,7 +460,7 @@ const content201: Readonly<Record<string, Content201>> = {
     'Regional raid nights plus about an hour of setup a week.', 'Regional Raid Leader, Loot Council and Class Leads.'
   ],
   office_74: [
-    'A Raid Leader prepares and calls an agreed regional raid team. Once the pull starts, the group needs one clear plan: assignments, positioning, pace and recovery from mistakes, supported by preparation before the encounter’s 10, 20 or 40 players are waiting in the instance.',
+    'A Raid Leader prepares and calls an agreed regional raid team. Once the pull starts, the group needs one clear plan: assignments, positioning, pace and recovery from mistakes, supported by preparation before the encounter’s 10, 20 or 40 players are waiting in the instance. This regional or branch Officer Corps role is distinct from the alliance-wide MAIN Raid Lead Council remit.',
     ['Set the regional schedule and publish strategy and sign-up expectations ahead of time.', 'Build the raid with Assists and Class Leads, then call pulls, breaks and encounter priorities.', 'Review difficult nights constructively and keep loot handling aligned with the published policy.'],
     ['Attend nearly every agreed raid, on time, with a steady microphone.', 'Learn encounter and class responsibilities first; correct mistakes without humiliating players.'],
     'Regional raid nights plus 2 to 3 hours of weekly preparation; see the individual NA/EU seats below.', 'Raid Assists, Class Leads, Loot Council and officers.'
@@ -580,10 +580,10 @@ const content201: Readonly<Record<string, Content201>> = {
     'No service quota follows from the courtesy label.', 'Community Officers and the leadership granting recognition.', 'VIP grants no Council seat, platform role, bank access or active Royal Writs service.'
   ],
   office_94: [
-    'The War Head directs the alliance’s organized PvE progression portfolio and coordinates optional combat activities within the announced PvE · Alliance direction. This reserved Council office sets strategy and resourcing priorities while regional Raid Leaders retain practical command of their assigned raids.',
-    ['Coordinate progression goals, training needs and cross-branch raid support.', 'Review readiness and resource proposals with Class Heads, strategy and Treasury.', 'Resolve conflicting schedules or priorities through the responsible organizers and Council process.'],
+    'The War Head template covers two distinct alliance-wide High Council remits: MAIN Raid Lead for organized PvE progression, and MAIN PvP Lead for optional PvP strategy and cross-branch coordination within the announced PvE · Alliance direction. These leads set shared strategy and resourcing priorities while regional Raid Leaders and regional or branch PvP Leads retain their assigned operational command. Both current remit references use the existing office_94 template; they do not create two persistent appointment records or copy a holder between offices.',
+    ['Coordinate alliance progression goals, optional PvP strategy, training needs and cross-branch support within the respective MAIN remit.', 'Review readiness and resource proposals with Class Heads, strategy and Treasury.', 'Resolve conflicting schedules or priorities through the responsible organizers and Council process.'],
     ['Use actual roster and performance evidence without inventing live capacity.', 'Respect regional schedules, published loot rules and the opt-in nature of unrelated activities.'],
-    'Continuing portfolio leadership and preparation for progression reviews.', 'Raid Leaders, Chief Strategist, Emissaries of War and Treasurer.'
+    'Continuing alliance portfolio leadership and preparation for the respective progression or optional PvP reviews.', 'Regional Raid Leaders, regional or branch PvP Leads, Chief Strategist, Emissaries of War and Treasurer.'
   ],
   office_95: [
     'The Welfare / Community Support Lead helps members find a humane route through ordinary guild difficulties. The office listens, connects people with appropriate support and recognizes the limits of a volunteer gaming community rather than presenting itself as professional emergency care.',

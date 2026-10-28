@@ -10,25 +10,166 @@
     "sha256": "e0800f5eacba0151d31df57412ea47a0e28920a4e1995cb7273a8236ca9dc924"
   },
   "councilComposition": {
-    "status": "owner_directed_20261023",
-    "recordedAt": "2026-10-23",
-    "authority": "project owner direction",
+    "status": "owner_clarified_20261028",
+    "recordedAt": "2026-10-28",
+    "authority": "project owner clarification",
     "offices": [
-      "Guild Master",
+      "Guild Master — Council Chair",
       "Co-Guild Master",
       "Treasurer",
-      "War Head for PvP",
-      "War Head for Raiding",
+      "MAIN Raid Lead",
+      "MAIN PvP Lead",
+      "Head of Justice",
       "Minister of Artisanry",
-      "Minister of Heraldry"
+      "Minister of Heraldry",
+      "Chief of Intake",
+      "Systems / Addon Architect"
     ],
-    "summary": "The owner directs Guild Master, Co-Guild Master and Treasurer as the core Council offices, supported by accepted portfolio mandates.",
-    "formalStatus": "Current owner composition direction is recorded. Constitutional recommendation and Founder ratification are not recorded. Individual accepted warrants, eligible votes and permissions remain separate.",
+    "summary": "The current Council brings together the Guild Master as chair, Co-Guild Master, Treasurer, MAIN Raid Lead, MAIN PvP Lead, Head of Justice, Artisanry, Heraldry, Intake and Systems remits. This current roster of responsibilities is not limited by the earlier poster.",
+    "formalStatus": "Owner clarification recorded on 28 October 2026 for the current website presentation. R7 adoption remains 13 October 2026; this is not an adopted R8 charter or a newly recorded constitutional vote or Founder ratification. Individual appointments, eligible votes and actual permissions remain separate.",
     "recommendationRecorded": false,
     "founderRatificationRecorded": false,
     "eligibleSeatIssued": false,
     "permissionsApplied": false,
-    "sourcePath": "/static/governance/council-composition-2026-10-19.md",
+    "sourcePath": "/static/governance/council-composition-2026-10-28.md",
+    "currentSeats": [
+      {
+        "id": "gm-chair",
+        "label": "Guild Master — Council Chair",
+        "familyKey": "leader",
+        "nodeId": "founder",
+        "officeKeys": [
+          "office_43"
+        ],
+        "scope": "alliance",
+        "description": "The alliance Guild Master chairs common Council business while retaining the separate Leader classification. Chairing does not add another native rank or a second vote."
+      },
+      {
+        "id": "co-gm",
+        "label": "Co-Guild Master",
+        "familyKey": "co_gm",
+        "nodeId": "executive",
+        "officeKeys": [
+          "office_19"
+        ],
+        "scope": "alliance",
+        "description": "Alliance executive coordination, continuity and cross-branch liaison within the accepted remit. Vice Guild Master and Chief of Staff are not added to this remit by implication."
+      },
+      {
+        "id": "treasurer",
+        "label": "Treasurer",
+        "familyKey": "treasurer",
+        "nodeId": "treasury",
+        "officeKeys": [
+          "office_86"
+        ],
+        "scope": "alliance",
+        "description": "Alliance budgets, receipts and financial stewardship, with custody, spending approval and independent audit kept separate."
+      },
+      {
+        "id": "main-raid-lead",
+        "label": "MAIN Raid Lead",
+        "familyKey": "war_head",
+        "nodeId": "war-raiding",
+        "officeKeys": [
+          "office_94"
+        ],
+        "scope": "alliance",
+        "description": "Alliance-wide raiding strategy, progression standards and cross-branch readiness. Regional NA/EU Raid Leaders retain their assigned operational command. The existing office_94 War Head template is shared with MAIN PvP Lead: two remit references, not two persistent appointment records.",
+        "sharedAppointmentTemplate": true
+      },
+      {
+        "id": "main-pvp-lead",
+        "label": "MAIN PvP Lead",
+        "familyKey": "war_head",
+        "nodeId": "war-pvp",
+        "officeKeys": [
+          "office_94"
+        ],
+        "scope": "alliance",
+        "description": "Alliance-wide optional PvP strategy and coordination within the PvE · Alliance direction. Regional and branch PvP Leads and Captains retain their assigned events. The existing office_94 War Head template is shared with MAIN Raid Lead: two remit references, not two persistent appointment records.",
+        "sharedAppointmentTemplate": true
+      },
+      {
+        "id": "head-justice",
+        "label": "Head of Justice",
+        "familyKey": "justice",
+        "nodeId": "justice",
+        "officeKeys": [
+          "office_26"
+        ],
+        "scope": "alliance",
+        "description": "The alliance High Council remit for independent Justice administration and an unconflicted review route. Individual hearing panels require their own designation; this reference gives no blanket Council vote, case access or enforcement power to every panel member."
+      },
+      {
+        "id": "artisanry",
+        "label": "Minister of Artisanry",
+        "familyKey": "minister_artisanry",
+        "nodeId": "artisanry",
+        "officeKeys": [
+          "office_58"
+        ],
+        "scope": "alliance",
+        "description": "Alliance profession policy, voluntary craft coordination and Workshop stewardship, with local suppliers and emissaries keeping their own remits."
+      },
+      {
+        "id": "heraldry",
+        "label": "Minister of Heraldry",
+        "familyKey": "minister_heraldry",
+        "nodeId": "heraldry",
+        "officeKeys": [
+          "office_59"
+        ],
+        "scope": "alliance",
+        "description": "Alliance identity, approved communications and publication standards, coordinated through responsible local editors and emissaries."
+      },
+      {
+        "id": "intake",
+        "label": "Chief of Intake",
+        "familyKey": "chief_intake",
+        "nodeId": "intake",
+        "officeKeys": [
+          "office_14"
+        ],
+        "scope": "alliance",
+        "description": "Alliance admission standards, intake coordination and escalation, distinct from branch Recruiters and their local capacity decisions."
+      },
+      {
+        "id": "systems",
+        "label": "Systems / Addon Architect",
+        "familyKey": "architect",
+        "nodeId": "systems",
+        "officeKeys": [
+          "office_03"
+        ],
+        "scope": "alliance",
+        "description": "Alliance architecture, compatibility, privacy and recovery planning across the addon, website and Discord tools. Engineering support remains Officer Corps; the title grants no production or signing access."
+      }
+    ],
+    "persistentAppointmentKeysAdded": false,
+    "seatReferenceNote": "The ten rows identify current alliance responsibilities, not ten new appointments, a fixed voting-seat count or an exhaustive list of every Council-classified title. Both MAIN War remits reference the one existing office_94 template; they do not create two persistent holder records. The Head of Justice reference does not grant blanket Council membership or votes to hearing-panel members.",
+    "historicalSourcePath": "/static/governance/council-composition-2026-10-19.md",
+    "previousDirection": {
+      "status": "owner_directed_20261023",
+      "recordedAt": "2026-10-23",
+      "authority": "project owner direction",
+      "offices": [
+        "Guild Master",
+        "Co-Guild Master",
+        "Treasurer",
+        "War Head for PvP",
+        "War Head for Raiding",
+        "Minister of Artisanry",
+        "Minister of Heraldry"
+      ],
+      "summary": "The owner directs Guild Master, Co-Guild Master and Treasurer as the core Council offices, supported by accepted portfolio mandates.",
+      "formalStatus": "Current owner composition direction is recorded. Constitutional recommendation and Founder ratification are not recorded. Individual accepted warrants, eligible votes and permissions remain separate.",
+      "recommendationRecorded": false,
+      "founderRatificationRecorded": false,
+      "eligibleSeatIssued": false,
+      "permissionsApplied": false,
+      "sourcePath": "/static/governance/council-composition-2026-10-19.md"
+    },
     "historicalDirection": {
       "status": "owner_directed_pending_constitutional_process",
       "recordedAt": "2026-10-19",
@@ -1443,10 +1584,11 @@
       "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
       "discordPortal": "High Council access requires a separately verified current appointment; no automatic signing, bank or portal access.",
       "applicationAliases": [
+        "Head of Justice",
         "Privy Council / Judiciary",
         "Judicial Portfolio"
       ],
-      "applicationLabel": "Council of Justice · Privy Council / Judiciary",
+      "applicationLabel": "Head of Justice · Council of Justice",
       "applicationRoleKeys": [
         "office_26"
       ]
@@ -3705,9 +3847,10 @@
       "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
       "discordPortal": "High Council access requires a separately verified current appointment; no automatic signing, bank or portal access.",
       "applicationAliases": [
+        "MAIN Raid & PvP Leads",
         "PvE War Council Director"
       ],
-      "applicationLabel": "War Head · PvE War Council Director",
+      "applicationLabel": "War Head · MAIN Raid & PvP Leads",
       "applicationRoleKeys": [
         "office_94"
       ]
@@ -4176,7 +4319,10 @@
       }
     ],
     "recognitionPeriod": "90-day season; expires at season end; cosmetic colour only",
-    "rulingEvidence": "Direct owner .199 confirmation in chat: Yes—High Council slot 1, Officer slot 2. Exact answer timestamp is not asserted by this static catalogue."
+    "rulingEvidence": "Direct owner .199 confirmation in chat: Yes—High Council slot 1, Officer slot 2. Exact answer timestamp is not asserted by this static catalogue.",
+    "coreCouncilOfficesScope": "Guild Master, Co-Guild Master and Treasurer identify the core executive responsibilities, not an exhaustive Council roster.",
+    "councilClarificationRecordedAt": "2026-10-28",
+    "councilCompositionSourcePath": "/static/governance/council-composition-2026-10-28.md"
   },
   "statutoryExpansion": {
     "source": "docs/master199-governance-titles.md",
@@ -5088,8 +5234,9 @@
       "department": "Council of Justice",
       "applicationTrack": "high_council",
       "applicationEligible": true,
-      "applicationLabel": "Council of Justice · Privy Council / Judiciary",
+      "applicationLabel": "Head of Justice · Council of Justice",
       "applicationAliases": [
+        "Head of Justice",
         "Privy Council / Judiciary",
         "Judicial Portfolio"
       ],
@@ -7146,8 +7293,9 @@
       "department": "Department of War",
       "applicationTrack": "high_council",
       "applicationEligible": true,
-      "applicationLabel": "War Head · PvE War Council Director",
+      "applicationLabel": "War Head · MAIN Raid & PvP Leads",
       "applicationAliases": [
+        "MAIN Raid & PvP Leads",
         "PvE War Council Director"
       ],
       "applicationRoleKeys": [

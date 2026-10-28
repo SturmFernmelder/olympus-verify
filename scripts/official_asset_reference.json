@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 33147,
-      "sha256": "c94de4dbd5b2dbebe784d601baa65e09e97c02f6932305f2ca51b5e80c0b5e77"
+      "bytes": 34613,
+      "sha256": "0fd98fa4c8338889d6ee4d6c05c8bb86eee5af921f4245cc91c23475097152d7"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -3931,8 +3931,8 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 345654,
-      "sha256": "78b421f19be47c26b5b0acfb4a25f7d80834abd9eac0bcdda9ee636f80f2dc24"
+      "bytes": 352552,
+      "sha256": "38f0e01b98237a070f15c2c110f9d3c38279f49301263b8fb497b4d2b3cfeffe"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
@@ -3997,8 +3997,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 34395,
-      "sha256": "3f0f1aa184c0d18794e7793e722bd91dd5dc1e6afc94c6f9653ee5a703c23fc1"
+      "bytes": 34654,
+      "sha256": "f058d7ff4741f94fcfba89749f5767db457ef393b391eaf4d8c0bb6669a968ba"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -4165,8 +4165,8 @@
     {
       "path": "worker/public/static/role-rank199.js",
       "mode": "100644",
-      "bytes": 128659,
-      "sha256": "97975b6fc60a08a421a8d56b69f8481a39e06dbfa048ffcf39e5a854623f34ae"
+      "bytes": 128688,
+      "sha256": "ca3beeae816ea5b2265845f73dcabd70ce40b0d98fa917cd76785aeff4135f59"
     },
     {
       "path": "worker/public/static/royal-writs199.js",
@@ -4177,14 +4177,20 @@
     {
       "path": "worker/public/static/organization-overview205.js",
       "mode": "100644",
-      "bytes": 16577,
-      "sha256": "aee67aac6c376b7d384e0b85c67db3d6ddec0e716dfe815a79c57a11521a8698"
+      "bytes": 21426,
+      "sha256": "9e2549499d88254763cf6329c360fa87bad1ffcc86f635348d9b73daf2c73981"
     },
     {
       "path": "worker/public/static/organization-context205.js",
       "mode": "100644",
       "bytes": 5714,
       "sha256": "f4f4389f7f47034620ba5faff935ea07127b0cf849b4a9eb60b7ffd3ea05fca6"
+    },
+    {
+      "path": "worker/public/static/governance/council-composition-2026-10-28.md",
+      "mode": "100644",
+      "bytes": 5523,
+      "sha256": "79637e9d0f67109a642e950553352d7e4f5cd8a4b1180387e9d61351af68c16b"
     }
   ],
   "login_art_exception": {
