@@ -1420,7 +1420,18 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     "count": 1,
     "ownerRelease": 203,
     "purpose": "Owner203 canonical-family presentation and current reserved-seat classification; exact unique source line only, no new authority or general vocabulary allowance."
-  }
+  },
+{
+  "file": "worker/src/index.ts",
+  "startMarker": "const BUILD = \"2026-10-28.206 Current High Council organization\";",
+  "singleLine": true,
+  "paragraphSha256": "a2bb644cbb8b37df4a780a057974b02db0085de5bd311ad987d9204a2054aacf",
+  "paragraphBytes": 65,
+  "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+  "count": 1,
+  "ownerRelease": 206,
+  "purpose": "Owner206 current Council clarification: exact release label only; no general file or vocabulary allowance."
+}
 ]);
   const guardedCounts = (text) => {
     const hits = {};
@@ -1551,6 +1562,16 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const retired203 = RETIRED_CONTEXTS_203[0], retiredText203 = retired203.startMarker;
   check('.203 preserves the removed .201 descriptor as non-crediting history',RETIRED_CONTEXTS_203.length === 1 && retired203.paragraphSha256 === '6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271' && !CURRENT_CONTEXTS.some(spec => spec.paragraphSha256 === retired203.paragraphSha256) && !iconText.includes(retiredText203) && sha(retiredText203) === retired203.paragraphSha256 && vocabularyOverages(iconFile,iconText+'\n\n'+retiredText203).some(value => value.includes(currentDigest.slice(0,12)+' x2')));
   check('.203 leaves every other withheld-digest allowance unchanged',[...GUARD].filter(digest => digest !== currentDigest).every(digest => qualifiedIcon.credits[digest] === undefined && overOriginalVocabularyAllowance(iconFile,{[digest]:((ALLOWED[iconFile] || {})[digest] || 0)+1},qualifiedIcon).some(value => value.includes(digest.slice(0,12)))));
+
+  // The owner-directed current Council release label is one exact public-rank line.
+  // This never raises ALLOWED or removes any original withheld digest.
+  const buildSpecs206 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===206), buildFile206='worker/src/index.ts';
+  const buildText206=guarded.find(([file])=>file===buildFile206)[1], buildQualification206=currentContextQualification(buildFile206,buildText206);
+  const buildLine206=buildSpecs206.length===1 ? buildQualification206.paragraphs.find(value=>value.startsWith(buildSpecs206[0].startMarker))||'' : '';
+  check('.206 qualifies exactly one byte-pinned current release label without expanding original allowances',buildSpecs206.length===1 && buildSpecs206[0].file===buildFile206 && buildSpecs206[0].singleLine===true && buildSpecs206[0].digest===currentDigest && buildSpecs206[0].count===1 && buildQualification206.errors.length===0 && buildQualification206.credits[currentDigest]===1 && Buffer.byteLength(buildLine206,'utf8')===buildSpecs206[0].paragraphBytes && sha(buildLine206)===buildSpecs206[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile206]).length===1 && ALLOWED[buildFile206][currentDigest]===undefined);
+  check('.206 changing or duplicating the release label loses its exact context credit',!!buildLine206 && currentContextQualification(buildFile206,buildText206.replace(buildLine206,buildLine206+'!')).errors.length>0 && vocabularyOverages(buildFile206,buildText206.replace(buildLine206,buildLine206+'!')).length>0 && currentContextQualification(buildFile206,buildText206+'\n'+buildLine206).errors.length>0 && vocabularyOverages(buildFile206,buildText206+'\n'+buildLine206).length>0);
+  check('.206 an extra occurrence outside the label or in another file stays restricted',!!buildLine206 && vocabularyOverages(buildFile206,buildText206+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine206).credits).length===0 && vocabularyOverages('README.md',buildLine206).some(value=>value.includes(currentDigest.slice(0,12))));
+  check('.206 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification206.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile206,{[digest]:((ALLOWED[buildFile206]||{})[digest]||0)+1},buildQualification206).some(value=>value.includes(digest.slice(0,12)))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

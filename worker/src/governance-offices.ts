@@ -783,8 +783,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "department": "Council of Justice",
     "applicationTrack": "high_council",
     "applicationEligible": true,
-    "applicationLabel": "Council of Justice · Privy Council / Judiciary",
+    "applicationLabel": "Head of Justice · Council of Justice",
     "applicationAliases": [
+      "Head of Justice",
       "Privy Council / Judiciary",
       "Judicial Portfolio"
     ],
@@ -2841,8 +2842,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "department": "Department of War",
     "applicationTrack": "high_council",
     "applicationEligible": true,
-    "applicationLabel": "War Head · PvE War Council Director",
+    "applicationLabel": "War Head · MAIN Raid & PvP Leads",
     "applicationAliases": [
+      "MAIN Raid & PvP Leads",
       "PvE War Council Director"
     ],
     "applicationRoleKeys": [

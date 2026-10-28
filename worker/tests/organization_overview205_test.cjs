@@ -134,6 +134,14 @@ check('rank filters use only each family original recommended or native slots', 
 }));
 check('independent audit families stay outside Treasury delivery and bank custody', groups.find(group => group.key === 'independent').families.some(row => row.family.key === 'bank_auditor' && row.family.sourceKeys.includes('office_08')) && !groups.find(group => group.key === 'treasury').families.some(row => row.family.sourceKeys.includes('office_08')) && directory.keyToFamily.office_08 !== directory.keyToFamily.office_09 && directory.keyToFamily.office_08 !== directory.keyToFamily.office_86);
 
+const councilFamilies = groups.find(group => group.key === 'council').families;
+check('.206 every existing High Council family is grouped together once', councilFamilies.length === 11 && same(sorted(councilFamilies.map(row=>row.family.key)), sorted(directory.families.filter(f=>f.tier==='high_council').map(f=>f.key))) && groups.filter(g=>g.key!=='council').every(g=>g.families.every(row=>row.family.tier!=='high_council')));
+const seatIds206 = ['gm-chair','co-gm','treasurer','main-raid-lead','main-pvp-lead','head-justice','artisanry','heraldry','intake','systems'];
+check('.206 all ten named current remit references resolve without adding a family or key', same(overview.councilSeats.map(row=>row.id),seatIds206) && page.section.all(n=>n.getAttribute('data-council-seat206')!==null).length===10 && entries.length===64 && expectedKeys.length===134);
+const mainWar206=overview.councilSeats.filter(row=>row.familyKey==='war_head');
+check('.206 MAIN War heads reuse the existing template but retain separate remit nodes', same(mainWar206.map(row=>row.nodeId),['war-raiding','war-pvp']) && mainWar206.every(row=>same(row.officeKeys,['office_94'])&&row.sharedAppointmentTemplate===true) && ['raid_leader','pvp_leadership'].every(key=>entries.find(row=>row.family.key===key).family.tier==='officer_corps' && same(entries.find(row=>row.family.key===key).slots,[4])));
+check('.206 department and independent references link to complete current Council guides', [['treasurer','treasurer'],['main-raid-lead','war_head'],['head-justice','justice'],['systems','architect']].every(([id,key])=>page.section.all(n=>n.getAttribute('data-council-reference206')===id && n.getAttribute('href')==='#/roles/'+key).length>=2) && page.section.textContent.includes('The head of Justice is a High Council portfolio holder'));
+
 const reserved = directory.families.filter(family => ['leader', 'high_council', 'officer_corps'].includes(family.tier));
 check('every reserved Leader Council and Officer family has its actual tier badge', reserved.every(family => page.families().find(node => node.getAttribute('data-alliance-family') === family.key).all(node => node.getAttribute('data-tier') === family.tier).length > 0));
 check('reserved offices cannot become vacancies when no holder is supplied', reserved.filter(family => ['role', 'institution'].includes(family.kind)).every(family => /Reserved seat|Reserved appointment/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
@@ -152,6 +160,7 @@ page.input('org-alliance-rank205', '1', 'change');
 check('search and rank filters intersect rather than replace one another', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1) && searchOnly.includes(row.family.key)).map(row => row.family.key))) && page.visible().includes(searchable.family.key));
 page.input('org-alliance-search205', 'zzzz-no-such-role-205', 'input');
 check('unmatched search hides all family rows and reports the empty state', page.visible().length === 0 && page.section.all(node => node.classList.contains('org-alliance-status')).some(node => /0|no matching|none/i.test(node.textContent)));
+check('.206 unmatched search hides every current remit and contextual reference', page.section.all(n=>n.getAttribute('data-council-reference206')!==null).every(n=>n.parentNode.hidden));
 const reset = page.section.all(node => node.tagName === 'BUTTON' && node.textContent === 'Reset overview filters')[0];
 if (!reset) throw Error('missing overview reset');
 reset.click();
@@ -195,6 +204,7 @@ function refuses(change) {
   try { page.buildAllianceOverview205(changedModel, changedDirectory); return false; } catch { return true; }
 }
 check('incomplete or duplicate original-key coverage is refused', refuses((_data, roles) => roles.families.pop()) && refuses((_data, roles) => roles.families[0].sourceKeys.push(roles.families[1].primaryKey)));
+check('.206 missing, duplicate or unrelated current Council remits fail closed', refuses(data=>{delete data.councilComposition.currentSeats;}) && refuses(data=>{data.councilComposition.currentSeats[1].id='gm-chair';}) && refuses(data=>{data.councilComposition.currentSeats[2].officeKeys=['office_08'];}));
 check('an altered native slot order is refused', refuses((_data, roles) => { roles.ranks[1].nativeSlot = 2; }));
 check('cyclic reporting context is refused instead of inventing a hierarchy', refuses(data => { data.nodes.find(node => node.id === 'founder').parent = 'council'; }));
 

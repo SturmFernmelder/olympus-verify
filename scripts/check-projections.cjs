@@ -83,11 +83,11 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 50 && new Set(ref.required_public_resources.map(row => row.path)).size === 50
-    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 562
+    && ref.required_public_resources.length === 51 && new Set(ref.required_public_resources.map(row => row.path)).size === 51
+    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 563
     && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset562-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset563-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
   check(talentComparisonResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art talent comparison resources');
@@ -105,6 +105,8 @@ function verify(snapshot) {
   check(organization205Resources.every(file => ref.required_public_resources.filter(row => row.path === file && row.mode === '100644').length === 1
     && ref.runtime_paths.filter(path => path === file).length === 1 && !ref.assets.some(row => row.path === file)
     && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art organization205 resources');
+  const council206Record = 'worker/public/static/governance/council-composition-2026-10-28.md';
+  check(ref.required_public_resources.filter(row => row.path === council206Record && row.mode === '100644').length === 1 && !ref.runtime_paths.includes(council206Record) && !ref.assets.some(row => row.path === council206Record) && !ref.official_paths.includes(council206Record) && !ref.native_paths.includes(council206Record), 'one exact non-art current Council206 record');
   const staticReferences = file => [...new Set(text(file).match(/\/static\/[A-Za-z0-9_./-]*/g) || [])].sort();
   check(JSON.stringify(staticReferences(organization205Resources[0])) === JSON.stringify(['/static/organization-context205.js'])
     && staticReferences(organization205Resources[1]).length === 0, 'exact organization205 context dependency; context introduces no static asset dependency');
