@@ -215,7 +215,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 563 and proof['required_non_art_resource_pins_verified'] == 51, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 567 and proof['required_non_art_resource_pins_verified'] == 55, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')
