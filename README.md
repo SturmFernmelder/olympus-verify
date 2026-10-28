@@ -16,6 +16,12 @@ press. Four pieces:
 Read `docs/design.md` first: it records what changed versus the original sketch and why (three claims did not survive
 contact with the API docs).
 
+For an attended reset of the Stockades server's fourteen legacy member/class role assignments, use
+[`tools/stockades-role-reset.py`](tools/stockades-role-reset.py) and the
+[operator runbook](docs/stockades-role-reset.md). The tool previews the exact scope, requires confirmation of its
+plan, records progress locally and verifies Discord afterward. It keeps role definitions and protected roles;
+it does not reset verification data, run automatically or change the Worker.
+
 > **The flow, Setup and Commands below are the September 2026 baseline, kept as history.** Where they differ, this is
 > current:
 > - **Battle.net is optional** (since .32). The in-game whisper of a code is the proof of control, and `/verify` needs
