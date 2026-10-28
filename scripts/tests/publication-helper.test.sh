@@ -44,7 +44,7 @@ assert ref["login_art_exception"]["usage"] == "login_background_only"
 assert ref["login_art_exception"]["asset"]["path"] not in ref["official_paths"]
 assert any(row["path"] == "tools/check-login-portal.py" for row in ref["fixed_art_source_pins"])
 assert ref["provenance_path"] == "worker/public/static/wow/asset-provenance.json"
-assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md"}
+assert set(ref["required_documents"]) == {"LICENSE", "README.md", "CLAUDE.md", "THIRD_PARTY_NOTICES.md", "docs/source-provenance.md", "docs/design.md", "docs/deploy-checklist.md", "docs/treasury-plan207.md"}
 # Keep the exact source/asset gate, including the .167 cursor additions, before publication.
 for row in ref["assets"] + ref["fixed_art_source_pins"] + ref["required_public_resources"]:
     path = Path(row["path"])
@@ -52,8 +52,8 @@ for row in ref["assets"] + ref["fixed_art_source_pins"] + ref["required_public_r
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 51
-assert len({row["path"] for row in ref["assets"] + ref["required_public_resources"]}) == 563
+assert len(ref["required_public_resources"]) == 55
+assert len({row["path"] for row in ref["assets"] + ref["required_public_resources"]}) == 567
 # .205 adds exactly two non-art organization modules; neither broadens official/native artwork.
 organization205_resources = {"worker/public/static/organization-overview205.js", "worker/public/static/organization-context205.js"}
 assert all(sum(row["path"] == path and row["mode"] == "100644" for row in ref["required_public_resources"]) == 1 for path in organization205_resources)

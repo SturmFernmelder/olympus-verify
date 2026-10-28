@@ -6,7 +6,7 @@ import os
 import re
 from publication_audit import private_path, validate_path
 
-REFERENCE_SHA256='e663700069201de39d27eede5094689716742e1ddbfd103c56ebeba4898f1d54'
+REFERENCE_SHA256='1da6eebc4a284414e4e2bd96e0a9569bf8c8fa78a11f8b84097a02d981c3a258'
 HASH=re.compile(r'[0-9a-f]{64}')
 COMMIT=re.compile(r'[0-9a-f]{40}')
 BRAND_EXCEPTION={'path': 'worker/public/static/olympus-icon.png', 'mode': '100644', 'bytes': 53204, 'sha256': '6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb'}
@@ -53,9 +53,9 @@ def runtime_path(path: str) -> bool:
 
 def resource_rows(value, failure: str) -> dict[str,dict]:
     # Reviewed documents, data and protocol code are required bytes, never an image/font exception.
-    result=pin_rows(value,None,failure,maximum=51)
+    result=pin_rows(value,None,failure,maximum=55)
     if not result or any(not p.startswith('worker/public/static/') or (private_path(p) and not p.endswith('.zip'))
-        or not (p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) or p=='worker/public/static/army-live/army.css') for p in result):
+        or not (p.endswith(('.pdf','.zip','.json','.md','.txt','.html','.js','.mjs')) or p in {'worker/public/static/army-live/army.css','worker/public/static/treasury-plan207.css'}) for p in result):
         raise ValueError(failure)
     return result
 
@@ -146,7 +146,7 @@ def reference() -> dict:
       or any(not p.endswith(('.css','.js')) for p in ref['native_paths']) \
       or any(not runtime_path(p) for p in ref['runtime_paths']) \
       or set(ref['required_documents'])!={'LICENSE','README.md','CLAUDE.md','THIRD_PARTY_NOTICES.md',
-            'docs/source-provenance.md','docs/design.md','docs/deploy-checklist.md'}:
+            'docs/source-provenance.md','docs/design.md','docs/deploy-checklist.md','docs/treasury-plan207.md'}:
         raise ValueError('official_asset_reference_shape_invalid')
     if {p for p in ref['official_paths'] if p.endswith('.webm')}!={'worker/public/static/wow/login/dark-portal.webm'} \
       or 'worker/public/static/wow/login/dark-portal-poster.jpg' not in ref['official_paths'] \

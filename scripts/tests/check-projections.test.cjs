@@ -24,6 +24,11 @@ function fixture(changes = new Map(), repin = false) {
   return { ...base, get };
 }
 check('real staged projection graph passes', verify(base).result === 'PASS');
+for (const name of ['treasury-plan207.js','treasury-plan-content207.js','treasury-plan-model207.js','treasury-plan207.css']) {
+  const file = 'worker/public/static/' + name;
+  rejects('treasury207 resource byte drift is refused: ' + name, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
+  rejects('treasury207 resource is mandatory runtime code: ' + name, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r=JSON.parse(s);r.runtime_paths=r.runtime_paths.filter(path=>path!==file);return JSON.stringify(r); }), true)), /four exact ordinary treasury207 planning resources/);
+}
 for (const file of ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js']) {
   rejects('master196 view byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
   rejects('master196 view is required runtime code: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r=JSON.parse(s); r.runtime_paths=r.runtime_paths.filter(path=>path!==file); return JSON.stringify(r); }), true)), /two exact non-art master196 view resources/);
@@ -47,17 +52,17 @@ rejects('current login variants cannot be relabeled official', () => verify(fixt
 rejects('current login variants require both exact paths', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[0].path = 'worker/public/static/wow/login/alias.png'; return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variant reference digest cannot be repinned', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[1].sha256 = '0'.repeat(64); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variants do not allow a third variant', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets.push({ ...r.login_art_variants.assets[0] }); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
-rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset563-public-path binding/);
+rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
 for (const file of ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js']) {
   rejects('talent comparison code byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
-  rejects('talent comparison code cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset563-public-path binding/);
+  rejects('talent comparison code cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
 }
 // .186 optional level-60 sheet: exact bytes, never artwork, never a native exception; only the script is runtime code.
 for (const file of ['worker/public/static/talents/stats60.js', 'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json']) {
   rejects('level-60 sheet byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
-  rejects('level-60 sheet resource cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset563-public-path binding/);
+  rejects('level-60 sheet resource cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
   rejects('level-60 sheet resource cannot become a native exception: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.native_paths.push(file); return JSON.stringify(r); }), true)), /three exact non-art level-60 sheet resources/);
-  rejects('level-60 sheet resource row is mandatory: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.required_public_resources = r.required_public_resources.filter(row => row.path !== file); return JSON.stringify(r); }), true)), /two-variant512-asset563-public-path binding/);
+  rejects('level-60 sheet resource row is mandatory: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.required_public_resources = r.required_public_resources.filter(row => row.path !== file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
 }
 rejects('the level-60 sheet script remains reviewed runtime code', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.runtime_paths = r.runtime_paths.filter(p => p !== 'worker/public/static/talents/stats60.js'); return JSON.stringify(r); }), true)), /three exact non-art level-60 sheet resources/);
 for (const file of ['worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'])

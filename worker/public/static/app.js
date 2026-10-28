@@ -1224,7 +1224,7 @@
     };
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
-      add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"]]));
+      add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"], ["#/treasury-plan", "Treasury plan"]]));
       if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
         const sections = [["#/community", "Community overview"]];
         if (can("armyRead")) sections.push(["#/community/army", "Army"]);
@@ -1332,7 +1332,7 @@
     if (head === "roles" && sub) { const role = M().positions.find(p => p.key === dec(sub)); if (role) return `${role.label} · Roles`; }
     if (head === "guide") return sub === "officer" ? "Officer guide" : "Member guide";
     if (head === "legal") return sub === "privacy" ? "Privacy Policy" : sub === "terms" ? "Terms of Service" : "Legal";
-    return ({ "": "Home", apply: "Apply", vote: "Vote", roles: "Roles", governance: "Governance", organization: "Organization", addons: "Addons", guides: "Guides", updates: "Game updates", news: "Town Crier", army: sub === "report" ? "Army reporter" : "Army", data: "Account data", request: "Private request" })[head] || "Home";
+    return ({ "": "Home", apply: "Apply", vote: "Vote", roles: "Roles", governance: "Governance", organization: "Organization", "treasury-plan": "Treasury plan", addons: "Addons", guides: "Guides", updates: "Game updates", news: "Town Crier", army: sub === "report" ? "Army reporter" : "Army", data: "Account data", request: "Private request" })[head] || "Home";
   }
   let lastHash = location.hash;
   let ignoreHash = false;
@@ -1878,6 +1878,7 @@
         h("a", { class: "btn", href: "#/governance/title-i-the-sovereign-royal-decrees", text: "Title I · Sovereign" }),
         h("a", { class: "btn", href: "#/governance/title-ii-the-high-council-co-guild-master-privy-court", text: "Title II · Council & Court" }),
         h("a", { class: "btn", href: "#/governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger", text: "Title III · Treasury" }),
+        h("a", { class: "btn", href: "#/treasury-plan", text: "Treasury programme & 90-day plan" }),
         h("a", { class: "btn", href: "#/governance/title-iv-the-grand-alliance-concordat", text: "Title IV · Grand Alliance" }),
         h("a", { class: "btn", href: "#/governance/title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord", text: "Title V · Artisans & Heralds" }),
         h("button", { class: "btn small", type: "button", text: "Print current R7 book", onclick: () => { preparePrint(); window.print(); } }),
@@ -1903,6 +1904,16 @@
     window.addEventListener("beforeprint", preparePrint);
     window.addEventListener("afterprint", restorePrint);
     disposeGovernancePrint = () => { restorePrint(); window.removeEventListener("beforeprint", preparePrint); window.removeEventListener("afterprint", restorePrint); disposeGovernancePrint = null; };
+  };
+  // Owner request, 28 October 2026: publish a planning programme without any bank, payment or settings writer.
+  ROUTES["treasury-plan"] = async (main, parts) => {
+    const user = S.user, settings = S.settings, route = currentRoute(), view = main.dataset.viewRequest;
+    const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && currentRoute() === route && S.signedIn && !S.denied;
+    add(main, h("p", { role: "status", text: "Opening the treasury programme…" }));
+    const { renderTreasuryPlan207 } = await import("/static/treasury-plan207.js");
+    if (!current()) return;
+    const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });
+    if (typeof dispose === "function") disposeTool = dispose;
   };
   ROUTES.organization = async (main, parts) => {
     const user = S.user, settings = S.settings, context = COM(), route = currentRoute(), view = main.dataset.viewRequest;
@@ -3263,6 +3274,9 @@
     const sub = parts[0] || "";
     add(main, frame("Admin", h("span", { class: "badge warn", text: "Visible to site admins only" }), adminTabs(sub)));
     if (sub === "" || sub === "treasury") add(main, writsPanel199("admin", {checklist:true}));
+    if (sub === "" || sub === "treasury") add(main, frame("Treasury programme · officer operating plan", null,
+      h("p", { text: "The shared plan contains the 30-day pilot, 90-day stretch target, long-term roadmap and financial assumptions. It is a planning reference, not a live bank balance, payment instruction or authority to change existing controls." }),
+      h("a", { class: "btn", href: "#/treasury-plan", text: "Open the treasury programme & financial model" })));
     const body = h("div");
     main.appendChild(body);
     body.appendChild(h("p", { class: "muted", text: "Loading…" }));

@@ -2582,6 +2582,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // Retired: the R6 recursive details graph and its old data-organization-branch selectors no longer exist.
     // Do not import a substitute module in this miniDOM. Actual SVG layout, the 38-group model/95-term search,
     // pan/zoom, list view, keyboard and pointer interaction require Root's separate real-browser check.
+    check(".207 admitted members can discover the shared treasury plan without the Royal Writs switch", !!p.app.querySelector('a[href="#/treasury-plan"]') && !p.app.querySelector('[data-royal-writ-page="governance"]'));
+    check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n    const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
     const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
     const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
     const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
